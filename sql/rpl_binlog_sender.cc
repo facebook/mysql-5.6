@@ -564,6 +564,23 @@ std::pair<my_off_t, int> Binlog_sender::get_binlog_end_pos(
   std::pair<my_off_t, int> result = std::make_pair(read_pos, 1);
 
   if (m_wait_new_events) {
+    long long dump_thread_wait_sleep_usec = 0;
+    get_user_var_int("dump_thread_wait_sleep_usec",
+                     &dump_thread_wait_sleep_usec, nullptr);
+
+    // case: sleep before locking and waiting for new data
+    if (unlikely(dump_thread_wait_sleep_usec != 0)) {
+      DBUG_EXECUTE_IF("reached_dump_thread_wait_sleep", {
+        static constexpr char act[] =
+            "now "
+            "signal reached "
+            "wait_for continue";
+        assert(opt_debug_sync_timeout > 0);
+        assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+      };);
+      usleep(dump_thread_wait_sleep_usec);
+    }
+
     if (unlikely(wait_new_events(read_pos))) return result;
   }
 

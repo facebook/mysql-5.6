@@ -1,0 +1,22 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection slave]
+SET @saved_slave_dump_thread_wait_sleep_usec = @@global.slave_dump_thread_wait_sleep_usec;
+SET @@global.slave_dump_thread_wait_sleep_usec = 5000000;
+include/stop_slave.inc
+include/start_slave.inc
+[connection master]
+SET @@GLOBAL.DEBUG= '+d,reached_dump_thread_wait_sleep';
+CREATE TABLE t1 (a INT);
+SET DEBUG_SYNC="now wait_for reached";
+SET DEBUG_SYNC="now signal continue";
+SET @@GLOBAL.DEBUG= '-d,reached_dump_thread_wait_sleep';
+DROP TABLE t1;
+[connection slave]
+SET @@global.slave_dump_thread_wait_sleep_usec = @saved_slave_dump_thread_wait_sleep_usec;
+include/stop_slave.inc
+include/start_slave.inc
+include/rpl_end.inc

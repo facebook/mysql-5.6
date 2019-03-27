@@ -1,0 +1,26 @@
+--source include/have_debug_sync.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
+SET @saved_slave_dump_thread_wait_sleep_usec = @@global.slave_dump_thread_wait_sleep_usec;
+SET @@global.slave_dump_thread_wait_sleep_usec = 5000000; # 5 secs
+# restart slave to send "dump_thread_wait_sleep_usec" from slave to server
+--source include/stop_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+SET @@GLOBAL.DEBUG= '+d,reached_dump_thread_wait_sleep';
+CREATE TABLE t1 (a INT);
+SET DEBUG_SYNC="now wait_for reached";
+SET DEBUG_SYNC="now signal continue";
+
+# Cleanup
+SET @@GLOBAL.DEBUG= '-d,reached_dump_thread_wait_sleep';
+DROP TABLE t1;
+
+--source include/rpl_connection_slave.inc
+SET @@global.slave_dump_thread_wait_sleep_usec = @saved_slave_dump_thread_wait_sleep_usec;
+--source include/stop_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_end.inc

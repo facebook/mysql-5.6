@@ -1,0 +1,87 @@
+SET @start_value = @@global.slave_dump_thread_wait_sleep_usec;
+SELECT @start_value;
+@start_value
+0
+'#--------------------FN_DYNVARS_019_01------------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = 100;
+SET @@global.slave_dump_thread_wait_sleep_usec = DEFAULT;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+0
+'#---------------------FN_DYNVARS_019_02-------------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = @start_value;
+SELECT @@global.slave_dump_thread_wait_sleep_usec = 5;
+@@global.slave_dump_thread_wait_sleep_usec = 5
+0
+'#--------------------FN_DYNVARS_019_03------------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = 2;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+2
+SET @@global.slave_dump_thread_wait_sleep_usec = 10000;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+10000
+SET @@global.slave_dump_thread_wait_sleep_usec = 212204;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+212204
+'#--------------------FN_DYNVARS_019_04-------------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = 1;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+1
+SET @@global.slave_dump_thread_wait_sleep_usec = -1024;
+Warnings:
+Warning	1292	Truncated incorrect slave_dump_thread_wait_sleep_usec value: '-1024'
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+0
+SET @@global.slave_dump_thread_wait_sleep_usec = 315360000000001;
+Warnings:
+Warning	1292	Truncated incorrect slave_dump_thread_wait_sleep_usec value: '315360000000001'
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+31536000000000
+SET @@global.slave_dump_thread_wait_sleep_usec = 212204.10;
+ERROR 42000: Incorrect argument type to variable 'slave_dump_thread_wait_sleep_usec'
+SET @@global.slave_dump_thread_wait_sleep_usec = ON;
+ERROR 42000: Incorrect argument type to variable 'slave_dump_thread_wait_sleep_usec'
+'#-------------------FN_DYNVARS_019_05----------------------------#'
+SET @@session.slave_dump_thread_wait_sleep_usec = 0;
+ERROR HY000: Variable 'slave_dump_thread_wait_sleep_usec' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.slave_dump_thread_wait_sleep_usec;
+ERROR HY000: Variable 'slave_dump_thread_wait_sleep_usec' is a GLOBAL variable
+'#----------------------FN_DYNVARS_019_06------------------------#'
+SELECT @@global.slave_dump_thread_wait_sleep_usec = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_dump_thread_wait_sleep_usec';
+@@global.slave_dump_thread_wait_sleep_usec = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_019_07----------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = TRUE;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+1
+SET @@global.slave_dump_thread_wait_sleep_usec = FALSE;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+0
+'#---------------------FN_DYNVARS_019_08----------------------#'
+SET @@global.slave_dump_thread_wait_sleep_usec = 5;
+SELECT @@slave_dump_thread_wait_sleep_usec = @@global.slave_dump_thread_wait_sleep_usec;
+@@slave_dump_thread_wait_sleep_usec = @@global.slave_dump_thread_wait_sleep_usec
+1
+'#---------------------FN_DYNVARS_019_09----------------------#'
+SET slave_dump_thread_wait_sleep_usec = 1;
+ERROR HY000: Variable 'slave_dump_thread_wait_sleep_usec' is a GLOBAL variable and should be set with SET GLOBAL
+SET global.slave_dump_thread_wait_sleep_usec = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.slave_dump_thread_wait_sleep_usec = 1' at line 1
+SELECT global.slave_dump_thread_wait_sleep_usec;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT slave_dump_thread_wait_sleep_usec = @@session.slave_dump_thread_wait_sleep_usec;
+ERROR HY000: Variable 'slave_dump_thread_wait_sleep_usec' is a GLOBAL variable
+SET @@global.slave_dump_thread_wait_sleep_usec = @start_value;
+SELECT @@global.slave_dump_thread_wait_sleep_usec;
+@@global.slave_dump_thread_wait_sleep_usec
+0
