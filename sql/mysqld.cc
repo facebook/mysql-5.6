@@ -1046,6 +1046,7 @@ bool opt_enable_named_pipe = false;
 bool opt_local_infile, opt_slave_compressed_protocol;
 bool opt_safe_user_create = false;
 ulong opt_slave_compression_lib = 0;
+ulonglong opt_slave_dump_thread_wait_sleep_usec = 0;
 bool opt_show_slave_auth_info;
 bool opt_log_slave_updates = false;
 char *opt_slave_skip_errors;

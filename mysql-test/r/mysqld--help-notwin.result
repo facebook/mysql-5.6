@@ -1286,6 +1286,9 @@ The following options may be given as the first argument:
  --slave-compression-lib[=name] 
  Compression library for replication stream. 0 is zlib, 1
  is zstd.
+ --slave-dump-thread-wait-sleep-usec[=#] 
+ Time (in microsecs) to sleep on the master's dump thread
+ before waiting for new data on the latest binlog.
  --slave-exec-mode=name 
  Modes for how replication events should be executed.
  Legal values are STRICT (default) and IDEMPOTENT. In
@@ -1840,6 +1843,7 @@ slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE
 slave-compression-lib zlib
+slave-dump-thread-wait-sleep-usec 0
 slave-exec-mode STRICT
 slave-max-allowed-packet 1073741824
 slave-net-timeout 60

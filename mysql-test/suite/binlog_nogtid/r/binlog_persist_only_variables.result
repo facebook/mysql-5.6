@@ -113,6 +113,7 @@ SET PERSIST_ONLY slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 SET PERSIST_ONLY slave_checkpoint_period = @@GLOBAL.slave_checkpoint_period;
 SET PERSIST_ONLY slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 SET PERSIST_ONLY slave_compression_lib = @@GLOBAL.slave_compression_lib;
+SET PERSIST_ONLY slave_dump_thread_wait_sleep_usec = @@GLOBAL.slave_dump_thread_wait_sleep_usec;
 SET PERSIST_ONLY slave_exec_mode = @@GLOBAL.slave_exec_mode;
 SET PERSIST_ONLY slave_load_tmpdir = @@GLOBAL.slave_load_tmpdir;
 ERROR HY000: Variable 'slave_load_tmpdir' is a non persistent read only variable
@@ -234,6 +235,7 @@ RESET PERSIST slave_checkpoint_group;
 RESET PERSIST slave_checkpoint_period;
 RESET PERSIST slave_compressed_protocol;
 RESET PERSIST slave_compression_lib;
+RESET PERSIST slave_dump_thread_wait_sleep_usec;
 RESET PERSIST slave_exec_mode;
 RESET PERSIST slave_load_tmpdir;
 ERROR HY000: Variable slave_load_tmpdir does not exist in persisted config file

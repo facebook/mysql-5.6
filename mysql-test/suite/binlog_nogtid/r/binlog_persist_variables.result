@@ -119,6 +119,7 @@ SET PERSIST slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 SET PERSIST slave_checkpoint_period = @@GLOBAL.slave_checkpoint_period;
 SET PERSIST slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 SET PERSIST slave_compression_lib = @@GLOBAL.slave_compression_lib;
+SET PERSIST slave_dump_thread_wait_sleep_usec = @@GLOBAL.slave_dump_thread_wait_sleep_usec;
 SET PERSIST slave_exec_mode = @@GLOBAL.slave_exec_mode;
 SET PERSIST slave_load_tmpdir = @@GLOBAL.slave_load_tmpdir;
 ERROR HY000: Variable 'slave_load_tmpdir' is a read only variable
@@ -263,6 +264,7 @@ RESET PERSIST IF EXISTS slave_checkpoint_group;
 RESET PERSIST IF EXISTS slave_checkpoint_period;
 RESET PERSIST IF EXISTS slave_compressed_protocol;
 RESET PERSIST IF EXISTS slave_compression_lib;
+RESET PERSIST IF EXISTS slave_dump_thread_wait_sleep_usec;
 RESET PERSIST IF EXISTS slave_exec_mode;
 RESET PERSIST IF EXISTS slave_load_tmpdir;
 Warnings:

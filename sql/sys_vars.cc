@@ -3794,6 +3794,14 @@ static Sys_var_set Slave_type_conversions(
     GLOBAL_VAR(slave_type_conversions_options), CMD_LINE(REQUIRED_ARG),
     slave_type_conversions_name, DEFAULT(0));
 
+static Sys_var_ulonglong Sys_slave_dump_thread_wait_sleep_usec(
+    "slave_dump_thread_wait_sleep_usec",
+    "Time (in microsecs) to sleep on the master's dump thread before "
+    "waiting for new data on the latest binlog.",
+    GLOBAL_VAR(opt_slave_dump_thread_wait_sleep_usec), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, LONG_TIMEOUT * 1000000ULL), DEFAULT(0), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
 static Sys_var_bool Sys_slave_sql_verify_checksum(
     "slave_sql_verify_checksum",
     "Force checksum verification of replication events after reading them "

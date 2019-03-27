@@ -442,6 +442,10 @@ int Binlog_sender::get_binlog_end_pos(File_reader *reader, my_off_t *end_pos) {
   DBUG_TRACE;
   my_off_t read_pos = reader->position();
 
+  long long dump_thread_wait_sleep_usec = 0;
+  get_user_var_int("dump_thread_wait_sleep_usec", &dump_thread_wait_sleep_usec,
+                   nullptr);
+
   do {
     /*
       MYSQL_BIN_LOG::binlog_end_pos is atomic. We should only acquire the
@@ -464,6 +468,19 @@ int Binlog_sender::get_binlog_end_pos(File_reader *reader, my_off_t *end_pos) {
 
     /* Some data may be in net buffer, it should be flushed before waiting */
     if (!m_wait_new_events || flush_net()) return 1;
+
+    // case: sleep before locking and waiting for new data
+    if (unlikely(dump_thread_wait_sleep_usec != 0)) {
+      DBUG_EXECUTE_IF("reached_dump_thread_wait_sleep", {
+        static constexpr char act[] =
+            "now "
+            "signal reached "
+            "wait_for continue";
+        DBUG_ASSERT(opt_debug_sync_timeout > 0);
+        DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+      };);
+      usleep(dump_thread_wait_sleep_usec);
+    }
 
     if (unlikely(wait_new_events(read_pos))) return 1;
   } while (unlikely(!m_thd->killed));
