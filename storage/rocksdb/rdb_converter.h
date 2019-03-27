@@ -64,6 +64,13 @@ class Rdb_converter {
              const rocksdb::Slice *key_slice,
              const rocksdb::Slice *value_slice);
 
+  int encode_value_slice(const std::shared_ptr<Rdb_key_def> &pk_def,
+                         const rocksdb::Slice &pk_packed_slice,
+                         Rdb_string_writer *pk_unpack_info, bool is_update_row,
+                         bool store_row_debug_checksums, char *ttl_bytes,
+                         bool *is_ttl_bytes_updated,
+                         rocksdb::Slice *const value_slice);
+
   my_core::ha_rows get_row_checksums_checked() const {
     return m_row_checksums_checked;
   }
@@ -73,7 +80,6 @@ class Rdb_converter {
   void set_verify_row_debug_checksums(bool verify_row_debug_checksums) {
     m_verify_row_debug_checksums = verify_row_debug_checksums;
   }
-  const Rdb_field_encoder *get_encoder_arr() const { return m_encoder_arr; }
   int get_null_bytes_in_record() { return m_null_bytes_in_record; }
 
   void set_is_key_requested(bool key_requested) {
@@ -155,5 +161,7 @@ class Rdb_converter {
     this does not include checksums for secondary index entries.
   */
   my_core::ha_rows m_row_checksums_checked;
+  // buffer to hold data during encode_value_slice
+  String m_storage_record;
 };
 }  // namespace myrocks
