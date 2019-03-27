@@ -869,9 +869,10 @@ itself succeeded.
 @param[in,out]  chunk     mem and mem_pfx fields of this chunk will be updated
                           to contain information about allocated memory region
 @return true iff allocated successfully */
-bool buf_pool_t::allocate_chunk(ulonglong mem_size, buf_chunk_t *chunk) {
+bool buf_pool_t::allocate_chunk(ulonglong mem_size, buf_chunk_t *chunk,
+                                bool populate) {
   ut_ad(mutex_own(&chunks_mutex));
-  chunk->mem = allocator.allocate_large(mem_size, &chunk->mem_pfx);
+  chunk->mem = allocator.allocate_large(mem_size, &chunk->mem_pfx, populate);
   if (chunk->mem == NULL) {
     return false;
   }
@@ -978,7 +979,8 @@ static buf_chunk_t *buf_chunk_init(
     buf_pool_t *buf_pool, /*!< in: buffer pool instance */
     buf_chunk_t *chunk,   /*!< out: chunk of buffers */
     ulonglong mem_size,   /*!< in: requested size in bytes */
-    std::mutex *mutex)    /*!< in,out: Mutex protecting chunk map. */
+    std::mutex *mutex,    /*!< in,out: Mutex protecting chunk map. */
+    bool populate)        /*!< in: virtual page preallocation */
 {
   buf_block_t *block;
   byte *frame;
@@ -996,7 +998,7 @@ static buf_chunk_t *buf_chunk_init(
 
   DBUG_EXECUTE_IF("ib_buf_chunk_init_fails", return (NULL););
 
-  if (!buf_pool->allocate_chunk(mem_size, chunk)) {
+  if (!buf_pool->allocate_chunk(mem_size, chunk, populate)) {
     return (NULL);
   }
 
@@ -1193,8 +1195,8 @@ static void buf_pool_set_sizes(void) {
 @param[in,out]  mutex     Mutex to protect common data structures
 @param[out] err           DB_SUCCESS if all goes well */
 static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
-                            ulint instance_no, std::mutex *mutex,
-                            dberr_t &err) {
+                            ulint instance_no, std::mutex *mutex, dberr_t &err,
+                            bool populate) {
   ulint i;
   ulint chunk_size;
   buf_chunk_t *chunk;
@@ -1262,7 +1264,7 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
     chunk = buf_pool->chunks;
 
     do {
-      if (!buf_chunk_init(buf_pool, chunk, chunk_size, mutex)) {
+      if (!buf_chunk_init(buf_pool, chunk, chunk_size, mutex, populate)) {
         while (--chunk >= buf_pool->chunks) {
           buf_block_t *block = chunk->blocks;
 
@@ -1431,7 +1433,7 @@ static void buf_pool_free() {
 @param[in]  total_size    Size of the total pool in bytes.
 @param[in]  n_instances   Number of buffer pool instances to create.
 @return DB_SUCCESS if success, DB_ERROR if not enough memory or error */
-dberr_t buf_pool_init(ulint total_size, ulint n_instances) {
+dberr_t buf_pool_init(ulint total_size, ulint n_instances, bool populate) {
   ulint i;
   const ulint size = total_size / n_instances;
 
@@ -1490,7 +1492,7 @@ dberr_t buf_pool_init(ulint total_size, ulint n_instances) {
 
     for (ulint id = i; id < n; ++id) {
       threads.emplace_back(std::thread(buf_pool_create, &buf_pool_ptr[id], size,
-                                       id, &m, std::ref(errs[id])));
+                                       id, &m, std::ref(errs[id]), populate));
     }
 
     for (ulint id = i; id < n; ++id) {
@@ -2297,7 +2299,8 @@ withdraw_retry:
       while (chunk < echunk) {
         ulonglong unit = srv_buf_pool_chunk_unit;
 
-        if (!buf_chunk_init(buf_pool, chunk, unit, nullptr)) {
+        if (!buf_chunk_init(buf_pool, chunk, unit, nullptr,
+                            srv_buf_pool_populate)) {
           ib::error(ER_IB_MSG_65) << "buffer pool " << i
                                   << " : failed to allocate"
                                      " new memory.";
