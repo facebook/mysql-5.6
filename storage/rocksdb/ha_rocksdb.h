@@ -230,9 +230,6 @@ class ha_rocksdb : public my_core::handler {
   /* rowkey of the last record we've read, in StorageFormat. */
   String m_last_rowkey;
 
-  /* Buffer used by convert_record_to_storage_format() */
-  String m_storage_record;
-
   /*
     Last retrieved record, in table->record[0] data format.
 
@@ -717,10 +714,6 @@ private:
 
   int compare_keys(const KEY *const old_key, const KEY *const new_key) const
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
-  int convert_record_to_storage_format(const struct update_row_info &row_info,
-                                       rocksdb::Slice *const packed_rec)
-      MY_ATTRIBUTE((__nonnull__));
 
   bool should_hide_ttl_rec(const Rdb_key_def &kd,
                            const rocksdb::Slice &ttl_rec_val,
