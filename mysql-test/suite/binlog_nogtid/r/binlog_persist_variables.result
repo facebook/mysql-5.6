@@ -25,7 +25,7 @@ VARIABLE_NAME LIKE '%slave%') AND
 'reset_seconds_behind_master', 'skip_flush_master_info'))
 ORDER BY VARIABLE_NAME;
 
-include/assert.inc ['Expect 86 variables in the table.']
+include/assert.inc ['Expect 87 variables in the table.']
 
 # Test SET PERSIST
 SET PERSIST binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -110,6 +110,7 @@ SET PERSIST slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 SET PERSIST slave_checkpoint_period = @@GLOBAL.slave_checkpoint_period;
 SET PERSIST slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 SET PERSIST slave_compression_lib = @@GLOBAL.slave_compression_lib;
+SET PERSIST slave_dump_thread_wait_sleep_usec = @@GLOBAL.slave_dump_thread_wait_sleep_usec;
 SET PERSIST slave_exec_mode = @@GLOBAL.slave_exec_mode;
 SET PERSIST slave_load_tmpdir = @@GLOBAL.slave_load_tmpdir;
 ERROR HY000: Variable 'slave_load_tmpdir' is a read only variable
@@ -133,16 +134,16 @@ SET PERSIST sync_master_info = @@GLOBAL.sync_master_info;
 SET PERSIST sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 
-include/assert.inc ['Expect 71 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 72 persisted variables in persisted_variables table.']
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc ['Expect 71 persisted variables in persisted_variables table.']
-include/assert.inc ['Expect 71 persisted variables shown as PERSISTED in variables_info table.']
-include/assert.inc ['Expect 71 persisted variables with matching peristed and global values.']
+include/assert.inc ['Expect 72 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 72 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc ['Expect 72 persisted variables with matching peristed and global values.']
 
 ############################################################
 # 3. Test RESET PERSIST IF EXISTS. Verify persisted variable
@@ -239,6 +240,7 @@ RESET PERSIST IF EXISTS slave_checkpoint_group;
 RESET PERSIST IF EXISTS slave_checkpoint_period;
 RESET PERSIST IF EXISTS slave_compressed_protocol;
 RESET PERSIST IF EXISTS slave_compression_lib;
+RESET PERSIST IF EXISTS slave_dump_thread_wait_sleep_usec;
 RESET PERSIST IF EXISTS slave_exec_mode;
 RESET PERSIST IF EXISTS slave_load_tmpdir;
 Warnings:
