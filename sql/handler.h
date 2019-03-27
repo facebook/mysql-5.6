@@ -6089,8 +6089,10 @@ const char *get_canonical_filename(handler *file, const char *path,
 
 const char *table_case_name(const HA_CREATE_INFO *info, const char *name);
 
-void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag);
-void print_keydup_error(TABLE *table, KEY *key, myf errflag);
+void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
+                        const THD *thd, const char *org_table_name = nullptr);
+void print_keydup_error(TABLE *table, KEY *key, myf errflag, const THD *thd,
+                        const char *org_table_name = nullptr);
 
 void ha_set_normalized_disabled_se_str(const std::string &disabled_se_str);
 bool ha_is_storage_engine_disabled(handlerton *se_engine);

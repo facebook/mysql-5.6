@@ -6563,3 +6563,9 @@ static Sys_var_enum Sys_enable_jemalloc_hpp(
     ON_UPDATE(enable_jemalloc_heap_profiling));
 
 #endif
+
+static Sys_var_bool Sys_improved_dup_key_error(
+    "improved_dup_key_error",
+    "Include the table name in the error text when receiving a duplicate "
+    "key error and log the query into a new duplicate key query log file.",
+    GLOBAL_VAR(opt_improved_dup_key_error), CMD_LINE(OPT_ARG), DEFAULT(false));
