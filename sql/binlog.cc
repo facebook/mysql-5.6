@@ -11612,6 +11612,7 @@ void binlog_prepare_row_images(const THD *thd, TABLE *table, bool is_update) {
 
         /* compare content, only if fields are not set to NULL */
         else if (!field->is_null() &&
+                 !field->is_null_in_record(table->record[1]) &&
                  !field->cmp_binary_offset(table->s->rec_buff_length))
           bitmap_clear_bit(&table->tmp_write_set, field->field_index);
       }
