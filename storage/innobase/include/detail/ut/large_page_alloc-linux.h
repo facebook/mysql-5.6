@@ -38,20 +38,43 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "storage/innobase/include/detail/ut/helper.h"
 #include "storage/innobase/include/ut0log.h"
 
+/* Linux release version */
+#if defined(UNIV_LINUX) && defined(_GNU_SOURCE)
+#include <string.h>      /* strverscmp() */
+#include <sys/utsname.h> /* uname() */
+#endif
+
+/* Linux's MAP_POPULATE */
+#if defined(MAP_POPULATE)
+#define OS_MAP_POPULATE MAP_POPULATE
+#else
+#define OS_MAP_POPULATE 0
+#endif
+
 extern const size_t large_page_default_size;
 
 namespace ut {
 namespace detail {
+/** Retrieve and compare operating system release.
+@return true if the OS release is equal to, or later than release. */
+static bool os_compare_release(const char *release) {
+#if defined(UNIV_LINUX) && defined(_GNU_SOURCE)
+  struct utsname name;
+  return (uname(&name) == 0 && strverscmp(name.release, release) >= 0);
+#else
+  return false;
+#endif
+}
 
 /** Allocates memory backed by large (huge) pages.
 
     @param[in] n_bytes Size of storage (in bytes) requested to be allocated.
     @return Pointer to the allocated storage. nullptr if allocation failed.
 */
-inline void *large_page_aligned_alloc(size_t n_bytes) {
+inline void *large_page_aligned_alloc(size_t n_bytes, bool populate) {
   // mmap will internally round n_bytes to the multiple of huge-page size if it
   // is not already
-  int mmap_flags = MAP_PRIVATE | MAP_ANON;
+  int mmap_flags = MAP_PRIVATE | MAP_ANON | (populate ? OS_MAP_POPULATE : 0);
 #ifndef __FreeBSD__
   mmap_flags |= MAP_HUGETLB;
 #endif
@@ -61,8 +84,28 @@ inline void *large_page_aligned_alloc(size_t n_bytes) {
                                 << " bytes) failed;"
                                    " errno "
                                 << errno;
+    ptr = nullptr;
   }
-  return (ptr != (void *)-1) ? ptr : nullptr;
+
+#if MAP_ANONYMOUS && OS_MAP_POPULATE
+  /* MAP_POPULATE is only supported for private mappings
+  since Linux 2.6.23. */
+  populate = populate && !os_compare_release("2.6.23");
+
+  if (ptr && populate) {
+    ib::warn() << "InnoDB: Warning: mmap(MAP_POPULATE) "
+                  "is not supported for private mappings. "
+                  "Forcing preallocation by faulting in pages.";
+  }
+#endif
+
+  /* Initialize the entire buffer to force the allocation
+  of physical memory page frames. */
+  if (ptr && populate) {
+    memset(ptr, '\0', n_bytes);
+  }
+
+  return ptr;
 }
 
 /** Releases memory backed by large (huge) pages.

@@ -1019,10 +1019,11 @@ TYPED_TEST_SUITE_P(ut0new_large_malloc_free_fundamental_types);
 TYPED_TEST_P(ut0new_large_malloc_free_fundamental_types, fundamental_types) {
   using type = typename TypeParam::type;
   auto with_pfs = TypeParam::with_pfs;
-  type *ptr = with_pfs
-                  ? static_cast<type *>(ut::malloc_large_page_withkey(
-                        ut::make_psi_memory_key(pfs_key), sizeof(type)))
-                  : static_cast<type *>(ut::malloc_large_page(sizeof(type)));
+  type *ptr =
+      with_pfs
+          ? static_cast<type *>(ut::malloc_large_page_withkey(
+                ut::make_psi_memory_key(pfs_key), sizeof(type), false))
+          : static_cast<type *>(ut::malloc_large_page(sizeof(type), false));
   SKIP_TEST_IF_HUGE_PAGE_SUPPORT_IS_NOT_AVAILABLE(ptr)
   EXPECT_TRUE(ptr_is_suitably_aligned(ptr));
   EXPECT_GE(ut::large_page_allocation_size(ptr), sizeof(type));
@@ -1047,10 +1048,11 @@ TYPED_TEST_SUITE_P(ut0new_large_malloc_free_pod_types);
 TYPED_TEST_P(ut0new_large_malloc_free_pod_types, pod_types) {
   using type = typename TypeParam::type;
   auto with_pfs = TypeParam::with_pfs;
-  type *ptr = with_pfs
-                  ? static_cast<type *>(ut::malloc_large_page_withkey(
-                        ut::make_psi_memory_key(pfs_key), sizeof(type)))
-                  : static_cast<type *>(ut::malloc_large_page(sizeof(type)));
+  type *ptr =
+      with_pfs
+          ? static_cast<type *>(ut::malloc_large_page_withkey(
+                ut::make_psi_memory_key(pfs_key), sizeof(type), false))
+          : static_cast<type *>(ut::malloc_large_page(sizeof(type), false));
   SKIP_TEST_IF_HUGE_PAGE_SUPPORT_IS_NOT_AVAILABLE(ptr)
   EXPECT_TRUE(ptr_is_suitably_aligned(ptr));
   EXPECT_GE(ut::large_page_allocation_size(ptr), sizeof(type));
@@ -1073,10 +1075,11 @@ TYPED_TEST_SUITE_P(ut0new_large_malloc_free_non_pod_types);
 TYPED_TEST_P(ut0new_large_malloc_free_non_pod_types, non_pod_types) {
   using type = typename TypeParam::type;
   auto with_pfs = TypeParam::with_pfs;
-  type *ptr = with_pfs
-                  ? static_cast<type *>(ut::malloc_large_page_withkey(
-                        ut::make_psi_memory_key(pfs_key), sizeof(type)))
-                  : static_cast<type *>(ut::malloc_large_page(sizeof(type)));
+  type *ptr =
+      with_pfs
+          ? static_cast<type *>(ut::malloc_large_page_withkey(
+                ut::make_psi_memory_key(pfs_key), sizeof(type), false))
+          : static_cast<type *>(ut::malloc_large_page(sizeof(type), false));
   SKIP_TEST_IF_HUGE_PAGE_SUPPORT_IS_NOT_AVAILABLE(ptr)
   EXPECT_TRUE(ptr_is_suitably_aligned(ptr));
   EXPECT_GE(ut::large_page_allocation_size(ptr), sizeof(type));

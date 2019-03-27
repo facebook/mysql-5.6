@@ -579,6 +579,8 @@ extern bool srv_load_corrupted;
 extern bool srv_dedicated_server;
 /** Requested size in bytes */
 extern ulint srv_buf_pool_size;
+/** virtual page preallocation */
+extern bool srv_buf_pool_populate;
 /** Minimum pool size in bytes */
 extern const ulint srv_buf_pool_min_size;
 /** Default pool size in bytes */

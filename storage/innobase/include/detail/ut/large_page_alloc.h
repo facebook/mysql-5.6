@@ -108,10 +108,10 @@ struct Large_page_alloc : public allocator_traits<false> {
       @param[in] size Size of storage (in bytes) requested to be allocated.
       @return Pointer to the allocated storage. nullptr if allocation failed.
    */
-  static inline void *alloc(std::size_t size) {
+  static inline void *alloc(std::size_t size, bool populate) {
     auto total_len = round_to_next_multiple(
         size + page_allocation_metadata::len, large_page_default_size);
-    auto mem = large_page_aligned_alloc(total_len);
+    auto mem = large_page_aligned_alloc(total_len, populate);
     if (unlikely(!mem)) return nullptr;
     page_allocation_metadata::datalen(mem, total_len);
     page_allocation_metadata::page_type(mem, Page_type::large_page);
@@ -245,10 +245,11 @@ struct Large_page_alloc_pfs : public allocator_traits<true> {
     */
   static inline void *alloc(
       std::size_t size,
-      page_allocation_metadata::pfs_metadata::pfs_memory_key_t key) {
+      page_allocation_metadata::pfs_metadata::pfs_memory_key_t key,
+      bool populate) {
     auto total_len = round_to_next_multiple(
         size + page_allocation_metadata::len, large_page_default_size);
-    auto mem = large_page_aligned_alloc(total_len);
+    auto mem = large_page_aligned_alloc(total_len, populate);
     if (unlikely(!mem)) return nullptr;
 
 #ifdef HAVE_PSI_MEMORY_INTERFACE
@@ -372,13 +373,13 @@ template <typename Impl>
 struct Large_alloc_ {
   template <typename T = Impl>
   static inline typename std::enable_if<T::is_pfs_instrumented_v, void *>::type
-  alloc(size_t size, PSI_memory_key key) {
-    return Impl::alloc(size, key);
+  alloc(size_t size, PSI_memory_key key, bool populate) {
+    return Impl::alloc(size, key, populate);
   }
   template <typename T = Impl>
   static inline typename std::enable_if<!T::is_pfs_instrumented_v, void *>::type
-  alloc(size_t size, PSI_memory_key /*key*/) {
-    return Impl::alloc(size);
+  alloc(size_t size, PSI_memory_key /*key*/, bool populate) {
+    return Impl::alloc(size, populate);
   }
   static inline bool free(void *ptr) { return Impl::free(ptr); }
   static inline size_t datalen(void *ptr) { return Impl::datalen(ptr); }

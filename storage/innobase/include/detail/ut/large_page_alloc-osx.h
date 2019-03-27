@@ -52,7 +52,7 @@ static constexpr auto SUPER_PAGE_SIZE = VM_FLAGS_SUPERPAGE_SIZE_2MB;
     @param[in] n_bytes Size of storage (in bytes) requested to be allocated.
     @return Pointer to the allocated storage. nullptr if allocation failed.
 */
-inline void *large_page_aligned_alloc(size_t n_bytes) {
+inline void *large_page_aligned_alloc(size_t n_bytes, bool) {
   // mmap on OSX requires for n_bytes to be a multiple of large-page size
   size_t n_bytes_rounded = pow2_round(n_bytes + (large_page_default_size - 1),
                                       large_page_default_size);
