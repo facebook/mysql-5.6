@@ -237,8 +237,9 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_log_block_allocate(
   if (log_buf.block == nullptr) {
     DBUG_EXECUTE_IF("simulate_row_log_allocation_failure", return false;);
 
-    log_buf.block = ut_allocator<byte>(mem_key_row_log_buf)
-                        .allocate_large(srv_sort_buf_size, &log_buf.block_pfx);
+    log_buf.block =
+        ut_allocator<byte>(mem_key_row_log_buf)
+            .allocate_large(srv_sort_buf_size, &log_buf.block_pfx, false);
 
     if (log_buf.block == nullptr) {
       return false;
