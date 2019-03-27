@@ -238,7 +238,7 @@ struct buf_pools_list_size_t {
 @param[in]  total_size    Size of the total pool in bytes.
 @param[in]  n_instances   Number of buffer pool instances to create.
 @return DB_SUCCESS if success, DB_ERROR if not enough memory or error */
-dberr_t buf_pool_init(ulint total_size, ulint n_instances);
+dberr_t buf_pool_init(ulint total_size, ulint n_instances, bool populate);
 
 /** Frees the buffer pool at shutdown.  This must not be invoked before
  freeing all mutexes. */
@@ -1989,7 +1989,7 @@ struct buf_pool_t {
   @param[in,out]  chunk     mem and mem_pfx fields of this chunk will be updated
                             to contain information about allocated memory region
   @return true iff allocated successfully */
-  bool allocate_chunk(ulonglong mem_size, buf_chunk_t *chunk);
+  bool allocate_chunk(ulonglong mem_size, buf_chunk_t *chunk, bool populate);
 
   /** A wrapper for buf_pool_t::allocator.deallocate_large which also advices
   the OS that this chunk can be dumped to a core file.

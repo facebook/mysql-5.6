@@ -3664,7 +3664,7 @@ dberr_t row_merge_build_indexes(
 
   /* This will allocate "3 * srv_sort_buf_size" elements of type
   row_merge_block_t. The latter is defined as byte. */
-  block = alloc.allocate_large(3 * srv_sort_buf_size, &block_pfx);
+  block = alloc.allocate_large(3 * srv_sort_buf_size, &block_pfx, false);
 
   if (block == nullptr) {
     return DB_OUT_OF_MEMORY;

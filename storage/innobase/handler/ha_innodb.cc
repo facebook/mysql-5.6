@@ -21236,6 +21236,13 @@ static MYSQL_SYSVAR_ULONG(
     0, 0, 256, 0);
 // clang-format on
 
+static MYSQL_SYSVAR_BOOL(
+    buffer_pool_populate, srv_buf_pool_populate,
+    PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+    "Preallocate (pre-fault) the page frames required for the mapping "
+    "established by the buffer pool memory region. Disabled by default.",
+    nullptr, nullptr, false);
+
 static MYSQL_SYSVAR_ULONG(buffer_pool_instances, srv_buf_pool_instances,
                           PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                           "Number of buffer pool instances, set to higher "
@@ -22067,6 +22074,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(dedicated_server),
     MYSQL_SYSVAR(buffer_pool_size),
     MYSQL_SYSVAR(buffer_pool_chunk_size),
+    MYSQL_SYSVAR(buffer_pool_populate),
     MYSQL_SYSVAR(buffer_pool_instances),
     MYSQL_SYSVAR(buffer_pool_filename),
     MYSQL_SYSVAR(buffer_pool_dump_now),

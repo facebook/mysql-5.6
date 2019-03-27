@@ -882,14 +882,16 @@ class ut_allocator {
   it until the memory is no longer needed and then pass it to
   deallocate_large().
   @return pointer to the allocated memory or NULL */
-  pointer allocate_large(size_type n_elements, ut_new_pfx_t *pfx) {
+  pointer allocate_large(size_type n_elements, ut_new_pfx_t *pfx,
+                         bool populate) {
     if (n_elements == 0 || n_elements > max_size()) {
       return (nullptr);
     }
 
     ulint n_bytes = n_elements * sizeof(T);
 
-    pointer ptr = reinterpret_cast<pointer>(os_mem_alloc_large(&n_bytes));
+    pointer ptr =
+        reinterpret_cast<pointer>(os_mem_alloc_large(&n_bytes, populate));
 
 #ifdef UNIV_PFS_MEMORY
     if (ptr != nullptr) {

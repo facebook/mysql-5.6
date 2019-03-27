@@ -383,6 +383,8 @@ with mutex_enter(), which will wait until it gets the mutex. */
 bool srv_dedicated_server = true;
 /** Requested size in bytes */
 ulint srv_buf_pool_size = ULINT_MAX;
+/* force virtual page preallocation (prefault) */
+bool srv_buf_pool_populate = false;
 /** Minimum pool size in bytes */
 const ulint srv_buf_pool_min_size = 5 * 1024 * 1024;
 /** Default pool size in bytes */

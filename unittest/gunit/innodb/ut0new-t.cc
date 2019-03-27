@@ -221,7 +221,7 @@ TEST(ut0new, edgecases) {
   void *ret;
   const void *null_ptr = nullptr;
 
-  ret = alloc1.allocate_large(0, &pfx);
+  ret = alloc1.allocate_large(0, &pfx, false);
   EXPECT_EQ(null_ptr, ret);
 
 #ifdef UNIV_PFS_MEMORY
