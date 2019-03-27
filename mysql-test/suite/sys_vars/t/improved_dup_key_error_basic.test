@@ -1,0 +1,32 @@
+SET @start_improved_dup_key_error = @@global.improved_dup_key_error;
+SELECT @start_improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = DEFAULT;
+SELECT @@global.improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = false;
+SELECT @@global.improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = true;
+SELECT @@global.improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = 1;
+SELECT @@global.improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = 0;
+SELECT @@global.improved_dup_key_error;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.improved_dup_key_error = -1;
+SELECT @@global.improved_dup_key_error;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.improved_dup_key_error = 100;
+SELECT @@global.improved_dup_key_error;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.improved_dup_key_error = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.improved_dup_key_error;
+
+SET @@global.improved_dup_key_error = @start_improved_dup_key_error;
+SELECT @@global.improved_dup_key_error;

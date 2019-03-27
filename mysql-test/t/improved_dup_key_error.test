@@ -1,0 +1,21 @@
+# Create a table
+CREATE TABLE t1(pk INT PRIMARY KEY);
+
+# Insert some data
+INSERT INTO t1 VALUES(1);
+
+# Save current value of variable
+SET @start_improved_dup_key_error = @@global.improved_dup_key_error;
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES(1);
+
+# Now turn on the variable and try again
+SET @@global.improved_dup_key_error = 1;
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES(1);
+
+SET @@global.improved_dup_key_error = @start_improved_dup_key_error;
+
+DROP TABLE t1;

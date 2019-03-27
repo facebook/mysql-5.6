@@ -350,5 +350,15 @@ SHOW WARNINGS;
 Level	Code	Message
 Error	1062	Duplicate entry '11' for key 't1.a'
 
+set @save_improved_dup_key_error = @@global.improved_dup_key_error;
+set @@global.improved_dup_key_error = 1;
+SHOW TABLES WHERE f1(11) = 11;
+ERROR 23000: Duplicate entry '11' for key 't1.a' [INSERT INTO t1 VALUES( NAME_CONST('x',11))]
+
+SHOW WARNINGS;
+Level	Code	Message
+Error	1062	Duplicate entry '11' for key 't1.a' [INSERT INTO t1 VALUES( NAME_CONST('x',11))]
+
+set @@global.improved_dup_key_error = @save_improved_dup_key_error;
 DROP TABLE t1;
 DROP FUNCTION f1;
