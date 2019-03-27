@@ -394,6 +394,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- connection master
     CREATE TABLE t (c1 int, c2 int, c3 blob, primary key(c1));
     INSERT INTO t VALUES (1,2,"a");
+    INSERT INTO t VALUES (2,4,NULL);
 
 
     --source include/sync_slave_sql_with_master.inc
@@ -412,7 +413,7 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     -- let $row_img_expected_slave = $row_img_expected_master
     -- source include/rpl_row_img_parts_master_slave.inc
 
-    -- let $row_img_query= INSERT INTO t VALUES (1, 4, "a") ON DUPLICATE KEY UPDATE c2 = c2 + 2, c3 = c3;
+    -- let $row_img_query= INSERT INTO t VALUES (1, 4, "a") AS alias ON DUPLICATE KEY UPDATE c2 = alias.c2 + 2, c3 = alias.c3;
     if (`SELECT @@binlog_row_image = "MINIMAL"`)
     {
       -- let $row_img_expected_master= 1:1 | 2:6
@@ -420,6 +421,18 @@ while (`SELECT HEX(@img_types) != HEX('')`)
     if (`SELECT @@binlog_row_image = "COMPLETE"`)
     {
       -- let $row_img_expected_master= 1:1 2:4 3:'a' | 2:6
+    }
+    -- let $row_img_expected_slave = $row_img_expected_master
+    -- source include/rpl_row_img_parts_master_slave.inc
+
+    -- let $row_img_query= INSERT INTO t VALUES (2, 4, "") AS alias ON DUPLICATE KEY UPDATE c2 = alias.c2, c3 = alias.c3;
+    if (`SELECT @@binlog_row_image = "MINIMAL"`)
+    {
+      -- let $row_img_expected_master= 1:2 | 3:''
+    }
+    if (`SELECT @@binlog_row_image = "COMPLETE"`)
+    {
+      -- let $row_img_expected_master= 1:2 2:4 3:NULL | 3:''
     }
     -- let $row_img_expected_slave = $row_img_expected_master
     -- source include/rpl_row_img_parts_master_slave.inc
