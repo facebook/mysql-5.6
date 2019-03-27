@@ -424,6 +424,10 @@ The following options may be given as the first argument:
  Maximum amount of memory available for generating
  histograms
  --host-cache-size=# How many host names should be cached to avoid resolving.
+ --improved-dup-key-error 
+ Include the table name in the error text when receiving a
+ duplicate key error and log the query into a new
+ duplicate key query log file.
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
  fetch data from storage engine and replace the data in
@@ -1598,6 +1602,7 @@ gtid-mode OFF
 help TRUE
 histogram-generation-max-mem-size 20000000
 host-cache-size 279
+improved-dup-key-error FALSE
 information-schema-stats-expiry 86400
 init-connect 
 init-file (No default value)

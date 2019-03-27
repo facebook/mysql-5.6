@@ -4052,11 +4052,12 @@ const char *table_case_name(const HA_CREATE_INFO *info, const char *name) {
   @param msg      Error message template to which key value should be
                   added.
   @param errflag  Flags for my_error() call.
+  @param thd                 Thread context.
   @param org_table_name  The original table name (if any)
 */
 
 void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
-                        const char *org_table_name) {
+                        const THD *thd, const char *org_table_name) {
   /* Write the duplicated key in the error message */
   char key_buff[MAX_KEY_LENGTH];
   String str(key_buff, sizeof(key_buff), system_charset_info);
@@ -4085,21 +4086,40 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag,
     key_name += key->name;
   }
 
-  my_printf_error(ER_DUP_ENTRY, msg, errflag, str.c_ptr(), key_name.c_str());
+  if (opt_improved_dup_key_error) {
+    // Replace any newlines in the query with spaces
+    const char *query_str = thd->query().str;
+    std::string query = query_str != nullptr ? query_str : "<unknown>";
+    std::transform(
+        query.begin(), query.end(), query.begin(),
+        [](std::string::value_type ch) { return ch == '\n' ? ' ' : ch; });
+
+    // Add " [<query>]" (or at least the first 512 bytes) to the format
+    // Note:  The total error message buffer size is only 512 bytes, so some
+    //        of the query string could be cut off.  We don't really care -
+    //        we are just trying to get as much as the query string as
+    //        we can.
+    std::string msg_fmt = std::string(msg) + " [%-.512s]";
+
+    my_printf_error(ER_DUP_ENTRY, msg_fmt.c_str(), errflag, str.c_ptr_safe(),
+                    key_name.c_str(), query.c_str());
+  } else
+    my_printf_error(ER_DUP_ENTRY, msg, errflag, str.c_ptr_safe(),
+                    key_name.c_str());
 }
 
 /**
   Construct and emit duplicate key error message using information
   from table's record buffer.
 
-  @sa print_keydup_error(table, key, msg, errflag).
+  @sa print_keydup_error(table, key, msg, errflag, thd, org_table_name).
 */
 
-void print_keydup_error(TABLE *table, KEY *key, myf errflag,
+void print_keydup_error(TABLE *table, KEY *key, myf errflag, const THD *thd,
                         const char *org_table_name) {
   print_keydup_error(table, key,
                      ER_THD(current_thd, ER_DUP_ENTRY_WITH_KEY_NAME), errflag,
-                     org_table_name);
+                     thd, org_table_name);
 }
 
 /**
@@ -4202,7 +4222,7 @@ void handler::print_error(int error, myf errflag) {
       if ((int)key_nr >= 0) {
         print_keydup_error(
             table, key_nr == MAX_KEY ? nullptr : &table->key_info[key_nr],
-            errflag);
+            errflag, ha_thd());
         return;
       }
       textno = ER_DUP_KEY;

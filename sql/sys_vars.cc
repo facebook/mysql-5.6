@@ -7156,3 +7156,9 @@ static Sys_var_charptr Sys_read_only_error_msg_extra(
     "which will be appended to read_only error messages.",
     GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_improved_dup_key_error(
+    "improved_dup_key_error",
+    "Include the table name in the error text when receiving a duplicate "
+    "key error and log the query into a new duplicate key query log file.",
+    GLOBAL_VAR(opt_improved_dup_key_error), CMD_LINE(OPT_ARG), DEFAULT(false));

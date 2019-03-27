@@ -1002,6 +1002,7 @@ ulonglong log_output_options;
 bool opt_log_queries_not_using_indexes = false;
 ulong opt_log_throttle_queries_not_using_indexes = 0;
 bool opt_log_slow_extra = false;
+bool opt_improved_dup_key_error = false;
 bool opt_disable_networking = false, opt_skip_show_db = false;
 bool opt_skip_name_resolve = false;
 bool opt_character_set_client_handshake = true;
