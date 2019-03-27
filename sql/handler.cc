@@ -570,6 +570,7 @@ int ha_init_errors(void)
   SETMSG(HA_ERR_FTS_TOO_MANY_WORDS_IN_PHRASE,  "Too many words in a FTS phrase or proximity search");
   SETMSG(HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED,
          ER_DEFAULT(ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED));
+  SETMSG(HA_ERR_QUERY_INTERRUPTED,      ER_DEFAULT(ER_QUERY_INTERRUPTED));
 
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
@@ -4272,6 +4273,9 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_INNODB_FORCED_RECOVERY:
     textno= ER_INNODB_FORCED_RECOVERY;
+    break;
+  case HA_ERR_QUERY_INTERRUPTED:
+    textno = ER_QUERY_INTERRUPTED;
     break;
   default:
     {

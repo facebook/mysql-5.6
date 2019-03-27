@@ -97,6 +97,7 @@ static const char *handler_error_messages[]=
   "Too many words in a FTS phrase or proximity search",
   "tmp_table_max_file_size exceeded",
   "Failed to lock a record and didn't wait",
+  "Query execution was interrupted",
 };
 
 extern void my_handler_error_register(void);
