@@ -5960,7 +5960,6 @@ int ha_rocksdb::convert_record_to_storage_format(
   Rdb_string_writer *const pk_unpack_info = row_info.new_pk_unpack_info;
   bool has_ttl = m_pk_descr->has_ttl();
   bool has_ttl_column = !m_pk_descr->m_ttl_column.empty();
-  bool ttl_in_pk = has_ttl_column && (row_info.ttl_pk_offset != UINT_MAX);
   int null_bytes_in_record = m_converter->get_null_bytes_in_record();
 
   m_storage_record.length(0);
@@ -5968,40 +5967,40 @@ int ha_rocksdb::convert_record_to_storage_format(
   if (has_ttl) {
     /* If it's a TTL record, reserve space for 8 byte TTL value in front. */
     m_storage_record.fill(ROCKSDB_SIZEOF_TTL_RECORD + null_bytes_in_record, 0);
+    // NOTE: m_ttl_bytes_updated is only used for update case
+    // During update, skip update sk key/values slice iff none of sk fields
+    // have changed and ttl bytes isn't changed. see
+    // ha_rocksdb::update_write_sk() for more info
     m_ttl_bytes_updated = false;
 
     /*
-      If the TTL is contained within the key, we use the offset to find the
-      TTL value and place it in the beginning of the value record.
+      If the TTL is contained within table columns, we use the field index to
+      find the TTL value and place it in the beginning of the value record.
     */
-    if (ttl_in_pk) {
-      Rdb_string_reader reader(&pk_packed_slice);
-      const char *ts;
-      if (!reader.read(row_info.ttl_pk_offset) ||
-          !(ts = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
-        std::string buf;
-        buf = rdb_hexdump(pk_packed_slice.data(), pk_packed_slice.size(),
-                          RDB_MAX_HEXDUMP_LEN);
-        const GL_INDEX_ID gl_index_id = m_pk_descr->get_gl_index_id();
-        // NO_LINT_DEBUG
-        sql_print_error("Decoding ttl from PK failed during insert, "
-                        "for index (%u,%u), key: %s",
-                        gl_index_id.cf_id, gl_index_id.index_id, buf.c_str());
-        return HA_EXIT_FAILURE;
-      }
+    if (has_ttl_column) {
+      uint ttl_field_index = m_pk_descr->get_ttl_field_index();
+      DBUG_ASSERT(ttl_field_index != UINT_MAX);
+
+      Field *const field = table->field[ttl_field_index];
+      DBUG_ASSERT(field->pack_length_in_rec() == ROCKSDB_SIZEOF_TTL_RECORD);
+      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
 
       char *const data = const_cast<char *>(m_storage_record.ptr());
-      memcpy(data, ts, ROCKSDB_SIZEOF_TTL_RECORD);
+      uint64 ts = uint8korr(field->ptr);
 #ifndef NDEBUG
-      // Adjust for test case if needed
-      rdb_netbuf_store_uint64(
-          reinterpret_cast<uchar *>(data),
-          rdb_netbuf_to_uint64(reinterpret_cast<const uchar *>(data)) +
-              rdb_dbug_set_ttl_rec_ts());
+      ts += rdb_dbug_set_ttl_rec_ts();
 #endif
-      // Also store in m_ttl_bytes to propagate to update_write_sk
+      rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
+
+      // If this is an update and the timestamp has been updated, take note
+      // so we can avoid updating SKs unnecessarily.
+      if (!row_info.old_pk_slice.empty()) {
+        m_ttl_bytes_updated =
+            memcmp(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
+      }
+      // Store timestamp in m_ttl_bytes to propagate to update_write_sk
       memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-    } else if (!has_ttl_column) {
+    } else {
       /*
         For implicitly generated TTL records we need to copy over the old
         TTL value from the old record in the event of an update. It was stored
@@ -6083,35 +6082,8 @@ int ha_rocksdb::convert_record_to_storage_format(
                               field_var->length_bytes + data_len);
     } else {
       /* Copy the field data */
-      const uint len = field->pack_length_in_rec();
-      m_storage_record.append(reinterpret_cast<char *>(field->ptr), len);
-
-      /*
-        Check if this is the TTL field within the table, if so store the TTL
-        in the front of the record as well here.
-      */
-      if (has_ttl && has_ttl_column &&
-          i == m_pk_descr->get_ttl_field_offset()) {
-        DBUG_ASSERT(len == ROCKSDB_SIZEOF_TTL_RECORD);
-        DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
-        DBUG_ASSERT(m_pk_descr->get_ttl_field_offset() != UINT_MAX);
-
-        char *const data = const_cast<char *>(m_storage_record.ptr());
-        uint64 ts = uint8korr(field->ptr);
-#ifndef NDEBUG
-        ts += rdb_dbug_set_ttl_rec_ts();
-#endif
-        rdb_netbuf_store_uint64(reinterpret_cast<uchar *>(data), ts);
-
-        // If this is an update and the timestamp has been updated, take note
-        // so we can avoid updating SKs unnecessarily.
-        if (!row_info.old_pk_slice.empty()) {
-          m_ttl_bytes_updated =
-              memcmp(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-        }
-        // Store timestamp in m_ttl_bytes to propagate to update_write_sk
-        memcpy(m_ttl_bytes, data, ROCKSDB_SIZEOF_TTL_RECORD);
-      }
+      m_storage_record.append(reinterpret_cast<char *>(field->ptr),
+                              field->pack_length_in_rec());
     }
   }
 
@@ -9079,10 +9051,9 @@ int ha_rocksdb::get_pk_for_update(struct update_row_info *const row_info) {
 
     row_info->new_pk_unpack_info = &m_pk_unpack_info;
 
-    size =
-        m_pk_descr->pack_record(table, m_pack_buffer, row_info->new_data,
-                                m_pk_packed_tuple, row_info->new_pk_unpack_info,
-                                false, 0, 0, nullptr, &row_info->ttl_pk_offset);
+    size = m_pk_descr->pack_record(
+        table, m_pack_buffer, row_info->new_data, m_pk_packed_tuple,
+        row_info->new_pk_unpack_info, false, 0, 0, nullptr);
   } else if (row_info->old_data == nullptr) {
     row_info->hidden_pk_id = update_hidden_pk_val();
     size =
@@ -9607,14 +9578,14 @@ int ha_rocksdb::update_write_sk(const TABLE *const table_arg,
   new_packed_size =
       kd.pack_record(table_arg, m_pack_buffer, row_info.new_data,
                      m_sk_packed_tuple, &m_sk_tails, store_row_debug_checksums,
-                     row_info.hidden_pk_id, 0, nullptr, nullptr, m_ttl_bytes);
+                     row_info.hidden_pk_id, 0, nullptr, m_ttl_bytes);
 
   if (row_info.old_data != nullptr) {
     // The old value
     old_packed_size = kd.pack_record(
         table_arg, m_pack_buffer, row_info.old_data, m_sk_packed_tuple_old,
         &m_sk_tails_old, store_row_debug_checksums, row_info.hidden_pk_id, 0,
-        nullptr, nullptr, m_ttl_bytes);
+        nullptr, m_ttl_bytes);
 
     /*
       Check if we are going to write the same value. This can happen when
@@ -12089,7 +12060,7 @@ int ha_rocksdb::inplace_populate_sk(
       const int new_packed_size = index->pack_record(
           new_table_arg, m_pack_buffer, table->record[0], m_sk_packed_tuple,
           &m_sk_tails, should_store_row_debug_checksums(), hidden_pk_id, 0,
-          nullptr, nullptr, m_ttl_bytes);
+          nullptr, m_ttl_bytes);
 
       const rocksdb::Slice key = rocksdb::Slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), new_packed_size);
