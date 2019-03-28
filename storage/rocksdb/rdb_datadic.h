@@ -200,7 +200,6 @@ public:
                    const bool should_store_row_debug_checksums,
                    const longlong hidden_pk_id = 0, uint n_key_parts = 0,
                    uint *const n_null_fields = nullptr,
-                   uint *const ttl_pk_offset = nullptr,
                    const char *const ttl_bytes = nullptr) const;
   /* Pack the hidden primary key into mem-comparable form. */
   uint pack_hidden_pk(const longlong hidden_pk_id,
@@ -368,7 +367,7 @@ public:
 
   uint get_key_parts() const { return m_key_parts; }
 
-  uint get_ttl_field_offset() const { return m_ttl_field_offset; }
+  uint get_ttl_field_index() const { return m_ttl_field_index; }
 
   /*
     Get a field object for key part #part_no
@@ -534,7 +533,7 @@ public:
                                    uint64 *ttl_duration);
   static uint extract_ttl_col(const TABLE *const table_arg,
                               const Rdb_tbl_def *const tbl_def_arg,
-                              std::string *ttl_column, uint *ttl_field_offset,
+                              std::string *ttl_column, uint *ttl_field_index,
                               bool skip_checks = false);
   inline bool has_ttl() const { return m_ttl_duration > 0; }
 
@@ -796,7 +795,7 @@ public:
     Index of the TTL column in table->s->fields, if it exists.
     Default is UINT_MAX to denote that it does not exist.
   */
-  uint m_ttl_field_offset;
+  uint m_ttl_field_index;
 
   /* Prefix extractor for the column family of the key definiton */
   std::shared_ptr<const rocksdb::SliceTransform> m_prefix_extractor;
