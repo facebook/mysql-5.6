@@ -658,16 +658,6 @@ private:
 
     longlong hidden_pk_id;
     bool skip_unique_check;
-
-    // In certain cases, TTL is enabled on a table, as well as an explicit TTL
-    // column.  The TTL column can be part of either the key or the value part
-    // of the record.  If it is part of the key, we store the offset here.
-    //
-    // Later on, we use this offset to store the TTL in the value part of the
-    // record, which we can then access in the compaction filter.
-    //
-    // Set to UINT_MAX by default to indicate that the TTL is not in key.
-    uint ttl_pk_offset = UINT_MAX;
   };
 
   /*
