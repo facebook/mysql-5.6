@@ -73,7 +73,7 @@ Rdb_key_def::Rdb_key_def(uint indexnr_arg, uint keyno_arg,
       m_ttl_rec_offset(ttl_rec_offset), m_ttl_duration(ttl_duration),
       m_ttl_column(""), m_pk_part_no(nullptr), m_pack_info(nullptr),
       m_keyno(keyno_arg), m_key_parts(0), m_ttl_pk_key_part_offset(UINT_MAX),
-      m_ttl_field_offset(UINT_MAX), m_prefix_extractor(nullptr),
+      m_ttl_field_index(UINT_MAX), m_prefix_extractor(nullptr),
       m_maxlength(0)  // means 'not intialized'
 {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
@@ -99,7 +99,7 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
       m_pack_info(k.m_pack_info), m_keyno(k.m_keyno),
       m_key_parts(k.m_key_parts),
       m_ttl_pk_key_part_offset(k.m_ttl_pk_key_part_offset),
-      m_ttl_field_offset(UINT_MAX), m_prefix_extractor(k.m_prefix_extractor),
+      m_ttl_field_index(UINT_MAX), m_prefix_extractor(k.m_prefix_extractor),
       m_maxlength(k.m_maxlength) {
   mysql_mutex_init(0, &m_mutex, MY_MUTEX_INIT_FAST);
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
@@ -208,7 +208,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
       table creation.
     */
     Rdb_key_def::extract_ttl_col(tbl, tbl_def, &m_ttl_column,
-                                 &m_ttl_field_offset, true);
+                                 &m_ttl_field_index, true);
 
     size_t max_len = INDEX_NUMBER_SIZE;
     int unpack_len = 0;
@@ -386,7 +386,7 @@ uint Rdb_key_def::extract_ttl_duration(const TABLE *const table_arg,
 uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
                                   const Rdb_tbl_def *const tbl_def_arg,
                                   std::string *ttl_column,
-                                  uint *ttl_field_offset, bool skip_checks) {
+                                  uint *ttl_field_index, bool skip_checks) {
   std::string table_comment(table_arg->s->comment.str,
                             table_arg->s->comment.length);
   /*
@@ -404,7 +404,7 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
       Field *const field = table_arg->field[i];
       if (field->check_field_name_match(ttl_col_str.c_str())) {
         *ttl_column = ttl_col_str;
-        *ttl_field_offset = i;
+        *ttl_field_index = i;
       }
     }
     return HA_EXIT_SUCCESS;
@@ -420,7 +420,7 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
           field->key_type() == HA_KEYTYPE_ULONGLONG &&
           !field->real_maybe_null()) {
         *ttl_column = ttl_col_str;
-        *ttl_field_offset = i;
+        *ttl_field_index = i;
         found = true;
         break;
       }
@@ -1004,8 +1004,8 @@ uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
     unpack_info_len  OUT  Unpack data length
     n_key_parts           Number of keyparts to process. 0 means all of them.
     n_null_fields    OUT  Number of key fields with NULL value.
-    ttl_pk_offset    OUT  Offset of the ttl column if specified and in the key
-
+    ttl_bytes        IN   Previous ttl bytes from old record for update case or
+                          current ttl bytes from just packed primary key/value
   @detail
     Some callers do not need the unpack information, they can pass
     unpack_info=nullptr, unpack_info_len=nullptr.
@@ -1014,12 +1014,14 @@ uchar *Rdb_key_def::pack_field(Field *const field, Rdb_field_packing *pack_info,
     Length of the packed tuple
 */
 
-uint Rdb_key_def::pack_record(
-    const TABLE *const tbl, uchar *const pack_buffer, const uchar *const record,
-    uchar *const packed_tuple, Rdb_string_writer *const unpack_info,
-    const bool should_store_row_debug_checksums, const longlong hidden_pk_id,
-    uint n_key_parts, uint *const n_null_fields, uint *const ttl_pk_offset,
-    const char *const ttl_bytes) const {
+uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
+                              const uchar *const record,
+                              uchar *const packed_tuple,
+                              Rdb_string_writer *const unpack_info,
+                              const bool should_store_row_debug_checksums,
+                              const longlong hidden_pk_id, uint n_key_parts,
+                              uint *const n_null_fields,
+                              const char *const ttl_bytes) const {
   DBUG_ASSERT(tbl != nullptr);
   DBUG_ASSERT(pack_buffer != nullptr);
   DBUG_ASSERT(record != nullptr);
@@ -1119,16 +1121,6 @@ uint Rdb_key_def::pack_record(
     uint field_offset = field->ptr - tbl->record[0];
     uint null_offset = field->null_offset(tbl->record[0]);
     bool maybe_null = field->real_maybe_null();
-
-    // Save the ttl duration offset in the key so we can store it in front of
-    // the record later.
-    if (ttl_pk_offset && m_ttl_duration > 0 && i == m_ttl_pk_key_part_offset) {
-      DBUG_ASSERT(field->check_field_name_match(m_ttl_column.c_str()));
-      DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
-      DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
-      DBUG_ASSERT(!field->real_maybe_null());
-      *ttl_pk_offset = tuple - packed_tuple;
-    }
 
     field->move_field(const_cast<uchar*>(record) + field_offset,
         maybe_null ? const_cast<uchar*>(record) + null_offset : nullptr,
