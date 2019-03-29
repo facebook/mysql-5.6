@@ -46,6 +46,23 @@ a
 1
 COMMIT;
 UNLOCK TABLES;
+DELETE from t1;
+FLUSH STATUS;
+SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+SET @@global.legacy_global_read_lock_mode = 1;
+connection con1;
+INSERT INTO t1 (a) SELECT sleep(3) ;
+connection default;
+set global read_only=1;
+connection con1
+# Check if the query is done. Expected a=0
+SELECT * FROM t1;
+a
+0
+connection default;
+SET GLOBAL read_only=0;
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+UNLOCK TABLES;
 DROP TABLE t1;
 DROP USER test@localhost;
 echo End of 5.1 tests 
