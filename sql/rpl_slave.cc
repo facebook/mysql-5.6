@@ -466,7 +466,31 @@ int init_slave()
     rli->get_event_relay_log_name(),
     (ulong) rli->get_event_relay_log_pos()));
 
-  rli->recovery_max_engine_gtid= mysql_bin_log.engine_binlog_max_gtid;
+
+  /**
+    If engine binlog max gtid is set, then update recovery_max_engine_gtid.
+    recovery_max_engine_gtid is used later during slave's idempotent
+    recovery/apply of binnlog events.
+    engine_binlog_max_gtid is set during storage engine recovery using
+    global_sid_map. However, idempotent recovery/apply uses
+    rli->recovery_sid_map. Hence rli->recovery_max_engine_gtid needs to be
+    initialized by hashing into rli->recovery_sid_map
+   */
+  if (!mysql_bin_log.engine_binlog_max_gtid.empty())
+  {
+    char buf[Gtid::MAX_TEXT_LENGTH + 1];
+
+    /* Extract engine_binlog_max_gtid using global_sid_map */
+    global_sid_lock->rdlock();
+    mysql_bin_log.engine_binlog_max_gtid.to_string(global_sid_map, buf);
+    global_sid_lock->unlock();
+
+    /* Now set rli->recovery_max_engine_gtid (and optionally add
+       it into rli->recovery_sid_map */
+    rli->recovery_sid_lock->rdlock();
+    rli->recovery_max_engine_gtid.parse(rli->recovery_sid_map, buf);
+    rli->recovery_sid_lock->unlock();
+  }
 
   if (active_mi->host[0] &&
       mysql_bin_log.engine_binlog_pos != ULONGLONG_MAX &&
