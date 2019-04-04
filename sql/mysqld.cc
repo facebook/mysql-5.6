@@ -1036,6 +1036,7 @@ ulong slave_tx_isolation;
 bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 char *default_collation_for_utf8mb4_init = NULL;
+bool enable_blind_replace = false;
 
 #if defined(_WIN32)
 /*

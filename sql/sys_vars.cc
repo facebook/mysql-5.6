@@ -7647,3 +7647,11 @@ static Sys_var_charptr Sys_default_collation_for_utf8mb4_init(
     "default_collation_for_utf8mb4_init", "default collation for utf8mb4",
     READ_ONLY NON_PERSIST GLOBAL_VAR(default_collation_for_utf8mb4_init),
     NO_CMD_LINE, IN_SYSTEM_CHARSET, DEFAULT(0));
+
+static Sys_var_bool Sys_enable_blind_replace(
+    "enable_blind_replace",
+    "Optimize 'replace into' statement by doing a blind insert. Engine "
+    "ignores primary key violations. This will avoid a delete and an "
+    "insert. This is supported in MyRocks",
+    GLOBAL_VAR(enable_blind_replace),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

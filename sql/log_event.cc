@@ -12169,6 +12169,14 @@ Write_rows_log_event::Write_rows_log_event(
                      log_bin_use_v1_row_events ? binary_log::WRITE_ROWS_EVENT_V1
                                                : binary_log::WRITE_ROWS_EVENT,
                      extra_row_ndb_info) {
+  /*
+    If this is a blind 'replace into' optimization, then set the bit
+    in the flags so that it can be carried over to the slave
+  */
+  if (thd_arg && thd_arg->lex->blind_replace_into) {
+    set_flags(BLIND_REPLACE_INTO_F);
+  }
+
   common_header->type_code = m_type;
 }
 
@@ -12380,6 +12388,33 @@ int Write_rows_log_event::write_row(const Relay_log_info *const rli,
   int keynum = 0;
   char *key = nullptr;
 
+  /*
+    If the master executed this as an blind 'replace into', do the same
+    on slave if possible. This can be done if:
+    (0) Blind replace is enabled (by setting enable_blind_replace sysvar)
+    (1) master executed this as an optimized 'replace into' statement
+        (as identified by BLIND_REPLACE_INTO_F)
+    (2) The table has a well defined primary key (and no hidden pk)
+    (3) The table has no secondary keys
+    (4) The table has no triggers defined
+    If slave is not able to execute this as a blind 'replcae into', then
+    convert it into a regular UPDATE or DELETE+INSERT
+  */
+  if (get_flags(BLIND_REPLACE_INTO_F)) { /* 1 */
+    /*
+      This was an optimized 'replace into' in master, but slave cannot
+      execute it as such due to the constraints explained above.
+      So, convert this into a regular UPDATE or DELETE+INSERT. This will make
+      binlogs to look different in master and slave, but the logical outcome
+      will be the same
+    */
+    thd->lex->duplicates = DUP_REPLACE;
+    thd->lex->blind_replace_into = enable_blind_replace && /* 0 */
+      table->s->keys == 1 && /* 2, 3 */
+      table->s->primary_key != MAX_INDEXES && /* 2 */
+      !table->triggers; /* 4 */
+  }
+
   const bool invoke_triggers =
       slave_run_triggers_for_rbr && !master_had_triggers && table->triggers;
 
@@ -12457,7 +12492,8 @@ int Write_rows_log_event::write_row(const Relay_log_info *const rli,
       DBUG_PRINT("info", ("get_dup_key returns %d)", keynum));
       /*
         Deadlock, waiting for lock or just an error from the handler
-        such as HA_ERR_FOUND_DUPP_KEY when overwrite is false.
+        such as HA_ERR_FOUND_DUPP_KEY when overwrite is false and
+        this is not a blind 'replace into' optimization.
         Retrieval of the duplicate key number may fail
         - either because the error was not "duplicate key" error
         - or because the information which key is not available
@@ -12639,7 +12675,10 @@ error:
 
 int Write_rows_log_event::do_exec_row(const Relay_log_info *const rli) {
   DBUG_ASSERT(m_table != nullptr);
-  int error = write_row(rli, rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT);
+  const bool overwrite = (rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT ||
+    get_flags(BLIND_REPLACE_INTO_F));
+
+  int error = write_row(rli, overwrite);
 
   if (error && !thd->is_error()) {
     DBUG_ASSERT(0);

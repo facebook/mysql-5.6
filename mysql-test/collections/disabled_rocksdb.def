@@ -30,12 +30,6 @@ rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column 
 rocksdb.percona_nonflushing_analyze_debug : BUG#0000 missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE...
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
-# Blind replace
-rocksdb.optimize_myrocks_replace_into_base : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.optimize_myrocks_replace_into_lock : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb_rpl.optimize_myrocks_replace_into : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.mysqlbinlog_blind_replace : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-
 # Schema Validation
 rocksdb.validate_datadic : BUG#0000 redesign the testcase around schema validation
 rocksdb.skip_validate_tmp_table : BUG#0000 redesign the testcase around schema validation

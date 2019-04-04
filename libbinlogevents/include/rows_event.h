@@ -929,7 +929,13 @@ class Rows_event : public Binary_log_event {
       Indicates that rows in this event are complete, that is contain
       values for all columns of the table.
     */
-    COMPLETE_ROWS_F = (1U << 3)
+    COMPLETE_ROWS_F = (1U << 3),
+    /**
+      Indicates that this event is for writing a row as part of a blind
+      'replace into' statement optimization where pk constraints are ignored.
+      Note that we are using the MSB to make this forward compatible
+    */
+    BLIND_REPLACE_INTO_F = (1U << 15)
   };
 
   /**
@@ -1069,8 +1075,10 @@ class Rows_event : public Binary_log_event {
     if (flag & NO_FOREIGN_KEY_CHECKS_F) str.append(" No foreign Key checks");
     if (flag & RELAXED_UNIQUE_CHECKS_F) str.append(" No unique key checks");
     if (flag & COMPLETE_ROWS_F) str.append(" Complete Rows");
+    if (flag & BLIND_REPLACE_INTO_F) str.append(" Blind Replace Into");
     if (flag & ~(STMT_END_F | NO_FOREIGN_KEY_CHECKS_F |
-                 RELAXED_UNIQUE_CHECKS_F | COMPLETE_ROWS_F))
+                 RELAXED_UNIQUE_CHECKS_F | COMPLETE_ROWS_F |
+                 BLIND_REPLACE_INTO_F))
       str.append("Unknown Flag");
     return str;
   }
