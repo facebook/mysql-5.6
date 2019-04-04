@@ -747,7 +747,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Created_tmp_disk_tables: %lu"
         " Created_tmp_tables: %lu"
         " Start: %s End: %s"
-        " Trace_Id: %s Instruction_Cost: %lu\n";
+        " Trace_Id: %s Instruction_Cost: %lu";
 
     // If the query start status is valid - i.e. the current thread's
     // status values should be no less than the query start status,
