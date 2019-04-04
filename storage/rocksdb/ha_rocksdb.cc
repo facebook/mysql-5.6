@@ -9097,6 +9097,9 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   DBUG_ASSERT(row_info.old_pk_slice.size() == 0 ||
               row_info.new_pk_slice.compare(row_info.old_pk_slice) != 0);
 
+  /* Ignore PK violations if this is a optimized 'replace into' */
+  const bool ignore_pk_unique_check = ha_thd()->lex->blind_replace_into;
+
   /*
     Perform a read to determine if a duplicate entry exists. For primary
     keys, a point lookup will be sufficient.
@@ -9118,13 +9121,13 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
   */
   const rocksdb::Status s =
       get_for_update(row_info.tx, m_pk_descr->get_cf(), row_info.new_pk_slice,
-                     &m_retrieved_record);
+                     ignore_pk_unique_check ? nullptr : &m_retrieved_record);
   if (!s.ok() && !s.IsNotFound()) {
     return row_info.tx->set_status_error(
         table->in_use, s, *m_key_descr_arr[key_id], m_tbl_def, m_table_handler);
   }
 
-  *found = !s.IsNotFound();
+  *found = ignore_pk_unique_check ? false : !s.IsNotFound();
   return HA_EXIT_SUCCESS;
 }
 
