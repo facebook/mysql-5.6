@@ -45,3 +45,5 @@ Rows_sent	Rows_examined	Errno	Killed	Bytes_received	Bytes_sent	Read_first	Read_l
 1	50	0	0	0	57	0	0	1	50	0	0	0	0	0	0	0	0
 if the following is not 1 you need to adjust the file_lines_count variable
 1
+Count: 1    select count(*) from big_table_slow where id>N and id<N
+

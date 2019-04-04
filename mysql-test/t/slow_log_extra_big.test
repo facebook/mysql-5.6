@@ -84,4 +84,8 @@ let SEARCH_FILE = $file_lines_filename;
 let SEARCH_PATTERN= Trace_Id: foobar;
 --source include/search_pattern_in_file.inc
 
+# Try to detect a broken slow log
+--replace_regex /Time=.*//
+--exec $MYSQLDUMPSLOW $file_lines_filename -g 'from big_table_slow where id>100 and id<200'
+
 --exit
