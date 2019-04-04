@@ -1,0 +1,24 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of enable_blind_replace is 0
+SELECT @@global.enable_blind_replace;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_blind_replace;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo enable_blind_replace is a dynamic variable
+SET @@global.enable_blind_replace = 1;
+SELECT @@global.enable_blind_replace;
+
+SET @@global.enable_blind_replace = 0;
+SELECT @@global.enable_blind_replace;

@@ -477,6 +477,7 @@ void lex_start(THD *thd)
   lex->expr_allows_subselect= TRUE;
   lex->use_only_table_context= FALSE;
   lex->contains_plaintext_password= false;
+  lex->blind_replace_into= false;
 
   lex->name.str= 0;
   lex->name.length= 0;

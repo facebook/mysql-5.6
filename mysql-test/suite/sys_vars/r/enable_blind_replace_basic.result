@@ -1,0 +1,16 @@
+Default value of enable_blind_replace is 0
+SELECT @@global.enable_blind_replace;
+@@global.enable_blind_replace
+0
+SELECT @@session.enable_blind_replace;
+ERROR HY000: Variable 'enable_blind_replace' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+enable_blind_replace is a dynamic variable
+SET @@global.enable_blind_replace = 1;
+SELECT @@global.enable_blind_replace;
+@@global.enable_blind_replace
+1
+SET @@global.enable_blind_replace = 0;
+SELECT @@global.enable_blind_replace;
+@@global.enable_blind_replace
+0

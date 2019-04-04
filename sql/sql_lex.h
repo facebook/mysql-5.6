@@ -2480,6 +2480,14 @@ struct LEX: public Query_tables_list
   bool is_set_password_sql;
   bool contains_plaintext_password;
 
+  /*
+    If this is set, then 'replace into' will do a  bind write by ignoring
+    primary key violation errors. This is an optimization which allows to
+    write the row without having to read, delete and insert the row in case
+    of 'replace into' statements
+  */
+  bool blind_replace_into;
+
   ulong thread_id_opt; //thread id option
 
   /* Used to request detailed status information from storage engines */

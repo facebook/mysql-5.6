@@ -4210,7 +4210,14 @@ public:
       Indicates that rows in this event are complete, that is contain
       values for all columns of the table.
      */
-    COMPLETE_ROWS_F = (1U << 3)
+    COMPLETE_ROWS_F = (1U << 3),
+
+    /**
+      Indicates that this event is for writing a row as part of an blind
+      'replace into' statement optimization where pk constraints are ignored.
+      Note that  we are using the MSB to make this forward compatible
+     */
+    BLIND_REPLACE_INTO_F = (1U << 15)
   };
 
   typedef uint16 flag_set;

@@ -1616,6 +1616,23 @@ int write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)
   const enum_duplicates duplicate_handling= info->get_duplicate_handling();
   const bool ignore_errors= info->get_ignore_errors();
 
+  /*
+    Ignore pk violation checks if:
+    (0) Blind replace is enabled (by setting enable_blind_replace sysvar)
+    (1) This is a replace into statement (as identified by DUP_REPLACE)
+    (2) The table has a well defined primary key (and no hidden pk)
+    (3) The table has no secondary keys
+    (4) The table has no triggers defined
+  */
+  if (enable_blind_replace &&  /* 0 */
+      thd->lex->duplicates == DUP_REPLACE && /* 1 */
+      table->s->keys == 1 && /* 2, 3 */
+      table->s->primary_key != MAX_INDEXES && /* 2 */
+      !table->triggers /* 4 */)
+  {
+    thd->lex->blind_replace_into= true;
+  }
+
   if (duplicate_handling == DUP_REPLACE || duplicate_handling == DUP_UPDATE)
   {
     DBUG_ASSERT(duplicate_handling != DUP_UPDATE || update != NULL);
