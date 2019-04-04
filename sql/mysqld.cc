@@ -698,6 +698,7 @@ ulong opt_mts_slave_parallel_workers;
 ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
+ulonglong opt_mts_dependency_max_keys;
 my_bool opt_mts_dependency_order_commits;
 my_bool opt_mts_dynamic_rebalance;
 double opt_mts_imbalance_threshold;

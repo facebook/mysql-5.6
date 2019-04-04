@@ -12151,6 +12151,12 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
   DBUG_ASSERT(rli->prev_event != NULL);
   DBUG_ASSERT(rli->table_map_events.count(get_table_id()));
 
+  // case: this group will be synced, so we don't need to parse and store keys
+  if (rli->dep_sync_group)
+  {
+    DBUG_VOID_RETURN;
+  }
+
   const auto tbe= rli->table_map_events.at(get_table_id());
 
   std::string db_name(tbe->get_db_name());
@@ -12166,13 +12172,19 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
 
   // case: something went wrong while finding keys for this event, switch to
   // sync mode!
-  if (unlikely(!get_keys(rli, ev, m_keylist)))
+  if (unlikely(
+        !get_keys(rli, ev, m_keylist) ||
+        m_keylist.size() + rli->keys_accessed_by_group.size() >
+                opt_mts_dependency_max_keys))
   {
     rli->dep_sync_group= true;
     m_keylist.clear();
+    rli->keys_accessed_by_group.clear();
   }
-
-  rli->keys_accessed_by_group.insert(m_keylist.begin(), m_keylist.end());
+  else
+  {
+    rli->keys_accessed_by_group.insert(m_keylist.begin(), m_keylist.end());
+  }
 
   mysql_mutex_lock(&rli->dep_key_lookup_mutex);
   /* Handle dependencies. */

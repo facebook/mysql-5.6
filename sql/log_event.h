@@ -34,6 +34,7 @@
 #include "table_id.h"
 #include <set>
 #include <deque>
+#include <my_murmur3.h>
 
 #ifdef MYSQL_CLIENT
 #include "sql_const.h"
@@ -105,12 +106,9 @@ namespace std
       uchar *buf= k.key_buffer.get();
       if (k.key_length > 0)
       {
-        ret= std::hash<uint>{}(k.key_length);
-        ret= (ret << 1) ^ std::hash<string>{}(k.table_id);
-        for (uint i= 0; i < k.key_length; ++i)
-        {
-          ret= (ret << 1) ^ std::hash<char>{}((char)buf[i]);
-        }
+        ret= murmur3_32((const uchar*)(k.table_id.c_str()),
+                        k.table_id.length(), 0);
+        ret= murmur3_32(buf, k.key_length, ret);
       }
       else
       {

@@ -5284,6 +5284,13 @@ static Sys_var_double Sys_mts_dependency_refill_threshold(
        GLOBAL_VAR(opt_mts_dependency_refill_threshold), CMD_LINE(OPT_ARG),
        VALID_RANGE(0, 100), DEFAULT(60));
 
+static Sys_var_ulonglong Sys_mts_dependency_max_keys(
+       "mts_dependency_max_keys",
+       "Max number of keys in a transaction after which it will be executed in "
+       "isolation. This limits the amount of metadata we'll need to maintain.",
+       GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
+
 static Sys_var_mybool Sys_mts_dependency_order_commits(
        "mts_dependency_order_commits",
        "Commit trxs in the same order as the master (per database)",
