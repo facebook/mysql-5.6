@@ -2486,7 +2486,7 @@ struct LEX: public Query_tables_list
     write the row without having to read, delete and insert the row in case
     of 'replace into' statements
   */
-  bool blind_replace_into;
+  bool blind_replace_into= false;
 
   ulong thread_id_opt; //thread id option
 
