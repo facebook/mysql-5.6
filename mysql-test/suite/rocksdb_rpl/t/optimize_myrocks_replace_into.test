@@ -22,6 +22,8 @@ create table t3(c1 int,c2 int, primary key (c1)) engine=rocksdb;
 insert into t3 values(1,1),(2,2),(3,3);
 select * from t3;
 
+sync_slave_with_master;
+
 # Enable blind replace in both slave and master
 connection slave;
 SET GLOBAL enable_blind_replace=ON;
