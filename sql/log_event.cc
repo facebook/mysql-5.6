@@ -11963,6 +11963,18 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
   if (!found_pk)
     DBUG_RETURN(false);
 
+  // Figure out type conversions
+  TABLE *conv_table= nullptr;
+  if (!rli->tables_to_lock->m_tabledef.compatible_with(thd, rli,
+        rli->tables_to_lock->table, &conv_table))
+  {
+      sql_print_error("Unable to check type compatibility at pos %s:%llu, "
+                      "syncing group", rli->get_rpl_log_name(), log_pos);
+      clear_all_errors(rli->info_thd, rli);
+      DBUG_RETURN(false);
+  }
+  rli->tables_to_lock->m_conv_table= conv_table;
+
   uchar *curr_row= NULL, *key_buf= NULL, *curr_row_end= NULL;
   uint i= 0;
   for (i= 0, curr_row= m_rows_buf;
@@ -11978,6 +11990,13 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
       cols= &m_cols_ai;
     }
 
+    // This is needed only to satisfy some debug asserts, not strictly required
+    // for key parsing because upack_row takes cols as an argument instead of
+    // relying on read and write sets
+    bitmap_set_all(table->read_set);
+    bitmap_set_all(table->write_set);
+
+    // Unpack the row
     if (::unpack_row(rli, table, m_width, curr_row, cols,
                      const_cast<const uchar**>(&curr_row_end),
                      &m_master_reclength, m_rows_end))
@@ -11985,6 +12004,7 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
       /* We were unable to unpack the row. This is a serious error. */
       sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
                       rli->get_rpl_log_name(), log_pos);
+      clear_all_errors(rli->info_thd, rli);
       DBUG_RETURN(false);
     }
 
@@ -12017,6 +12037,7 @@ bool Rows_log_event::parse_keys(Relay_log_info* rli,
         sql_print_error("Unable to allocate memory for dependency key at "
                         "%s:%llu, syncing group",
                          rli->get_rpl_log_name(), log_pos);
+        clear_all_errors(rli->info_thd, rli);
         DBUG_RETURN(false);
       }
 
