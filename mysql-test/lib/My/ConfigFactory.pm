@@ -169,7 +169,7 @@ sub fix_socket {
 
   # Make sure the socket path does not become longer then the path
   # which mtr uses to test if a new tmpdir should be created.
-  if (length($socket) > length("$dir/mysql_testsocket.sock")) {
+  if (length($socket) > length("$dir/mysqlx.NN.sock")) {
     # Too long socket path, generate shorter based on port
     my $port = $group->value('port');
     my $group_prefix = substr($group_name, 0, index($group_name, '.'));
