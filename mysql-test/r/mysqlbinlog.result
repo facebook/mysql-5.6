@@ -1002,6 +1002,7 @@ DROP TABLE t1;
 shell> mysqlbinlog std_data/corrupt-relay-bin.000624 > var/tmp/bug31793.sql
 set timestamp= default;
 FLUSH LOGS;
+Executed gtids: 
 Bug#31611 Security risk with BINLOG statement
 SET BINLOG_FORMAT='ROW';
 CREATE DATABASE mysqltest1;
