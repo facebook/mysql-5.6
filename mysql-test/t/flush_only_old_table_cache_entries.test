@@ -1,0 +1,16 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+SET @start_global_value = @@global.flush_only_old_table_cache_entries;
+SET @@global.debug= '+d,tdc_flush_unused_tables';
+
+# Check if flush_only_old_table_cache_entries is disabled
+SET debug_sync = 'now WAIT_FOR signal.disabled';
+
+# Check if flush_only_old_table_cache_entries is enabled
+SET @@global.flush_only_old_table_cache_entries = true;
+SET debug_sync = 'now WAIT_FOR signal.enabled';
+
+# Clean up
+SET @@global.debug= '-d,tdc_flush_unused_tables';
+SET @@global.flush_only_old_table_cache_entries = @start_global_value;
