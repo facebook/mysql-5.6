@@ -428,6 +428,10 @@ include/mysqlbinlog.inc
 include/mysqlbinlog.inc
 ** --stop-gtid without --index-file nor --read-from-remote-master **
 include/mysqlbinlog.inc
+WARNING: --short-form is deprecated and will be removed in a future version
+
+Executed gtids: uuid:1-5
+
 PURGE BINARY LOGS TO 'master-bin.000002';
 include/mysqlbinlog.inc
 # The proper term is pseudo_replica_mode, but we use this compatibility alias

@@ -200,6 +200,7 @@ enum options_client {
   OPT_INNODB_STATS_ON_METADATA,
   OPT_DUMP_FBOBJ_STATS,
   OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
+  OPT_PRINT_GTIDS,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
