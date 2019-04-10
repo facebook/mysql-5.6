@@ -1747,6 +1747,20 @@ static Sys_var_uint Sys_select_into_disk_sync_delay(
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_session_admin_no_super));
 
+static Sys_var_ulong Sys_select_into_file_fsync_size(
+    "select_into_file_fsync_size",
+    "Do an fsync to disk when the buffer grows by these many bytes "
+    "for SELECT INTO OUTFILE. Set 0 to disable.",
+    SESSION_VAR(select_into_file_fsync_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024));
+
+static Sys_var_uint Sys_select_into_file_fsync_timeout(
+    "select_into_file_fsync_timeout",
+    "The timeout/sleep in milliseconds after each fsync with "
+    "SELECT INTO OUTFILE",
+    SESSION_VAR(select_into_file_fsync_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 static bool check_not_null(sys_var *, THD *, set_var *var) {
   return var->value && var->value->is_null();
 }
