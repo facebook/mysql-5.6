@@ -7907,31 +7907,41 @@ static int show_connection_errors_tcpwrap(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_ERROR_ON_WRITE(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_ERROR_ON_WRITE(THD *,
+                                                            SHOW_VAR *var,
+                                                            char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_ERROR_ON_WRITE.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_ERROR_ON_WRITE.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER(THD *,
+                                                                  SHOW_VAR *var,
+                                                                  char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load());
+  *value = static_cast<long>(
+      connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_PACKET_TOO_LARGE(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_PACKET_TOO_LARGE(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_PACKET_TOO_LARGE.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_PACKET_TOO_LARGE.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var,
+                                                        char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
@@ -7939,27 +7949,36 @@ static int show_connection_errors_net_ER_NET_READ_ERROR(THD *, SHOW_VAR *var, ch
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_READ_INTERRUPTED(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_READ_INTERRUPTED(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_READ_INTERRUPTED.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_READ_INTERRUPTED.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_UNCOMPRESS_ERROR(THD *,
+                                                              SHOW_VAR *var,
+                                                              char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_UNCOMPRESS_ERROR.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_UNCOMPRESS_ERROR.load());
   return 0;
 }
 
-static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *, SHOW_VAR *var, char *buff) {
+static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *,
+                                                               SHOW_VAR *var,
+                                                               char *buff) {
   var->type = SHOW_LONG;
   var->value = buff;
   long *value = reinterpret_cast<long *>(buff);
-  *value = static_cast<long>(connection_errors_net_ER_NET_WRITE_INTERRUPTED.load());
+  *value =
+      static_cast<long>(connection_errors_net_ER_NET_WRITE_INTERRUPTED.load());
   return 0;
 }
 
@@ -8592,6 +8611,10 @@ SHOW_VAR status_vars[] = {
     {"Com_stmt_reprepare",
      (char *)offsetof(System_status_var, com_stmt_reprepare), SHOW_LONG_STATUS,
      SHOW_SCOPE_ALL},
+    {"Command_seconds", (char *)offsetof(System_status_var, command_time),
+     SHOW_TIMER_STATUS, SHOW_SCOPE_ALL},
+    {"Command_slave_seconds", (char *)&command_slave_seconds, SHOW_TIMER,
+     SHOW_SCOPE_ALL},
     {"Compression", (char *)&show_net_compression, SHOW_FUNC,
      SHOW_SCOPE_SESSION},
     {"Connections", (char *)&show_thread_id_count, SHOW_FUNC,
@@ -8644,6 +8667,8 @@ SHOW_VAR status_vars[] = {
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},
     {"Delayed_writes", (char *)&delayed_insert_writes, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+    {"Exec_seconds", (char *)offsetof(System_status_var, exec_time),
+     SHOW_TIMER_STATUS, SHOW_SCOPE_ALL},
     {"Flush_commands", (char *)&refresh_version, SHOW_LONG_NOFLUSH,
      SHOW_SCOPE_GLOBAL},
     {"Handler_commit", (char *)offsetof(System_status_var, ha_commit_count),
@@ -8757,6 +8782,10 @@ SHOW_VAR status_vars[] = {
     {"Opened_table_definitions",
      (char *)offsetof(System_status_var, opened_shares), SHOW_LONGLONG_STATUS,
      SHOW_SCOPE_ALL},
+    {"Parse_seconds", (char *)offsetof(System_status_var, parse_time),
+     SHOW_TIMER_STATUS, SHOW_SCOPE_ALL},
+    {"Pre_exec_seconds", (char *)offsetof(System_status_var, pre_exec_time),
+     SHOW_TIMER_STATUS, SHOW_SCOPE_ALL},
     {"Prepared_stmt_count", (char *)&show_prepared_stmt_count, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},

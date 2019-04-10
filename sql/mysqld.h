@@ -349,6 +349,9 @@ extern ulonglong (*my_timer_now)(void);
 inline ulonglong my_timer_since(ulonglong then) {
   return (my_timer_now() - then) - my_timer.overhead;
 }
+inline ulonglong my_timer_difftime(ulonglong start, ulonglong stop) {
+  return (stop - start) - my_timer.overhead;
+}
 /* Get time passed since "then", and update then to now */
 inline ulonglong my_timer_since_and_update(ulonglong *then) {
   ulonglong now = my_timer_now();
@@ -737,6 +740,9 @@ extern bool log_bin_supplied;
 extern char default_binlogfile_name[FN_REFLEN];
 
 #define mysql_tmpdir (my_tmpdir(&mysql_tmpdir_list))
+
+/* Time handling client commands for replication */
+extern ulonglong command_slave_seconds;
 
 extern bool skip_flush_master_info;
 

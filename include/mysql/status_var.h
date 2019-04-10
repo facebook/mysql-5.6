@@ -53,7 +53,8 @@ enum enum_mysql_show_type {
   SHOW_LONGLONG_STATUS,
   SHOW_LEX_STRING,
   SHOW_SIGNED_LONG,
-  SHOW_TIMER
+  SHOW_TIMER,
+  SHOW_TIMER_STATUS
 };
 
 /**
