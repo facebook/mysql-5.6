@@ -177,6 +177,9 @@ PSI_memory_key key_memory_Rows_query_log_event_rows_query;
 using std::max;
 using std::min;
 
+/* Time executing SQL for replication */
+ulonglong command_slave_seconds = 0;
+
 /**
   BINLOG_CHECKSUM variable.
 */
@@ -4727,7 +4730,9 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
           query_start_status = thd->status_var;
         }
 
-        mysql_parse(thd, &parser_state);
+        const ulonglong init_timer = my_timer_now();
+        ulonglong last_timer = init_timer;
+        mysql_parse(thd, &parser_state, &last_timer);
 
         enum_sql_command command = thd->lex->sql_command;
 
@@ -4774,6 +4779,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         }
         /* Finalize server status flags after executing a statement. */
         thd->update_slow_query_status();
+        command_slave_seconds += my_timer_since(init_timer);
         log_slow_statement(thd, query_start_status_ptr);
       }
 
@@ -9371,6 +9377,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
   DBUG_ENTER("Rows_log_event::do_apply_event(Relay_log_info*)");
   TABLE *table = nullptr;
   int error = 0;
+  ulonglong init_timer = my_timer_now();
 
   /*
     'thd' has been set by exec_relay_log_event(), just before calling
@@ -9940,6 +9947,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     // reset back the db
     thd->reset_db(current_db_name_saved);
   }  // if (table)
+
+  command_slave_seconds += my_timer_since(init_timer);
 
   if (error) {
     slave_rows_error_report(

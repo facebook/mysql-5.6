@@ -1,0 +1,8 @@
+flush status;
+select sleep(1.1);
+sleep(1.1)
+0
+include/assert.inc [Parse_seconds should be smaller than a second.]
+include/assert.inc [Pre_exec_seconds should be smaller than a second.]
+include/assert.inc [Exec_seconds should be bigger than a second.]
+include/assert.inc [Command_seconds should be bigger than a second.]
