@@ -435,6 +435,9 @@ struct System_variables {
 
   bool sql_log_bin_triggers;
 
+  ulong select_into_file_fsync_size;
+  uint select_into_file_fsync_timeout;
+
   /**
     @sa Sys_select_into_buffer_size
   */
