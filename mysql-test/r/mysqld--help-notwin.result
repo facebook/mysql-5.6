@@ -1216,6 +1216,12 @@ The following options may be given as the first argument:
  --secure-file-priv=name 
  Limit LOAD DATA, SELECT ... OUTFILE, and LOAD_FILE() to
  files within specified directory
+ --select-into-file-fsync-size[=#] 
+ Do an fsync to disk when the buffer grows by these many
+ bytes for SELECT INTO OUTFILE. Set 0 to disable.
+ --select-into-file-fsync-timeout[=#] 
+ The timeout/sleep in milliseconds after each fsync with
+ SELECT INTO OUTFILE
  --send-error-before-closing-timed-out-connection 
  Send error before closing connections due to timeout.
  (Defaults to on; use --skip-send-error-before-closing-timed-out-connection to disable.)
@@ -1825,6 +1831,8 @@ rpl-stop-slave-timeout 31536000
 safe-user-create FALSE
 schema-definition-cache 256
 secondary-engine-cost-threshold 100000
+select-into-file-fsync-size 0
+select-into-file-fsync-timeout 0
 send-error-before-closing-timed-out-connection TRUE
 server-id 1
 server-id-bits 32

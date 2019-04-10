@@ -258,6 +258,10 @@ class Query_result_export final : public Query_result_to_file {
   bool is_unsafe_field_sep;
   bool fixed_row_size;
   const CHARSET_INFO *write_cs;  // output charset
+  my_off_t last_fsync_off = 0L;
+#ifndef DBUG_OFF
+  uint n_fsyncs = 0;
+#endif
  public:
   explicit Query_result_export(sql_exchange *ex) : Query_result_to_file(ex) {}
   bool prepare(THD *thd, List<Item> &list, SELECT_LEX_UNIT *u) override;

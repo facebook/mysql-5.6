@@ -430,6 +430,9 @@ struct System_variables {
   bool require_row_format;
 
   bool sql_log_bin_triggers;
+
+  ulong select_into_file_fsync_size;
+  uint select_into_file_fsync_timeout;
 };
 
 /**
