@@ -1,0 +1,7 @@
+SET @start_global_value = @@global.flush_only_old_table_cache_entries;
+SET @@global.debug= '+d,tdc_flush_unused_tables';
+SET debug_sync = 'now WAIT_FOR signal.disabled';
+SET @@global.flush_only_old_table_cache_entries = true;
+SET debug_sync = 'now WAIT_FOR signal.enabled';
+SET @@global.debug= '-d,tdc_flush_unused_tables';
+SET @@global.flush_only_old_table_cache_entries = @start_global_value;

@@ -1,0 +1,57 @@
+set @start_global_value = @@global.flush_only_old_table_cache_entries;
+
+select @@global.flush_only_old_table_cache_entries;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.flush_only_old_table_cache_entries;
+show global variables like 'flush_only_old_table_cache_entries';
+show session variables like 'flush_only_old_table_cache_entries';
+select * from performance_schema.global_variables where variable_name='flush_only_old_table_cache_entries';
+select * from performance_schema.session_variables where variable_name='flush_only_old_table_cache_entries';
+
+#
+# show that it's writable
+#
+set global flush_only_old_table_cache_entries = ON;
+select @@global.flush_only_old_table_cache_entries;
+--error ER_GLOBAL_VARIABLE
+set session flush_only_old_table_cache_entries = ON;
+
+#
+# Change the value of variable to a valid value for GLOBAL Scope #
+#
+set @@global.flush_only_old_table_cache_entries = ON;
+select @@global.flush_only_old_table_cache_entries;
+set @@global.flush_only_old_table_cache_entries = OFF;
+select @@global.flush_only_old_table_cache_entries;
+set @@global.flush_only_old_table_cache_entries = 0;
+select @@global.flush_only_old_table_cache_entries;
+set @@global.flush_only_old_table_cache_entries = 1;
+select @@global.flush_only_old_table_cache_entries;
+set @@global.flush_only_old_table_cache_entries = TRUE;
+select @@global.flush_only_old_table_cache_entries;
+set @@global.flush_only_old_table_cache_entries = FALSE;
+select @@global.flush_only_old_table_cache_entries;
+
+#
+# Change the value of flush_only_old_table_cache_entries to an invalid value #
+#
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = 'ONN';
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = "OFFF";
+--error ER_PARSE_ERROR
+set @@global.flush_only_old_table_cache_entries = OF;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = TTRUE;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = FELSE;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = -1024;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = 65536;
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = 65530.34;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.flush_only_old_table_cache_entries = test;
+
+set @@global.flush_only_old_table_cache_entries = @start_global_value;
