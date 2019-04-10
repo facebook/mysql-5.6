@@ -155,6 +155,7 @@ class Table_cache {
   uint cached_tables() const { return m_table_count; }
 
   void free_all_unused_tables();
+  void free_old_unused_tables(time_point cutpoint);
 
 #ifndef DBUG_OFF
   void print_tables();
@@ -197,6 +198,7 @@ class Table_cache_manager {
                   TABLE_SHARE *share);
 
   void free_all_unused_tables();
+  void free_old_unused_tables(time_point cutpoint);
 
 #ifndef DBUG_OFF
   void print_tables();
@@ -477,6 +479,9 @@ TABLE *Table_cache::get_table(THD *thd, const char *key, size_t key_length,
     DBUG_ASSERT(table->db_stat && table->file);
     /* The children must be detached from the table. */
     DBUG_ASSERT(!table->file->ha_extra(HA_EXTRA_IS_ATTACHED_CHILDREN));
+
+    // update access time
+    table->set_last_access_time();
   }
 
   return table;

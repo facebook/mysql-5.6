@@ -50,6 +50,7 @@
 #include "sql/log.h"
 #include "sql/mysqld.h"    // flush_time
 #include "sql/sql_base.h"  // tdc_flush_unused_tables
+#include "sql/sql_class.h"
 
 static bool volatile manager_thread_in_use;
 static bool abort_manager;
@@ -63,8 +64,14 @@ static void *handle_manager(void *arg MY_ATTRIBUTE((unused))) {
   int error = 0;
   struct timespec abstime;
   bool reset_flush_time = true;
+
   my_thread_init();
   DBUG_ENTER("handle_manager");
+
+  THD *thd = new THD;
+  thd->set_new_thread_id();
+  thd->thread_stack = (char *)&thd;
+  thd->store_globals();
 
   manager_thread = my_thread_self();
   manager_thread_in_use = 1;
@@ -95,6 +102,8 @@ static void *handle_manager(void *arg MY_ATTRIBUTE((unused))) {
     }
   }
   manager_thread_in_use = 0;
+  thd->release_resources();
+  delete thd;
   DBUG_LEAVE;  // Can't use DBUG_RETURN after my_thread_end
   my_thread_end();
   return (NULL);
