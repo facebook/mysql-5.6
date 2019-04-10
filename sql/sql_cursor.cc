@@ -40,6 +40,7 @@
 #include "sql/field.h"
 #include "sql/handler.h"
 #include "sql/item.h"
+#include "sql/mysqld.h"  // my_timer_now
 #include "sql/parse_tree_node_base.h"
 #include "sql/protocol.h"
 #include "sql/query_options.h"
@@ -170,6 +171,7 @@ class Query_result_materialize final : public Query_result_union {
 
 bool mysql_open_cursor(THD *thd, Query_result *result,
                        Server_side_cursor **pcursor) {
+  ulonglong last_time = my_timer_now();
   sql_digest_state *parent_digest;
   PSI_statement_locker *parent_locker;
   Query_result_materialize *result_materialize = nullptr;
@@ -231,7 +233,7 @@ bool mysql_open_cursor(THD *thd, Query_result *result,
   thd->m_digest = nullptr;
   thd->m_statement_psi = nullptr;
 
-  bool rc = mysql_execute_command(thd);
+  bool rc = mysql_execute_command(thd, false, &last_time);
 
   thd->m_digest = parent_digest;
   DEBUG_SYNC(thd, "after_table_close");

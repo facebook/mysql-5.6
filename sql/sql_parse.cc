@@ -1512,7 +1512,8 @@ static int process_noncurrent_db_rw(THD *thd, TABLE_LIST *all_tables) {
 static void check_secondary_engine_statement(THD *thd,
                                              Parser_state *parser_state,
                                              const char *query_string,
-                                             size_t query_length) {
+                                             size_t query_length,
+                                             ulonglong *last_timer) {
   // Only restart the statement if a non-fatal error was raised.
   if (!thd->is_error() || thd->is_killed() || thd->is_fatal_error()) return;
 
@@ -1569,7 +1570,7 @@ static void check_secondary_engine_statement(THD *thd,
   thd->variables.option_bits |= OPTION_LOG_OFF;
 
   // Restart the statement.
-  dispatch_sql_command(thd, parser_state);
+  dispatch_sql_command(thd, parser_state, last_timer);
 
   // Restore the original option bits.
   thd->variables.option_bits = saved_option_bits;
@@ -1577,7 +1578,7 @@ static void check_secondary_engine_statement(THD *thd,
   // Check if the restarted statement failed, and if so, if it needs
   // another restart/fallback to the primary storage engine.
   check_secondary_engine_statement(thd, parser_state, query_string,
-                                   query_length);
+                                   query_length, last_timer);
 }
 
 static std::string perf_counter_factory_name() { return "simple"; }
@@ -1680,6 +1681,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   DBUG_PRINT("info", ("command: %d", command));
 
   Sql_cmd_clone *clone_cmd = nullptr;
+  const ulonglong init_timer = my_timer_now();
+  ulonglong last_timer = init_timer;
 
   /* For per-query performance counters with log_slow_statement */
   struct System_status_var query_start_status;
@@ -2042,12 +2045,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       copy_bind_parameter_values(thd, com_data->com_query.parameters,
                                  com_data->com_query.parameter_count);
 
-      dispatch_sql_command(thd, &parser_state);
+      dispatch_sql_command(thd, &parser_state, &last_timer);
 
       // Check if the statement failed and needs to be restarted in
       // another storage engine.
       check_secondary_engine_statement(thd, &parser_state, orig_query.str,
-                                       orig_query.length);
+                                       orig_query.length, &last_timer);
 
       thd->set_secondary_engine_optimization(saved_secondary_engine);
 
@@ -2128,10 +2131,10 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-        dispatch_sql_command(thd, &parser_state);
+        dispatch_sql_command(thd, &parser_state, &last_timer);
 
-        check_secondary_engine_statement(thd, &parser_state,
-                                         beginning_of_next_stmt, length);
+        check_secondary_engine_statement(
+            thd, &parser_state, beginning_of_next_stmt, length, &last_timer);
 
         thd->set_secondary_engine_optimization(saved_secondary_engine);
       }
@@ -2510,6 +2513,11 @@ done:
 #if defined(ENABLED_PROFILING)
   thd->profiling->finish_current_query();
 #endif
+
+  /* Don't count the thread running on a master to send binlog events to a
+     slave as that runs a long time. */
+  if (command != COM_BINLOG_DUMP)
+    thd->status_var.command_time += my_timer_since(init_timer);
 
   return error;
 }
@@ -2924,7 +2932,7 @@ static inline void binlog_gtid_end_transaction(THD *thd) {
   @retval true        Error
 */
 
-int mysql_execute_command(THD *thd, bool first_level) {
+int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
   int res = false;
   LEX *const lex = thd->lex;
   /* first Query_block (have special meaning for many of non-SELECTcommands) */
@@ -4708,8 +4716,15 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_DROP_SRS: {
       assert(lex->m_sql_cmd != nullptr);
 
+      /* The appropriate sql_cmd will set thd->pre_exec_time */
+      thd->pre_exec_time = 0;
       res = lex->m_sql_cmd->execute(thd);
 
+      if (last_timer && thd->pre_exec_time != 0) {
+        thd->status_var.pre_exec_time +=
+            my_timer_difftime(*last_timer, thd->pre_exec_time);
+        *last_timer = thd->pre_exec_time;
+      }
       break;
     }
     case SQLCOM_ALTER_USER: {
@@ -4891,6 +4906,9 @@ finish:
     }
     thd->query_plan.set_query_plan(SQLCOM_END, nullptr, false);
   }
+
+  if (last_timer)
+    thd->status_var.exec_time += my_timer_since_and_update(last_timer);
 
   assert(!thd->in_active_multi_stmt_transaction() ||
          thd->in_multi_stmt_transaction_mode());
@@ -5211,7 +5229,8 @@ void THD::reset_for_next_command() {
   @param parser_state Parser state.
 */
 
-void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
+void dispatch_sql_command(THD *thd, Parser_state *parser_state,
+                          ulonglong *last_timer) {
   DBUG_TRACE;
   DBUG_PRINT("dispatch_sql_command", ("query: '%s'", thd->query().str));
 
@@ -5287,6 +5306,9 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
     }
   }
 
+  if (last_timer)
+    thd->status_var.parse_time += my_timer_since_and_update(last_timer);
+
   DEBUG_SYNC_C("sql_parse_after_rewrite");
 
   if (!err) {
@@ -5339,7 +5361,7 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state) {
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-          error = mysql_execute_command(thd, true);
+          error = mysql_execute_command(thd, true, last_timer);
 
           if (switched)
             mgr_ptr->restore_original_resource_group(thd, src_res_grp,

@@ -967,6 +967,7 @@ void sp_instr_stmt::print(const THD *, String *str) {
 }
 
 bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
+  ulonglong last_time = my_timer_now();
   LEX *const lex = thd->lex;
   lex->set_sp_current_parsing_ctx(get_parsing_ctx());
   lex->sphead = thd->sp_runtime_ctx->sp;
@@ -975,7 +976,7 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
 
   assert(lex->m_sql_cmd == nullptr || lex->m_sql_cmd->is_part_of_sp());
 
-  bool rc = mysql_execute_command(thd);
+  bool rc = mysql_execute_command(thd, false, &last_time);
 
   lex->set_sp_current_parsing_ctx(nullptr);
   lex->sphead = nullptr;

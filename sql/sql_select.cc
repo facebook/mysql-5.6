@@ -577,6 +577,8 @@ bool Sql_cmd_dml::execute(THD *thd) {
     if (lock_tables(thd, lex->query_tables, lex->table_count, 0)) goto err;
   }
 
+  thd->pre_exec_time = my_timer_now();
+
   // Perform statement-specific execution
   if (execute_inner(thd)) goto err;
 

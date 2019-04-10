@@ -1547,7 +1547,7 @@ class THD : public MDL_context_owner,
   /**
     Query start time, expressed in microseconds.
   */
-  ulonglong start_utime;
+  ulonglong start_utime, pre_exec_time;
 
  private:
   /**
