@@ -577,6 +577,7 @@ static my_bool rocksdb_force_compute_memtable_stats;
 static uint32_t rocksdb_force_compute_memtable_stats_cachetime;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_wal_recovery_mode;
+static uint32_t rocksdb_stats_level;
 static uint32_t rocksdb_access_hint_on_compaction_start;
 static char *rocksdb_compact_cf_name;
 static char *rocksdb_delete_cf_name;
@@ -692,6 +693,23 @@ static void rocksdb_set_rocksdb_info_log_level(
   rocksdb_info_log_level = *static_cast<const uint64_t *>(save);
   rocksdb_db_options->info_log->SetInfoLogLevel(
       static_cast<const rocksdb::InfoLogLevel>(rocksdb_info_log_level));
+  RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
+}
+
+static void rocksdb_set_rocksdb_stats_level(THD *const thd,
+                                            struct st_mysql_sys_var *const var,
+                                            void *const var_ptr,
+                                            const void *const save) {
+  DBUG_ASSERT(save != nullptr);
+
+  RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
+  rocksdb_db_options->statistics->set_stats_level(
+      static_cast<const rocksdb::StatsLevel>(
+          *static_cast<const uint64_t *>(save)));
+  // Actual stats level is defined at rocksdb dbopt::statistics::stats_level_
+  // so adjusting rocksdb_stats_level here to make sure it points to
+  // the correct stats level.
+  rocksdb_stats_level = rocksdb_db_options->statistics->get_stats_level();
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
@@ -1109,6 +1127,14 @@ static MYSQL_SYSVAR_UINT(
     /* default */ (uint)rocksdb::WALRecoveryMode::kAbsoluteConsistency,
     /* min */ (uint)rocksdb::WALRecoveryMode::kTolerateCorruptedTailRecords,
     /* max */ (uint)rocksdb::WALRecoveryMode::kSkipAnyCorruptedRecords, 0);
+
+static MYSQL_SYSVAR_UINT(
+    stats_level, rocksdb_stats_level, PLUGIN_VAR_RQCMDARG,
+    "Statistics Level for RocksDB. Default is 0 (kExceptHistogramOrTimers)",
+    nullptr, rocksdb_set_rocksdb_stats_level,
+    /* default */ (uint)rocksdb::StatsLevel::kExceptHistogramOrTimers,
+    /* min */ (uint)rocksdb::StatsLevel::kExceptHistogramOrTimers,
+    /* max */ (uint)rocksdb::StatsLevel::kAll, 0);
 
 static MYSQL_SYSVAR_ULONG(compaction_readahead_size,
                           rocksdb_db_options->compaction_readahead_size,
@@ -1904,6 +1930,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(enable_thread_tracking),
     MYSQL_SYSVAR(perf_context_level),
     MYSQL_SYSVAR(wal_recovery_mode),
+    MYSQL_SYSVAR(stats_level),
     MYSQL_SYSVAR(access_hint_on_compaction_start),
     MYSQL_SYSVAR(new_table_reader_for_compaction_inputs),
     MYSQL_SYSVAR(compaction_readahead_size),
@@ -4903,6 +4930,9 @@ static int rocksdb_init_func(void *const p) {
   rdb_read_free_regex_handler.set_patterns(DEFAULT_READ_FREE_RPL_TABLES);
 
   rocksdb_stats = rocksdb::CreateDBStatistics();
+  rocksdb_stats->set_stats_level(
+      static_cast<rocksdb::StatsLevel>(rocksdb_stats_level));
+  rocksdb_stats_level = rocksdb_stats->get_stats_level();
   rocksdb_db_options->statistics = rocksdb_stats;
 
   if (rocksdb_rate_limiter_bytes_per_sec != 0) {
