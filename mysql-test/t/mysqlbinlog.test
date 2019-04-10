@@ -288,6 +288,9 @@ let $master_binlog_file= query_get_value(SHOW MASTER STATUS, File, 1);
 --exec $MYSQL_BINLOG --disable-force-if-open $MYSQLD_DATADIR/$master_binlog_file >/dev/null 2>/dev/null
 --exec $MYSQL_BINLOG --force-if-open $MYSQLD_DATADIR/$master_binlog_file >/dev/null 2>/dev/null
 
+# Test --print-gtids with gtids disabled
+--exec $MYSQL_BINLOG --force-if-open --print-gtids $MYSQLD_DATADIR/$master_binlog_file 2>&1 1>&-
+
 --echo Bug#31611 Security risk with BINLOG statement
 
 SET BINLOG_FORMAT='ROW';
