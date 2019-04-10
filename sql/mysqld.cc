@@ -719,6 +719,10 @@ The documentation is based on the source files such as:
 
 #ifdef HAVE_JEMALLOC
 #include <jemalloc/jemalloc.h>
+
+extern "C" {
+const char *malloc_conf = "prof:true,prof_active:false,prof_prefix:jeprof.out";
+}
 #endif
 
 using std::max;
