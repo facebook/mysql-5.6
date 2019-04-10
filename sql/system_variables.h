@@ -600,6 +600,12 @@ struct System_status_var {
   ulonglong bytes_received;
   ulonglong bytes_sent;
 
+  /* Performance counters */
+  ulonglong command_time;  /* Time handling client commands */
+  ulonglong parse_time;    /* Time parsing client commands */
+  ulonglong pre_exec_time; /* Time doing work post-parse but before execution */
+  ulonglong exec_time;     /* Time executing client commands */
+
   ulonglong max_execution_time_exceeded;
   ulonglong max_execution_time_set;
   ulonglong max_execution_time_set_failed;

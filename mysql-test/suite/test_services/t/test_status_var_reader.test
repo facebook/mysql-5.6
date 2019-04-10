@@ -24,6 +24,8 @@ SELECT VARIABLE_NAME, VARIABLE_VALUE, test_get_status_var(VARIABLE_NAME, 0)
   FROM performance_schema.global_status
   WHERE VARIABLE_VALUE <> test_get_status_var(VARIABLE_NAME, 0) AND
      VARIABLE_NAME NOT IN (
+        'Command_seconds',
+        'Exec_seconds',
         'Bytes_received',
         'Bytes_sent',
         'Handler_commit',
@@ -44,6 +46,8 @@ SELECT VARIABLE_NAME, VARIABLE_VALUE, test_get_status_var(VARIABLE_NAME, 1)
   FROM performance_schema.session_status
   WHERE VARIABLE_VALUE <> test_get_status_var(VARIABLE_NAME, 1) AND
      VARIABLE_NAME NOT IN (
+        'Command_seconds',
+        'Exec_seconds',
         'Bytes_received',
         'Bytes_sent',
         'Handler_commit',

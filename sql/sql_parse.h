@@ -102,10 +102,12 @@ bool support_high_priority(enum enum_sql_command command) noexcept;
 bool is_explainable_query(enum enum_sql_command command);
 bool is_log_table_write_query(enum enum_sql_command command);
 bool alloc_query(THD *thd, const char *packet, size_t packet_length);
-void dispatch_sql_command(THD *thd, Parser_state *parser_state);
+void dispatch_sql_command(THD *thd, Parser_state *parser_state,
+                          ulonglong *last_timer = nullptr);
 void mysql_reset_thd_for_next_command(THD *thd);
 void create_table_set_open_action_and_adjust_tables(LEX *lex);
-int mysql_execute_command(THD *thd, bool first_level = false);
+int mysql_execute_command(THD *thd, bool first_level = false,
+                          ulonglong *last_timer = nullptr);
 bool do_command(THD *thd);
 bool dispatch_command(THD *thd, const COM_DATA *com_data,
                       enum enum_server_command command);
