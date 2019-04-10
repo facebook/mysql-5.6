@@ -631,12 +631,35 @@ bool Query_result_export::send_data(THD *thd,
                  pointer_cast<const uchar *>(exchange->line.line_term->ptr()),
                  exchange->line.line_term->length()))
     goto err;
+
+  /* fsync the file after every select_into_file_fsync_size bytes
+       optionally sleep */
+  if (thd->variables.select_into_file_fsync_size != 0) {
+    my_off_t cur_fsize = my_b_tell(&cache);
+    if (cur_fsize - last_fsync_off >=
+        thd->variables.select_into_file_fsync_size) {
+      if (flush_io_cache(&cache) || mysql_file_sync(cache.file, MYF(MY_WME)))
+        goto err;
+#ifndef NDEBUG
+      n_fsyncs++;
+#endif
+      last_fsync_off = cur_fsize;
+      if (thd->variables.select_into_file_fsync_timeout)
+        my_sleep(thd->variables.select_into_file_fsync_timeout * 1000);
+    }
+  }
+
   return false;
 err:
   return true;
 }
 
 void Query_result_export::cleanup() {
+  DBUG_EXECUTE_IF("print_select_file_fsync_stats", {
+    // NO_LINT_DEBUG
+    fprintf(stderr, "[select_to_file][fsync_count] %u\n", n_fsyncs);
+  });
+
   current_thd->set_sent_row_count(row_count);
   Query_result_to_file::cleanup();
 }

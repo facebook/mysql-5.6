@@ -471,6 +471,9 @@ struct System_variables {
   bool gap_lock_raise_error;
   bool gap_lock_write_log;
 
+  ulong select_into_file_fsync_size;
+  uint select_into_file_fsync_timeout;
+
   /**
     @sa Sys_select_into_buffer_size
   */
