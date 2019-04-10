@@ -2126,6 +2126,13 @@ static Sys_var_ulong Sys_flush_time(
     GLOBAL_VAR(flush_time), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_flush_only_old_cache_entries(
+    "flush_only_old_table_cache_entries",
+    "Enable/disable flushing table and definition cache entries "
+    "policy based on TTL specified by flush_time.",
+    GLOBAL_VAR(flush_only_old_table_cache_entries), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static bool check_ftb_syntax(sys_var *, THD *, set_var *var) {
   return ft_boolean_check_syntax_string(
       (uchar *)(var->save_result.string_value.str));

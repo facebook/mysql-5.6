@@ -369,6 +369,9 @@ The following options may be given as the first argument:
  The max size of a file to use for filesort. Raise an
  error when this is exceeded. 0 means no limit.
  --flush             Flush MyISAM tables to disk between SQL commands
+ --flush-only-old-table-cache-entries 
+ Enable/disable flushing table and definition cache
+ entries policy based on TTL specified by flush_time.
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
  --ft-boolean-syntax=name 
@@ -1596,6 +1599,7 @@ explicit-defaults-for-timestamp TRUE
 external-locking FALSE
 filesort-max-file-size 0
 flush FALSE
+flush-only-old-table-cache-entries FALSE
 flush-time 0
 ft-boolean-syntax + -><()~*:""&|
 ft-max-word-len 84

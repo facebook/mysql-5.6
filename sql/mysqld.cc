@@ -1167,6 +1167,7 @@ bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
 bool is_slave = false;
 bool read_only_slave;
+bool flush_only_old_table_cache_entries = false;
 
 const char *timestamp_type_names[] = {"UTC", "SYSTEM", NullS};
 ulong opt_log_timestamps;

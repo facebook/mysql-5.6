@@ -1,0 +1,67 @@
+set @start_global_value = @@global.flush_only_old_table_cache_entries;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+0
+select @@session.flush_only_old_table_cache_entries;
+ERROR HY000: Variable 'flush_only_old_table_cache_entries' is a GLOBAL variable
+show global variables like 'flush_only_old_table_cache_entries';
+Variable_name	Value
+flush_only_old_table_cache_entries	OFF
+show session variables like 'flush_only_old_table_cache_entries';
+Variable_name	Value
+flush_only_old_table_cache_entries	OFF
+select * from performance_schema.global_variables where variable_name='flush_only_old_table_cache_entries';
+VARIABLE_NAME	VARIABLE_VALUE
+flush_only_old_table_cache_entries	OFF
+select * from performance_schema.session_variables where variable_name='flush_only_old_table_cache_entries';
+VARIABLE_NAME	VARIABLE_VALUE
+flush_only_old_table_cache_entries	OFF
+set global flush_only_old_table_cache_entries = ON;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+1
+set session flush_only_old_table_cache_entries = ON;
+ERROR HY000: Variable 'flush_only_old_table_cache_entries' is a GLOBAL variable and should be set with SET GLOBAL
+set @@global.flush_only_old_table_cache_entries = ON;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+1
+set @@global.flush_only_old_table_cache_entries = OFF;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+0
+set @@global.flush_only_old_table_cache_entries = 0;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+0
+set @@global.flush_only_old_table_cache_entries = 1;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+1
+set @@global.flush_only_old_table_cache_entries = TRUE;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+1
+set @@global.flush_only_old_table_cache_entries = FALSE;
+select @@global.flush_only_old_table_cache_entries;
+@@global.flush_only_old_table_cache_entries
+0
+set @@global.flush_only_old_table_cache_entries = 'ONN';
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of 'ONN'
+set @@global.flush_only_old_table_cache_entries = "OFFF";
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of 'OFFF'
+set @@global.flush_only_old_table_cache_entries = OF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'OF' at line 1
+set @@global.flush_only_old_table_cache_entries = TTRUE;
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of 'TTRUE'
+set @@global.flush_only_old_table_cache_entries = FELSE;
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of 'FELSE'
+set @@global.flush_only_old_table_cache_entries = -1024;
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of '-1024'
+set @@global.flush_only_old_table_cache_entries = 65536;
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of '65536'
+set @@global.flush_only_old_table_cache_entries = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'flush_only_old_table_cache_entries'
+set @@global.flush_only_old_table_cache_entries = test;
+ERROR 42000: Variable 'flush_only_old_table_cache_entries' can't be set to the value of 'test'
+set @@global.flush_only_old_table_cache_entries = @start_global_value;

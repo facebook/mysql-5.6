@@ -25,6 +25,7 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <chrono>  // last access time
 #include <string>
 
 #include "field_types.h"
@@ -129,6 +130,8 @@ using Sql_check_constraint_share_list =
 typedef Mem_root_array_YY<LEX_CSTRING> Create_col_name_list;
 
 typedef int64 query_id_t;
+
+using time_point = std::chrono::system_clock::time_point;
 
 enum class enum_json_diff_operation;
 
@@ -952,6 +955,9 @@ struct TABLE_SHARE {
   // List of check constraint share instances.
   Sql_check_constraint_share_list *check_constraint_share_list{nullptr};
 
+  /* last time table_share was accessed via get_table_share() function */
+  time_point last_accessed;
+
   /**
     Set share's table cache key and update its db and table name appropriately.
 
@@ -1111,6 +1117,9 @@ struct TABLE_SHARE {
 
   /** Release resources and free memory occupied by the table share. */
   void destroy();
+
+  /* reset time for TTL based LRU eviction policy */
+  void set_last_access_time() noexcept;
 
   /**
     How many TABLE objects use this TABLE_SHARE.
@@ -1654,6 +1663,9 @@ struct TABLE {
   bool master_had_triggers{false};
   bool disable_sql_log_bin_triggers{false};
 
+  /* last time table was accessed via get_table() function */
+  time_point last_accessed;
+
  private:
   /// Cost model object for operations on this table
   Cost_model_table m_cost_model;
@@ -2191,6 +2203,9 @@ struct TABLE {
   void prepare_triggers_for_insert_stmt_or_event();
   bool prepare_triggers_for_delete_stmt_or_event();
   bool prepare_triggers_for_update_stmt_or_event();
+
+  /* reset time for TTL based LRU eviction policy */
+  void set_last_access_time() noexcept;
 };
 
 static inline void empty_record(TABLE *table) {
@@ -4144,5 +4159,7 @@ bool create_table_share_for_upgrade(THD *thd, const char *path,
 */
 
 bool create_key_part_field_with_prefix_length(TABLE *table, MEM_ROOT *root);
+
+bool should_be_evicted(time_point last_accessed, time_point cutpoint) noexcept;
 
 #endif /* TABLE_INCLUDED */

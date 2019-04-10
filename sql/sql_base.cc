@@ -537,6 +537,9 @@ static TABLE_SHARE *process_found_table_share(THD *thd MY_ATTRIBUTE((unused)),
     share->prev = nullptr;
   }
 
+  /* update access time */
+  share->set_last_access_time();
+
   /* Free cache if too big */
   while (table_def_cache->size() > table_def_size && oldest_unused_share->next)
     table_def_cache->erase(to_string(oldest_unused_share->table_cache_key));
@@ -832,6 +835,9 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
 #else
   share->m_psi = NULL;
 #endif
+
+  /* update access time */
+  share->set_last_access_time();
 
   DBUG_PRINT("exit", ("share: %p  ref_count: %u", share, share->ref_count()));
 
@@ -9734,7 +9740,34 @@ err:
 
 void tdc_flush_unused_tables() {
   table_cache_manager.lock_all_and_tdc();
-  table_cache_manager.free_all_unused_tables();
+
+  if (flush_only_old_table_cache_entries) {
+    DBUG_EXECUTE_IF("tdc_flush_unused_tables", {
+      static constexpr char act[] = "now SIGNAL signal.enabled";
+      DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    };);
+
+    const time_point flush_cutpoint =
+        std::chrono::system_clock::now() - std::chrono::seconds(flush_time);
+    table_cache_manager.free_old_unused_tables(flush_cutpoint);
+
+    /* Free table shares which were not freed implicitly by loop above. */
+    for (TABLE_SHARE *s = oldest_unused_share; s->next; s = s->next) {
+      if (should_be_evicted(s->last_accessed, flush_cutpoint)) {
+        table_def_cache->erase(to_string(s->table_cache_key));
+      }
+    }
+  } else {
+    DBUG_EXECUTE_IF("tdc_flush_unused_tables", {
+      static constexpr char act[] = "now SIGNAL signal.disabled";
+      DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    };);
+
+    table_cache_manager.free_all_unused_tables();
+    /* Free table shares which were not freed implicitly by loop above. */
+    while (oldest_unused_share->next)
+      table_def_cache->erase(to_string(oldest_unused_share->table_cache_key));
+  }
   table_cache_manager.unlock_all_and_tdc();
 }
 
