@@ -1504,6 +1504,9 @@ The following options may be given as the first argument:
  fails to load).
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
+ --rocksdb-stats-level=# 
+ Statistics Level for RocksDB. Default is 0
+ (kExceptHistogramOrTimers)
  --rocksdb-stats-recalc-rate=# 
  The number of indexes per second to recalculate
  statistics for. 0 to disable background recalculation.
@@ -2358,6 +2361,7 @@ rocksdb-skip-unique-check-tables (No default value)
 rocksdb-sst-mgr-rate-bytes-per-sec 0
 rocksdb-sst-props ON
 rocksdb-stats-dump-period-sec 600
+rocksdb-stats-level 0
 rocksdb-stats-recalc-rate 0
 rocksdb-store-row-debug-checksums FALSE
 rocksdb-strict-collation-check TRUE
