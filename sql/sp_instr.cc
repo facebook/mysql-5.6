@@ -957,12 +957,14 @@ void sp_instr_stmt::print(const THD *, String *str) {
 }
 
 bool sp_instr_stmt::exec_core(THD *thd, uint *nextp) {
+  ulonglong last_time = my_timer_now();
+
   thd->lex->set_sp_current_parsing_ctx(get_parsing_ctx());
   thd->lex->sphead = thd->sp_runtime_ctx->sp;
 
   PSI_statement_locker *statement_psi_saved = thd->m_statement_psi;
 
-  bool rc = mysql_execute_command(thd);
+  bool rc = mysql_execute_command(thd, false, &last_time);
 
   thd->lex->set_sp_current_parsing_ctx(nullptr);
   thd->lex->sphead = nullptr;

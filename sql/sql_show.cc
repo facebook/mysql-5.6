@@ -2753,6 +2753,10 @@ const char *get_one_variable_ext(THD *running_thd, THD *target_thd,
       value_charset = system_charset_info;
       break;
 
+    case SHOW_TIMER_STATUS:
+      value = ((char *)status_var + (ulong)value);
+      /* fallthrough */
+
     case SHOW_TIMER: {
       /* 6 is the default precision for '%f' in sprintf() */
       double tmp_val =
