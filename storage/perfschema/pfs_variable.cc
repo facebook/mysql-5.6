@@ -32,6 +32,7 @@
   @file storage/perfschema/pfs_variable.cc
   Performance schema system variable and status variable (implementation).
 */
+#include "mf_wcomp.h"
 #include "my_dbug.h"
 #include "my_macros.h"
 #include "my_sys.h"
@@ -1366,6 +1367,18 @@ void PFS_status_variable_cache::manifest(THD *thd,
                                          System_status_var *status_vars,
                                          const char *prefix, bool nested_array,
                                          bool strict) {
+  const LEX *lex = thd->lex;
+  const char *const wild = lex->wild ? lex->wild->ptr() : nullptr;
+
+  // Find the length of the user's 'LIKE' parameter until the first wildcard
+  std::size_t before_wild_len = 0;
+  while (wild && wild[before_wild_len] != wild_one &&
+         wild[before_wild_len] != wild_many &&
+         wild[before_wild_len] != wild_prefix &&
+         wild[before_wild_len] != '\0') {
+    ++before_wild_len;
+  }
+
   for (const SHOW_VAR *show_var_iter = show_var_array;
        show_var_iter && show_var_iter->name; show_var_iter++) {
     // work buffer, must be aligned to handle long/longlong values
@@ -1379,6 +1392,17 @@ void PFS_status_variable_cache::manifest(THD *thd,
       SHOW_FUNC resolves to another SHOW_FUNC.
     */
     if (show_var_ptr->type == SHOW_FUNC) {
+      if (before_wild_len > 0) {
+        const auto len = strlen(show_var_ptr->name);
+        /* Perform prefix match */
+        if (system_charset_info->coll->strnncoll(
+                system_charset_info,
+                reinterpret_cast<const uchar *>(show_var_ptr->name), len,
+                reinterpret_cast<const uchar *>(wild), before_wild_len,
+                true) != 0)
+          continue;
+      }
+
       show_var_tmp = *show_var_ptr;
       /*
         Execute the function reference in show_var_tmp->value, which returns
