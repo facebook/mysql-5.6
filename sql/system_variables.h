@@ -232,6 +232,7 @@ struct System_variables {
   uint dynamic_variables_size;    /* how many bytes are in use */
   LIST *dynamic_variables_allocs; /* memory hunks for PLUGIN_VAR_MEMALLOC */
 
+  ulonglong filesort_max_file_size;
   ulonglong max_heap_table_size;
   ulonglong tmp_table_size;
   ulonglong long_query_time;
