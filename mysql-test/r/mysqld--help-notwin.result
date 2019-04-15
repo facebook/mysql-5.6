@@ -365,6 +365,9 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --filesort-max-file-size=# 
+ The max size of a file to use for filesort. Raise an
+ error when this is exceeded. 0 means no limit.
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
@@ -1591,6 +1594,7 @@ event-scheduler ON
 expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
+filesort-max-file-size 0
 flush FALSE
 flush-time 0
 ft-boolean-syntax + -><()~*:""&|

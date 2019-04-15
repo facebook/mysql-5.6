@@ -4465,6 +4465,13 @@ static Sys_var_ulong Sys_sort_buffer(
     VALID_RANGE(MIN_SORT_MEMORY, ULONG_MAX), DEFAULT(DEFAULT_SORT_MEMORY),
     BLOCK_SIZE(1));
 
+static Sys_var_ulonglong Sys_filesort_max_file_size(
+    "filesort_max_file_size",
+    "The max size of a file to use for filesort. Raise an error "
+    "when this is exceeded. 0 means no limit.",
+    HINT_UPDATEABLE SESSION_VAR(filesort_max_file_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 /**
   Check sql modes strict_mode, 'NO_ZERO_DATE', 'NO_ZERO_IN_DATE' and
   'ERROR_FOR_DIVISION_BY_ZERO' are used together. If only subset of it

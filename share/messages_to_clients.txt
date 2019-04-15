@@ -9455,8 +9455,8 @@ ER_PLACEHOLDER_50035
 ER_CONNECTION_TIMEOUT
   eng "Closed connection: idle timeout after %us"
 
-ER_PLACEHOLDER_50037
-  eng "Placeholder"
+ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
+   eng "Filesort file is too big"
 
 ER_PLACEHOLDER_50038
   eng "Placeholder"
