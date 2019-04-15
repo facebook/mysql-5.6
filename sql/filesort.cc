@@ -408,6 +408,9 @@ bool filesort(THD *thd, Filesort *filesort, bool sort_positions,
                           sort_positions, filesort->m_remove_duplicates);
 
   table->sort.addon_fields = param.addon_fields;
+#ifndef DBUG_OFF
+  table->sort.file_size_exceeded = false;
+#endif /* DBUG_OFF */
 
   /*
     TODO: Now that we read from RowIterators, the situation is a lot more
@@ -615,7 +618,8 @@ err:
     }
   }
   if (error) {
-    DBUG_ASSERT(thd->is_error() || thd->killed);
+    DBUG_ASSERT(thd->is_error() || thd->killed ||
+                table->sort.file_size_exceeded);
 
     /*
       Guard against Bug#11745656 -- KILL QUERY should not send "server shutdown"
@@ -1138,6 +1142,7 @@ cleanup:
 
 static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
                       IO_CACHE *chunk_file, IO_CACHE *tempfile) {
+  THD *thd = current_thd;
   Merge_chunk merge_chunk;
   DBUG_ENTER("write_keys");
 
@@ -1170,6 +1175,15 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
 
     if (my_b_write(tempfile, record, rec_length))
       DBUG_RETURN(1); /* purecov: inspected */
+
+    if (thd->variables.filesort_max_file_size > 0 &&
+        tempfile->pos_in_file > thd->variables.filesort_max_file_size) {
+#ifndef DBUG_OFF
+      fs_info->file_size_exceeded = true;
+#endif /* DBUG_OFF */
+      my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
+      DBUG_RETURN(1);
+    }
   }
 
   if (my_b_write(chunk_file, pointer_cast<uchar *>(&merge_chunk),
