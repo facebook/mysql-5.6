@@ -447,6 +447,9 @@ bool filesort(THD *thd, Filesort *filesort, RowIterator *source_iterator,
                            filesort->m_remove_duplicates);
 
   fs_info->addon_fields = param->addon_fields;
+#ifndef DBUG_OFF
+  fs_info->file_size_exceeded = false;
+#endif /* DBUG_OFF */
 
   thd->inc_status_sort_scan();
 
@@ -650,7 +653,7 @@ err:
     }
   }
   if (error) {
-    DBUG_ASSERT(thd->is_error() || thd->killed);
+    DBUG_ASSERT(thd->is_error() || thd->killed || fs_info->file_size_exceeded);
   } else
     thd->inc_status_sort_rows(num_rows_found);
 
@@ -1099,6 +1102,7 @@ static ha_rows read_all_rows(
 
 static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
                       IO_CACHE *chunk_file, IO_CACHE *tempfile) {
+  THD *thd = current_thd;
   Merge_chunk merge_chunk;
   DBUG_TRACE;
 
@@ -1127,6 +1131,15 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
 
     if (my_b_write(tempfile, record, rec_length))
       return 1; /* purecov: inspected */
+
+    if (thd->variables.filesort_max_file_size > 0 &&
+        tempfile->pos_in_file > thd->variables.filesort_max_file_size) {
+#ifndef DBUG_OFF
+      fs_info->file_size_exceeded = true;
+#endif /* DBUG_OFF */
+      my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
+      return 1;
+    }
   }
 
   if (my_b_write(chunk_file, pointer_cast<uchar *>(&merge_chunk),

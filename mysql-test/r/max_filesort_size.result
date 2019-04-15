@@ -1,0 +1,90 @@
+set @save_filesort_max_file_size = @@global.filesort_max_file_size;
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+Query is OK when there is no limit
+show variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show global variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+explain select i, c from t1 order by hex(c) limit 1 offset 4000;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	100.00	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`c` AS `c` from `test`.`t1` order by hex(`test`.`t1`.`c`) limit 4000,1
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+i	c
+643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
+select /*+ SET_VAR(filesort_max_file_size = 1000000) */ i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Filesort file is too big
+Query fails with a limit
+set session filesort_max_file_size=1000000;
+show variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	1000000
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	1000000
+show global variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Filesort file is too big
+Query is OK when another session has a limit
+show variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show global variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+i	c
+643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
+Query is OK when session limit is reset
+set session filesort_max_file_size=0;
+show variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+show global variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	0
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+i	c
+643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
+Query fails when global limit is set
+set global filesort_max_file_size=1000000;
+show variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	1000000
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	1000000
+show global variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	1000000
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Filesort file is too big
+drop table t1;
+set @@global.filesort_max_file_size = @save_filesort_max_file_size;
