@@ -167,6 +167,7 @@ SET(ROCKSDB_SE_SOURCES
   rdb_sst_info.cc rdb_sst_info.h
   rdb_utils.cc rdb_utils.h rdb_buff.h
   rdb_threads.cc rdb_threads.h
+  nosql_access.cc nosql_access.h
 )
 
 IF(WITH_FB_TSAN)
