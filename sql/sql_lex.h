@@ -722,6 +722,22 @@ public:
   List<Item>          item_list;
   List<String>        interval_list;
   bool	              is_item_list_lookup;
+
+  /*
+    Status of bypass hint bypass and no_bypass.
+    It is up to the storage engine to interpret the meaning in the
+    hton::handle_single_table_select callback. Typically storage engine
+    can use this as hint to go talk to their own SELECT query engine and
+    bypass MySQL logic partially or completely.
+   */
+  enum select_bypass_hint_type {
+    SELECT_BYPASS_HINT_DEFAULT, /* Neither bypass / no_bypass specified */
+    SELECT_BYPASS_HINT_ON,      /* bypass specified */
+    SELECT_BYPASS_HINT_OFF,     /* no_bypass specified */
+  };
+
+  enum select_bypass_hint_type  select_bypass_hint;
+
   /* 
     Usualy it is pointer to ftfunc_list_alloc, but in union used to create fake
     select_lex for calling mysql_select under results of union

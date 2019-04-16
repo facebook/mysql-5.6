@@ -562,6 +562,58 @@ static int find_keyword(Lex_input_stream *lip, uint len, bool function)
 	!(lip->m_thd->variables.sql_mode & MODE_PIPES_AS_CONCAT))
       return OR2_SYM;
 
+    if (symbol->tok == SELECT_SYM) {
+      /* consume hints for bypass */
+      const CHARSET_INFO *cs= lip->m_thd->charset();
+      uchar *state_map= cs->state_map;
+      int whitespace = 0;
+      for (uchar c = lip->yyPeek(); state_map[c] == MY_LEX_SKIP;
+           whitespace++, c = lip->yyPeekn(whitespace)) {
+      }
+
+      /*
+        lookahead for bypass hint - this is safe as query buffer format
+        ensures null terminating character at the end as well as additional
+        data towards the end
+       */
+      if (lip->yyPeekn(whitespace) == '/' &&
+        lip->yyPeekn(whitespace + 1) == '*' &&
+        lip->yyPeekn(whitespace + 2) == '+' &&
+        lip->yyPeekn(whitespace + 3) == ' ') {
+        if (to_upper_lex[lip->yyPeekn(whitespace + 4)] == 'B' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 5)] == 'Y' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 6)] == 'P' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 7)] == 'A' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 8)] == 'S' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 9)] == 'S' &&
+          lip->yyPeekn(whitespace + 10) == ' ' &&
+          lip->yyPeekn(whitespace + 11) == '*' &&
+          lip->yyPeekn(whitespace + 12) == '/') {
+          /* HINT: turn on select bypass */
+          lip->m_thd->lex->select_lex.select_bypass_hint =
+              SELECT_LEX::SELECT_BYPASS_HINT_ON;
+          lip->yySkipn(whitespace + 13);
+        }
+        else if (to_upper_lex[lip->yyPeekn(whitespace + 4)] == 'N' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 5)] == 'O' &&
+          lip->yyPeekn(whitespace + 6) == '_' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 7)] == 'B' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 8)] == 'Y' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 9)] == 'P' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 10)] == 'A' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 11)] == 'S' &&
+          to_upper_lex[lip->yyPeekn(whitespace + 12)] == 'S' &&
+          lip->yyPeekn(whitespace + 13) == ' ' &&
+          lip->yyPeekn(whitespace + 14) == '*' &&
+          lip->yyPeekn(whitespace + 15) == '/') {
+          /* HINT: turn off select bypass */
+          lip->m_thd->lex->select_lex.select_bypass_hint =
+              SELECT_LEX::SELECT_BYPASS_HINT_OFF;
+          lip->yySkipn(whitespace + 16);
+        }
+      }
+    }
+
     return symbol->tok;
   }
   return 0;
@@ -1714,11 +1766,12 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
       length= lip->yyLength();
       if (length == 0)
         return(ABORT_SYM);              // Names must be nonempty.
+      lip->yyUnget();
       if ((tokval= find_keyword(lip, length,0)))
       {
-        lip->yyUnget();                         // Put back 'c'
 	return(tokval);				// Was keyword
       }
+      lip->yySkip();
       yylval->lex_str=get_token(lip, 0, length);
 
       lip->body_utf8_append(lip->m_cpp_text_start);
@@ -1845,6 +1898,7 @@ void st_select_lex::init_query()
   m_agg_func_used= false;
   with_sum_func= false;
   removed_select= NULL;
+  select_bypass_hint= SELECT_BYPASS_HINT_DEFAULT;
 }
 
 void st_select_lex::init_select()

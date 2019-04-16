@@ -3185,6 +3185,23 @@ static int show_memory_status(THD* thd)
   return FALSE;
 }
 
+/* Call out to handler to handle this select command */
+bool ha_handle_single_table_select(THD *thd, st_select_lex *select_lex) {
+  /* Simple non-UNION non-NESTED single-table query only */
+  if (select_lex->type(thd) != st_select_lex::SLT_SIMPLE ||
+      select_lex->table_list.elements != 1)
+    return false;
+
+  TABLE_LIST *table_list = select_lex->table_list.first;
+  TABLE *table = table_list->table;
+  if (!table)
+    return false;
+
+  handlerton *hton = table->s->db_type();
+  return (hton && hton->handle_single_table_select &&
+          hton->handle_single_table_select(thd, select_lex));
+}
+
 /**
   Execute command saved in thd and lex->sql_command.
 
@@ -6501,8 +6518,9 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
       res= explain_query_expression(thd, result);
       delete result;
     }
-    else
-    {
+    else if (ha_handle_single_table_select(thd, &lex->select_lex)) {
+      res = thd->is_error();
+    } else {
       if (!result && !(result= new select_send()))
         return 1;                               /* purecov: inspected */
       select_result *save_result= result;

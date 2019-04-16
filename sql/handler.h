@@ -42,6 +42,7 @@
 #include <sql_string.h>
 
 class Alter_info;
+class st_select_lex;
 
 // the following is for checking tables
 
@@ -1050,6 +1051,9 @@ struct handlerton
                                         int n_lock_wait_timeout,
                                         int n_lock_deadlock,
                                         const char *engine));
+
+   /* Overriding single table SELECT implementation if returns TRUE */
+   bool (*handle_single_table_select)(THD *thd, st_select_lex *select_lex);
 
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
