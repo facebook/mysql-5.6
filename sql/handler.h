@@ -172,6 +172,8 @@ extern const char *binlog_format_names[];
 extern TYPELIB tx_isolation_typelib;
 extern ulong total_ha_2pc;
 
+class SELECT_LEX;
+
 // the following is for checking tables
 
 #define HA_ADMIN_ALREADY_DONE 1
@@ -2143,6 +2145,9 @@ typedef bool (*check_fk_column_compat_t)(
 
 typedef bool (*is_reserved_db_name_t)(handlerton *hton, const char *name);
 
+/* Overriding single table SELECT implementation if returns TRUE */
+typedef bool (*handle_single_table_select_t)(THD *thd, SELECT_LEX *select_lex);
+
 /**
   Prepare the secondary engine for executing a statement. This function is
   called right after the secondary engine TABLE objects have been opened by
@@ -2398,6 +2403,7 @@ struct handlerton {
   dict_get_server_version_t dict_get_server_version;
   dict_set_server_version_t dict_set_server_version;
   is_reserved_db_name_t is_reserved_db_name;
+  handle_single_table_select_t handle_single_table_select;
 
   /** Global handler flags. */
   uint32 flags;

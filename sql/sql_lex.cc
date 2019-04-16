@@ -756,6 +756,26 @@ Yacc_state::~Yacc_state() {
   }
 }
 
+const uchar to_upper_lex[] = {
+    0,   1,   2,   3,   4,   5,   6,   7,   8,   9,   10,  11,  12,  13,  14,
+    15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,
+    30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,
+    45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,
+    60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,
+    75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,
+    90,  91,  92,  93,  94,  95,  96,  65,  66,  67,  68,  69,  70,  71,  72,
+    73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,
+    88,  89,  90,  123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134,
+    135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149,
+    150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
+    165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179,
+    180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194,
+    195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209,
+    210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 192,
+    193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207,
+    208, 209, 210, 211, 212, 213, 214, 247, 216, 217, 218, 219, 220, 221, 222,
+    255};
+
 static bool consume_optimizer_hints(Lex_input_stream *lip) {
   const my_lex_states *state_map = lip->query_charset->state_maps->main_map;
   int whitespace = 0;
@@ -771,6 +791,43 @@ static bool consume_optimizer_hints(Lex_input_stream *lip) {
       lip->yyPeekn(whitespace + 2) == '+') {
     lip->yylineno += newlines;
     lip->yySkipn(whitespace);  // skip whitespace
+
+    /*
+      lookahead for bypass hint - this is safe as query buffer format
+      ensures null terminating character at the end as well as additional
+      data towards the end
+      */
+    if (lip->yyPeekn(3) == ' ') {
+      if (to_upper_lex[lip->yyPeekn(4)] == 'B' &&
+          to_upper_lex[lip->yyPeekn(5)] == 'Y' &&
+          to_upper_lex[lip->yyPeekn(6)] == 'P' &&
+          to_upper_lex[lip->yyPeekn(7)] == 'A' &&
+          to_upper_lex[lip->yyPeekn(8)] == 'S' &&
+          to_upper_lex[lip->yyPeekn(9)] == 'S' && lip->yyPeekn(10) == ' ' &&
+          lip->yyPeekn(11) == '*' && lip->yyPeekn(12) == '/') {
+        /* HINT: turn on select bypass */
+        lip->m_thd->lex->select_lex->select_bypass_hint =
+            SELECT_LEX::SELECT_BYPASS_HINT_ON;
+        lip->yySkipn(13);
+        return false;
+      } else if (to_upper_lex[lip->yyPeekn(4)] == 'N' &&
+                 to_upper_lex[lip->yyPeekn(5)] == 'O' &&
+                 lip->yyPeekn(6) == '_' &&
+                 to_upper_lex[lip->yyPeekn(7)] == 'B' &&
+                 to_upper_lex[lip->yyPeekn(8)] == 'Y' &&
+                 to_upper_lex[lip->yyPeekn(9)] == 'P' &&
+                 to_upper_lex[lip->yyPeekn(10)] == 'A' &&
+                 to_upper_lex[lip->yyPeekn(11)] == 'S' &&
+                 to_upper_lex[lip->yyPeekn(12)] == 'S' &&
+                 lip->yyPeekn(13) == ' ' && lip->yyPeekn(14) == '*' &&
+                 lip->yyPeekn(15) == '/') {
+        /* HINT: turn off select bypass */
+        lip->m_thd->lex->select_lex->select_bypass_hint =
+            SELECT_LEX::SELECT_BYPASS_HINT_OFF;
+        lip->yySkipn(16);
+        return false;
+      }
+    }
 
     Hint_scanner hint_scanner(lip->m_thd, lip->yylineno, lip->get_ptr(),
                               lip->get_end_of_query() - lip->get_ptr(),
@@ -2069,6 +2126,7 @@ SELECT_LEX::SELECT_LEX(MEM_ROOT *mem_root, Item *where, Item *having)
       group_list_ptrs(nullptr),
       item_list(),
       is_item_list_lookup(false),
+      select_bypass_hint(SELECT_BYPASS_HINT_DEFAULT),
       fields_list(item_list),
       all_fields(),
       ftfunc_list(&ftfunc_list_alloc),

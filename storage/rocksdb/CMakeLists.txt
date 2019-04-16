@@ -122,6 +122,7 @@ SET(ROCKSDB_SOURCES
   rdb_threads.cc rdb_threads.h
   ha_rockspart.cc ha_rockspart.h
   ../../sql/partitioning/partition_base.cc
+  nosql_access.cc nosql_access.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
