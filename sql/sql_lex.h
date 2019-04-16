@@ -1172,6 +1172,21 @@ class SELECT_LEX {
   void remove_derived(THD *thd, TABLE_LIST *tl);
   bool remove_aggregates(THD *thd, SELECT_LEX *select);
 
+  /*
+    Status of bypass hint bypass and no_bypass.
+    It is up to the storage engine to interpret the meaning in the
+    hton::handle_single_table_select callback. Typically storage engine
+    can use this as hint to go talk to their own SELECT query engine and
+    bypass MySQL logic partially or completely.
+   */
+  enum select_bypass_hint_type {
+    SELECT_BYPASS_HINT_DEFAULT, /* Neither bypass / no_bypass specified */
+    SELECT_BYPASS_HINT_ON,      /* bypass specified */
+    SELECT_BYPASS_HINT_OFF,     /* no_bypass specified */
+  };
+
+  enum select_bypass_hint_type select_bypass_hint;
+
   SELECT_LEX_UNIT *master_unit() const { return master; }
   SELECT_LEX_UNIT *first_inner_unit() const { return slave; }
   SELECT_LEX *outer_select() const { return master->outer_select(); }
