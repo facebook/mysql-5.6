@@ -1240,6 +1240,21 @@ class Query_block : public Query_term {
 
   bool remove_aggregates(THD *thd, Query_block *select);
 
+  /*
+    Status of bypass hint bypass and no_bypass.
+    It is up to the storage engine to interpret the meaning in the
+    hton::handle_single_table_select callback. Typically storage engine
+    can use this as hint to go talk to their own SELECT query engine and
+    bypass MySQL logic partially or completely.
+   */
+  enum select_bypass_hint_type {
+    SELECT_BYPASS_HINT_DEFAULT, /* Neither bypass / no_bypass specified */
+    SELECT_BYPASS_HINT_ON,      /* bypass specified */
+    SELECT_BYPASS_HINT_OFF,     /* no_bypass specified */
+  };
+
+  enum select_bypass_hint_type select_bypass_hint;
+
   Query_expression *master_query_expression() const { return master; }
   Query_expression *first_inner_query_expression() const { return slave; }
   Query_block *outer_query_block() const { return master->outer_query_block(); }
