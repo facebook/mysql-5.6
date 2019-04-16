@@ -81,6 +81,7 @@
 #include "./ha_rocksdb_proto.h"
 #include "./ha_rockspart.h"
 #include "./logger.h"
+#include "./nosql_access.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_cf_options.h"
 #include "./rdb_converter.h"
@@ -5577,6 +5578,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats; */
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
   rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
+  rocksdb_hton->handle_single_table_select = rocksdb_handle_single_table_select;
 
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
