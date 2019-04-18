@@ -1,0 +1,47 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection master]
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (REPEAT('a', 1024 * 1024));
+DROP TABLE t1;
+include/sync_slave_sql_with_master.inc
+=============================================================
+Show the slave
+=============================================================
+[connection master]
+SELECT * FROM information_schema.socket_diag_slaves;
+ID	USER	STATE	LOCAL_IP	REMOTE_IP	UID	INODE	RQUEUE	WQUEUE	RETRANS	LOST	TOTAL_RETRANS	SERVER_ID	HOST	PORT	MASTER_ID	SLAVE_UUID	IS_SEMI_SYNC	REPLICATION STATUS
+<id>	root	<state>	<local_ip>	<remote_ip>	<uid>	<inode>	<rqueue>	<wqueue>	<retrans>	<lost>	<total_retrans>	2	127.0.0.1	<host>	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
+=============================================================
+Fail the slave connection and disconnect
+=============================================================
+[connection slave]
+include/stop_slave.inc
+SET GLOBAL debug = '+d,simulate_register_slave_killed';
+Iteration = 5
+START SLAVE IO_THREAD;
+include/wait_for_slave_io_to_stop.inc
+Iteration = 4
+START SLAVE IO_THREAD;
+include/wait_for_slave_io_to_stop.inc
+Iteration = 3
+START SLAVE IO_THREAD;
+include/wait_for_slave_io_to_stop.inc
+Iteration = 2
+START SLAVE IO_THREAD;
+include/wait_for_slave_io_to_stop.inc
+Iteration = 1
+START SLAVE IO_THREAD;
+include/wait_for_slave_io_to_stop.inc
+[connection master]
+SHOW SLAVE HOSTS;
+Server_id	Host	Port	Master_id	Slave_UUID
+SELECT * FROM information_schema.socket_diag_slaves;
+ID	USER	STATE	LOCAL_IP	REMOTE_IP	UID	INODE	RQUEUE	WQUEUE	RETRANS	LOST	TOTAL_RETRANS	SERVER_ID	HOST	PORT	MASTER_ID	SLAVE_UUID	IS_SEMI_SYNC	REPLICATION STATUS
+[connection slave]
+SET GLOBAL debug = '-d,simulate_register_slave_killed';
+include/start_slave.inc
+include/rpl_end.inc

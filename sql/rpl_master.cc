@@ -34,6 +34,7 @@
 #include "m_ctype.h"
 #include "m_string.h"  // strmake
 #include "map_helpers.h"
+#include "mutex_lock.h"  // MUTEX_LOCK
 #include "my_byteorder.h"
 #include "my_command.h"
 #include "my_dbug.h"
@@ -206,6 +207,16 @@ void unregister_slave(THD *thd, bool only_mine, bool need_lock_slave_list) {
   }
 }
 
+bool is_semi_sync_slave_nolock(THD *thd) {
+  constexpr auto name = "rpl_semi_sync_slave";
+  const auto it = thd->user_vars.find(name);
+  if (it == thd->user_vars.end()) return false;
+  auto null_value = false;
+  const auto integral_result = it->second->val_int(&null_value);
+  if (null_value) return false;
+  return integral_result != 0;
+}
+
 /**
   Execute a SHOW SLAVE HOSTS statement.
 
@@ -260,6 +271,22 @@ bool show_slave_hosts(THD *thd) {
   mysql_mutex_unlock(&LOCK_slave_list);
   my_eof(thd);
   DBUG_RETURN(false);
+}
+
+/**
+  Copy all slave hosts into a std::map for later access without a lock
+
+  @param slaves Pointer to std::map object for receiving all slaves
+*/
+thd_to_slave_info_container copy_slaves() {
+  thd_to_slave_info_container result{PSI_NOT_INSTRUMENTED};
+
+  MUTEX_LOCK(slave_list_guard, &LOCK_slave_list);
+
+  for (const auto &item : slave_list)
+    result.emplace(item.second->thd, *item.second);
+
+  return result;
 }
 
 /* clang-format off */
@@ -1043,20 +1070,20 @@ void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
   NOTE: Please make sure this method is in sync with
         ReplSemiSyncMaster::get_slave_uuid
 */
-String *get_slave_uuid(THD *thd, String *value) {
+String *get_slave_uuid(THD *thd, String *value, bool need_lock) {
   if (value == nullptr) return nullptr;
 
   /* Protects thd->user_vars. */
-  mysql_mutex_lock(&thd->LOCK_thd_data);
+  if (need_lock) mysql_mutex_lock(&thd->LOCK_thd_data);
 
   const auto it = thd->user_vars.find("slave_uuid");
   if (it != thd->user_vars.end() && it->second->length() > 0) {
     value->copy(it->second->ptr(), it->second->length(), nullptr);
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
+    if (need_lock) mysql_mutex_unlock(&thd->LOCK_thd_data);
     return value;
   }
 
-  mysql_mutex_unlock(&thd->LOCK_thd_data);
+  if (need_lock) mysql_mutex_unlock(&thd->LOCK_thd_data);
   return nullptr;
 }
 
