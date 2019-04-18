@@ -99,6 +99,7 @@ VIEWS
 AUTHINFO
 SLAVE_DB_LOAD
 SCHEMATA_EXT
+SOCKET_DIAG_SLAVES
 columns_priv
 db
 event
@@ -940,7 +941,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	46
+information_schema	47
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1236,7 +1237,7 @@ GROUP BY column_type ORDER BY num;
 column_type	GROUP_CONCAT(table_schema, '.', table_name)	num
 varchar(7)	information_schema.ROUTINES,information_schema.VIEWS	2
 varchar(30)	information_schema.COLUMNS,information_schema.PROFILING,information_schema.PROFILING	3
-varchar(20)	information_schema.FILES,information_schema.FILES,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING	6
+varchar(20)	information_schema.FILES,information_schema.FILES,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING,information_schema.SOCKET_DIAG_SLAVES	7
 create table t1(f1 char(1) not null, f2 char(9) not null)
 default character set utf8;
 select CHARACTER_MAXIMUM_LENGTH, CHARACTER_OCTET_LENGTH from
@@ -1413,6 +1414,7 @@ SCHEMA_PRIVILEGES	information_schema.SCHEMA_PRIVILEGES	1
 SESSION_STATUS	information_schema.SESSION_STATUS	1
 SESSION_VARIABLES	information_schema.SESSION_VARIABLES	1
 SLAVE_DB_LOAD	information_schema.SLAVE_DB_LOAD	1
+SOCKET_DIAG_SLAVES	information_schema.SOCKET_DIAG_SLAVES	1
 SRV_SESSIONS	information_schema.SRV_SESSIONS	1
 STATISTICS	information_schema.STATISTICS	1
 TABLES	information_schema.TABLES	1

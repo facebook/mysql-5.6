@@ -155,7 +155,10 @@ int vio_timeout(Vio *vio, uint which, timeout_t timeout);
 /* Connect to a peer. */
 my_bool vio_socket_connect(Vio *vio, struct sockaddr *addr, socklen_t len,
                            my_bool nonblocking, timeout_t timeout);
-
+void vio_get_normalized_ip(const struct sockaddr *src,
+                           int src_length,
+                           struct sockaddr *dst,
+                           int *dst_length);
 my_bool vio_get_normalized_ip_string(const struct sockaddr *addr, int addr_length,
                                      char *ip_string, size_t ip_string_size);
 

@@ -151,6 +151,7 @@ DROP TABLE t1, t2;
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |
 | SLAVE_DB_LOAD                         |
+| SOCKET_DIAG_SLAVES                    |
 | SRV_SESSIONS                          |
 | STATISTICS                            |
 | TABLES                                |
@@ -240,6 +241,7 @@ DROP TABLE t1, t2;
 | SESSION_STATUS                        |
 | SESSION_VARIABLES                     |
 | SLAVE_DB_LOAD                         |
+| SOCKET_DIAG_SLAVES                    |
 | SRV_SESSIONS                          |
 | STATISTICS                            |
 | TABLES                                |

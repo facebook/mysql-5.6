@@ -1,0 +1,73 @@
+source include/have_ssl_communication.inc;
+source include/master-slave.inc;
+
+# create a user for replication that requires ssl encryption
+connection master;
+grant replication slave on *.* to replssl@localhost require ssl;
+create table t1 (t int auto_increment, KEY(t));
+
+--source include/sync_slave_sql_with_master.inc
+
+# Set slave to use SSL for connection to master
+--source include/stop_slave.inc
+--replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+--replace_column 2 ####
+eval change master to
+  master_user='replssl',
+  master_password='',
+  master_ssl=1,
+  master_ssl_ca ='$MYSQL_TEST_DIR/std_data/cacert.pem',
+  master_ssl_cert='$MYSQL_TEST_DIR/std_data/client-cert.pem',
+  master_ssl_key='$MYSQL_TEST_DIR/std_data/client-key.pem';
+--source include/start_slave.inc
+
+# Switch to master and insert one record, then sync it to slave
+connection master;
+insert into t1 values(1);
+--source include/sync_slave_sql_with_master.inc
+
+--echo =============================================================
+--echo Show the slave
+--echo =============================================================
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Verify stopped slave are removed from socket_diag
+--echo =============================================================
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--source show_socket_diag_slaves.inc
+
+
+--echo =============================================================
+--echo Verify restarted non-SSL slaves are showing up again
+--echo =============================================================
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--source show_socket_diag_slaves.inc
+ connection slave;
+CHANGE MASTER TO
+ master_user = 'root',
+ master_ssl = 0,
+ master_ssl_ca = '',
+ master_ssl_cert = '',
+ master_ssl_key = '',
+ master_ssl_crl='',
+ master_ssl_crlpath='';
+
+--source include/start_slave.inc
+
+connection master;
+drop user replssl@localhost;
+drop table t1;
+
+--source include/sync_slave_sql_with_master.inc
+
+--source show_socket_diag_slaves.inc
+
+--source include/rpl_end.inc
+

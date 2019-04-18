@@ -51,6 +51,7 @@ VIEWS
 AUTHINFO
 SLAVE_DB_LOAD
 SCHEMATA_EXT
+SOCKET_DIAG_SLAVES
 show tables from INFORMATION_SCHEMA like 'T%';
 Tables_in_information_schema (T%)
 TRANSACTION_LIST

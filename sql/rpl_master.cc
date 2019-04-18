@@ -408,7 +408,7 @@ void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list)
   }
 }
 
-static bool is_semi_sync_slave(THD *thd)
+bool is_semi_sync_slave(THD *thd)
 {
   uchar name[] = "rpl_semi_sync_slave";
   my_bool null_value;
@@ -490,6 +490,27 @@ bool show_slave_hosts(THD* thd)
   mysql_mutex_unlock(&LOCK_slave_list);
   my_eof(thd);
   DBUG_RETURN(FALSE);
+}
+
+/**
+  Copy all slave hosts into a std::map for later access without a lock
+
+  @param thd Pointer to THD object for the client thread executing the
+  statement.
+  @param slaves Pointer to std::map object for receiving all slaves
+*/
+void copy_slave_map(THD *thd, std::map<THD *, SLAVE_INFO> *slaves)
+{
+  mutex_assert_owner_all_shards(SHARDED(&LOCK_thd_remove));
+
+  mysql_mutex_lock(&LOCK_slave_list);
+
+  for (uint i = 0; i < slave_list.records; ++i)
+  {
+    SLAVE_INFO* si = (SLAVE_INFO*) my_hash_element(&slave_list, i);
+    slaves->emplace(si->thd, *si);
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
 }
 
 

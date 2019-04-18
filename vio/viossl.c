@@ -556,8 +556,10 @@ static int ssl_finish(SSL *ssl, Vio *vio) {
     change type, set sd to the fd used when connecting
     and set pointer to the SSL structure
   */
+  struct sockaddr_storage remote = vio->remote;
   if (vio_reset(vio, VIO_TYPE_SSL, SSL_get_fd(ssl), ssl, 0))
     DBUG_RETURN(1);
+  vio->remote = remote;
 
 #ifndef DBUG_OFF
   {

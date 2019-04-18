@@ -20,6 +20,8 @@
 
 #ifdef HAVE_REPLICATION
 
+#include <map>
+
 extern bool server_id_supplied;
 extern int max_binlog_dump_events;
 extern my_bool opt_sporadic_binlog_dump_fail;
@@ -46,9 +48,11 @@ void clear_compressed_event_cache();
 void free_compressed_event_cache();
 void init_semi_sync_last_acked();
 void destroy_semi_sync_last_acked();
+bool is_semi_sync_slave(THD *thd);
 int register_slave(THD* thd, uchar* packet, uint packet_length);
 void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list);
 bool show_slave_hosts(THD* thd);
+void copy_slave_map(THD* thd, std::map<THD *, SLAVE_INFO> *slaves);
 String *get_slave_uuid(THD *thd, String *value);
 bool show_master_offset(THD* thd, snapshot_info_st &ss_info,
                         bool* need_ok);

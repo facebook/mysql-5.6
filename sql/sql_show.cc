@@ -62,10 +62,22 @@
 #include "rpl_mi.h"
 #include "rpl_rli.h"
 #include "rpl_rli_pdb.h"
-
+#include "rpl_master.h"
+#include "violite.h"      // vio_getnameinfo
 #include <algorithm>
+#include <set>
+#include <map>
+#include <unordered_map>
 using std::max;
 using std::min;
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/sock_diag.h>
+#include <linux/unix_diag.h>
+#include <linux/inet_diag.h>
 
 #include "query_tag_perf_counter.h"
 
@@ -3136,6 +3148,518 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
 
   DBUG_RETURN(0);
 }
+
+/* Return pid/seq for matching netlink socket */
+void get_pid_seq(uint32_t *pid, uint32_t *seq)
+{
+  pid_t cur_pid = getpid();
+  *pid = cur_pid & 0xffffffff;
+  *seq = (cur_pid & 0xffffffff00000000) >> 32;
+}
+
+/* Send diagnostic request to netlink socket */
+bool send_diag_request(int fd, uint8_t family)
+{
+  uint32 pid, seq;
+  get_pid_seq(&pid, &seq);
+
+  struct sockaddr_nl nladdr;
+  memset(&nladdr, 0, sizeof(nladdr));
+  nladdr.nl_family = AF_NETLINK;
+
+  struct
+  {
+    struct nlmsghdr nlh;
+    struct inet_diag_req_v2 r;
+  } req;
+  memset(&req, 0, sizeof(req));
+
+  req.nlh.nlmsg_len = sizeof(req);
+  req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
+  req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  req.nlh.nlmsg_pid = pid;
+  req.nlh.nlmsg_seq = seq;
+
+  req.r.sdiag_family = family;
+  req.r.sdiag_protocol = IPPROTO_TCP;
+  req.r.idiag_states = (__u32)-1;
+  req.r.idiag_ext = (1<<(INET_DIAG_INFO-1));    // for tcp_info
+
+  struct iovec iov = { &req, sizeof(req) };
+  struct msghdr msg;
+  memset(&msg, 0, sizeof(msg));
+  msg.msg_name = (void *) &nladdr;
+  msg.msg_namelen = sizeof(nladdr);
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+
+  if (sendmsg(fd, &msg, 0) < 0) {
+    // NO_LINT_DEBUG
+    sql_print_error("socket_diag: sendmsg failed with %d", errno);
+    return true;
+  }
+
+  return false;
+}
+
+struct socket_diag_info
+{
+  inet_diag_msg diag;
+  bool has_tcp_info;
+  tcp_info ti;
+
+  struct sockaddr_storage_hasher
+  {
+    size_t operator()(const sockaddr_storage &addr) const
+    {
+      size_t key = 0;
+      if (addr.ss_family == AF_INET)
+      {
+        auto sa = reinterpret_cast<const sockaddr_in *>(&addr);
+        key = (sa->sin_family << 16) | sa->sin_port;
+        auto addr32 = reinterpret_cast<const uint32_t *>(&sa->sin_addr);
+        for (size_t i = 0; i < sizeof(in_addr) / sizeof(uint32_t); i++)
+          key ^= addr32[i];
+      }
+      else
+      {
+        auto sa = reinterpret_cast<const sockaddr_in6 *>(&addr);
+        key = (sa->sin6_family << 16) | sa->sin6_port;
+        auto addr32 = reinterpret_cast<const uint32_t *>(&sa->sin6_addr);
+        for (size_t i = 0; i < sizeof(in6_addr) / sizeof(uint32_t); i++)
+          key ^= addr32[i];
+      }
+
+      return key;
+    }
+  };
+
+  struct sockaddr_storage_comparer
+  {
+    bool operator ()(const sockaddr_storage &lhs,
+                     const sockaddr_storage &rhs) const
+    {
+      if (lhs.ss_family != rhs.ss_family)
+        return false;
+
+      if (lhs.ss_family == AF_INET)
+      {
+        auto sa_lhs = reinterpret_cast<const sockaddr_in *>(&lhs);
+        auto sa_rhs = reinterpret_cast<const sockaddr_in *>(&rhs);
+        return sa_lhs->sin_port == sa_rhs->sin_port &&
+               memcmp(&sa_lhs->sin_addr, &sa_rhs->sin_addr,
+                      sizeof(in_addr)) == 0;
+      }
+      else
+      {
+        DBUG_ASSERT(lhs.ss_family == AF_INET6);
+        auto sa_lhs = reinterpret_cast<const sockaddr_in6 *>(&lhs);
+        auto sa_rhs = reinterpret_cast<const sockaddr_in6 *>(&rhs);
+        return sa_lhs->sin6_port == sa_rhs->sin6_port &&
+               memcmp(&sa_lhs->sin6_addr, &sa_rhs->sin6_addr,
+                      sizeof(in6_addr)) == 0;
+      }
+    }
+  };
+};
+
+/* Convert inet diag socket address to sockaddr_storage */
+int sockid_to_sockaddr(uint8_t family, uint16_t in_port, char *in_addr,
+                       sockaddr_storage *addr)
+{
+  int len;
+  addr->ss_family = family;
+  if (family == AF_INET)
+  {
+    sockaddr_in *in = reinterpret_cast<sockaddr_in *>(addr);
+    in->sin_port = in_port;
+    len = sizeof(sockaddr_in);
+    memcpy(&in->sin_addr, in_addr, sizeof(in_addr) * sizeof(char));
+  }
+  else
+  {
+    DBUG_ASSERT(family == AF_INET6);
+    sockaddr_in6 *in = reinterpret_cast<sockaddr_in6 *>(addr);
+    in->sin6_port = in_port;
+    len = sizeof(sockaddr_in6);
+    memcpy(&in->sin6_addr, in_addr, sizeof(in6_addr) * sizeof(char));
+  }
+
+  return len;
+}
+
+
+/* Store a row in socket_diag table under appropriate lock */
+bool store_socket_diag_record(TABLE *table, THD *thd, THD *tmp,
+                              const socket_diag_info *sdi
+#ifdef HAVE_REPLICATION
+                              , const SLAVE_INFO *si
+#endif
+)
+{
+  restore_record(table, s->default_values);
+
+  Security_context *tmp_sctx= tmp->security_ctx;
+  const char *val;
+  CHARSET_INFO *cs = system_charset_info;
+
+  int i = 0;
+
+  /* ID */
+  table->field[i]->store((ulonglong) tmp->thread_id(), TRUE);
+  i++;
+
+  /* USER */
+  val= tmp_sctx->user ? tmp_sctx->user :
+        (tmp->system_thread ? "system user" : "unauthenticated user");
+  table->field[i]->store(val, strlen(val), cs);
+  i++;
+
+  /* STATE */
+  if ((val= thread_state_info(tmp)))
+  {
+    table->field[i]->store(val, strlen(val), cs);
+    table->field[i]->set_notnull();
+  }
+  i++;
+
+  /* LOCAL IP */
+  char ip_addr[INET6_ADDRSTRLEN + 6];
+  char name_addr[NI_MAXHOST];
+  char host_addr[NI_MAXHOST + NI_MAXSERV];
+  if (inet_ntop(sdi->diag.idiag_family, sdi->diag.id.idiag_src, ip_addr,
+                sizeof(ip_addr)))
+  {
+    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", ip_addr,
+                ntohs(sdi->diag.id.idiag_sport));
+    table->field[i]->store(host_addr, strlen(host_addr), cs);
+  }
+  i++;
+
+  /* LOCAL ADDR */
+  sockaddr_storage local_addr;
+  sockid_to_sockaddr(sdi->diag.idiag_family, sdi->diag.id.idiag_sport,
+                     (char *)sdi->diag.id.idiag_src, &local_addr);
+  if (!vio_getnameinfo(reinterpret_cast<const sockaddr *>(&local_addr),
+                       name_addr, sizeof(name_addr), NULL, 0,
+                       NI_NUMERICSERV))
+  {
+    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", name_addr,
+                ntohs(sdi->diag.id.idiag_sport));
+    table->field[i]->store(host_addr, strlen(host_addr), cs);
+  }
+  i++;
+
+  /* REMOTE IP */
+  if (inet_ntop(sdi->diag.idiag_family, sdi->diag.id.idiag_dst, ip_addr,
+                sizeof(ip_addr)))
+  {
+    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", ip_addr,
+                ntohs(sdi->diag.id.idiag_dport));
+    table->field[i]->store(host_addr, strlen(host_addr), cs);
+  }
+  i++;
+
+  /* REMOTE ADDR */
+  sockaddr_storage remote_addr;
+  sockid_to_sockaddr(sdi->diag.idiag_family, sdi->diag.id.idiag_dport,
+                     (char *)sdi->diag.id.idiag_dst, &remote_addr);
+  if (!vio_getnameinfo(reinterpret_cast<const sockaddr *>(&remote_addr),
+                       name_addr, sizeof(name_addr), NULL, 0,
+                       NI_NUMERICSERV))
+  {
+    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", name_addr,
+                ntohs(sdi->diag.id.idiag_dport));
+    table->field[i]->store(host_addr, strlen(host_addr), cs);
+  }
+  i++;
+
+  /* UID */
+  table->field[i]->store(sdi->diag.idiag_uid);
+  i++;
+
+  /* INODE */
+  table->field[i]->store(sdi->diag.idiag_inode);
+  i++;
+
+  /* RQUEUE */
+  table->field[i]->store(sdi->diag.idiag_rqueue);
+  i++;
+
+  /* WQUEUE */
+  table->field[i]->store(sdi->diag.idiag_wqueue);
+  i++;
+
+  /* RETRANS */
+  table->field[i]->store(sdi->diag.idiag_retrans);
+  i++;
+
+  if (sdi->has_tcp_info)
+  {
+    /* LOST */
+    table->field[i]->store(sdi->ti.tcpi_lost);
+
+    /* TOTAL_RETRANS*/
+    table->field[i + 1]->store(sdi->ti.tcpi_total_retrans);
+  }
+  i += 2;
+
+#ifdef HAVE_REPLICATION
+  if (si)
+  {
+    /* SERVER_ID */
+    table->field[i]->store(si->server_id);
+    i++;
+
+    /* SLAVE_HOST */
+    table->field[i]->store(si->host, strlen(si->host), cs);
+    i++;
+
+    /* SLAVE_PORT */
+    table->field[i]->store(si->port);
+    i++;
+
+    /* MASTER_ID */
+    table->field[i]->store(si->master_id);
+    i++;
+
+    /* SLAVE_UUID */
+    String slave_uuid;
+    if (get_slave_uuid(si->thd, &slave_uuid))
+    {
+      table->field[i]->store(slave_uuid.c_ptr_safe(),
+                             slave_uuid.length(), cs);
+    }
+    i++;
+
+    /* IS_SEMI_SYNC */
+    table->field[i]->store(is_semi_sync_slave(si->thd));
+    i++;
+
+    /* REPLICATION STATUS */
+    char *replication_status = si->thd->query();
+    if (replication_status)
+    {
+      table->field[i]->store(replication_status,
+                             strlen(replication_status), cs);
+    }
+    i++;
+  }
+#endif
+
+  return schema_table_store_record(thd, table);
+}
+
+typedef std::unordered_map<sockaddr_storage, socket_diag_info,
+                           socket_diag_info::sockaddr_storage_hasher,
+                           socket_diag_info::sockaddr_storage_comparer>
+                           socket_diag_hashmap;
+
+/* Add all socket diag information into the hash map */
+bool get_netlink_diag(socket_diag_hashmap *socket_diags,
+                      uint8_t family)
+{
+  int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG);
+  if (fd < 0)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("socket_diag: socket(NETLINK_INET_DIAG) failed with %d",
+                    errno);
+    return true;
+  }
+
+  if (send_diag_request(fd, family)) {
+    close(fd);
+    return true;
+  }
+
+  char buf[8192];
+  struct sockaddr_nl nladdr = {
+      .nl_family = AF_NETLINK
+  };
+  struct iovec iov = {
+      .iov_base = buf,
+      .iov_len = sizeof(buf)
+  };
+
+  DBUG_PRINT("info", ("NETLINK_INET_DIAG dump, family = %d: {", family));
+
+  // retrieve pid/seq so that we know the inetlink packets are from us
+  uint32_t pid, seq;
+  get_pid_seq(&pid, &seq);
+
+  bool done = false;
+  while (!done)
+  {
+    struct msghdr msg =
+    {
+        .msg_name = (void *) &nladdr,
+        .msg_namelen = sizeof(nladdr),
+        .msg_iov = &iov,
+        .msg_iovlen = 1
+    };
+
+    ssize_t ret = recvmsg(fd, &msg, 0);
+    if (ret < 0)
+    {
+      if (errno == EINTR)
+        continue;
+
+      // NO_LINT_DEBUG
+      sql_print_error("socket_diag: recvmsg failed with %d", errno);
+      close(fd);
+      return true;
+    }
+    else if (ret == 0)
+    {
+      // EOF on INETLINK - we are done
+      done = true;
+      break;
+    }
+
+    auto h = reinterpret_cast<struct nlmsghdr *>(buf);
+
+    DBUG_PRINT("info", ("  NLMSG dump {"));
+
+    for (; NLMSG_OK(h, ret); h = NLMSG_NEXT(h, ret))
+    {
+      if (h->nlmsg_seq != seq ||
+          h->nlmsg_pid != pid)
+        continue;
+
+      if (h->nlmsg_type == NLMSG_DONE)
+      {
+        done = true;
+        break;
+      }
+
+      if (h->nlmsg_type == NLMSG_ERROR)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("socket_diag: NLMSG_ERROR encountered. aborting");
+        close(fd);
+  		  return true;
+      }
+
+      // Start parsing diagnostic payload
+      struct tcp_info *ti = nullptr;
+      auto r = reinterpret_cast<struct inet_diag_msg *>(NLMSG_DATA(h));
+
+      DBUG_PRINT("info", ("    src_port=%d, dst_port=%d",
+                 ntohs(r->id.idiag_sport), ntohs(r->id.idiag_dport)));
+
+      // Parse netlink attributes and locate tcp_info
+      unsigned int rta_len = h->nlmsg_len - NLMSG_LENGTH(sizeof(*r));
+      auto rtattrs = reinterpret_cast<struct rtattr *>(r + 1);
+      for (rtattr *attr = rtattrs; RTA_OK(attr, rta_len);
+           attr = RTA_NEXT(attr, rta_len)) {
+        if (attr->rta_type == INET_DIAG_INFO)
+        {
+           ti = reinterpret_cast<tcp_info *>(RTA_DATA(attr));
+           break;
+        }
+      }
+
+      // Normalize the address in vio_get_normalized_ip as vio socket
+      // address always come as normalized form
+      sockaddr_storage addr;
+      int len = sockid_to_sockaddr(r->idiag_family, r->id.idiag_dport,
+                                   reinterpret_cast<char *>(r->id.idiag_dst),
+                                   &addr);
+
+      sockaddr_storage norm_addr;
+      int norm_addr_len;
+      vio_get_normalized_ip(reinterpret_cast<sockaddr *>(&addr), len,
+                            reinterpret_cast<sockaddr *>(&norm_addr),
+                            &norm_addr_len);
+      socket_diags->insert(
+        { norm_addr, { *r, ti != nullptr, ti ? *ti : tcp_info() }});
+    }
+    DBUG_PRINT("info", ("  } NLMSG dump"));
+  }
+  DBUG_PRINT("info", ("} NETLINK_INET_DIAG dump"));
+
+  close(fd);
+  return false;
+}
+
+/* fill socket_diag table */
+int fill_socket_diag_slaves(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_socket_diag_slaves");
+
+#ifdef HAVE_REPLICATION
+
+  TABLE *table = tables->table;
+  char *user;
+
+  user= thd->security_ctx->master_access & PROCESS_ACL ?
+        NullS : thd->security_ctx->priv_user;
+
+  if (thd->killed)
+    DBUG_RETURN(0);
+
+  /* Retrieve all socket diagnostic information using NETLINK_INET_DIAG */
+  socket_diag_hashmap socket_diags;
+
+  /* retrieve all socket information */
+  if (get_netlink_diag(&socket_diags, AF_INET))
+    DBUG_RETURN(1);
+  if (get_netlink_diag(&socket_diags, AF_INET6))
+    DBUG_RETURN(1);
+
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+
+  /* make a copy of all slaves */
+  std::map<THD *, SLAVE_INFO> slave_map;
+  copy_slave_map(thd, &slave_map);
+
+  for (const auto &slave_pair: slave_map)
+  {
+    THD *tmp = slave_pair.first;
+    if (access_thread(user, tmp))
+    {
+      mysql_mutex_lock(&tmp->LOCK_thd_data);
+
+      /* We lost the race */
+      if (!tmp->vio_ok())
+      {
+        mysql_mutex_unlock(&tmp->LOCK_thd_data);
+        continue;
+      }
+
+      Vio *vio = tmp->get_net()->vio;
+      if (vio->type != VIO_TYPE_TCPIP &&
+          vio->type != VIO_TYPE_SSL)
+      {
+        mysql_mutex_unlock(&tmp->LOCK_thd_data);
+        continue;
+      }
+
+      /* find matching socket_diag_info with vio->remote */
+      auto found = socket_diags.find(vio->remote);
+      if (found == socket_diags.end())
+      {
+        // Not found
+        mysql_mutex_unlock(&tmp->LOCK_thd_data);
+        continue;
+      }
+
+      const socket_diag_info *sdi = &(found->second);
+      const SLAVE_INFO *si = &(slave_pair.second);
+
+      store_socket_diag_record(table, thd, tmp, sdi, si);
+
+      mysql_mutex_unlock(&tmp->LOCK_thd_data);
+    }
+  }
+
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+#endif
+
+  DBUG_RETURN(0);
+}
+
 /****************************************************************************
   Main functions for processlist, transaction_list, connection_attrs,
     srv_sessions, mysqld_list_processes, mysqld_list_transactions,
@@ -9535,6 +10059,41 @@ ST_FIELD_INFO tablespaces_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO socket_diag_slaves_fields_info[]=
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"STATE", 64, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, "State",
+    SKIP_OPEN_TABLE},
+  {"LOCAL_IP", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"LOCAL_ADDR", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"REMOTE_IP", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"REMOTE_ADDR", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"UID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"INODE", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"RQUEUE", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"WQUEUE", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"RETRANS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0,
+    SKIP_OPEN_TABLE},
+  {"LOST", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"TOTAL_RETRANS", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0,
+    SKIP_OPEN_TABLE},
+  {"SERVER_ID", 10, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"HOST", 20,  MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"PORT", 7, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"MASTER_ID", 10, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0,
+    SKIP_OPEN_TABLE},
+  {"SLAVE_UUID", UUID_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IS_SEMI_SYNC", 7, MYSQL_TYPE_LONG, 0, MY_I_S_UNSIGNED, 0,
+    SKIP_OPEN_TABLE},
+  {"REPLICATION STATUS", 64, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
@@ -9677,6 +10236,9 @@ ST_SCHEMA_TABLE schema_tables[]=
 #endif
   {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
    fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},
+  {"SOCKET_DIAG_SLAVES", socket_diag_slaves_fields_info,
+   create_schema_table, fill_socket_diag_slaves, make_old_format,
+   0, 0, -1, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
