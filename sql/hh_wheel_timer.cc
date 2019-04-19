@@ -143,9 +143,9 @@ void HHWheelTimer::expired(
   m_curr_tick = currentTick();
 
   // In case we have moved past the expected expire tick, expire all items
-  // from then to the current tick.
+  // from then to the current tick.  If we have woken early nothing will
+  // be processed and we will wait again.
   auto tick = m_expire_tick;
-  DBUG_ASSERT(tick <= m_curr_tick);
   while (tick <= m_curr_tick) {
     expireItems(tick++, needNotification);
   }
