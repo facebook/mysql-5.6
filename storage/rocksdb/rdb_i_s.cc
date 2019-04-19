@@ -1118,7 +1118,11 @@ enum {
   TOP_LEVEL_INDEX_SIZE,
   FILTER_BLOCK_SIZE,
   COMPRESSION_ALGO,
-  CREATION_TIME
+  CREATION_TIME,
+  FILE_CREATION_TIME,
+  OLDEST_KEY_TIME,
+  FILTER_POLICY,
+  COMPRESSION_OPTIONS,
 };
 }  // namespace RDB_SST_PROPS_FIELD
 
@@ -1142,6 +1146,13 @@ static ST_FIELD_INFO rdb_i_s_sst_props_fields_info[] = {
                        MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("COMPRESSION_ALGO", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("CREATION_TIME", sizeof(int64_t), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("FILE_CREATION_TIME", sizeof(int64_t),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("OLDEST_KEY_TIME", sizeof(int64_t), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("FILTER_POLICY", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("COMPRESSION_OPTIONS", NAME_LEN + 1, MYSQL_TYPE_STRING,
                        0),
     ROCKSDB_FIELD_INFO_END};
 
@@ -1215,6 +1226,24 @@ static int rdb_i_s_sst_props_fill_table(
       }
       field[RDB_SST_PROPS_FIELD::CREATION_TIME]->store(
           props.second->creation_time, true);
+      field[RDB_SST_PROPS_FIELD::FILE_CREATION_TIME]->store(
+          props.second->file_creation_time, true);
+      field[RDB_SST_PROPS_FIELD::OLDEST_KEY_TIME]->store(
+          props.second->oldest_key_time, true);
+      if (props.second->filter_policy_name.empty()) {
+        field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->set_null();
+      } else {
+        field[RDB_SST_PROPS_FIELD::FILTER_POLICY]->store(
+            props.second->filter_policy_name.c_str(),
+            props.second->filter_policy_name.size(), system_charset_info);
+      }
+      if (props.second->compression_options.empty()) {
+        field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->set_null();
+      } else {
+        field[RDB_SST_PROPS_FIELD::COMPRESSION_OPTIONS]->store(
+            props.second->compression_options.c_str(),
+            props.second->compression_options.size(), system_charset_info);
+      }
 
       /* Tell MySQL about this row in the virtual table */
       ret = static_cast<int>(
