@@ -44,10 +44,6 @@
 #include <mysql/thread_pool_priv.h>
 #include <mysys_err.h>
 
-// Both MySQL and RocksDB define the same constant. To avoid compilation errors
-// till we make the fix in RocksDB, we'll temporary undefine it here.
-#undef CACHE_LINE_SIZE
-
 /* RocksDB includes */
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
