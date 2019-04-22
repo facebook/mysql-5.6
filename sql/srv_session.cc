@@ -939,7 +939,7 @@ void Srv_session::set_detached()
 void Srv_session::end_statement() {
   DBUG_ENTER(__func__);
 
-  static LEX_CSTRING key = { STRING_WITH_LEN("rpc_id") };
+  static LEX_CSTRING key = { STRING_WITH_LEN(QATTR_RPC_ID) };
 
   if (!session_state_changed()) {
     if (!has_been_detached_) {

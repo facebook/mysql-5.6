@@ -2888,10 +2888,6 @@ void revert_properties()
   once_property=FALSE;
 }
 
-static std::string RpcIdAttr = "rpc_id";
-static std::string RpcDbAttr = "rpc_db";
-static std::string RpcRoleAttr = "rpc_role";
-
 static void try_setup_rpc_role(st_connection *con) {
   MYSQL* mysql = &con->mysql;
   // Only setup the rpc_role/rpc_db attributes if an rpc_id is not set,
@@ -2903,9 +2899,8 @@ static void try_setup_rpc_role(st_connection *con) {
     DBUG_PRINT("info",
         ("Converting query to com_rpc conn_id: %lu, role: %s, db: %s",
          mysql->thread_id, mysql->user, mysql->db));
-    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcDbAttr.c_str(),
-        mysql->db);
-    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcRoleAttr.c_str(),
+    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, QATTR_RPC_DB, mysql->db);
+    mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, QATTR_RPC_ROLE,
         mysql->user);
     con->rpc_role_set = true;
   }
@@ -2919,18 +2914,18 @@ static void try_setup_rpc_id(st_connection *con) {
     const char* ptr= nullptr;
     size_t len = 0;
 
-    (void) mysql_resp_attr_find(mysql, RpcIdAttr.c_str(), &ptr, &len);
+    (void) mysql_resp_attr_find(mysql, QATTR_RPC_ID, &ptr, &len);
     if (ptr) {
       // We have an rpc_id returned.  Set it as the current rpc_id and clear
       // the rpc_role and rpc_db attributes
       con->rpc_role_set = false;
-      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcRoleAttr.c_str());
-      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcDbAttr.c_str());
+      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, QATTR_RPC_ROLE);
+      mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, QATTR_RPC_DB);
 
       std::string rpc_id(ptr, len);
       DBUG_PRINT("info", ("com_rpc connection %lu got rpc_id %s",
             mysql->thread_id, rpc_id.c_str()));
-      mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, RpcIdAttr.c_str(),
+      mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, QATTR_RPC_ID,
           rpc_id.c_str());
       assert(rpc_id.size() < sizeof(con->rpc_id));
       strcpy(con->rpc_id, rpc_id.c_str());
@@ -2943,7 +2938,7 @@ static void reset_rpc_id(st_connection *con) {
   if (con->rpc_id[0] != '\0') {
     DBUG_PRINT("info", ("clearing rpc_id %s from connection %lu",
           con->rpc_id, con->mysql.thread_id));
-    mysql_options(&con->mysql, MYSQL_OPT_QUERY_ATTR_DELETE, RpcIdAttr.c_str());
+    mysql_options(&con->mysql, MYSQL_OPT_QUERY_ATTR_DELETE, QATTR_RPC_ID);
     con->rpc_id[0] = '\0';
   }
 }
@@ -3148,13 +3143,13 @@ static st_error global_error_names[] =
 
 uint get_errcode_from_name(char *, char *);
 
-static void var_set_from_resp_attr(VAR *var, const std::string& key)
+static void var_set_from_resp_attr(VAR *var, const char* key)
 {
   MYSQL* mysql= &cur_con->mysql;
   const char* ptr= nullptr;
   size_t len = 0;
 
-  (void) mysql_resp_attr_find(mysql, key.c_str(), &ptr, &len);
+  (void) mysql_resp_attr_find(mysql, key, &ptr, &len);
   if (ptr == nullptr)
   {
     ptr = "";
@@ -3165,7 +3160,7 @@ static void var_set_from_resp_attr(VAR *var, const std::string& key)
   eval_expr(var, ptr, &ptr_end, false, false);
   if (ptr_end != ptr)
   {
-    DBUG_PRINT("info", ("%s: %s", key.c_str(), var->str_val));
+    DBUG_PRINT("info", ("%s: %s", key, var->str_val));
   }
 }
 
@@ -3175,7 +3170,7 @@ static void var_set_from_resp_attr(VAR *var, const std::string& key)
  * */
 void var_set_rpc_id(VAR *var)
 {
-  var_set_from_resp_attr(var, RpcIdAttr);
+  var_set_from_resp_attr(var, QATTR_RPC_ID);
 }
 
 /*
@@ -3448,7 +3443,7 @@ static bool eval_get_resp_attr(const char* p, VAR *v)
     return false;  // Not a valid  get_response_attribute command
   }
 
-  var_set_from_resp_attr(v, key);
+  var_set_from_resp_attr(v, key.c_str());
 
   DBUG_PRINT("info", ("execute var_set_from_resp_attr(%s)", key.c_str()));
   return true;

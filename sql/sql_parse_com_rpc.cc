@@ -6,9 +6,6 @@
 
 #ifndef EMBEDDED_LIBRARY
 
-static const char* RpcRoleAttr = "rpc_role";
-static const char* RpcDbAttr = "rpc_db";
-
 /*
  * @retval
  *  false  success to find attribute
@@ -83,9 +80,9 @@ std::pair<bool, std::shared_ptr<Srv_session>>  handle_com_rpc(THD *conn_thd)
   THD* srv_session_thd = NULL;
   std::shared_ptr<Srv_session> srv_session;
 
-  check_for_attribute(conn_thd, RpcRoleAttr, rpc_role);
-  check_for_attribute(conn_thd, RpcDbAttr, rpc_db);
-  check_for_attribute(conn_thd, Srv_session::RpcIdAttr, rpc_id);
+  check_for_attribute(conn_thd, QATTR_RPC_ROLE, rpc_role);
+  check_for_attribute(conn_thd, QATTR_RPC_DB, rpc_db);
+  check_for_attribute(conn_thd, QATTR_RPC_ID, rpc_id);
 
   if (!rpc_role.size() && !rpc_id.size())
   {

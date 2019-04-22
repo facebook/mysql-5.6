@@ -840,4 +840,10 @@ unsigned int net_length_size(ulonglong num);
 #define MYSQL_LONG_DATA_HEADER  6
 
 #define NOT_FIXED_DEC           31
+
+// Predefined query attributes
+#define QATTR_RPC_ID "rpc_id"
+#define QATTR_RPC_ROLE "rpc_role"
+#define QATTR_RPC_DB "rpc_db"
+
 #endif

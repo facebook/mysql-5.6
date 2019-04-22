@@ -45,7 +45,6 @@ public:
 
   ~Srv_session() { close(); }
 
-  static constexpr auto RpcIdAttr = "rpc_id";
   /**
     Initializes the module.
 
