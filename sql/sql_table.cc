@@ -8600,8 +8600,8 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
   }
 #endif
 
-  bool validate_primary_key_existence = should_check_table_for_primary_key(
-      create_info, table_list);
+  bool validate_primary_key_existence =
+      should_check_table_for_primary_key(thd, create_info, table_list);
   if (mysql_prepare_alter_table(thd, table, create_info, alter_info,
                                 &alter_ctx, validate_primary_key_existence))
   {

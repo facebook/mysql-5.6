@@ -9379,16 +9379,22 @@ bool block_memory_tables(HA_CREATE_INFO *create_info,
    @return  true  if the current table should be checked for a primary key
             false otherwise
 */
-bool should_check_table_for_primary_key(HA_CREATE_INFO *create_info,
+bool should_check_table_for_primary_key(THD *thd, HA_CREATE_INFO *create_info,
                                         TABLE_LIST *table_list)
 {
-  return (block_create_no_primary_key &&
-          create_info->db_type &&
-          (create_info->db_type->db_type == DB_TYPE_INNODB ||
-            create_info->db_type->db_type == DB_TYPE_ROCKSDB) &&
-          !(create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
-          strcmp(table_list->db, "mysql") != 0 &&
-          strcmp(table_list->db, "mtr") != 0);
+  if (!block_create_no_primary_key ||
+      (create_info->options & HA_LEX_CREATE_TMP_TABLE) ||
+      strcmp(table_list->db, "mysql") == 0 ||
+      strcmp(table_list->db, "mtr") == 0)
+    return false;
+
+  /* Check for engine type. If none was given, use the default one */
+  handlerton *db_type = create_info->db_type;
+  if (db_type == nullptr)
+    db_type = ha_default_handlerton(thd);
+
+  return (db_type && (db_type->db_type == DB_TYPE_INNODB ||
+                      db_type->db_type == DB_TYPE_ROCKSDB));
 }
 
 /**
@@ -9426,7 +9432,8 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
     goto err;
   }
 
-  if (should_check_table_for_primary_key(&lex->create_info, create_table))
+  if (should_check_table_for_primary_key(thd, &lex->create_info,
+                                         create_table))
   {
     // Creating table, make sure we find a primary key
     List_iterator<Key> key_iterator(alter_info->key_list);

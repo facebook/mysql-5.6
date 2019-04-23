@@ -35,6 +35,15 @@ DROP INDEX `PRIMARY` ON mysql_primkey4;
 ALTER TABLE mysql.mysql_table ADD PRIMARY KEY (a);
 ALTER TABLE mysql.mysql_table DROP PRIMARY KEY;
 
+SET default_storage_engine=ROCKSDB;
+-- error ER_BLOCK_NO_PRIMARY_KEY
+CREATE TABLE mysql_noeng(a INT, b INT);
+
+# Disable no_engine_substitution
+SET sql_mode="";
+-- error ER_BLOCK_NO_PRIMARY_KEY
+CREATE TABLE mysql_noeng_sub(a INT, b INT) ENGINE=BOGUS_ENGINE;
+
 DROP TABLE mysql_primkey;
 DROP TABLE mysql_primkey2;
 DROP TABLE mysql_primkey3;
