@@ -29,6 +29,12 @@ DROP INDEX `PRIMARY` ON mysql_primkey4;
 ERROR HY000: Table without primary key cannot be created outside mysql schema.
 ALTER TABLE mysql.mysql_table ADD PRIMARY KEY (a);
 ALTER TABLE mysql.mysql_table DROP PRIMARY KEY;
+SET default_storage_engine=ROCKSDB;
+CREATE TABLE mysql_noeng(a INT, b INT);
+ERROR HY000: Table without primary key cannot be created outside mysql schema.
+SET sql_mode="";
+CREATE TABLE mysql_noeng_sub(a INT, b INT) ENGINE=BOGUS_ENGINE;
+ERROR HY000: Table without primary key cannot be created outside mysql schema.
 DROP TABLE mysql_primkey;
 DROP TABLE mysql_primkey2;
 DROP TABLE mysql_primkey3;
