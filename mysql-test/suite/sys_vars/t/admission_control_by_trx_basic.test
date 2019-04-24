@@ -1,0 +1,32 @@
+SET @start_admission_control_by_trx = @@global.admission_control_by_trx;
+SELECT @start_admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = DEFAULT;
+SELECT @@global.admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = false;
+SELECT @@global.admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = 1;
+SELECT @@global.admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = 0;
+SELECT @@global.admission_control_by_trx;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.admission_control_by_trx = -1;
+SELECT @@global.admission_control_by_trx;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.admission_control_by_trx = 100;
+SELECT @@global.admission_control_by_trx;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.admission_control_by_trx = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.admission_control_by_trx;
+
+SET @@global.admission_control_by_trx = @start_admission_control_by_trx;
+SELECT @@global.admission_control_by_trx;

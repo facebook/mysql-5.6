@@ -40,7 +40,7 @@
 --source include/not_valgrind.inc
 
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%'`;
-let $total_persistent_vars=399;
+let $total_persistent_vars=403;
 # Due to open bugs, there are fewer variables
 --let $total_persistent_vars_sans_bugs=`SELECT $total_persistent_vars - 6;`
 

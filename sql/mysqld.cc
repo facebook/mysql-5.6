@@ -716,6 +716,7 @@ The documentation is based on the source files such as:
 #include "sql/dd/dictionary.h"               // dd::get_dictionary
 #include "sql/dd/performance_schema/init.h"  // performance_schema::init
 #include "sql/dd/upgrade/upgrade.h"          // dd::upgrade::in_progress
+#include "sql/sql_admission_control.h"
 #include "sql/srv_session.h"
 
 #ifdef HAVE_JEMALLOC
@@ -1141,6 +1142,7 @@ ulong binlog_cache_use = 0, binlog_cache_disk_use = 0;
 ulong binlog_stmt_cache_use = 0, binlog_stmt_cache_disk_use = 0;
 ulong max_connections, max_connect_errors;
 ulong max_nonsuper_connections = 0, nonsuper_connections = 0;
+ulong opt_max_running_queries, opt_max_waiting_queries;
 ulong rpl_stop_slave_timeout = LONG_TIMEOUT;
 bool log_bin_use_v1_row_events = 0;
 bool thread_cache_size_specified = false;
@@ -2142,6 +2144,7 @@ static void clean_up(bool print_message) {
   ha_pre_dd_shutdown();
   dd::shutdown();
 
+  delete db_ac;
   Events::deinit();
   stop_handle_manager();
 
@@ -6375,6 +6378,10 @@ int mysqld_main(int argc, char **argv)
   }
 #endif
 
+  db_ac = new AC();
+  db_ac->update_max_running_queries(opt_max_running_queries);
+  db_ac->update_max_waiting_queries(opt_max_waiting_queries);
+
   if (init_server_components()) unireg_abort(MYSQLD_ABORT_EXIT);
 
   /*
@@ -7996,6 +8003,33 @@ static int show_connection_errors_net_ER_NET_WRITE_INTERRUPTED(THD *,
   return 0;
 }
 
+static int get_db_ac_total_aborted_queries(THD *thd MY_ATTRIBUTE((unused)),
+                                           SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  ulonglong *value = reinterpret_cast<ulonglong *>(buff);
+  *value = db_ac->get_total_aborted_queries();
+  return 0;
+}
+
+static int get_db_ac_total_running_queries(THD *thd MY_ATTRIBUTE((unused)),
+                                           SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value = db_ac->get_total_running_queries();
+  return 0;
+}
+
+static int get_db_ac_total_waiting_queries(THD *thd MY_ATTRIBUTE((unused)),
+                                           SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONG;
+  var->value = buff;
+  long *value = reinterpret_cast<long *>(buff);
+  *value = db_ac->get_total_waiting_queries();
+  return 0;
+}
+
 #ifdef ENABLED_PROFILING
 static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONGLONG;
@@ -8675,6 +8709,12 @@ SHOW_VAR status_vars[] = {
     {"Created_tmp_tables",
      (char *)offsetof(System_status_var, created_tmp_tables),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Database_admission_control_aborted_queries",
+     (char *)&get_db_ac_total_aborted_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Database_admission_control_running_queries",
+     (char *)&get_db_ac_total_running_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Database_admission_control_waiting_queries",
+     (char *)&get_db_ac_total_waiting_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Delayed_errors", (char *)&delayed_insert_errors, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Delayed_insert_threads", (char *)&delayed_insert_threads,
@@ -11025,6 +11065,8 @@ extern PSI_stage_info stage_waiting_for_disk_space;
 #ifdef HAVE_PSI_INTERFACE
 
 PSI_stage_info *all_server_stages[] = {
+    &stage_admission_control_enter,
+    &stage_admission_control_exit,
     &stage_after_create,
     &stage_allocating_local_table,
     &stage_alter_inplace_prepare,
@@ -11110,6 +11152,7 @@ PSI_stage_info *all_server_stages[] = {
     &stage_upgrading_lock,
     &stage_user_sleep,
     &stage_verifying_table,
+    &stage_waiting_for_admission,
     &stage_waiting_for_gtid_to_be_committed,
     &stage_waiting_for_handler_commit,
     &stage_waiting_for_handler_insert,

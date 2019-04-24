@@ -128,6 +128,7 @@
 #include "sql/sp.h"        // sp_create_routine
 #include "sql/sp_cache.h"  // sp_cache_enforce_limit
 #include "sql/sp_head.h"   // sp_head
+#include "sql/sql_admission_control.h"
 #include "sql/sql_alter.h"
 #include "sql/sql_audit.h"        // MYSQL_AUDIT_NOTIFY_CONNECTION_CHANGE_USER
 #include "sql/sql_backup_lock.h"  // acquire_shared_mdl_for_backup
@@ -1899,6 +1900,17 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         check_secondary_engine_statement(
             thd, &parser_state, beginning_of_next_stmt, length, &last_timer);
+      }
+
+      if (thd->is_in_ac &&
+          (!opt_admission_control_by_trx ||
+           !thd->get_transaction()->is_active(
+               Transaction_ctx::SESSION) /* thd->is_real_trans equivalent */)) {
+        MT_RESOURCE_ATTRS attrs = {&thd->connection_attrs_map,
+                                   &thd->query_attrs_list, thd->db().str};
+        multi_tenancy_exit_query(thd, &attrs);
+
+        thd->is_in_ac = false;
       }
 
       /* Need to set error to true for graceful shutdown */
@@ -5399,7 +5411,17 @@ void mysql_parse(THD *thd, Parser_state *parser_state,
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-          error = mysql_execute_command(thd, true, last_timer);
+          MT_RESOURCE_ATTRS attrs = {&thd->connection_attrs_map,
+                                     &thd->query_attrs_list, thd->db().str};
+
+          if (multi_tenancy_admit_query(thd, &attrs)) {
+            my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
+                     db_ac->get_max_waiting_queries(),
+                     thd->db().str ? thd->db().str : "unknown database");
+            error = 1;
+          } else {
+            error = mysql_execute_command(thd, true, last_timer);
+          }
 
           if (switched)
             mgr_ptr->restore_original_resource_group(thd, src_res_grp,
