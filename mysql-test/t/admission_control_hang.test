@@ -1,0 +1,126 @@
+--source include/count_sessions.inc
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+
+set @start_max_running_queries = @@global.max_running_queries;
+set @@global.max_running_queries = 4;
+set @start_innodb_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+set @@global.innodb_lock_wait_timeout = 10000;
+set @start_admission_control_filter = @@global.admission_control_filter;
+set @@global.admission_control_filter = 'COMMIT';
+
+let $i= 6;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+
+connection con5;
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+begin;
+update t1 set a=2 where a=1;
+
+connection default;
+let $i= 4;
+# Fill up the admission control running limit.
+while($i)
+{
+  connection con$i;
+  # Blocked on innodb row lock
+  send update t1 set a=2 where a=1;
+  dec $i;
+}
+
+# Test filter USE statement
+connection default;
+set @@global.admission_control_filter = 'USE';
+select @@global.admission_control_filter;
+
+connection con6;
+use test;
+use test_db;
+
+connection default;
+set @@global.admission_control_filter = 'ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW,ROLLBACK';
+select @@global.admission_control_filter;
+
+# Verify the commands filtered above run fine.
+connection con6;
+create table t2(a int) engine=innodb;
+begin;
+insert into t2 values(1);
+update t2 set a=2 where a=1;
+commit;
+SHOW TABLES LIKE 't2';
+begin;
+alter table t2 rename t3;
+select * from t3;
+delete from t3;
+set @val = 1;
+truncate table t3;
+rollback;
+drop table t3;
+
+# Verify that admission_control_by_trx will honor the filters
+connection default;
+set @save_admission_control_by_trx = @@global.admission_control_by_trx;
+select @save_admission_control_by_trx;
+--echo # Turn on admission_control_by_trx
+set @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+
+connection con6;
+create table t2(a int) engine=innodb;
+begin;
+insert into t2 values(1);
+update t2 set a=2 where a=1;
+commit;
+SHOW TABLES LIKE 't2';
+begin;
+alter table t2 rename t3;
+select * from t3;
+delete from t3;
+set @val = 1;
+truncate table t3;
+rollback;
+drop table t3;
+
+connection default;
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+
+# open transaction will be able to go through
+connection con5;
+select count(*) from t1;
+
+# restore admission_control_by_trx
+connection default;
+set @@global.admission_control_by_trx = @save_admission_control_by_trx;
+select @@global.admission_control_by_trx;
+
+connection default;
+set @@global.admission_control_filter = 'COMMIT';
+select @@global.admission_control_filter;
+
+connection con5;
+# Without the COMMIT filter set above, this query gets blocked until conflicting
+# queries hit timeout.
+commit;
+
+let $i= 6;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+
+connection default;
+set @@global.max_running_queries = @start_max_running_queries;
+set @@global.innodb_lock_wait_timeout = @start_innodb_lock_wait_timeout;
+set @@global.admission_control_filter = @start_admission_control_filter;
+drop database test_db;
+drop user test_user@localhost;
+--source include/wait_until_count_sessions.inc

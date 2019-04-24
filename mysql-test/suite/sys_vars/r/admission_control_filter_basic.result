@@ -1,0 +1,30 @@
+set @@global.admission_control_filter = default;
+select @@global.admission_control_filter;
+@@global.admission_control_filter
+
+set @saved_admission_control_filter = @@global.admission_control_filter;
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+
+SET GLOBAL ADMISSION_CONTROL_FILTER='';
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+
+SET GLOBAL ADMISSION_CONTROL_FILTER='';
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+
+SET GLOBAL ADMISSION_CONTROL_FILTER='COMMIT,BEGIN,ALTER';
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+ALTER,BEGIN,COMMIT
+SET GLOBAL ADMISSION_CONTROL_FILTER='ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW';
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW
+SET GLOBAL ADMISSION_CONTROL_FILTER='TRUNCATE,REPLACE,DROP,NONEXISTING_BIT';
+ERROR 42000: Variable 'admission_control_filter' can't be set to the value of 'NONEXISTING_BIT'
+SELECT @@global.admission_control_filter;
+@@global.admission_control_filter
+ALTER,BEGIN,COMMIT,CREATE,DELETE,DROP,INSERT,LOAD,SELECT,SET,REPLACE,TRUNCATE,UPDATE,SHOW
+set global admission_control_filter = @saved_admission_control_filter;
