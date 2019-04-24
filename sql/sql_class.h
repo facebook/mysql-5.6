@@ -167,6 +167,8 @@ struct LOG_INFO;
 
 typedef struct user_conn USER_CONN;
 struct MYSQL_LOCK;
+struct st_ac_node;
+using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
 
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
@@ -4689,6 +4691,10 @@ class THD : public MDL_context_owner,
     session, or false otherwise
   */
   bool is_secondary_storage_engine_eligible() const;
+
+  /* whether the session is already in admission control for queries */
+  bool is_in_ac = false;
+  st_ac_node_ptr ac_node;
 
  private:
   /**
