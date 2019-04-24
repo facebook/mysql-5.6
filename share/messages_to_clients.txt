@@ -9428,8 +9428,8 @@ ER_PLACEHOLDER_50026
 ER_DB_READ_ONLY
   eng "Database '%s' is in read-only mode. %s"
 
-ER_PLACEHOLDER_50028
-  eng "Placeholder"
+ER_DB_ADMISSION_CONTROL
+  eng "Maximum waiting queries %lu reached for database `%s`"
 
 ER_PLACEHOLDER_50029
   eng "Placeholder"
@@ -9577,6 +9577,15 @@ ER_PLACEHOLDER_50076
 
 ER_FULL_SCAN_DISABLED
   eng "Full table/index scan is disabled"
+
+ER_PLACEHOLDER_50078
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50079
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50080
+  eng "Placeholder"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.

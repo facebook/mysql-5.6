@@ -123,7 +123,8 @@
 #include "sql/server_component/log_builtins_filter_imp.h"  // until we have pluggable variables
 #include "sql/server_component/log_builtins_imp.h"
 #include "sql/session_tracker.h"
-#include "sql/sp_head.h"          // SP_PSI_STATEMENT_INFO_COUNT
+#include "sql/sp_head.h"  // SP_PSI_STATEMENT_INFO_COUNT
+#include "sql/sql_admission_control.h"
 #include "sql/sql_backup_lock.h"  // is_instance_backup_locked
 #include "sql/sql_lex.h"
 #include "sql/sql_locale.h"     // my_locale_by_number
@@ -2791,6 +2792,63 @@ static Sys_var_ulong Sys_max_connections(
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr), nullptr,
     /* max_connections is used as a sizing hint by the performance schema. */
     sys_var::PARSE_EARLY);
+
+static bool update_max_running_queries(
+    sys_var *self MY_ATTRIBUTE((unused)), THD *thd MY_ATTRIBUTE((unused)),
+    enum_var_type type MY_ATTRIBUTE((unused))) {
+  db_ac->update_max_running_queries(opt_max_running_queries);
+
+  return false;
+}
+
+static bool update_max_waiting_queries(
+    sys_var *self MY_ATTRIBUTE((unused)), THD *thd MY_ATTRIBUTE((unused)),
+    enum_var_type type MY_ATTRIBUTE((unused))) {
+  db_ac->update_max_waiting_queries(opt_max_waiting_queries);
+
+  return false;
+}
+
+static Sys_var_ulong Sys_max_running_queries(
+    "max_running_queries",
+    "The maximum number of running queries allowed for a database. "
+    "If this value is 0, no such limits are applied.",
+    GLOBAL_VAR(opt_max_running_queries), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_max_running_queries));
+
+static Sys_var_ulong Sys_max_waiting_queries(
+    "max_waiting_queries",
+    "The maximum number of waiting queries allowed for a database."
+    "If this value is 0, no such limits are applied.",
+    GLOBAL_VAR(opt_max_waiting_queries), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 100000), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_max_waiting_queries));
+
+/*
+  Do not add more than 63 entries here.
+  There should be corresponding entry for each of these in
+  enum_admission_control_filter.
+*/
+const char *admission_control_filter_names[] = {
+    "ALTER",    "BEGIN",  "COMMIT", "CREATE", "DELETE",  "DROP",
+    "INSERT",   "LOAD",   "SELECT", "SET",    "REPLACE", "ROLLBACK",
+    "TRUNCATE", "UPDATE", "SHOW",   "USE",    0};
+static Sys_var_set Admission_control_options(
+    "admission_control_filter",
+    "Commands that are skipped in admission control checks. The legal "
+    "values are: "
+    "ALTER, BEGIN, COMMIT, CREATE, DELETE, DROP, INSERT, LOAD, "
+    "SELECT, SET, REPLACE, ROLLBACK, TRUNCATE, UPDATE, SHOW "
+    "and empty string",
+    GLOBAL_VAR(admission_control_filter), CMD_LINE(REQUIRED_ARG),
+    admission_control_filter_names, DEFAULT(0));
+
+static Sys_var_bool Sys_admission_control_by_trx(
+    "admission_control_by_trx",
+    "Allow open transactions to go through admission control",
+    GLOBAL_VAR(opt_admission_control_by_trx), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 static Sys_var_ulong Sys_max_connect_errors(
     "max_connect_errors",

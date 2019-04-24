@@ -29,6 +29,13 @@ The following options may be given as the first argument:
  socket creation.
  --admin-port=#      Port number to use for service connection, built-in
  default (33062)
+ --admission-control-by-trx 
+ Allow open transactions to go through admission control
+ --admission-control-filter=name 
+ Commands that are skipped in admission control checks.
+ The legal values are: ALTER, BEGIN, COMMIT, CREATE,
+ DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
+ ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -678,6 +685,9 @@ The following options may be given as the first argument:
  If non-zero: relay log will be rotated automatically when
  the size exceeds this value; if zero: when the size
  exceeds max_binlog_size
+ --max-running-queries=# 
+ The maximum number of running queries allowed for a
+ database. If this value is 0, no such limits are applied.
  --max-seeks-for-key=# 
  Limit assumed max number of seeks when looking up rows
  based on a key
@@ -689,6 +699,9 @@ The following options may be given as the first argument:
  --max-user-connections=# 
  The maximum number of active connections for a single
  user (0 = no limit)
+ --max-waiting-queries=# 
+ The maximum number of waiting queries allowed for a
+ database.If this value is 0, no such limits are applied.
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
@@ -1522,6 +1535,8 @@ abort-slave-event-count 0
 activate-all-roles-on-login FALSE
 admin-address (No default value)
 admin-port 33062
+admission-control-by-trx FALSE
+admission-control-filter 
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
@@ -1694,10 +1709,12 @@ max-nonsuper-connections 0
 max-points-in-geometry 65536
 max-prepared-stmt-count 16382
 max-relay-log-size 0
+max-running-queries 0
 max-seeks-for-key 18446744073709551615
 max-sort-length 1024
 max-sp-recursion-depth 0
 max-user-connections 0
+max-waiting-queries 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
 min-examined-row-limit 0

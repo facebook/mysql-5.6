@@ -106,6 +106,7 @@
 #include "sql/transaction.h"  // trans_rollback
 #include "sql/transaction_info.h"
 
+#include "sql/sql_admission_control.h"
 #include "sql/xa.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
@@ -1129,6 +1130,14 @@ void THD::release_resources() {
   /* Ensure that no one is using THD */
   mysql_mutex_lock(&LOCK_thd_data);
   mysql_mutex_lock(&LOCK_query_plan);
+
+  /* if we are still in admission control, release it */
+  if (is_in_ac) {
+    MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_list,
+                               m_db.str};
+    multi_tenancy_exit_query(this, &attrs);
+    is_in_ac = false;
+  }
 
   /* Close connection */
   if (is_classic_protocol() && get_protocol_classic()->get_vio()) {
