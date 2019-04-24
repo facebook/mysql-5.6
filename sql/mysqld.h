@@ -342,6 +342,7 @@ extern ulong stored_program_def_size;
 extern ulong table_def_size;
 extern ulong tablespace_def_size;
 extern MYSQL_PLUGIN_IMPORT ulong max_connections;
+extern ulong opt_max_running_queries, opt_max_waiting_queries;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern ulong max_nonsuper_connections;

@@ -111,6 +111,7 @@
 #include "sql/transaction.h"  // trans_rollback
 #include "sql/transaction_info.h"
 
+#include "sql/sql_admission_control.h"
 #include "sql/xa.h"
 #include "sql/xa/sql_cmd_xa.h"                   // Sql_cmd_xa_*
 #include "sql/xa/transaction_cache.h"            // xa::Transaction_cache
@@ -1452,6 +1453,14 @@ void THD::release_resources() {
 
   // Mark THD life cycle state as "SCHEDULED_FOR_DISPOSAL".
   start_disposal();
+
+  /* if we are still in admission control, release it */
+  if (is_in_ac) {
+    MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_list,
+                               m_db.str};
+    multi_tenancy_exit_query(this, &attrs);
+    is_in_ac = false;
+  }
 
   /* Close connection */
   if (is_classic_protocol() && get_protocol_classic()->get_vio()) {

@@ -87,7 +87,8 @@
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_replica_commit_order_manager.h"  // Commit_order_manager
 #include "sql/session_tracker.h"
-#include "sql/sp.h"         // lock_db_routines
+#include "sql/sp.h"  // lock_db_routines
+#include "sql/sql_admission_control.h"
 #include "sql/sql_base.h"   // lock_table_names
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_const.h"
@@ -1122,6 +1123,10 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     }
   }
 
+  if (!error) {
+    db_ac->remove(db.str);
+  }
+
   thd->server_status |= SERVER_STATUS_DB_DROPPED;
   my_ok(thd, deleted_tables);
   return false;
@@ -1383,6 +1388,17 @@ err:
 static void mysql_change_db_impl(THD *thd, const LEX_CSTRING &new_db_name,
                                  ulong new_db_access,
                                  const CHARSET_INFO *new_db_charset) {
+  if (thd->is_in_ac) {
+    // current admission control is per database
+    assert(thd->db().str != nullptr);
+    // if the thd is already in admission control for the previous
+    // database, we need to release it before resetting the value.
+    MT_RESOURCE_ATTRS attrs = {nullptr, nullptr, nullptr};
+    attrs.database = thd->db().str;
+    multi_tenancy_exit_query(thd, &attrs);
+    thd->is_in_ac = false;
+  }
+
   /* 1. Change current database in THD. */
 
   if (new_db_name.str == nullptr) {

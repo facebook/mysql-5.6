@@ -1,0 +1,42 @@
+SET @start_admission_control_by_trx = @@global.admission_control_by_trx;
+SELECT @start_admission_control_by_trx;
+@start_admission_control_by_trx
+0
+SET @@global.admission_control_by_trx = DEFAULT;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+SET @@global.admission_control_by_trx = false;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+SET @@global.admission_control_by_trx = true;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+1
+SET @@global.admission_control_by_trx = 1;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+1
+SET @@global.admission_control_by_trx = 0;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+SET @@global.admission_control_by_trx = -1;
+ERROR 42000: Variable 'admission_control_by_trx' can't be set to the value of '-1'
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+SET @@global.admission_control_by_trx = 100;
+ERROR 42000: Variable 'admission_control_by_trx' can't be set to the value of '100'
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0
+SET @@session.admission_control_by_trx = 10;
+ERROR HY000: Variable 'admission_control_by_trx' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.admission_control_by_trx;
+ERROR HY000: Variable 'admission_control_by_trx' is a GLOBAL variable
+SET @@global.admission_control_by_trx = @start_admission_control_by_trx;
+SELECT @@global.admission_control_by_trx;
+@@global.admission_control_by_trx
+0

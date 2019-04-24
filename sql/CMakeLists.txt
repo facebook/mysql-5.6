@@ -525,6 +525,7 @@ SET(SQL_SHARED_SOURCES
   spatial.cc
   string_service.cc
   sql_admin.cc
+  sql_admission_control.cc
   sql_alloc_error_handler.cc
   sql_alter.cc
   sql_alter_instance.cc
