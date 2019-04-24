@@ -30,8 +30,8 @@ ssl_key	MYSQL_TEST_DIR/std_data/crl-server-key.pem
 # try to connect with '--ssl-crl' option using tilde home directoy
 # path substitution : should connect
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 # try to connect with '--ssl-crlpath' option using tilde home directoy
 # path substitution : should connect
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384

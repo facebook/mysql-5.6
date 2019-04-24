@@ -2,16 +2,16 @@ drop table if exists t1;
 create table t1(f1 int);
 insert into t1 values (5);
 grant select on test.* to ssl_user1@localhost require SSL;
-grant select on test.* to ssl_user2@localhost require cipher "ECDHE-RSA-AES128-GCM-SHA256";
-grant select on test.* to ssl_user3@localhost require cipher "ECDHE-RSA-AES128-GCM-SHA256" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client";
-grant select on test.* to ssl_user4@localhost require cipher "ECDHE-RSA-AES128-GCM-SHA256" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client" ISSUER "/C=SE/ST=Uppsala/L=Uppsala/O=MySQL AB";
-grant select on test.* to ssl_user5@localhost require cipher "ECDHE-RSA-AES128-GCM-SHA256" AND SUBJECT "xxx";
+grant select on test.* to ssl_user2@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384";
+grant select on test.* to ssl_user3@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client";
+grant select on test.* to ssl_user4@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client" ISSUER "/C=SE/ST=Uppsala/L=Uppsala/O=MySQL AB";
+grant select on test.* to ssl_user5@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "xxx";
 flush privileges;
 connect(localhost,ssl_user5,,test,MASTER_PORT,MASTER_SOCKET);
 ERROR 28000: Access denied for user 'ssl_user5'@'localhost' (using password: NO)
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 select * from t1;
 f1
 5
@@ -19,7 +19,7 @@ delete from t1;
 ERROR 42000: DELETE command denied to user 'ssl_user1'@'localhost' for table 't1'
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 select * from t1;
 f1
 5
@@ -27,7 +27,7 @@ delete from t1;
 ERROR 42000: DELETE command denied to user 'ssl_user2'@'localhost' for table 't1'
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 select * from t1;
 f1
 5
@@ -35,7 +35,7 @@ delete from t1;
 ERROR 42000: DELETE command denied to user 'ssl_user3'@'localhost' for table 't1'
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 select * from t1;
 f1
 5
@@ -55,7 +55,7 @@ SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
 Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 End of 5.0 tests
 DROP TABLE IF EXISTS thread_status;
 DROP EVENT IF EXISTS event_status;
@@ -202,6 +202,6 @@ GRANT SELECT ON test.* TO bug42158@localhost REQUIRE X509;
 FLUSH PRIVILEGES;
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 DROP USER bug42158@localhost;
 End of 5.1 tests

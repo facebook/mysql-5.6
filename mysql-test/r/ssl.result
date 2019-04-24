@@ -1,6 +1,6 @@
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 SHOW STATUS LIKE 'Ssl_server_not_before';
 Variable_name	Value
 Ssl_server_not_before	Jan  4 01:46:51 2015 GMT
@@ -2162,7 +2162,7 @@ Warning	1052	Column 'kundentyp' in group statement is ambiguous
 drop table t1;
 SHOW STATUS LIKE 'Ssl_cipher';
 Variable_name	Value
-Ssl_cipher	ECDHE-RSA-AES128-GCM-SHA256
+Ssl_cipher	ECDHE-RSA-AES256-GCM-SHA384
 #
 # Bug#54790: Use of non-blocking mode for sockets limits performance
 #
