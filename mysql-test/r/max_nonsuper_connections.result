@@ -51,6 +51,27 @@ disconnect con4;
 disconnect con3;
 disconnect con2;
 disconnect con1;
+Verifying nonsuper_connections is decremented when db is denied
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
+ERROR 42000: Access denied for user 'test_user'@'localhost' to database 'bogus_db'
 connection default;
 connect  con$i, localhost, test_user,,test;
 connect  con$i, localhost, test_user,,test;
