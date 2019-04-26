@@ -93,7 +93,7 @@ void fix_user_conn(THD *thd, enum conn_denied_reason reason)
     case MAX_GLOBAL:
       us->connections_denied_max_global.inc();
       break;
-    case ADMIN_PORT:
+    case OTHER_ACCESS:
       break;
   }
 

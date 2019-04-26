@@ -11445,9 +11445,13 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   if (thd->is_admin_connection() &&
       !(thd->main_security_ctx.master_access & SUPER_ACL) &&
       !(thd->main_security_ctx.master_access & ADMIN_PORT_ACL)) {
+    USER_CONN *uc = const_cast<USER_CONN*>(thd->get_user_connect());
+    if (uc) {
+      uc->user_stats.errors_access_denied.inc();
+    }
     my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0), "SUPER, ADMIN_PORT");
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-    fix_user_conn(thd, ADMIN_PORT); // Undo work by
+    fix_user_conn(thd, OTHER_ACCESS); // Undo work by
     // get_or_create_user_conn
 #endif
     DBUG_RETURN (1);
@@ -11510,7 +11514,11 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
       if (uc)
       {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+        fix_user_conn(thd, OTHER_ACCESS);
+#else
         decrease_user_connections(uc);
+#endif
         uc->user_stats.errors_access_denied.inc();
       }
       Host_errors errors;
@@ -11544,8 +11552,12 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
       if (uc)
       {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+        fix_user_conn(thd, MAX_GLOBAL);
+#else
         decrease_user_connections(uc);
-        uc->user_stats.errors_access_denied.inc();
+#endif
+        uc->user_stats.connections_denied_max_global.inc();
       }
       Host_errors errors;
       errors.m_connect= 1;

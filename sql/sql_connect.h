@@ -47,7 +47,7 @@ int check_user(THD *thd, enum enum_server_command command,
 bool login_connection(THD *thd);
 void prepare_new_connection_state(THD* thd);
 void end_connection(THD *thd);
-enum conn_denied_reason { MAX_USER, MAX_GLOBAL, ADMIN_PORT};
+enum conn_denied_reason { MAX_USER, MAX_GLOBAL, OTHER_ACCESS };
 void fix_user_conn(THD *thd, enum conn_denied_reason reason);
 int get_or_create_user_conn(THD *thd, const char *user,
                             const char *host, const USER_RESOURCES *mqh);
