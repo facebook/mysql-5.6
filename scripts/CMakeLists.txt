@@ -362,6 +362,7 @@ ELSE()
     mysqldumpslow
     mysqld_multi
     mysqld_safe
+    mysqld_starter
     myrocks_hotbackup
   )
   FOREACH(file ${BIN_SCRIPTS})
