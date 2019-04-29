@@ -8,6 +8,7 @@ SET @start_value = @@global.max_nonsuper_connections;
 
 SET @@global.max_nonsuper_connections = 10;
 SELECT @@global.max_nonsuper_connections;
+SHOW GLOBAL STATUS like 'Non_super_connections';
 
 enable_connect_log;
 connection default;
@@ -37,6 +38,8 @@ connect (con_root, localhost, root,,test);
 --echo # connection con_root
 connection con_root;
 SELECT @@global.max_nonsuper_connections;
+SHOW GLOBAL STATUS like 'Non_super_connections';
+
 disconnect con_root;
 connection default;
 
@@ -46,6 +49,7 @@ connection default;
 connect (con_super, localhost, super_user,,test);
 connection con_super;
 SELECT @@global.max_nonsuper_connections;
+SHOW GLOBAL STATUS like 'Non_super_connections';
 
 #
 # change admin user to regular user in the current connection will fail
@@ -127,6 +131,8 @@ enable_query_log;
 connection default;
 SET @@global.max_nonsuper_connections = @start_value;
 SELECT @@global.max_nonsuper_connections;
+SHOW GLOBAL STATUS like 'Non_super_connections';
+
 drop user test_user@localhost;
 drop user super_user@localhost;
 let $i= 10;
