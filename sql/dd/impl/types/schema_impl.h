@@ -153,6 +153,9 @@ class Schema_impl : public Entity_object_impl, public Schema {
   // options.
   /////////////////////////////////////////////////////////////////////////
 
+  virtual bool set_db_metadata(const String_type &metadata) override;
+  virtual String_type get_db_metadata() const noexcept override;
+
   const Properties &options() const override { return m_options; }
 
   Properties &options() override { return m_options; }
@@ -202,16 +205,16 @@ class Schema_impl : public Entity_object_impl, public Schema {
  public:
   void debug_print(String_type &outb) const override {
     char outbuf[1024];
-    sprintf(outbuf,
-            "SCHEMA OBJECT: id= {OID: %lld}, name= %s, "
-            "collation_id={OID: %lld},"
-            "m_created= %llu, m_last_altered= %llu,"
-            "m_default_encryption= %d, "
-            "se_private_data= %s, options= %s",
-            id(), name().c_str(), m_default_collation_id, m_created,
-            m_last_altered, static_cast<int>(m_default_encryption),
-            m_se_private_data.raw_string().c_str(),
-            m_options.raw_string().c_str());
+    snprintf(outbuf, sizeof(outbuf) / sizeof(char),
+             "SCHEMA OBJECT: id= {OID: %lld}, name= %s, "
+             "collation_id={OID: %lld},"
+             "m_created= %llu, m_last_altered= %llu,"
+             "m_default_encryption= %d, "
+             "se_private_data= %s, options= %s",
+             id(), name().c_str(), m_default_collation_id, m_created,
+             m_last_altered, static_cast<int>(m_default_encryption),
+             m_se_private_data.raw_string().c_str(),
+             m_options.raw_string().c_str());
     outb = String_type(outbuf);
   }
 
