@@ -127,6 +127,9 @@ class Schema_impl : public Entity_object_impl, public Schema {
 
   virtual bool set_options_raw(const String_type &options_raw);
 
+  virtual bool set_db_metadata(const String_type &metadata);
+  virtual String_type get_db_metadata() const noexcept;
+
   // Fix "inherits ... via dominance" warnings
   virtual Entity_object_impl *impl() { return Entity_object_impl::impl(); }
   virtual const Entity_object_impl *impl() const {
@@ -157,12 +160,12 @@ class Schema_impl : public Entity_object_impl, public Schema {
  public:
   virtual void debug_print(String_type &outb) const {
     char outbuf[1024];
-    sprintf(outbuf,
-            "SCHEMA OBJECT: id= {OID: %lld}, name= %s, "
-            "collation_id={OID: %lld},"
-            "m_created= %llu, m_last_altered= %llu",
-            id(), name().c_str(), m_default_collation_id, m_created,
-            m_last_altered);
+    snprintf(outbuf, sizeof(outbuf) / sizeof(char),
+             "SCHEMA OBJECT: id= {OID: %lld}, name= %s, "
+             "collation_id={OID: %lld},"
+             "m_created= %llu, m_last_altered= %llu",
+             id(), name().c_str(), m_default_collation_id, m_created,
+             m_last_altered);
     outb = String_type(outbuf);
   }
 

@@ -46,7 +46,7 @@ bool schema_exists(THD *thd, const char *schema_name, bool *exists);
 
 /** Create a schema record into dd.schemata. */
 bool create_schema(THD *thd, const char *schema_name,
-                   const CHARSET_INFO *charset_info);
+                   const CHARSET_INFO *charset_info, const char *db_metadata);
 
 /**
   Acquire MDL on schema name.
