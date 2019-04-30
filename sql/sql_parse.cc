@@ -1577,6 +1577,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
+  bool rpc_error = false;
   bool state_changed = false;
   THD *save_thd = nullptr;
   std::shared_ptr<Srv_session> srv_session;
@@ -1594,7 +1595,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     packet_length -= bytes_to_skip;
     packet += bytes_to_skip; // command byte gets jumped below
 
-    bool rpc_error;
     std::tie(rpc_error, srv_session) = handle_com_rpc(thd);
     if (rpc_error) {
       goto done;
@@ -2466,7 +2466,7 @@ done:
     ulonglong wall_time = my_timer_since(init_timer);
     thd->status_var.command_time += wall_time;
 #ifndef EMBEDDED_LIBRARY
-    if (thd)
+    if (thd && !rpc_error)
     {
       USER_STATS *us= thd_get_user_stats(thd);
       update_user_stats_after_statement(us, thd, wall_time,
