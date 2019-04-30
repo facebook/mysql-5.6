@@ -1,0 +1,1 @@
+--replica_parallel_type='DATABASE' --replica_preserve_commit_order=OFF

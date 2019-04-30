@@ -1,0 +1,23 @@
+set @save.mts_imbalance_threshold= @@global.mts_imbalance_threshold;
+select @@session.mts_imbalance_threshold;
+ERROR HY000: Variable 'mts_imbalance_threshold' is a GLOBAL variable
+select variable_name from performance_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from performance_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.mts_imbalance_threshold= 0.0;
+select @@global.mts_imbalance_threshold;
+@@global.mts_imbalance_threshold
+0.000000
+set @@global.mts_imbalance_threshold= test;
+ERROR 42000: Incorrect argument type to variable 'mts_imbalance_threshold'
+set @@global.mts_imbalance_threshold= "foo";
+ERROR 42000: Incorrect argument type to variable 'mts_imbalance_threshold'
+set @@global.mts_imbalance_threshold= 0;
+set @@global.mts_imbalance_threshold= cast(-1 as unsigned int);
+Warnings:
+Warning	1292	Truncated incorrect mts_imbalance_threshold value: '1.8446744073709552e19'
+select @@global.mts_imbalance_threshold as "truncated to the maximum";
+truncated to the maximum
+100.000000
+set @@global.mts_imbalance_threshold= @save.mts_imbalance_threshold;

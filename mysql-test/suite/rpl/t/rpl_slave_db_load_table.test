@@ -1,0 +1,47 @@
+# This test verifies the functionality of slave_db_load table.
+
+source include/have_debug.inc;
+source include/master-slave.inc;
+
+let rpl_server_number=2;
+source include/rpl_restart_server.inc;
+
+source include/rpl_connection_slave.inc;
+let $old_mts_dynamic_rebalance= `select @@global.mts_dynamic_rebalance`;
+let $old_replica_parallel_workers= `select @@global.replica_parallel_workers`;
+set global mts_dynamic_rebalance=TRUE;
+set global replica_parallel_workers=2;
+set global debug="+d,skip_checkpoint_load_reset";
+source include/start_slave.inc;
+
+# Load should be empty
+select * from information_schema.slave_db_load;
+
+source include/rpl_connection_master.inc;
+create table t1 (a int);
+let $num_inserts=5;
+while ($num_inserts)
+{
+  insert into t1 values(1);
+  dec $num_inserts;
+}
+
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_connection_slave.inc;
+# Load of test should be 6 (1 create and 5 inserts)
+select * from information_schema.slave_db_load;
+
+# restore varaibles
+source include/stop_slave.inc;
+eval set global mts_dynamic_rebalance=$old_mts_dynamic_rebalance;
+--disable_query_log
+eval set global replica_parallel_workers=$old_replica_parallel_workers;
+--enable_query_log
+set global debug="-d,skip_checkpoint_load_reset";
+source include/start_slave.inc;
+
+source include/rpl_connection_master.inc;
+drop table t1;
+
+source include/rpl_end.inc;

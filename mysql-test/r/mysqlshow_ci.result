@@ -158,6 +158,7 @@ Database: information_schema
 | SCHEMA_PRIVILEGES                     |
 | SCHEMATA                              |
 | SCHEMATA_EXTENSIONS                   |
+| SLAVE_DB_LOAD                         |
 | ST_GEOMETRY_COLUMNS                   |
 | ST_SPATIAL_REFERENCE_SYSTEMS          |
 | ST_UNITS_OF_MEASURE                   |
@@ -259,6 +260,7 @@ Database: INFORMATION_SCHEMA
 | SCHEMA_PRIVILEGES                     |
 | SCHEMATA                              |
 | SCHEMATA_EXTENSIONS                   |
+| SLAVE_DB_LOAD                         |
 | ST_GEOMETRY_COLUMNS                   |
 | ST_SPATIAL_REFERENCE_SYSTEMS          |
 | ST_UNITS_OF_MEASURE                   |
