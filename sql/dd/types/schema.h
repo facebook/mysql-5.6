@@ -132,6 +132,9 @@ class Schema : virtual public Entity_object {
 
   virtual bool set_options_raw(const String_type &options_raw) = 0;
 
+  virtual bool set_db_metadata(const String_type &metadata) = 0;
+  virtual String_type get_db_metadata() const noexcept = 0;
+
  public:
   virtual Event *create_event(THD *thd) const = 0;
 
