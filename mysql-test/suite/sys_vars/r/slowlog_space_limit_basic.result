@@ -1,0 +1,109 @@
+SET @save_original_variable = @@global.slowlog_space_limit;
+SELECT @save_original_variable;
+@save_original_variable
+0
+SET @@global.slowlog_space_limit = 1;
+SET @@global.slowlog_space_limit = DEFAULT;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@session.slowlog_space_limit = 0 + 2;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slowlog_space_limit = DEFAULT;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.slowlog_space_limit;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable
+SET @@global.slowlog_space_limit = NULL;
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SET @@global.slowlog_space_limit = '';
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SET @@global.slowlog_space_limit = ' ';
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SET @@session.slowlog_space_limit = NULL;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slowlog_space_limit = '';
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slowlog_space_limit = ' ';
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.slowlog_space_limit = 0;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 1;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+1
+SET @@global.slowlog_space_limit = TRUE;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+1
+SET @@global.slowlog_space_limit = FALSE;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 18446744073709551615;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+18446744073709551615
+SET @@global.slowlog_space_limit = DEFAULT;
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = -1;
+Warnings:
+Warning	1292	Truncated incorrect slowlog_space_limit value: '-1'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 'ABC';
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = ON;
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 'OFF';
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 1.14;
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = NONE;
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = -18446744073709551615;
+ERROR 42000: Incorrect argument type to variable 'slowlog_space_limit'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+SET @@global.slowlog_space_limit = 18446744073709551615 + 1;
+ERROR 22003: BIGINT UNSIGNED value is out of range in '(18446744073709551615 + 1)'
+SELECT @@global.slowlog_space_limit;
+@@global.slowlog_space_limit
+0
+include/assert.inc [Must return 1]
+SET GLOBAL slowlog_space_limit = 1;
+SET @@global.slowlog_space_limit = 1;
+SET global.slowlog_space_limit = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.slowlog_space_limit = 1' at line 1
+SET @@slowlog_space_limit = 1;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SET slowlog_space_limit = 1;
+ERROR HY000: Variable 'slowlog_space_limit' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT global.slowlog_space_limit;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT GLOBAL slowlog_space_limit;
+ERROR 42S22: Unknown column 'GLOBAL' in 'field list'
+SELECT @@slowlog_space_limit;
+@@slowlog_space_limit
+1
+SET @@global.slowlog_space_limit = @save_original_variable;

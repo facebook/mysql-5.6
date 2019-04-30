@@ -1,0 +1,3 @@
+--let $VARIABLE_NAME = slowlog_space_limit
+--let $VARIABLE_MAX_VALUE = 18446744073709551615
+--source suite/sys_vars/inc/check_global_integer.inc

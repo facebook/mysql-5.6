@@ -58,6 +58,7 @@
 #include <string>
 #include <utility>
 
+#include "binlog.h"
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -107,6 +108,9 @@
 
 using std::max;
 using std::min;
+
+ulong max_slowlog_size;
+ulonglong slowlog_space_limit;
 
 enum enum_slow_query_log_table_field {
   SQLT_FIELD_START_TIME = 0,
@@ -363,6 +367,14 @@ class File_query_log {
                       const char *sql_text, size_t sql_text_len);
 
  private:
+  /* slow log rotation and purging functions */
+  int set_rotated_name(bool need_lock);
+  int rotate(ulong max_size);
+  int purge_logs_by_size();
+
+  ulong cur_slowlog_ext, last_removed_ext;
+  ulonglong total_slowlog_size; /* total size except active slow log */
+
   /** Type of log file. */
   const enum_log_table_type m_log_type;
 
@@ -396,7 +408,13 @@ class File_query_log {
 };
 
 File_query_log::File_query_log(enum_log_table_type log_type)
-    : m_log_type(log_type), name(nullptr), write_error(false), log_open(false) {
+    : cur_slowlog_ext(0),
+      last_removed_ext(0),
+      total_slowlog_size(0),
+      m_log_type(log_type),
+      name(nullptr),
+      write_error(false),
+      log_open(false) {
   mysql_mutex_init(key_LOG_LOCK_log, &LOCK_log, MY_MUTEX_INIT_SLOW);
 #ifdef HAVE_PSI_INTERFACE
   if (log_type == QUERY_LOG_GENERAL)
@@ -501,10 +519,19 @@ bool File_query_log::set_file(const char *new_name) {
 
   name = nn;
 
-  // We can do this here since we're not actually resolving symlinks etc.
-  fn_format(log_file_name, name, mysql_data_home, "", MY_UNPACK_FILENAME);
+  bool res = false;
 
-  return false;
+  mysql_mutex_lock(&LOCK_log);
+  cur_slowlog_ext = 0;
+  last_removed_ext = 0;
+  if (set_rotated_name(false)) {
+    res = true;
+  } else {
+    if (purge_logs_by_size()) res = true;
+  }
+  mysql_mutex_unlock(&LOCK_log);
+
+  return res;
 }
 
 bool File_query_log::open() {
@@ -697,6 +724,149 @@ err:
   return true;
 }
 
+static bool is_n_digit_number(const char *str, int n_digit, ulong *res) {
+  if (!isdigit(*str)) return false;
+
+  const char *start = str++;
+  while (isdigit(*str)) str++;
+  if (*str != 0 || str - start != n_digit) return false;
+
+  if (res) *res = atol(start);
+  return true;
+}
+
+static size_t get_last_extension(const char *const name) {
+  DBUG_ENTER("get_last_extension");
+  char buff[FN_REFLEN];
+  ulong max_found = 0, number = 0;
+  size_t buf_length, length;
+
+  length = dirname_part(buff, name, &buf_length);
+  const char *const start = name + length;
+  const char *const end = strend(start);
+  length = (size_t)(end - start);
+
+  MY_DIR *const dir_info = my_dir(buff, MYF(MY_DONT_SORT));
+  const struct fileinfo *file_info = dir_info->dir_entry;
+
+  for (uint i = dir_info->number_off_files; i--; file_info++) {
+    if (strncmp(file_info->name, start, length) == 0 &&
+        file_info->name[length] == '.' &&
+        is_n_digit_number(file_info->name + length + 1, 6, &number)) {
+      max_found = std::max(max_found, (ulong)number);
+    }
+  }
+
+  my_dirend(dir_info);
+  DBUG_RETURN(max_found);
+}
+
+int File_query_log::set_rotated_name(bool need_lock) {
+  DBUG_ENTER("File_query_log::set_rotated_name");
+  mysql_mutex_assert_owner(&LOCK_log);
+  total_slowlog_size = 0;
+
+  if (!max_slowlog_size) {
+    fn_format(log_file_name, name, mysql_data_home, "", MY_UNPACK_FILENAME);
+    DBUG_RETURN(0);
+  }
+
+  if (cur_slowlog_ext == 0) {
+    fn_format(log_file_name, name, mysql_data_home, "", MY_UNPACK_FILENAME);
+    cur_slowlog_ext = get_last_extension(log_file_name) + 1;
+  } else {
+    cur_slowlog_ext++;
+  }
+
+  if (cur_slowlog_ext > 0) {
+    /* check if reached the maximum possible extension number */
+    if (cur_slowlog_ext >= MAX_LOG_UNIQUE_FN_EXT) {
+      LogErr(ERROR_LEVEL, ER_BINLOG_FILE_EXTENSION_NUMBER_EXHAUSTED,
+             cur_slowlog_ext);
+      DBUG_RETURN(1);
+    }
+
+    if (snprintf(log_file_name, sizeof(log_file_name), "%s.%06lu", name,
+                 cur_slowlog_ext) >= static_cast<int>(sizeof(log_file_name))) {
+      my_printf_error(ER_NO_UNIQUE_LOGFILE,
+                      ER_THD(current_thd, ER_NO_UNIQUE_LOGFILE),
+                      MYF(ME_FATALERROR), name);
+      LogErr(ERROR_LEVEL, ER_FAILED_TO_GENERATE_UNIQUE_LOGFILE, name);
+      DBUG_RETURN(1);
+    }
+
+    if (update_Sys_slow_log_path(log_file_name, need_lock)) {
+      LogErr(ERROR_LEVEL, ER_FAILED_TO_GENERATE_UNIQUE_LOGFILE, name);
+      DBUG_RETURN(1);
+    }
+  }
+
+  DBUG_RETURN(0);
+}
+
+int File_query_log::rotate(const ulong max_size) {
+  int error;
+  DBUG_ENTER("File_query_log::rotate");
+  mysql_mutex_assert_owner(&LOCK_log);
+
+  if (my_b_tell(&log_file) > max_size) {
+    if ((error = set_rotated_name(true))) DBUG_RETURN(error);
+
+    close();
+
+    if (open()) DBUG_RETURN(1);
+  }
+
+  DBUG_RETURN(0);
+}
+
+int File_query_log::purge_logs_by_size() {
+  DBUG_ENTER("File_query_log::purge_logs_by_size");
+  mysql_mutex_assert_owner(&LOCK_log);
+
+  if (slowlog_space_limit == 0 || cur_slowlog_ext <= 1 ||
+      last_removed_ext == cur_slowlog_ext - 1)
+    DBUG_RETURN(0);
+
+  const ulonglong last_log_size = my_b_tell(&log_file);
+
+  if (total_slowlog_size > 0 &&
+      total_slowlog_size < slowlog_space_limit - last_log_size)
+    DBUG_RETURN(0);
+
+  char buff[FN_REFLEN];
+  int error = 0;
+  MY_STAT stat_area;
+  long iter_log_ext = cur_slowlog_ext - 1;
+  total_slowlog_size = 1;
+
+  while (true) {
+    snprintf(buff, sizeof(buff), "%s.%06lu", name, iter_log_ext);
+
+    if (!mysql_file_stat(m_log_file_key, buff, &stat_area, MYF(0))) {
+      last_removed_ext = iter_log_ext;
+      DBUG_RETURN(0);
+    }
+
+    total_slowlog_size += stat_area.st_size;
+    if (total_slowlog_size >= slowlog_space_limit - last_log_size) break;
+    if (--iter_log_ext == 0) DBUG_RETURN(0);
+  };
+
+  while (iter_log_ext > 0) {
+    snprintf(buff, sizeof(buff), "%s.%06lu", name, iter_log_ext);
+
+    if ((error = unlink(buff))) {
+      if (my_errno() == ENOENT) error = 0;
+      break;
+    }
+    --iter_log_ext;
+  }
+
+  total_slowlog_size = 0;
+  DBUG_RETURN(error);
+}
+
 bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                                 ulonglong query_start_utime,
                                 const char *user_host, size_t,
@@ -711,6 +881,9 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
   const bool tid_present = !(thd->trace_id.empty());
   mysql_mutex_lock(&LOCK_log);
   assert(is_open());
+
+  if (max_slowlog_size > 0)
+    if (rotate(max_slowlog_size)) goto err;
 
   if (!(specialflag & SPECIAL_SHORT_LOG_FORMAT)) {
     char my_timestamp[iso8601_size];
@@ -951,6 +1124,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
       flush_io_cache(&log_file))
     goto err;
 
+  if (purge_logs_by_size()) goto err;
   mysql_mutex_unlock(&LOCK_log);
   return false;
 
