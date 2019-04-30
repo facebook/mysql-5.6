@@ -504,7 +504,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     set_db_default_charset(thd, create_info);
 
     if (dd::create_schema(thd, db, create_info->default_table_charset,
-                          encrypt_schema)) {
+                          encrypt_schema, create_info->db_metadata.ptr())) {
       /*
         We could be here due an deadlock or some error reported
         by DD API framework. We remove the database directory
@@ -603,6 +603,10 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     set_db_default_charset(thd, create_info);
     schema->set_default_collation_id(
         create_info->default_table_charset->number);
+  }
+
+  if (create_info->db_metadata.ptr() != nullptr) {
+    schema->set_db_metadata(create_info->db_metadata.ptr());
   }
 
   if (create_info->db_read_only != DB_READ_ONLY_NULL) {

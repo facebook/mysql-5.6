@@ -686,6 +686,8 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
   }
 
   bool is_encrypted_schema = false;
+  std::string metadata;
+
   if (is_infoschema_db(dbname)) {
     create.default_table_charset = system_charset_info;
   } else {
@@ -707,6 +709,7 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     }
 
     create.db_read_only = get_db_read_only(*schema);
+    metadata = schema->get_db_metadata().c_str();
 
     if (create.default_table_charset == nullptr)
       create.default_table_charset = thd->collation();
@@ -745,6 +748,12 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     } else if (create.db_read_only == DB_READ_ONLY_SUPER) {
       buffer.append(STRING_WITH_LEN(" SUPER_READ_ONLY"));
     }
+
+    if (!metadata.empty()) {
+      buffer.append(STRING_WITH_LEN(" DB_METADATA "));
+      append_unescaped(&buffer, metadata.c_str(), metadata.size());
+    }
+
     buffer.append(STRING_WITH_LEN(" */"));
   }
   buffer.append(STRING_WITH_LEN(" /*!80016"));

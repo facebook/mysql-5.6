@@ -9533,14 +9533,14 @@ ER_PLACEHOLDER_50061
 ER_PLACEHOLDER_50062
   eng "Placeholder"
 
-ER_PLACEHOLDER_50063
-  eng "Placeholder"
+ER_DB_METADATA_TOO_LONG
+  eng "Metadata for the database is too long. Max length is %d bytes"
 
-ER_PLACEHOLDER_50064
-  eng "Placeholder"
+ER_DB_METADATA_INVALID_JSON
+  eng "Invalid JSON for DB_METADATA attribute: %s."
 
-ER_PLACEHOLDER_50065
-  eng "Placeholder"
+ER_DB_METADATA_READ_ERROR
+  eng "Error reading db metadata option: '%-.64s'"
 
 ER_PLACEHOLDER_50066
   eng "Placeholder"

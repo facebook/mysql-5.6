@@ -46,6 +46,9 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include <limits>
 #include <type_traits>                       // for std::remove_reference
 #include <utility>
+#include <sstream>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include "my_alloc.h"
 #include "my_dbug.h"
@@ -443,7 +446,7 @@ void warn_about_deprecated_binary(THD *thd)
   1. We do not accept any reduce/reduce conflicts
   2. We should not introduce new shift/reduce conflicts any more.
 */
-%expect 65
+%expect 66
 
 /*
    MAINTAINER:
@@ -1283,6 +1286,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> GTID_SYM 1201
 %token<lexer.keyword> GTID_EXECUTED 1202           /* MYSQL */
 %token<lexer.keyword> SUPER_READ_ONLY_SYM 1203     /* MYSQL */
+%token<lexer.keyword> DB_METADATA_SYM 1204
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -6066,6 +6070,7 @@ create_database_option:
         | db_read_only
           {
           }
+        | db_metadata_str {}
         ;
 
 opt_if_not_exists:
@@ -6290,6 +6295,35 @@ db_read_only:
 read_only_opt:
           READ_ONLY_SYM { $$ = 0; }
         | SUPER_READ_ONLY_SYM { $$ = 1; }
+        ;
+
+db_metadata_str:
+          DB_METADATA_SYM opt_equal TEXT_STRING_sys
+          {
+            if ($3.length > DB_METADATA_MAX_LENGTH)
+            {
+              my_error(ER_DB_METADATA_TOO_LONG, MYF(0), DB_METADATA_MAX_LENGTH);
+              MYSQL_YYABORT;
+            }
+            /* Verify that a valid JSON is provided */
+            if ($3.length > 0)
+            {
+              boost::property_tree::ptree db_metadata_root;
+              std::istringstream is($3.str);
+              try
+              {
+                boost::property_tree::json_parser::read_json(is,
+                                                             db_metadata_root);
+              }
+              catch (const std::exception&)
+              {
+                my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
+                MYSQL_YYABORT;
+              }
+            }
+            Lex->create_info->db_metadata= String($3.str, $3.length,
+              &my_charset_bin);
+          }
         ;
 
 boolean_val:
@@ -14358,6 +14392,7 @@ ident_keywords_ambiguous_2_labels:
         | COMMENT_SYM
         | COMMIT_SYM
         | CONTAINS_SYM
+        | DB_METADATA_SYM
         | DEALLOCATE_SYM
         | DO_SYM
         | END
