@@ -135,6 +135,7 @@ Database: information_schema
 | ROUTINES                              |
 | SCHEMATA                              |
 | SCHEMA_PRIVILEGES                     |
+| SLAVE_DB_LOAD                         |
 | STATISTICS                            |
 | ST_GEOMETRY_COLUMNS                   |
 | ST_SPATIAL_REFERENCE_SYSTEMS          |
@@ -209,6 +210,7 @@ Database: INFORMATION_SCHEMA
 | ROUTINES                              |
 | SCHEMATA                              |
 | SCHEMA_PRIVILEGES                     |
+| SLAVE_DB_LOAD                         |
 | STATISTICS                            |
 | ST_GEOMETRY_COLUMNS                   |
 | ST_SPATIAL_REFERENCE_SYSTEMS          |
