@@ -1,0 +1,103 @@
+SET @save_original_variable = @@global.max_slowlog_size;
+SELECT @save_original_variable;
+@save_original_variable
+0
+SET @@global.max_slowlog_size = 4096;
+SET @@global.max_slowlog_size = DEFAULT;
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@session.max_slowlog_size = 0 + 2;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.max_slowlog_size = DEFAULT;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.max_slowlog_size;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable
+SET @@global.max_slowlog_size = NULL;
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SET @@global.max_slowlog_size = '';
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SET @@global.max_slowlog_size = ' ';
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SET @@session.max_slowlog_size = NULL;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.max_slowlog_size = '';
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.max_slowlog_size = ' ';
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@global.max_slowlog_size = 0;
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = 4096;
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+4096
+SET @@global.max_slowlog_size = 1073741824;
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+1073741824
+SET @@global.max_slowlog_size = DEFAULT;
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = -4096;
+Warnings:
+Warning	1292	Truncated incorrect max_slowlog_size value: '-4096'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = 'ABC';
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = ON;
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = 'OFF';
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = 4096.14;
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = NONE;
+ERROR 42000: Incorrect argument type to variable 'max_slowlog_size'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = -1073741824;
+Warnings:
+Warning	1292	Truncated incorrect max_slowlog_size value: '-1073741824'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+0
+SET @@global.max_slowlog_size = 1073741824 + 1;
+Warnings:
+Warning	1292	Truncated incorrect max_slowlog_size value: '1073741825'
+SELECT @@global.max_slowlog_size;
+@@global.max_slowlog_size
+1073741824
+include/assert.inc [Must return 1]
+SET GLOBAL max_slowlog_size = 4096;
+SET @@global.max_slowlog_size = 4096;
+SET global.max_slowlog_size = 4096;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.max_slowlog_size = 4096' at line 1
+SET @@max_slowlog_size = 4096;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET max_slowlog_size = 4096;
+ERROR HY000: Variable 'max_slowlog_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT global.max_slowlog_size;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT GLOBAL max_slowlog_size;
+ERROR 42S22: Unknown column 'GLOBAL' in 'field list'
+SELECT @@max_slowlog_size;
+@@max_slowlog_size
+4096
+SET @@global.max_slowlog_size = @save_original_variable;

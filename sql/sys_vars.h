@@ -808,6 +808,19 @@ class Sys_var_charptr : public sys_var {
 
   bool global_update(THD *thd, set_var *var);
 
+  bool global_update_value(const char *const ptr) {
+    char *new_val;
+    if (ptr) {
+      new_val = my_strdup(key_memory_Sys_var_charptr_value, ptr, MYF(MY_WME));
+      if (!new_val) return true;
+    } else
+      new_val = nullptr;
+    if (flags & ALLOCATED) my_free(global_var(char *));
+    flags |= ALLOCATED;
+    global_var(char *) = new_val;
+    return false;
+  }
+
   void session_save_default(THD *, set_var *var) {
     char *ptr = (char *)(intptr)option.def_value;
     var->save_result.string_value.str = ptr;

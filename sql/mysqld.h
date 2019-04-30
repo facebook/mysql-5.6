@@ -131,6 +131,8 @@ bool is_secure_file_path(const char *path);
 ulong sql_rnd_with_mutex();
 
 struct System_status_var *get_thd_status_var(THD *thd, bool *aggregated);
+bool update_Sys_slow_log_path(const char *const log_file_name,
+                              const bool need_lock);
 
 // These are needed for unit testing.
 void set_remaining_args(int argc, char **argv);
@@ -247,6 +249,8 @@ extern bool locked_in_memory;
 extern bool opt_using_transactions;
 extern ulong current_pid;
 extern ulong expire_logs_days;
+extern ulong max_slowlog_size;
+extern ulonglong slowlog_space_limit;
 extern ulong binlog_expire_logs_seconds;
 extern uint sync_binlog_period, sync_relaylog_period, sync_relayloginfo_period,
     sync_masterinfo_period, opt_mts_checkpoint_period, opt_mts_checkpoint_group;

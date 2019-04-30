@@ -2984,6 +2984,21 @@ static Sys_var_ulong Sys_max_relay_log_size(
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(fix_max_relay_log_size));
 
+static Sys_var_ulong Sys_max_slowlog_size(
+    "max_slowlog_size",
+    "Slow query log will be rotated automatically when the size exceeds "
+    "this value. The default is 0, don't limit the size.",
+    GLOBAL_VAR(max_slowlog_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, 1024 * 1024L * 1024L), DEFAULT(0L), BLOCK_SIZE(IO_SIZE));
+
+static Sys_var_ulonglong Sys_slowlog_space_limit(
+    "slowlog_space_limit",
+    "Maximum space to use for all slow query logs. "
+    "Works only with max_slowlog_size enabled. "
+    "Default is 0, this feature is disabled.",
+    GLOBAL_VAR(slowlog_space_limit), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_max_sort_length(
     "max_sort_length",
     "The number of bytes to use when sorting long values with PAD SPACE "
@@ -5633,6 +5648,14 @@ static Sys_var_charptr Sys_slow_log_path(
     GLOBAL_VAR(opt_slow_logname), CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET,
     DEFAULT(nullptr), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_log_path),
     ON_UPDATE(fix_slow_log_file));
+
+bool update_Sys_slow_log_path(const char *const log_file_name,
+                              const bool need_lock) {
+  if (need_lock) mysql_mutex_lock(&LOCK_global_system_variables);
+  const bool res = Sys_slow_log_path.global_update_value(log_file_name);
+  if (need_lock) mysql_mutex_unlock(&LOCK_global_system_variables);
+  return res;
+}
 
 static Sys_var_have Sys_have_compress(
     "have_compress", "have_compress",
