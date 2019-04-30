@@ -1,0 +1,157 @@
+create database test2;
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test3 character set utf8;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+show create database test3;
+Database	Create Database
+test3	CREATE DATABASE `test3` /*!40100 DEFAULT CHARACTER SET utf8mb3 */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test4 read_only = true;
+show create database test4;
+Database	Create Database
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test5 db_metadata = "{\"shard\":\"test5_shard\"}";
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test5_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test5;
+CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test5_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */;
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test5_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test6 character set utf8 db_metadata = "{\"shard\":\"test6_shard\"}";
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+show create database test6;
+Database	Create Database
+test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET utf8mb3 DB_METADATA '{"shard":"test6_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard\"}";
+show create database test7;
+Database	Create Database
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test7_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test8 character set utf8 read_only = true;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+show create database test8;
+Database	Create Database
+test8	CREATE DATABASE `test8` /*!40100 DEFAULT CHARACTER SET utf8mb3 */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test9 character set utf8 read_only = true db_metadata = "{\"shard\":\"test9_shard\"}";
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+show create database test9;
+Database	Create Database
+test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET utf8mb3 DB_METADATA '{"shard":"test9_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test3 character set ascii;
+show create database test3;
+Database	Create Database
+test3	CREATE DATABASE `test3` /*!40100 DEFAULT CHARACTER SET ascii */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test4 read_only = true;
+show create database test4;
+Database	Create Database
+test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 db_metadata = "{\"shard\":\"test5_shard_altered\"}";
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test5_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 character set ascii;
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA '{"shard":"test5_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 read_only = true;
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test5_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 character set utf8 read_only = false;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb3 DB_METADATA '{"shard":"test5_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 db_metadata "";
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb3 */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";
+show create database test5;
+Database	Create Database
+test5	CREATE DATABASE `test5` /*!40100 DEFAULT CHARACTER SET utf8mb3 DB_METADATA '{"shard":"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test5 db_metadata "{\"shard\":\"Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Really long shard name. Fin\"}";;
+ERROR HY000: Metadata for the database is too long. Max length is 1024 bytes
+alter database test6 character set ascii db_metadata = "{\"shard\":\"test6_shard_altered\"}";
+show create database test6;
+Database	Create Database
+test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET ascii DB_METADATA '{"shard":"test6_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test7 read_only = true db_metadata = "{\"shard\":\"test7_shard_altered\"}";
+show create database test7;
+Database	Create Database
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY DB_METADATA '{"shard":"test7_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test8 character set ascii read_only = true;
+show create database test8;
+Database	Create Database
+test8	CREATE DATABASE `test8` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test9 character set ascii read_only = true db_metadata = "{\"shard\":\"test9_shard_altered\"}";
+show create database test9;
+Database	Create Database
+test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test9_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+show create database information_schema;
+Database	Create Database
+information_schema	CREATE DATABASE `information_schema` /*!40100 DEFAULT CHARACTER SET utf8mb3 */ /*!80016 DEFAULT ENCRYPTION='N' */
+show create database mysql;
+Database	Create Database
+mysql	CREATE DATABASE `mysql` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database information_schema db_metadata "{\"shard\":\"is_shard\"}";
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+alter database test9 db_metadata = "invalid_json";
+ERROR HY000: Invalid JSON for DB_METADATA attribute: invalid_json.
+show create database test9;
+Database	Create Database
+test9	CREATE DATABASE `test9` /*!40100 DEFAULT CHARACTER SET ascii READ_ONLY DB_METADATA '{"shard":"test9_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test10;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test10 read_only = true;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test10 db_metadata = "{\"shard\":\"test10_shard_altered\"}";
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY DB_METADATA '{"shard":"test10_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test10 read_only = false;
+show create database test10;
+Database	Create Database
+test10	CREATE DATABASE `test10` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"shard":"test10_shard_altered"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
+ERROR HY000: Invalid JSON for DB_METADATA attribute: {'shard':'test11_shard'}.
+create database test12 db_metadata = "{\"sha'rd\":\"test12\\\"_shard\"}";
+show create database test12;
+Database	Create Database
+test12	CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''rd":"test12\\"_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test12;
+CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''rd":"test12\\"_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */;
+show create database test12;
+Database	Create Database
+test12	CREATE DATABASE `test12` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''rd":"test12\\"_shard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test13 db_metadata = '{"sha\'\\"rd":"test13\'_sh\\"ard"}';
+show create database test13;
+Database	Create Database
+test13	CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test13;
+CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */;
+show create database test13;
+Database	Create Database
+test13	CREATE DATABASE `test13` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DB_METADATA '{"sha''\\"rd":"test13''_sh\\"ard"}' */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test2;
+drop database test3;
+drop database test4;
+drop database test5;
+drop database test6;
+drop database test7;
+drop database test8;
+drop database test9;
+drop database test10;
+drop database test12;
+drop database test13;

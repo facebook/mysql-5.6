@@ -117,6 +117,9 @@
 */
 #define MAX_TIME_ZONE_NAME_LENGTH (NAME_LEN + 1)
 
+/* Max length for the db-metadata option */
+#define DB_METADATA_MAX_LENGTH 1024
+
 /**
   Max number of possible extra bytes in a replication event compared to a
   packet (i.e. a query) sent from client to master;

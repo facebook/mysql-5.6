@@ -74,7 +74,7 @@ namespace dd {
 static constexpr auto fb_read_only_options_key = "read_only";
 static constexpr auto mysql_db_read_only_options_key = "mysql_db_read_only";
 static const std::set<String_type> default_valid_option_keys = {
-    mysql_db_read_only_options_key, fb_read_only_options_key};
+    "db_metadata", mysql_db_read_only_options_key, fb_read_only_options_key};
 
 ///////////////////////////////////////////////////////////////////////////
 // Schema_impl implementation.
@@ -110,6 +110,29 @@ bool Schema_impl::read_only() const {
 
 void Schema_impl::set_read_only(bool state) {
   options().set(mysql_db_read_only_options_key, state);
+}
+
+static constexpr auto db_metadata_key = "db_metadata";
+
+bool Schema_impl::set_db_metadata(const String_type &metadata) {
+  if (metadata.empty()) {
+    if (options().exists(db_metadata_key)) {
+      options().remove(db_metadata_key);
+    }
+  } else {
+    options().set(db_metadata_key, metadata);
+  }
+  return true;
+}
+
+String_type Schema_impl::get_db_metadata() const noexcept {
+  if (options().exists(db_metadata_key)) {
+    bool ret;
+    String_type value;
+    ret = options().get(db_metadata_key, &value);
+    if (!ret) return value;
+  }
+  return "";
 }
 
 ///////////////////////////////////////////////////////////////////////////
