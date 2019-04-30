@@ -709,6 +709,13 @@ The following options may be given as the first argument:
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
+ --mts-dynamic-rebalance 
+ Shuffle DB's within workers periodically for load
+ balancing
+ --mts-imbalance-threshold[=#] 
+ Threshold to trigger worker thread rebalancing. This
+ parameter denotes the percent load on the most loaded
+ worker.
  --myisam-block-size=# 
  Block size to be used for MyISAM index pages
  --myisam-data-pointer-size=# 
@@ -1718,6 +1725,8 @@ max-waiting-queries 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
 min-examined-row-limit 0
+mts-dynamic-rebalance FALSE
+mts-imbalance-threshold 90
 myisam-block-size 1024
 myisam-data-pointer-size 6
 myisam-max-sort-file-size 9223372036853727232

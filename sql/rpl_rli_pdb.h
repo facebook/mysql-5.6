@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <atomic>
+#include <queue>
 #include <tuple>
 
 #include "libbinlogevents/include/binlog_event.h"
@@ -80,6 +81,12 @@ struct db_worker_hash_entry {
    */
   long usage;
   /*
+    This is the number of job items this database processed since
+    the last checkpoint, see @ mts_checkpoint_routine.
+    This should also be modified under slave_worker_hash_lock
+   */
+  ulong load;
+  /*
     The list of temp tables belonging to @ db database is
     attached to an assigned @c worker to become its thd->temporary_tables.
     The list is updated with every ddl incl CREATE, DROP.
@@ -95,8 +102,28 @@ struct db_worker_hash_entry {
      timestamp updated_at; */
 };
 
+/*
+  Used in priority queue to find least occupied worker
+  see @ rebalance_workers
+*/
+struct worker_load {
+  Slave_worker *worker;
+  std::vector<db_worker_hash_entry *> db_entries;
+  ulong load;
+
+  worker_load(Slave_worker *worker, long load) noexcept
+      : worker(worker), load(load) {}
+
+  worker_load(Slave_worker *worker) noexcept : worker_load(worker, 0) {}
+
+  bool operator>(const worker_load &other) const noexcept {
+    return this->load > other.load;
+  }
+};
+
 bool init_hash_workers(Relay_log_info *rli);
 void destroy_hash_workers(Relay_log_info *);
+void rebalance_workers(Relay_log_info *rli);
 Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
                                db_worker_hash_entry **ptr_entry,
                                bool need_temp_tables, Slave_worker *w);

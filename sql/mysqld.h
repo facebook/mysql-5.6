@@ -322,6 +322,8 @@ extern bool opt_slave_allow_batching;
 extern ulong slave_trans_retries;
 extern uint slave_net_timeout;
 extern ulong opt_mts_slave_parallel_workers;
+extern bool opt_mts_dynamic_rebalance;
+extern double opt_mts_imbalance_threshold;
 extern ulonglong opt_mts_pending_jobs_size_max;
 extern ulong rpl_stop_slave_timeout;
 extern bool log_bin_use_v1_row_events;

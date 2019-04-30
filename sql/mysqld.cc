@@ -1203,6 +1203,8 @@ ulong slave_exec_mode_options;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
 ulong opt_mts_slave_parallel_workers;
+bool opt_mts_dynamic_rebalance;
+double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
 bool opt_slave_preserve_commit_order;

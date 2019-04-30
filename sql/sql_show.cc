@@ -68,8 +68,12 @@
 #include "mysqld_error.h"
 #include "nullable.h"
 #include "query_tag_perf_counter.h"  // query tag
-#include "scope_guard.h"             // Scope_guard
-#include "sql/auth/auth_acls.h"      // DB_ACLS
+#include "rpl_mi.h"
+#include "rpl_msr.h"
+#include "rpl_rli.h"
+#include "rpl_rli_pdb.h"
+#include "scope_guard.h"         // Scope_guard
+#include "sql/auth/auth_acls.h"  // DB_ACLS
 #include "sql/auth/auth_common.h"
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
@@ -2459,6 +2463,45 @@ static int fill_schema_processlist(THD *thd, TABLE_LIST *tables, Item *) {
   return 0;
 }
 
+static int fill_slave_db_load(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_slave_db_load");
+  int error = 0;
+  TABLE *table = tables->table;
+  CHARSET_INFO *cs = system_charset_info;
+
+  for (auto it : channel_map) {
+    if (Master_info::is_configured(it.second)) {
+      Relay_log_info *rli = it.second->rli;
+
+      if (!rli->inited_hash_workers) {
+        continue;
+      }
+
+      mysql_mutex_lock(&rli->slave_worker_hash_lock);
+      for (auto const &item : rli->mapping_db_to_worker) {
+        db_worker_hash_entry const *entry = item.second.get();
+
+        restore_record(table, s->default_values);
+
+        /* ID */
+        if (entry->db) table->field[0]->store(entry->db, strlen(entry->db), cs);
+        /* Worker */
+        if (entry->worker) table->field[1]->store(entry->worker->id, true);
+        /* Load */
+        table->field[2]->store(entry->load, true);
+
+        if (schema_table_store_record(thd, table)) {
+          error = 1;
+          break;
+        }
+      }
+      mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    }
+  }
+
+  DBUG_RETURN(error);
+}
+
 /*****************************************************************************
   Status functions
 *****************************************************************************/
@@ -4278,6 +4321,12 @@ ST_FIELD_INFO authinfo_fields_info[] = {
     {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info", 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO slave_db_load_fields_info[] = {
+    {"DB", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Database", 0},
+    {"WORKER", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Worker ID", 0},
+    {"DB_LOAD", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "DB Load", 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 ST_FIELD_INFO plugin_fields_info[] = {
     {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name", 0},
     {"PLUGIN_VERSION", 20, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
@@ -4369,6 +4418,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
     {"TMP_TABLE_KEYS", tmp_table_keys_fields_info, show_temporary_tables,
      make_old_format, get_schema_tmp_table_keys_record, true},
     {"AUTHINFO", authinfo_fields_info, fill_schema_authinfo, make_old_format, 0,
+     false},
+    {"SLAVE_DB_LOAD", slave_db_load_fields_info, fill_slave_db_load, 0, 0,
      false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 

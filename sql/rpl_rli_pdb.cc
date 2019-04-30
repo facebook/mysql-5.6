@@ -844,6 +844,102 @@ static void move_temp_tables_to_entry(THD *thd, db_worker_hash_entry *entry) {
   }
 }
 
+static double calculate_imbalance(Relay_log_info *rli,
+                                  const Slave_worker_array *ws) {
+  DBUG_ENTER("calculate_imbalance");
+
+  mysql_mutex_assert_owner(&rli->slave_worker_hash_lock);
+
+  // case: if the number of workers == number of db's
+  // nothing can be done to rebalance the workers
+  if (ws->size() == rli->mapping_db_to_worker.size()) DBUG_RETURN(0);
+
+  double max_usage = 0;
+  double total_usage = 0;
+  std::vector<ulong> load_on_workers(ws->size());
+
+  // calculate the total load per worker
+  for (auto const &entry : rli->mapping_db_to_worker) {
+    load_on_workers[entry.second->worker->id] += entry.second->load;
+  }
+
+  for (ulong load : load_on_workers) {
+    total_usage += load;
+    if (load > max_usage) max_usage = load;
+  }
+
+  if (total_usage == 0) DBUG_RETURN(0);
+
+  DBUG_RETURN(max_usage / total_usage * 100);
+}
+
+void rebalance_workers(Relay_log_info *rli) {
+  DBUG_ENTER("rebalance_workers");
+  DBUG_ASSERT(!rli->curr_group_seen_begin && !rli->curr_group_seen_gtid);
+
+  const Slave_worker_array *ws = &rli->workers;
+  std::priority_queue<worker_load, std::vector<worker_load>,
+                      std::greater<worker_load>>
+      heap;
+
+  mysql_mutex_lock(&rli->slave_worker_hash_lock);
+
+  double imbalance = calculate_imbalance(rli, ws);
+  if (imbalance < opt_mts_imbalance_threshold) {
+    mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    DBUG_VOID_RETURN;
+  }
+
+  // initializing the heap
+  for (Slave_worker *current_worker : *ws) {
+    heap.emplace(worker_load(current_worker));
+  }
+
+  double new_max_wrk_load = 0;
+  double total_wrk_load = 0;
+  // build the heap according to the current load
+  for (auto const &entry : rli->mapping_db_to_worker) {
+    // assign least occupied worker
+    worker_load wrk_load = heap.top();
+    wrk_load.db_entries.push_back(entry.second.get());
+    heap.pop();
+
+    wrk_load.load += entry.second->load;
+
+    if (new_max_wrk_load < wrk_load.load) new_max_wrk_load = wrk_load.load;
+    total_wrk_load += entry.second->load;
+
+    heap.emplace(std::move(wrk_load));
+  }
+
+  // before we remap, check if the rebalancing will make the imbalance
+  // less than the threshold if no we should leave the map alone and
+  // there is no need to sync the workers
+  // NOTE: the comparision method here should be equivalent to @
+  // calculate_imbalance
+  if (total_wrk_load &&
+      new_max_wrk_load / total_wrk_load * 100 > opt_mts_imbalance_threshold) {
+    mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    DBUG_VOID_RETURN;
+  }
+
+  // remap the db->worker map
+  while (!heap.empty()) {
+    worker_load wrk_load = heap.top();
+    for (db_worker_hash_entry *entry : wrk_load.db_entries) {
+      entry->worker = wrk_load.worker;
+    }
+    heap.pop();
+  }
+
+  mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+
+  // wait for all workers to finish
+  (void)rli->current_mts_submode->wait_for_workers_to_finish(rli);
+
+  DBUG_VOID_RETURN;
+}
+
 /**
    The function produces a reference to the struct of a Worker
    that has been or will be engaged to process the @c dbname -keyed  partition
@@ -967,6 +1063,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
     entry->db = db;
     entry->db_len = strlen(db);
     entry->usage = 1;
+    entry->load = 1;
     entry->temporary_tables = nullptr;
     /*
       Unless \exists the last assigned Worker, get a free worker based
@@ -1022,6 +1119,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
                           : last_worker;
       entry->worker->usage_partition++;
       entry->usage++;
+      entry->load++;
       DBUG_PRINT(
           "debug",
           ("worker=%lu, partition=%s, usage=%ld (was 0), wait=false!",
@@ -1030,6 +1128,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
       DBUG_ASSERT(entry->worker);
 
       entry->usage++;
+      entry->load++;
       DBUG_PRINT("debug", ("worker=%lu, partition=%s, usage=%ld, wait=false!",
                            entry->worker->id, entry->db,
                            entry->worker->usage_partition++));
@@ -1064,6 +1163,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
       }
       mysql_mutex_lock(&rli->slave_worker_hash_lock);
       entry->usage = 1;
+      entry->load = 1;
       entry->worker->usage_partition++;
     }
   }

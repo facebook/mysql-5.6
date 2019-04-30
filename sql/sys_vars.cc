@@ -6065,6 +6065,18 @@ static Sys_var_ulong Sys_slave_parallel_workers(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, MTS_MAX_WORKERS), DEFAULT(0),
     BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_mts_dynamic_rebalance(
+    "mts_dynamic_rebalance",
+    "Shuffle DB's within workers periodically for load balancing",
+    GLOBAL_VAR(opt_mts_dynamic_rebalance), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_double Sys_mts_imbalance_threshold(
+    "mts_imbalance_threshold",
+    "Threshold to trigger worker thread rebalancing. This parameter "
+    "denotes the percent load on the most loaded worker.",
+    GLOBAL_VAR(opt_mts_imbalance_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(90));
+
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
     "slave_pending_jobs_size_max",
     "Max size of Slave Worker queues holding not yet applied events. "
