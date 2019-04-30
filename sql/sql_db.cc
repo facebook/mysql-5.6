@@ -577,7 +577,7 @@ bool mysql_create_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     set_db_default_charset(thd, create_info);
 
     if (dd::create_schema(thd, db, create_info->default_table_charset,
-                          encrypt_schema)) {
+                          encrypt_schema, create_info->db_metadata.ptr())) {
       /*
         We could be here due an deadlock or some error reported
         by DD API framework. We remove the database directory
@@ -716,6 +716,10 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
       // that statement commit does not error with read only.
       fill_db_read_only_from_dd(thd, db, nullptr);
     }
+  }
+
+  if (create_info->db_metadata.ptr() != nullptr) {
+    schema->set_db_metadata(create_info->db_metadata.ptr());
   }
 
   // Set encryption type.

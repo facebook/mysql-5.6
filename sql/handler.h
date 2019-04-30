@@ -71,7 +71,8 @@
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
-#include "thr_lock.h"            // thr_lock_type
+#include "sql_string.h"
+#include "thr_lock.h"  // thr_lock_type
 #include "typelib.h"
 
 class Alter_info;
@@ -2804,6 +2805,7 @@ struct HA_CREATE_INFO {
   const CHARSET_INFO *default_table_charset{nullptr};
   bool schema_read_only{false};
   enum enum_db_read_only db_read_only { DB_READ_ONLY_NULL };
+  String db_metadata;
   LEX_STRING connect_string{nullptr, 0};
   const char *password{nullptr};
   const char *tablespace{nullptr};
