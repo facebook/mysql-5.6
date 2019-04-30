@@ -138,6 +138,8 @@ bool is_secure_file_path(const char *path);
 ulong sql_rnd_with_mutex();
 
 struct System_status_var *get_thd_status_var(THD *thd, bool *aggregated);
+bool update_Sys_slow_log_path(const char *const log_file_name,
+                              const bool need_lock);
 
 #ifndef NDEBUG
 bool thd_mem_cnt_alloc(THD *thd, size_t size, const char *key_name);
@@ -266,6 +268,8 @@ extern bool locked_in_memory;
 extern bool opt_using_transactions;
 extern ulong current_pid;
 extern ulong expire_logs_days;
+extern ulong max_slowlog_size;
+extern ulonglong slowlog_space_limit;
 extern ulong binlog_expire_logs_seconds;
 extern uint sync_binlog_period, sync_relaylog_period, sync_relayloginfo_period,
     sync_masterinfo_period, opt_mta_checkpoint_period, opt_mta_checkpoint_group;
