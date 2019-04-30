@@ -6367,6 +6367,23 @@ bool mta_checkpoint_routine(Relay_log_info *rli, bool force) {
         ->jobs_done += cnt;
   }
 
+  // case: rebalance workers should be called only when the current event
+  // in the coordinator is a begin or gtid event
+  if (!force && opt_mts_dynamic_rebalance && !rli->curr_group_seen_begin &&
+      !rli->curr_group_seen_gtid && !rli->sql_thread_kill_accepted) {
+    rebalance_workers(rli);
+  }
+
+  if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1)) {
+    // reset the database load
+    mysql_mutex_lock(&rli->slave_worker_hash_lock);
+    for (auto &item : rli->mapping_db_to_worker) {
+      db_worker_hash_entry *entry = item.second.get();
+      entry->load = 0;
+    }
+    mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+  }
+
   mysql_mutex_lock(&rli->data_lock);
 
   /*

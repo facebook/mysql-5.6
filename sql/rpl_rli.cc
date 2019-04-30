@@ -167,6 +167,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
       workers_array_initialized(false),
       curr_group_assigned_parts(PSI_NOT_INSTRUMENTED),
       curr_group_da(PSI_NOT_INSTRUMENTED),
+      curr_group_seen_gtid(0),
       curr_group_seen_begin(false),
       mts_end_group_sets_max_dbs(false),
       replica_parallel_workers(0),
@@ -2999,7 +3000,9 @@ void Relay_log_info::clear_relay_log_truncated() {
 }
 
 bool Relay_log_info::is_time_for_mta_checkpoint() {
-  if (is_parallel_exec() && opt_mta_checkpoint_period != 0) {
+  bool period_check = opt_mta_checkpoint_period != 0 &&
+                      !curr_group_seen_begin && !curr_group_seen_gtid;
+  if (is_parallel_exec() && period_check) {
     struct timespec curr_clock;
     set_timespec_nsec(&curr_clock, 0);
     return diff_timespec(&curr_clock, &last_clock) >=

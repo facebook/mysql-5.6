@@ -6632,6 +6632,18 @@ static Sys_var_ulong Sys_replica_parallel_workers(
 static Sys_var_deprecated_alias Sys_slave_parallel_workers(
     "slave_parallel_workers", Sys_replica_parallel_workers);
 
+static Sys_var_bool Sys_mts_dynamic_rebalance(
+    "mts_dynamic_rebalance",
+    "Shuffle DB's within workers periodically for load balancing",
+    GLOBAL_VAR(opt_mts_dynamic_rebalance), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_double Sys_mts_imbalance_threshold(
+    "mts_imbalance_threshold",
+    "Threshold to trigger worker thread rebalancing. This parameter "
+    "denotes the percent load on the most loaded worker.",
+    GLOBAL_VAR(opt_mts_imbalance_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(90));
+
 static Sys_var_ulonglong Sys_replica_pending_jobs_size_max(
     "replica_pending_jobs_size_max",
     "Soft limit on the size, in bytes, of per-worker queues of events that "
