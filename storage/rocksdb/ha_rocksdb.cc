@@ -5961,6 +5961,11 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
       ts + kd.m_ttl_duration + read_filter_ts <= static_cast<uint64>(curr_ts);
   if (is_hide_ttl) {
     update_row_stats(ROWS_FILTERED);
+
+    /* increment examined row count when rows are skipped */
+    THD *thd = ha_thd();
+    thd->inc_examined_row_count(1);
+    DEBUG_SYNC(thd, "rocksdb.ttl_rows_examined");
   }
   return is_hide_ttl;
 }
