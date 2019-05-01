@@ -883,7 +883,7 @@ static MYSQL_THDVAR_BOOL(
     " Blind delete is disabled if the table has secondary key",
     nullptr, nullptr, FALSE);
 
-#define DEFAULT_READ_FREE_RPL_TABLES ".*"
+static const char *DEFAULT_READ_FREE_RPL_TABLES = ".*";
 
 static int rocksdb_validate_read_free_rpl_tables(
     THD *thd MY_ATTRIBUTE((__unused__)),
@@ -929,12 +929,21 @@ static void rocksdb_update_read_free_rpl_tables(
   } updater;
   ddl_manager.scan_for_tables(&updater);
 
-  *static_cast<const char **>(var_ptr) = my_strdup(wlist, MYF(MY_WME));
+  if (wlist == DEFAULT_READ_FREE_RPL_TABLES) {
+    // If running SET var = DEFAULT, then rocksdb_validate_read_free_rpl_tables
+    // isn't called, and memory is never allocated for the value. Allocate it
+    // here.
+    *static_cast<const char **>(var_ptr) = my_strdup(wlist, MYF(MY_WME));
+  } else {
+    // Otherwise, we just reuse the value allocated from
+    // rocksdb_validate_read_free_rpl_tables.
+    *static_cast<const char **>(var_ptr) = wlist;
+  }
 }
 
 static MYSQL_SYSVAR_STR(
     read_free_rpl_tables, rocksdb_read_free_rpl_tables,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
     "List of tables that will use read-free replication on the slave "
     "(i.e. not lookup a row during replication)",
     rocksdb_validate_read_free_rpl_tables, rocksdb_update_read_free_rpl_tables,
