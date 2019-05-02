@@ -2085,6 +2085,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
   {
     const LOG_POS_COORD start_coord= { p_coord->file_name, p_start_coord->pos };
+    // NO_LINT_DEBUG
+    sql_print_information("[rpl_wait_for_semi_sync_ack] Signalling async "
+                          "threads to pos: %s:%llu", p_coord->file_name,
+                          p_start_coord->pos);
     signal_semi_sync_ack(&start_coord);
   }
 
@@ -3005,6 +3009,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                    semi_sync_slave,
                                    (event_type != FORMAT_DESCRIPTION_EVENT &&
                                     event_type != ROTATE_EVENT),
+                                   rpl_semi_sync_master_enabled &&
                                    rpl_wait_for_semi_sync_ack))
             {
              GOTO_ERR;
