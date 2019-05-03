@@ -1,0 +1,18 @@
+INSTALL PLUGIN example_stats SONAME 'stats_example.<expected_extension>';
+ERROR HY000: Can't find symbol 'example_stats' in library
+INSTALL PLUGIN stats_example SONAME 'stats_example.<expected_extension>';
+include/assert.inc [stats_example_on plugin variable must be ON by default]
+CREATE DATABASE test_with_metadata DB_METADATA '{"shard" : "shard-123"}';
+USE test_with_metadata;
+CREATE TABLE t1 AS SELECT 1 AS value;
+SET GLOBAL async_query_counter = ON;
+/* async-42 */ SELECT * FROM t1;
+value
+1
+USE test;
+DROP TABLE test_with_metadata.t1;
+DROP DATABASE test_with_metadata;
+UNINSTALL PLUGIN example_stats;
+ERROR 42000: PLUGIN example_stats does not exist
+UNINSTALL PLUGIN stats_example;
+include/assert_grep.inc [Error log should have a [Note] record from the stats_example plugin]

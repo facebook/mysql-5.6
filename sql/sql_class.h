@@ -2101,6 +2101,7 @@ class THD : public MDL_context_owner,
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
   std::string db_metadata;
+  std::string shard_id;
 #if defined(ENABLED_PROFILING)
   std::unique_ptr<PROFILING> profiling;
 #endif
@@ -3600,6 +3601,7 @@ class THD : public MDL_context_owner,
     for the database and set it as a thd property. This is called whenever
     set_db() or reset_db() are called.
   */
+  void set_shard_id();
   void set_db_metadata();
 
   /**

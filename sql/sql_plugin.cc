@@ -24,6 +24,7 @@
 
 #include "my_config.h"
 
+#include <mysql/plugin_statistics.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -353,7 +354,8 @@ const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     {C_STRING_WITH_LEN("VALIDATE PASSWORD")},
     {C_STRING_WITH_LEN("GROUP REPLICATION")},
     {C_STRING_WITH_LEN("KEYRING")},
-    {C_STRING_WITH_LEN("CLONE")}};
+    {C_STRING_WITH_LEN("CLONE")},
+    {C_STRING_WITH_LEN("STATISTICS")}};
 
 extern int initialize_schema_table(st_plugin_int *plugin);
 extern int finalize_schema_table(st_plugin_int *plugin);
@@ -372,6 +374,7 @@ plugin_type_init plugin_type_initialize[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     initialize_audit_plugin,
     0,
     0,
+    0,
     0};
 
 plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
@@ -381,6 +384,7 @@ plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     0,
     finalize_schema_table,
     finalize_audit_plugin,
+    0,
     0,
     0,
     0};
@@ -409,7 +413,8 @@ static int min_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
     MYSQL_GROUP_REPLICATION_INTERFACE_VERSION,
     MYSQL_KEYRING_INTERFACE_VERSION,
-    MYSQL_CLONE_INTERFACE_VERSION};
+    MYSQL_CLONE_INTERFACE_VERSION,
+    MYSQL_STATISTICS_INTERFACE_VERSION};
 static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     0x0000, /* UDF: not implemented */
     MYSQL_HANDLERTON_INTERFACE_VERSION,
@@ -422,7 +427,8 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
     MYSQL_GROUP_REPLICATION_INTERFACE_VERSION,
     MYSQL_KEYRING_INTERFACE_VERSION,
-    MYSQL_CLONE_INTERFACE_VERSION};
+    MYSQL_CLONE_INTERFACE_VERSION,
+    MYSQL_STATISTICS_INTERFACE_VERSION};
 
 /* support for Services */
 

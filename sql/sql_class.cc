@@ -624,12 +624,14 @@ void THD::set_db_metadata() {
     if (!dd_client()->acquire(m_db.str, &schema) && schema != nullptr) {
       mysql_mutex_lock(&LOCK_thd_db_metadata);
       db_metadata = schema->get_db_metadata().c_str();
+      set_shard_id();
       mysql_mutex_unlock(&LOCK_thd_db_metadata);
       return;
     }
   }
   mysql_mutex_lock(&LOCK_thd_db_metadata);
   db_metadata.clear();
+  set_shard_id();
   mysql_mutex_unlock(&LOCK_thd_db_metadata);
 }
 
@@ -3041,10 +3043,12 @@ void THD::set_query_attrs(const char *attrs, size_t length) {
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
-int THD::parse_query_info_attr() {
-  static const std::string query_info_key = "query_info";
-  static const std::string traceid_key = "traceid";
+static const std::string query_info_key{"query_info"};
+static const std::string traceid_key{"traceid"};
+static const std::string query_type_key{"query_type"};
+static const std::string num_queries_key{"num_queries"};
 
+int THD::parse_query_info_attr() {
   for (const auto &kvp : query_attrs_list) {
     if (kvp.first == traceid_key) {
       this->trace_id = kvp.second;
@@ -3057,11 +3061,10 @@ int THD::parse_query_info_attr() {
         return -1;  // invalid json
       }
       try {
-        boost::optional<std::string> trace_id =
-            root.get_optional<std::string>("traceid");
+        auto trace_id = root.get_optional<std::string>(traceid_key);
         if (trace_id) this->trace_id = *trace_id;
-        this->query_type = root.get<std::string>("query_type");
-        this->num_queries = root.get<uint64_t>("num_queries");
+        this->query_type = root.get<std::string>(query_type_key);
+        this->num_queries = root.get<uint64_t>(num_queries_key);
       } catch (const boost::property_tree::ptree_error &e) {
         return -1;  // invalid key or value
       }
@@ -3070,3 +3073,17 @@ int THD::parse_query_info_attr() {
   }
   return 0;
 }
+
+static const std::string shard_key{"shard"};
+static std::string get_shard_id(const std::string &db_metadata) {
+  try {
+    boost::property_tree::ptree db_metadata_root;
+    std::istringstream is(db_metadata);
+    boost::property_tree::read_json(is, db_metadata_root);
+    return db_metadata_root.get<std::string>(shard_key);
+  } catch (const std::exception &) {
+  }
+  return {};
+}
+
+void THD::set_shard_id() { this->shard_id = get_shard_id(this->db_metadata); }

@@ -1865,7 +1865,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
                       com_data->com_query.length))
         break;  // fatal error is set
 
-      qutils::query_tag_perf_counter counter(thd);
+      qutils::query_tag_perf_counter tag_counter(thd);
+      qutils::async_query_counter async_counter(thd);
 
       const char *packet_end = thd->query().str + thd->query().length;
 

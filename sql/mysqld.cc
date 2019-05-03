@@ -1031,6 +1031,7 @@ bool migrate_connect_options = 0;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool enable_binlog_hlc = 0;
+bool async_query_counter_enabled = false;
 
 #if defined(_WIN32)
 /*

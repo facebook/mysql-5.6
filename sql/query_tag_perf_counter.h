@@ -28,6 +28,24 @@ class query_tag_perf_counter {
   THD *thd;                   // reference to outer THD
 };
 
+class async_query_counter {
+ public:
+  async_query_counter(THD *thd);
+  ~async_query_counter();
+
+  // Not copy/move constructible or copy/move assignable.
+  async_query_counter(const async_query_counter &) = delete;
+  async_query_counter &operator=(const async_query_counter &) = delete;
+  async_query_counter(async_query_counter &&) = delete;
+  async_query_counter &operator=(async_query_counter &&) = delete;
+
+ private:
+  timespec starttime;  // query start timestamp
+  bool started;        // query_info attribute detected
+  THD *const thd;      // reference to outer THD
+  std::string tag;
+};
+
 }  // namespace qutils
 
 #endif /* QUERY_TAG_PERF_COUNTER_H_ */

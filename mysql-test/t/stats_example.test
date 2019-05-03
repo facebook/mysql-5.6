@@ -1,0 +1,58 @@
+--source include/have_stats_example_plugin.inc
+--source include/have_debug.inc
+
+# Adjustment to the OS dependent extension of shared libraries.
+--let $expected_extension = so
+if(`SELECT CONVERT(@@version_compile_os USING latin1) IN ("Win32","Win64","Windows")`)
+{
+  --let $expected_extension = dll
+}
+
+--let $shard_id = shard-123
+# "--debug=+d,emulate_facebook_hostname" temporarily sets host name to "eur777.facebook.com""
+--let $region_id = eur
+--let $async_id = async-42
+
+--let $custom_log_file = $MYSQL_TMP_DIR/stats_example.log
+
+--let $restart_parameters = restart: --log-error=$custom_log_file --debug=+d,emulate_facebook_hostname
+--source include/restart_mysqld_no_echo.inc
+
+--replace_result $expected_extension <expected_extension>
+--error ER_CANT_FIND_DL_ENTRY
+eval INSTALL PLUGIN example_stats SONAME 'stats_example.$expected_extension';
+--replace_result $expected_extension <expected_extension>
+eval INSTALL PLUGIN stats_example SONAME 'stats_example.$expected_extension';
+
+--let $assert_text = stats_example_on plugin variable must be ON by default
+--let $assert_cond = @@stats_example_on = 1
+--source include/assert.inc
+
+--eval CREATE DATABASE test_with_metadata DB_METADATA '{"shard" : "$shard_id"}'
+USE test_with_metadata;
+CREATE TABLE t1 AS SELECT 1 AS value;
+
+# no need to save/restore old value as we are restarting the server
+SET GLOBAL async_query_counter = ON;
+
+--eval /* $async_id */ SELECT * FROM t1
+
+USE test;
+
+DROP TABLE test_with_metadata.t1;
+DROP DATABASE test_with_metadata;
+
+--error ER_SP_DOES_NOT_EXIST
+UNINSTALL PLUGIN example_stats;
+UNINSTALL PLUGIN stats_example;
+
+--let $restart_parameters =
+--source include/restart_mysqld_no_echo.inc
+
+--let $assert_file = $custom_log_file
+--let $assert_count = 1
+--let $assert_select = Plugin STATS_EXAMPLE reported: 'async query tag '$async_id/$region_id/$shard_id' took \d+ nanoseconds'
+--let $assert_text = Error log should have a [Note] record from the stats_example plugin
+--source include/assert_grep.inc
+
+--remove_file $custom_log_file

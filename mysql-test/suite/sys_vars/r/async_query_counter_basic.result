@@ -1,0 +1,50 @@
+SET @saved_async_query_counter = @@global.async_query_counter;
+SELECT COUNT(@@GLOBAL.async_query_counter);
+COUNT(@@GLOBAL.async_query_counter)
+1
+SELECT COUNT(@@SESSION.async_query_counter);
+ERROR HY000: Variable 'async_query_counter' is a GLOBAL variable
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'async_query_counter';
+VARIABLE_NAME
+async_query_counter
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE VARIABLE_NAME = 'async_query_counter';
+VARIABLE_NAME
+async_query_counter
+SET GLOBAL async_query_counter = ON;
+include/assert.inc ['async_query_counter is a dynamic variable']
+SET GLOBAL async_query_counter = OFF;
+include/assert.inc ['async_query_counter should be OFF']
+SET GLOBAL async_query_counter = ON;
+include/assert.inc ['async_query_counter should be ON']
+SET GLOBAL async_query_counter = 0;
+include/assert.inc ['async_query_counter should be OFF']
+SET GLOBAL async_query_counter = 1;
+include/assert.inc ['async_query_counter should be ON']
+SET GLOBAL async_query_counter = DEFAULT;
+include/assert.inc ['async_query_counter should be OFF']
+SET GLOBAL async_query_counter = NULL;
+ERROR 42000: Variable 'async_query_counter' can't be set to the value of 'NULL'
+SET GLOBAL async_query_counter = '';
+ERROR 42000: Variable 'async_query_counter' can't be set to the value of ''
+SET GLOBAL async_query_counter = -1;
+ERROR 42000: Variable 'async_query_counter' can't be set to the value of '-1'
+SET GLOBAL async_query_counter = 1.0;
+ERROR 42000: Incorrect argument type to variable 'async_query_counter'
+SET GLOBAL async_query_counter = 'GARBAGE';
+ERROR 42000: Variable 'async_query_counter' can't be set to the value of 'GARBAGE'
+SET GLOBAL async_query_counter = 2;
+ERROR 42000: Variable 'async_query_counter' can't be set to the value of '2'
+Expect value still set to "OFF"
+SELECT @@global.async_query_counter;
+@@global.async_query_counter
+0
+CREATE USER user1;
+SET GLOBAL async_query_counter = ON;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
+SET GLOBAL async_query_counter = ON;
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM user1@'%';
+SET GLOBAL async_query_counter = OFF;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+DROP USER user1;
+SET GLOBAL async_query_counter = @saved_async_query_counter;

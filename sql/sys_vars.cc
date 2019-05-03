@@ -7310,3 +7310,8 @@ static Sys_var_bool Sys_fast_integer_to_string(
     "fast_integer_to_string",
     "Optimized implementation of integer to string conversion",
     GLOBAL_VAR(fast_integer_to_string), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_async_query_info_flag(
+    "async_query_counter",
+    "Parsing async query info and collection of async query statistics",
+    GLOBAL_VAR(async_query_counter_enabled), CMD_LINE(OPT_ARG), DEFAULT(false));

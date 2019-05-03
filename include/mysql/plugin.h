@@ -113,7 +113,8 @@ struct MYSQL_XID {
 #define MYSQL_GROUP_REPLICATION_PLUGIN 9  /* The Group Replication plugin */
 #define MYSQL_KEYRING_PLUGIN 10           /* The Keyring plugin type   */
 #define MYSQL_CLONE_PLUGIN 11             /* The Clone plugin type   */
-#define MYSQL_MAX_PLUGIN_TYPE_NUM 12      /* The number of plugin types   */
+#define MYSQL_QUERY_PERF_STATS_PLUGIN 12  /* The query perf stats plugin type*/
+#define MYSQL_MAX_PLUGIN_TYPE_NUM 13      /* The number of plugin types */
 
 /* We use the following strings to define licenses for plugins */
 #define PLUGIN_LICENSE_PROPRIETARY 0
