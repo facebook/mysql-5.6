@@ -3705,8 +3705,7 @@ int Log_event::apply_event(Relay_log_info *rli)
       if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
           current_gtid.gno <= rli->recovery_max_engine_gtid.gno)
       {
-        DBUG_PRINT("info", ("Setting idempotent mode for gtid %s",
-              rli->last_gtid));
+        sql_print_information("Enabling idempotent mode for %s", rli->last_gtid);
         slave_exec_mode= SLAVE_EXEC_MODE_IDEMPOTENT;
         ((Rows_log_event*)this)->m_force_binlog_idempotent= TRUE;
       }
@@ -12222,6 +12221,93 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
   DBUG_VOID_RETURN;
 }
 
+int Rows_log_event::force_write_to_binlog(Relay_log_info *rli)
+{
+  int error= 0;
+
+  reset_log_pos();
+  // Table map events are necessary before every row event.
+  if (m_table->file->write_locked_table_maps(thd))
+    return HA_ERR_RBR_LOGGING_FAILED;
+
+  // Use the table_id of this server.
+  m_table_id = m_table->s->table_map_id;
+  // MYSQL_BIN_LOG::write_event will recalculate data_written, since we're
+  // writing this event in the cache without checksum (see
+  // @Log_event::need_checksum()) the data_written might be smaller
+  // after the write (if the event contained checksums). We restore the
+  // original data_written to correctly decrement @mts_pending_jobs_size
+  const ulong save_data_written= data_written;
+
+  // Figure out type conversions
+  TABLE *conv_table= nullptr;
+  if (!rli->tables_to_lock->m_tabledef.compatible_with(
+                                       thd,
+                                       const_cast<Relay_log_info*>(rli),
+                                       rli->tables_to_lock->table,
+                                       &conv_table))
+  {
+    sql_print_error("Table schema is not compatible with master's at %s:%llu",
+                    rli->get_rpl_log_name(), log_pos);
+    return HA_ERR_GENERIC;
+  }
+
+  rli->tables_to_lock->m_conv_table= conv_table;
+
+  bool const has_trans= thd->lex->sql_command == SQLCOM_CREATE_TABLE ||
+                        m_table->file->has_transactions();
+
+  uchar *curr_row= NULL, *curr_row_end= NULL;
+  uint i= 0;
+  for (i= 0, curr_row= m_rows_buf;
+       curr_row != m_rows_end && !error;
+       curr_row= curr_row_end, i++)
+  {
+    MY_BITMAP *cols= &m_cols; // init with before image bitmap
+
+    // NOTE: In updates, the after image follows the before image, hence
+    // every odd index will be an after image
+    if (get_type_code() == UPDATE_ROWS_EVENT && i % 2 == 1)
+      cols= &m_cols_ai;
+
+    if ((error= unpack_row(rli, m_table, m_width, curr_row, cols,
+                           const_cast<const uchar**>(&curr_row_end),
+                           &m_master_reclength, m_rows_end)))
+      return error;
+
+    switch (get_type_code())
+    {
+      case WRITE_ROWS_EVENT:
+        error= Write_rows_log_event::binlog_row_logging_function(thd,
+               m_table, has_trans, NULL, m_table->record[0]);
+        break;
+      case UPDATE_ROWS_EVENT:
+        if (i % 2 == 1)
+          error= Update_rows_log_event::binlog_row_logging_function(thd,
+                 m_table, has_trans, m_table->record[1], m_table->record[0]);
+        else
+          store_record(m_table, record[1]);
+        break;
+      case DELETE_ROWS_EVENT:
+        error= Delete_rows_log_event::binlog_row_logging_function(thd,
+               m_table, has_trans, m_table->record[0], NULL);
+        break;
+      default:
+        sql_print_error("Got event other than rows event at %s:%llu",
+                        rli->get_rpl_log_name(), log_pos);
+        error= HA_ERR_GENERIC;
+    }
+  }
+
+  // assert: either data_written remains the same (no checksum in event)
+  // or the difference should be equal to @BINLOG_CHECKSUM_LEN
+  DBUG_ASSERT(data_written == save_data_written ||
+              save_data_written - data_written == BINLOG_CHECKSUM_LEN);
+  data_written= save_data_written;
+
+  return error;
+}
+
 int Rows_log_event::do_apply_event(Relay_log_info const *rli)
 {
   DBUG_ENTER("Rows_log_event::do_apply_event(Relay_log_info*)");
@@ -12544,38 +12630,6 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
      */
     const_cast<Relay_log_info*>(rli)->set_flag(Relay_log_info::IN_STMT);
 
-    if (m_binlog_only)
-    {
-      reset_log_pos();
-      // We are inside a transaction which should not be applied to
-      // the storage engine, so write these row events to the binlog and exit.
-      // Table map events are necessary before every row event.
-      if (table->file->write_locked_table_maps(thd))
-        DBUG_RETURN(HA_ERR_RBR_LOGGING_FAILED);
-      // Use the table_id of this server.
-      m_table_id = m_table->s->table_map_id;
-      // MYSQL_BIN_LOG::write_event will recalculate data_written, since we're
-      // writing this event in the cache without checksum (see
-      // @Log_event::need_checksum()) the data_written might be smaller
-      // after the write (if the event contained checksums). We restore the
-      // original data_written to correctly decrement @mts_pending_jobs_size
-      const auto save_data_written= data_written;
-      error = mysql_bin_log.write_event(this,
-                                        Log_event::EVENT_TRANSACTIONAL_CACHE);
-      // assert: either data_written remains the same (no checksum in event)
-      // or the difference should be equal to @BINLOG_CHECKSUM_LEN
-      DBUG_ASSERT(data_written == save_data_written ||
-                  save_data_written - data_written == BINLOG_CHECKSUM_LEN);
-      data_written= save_data_written;
-      if (get_flags(STMT_END_F) && !error &&
-          !(error = rows_event_stmt_cleanup(rli, thd)))
-      {
-        // This is end row update in the current statment.
-        thd->clear_binlog_table_maps();
-      }
-      DBUG_RETURN(error);
-    }
-
      if ( m_width == table->s->fields && bitmap_is_set_all(&m_cols))
       set_flags(COMPLETE_ROWS_F);
 
@@ -12625,6 +12679,18 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
     }
     else
       bitmap_intersect(table->write_set, after_image);
+
+    if (m_binlog_only)
+    {
+      error= force_write_to_binlog(const_cast<Relay_log_info*>(rli));
+      if (get_flags(STMT_END_F) && !error &&
+          !(error = rows_event_stmt_cleanup(rli, thd)))
+      {
+        // This is end row update in the current statment.
+        thd->clear_binlog_table_maps();
+      }
+      DBUG_RETURN(error);
+    }
 
     // Do event specific preparations
     error= do_before_row_operations(rli);
@@ -12806,31 +12872,8 @@ AFTER_MAIN_EXEC_ROW_LOOP:
 
       // reset all the pending rows that might have been added while applying
       // the row events, we will directly write the relay log event
-      thd->binlog_reset_pending_rows_event(table->file->has_transactions());
-      reset_log_pos();
-
-      // Table map events are necessary before every row event.
-      if (table->file->write_locked_table_maps(thd))
-        error= HA_ERR_RBR_LOGGING_FAILED;
-      else
-      {
-        // Use the table_id of this server.
-        m_table_id = m_table->s->table_map_id;
-        // MYSQL_BIN_LOG::write_event will recalculate data_written, since we're
-        // writing this event in the cache without checksum (see
-        // @Log_event::need_checksum()) the data_written might be smaller
-        // after the write (if the event contained checksums). We restore the
-        // original data_written to correctly decrement @mts_pending_jobs_size
-        const auto save_data_written= data_written;
-        error= mysql_bin_log.write_event(this, table->file->has_transactions() ?
-                                         Log_event::EVENT_TRANSACTIONAL_CACHE :
-                                         Log_event::EVENT_STMT_CACHE);
-        // assert: either data_written remains the same (no checksum in event)
-        // or the difference should be equal to @BINLOG_CHECKSUM_LEN
-        DBUG_ASSERT(data_written == save_data_written ||
-                    save_data_written - data_written == BINLOG_CHECKSUM_LEN);
-        data_written= save_data_written;
-      }
+      thd->binlog_reset_pending_rows_event(m_table->file->has_transactions());
+      error= force_write_to_binlog(const_cast<Relay_log_info*>(rli));
     }
   } // if (table)
 

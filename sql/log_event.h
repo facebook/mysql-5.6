@@ -4549,6 +4549,7 @@ private:
   virtual int do_apply_event(Relay_log_info const *rli);
   virtual int do_update_pos(Relay_log_info *rli);
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+  int force_write_to_binlog(Relay_log_info *rli);
 
   /*
     Primitive to prepare for a sequence of row executions.

@@ -2608,8 +2608,8 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
         current_gtid.gno <= rli->recovery_max_engine_gtid.gno)
     {
-      DBUG_PRINT("info", ("Setting idempotent mode for gtid %s",
-                            worker->worker_last_gtid));
+      sql_print_information("Enabling idempotent mode for %s",
+                             worker->worker_last_gtid);
       ev->slave_exec_mode= SLAVE_EXEC_MODE_IDEMPOTENT;
       ((Rows_log_event*)ev)->m_force_binlog_idempotent= TRUE;
     }
