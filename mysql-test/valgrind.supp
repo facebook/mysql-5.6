@@ -1276,6 +1276,20 @@
 }
 
 {
+   TLS data on main thread is not cleaned up properly
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:vasprintf
+   fun:asprintf
+   fun:dlerror
+   fun:dlfcn_load
+   fun:DSO_load
+   fun:DSO_dsobyaddr
+   ...
+}
+
+{
    Valgrind complains about std::unordered_map ctor in ha_rocksdb
    Memcheck:Leak
    match-leak-kinds: definite
