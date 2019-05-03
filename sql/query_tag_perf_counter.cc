@@ -4,15 +4,19 @@
 #include <mutex>
 #include <memory>
 #include <deque>
+#include <cctype>
 #include <boost/optional.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-
+#include <boost/algorithm/searching/boyer_moore_horspool.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "query_tag_perf_counter.h"
 #include "sql_class.h"
 #include "sql_show.h"
+#include <mysql/plugin.h>
+#include <mysql/plugin_statistics.h>
 
 namespace qutils {
 
@@ -105,5 +109,108 @@ static int64_t timespec_diff(const timespec& start, const timespec& stop)
   const int64_t diff = sec * 1000000000LL + nsec;
   return diff;
 }
+
+static std::string get_host_region()
+{
+  std::string hostname(glob_hostname);
+  std::string fbend(".facebook.com");
+
+  // remove .facebook.com suffix
+  if(boost::algorithm::ends_with(hostname, fbend))
+    hostname.erase(hostname.size() - fbend.size());
+
+  // find last suffix delimited by .
+  size_t pos = hostname.find_last_of('.');
+  std::string region = (pos != std::string::npos) ?
+    hostname.substr(pos + 1) : hostname;
+
+  // remove trailing digits from region name
+  while(!region.empty() && std::isdigit(region.back()))
+    region.pop_back();
+
+  // if region parsed incorrectly
+  if(region.size() != 3)
+    region = "undefined";
+  return region;
+}
+
+static const std::string& get_shard_id(const THD* thd)
+{
+  static const std::string undefined = "undefined";
+  return thd->shard_id.empty() ? undefined : thd->shard_id;
+}
+
+static std::string make_ratelim_key(const std::string& tag, const THD* thd)
+{
+  static const std::string region = get_host_region();
+  const std::string& shard = get_shard_id(thd);
+  return tag + "/" + region + "/" + shard;
+}
+
+static boost::optional<std::string>
+find_async_tag(const char *query, uint32 query_length, const THD* thd)
+{
+  static const char* async_word = "async-";
+  static const boost::algorithm::boyer_moore_horspool<const char*>
+    searcher(async_word, async_word + 6);
+  // search only in first 100 characters
+  const char *query_end = query + (query_length > 100 ? 100 : query_length);
+  std::pair<const char*, const char *> sub = searcher(query, query_end);
+  if(sub.first != query_end) {
+    const char *subend = sub.second;
+    while(std::isdigit(*subend)) {
+      subend++;
+    }
+    return make_ratelim_key(std::string(sub.first, subend), thd);
+  }
+  return boost::optional<std::string>{};
+}
+
+async_query_counter::async_query_counter(THD* _thd)
+  : started(false), thd(_thd)
+{
+  if(async_query_counter_enabled) {
+    boost::optional<std::string> tag = find_async_tag(thd->query(),
+        thd->query_length(), thd);
+    if(tag) {
+      this->started = true;
+      this->tag = std::move(*tag);
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &this->starttime);
+
+    }
+  }
+}
+
+static my_bool plugins_dispatch(THD *thd, plugin_ref plugin,
+                                 void *arg)
+{
+  const struct st_mysql_statistics *pl =
+      (struct st_mysql_statistics *) plugin_decl(plugin)->info;
+  mysql_stmt_stats_t *stats = (mysql_stmt_stats_t *)arg;
+  if(pl != nullptr)
+    pl->publish_stmt_stats(thd, stats);
+  return FALSE;
+}
+
+async_query_counter::~async_query_counter()
+{
+  if(!this->started)
+    return;
+
+  struct timespec endtime;
+  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &endtime);
+  // nanoseconds
+  int64_t cputime = timespec_diff(this->starttime, endtime);
+  if(cputime < 0)
+    cputime = 0;
+
+  mysql_stmt_stats_t stats;
+  stats_measurements measurements;
+  stats.tag = this->tag.c_str();
+  measurements.thd_cpu_time = cputime / 1000; // microseconds
+  stats.stats = &measurements;
+  plugin_foreach(thd, plugins_dispatch, MYSQL_QUERY_PERF_STATS_PLUGIN, &stats);
+}
+
 } // namespace qutils
 

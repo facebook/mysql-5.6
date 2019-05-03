@@ -413,6 +413,7 @@ extern double comp_event_cache_hit_ratio;
 extern ulonglong repl_semi_sync_master_ack_waits;
 extern my_bool recv_skip_ibuf_operations;
 extern bool enable_blind_replace;
+extern my_bool async_query_counter_enabled;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;

@@ -37,6 +37,7 @@
 #include "my_default.h"
 #include "debug_sync.h"
 #include <mysql/plugin_multi_tenancy.h>
+#include <mysql/plugin_statistics.h>
 
 #include <algorithm>
 
@@ -80,7 +81,8 @@ const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   { C_STRING_WITH_LEN("REPLICATION") },
   { C_STRING_WITH_LEN("AUTHENTICATION") },
   { C_STRING_WITH_LEN("VALIDATE PASSWORD") },
-  { C_STRING_WITH_LEN("MULTI TENANCY") }
+  { C_STRING_WITH_LEN("MULTI TENANCY") },
+  { C_STRING_WITH_LEN("STATISTICS") }
 };
 
 extern int initialize_schema_table(st_plugin_int *plugin);
@@ -108,7 +110,8 @@ plugin_type_init plugin_type_initialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   0,
   0,
   0,
-  initialize_multi_tenancy_plugin
+  initialize_multi_tenancy_plugin,
+  0
 };
 
 plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
@@ -122,7 +125,8 @@ plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   0,
   0,
   0,
-  finalize_multi_tenancy_plugin
+  finalize_multi_tenancy_plugin,
+  0
 };
 
 #ifdef HAVE_DLOPEN
@@ -150,7 +154,8 @@ static int min_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_REPLICATION_INTERFACE_VERSION,
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
   MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
-	MYSQL_MULTI_TENANCY_INTERFACE_VERSION
+	MYSQL_MULTI_TENANCY_INTERFACE_VERSION,
+	MYSQL_STATISTICS_INTERFACE_VERSION
 };
 static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
@@ -163,7 +168,8 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_REPLICATION_INTERFACE_VERSION,
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
   MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
-	MYSQL_MULTI_TENANCY_INTERFACE_VERSION
+	MYSQL_MULTI_TENANCY_INTERFACE_VERSION,
+	MYSQL_STATISTICS_INTERFACE_VERSION
 };
 
 /* support for Services */

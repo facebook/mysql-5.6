@@ -1868,7 +1868,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
 
-    qutils::query_tag_perf_counter counter(thd);
+    qutils::query_tag_perf_counter tag_counter(thd);
+    qutils::async_query_counter async_counter(thd);
 
     MYSQL_QUERY_START(thd->query(), thd->thread_id,
                       (char *) (thd->db ? thd->db : ""),

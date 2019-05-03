@@ -494,6 +494,7 @@ uint host_cache_size;
 ulonglong tmp_table_rpl_max_file_size;
 ulong slave_tx_isolation;
 bool enable_blind_replace= 0;
+my_bool async_query_counter_enabled = 0;
 
 my_bool log_legacy_user;
 const char *opt_legacy_user_name_pattern;

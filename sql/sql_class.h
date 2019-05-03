@@ -3377,6 +3377,7 @@ public:
   HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
   std::string db_metadata;
+  std::string shard_id;
 #if defined(ENABLED_PROFILING)
   PROFILING  profiling;
 #endif
@@ -4361,6 +4362,7 @@ public:
     for the database and set it as a thd property. This is called whenever
     set_db() or reset_db() are called.
   */
+  void set_shard_id();
   void set_db_metadata()
   {
     if (db_length)
@@ -4372,6 +4374,7 @@ public:
         db_metadata= std::string(create.db_metadata.ptr());
       else
         db_metadata.clear();
+      set_shard_id();
       mysql_mutex_unlock(&LOCK_db_metadata);
     }
   }

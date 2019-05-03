@@ -5781,3 +5781,23 @@ int THD::parse_query_info_attr()
   return 0;
 
 }
+
+static std::string get_shard_id(const std::string& db_metadata)
+{
+  try {
+    boost::property_tree::ptree db_metadata_root;
+    std::istringstream is(db_metadata);
+    boost::property_tree::read_json(is, db_metadata_root);
+    std::string shard_id = db_metadata_root.get<std::string>("shard");
+    return shard_id;
+  }
+  catch (std::exception)
+  {
+    return {};
+  }
+}
+
+void THD::set_shard_id()
+{
+  this->shard_id = get_shard_id(this->db_metadata);
+}

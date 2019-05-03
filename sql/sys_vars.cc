@@ -6181,3 +6181,10 @@ static Sys_var_mybool Sys_enable_blind_replace(
        "insert. This is supported in MyRocks",
        GLOBAL_VAR(enable_blind_replace),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_async_query_info_flag(
+       "async_query_counter",
+       "Parsing async query info and collection of async query statistics",
+       GLOBAL_VAR(async_query_counter_enabled),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
