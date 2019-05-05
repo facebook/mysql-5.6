@@ -32,6 +32,8 @@ err_log=
 syslog_tag_mysqld=mysqld
 syslog_tag_mysqld_safe=mysqld_safe
 
+exit_code=0
+
 trap '' 1 2 3 15			# we shouldn't let anyone kill us
 trap '' 13                              # not even SIGPIPE
 
@@ -174,7 +176,9 @@ eval_log_error () {
       # sed buffers output (only GNU sed supports a -u (unbuffered) option)
       # which means that messages may not get sent to syslog until the
       # mysqld process quits.
-      cmd="$cmd 2>&1 | logger -t '$syslog_tag_mysqld' -p daemon.error"
+      #
+      # Adding pipefail to return non zero exit code on mysqld failure.
+      cmd="set -o pipefail; $cmd 2>&1 | logger -t '$syslog_tag_mysqld' -p daemon.error"
       ;;
     *)
       echo "Internal program error (non-fatal):" \
@@ -183,7 +187,12 @@ eval_log_error () {
   esac
 
   #echo "Running mysqld: [$cmd]"
-  eval "$cmd"
+  #set mysqld exit code into $exit_code
+  #both stdout/stderr are redirected in $cmd. so
+  #exit_code is a return code (not output) of of $cmd
+  #which is the same as mysqld's exit code.
+  cmd="$cmd; echo \$?"
+  exit_code=`eval "$cmd"`
 }
 
 shell_quote_string() {
@@ -992,3 +1001,4 @@ fi
 
 log_notice "mysqld from pid file $pid_file ended"
 
+exit $exit_code
