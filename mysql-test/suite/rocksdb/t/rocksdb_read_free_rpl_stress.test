@@ -3,20 +3,20 @@ source include/master-slave.inc;
 source include/not_valgrind.inc;
 
 connection slave;
-stop slave;
+source include/stop_slave.inc;
 set @@global.rocksdb_read_free_rpl = PK_SK;
-start slave;
+source include/start_slave.inc;
 source rocksdb_read_free_rpl_stress.inc;
 
 connection slave;
-stop slave;
+source include/stop_slave.inc;
 set @@global.rocksdb_read_free_rpl = PK_ONLY;
-start slave;
+source include/start_slave.inc;
 source rocksdb_read_free_rpl_stress.inc;
 
 connection slave;
-stop slave;
+source include/stop_slave.inc;
 set @@global.rocksdb_read_free_rpl = default;
-start slave;
+source include/start_slave.inc;
 
 source include/rpl_end.inc;
