@@ -28,9 +28,9 @@ while ($iter < 10) {
   let $t = 1;
   while ($t <= 8) {
     eval update t$t set a = a + 10000 where a > 900; # update pk (if any)
-    eval update t$t set b = b + 10000 where b> 900; # update sk or unique (if any)
-    eval update t$t set c = c + 10000 where c> 900; # update sk or unique(if any)
-    eval update t$t set d = d + 10000 where d> 900; # update non key col
+    eval update t$t set b = b + 10000 where b > 900; # update sk or unique (if any)
+    eval update t$t set c = c + 10000 where c > 900; # update sk or unique(if any)
+    eval update t$t set d = d + 10000 where d > 900; # update non key col
 
     eval delete from t$t where a < 25;
     eval delete from t$t where b < 50;
