@@ -35,6 +35,9 @@ The following options may be given as the first argument:
  library, for example exit() from libc.so
  -a, --ansi          Use ANSI SQL syntax instead of MySQL syntax. This mode
  will also set transaction isolation level 'serializable'.
+ --async-query-counter 
+ Parsing async query info and collection of async query
+ statistics
  --auto-increment-increment[=#] 
  Auto-increment columns are incremented by this
  --auto-increment-offset[=#] 
@@ -1920,6 +1923,7 @@ allow-document-type FALSE
 allow-multiple-engines FALSE
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
+async-query-counter FALSE
 auto-increment-increment 1
 auto-increment-offset 1
 autocommit TRUE
