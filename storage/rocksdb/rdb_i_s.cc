@@ -47,10 +47,10 @@ namespace myrocks {
   engine.
 */
 
-#define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_)                      \
+#define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
   { _name_, _len_, _type_, 0, _flag_, nullptr, 0 }
 
-#define ROCKSDB_FIELD_INFO_END                                                 \
+#define ROCKSDB_FIELD_INFO_END \
   ROCKSDB_FIELD_INFO(nullptr, 0, MYSQL_TYPE_NULL, 0)
 
 /*
@@ -58,7 +58,7 @@ namespace myrocks {
  */
 namespace RDB_CFSTATS_FIELD {
 enum { CF_NAME = 0, STAT_TYPE, VALUE };
-} // namespace RDB_CFSTATS_FIELD
+}  // namespace RDB_CFSTATS_FIELD
 
 static ST_FIELD_INFO rdb_i_s_cfstats_fields_info[] = {
     ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -154,7 +154,7 @@ static int rdb_i_s_cfstats_init(void *p) {
  */
 namespace RDB_DBSTATS_FIELD {
 enum { STAT_TYPE = 0, VALUE };
-} // namespace RDB_DBSTATS_FIELD
+}  // namespace RDB_DBSTATS_FIELD
 
 static ST_FIELD_INFO rdb_i_s_dbstats_fields_info[] = {
     ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -247,7 +247,7 @@ static int rdb_i_s_dbstats_init(void *const p) {
  */
 namespace RDB_PERF_CONTEXT_FIELD {
 enum { TABLE_SCHEMA = 0, TABLE_NAME, PARTITION_NAME, STAT_TYPE, VALUE };
-} // namespace RDB_PERF_CONTEXT_FIELD
+}  // namespace RDB_PERF_CONTEXT_FIELD
 
 static ST_FIELD_INFO rdb_i_s_perf_context_fields_info[] = {
     ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -348,7 +348,7 @@ static int rdb_i_s_perf_context_init(void *const p) {
  */
 namespace RDB_PERF_CONTEXT_GLOBAL_FIELD {
 enum { STAT_TYPE = 0, VALUE };
-} // namespace RDB_PERF_CONTEXT_GLOBAL_FIELD
+}  // namespace RDB_PERF_CONTEXT_GLOBAL_FIELD
 
 static ST_FIELD_INFO rdb_i_s_perf_context_global_fields_info[] = {
     ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -415,7 +415,7 @@ static int rdb_i_s_perf_context_global_init(void *const p) {
  */
 namespace RDB_CFOPTIONS_FIELD {
 enum { CF_NAME = 0, OPTION_TYPE, VALUE };
-} // namespace RDB_CFOPTIONS_FIELD
+}  // namespace RDB_CFOPTIONS_FIELD
 
 static ST_FIELD_INFO rdb_i_s_cfoptions_fields_info[] = {
     ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -575,20 +575,20 @@ static int rdb_i_s_cfoptions_fill_table(
 
     // get COMPACTION_STYLE option
     switch (opts.compaction_style) {
-    case rocksdb::kCompactionStyleLevel:
-      val = "kCompactionStyleLevel";
-      break;
-    case rocksdb::kCompactionStyleUniversal:
-      val = "kCompactionStyleUniversal";
-      break;
-    case rocksdb::kCompactionStyleFIFO:
-      val = "kCompactionStyleFIFO";
-      break;
-    case rocksdb::kCompactionStyleNone:
-      val = "kCompactionStyleNone";
-      break;
-    default:
-      val = "NULL";
+      case rocksdb::kCompactionStyleLevel:
+        val = "kCompactionStyleLevel";
+        break;
+      case rocksdb::kCompactionStyleUniversal:
+        val = "kCompactionStyleUniversal";
+        break;
+      case rocksdb::kCompactionStyleFIFO:
+        val = "kCompactionStyleFIFO";
+        break;
+      case rocksdb::kCompactionStyleNone:
+        val = "kCompactionStyleNone";
+        break;
+      default:
+        val = "NULL";
     }
 
     cf_option_types.push_back({"COMPACTION_STYLE", val});
@@ -611,14 +611,14 @@ static int rdb_i_s_cfoptions_fill_table(
     val.append("; STOP_STYLE=");
 
     switch (compac_opts.stop_style) {
-    case rocksdb::kCompactionStopStyleSimilarSize:
-      val.append("kCompactionStopStyleSimilarSize}");
-      break;
-    case rocksdb::kCompactionStopStyleTotalSize:
-      val.append("kCompactionStopStyleTotalSize}");
-      break;
-    default:
-      val.append("}");
+      case rocksdb::kCompactionStopStyleSimilarSize:
+        val.append("kCompactionStopStyleSimilarSize}");
+        break;
+      case rocksdb::kCompactionStopStyleTotalSize:
+        val.append("kCompactionStopStyleTotalSize}");
+        break;
+      default:
+        val.append("}");
     }
 
     cf_option_types.push_back({"COMPACTION_OPTIONS_UNIVERSAL", val});
@@ -778,10 +778,11 @@ static int rdb_i_s_global_info_fill_table(
 
     if (!dict_manager->get_cf_flags(cf_handle->GetID(), &flags)) {
       // NO_LINT_DEBUG
-      sql_print_error("RocksDB: Failed to get column family flags "
-                      "from CF with id = %u. MyRocks data dictionary may "
-                      "be corrupted.",
-                      cf_handle->GetID());
+      sql_print_error(
+          "RocksDB: Failed to get column family flags "
+          "from CF with id = %u. MyRocks data dictionary may "
+          "be corrupted.",
+          cf_handle->GetID());
       abort();
     }
 
@@ -890,7 +891,7 @@ static ST_FIELD_INFO rdb_i_s_compact_stats_fields_info[] = {
     ROCKSDB_FIELD_INFO("VALUE", sizeof(double), MYSQL_TYPE_DOUBLE, 0),
     ROCKSDB_FIELD_INFO_END};
 
-namespace // anonymous namespace = not visible outside this source file
+namespace  // anonymous namespace = not visible outside this source file
 {
 struct Rdb_ddl_scanner : public Rdb_tables_scanner {
   my_core::THD *m_thd;
@@ -898,7 +899,7 @@ struct Rdb_ddl_scanner : public Rdb_tables_scanner {
 
   int add_table(Rdb_tbl_def *tdef) override;
 };
-} // anonymous namespace
+}  // anonymous namespace
 
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_DDL dynamic table
@@ -918,7 +919,7 @@ enum {
   CF,
   AUTO_INCREMENT
 };
-} // namespace RDB_DDL_FIELD
+}  // namespace RDB_DDL_FIELD
 
 static ST_FIELD_INFO rdb_i_s_ddl_fields_info[] = {
     ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -993,8 +994,7 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
     }
 
     ret = my_core::schema_table_store_record(m_thd, m_table);
-    if (ret)
-      return ret;
+    if (ret) return ret;
   }
   return HA_EXIT_SUCCESS;
 }
@@ -1290,7 +1290,7 @@ enum {
   ENTRY_OTHERS,
   DISTINCT_KEYS_PREFIX
 };
-} // namespace RDB_INDEX_FILE_MAP_FIELD
+}  // namespace RDB_INDEX_FILE_MAP_FIELD
 
 static ST_FIELD_INFO rdb_i_s_index_file_map_fields_info[] = {
     /* The information_schema.rocksdb_index_file_map virtual table has four
@@ -1441,7 +1441,7 @@ static int rdb_i_s_index_file_map_init(void *const p) {
  */
 namespace RDB_LOCKS_FIELD {
 enum { COLUMN_FAMILY_ID = 0, TRANSACTION_ID, KEY, MODE };
-} // namespace RDB_LOCKS_FIELD
+}  // namespace RDB_LOCKS_FIELD
 
 static ST_FIELD_INFO rdb_i_s_lock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("COLUMN_FAMILY_ID", sizeof(uint32_t), MYSQL_TYPE_LONG,
@@ -1541,7 +1541,7 @@ enum {
   THREAD_ID,
   QUERY
 };
-} // namespace RDB_TRX_FIELD
+}  // namespace RDB_TRX_FIELD
 
 static ST_FIELD_INFO rdb_i_s_trx_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
@@ -1665,7 +1665,7 @@ enum {
   TABLE_NAME,
   ROLLED_BACK,
 };
-} // namespace RDB_TRX_FIELD
+}  // namespace RDB_DEADLOCK_FIELD
 
 static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
     ROCKSDB_FIELD_INFO("DEADLOCK_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
@@ -1981,4 +1981,4 @@ struct st_mysql_plugin rdb_i_s_deadlock_info = {
     nullptr, /* config options */
     0,       /* flags */
 };
-} // namespace myrocks
+}  // namespace myrocks
