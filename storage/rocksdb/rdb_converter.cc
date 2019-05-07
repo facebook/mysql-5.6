@@ -191,7 +191,6 @@ int Rdb_convert_to_record_value_decoder::decode_fixed_length_field(
 */
 int Rdb_convert_to_record_value_decoder::decode_varchar(
     Field *field, Rdb_string_reader *const reader, bool decode) {
-
   my_core::Field_varstring *const field_var = (my_core::Field_varstring *)field;
 
   const char *data_len_str;
@@ -300,8 +299,8 @@ int Rdb_value_field_iterator<value_field_decoder>::get_field_index() const {
 }
 
 template <typename value_field_decoder>
-enum_field_types
-Rdb_value_field_iterator<value_field_decoder>::get_field_type() const {
+enum_field_types Rdb_value_field_iterator<value_field_decoder>::get_field_type()
+    const {
   DBUG_ASSERT(m_field_dec != nullptr);
   return m_field_dec->m_field_type;
 }

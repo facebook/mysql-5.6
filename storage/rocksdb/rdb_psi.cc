@@ -14,7 +14,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #ifdef USE_PRAGMA_IMPLEMENTATION
-#pragma implementation // gcc: Class implementation
+#pragma implementation  // gcc: Class implementation
 #endif
 
 #define MYSQL_SERVER 1
@@ -94,8 +94,7 @@ void init_rocksdb_psi_keys() {
   const char *const category = "rocksdb";
   int count;
 
-  if (PSI_server == nullptr)
-    return;
+  if (PSI_server == nullptr) return;
 
   count = array_elements(all_rocksdb_mutexes);
   PSI_server->register_mutex(category, all_rocksdb_mutexes, count);
@@ -104,7 +103,7 @@ void init_rocksdb_psi_keys() {
   PSI_server->register_rwlock(category, all_rocksdb_rwlocks, count);
 
   count = array_elements(all_rocksdb_conds);
-  //TODO Disabling PFS for conditions due to the bug
+  // TODO(jay) Disabling PFS for conditions due to the bug
   // https://github.com/MySQLOnRocksDB/mysql-5.6/issues/92
   // PSI_server->register_cond(category, all_rocksdb_conds, count);
 
@@ -114,7 +113,7 @@ void init_rocksdb_psi_keys() {
   count = array_elements(all_rocksdb_threads);
   mysql_thread_register(category, all_rocksdb_threads, count);
 }
-#else  // HAVE_PSI_INTERFACE
+#else   // HAVE_PSI_INTERFACE
 void init_rocksdb_psi_keys() {}
 #endif  // HAVE_PSI_INTERFACE
 
