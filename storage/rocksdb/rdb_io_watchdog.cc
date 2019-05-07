@@ -37,10 +37,11 @@ void Rdb_io_watchdog::expire_io_callback(union sigval timer_data) {
   // At this point we know that I/O has been stuck in `write()` for more than
   // `m_write_timeout` seconds. We'll log a message and shut down the service.
   // NO_LINT_DEBUG
-  sql_print_error("MyRocks has detected a combination of I/O requests which "
-                  "have cumulatively been blocking for more than %u seconds. "
-                  "Shutting the service down.",
-                  m_write_timeout);
+  sql_print_error(
+      "MyRocks has detected a combination of I/O requests which "
+      "have cumulatively been blocking for more than %u seconds. "
+      "Shutting the service down.",
+      m_write_timeout);
 
   abort();
 }

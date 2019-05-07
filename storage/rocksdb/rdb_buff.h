@@ -221,10 +221,10 @@ class Rdb_string_reader {
   const char *m_ptr;
   uint m_len;
 
-private:
+ private:
   Rdb_string_reader &operator=(const Rdb_string_reader &) = default;
 
-public:
+ public:
   Rdb_string_reader(const Rdb_string_reader &) = default;
   /* named constructor */
   static Rdb_string_reader read_or_empty(const rocksdb::Slice *const slice) {
@@ -274,20 +274,20 @@ public:
   bool read_uint8(uint *const res) {
     const uchar *p;
     if (!(p = reinterpret_cast<const uchar *>(read(1))))
-      return true; // error
+      return true;  // error
     else {
       *res = *p;
-      return false; // Ok
+      return false;  // Ok
     }
   }
 
   bool read_uint16(uint *const res) {
     const uchar *p;
     if (!(p = reinterpret_cast<const uchar *>(read(2))))
-      return true; // error
+      return true;  // error
     else {
       *res = rdb_netbuf_to_uint16(p);
-      return false; // Ok
+      return false;  // Ok
     }
   }
 
@@ -329,7 +329,7 @@ public:
 class Rdb_string_writer {
   std::vector<uchar> m_data;
 
-public:
+ public:
   Rdb_string_writer(const Rdb_string_writer &) = delete;
   Rdb_string_writer &operator=(const Rdb_string_writer &) = delete;
   Rdb_string_writer() = default;
@@ -398,7 +398,7 @@ class Rdb_bit_writer {
   Rdb_string_writer *m_writer;
   uchar m_offset;
 
-public:
+ public:
   Rdb_bit_writer(const Rdb_bit_writer &) = delete;
   Rdb_bit_writer &operator=(const Rdb_bit_writer &) = delete;
 
@@ -430,7 +430,7 @@ class Rdb_bit_reader {
   uint m_ret;
   Rdb_string_reader *const m_reader;
 
-public:
+ public:
   Rdb_bit_reader(const Rdb_bit_reader &) = delete;
   Rdb_bit_reader &operator=(const Rdb_bit_reader &) = delete;
 
@@ -463,7 +463,8 @@ public:
   }
 };
 
-template <size_t buf_length> class Rdb_buf_writer {
+template <size_t buf_length>
+class Rdb_buf_writer {
  public:
   Rdb_buf_writer(const Rdb_buf_writer &) = delete;
   Rdb_buf_writer &operator=(const Rdb_buf_writer &) = delete;
@@ -525,4 +526,4 @@ template <size_t buf_length> class Rdb_buf_writer {
   uchar *m_ptr;
 };
 
-} // namespace myrocks
+}  // namespace myrocks
