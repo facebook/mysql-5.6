@@ -161,6 +161,7 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   info->alloced_buffer = 0;
   info->buffer=0;
   info->seek_not_done= 0;
+  info->compressor = 0;
 
   if (file >= 0)
   {
@@ -1789,10 +1790,10 @@ int my_b_flush_io_cache(IO_CACHE *info,
 			((pos_in_file+length) & (IO_SIZE-1)));
 
       if (mysql_file_write(info->file,info->write_buffer,length,
-		   info->myflags | MY_NABP))
-	info->error= -1;
+       info->myflags | MY_NABP))
+  info->error= -1;
       else
-	info->error= 0;
+  info->error= 0;
       if (!append_cache)
       {
         set_if_bigger(info->end_of_file,(pos_in_file+length));
@@ -1862,6 +1863,12 @@ int end_io_cache(IO_CACHE *info)
       error= my_b_flush_io_cache(info,1);
     my_free(info->buffer);
     info->buffer=info->read_pos=(uchar*) 0;
+  }
+  if (info->compressor)
+  {
+    int rc = end_io_cache_compressor(info);
+    if(!error)
+      error = rc;
   }
   if (info->type == SEQ_READ_APPEND)
   {

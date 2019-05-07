@@ -512,6 +512,7 @@ typedef struct st_io_cache		/* Used when cacheing files */
   my_off_t aio_read_pos;
   my_aio_result aio_result;
 #endif
+  struct compressor *compressor;
 } IO_CACHE;
 
 typedef int (*qsort2_cmp)(const void *, const void *, const void *);
@@ -753,6 +754,10 @@ my_off_t my_get_ptr(uchar *ptr, size_t pack_length);
 extern int init_io_cache(IO_CACHE *info,File file,size_t cachesize,
 			 enum cache_type type,my_off_t seek_offset,
 			 pbool use_async_io, myf cache_myflags);
+extern int init_io_cache_ex(IO_CACHE *info,File file,size_t cachesize,
+       enum cache_type type,my_off_t seek_offset,
+       pbool use_async_io, myf cache_myflags, my_bool compressed);
+extern int end_io_cache_compressor(IO_CACHE *info);
 extern my_bool reinit_io_cache(IO_CACHE *info,enum cache_type type,
 			       my_off_t seek_offset,pbool use_async_io,
 			       pbool clear_cache);

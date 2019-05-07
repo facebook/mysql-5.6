@@ -5008,6 +5008,7 @@ public:
   const String *field_term, *enclosed, *line_term, *line_start, *escaped;
   bool opt_enclosed;
   bool dumpfile;
+  bool compressed;
   ulong skip_lines;
   const CHARSET_INFO *cs;
   sql_exchange(char *name, bool dumpfile_flag,

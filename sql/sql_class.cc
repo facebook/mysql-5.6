@@ -2803,7 +2803,8 @@ static const String my_empty_string("",default_charset_info);
 
 sql_exchange::sql_exchange(char *name, bool flag,
                            enum enum_filetype filetype_arg)
-  :file_name(name), opt_enclosed(0), dumpfile(flag), skip_lines(0)
+  :file_name(name), opt_enclosed(0), dumpfile(flag),
+	compressed(0), skip_lines(0)
 {
   filetype= filetype_arg;
   field_term= &default_field_term;
@@ -3067,7 +3068,8 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
     (void) chmod(path, 0666);
 #endif
   }
-  if (init_io_cache(cache, file, 0L, WRITE_CACHE, 0L, 1, MYF(MY_WME)))
+  if (init_io_cache_ex(cache, file, 0L, WRITE_CACHE, 0L, 1, MYF(MY_WME),
+      exchange->compressed))
   {
     mysql_file_close(file, MYF(0));
     /* Delete file on error, if it was just created */

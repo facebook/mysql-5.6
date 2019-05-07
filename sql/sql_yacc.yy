@@ -2197,6 +2197,7 @@ END_OF_INPUT
 
 %type <num> read_only_opt boolean_val
 %type <num> opt_discard_tablespace
+%type <num> opt_compressed_clause
 %%
 
 /*
@@ -12432,16 +12433,17 @@ into:
         ;
 
 into_destination:
-          OUTFILE TEXT_STRING_filesystem
+          OUTFILE TEXT_STRING_filesystem opt_compressed_clause
           {
             LEX *lex= Lex;
             lex->uncacheable(UNCACHEABLE_SIDEEFFECT);
             if (!(lex->exchange= new sql_exchange($2.str, 0)) ||
                 !(lex->result= new select_export(lex->exchange)))
               MYSQL_YYABORT;
+            lex->exchange->compressed = $3;
           }
           opt_load_data_charset
-          { Lex->exchange->cs= $4; }
+          { Lex->exchange->cs= $5; }
           opt_field_term opt_line_term
         | DUMPFILE TEXT_STRING_filesystem
           {
@@ -12459,6 +12461,11 @@ into_destination:
           {
             Lex->uncacheable(UNCACHEABLE_SIDEEFFECT);
           }
+        ;
+
+opt_compressed_clause:
+          /*empty*/ { $$ = 0; }
+        | COMPRESSED_SYM { $$ = 1; }
         ;
 
 /*
