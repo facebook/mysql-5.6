@@ -42,7 +42,7 @@ namespace myrocks {
 
 #ifndef interface
 #define interface struct
-#endif // interface
+#endif  // interface
 
 /*
   Introduce C-style pseudo-namespaces, a handy way to make code more readble
@@ -60,7 +60,7 @@ namespace myrocks {
 // to non-obvious MySQL functions, like the ones that do not start with well
 // known prefixes: "my_", "sql_", and "mysql_".
 #define my_core
-#endif // my_core
+#endif  // my_core
 
 /*
   The intent behind a SHIP_ASSERT() macro is to have a mechanism for validating
@@ -78,14 +78,14 @@ namespace myrocks {
 */
 
 #ifndef SHIP_ASSERT
-#define SHIP_ASSERT(expr)                                                      \
-  do {                                                                         \
-    if (!(expr)) {                                                             \
-      my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr);         \
-      abort();                                                                 \
-    }                                                                          \
+#define SHIP_ASSERT(expr)                                              \
+  do {                                                                 \
+    if (!(expr)) {                                                     \
+      my_safe_printf_stderr("\nShip assert failure: \'%s\'\n", #expr); \
+      abort();                                                         \
+    }                                                                  \
   } while (0)
-#endif // SHIP_ASSERT
+#endif  // SHIP_ASSERT
 
 /*
   Assert a implies b.
@@ -101,7 +101,7 @@ namespace myrocks {
   a and b must be both true or both false.
 */
 #ifndef DBUG_ASSERT_IFF
-#define DBUG_ASSERT_IFF(a, b)                                                  \
+#define DBUG_ASSERT_IFF(a, b) \
   DBUG_ASSERT(static_cast<bool>(a) == static_cast<bool>(b))
 #endif
 
@@ -137,10 +137,10 @@ namespace myrocks {
   Macros to better convey the intent behind checking the results from locking
   and unlocking mutexes.
 */
-#define RDB_MUTEX_LOCK_CHECK(m)                                                \
+#define RDB_MUTEX_LOCK_CHECK(m) \
   rdb_check_mutex_call_result(__PRETTY_FUNCTION__, true, mysql_mutex_lock(&m))
-#define RDB_MUTEX_UNLOCK_CHECK(m)                                              \
-  rdb_check_mutex_call_result(__PRETTY_FUNCTION__, false,                      \
+#define RDB_MUTEX_UNLOCK_CHECK(m)                         \
+  rdb_check_mutex_call_result(__PRETTY_FUNCTION__, false, \
                               mysql_mutex_unlock(&m))
 
 /*
@@ -228,10 +228,10 @@ inline void rdb_check_mutex_call_result(const char *function_name,
                                         const int result) {
   if (unlikely(result)) {
     /* NO_LINT_DEBUG */
-    sql_print_error("%s a mutex inside %s failed with an "
-                    "error code %d.",
-                    attempt_lock ? "Locking" : "Unlocking", function_name,
-                    result);
+    sql_print_error(
+        "%s a mutex inside %s failed with an "
+        "error code %d.",
+        attempt_lock ? "Locking" : "Unlocking", function_name, result);
 
     // This will hopefully result in a meaningful stack trace which we can use
     // to efficiently debug the root cause.
@@ -276,7 +276,7 @@ const char *rdb_parse_id(const struct charset_info_st *const cs,
 const char *rdb_skip_id(const struct charset_info_st *const cs, const char *str)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-const std::vector<std::string> parse_into_tokens(const std::string& s,
+const std::vector<std::string> parse_into_tokens(const std::string &s,
                                                  const char delim);
 
 /*
@@ -305,4 +305,4 @@ class Ensure_cleanup {
  private:
   std::function<void()> m_cleanup;
 };
-} // namespace myrocks
+}  // namespace myrocks
