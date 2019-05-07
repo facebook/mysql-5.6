@@ -43,6 +43,9 @@ abstract class BaseDirectoryScopedFormatLinter extends ArcanistLinter {
 
   final public function willLintPaths(array $paths) {
     $futures = array();
+
+    $this->prepareFormat();
+
     foreach ($paths as $path) {
       if (!$this->shouldLintPath($path)) {
         continue;
@@ -62,6 +65,7 @@ abstract class BaseDirectoryScopedFormatLinter extends ArcanistLinter {
     }
   }
 
+  protected function prepareFormat() {}
   abstract protected function getFormatFuture($path, array $changed);
   abstract protected function getLintMessage($diff);
 

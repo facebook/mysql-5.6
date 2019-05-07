@@ -15,7 +15,7 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 #ifdef USE_PRAGMA_IMPLEMENTATION
-#pragma implementation // gcc: Class implementation
+#pragma implementation  // gcc: Class implementation
 #endif
 
 /* This C++ files header file */
@@ -71,9 +71,8 @@ void Rdb_cf_manager::cleanup() {
   @detail
     See Rdb_cf_manager::get_cf
 */
-rocksdb::ColumnFamilyHandle *
-Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb,
-                                 const std::string &cf_name_arg) {
+rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_or_create_cf(
+    rocksdb::DB *const rdb, const std::string &cf_name_arg) {
   DBUG_ASSERT(rdb != nullptr);
 
   rocksdb::ColumnFamilyHandle *cf_handle = nullptr;
@@ -125,9 +124,8 @@ Rdb_cf_manager::get_or_create_cf(rocksdb::DB *const rdb,
   Find column family by its cf_name.
 */
 
-rocksdb::ColumnFamilyHandle *
-Rdb_cf_manager::get_cf(const std::string &cf_name_arg,
-                       const bool lock_held_by_caller) const {
+rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(
+    const std::string &cf_name_arg, const bool lock_held_by_caller) const {
   rocksdb::ColumnFamilyHandle *cf_handle;
 
   if (!lock_held_by_caller) {
@@ -155,8 +153,7 @@ rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_cf(const uint32_t id) const {
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
   const auto it = m_cf_id_map.find(id);
-  if (it != m_cf_id_map.end())
-    cf_handle = it->second;
+  if (it != m_cf_id_map.end()) cf_handle = it->second;
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 
   return cf_handle;
@@ -174,8 +171,8 @@ std::vector<std::string> Rdb_cf_manager::get_cf_names(void) const {
   return names;
 }
 
-std::vector<rocksdb::ColumnFamilyHandle *>
-Rdb_cf_manager::get_all_cf(void) const {
+std::vector<rocksdb::ColumnFamilyHandle *> Rdb_cf_manager::get_all_cf(
+    void) const {
   std::vector<rocksdb::ColumnFamilyHandle *> list;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
@@ -263,4 +260,4 @@ int Rdb_cf_manager::drop_cf(const std::string &cf_name) {
 
   return HA_EXIT_SUCCESS;
 }
-} // namespace myrocks
+}  // namespace myrocks

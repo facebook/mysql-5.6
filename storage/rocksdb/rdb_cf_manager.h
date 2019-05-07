@@ -78,9 +78,8 @@ class Rdb_cf_manager {
                                                 const std::string &cf_name);
 
   /* Used by table open */
-  rocksdb::ColumnFamilyHandle *
-  get_cf(const std::string &cf_name,
-         const bool lock_held_by_caller = false) const;
+  rocksdb::ColumnFamilyHandle *get_cf(
+      const std::string &cf_name, const bool lock_held_by_caller = false) const;
 
   /* Look up cf by id; used by datadic */
   rocksdb::ColumnFamilyHandle *get_cf(const uint32_t id) const;
@@ -106,4 +105,4 @@ class Rdb_cf_manager {
   }
 };
 
-} // namespace myrocks
+}  // namespace myrocks
