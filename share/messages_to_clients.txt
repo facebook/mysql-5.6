@@ -9413,8 +9413,8 @@ ER_PLACEHOLDER_50021
 ER_PLACEHOLDER_50022
   eng "Placeholder"
 
-ER_PLACEHOLDER_50023
-  eng "Placeholder"
+ER_GIT_HASH
+  eng "%s git hash: %s - %s"
 
 ER_PLACEHOLDER_50024
   eng "Placeholder"
