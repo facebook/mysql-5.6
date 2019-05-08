@@ -9,7 +9,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/algorithm/searching/boyer_moore_horspool.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include "query_tag_perf_counter.h"
@@ -150,18 +149,16 @@ static std::string make_ratelim_key(const std::string& tag, const THD* thd)
 static boost::optional<std::string>
 find_async_tag(const char *query, uint32 query_length, const THD* thd)
 {
-  static const char* async_word = "async-";
-  static const boost::algorithm::boyer_moore_horspool<const char*>
-    searcher(async_word, async_word + 6);
+  static const std::string async_word("async-");
   // search only in first 100 characters
-  const char *query_end = query + (query_length > 100 ? 100 : query_length);
-  std::pair<const char*, const char *> sub = searcher(query, query_end);
-  if(sub.first != query_end) {
-    const char *subend = sub.second;
-    while(std::isdigit(*subend)) {
-      subend++;
+  std::string query100(query, query_length > 100 ? 100 : query_length);
+  std::string::size_type pos = query100.find(async_word);
+  if(pos != std::string::npos) {
+    std::string::size_type epos = pos + async_word.size();
+    while(epos < query100.size() && std::isdigit(query100[epos])) {
+      epos++;
     }
-    return make_ratelim_key(std::string(sub.first, subend), thd);
+    return make_ratelim_key(query100.substr(pos, epos - pos), thd);
   }
   return boost::optional<std::string>{};
 }
