@@ -818,6 +818,7 @@ MySQL clients support the protocol:
 #include "sql/restart_monitor_win.h"
 #endif
 #include "sql/rpl_async_conn_failover_configuration_propagation.h"
+#include "sql/mysql_githash.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_gtid_persist.h"  // Gtid_table_persistor
@@ -1161,6 +1162,12 @@ ulonglong temptable_max_mmap;
 bool temptable_use_mmap;
 static char compiled_default_collation_name[] = MYSQL_DEFAULT_COLLATION_NAME;
 static bool binlog_format_used = false;
+
+/* MySQL git hashes and dates */
+static char git_hash[] = MYSQL_GIT_HASH;
+static char git_date[] = MYSQL_GIT_DATE;
+static char rocksdb_git_hash[] = ROCKSDB_GIT_HASH;
+static char rocksdb_git_date[] = ROCKSDB_GIT_DATE;
 
 LEX_STRING opt_init_connect, opt_init_replica;
 
@@ -8143,6 +8150,12 @@ int mysqld_main(int argc, char **argv)
 
   create_compress_gtid_table_thread();
 
+  // NO_LINT_DEBUG
+  sql_print_information(ER_DEFAULT(ER_GIT_HASH), "MySQL", git_hash, git_date);
+  // NO_LINT_DEBUG
+  sql_print_information(ER_DEFAULT(ER_GIT_HASH), "RocksDB", rocksdb_git_hash,
+                        rocksdb_git_date);
+
   LogEvent()
       .type(LOG_TYPE_ERROR)
       .subsys(LOG_SUBSYSTEM_TAG)
@@ -9634,6 +9647,12 @@ SHOW_VAR status_vars[] = {
     {"Error_log_latest_write", (char *)&log_sink_pfs_latest_timestamp,
      SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"Flush_commands", (char *)&refresh_version, SHOW_LONG_NOFLUSH,
+     SHOW_SCOPE_GLOBAL},
+    {"Git_hash", (char *)git_hash, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
+    {"Git_date", (char *)git_date, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
+    {"Rocksdb_git_hash", (char *)rocksdb_git_hash, SHOW_CHAR,
+     SHOW_SCOPE_GLOBAL},
+    {"Rocksdb_git_date", (char *)rocksdb_git_date, SHOW_CHAR,
      SHOW_SCOPE_GLOBAL},
     {"Global_connection_memory", (char *)&show_global_mem_counter, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
