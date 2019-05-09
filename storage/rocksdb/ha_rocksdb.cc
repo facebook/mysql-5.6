@@ -1386,7 +1386,7 @@ static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
                              rocksdb_validate_set_block_cache_size, nullptr,
                              /* default */ RDB_DEFAULT_BLOCK_CACHE_SIZE,
                              /* min */ RDB_MIN_BLOCK_CACHE_SIZE,
-                             /* max */ LONGLONG_MAX,
+                             /* max */ LLONG_MAX,
                              /* Block size */ RDB_MIN_BLOCK_CACHE_SIZE);
 
 static MYSQL_SYSVAR_LONGLONG(sim_cache_size, rocksdb_sim_cache_size,
@@ -1395,7 +1395,7 @@ static MYSQL_SYSVAR_LONGLONG(sim_cache_size, rocksdb_sim_cache_size,
                              nullptr,
                              /* default */ 0,
                              /* min */ 0,
-                             /* max */ LONGLONG_MAX,
+                             /* max */ LLONG_MAX,
                              /* Block size */ 0);
 
 static MYSQL_SYSVAR_BOOL(
@@ -1751,7 +1751,7 @@ static MYSQL_SYSVAR_LONGLONG(
     rocksdb_compaction_sequential_deletes_file_size, PLUGIN_VAR_RQCMDARG,
     "Minimum file size required for compaction_sequential_deletes", nullptr,
     rocksdb_set_compaction_options, 0L,
-    /* min */ -1L, /* max */ LONGLONG_MAX, 0);
+    /* min */ -1L, /* max */ LLONG_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(
     compaction_sequential_deletes_count_sd,
@@ -13585,7 +13585,7 @@ static int rocksdb_validate_set_block_cache_size(
   }
 
   if (new_value < RDB_MIN_BLOCK_CACHE_SIZE ||
-      (uint64_t)new_value > (uint64_t)LONGLONG_MAX) {
+      (uint64_t)new_value > (uint64_t)LLONG_MAX) {
     return HA_EXIT_FAILURE;
   }
 
