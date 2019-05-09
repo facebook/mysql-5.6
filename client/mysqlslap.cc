@@ -1705,6 +1705,10 @@ extern "C" void *run_task(void *p) {
       exit(0);
     }
 
+    SSL_SET_OPTIONS(mysql);
+    if (opt_protocol)
+      mysql_options(mysql, MYSQL_OPT_PROTOCOL, (char *)&opt_protocol);
+
     DBUG_PRINT("info", ("trying to connect to host %s as user %s", host, user));
 
     if (!opt_only_print) {
