@@ -113,6 +113,10 @@ set allow_noncurrent_db_rw = OFF;
 SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
 --error ER_OPTION_PREVENTS_STATEMENT
 SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
+# these schemas are filtered and should pass when the variable is set to OFF
+desc performance_schema.global_variables;
+desc information_schema.character_sets;
+desc sys.schema_table_statistics;
 
 set allow_noncurrent_db_rw = ON;
 rename table mysqltest_db1.t1 to mysqltest_db2.t2_1;

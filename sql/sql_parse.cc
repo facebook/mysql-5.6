@@ -1431,7 +1431,8 @@ static int process_noncurrent_db_rw(THD *thd, TABLE_LIST *all_tables) {
                       table->schema_table || !strcmp(table->db, "mysql") ||
                       !strcmp(table->db, "performance_schema") ||
                       !strcmp(table->db, "") ||
-                      !strcmp(table->db, "information_schema");
+                      !strcmp(table->db, "information_schema") ||
+                      !strcmp(table->db, "sys");
     if (skip_table) continue;
     if ((!thd->db().str && table->db) || strcmp(thd->db().str, table->db))
       DBUG_RETURN((int)thd->variables.allow_noncurrent_db_rw);

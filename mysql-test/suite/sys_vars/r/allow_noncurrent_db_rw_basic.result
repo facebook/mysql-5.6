@@ -80,6 +80,37 @@ SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_
 ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
 SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
 ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+desc performance_schema.global_variables;
+Field	Type	Null	Key	Default	Extra
+VARIABLE_NAME	varchar(64)	NO	PRI	NULL	
+VARIABLE_VALUE	varchar(1024)	YES		NULL	
+desc information_schema.character_sets;
+Field	Type	Null	Key	Default	Extra
+CHARACTER_SET_NAME	varchar(64)	NO		NULL	
+DEFAULT_COLLATE_NAME	varchar(64)	NO		NULL	
+DESCRIPTION	varchar(2048)	NO		NULL	
+MAXLEN	int(10) unsigned	NO		NULL	
+desc sys.schema_table_statistics;
+Field	Type	Null	Key	Default	Extra
+table_schema	varchar(64)	YES		NULL	
+table_name	varchar(64)	YES		NULL	
+total_latency	text	YES		NULL	
+rows_fetched	bigint(20) unsigned	NO		NULL	
+fetch_latency	text	YES		NULL	
+rows_inserted	bigint(20) unsigned	NO		NULL	
+insert_latency	text	YES		NULL	
+rows_updated	bigint(20) unsigned	NO		NULL	
+update_latency	text	YES		NULL	
+rows_deleted	bigint(20) unsigned	NO		NULL	
+delete_latency	text	YES		NULL	
+io_read_requests	decimal(42,0)	YES		NULL	
+io_read	text	YES		NULL	
+io_read_latency	text	YES		NULL	
+io_write_requests	decimal(42,0)	YES		NULL	
+io_write	text	YES		NULL	
+io_write_latency	text	YES		NULL	
+io_misc_requests	decimal(42,0)	YES		NULL	
+io_misc_latency	text	YES		NULL	
 set allow_noncurrent_db_rw = ON;
 rename table mysqltest_db1.t1 to mysqltest_db2.t2_1;
 rename table mysqltest_db2.t2_1 to mysqltest_db1.t1;
