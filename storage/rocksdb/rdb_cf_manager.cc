@@ -39,7 +39,7 @@ bool Rdb_cf_manager::is_cf_name_reverse(const char *const name) {
 }
 
 void Rdb_cf_manager::init(
-    std::unique_ptr<Rdb_cf_options> cf_options,
+    std::unique_ptr<Rdb_cf_options> &&cf_options,
     std::vector<rocksdb::ColumnFamilyHandle *> *const handles) {
   mysql_mutex_init(rdb_cfm_mutex_key, &m_mutex, MY_MUTEX_INIT_FAST);
 
