@@ -66,7 +66,7 @@ namespace myrocks {
   The intent behind a SHIP_ASSERT() macro is to have a mechanism for validating
   invariants in retail builds. Traditionally assertions (such as macros defined
   in <cassert>) are evaluated for performance reasons only in debug builds and
-  become NOOP in retail builds when NDEBUG is defined.
+  become NOOP in retail builds when DBUG_OFF is defined.
 
   This macro is intended to validate the invariants which are critical for
   making sure that data corruption and data loss won't take place. Proper
