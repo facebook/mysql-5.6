@@ -160,7 +160,7 @@ class Rdb_explicit_snapshot : public explicit_snapshot {
   rocksdb::ManagedSnapshot *get_snapshot() { return snapshot.get(); }
 
   Rdb_explicit_snapshot(snapshot_info_st ss_info,
-                        std::unique_ptr<rocksdb::ManagedSnapshot> snapshot)
+                        std::unique_ptr<rocksdb::ManagedSnapshot> &&snapshot)
       : explicit_snapshot(ss_info), snapshot(std::move(snapshot)) {}
 
   virtual ~Rdb_explicit_snapshot() {
@@ -5320,7 +5320,7 @@ static int rocksdb_init_func(void *const p) {
     directories.push_back(myrocks::rocksdb_wal_dir);
   }
 
-  io_watchdog = new Rdb_io_watchdog(directories);
+  io_watchdog = new Rdb_io_watchdog(std::move(directories));
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
 
   // NO_LINT_DEBUG

@@ -66,7 +66,7 @@ class Rdb_cf_manager {
     column
     families that are present in the database. The first CF is the default CF.
   */
-  void init(std::unique_ptr<Rdb_cf_options> cf_options,
+  void init(std::unique_ptr<Rdb_cf_options> &&cf_options,
             std::vector<rocksdb::ColumnFamilyHandle *> *const handles);
   void cleanup();
 
