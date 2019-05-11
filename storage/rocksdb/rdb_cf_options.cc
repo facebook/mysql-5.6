@@ -100,6 +100,7 @@ bool Rdb_cf_options::set_default(const std::string &default_config) {
   if (!default_config.empty() && !rocksdb::GetColumnFamilyOptionsFromString(
                                       options, default_config, &options)
                                       .ok()) {
+    // NO_LINT_DEBUG
     fprintf(stderr, "Invalid default column family config: %s\n",
             default_config.c_str());
     return false;

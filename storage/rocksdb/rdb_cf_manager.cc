@@ -100,7 +100,10 @@ rocksdb::ColumnFamilyHandle *Rdb_cf_manager::get_or_create_cf(
     // NO_LINT_DEBUG
     sql_print_information("RocksDB: creating a column family %s",
                           cf_name.c_str());
+    // NO_LINT_DEBUG
     sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
+
+    // NO_LINT_DEBUG
     sql_print_information("    target_file_size_base=%" PRIu64,
                           opts.target_file_size_base);
 
