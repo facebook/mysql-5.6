@@ -89,7 +89,7 @@ class Rdb_io_watchdog {
   }
 
  public:
-  explicit Rdb_io_watchdog(const std::vector<std::string> &directories)
+  explicit Rdb_io_watchdog(std::vector<std::string> &&directories)
       : m_io_check_timer(nullptr),
         m_io_check_watchdog_timer(nullptr),
         m_io_in_progress(false),
