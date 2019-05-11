@@ -3013,16 +3013,17 @@ static void rdb_get_mem_comparable_space(const CHARSET_INFO *const cs,
       const size_t space_mb_len = cs->cset->wc_mb(
           cs, (my_wc_t)cs->pad_char, space_mb, space_mb + sizeof(space_mb));
 
-      uchar space[20];  // mem-comparable image of the space character
+      // mem-comparable image of the space character
+      std::array<uchar, 20> space;
 
-      const size_t space_len = cs->coll->strnxfrm(cs, space, sizeof(space), 1,
-                                                  space_mb, space_mb_len, 0);
+      const size_t space_len = cs->coll->strnxfrm(
+          cs, space.data(), sizeof(space), 1, space_mb, space_mb_len, 0);
       Rdb_charset_space_info *const info = new Rdb_charset_space_info;
       info->space_xfrm_len = space_len;
       info->space_mb_len = space_mb_len;
       while (info->spaces_xfrm.size() < RDB_SPACE_XFRM_SIZE) {
-        info->spaces_xfrm.insert(info->spaces_xfrm.end(), space,
-                                 space + space_len);
+        info->spaces_xfrm.insert(info->spaces_xfrm.end(), space.data(),
+                                 space.data() + space_len);
       }
       rdb_mem_comparable_space[cs->number].reset(info);
     }
