@@ -3743,6 +3743,7 @@ bool Rdb_validate_tbls::check_frm_file(const std::string &fullpath,
   enum legacy_db_type eng_type;
   frm_type_enum type = dd_frm_type(nullptr, fullfilename.c_ptr(), &eng_type);
   if (type == FRMTYPE_ERROR) {
+    // NO_LINT_DEBUG
     sql_print_warning("RocksDB: Failed to open/read .from file: %s",
                       fullfilename.ptr());
     return false;
@@ -3790,6 +3791,7 @@ bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
 
   /* Access the directory */
   if (dir_info == nullptr) {
+    // NO_LINT_DEBUG
     sql_print_warning("RocksDB: Could not open database directory: %s",
                       fullpath.c_str());
     return false;
@@ -3836,6 +3838,7 @@ bool Rdb_validate_tbls::compare_to_actual_tables(const std::string &datadir,
 
   dir_info = my_dir(datadir.c_str(), MYF(MY_DONT_SORT | MY_WANT_STAT));
   if (dir_info == nullptr) {
+    // NO_LINT_DEBUG
     sql_print_warning("RocksDB: could not open datadir: %s", datadir.c_str());
     return false;
   }
@@ -4134,6 +4137,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
     return true;
   }
   delete it;
+  // NO_LINT_DEBUG
   sql_print_information("RocksDB: Table_store: loaded DDL data for %d tables",
                         i);
   return false;
