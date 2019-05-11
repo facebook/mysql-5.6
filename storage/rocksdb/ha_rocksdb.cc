@@ -2770,7 +2770,7 @@ class Rdb_transaction {
         std::max(m_auto_incr_map[gl_index_id], curr_id);
   }
 
-#ifndef NDEBUG
+#ifndef DBUG_OFF
   ulonglong get_auto_incr(const GL_INDEX_ID &gl_index_id) {
     if (m_auto_incr_map.count(gl_index_id) > 0) {
       return m_auto_incr_map[gl_index_id];
@@ -5474,7 +5474,7 @@ static inline void rocksdb_smart_next(bool seek_backward,
   }
 }
 
-#ifndef NDEBUG
+#ifndef DBUG_OFF
 // simulate that RocksDB has reported corrupted data
 static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
   *status = rocksdb::Status::Corruption();
@@ -5631,7 +5631,7 @@ static ulonglong rdb_get_int_col_max_value(const Field *field) {
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong auto_incr = 0;
   bool validate_last = false, use_datadic = true;
-#ifndef NDEBUG
+#ifndef DBUG_OFF
   DBUG_EXECUTE_IF("myrocks_autoinc_upgrade", use_datadic = false;);
   validate_last = true;
 #endif
@@ -5690,7 +5690,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
     if (last_val != max_val) {
       last_val++;
     }
-#ifndef NDEBUG
+#ifndef DBUG_OFF
     ulonglong dd_val;
     if (last_val <= max_val) {
       const auto &gl_index_id = m_tbl_def->get_autoincr_gl_index_id();
@@ -5984,7 +5984,7 @@ bool ha_rocksdb::should_hide_ttl_rec(const Rdb_key_def &kd,
 
   /* Hide record if it has expired before the current snapshot time. */
   uint64 read_filter_ts = 0;
-#ifndef NDEBUG
+#ifndef DBUG_OFF
   read_filter_ts += rdb_dbug_set_ttl_read_filter_ts();
 #endif
   bool is_hide_ttl =
@@ -6019,7 +6019,7 @@ int ha_rocksdb::rocksdb_skip_expired_records(const Rdb_key_def &kd,
   return HA_EXIT_SUCCESS;
 }
 
-#ifndef NDEBUG
+#ifndef DBUG_OFF
 void dbug_append_garbage_at_end(rocksdb::PinnableSlice *on_disk_rec) {
   std::string str(on_disk_rec->data(), on_disk_rec->size());
   on_disk_rec->Reset();
@@ -7610,7 +7610,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   const rocksdb::Slice &rkey = m_scan_it->key();
   const rocksdb::Slice &value = m_scan_it->value();
 
-#ifndef NDEBUG
+#ifndef DBUG_OFF
   bool save_keyread_only = m_keyread_only;
 #endif
   DBUG_EXECUTE_IF("dbug.rocksdb.HA_EXTRA_KEYREAD", { m_keyread_only = true; });
@@ -7618,7 +7618,7 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   bool covered_lookup = (m_keyread_only && kd.can_cover_lookup()) ||
                         kd.covers_lookup(&value, &m_lookup_bitmap);
 
-#ifndef NDEBUG
+#ifndef DBUG_OFF
   m_keyread_only = save_keyread_only;
 #endif
 
@@ -13164,7 +13164,7 @@ bool rdb_is_ttl_enabled() { return rocksdb_enable_ttl; }
 bool rdb_is_ttl_read_filtering_enabled() {
   return rocksdb_enable_ttl_read_filtering;
 }
-#ifndef NDEBUG
+#ifndef DBUG_OFF
 int rdb_dbug_set_ttl_rec_ts() { return rocksdb_debug_ttl_rec_ts; }
 int rdb_dbug_set_ttl_snapshot_ts() { return rocksdb_debug_ttl_snapshot_ts; }
 int rdb_dbug_set_ttl_read_filter_ts() {
