@@ -298,11 +298,20 @@ bool rdb_database_exists(const std::string &db_name);
  */
 class Ensure_cleanup {
  public:
-  explicit Ensure_cleanup(std::function<void()> cleanup) : m_cleanup(cleanup) {}
+  explicit Ensure_cleanup(std::function<void()> cleanup)
+      : m_cleanup(cleanup), m_skip_cleanup(false) {}
 
-  ~Ensure_cleanup() { m_cleanup(); }
+  ~Ensure_cleanup() {
+    if (!m_skip_cleanup) {
+      m_cleanup();
+    }
+  }
+
+  // If you want to skip cleanup (such as when the operation is successful)
+  void skip() { m_skip_cleanup = true; }
 
  private:
   std::function<void()> m_cleanup;
+  bool m_skip_cleanup;
 };
 }  // namespace myrocks
