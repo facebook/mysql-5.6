@@ -3654,30 +3654,6 @@ GL_INDEX_ID Rdb_tbl_def::get_autoincr_gl_index_id() {
   return GL_INDEX_ID();
 }
 
-/*
-  Static function of type my_hash_get_key that gets invoked by
-  the m_ddl_hash object of type my_core::HASH.
-  It manufactures a key (db+table name in our case) from a record
-  (Rdb_tbl_def in our case).
-*/
-const uchar *Rdb_ddl_manager::get_hash_key(
-    Rdb_tbl_def *const rec, size_t *const length,
-    my_bool not_used MY_ATTRIBUTE((__unused__))) {
-  const std::string &dbname_tablename = rec->full_tablename();
-  *length = dbname_tablename.size();
-  return reinterpret_cast<const uchar *>(dbname_tablename.c_str());
-}
-
-/*
-  Static function of type void (*my_hash_free_element_func_t)(void*) that gets
-  invoked by the m_ddl_hash object of type my_core::HASH.
-  It deletes a record (Rdb_tbl_def in our case).
-*/
-void Rdb_ddl_manager::free_hash_elem(void *const data) {
-  Rdb_tbl_def *elem = reinterpret_cast<Rdb_tbl_def *>(data);
-  delete elem;
-}
-
 void Rdb_ddl_manager::erase_index_num(const GL_INDEX_ID &gl_index_id) {
   m_index_num_to_keydef.erase(gl_index_id);
 }
@@ -3987,13 +3963,8 @@ bool Rdb_ddl_manager::validate_schemas(void) {
 bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
                            Rdb_cf_manager *const cf_manager,
                            const uint32_t validate_tables) {
-  const ulong TABLE_HASH_SIZE = 32;
   m_dict = dict_arg;
   mysql_rwlock_init(0, &m_rwlock);
-  (void)my_hash_init(&m_ddl_hash,
-                     /*system_charset_info*/ &my_charset_bin, TABLE_HASH_SIZE,
-                     0, 0, (my_hash_get_key)Rdb_ddl_manager::get_hash_key,
-                     Rdb_ddl_manager::free_hash_elem, 0);
 
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[Rdb_key_def::INDEX_NUMBER_SIZE];
@@ -4168,9 +4139,11 @@ Rdb_tbl_def *Rdb_ddl_manager::find(const std::string &table_name,
     mysql_rwlock_rdlock(&m_rwlock);
   }
 
-  Rdb_tbl_def *const rec = reinterpret_cast<Rdb_tbl_def *>(my_hash_search(
-      &m_ddl_hash, reinterpret_cast<const uchar *>(table_name.c_str()),
-      table_name.size()));
+  Rdb_tbl_def *rec = nullptr;
+  const auto it = m_ddl_map.find(table_name);
+  if (it != m_ddl_map.end()) {
+    rec = it->second;
+  }
 
   if (lock) {
     mysql_rwlock_unlock(&m_rwlock);
@@ -4332,14 +4305,13 @@ int Rdb_ddl_manager::put_and_write(Rdb_tbl_def *const tbl,
 
 /* Return 0 - ok, other value - error */
 /* TODO:
-  This function modifies m_ddl_hash and m_index_num_to_keydef.
+  This function modifies m_ddl_map and m_index_num_to_keydef.
   However, these changes need to be reversed if dict_manager.commit fails
   See the discussion here: https://reviews.facebook.net/D35925#inline-259167
   Tracked by https://github.com/facebook/mysql-5.6/issues/33
 */
 int Rdb_ddl_manager::put(Rdb_tbl_def *const tbl, const bool lock) {
   Rdb_tbl_def *rec;
-  my_bool result;
   const std::string &dbname_tablename = tbl->full_tablename();
 
   if (lock) mysql_rwlock_wrlock(&m_rwlock);
@@ -4348,10 +4320,11 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *const tbl, const bool lock) {
   // to find the one we are replacing ('rec')
   rec = find(dbname_tablename, false);
   if (rec) {
-    // this will free the old record.
-    my_hash_delete(&m_ddl_hash, reinterpret_cast<uchar *>(rec));
+    // Free the old record.
+    delete rec;
+    m_ddl_map.erase(dbname_tablename);
   }
-  result = my_hash_insert(&m_ddl_hash, reinterpret_cast<uchar *>(tbl));
+  m_ddl_map.emplace(dbname_tablename, tbl);
 
   for (uint keyno = 0; keyno < tbl->m_key_count; keyno++) {
     m_index_num_to_keydef[tbl->m_key_descr_arr[keyno]->get_gl_index_id()] =
@@ -4360,7 +4333,7 @@ int Rdb_ddl_manager::put(Rdb_tbl_def *const tbl, const bool lock) {
   tbl->check_and_set_read_free_rpl_table();
 
   if (lock) mysql_rwlock_unlock(&m_rwlock);
-  return result;
+  return 0;
 }
 
 void Rdb_ddl_manager::remove(Rdb_tbl_def *const tbl,
@@ -4375,8 +4348,13 @@ void Rdb_ddl_manager::remove(Rdb_tbl_def *const tbl,
 
   m_dict->delete_key(batch, key_writer.to_slice());
 
-  /* The following will also delete the object: */
-  my_hash_delete(&m_ddl_hash, reinterpret_cast<uchar *>(tbl));
+  const auto it = m_ddl_map.find(dbname_tablename);
+  if (it != m_ddl_map.end()) {
+    // Free Rdb_tbl_def
+    delete it->second;
+
+    m_ddl_map.erase(it);
+  }
 
   if (lock) mysql_rwlock_unlock(&m_rwlock);
 }
@@ -4425,13 +4403,17 @@ bool Rdb_ddl_manager::rename(const std::string &from, const std::string &to,
 }
 
 void Rdb_ddl_manager::cleanup() {
-  my_hash_free(&m_ddl_hash);
+  for (const auto &kv : m_ddl_map) {
+    delete kv.second;
+  }
+  m_ddl_map.clear();
+
   mysql_rwlock_destroy(&m_rwlock);
   m_sequence.cleanup();
 }
 
 int Rdb_ddl_manager::scan_for_tables(Rdb_tables_scanner *const tables_scanner) {
-  int i, ret;
+  int ret;
   Rdb_tbl_def *rec;
 
   DBUG_ASSERT(tables_scanner != nullptr);
@@ -4439,13 +4421,11 @@ int Rdb_ddl_manager::scan_for_tables(Rdb_tables_scanner *const tables_scanner) {
   mysql_rwlock_rdlock(&m_rwlock);
 
   ret = 0;
-  i = 0;
 
-  while ((
-      rec = reinterpret_cast<Rdb_tbl_def *>(my_hash_element(&m_ddl_hash, i)))) {
+  for (const auto &kv : m_ddl_map) {
+    rec = kv.second;
     ret = tables_scanner->add_table(rec);
     if (ret) break;
-    i++;
   }
 
   mysql_rwlock_unlock(&m_rwlock);
