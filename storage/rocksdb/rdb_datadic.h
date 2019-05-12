@@ -21,6 +21,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -1163,7 +1164,10 @@ interface Rdb_tables_scanner {
 
 class Rdb_ddl_manager {
   Rdb_dict_manager *m_dict = nullptr;
-  my_core::HASH m_ddl_hash;  // Contains Rdb_tbl_def elements
+
+  // Contains Rdb_tbl_def elements
+  std::unordered_map<std::string, Rdb_tbl_def *> m_ddl_map;
+
   // Maps index id to <table_name, index number>
   std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_index_num_to_keydef;
 
