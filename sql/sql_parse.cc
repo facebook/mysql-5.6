@@ -4650,9 +4650,12 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
     case SQLCOM_DROP_SRS:
 
       DBUG_ASSERT(lex->m_sql_cmd != nullptr);
+
+      /* The appropriate sql_cmd will set thd->pre_exec_time */
+      thd->pre_exec_time = 0;
       res = lex->m_sql_cmd->execute(thd);
 
-      if (last_timer) {
+      if (last_timer && thd->pre_exec_time != 0) {
         thd->status_var.pre_exec_time +=
             my_timer_difftime(*last_timer, thd->pre_exec_time);
         *last_timer = thd->pre_exec_time;
