@@ -1202,8 +1202,6 @@ BOOL windows_ctrl_handler(DWORD fdwCtrlType)
 
 int main(int argc,char *argv[])
 {
-  char buff[80];
-
   MY_INIT(argv[0]);
   DBUG_ENTER("main");
   DBUG_PROCESS(argv[0]);
@@ -1395,7 +1393,6 @@ int main(int argc,char *argv[])
 
 #endif
 
-  put_info(buff,INFO_INFO);
   status.exit_status= read_and_execute(!status.batch);
   if (opt_outfile)
     end_tee();
