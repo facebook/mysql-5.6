@@ -358,6 +358,8 @@ extern uint32 gtid_executed_compression_period;
 extern bool binlog_gtid_simple_recovery;
 extern ulong binlog_error_action;
 extern ulong locked_account_connection_count;
+extern bool opt_core_file;
+extern bool skip_core_dump_on_error;
 enum enum_binlog_error_action {
   /// Ignore the error and let server continue without binlogging
   IGNORE_ERROR = 0,
@@ -366,7 +368,6 @@ enum enum_binlog_error_action {
 };
 extern const char *binlog_error_action_list[];
 
-extern bool opt_core_file;
 extern bool slave_high_priority_ddl;
 extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
 extern double slave_high_priority_lock_wait_timeout_double;

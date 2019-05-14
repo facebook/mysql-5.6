@@ -1247,6 +1247,7 @@ bool host_cache_size_specified = false;
 bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
 bool opt_core_file = false;
+bool skip_core_dump_on_error = false;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
@@ -7772,7 +7773,7 @@ struct my_option my_long_early_options[] = {
 
 /**
   System variables are automatically command-line options (few
-  exceptions are documented in sys_var.h), so don't need
+  exceptions are documented in sys_vars.h), so don't need
   to be listed here.
 */
 
