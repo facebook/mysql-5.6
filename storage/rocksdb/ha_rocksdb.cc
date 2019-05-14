@@ -98,6 +98,8 @@ int thd_binlog_format(const MYSQL_THD thd);
 bool thd_binlog_filter_ok(const MYSQL_THD thd);
 }
 
+extern my_bool opt_core_file;
+
 namespace myrocks {
 
 static st_global_stats global_stats;
@@ -3784,6 +3786,7 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
   DBUG_ASSERT(dst->gtrid_length >= 0 && dst->gtrid_length <= MAXGTRIDSIZE);
   DBUG_ASSERT(dst->bqual_length >= 0 && dst->bqual_length <= MAXBQUALSIZE);
 
+  memset(dst->data, 0, XIDDATASIZE);
   src.copy(dst->data, (dst->gtrid_length) + (dst->bqual_length),
            RDB_XIDHDR_LEN);
 }
@@ -13233,6 +13236,11 @@ const char *get_rdb_io_error_string(const RDB_IO_ERROR_TYPE err_type) {
 void rdb_handle_io_error(const rocksdb::Status status,
                          const RDB_IO_ERROR_TYPE err_type) {
   if (status.IsIOError()) {
+    /* skip dumping core if write failed and we are allowed to do so */
+    if (skip_core_dump_on_error) {
+      opt_core_file = false;
+    }
+
     switch (err_type) {
       case RDB_IO_ERROR_TX_COMMIT:
       case RDB_IO_ERROR_DICT_COMMIT: {
