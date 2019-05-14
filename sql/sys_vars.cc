@@ -6188,3 +6188,8 @@ static Sys_var_mybool Sys_async_query_info_flag(
        GLOBAL_VAR(async_query_counter_enabled),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_skip_core_dump_on_error(
+       "skip_core_dump_on_error",
+       "If set, MySQL skips dumping the core if it hits an error (e.g,IO)",
+       GLOBAL_VAR(skip_core_dump_on_error),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));

@@ -1,0 +1,17 @@
+Default value of skip_core_dump_on_error is 1
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1
+SELECT @@session.skip_core_dump_on_error;
+ERROR HY000: Variable 'skip_core_dump_on_error' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+skip_core_dump_on_error is a dynamic variable (changed to 0)
+set @@global.skip_core_dump_on_error = 0;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+0
+restore the default value (1)
+SET @@global.skip_core_dump_on_error = 1;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1

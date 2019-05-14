@@ -204,7 +204,7 @@ static bool test_if_number(const char *str,
    convertor.
    Called from @c purge_error_message(), @c MYSQL_BIN_LOG::reset_logs()
 
-   @param  res  an internal to purging routines error code 
+   @param  res  an internal to purging routines error code
 
    @return the user level error code ER_*
 */
@@ -381,7 +381,7 @@ void Log_to_csv_event_handler::cleanup()
   internally (@todo: how?).
   If a write to the table has failed, the function attempts to
   write to a short error message to the file. The failure is also
-  indicated in the return value. 
+  indicated in the return value.
 
   @retval  FALSE   OK
   @retval  TRUE    error occured
@@ -1007,7 +1007,7 @@ bool LOGGER::flush_logs(THD *thd)
 
 /**
   Close and reopen the slow log (with locks).
-  
+
   @returns FALSE.
 */
 bool LOGGER::flush_slow_log()
@@ -1440,8 +1440,8 @@ static void setup_windows_event_source()
 
   // Create the event source registry key
   dwError= RegCreateKey(HKEY_LOCAL_MACHINE,
-                          "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\MySQL", 
-                          &hRegKey);
+            "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\MySQL",
+            &hRegKey);
 
   /* Name of the PE module that contains the message resource */
   GetModuleFileName(NULL, szPath, MAX_PATH);
@@ -1494,7 +1494,7 @@ static int find_uniq_filename(char *name, ulong *next, bool need_next)
   *end='.';
   length= (size_t) (end - start + 1);
 
-  if ((DBUG_EVALUATE_IF("error_unique_log_filename", 1, 
+  if ((DBUG_EVALUATE_IF("error_unique_log_filename", 1,
       !(dir_info= my_dir(buff,MYF(MY_DONT_SORT))))))
   {						// This shouldn't happen
     strmov(end,".1");				// use name+1
@@ -1529,7 +1529,7 @@ updating the index files.", max_found);
   }
   *end++='.';
 
-  /* 
+  /*
     Check if the generated extension size + the file name exceeds the
     buffer size used. If one did not check this, then the filename might be
     truncated, resulting in error.
@@ -2869,7 +2869,7 @@ int vprint_msg_to_log(enum loglevel level, const char *format, va_list args)
 #endif /* EMBEDDED_LIBRARY */
 
 
-void sql_print_error(const char *format, ...) 
+void sql_print_error(const char *format, ...)
 {
   va_list args;
   DBUG_ENTER("sql_print_error");
@@ -2882,7 +2882,7 @@ void sql_print_error(const char *format, ...)
 }
 
 
-void sql_print_warning(const char *format, ...) 
+void sql_print_warning(const char *format, ...)
 {
   va_list args;
   DBUG_ENTER("sql_print_warning");
@@ -2895,7 +2895,7 @@ void sql_print_warning(const char *format, ...)
 }
 
 
-void sql_print_information(const char *format, ...) 
+void sql_print_information(const char *format, ...)
 {
   va_list args;
   DBUG_ENTER("sql_print_information");
@@ -2929,7 +2929,7 @@ int my_plugin_log_message(MYSQL_PLUGIN *plugin_ptr, plugin_log_level level,
   }
 
   va_start(args, format);
-  snprintf(format2, sizeof (format2) - 1, "Plugin %.*s reported: '%s'", 
+  snprintf(format2, sizeof (format2) - 1, "Plugin %.*s reported: '%s'",
            (int) plugin->name.length, plugin->name.str, format);
   ret= error_log_print(lvl, format2, args);
   va_end(args);

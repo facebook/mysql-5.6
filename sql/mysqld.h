@@ -936,6 +936,7 @@ extern my_bool is_slave;
 extern my_bool read_only_slave;
 extern ulonglong rbr_unsafe_queries;
 extern my_bool use_db_uuid;
+extern my_bool skip_core_dump_on_error;
 extern my_bool separate_conn_handling_thread;
 extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;

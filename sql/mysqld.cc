@@ -655,6 +655,7 @@ ulong binlog_error_action;
 const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 my_bool log_gtid_unsafe_statements;
 my_bool use_db_uuid;
+my_bool skip_core_dump_on_error;
 ulong gtid_mode;
 ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
@@ -9148,7 +9149,7 @@ struct my_option my_long_early_options[]=
 
 /**
   System variables are automatically command-line options (few
-  exceptions are documented in sys_var.h), so don't need
+  exceptions are documented in sys_vars.h), so don't need
   to be listed here.
 */
 

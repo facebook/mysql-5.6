@@ -1651,6 +1651,10 @@ The following options may be given as the first argument:
  master.
  --simplified-binlog-gtid-recovery 
  Alias for @@binlog_gtid_simple_recovery. Deprecated
+ --skip-core-dump-on-error 
+ If set, MySQL skips dumping the core if it hits an error
+ (e.g,IO)
+ (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
@@ -2420,6 +2424,7 @@ session-track-state-change FALSE
 show-old-temporals FALSE
 show-slave-auth-info FALSE
 simplified-binlog-gtid-recovery FALSE
+skip-core-dump-on-error TRUE
 skip-grant-tables TRUE
 skip-name-resolve FALSE
 skip-networking FALSE
