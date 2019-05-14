@@ -1235,8 +1235,6 @@ BOOL windows_ctrl_handler(DWORD fdwCtrlType) {
 #endif
 
 int main(int argc, char *argv[]) {
-  char buff[80];
-
   MY_INIT(argv[0]);
   DBUG_ENTER("main");
   DBUG_PROCESS(argv[0]);
@@ -1407,8 +1405,6 @@ int main(int argc, char *argv[]) {
     }
 #endif
   }
-
-  put_info(buff, INFO_INFO);
 
   uint protocol = MYSQL_PROTOCOL_DEFAULT;
   uint ssl_mode = 0;
