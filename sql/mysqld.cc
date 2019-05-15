@@ -1527,6 +1527,7 @@ char glob_hostname[HOSTNAME_LENGTH + 1];
 char mysql_real_data_home[FN_REFLEN], lc_messages_dir[FN_REFLEN],
     reg_ext[FN_EXTLEN], mysql_charsets_dir[FN_REFLEN], *opt_init_file;
 const char *opt_tc_log_file;
+bool legacy_global_read_lock_mode = false;
 char *opt_gap_lock_exception_list;
 char *lc_messages_dir_ptr;
 char mysql_unpacked_real_data_home[FN_REFLEN];

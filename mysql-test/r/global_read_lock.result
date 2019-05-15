@@ -1,0 +1,133 @@
+SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+CREATE TABLE t1(a INT) Engine=InnoDB;
+SET @@global.legacy_global_read_lock_mode = 0;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+CREATE TABLE t2 (a INT) Engine=InnoDB;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 1;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+BEGIN WORK;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+COMMIT;
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+0
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+SELECT * FROM t1;
+a
+INSERT INTO t1 SELECT sleep(10);
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Sleep	NULL
+SET GLOBAL super_read_only=1;
+SELECT command, info FROM information_schema.processlist ORDER BY command, info;
+command	info
+Daemon	NULL
+Query	INSERT INTO t1 SELECT sleep(10)
+Query	SELECT command, info FROM information_schema.processlist ORDER BY command, info
+Query	SET GLOBAL super_read_only=1
+SELECT COUNT(*) FROM t1;
+COUNT(*)
+1
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+SET @@global.legacy_global_read_lock_mode = 0;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+BEGIN;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES(100);
+The In_use column should be 1 to indicate the lock
+SHOW OPEN TABLES like 't1';
+Database	Table	In_use	Name_locked
+test	t1	1	0
+SET GLOBAL super_read_only=1;
+UNLOCK TABLES;
+The In_use column should be 0 to indicate the lock was removed
+SHOW OPEN TABLES like 't1';
+Database	Table	In_use	Name_locked
+test	t1	0	0
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+DROP TABLE t1;
