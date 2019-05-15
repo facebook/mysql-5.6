@@ -10346,14 +10346,17 @@ int ha_rocksdb::info(uint flag) {
         stats.records += m_table_handler->m_mtcache_count;
         stats.data_file_length += m_table_handler->m_mtcache_size;
       }
-
-      if (rocksdb_debug_optimizer_n_rows > 0)
-        stats.records = rocksdb_debug_optimizer_n_rows;
     }
 
-    if (stats.records != 0)
+    if (rocksdb_debug_optimizer_n_rows > 0) {
+      stats.records = rocksdb_debug_optimizer_n_rows;
+    }
+
+    if (stats.records != 0) {
       stats.mean_rec_length = stats.data_file_length / stats.records;
+    }
   }
+
   if (flag & HA_STATUS_CONST) {
     ref_length = m_pk_descr->max_storage_fmt_length();
 
