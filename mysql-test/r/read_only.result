@@ -48,6 +48,8 @@ drop table t1;
 insert into t1 values(1);
 ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
 connection default;
+set @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+set @@global.legacy_global_read_lock_mode = 1;
 set global read_only=0;
 lock table t1 write;
 connection con1;
@@ -68,6 +70,7 @@ select @@global.read_only;
 1
 connection default;
 reap;
+set @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 connection default;
 set global read_only=0;
 lock table t1 read;

@@ -124,6 +124,8 @@ insert into t1 values(1);
 
 --echo connection default;
 connection default;
+set @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+set @@global.legacy_global_read_lock_mode = 1;
 set global read_only=0;
 lock table t1 write;
 
@@ -153,6 +155,8 @@ select @@global.read_only;
 connection default;
 --echo reap;
 reap;
+
+set @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 
 # LOCK TABLE ... READ / READ_ONLY
 # - is an error in the same connection
