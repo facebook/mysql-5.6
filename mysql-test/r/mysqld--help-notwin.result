@@ -506,6 +506,11 @@ The following options may be given as the first argument:
  --lc-time-names=name 
  Set the language used for the month names and the days of
  the week.
+ --legacy-global-read-lock-mode 
+ Uses the legacy global read lock mode which will block
+ setting global read lock when a long transaction is
+ running
+ (Defaults to on; use --skip-legacy-global-read-lock-mode to disable.)
  --local-infile      Enable LOAD DATA LOCAL INFILE
  --lock-wait-timeout=# 
  Timeout in seconds to wait for a lock before returning an
@@ -1669,6 +1674,7 @@ keyring-migration-user (No default value)
 large-pages FALSE
 lc-messages en_US
 lc-time-names en_US
+legacy-global-read-lock-mode TRUE
 local-infile FALSE
 lock-wait-timeout 3.1536e+07
 log-bin (No default value)

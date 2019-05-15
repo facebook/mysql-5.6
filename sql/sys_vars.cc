@@ -3430,6 +3430,12 @@ static Sys_var_ulong Sys_read_buff_size(
     VALID_RANGE(IO_SIZE * 2, INT_MAX32), DEFAULT(128 * 1024),
     BLOCK_SIZE(IO_SIZE));
 
+static Sys_var_bool Sys_legacy_global_read_lock_mode(
+    "legacy_global_read_lock_mode",
+    "Uses the legacy global read lock mode which will block setting global "
+    "read lock when a long transaction is running",
+    GLOBAL_VAR(legacy_global_read_lock_mode), CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static bool check_read_only(sys_var *self, THD *thd, set_var *var) {
   /* Prevent self dead-lock */
   if (thd->locked_tables_mode || thd->in_active_multi_stmt_transaction()) {
@@ -3516,8 +3522,10 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type) {
   read_only = opt_readonly;
   mysql_mutex_unlock(&LOCK_global_system_variables);
 
-  if (thd->global_read_lock.lock_global_read_lock(thd))
+  if (legacy_global_read_lock_mode &&
+      thd->global_read_lock.lock_global_read_lock(thd)) {
     goto end_with_mutex_unlock;
+  }
 
   if ((result = thd->global_read_lock.make_global_read_lock_block_commit(thd)))
     goto end_with_read_lock;
@@ -3572,7 +3580,8 @@ static bool fix_super_read_only(sys_var *, THD *thd, enum_var_type type) {
   super_read_only = opt_super_readonly;
   mysql_mutex_unlock(&LOCK_global_system_variables);
 
-  if (thd->global_read_lock.lock_global_read_lock(thd))
+  if (legacy_global_read_lock_mode &&
+      thd->global_read_lock.lock_global_read_lock(thd))
     goto end_with_mutex_unlock;
 
   if ((result = thd->global_read_lock.make_global_read_lock_block_commit(thd)))

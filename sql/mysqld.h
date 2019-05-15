@@ -735,6 +735,7 @@ extern struct st_VioSSLFd *ssl_acceptor_fd;
 extern bool opt_large_pages;
 extern uint opt_large_page_size;
 extern char lc_messages_dir[FN_REFLEN];
+extern bool legacy_global_read_lock_mode;
 extern char *lc_messages_dir_ptr;
 extern const char *log_error_dest;
 extern MYSQL_PLUGIN_IMPORT char reg_ext[FN_EXTLEN];

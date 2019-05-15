@@ -1,0 +1,81 @@
+# Attempting to set read_only or super_read_only on would occassionally block
+# if there was a long running modification statement (INSERT, UPDATE, DELETE,
+# REPLACE, etc.).  This was because of contention on the global read lock.
+# The code to handle setting the read_only flags has been modified to not
+# acquire the global read lock
+
+--source include/count_sessions.inc
+
+SET @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
+
+# Create the tables we need
+CREATE TABLE t1(a INT) Engine=InnoDB;
+
+connect(con1,localhost,root,,);
+connect(con2,localhost,root,,);
+
+SET @@global.legacy_global_read_lock_mode = 0;
+--let $legacy_mode=0
+--let $with_transactions=1
+--source global_read_lock.inc
+
+# Now do it without the BEGIN statement - make sure the statement fails
+# (instead of the COMMIT following the statement)
+--let $with_transactions=0
+--source global_read_lock.inc
+
+# Now run both tests again with legacy_global_read_lock_mode on to make
+# sure we get the old behavior
+--let $legacy_mode=1
+SET @@global.legacy_global_read_lock_mode = 1;
+--let $with_transactions=1
+--source global_read_lock.inc
+
+--let $with_transactions=0
+--source global_read_lock.inc
+
+# Also test to make sure we don't leak a lock during the following commands:
+# con1 - BEGIN
+# con1 - LOCK TABLE ...
+# con1 - INSERT INTO t1 ...
+# con2 - SET GLOBAL super_read_only=1
+# con1 - UNLOCK TABLES
+#
+# Save the current settings for read_only and super_read_only
+connection default;
+SET @@global.legacy_global_read_lock_mode = 0;
+SET @save_read_only=@@global.read_only;
+SET @save_super_read_only=@@global.super_read_only;
+
+connection con1;
+BEGIN;
+LOCK TABLES t1 WRITE;
+INSERT INTO t1 VALUES(100);
+
+echo The In_use column should be 1 to indicate the lock;
+connection default;
+SHOW OPEN TABLES like 't1';
+
+connection con2;
+SET GLOBAL super_read_only=1;
+
+connection con1;
+UNLOCK TABLES;
+
+echo The In_use column should be 0 to indicate the lock was removed;
+connection default;
+SHOW OPEN TABLES like 't1';
+
+SET @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
+SET @@global.super_read_only = @save_super_read_only;
+SET @@global.read_only = @save_read_only;
+
+# Cleanup connections
+connection default;
+disconnect con1;
+disconnect con2;
+--source include/wait_until_count_sessions.inc
+
+# Get rid of the databases
+DROP TABLE t1;
+
