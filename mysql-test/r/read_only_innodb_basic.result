@@ -1,24 +1,22 @@
 set @start_read_only= @@global.read_only;
-DROP TABLE IF EXISTS t1,t2,t3;
-set @orig_sql_mode= @@sql_mode;
 create user test@localhost;
 grant CREATE, SELECT, DROP on *.* to test@localhost;
 connect (con1,localhost,test,,test);
 connection default;
 set global read_only=0;
 connection con1;
-create table t1 (a int);
+create table t1 (a int) engine=InnoDb;
 insert into t1 values(1);
-create table t2 select * from t1;
+create table t2 engine=InnoDb select * from t1;
 connection default;
 set global read_only=1;
-create table t3 (a int);
+create table t3 (a int) engine=InnoDb;
 drop table t3;
 connection con1;
 select @@global.read_only;
 @@global.read_only
 1
-create table t3 (a int);
+create table t3 (a int) engine=InnoDb;
 ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
 insert into t1 values(1);
 ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
@@ -48,8 +46,6 @@ drop table t1;
 insert into t1 values(1);
 ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
 connection default;
-set @save_legacy_global_read_lock_mode = @@global.legacy_global_read_lock_mode;
-set @@global.legacy_global_read_lock_mode = 1;
 set global read_only=0;
 lock table t1 write;
 connection con1;
@@ -61,16 +57,12 @@ unlock tables ;
 send set global read_only=1;
 set global read_only=1;
 connection con1;
-select @@global.read_only;
-@@global.read_only
-0
 unlock tables ;
 select @@global.read_only;
 @@global.read_only
 1
 connection default;
 reap;
-set @@global.legacy_global_read_lock_mode = @save_legacy_global_read_lock_mode;
 connection default;
 set global read_only=0;
 lock table t1 read;
@@ -80,16 +72,15 @@ connection default;
 set global read_only=1;
 ERROR HY000: Can't execute the given command because you have active locked tables or an active transaction
 unlock tables ;
+send set global read_only=1;
 set global read_only=1;
-select @@global.read_only;
-@@global.read_only
-1
 connection con1;
+unlock tables ;
 select @@global.read_only;
 @@global.read_only
 1
-unlock tables ;
 connection default;
+reap;
 connection default;
 set global read_only=0;
 BEGIN;
@@ -141,7 +132,7 @@ delete from mysql.db where User like 'mysqltest_%';
 delete from mysql.tables_priv where User like 'mysqltest_%';
 delete from mysql.columns_priv where User like 'mysqltest_%';
 flush privileges;
-create user `mysqltest_u1`@`%`;
+create user mysqltest_u1@'%';
 grant all on mysqltest_db2.* to `mysqltest_u1`@`%`;
 create database mysqltest_db1;
 grant all on mysqltest_db1.* to `mysqltest_u1`@`%`;
@@ -163,41 +154,3 @@ delete from mysql.columns_priv where User like 'mysqltest_%';
 flush privileges;
 drop database mysqltest_db1;
 set global read_only= @start_read_only;
-#
-# WL#5968 Implement START TRANSACTION READ (WRITE|ONLY);
-#
-#
-# Test interaction with read_only system variable.
-DROP TABLE IF EXISTS t1;
-CREATE TABLE t1(a INT);
-INSERT INTO t1 VALUES (1), (2);
-CREATE USER user1;
-SET GLOBAL read_only= 1;
-# All allowed with super privilege
-START TRANSACTION;
-COMMIT;
-START TRANSACTION READ ONLY;
-COMMIT;
-START TRANSACTION READ WRITE;
-COMMIT;
-# We allow implicit RW transaction without super privilege
-# for compatibility reasons
-START TRANSACTION;
-# Check that table updates are still disallowed.
-INSERT INTO t1 VALUES (3);
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
-UPDATE t1 SET a= 1;
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
-DELETE FROM t1;
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
-COMMIT;
-START TRANSACTION READ ONLY;
-COMMIT;
-# Explicit RW trans is not allowed without super privilege
-START TRANSACTION READ WRITE;
-ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
-COMMIT;
-DROP USER user1;
-SET GLOBAL read_only= 0;
-DROP TABLE t1;
-set sql_mode= @orig_sql_mode;
