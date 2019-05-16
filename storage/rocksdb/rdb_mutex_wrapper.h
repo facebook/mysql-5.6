@@ -38,7 +38,7 @@ class Rdb_mutex : public rocksdb::TransactionDBMutex {
 
  public:
   Rdb_mutex();
-  virtual ~Rdb_mutex();
+  virtual ~Rdb_mutex() override;
 
   /*
     Override parent class's virtual methods of interrest.
@@ -76,7 +76,7 @@ class Rdb_cond_var : public rocksdb::TransactionDBCondVar {
 
  public:
   Rdb_cond_var();
-  virtual ~Rdb_cond_var();
+  virtual ~Rdb_cond_var() override;
 
   /*
     Override parent class's virtual methods of interrest.
@@ -136,7 +136,7 @@ class Rdb_mutex_factory : public rocksdb::TransactionDBMutexFactory {
     return std::make_shared<Rdb_cond_var>();
   }
 
-  virtual ~Rdb_mutex_factory() {}
+  virtual ~Rdb_mutex_factory() override {}
 };
 
 }  // namespace myrocks
