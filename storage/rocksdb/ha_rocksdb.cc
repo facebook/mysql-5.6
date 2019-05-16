@@ -3303,7 +3303,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
     m_notifier = std::make_shared<Rdb_snapshot_notifier>(this);
   }
 
-  virtual ~Rdb_transaction_impl() {
+  virtual ~Rdb_transaction_impl() override {
     rollback();
 
     // Theoretically the notifier could outlive the Rdb_transaction_impl
@@ -3504,7 +3504,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                                true);
   }
 
-  virtual ~Rdb_writebatch_impl() {
+  virtual ~Rdb_writebatch_impl() override {
     rollback();
     delete m_batch;
   }
