@@ -22,6 +22,7 @@ echo Query is OK when there is no limit;
 show variables like "filesort_max_file_size";
 show session variables like "filesort_max_file_size";
 show global variables like "filesort_max_file_size";
+--replace_column 10 #
 explain select i, c from t1 order by hex(c) limit 1 offset 4000;
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 --error ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
