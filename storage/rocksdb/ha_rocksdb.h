@@ -402,7 +402,7 @@ class ha_rocksdb : public my_core::handler {
 
   ha_rocksdb(my_core::handlerton *const hton,
              my_core::TABLE_SHARE *const table_arg);
-  ~ha_rocksdb() {
+  virtual ~ha_rocksdb() override {
     int err MY_ATTRIBUTE((__unused__));
     err = finalize_bulk_load(false);
     if (err != 0) {
