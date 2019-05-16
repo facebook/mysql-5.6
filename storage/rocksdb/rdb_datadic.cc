@@ -401,9 +401,9 @@ void Rdb_key_def::setup(const TABLE *const tbl,
       m_name = HIDDEN_PK_NAME;
     }
 
-    if (secondary_key)
+    if (secondary_key) {
       m_pk_key_parts = hidden_pk_exists ? 1 : pk_info->actual_key_parts;
-    else {
+    } else {
       pk_info = nullptr;
       m_pk_key_parts = 0;
     }
@@ -429,11 +429,12 @@ void Rdb_key_def::setup(const TABLE *const tbl,
       m_key_parts += m_pk_key_parts;
     }
 
-    if (secondary_key)
+    if (secondary_key) {
       m_pk_part_no = reinterpret_cast<uint *>(
           my_malloc(sizeof(uint) * m_key_parts, MYF(0)));
-    else
+    } else {
       m_pk_part_no = nullptr;
+    }
 
     const size_t size = sizeof(Rdb_field_packing) * m_key_parts;
     m_pack_info =
@@ -1274,10 +1275,11 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
   // If hidden pk exists, but hidden pk wasnt passed in, we can't pack the
   // hidden key part.  So we skip it (its always 1 part).
-  if (hidden_pk_exists && !hidden_pk_id && use_all_columns)
+  if (hidden_pk_exists && !hidden_pk_id && use_all_columns) {
     n_key_parts = m_key_parts - 1;
-  else if (use_all_columns)
+  } else if (use_all_columns) {
     n_key_parts = m_key_parts;
+  }
 
   if (n_null_fields) *n_null_fields = 0;
 
@@ -1865,25 +1867,28 @@ int Rdb_key_def::unpack_integer(
   const int length = fpi->m_max_image_len;
 
   const uchar *from;
-  if (!(from = (const uchar *)reader->read(length)))
+  if (!(from = (const uchar *)reader->read(length))) {
     return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  }
 
 #ifdef WORDS_BIGENDIAN
   {
-    if (((Field_num *)field)->unsigned_flag)
+    if (static_cast<Field_num *>(field)->unsigned_flag) {
       to[0] = from[0];
-    else
+    } else {
       to[0] = static_cast<char>(from[0] ^ 128);  // Reverse the sign bit.
+    }
     memcpy(to + 1, from + 1, length - 1);
   }
 #else
   {
     const int sign_byte = from[0];
-    if (((Field_num *)field)->unsigned_flag)
+    if (static_cast<Field_num *>(field)->unsigned_flag) {
       to[length - 1] = sign_byte;
-    else
+    } else {
       to[length - 1] =
           static_cast<char>(sign_byte ^ 128);  // Reverse the sign bit.
+    }
     for (int i = 0, j = length - 1; i < length - 1; ++i, --j) to[i] = from[j];
   }
 #endif
@@ -1930,8 +1935,10 @@ int Rdb_key_def::unpack_floating_point(
     const int exp_digit, const uchar *const zero_pattern,
     const uchar *const zero_val, void (*swap_func)(uchar *, const uchar *)) {
   const uchar *const from = (const uchar *)reader->read(size);
-  if (from == nullptr)
-    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  if (from == nullptr) {
+    /* Mem-comparable image doesn't have enough bytes */
+    return UNPACK_FAILURE;
+  }
 
   /* Check to see if the value is zero */
   if (memcmp(from, zero_pattern, size) == 0) {
@@ -2034,8 +2041,10 @@ int Rdb_key_def::unpack_newdate(
   const char *from;
   DBUG_ASSERT(fpi->m_max_image_len == 3);
 
-  if (!(from = reader->read(3)))
-    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  if (!(from = reader->read(3))) {
+    /* Mem-comparable image doesn't have enough bytes */
+    return UNPACK_FAILURE;
+  }
 
   field_ptr[0] = from[2];
   field_ptr[1] = from[1];
@@ -2054,8 +2063,10 @@ int Rdb_key_def::unpack_binary_str(
     Rdb_string_reader *const reader,
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
   const char *from;
-  if (!(from = reader->read(fpi->m_max_image_len)))
-    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  if (!(from = reader->read(fpi->m_max_image_len))) {
+    /* Mem-comparable image doesn't have enough bytes */
+    return UNPACK_FAILURE;
+  }
 
   memcpy(to, from, fpi->m_max_image_len);
   return UNPACK_SUCCESS;
@@ -2073,8 +2084,10 @@ int Rdb_key_def::unpack_utf8_str(
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
   my_core::CHARSET_INFO *const cset = (my_core::CHARSET_INFO *)field->charset();
   const uchar *src;
-  if (!(src = (const uchar *)reader->read(fpi->m_max_image_len)))
-    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  if (!(src = (const uchar *)reader->read(fpi->m_max_image_len))) {
+    /* Mem-comparable image doesn't have enough bytes */
+    return UNPACK_FAILURE;
+  }
 
   const uchar *const src_end = src + fpi->m_max_image_len;
   uchar *const dst_end = dst + field->pack_length();
@@ -2356,11 +2369,11 @@ void Rdb_key_def::pack_with_varchar_space_pad(
       const int cmp =
           rdb_compare_string_with_spaces(buf, buf_end, fpi->space_xfrm);
 
-      if (cmp < 0)
+      if (cmp < 0) {
         *ptr = VARCHAR_CMP_LESS_THAN_SPACES;
-      else if (cmp > 0)
+      } else if (cmp > 0) {
         *ptr = VARCHAR_CMP_GREATER_THAN_SPACES;
-      else {
+      } else {
         // It turns out all the rest are spaces.
         *ptr = VARCHAR_CMP_EQUAL_TO_SPACES;
       }
@@ -2575,8 +2588,9 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
     space_padding_bytes =
         -(static_cast<int>(extra_spaces) - RDB_TRIMMED_CHARS_OFFSET);
     extra_spaces = 0;
-  } else
+  } else {
     extra_spaces -= RDB_TRIMMED_CHARS_OFFSET;
+  }
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
@@ -2586,8 +2600,9 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
     size_t used_bytes;
     if (last_byte == VARCHAR_CMP_EQUAL_TO_SPACES)  // this is the last segment
     {
-      if (space_padding_bytes > (fpi->m_segment_size - 1))
+      if (space_padding_bytes > (fpi->m_segment_size - 1)) {
         return UNPACK_FAILURE;  // Cannot happen, corrupted data
+      }
       used_bytes = (fpi->m_segment_size - 1) - space_padding_bytes;
       finished = true;
     } else {
@@ -2847,8 +2862,9 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
   if (extra_spaces <= 8) {
     space_padding_bytes = -(static_cast<int>(extra_spaces) - 8);
     extra_spaces = 0;
-  } else
+  } else {
     extra_spaces -= 8;
+  }
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
@@ -2859,8 +2875,9 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
     size_t used_bytes;
     if (last_byte == VARCHAR_CMP_EQUAL_TO_SPACES) {
       // this is the last one
-      if (space_padding_bytes > (fpi->m_segment_size - 1))
+      if (space_padding_bytes > (fpi->m_segment_size - 1)) {
         return UNPACK_FAILURE;  // Cannot happen, corrupted data
+      }
       used_bytes = (fpi->m_segment_size - 1) - space_padding_bytes;
       finished = true;
     } else {
@@ -3882,8 +3899,9 @@ bool Rdb_ddl_manager::validate_auto_incr() {
     GL_INDEX_ID gl_index_id;
 
     if (key.size() >= Rdb_key_def::INDEX_NUMBER_SIZE &&
-        memcmp(key.data(), auto_incr_entry, Rdb_key_def::INDEX_NUMBER_SIZE))
+        memcmp(key.data(), auto_incr_entry, Rdb_key_def::INDEX_NUMBER_SIZE)) {
       break;
+    }
 
     if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3) {
       return false;
@@ -3997,8 +4015,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
     const rocksdb::Slice val = it->value();
 
     if (key.size() >= Rdb_key_def::INDEX_NUMBER_SIZE &&
-        memcmp(key.data(), ddl_entry, Rdb_key_def::INDEX_NUMBER_SIZE))
+        memcmp(key.data(), ddl_entry, Rdb_key_def::INDEX_NUMBER_SIZE)) {
       break;
+    }
 
     if (key.size() <= Rdb_key_def::INDEX_NUMBER_SIZE) {
       // NO_LINT_DEBUG
@@ -4516,8 +4535,9 @@ bool Rdb_binlog_manager::read(char *const binlog_name,
     rocksdb::Status status = m_dict->get_value(m_key_slice, &value);
     if (status.ok()) {
       if (!unpack_value((const uchar *)value.c_str(), binlog_name, binlog_pos,
-                        binlog_gtid))
+                        binlog_gtid)) {
         ret = true;
+      }
     }
   }
   return ret;

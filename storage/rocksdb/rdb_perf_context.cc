@@ -97,14 +97,16 @@ std::string rdb_pc_stat_types[] = {
 
 #define IO_PERF_RECORD(_field_)                                       \
   do {                                                                \
-    if (rocksdb::get_perf_context()->_field_ > 0)                     \
+    if (rocksdb::get_perf_context()->_field_ > 0) {                   \
       counters->m_value[idx] += rocksdb::get_perf_context()->_field_; \
+    }                                                                 \
     idx++;                                                            \
   } while (0)
 #define IO_STAT_RECORD(_field_)                                          \
   do {                                                                   \
-    if (rocksdb::get_iostats_context()->_field_ > 0)                     \
+    if (rocksdb::get_iostats_context()->_field_ > 0) {                   \
       counters->m_value[idx] += rocksdb::get_iostats_context()->_field_; \
+    }                                                                    \
     idx++;                                                               \
   } while (0)
 
