@@ -367,8 +367,9 @@ class Rdb_key_def {
   bool covers_key(const rocksdb::Slice &slice) const {
     if (slice.size() < INDEX_NUMBER_SIZE) return false;
 
-    if (memcmp(slice.data(), m_index_number_storage_form, INDEX_NUMBER_SIZE))
+    if (memcmp(slice.data(), m_index_number_storage_form, INDEX_NUMBER_SIZE)) {
       return false;
+    }
 
     return true;
   }
