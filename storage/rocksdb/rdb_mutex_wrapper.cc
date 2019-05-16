@@ -105,10 +105,11 @@ Status Rdb_cond_var::WaitFor(
 #endif
   } while (!killed && res == EINTR);
 
-  if (res || killed)
+  if (res || killed) {
     return Status::TimedOut();
-  else
+  } else {
     return Status::OK();
+  }
 }
 
 /*
