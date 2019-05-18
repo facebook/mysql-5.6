@@ -27,6 +27,7 @@
 
 /* MyRocks includes */
 #include "./ha_rocksdb.h"
+#include "./ha_rocksdb_proto.h"
 #include "./properties_collector.h"
 #include "./rdb_datadic.h"
 
@@ -55,6 +56,21 @@ void Rdb_event_listener::update_index_stats(
   std::vector<Rdb_index_stats> stats;
   Rdb_tbl_prop_coll::read_stats_from_tbl_props(tbl_props, &stats);
 
+  // In the new approach cardinality and non-cardinality stats
+  // for a table are calculated at the same time. That is,
+  // when the table has been modified significantly. This way,
+  // cardinality and non-cardinality stats are consistent.
+  //
+  // It can happen that some non-cardinality stats may change after
+  // a compaction without significant updates to the table.
+  // So the cached values are not up-to-date.
+  //
+  // This lag is acceptable now and we will change when it becomes
+  // an issue.
+  if (rdb_is_table_scan_index_stats_calculation_enabled()) {
+    return;
+  }
+
   m_ddl_manager->adjust_stats(stats);
 }
 
@@ -62,6 +78,10 @@ void Rdb_event_listener::OnCompactionCompleted(
     rocksdb::DB *db, const rocksdb::CompactionJobInfo &ci) {
   DBUG_ASSERT(db != nullptr);
   DBUG_ASSERT(m_ddl_manager != nullptr);
+
+  if (rdb_is_table_scan_index_stats_calculation_enabled()) {
+    return;
+  }
 
   if (ci.status.ok()) {
     m_ddl_manager->adjust_stats(

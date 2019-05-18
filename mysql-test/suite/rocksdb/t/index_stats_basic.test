@@ -1,0 +1,40 @@
+--source include/have_rocksdb.inc
+
+select @@global.rocksdb_table_stats_use_table_scan;
+create table t (i int primary key auto_increment);
+
+# Analyze empty table t
+analyze table t;
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+insert into t values (), (), (), (), (), (), (), ();
+
+# Turn on the new approach for index stats calculation
+set @@global.rocksdb_table_stats_use_table_scan = 1;
+select @@global.rocksdb_table_stats_use_table_scan;
+
+# The background thread will not calculate stats for table t because
+# it has not changed.
+
+set @@global.rocksdb_force_flush_memtable_now = true;
+analyze table t;
+
+# The new approach shows 8 rows.
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+# Flip back to the old approach for index stats calculation
+set @@global.rocksdb_table_stats_use_table_scan = 0;
+select @@global.rocksdb_table_stats_use_table_scan;
+
+analyze table t;
+
+# The old approach shows 8 rows because all rows are in ssts.
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+set @@global.rocksdb_table_stats_use_table_scan = default;
+
+drop table t;
+

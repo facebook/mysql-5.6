@@ -73,6 +73,33 @@ struct Rdb_index_stats {
 
   void merge(const Rdb_index_stats &s, const bool increment = true,
              const int64_t estimated_data_len = 0);
+
+  void adjust_cardinality(uint64_t adjustment_factor);
+
+  void reset_cardinality();
+};
+
+struct Rdb_table_stats {
+  // TODO: With TTL rows can be removed without a decrement in
+  // m_stat_n_rows. We should take TTL into consideration later.
+  uint64 m_stat_n_rows;
+  uint64 m_stat_modified_counter;
+  time_t m_last_recalc;
+
+  Rdb_table_stats()
+      : m_stat_n_rows(0), m_stat_modified_counter(0), m_last_recalc(0) {}
+
+  explicit Rdb_table_stats(uint64 rows, uint64 modified_counter,
+                           time_t last_recalc)
+      : m_stat_n_rows(rows),
+        m_stat_modified_counter(modified_counter),
+        m_last_recalc(last_recalc) {}
+
+  void set(uint64 rows, uint64 modified_counter, time_t last_recalc) {
+    m_stat_n_rows = rows;
+    m_stat_modified_counter = modified_counter;
+    m_last_recalc = last_recalc;
+  }
 };
 
 // The helper class to calculate index cardinality
@@ -98,6 +125,7 @@ class Rdb_tbl_card_coll {
    * an optrimizer or displaying it to a clent.
    */
   void AdjustStats(Rdb_index_stats *stats);
+  void SetCardinality(Rdb_index_stats *stat);
 
  private:
   bool ShouldCollectStats();
