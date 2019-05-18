@@ -234,6 +234,7 @@ rocksdb::Status Rdb_tbl_prop_coll::Finish(
     }
 
     for (Rdb_index_stats &stat : m_stats) {
+      m_cardinality_collector.SetCardinality(&stat);
       m_cardinality_collector.AdjustStats(&stat);
     }
     m_recorded = true;
@@ -415,6 +416,12 @@ int Rdb_index_stats::unmaterialize(const std::string &s,
   return HA_EXIT_SUCCESS;
 }
 
+void Rdb_index_stats::reset_cardinality() {
+  for (size_t i = 0; i < m_distinct_keys_per_prefix.size(); i++) {
+    m_distinct_keys_per_prefix[i] = 0;
+  }
+}
+
 /*
   Merges one Rdb_index_stats into another. Can be used to come up with the stats
   for the index based on stats for each sst
@@ -464,6 +471,12 @@ void Rdb_index_stats::merge(const Rdb_index_stats &s, const bool increment,
   }
 }
 
+void Rdb_index_stats::adjust_cardinality(uint64_t adjustment_factor) {
+  for (int64_t &num_keys : m_distinct_keys_per_prefix) {
+    num_keys = num_keys * adjustment_factor;
+  }
+}
+
 Rdb_tbl_card_coll::Rdb_tbl_card_coll(const uint8_t table_stats_sampling_pct)
     : m_table_stats_sampling_pct(table_stats_sampling_pct),
       m_seed(time(nullptr)) {}
@@ -504,16 +517,12 @@ void Rdb_tbl_card_coll::ProcessKey(const rocksdb::Slice &key,
     if (new_key) {
       DBUG_ASSERT(column <= stats->m_distinct_keys_per_prefix.size());
 
-      for (auto i = column; i < stats->m_distinct_keys_per_prefix.size(); i++) {
-        stats->m_distinct_keys_per_prefix[i]++;
-      }
-
-      // assign new last_key for the next call
-      // however, we only need to change the last key
-      // if one of the first n-1 columns is different
-      // If the n-1 prefix is the same, no sense in storing
-      // the new key
       if (column < stats->m_distinct_keys_per_prefix.size()) {
+        // At this point, stats->m_distinct_keys_per_prefix does
+        // not hold its final values.
+        // After all keys are processed, SetCardinality() needs
+        // to be called to calculate the final values.
+        stats->m_distinct_keys_per_prefix[column]++;
         m_last_key.assign(key.data(), key.size());
       }
     }
@@ -532,6 +541,13 @@ void Rdb_tbl_card_coll::AdjustStats(Rdb_index_stats *stats) {
   }
   for (int64_t &num_keys : stats->m_distinct_keys_per_prefix) {
     num_keys = num_keys * 100 / m_table_stats_sampling_pct;
+  }
+}
+
+void Rdb_tbl_card_coll::SetCardinality(Rdb_index_stats *stats) {
+  for (size_t i = 1; i < stats->m_distinct_keys_per_prefix.size(); i++) {
+    stats->m_distinct_keys_per_prefix[i] +=
+        stats->m_distinct_keys_per_prefix[i - 1];
   }
 }
 

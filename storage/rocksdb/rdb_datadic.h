@@ -1084,17 +1084,26 @@ class Rdb_tbl_def {
   Rdb_tbl_def &operator=(const Rdb_tbl_def &) = delete;
 
   explicit Rdb_tbl_def(const std::string &name)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
+      : m_key_descr_arr(nullptr),
+        m_hidden_pk_val(0),
+        m_auto_incr_val(0),
+        m_tbl_stats() {
     set_name(name);
   }
 
   Rdb_tbl_def(const char *const name, const size_t len)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
+      : m_key_descr_arr(nullptr),
+        m_hidden_pk_val(0),
+        m_auto_incr_val(0),
+        m_tbl_stats() {
     set_name(std::string(name, len));
   }
 
   explicit Rdb_tbl_def(const rocksdb::Slice &slice, const size_t pos = 0)
-      : m_key_descr_arr(nullptr), m_hidden_pk_val(0), m_auto_incr_val(0) {
+      : m_key_descr_arr(nullptr),
+        m_hidden_pk_val(0),
+        m_auto_incr_val(0),
+        m_tbl_stats() {
     set_name(std::string(slice.data() + pos, slice.size() - pos));
   }
 
@@ -1134,6 +1143,8 @@ class Rdb_tbl_def {
     m_cached_has_ttl_col = local_copy;
     return local_copy;
   }
+
+  Rdb_table_stats m_tbl_stats;
 
   bool put_dict(Rdb_dict_manager *const dict, rocksdb::WriteBatch *const batch,
                 const rocksdb::Slice &key);
@@ -1217,12 +1228,18 @@ class Rdb_ddl_manager {
   void cleanup();
 
   Rdb_tbl_def *find(const std::string &table_name, const bool lock = true);
+  int find_indexes(const std::string &table_name,
+                   std::vector<GL_INDEX_ID> *indexes);
+  int find_table_stats(const std::string &table_name,
+                       Rdb_table_stats *tbl_stats);
   std::shared_ptr<const Rdb_key_def> safe_find(GL_INDEX_ID gl_index_id);
   void set_stats(const std::unordered_map<GL_INDEX_ID, Rdb_index_stats> &stats);
   void adjust_stats(const std::vector<Rdb_index_stats> &new_data,
                     const std::vector<Rdb_index_stats> &deleted_data =
                         std::vector<Rdb_index_stats>());
   void persist_stats(const bool sync = false);
+
+  void set_table_stats(const std::string &tbl_name);
 
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(Rdb_tbl_def *const key_descr,
