@@ -972,7 +972,12 @@ rocksdb_store_row_debug_checksums	OFF
 rocksdb_strict_collation_check	OFF
 rocksdb_strict_collation_exceptions	
 rocksdb_table_cache_numshardbits	6
+rocksdb_table_stats_background_thread_nice_value	19
+rocksdb_table_stats_max_num_rows_scanned	0
+rocksdb_table_stats_recalc_threshold_count	100
+rocksdb_table_stats_recalc_threshold_pct	10
 rocksdb_table_stats_sampling_pct	10
+rocksdb_table_stats_use_table_scan	OFF
 rocksdb_tmpdir	
 rocksdb_trace_sst_api	OFF
 rocksdb_two_write_queues	ON
@@ -1470,6 +1475,9 @@ rocksdb_memtable_total	#
 rocksdb_memtable_unflushed	#
 rocksdb_queries_point	#
 rocksdb_queries_range	#
+rocksdb_table_index_stats_success	#
+rocksdb_table_index_stats_failure	#
+rocksdb_table_index_stats_req_queue_length	#
 rocksdb_covered_secondary_key_lookups	#
 rocksdb_block_cache_add	#
 rocksdb_block_cache_add_failures	#
@@ -1583,6 +1591,9 @@ ROCKSDB_MEMTABLE_TOTAL
 ROCKSDB_MEMTABLE_UNFLUSHED
 ROCKSDB_QUERIES_POINT
 ROCKSDB_QUERIES_RANGE
+ROCKSDB_TABLE_INDEX_STATS_SUCCESS
+ROCKSDB_TABLE_INDEX_STATS_FAILURE
+ROCKSDB_TABLE_INDEX_STATS_REQ_QUEUE_LENGTH
 ROCKSDB_COVERED_SECONDARY_KEY_LOOKUPS
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES
@@ -1698,6 +1709,9 @@ ROCKSDB_MEMTABLE_TOTAL
 ROCKSDB_MEMTABLE_UNFLUSHED
 ROCKSDB_QUERIES_POINT
 ROCKSDB_QUERIES_RANGE
+ROCKSDB_TABLE_INDEX_STATS_SUCCESS
+ROCKSDB_TABLE_INDEX_STATS_FAILURE
+ROCKSDB_TABLE_INDEX_STATS_REQ_QUEUE_LENGTH
 ROCKSDB_COVERED_SECONDARY_KEY_LOOKUPS
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_ADD_FAILURES

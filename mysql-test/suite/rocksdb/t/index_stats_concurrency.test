@@ -1,0 +1,101 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_rocksdb.inc
+
+select @@global.rocksdb_table_stats_use_table_scan;
+
+set @old_debug = @@global.debug;
+
+## test1: concurrency between the background index thread and analyze table ##
+create table t (i int auto_increment,
+  j int,
+  k int,
+  primary key(i, j, k), key `secondary_key` (j, k)) engine=rocksdb;
+
+set @@global.debug = '+d,rocksdb_is_bg_thread';
+
+insert into t(j, k)  values (1, 1), (1, 1), (2, 1), (2, 1),
+    (3, 2), (3, 2), (4, 2), (4, 2);
+set @@global.rocksdb_force_flush_memtable_now = true;
+
+set debug_sync = "now signal ready_to_calculate_index_stats";
+
+# Calculate stats on table t
+analyze table t;
+
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+set debug_sync = "now wait_for index_stats_calculation_done";
+
+# Close table t so that the handler's cardinality data will be 
+# updated on table re-open
+flush tables t;
+
+# Analyze table and the background thread should get the same index stats
+--echo index stats should not change after the background thread finishes calculation
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+set @@global.debug = @old_debug;
+drop table t;
+
+## test2: concurrency between the background index thread and drop table ##
+create table t (i int auto_increment,
+  j int,
+  k int,
+  primary key(i, j, k), key `secondary_key` (j, k)) engine=rocksdb;
+
+set @@global.debug = '+d,rocksdb_is_bg_thread_drop_table';
+
+# Insert rows to trigger the background thread to calculate
+# index stats for table t
+insert into t(j, k)  values (1, 1), (1, 1), (2, 1), (2, 1),
+    (3, 2), (3, 2), (4, 2), (4, 2);
+set @@global.rocksdb_force_flush_memtable_now = true;
+
+set debug_sync = "now wait_for ready_to_drop_table";
+
+# Drop table t before the index stats are saved
+drop table t;
+set debug_sync = "now signal ready_to_save_table_stats";
+
+--error ER_NO_SUCH_TABLE
+show indexes in t;
+select table_name, table_rows, data_length, index_length from information_schema.tables where table_schema = database() and table_name = "t";
+
+set @@global.debug = @old_debug;
+
+## test3: concurrency between the background index thread and alter table ##
+create table t (i int auto_increment,
+  j int,
+  k int,
+  primary key(i, j, k),  key `secondary_key` (j, k)) engine=rocksdb;
+
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+set @@global.debug = '+d,rocksdb_is_bg_thread';
+set @@global.debug = '+d,rocksdb_calculate_stats';
+insert into t(j, k)  values (1, 1), (1, 1), (2, 1), (2, 1),
+    (3, 2), (3, 2), (4, 2), (4, 2);
+set @@global.rocksdb_force_flush_memtable_now = true;
+
+set debug_sync = "now signal ready_to_calculate_index_stats";
+set debug_sync = "now wait_for ready_to_drop_index";
+
+# Drop secondary_key from table t
+alter table t drop index secondary_key;
+set debug_sync = "now signal ready_to_save_index_stats";
+set debug_sync = "now wait_for index_stats_calculation_done";
+
+# Close table t so that the handler's cardinality data will be
+# updated on table re-open
+flush tables t;
+
+show indexes in t;
+select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
+
+set @@global.debug = @old_debug;
+drop table t;
+

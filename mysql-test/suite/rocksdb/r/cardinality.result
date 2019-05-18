@@ -9,17 +9,6 @@ SELECT cardinality FROM information_schema.statistics where table_name="t0" and
 column_name="a";
 cardinality
 NULL
-ANALYZE TABLE t0;
-SELECT table_rows into @N FROM information_schema.tables
-WHERE table_name = "t0";
-SELECT FLOOR(@N/cardinality) FROM
-information_schema.statistics where table_name="t0" and column_name="id";
-FLOOR(@N/cardinality)
-1
-SELECT FLOOR(@N/cardinality) FROM
-information_schema.statistics where table_name="t0" and column_name="a";
-FLOOR(@N/cardinality)
-2
 SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 ANALYZE TABLE t0;
 SELECT table_rows into @N FROM information_schema.tables
