@@ -1,0 +1,5 @@
+--skip-rocksdb_debug_optimizer_no_zero_cardinality
+--rocksdb_table_stats_sampling_pct=100
+--rocksdb_table_stats_use_table_scan=1
+--rocksdb_table_stats_recalc_threshold_count=0
+

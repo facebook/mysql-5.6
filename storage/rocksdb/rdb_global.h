@@ -110,6 +110,11 @@ const char *const BG_THREAD_NAME = "myrocks-bg";
 const char *const INDEX_THREAD_NAME = "myrocks-index";
 
 /*
+  Name for the index stats calculation thread.
+*/
+const char *const INDEX_STATS_THREAD_NAME = "myrocks-is";
+
+/*
   Name for the manual compaction thread.
 */
 const char *const MANUAL_COMPACTION_THREAD_NAME = "myrocks-mc";
@@ -160,6 +165,13 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
 #define RDB_TBL_STATS_SAMPLE_PCT_MIN 1
 #define RDB_TBL_STATS_SAMPLE_PCT_MAX 100
 
+#define RDB_TBL_STATS_RECALC_THRESHOLD_PCT_MAX 100
+
+/* Minimum time interval between stats recalc for a given table */
+#define RDB_MIN_RECALC_INTERVAL 10 /* seconds */
+
+#define THREAD_PRIO_MIN -20
+#define THREAD_PRIO_MAX 19
 /*
   Default and maximum values for rocksdb-compaction-sequential-deletes and
   rocksdb-compaction-sequential-deletes-window to add basic boundary checking.
@@ -317,6 +329,12 @@ enum operation_type : int {
 
 enum query_type : int { QUERIES_POINT = 0, QUERIES_RANGE, QUERIES_MAX };
 
+enum table_index_stats_result_type : int {
+  TABLE_INDEX_STATS_SUCCESS = 0,
+  TABLE_INDEX_STATS_FAILURE,
+  TABLE_INDEX_STATS_RESULT_MAX
+};
+
 #if defined(HAVE_SCHED_GETCPU)
 #define RDB_INDEXER get_sched_indexer_t
 #else
@@ -332,6 +350,9 @@ struct st_global_stats {
   ib_counter_t<ulonglong, 64, RDB_INDEXER> system_rows[ROWS_MAX];
 
   ib_counter_t<ulonglong, 64, RDB_INDEXER> queries[QUERIES_MAX];
+
+  ib_counter_t<ulonglong, 64, RDB_INDEXER>
+      table_index_stats_result[TABLE_INDEX_STATS_RESULT_MAX];
 
   ib_counter_t<ulonglong, 64, RDB_INDEXER> covered_secondary_key_lookups;
 };
@@ -354,6 +375,10 @@ struct st_export_stats {
 
   ulonglong queries_point;
   ulonglong queries_range;
+
+  ulonglong table_index_stats_success;
+  ulonglong table_index_stats_failure;
+  ulonglong table_index_stats_req_queue_length;
 
   ulonglong covered_secondary_key_lookups;
 };
