@@ -2737,6 +2737,7 @@ extra/wolfssl-*
 
 # Allow
 !include/*/boost/geometry/*
+!storage/innobase/xtrabackup/*
 
 # Jellyfish config
 /.jfconfig
