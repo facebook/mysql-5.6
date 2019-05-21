@@ -355,9 +355,19 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   overrun_level = jobs.size - underrun_level;
 
   /* create mts submode for each of the the workers. */
-  current_mts_submode = (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
-                            ? (Mts_submode *)new Mts_submode_database()
-                            : (Mts_submode *)new Mts_submode_logical_clock();
+  switch (rli->channel_mts_submode) {
+    case MTS_PARALLEL_TYPE_DB_NAME:
+      current_mts_submode = (Mts_submode *)new Mts_submode_database();
+      break;
+    case MTS_PARALLEL_TYPE_LOGICAL_CLOCK:
+      current_mts_submode = (Mts_submode *)new Mts_submode_logical_clock();
+      break;
+    case MTS_PARALLEL_TYPE_DEPENDENCY:
+      current_mts_submode = (Mts_submode *)new Mts_submode_dependency();
+      break;
+    default:
+      DBUG_RETURN(1);
+  }
 
   // workers and coordinator must be of the same type
   DBUG_ASSERT(rli->current_mts_submode->get_type() ==
@@ -1666,8 +1676,8 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   ev->worker = this;
 
 #ifndef DBUG_OFF
-  if (!is_mts_db_partitioned(rli) && may_have_timestamp(ev) &&
-      !curr_group_seen_sequence_number) {
+  if (rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_LOGICAL_CLOCK &&
+      may_have_timestamp(ev) && !curr_group_seen_sequence_number) {
     curr_group_seen_sequence_number = true;
 
     longlong lwm_estimate =
@@ -1725,6 +1735,15 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
       }
       end_group_sets_max_dbs = false;
     }
+  }
+
+  // TODO (abhinav)
+  if (rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_DEPENDENCY) {
+    Slave_job_group *ptr_g = rli->gaq->get_job_group(ev->mts_group_idx);
+    ptr_g->worker = this;
+    ptr_g->worker_id = id;
+    ptr_g->shifted = bitmap_shifted;
+    bitmap_shifted = 0;
   }
 
   set_future_event_relay_log_pos(ev->future_event_relay_log_pos);
@@ -2119,7 +2138,8 @@ bool append_item_to_jobs(slave_job_item *job_item, Slave_worker *worker,
   ulonglong new_pend_size;
   PSI_stage_info old_stage;
 
-  DBUG_ASSERT(thd == current_thd);
+  DBUG_ASSERT(mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY ||
+              thd == current_thd);
 
   mysql_mutex_lock(&rli->pending_jobs_lock);
   new_pend_size = rli->mts_pending_jobs_size + ev_size;

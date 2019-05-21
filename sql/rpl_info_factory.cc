@@ -26,6 +26,7 @@
 #include <string.h>
 #include <algorithm>
 
+#include "dependency_slave_worker.h"
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -421,18 +422,32 @@ Slave_worker *Rpl_info_factory::create_worker(uint rli_option, uint worker_id,
   char *pos = my_stpcpy(worker_file_data.name, worker_file_data.pattern);
   sprintf(pos, "%u", worker_id + 1);
 
-  if (!(worker = new Slave_worker(
-            rli
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY)
+    worker = new Dependency_slave_worker(
+        rli
 #ifdef HAVE_PSI_INTERFACE
-            ,
-            &key_relay_log_info_run_lock, &key_relay_log_info_data_lock,
-            &key_relay_log_info_sleep_lock, &key_relay_log_info_thd_lock,
-            &key_relay_log_info_data_cond, &key_relay_log_info_start_cond,
-            &key_relay_log_info_stop_cond, &key_relay_log_info_sleep_cond
+        ,
+        &key_relay_log_info_run_lock, &key_relay_log_info_data_lock,
+        &key_relay_log_info_sleep_lock, &key_relay_log_info_thd_lock,
+        &key_relay_log_info_data_cond, &key_relay_log_info_start_cond,
+        &key_relay_log_info_stop_cond, &key_relay_log_info_sleep_cond
 #endif
-            ,
-            worker_id, rli->get_channel())))
-    goto err;
+        ,
+        worker_id, rli->get_channel());
+  else
+    worker = new Slave_worker(
+        rli
+#ifdef HAVE_PSI_INTERFACE
+        ,
+        &key_relay_log_info_run_lock, &key_relay_log_info_data_lock,
+        &key_relay_log_info_sleep_lock, &key_relay_log_info_thd_lock,
+        &key_relay_log_info_data_cond, &key_relay_log_info_start_cond,
+        &key_relay_log_info_stop_cond, &key_relay_log_info_sleep_cond
+#endif
+        ,
+        worker_id, rli->get_channel());
+
+  if (!worker) goto err;
 
   if (init_repositories(worker_table_data, worker_file_data, rli_option,
                         &handler_src, &handler_dest, &msg))

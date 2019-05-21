@@ -36,6 +36,7 @@
 #define _log_event_h
 
 #include <atomic>
+#include <deque>
 #include <list>
 #include <map>
 #include <set>
@@ -512,6 +513,53 @@ struct Mts_db_names {
   const char *name[MAX_DBS_IN_EVENT_MTS];
   int num;
 };
+
+class Log_event_wrapper;
+
+// TODO (abhinav): Include the name of the key in this struct to distinguish
+// between two keys with the same value but different names
+struct Dependency_key {
+  uint key_length = 0;
+  std::string table_id;
+  std::shared_ptr<uchar> key_buffer;
+
+  Dependency_key() { key_length = 0; }
+
+  bool operator==(const Dependency_key &other) const {
+    return (key_length == other.key_length && table_id == other.table_id &&
+            (key_length == 0 ||
+             !memcmp(key_buffer.get(), other.key_buffer.get(), key_length)));
+  }
+
+  bool operator!=(const Dependency_key &other) const {
+    return !(*this == other);
+  }
+};
+
+/* Override std::hash for Dependency_keys. */
+namespace std {
+template <>
+struct hash<Dependency_key> {
+  std::size_t operator()(const Dependency_key &k) const {
+    using std::hash;
+    using std::size_t;
+    using std::string;
+
+    size_t ret = 0;
+    uchar *buf = k.key_buffer.get();
+    if (k.key_length > 0) {
+      ret = std::hash<uint>{}(k.key_length);
+      ret = (ret << 1) ^ std::hash<string>{}(k.table_id);
+      for (uint i = 0; i < k.key_length; ++i) {
+        ret = (ret << 1) ^ std::hash<char>{}((char)buf[i]);
+      }
+    } else {
+      ret = std::hash<string>{}(k.table_id);
+    }
+    return ret;
+  }
+};
+}  // namespace std
 
 /**
   @class Log_event
@@ -1013,6 +1061,10 @@ class Log_event {
   }
 
  public:
+  std::string m_table_name;
+  std::deque<Dependency_key> m_keylist;
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   /**
      The method fills in pointers to event's database name c-strings
      to a supplied array.
@@ -1316,7 +1368,9 @@ class Query_log_event : public virtual binary_log::Query_event,
         char *db_name = mts_accessed_db_names[i];
 
         // Only default database is rewritten.
-        if (!rpl_filter->is_rewrite_empty() && !strcmp(get_db(), db_name)) {
+        // TODO (abhinav)
+        if (rpl_filter && !rpl_filter->is_rewrite_empty() &&
+            !strcmp(get_db(), db_name)) {
           size_t dummy_len;
           const char *db_filtered =
               rpl_filter->get_rewrite_db(db_name, &dummy_len);
@@ -1366,6 +1420,8 @@ class Query_log_event : public virtual binary_log::Query_event,
  public: /* !!! Public in this patch to allow old usage */
 #if defined(MYSQL_SERVER)
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
 
@@ -1701,6 +1757,8 @@ class Xid_log_event : public binary_log::Xid_event, public Xid_apply_log_event {
 #endif
  private:
 #if defined(MYSQL_SERVER)
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   bool do_commit(THD *thd_arg) override;
 #endif
 };
@@ -2331,7 +2389,9 @@ class Table_map_log_event : public binary_log::Table_map_event,
                             Rpl_filter *rpl_filter) override {
     const char *db_name = get_db();
 
-    if (!rpl_filter->is_rewrite_empty() && !get_flags(TM_REFERRED_FK_DB_F)) {
+    // TODO (abhinav)
+    if (rpl_filter && !rpl_filter->is_rewrite_empty() &&
+        !get_flags(TM_REFERRED_FK_DB_F)) {
       size_t dummy_len;
       const char *db_filtered = rpl_filter->get_rewrite_db(db_name, &dummy_len);
       // db_name != db_filtered means that db_name is rewritten.
@@ -2342,6 +2402,8 @@ class Table_map_log_event : public binary_log::Table_map_event,
 
     return arg->num = mts_number_dbs();
   }
+
+  void *setup_table_rli(RPL_TABLE_LIST **table_list);
 
 #endif
 
@@ -2798,6 +2860,13 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
 #if defined(MYSQL_SERVER)
   void set_writeset_from_col_names(TABLE *table, table_def *tabledef,
                                    MY_BITMAP *after_image);
+  bool get_keys(Relay_log_info *rli, std::shared_ptr<Log_event_wrapper> &ev,
+                std::deque<Dependency_key> &keys);
+  bool parse_keys(Relay_log_info *rli,
+                  std::shared_ptr<Log_event_wrapper> /*&ev*/, TABLE *table,
+                  std::deque<Dependency_key> &keys);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
@@ -3711,6 +3780,8 @@ class Gtid_log_event : public binary_log::Gtid_event, public Log_event {
 #endif
 
 #if defined(MYSQL_SERVER)
+  void prepare_dep(Relay_log_info * /*rli*/,
+                   std::shared_ptr<Log_event_wrapper> &ev);
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;

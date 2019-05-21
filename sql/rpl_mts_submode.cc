@@ -949,3 +949,353 @@ Mts_submode_logical_clock::get_server_and_thread_id(TABLE *table) {
       uint4korr(extra_string + extra_string_len - 4));
   DBUG_RETURN(ret_pair);
 }
+
+bool Mts_submode_dependency::enqueue(
+    const std::shared_ptr<Log_event_wrapper> &begin_event) {
+  mysql_mutex_lock(&dep_lock);
+  // wait if queue has reached full capacity
+  while (dep_full) {
+    mysql_cond_wait(&dep_full_cond, &dep_lock);
+  }
+
+  dep_queue.push_back(begin_event);
+  // dep queue not empty anymore!
+  mysql_cond_signal(&dep_empty_cond);
+
+  // admission control in dep queue
+  if (dep_queue.size() >= 512 /* TODO: opt_mts_dependency_size*/) {
+    dep_full = true;
+  }
+  ++num_in_flight_trx;
+  mysql_mutex_unlock(&dep_lock);
+
+  return true;
+}
+
+std::shared_ptr<Log_event_wrapper> Mts_submode_dependency::dequeue(
+    Slave_worker *worker) {
+  std::shared_ptr<Log_event_wrapper> ret;
+  Relay_log_info *rli = worker->c_rli;
+
+  mysql_mutex_lock(&dep_lock);
+
+  PSI_stage_info old_stage;
+  worker->info_thd->ENTER_COND(&dep_empty_cond, &dep_lock,
+                               &stage_slave_waiting_event_from_coordinator,
+                               &old_stage);
+
+  while (!worker->info_thd->killed &&
+         worker->running_status == Slave_worker::RUNNING && dep_queue.empty()) {
+    ++begin_event_waits;
+    ++num_workers_waiting;
+    mysql_cond_wait(&dep_empty_cond, &dep_lock);
+    --num_workers_waiting;
+  }
+
+  ret = dep_queue.front();
+  dep_queue.pop_front();
+
+  // case: place ourselves in the commit order queue
+  Commit_order_manager *co_mngr = rli->get_commit_order_manager();
+  if (ret && co_mngr != NULL) {
+    co_mngr->register_trx(worker);
+  }
+
+  // case: signal if queue is now empty
+  if (dep_queue.empty()) {
+    mysql_cond_signal(&dep_empty_cond);
+  }
+
+  // admission control
+  if (dep_full) {
+    DBUG_ASSERT(dep_queue.size() > 0);
+    // case: signal if dep has space
+    if (dep_queue.size() <
+        (512 /* TODO: opt_mts_dependency_size*/ *
+         60 /* TODO: opt_mts_dependency_refill_threshold*/ / 100)) {
+      dep_full = false;
+      mysql_cond_signal(&dep_full_cond);
+    }
+  }
+
+  mysql_mutex_unlock(&dep_lock);
+  worker->info_thd->EXIT_COND(&old_stage);
+  return ret;
+}
+
+void Mts_submode_dependency::signal_trx_done(
+    std::shared_ptr<Log_event_wrapper> begin_event) {
+  mysql_mutex_lock(&dep_lock);
+  if (num_in_flight_trx) {
+    --num_in_flight_trx;
+  }
+  if (num_in_flight_trx <= 1) {
+    mysql_cond_signal(&dep_trx_all_done_cond);
+  }
+  mysql_mutex_unlock(&dep_lock);
+  cleanup_group(begin_event);
+}
+
+void Mts_submode_dependency::register_keys(
+    std::shared_ptr<Log_event_wrapper> ev) {
+  mysql_mutex_lock(&dep_key_lookup_mutex);
+  if (!ev->finalized()) {
+    for (auto &key : keys_accessed_by_group) {
+      dep_key_lookup[key] = ev;
+    }
+  }
+  ev->keys.insert(keys_accessed_by_group.begin(), keys_accessed_by_group.end());
+  mysql_mutex_unlock(&dep_key_lookup_mutex);
+}
+
+void Mts_submode_dependency::unregister_keys(
+    std::shared_ptr<Log_event_wrapper> ev) {
+  mysql_mutex_lock(&dep_key_lookup_mutex);
+  for (auto &key : ev->keys) {
+    auto it = dep_key_lookup.find(key);
+    DBUG_ASSERT(it != dep_key_lookup.end());
+
+    /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
+    if (it->second == ev) {
+      dep_key_lookup.erase(key);
+    }
+  }
+  ev->finalize();
+  mysql_mutex_unlock(&dep_key_lookup_mutex);
+}
+
+int Mts_submode_dependency::schedule_next_event(Relay_log_info *rli,
+                                                Log_event *ev) {
+  DBUG_ENTER("Mts_submode_dependency::schedule_next_event");
+
+  auto evw = std::make_shared<Log_event_wrapper>(ev, current_begin_event);
+  ev->prepare_dep(rli, evw);
+
+  DBUG_ASSERT(num_in_flight_trx || evw->is_begin_event);
+
+  if (ev->starts_group()) {
+    rli->curr_group_seen_begin = true;
+    rli->mts_end_group_sets_max_dbs = true;
+  } else if (is_gtid_event(ev)) {
+    rli->curr_group_seen_gtid = true;
+  } else if (ev->contains_partition_info(rli->mts_end_group_sets_max_dbs)) {
+    if (ev->get_type_code() == binary_log::TABLE_MAP_EVENT) {
+      const auto tbe = static_cast<Table_map_log_event *>(ev);
+      const auto id = tbe->get_table_id();
+      table_map_events[id] = tbe;
+    }
+
+    rli->mts_end_group_sets_max_dbs = false;
+
+    // NOTE: we don't update @keys_accessed_by_group here
+    // because not all partition events contain table info
+    Mts_db_names mts_dbs;
+    if (ev->get_mts_dbs(&mts_dbs, nullptr) != OVER_MAX_DBS_IN_EVENT_MTS) {
+      for (int i = 0; i < mts_dbs.num; ++i) {
+        dbs_accessed_by_group.insert(std::string(mts_dbs.name[i]));
+      }
+    } else {
+      dep_sync_group = true;
+    }
+  }
+
+  if (dep_sync_group) {
+    wait_for_workers_to_finish(rli);
+  }
+
+  handle_terminal_event(rli, evw);
+
+#ifndef DBUG_OFF
+  if (!evw->is_end_event) {
+    auto be = evw->is_begin_event ? evw : evw->begin_event();
+    DBUG_ASSERT(be == current_begin_event);
+  }
+#endif
+
+  ev->mts_group_idx = rli->gaq->assigned_group_index;
+
+  if (evw->is_begin_event) {
+    enqueue(evw);
+  }
+
+  DBUG_ASSERT(evw->is_begin_event || prev_event);
+  if (prev_event) prev_event->put_next(evw);
+
+  prev_event = evw->is_end_event ? nullptr : evw;
+
+  // case: this group needs to be executed in isolation
+  if (dep_sync_group && evw->is_end_event) {
+    wait_for_workers_to_finish(rli);
+    dep_sync_group = false;
+  }
+
+  DBUG_RETURN(0);
+}
+
+/**
+  Encapsulation for things to be done for terminal begin and end events
+*/
+void Mts_submode_dependency::handle_terminal_event(
+    Relay_log_info *rli, std::shared_ptr<Log_event_wrapper> &ev) {
+  if (ev->is_begin_event) {
+    keys_accessed_by_group.clear();
+    dbs_accessed_by_group.clear();
+
+    // update rli state
+    current_begin_event = ev;
+    rli->mts_groups_assigned++;
+
+    // insert a group representative in the GAQ
+    Slave_job_group group;
+    group.reset(ev->raw_event()->common_header->log_pos,
+                rli->mts_groups_assigned);
+    group.group_master_log_name = my_strdup(
+        PSI_NOT_INSTRUMENTED, rli->get_group_master_log_name(), MYF(MY_WME));
+    rli->gaq->assigned_group_index = rli->gaq->en_queue(&group);
+  }
+
+  if (ev->is_end_event) {
+    // populate key->last trx penultimate event in the key lookup
+    // NOTE: we store the end event for a single event trx
+    auto to_add = prev_event ? prev_event : ev;
+    register_keys(ev);
+
+    // update rli state
+    current_begin_event = nullptr;
+    table_map_events.clear();
+    rli->mts_group_status = Relay_log_info::MTS_END_GROUP;
+    rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+
+    // update coordinates in GAQ
+    Slave_job_group *ptr_group =
+        rli->gaq->get_job_group(rli->gaq->assigned_group_index);
+
+    ptr_group->group_relay_log_name = my_strdup(
+        PSI_NOT_INSTRUMENTED, rli->get_event_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_name = my_strdup(
+        PSI_NOT_INSTRUMENTED, rli->get_group_master_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_relay_log_name = my_strdup(
+        PSI_NOT_INSTRUMENTED, rli->get_group_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_pos = rli->get_group_master_log_pos();
+    ptr_group->checkpoint_relay_log_pos = rli->get_group_relay_log_pos();
+
+    ptr_group->checkpoint_seqno = rli->checkpoint_seqno;
+    rli->checkpoint_seqno++;
+
+    // seconds_behind_master related
+    if (ev->raw_event()->is_relay_log_event()) {
+      ptr_group->ts = 0;
+    } else {
+      ptr_group->ts = ev->raw_event()->common_header->when.tv_sec +
+                      (time_t)ev->raw_event()->exec_time;
+    }
+  }
+}
+
+// TODO (abhinav)
+// These are basically copies from logical clock!
+
+/**
+ Logic to attach the temporary tables from the worker threads upon
+ event execution.
+ @param thd THD instance
+ @param rli Relay_log_info instance
+ @param ev  Query_log_event that is being applied
+*/
+void Mts_submode_dependency::attach_temp_tables(THD *thd,
+                                                const Relay_log_info *rli,
+                                                Query_log_event *ev) {
+  bool shifted = false;
+  TABLE *table, *cur_table;
+  DBUG_ENTER("Mts_submode_dependency::attach_temp_tables");
+  if (!is_mts_worker(thd) || (ev->ends_group() || ev->starts_group()))
+    DBUG_VOID_RETURN;
+  /* fetch coordinator's rli */
+  Relay_log_info *c_rli = static_cast<const Slave_worker *>(rli)->c_rli;
+  DBUG_ASSERT(!thd->temporary_tables);
+  mysql_mutex_lock(&c_rli->mts_temp_table_LOCK);
+  if (!(table = c_rli->info_thd->temporary_tables)) {
+    mysql_mutex_unlock(&c_rli->mts_temp_table_LOCK);
+    DBUG_VOID_RETURN;
+  }
+  c_rli->info_thd->temporary_tables = 0;
+  do {
+    /* store the current table */
+    cur_table = table;
+    /* move the table pointer to next in list, so that we can isolate the
+    current table */
+    table = table->next;
+    std::pair<uint, my_thread_id> st_id_pair =
+        get_server_and_thread_id(cur_table);
+    if (thd->server_id == st_id_pair.first &&
+        thd->variables.pseudo_thread_id == st_id_pair.second) {
+      /* short the list singling out the current table */
+      if (cur_table->prev)  // not the first node
+        cur_table->prev->next = cur_table->next;
+      if (cur_table->next)  // not the last node
+        cur_table->next->prev = cur_table->prev;
+      /* isolate the table */
+      cur_table->prev = NULL;
+      cur_table->next = NULL;
+      mts_move_temp_tables_to_thd(thd, cur_table);
+    } else
+        /* We must shift the C->temp_table pointer to the fist table unused in
+           this iteration. If all the tables have ben used C->temp_tables will
+           point to NULL */
+        if (!shifted) {
+      c_rli->info_thd->temporary_tables = cur_table;
+      shifted = true;
+    }
+  } while (table);
+  mysql_mutex_unlock(&c_rli->mts_temp_table_LOCK);
+  DBUG_VOID_RETURN;
+}
+
+/**
+ Logic to detach the temporary tables from the worker threads upon
+ event execution.
+ @param thd THD instance
+ @param rli Relay_log_info instance
+*/
+void Mts_submode_dependency::detach_temp_tables(THD *thd,
+                                                const Relay_log_info *rli,
+                                                Query_log_event *) {
+  DBUG_ENTER("Mts_submode_dependency::detach_temp_tables");
+  if (!is_mts_worker(thd)) DBUG_VOID_RETURN;
+  /*
+    Here in detach section we will move the tables from the worker to the
+    coordinaor thread. Since coordinator is shared we need to make sure that
+    there are no race conditions which may lead to assert failures and
+    non-deterministic results.
+  */
+  Relay_log_info *c_rli = static_cast<const Slave_worker *>(rli)->c_rli;
+  mysql_mutex_lock(&c_rli->mts_temp_table_LOCK);
+  mts_move_temp_tables_to_thd(c_rli->info_thd, thd->temporary_tables);
+  mysql_mutex_unlock(&c_rli->mts_temp_table_LOCK);
+  thd->temporary_tables = 0;
+  DBUG_VOID_RETURN;
+}
+
+/**
+  Protected method to fetch the server_id and pseudo_thread_id from a
+  temporary table
+  @param  table instance pointer of TABLE structure.
+  @return std:pair<uint, my_thread_id>
+  @note   It is the caller's responsibility to make sure we call this
+          function only for temp tables.
+ */
+std::pair<uint, my_thread_id> Mts_submode_dependency::get_server_and_thread_id(
+    TABLE *table) {
+  DBUG_ENTER("get_server_and_thread_id");
+  char *extra_string = table->s->table_cache_key.str;
+  size_t extra_string_len = table->s->table_cache_key.length;
+  // assert will fail when called with non temporary tables.
+  DBUG_ASSERT(table->s->table_cache_key.length > 0);
+  std::pair<uint, my_thread_id> ret_pair = std::make_pair(
+      /* last 8  bytes contains the server_id + pseudo_thread_id */
+      // fetch first 4 bytes to get the server id.
+      uint4korr(extra_string + extra_string_len - 8),
+      /* next  4 bytes contains the pseudo_thread_id */
+      uint4korr(extra_string + extra_string_len - 4));
+  DBUG_RETURN(ret_pair);
+}

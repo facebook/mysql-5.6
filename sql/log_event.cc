@@ -119,6 +119,7 @@
 #include "sql/item_func.h"  // Item_func_set_user_var
 #include "sql/key.h"
 #include "sql/log.h"  // Log_throttle
+#include "sql/log_event.h"
 #include "sql/mdl.h"
 #include "sql/mysqld.h"  // lower_case_table_names server_uuid ...
 #include "sql/protocol.h"
@@ -3234,8 +3235,10 @@ int Log_event::apply_event(Relay_log_info *rli) {
   worker = NULL;
   rli->mts_group_status = Relay_log_info::MTS_IN_GROUP;
 
-  worker =
-      (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
+  if (mts_parallel_option != MTS_PARALLEL_TYPE_DEPENDENCY) {
+    worker =
+        (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
+  }
 
 #ifndef DBUG_OFF
   if (rli->last_assigned_worker)
@@ -13651,3 +13654,297 @@ size_t my_strmov_quoted_identifier_helper(int q, char *buffer,
   *buffer++ = quote_char;
   return ++written;
 }
+
+#ifdef MYSQL_SERVER
+void Log_event::prepare_dep(Relay_log_info *rli,
+                            std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Log_event::prepare_dep");
+
+  auto submode =
+      static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+  if (!ev->begin_event()) {
+    if (!(get_type_code() == binary_log::INTVAR_EVENT ||
+          get_type_code() == binary_log::RAND_EVENT ||
+          get_type_code() == binary_log::USER_VAR_EVENT ||
+          get_type_code() == binary_log::BEGIN_LOAD_QUERY_EVENT ||
+          get_type_code() == binary_log::APPEND_BLOCK_EVENT ||
+          is_ignorable_event())) {
+      char llbuff[22];
+      llstr(rli->get_event_relay_log_pos(), llbuff);
+      my_error(ER_MTS_CANT_PARALLEL, MYF(0), get_type_str(),
+               rli->get_event_relay_log_name(), llbuff,
+               "the event is a part of a group that is unsupported in "
+               "the parallel execution mode");
+    } else {
+      sql_print_information(
+          "Got independent event %s, master binlog position: %s:%llu",
+          get_type_str(), rli->get_group_master_log_name(),
+          rli->get_group_master_log_pos());
+
+      submode->dep_sync_group = true;
+      ev->is_begin_event = true;
+    }
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+void Gtid_log_event::prepare_dep(Relay_log_info * /*rli*/,
+                                 std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Gtid_log_event::prepare_dep");
+  DBUG_ASSERT(ev->begin_event() == NULL);
+  ev->is_begin_event = true;
+  DBUG_VOID_RETURN;
+}
+
+void Query_log_event::prepare_dep(Relay_log_info *rli,
+                                  std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Query_log_event::prepare_dep");
+  auto submode =
+      static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+
+  if (starts_group()) {
+    if (!submode->current_begin_event) {
+      DBUG_ASSERT(ev->begin_event() == NULL);
+      ev->is_begin_event = true;
+    }
+  } else if (ends_group()) {
+    DBUG_ASSERT(submode->prev_event != NULL);
+    DBUG_ASSERT(ev->begin_event() != NULL);
+    DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
+
+    ev->is_end_event = true;
+    ev->begin_event()->whole_group_scheduled = true;
+  } else {
+    // case: DML, DDL statement which are logged without BEGIN and COMMIT
+    if (!rli->curr_group_seen_begin) {
+      ev->is_end_event = true;
+      if (ev->begin_event()) {
+        DBUG_ASSERT(rli->curr_group_seen_gtid ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::INTVAR_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::RAND_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::USER_VAR_EVENT ||
+                   ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::BEGIN_LOAD_QUERY_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::APPEND_BLOCK_EVENT ||
+                    is_ignorable_event());
+        DBUG_ASSERT(submode->prev_event != NULL);
+        ev->begin_event()->whole_group_scheduled = true;
+      } else {
+        ev->is_begin_event = true;
+        ev->whole_group_scheduled = true;
+      }
+    }
+
+    submode->dep_sync_group = true;
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+void Xid_log_event::prepare_dep(Relay_log_info *rli,
+                                std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Xid_log_event::prepare_dep");
+  auto submode =
+      static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+
+  DBUG_ASSERT(submode->prev_event != NULL);
+  DBUG_ASSERT(ev->begin_event() != NULL);
+  DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
+
+  ev->is_end_event = true;
+  ev->begin_event()->whole_group_scheduled = true;
+
+  DBUG_VOID_RETURN;
+}
+
+void Rows_log_event::prepare_dep(Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Rows_log_event::prepare_dep");
+  const auto submode =
+     static_cast<Mts_submode_dependency *>(rli->current_mts_submode);
+
+  DBUG_ASSERT(submode->table_map_events.count(get_table_id()));
+
+  const auto tbe = submode->table_map_events.at(get_table_id());
+
+  const std::string db_name(tbe->get_db_name());
+  const std::string table_name(tbe->get_table_name());
+
+  m_table_name = std::string(db_name)
+                     .append(std::to_string(db_name.length()))
+                     .append(table_name)
+                     .append(std::to_string(table_name.length()));
+
+  DBUG_ASSERT(!m_table_name.empty());
+
+  // case: something went wrong while finding keys for this event, switch to
+  // sync mode!
+  if (!get_keys(rli, ev, m_keylist)) {
+    submode->dep_sync_group = true;
+    m_keylist.clear();
+  }
+
+  submode->add_row_event(ev);
+
+  DBUG_VOID_RETURN;
+}
+
+/**
+  Callback to deallocate a given key buffer. This is passed as a parameter
+  while creating shared pointers to the key_buf.
+*/
+void key_dealloc_cb(uchar *key_buf) { my_free(key_buf); }
+
+bool Rows_log_event::parse_keys(Relay_log_info *rli,
+                                std::shared_ptr<Log_event_wrapper> /*&ev*/,
+                                TABLE *table,
+                                std::deque<Dependency_key> &keys) {
+  DBUG_ENTER("Rows_log_event::parse_keys");
+  std::vector<KEY *> key_infos;
+
+  // Find PK and all unique keys
+  uint key = 0;
+  KEY *keyinfo = table->key_info;
+  bool found_pk = false;
+  for (; key < table->s->keys; key++, keyinfo++) {
+    // Skip non-unique keys
+    if (!(keyinfo->flags & HA_NOSAME)) continue;
+
+    // NOTE: We expect the before image to contain all the unique keys
+    // (including PK), if any key is not present we fail fast and process the
+    // transaction in sync mode (see: @Rows_log_event::prepare_dep)
+    if (!are_all_columns_signaled_for_key(keyinfo, &m_cols)) DBUG_RETURN(false);
+
+    if (key == table->s->primary_key) found_pk = true;
+    key_infos.push_back(&table->key_info[key]);
+  }
+
+  // Case: We cannot function without a PK, abort!
+  if (!found_pk) DBUG_RETURN(false);
+
+  uchar *curr_row = NULL, *key_buf = NULL, *curr_row_end = NULL;
+  uint i = 0;
+  for (i = 0, curr_row = m_rows_buf; curr_row != m_rows_end;
+       curr_row = curr_row_end, i++) {
+    MY_BITMAP *cols = &m_cols;  // init with before image bitmap
+
+    enum_row_image_type row_image_type;
+    // NOTE: In updates, the after image follows the before image, hence every
+    // odd index will be an after image
+   if (get_type_code() == binary_log::UPDATE_ROWS_EVENT && i % 2 == 1) {
+      cols = &m_cols_ai;
+      DBUG_ASSERT(get_general_type_code() != binary_log::DELETE_ROWS_EVENT);
+      row_image_type =
+          (get_general_type_code() == binary_log::UPDATE_ROWS_EVENT)
+              ? enum_row_image_type::UPDATE_AI
+              : enum_row_image_type::WRITE_AI;
+    } else {
+      DBUG_ASSERT(get_general_type_code() != binary_log::WRITE_ROWS_EVENT);
+      row_image_type =
+          (get_general_type_code() == binary_log::UPDATE_ROWS_EVENT)
+              ? enum_row_image_type::UPDATE_BI
+              : enum_row_image_type::DELETE_BI;
+    }
+    bool has_value_options =
+        (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
+
+    if (::unpack_row(rli, table, m_width, curr_row, cols, const_cast<const uchar **>(&curr_row_end),
+               m_rows_end, row_image_type, has_value_options, false,
+               thd->row_query)) {
+      /* We were unable to unpack the row. This is a serious error. */
+      sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
+                      rli->get_rpl_log_name(), common_header->log_pos);
+      DBUG_RETURN(false);
+    }
+
+    for (const auto &key_info : key_infos) {
+      // Case: This key is not present in this row image
+      if (!are_all_columns_signaled_for_key(key_info, cols)) {
+        // NOTE: we've already checked if all keys are present in the before
+        // image in the beginning of this method, so this has to be the after
+        // image
+        DBUG_ASSERT(cols == &m_cols_ai);
+        continue;
+      }
+
+      // TODO (abhinav): We should check if a key is null to avoid unnecessary
+      // dependencies between null unique keys (since nulls are treated as
+      // distinct)
+      Dependency_key curr_key;
+      curr_key.key_length = key_info->key_length;
+      curr_key.table_id = m_table_name;
+
+      key_buf = (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, key_info->key_length,
+                                   MYF(MY_WME));
+      memset(key_buf, 0x0, key_info->key_length);
+      key_copy(key_buf, table->record[0], key_info, 0);
+
+      std::shared_ptr<uchar> tmp(key_buf, key_dealloc_cb);
+      curr_key.key_buffer = tmp;
+      keys.push_back(curr_key);
+    }
+  }
+  // dbug case: either all BIs and AIs will have keys, or only all BIs will have
+  // keys
+  DBUG_ASSERT(keys.size() == 2 * i || keys.size() == i);
+  DBUG_RETURN(true);
+}
+
+/**
+  Returns the set of keys written by the statement as a deque.
+*/
+bool Rows_log_event::get_keys(Relay_log_info *rli MY_ATTRIBUTE((unused)),
+                              std::shared_ptr<Log_event_wrapper> &ev
+                                  MY_ATTRIBUTE((unused)),
+                              std::deque<Dependency_key> &keys) {
+  DBUG_ENTER("Rows_log_event::get_keys");
+  DBUG_ASSERT(mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY);
+
+  // TODO(abhinav)
+  // Implement row level deps
+  Dependency_key table_key;
+  table_key.table_id = m_table_name;
+  keys.push_back(table_key);
+  DBUG_RETURN(true);
+}
+
+void *Table_map_log_event::setup_table_rli(RPL_TABLE_LIST **table_list) {
+  DBUG_ENTER("Table_map_log_event::setup_table_rli");
+
+  char *db_mem = NULL, *tname_mem = NULL;
+  void *memory = NULL;
+
+  if (!(memory = my_multi_malloc(PSI_NOT_INSTRUMENTED, MYF(MY_WME), table_list,
+                                 (uint)sizeof(RPL_TABLE_LIST), &db_mem,
+                                 (uint)NAME_LEN + 1, &tname_mem,
+                                 (uint)NAME_LEN + 1, NullS)))
+    DBUG_RETURN(NULL);
+
+  strcpy(db_mem, m_dbnam.c_str());
+  strcpy(tname_mem, m_tblnam.c_str());
+
+  if (lower_case_table_names == 1) {
+    my_casedn_str(system_charset_info, db_mem);
+    my_casedn_str(system_charset_info, tname_mem);
+  }
+
+  (*table_list)
+      ->init_one_table(db_mem, strlen(db_mem), tname_mem, strlen(tname_mem),
+                       tname_mem, TL_WRITE);
+
+  new (&((*table_list)->m_tabledef))
+      table_def(m_coltype, m_colcnt, m_field_metadata, m_field_metadata_size,
+                m_null_bits, m_flags, m_column_names, m_sign_bits);
+  (*table_list)->m_tabledef_valid = true;
+  (*table_list)->m_conv_table = NULL;
+  (*table_list)->open_type = OT_BASE_ONLY;
+
+  DBUG_RETURN(memory);
+}
+
+#endif
