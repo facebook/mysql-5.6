@@ -1239,7 +1239,7 @@ void warn_about_deprecated_national(THD *thd)
 %token<keyword> GTID_SYM
 %token<keyword> GTID_EXECUTED                 /* MYSQL */
 %token<keyword> SUPER_READ_ONLY_SYM           /* MYSQL */
-%token  DB_METADATA_SYM
+%token<keyword> DB_METADATA_SYM
 
 
 /*
