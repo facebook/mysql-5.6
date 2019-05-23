@@ -36,7 +36,7 @@ static std::vector<Rdb_index_stats> extract_index_stats(
     const std::vector<std::string> &files,
     const rocksdb::TablePropertiesCollection &props) {
   std::vector<Rdb_index_stats> ret;
-  for (auto fn : files) {
+  for (const auto &fn : files) {
     const auto it = props.find(fn);
     DBUG_ASSERT(it != props.end());
     std::vector<Rdb_index_stats> stats;
