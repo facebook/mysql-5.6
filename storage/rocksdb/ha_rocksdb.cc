@@ -3518,8 +3518,6 @@ static Rdb_transaction *&get_tx_from_thd(THD *const thd) {
       my_core::thd_ha_data(thd, rocksdb_hton));
 }
 
-namespace {
-
 class Rdb_perf_context_guard {
   Rdb_io_perf m_io_perf;
   Rdb_io_perf *m_io_perf_ptr;
@@ -3554,8 +3552,6 @@ class Rdb_perf_context_guard {
     }
   }
 };
-
-}  // anonymous namespace
 
 /*
   TODO: maybe, call this in external_lock() and store in ha_rocksdb..
@@ -4665,12 +4661,12 @@ static bool rocksdb_rollback_to_savepoint_can_release_mdl(
 */
 static void rocksdb_update_table_stats(
     /* per-table stats callback */
-    void (*cb)(const char *db, const char *tbl, bool is_partition,
-               my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
-               my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
-               page_stats_t *page_stats, comp_stats_t *comp_stats,
-               int n_lock_wait, int n_lock_wait_timeout, int n_lock_deadlock,
-               const char *engine)) {
+    void (*cb)(const char *_db, const char *_tbl, bool _is_partition,
+               my_io_perf_t *_r, my_io_perf_t *w, my_io_perf_t *_r_blob,
+               my_io_perf_t *_r_primary, my_io_perf_t *_r_secondary,
+               page_stats_t *_page_stats, comp_stats_t *_comp_stats,
+               int _n_lock_wait, int _n_lock_wait_timeout, int _n_lock_deadlock,
+               const char *_engine)) {
   my_io_perf_t io_perf_read;
   my_io_perf_t io_perf_write;
   my_io_perf_t io_perf;

@@ -57,7 +57,7 @@ void Rdb_cf_manager::init(
 }
 
 void Rdb_cf_manager::cleanup() {
-  for (auto it : m_cf_name_map) {
+  for (const auto &it : m_cf_name_map) {
     delete it.second;
   }
   mysql_mutex_destroy(&m_mutex);
@@ -166,7 +166,7 @@ std::vector<std::string> Rdb_cf_manager::get_cf_names(void) const {
   std::vector<std::string> names;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  for (auto it : m_cf_name_map) {
+  for (const auto &it : m_cf_name_map) {
     names.push_back(it.first);
   }
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
@@ -190,6 +190,8 @@ std::vector<rocksdb::ColumnFamilyHandle *> Rdb_cf_manager::get_all_cf(
   return list;
 }
 
+namespace {
+
 struct Rdb_cf_scanner : public Rdb_tables_scanner {
   uint32_t m_cf_id;
   int m_is_cf_used;
@@ -211,6 +213,8 @@ struct Rdb_cf_scanner : public Rdb_tables_scanner {
     return HA_EXIT_SUCCESS;
   }
 };
+
+}  // namespace
 
 int Rdb_cf_manager::drop_cf(const std::string &cf_name) {
   auto ddl_manager = rdb_get_ddl_manager();

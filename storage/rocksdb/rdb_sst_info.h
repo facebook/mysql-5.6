@@ -188,7 +188,7 @@ class Rdb_sst_info {
 
     void reset() {
       if (!m_committed) {
-        for (auto sst_file : m_committed_files) {
+        for (const auto &sst_file : m_committed_files) {
           // In case something went wrong attempt to delete the temporary file.
           // If everything went fine that file will have been renamed and this
           // function call will fail.
