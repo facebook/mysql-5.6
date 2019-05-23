@@ -346,7 +346,7 @@ Rdb_sst_info::Rdb_sst_info(rocksdb::DB *const db, const std::string &tablename,
 Rdb_sst_info::~Rdb_sst_info() {
   DBUG_ASSERT(m_sst_file == nullptr);
 
-  for (auto sst_file : m_committed_files) {
+  for (const auto &sst_file : m_committed_files) {
     // In case something went wrong attempt to delete the temporary file.
     // If everything went fine that file will have been renamed and this
     // function call will fail.
