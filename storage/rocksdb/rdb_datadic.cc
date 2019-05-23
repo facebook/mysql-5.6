@@ -2969,6 +2969,8 @@ int Rdb_key_def::unpack_simple(Rdb_field_packing *const fpi,
 // See Rdb_charset_space_info::spaces_xfrm
 const int RDB_SPACE_XFRM_SIZE = 32;
 
+namespace {
+
 // A class holding information about how space character is represented in a
 // charset.
 class Rdb_charset_space_info {
@@ -2988,6 +2990,8 @@ class Rdb_charset_space_info {
   // (length=2)
   size_t space_mb_len;
 };
+
+}  // namespace
 
 static std::array<std::unique_ptr<Rdb_charset_space_info>, MY_ALL_CHARSETS_SIZE>
     rdb_mem_comparable_space;
@@ -4162,7 +4166,7 @@ std::shared_ptr<const Rdb_key_def> Rdb_ddl_manager::safe_find(
 
   mysql_rwlock_rdlock(&m_rwlock);
 
-  auto it = m_index_num_to_keydef.find(gl_index_id);
+  const auto it = m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end()) {
     const auto table_def = find(it->second.first, false);
     if (table_def && it->second.second < table_def->m_key_count) {
@@ -4172,9 +4176,10 @@ std::shared_ptr<const Rdb_key_def> Rdb_ddl_manager::safe_find(
       }
     }
   } else {
-    auto it = m_index_num_to_uncommitted_keydef.find(gl_index_id);
-    if (it != m_index_num_to_uncommitted_keydef.end()) {
-      const auto &kd = it->second;
+    const auto uncommitted_it =
+        m_index_num_to_uncommitted_keydef.find(gl_index_id);
+    if (uncommitted_it != m_index_num_to_uncommitted_keydef.end()) {
+      const auto &kd = uncommitted_it->second;
       if (kd->max_storage_fmt_length() != 0) {
         ret = kd;
       }
@@ -4189,18 +4194,19 @@ std::shared_ptr<const Rdb_key_def> Rdb_ddl_manager::safe_find(
 // this method assumes at least read-only lock on m_rwlock
 const std::shared_ptr<Rdb_key_def> &Rdb_ddl_manager::find(
     GL_INDEX_ID gl_index_id) {
-  auto it = m_index_num_to_keydef.find(gl_index_id);
+  const auto it = m_index_num_to_keydef.find(gl_index_id);
   if (it != m_index_num_to_keydef.end()) {
-    auto table_def = find(it->second.first, false);
+    const auto table_def = find(it->second.first, false);
     if (table_def) {
       if (it->second.second < table_def->m_key_count) {
         return table_def->m_key_descr_arr[it->second.second];
       }
     }
   } else {
-    auto it = m_index_num_to_uncommitted_keydef.find(gl_index_id);
-    if (it != m_index_num_to_uncommitted_keydef.end()) {
-      return it->second;
+    const auto uncommitted_it =
+        m_index_num_to_uncommitted_keydef.find(gl_index_id);
+    if (uncommitted_it != m_index_num_to_uncommitted_keydef.end()) {
+      return uncommitted_it->second;
     }
   }
 
@@ -4226,7 +4232,7 @@ const std::string Rdb_ddl_manager::safe_get_table_name(
 void Rdb_ddl_manager::set_stats(
     const std::unordered_map<GL_INDEX_ID, Rdb_index_stats> &stats) {
   mysql_rwlock_wrlock(&m_rwlock);
-  for (auto src : stats) {
+  for (const auto &src : stats) {
     const auto &keydef = find(src.second.m_gl_index_id);
     if (keydef) {
       keydef->m_stats = src.second;

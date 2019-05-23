@@ -632,7 +632,7 @@ static int rdb_i_s_cfoptions_fill_table(
     std::vector<std::string> table_options =
         split_into_vector(opts.table_factory->GetPrintableTableOptions(), '\n');
 
-    for (auto option : table_options) {
+    for (std::string option : table_options) {
       option.erase(std::remove(option.begin(), option.end(), ' '),
                    option.end());
 
@@ -839,7 +839,7 @@ static int rdb_i_s_compact_stats_fill_table(
 
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
-  for (auto cf_name : cf_manager.get_cf_names()) {
+  for (const auto &cf_name : cf_manager.get_cf_names()) {
     rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
 
     if (cfh == nullptr) {
