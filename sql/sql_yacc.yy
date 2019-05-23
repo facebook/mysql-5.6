@@ -6075,6 +6075,7 @@ db_read_only:
 read_only_opt:
           READ_ONLY_SYM { $$ = 0; }
         | SUPER_READ_ONLY_SYM { $$ = 1; }
+        ;
 
 db_metadata_str:
           DB_METADATA_SYM opt_equal TEXT_STRING_sys
