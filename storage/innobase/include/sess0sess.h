@@ -135,6 +135,10 @@ class innodb_session_t {
     return (m_usr_temp_tblsp);
   }
 
+  ibt::Tablespace *get_usr_temp_tblsp_if_exists() const noexcept {
+    return m_usr_temp_tblsp;
+  }
+
   ibt::Tablespace *get_instrinsic_temp_tblsp() {
     if (m_intrinsic_temp_tblsp == nullptr) {
       my_thread_id id = thd_thread_id(m_trx->mysql_thd);

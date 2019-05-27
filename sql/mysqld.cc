@@ -8996,6 +8996,9 @@ SHOW_VAR status_vars[] = {
     {"Threads_running", (char *)&show_num_thread_running, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Timer_in_use", (char *)&timer_in_use, SHOW_CHAR_PTR, SHOW_SCOPE_GLOBAL},
+    {"Tmp_table_bytes_written",
+     (char *)offsetof(System_status_var, tmp_table_bytes_written),
+     SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Uptime", (char *)&show_starttime, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #ifdef ENABLED_PROFILING
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,

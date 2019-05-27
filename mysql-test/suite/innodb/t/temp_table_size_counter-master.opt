@@ -1,0 +1,3 @@
+--innodb-max-dirty-pages-pct=0
+--innodb-max-dirty-pages-pct-lwm=0
+--innodb-adaptive-flushing=0

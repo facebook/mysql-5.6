@@ -452,6 +452,8 @@ struct System_status_var {
   ulonglong max_execution_time_set;
   ulonglong max_execution_time_set_failed;
 
+  ulonglong tmp_table_bytes_written;
+
   /* Number of statements sent from the client. */
   ulonglong questions;
 

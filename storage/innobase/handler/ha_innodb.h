@@ -132,6 +132,8 @@ class ha_innobase : public handler {
 
   longlong get_memory_buffer_size() const;
 
+  void inc_tmp_table_bytes_written(ulint by_value) noexcept;
+
   int write_row(uchar *buf);
 
   int update_row(const uchar *old_data, uchar *new_data);

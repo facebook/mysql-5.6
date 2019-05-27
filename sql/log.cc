@@ -746,8 +746,10 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Sort_rows: %lu Sort_scan_count: %lu"
         " Created_tmp_disk_tables: %lu"
         " Created_tmp_tables: %lu"
+        " Tmp_table_bytes_written: %lu"
         " Start: %s End: %s"
-        " Trace_Id: %s Instruction_Cost: %lu";
+        " Trace_Id: %s Instruction_Cost: %lu"
+        " Start: %s End: %s\n";
 
     // If the query start status is valid - i.e. the current thread's
     // status values should be no less than the query start status,
@@ -774,7 +776,9 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
             query_start->filesort_scan_count &&
         thd->status_var.created_tmp_disk_tables >=
             query_start->created_tmp_disk_tables &&
-        thd->status_var.created_tmp_tables >= query_start->created_tmp_tables) {
+        thd->status_var.created_tmp_tables >= query_start->created_tmp_tables &&
+        thd->status_var.tmp_table_bytes_written >=
+            query_start->tmp_table_bytes_written) {
       error = my_b_printf(
           &log_file, log_str, query_time_buff, lock_time_buff,
           (ulong)thd->get_sent_row_count(),
@@ -808,6 +812,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                   query_start->created_tmp_disk_tables),
           (ulong)(thd->status_var.created_tmp_tables -
                   query_start->created_tmp_tables),
+          (ulong)(thd->status_var.tmp_table_bytes_written -
+                  query_start->tmp_table_bytes_written),
           start_time_buff, end_time_buff,
           (tid_present ? thd->trace_id.c_str() : "NA"),
           (tid_present ? thd->pc_val : 0));
@@ -831,7 +837,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           (ulong)thd->status_var.filesort_rows,
           (ulong)thd->status_var.filesort_scan_count,
           (ulong)thd->status_var.created_tmp_disk_tables,
-          (ulong)thd->status_var.created_tmp_tables, start_time_buff,
+          (ulong)thd->status_var.created_tmp_tables,
+          (ulong)thd->status_var.tmp_table_bytes_written, start_time_buff,
           end_time_buff, (tid_present ? thd->trace_id.c_str() : "NA"),
           (tid_present ? thd->pc_val : 0));
     }

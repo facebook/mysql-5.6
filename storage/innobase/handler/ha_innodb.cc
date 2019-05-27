@@ -7798,12 +7798,32 @@ int ha_innobase::intrinsic_table_write_row(uchar *record) {
       convert_error_code_to_mysql(err, m_prebuilt->table->flags, m_user_thd));
 }
 
+static ulint get_temp_tablespace_size(const ibt::Tablespace *ts) noexcept {
+  if (ts == nullptr) {
+    return 0;
+  }
+  fil_space_t *space = fil_space_get(ts->space_id());
+  if (space == nullptr) {
+    return 0;
+  }
+  const page_size_t page_size(space->flags);
+  return space->size * page_size.physical();
+}
+
+void ha_innobase::inc_tmp_table_bytes_written(ulint by_value) noexcept {
+  if (m_user_thd) m_user_thd->status_var.tmp_table_bytes_written += by_value;
+}
+
 /** Stores a row in an InnoDB database, to the table specified in this
  handle.
  @return error code */
 
 int ha_innobase::write_row(uchar *record) /*!< in: a row in MySQL format */
 {
+  const auto session = thd_to_innodb_session(m_user_thd);
+  const ulint temp_table_start_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
   dberr_t error;
   int error_result = 0;
   bool auto_inc_used = false;
@@ -7992,6 +8012,13 @@ report_error:
 func_exit:
 
   innobase_active_small();
+
+  const ulint temp_table_end_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
+  if (temp_table_end_size > temp_table_start_size) {
+    inc_tmp_table_bytes_written(temp_table_end_size - temp_table_start_size);
+  }
 
   DBUG_RETURN(error_result);
 }
@@ -8394,6 +8421,10 @@ if its index columns are updated!
 int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
   int err;
 
+  const auto session = thd_to_innodb_session(m_user_thd);
+  const ulint temp_table_start_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
   dberr_t error;
   trx_t *trx = thd_to_trx(m_user_thd);
   ib_uint64_t new_counter = 0;
@@ -8538,6 +8569,13 @@ func_exit:
 
   innobase_active_small();
 
+  const ulint temp_table_end_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
+  if (temp_table_end_size > temp_table_start_size) {
+    inc_tmp_table_bytes_written(temp_table_end_size - temp_table_start_size);
+  }
+
   DBUG_RETURN(err);
 }
 
@@ -8547,6 +8585,10 @@ func_exit:
 int ha_innobase::delete_row(
     const uchar *record) /*!< in: a row in MySQL format */
 {
+  const auto session = thd_to_innodb_session(m_user_thd);
+  const ulint temp_table_start_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
   dberr_t error;
   trx_t *trx = thd_to_trx(m_user_thd);
   TrxInInnoDB trx_in_innodb(trx);
@@ -8588,6 +8630,13 @@ int ha_innobase::delete_row(
   utility threads: */
 
   innobase_active_small();
+
+  const ulint temp_table_end_size =
+      get_temp_tablespace_size(session->get_usr_temp_tblsp_if_exists());
+
+  if (temp_table_end_size > temp_table_start_size) {
+    inc_tmp_table_bytes_written(temp_table_end_size - temp_table_start_size);
+  }
 
   DBUG_RETURN(
       convert_error_code_to_mysql(error, m_prebuilt->table->flags, m_user_thd));
