@@ -1,0 +1,55 @@
+--exec export ZSTD=`command -v zstd`
+--let $zstd_exists=ZSTD
+if(!$zstd_exists)
+{
+  skip test requires zstd program to be installed in the system, skipping test;
+}
+
+#
+# Test LOAD DATA INFILE COMPRESSED replication
+#
+--disable_warnings
+--source include/master-slave.inc
+--enable_warnings
+
+connection master;
+
+--let $tmp_dir= `SELECT @@GLOBAL.secure_file_priv`
+--let $input_file_zstd=$tmp_dir/t1.txt.zst
+
+create table t1(x varchar(100));
+create table t2(x varchar(100));
+
+# generate big random input data
+--exec dd bs=10000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
+--exec head -n 100000  $tmp_dir/t1.tmp  > $tmp_dir/t1.txt
+--exec zstd -z $tmp_dir/t1.txt -o $input_file_zstd 
+--remove_file $tmp_dir/t1.txt
+--remove_file $tmp_dir/t1.tmp 
+
+#load local compressed file into table
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA LOCAL INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+
+#load compressed file into table
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA INFILE '$input_file_zstd' INTO TABLE t2 COMPRESSED;
+
+#check number of loaded rows
+select count(*) from t1;
+select count(*) from t2;
+
+
+#check number of replicated rows
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select count(*) from t1;
+select count(*) from t2;
+
+#cleanup
+connection master;
+
+--remove_file $input_file_zstd
+drop table t1;
+drop table t2;
+--source include/rpl_end.inc

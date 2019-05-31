@@ -96,7 +96,8 @@ public:
             const String &line_start,
             const String &line_term,
 	    const String &enclosed,
-            int escape,bool get_it_from_net, bool is_fifo, bool is_direct);
+            int escape,bool get_it_from_net, bool is_fifo, bool is_direct,
+            bool load_compressed);
   ~READ_INFO();
   int read_field();
   int read_fixed_length(void);
@@ -125,7 +126,10 @@ public:
     Arg must be set from mysql_load() since constructor does not see
     either the table or THD value
   */
-  void set_io_cache_arg(void* arg) { cache.arg = arg; }
+  void set_io_cache_arg(void* arg)
+  {
+    io_cache_set_arg(&cache, arg);
+  }
 
   /**
     skip all data till the eof.
@@ -162,7 +166,8 @@ static bool write_execute_load_query_log_event(THD *thd, sql_exchange* ex,
                                                enum enum_duplicates duplicates,
                                                bool ignore,
                                                bool transactional_table,
-                                               int errocode);
+                                               int errocode,
+                                               bool compressed);
 #endif /* EMBEDDED_LIBRARY */
 
 /*
@@ -497,7 +502,7 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
                       ex->cs ? ex->cs : thd->variables.collation_database,
 		      *field_term,*ex->line_start, *ex->line_term, *enclosed,
 		      info.escape_char, read_file_from_client, is_fifo,
-          thd->lex->disable_flashcache);
+          thd->lex->disable_flashcache, ex->load_compressed);
   if (read_info.error)
   {
     if (file >= 0)
@@ -639,7 +644,8 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
                                                       is_concurrent,
                                                       handle_duplicates, ignore,
                                                       transactional_table,
-                                                      errcode);
+                                                      errcode,
+                                                      ex->load_compressed);
 	  else
 	  {
 	    Delete_file_log_event d(thd, db, transactional_table);
@@ -688,7 +694,8 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
                                                   is_concurrent,
                                                   handle_duplicates, ignore,
                                                   transactional_table,
-                                                  errcode);
+                                                  errcode,
+                                                  ex->load_compressed);
       }
 
       /*
@@ -734,7 +741,8 @@ static bool write_execute_load_query_log_event(THD *thd, sql_exchange* ex,
                                                enum enum_duplicates duplicates,
                                                bool ignore,
                                                bool transactional_table,
-                                               int errcode)
+                                               int errcode,
+                                               bool compressed)
 {
   char                *load_data_query,
                       *end,
@@ -765,7 +773,8 @@ static bool write_execute_load_query_log_event(THD *thd, sql_exchange* ex,
                     strlen(table_name_arg));
   tbl= string_buf.c_ptr_safe();
   Load_log_event       lle(thd, ex, tdb, tbl, fv, is_concurrent,
-                           duplicates, ignore, transactional_table);
+                           duplicates, ignore, transactional_table,
+                           compressed);
 
   /*
     force in a LOCAL if there was one in the original.
@@ -1416,7 +1425,7 @@ READ_INFO::READ_INFO(File file_par, uint tot_length, const CHARSET_INFO *cs,
                      const String &line_term,
                      const String &enclosed_par,
                      int escape, bool get_it_from_net, bool is_fifo,
-                     bool is_direct)
+                     bool is_direct, bool load_compressed)
   :file(file_par), buff_length(tot_length), escape_char(escape),
    found_end_of_line(false), eof(false), need_end_io_cache(false),
    error(false), line_cuted(false), found_null(false), read_charset(cs)
@@ -1469,10 +1478,10 @@ READ_INFO::READ_INFO(File file_par, uint tot_length, const CHARSET_INFO *cs,
   {
     int direct = is_direct ? MY_DIRECT : 0;
     end_of_buff=buffer+buff_length;
-    if (init_io_cache(&cache,(get_it_from_net) ? -1 : file, 0,
+    if (init_io_cache_ex(&cache,(get_it_from_net) ? -1 : file, 0,
 		      (get_it_from_net) ? READ_NET :
 		      (is_fifo ? READ_FIFO : READ_CACHE),0L,1,
-		      MYF(MY_WME | direct)))
+		      MYF(MY_WME | direct), load_compressed))
     {
       my_free(buffer); /* purecov: inspected */
       buffer= NULL;
@@ -1489,11 +1498,12 @@ READ_INFO::READ_INFO(File file_par, uint tot_length, const CHARSET_INFO *cs,
 
 #ifndef EMBEDDED_LIBRARY
       if (get_it_from_net)
-	cache.read_function = _my_b_net_read;
+        io_cache_set_read_function(&cache, _my_b_net_read);
 
-      if (mysql_bin_log.is_open())
-	cache.pre_read = cache.pre_close =
-	  (IO_CACHE_CALLBACK) log_loaded_block;
+      if (mysql_bin_log.is_open()) {
+        io_cache_set_preread_callback(&cache, log_loaded_block);
+        io_cache_set_preclose_callback(&cache, log_loaded_block);
+      }
 #endif
     }
   }

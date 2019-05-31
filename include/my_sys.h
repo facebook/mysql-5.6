@@ -368,6 +368,7 @@ typedef struct st_dynamic_string
 
 struct st_io_cache;
 typedef int (*IO_CACHE_CALLBACK)(struct st_io_cache*);
+typedef int (*read_function_type)(struct st_io_cache *,uchar *,size_t);
 
 typedef struct st_io_cache_share
 {
@@ -451,7 +452,7 @@ typedef struct st_io_cache		/* Used when cacheing files */
     my_b_read() will call read_function to fetch the data. read_function
     must never be invoked directly.
   */
-  int (*read_function)(struct st_io_cache *,uchar *,size_t);
+  read_function_type read_function;
   /*
     Same idea as in the case of read_function, except my_b_write() needs to
     be replaced with my_b_append() for a SEQ_READ_APPEND cache
@@ -513,6 +514,7 @@ typedef struct st_io_cache		/* Used when cacheing files */
   my_aio_result aio_result;
 #endif
   struct compressor *compressor;
+  struct decompressor *decompressor;
 } IO_CACHE;
 
 typedef int (*qsort2_cmp)(const void *, const void *, const void *);
@@ -794,6 +796,17 @@ extern my_bool open_cached_file(IO_CACHE *cache,const char *dir,
 				 myf cache_myflags);
 extern my_bool real_open_cached_file(IO_CACHE *cache);
 extern void close_cached_file(IO_CACHE *cache);
+
+extern void io_cache_set_arg(IO_CACHE *cache, void *arg);
+extern void io_cache_set_read_function(IO_CACHE *cache,
+          read_function_type read_function);
+extern void io_cache_set_preread_callback(IO_CACHE *cache,
+          IO_CACHE_CALLBACK preread);
+extern void io_cache_set_preclose_callback(IO_CACHE *cache,
+          IO_CACHE_CALLBACK preclose);
+extern int end_io_cache_compressor(IO_CACHE *info);
+extern int end_io_cache_decompressor(IO_CACHE *info);
+
 File create_temp_file(char *to, const char *dir, const char *pfx,
 		      int mode, myf MyFlags);
 #define my_init_dynamic_array(A,B,C,D) init_dynamic_array2(A,B,NULL,C,D)

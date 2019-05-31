@@ -6735,6 +6735,9 @@ void Load_log_event::print_query(bool need_db, const char *cs, char *buf,
   memcpy(pos, table_name, table_name_len);
   pos+= table_name_len;
 
+  if (compressed)
+    pos= strmov(pos ," COMPRESSED ");
+
   if (cs != NULL)
   {
     pos= strmov(pos ," CHARACTER SET ");
@@ -6852,7 +6855,8 @@ Load_log_event::Load_log_event(THD *thd_arg, sql_exchange *ex,
 			       List<Item> &fields_arg,
                                bool is_concurrent_arg,
 			       enum enum_duplicates handle_dup,
-			       bool ignore, bool using_trans)
+			       bool ignore, bool using_trans,
+			       bool compressed_arg)
   :Log_event(thd_arg,
              thd_arg->thread_specific_used ? LOG_EVENT_THREAD_SPECIFIC_F : 0,
              using_trans ? Log_event::EVENT_TRANSACTIONAL_CACHE :
@@ -6864,7 +6868,7 @@ Load_log_event::Load_log_event(THD *thd_arg, sql_exchange *ex,
    field_lens(0),field_block_len(0),
    table_name(table_name_arg ? table_name_arg : ""),
    db(db_arg), fname(ex->file_name), local_fname(FALSE),
-   is_concurrent(is_concurrent_arg)
+   is_concurrent(is_concurrent_arg), compressed(compressed_arg)
 {
 
   /*

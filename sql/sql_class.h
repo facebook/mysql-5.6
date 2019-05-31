@@ -5009,6 +5009,7 @@ public:
   bool opt_enclosed;
   bool dumpfile;
   bool compressed;
+  bool load_compressed;
   ulong skip_lines;
   const CHARSET_INFO *cs;
   sql_exchange(char *name, bool dumpfile_flag,

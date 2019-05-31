@@ -14032,7 +14032,8 @@ load:
               MYSQL_YYABORT;
             }
           }
-          opt_load_data_fcache load_data_lock opt_local INFILE TEXT_STRING_filesystem
+          opt_load_data_fcache load_data_lock opt_local
+          INFILE TEXT_STRING_filesystem
           {
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_LOAD;
@@ -14042,18 +14043,20 @@ load:
             if (!(lex->exchange= new sql_exchange($8.str, 0, $2)))
               MYSQL_YYABORT;
           }
-          opt_duplicate INTO TABLE_SYM table_ident opt_use_partition
+          opt_duplicate INTO TABLE_SYM table_ident
+          opt_compressed_clause opt_use_partition
           {
             LEX *lex=Lex;
             if (!Select->add_table_to_list(YYTHD, $13, NULL, TL_OPTION_UPDATING,
-                                           $5, MDL_SHARED_WRITE, NULL, $14))
+                                           $5, MDL_SHARED_WRITE, NULL, $15))
               MYSQL_YYABORT;
             lex->field_list.empty();
             lex->update_list.empty();
             lex->value_list.empty();
+            lex->exchange->load_compressed = $14;
           }
           opt_load_data_charset
-          { Lex->exchange->cs= $16; }
+          { Lex->exchange->cs= $17; }
           opt_xml_rows_identified_by
           opt_field_term opt_line_term opt_ignore_lines opt_field_or_var_spec
           opt_load_data_set_spec

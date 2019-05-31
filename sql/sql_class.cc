@@ -2804,7 +2804,7 @@ static const String my_empty_string("",default_charset_info);
 sql_exchange::sql_exchange(char *name, bool flag,
                            enum enum_filetype filetype_arg)
   :file_name(name), opt_enclosed(0), dumpfile(flag),
-	compressed(0), skip_lines(0)
+	compressed(0), load_compressed(0), skip_lines(0)
 {
   filetype= filetype_arg;
   field_term= &default_field_term;

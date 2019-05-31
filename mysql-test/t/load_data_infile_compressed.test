@@ -1,0 +1,87 @@
+--let $tmp_dir= `SELECT @@GLOBAL.secure_file_priv`
+--let $input_file=$tmp_dir/t1.txt
+--let $input_file_zstd=$tmp_dir/t1.txt.zstd
+
+
+CREATE TABLE t1(x VARCHAR(1000));
+
+# fill table with repeating data for the highest compression 
+insert into t1 values (REPEAT("xyz", 100));
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+
+--let $checksum1=`CHECKSUM TABLE t1`
+
+# dump data into file, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+
+truncate table t1;
+
+# load data into t1, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+ 
+--let $checksum2=`CHECKSUM TABLE t1`
+
+# validate
+if($checksum1 != $checksum2)
+{
+  --echo "table t1 checksums do not match: [$checksum1] != [$checksum2]"
+}
+
+truncate table t1;
+
+# load data LOCAL into t1, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA LOCAL INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+
+--let $checksum3=`CHECKSUM TABLE t1`
+
+# validate
+if($checksum1 != $checksum3)
+{
+  --echo "table t1 checksums do not match: [$checksum1] != [$checksum3]"
+}
+
+
+
+
+# generate random input data for low compression
+--exec dd bs=10000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
+--exec head -n 100000  $tmp_dir/t1.tmp > $input_file
+--remove_file $tmp_dir/t1.tmp 
+
+truncate table t1;
+
+# load input data
+--replace_result $input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$input_file' INTO TABLE t1;
+
+--remove_file $input_file_zstd
+
+# dump data into file, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+
+--let $checksum1=`CHECKSUM TABLE t1`
+
+truncate table t1;
+
+# load data into t1, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+ 
+--let $checksum2=`CHECKSUM TABLE t1`
+
+# validate
+if($checksum1 != $checksum2)
+{
+  --echo "table t1 checksums do not match: [$checksum1] != [$checksum2]"
+}
+
+# cleanup
+--remove_file $input_file
+--remove_file $input_file_zstd
+DROP TABLE t1;

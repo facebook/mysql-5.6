@@ -1,0 +1,16 @@
+CREATE TABLE t1(x VARCHAR(1000));
+insert into t1 values (REPEAT("xyz", 100));
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+insert into t1 select t1.* from t1, t1 t12, t1 t13, t1 t14;
+SELECT * FROM t1 INTO OUTFILE 'INPUT_FILE_ZSTD' COMPRESSED;;
+truncate table t1;
+LOAD DATA INFILE 'INPUT_FILE_ZSTD' INTO TABLE t1 COMPRESSED;;
+truncate table t1;
+LOAD DATA LOCAL INFILE 'INPUT_FILE_ZSTD' INTO TABLE t1 COMPRESSED;;
+truncate table t1;
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;;
+SELECT * FROM t1 INTO OUTFILE 'INPUT_FILE_ZSTD' COMPRESSED;;
+truncate table t1;
+LOAD DATA INFILE 'INPUT_FILE_ZSTD' INTO TABLE t1 COMPRESSED;;
+DROP TABLE t1;

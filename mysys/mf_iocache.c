@@ -162,6 +162,7 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   info->buffer=0;
   info->seek_not_done= 0;
   info->compressor = 0;
+  info->decompressor = 0;
 
   if (file >= 0)
   {
@@ -1867,7 +1868,13 @@ int end_io_cache(IO_CACHE *info)
   if (info->compressor)
   {
     int rc = end_io_cache_compressor(info);
-    if(!error)
+    if (!error)
+      error = rc;
+  }
+  if (info->decompressor)
+  {
+    int rc = end_io_cache_decompressor(info);
+    if (!error)
       error = rc;
   }
   if (info->type == SEQ_READ_APPEND)

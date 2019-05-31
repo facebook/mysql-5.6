@@ -2644,6 +2644,7 @@ public:
           for logging.
   */
   bool is_concurrent;
+  bool compressed;
 
   /* fname doesn't point to memory inside Log_event::temp_buf  */
   void set_fname_outside_temp_buf(const char *afname, uint alen)
@@ -2667,7 +2668,7 @@ public:
 		 List<Item>& fields_arg,
                  bool is_concurrent_arg,
                  enum enum_duplicates handle_dup, bool ignore,
-		 bool using_trans);
+		 bool using_trans, bool compressed = false);
   void set_fields(const char* db, List<Item> &fields_arg,
                   Name_resolution_context *context);
   const char* get_db() { return db; }
