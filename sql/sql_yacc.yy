@@ -13465,14 +13465,15 @@ load_stmt:
           INTO                          /*  8 */
           TABLE_SYM                     /*  9 */
           table_ident                   /* 10 */
-          opt_use_partition             /* 11 */
-          opt_load_data_charset         /* 12 */
-          opt_xml_rows_identified_by    /* 13 */
-          opt_field_term                /* 14 */
-          opt_line_term                 /* 15 */
-          opt_ignore_lines              /* 16 */
-          opt_field_or_var_spec         /* 17 */
-          opt_load_data_set_spec        /* 18 */
+          opt_compressed_clause         /* 11 */
+          opt_use_partition             /* 12 */
+          opt_load_data_charset         /* 13 */
+          opt_xml_rows_identified_by    /* 14 */
+          opt_field_term                /* 15 */
+          opt_line_term                 /* 16 */
+          opt_ignore_lines              /* 17 */
+          opt_field_or_var_spec         /* 18 */
+          opt_load_data_set_spec        /* 19 */
           {
             $$= NEW_PTN PT_load_table($2,  // data_or_xml
                                       $3,  // load_data_lock
@@ -13480,16 +13481,17 @@ load_stmt:
                                       $6,  // TEXT_STRING_filesystem
                                       $7,  // opt_duplicate
                                       $10, // table_ident
-                                      $11, // opt_use_partition
-                                      $12, // opt_load_data_charset
-                                      $13, // opt_xml_rows_identified_by
-                                      $14, // opt_field_term
-                                      $15, // opt_line_term
-                                      $16, // opt_ignore_lines
-                                      $17, // opt_field_or_var_spec
-                                      $18.set_var_list,// opt_load_data_set_spec
-                                      $18.set_expr_list,
-                                      $18.set_expr_str_list);
+                                      $11, // opt_compressed_clause
+                                      $12, // opt_use_partition
+                                      $13, // opt_load_data_charset
+                                      $14, // opt_xml_rows_identified_by
+                                      $15, // opt_field_term
+                                      $16, // opt_line_term
+                                      $17, // opt_ignore_lines
+                                      $18, // opt_field_or_var_spec
+                                      $19.set_var_list,// opt_load_data_set_spec
+                                      $19.set_expr_list,
+                                      $19.set_expr_str_list);
           }
         ;
 

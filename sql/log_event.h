@@ -2265,7 +2265,7 @@ class Load_query_generator {
  public:
   Load_query_generator(THD *thd_arg, const sql_exchange *ex, const char *db_arg,
                        const char *table_name_arg, bool is_concurrent_arg,
-                       bool replace, bool ignore);
+                       bool replace, bool ignore, bool compressed = false);
 
   const String *generate(size_t *fn_start, size_t *fn_end);
 
@@ -2281,6 +2281,7 @@ class Load_query_generator {
   const char *fname;
 
   bool is_concurrent;
+  bool compressed;
   bool has_replace;
   bool has_ignore;
 };
