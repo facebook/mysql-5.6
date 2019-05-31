@@ -5289,7 +5289,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
 
   // case: a rows query event containing trx metadata was encountered, we're
   // going to clean that up here
-  if (rli->rows_query_ev && opt_binlog_trx_meta_data)
+  if (rli->rows_query_ev && rli->rows_query_ev->has_trx_meta_data())
   {
     delete const_cast<Relay_log_info*>(rli)->rows_query_ev;
     const_cast<Relay_log_info*>(rli)->rows_query_ev= NULL;
