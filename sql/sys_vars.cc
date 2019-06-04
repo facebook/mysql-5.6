@@ -6207,3 +6207,11 @@ static Sys_var_mybool Sys_skip_core_dump_on_error(
        "If set, MySQL skips dumping the core if it hits an error (e.g,IO)",
        GLOBAL_VAR(skip_core_dump_on_error),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
+static Sys_var_mybool Sys_innodb_stats_on_metadata(
+       "innodb_stats_on_metadata",
+       "Enable statistics gathering for metadata commands such as "
+       "SHOW TABLE STATUS for tables that use transient statistics or "
+       "persistent statistics. (OFF by default)",
+       SESSION_VAR(innodb_stats_on_metadata), NO_CMD_LINE,
+       DEFAULT(FALSE));

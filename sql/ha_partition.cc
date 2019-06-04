@@ -6675,6 +6675,32 @@ int ha_partition::info(uint flag)
       unlock_auto_increment();
     }
   }
+
+  // When we call info(HA_STATUS_VARIABLE), we do not want the storage engine
+  // to implicitly enable the HA_STATUS_CONST flag due to
+  // innodb_stats_on_metadata. The problem is that ha_partition calls
+  // info(HA_STATUS_VARIABLE) in a loop over every partition. When InnoDB
+  // converts that into info(HA_STATUS_VARIABLE | HA_STATUS_CONST),
+  // rec_per_key gets ovewritten for every partition. The end result is that
+  // rec_per_key contains index stats for the very last partition.
+  //
+  // The correct calculation for partitions is to only call
+  // info(HA_STATUS_CONST) only once on the largest partition.
+  //
+  // To fix this, if we detect that stats on metadata is on, we disable this
+  // variable and perform the equivalent at the ha_partition level instead of
+  // at the InnoDB level.
+  //
+  // These values get restored after if (flag & HA_STATUS_CONST).
+  bool stats_on_metadata = current_thd->variables.innodb_stats_on_metadata;
+  bool old_flag = flag;
+  if (stats_on_metadata && m_innodb) {
+    current_thd->variables.innodb_stats_on_metadata = false;
+    if (flag & HA_STATUS_VARIABLE) {
+      flag |= HA_STATUS_CONST;
+    }
+  }
+
   if (flag & HA_STATUS_VARIABLE)
   {
     uint i;
@@ -6805,6 +6831,11 @@ int ha_partition::info(uint flag)
     stats.block_size= file->stats.block_size;
     stats.create_time= file->stats.create_time;
     ref_length= m_ref_length;
+  }
+
+  if (stats_on_metadata && m_innodb) {
+    current_thd->variables.innodb_stats_on_metadata = true;
+    flag = old_flag;
   }
   if (flag & HA_STATUS_ERRKEY)
   {

@@ -32,6 +32,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 *****************************************************************************/
 
+// This is so that we can access the internals of the THD struct.
+#define MYSQL_SERVER 1
+
 #include <sql_table.h>	// explain_filename, nz2, EXPLAIN_PARTITIONS_AS_COMMENT,
 			// EXPLAIN_FILENAME_MAX_EXTRA_LENGTH
 
@@ -706,13 +709,6 @@ static SHOW_VAR latency_histogram_double_write[NUMBER_OF_HISTOGRAM_BINS + 1];
 
 static SHOW_VAR latency_histogram_file_flush_time[NUMBER_OF_HISTOGRAM_BINS + 1];
 static SHOW_VAR latency_histogram_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
-
-static MYSQL_THDVAR_BOOL(stats_on_metadata,
-  PLUGIN_VAR_OPCMDARG,
-  "Enable statistics gathering for metadata commands such as "
-  "SHOW TABLE STATUS for tables that use transient statistics or persistent "
-  "statistics. (OFF by default)",
-  NULL, NULL, FALSE);
 
 static MYSQL_THDVAR_ULONG(force_index_records_in_range,
   PLUGIN_VAR_RQCMDARG,
@@ -12238,7 +12234,8 @@ ha_innobase::info_low(
 	DBUG_ASSERT(ib_table->n_ref_count > 0);
 
 	if (flag & HA_STATUS_TIME) {
-		bool stats_on_metadata = THDVAR(ha_thd(), stats_on_metadata);
+		bool stats_on_metadata
+			= ha_thd()->variables.innodb_stats_on_metadata;
 		if (is_analyze || stats_on_metadata) {
 
 			dict_stats_upd_option_t	opt;
@@ -12601,7 +12598,7 @@ ha_innobase::info(
 	 * both the 'variable' part and the 'constatnt' part of the
 	 * info, so MySQL doesn't get staled index cardinality due to
 	 * rec_per_key not being updated. */
-	bool stats_on_metadata = THDVAR(ha_thd(), stats_on_metadata);
+	bool stats_on_metadata = ha_thd()->variables.innodb_stats_on_metadata;
 	if (stats_on_metadata && (flag & HA_STATUS_VARIABLE))
 		flag |= HA_STATUS_CONST;
 
@@ -18936,7 +18933,6 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(ft_server_stopword_table),
   MYSQL_SYSVAR(ft_user_stopword_table),
   MYSQL_SYSVAR(disable_sort_file_cache),
-  MYSQL_SYSVAR(stats_on_metadata),
   MYSQL_SYSVAR(stats_sample_pages),
   MYSQL_SYSVAR(stats_transient_sample_pages),
   MYSQL_SYSVAR(stats_persistent),

@@ -1,0 +1,31 @@
+CREATE TABLE t (a int(11) NOT NULL AUTO_INCREMENT,
+b int(11) NOT NULL,
+c int(11) DEFAULT NULL,
+PRIMARY KEY (a,`b`),
+KEY b (b,`c`)) ENGINE=InnoDB
+PARTITION BY RANGE (b)
+(PARTITION p0 VALUES LESS THAN (100),
+PARTITION p1 VALUES LESS THAN (200),
+PARTITION p2 VALUES LESS THAN (300),
+PARTITION p3 VALUES LESS THAN (MAXVALUE));
+INSERT INTO t VALUES (NULL, 0, 0);
+INSERT INTO t SELECT NULL, 0, 0 FROM t;
+INSERT INTO t SELECT NULL, 0, 0 FROM t a, t b, t c, t d, t e, t f, t g;
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+SHOW INDEXES IN t;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t	0	PRIMARY	1	a	A	133	NULL	NULL		BTREE		
+t	0	PRIMARY	2	b	A	133	NULL	NULL		BTREE		
+t	1	b	1	b	A	2	NULL	NULL		BTREE		
+t	1	b	2	c	A	2	NULL	NULL	YES	BTREE		
+SET innodb_stats_on_metadata = ON;
+SHOW INDEXES IN t;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t	0	PRIMARY	1	a	A	133	NULL	NULL		BTREE		
+t	0	PRIMARY	2	b	A	133	NULL	NULL		BTREE		
+t	1	b	1	b	A	2	NULL	NULL		BTREE		
+t	1	b	2	c	A	2	NULL	NULL	YES	BTREE		
+SET innodb_stats_on_metadata = OFF;
+DROP TABLE t;

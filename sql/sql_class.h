@@ -796,6 +796,8 @@ typedef struct system_variables
   my_bool session_track_response_attributes;
 
   ulong dscp_on_socket;
+
+  my_bool innodb_stats_on_metadata;
 } SV;
 
 
