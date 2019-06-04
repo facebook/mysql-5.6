@@ -13636,7 +13636,11 @@ static int rocksdb_validate_update_cf_options(
   int length;
   length = sizeof(buff);
   str = value->val_str(value, buff, &length);
-  *(const char **)save = str;
+  // In some cases, str can point to buff in the stack.
+  // This can cause invalid memory access after validation is finished.
+  // To avoid this kind case, let's alway duplicate the str if str is not
+  // nullptr
+  *(const char **)save = (str == nullptr) ? nullptr : my_strdup(str, MYF(0));
 
   if (str == nullptr) {
     return HA_EXIT_SUCCESS;
@@ -13676,7 +13680,7 @@ static void rocksdb_set_update_cf_options(
   // Reset the pointers regardless of how much success we had with updating
   // the CF options. This will results in consistent behavior and avoids
   // dealing with cases when only a subset of CF-s was successfully updated.
-  *reinterpret_cast<char **>(var_ptr) = my_strdup(val, MYF(0));
+  *reinterpret_cast<const char **>(var_ptr) = val;
 
   // Do the real work of applying the changes.
   Rdb_cf_options::Name_to_config_t option_map;
