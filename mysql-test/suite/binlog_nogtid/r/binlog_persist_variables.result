@@ -174,6 +174,7 @@ SET PERSIST slave_allow_batching = @@GLOBAL.slave_allow_batching;
 Warnings:
 Warning	1287	'@@slave_allow_batching' is deprecated and will be removed in a future release. Please use replica_allow_batching instead.
 Warning	1287	'@@slave_allow_batching' is deprecated and will be removed in a future release. Please use replica_allow_batching instead.
+SET PERSIST slave_check_before_image_consistency = @@GLOBAL.slave_check_before_image_consistency;
 SET PERSIST slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 Warnings:
 Warning	1287	'@@slave_checkpoint_group' is deprecated and will be removed in a future release. Please use replica_checkpoint_group instead.
@@ -416,6 +417,7 @@ Warning	3615	Variable skip_slave_start does not exist in persisted config file
 RESET PERSIST IF EXISTS slave_allow_batching;
 Warnings:
 Warning	3615	Variable slave_allow_batching does not exist in persisted config file
+RESET PERSIST IF EXISTS slave_check_before_image_consistency;
 RESET PERSIST IF EXISTS slave_checkpoint_group;
 Warnings:
 Warning	3615	Variable slave_checkpoint_group does not exist in persisted config file

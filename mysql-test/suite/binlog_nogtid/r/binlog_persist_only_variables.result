@@ -191,6 +191,7 @@ SET PERSIST_ONLY slave_allow_batching = @@GLOBAL.slave_allow_batching;
 Warnings:
 Warning	1287	'@@slave_allow_batching' is deprecated and will be removed in a future release. Please use replica_allow_batching instead.
 Warning	1287	'@@slave_allow_batching' is deprecated and will be removed in a future release. Please use replica_allow_batching instead.
+SET PERSIST_ONLY slave_check_before_image_consistency = @@GLOBAL.slave_check_before_image_consistency;
 SET PERSIST_ONLY slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 Warnings:
 Warning	1287	'@@slave_checkpoint_group' is deprecated and will be removed in a future release. Please use replica_checkpoint_group instead.
@@ -389,6 +390,7 @@ RESET PERSIST rpl_stop_replica_timeout;
 RESET PERSIST rpl_wait_for_semi_sync_ack;
 RESET PERSIST session_track_gtids;
 RESET PERSIST skip_replica_start;
+RESET PERSIST slave_check_before_image_consistency;
 RESET PERSIST slave_compression_lib;
 RESET PERSIST slave_dump_thread_wait_sleep_usec;
 RESET PERSIST slave_high_priority_ddl;
