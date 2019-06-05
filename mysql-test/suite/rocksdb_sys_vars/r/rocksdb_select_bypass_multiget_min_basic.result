@@ -1,0 +1,57 @@
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES(10);
+INSERT INTO valid_values VALUES(20);
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+SET @start_global_value = @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+SELECT @start_global_value;
+@start_global_value
+18446744073709551615
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN to 0"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN   = 0;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+18446744073709551615
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN to 10"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN   = 10;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+10
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+18446744073709551615
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN to 20"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN   = 20;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+20
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+18446744073709551615
+"Trying to set variable @@session.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN   = 444;
+ERROR HY000: Variable 'rocksdb_select_bypass_multiget_min' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN to 'aaa'"
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+18446744073709551615
+SET @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN = @start_global_value;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN;
+@@global.ROCKSDB_SELECT_BYPASS_MULTIGET_MIN
+18446744073709551615
+DROP TABLE valid_values;
+DROP TABLE invalid_values;
