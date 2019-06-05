@@ -63,13 +63,13 @@ WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 
-SELECT /*+bypassabc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /*+ bypass abc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-SELECT /*+bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /*+ bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT /*+ bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-SELECT /* +bypassabc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /* + bypass abc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT /*aaaaaaaaabbbbbbbbb*/ id1,id2,id1_type,id2_type,data,version
 FROM link_table WHERE id1=1 AND id2=2 AND link_type=3;
@@ -101,7 +101,7 @@ variable_name="rocksdb_select_bypass_executed";
 
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-SELECT /*+bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /*+ bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT /*+*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
@@ -296,12 +296,72 @@ SELECT /*+ bypass */ id1 FROM link_table where link_type="3";
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1="1";
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=True;
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=b'1';
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'61';
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'01';
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=NULL;
 
 --echo # Full table scan
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1_type=1;
+
+--echo MultiGet
+
+select @@rocksdb_select_bypass_multiget_min into
+    @save_rocksdb_select_bypass_multiget_min;
+set global rocksdb_select_bypass_multiget_min=0;
+
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1) and link_type=3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3) and link_type=3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+
+BEGIN;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+ROLLBACK;
+
+BEGIN;
+UPDATE link_table set data="cde" WHERE id1=1 and id2=2 and link_type = 3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+ROLLBACK;
+
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+
+set global rocksdb_select_bypass_multiget_min=
+    @save_rocksdb_select_bypass_multiget_min;
+
+--echo # SHOW PROCESSLIST and KILL
+connect (conn1, localhost, root,,);
+connection conn1;
+let $ID= `select connection_id()`;
+
+select @@rocksdb_select_bypass_debug_row_delay;
+set global rocksdb_select_bypass_debug_row_delay=1;
+select @@rocksdb_select_bypass_debug_row_delay;
+
+send select /*+ bypass */ id1 from link_table where link_type=3;
+
+connection default;
+let $wait_timeout= 10;
+let $wait_condition=select count(*)=1 from information_schema.processlist
+where info='select /*+ bypass */ id1 from link_table where link_type=3';
+--source include/wait_condition.inc
+
+disable_query_log;
+eval kill $ID;
+enable_query_log;
+disconnect conn1;
+let $wait_timeout= 10;
+let $wait_condition=select count(*)=0 from information_schema.processlist
+where info='select /*+ bypass */ id1 from link_table where link_type=3';
+--source include/wait_condition.inc
+
+select @@rocksdb_select_bypass_debug_row_delay;
+set global rocksdb_select_bypass_debug_row_delay=0;
+select @@rocksdb_select_bypass_debug_row_delay;
 
 DROP TABLE count_table;
 DROP TABLE link_table;

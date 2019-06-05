@@ -50,8 +50,6 @@ protected:
   virtual bool net_store_data(const uchar *from, size_t length,
                               const CHARSET_INFO *fromcs,
                               const CHARSET_INFO *tocs);
-  bool store_string_aux(const char *from, size_t length,
-                        const CHARSET_INFO *fromcs, const CHARSET_INFO *tocs);
 
   virtual bool send_ok(uint server_status, uint statement_warn_count,
                        ulonglong affected_rows, ulonglong last_insert_id,
@@ -77,6 +75,8 @@ public:
   void setSessionTHD(THD *thd_arg) { sess_thd = thd_arg; }
   void resetSessionTHD() { sess_thd = thd; }
 
+  bool store_string_aux(const char *from, size_t length,
+                        const CHARSET_INFO *fromcs, const CHARSET_INFO *tocs);
   bool store(I_List<i_string> *str_list);
   bool store(const char *from, const CHARSET_INFO *cs);
   String *storage_packet() { return packet; }

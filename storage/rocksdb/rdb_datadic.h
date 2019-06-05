@@ -763,6 +763,8 @@ class Rdb_key_def {
     return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG;
   }
 
+  Rdb_field_packing *get_pack_info(uint pack_no);
+
  private:
 #ifndef DBUG_OFF
   inline bool is_storage_available(const int offset, const int needed) const {
