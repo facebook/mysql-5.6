@@ -1,0 +1,10 @@
+set @save_slave_check_before_image_consistency = @@global.slave_check_before_image_consistency;
+select @@global.slave_check_before_image_consistency  as 'must be one because of default';
+must be one because of default
+OFF
+select @@session.slave_check_before_image_consistency  as 'no session var';
+ERROR HY000: Variable 'slave_check_before_image_consistency' is a GLOBAL variable
+set @@global.slave_check_before_image_consistency = ON;
+set @@global.slave_check_before_image_consistency = COUNT;
+set @@global.slave_check_before_image_consistency = DEFAULT;
+set @@global.slave_check_before_image_consistency = @save_slave_check_before_image_consistency;
