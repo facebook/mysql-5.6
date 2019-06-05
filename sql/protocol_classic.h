@@ -75,8 +75,10 @@ class Protocol_classic : public Protocol {
   virtual bool net_store_data(const uchar *from, size_t length,
                               const CHARSET_INFO *fromcs,
                               const CHARSET_INFO *tocs);
+ public:
   bool store_string_aux(const char *from, size_t length,
                         const CHARSET_INFO *fromcs, const CHARSET_INFO *tocs);
+ protected:
 
   virtual bool send_ok(uint server_status, uint statement_warn_count,
                        ulonglong affected_rows, ulonglong last_insert_id,
