@@ -1302,6 +1302,7 @@ ulong binlog_checksum_options;
 ulong binlog_row_metadata;
 bool opt_master_verify_checksum = false;
 bool opt_slave_sql_verify_checksum = true;
+ulong opt_slave_check_before_image_consistency = 0;
 const char *binlog_format_names[] = {"MIXED", "STATEMENT", "ROW", NullS};
 bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
@@ -9137,6 +9138,23 @@ static int show_slave_running(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_slave_before_image_inconsistencies(THD *, SHOW_VAR *var,
+                                                   char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->check_before_image_consistency) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) =
+        (ulonglong)mi->rli->before_image_inconsistencies.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
 /**
   This status variable is also exclusively (look comments on
   show_slave_running()) for default channel.
@@ -9699,6 +9717,9 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
 #endif
     {"Slave_running", (char *)&show_slave_running, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
+    {"Slave_before_image_inconsistencies",
+     (char *)&show_slave_before_image_inconsistencies, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Slave_high_priority_ddl_executed",
      (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG, SHOW_SCOPE_ALL},
