@@ -1773,6 +1773,9 @@ The following options may be given as the first argument:
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
+ --rocksdb-select-bypass-debug-row-delay=# 
+ Test only to inject delays in bypass select to simulate
+ long queries for each row sent
  --rocksdb-select-bypass-fail-unsupported 
  Select bypass would fail for unsupported SELECT commands
  (Defaults to on; use --skip-rocksdb-select-bypass-fail-unsupported to disable.)
@@ -1781,6 +1784,10 @@ The following options may be given as the first argument:
  --rocksdb-select-bypass-log-rejected 
  Log rejected SELECT bypass queries
  (Defaults to on; use --skip-rocksdb-select-bypass-log-rejected to disable.)
+ --rocksdb-select-bypass-multiget-min=# 
+ Minimum number of items to use RocksDB MultiGet API.
+ Default is SIZE_T_MAX meaning it is turned off. Set to 0
+ to enable always using MultiGet
  --rocksdb-select-bypass-policy=# 
  Change bypass SELECT related policy and allow directly
  talk to RocksDB
@@ -2767,9 +2774,11 @@ rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
 rocksdb-rollback-on-timeout FALSE
 rocksdb-seconds-between-stat-computes 3600
+rocksdb-select-bypass-debug-row-delay 0
 rocksdb-select-bypass-fail-unsupported TRUE
 rocksdb-select-bypass-log-failed FALSE
 rocksdb-select-bypass-log-rejected TRUE
+rocksdb-select-bypass-multiget-min 18446744073709551615
 rocksdb-select-bypass-policy 0
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0

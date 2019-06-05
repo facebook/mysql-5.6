@@ -374,26 +374,26 @@ SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT /*+ abc */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'abc */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id' at line 1
 SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 A' at line 1
 SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT variable_value INTO @b FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 # Should be 4
@@ -412,8 +412,8 @@ SELECT variable_value into @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT /*+ no_bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
@@ -422,20 +422,20 @@ SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
-SELECT /*+bypassabc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /*+ bypass abc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
 Warnings:
-Warning	1064	Optimizer hint syntax error near 'bypassabc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
-WHERE id1=1 A' at line 1
-SELECT /*+bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+Warning	1064	Optimizer hint syntax error near 'bypass abc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1=1 ' at line 1
+SELECT /*+ bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
 Warnings:
-Warning	1064	Optimizer hint syntax error near 'bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
-WHERE id1=1 AND' at line 1
+Warning	1064	Optimizer hint syntax error near 'bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1=1 AN' at line 1
 SELECT /*+ bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
@@ -443,7 +443,7 @@ id1	id2	id1_type	id2_type	data	version
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND ' at line 1
-SELECT /* +bypassabc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
+SELECT /* + bypass abc*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
@@ -504,25 +504,25 @@ SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
-SELECT /*+bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+SELECT /*+ bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
-Warning	1064	Optimizer hint syntax error near 'bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
-WHERE id1=1 AND' at line 1
+Warning	1064	Optimizer hint syntax error near 'bypass  */ id1,id2,id1_type,id2_type,data,version FROM link_table
+WHERE id1=1 AN' at line 1
 SELECT /*+*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near '*/' at line 1
 SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT variable_value INTO @b FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 # Should be 4
@@ -535,22 +535,22 @@ id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
 SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 A' at line 1
 SELECT /*+no_bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'no_bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 ' at line 1
 SELECT /*+no_bypassabc */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 Warnings:
 Warning	1064	Optimizer hint syntax error near 'no_bypassabc */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1' at line 1
@@ -563,236 +563,496 @@ SELECT @c-@b;
 # Point query
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2 IN (2, 3, 4) AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 IN (2,3,4)), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2 IN (2) AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1 IN (1) AND id2 IN (2) AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1 IN (1, 2) AND id2 IN (2, 3, 4) AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 IN (1,2)), (id2 IN (2,3,4)), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+2	2	1	2	a10	125
+2	3	1	2	a11	125
+2	4	1	2	a11	125
 # Prefix range query
 # Prefix range query with SK
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND time = 10
 ORDER BY TIME DESC LIMIT 10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 3), (time == 10) }
+id1	id2	link_type	visibility	data	time	version
+1	2	3	3	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 3 AND time = 10
 ORDER BY TIME ASC LIMIT 10;
-Dump
-Index=1, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 3), (time == 10) }
+id1	id2	link_type	visibility	data	time	version
+1	2	3	3	a10	10	125
 # Prefix range query with SK with limits
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,5;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 0,1;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,0;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,5;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,1;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	9	3	4	a14	14	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 1,0;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,5;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,1;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
+1	4	3	4	a11	11	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 5,0;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,10;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,5;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,1;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (id1_type)
 WHERE link_type = 3 AND id1 = 1 AND visibility = 4 AND time >= 10
 ORDER BY TIME DESC LIMIT 10,0;
-Dump
-Index=1, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1), (visibility == 4), (time >= 10) }
+id1	id2	link_type	visibility	data	time	version
 # Prefix range query with PK
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
-Dump
-Index=0, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4) }, Cond={ (link_type == 3), (id1 == 1) }
+id1	id2	link_type
+1	10	3
+1	9	3
+1	8	3
+1	7	3
+1	6	3
+1	5	3
+1	4	3
+1	3	3
+1	2	3
+1	1	3
 SELECT /*+ bypass */ id1, id2, link_type FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4) }, Cond={ (link_type == 3), (id1 == 1) }
+id1	id2	link_type
+1	1	3
+1	2	3
+1	3	3
+1	4	3
+1	5	3
+1	6	3
+1	7	3
+1	8	3
+1	9	3
+1	10	3
 # Prefix range query with PK + value
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 DESC;
-Dump
-Index=0, Order=DESC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1) }
+id1	id2	link_type	visibility	data	time	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	5	3	3	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	2	3	3	a10	10	125
+1	1	3	4	a10	10	125
 SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
 FROM link_table FORCE INDEX (PRIMARY)
 WHERE link_type=3 AND id1=1 ORDER BY id2 ASC;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=link_type, Index=4), (Name=visibility, Index=5), (Name=data, Index=6), (Name=time, Index=7), (Name=version, Index=8) }, Cond={ (link_type == 3), (id1 == 1) }
+id1	id2	link_type	visibility	data	time	version
+1	1	3	4	a10	10	125
+1	2	3	3	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	5	3	3	a12	12	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
 # Transaction
 BEGIN;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	a10	125
 UPDATE link_table set data="bcd" WHERE id1=1 AND id2=2 AND link_type = 3;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	bcd	125
 COMMIT;
 BEGIN;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	bcd	125
 UPDATE link_table set data="cde" WHERE id1=1 AND id2=2 AND link_type = 3;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	cde	125
 ROLLBACK;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1 == 1), (id2 == 2), (link_type == 3) }
+id1	id2	id1_type	id2_type	data	version
+1	2	1	2	bcd	125
 # Data types
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3";
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3) }
+id1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1="1";
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3), (id1 == 1) }
+id1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=True;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3), (id1 == 1) }
+id1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=b'1';
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3), (id1 == 1) }
-SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'61';
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3), (id1 == 97) }
+id1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=x'01';
+id1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
 SELECT /*+ bypass */ id1 FROM link_table where link_type="3" AND id1=NULL;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0) }, Cond={ (link_type == 3), (id1 == NULL) }
+id1
 # Full table scan
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1_type=1;
-Dump
-Index=0, Order=ASC, Fields={ (Name=id1, Index=0), (Name=id2, Index=2), (Name=id1_type, Index=1), (Name=id2_type, Index=3), (Name=data, Index=6), (Name=version, Index=8) }, Cond={ (id1_type == 1) }
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	bcd	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+1	5	1	2	a12	125
+1	6	1	2	a12	125
+1	7	1	2	a12	125
+1	8	1	2	a13	125
+1	9	1	2	a14	125
+1	10	1	2	a15	125
+2	1	1	2	a10	125
+2	2	1	2	a10	125
+2	3	1	2	a11	125
+2	4	1	2	a11	125
+2	5	1	2	a12	125
+2	6	1	2	a12	125
+2	7	1	2	a12	125
+2	8	1	2	a13	125
+2	9	1	2	a14	125
+2	10	1	2	a15	125
+3	1	1	2	a15	125
+3	2	1	2	a14	125
+3	3	1	2	a13	125
+3	4	1	2	a12	125
+3	5	1	2	a12	125
+3	6	1	2	a12	125
+3	7	1	2	a11	125
+3	8	1	2	a11	125
+3	9	1	2	a10	125
+3	10	1	2	a10	125
+2	1	1	2	a10	125
+2	2	1	2	a10	125
+2	3	1	2	a11	125
+2	4	1	2	a11	125
+2	5	1	2	a12	125
+2	6	1	2	a12	125
+2	7	1	2	a12	125
+2	8	1	2	a13	125
+2	9	1	2	a14	125
+2	10	1	2	a15	125
+9	0	1	2	0123456789  	125
+9	1	1	2	012345678  	125
+9	2	1	2	01234567  	125
+9	3	1	2	0123456  	125
+9	4	1	2	012345  	125
+9	5	1	2	01234  	125
+9	6	1	2	0123  	125
+9	7	1	2	012  	125
+9	8	1	2	01  	125
+9	9	1	2	0  	125
+MultiGet
+select @@rocksdb_select_bypass_multiget_min into
+@save_rocksdb_select_bypass_multiget_min;
+set global rocksdb_select_bypass_multiget_min=0;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	bcd	125
+1	3	1	2	a11	125
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	bcd	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+1	5	1	2	a12	125
+BEGIN;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	bcd	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+1	5	1	2	a12	125
+ROLLBACK;
+BEGIN;
+UPDATE link_table set data="cde" WHERE id1=1 and id2=2 and link_type = 3;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	cde	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+1	5	1	2	a12	125
+ROLLBACK;
+SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version from link_table
+WHERE id1=1 and id2 IN (1, 2, 3, 4, 5) and link_type=3;
+id1	id2	id1_type	id2_type	data	version
+1	1	1	2	a10	125
+1	2	1	2	bcd	125
+1	3	1	2	a11	125
+1	4	1	2	a11	125
+1	5	1	2	a12	125
+set global rocksdb_select_bypass_multiget_min=
+@save_rocksdb_select_bypass_multiget_min;
+# SHOW PROCESSLIST and KILL
+select @@rocksdb_select_bypass_debug_row_delay;
+@@rocksdb_select_bypass_debug_row_delay
+0
+set global rocksdb_select_bypass_debug_row_delay=1;
+select @@rocksdb_select_bypass_debug_row_delay;
+@@rocksdb_select_bypass_debug_row_delay
+1
+select /*+ bypass */ id1 from link_table where link_type=3;
+select @@rocksdb_select_bypass_debug_row_delay;
+@@rocksdb_select_bypass_debug_row_delay
+1
+set global rocksdb_select_bypass_debug_row_delay=0;
+select @@rocksdb_select_bypass_debug_row_delay;
+@@rocksdb_select_bypass_debug_row_delay
+0
 DROP TABLE count_table;
 DROP TABLE link_table;
 DROP TABLE link_table3;
