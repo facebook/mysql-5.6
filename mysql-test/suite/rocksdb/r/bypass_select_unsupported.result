@@ -7,12 +7,13 @@ set global rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
 2
-create table t1 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
-ENGINE=ROCKSDB;
-create table t2 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
-ENGINE=ROCKSDB;
-create table t3 (pk INT PRIMARY KEY, a INT, b INT, c VARCHAR(15) CHARACTER SET latin1, KEY a (a, b))
-ENGINE=ROCKSDB;
+create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c VARCHAR(15) CHARACTER SET latin1 NOT NULL, KEY a (a, b)) ENGINE=ROCKSDB;
+create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 @@rocksdb_select_bypass_fail_unsupported
 1
@@ -36,8 +37,7 @@ rocksdb_select_bypass_executed	0
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	2
 SELECT /*+ bypass */ * from t1 WHERE pk=1;
-Dump
-Index=0, Order=ASC, Fields={ (Name=pk, Index=0), (Name=a, Index=1), (Name=b, Index=2), (Name=c, Index=3) }, Cond={ (pk == 1) }
+pk	a	b	c
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	1
@@ -114,24 +114,21 @@ rocksdb_select_bypass_executed	1
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	11
 SELECT /*+ bypass */ pk from t1 WHERE pk=DATE '2019-03-25';
-Dump
-Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 2019-03-25) }
+pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	2
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	11
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
-Dump
-Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 18:01:00) }
+pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	3
 rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	11
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
-Dump
-Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 2019-03-25 18:01:00) }
+pk
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	4
@@ -240,13 +237,18 @@ SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
-SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t3 WHERE pk=1;
-ERROR 42000: SELECT statement pattern not supported: Too many SELECT expressions
+CREATE TABLE t5 (pk int primary key,
+a int, b int, c int, d int, e int, f int, g int, h int,
+i int, j int, k int, l int, m int, n int, o int, p int);
+SELECT /*+ bypass */ a FROM t5 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: Too many fields in table
 SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1;
 ERROR 42000: SELECT statement pattern not supported: Too many WHERE expressions
+SELECT /*+ bypass */ a FROM t4 WHERE a=1;
+ERROR 42000: SELECT statement pattern not supported: NULL fields not supported
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
 2
@@ -273,3 +275,5 @@ SELECT @@rocksdb_select_bypass_fail_unsupported;
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t4;
+drop table t5;

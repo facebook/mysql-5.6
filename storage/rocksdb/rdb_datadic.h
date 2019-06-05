@@ -841,6 +841,8 @@ class Rdb_key_def {
   */
   static bool is_variable_length_field(const enum_field_types type);
 
+  Rdb_field_packing *get_pack_info(uint pack_no);
+
  private:
 #ifndef NDEBUG
   inline bool is_storage_available(const int offset, const int needed) const {

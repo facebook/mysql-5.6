@@ -1300,7 +1300,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     if (m_index_type == INDEX_TYPE_SECONDARY &&
         m_total_index_flags_length > 0) {
       // Reserve space for index flag fields
-      unpack_info->allocate(m_total_index_flags_length);
+      unpack_info->alloc_init(m_total_index_flags_length);
 
       // Insert TTL timestamp
       if (has_ttl() && ttl_bytes) {
@@ -3494,6 +3494,10 @@ int Rdb_key_def::unpack_simple(Rdb_field_packing *const fpi,
 
   return rdb_read_unpack_simple(unp_reader ? &bit_reader : nullptr,
                                 fpi->m_charset_codec, ptr, len, dst);
+}
+
+Rdb_field_packing *Rdb_key_def::get_pack_info(uint pack_no) {
+  return &m_pack_info[pack_no];
 }
 
 // See Rdb_charset_space_info::spaces_xfrm

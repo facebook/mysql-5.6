@@ -10,12 +10,13 @@ SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 
-create table t1 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
-ENGINE=ROCKSDB;
-create table t2 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
-ENGINE=ROCKSDB;
-create table t3 (pk INT PRIMARY KEY, a INT, b INT, c VARCHAR(15) CHARACTER SET latin1, KEY a (a, b))
-ENGINE=ROCKSDB;
+create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
+c VARCHAR(15) CHARACTER SET latin1 NOT NULL, KEY a (a, b)) ENGINE=ROCKSDB;
+create table t4 (pk INT PRIMARY KEY, a INT) ENGINE=ROCKSDB;
 
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 SELECT @@rocksdb_select_bypass_fail_unsupported into @save_fail_unsupported;
@@ -192,9 +193,13 @@ SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 
-# Too many SELECT expressions
+# Too many fields
+CREATE TABLE t5 (pk int primary key,
+                 a int, b int, c int, d int, e int, f int, g int, h int,
+                 i int, j int, k int, l int, m int, n int, o int, p int);
+
 --error ER_NOT_SUPPORTED_YET
-SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t3 WHERE pk=1;
+SELECT /*+ bypass */ a FROM t5 WHERE pk=1;
 
 # Too many WHERE expressions
 --error ER_NOT_SUPPORTED_YET
@@ -202,6 +207,10 @@ SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1;
+
+# NULL fields not supported
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a FROM t4 WHERE a=1;
 
 # Restore rocksdb_select_bypass_policy
 SELECT @@rocksdb_select_bypass_policy;
@@ -222,4 +231,6 @@ SELECT @@rocksdb_select_bypass_fail_unsupported;
 drop table t1;
 drop table t2;
 drop table t3;
+drop table t4;
+drop table t5;
 

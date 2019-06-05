@@ -48,6 +48,209 @@ void dbug_modify_key_varchar8(String *on_disk_rec) {
   on_disk_rec->append(res.data(), res.size());
 }
 
+uint32_t digits10(uint64_t v) {
+  if (v < 10) {
+    return 1;
+  }
+  if (v < 100) {
+    return 2;
+  }
+  if (v < 1000) {
+    return 3;
+  }
+  if (v < 1000000000000ULL) {
+    if (v < 100000000ULL) {
+      if (v < 1000000) {
+        if (v < 10000) {
+          return 4;
+        }
+        return 5 + (v >= 100000);
+      }
+      return 7 + (v >= 10000000ULL);
+    }
+    if (v < 10000000000ULL) {
+      return 9 + (v >= 1000000000ULL);
+    }
+    return 11 + (v >= 100000000000ULL);
+  }
+  return 12 + digits10(v / 1000000000000ULL);
+}
+
+uint32_t u64ToAsciiTable(uint64_t value, Rdb_string_writer *writer) noexcept {
+  static const char *digits =
+      "0001020304050607080910111213141516171819"
+      "2021222324252627282930313233343536373839"
+      "4041424344454647484950515253545556575859"
+      "6061626364656667686970717273747576777879"
+      "8081828384858687888990919293949596979899";
+  uint32_t const length = digits10(value);
+  writer->alloc(length);
+  char *next = reinterpret_cast<char *>(writer->end() - 1);
+  while (value >= 100) {
+    auto const i = (value % 100) * 2;
+    value /= 100;
+    *next-- = digits[i + 1];
+    *next-- = digits[i];
+  }
+  if (value < 10) {
+    *next-- = '0' + uint32_t(value);
+  } else {
+    auto i = uint32_t(value) * 2;
+    *next-- = digits[i + 1];
+    *next = digits[i];
+  }
+  return length;
+}
+
+int Rdb_protocol_value_decoder::decode(Rdb_string_writer *writer, uint *offset,
+                                       TABLE *table, my_core::Field *field,
+                                       Rdb_field_encoder *field_dec,
+                                       Rdb_string_reader *reader, bool decode,
+                                       bool is_null) {
+  int err = HA_EXIT_SUCCESS;
+  if (!is_null) {
+    auto field_type = field_dec->m_field_type;
+    switch (field_type) {
+      case MYSQL_TYPE_BLOB: {
+        err = decode_blob(writer, offset, table, field, reader, decode);
+        break;
+      }
+      case MYSQL_TYPE_VARCHAR: {
+        err = decode_varchar(writer, offset, field, reader, decode);
+        break;
+      }
+      case MYSQL_TYPE_STRING: {
+        err = decode_string(writer, offset, field_dec, reader, decode);
+        break;
+      }
+      case MYSQL_TYPE_LONGLONG:
+      case MYSQL_TYPE_LONG:
+      case MYSQL_TYPE_INT24:
+      case MYSQL_TYPE_SHORT:
+      case MYSQL_TYPE_TINY: {
+        err = decode_integer(writer, offset, field_dec, reader, decode);
+        break;
+      }
+      default:
+        // others type aren't support fast unpack yet
+        return ER_NOT_SUPPORTED_YET;
+    }
+  }
+  return err;
+}
+
+int Rdb_protocol_value_decoder::decode_blob(Rdb_string_writer *writer,
+                                            uint *offset, TABLE *, Field *field,
+                                            Rdb_string_reader *reader,
+                                            bool decode) {
+  int err = HA_EXIT_SUCCESS;
+  my_core::Field_blob *blob = (my_core::Field_blob *)field;
+
+  // Get the number of bytes needed to store length
+  const uint length_bytes = blob->pack_length() - portable_sizeof_char_ptr;
+
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(length_bytes))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  uint32 data_len = blob->get_length(
+      reinterpret_cast<const uchar *>(data_len_str), length_bytes);
+  const char *blob_ptr;
+  if (!(blob_ptr = reader->read(data_len))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (decode) {
+    // set 8-byte pointer to 0, like innodb does (relevant for 32-bit
+    // platforms)
+    writer->write(reinterpret_cast<const uchar *>(blob_ptr), data_len);
+    *offset += data_len;
+  }
+
+  return err;
+}
+
+int Rdb_protocol_value_decoder::decode_string(Rdb_string_writer *writer,
+                                              uint *offset,
+                                              Rdb_field_encoder *field_dec,
+                                              Rdb_string_reader *const reader,
+                                              bool decode) {
+  int err = HA_EXIT_SUCCESS;
+  uint len = field_dec->m_pack_length_in_rec;
+  const char *from = reader->read(len);
+  if (from == nullptr) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+  if (decode) {
+    writer->write(reinterpret_cast<const uchar *>(from), len);
+    *offset += len;
+  }
+  return err;
+}
+
+int Rdb_protocol_value_decoder::decode_integer(Rdb_string_writer *writer,
+                                               uint *offset,
+                                               Rdb_field_encoder *field_dec,
+                                               Rdb_string_reader *const reader,
+                                               bool decode) {
+  uint len = field_dec->m_pack_length_in_rec;
+  if (len > 0) {
+    const char *data_bytes;
+    if ((data_bytes = reader->read(len)) == nullptr) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    if (decode) {
+      uint64_t val = 0;
+      memcpy(&val, data_bytes, len);
+
+      int dst_len = u64ToAsciiTable(val, writer);
+      *offset += dst_len;
+    }
+  }
+  return HA_EXIT_SUCCESS;
+}
+
+int Rdb_protocol_value_decoder::decode_varchar(Rdb_string_writer *writer,
+                                               uint *offset, Field *const field,
+                                               Rdb_string_reader *const reader,
+                                               bool decode) {
+  my_core::Field_varstring *const field_var = (my_core::Field_varstring *)field;
+
+  const char *data_len_str;
+  if (!(data_len_str = reader->read(field_var->get_length_bytes()))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  uint data_len;
+  // field_var->length_bytes is 1 or 2
+  if (field_var->get_length_bytes() == 1) {
+    data_len = (uchar)data_len_str[0];
+  } else {
+    assert(field_var->get_length_bytes() == 2);
+    data_len = uint2korr(data_len_str);
+  }
+
+  if (data_len > field_var->field_length) {
+    // The data on disk is longer than table DDL allows?
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (!reader->read(data_len)) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (decode) {
+    writer->write(reinterpret_cast<const uchar *>(
+                      data_len_str + field_var->get_length_bytes()),
+                  data_len);
+    *offset += data_len;
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 /*
   Convert field from rocksdb storage format into Mysql Record format
   @param    buf         OUT          start memory to fill converted data
@@ -154,7 +357,8 @@ int Rdb_convert_to_record_value_decoder::decode_blob(
   Convert fixed length field from rocksdb storage format into Mysql Record
   format
   @param    field       IN           current field
-  @param    field_dec   IN           data structure conttain field encoding data
+  @param    field_dec   IN           data structure conttain field encoding
+  data
   @param    reader      IN           rocksdb value slice reader
   @param    decode      IN           whether to decode current field
   @return
@@ -182,7 +386,8 @@ int Rdb_convert_to_record_value_decoder::decode_fixed_length_field(
 /*
   Convert varchar field from rocksdb storage format into Mysql Record format
   @param    field       IN           current field
-  @param    field_dec   IN           data structure conttain field encoding data
+  @param    field_dec   IN           data structure conttain field encoding
+  data
   @param    reader      IN           rocksdb value slice reader
   @param    decode      IN           whether to decode current field
   @return
@@ -224,10 +429,11 @@ int Rdb_convert_to_record_value_decoder::decode_varchar(
   return HA_EXIT_SUCCESS;
 }
 
-template <typename value_field_decoder>
-Rdb_value_field_iterator<value_field_decoder>::Rdb_value_field_iterator(
-    TABLE *table, Rdb_string_reader *value_slice_reader,
-    const Rdb_converter *rdb_converter, uchar *const buf)
+template <typename value_field_decoder, typename dst_type>
+Rdb_value_field_iterator<value_field_decoder, dst_type>::
+    Rdb_value_field_iterator(TABLE *table,
+                             Rdb_string_reader *value_slice_reader,
+                             const Rdb_converter *rdb_converter, dst_type buf)
     : m_buf(buf) {
   assert(table != nullptr);
   assert(buf != nullptr);
@@ -239,12 +445,14 @@ Rdb_value_field_iterator<value_field_decoder>::Rdb_value_field_iterator(
   m_field_end = fields->end();
   m_null_bytes = rdb_converter->get_null_bytes();
   m_offset = 0;
+  m_len = 0;
 }
 
 // Iterate each requested field and decode one by one
-template <typename value_field_decoder>
-int Rdb_value_field_iterator<value_field_decoder>::next() {
+template <typename value_field_decoder, typename dst_type>
+int Rdb_value_field_iterator<value_field_decoder, dst_type>::next() {
   int err = HA_EXIT_SUCCESS;
+  int prev_offset = m_offset;
   while (m_field_iter != m_field_end) {
     m_field_dec = m_field_iter->m_field_enc;
     bool decode = m_field_iter->m_decode;
@@ -267,8 +475,12 @@ int Rdb_value_field_iterator<value_field_decoder>::next() {
     if (err != HA_EXIT_SUCCESS) {
       return err;
     }
+
+    m_len = m_offset - prev_offset;
+    prev_offset = m_offset;
     m_field_iter++;
-    // Only break for the field that are actually decoding rather than skipping
+    // Only break for the field that are actually decoding rather than
+    // skipping
     if (decode) {
       break;
     }
@@ -276,38 +488,41 @@ int Rdb_value_field_iterator<value_field_decoder>::next() {
   return err;
 }
 
-template <typename value_field_decoder>
-bool Rdb_value_field_iterator<value_field_decoder>::end_of_fields() const {
+template <typename value_field_decoder, typename dst_type>
+bool Rdb_value_field_iterator<value_field_decoder, dst_type>::end_of_fields()
+    const {
   return m_field_iter == m_field_end;
 }
 
-template <typename value_field_decoder>
-Field *Rdb_value_field_iterator<value_field_decoder>::get_field() const {
+template <typename value_field_decoder, typename dst_type>
+Field *Rdb_value_field_iterator<value_field_decoder, dst_type>::get_field()
+    const {
   assert(m_field != nullptr);
   return m_field;
 }
 
-template <typename value_field_decoder>
-void *Rdb_value_field_iterator<value_field_decoder>::get_dst() const {
-  assert(m_buf != nullptr);
-  return m_buf + m_offset;
+template <typename value_field_decoder, typename dst_type>
+uint Rdb_value_field_iterator<value_field_decoder, dst_type>::get_length()
+    const {
+  return m_len;
 }
 
-template <typename value_field_decoder>
-int Rdb_value_field_iterator<value_field_decoder>::get_field_index() const {
+template <typename value_field_decoder, typename dst_type>
+uint16 Rdb_value_field_iterator<value_field_decoder,
+                                dst_type>::get_field_index() const {
   assert(m_field_dec != nullptr);
   return m_field_dec->m_field_index;
 }
 
-template <typename value_field_decoder>
-enum_field_types Rdb_value_field_iterator<value_field_decoder>::get_field_type()
-    const {
+template <typename value_field_decoder, typename dst_type>
+enum_field_types Rdb_value_field_iterator<value_field_decoder,
+                                          dst_type>::get_field_type() const {
   assert(m_field_dec != nullptr);
   return m_field_dec->m_field_type;
 }
 
-template <typename value_field_decoder>
-bool Rdb_value_field_iterator<value_field_decoder>::is_null() const {
+template <typename value_field_decoder, typename dst_type>
+bool Rdb_value_field_iterator<value_field_decoder, dst_type>::is_null() const {
   assert(m_field != nullptr);
   return m_is_null;
 }
@@ -324,7 +539,6 @@ Rdb_converter::Rdb_converter(const THD *thd, const Rdb_tbl_def *tbl_def,
   assert(thd != nullptr);
   assert(tbl_def != nullptr);
   assert(table != nullptr);
-
   m_key_requested = false;
   m_verify_row_debug_checksums = false;
   m_maybe_unpack_info = false;
@@ -365,9 +579,10 @@ void Rdb_converter::get_storage_type(Rdb_field_encoder *const encoder,
     Three special cases when we still unpack all fields:
     - When client requires decode_all_fields, such as this table is being
   updated (m_lock_rows==RDB_LOCK_WRITE).
-    - When @@rocksdb_verify_row_debug_checksums is ON (In this mode, we need to
-  read all fields to find whether there is a row checksum at the end. We could
-  skip the fields instead of decoding them, but currently we do decoding.)
+    - When @@rocksdb_verify_row_debug_checksums is ON (In this mode, we need
+  to read all fields to find whether there is a row checksum at the end. We
+  could skip the fields instead of decoding them, but currently we do
+  decoding.)
     - On index merge as bitmap is cleared during that operation
 
   @seealso
@@ -501,7 +716,8 @@ int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
                           uchar *dst,  // address to fill data
                           const rocksdb::Slice *key_slice,
                           const rocksdb::Slice *value_slice) {
-  // Currently only support decode primary key, Will add decode secondary later
+  // Currently only support decode primary key, Will add decode secondary
+  // later
   assert(key_def->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
          key_def->m_index_type == Rdb_key_def::INDEX_TYPE_HIDDEN_PRIMARY);
 
@@ -599,7 +815,7 @@ int Rdb_converter::convert_record_from_storage_format(
     return err;
   }
 
-  Rdb_value_field_iterator<Rdb_convert_to_record_value_decoder>
+  Rdb_value_field_iterator<Rdb_convert_to_record_value_decoder, uchar *>
       value_field_iterator(m_table, &value_slice_reader, this, dst);
 
   // Decode value slices
@@ -829,4 +1045,9 @@ int Rdb_converter::encode_value_slice(
 
   return HA_EXIT_SUCCESS;
 }
+
+template class Rdb_value_field_iterator<Rdb_convert_to_record_value_decoder,
+                                        uchar *>;
+template class Rdb_value_field_iterator<Rdb_protocol_value_decoder,
+                                        Rdb_string_writer *>;
 }  // namespace myrocks

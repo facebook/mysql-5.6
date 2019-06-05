@@ -1,0 +1,2252 @@
+CREATE TABLE `assoc_info` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`assoc_type` , `id1` , `id2`) COMMENT 'cf_assoc' ,
+KEY `id1_type` (`id1` , `assoc_type` , `visibility` , `time` , `id2` ,
+`version` , `data`) COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
+COMMENT='Associations core storage recompression-B-JUN12';
+CREATE TABLE `assoc_info2` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`assoc_type` , `id1` , `id2`)
+COMMENT 'cf_assoc' ,
+KEY `id1_type` (`id1` , `assoc_type` , `visibility` , `time` , `id2` ,
+`version` , `data`) COMMENT 'cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=9
+COMMENT='Associations core storage recompression-B-JUN12';
+insert into assoc_info values (1, 1, 1, 2, 3, 4, 'a10', 10, 125);
+insert into assoc_info values (1, 1, 2, 2, 3, 3, 'a10', 10, 125);
+insert into assoc_info values (1, 1, 3, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (1, 1, 4, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (1, 1, 5, 2, 3, 3, 'a12', 12, 125);
+insert into assoc_info values (1, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (1, 1, 7, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (1, 1, 8, 2, 3, 4, 'a13', 13, 125);
+insert into assoc_info values (1, 1, 9, 2, 3, 4, 'a14', 14, 125);
+insert into assoc_info values (1, 1, 10, 2, 3, 4, 'a15', 15, 125);
+insert into assoc_info values (2, 1, 1, 2, 3, 4, 'a10', 10, 125);
+insert into assoc_info values (2, 1, 2, 2, 3, 4, 'a10', 10, 125);
+insert into assoc_info values (2, 1, 3, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (2, 1, 4, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (2, 1, 5, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 7, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 8, 2, 3, 4, 'a13', 13, 125);
+insert into assoc_info values (2, 1, 9, 2, 3, 4, 'a14', 14, 125);
+insert into assoc_info values (2, 1, 10, 2, 3, 4, 'a15', 15, 125);
+insert into assoc_info values (2, 1, 1, 2, 4, 4, 'a10', 10, 125);
+insert into assoc_info values (2, 1, 2, 2, 4, 4, 'a10', 10, 125);
+insert into assoc_info values (2, 1, 3, 2, 4, 4, 'a11', 11, 125);
+insert into assoc_info values (2, 1, 4, 2, 4, 4, 'a11', 11, 125);
+insert into assoc_info values (2, 1, 5, 2, 4, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 6, 2, 4, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 7, 2, 4, 4, 'a12', 12, 125);
+insert into assoc_info values (2, 1, 8, 2, 4, 4, 'a13', 13, 125);
+insert into assoc_info values (2, 1, 9, 2, 4, 4, 'a14', 14, 125);
+insert into assoc_info values (2, 1, 10, 2, 4, 4, 'a15', 15, 125);
+insert into assoc_info values (3, 1, 10, 2, 3, 4, 'a10', 10, 125);
+insert into assoc_info values (3, 1, 9, 2, 3, 4, 'a10', 10, 125);
+insert into assoc_info values (3, 1, 8, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (3, 1, 7, 2, 3, 4, 'a11', 11, 125);
+insert into assoc_info values (3, 1, 6, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (3, 1, 5, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (3, 1, 4, 2, 3, 4, 'a12', 12, 125);
+insert into assoc_info values (3, 1, 3, 2, 3, 4, 'a13', 13, 125);
+insert into assoc_info values (3, 1, 2, 2, 3, 4, 'a14', 14, 125);
+insert into assoc_info values (3, 1, 1, 2, 3, 4, 'a15', 15, 125);
+insert into assoc_info values (9, 1, 9, 2, 5, 6, '0  ', 10, 125);
+insert into assoc_info values (9, 1, 8, 2, 5, 6, '01  ', 11, 125);
+insert into assoc_info values (9, 1, 7, 2, 5, 6, '012  ', 11, 125);
+insert into assoc_info values (9, 1, 6, 2, 5, 6, '0123  ', 12, 125);
+insert into assoc_info values (9, 1, 5, 2, 5, 6, '01234  ', 12, 125);
+insert into assoc_info values (9, 1, 4, 2, 5, 6, '012345  ', 12, 125);
+insert into assoc_info values (9, 1, 3, 2, 5, 6, '0123456  ', 13, 125);
+insert into assoc_info values (9, 1, 2, 2, 5, 6, '01234567  ', 14, 125);
+insert into assoc_info values (9, 1, 1, 2, 5, 6, '012345678  ', 15, 125);
+insert into assoc_info values (9, 1, 0, 2, 5, 6, '0123456789  ', 15, 125);
+insert into assoc_info2 select * from assoc_info;
+CREATE TABLE `fbid` (
+`fbid` bigint(20) NOT NULL DEFAULT '0',
+`fbtype` int(11) NOT NULL DEFAULT '0',
+`row_created_time` int(11) NOT NULL DEFAULT '0',
+`hash_key` varchar(255) NOT NULL DEFAULT '',
+`is_deleted` tinyint(4) DEFAULT '0',
+PRIMARY KEY (`fbid`),
+KEY `type_id` (`fbtype`,`fbid`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8 COMMENT='recompression A-07-12';
+insert into fbid values (1, 1, 10, '111', 0);
+insert into fbid values (2, 1, 10, '111', 1);
+insert into fbid values (3, 1, 10, '111', 0);
+insert into fbid values (4, 1, 10, '111', 1);
+insert into fbid values (5, 1, 10, '111', 0);
+insert into fbid values (6, 1, 10, '111', 1);
+insert into fbid values (7, 1, 10, '111', 0);
+insert into fbid values (8, 1, 10, '111', 1);
+insert into fbid values (9, 1, 10, '111', 0);
+insert into fbid values (10, 1, 10, '111', 1);
+CREATE TABLE `fbobj_user` (
+`fbid` bigint(20) unsigned NOT NULL DEFAULT '0',
+`fbtype` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+`update_time` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_presence_bits` bigint(20) unsigned NOT NULL DEFAULT '0',
+`apb_version` tinyint(3) unsigned NOT NULL DEFAULT '0',
+`data` mediumtext COLLATE latin1_bin NOT NULL,
+PRIMARY KEY (`fbtype`,`fbid`) COMMENT 'cf_fbobj_type_id',
+KEY `fbid` (`fbid`) COMMENT 'cf_fbobj'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='recompression A-07-12';
+insert into fbobj_user values (1, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (2, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (3, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (4, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (5, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (6, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (7, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (8, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (9, 1, 1, 10, 1, 1, 'data');
+insert into fbobj_user values (10, 1, 1, 10, 1, 1, 'data');
+CREATE TABLE `assoc_count` (
+`id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id_type` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+`count` int(10) unsigned NOT NULL DEFAULT '0',
+`time` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`id`,`assoc_type`) COMMENT 'cf_assoc_count'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8
+COMMENT='clear assoc_type 171747262870076';
+insert into assoc_count values (2, 1, 1, 1, 10, 20);
+insert into assoc_count values (3, 1, 1, 1, 10, 20);
+insert into assoc_count values (4, 1, 1, 1, 10, 20);
+insert into assoc_count values (5, 1, 1, 1, 10, 20);
+insert into assoc_count values (6, 1, 1, 1, 10, 20);
+insert into assoc_count values (7, 1, 1, 1, 10, 20);
+insert into assoc_count values (8, 1, 1, 1, 10, 20);
+insert into assoc_count values (9, 1, 1, 1, 10, 20);
+insert into assoc_count values (10, 1, 1, 1, 10, 20);
+CREATE TABLE `assoc_like` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+`visibility` tinyint(3) NOT NULL DEFAULT '0',
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`time` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='recompression 2015-01-29';
+insert into assoc_like values (1, 1, 2, 2, 1, 1, 'data12', 1, 1);
+insert into assoc_like values (1, 1, 3, 2, 1, 2, 'data13', 1, 1);
+insert into assoc_like values (1, 1, 4, 2, 1, 2, 'data14', 1, 1);
+insert into assoc_like values (1, 1, 5, 2, 1, 1, 'data15', 1, 1);
+insert into assoc_like values (2, 1, 1, 2, 1, 1, 'data21', 1, 1);
+insert into assoc_like values (2, 1, 2, 2, 1, 1, 'data22', 1, 1);
+insert into assoc_like values (2, 1, 3, 2, 1, 1, 'data32', 1, 1);
+CREATE TABLE `assoc_lastN` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+`visibility` tinyint(4) NOT NULL DEFAULT '0',
+`data` text COLLATE latin1_bin NOT NULL,
+`time` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
+KEY `id1_type` (`id1`,`assoc_type`,`visibility`,`time`,`id2`,`version`)
+COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMMENT='Defrag 2017-08';
+insert into assoc_lastN values (1, 1, 2, 2, 1, 1, 'data12', 1, 1);
+insert into assoc_lastN values (1, 1, 3, 2, 1, 2, 'data13', 1, 1);
+insert into assoc_lastN values (1, 1, 4, 2, 1, 2, 'data14', 1, 1);
+insert into assoc_lastN values (1, 1, 5, 2, 1, 1, 'data15', 1, 1);
+insert into assoc_lastN values (2, 1, 1, 2, 1, 1, 'data21', 1, 1);
+insert into assoc_lastN values (2, 1, 2, 2, 1, 1, 'data22', 1, 1);
+insert into assoc_lastN values (2, 1, 3, 2, 1, 1, 'data32', 1, 1);
+CREATE TABLE `assoc_text` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+`visibility` tinyint(4) NOT NULL DEFAULT '0',
+`data` text COLLATE latin1_bin NOT NULL,
+`time` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
+KEY `id1_type` (`id1`,`assoc_type`,`visibility`,`time`,`id2`,`version`,
+`data`(255)) COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+insert into assoc_text values (1, 1, 2, 2, 1, 1,
+'data12_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (1, 1, 3, 2, 1, 2,
+'data13_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (1, 1, 4, 2, 1, 2,
+'data14_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (1, 1, 5, 2, 1, 1,
+'data15_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (2, 1, 1, 2, 1, 1,
+'data21_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (2, 1, 2, 2, 1, 1,
+'data22_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+insert into assoc_text values (2, 1, 3, 2, 1, 1,
+'data32_12345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890123456789012345678901234567890123456789'
+  '0123456789012345678901234567890', 1, 1);
+CREATE TABLE `assoc_nc_key_info` (
+`id1` binary(16) NOT NULL DEFAULT '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
+`raw_key` text COLLATE latin1_bin,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+`assoc_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+`visibility` tinyint(3) NOT NULL DEFAULT '0',
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`time` int(10) unsigned NOT NULL DEFAULT '0',
+`version` bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`assoc_type`,`id1`,`id2`) COMMENT 'cf_assoc',
+KEY `id1_type` (`id1`,`assoc_type`,`visibility`,`time`,`id2`,`version`,`data`)
+COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into assoc_nc_key_info values ('a1', "rk1", 2, 2, 1, 1, 'data12', 1, 1);
+insert into assoc_nc_key_info values ('a1', "rk2", 3, 2, 1, 2, 'data13', 1, 1);
+insert into assoc_nc_key_info values ('a1', "rk3", 4, 2, 1, 2, 'data14', 1, 1);
+insert into assoc_nc_key_info values ('a1', "rk4", 5, 2, 1, 1, 'data15', 1, 1);
+insert into assoc_nc_key_info values ('b1', "rk5", 1, 2, 1, 1, 'data21', 1, 1);
+insert into assoc_nc_key_info values ('b1', "rk6", 2, 2, 1, 1, 'data22', 1, 1);
+insert into assoc_nc_key_info values ('b1', "rk7", 3, 2, 1, 1, 'data32', 1, 1);
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+2
+select @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+set global rocksdb_select_bypass_policy=0;
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+0
+# Reverse Column family + ascending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	9	3	4	a10	10	125
+3	10	3	4	a10	10	125
+3	7	3	4	a11	11	125
+3	8	3	4	a11	11	125
+3	4	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	6	3	4	a12	12	125
+3	3	3	4	a13	13	125
+3	2	3	4	a14	14	125
+3	1	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	9	3	4	a10	10	125
+3	10	3	4	a10	10	125
+3	7	3	4	a11	11	125
+3	8	3	4	a11	11	125
+3	4	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	6	3	4	a12	12	125
+3	3	3	4	a13	13	125
+3	2	3	4	a14	14	125
+3	1	3	4	a15	15	125
+# Reverse Column family + descending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type DESC, visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type DESC, visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	1	3	4	a15	15	125
+3	2	3	4	a14	14	125
+3	3	3	4	a13	13	125
+3	6	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	4	3	4	a12	12	125
+3	8	3	4	a11	11	125
+3	7	3	4	a11	11	125
+3	10	3	4	a10	10	125
+3	9	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	1	3	4	a15	15	125
+3	2	3	4	a14	14	125
+3	3	3	4	a13	13	125
+3	6	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	4	3	4	a12	12	125
+3	8	3	4	a11	11	125
+3	7	3	4	a11	11	125
+3	10	3	4	a10	10	125
+3	9	3	4	a10	10	125
+# column family + ascending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	9	3	4	a10	10	125
+3	10	3	4	a10	10	125
+3	7	3	4	a11	11	125
+3	8	3	4	a11	11	125
+3	4	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	6	3	4	a12	12	125
+3	3	3	4	a13	13	125
+3	2	3	4	a14	14	125
+3	1	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	9	3	4	a10	10	125
+3	10	3	4	a10	10	125
+3	7	3	4	a11	11	125
+3	8	3	4	a11	11	125
+3	4	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	6	3	4	a12	12	125
+3	3	3	4	a13	13	125
+3	2	3	4	a14	14	125
+3	1	3	4	a15	15	125
+# column family + descending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type DESC, visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type DESC, visibility DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+1	9	3	4	a14	14	125
+1	8	3	4	a13	13	125
+1	7	3	4	a12	12	125
+1	6	3	4	a12	12	125
+1	4	3	4	a11	11	125
+1	3	3	4	a11	11	125
+1	1	3	4	a10	10	125
+1	5	3	3	a12	12	125
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	1	3	4	a15	15	125
+3	2	3	4	a14	14	125
+3	3	3	4	a13	13	125
+3	6	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	4	3	4	a12	12	125
+3	8	3	4	a11	11	125
+3	7	3	4	a11	11	125
+3	10	3	4	a10	10	125
+3	9	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 3 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+3	1	3	4	a15	15	125
+3	2	3	4	a14	14	125
+3	3	3	4	a13	13	125
+3	6	3	4	a12	12	125
+3	5	3	4	a12	12	125
+3	4	3	4	a12	12	125
+3	8	3	4	a11	11	125
+3	7	3	4	a11	11	125
+3	10	3	4	a10	10	125
+3	9	3	4	a10	10	125
+# column family + ascending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND TIME = 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 3 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 12
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 9 AND TIME <= 11
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 9
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 10
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME >= 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND TIME > 16
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1 AND visibility = 4 AND
+TIME >= 7 AND TIME <= 8
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 5 AND id1 = 1 AND visibility = 4 AND
+TIME >= 10 AND TIME <= 15
+ORDER BY TIME ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE assoc_type = 3 AND id1 = 1
+ORDER BY visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+SELECT id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_info2 FORCE INDEX (id1_type)
+WHERE id1 = 1
+ORDER BY assoc_type ASC, visibility ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	3	3	a10	10	125
+1	5	3	3	a12	12	125
+1	1	3	4	a10	10	125
+1	3	3	4	a11	11	125
+1	4	3	4	a11	11	125
+1	6	3	4	a12	12	125
+1	7	3	4	a12	12	125
+1	8	3	4	a13	13	125
+1	9	3	4	a14	14	125
+1	10	3	4	a15	15	125
+# Range query, flag = 1
+# Ascending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 1
+ORDER BY id2 ASC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	1	1	data12	1	1
+1	5	1	1	data15	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 2
+ORDER BY id2 ASC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	3	1	2	data13	1	1
+1	4	1	2	data14	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 3
+ORDER BY id2 ASC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 2 AND visibility = 1
+ORDER BY id2 ASC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+2	1	1	1	data21	1	1
+2	2	1	1	data22	1	1
+2	3	1	1	data32	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 2 AND visibility = 2
+ORDER BY id2 ASC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+# Dscending
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 1
+ORDER BY id2 DESC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	5	1	1	data15	1	1
+1	2	1	1	data12	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 2
+ORDER BY id2 DESC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	4	1	2	data14	1	1
+1	3	1	2	data13	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 3
+ORDER BY id2 DESC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 2 AND visibility = 1
+ORDER BY id2 DESC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+2	3	1	1	data32	1	1
+2	2	1	1	data22	1	1
+2	1	1	1	data21	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 2 AND visibility = 2
+ORDER BY id2 DESC LIMIT 1000;
+id1	id2	assoc_type	visibility	data	TIME	version
+# Range query, binary key
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, time, version
+FROM assoc_nc_key_info FORCE INDEX (id1_type)
+WHERE assoc_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	time	version
+a1              	5	1	1	data15	1	1
+a1              	2	1	1	data12	1	1
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, time, version
+FROM assoc_nc_key_info FORCE INDEX (id1_type)
+WHERE assoc_type = 1 AND id1 = "a1\0\0\0\0\0\0\0\0\0\0\0\0\0\0" AND
+visibility = 1  AND time >= 0 AND time <= 4294967295
+ORDER BY time ASC, id2 ASC LIMIT 0, 1000;
+id1	id2	assoc_type	visibility	data	time	version
+a1              	2	1	1	data12	1	1
+a1              	5	1	1	data15	1	1
+# Point query, flag = 0
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid IN (1, 2, 3, 4, 5) AND fbtype = 1;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+1	1	1	10	1	1	data
+2	1	1	10	1	1	data
+3	1	1	10	1	1	data
+4	1	1	10	1	1	data
+5	1	1	10	1	1	data
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid IN (1) AND fbtype = 1;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+1	1	1	10	1	1	data
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid = 2 AND fbtype = 1;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+2	1	1	10	1	1	data
+# Point query, flag = 1
+SELECT /*+bypass*/ fbid, fbtype, row_created_time, is_deleted
+FROM fbid FORCE INDEX (PRIMARY)
+WHERE fbid IN (1, 2, 3, 4, 5);
+fbid	fbtype	row_created_time	is_deleted
+1	1	10	0
+2	1	10	1
+3	1	10	0
+4	1	10	1
+5	1	10	0
+SELECT /*+bypass*/ fbid, fbtype, row_created_time, is_deleted
+FROM fbid FORCE INDEX (PRIMARY)
+WHERE fbid IN (1);
+fbid	fbtype	row_created_time	is_deleted
+1	1	10	0
+SELECT /*+bypass*/ fbid, fbtype, row_created_time, is_deleted
+FROM fbid FORCE INDEX (PRIMARY)
+WHERE fbid = 1;
+fbid	fbtype	row_created_time	is_deleted
+1	1	10	0
+# Point query, flag = 2
+SELECT /*+bypass*/ id, id_type, assoc_type, count, TIME, version
+FROM assoc_count
+WHERE id = 2 AND assoc_type = 1;
+id	id_type	assoc_type	count	TIME	version
+2	1	1	1	10	20
+# Bugs found when debugging TAO
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, time, version
+FROM assoc_lastN FORCE INDEX (id1_type)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 1
+AND time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 10000;
+id1	id2	assoc_type	visibility	data	time	version
+1	5	1	1	data15	1	1
+1	2	1	1	data12	1	1
+SELECT /*+bypass*/ data from assoc_text FORCE INDEX (id1_type) where id1=1;
+data
+data12_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data15_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data13_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+data14_123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, time, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583 AND
+time >= 0 AND time <= 4294967295
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	assoc_type	visibility	data	time	version
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, time, version
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 0 AND time >= 1551074583
+ORDER BY time DESC, id2 DESC LIMIT 0, 500;
+id1	id2	assoc_type	visibility	data	time	version
+SELECT /*+bypass*/ id1, id1_type, id2, id2_type FROM assoc_info
+WHERE assoc_type=3 and id1 in (1, 2, 3);
+id1	id1_type	id2	id2_type
+1	1	1	2
+1	1	2	2
+1	1	3	2
+1	1	4	2
+1	1	5	2
+1	1	6	2
+1	1	7	2
+1	1	8	2
+1	1	9	2
+1	1	10	2
+2	1	1	2
+2	1	2	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+2	1	6	2
+2	1	7	2
+2	1	8	2
+2	1	9	2
+2	1	10	2
+3	1	1	2
+3	1	2	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+3	1	6	2
+3	1	7	2
+3	1	8	2
+3	1	9	2
+3	1	10	2
+SELECT /*+bypass*/ id1, id1_type, id2, id2_type from assoc_info
+WHERE assoc_type=3 and id1 IN (1, 2, 3) and id2=1;
+id1	id1_type	id2	id2_type
+1	1	1	2
+2	1	1	2
+3	1	1	2
+SELECT /*+bypass*/ id1, id1_type, id2, id2_type from assoc_info
+WHERE assoc_type=3 and id1 IN (1, 2, 3) and id2 IN (3, 4, 5);
+id1	id1_type	id2	id2_type
+1	1	3	2
+1	1	4	2
+1	1	5	2
+2	1	3	2
+2	1	4	2
+2	1	5	2
+3	1	3	2
+3	1	4	2
+3	1	5	2
+SELECT /*+bypass*/ id1, id2, data, version, time
+FROM assoc_info FORCE INDEX (id1_type)
+WHERE id1=9 and assoc_type=5;
+id1	id2	data	version	time
+9	9	0  	125	10
+9	7	012  	125	11
+9	8	01  	125	11
+9	4	012345  	125	12
+9	5	01234  	125	12
+9	6	0123  	125	12
+9	3	0123456  	125	13
+9	2	01234567  	125	14
+9	0	0123456789  	125	15
+9	1	012345678  	125	15
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid IN (5, 5, 5, 5, 5) AND fbtype = 1;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+5	1	1	10	1	1	data
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid IN (5, 4, 3, 2, 1) AND fbtype = 1;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+1	1	1	10	1	1	data
+2	1	1	10	1	1	data
+3	1	1	10	1	1	data
+4	1	1	10	1	1	data
+5	1	1	10	1	1	data
+SELECT /*+bypass*/ fbid, fbtype, version, update_time, assoc_presence_bits,
+apb_version, data
+FROM fbobj_user FORCE INDEX (PRIMARY)
+WHERE fbid IN (5, 4, 3, 2, 1) AND fbtype = 1 ORDER BY fbid DESC;
+fbid	fbtype	version	update_time	assoc_presence_bits	apb_version	data
+5	1	1	10	1	1	data
+4	1	1	10	1	1	data
+3	1	1	10	1	1	data
+2	1	1	10	1	1	data
+1	1	1	10	1	1	data
+SELECT /*+bypass*/ id1, id2, data, time, version FROM assoc_like
+WHERE assoc_type=1 and id1=2 and id2 > 1;
+id1	id2	data	time	version
+2	2	data22	1	1
+2	3	data32	1	1
+SELECT /*+bypass*/ id1, id2, data, time, version FROM assoc_like
+WHERE assoc_type=1 and id1=2 and id2 >= 1;
+id1	id2	data	time	version
+2	1	data21	1	1
+2	2	data22	1	1
+2	3	data32	1	1
+# Establish connection con1 (user=root)
+# Switch to connection con1
+SHOW STATUS LIKE 'rows_%';
+Variable_name	Value
+Rows_examined	0
+Rows_sent	0
+SELECT /*+bypass*/ id1, id2, assoc_type, visibility, data, TIME, version
+FROM assoc_like FORCE INDEX (PRIMARY)
+WHERE assoc_type = 1 AND id1 = 1 AND visibility = 1
+ORDER BY id2 ASC LIMIT 1;
+id1	id2	assoc_type	visibility	data	TIME	version
+1	2	1	1	data12	1	1
+SHOW STATUS LIKE 'rows_%';
+Variable_name	Value
+Rows_examined	1
+Rows_sent	1
+# Switch back to default connection
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+0
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+select @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+2
+DROP TABLE assoc_count;
+DROP TABLE assoc_info;
+DROP TABLE assoc_info2;
+DROP TABLE fbid;
+DROP TABLE fbobj_user;
+DROP TABLE assoc_like;
+DROP TABLE assoc_lastN;
+DROP TABLE assoc_text;
+DROP TABLE assoc_nc_key_info;

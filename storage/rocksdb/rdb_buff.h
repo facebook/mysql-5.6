@@ -342,36 +342,71 @@ class Rdb_string_reader {
 
 class Rdb_string_writer {
   std::vector<uchar> m_data;
+  size_t m_pos;
 
  public:
-  Rdb_string_writer(const Rdb_string_writer &) = delete;
-  Rdb_string_writer &operator=(const Rdb_string_writer &) = delete;
-  Rdb_string_writer() = default;
+  Rdb_string_writer(const Rdb_string_writer &rhs)
+      : m_data(rhs.m_data), m_pos(rhs.m_pos) {}
 
-  void clear() { m_data.clear(); }
+  Rdb_string_writer &operator=(const Rdb_string_writer &rhs) {
+    m_data = rhs.m_data;
+    m_pos = rhs.m_pos;
+    return *this;
+  }
+
+  Rdb_string_writer(Rdb_string_writer &&rhs) noexcept
+      : m_data(std::move(rhs.m_data)), m_pos(rhs.m_pos) {
+    rhs.m_pos = 0;
+  }
+
+  Rdb_string_writer &operator=(Rdb_string_writer &&rhs) noexcept {
+    m_data = std::move(rhs.m_data);
+    m_pos = rhs.m_pos;
+    rhs.m_pos = 0;
+
+    return *this;
+  }
+  Rdb_string_writer() : m_pos(0) {}
+
+  void reserve(size_t size) { m_data.resize(size); }
+  void alloc(size_t size) {
+    if (m_data.size() < m_pos + size) {
+      m_data.resize(m_pos + size);
+    }
+    m_pos += size;
+  }
+
+  void clear() { m_pos = 0; }
   void write_uint8(const uint val) {
-    m_data.push_back(static_cast<uchar>(val));
+    alloc(sizeof(uint8));
+    rdb_netbuf_store_byte(m_data.data() + m_pos - sizeof(uint8),
+                          static_cast<uchar>(val));
+  }
+  void write_uint16(const uint16 val) {
+    alloc(sizeof(uint16));
+    rdb_netbuf_store_uint16(m_data.data() + m_pos - sizeof(uint16), val);
   }
 
-  void write_uint16(const uint val) {
-    const auto size = m_data.size();
-    m_data.resize(size + 2);
-    rdb_netbuf_store_uint16(m_data.data() + size, val);
+  void write_uint32(const uint32 val) {
+    alloc(sizeof(uint32));
+    rdb_netbuf_store_uint32(m_data.data() + m_pos - sizeof(uint32), val);
   }
 
-  void write_uint32(const uint val) {
-    const auto size = m_data.size();
-    m_data.resize(size + 4);
-    rdb_netbuf_store_uint32(m_data.data() + size, val);
+  void write_uint64(const uint64 val) {
+    alloc(sizeof(uint64));
+    rdb_netbuf_store_uint64(m_data.data() + m_pos - sizeof(uint64), val);
   }
 
   void write(const uchar *const new_data, const size_t len) {
-    assert(new_data != nullptr);
-    m_data.insert(m_data.end(), new_data, new_data + len);
+    alloc(len);
+    memcpy(m_data.data() + m_pos - len, new_data, len);
   }
 
   uchar *ptr() { return m_data.data(); }
-  size_t get_current_pos() const { return m_data.size(); }
+  const uchar *ptr() const { return m_data.data(); }
+  uchar *end() { return m_data.data() + m_pos; }
+  const uchar *end() const { return m_data.data() + m_pos; }
+  size_t get_current_pos() const { return m_pos; }
 
   void write_uint8_at(const size_t pos, const uint new_val) {
     // This function will only overwrite what was written
@@ -387,12 +422,12 @@ class Rdb_string_writer {
 
   void truncate(const size_t pos) {
     assert(pos < m_data.size());
-    m_data.resize(pos);
+    m_pos = pos;
   }
 
-  void allocate(const size_t len, const uchar val = 0) {
-    assert(len > 0);
-    m_data.resize(m_data.size() + len, val);
+  void alloc_init(const size_t len, const uchar val = 0) {
+    alloc(len);
+    memset(m_data.data() + m_pos - len, val, len);
   }
 
   /*
@@ -400,6 +435,10 @@ class Rdb_string_writer {
     This is needed to suppress valgrind errors in rocksdb.partition
   */
   void free() { std::vector<uchar>().swap(m_data); }
+
+  rocksdb::Slice to_slice() {
+    return rocksdb::Slice(reinterpret_cast<char *>(m_data.data()), m_pos);
+  }
 };
 
 /*

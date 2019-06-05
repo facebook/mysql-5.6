@@ -787,6 +787,9 @@ static uint32_t rocksdb_select_bypass_policy = SELECT_BYPASS_POLICY_DEFAULT;
 static bool rocksdb_select_bypass_fail_unsupported = true;
 static bool rocksdb_select_bypass_log_rejected = true;
 static bool rocksdb_select_bypass_log_failed = false;
+static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
+static unsigned long long  // NOLINT(runtime/int)
+    rocksdb_select_bypass_multiget_min = 0;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -2345,6 +2348,21 @@ static MYSQL_SYSVAR_BOOL(select_bypass_log_failed,
                          "Log failed SELECT bypass queries", nullptr, nullptr,
                          false);
 
+static MYSQL_SYSVAR_UINT(
+    select_bypass_debug_row_delay, rocksdb_select_bypass_debug_row_delay,
+    PLUGIN_VAR_RQCMDARG,
+    "Test only to inject delays in bypass select to simulate long queries "
+    "for each row sent",
+    nullptr, nullptr, 0, /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_ULONGLONG(
+    select_bypass_multiget_min, rocksdb_select_bypass_multiget_min,
+    PLUGIN_VAR_RQCMDARG,
+    "Minimum number of items to use RocksDB MultiGet API. Default is "
+    "SIZE_T_MAX meaning it is turned off. Set to 0 to enable always using "
+    "MultiGet",
+    nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct SYS_VAR *rocksdb_system_variables[] = {
@@ -2527,6 +2545,8 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_fail_unsupported),
     MYSQL_SYSVAR(select_bypass_log_failed),
     MYSQL_SYSVAR(select_bypass_log_rejected),
+    MYSQL_SYSVAR(select_bypass_debug_row_delay),
+    MYSQL_SYSVAR(select_bypass_multiget_min),
     nullptr};
 
 static int rocksdb_compact_column_family(
@@ -2727,9 +2747,6 @@ class Rdb_transaction {
   // This should be used only when updating binlog information.
   virtual rocksdb::WriteBatchBase *get_write_batch() = 0;
   virtual bool commit_no_binlog() = 0;
-  virtual rocksdb::Iterator *get_iterator(
-      const rocksdb::ReadOptions &options,
-      rocksdb::ColumnFamilyHandle *column_family) = 0;
 
   /*
     @detail
@@ -3333,10 +3350,19 @@ class Rdb_transaction {
   virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
                               rocksdb::PinnableSlice *const value) const = 0;
+  virtual void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
+                         const size_t num_keys, const rocksdb::Slice *keys,
+                         rocksdb::PinnableSlice *values,
+                         rocksdb::Status *statuses,
+                         const bool sorted_input) const = 0;
   virtual rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
       bool exclusive, const bool do_validate) = 0;
+
+  virtual rocksdb::Iterator *get_iterator(
+      const rocksdb::ReadOptions &options,
+      rocksdb::ColumnFamilyHandle *column_family) = 0;
 
   rocksdb::Iterator *get_iterator(
       rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
@@ -3753,6 +3779,14 @@ class Rdb_transaction_impl : public Rdb_transaction {
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
+  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
+                 const size_t num_keys, const rocksdb::Slice *keys,
+                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
+                 const bool sorted_input) const override {
+    m_rocksdb_tx->MultiGet(m_read_opts, column_family, num_keys, keys, values,
+                           statuses, sorted_input);
+  }
+
   rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -4069,6 +4103,14 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                       value);
   }
 
+  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
+                 const size_t num_keys, const rocksdb::Slice *keys,
+                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
+                 const bool sorted_input) const override {
+    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts, column_family, num_keys,
+                                    keys, values, statuses, sorted_input);
+  }
+
   rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -4190,7 +4232,7 @@ static void destroy_ha_data(THD *const thd) {
   ha_data = nullptr;
 }
 
-static Rdb_transaction *get_tx_from_thd(THD *const thd) {
+Rdb_transaction *get_tx_from_thd(THD *const thd) {
   return get_ha_data(thd)->get_trx();
 }
 
@@ -6515,25 +6557,6 @@ static int rocksdb_init_func(void *const p) {
   return ret;
 }
 
-static inline void rocksdb_smart_seek(bool seek_backward,
-                                      rocksdb::Iterator *const iter,
-                                      const rocksdb::Slice &key_slice) {
-  if (seek_backward) {
-    iter->SeekForPrev(key_slice);
-  } else {
-    iter->Seek(key_slice);
-  }
-}
-
-static inline void rocksdb_smart_next(bool seek_backward,
-                                      rocksdb::Iterator *const iter) {
-  if (seek_backward) {
-    iter->Prev();
-  } else {
-    iter->Next();
-  }
-}
-
 #ifndef NDEBUG
 // simulate that RocksDB has reported corrupted data
 static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
@@ -6544,7 +6567,7 @@ static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
 // If the iterator is not valid it might be because of EOF but might be due
 // to IOError or corruption. The good practice is always check it.
 // https://github.com/facebook/rocksdb/wiki/Iterator#error-handling
-static inline bool is_valid(rocksdb::Iterator *scan_it) {
+bool is_valid_iterator(rocksdb::Iterator *scan_it) {
   if (scan_it->Valid()) {
     return true;
   } else {
@@ -8466,7 +8489,7 @@ int ha_rocksdb::read_before_key(const Rdb_key_def &kd,
   */
   rocksdb_smart_seek(!kd.m_is_reverse_cf, m_scan_it, key_slice);
 
-  while (is_valid(m_scan_it)) {
+  while (is_valid_iterator(m_scan_it)) {
     if (thd && thd->killed) {
       return HA_ERR_QUERY_INTERRUPTED;
     }
@@ -8510,7 +8533,7 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
     from the POV of the current transaction.  If it has, try going to the next
     key.
   */
-  while (is_valid(m_scan_it) && kd.has_ttl() &&
+  while (is_valid_iterator(m_scan_it) && kd.has_ttl() &&
          should_hide_ttl_rec(kd, m_scan_it->value(), ttl_filter_ts)) {
     if (thd && thd->killed) {
       return HA_ERR_QUERY_INTERRUPTED;
@@ -8518,7 +8541,7 @@ int ha_rocksdb::read_after_key(const Rdb_key_def &kd,
     rocksdb_smart_next(kd.m_is_reverse_cf, m_scan_it);
   }
 
-  return is_valid(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
+  return is_valid_iterator(m_scan_it) ? HA_EXIT_SUCCESS : HA_ERR_KEY_NOT_FOUND;
 }
 
 int ha_rocksdb::position_to_correct_key(
@@ -8788,7 +8811,7 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
   /* Use STATUS_NOT_FOUND when record not found or some error occurred */
   table->m_status = STATUS_NOT_FOUND;
 
-  if (is_valid(m_scan_it)) {
+  if (is_valid_iterator(m_scan_it)) {
     rocksdb::Slice key = m_scan_it->key();
 
     /* Check if we've ran out of records of this index */
@@ -9153,7 +9176,7 @@ int ha_rocksdb::find_icp_matching_index_rec(const bool move_forward,
         return HA_ERR_QUERY_INTERRUPTED;
       }
 
-      if (!is_valid(m_scan_it)) {
+      if (!is_valid_iterator(m_scan_it)) {
         table->m_status = STATUS_NOT_FOUND;
         return HA_ERR_END_OF_FILE;
       }
@@ -11072,7 +11095,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
   /* TODO(yzha) - row stats are gone in 8.0
   stats.rows_requested++; */
 
-  if (!m_scan_it || !is_valid(m_scan_it)) {
+  if (!m_scan_it || !is_valid_iterator(m_scan_it)) {
     /*
       We can get here when SQL layer has called
 
@@ -11101,7 +11124,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *const buf, bool move_forward) {
       }
     }
 
-    if (!is_valid(m_scan_it)) {
+    if (!is_valid_iterator(m_scan_it)) {
       rc = HA_ERR_END_OF_FILE;
       break;
     }
@@ -11842,6 +11865,7 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
                tx_isolation_names[my_core::thd_tx_isolation(thd)]);
       DBUG_RETURN(HA_ERR_UNSUPPORTED);
     }
+
     /*
       It's nice to do the following on start of every statement. The problem
       is, handler->start_stmt() is not called for INSERTs.
@@ -12604,7 +12628,7 @@ static int calculate_cardinality_table_scan(
     uint64_t rows_scanned = 0ul;
     cardinality_collector
         .Reset(); /* reset m_last_key for each key definition */
-    for (it->Seek(first_index_key); is_valid(it.get()); it->Next()) {
+    for (it->Seek(first_index_key); is_valid_iterator(it.get()); it->Next()) {
       if (killed && *killed) {
         // NO_LINT_DEBUG
         sql_print_information(
@@ -14957,9 +14981,9 @@ bool ha_rocksdb::check_bloom_and_set_bounds(
   @param use_all_keys True if all key parts are set with equal conditions.
                       This is aware of extended keys.
 */
-bool ha_rocksdb::can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
-                                      const rocksdb::Slice &eq_cond,
-                                      const bool use_all_keys) {
+bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
+                          const rocksdb::Slice &eq_cond,
+                          const bool use_all_keys) {
   bool can_use = false;
 
   if (THDVAR(thd, skip_bloom_filter_on_read)) {
@@ -16022,6 +16046,44 @@ bool should_log_rejected_select_bypass() {
 
 bool should_log_failed_select_bypass() {
   return rocksdb_select_bypass_log_failed;
+}
+
+uint32_t get_select_bypass_debug_row_delay() {
+  return rocksdb_select_bypass_debug_row_delay;
+}
+
+unsigned long long  // NOLINT(runtime/int)
+get_select_bypass_multiget_min() {
+  return rocksdb_select_bypass_multiget_min;
+}
+
+const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx) {
+  tx->acquire_snapshot(true);
+  return tx->m_read_opts;
+}
+
+rocksdb::Iterator *rdb_tx_get_iterator(
+    Rdb_transaction *tx, const rocksdb::ReadOptions &options,
+    rocksdb::ColumnFamilyHandle *const column_family) {
+  global_stats.queries[QUERIES_RANGE].inc();
+  return tx->get_iterator(options, column_family);
+}
+
+bool rdb_tx_started(Rdb_transaction *tx) { return tx->is_tx_started(); }
+
+rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
+                           rocksdb::ColumnFamilyHandle *const column_family,
+                           const rocksdb::Slice &key,
+                           rocksdb::PinnableSlice *const value) {
+  return tx->get(column_family, key, value);
+}
+
+void rdb_tx_multi_get(Rdb_transaction *tx,
+                      rocksdb::ColumnFamilyHandle *const column_family,
+                      const size_t num_keys, const rocksdb::Slice *keys,
+                      rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
+                      const bool sorted_input) {
+  tx->multi_get(column_family, num_keys, keys, values, statuses, sorted_input);
 }
 
 }  // namespace myrocks

@@ -332,9 +332,6 @@ class ha_rocksdb : public my_core::handler {
                              uchar *const lower_bound, uchar *const upper_bound,
                              rocksdb::Slice *lower_bound_slice,
                              rocksdb::Slice *upper_bound_slice);
-  bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
-                            const rocksdb::Slice &eq_cond,
-                            const bool use_all_keys);
   bool check_bloom_and_set_bounds(THD *thd, const Rdb_key_def &kd,
                                   const rocksdb::Slice &eq_cond,
                                   const bool use_all_keys, size_t bound_len,
@@ -1113,6 +1110,60 @@ bool should_log_rejected_select_bypass();
 
 /* Whether we should log failed unsupported SELECT bypass */
 bool should_log_failed_select_bypass();
+
+uint32_t get_select_bypass_debug_row_delay();
+
+unsigned long long  // NOLINT(runtime/int)
+get_select_bypass_multiget_min();
+
+Rdb_transaction *get_tx_from_thd(THD *const thd);
+
+const rocksdb::ReadOptions &rdb_tx_acquire_snapshot(Rdb_transaction *tx);
+
+rocksdb::Iterator *rdb_tx_get_iterator(
+    Rdb_transaction *tx, const rocksdb::ReadOptions &options,
+    rocksdb::ColumnFamilyHandle *const column_family);
+
+rocksdb::Status rdb_tx_get(Rdb_transaction *tx,
+                           rocksdb::ColumnFamilyHandle *const column_family,
+                           const rocksdb::Slice &key,
+                           rocksdb::PinnableSlice *const value);
+
+void rdb_tx_multi_get(Rdb_transaction *tx,
+                      rocksdb::ColumnFamilyHandle *const column_family,
+                      const size_t num_keys, const rocksdb::Slice *keys,
+                      rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
+                      const bool sorted_input);
+
+inline void rocksdb_smart_seek(bool seek_backward,
+                               rocksdb::Iterator *const iter,
+                               const rocksdb::Slice &key_slice) {
+  if (seek_backward) {
+    iter->SeekForPrev(key_slice);
+  } else {
+    iter->Seek(key_slice);
+  }
+}
+
+inline void rocksdb_smart_next(bool seek_backward,
+                               rocksdb::Iterator *const iter) {
+  if (seek_backward) {
+    iter->Prev();
+  } else {
+    iter->Next();
+  }
+}
+
+// If the iterator is not valid it might be because of EOF but might be due
+// to IOError or corruption. The good practice is always check it.
+// https://github.com/facebook/rocksdb/wiki/Iterator#error-handling
+bool is_valid_iterator(rocksdb::Iterator *scan_it);
+
+bool can_use_bloom_filter(THD *thd, const Rdb_key_def &kd,
+                          const rocksdb::Slice &eq_cond,
+                          const bool use_all_keys);
+
+bool rdb_tx_started(Rdb_transaction *tx);
 
 extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
 extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
