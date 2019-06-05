@@ -1828,6 +1828,13 @@ The following options may be given as the first argument:
  --skip-stack-trace  Don't print a stack trace on failure.
  --slave-allow-batching 
  Allow slave to batch requests
+ --slave-check-before-image-consistency[=name] 
+ On the slave, when using row based replication, check if
+ the before images of relay logs match the database state
+ before applying row changes. After the check either just
+ count the inconsistencies (COUNT) in a status var
+ (Slave_before_image_inconsistencies) or in addition to
+ that stop the slave (ON). Default OFF.
  --slave-checkpoint-group=# 
  Maximum number of processed transactions by
  Multi-threaded slave before a checkpoint operation is
@@ -2603,6 +2610,7 @@ skip-networking FALSE
 skip-show-database FALSE
 skip-slave-start FALSE
 slave-allow-batching FALSE
+slave-check-before-image-consistency OFF
 slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE

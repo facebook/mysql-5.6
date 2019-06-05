@@ -354,6 +354,7 @@ extern ulong binlog_row_metadata;
 extern const char *binlog_checksum_type_names[];
 extern bool opt_master_verify_checksum;
 extern bool opt_slave_sql_verify_checksum;
+extern ulong opt_slave_check_before_image_consistency;
 extern uint32 gtid_executed_compression_period;
 extern bool binlog_gtid_simple_recovery;
 extern ulong binlog_error_action;

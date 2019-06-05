@@ -631,6 +631,17 @@ class Log_event {
   bool need_checksum();
 
  public:
+
+  enum enum_check_before_image_consistency
+  {
+    BI_CHECK_OFF= 0,
+    // Only count the number of inconsistencies
+    // (status var: Slave_before_image_inconsistencies)
+    BI_CHECK_COUNT,
+    // Stop the slave with an error msg when inconsistency is found
+    BI_CHECK_ON
+  };
+
   /*
      A temp buffer for read_log_event; it is later analysed according to the
      event's type, and its content is distributed in the event-specific fields.

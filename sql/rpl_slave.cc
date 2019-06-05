@@ -6933,6 +6933,7 @@ extern "C" void *handle_slave_sql(void *arg) {
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
   rli->slave_running = 1;
+  rli->check_before_image_consistency= opt_slave_check_before_image_consistency;
   rli->reported_unsafe_warning = false;
   rli->sql_thread_kill_accepted = false;
 

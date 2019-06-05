@@ -26,7 +26,7 @@ VARIABLE_NAME LIKE '%slave%') AND
 (VARIABLE_NAME NOT LIKE 'rocksdb%')
 ORDER BY VARIABLE_NAME;
 
-include/assert.inc ['Expect 97 variables in the table.']
+include/assert.inc ['Expect 98 variables in the table.']
 
 # Test SET PERSIST_ONLY
 SET PERSIST_ONLY binlog_cache_size = @@GLOBAL.binlog_cache_size;
@@ -111,6 +111,7 @@ SET PERSIST_ONLY rpl_stop_slave_timeout = @@GLOBAL.rpl_stop_slave_timeout;
 SET PERSIST_ONLY rpl_wait_for_semi_sync_ack = @@GLOBAL.rpl_wait_for_semi_sync_ack;
 SET PERSIST_ONLY session_track_gtids = @@GLOBAL.session_track_gtids;
 SET PERSIST_ONLY slave_allow_batching = @@GLOBAL.slave_allow_batching;
+SET PERSIST_ONLY slave_check_before_image_consistency = @@GLOBAL.slave_check_before_image_consistency;
 SET PERSIST_ONLY slave_checkpoint_group = @@GLOBAL.slave_checkpoint_group;
 SET PERSIST_ONLY slave_checkpoint_period = @@GLOBAL.slave_checkpoint_period;
 SET PERSIST_ONLY slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
@@ -141,16 +142,16 @@ SET PERSIST_ONLY sync_master_info = @@GLOBAL.sync_master_info;
 SET PERSIST_ONLY sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST_ONLY sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
 
-include/assert.inc ['Expect 86 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 87 persisted variables in persisted_variables table.']
 
 ############################################################
 # 2. Restart server, it must preserve the persisted variable
 #    settings. Verify persisted configuration.
 # restart
 
-include/assert.inc ['Expect 86 persisted variables in persisted_variables table.']
-include/assert.inc ['Expect 86 persisted variables shown as PERSISTED in variables_info table.']
-include/assert.inc ['Expect 85 persisted variables with matching persisted and global values.']
+include/assert.inc ['Expect 87 persisted variables in persisted_variables table.']
+include/assert.inc ['Expect 87 persisted variables shown as PERSISTED in variables_info table.']
+include/assert.inc ['Expect 86 persisted variables with matching persisted and global values.']
 
 ############################################################
 # 3. Test RESET PERSIST. Verify persisted variable settings
@@ -234,6 +235,7 @@ RESET PERSIST rpl_stop_slave_timeout;
 RESET PERSIST rpl_wait_for_semi_sync_ack;
 RESET PERSIST session_track_gtids;
 RESET PERSIST slave_allow_batching;
+RESET PERSIST slave_check_before_image_consistency;
 RESET PERSIST slave_checkpoint_group;
 RESET PERSIST slave_checkpoint_period;
 RESET PERSIST slave_compressed_protocol;

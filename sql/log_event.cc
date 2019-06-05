@@ -8924,17 +8924,11 @@ int Rows_log_event::do_index_scan_and_update(Relay_log_info const *rli,
       stored in table->file->ref) and then use rnd_pos() to position
       the "cursor" (i.e., record[0] in this case) at the correct row.
 
-      TODO: Check that the correct record has been fetched by
-      comparing it with the original record. Take into account that the
-      record on the master and slave can be of different
-      length. Something along these lines should work:
-
-      ADD>>>  store_record(table,record[1]);
-              int error= table->file->rnd_pos(table->record[0],
-      table->file->ref); ADD>>>  DBUG_ASSERT(memcmp(table->record[1],
-      table->record[0], table->s->reclength) == 0);
-
     */
+
+    // Save the before image in record[1]
+    if (rli->check_before_image_consistency)
+      store_record(m_table, record[1]);
 
     DBUG_PRINT("info", ("locating record using primary key (position)"));
     if (m_table->file->inited && (error = m_table->file->ha_index_end()))
@@ -8956,6 +8950,7 @@ INDEX_SCAN:
 
   /* Use the m_key_index'th key */
 
+  // open_record_scan() will store the before image in m_table->record[1]
   if ((error = open_record_scan())) goto end;
 
   error = next_record_scan(true);
@@ -9023,6 +9018,24 @@ INDEX_SCAN:
 end:
 
   DBUG_ASSERT(error != HA_ERR_RECORD_DELETED);
+
+  // Compare with BI of the relay log (which we stored in record[1])
+  if (!error && rli->check_before_image_consistency &&
+      !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
+      record_compare(m_table, tabledef, &m_cols))
+  {
+    ++const_cast<Relay_log_info*>(rli)->before_image_inconsistencies;
+    if (log_error_verbosity > 1) {
+      sql_print_warning("Slave before-image consistency check failed at "
+          "position: %s:%llu (gtid: %s)", rli->get_rpl_log_name(),
+          common_header->log_pos, rli->last_gtid);
+    }
+    if (rli->check_before_image_consistency ==
+        Log_event::enum_check_before_image_consistency::BI_CHECK_ON)
+    {
+      error= HA_ERR_END_OF_FILE;
+    }
+  }
 
   if (error && error != HA_ERR_RECORD_DELETED)
     m_table->file->print_error(error, MYF(0));

@@ -1266,7 +1266,7 @@ class Relay_log_info : public Rpl_info {
   inline void set_event_relay_log_pos(ulonglong log_pos) {
     event_relay_log_pos = log_pos;
   }
-  inline const char *get_rpl_log_name() {
+  inline const char *get_rpl_log_name() const {
     return (group_master_log_name[0] ? group_master_log_name : "FIRST");
   }
 
@@ -1541,6 +1541,12 @@ class Relay_log_info : public Rpl_info {
       const std::unordered_set<std::string> &cols) {
     rbr_column_type_mismatch_whitelist = cols;
   }
+
+  /* @see opt_slave_check_before_image_consistency */
+  ulong check_before_image_consistency= 0;
+
+  /* counter for the number of inconsistencies found */
+  std::atomic<ulong> before_image_inconsistencies{0};
 
   /*
     The boolean is set to true when the binlog (rli_fake) or slave
