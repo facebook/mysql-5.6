@@ -880,7 +880,7 @@ public:
   {
     event_relay_log_pos= log_pos;
   }
-  inline const char* get_rpl_log_name()
+  inline const char* get_rpl_log_name() const
   {
     return (group_master_log_name[0] ? group_master_log_name : "FIRST");
   }
@@ -1108,6 +1108,11 @@ public:
     return rbr_idempotent_tables.find(table) !=
            rbr_idempotent_tables.end();
   }
+
+  /* @see opt_slave_check_before_image_consistency */
+  ulong check_before_image_consistency= 0;
+  /* counter for the number of inconsistencies found */
+  std::atomic<ulong> before_image_inconsistencies{0};
 
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
   /* Related to dependency tracking */

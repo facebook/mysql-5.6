@@ -1146,6 +1146,16 @@ public:
     EVENT_CACHE_LOGGING_COUNT
   };
 
+  enum enum_check_before_image_consistency
+  {
+    BI_CHECK_OFF= 0,
+    // Only count the number of inconsistencies
+    // (status var: Slave_before_image_inconsistencies)
+    BI_CHECK_COUNT,
+    // Stop the slave with an error msg when inconsistency is found
+    BI_CHECK_ON
+  };
+
 public:
   /*
     The following type definition is to be used whenever data is placed 

@@ -6652,6 +6652,8 @@ pthread_handler_t handle_slave_sql(void *arg)
   if (opt_rbr_idempotent_tables)
     rli->rbr_idempotent_tables = split_into_set(opt_rbr_idempotent_tables, ',');
 
+  rli->check_before_image_consistency= opt_slave_check_before_image_consistency;
+
   rli->reported_unsafe_warning= false;
   rli->sql_thread_kill_accepted= false;
 

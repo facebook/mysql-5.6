@@ -648,6 +648,7 @@ const char *binlog_checksum_default= "NONE";
 ulong binlog_checksum_options;
 my_bool opt_master_verify_checksum= 0;
 my_bool opt_slave_sql_verify_checksum= 1;
+ulong opt_slave_check_before_image_consistency= 0;
 const char *binlog_format_names[]= {"MIXED", "STATEMENT", "ROW", NullS};
 my_bool enforce_gtid_consistency;
 my_bool binlog_gtid_simple_recovery;
@@ -9846,6 +9847,22 @@ static int show_slave_dependency_next_waits(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+static int show_slave_before_image_inconsistencies(THD *thd, SHOW_VAR *var,
+                                                   char *buff)
+{
+  if (active_mi && active_mi->rli &&
+      active_mi->rli->check_before_image_consistency)
+  {
+    var->type= SHOW_LONGLONG;
+    var->value= buff;
+    *((ulonglong *)buff)=
+      (ulonglong) active_mi->rli->before_image_inconsistencies.load();
+  }
+  else
+    var->type= SHOW_UNDEF;
+  return 0;
+}
+
 static int show_slave_retried_trans(THD *thd, SHOW_VAR *var, char *buff)
 {
   /*
@@ -10617,6 +10634,7 @@ SHOW_VAR status_vars[]= {
   {"Slave_dependency_in_flight", (char*) &show_slave_dependency_in_flight, SHOW_FUNC},
   {"Slave_dependency_begin_waits", (char*) &show_slave_dependency_begin_waits, SHOW_FUNC},
   {"Slave_dependency_next_waits", (char*) &show_slave_dependency_next_waits, SHOW_FUNC},
+  {"Slave_before_image_inconsistencies", (char*) &show_slave_before_image_inconsistencies, SHOW_FUNC},
 #endif
   {"Slow_launch_threads",      (char*) &slow_launch_threads,    SHOW_LONG},
   {"Slow_queries",             (char*) offsetof(STATUS_VAR, long_query_count), SHOW_LONGLONG_STATUS},
