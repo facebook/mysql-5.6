@@ -6964,7 +6964,7 @@ Load_log_event::Load_log_event(const char *buf, uint event_len,
      information about the type of insert which was used on the master.
      Assume that it was an ordinary, non-concurrent LOAD DATA.
     */
-   is_concurrent(FALSE)
+   is_concurrent(FALSE), compressed(false)
 {
   DBUG_ENTER("Load_log_event");
   /*
