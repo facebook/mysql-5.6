@@ -4373,10 +4373,15 @@ public:
       load_db_opt_by_name(this, db, &create, true);
       mysql_mutex_lock(&LOCK_db_metadata);
       if (create.db_metadata.ptr())
+      {
         db_metadata= std::string(create.db_metadata.ptr());
+        set_shard_id();
+      }
       else
+      {
         db_metadata.clear();
-      set_shard_id();
+        shard_id.clear();
+      }
       mysql_mutex_unlock(&LOCK_db_metadata);
     }
   }
