@@ -4933,7 +4933,7 @@ class Copy_field {
     Convenience definition of a copy function returned by
     get_copy_func.
   */
-  typedef void Copy_func(Copy_field *);
+  typedef type_conversion_status Copy_func(Copy_field *);
   Copy_func *get_copy_func(Field *to, Field *from);
 
  public:
@@ -4954,8 +4954,9 @@ class Copy_field {
   void set(uchar *to, Field *from);             // Field to string
 
  private:
-  void (*m_do_copy)(Copy_field *);
-  void (*m_do_copy2)(Copy_field *);  // Used to handle null values
+  type_conversion_status (*m_do_copy)(Copy_field *);
+  type_conversion_status (*m_do_copy2)(
+      Copy_field *);  // Used to handle null values
 
   /**
     Number of bytes in the fields pointed to by 'from_ptr' and
@@ -4993,8 +4994,8 @@ class Copy_field {
   }
 
  public:
-  void invoke_do_copy(Copy_field *f);
-  void invoke_do_copy2(Copy_field *f);
+  type_conversion_status invoke_do_copy(Copy_field *f);
+  type_conversion_status invoke_do_copy2(Copy_field *f);
 
   Field *from_field() { return m_from_field; }
 

@@ -6936,6 +6936,14 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->reported_unsafe_warning = false;
   rli->sql_thread_kill_accepted = false;
 
+  if (opt_rbr_column_type_mismatch_whitelist) {
+    const auto &list =
+        split_into_set(opt_rbr_column_type_mismatch_whitelist, ',');
+    rli->set_rbr_column_type_mismatch_whitelist(list);
+  } else
+    rli->set_rbr_column_type_mismatch_whitelist(
+        std::unordered_set<std::string>());
+
   if (init_slave_thread(thd, SLAVE_THD_SQL)) {
     /*
       TODO: this is currently broken - slave start and change master

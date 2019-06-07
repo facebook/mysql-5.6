@@ -869,6 +869,10 @@ class Slave_worker : public Relay_log_info {
     Slave_job_group *ptr_g = c_rli->gaq->get_job_group(gaq_index);
     return ptr_g->sequence_number;
   }
+  const std::unordered_set<std::string>
+      *get_rbr_column_type_mismatch_whitelist() const {
+    return c_rli ? c_rli->get_rbr_column_type_mismatch_whitelist() : nullptr;
+  }
 
   bool found_order_commit_deadlock() { return m_order_commit_deadlock; }
   void report_order_commit_deadlock() { m_order_commit_deadlock = true; }

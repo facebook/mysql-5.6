@@ -44,6 +44,7 @@
 #include "sql/sql_class.h"
 #include "sql/sql_const.h"
 #include "sql/sql_error.h"
+#include "sql/sql_show.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"  // TABLE
 #include "sql_string.h"
@@ -537,7 +538,22 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
       if (conv_field) {
         Copy_field copy;
         copy.set(actual_field, conv_field, true);
-        copy.invoke_do_copy(&copy);
+        const auto conv_status = copy.invoke_do_copy(&copy);
+        if (!slave_type_conversions_options && conv_status) {
+          const char *db_name = table->s->db.str;
+          const char *tbl_name = table->s->table_name.str;
+          char source_buf[MAX_FIELD_WIDTH];
+          char target_buf[MAX_FIELD_WIDTH];
+
+          String source_type(source_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
+          String target_type(target_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
+          show_sql_type(tabledef->type(i), false, tabledef->field_metadata(i),
+                        &source_type, actual_field->charset());
+          conv_field->sql_type(target_type);
+          my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), i, db_name, tbl_name,
+                   source_type.c_ptr_safe(), target_type.c_ptr_safe());
+          DBUG_RETURN(true);
+        }
       }
     } else {
       // This column is removed on slave, so skip this field.
@@ -936,7 +952,23 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
                              value_string.c_ptr_safe()));
 #endif
         copy.set(field_ptr, f, true);
-        copy.invoke_do_copy(&copy);
+        const auto conv_status = copy.invoke_do_copy(&copy);
+        if (!slave_type_conversions_options && conv_status) {
+          const char *db_name = table->s->db.str;
+          const char *tbl_name = table->s->table_name.str;
+          char source_buf[MAX_FIELD_WIDTH];
+          char target_buf[MAX_FIELD_WIDTH];
+
+          String source_type(source_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
+          String target_type(target_buf, MAX_FIELD_WIDTH, &my_charset_latin1);
+          show_sql_type(tabledef->type(col_i), false,
+                        tabledef->field_metadata(col_i), &source_type,
+                        field_ptr->charset());
+          f->sql_type(target_type);
+          my_error(ER_SLAVE_CONVERSION_FAILED, MYF(0), col_i, db_name, tbl_name,
+                   source_type.c_ptr_safe(), target_type.c_ptr_safe());
+          DBUG_RETURN(true);
+        }
 #ifndef DBUG_OFF
         char target_buf[MAX_FIELD_WIDTH];
         String target_type(target_buf, sizeof(target_buf), system_charset_info);
