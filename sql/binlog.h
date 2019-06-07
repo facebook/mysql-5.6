@@ -932,4 +932,25 @@ end:
                             integer.
 */
 uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
+
+#ifndef MYSQL_CLIENT
+extern std::pair<std::string, my_off_t> last_acked;
+extern mysql_mutex_t LOCK_last_acked;
+extern mysql_cond_t COND_last_acked;
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_mutex_key key_LOCK_last_acked;
+extern PSI_cond_key key_COND_last_acked;
+#endif
+extern bool semi_sync_last_ack_inited;
+// defined in plugin/semisync/semisync_master.cc
+extern char rpl_semi_sync_master_enabled;
+
+void init_semi_sync_last_acked();
+void destroy_semi_sync_last_acked();
+bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
+                            NET *net, ulonglong wait_timeout_nsec);
+void signal_semi_sync_ack(const LOG_POS_COORD* const);
+void reset_semi_sync_last_acked();
+#endif
+
 #endif /* BINLOG_H_INCLUDED */

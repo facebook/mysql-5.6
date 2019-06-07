@@ -5307,17 +5307,6 @@ Stopping slave I/O thread due to out-of-memory error from master");
         goto err;
       }
 
-      DBUG_EXECUTE_IF("before_semi_sync_reply", {
-                      if (event_buf[EVENT_TYPE_OFFSET] == QUERY_EVENT)
-                      {
-                        const char act[]= "now signal reached "
-                                          "wait_for continue";
-                        DBUG_ASSERT(opt_debug_sync_timeout > 0);
-                        DBUG_ASSERT(!debug_sync_set_action(
-                                       current_thd,
-                                       STRING_WITH_LEN(act)));
-                      }});
-
       DBUG_EXECUTE_IF("error_before_semi_sync_reply", goto err;);
 
       if (RUN_HOOK(binlog_relay_io, after_queue_event,

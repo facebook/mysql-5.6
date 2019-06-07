@@ -10513,6 +10513,108 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query_arg,
   DBUG_RETURN(0);
 }
 
+std::pair<std::string, my_off_t> last_acked;
+mysql_mutex_t LOCK_last_acked;
+mysql_cond_t COND_last_acked;
+#ifdef HAVE_PSI_INTERFACE
+PSI_mutex_key key_LOCK_last_acked;
+PSI_cond_key key_COND_last_acked;
+#endif
+bool semi_sync_last_ack_inited= false;
+
+void init_semi_sync_last_acked()
+{
+  const char* file_name= mysql_bin_log.engine_binlog_file +
+                         dirname_length(mysql_bin_log.engine_binlog_file);
+  last_acked= std::make_pair(std::string(file_name),
+                             mysql_bin_log.engine_binlog_pos);
+  sql_print_information(
+      "[rpl_wait_for_semi_sync_ack] Last ACKed pos initialized to: %s:%llu",
+      last_acked.first.c_str(), last_acked.second);
+
+  mysql_mutex_init(key_LOCK_last_acked, &LOCK_last_acked, MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_COND_last_acked, &COND_last_acked, NULL);
+  semi_sync_last_ack_inited= true;
+}
+
+void destroy_semi_sync_last_acked()
+{
+  if (semi_sync_last_ack_inited)
+  {
+    mysql_mutex_destroy(&LOCK_last_acked);
+    mysql_cond_destroy(&COND_last_acked);
+    semi_sync_last_ack_inited= false;
+  }
+}
+
+bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
+                            NET* net, ulonglong wait_timeout_nsec)
+{
+  const char* file_name= coord->file_name + dirname_length(coord->file_name);
+  const auto current= std::make_pair(std::string(file_name), coord->pos);
+  ulonglong timeout= 1000000000ULL; // one sec in nanosecs
+  if (wait_timeout_nsec && wait_timeout_nsec < timeout)
+    timeout= wait_timeout_nsec;
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&LOCK_last_acked);
+  current_thd->ENTER_COND(&COND_last_acked,
+                          &LOCK_last_acked,
+                          &stage_slave_waiting_semi_sync_ack,
+                          &old_stage);
+  // TODO: there is a potential race here between global vars
+  // (rpl_semi_sync_mater_enabled and rpl_wait_for_semi_sync_ack) being updated
+  // and this thread going to conditional sleep, that's why we're looping on a
+  // timedwait. All of this should be inside the semi-sync plugin but none
+  // of the plugin callbacks are called for async threads, so this is the only
+  // viable workaround.
+  // case: wait till this log pos is <= to the last acked log pos, or if waiting
+  // is not required anymore
+  while (!current_thd->killed &&
+         rpl_semi_sync_master_enabled &&
+         rpl_wait_for_semi_sync_ack &&
+         (current > last_acked ||
+          current.first.length() > last_acked.first.length()))
+  {
+    ++repl_semi_sync_master_ack_waits;
+    // wait for an ack for with a timeout, then retry if applicable
+    struct timespec abstime;
+    set_timespec_nsec(abstime, timeout);
+    int ret= mysql_cond_timedwait(&COND_last_acked, &LOCK_last_acked, &abstime);
+    // flush network buffers on timeout
+    if (ret == ETIMEDOUT || ret == ETIME)
+      net_flush(net);
+  }
+  current_thd->EXIT_COND(&old_stage);
+
+  // return true only if we're alive i.e. we came here because we received a
+  // successful ACK or if an ACK is no longer required
+  return !current_thd->killed;
+}
+
+void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
+{
+  const char* file_name=
+    acked_coord->file_name + dirname_length(acked_coord->file_name);
+  const auto acked= std::make_pair(std::string(file_name), acked_coord->pos);
+  mysql_mutex_lock(&LOCK_last_acked);
+  if (acked > last_acked || acked.first.length() > last_acked.first.length())
+  {
+    last_acked= acked;
+    mysql_cond_broadcast(&COND_last_acked);
+  }
+  mysql_mutex_unlock(&LOCK_last_acked);
+}
+
+void reset_semi_sync_last_acked()
+{
+  mysql_mutex_lock(&LOCK_last_acked);
+  last_acked= std::make_pair("", 0);
+  mysql_cond_broadcast(&COND_last_acked);
+  mysql_mutex_unlock(&LOCK_last_acked);
+}
+
+
 #endif /* !defined(MYSQL_CLIENT) */
 
 struct st_mysql_storage_engine binlog_storage_engine=

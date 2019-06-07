@@ -21,6 +21,7 @@
 #include "debug_sync.h"
 #endif
 #include "sql_class.h"
+#include "binlog.h"
 #include <fstream>
 
 #define TIME_THOUSAND 1000
@@ -862,6 +863,19 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
     reply_file_name_[sizeof(reply_file_name_) - 1]= '\0';
     reply_file_pos_ = log_file_pos;
     reply_file_name_inited_ = true;
+
+#ifndef MYSQL_CLIENT
+    if (rpl_wait_for_semi_sync_ack)
+    {
+      const LOG_POS_COORD coord { (char*) reply_file_name_, reply_file_pos_ };
+      signal_semi_sync_ack(&coord);
+      if (trace_level_ & kTraceDetail)
+      {
+        sql_print_information("[rpl_wait_for_semi_sync_ack] Signaled till: "
+                              "%s:%llu", coord.file_name, coord.pos);
+      }
+    }
+#endif
 
     if (trace_level_ & kTraceDetail)
     {

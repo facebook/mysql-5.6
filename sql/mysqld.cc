@@ -5802,7 +5802,6 @@ static int init_server_components()
 #ifdef HAVE_REPLICATION
   init_slave_list();
   init_compressed_event_cache();
-  init_semi_sync_last_acked();
 #endif
 
   /* Setup logs */
@@ -6296,6 +6295,10 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   else
 #endif
     locked_in_memory=0;
+
+#ifdef HAVE_REPLICATION
+  init_semi_sync_last_acked();
+#endif
 
   ft_init_stopwords();
 
@@ -9906,6 +9909,22 @@ static int show_slave_lag_sla_misses(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+static int show_last_acked_binlog_pos(THD *thd, SHOW_VAR *var, char *buff)
+{
+  var->type= SHOW_UNDEF;
+  if (rpl_semi_sync_master_enabled && rpl_wait_for_semi_sync_ack)
+  {
+    if (!mysql_mutex_trylock(&LOCK_last_acked))
+    {
+      var->type= SHOW_CHAR;
+      var->value= buff;
+      sprintf(buff, "%s:%llu", last_acked.first.c_str(), last_acked.second);
+      mysql_mutex_unlock(&LOCK_last_acked);
+    }
+  }
+  return 0;
+}
+
 static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff)
 {
   MYSQL_TIME received_heartbeat_time;
@@ -10608,6 +10627,8 @@ SHOW_VAR status_vars[]= {
   {"Rpl_seconds_incident",     (char*) &repl_event_times[INCIDENT_EVENT],      SHOW_TIMER},
   {"Compressed_event_cache_hit_ratio", (char*) &comp_event_cache_hit_ratio, SHOW_DOUBLE},
   {"Rpl_semi_sync_master_ack_waits",  (char*) &repl_semi_sync_master_ack_waits, SHOW_LONGLONG},
+  {"Rpl_last_semi_sync_acked_pos", (char*) &show_last_acked_binlog_pos,
+    SHOW_FUNC},
 #endif
   {"rocksdb_git_hash",         (char*) rocksdb_git_hash, SHOW_CHAR },
   {"rocksdb_git_date",         (char*) rocksdb_git_date, SHOW_CHAR },

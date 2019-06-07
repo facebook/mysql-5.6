@@ -103,18 +103,6 @@ static std::atomic<size_t>
         comp_event_cache_size_list[COMP_EVENT_CACHE_NUM_SHARDS];
 
 
-static std::pair<std::string, my_off_t> last_acked;
-static mysql_mutex_t LOCK_last_acked;
-static mysql_cond_t COND_last_acked;
-#ifdef HAVE_PSI_INTERFACE
-static PSI_mutex_key key_LOCK_last_acked;
-static PSI_cond_key key_COND_last_acked;
-#endif
-static bool semi_sync_last_ack_inited= false;
-
-// defined in plugin/semisync/semisync_master.cc
-extern char rpl_semi_sync_master_enabled;
-
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
 #endif
@@ -194,72 +182,6 @@ void end_slave_list()
     my_hash_free(&slave_list);
     mysql_mutex_destroy(&LOCK_slave_list);
   }
-}
-
-void init_semi_sync_last_acked()
-{
-  mysql_mutex_init(key_LOCK_last_acked, &LOCK_last_acked, MY_MUTEX_INIT_FAST);
-  mysql_cond_init(key_COND_last_acked, &COND_last_acked, NULL);
-  semi_sync_last_ack_inited= true;
-}
-
-void destroy_semi_sync_last_acked()
-{
-  if (semi_sync_last_ack_inited)
-  {
-    mysql_mutex_destroy(&LOCK_last_acked);
-    mysql_cond_destroy(&COND_last_acked);
-    semi_sync_last_ack_inited= false;
-  }
-}
-
-static bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord)
-{
-  const auto current= std::make_pair(std::string(coord->file_name), coord->pos);
-  PSI_stage_info old_stage;
-
-  mysql_mutex_lock(&LOCK_last_acked);
-  current_thd->ENTER_COND(&COND_last_acked,
-                          &LOCK_last_acked,
-                          &stage_slave_waiting_semi_sync_ack,
-                          &old_stage);
-  // TODO: there is a potential race here between global vars
-  // (rpl_semi_sync_mater_enabled and rpl_wait_for_semi_sync_ack) being updated
-  // and this thread going to conditional sleep, that's why we're looping on a 1
-  // sec timedwait. All of this should be inside the semi-sync plugin but none
-  // of the plugin callbacks are called for async threads, so this is the only
-  // viable workaround.
-  // case: wait till this log pos is <= to the last acked log pos, or if waiting
-  // is not required anymore
-  while (!current_thd->killed &&
-         rpl_semi_sync_master_enabled &&
-         rpl_wait_for_semi_sync_ack &&
-         current > last_acked)
-  {
-    ++repl_semi_sync_master_ack_waits;
-    // wait for an ack for 1 second, then retry if applicable
-    struct timespec abstime;
-    set_timespec(abstime, 1);
-    mysql_cond_timedwait(&COND_last_acked, &LOCK_last_acked, &abstime);
-  }
-  current_thd->EXIT_COND(&old_stage);
-
-  // return true only if we're alive i.e. we came here because we received a
-  // successful ACK or if an ACK is no longer required
-  return !current_thd->killed;
-}
-
-static void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
-{
-  const auto acked= std::make_pair(std::string(acked_coord->file_name),
-                                   acked_coord->pos);
-  mysql_mutex_lock(&LOCK_last_acked);
-  if (acked > last_acked)
-  {
-    last_acked= acked;
-    mysql_cond_broadcast(&COND_last_acked);
-  }
-  mysql_mutex_unlock(&LOCK_last_acked);
 }
 
 static void evict_compressed_events(ulonglong shard,
@@ -910,7 +832,8 @@ int my_net_write_event(NET *net,
                        int* errnum,
                        bool is_semi_sync_slave,
                        bool cache,
-                       bool wait_for_ack)
+                       bool wait_for_ack,
+                       ulonglong hb_period)
 {
   uchar* buff= (uchar*) packet->ptr();
   size_t buff_len= packet->length();
@@ -919,7 +842,7 @@ int my_net_write_event(NET *net,
   // case: wait for ack from semi-sync acker before sending the event
   if (unlikely(wait_for_ack &&
                !is_semi_sync_slave &&
-               !wait_for_semi_sync_ack(coord)))
+               !wait_for_semi_sync_ack(coord, net, hb_period)))
   {
     if (errmsg) *errmsg = "Error while waiting for semi-sync ACK";
     if (errnum) *errnum= ER_UNKNOWN_ERROR;
@@ -973,7 +896,8 @@ int my_net_write_event(NET *net,
 static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
                              ulonglong position, const char** errmsg,
                              bool is_semi_sync_slave,
-                             uint8 checksum_alg_arg)
+                             uint8 checksum_alg_arg,
+                             ulonglong hb_period)
 {
   DBUG_ENTER("fake_rotate_event");
   char header[LOG_EVENT_HEADER_LEN], buf[ROTATE_HEADER_LEN+100];
@@ -1023,7 +947,7 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
 
   LOG_POS_COORD coord { log_file_name, 0 };
   if (my_net_write_event(net, &coord, packet, errmsg, NULL,
-                         is_semi_sync_slave, false, false))
+                         is_semi_sync_slave, false, false, hb_period))
   {
     DBUG_RETURN(-1);
   }
@@ -1224,7 +1148,8 @@ static int send_heartbeat_event(NET* net, String* packet,
                                 const struct event_coordinates *coord,
                                 bool is_semi_sync_slave,
                                 uint8 checksum_alg_arg,
-                                bool send_timestamp)
+                                bool send_timestamp,
+                                ulonglong hb_period)
 {
   DBUG_ENTER("send_heartbeat_event");
   char header[LOG_EVENT_HEADER_LEN];
@@ -1268,7 +1193,7 @@ static int send_heartbeat_event(NET* net, String* packet,
   }
 
   if (my_net_write_event(net, coord, packet, NULL, NULL,
-                         is_semi_sync_slave, false, false) ||
+                         is_semi_sync_slave, false, false, hb_period) ||
       net_flush(net))
   {
     DBUG_RETURN(-1);
@@ -1317,7 +1242,8 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
                                           bool observe_transmission,
                                           bool semi_sync_slave,
                                           char *packet_buffer,
-                                          ulong packet_buffer_size)
+                                          ulong packet_buffer_size,
+                                          ulonglong hb_period)
 {
   DBUG_ENTER("send_last_skip_group_heartbeat");
   String save_packet;
@@ -1340,7 +1266,8 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
                            last_skip_coord,
                            semi_sync_slave,
                            checksum_alg_arg,
-                           false))
+                           false,
+                           hb_period))
   {
     *errmsg= "Failed on my_net_write()";
     my_errno= ER_UNKNOWN_ERROR;
@@ -2080,18 +2007,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     GOTO_ERR;
   }
 
-  // case: let's assume semi-sync acks have been received for binlog pos being
-  // requested by the acker
-  if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
-  {
-    const LOG_POS_COORD start_coord= { p_coord->file_name, p_start_coord->pos };
-    // NO_LINT_DEBUG
-    sql_print_information("[rpl_wait_for_semi_sync_ack] Signalling async "
-                          "threads to pos: %s:%llu", p_coord->file_name,
-                          p_start_coord->pos);
-    signal_semi_sync_ack(&start_coord);
-  }
-
   has_transmit_started= true;
   /* reset transmit packet for the fake rotate event below */
   if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
@@ -2129,7 +2044,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     and fake Rotates.
   */
   if (fake_rotate_event(net, packet, log_file_name, pos, &errmsg,
-        semi_sync_slave, get_binlog_checksum_value_at_connect(current_thd)))
+        semi_sync_slave, get_binlog_checksum_value_at_connect(current_thd),
+        heartbeat_period))
   {
     /*
        This error code is not perfect, as fake_rotate_event() does not
@@ -2214,7 +2130,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           fix_checksum(packet, ev_offset);
 
         if (my_net_write_event(net, p_coord, packet, &errmsg,
-                               &my_errno, semi_sync_slave, false, false))
+                               &my_errno, semi_sync_slave, false,
+                               false, heartbeat_period))
         {
           GOTO_ERR;
         }
@@ -2526,7 +2443,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                            &errmsg, observe_transmission,
                                            semi_sync_slave,
                                            heartbeat_packet_buffer,
-                                           heartbeat_packet_buffer_size))
+                                           heartbeat_packet_buffer_size,
+                                           heartbeat_period))
         {
           GOTO_ERR;
         }
@@ -2545,7 +2463,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                event_type != FORMAT_DESCRIPTION_EVENT &&
                                event_type != ROTATE_EVENT,
                                rpl_semi_sync_master_enabled &&
-                               rpl_wait_for_semi_sync_ack))
+                               rpl_wait_for_semi_sync_ack, heartbeat_period))
         {
           GOTO_ERR;
         }
@@ -2594,10 +2512,12 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         GOTO_ERR;
       }
 
-      // case: we received a reply from a semi-sync slave, updated last acked
-      // coordinates
-      if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
+      // case: this was a skipped group (i.e. the semi-sync slave already has
+      // this transaction); update last acked coordinates
+      if (semi_sync_slave && rpl_wait_for_semi_sync_ack && searching_first_gtid)
+      {
         signal_semi_sync_ack(p_coord);
+      }
 
       /* reset transmit packet for next loop */
       if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
@@ -2833,7 +2753,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                                  observe_transmission,
                                                  semi_sync_slave,
                                                  heartbeat_packet_buffer,
-                                                 heartbeat_packet_buffer_size))
+                                                 heartbeat_packet_buffer_size,
+                                                 heartbeat_period))
               {
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
@@ -2875,7 +2796,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                        p_coord,
                                        semi_sync_slave,
                                        current_checksum_alg,
-                                       true))
+                                       true,
+                                       heartbeat_period))
               {
                 errmsg = "Failed on my_net_write()";
                 my_errno= ER_UNKNOWN_ERROR;
@@ -2989,7 +2911,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                                observe_transmission,
                                                semi_sync_slave,
                                                heartbeat_packet_buffer,
-                                               heartbeat_packet_buffer_size))
+                                               heartbeat_packet_buffer_size,
+                                               heartbeat_period))
             {
               GOTO_ERR;
             }
@@ -3010,7 +2933,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                    (event_type != FORMAT_DESCRIPTION_EVENT &&
                                     event_type != ROTATE_EVENT),
                                    rpl_semi_sync_master_enabled &&
-                                   rpl_wait_for_semi_sync_ack))
+                                   rpl_wait_for_semi_sync_ack,
+                                   heartbeat_period))
             {
              GOTO_ERR;
             }
@@ -3039,10 +2963,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               GOTO_ERR;
             }
 
-            // case: we received a reply from a semi-sync slave
-            // update last acked coordinates
-            if (semi_sync_slave && !skip_group && rpl_wait_for_semi_sync_ack)
+            // case: this was a skipped group (i.e. the semi-sync slave already
+            // has this transaction); update last acked coordinates
+            if (semi_sync_slave && rpl_wait_for_semi_sync_ack &&
+                searching_first_gtid)
+            {
               signal_semi_sync_ack(p_coord);
+            }
           }
 
           /* Save the skip group for next iteration */
@@ -3099,7 +3026,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       */
       if ((file=open_binlog_file(&log, log_file_name, &errmsg)) < 0 ||
           fake_rotate_event(net, packet, log_file_name, BIN_LOG_HEADER_SIZE,
-                            &errmsg, semi_sync_slave, current_checksum_alg))
+                            &errmsg, semi_sync_slave, current_checksum_alg,
+                            heartbeat_period))
       {
         my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
         GOTO_ERR;
@@ -3376,6 +3304,7 @@ int reset_master(THD* thd)
   if (mysql_bin_log.reset_logs(thd))
     return 1;
   (void) RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
+  reset_semi_sync_last_acked();
   return 0;
 }
 

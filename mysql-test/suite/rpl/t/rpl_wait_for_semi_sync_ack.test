@@ -18,44 +18,91 @@ let $rpl_connection_name= semi_sync_slave;
 let $rpl_server_number= 3;
 source include/rpl_connect.inc;
 
-connection master;
-set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
-set @@global.rpl_wait_for_semi_sync_ack= true;
-set @save.rpl_semi_sync_master_timeout= @@global.rpl_semi_sync_master_timeout;
-set @@global.rpl_semi_sync_master_timeout= 10000000;
-call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
+# Use gtids in sync_slave_sql_with_master.inc
+let $use_gtids= 1;
 
+connection master;
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
+call mtr.add_suppression("Slave SQL: Request to stop slave SQL Thread received");
+
+# Use COM_BINLOG_DUMP_GTID
+connection semi_sync_slave;
+source include/stop_slave.inc;
+change master to master_auto_position = 1;
+source include/start_slave.inc;
+
+connection async_slave;
+source include/stop_slave.inc;
+change master to master_auto_position = 1;
+source include/start_slave.inc;
+
+
+# Case 1: Master should wait for ACK before sending events to async slave
+
+connection master;
+create table t1(a int);
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
 
 connection semi_sync_slave;
 set @@global.debug= '+d,before_semi_sync_reply';
 
 connection master;
-send create table t1 (a int);
+echo "Store the current cursor for and async slave";
+let $async_cur= `select info from information_schema.processlist where command like 'Binlog%' and info like 'Async%'`;
+echo "Store the last acked pos";
+let $last_acked= `show status like 'Rpl_last_semi_sync_acked_pos'`;
+begin;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+send commit;
 
 connection semi_sync_slave;
 SET DEBUG_SYNC='now WAIT_FOR reached';
 
 connection async_slave;
-echo "Async Slave: Should not contain any tables";
-show tables;
+echo "Async Slave: t1 should not contain any rows";
+select count(*) from t1;
+
+connection master1;
+echo "Async slave's cursor should not move";
+let $async_cur2= `select info from information_schema.processlist where command like 'Binlog%' and info like 'Async%'`;
+let $assert_text= Async slave cursor should not move;
+let $assert_cond= "$async_cur" = "$async_cur2";
+source include/assert.inc;
+
+echo "Last acked pos should not move";
+let $last_acked2= `show status like 'Rpl_last_semi_sync_acked_pos'`;
+let $assert_text= Last acked pos should not move;
+let $assert_cond= "$last_acked" = "$last_acked2";
+source include/assert.inc;
 
 connection semi_sync_slave;
 SET DEBUG_SYNC='now SIGNAL continue';
+set @@global.debug= '-d,before_semi_sync_reply';
 
 connection master;
 reap;
-echo "Master: Should contain t1";
-show tables;
+echo "Master: t1 should contain three rows";
+select count(*) from t1;
 
 let $sync_slave_connection= async_slave;
 source include/sync_slave_sql_with_master.inc;
 
 connection async_slave;
-echo "Async Slave: Should contain t1";
-show tables;
+echo "Async Slave: t1 should contain three rows now that trx is ACKed";
+select count(*) from t1;
 
 
-# The dump thread should be killable when waiting for an ack
+# Case 2: The dump thread should be killable when waiting for an ack
+
+connection semi_sync_slave;
+set @@global.debug= '+d,before_semi_sync_reply';
+
 connection master;
 send create table t2(a int);
 
@@ -84,6 +131,7 @@ show tables;
 
 connection semi_sync_slave;
 SET DEBUG_SYNC='now SIGNAL continue';
+set @@global.debug= '-d,before_semi_sync_reply';
 
 echo "Tables on master";
 connection master;
@@ -103,8 +151,10 @@ connection semi_sync_slave;
 show tables;
 
 
-# Dump thread should stop waiting if either rpl_semi_sync_master_enabled or
-# rpl_wait_for_semi_sync_ack is disabled
+# Case 3: Dump thread should stop waiting if either rpl_semi_sync_master_enabled or rpl_wait_for_semi_sync_ack is disabled
+
+connection semi_sync_slave;
+set @@global.debug= '+d,before_semi_sync_reply';
 
 # Disabling rpl_semi_sync_master_enabled
 connection master;
@@ -135,8 +185,8 @@ reap;
 set @@global.rpl_semi_sync_master_enabled = 1;
 
 connection semi_sync_slave;
-stop slave;
-start slave;
+source include/stop_slave.inc;
+source include/start_slave.inc;
 
 connection master;
 echo "Waiting till semi-sync slave is caught up";
@@ -168,15 +218,12 @@ show tables;
 
 connection semi_sync_slave;
 SET DEBUG_SYNC='now SIGNAL continue';
+set @@global.debug= '-d,before_semi_sync_reply';
 
 echo "Switching rpl_wait_for_semi_sync_ack back on";
 connection master;
 reap;
 set @@global.rpl_wait_for_semi_sync_ack = 1;
-
-connection semi_sync_slave;
-stop slave;
-start slave;
 
 connection master;
 echo "Waiting till semi-sync slave is caught up";
@@ -186,17 +233,100 @@ connection semi_sync_slave;
 show tables;
 
 
-# Cleanup
+# Case 4: Lagging async slave + master restart
+
+echo "Stopping async slave to simulate lag";
+connection async_slave;
+source include/stop_slave.inc;
+
+echo "Generating traffic on the master";
+connection master;
+create table t5(a int);
+insert into t5 values(1);
+insert into t5 values(2);
+flush logs;
+insert into t5 values(3);
+insert into t5 values(4);
+flush logs;
+
+let $sync_slave_connection= semi_sync_slave;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+echo "Restarting master";
+let $rpl_server_number=1;
+source include/rpl_restart_server.inc;
+
+echo "Starting async slave";
+connection async_slave;
+source include/start_slave.inc;
+
+echo "Waiting till async slave is caught up";
+connection master;
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+
+
+# Case 5: Should wait for ACK after RESET MASTER
+
 connection semi_sync_slave;
+source include/stop_slave.inc;
+connection async_slave;
+source include/stop_slave.inc;
+connection master;
+set @gtid_exec= @@global.gtid_executed;
+reset master;
+echo "Last acked pos should be empty";
+show status like 'Rpl_last_semi_sync_acked_pos';
+set @@global.gtid_purged= @gtid_exec;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+connection semi_sync_slave;
+source include/start_slave.inc;
+connection async_slave;
+source include/start_slave.inc;
+
+connection semi_sync_slave;
+set @@global.debug= '+d,before_semi_sync_reply';
+
+connection master;
+send create table t6 (a int);
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now WAIT_FOR reached';
+
+connection async_slave;
+echo "Async Slave: Should not contain t6";
+show tables;
+
+connection semi_sync_slave;
+SET DEBUG_SYNC='now SIGNAL continue';
 set @@global.debug= '-d,before_semi_sync_reply';
+
+connection master;
+reap;
+echo "Master: Should contain t6";
+show tables;
+
+let $sync_slave_connection= async_slave;
+source include/sync_slave_sql_with_master.inc;
+
+connection async_slave;
+echo "Async Slave: Should contain t6";
+show tables;
+
+
+# Cleanup
 
 connection master;
 drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
-set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
-set @@global.rpl_semi_sync_master_timeout= @save.rpl_semi_sync_master_timeout;
+drop table t5;
+drop table t6;
 
 connection master;
 let $sync_slave_connection= async_slave;

@@ -65,6 +65,15 @@ int repl_semi_slave_queue_event(Binlog_relay_IO_param *param,
 {
   if (rpl_semi_sync_slave_status && semi_sync_need_reply)
   {
+      DBUG_EXECUTE_IF("before_semi_sync_reply", {
+                      const char act[]= "now signal reached "
+                                        "wait_for continue";
+                      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                      DBUG_ASSERT(!debug_sync_set_action(
+                                     current_thd,
+                                     STRING_WITH_LEN(act)));
+                      });
+
       DBUG_EXECUTE_IF("dont_send_semi_sync_reply", { return 0; });
     /*
       We deliberately ignore the error in slaveReply, such error
