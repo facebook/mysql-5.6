@@ -4788,7 +4788,8 @@ class Copy_field {
     Note that 'from' is 'm_to_field' if invoke_do_copy()
     is called with 'reverse' = true.
   */
-  using Copy_func = void(Copy_field *, const Field *, Field *);
+  using Copy_func = type_conversion_status(Copy_field *, const Field *,
+                                           Field *);
   Copy_func *get_copy_func(bool save);
 
  public:
@@ -4805,16 +4806,17 @@ class Copy_field {
   void set(Field *to, Field *from, bool save);  // Field to field
 
  private:
-  void (*m_do_copy)(Copy_field *, const Field *, Field *);
-  void (*m_do_copy2)(Copy_field *, const Field *,
-                     Field *);  // Used to handle null values
+  type_conversion_status (*m_do_copy)(Copy_field *, const Field *, Field *);
+  type_conversion_status (*m_do_copy2)(Copy_field *, const Field *,
+                                       Field *);  // Used to handle null values
 
   Field *m_from_field{nullptr};
   Field *m_to_field{nullptr};
 
  public:
-  void invoke_do_copy(bool reverse = false);
-  void invoke_do_copy2(const Field *from_field, Field *to_field);
+  type_conversion_status invoke_do_copy(bool reverse = false);
+  type_conversion_status invoke_do_copy2(const Field *from_field,
+                                         Field *to_field);
 
   Field *from_field() { return m_from_field; }
 

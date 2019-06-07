@@ -1,0 +1,16 @@
+set @@global.rbr_column_type_mismatch_whitelist = default;
+select @@global.rbr_column_type_mismatch_whitelist;
+set @saved_rbr_column_type_mismatch_whitelist = @@global.rbr_column_type_mismatch_whitelist;
+
+set @@global.rbr_column_type_mismatch_whitelist='d1.t1.c1,d1.t2.c2,d2.t3.c3';
+set @@global.rbr_column_type_mismatch_whitelist='d1.t1.c1,d1.t2.c2,d2.t3.c3,,,';
+
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.rbr_column_type_mismatch_whitelist=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.rbr_column_type_mismatch_whitelist;
+--error ER_GLOBAL_VARIABLE
+set @@session.rbr_column_type_mismatch_whitelist='d1.t1.c1';
+
+set global rbr_column_type_mismatch_whitelist = @saved_rbr_column_type_mismatch_whitelist;

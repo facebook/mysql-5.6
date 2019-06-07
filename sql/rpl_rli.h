@@ -1877,6 +1877,8 @@ class Relay_log_info : public Rpl_info {
   const char *add_channel_to_relay_log_name(char *buff, uint buff_size,
                                             const char *base_name);
 
+  std::unordered_set<std::string> rbr_column_type_mismatch_whitelist;
+
   /*
     Applier thread InnoDB priority.
     When two transactions conflict inside InnoDB, the one with
@@ -1890,6 +1892,16 @@ class Relay_log_info : public Rpl_info {
   Until_option *until_option;
 
  public:
+  virtual const std::unordered_set<std::string>
+      *get_rbr_column_type_mismatch_whitelist() const {
+    return &rbr_column_type_mismatch_whitelist;
+  }
+
+  void set_rbr_column_type_mismatch_whitelist(
+      const std::unordered_set<std::string> &cols) {
+    rbr_column_type_mismatch_whitelist = cols;
+  }
+
   /*
     The boolean is set to true when the binlog (rli_fake) or slave
     (rli_slave) applier thread detaches any engine ha_data

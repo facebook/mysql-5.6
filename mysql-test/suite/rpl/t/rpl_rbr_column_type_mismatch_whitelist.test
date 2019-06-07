@@ -1,0 +1,267 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+source include/not_valgrind.inc;
+source include/big_test.inc;
+
+connection master;
+call mtr.add_suppression("Column 1 of table 'test.t1' cannot be converted from type");
+call mtr.add_suppression("Slave: Truncated incorrect DECIMAL value");
+set sql_mode='';
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= "test.t1.b";
+source include/start_slave.inc;
+set sql_mode='';
+
+connection master;
+CREATE TABLE types(id INT AUTO_INCREMENT, type TEXT, val_min TEXT, val_max TEXT, PRIMARY KEY(id)) ENGINE = InnoDB;
+
+# Numeric
+INSERT INTO types VALUES(NULL, "bit(1)", "0b0", "0b1");
+INSERT INTO types VALUES(NULL, "bit(2)", "0b0", "0b3");
+INSERT INTO types VALUES(NULL, "tinyint", "-128", "127");
+#INSERT INTO types VALUES(NULL, "tinyint unsigned", "0", "255");
+INSERT INTO types VALUES(NULL, "bool", "0", "1");
+INSERT INTO types VALUES(NULL, "smallint", "-32768", "32767");
+#INSERT INTO types VALUES(NULL, "smallint unsigned", "0", "65535");
+INSERT INTO types VALUES(NULL, "mediumint", "-8388608", "8388607");
+#INSERT INTO types VALUES(NULL, "mediumint unsigned", "0", "16777215");
+INSERT INTO types VALUES(NULL, "int", "-2147483648", "2147483647");
+#INSERT INTO types VALUES(NULL, "int unsigned", "0", "4294967295");
+INSERT INTO types VALUES(NULL, "bigint", "-9223372036854775808", "9223372036854775807");
+#INSERT INTO types VALUES(NULL, "bigint unsigned", "0", "18446744073709551615");
+INSERT INTO types VALUES(NULL, "decimal(5, 2)", "-999.99", "999.99");
+INSERT INTO types VALUES(NULL, "decimal(5, 3)", "-99.999", "99.999");
+INSERT INTO types VALUES(NULL, "float(53)", "-3.402823466E+38", "3.402823466E+38");
+INSERT INTO types VALUES(NULL, "double", "-1.7976931348623157E+308", "1.7976931348623157E+308");
+# Time
+INSERT INTO types VALUES(NULL, "date", "1000-01-01", "9999-12-31");
+INSERT INTO types VALUES(NULL, "datetime", "1000-01-01 00:00:00.000000", "9999-12-31 23:59:59.499999");
+INSERT INTO types VALUES(NULL, "timestamp", "1970-01-01 04:00:00.000000", "2038-01-19 03:14:07.999999");
+INSERT INTO types VALUES(NULL, "time", "-838:59:59.000000", "838:59:59.000000");
+INSERT INTO types VALUES(NULL, "year", "0000", "2155");
+# String
+INSERT INTO types VALUES(NULL, "char(2)", "a", "aa");
+INSERT INTO types VALUES(NULL, "char(3)", "a", "aaa");
+INSERT INTO types VALUES(NULL, "varchar(2)", "a", "aa");
+INSERT INTO types VALUES(NULL, "varchar(3)", "a", "aaa");
+INSERT INTO types VALUES(NULL, "binary(2)", "a", "aa");
+INSERT INTO types VALUES(NULL, "binary(3)", "a", "aaa");
+INSERT INTO types VALUES(NULL, "varbinary(2)", "a", "aa");
+INSERT INTO types VALUES(NULL, "varbinary(3)", "a", "aaa");
+# BLOB (TODO)
+INSERT INTO types VALUES(NULL, "blob", "a", "aaa");
+INSERT INTO types VALUES(NULL, "text", "a", "aaa");
+# Enum and Sets
+INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa')", "a", "aaa");
+INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa', 'aaaa')", "a", "aaaa");
+INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa')", "", "a,aa,aaa");
+INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa', 'aaaa')", "", "a,aa,aaa,aaaa");
+
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+let $end= `SELECT MAX(id) FROM types`;
+let $i= 1;
+
+while ($i <= $end)
+{
+  let $j= 1;
+  while ($j <= $end)
+  {
+    let $type1= `SELECT type FROM types WHERE id = $i`;
+    let $type2= `SELECT type FROM types WHERE id = $j`;
+    let $max_val= `SELECT val_max FROM types WHERE id = $i`;
+    let $min_val= `SELECT val_min FROM types WHERE id = $i`;
+
+    disable_query_log;
+
+    echo "Testing: $type1 ($max_val) -> $type2";
+    connection master;
+    SET @@sql_log_bin= 0;
+    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type1) ENGINE = InnoDB;
+    SET @@sql_log_bin= 1;
+
+    connection slave;
+    SET @@sql_log_bin= 0;
+    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type2) ENGINE = InnoDB;
+    SET @@sql_log_bin= 1;
+
+    connection master;
+    eval INSERT INTO t1 VALUES(1, "$max_val");
+    source include/save_master_pos.inc;
+
+    connection slave;
+    eval SET @wait_res= (SELECT MASTER_POS_WAIT('$_saved_file', $_saved_pos));
+    let $worked= `SELECT (@wait_res is not NULL and @wait_res >= 0)`;
+
+    if (!$worked)
+    {
+      let $errno1= convert_error(ER_SLAVE_CONVERSION_FAILED);
+      let $errno2= convert_error(ER_SERVER_SLAVE_CONVERSION_FAILED);
+      let $slave_sql_errno= $errno1,$errno2;
+      source include/wait_for_slave_sql_error.inc;
+      echo "Conversion failed: $type1 ($max_val) -> $type2";
+      SET @@sql_log_bin= 0;
+      eval ALTER TABLE t1 MODIFY b $type1;
+      SET @@sql_log_bin= 1;
+      source include/start_slave.inc;
+    }
+    if ($worked)
+    {
+      connection master;
+      let $assert_cond= COUNT(*) = 1 FROM t1;
+      let $assert_text= Count of elements in t1 should be 1;
+      source include/assert.inc;
+      let $mv= `SELECT a FROM t1`;
+
+      connection slave;
+      let $assert_cond= COUNT(*) = 1 FROM t1;
+      let $assert_text= Count of elements in t1 should be 1;
+      source include/assert.inc;
+      let $sv= `SELECT a FROM t1`;
+      if ($mv != $sv)
+      {
+        die "Tables don't match";
+      }
+    }
+
+    connection master;
+    DROP TABLE t1;
+    source include/sync_slave_sql_with_master.inc;
+
+
+    echo "Testing: $type1 ($min_val) -> $type2";
+    connection master;
+    SET @@sql_log_bin= 0;
+    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type1) ENGINE = InnoDB;
+    SET @@sql_log_bin= 1;
+
+    connection slave;
+    SET @@sql_log_bin= 0;
+    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type2) ENGINE = InnoDB;
+    SET @@sql_log_bin= 1;
+
+    connection master;
+    eval INSERT INTO t1 VALUES(1, "$min_val");
+    source include/save_master_pos.inc;
+
+    connection slave;
+    eval SET @wait_res= (SELECT MASTER_POS_WAIT('$_saved_file', $_saved_pos));
+    let $worked= `SELECT (@wait_res is not NULL and @wait_res >= 0)`;
+
+    if (!$worked)
+    {
+      let $errno1= convert_error(ER_SLAVE_CONVERSION_FAILED);
+      let $errno2= convert_error(ER_SERVER_SLAVE_CONVERSION_FAILED);
+      let $slave_sql_errno= $errno1,$errno2;
+      source include/wait_for_slave_sql_error.inc;
+      echo "Conversion failed: $type1 ($max_val) -> $type2";
+      SET @@sql_log_bin= 0;
+      eval ALTER TABLE t1 MODIFY b $type1;
+      SET @@sql_log_bin= 1;
+      source include/start_slave.inc;
+    }
+    if ($worked)
+    {
+      connection master;
+      let $assert_cond= COUNT(*) = 1 FROM t1;
+      let $assert_text= Count of elements in t1 should be 1;
+      source include/assert.inc;
+      let $mv= `SELECT b FROM t1`;
+
+      connection slave;
+      let $assert_cond= COUNT(*) = 1 FROM t1;
+      let $assert_text= Count of elements in t1 should be 1;
+      source include/assert.inc;
+      let $sv= `SELECT b FROM t1`;
+      if ($mv != $sv)
+      {
+        die "Tables don't match";
+      }
+    }
+
+    connection master;
+    DROP TABLE t1;
+    source include/sync_slave_sql_with_master.inc;
+
+    enable_query_log;
+
+    inc $j;
+  }
+  inc $i;
+}
+
+# Cleanup
+connection master;
+DROP TABLE types;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= default;
+source include/start_slave.inc;
+
+# Checking if conversion goes through when var is set to '.*' (i.e. all cols)
+
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= '.*';
+source include/start_slave.inc;
+
+disable_query_log;
+
+connection master;
+SET @@sql_log_bin= 0;
+eval CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE = InnoDB;
+SET @@sql_log_bin= 1;
+
+connection slave;
+SET @@sql_log_bin= 0;
+eval CREATE TABLE t1 (a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@sql_log_bin= 1;
+
+connection master;
+eval INSERT INTO t1 VALUES(1, 1);
+source include/save_master_pos.inc;
+
+connection slave;
+eval SET @wait_res= (SELECT MASTER_POS_WAIT('$_saved_file', $_saved_pos));
+let $worked= `SELECT (@wait_res is not NULL and @wait_res >= 0)`;
+
+if (!$worked)
+{
+  die "Conversion did not work when rbr_column_type_mismatch_whitelist = '.*'";
+}
+if ($worked)
+{
+  connection master;
+  let $assert_cond= COUNT(*) = 1 FROM t1;
+  let $assert_text= Count of elements in t1 should be 1;
+  source include/assert.inc;
+  let $mv= `SELECT b FROM t1`;
+
+  connection slave;
+  let $assert_cond= COUNT(*) = 1 FROM t1;
+  let $assert_text= Count of elements in t1 should be 1;
+  source include/assert.inc;
+  let $sv= `SELECT b FROM t1`;
+  if ($mv != $sv)
+  {
+    die "Tables don't match when rbr_column_type_mismatch_whitelist = '.*'";
+  }
+}
+connection master;
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= default;
+source include/start_slave.inc;
+
+enable_query_log;
+
+source include/rpl_end.inc;
