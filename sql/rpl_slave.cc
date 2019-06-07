@@ -6643,6 +6643,11 @@ pthread_handler_t handle_slave_sql(void *arg)
 
   rli->check_before_image_consistency= opt_slave_check_before_image_consistency;
 
+  rli->rbr_column_type_mismatch_whitelist.clear();
+  if (opt_rbr_column_type_mismatch_whitelist)
+    rli->rbr_column_type_mismatch_whitelist=
+      split_into_set(opt_rbr_column_type_mismatch_whitelist, ',');
+
   rli->reported_unsafe_warning= false;
   rli->sql_thread_kill_accepted= false;
 

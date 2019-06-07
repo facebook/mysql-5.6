@@ -24,6 +24,7 @@
 #include "m_string.h"
 #ifdef MYSQL_SERVER
 #include "table.h"                              /* TABLE_LIST */
+#include "sql_string.h"
 #endif
 #include "mysql_com.h"
 #include <hash.h>
@@ -509,6 +510,11 @@ public:
     buf[i] = '\0';                                 \
     DBUG_PRINT((N), ((FRM), buf));                 \
   } while (0)
+
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+void show_sql_type(enum_field_types type, uint16 metadata, String *str,
+                   const CHARSET_INFO *field_cs);
+#endif
 
 #endif /* RPL_UTILITY_H */
 

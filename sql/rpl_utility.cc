@@ -354,8 +354,8 @@ uint32 table_def::calc_field_size(uint col, uchar *master_data) const
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
 /**
  */
-static void show_sql_type(enum_field_types type, uint16 metadata, String *str,
-                          const CHARSET_INFO *field_cs)
+void show_sql_type(enum_field_types type, uint16 metadata, String *str,
+                   const CHARSET_INFO *field_cs)
 {
   DBUG_ENTER("show_sql_type");
   DBUG_PRINT("enter", ("type: %d, metadata: 0x%x", type, metadata));
@@ -600,6 +600,26 @@ inline bool time_cross_check(enum_field_types type1,
           type2 == MYSQL_TYPE_TIME));
 }
 
+/**
+  Check if the field is part of the type mismatch whitelist
+  (global var: rbr_column_type_mismatch_whitelist)
+*/
+static bool is_in_col_whitelist(const Field *field, const Relay_log_info *rli)
+{
+  bool ret= false;
+  if (!rli->rbr_column_type_mismatch_whitelist.empty())
+  {
+    char fqcn[2 * MAX_ALIAS_NAME + MAX_FIELD_NAME + 2 + 1];
+    int cnt= snprintf(fqcn, sizeof(fqcn), "%s.%s.%s", field->table->s->db.str,
+                      field->table->s->table_name.str, field->field_name);
+    if (cnt >= 0 && cnt < (int) sizeof(fqcn))
+    {
+      ret= rli->rbr_column_type_mismatch_whitelist.count(std::string(fqcn));
+    }
+  }
+  return ret;
+}
+
 
 /**
    Can a type potentially be converted to another type?
@@ -646,6 +666,8 @@ can_convert_field_to(Field *field,
   DBUG_PRINT("enter", ("field_type: %s, target_type: %d, source_type: %d, source_metadata: 0x%x",
                        field_type.c_ptr_safe(), field->real_type(), source_type, metadata));
 #endif
+  bool is_in_whitelist_cached= false;
+
   /*
     If the real type is the same, we need to check the metadata to
     decide if conversions are allowed.
@@ -667,7 +689,8 @@ can_convert_field_to(Field *field,
 
     DBUG_PRINT("debug", ("Base types are identical, doing field size comparison"));
     if (field->compatible_field_size(metadata, rli, mflags, order_var))
-      DBUG_RETURN(is_conversion_ok(*order_var, rli));
+      DBUG_RETURN(is_conversion_ok(*order_var, rli) ||
+                  is_in_col_whitelist(field, rli));
     else
       DBUG_RETURN(false);
   }
@@ -701,7 +724,8 @@ can_convert_field_to(Field *field,
     *order_var= -1;
     DBUG_RETURN(true);
   }
-  else if (!slave_type_conversions_options)
+  else if (!slave_type_conversions_options &&
+           !(is_in_whitelist_cached= is_in_col_whitelist(field, rli)))
     DBUG_RETURN(false);
 
   /*
@@ -725,7 +749,9 @@ can_convert_field_to(Field *field,
         DECIMAL, so we require lossy conversion.
       */
       *order_var= 1;
-      DBUG_RETURN(is_conversion_ok(*order_var, rli));
+      DBUG_RETURN(is_in_whitelist_cached ||
+                  is_conversion_ok(*order_var, rli) ||
+                  is_in_col_whitelist(field, rli));
       
     case MYSQL_TYPE_DECIMAL:
     case MYSQL_TYPE_FLOAT:
@@ -737,7 +763,9 @@ can_convert_field_to(Field *field,
       else
         *order_var= compare_lengths(field, source_type, metadata);
       DBUG_ASSERT(*order_var != 0);
-      DBUG_RETURN(is_conversion_ok(*order_var, rli));
+      DBUG_RETURN(is_in_whitelist_cached ||
+                  is_conversion_ok(*order_var, rli) ||
+                  is_in_col_whitelist(field, rli));
     }
 
     default:
@@ -763,7 +791,9 @@ can_convert_field_to(Field *field,
     case MYSQL_TYPE_LONGLONG:
       *order_var= compare_lengths(field, source_type, metadata);
       DBUG_ASSERT(*order_var != 0);
-      DBUG_RETURN(is_conversion_ok(*order_var, rli));
+      DBUG_RETURN(is_in_whitelist_cached ||
+                  is_conversion_ok(*order_var, rli) ||
+                  is_in_col_whitelist(field, rli));
 
     default:
       DBUG_RETURN(false);
@@ -808,7 +838,9 @@ can_convert_field_to(Field *field,
        */
       if (*order_var == 0)
         *order_var= -1;
-      DBUG_RETURN(is_conversion_ok(*order_var, rli));
+      DBUG_RETURN(is_in_whitelist_cached ||
+                  is_conversion_ok(*order_var, rli) ||
+                  is_in_col_whitelist(field, rli));
 
     default:
       DBUG_RETURN(false);

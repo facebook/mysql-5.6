@@ -4652,7 +4652,7 @@ class Copy_field :public Sql_alloc {
     Convenience definition of a copy function returned by
     get_copy_func.
   */
-  typedef void Copy_func(Copy_field*);
+  typedef type_conversion_status Copy_func(Copy_field*);
   Copy_func *get_copy_func(Field *to, Field *from);
 public:
   uchar *from_ptr,*to_ptr;
@@ -4684,8 +4684,8 @@ public:
   ~Copy_field() {}
   void set(Field *to,Field *from,bool save);	// Field to field 
   void set(uchar *to,Field *from);		// Field to string
-  void (*do_copy)(Copy_field *);
-  void (*do_copy2)(Copy_field *);		// Used to handle null values
+  type_conversion_status (*do_copy)(Copy_field *);
+  type_conversion_status (*do_copy2)(Copy_field *);// Used to handle null values
 };
 
 

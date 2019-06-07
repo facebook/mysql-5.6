@@ -319,6 +319,7 @@ extern ulong slave_exec_mode_options;
 extern ulong slave_use_idempotent_for_recovery_options;
 extern ulong slave_run_triggers_for_rbr;
 extern ulonglong slave_type_conversions_options;
+extern char* opt_rbr_column_type_mismatch_whitelist;
 extern ulonglong admission_control_filter;
 extern my_bool read_only, opt_readonly, super_read_only, opt_super_readonly;
 extern char* opt_read_only_error_msg_extra;

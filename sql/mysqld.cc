@@ -697,6 +697,7 @@ ulong slave_exec_mode_options;
 ulong slave_use_idempotent_for_recovery_options = 0;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
+char *opt_rbr_column_type_mismatch_whitelist= nullptr;
 ulonglong admission_control_filter;
 ulong opt_mts_slave_parallel_workers;
 ulong opt_mts_dependency_replication;

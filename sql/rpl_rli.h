@@ -1114,6 +1114,8 @@ public:
   /* counter for the number of inconsistencies found */
   std::atomic<ulong> before_image_inconsistencies{0};
 
+  std::unordered_set<std::string> rbr_column_type_mismatch_whitelist;
+
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
   /* Related to dependency tracking */
 

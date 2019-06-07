@@ -3415,6 +3415,15 @@ static Sys_var_set Slave_type_conversions(
        slave_type_conversions_name,
        DEFAULT(0));
 
+static Sys_var_charptr Sys_rbr_column_type_mismatch_whitelist(
+       "rbr_column_type_mismatch_whitelist",
+       "List of db.table.col (comma separated) where type mismatches are "
+       "expected. The slave will not fail it the conversion is lossless."
+       "This variable is overridden by slave_type_conversions.",
+       GLOBAL_VAR(opt_rbr_column_type_mismatch_whitelist),
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(""), NO_MUTEX_GUARD,
+       NOT_IN_BINLOG);
+
 /*
   Do not add more than 63 entries here.
   There should be corresponding entry for each of these in
