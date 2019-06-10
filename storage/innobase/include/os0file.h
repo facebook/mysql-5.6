@@ -1435,6 +1435,14 @@ void
 os_aio_linux_dispatch_read_array_submit();
 #endif /* LINUX_NATIVE_AIO */
 
+int slowfileremove(const char *filename);
+
+/********************************************************************
+This is the thread slowly removes big files*/
+extern "C"
+os_thread_ret_t
+DECLARE_THREAD(big_file_slow_removal_thread)(void* arg);
+
 #ifndef UNIV_NONINL
 #include "os0file.ic"
 #endif

@@ -600,6 +600,9 @@ ulint	srv_n_commit_with_undo	= 0;
 ulint	srv_n_rollback_total	= 0;
 ulint	srv_n_rollback_partial	= 0;
 
+// big_file_slow_removal directory
+UNIV_INTERN ulong srv_slowrm_speed_mbps = 0;
+
 /** Number of times secondary index lookup triggered cluster lookup */
 atomic_stat<ulint>	srv_sec_rec_cluster_reads;
 

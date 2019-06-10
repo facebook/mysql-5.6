@@ -2081,7 +2081,7 @@ loop:
 #else
 	int	ret;
 
-	ret = unlink(name);
+	ret = slowfileremove(name);
 
 	if (ret != 0 && errno != ENOENT) {
 		os_file_handle_error_no_exit(name, "delete", FALSE);
@@ -2145,7 +2145,7 @@ loop:
 #else
 	int	ret;
 
-	ret = unlink(name);
+	ret = slowfileremove(name);
 
 	if (ret != 0) {
 		os_file_handle_error_no_exit(name, "delete", FALSE);

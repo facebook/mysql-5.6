@@ -385,6 +385,7 @@ SET(INNOBASE_SOURCES
 	os/os0file.cc
 	os/os0proc.cc
 	os/os0sync.cc
+	os/os0slowrm.cc
 	os/os0thread.cc
 	page/page0cur.cc
 	page/page0page.cc
