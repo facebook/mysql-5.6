@@ -132,7 +132,8 @@ bool push_new_name_resolution_context(Parse_context *pc, TABLE_LIST *left_op,
 void init_sql_command_flags(void);
 const CHARSET_INFO *get_bin_collation(const CHARSET_INFO *cs);
 void killall_non_super_threads(THD *thd);
-bool shutdown(THD *thd, enum mysql_enum_shutdown_level level);
+bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
+              uchar exit_code, bool ro_instance_only);
 bool show_precheck(THD *thd, LEX *lex, bool lock);
 
 /* Variables */

@@ -3128,6 +3128,11 @@ struct LEX : public Query_tables_list {
   /* Partition info structure filled in by PARTITION BY parse part */
   partition_info *part_info;
 
+  /* SHUTDOWN exit_code */
+  uchar shutdown_exit_code = 0;
+  /* Only shutdown read_only instances */
+  bool shutdown_ro_instance_only = false;
+
   /*
     The definer of the object being created (view, trigger, stored routine).
     I.e. the value of DEFINER clause.

@@ -2401,6 +2401,8 @@ done:
 
   @param  thd        Thread (session) context.
   @param  level      Shutdown level.
+  @param  exit_code  exit code. No graceful shutdown if non zero is passed.
+  @param  ro_instance_only   Shutting down only if read_only == TRUE
 
   @retval
     true                 success
@@ -2410,7 +2412,9 @@ done:
 
 */
 
-bool shutdown(THD *thd, enum mysql_enum_shutdown_level level) {
+bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
+              uchar exit_code, bool ro_instance_only)
+{
   DBUG_ENTER("shutdown");
   bool res = false;
   thd->lex->no_write_to_binlog = 1;
@@ -2423,26 +2427,37 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level) {
   else if (level != SHUTDOWN_WAIT_ALL_BUFFERS) {
     my_error(ER_NOT_SUPPORTED_YET, MYF(0), "this shutdown level");
     goto error;
-    ;
+  }
+  if (ro_instance_only && !read_only) {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "Only read_only instance can be killed.", MYF(0));
+    goto error;
   }
 
   my_ok(thd);
 
   LogErr(SYSTEM_LEVEL, ER_SERVER_SHUTDOWN_INFO,
-         thd->security_context()->user().str, server_version,
-         MYSQL_COMPILATION_COMMENT_SERVER);
+         thd->security_context()->user().str, exit_code,
+         server_version, MYSQL_COMPILATION_COMMENT_SERVER);
 
   // It is possible to hit errors like assertions before completing exit.
   // In that case, generating core files should be skipped.
   if (skip_core_dump_on_error) opt_core_file = false;
-  DBUG_PRINT("quit", ("Got shutdown command for level %u", level));
+  DBUG_PRINT("quit",("Got shutdown command for level %u, exit code %u",
+             level, exit_code));
   query_logger.general_log_print(thd, COM_QUERY, NullS);
+
 #ifdef HAVE_SYS_PRCTL_H
   if (!opt_core_file) {
     /* inform kernel that process is not dumpable */
     (void)prctl(PR_SET_DUMPABLE, 0);
   }
 #endif
+
+  // No graceful shutdown if exit_code is non-0
+  if (exit_code > 0) {
+    exit(exit_code);
+  }
   kill_mysql();
   res = true;
 

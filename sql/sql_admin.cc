@@ -1590,7 +1590,8 @@ error:
 bool Sql_cmd_shutdown::execute(THD *thd) {
   DBUG_ENTER("Sql_cmd_shutdown::execute");
   bool res = true;
-  res = !shutdown(thd, SHUTDOWN_DEFAULT);
+  res = !shutdown(thd, SHUTDOWN_DEFAULT, thd->lex->shutdown_exit_code,
+                  thd->lex->shutdown_ro_instance_only);
 
   DBUG_RETURN(res);
 }

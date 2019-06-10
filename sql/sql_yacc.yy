@@ -15152,6 +15152,32 @@ shutdown_stmt:
           SHUTDOWN
           {
             Lex->sql_command= SQLCOM_SHUTDOWN;
+            Lex->shutdown_exit_code= 0;
+            Lex->shutdown_ro_instance_only= false;
+            $$= NEW_PTN PT_shutdown();
+          }
+        | SHUTDOWN ulong_num
+          {
+            Lex->sql_command= SQLCOM_SHUTDOWN;
+            if ($2 > 255) {
+              my_printf_error(ER_UNKNOWN_ERROR,
+                              "exit code must be 0..255", MYF(0));
+              MYSQL_YYABORT;
+            }
+            Lex->shutdown_exit_code= (uchar)$2;
+            Lex->shutdown_ro_instance_only= false;
+            $$= NEW_PTN PT_shutdown();
+          }
+        | SHUTDOWN ulong_num READ_ONLY_SYM
+          {
+            Lex->sql_command= SQLCOM_SHUTDOWN;
+            if ($2 > 255) {
+              my_printf_error(ER_UNKNOWN_ERROR,
+                              "exit code must be 0..255", MYF(0));
+              MYSQL_YYABORT;
+            }
+            Lex->shutdown_exit_code= (uchar)$2;
+            Lex->shutdown_ro_instance_only= true;
             $$= NEW_PTN PT_shutdown();
           }
         ;
