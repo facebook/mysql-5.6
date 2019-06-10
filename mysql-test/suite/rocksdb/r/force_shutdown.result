@@ -1,3 +1,5 @@
+call mtr.add_suppression('Attempting backtrace');
+call mtr.add_suppression('Assertion .* failed');
 create table t1 (
 pk int not null primary key,
 col1 varchar(10)
