@@ -86,16 +86,41 @@ static bool check_engine(THD *thd, const char *db_name,
                          const char *table_name,
                          HA_CREATE_INFO *create_info);
 
-static int
-mysql_prepare_create_table(THD *thd, const char *error_schema_name,
-                           const char *error_table_name,
-                           HA_CREATE_INFO *create_info,
-                           Alter_info *alter_info,
-                           bool tmp_table,
-                           uint *db_options,
-                           handler *file, KEY **key_info_buffer,
-                           uint *key_count, int select_field_count);
+static int mysql_prepare_create_table(
+    THD *thd, const char *error_schema_name, const char *error_table_name,
+    HA_CREATE_INFO *create_info, Alter_info *alter_info, bool tmp_table,
+    uint *db_options, handler *file, KEY **key_info_buffer, uint *key_count,
+    int select_field_count, bool validate_primary_key_existence);
 
+/**
+   Check if the current change should be checked for a primary key.
+   Changes within mysql and mtr shouldn't be checked.
+   This is controlled by the cnf option block_create_no_primary_key.
+   Only INNODB and ROCKSDB tables should be checked.
+
+   @param create_info info of table to be created or altered.
+          table_list  table which will be created or altered.
+
+   @return  true  if the current table should be checked for a primary key
+            false otherwise
+*/
+static bool should_check_table_for_primary_key(
+    THD *thd, HA_CREATE_INFO *create_info, const char *db_name)
+{
+  if (!block_create_no_primary_key ||
+      (create_info->options & HA_LEX_CREATE_TMP_TABLE) ||
+      strcmp(db_name, "mysql") == 0 ||
+      strcmp(db_name, "mtr") == 0)
+    return false;
+
+  /* Check for engine type. If none was given, use the default one */
+  handlerton *db_type = create_info->db_type;
+  if (db_type == nullptr)
+    db_type = ha_default_handlerton(thd);
+
+  return (db_type && (db_type->db_type == DB_TYPE_INNODB ||
+                      db_type->db_type == DB_TYPE_ROCKSDB));
+}
 
 /**
   @brief Helper function for explain_filename
@@ -1874,7 +1899,8 @@ bool mysql_write_frm(ALTER_PARTITION_PARAM_TYPE *lpt, uint flags)
                                    lpt->table->file,
                                    &lpt->key_info_buffer,
                                    &lpt->key_count,
-                                   /*select_field_count*/ 0))
+                                   /*select_field_count*/ 0,
+                                   /*validate_primary_key_existence*/ false))
     {
       DBUG_RETURN(TRUE);
     }
@@ -3415,7 +3441,8 @@ mysql_prepare_create_table(THD *thd, const char *error_schema_name,
                            bool tmp_table,
                            uint *db_options,
                            handler *file, KEY **key_info_buffer,
-                           uint *key_count, int select_field_count)
+                           uint *key_count, int select_field_count,
+                           bool validate_primary_key_existence)
 {
   const char	*key_name;
   Create_field	*sql_field,*dup_field;
@@ -4402,6 +4429,12 @@ mysql_prepare_create_table(THD *thd, const char *error_schema_name,
     key_info++;
   }
 
+  if(validate_primary_key_existence && !primary_key)
+  {
+    my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
+    DBUG_RETURN(TRUE);
+  }
+
   if (!unique_key && !primary_key &&
       (file->ha_table_flags() & HA_REQUIRE_PRIMARY_KEY))
   {
@@ -4723,6 +4756,8 @@ bool create_table_impl(THD *thd,
     mem_alloc_error(sizeof(handler));
     DBUG_RETURN(TRUE);
   }
+  bool validate_primary_key_existence =
+      should_check_table_for_primary_key(thd, create_info, db);
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   partition_info *part_info= thd->work_part_info;
 
@@ -4927,13 +4962,10 @@ bool create_table_impl(THD *thd,
     }
   }
 #endif
-
-  if (mysql_prepare_create_table(thd, db, error_table_name,
-                                 create_info, alter_info,
-                                 internal_tmp_table,
-                                 &db_options, file,
-                                 key_info, key_count,
-                                 select_field_count))
+  if (mysql_prepare_create_table(thd, db, error_table_name, create_info,
+                                 alter_info, internal_tmp_table, &db_options,
+                                 file, key_info, key_count, select_field_count,
+                                 validate_primary_key_existence))
     goto err;
 
   if (create_info->options & HA_LEX_CREATE_TMP_TABLE)
@@ -5529,7 +5561,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
   local_create_info.db_type= src_table->table->s->db_type();
   local_create_info.row_type= src_table->table->s->row_type;
   if (mysql_prepare_alter_table(thd, src_table->table, &local_create_info,
-                                &local_alter_info, &local_alter_ctx, false))
+                                &local_alter_info, &local_alter_ctx))
     goto err;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   /* Partition info is not handled by mysql_prepare_alter_table() call. */
@@ -6400,7 +6432,7 @@ bool mysql_compare_tables(TABLE *table,
                                  (table->s->tmp_table != NO_TMP_TABLE),
                                  &db_options,
                                  table->file, &key_info_buffer,
-                                 &key_count, 0))
+                                 &key_count, 0, false))
     DBUG_RETURN(true);
 
   /* Some very basic checks. */
@@ -7110,8 +7142,6 @@ upgrade_old_temporal_types(THD *thd, Alter_info *alter_info)
                               this distinction is gone and we just carry
                               around two structures.
   @param[in,out]  alter_ctx   Runtime context for ALTER TABLE.
-  @param          validate_primary_key_existence  true if we need to
-                              validate the existence of a primary key
 
   @return
     Fills various create_info members based on information retrieved
@@ -7128,8 +7158,7 @@ bool
 mysql_prepare_alter_table(THD *thd, TABLE *table,
                           HA_CREATE_INFO *create_info,
                           Alter_info *alter_info,
-                          Alter_table_ctx *alter_ctx,
-                          bool validate_primary_key_existence)
+                          Alter_table_ctx *alter_ctx)
 {
   /* New column definitions are added here */
   List<Create_field> new_create_list;
@@ -7151,11 +7180,9 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   ulong used_fields= create_info->used_fields;
   KEY *key_info=table->key_info;
   List_iterator<Key> new_key_iterator;
-  Key *key_element;
   bool rc= TRUE;
   bool skip_secondary;
   bool deleted_primary= false;
-  bool added_primary= false;
 
   DBUG_ENTER("mysql_prepare_alter_table");
 
@@ -7682,27 +7709,6 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   alter_info->key_list.swap(new_key_list);
   alter_info->delayed_key_list.swap(delayed_key_list);
 
-  // If we deleted a primary key and we need to make sure there's a primary key,
-  // iterate over the added keys to make sure it was added
-  if (deleted_primary && validate_primary_key_existence)
-  {
-    // Iterare over new key list to see if
-    // we added a new primary
-    new_key_iterator = List_iterator<Key>(new_key_list);
-    while ((key_element = new_key_iterator++))
-    {
-      if (key_element->type == Key::PRIMARY)
-      {
-        added_primary= true;
-        break;
-      }
-    }
-    if (!added_primary)
-    {
-      my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
-      goto err;
-    }
-  }
 err:
   DBUG_RETURN(rc);
 }
@@ -8600,10 +8606,8 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
   }
 #endif
 
-  bool validate_primary_key_existence =
-      should_check_table_for_primary_key(thd, create_info, table_list);
   if (mysql_prepare_alter_table(thd, table, create_info, alter_info,
-                                &alter_ctx, validate_primary_key_existence))
+                                &alter_ctx))
   {
     DBUG_RETURN(true);
   }
