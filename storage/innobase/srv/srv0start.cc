@@ -97,8 +97,6 @@ Created 2/16/1996 Heikki Tuuri
 # include "ut0crc32.h"
 #include "dict0priv.h"
 
-extern void wake_up_file_slow_removal_thread();
-
 /** Log sequence number immediately after startup */
 UNIV_INTERN lsn_t	srv_start_lsn;
 /** Log sequence number at shutdown */
@@ -3018,9 +3016,6 @@ files_checked:
 	/* Create the buffer pool resize thread */
 	os_thread_create(buf_resize_thread, NULL, NULL);
 
-  /* Create thread to slowly remove big files*/
-  os_thread_create(big_file_slow_removal_thread, NULL, NULL);
-
 #ifdef XTRABACKUP
 skip_processes:
 #endif /* XTRABACKUP */
@@ -3112,8 +3107,6 @@ innobase_shutdown_for_mysql(void)
 	/* All threads end up waiting for certain events. Put those events
 	to the signaled state. Then the threads will exit themselves after
 	os_event_wait(). */
-
-	wake_up_file_slow_removal_thread();
 
 	for (i = 0; i < 1000; i++) {
 		/* NOTE: IF YOU CREATE THREADS IN INNODB, YOU MUST EXIT THEM

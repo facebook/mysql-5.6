@@ -418,7 +418,6 @@ static PSI_thread_info	all_innodb_threads[] = {
 	{&buf_page_cleaner_thread_key, "page_cleaner_thread", 0},
 	{&buf_lru_manager_thread_key, "lru_manager_thread", 0},
 	{&recv_writer_thread_key, "recv_writer_thread", 0}
-	{&srv_slowrm_thread_key, "srv_slowrm_thread", 0},
 };
 # endif /* UNIV_PFS_THREAD */
 
@@ -18824,11 +18823,6 @@ static MYSQL_SYSVAR_ULONG(buffer_pool_resizing_timeout,
   "Buffer pool resizing timeout in seconds. ",
   NULL, NULL, 10, 10, 60 * 60 * 24, 0);
 
-static MYSQL_SYSVAR_ULONG(big_file_slow_removal_speed, srv_slowrm_speed_mbps,
-  PLUGIN_VAR_OPCMDARG,
-  "Big files slow removal speed in megabytes per second.",
-  NULL, NULL, 100, 0, 100000, 0);
-
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -19047,7 +19041,6 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(allow_ibuf_merges),
 #endif /* UNIV_DEBUG */
-  MYSQL_SYSVAR(big_file_slow_removal_speed),
   NULL
 };
 

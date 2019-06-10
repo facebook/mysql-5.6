@@ -649,9 +649,6 @@ extern ulint	srv_cleaner_max_lru_time;
 /* Enable adaptive sleep time calculation for page cleaner thread if enabled. */
 extern my_bool	srv_pc_adaptive_sleep;
 
-/*big_file_slow_removal speed*/
-extern ulong srv_slowrm_speed_mbps;
-
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 
