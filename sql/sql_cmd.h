@@ -103,6 +103,7 @@ enum enum_sql_command {
   SQLCOM_CREATE_EXPLICIT_SNAPSHOT,
   SQLCOM_ATTACH_EXPLICIT_SNAPSHOT,
   SQLCOM_RELEASE_EXPLICIT_SNAPSHOT,
+  SQLCOM_SHUTDOWN,
 
   /*
     When a command is added here, be sure it's also added in mysqld.cc

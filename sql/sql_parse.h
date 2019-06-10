@@ -150,6 +150,7 @@ bool check_simple_select();
 Item *negate_expression(THD *thd, Item *expr);
 bool check_stack_overrun(THD *thd, long margin, uchar *dummy);
 THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id);
+bool shutdown(THD *thd, enum mysql_enum_shutdown_level level, enum enum_server_command command);
 
 /* Variables */
 

@@ -2147,6 +2147,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         server_def server_options_list server_option
         definer_opt no_definer definer get_diagnostics
         alter_user_list find attach
+        shutdown_stmt
 END_OF_INPUT
 
 %type <NONE> call sp_proc_stmts sp_proc_stmts1 sp_proc_stmt
@@ -2324,6 +2325,7 @@ statement:
         | set
         | signal_stmt
         | show
+        | shutdown_stmt
         | slave
         | start
         | truncate
@@ -15034,6 +15036,7 @@ keyword:
         | SAVEPOINT_SYM         {}
         | SECURITY_SYM          {}
         | SERVER_SYM            {}
+        | SHUTDOWN              {}
         | SIGNED_SYM            {}
         | SOCKET_SYM            {}
         | SLAVE                 {}
@@ -15313,7 +15316,6 @@ keyword_sp:
         | SIMPLE_SYM               {}
         | SHARE_SYM                {}
         | SHARED_SYM               {}
-        | SHUTDOWN                 {}
         | SKIP_SYM                 {}
         | SLOW                     {}
         | SNAPSHOT_SYM             {}
@@ -16070,6 +16072,13 @@ unlock:
           table_or_tables
           {}
         ;
+
+shutdown_stmt:
+          SHUTDOWN
+          {
+              Lex->sql_command= SQLCOM_SHUTDOWN;
+          }
+          ;
 
 /*
 ** Handler: direct access to ISAM functions

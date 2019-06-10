@@ -2018,6 +2018,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       multi_tenancy_exit_query(thd, &attrs);
       thd->is_in_ac = false;
     }
+    /* Need to set error to true for graceful shutdown */
+    if((thd->lex->sql_command == SQLCOM_SHUTDOWN) && (thd->get_stmt_da()->is_ok()))
+      error= TRUE;
 
     DBUG_PRINT("info",("query ready"));
     break;
@@ -2237,8 +2240,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   case COM_SHUTDOWN:
   {
     status_var_increment(thd->status_var.com_other);
-    if (check_global_access(thd,SHUTDOWN_ACL))
-      break; /* purecov: inspected */
     /*
       If the client is < 4.1.3, it is going to send us no argument; then
       packet_length is 0, packet[0] is the end 0 of the packet. Note that
@@ -2250,22 +2251,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       level= SHUTDOWN_DEFAULT;
     else
       level= (enum mysql_enum_shutdown_level) (uchar) packet[0];
-    if (level == SHUTDOWN_DEFAULT)
-      level= SHUTDOWN_WAIT_ALL_BUFFERS; // soon default will be configurable
-    else if (level != SHUTDOWN_WAIT_ALL_BUFFERS)
+    if (!shutdown(thd, level, command))
     {
-      my_error(ER_NOT_SUPPORTED_YET, MYF(0), "this shutdown level");
       break;
     }
-    DBUG_PRINT("quit",("Got shutdown command for level %u", level));
-    general_log_print(thd, command, NullS);
-    my_eof(thd);
-    sql_print_information(
-       "COM_SHUTDOWN received from host/user = %s/%s",
-       thd->security_ctx->host_or_ip,
-       thd->security_ctx->user);
-    kill_mysql();
-    error=TRUE;
+    error= TRUE;
     break;
   }
 #endif
@@ -2505,6 +2495,62 @@ done:
 
   DBUG_RETURN(error);
 }
+
+
+/**
+  Shutdown the mysqld server.
+
+  @param  thd        Thread (session) context.
+  @param  level      Shutdown level.
+  @param command     type of command to perform
+
+  @retval
+    true                 success
+  @retval
+    false                When user has insufficient privilege or unsupported shutdown level
+
+*/
+#ifndef EMBEDDED_LIBRARY
+bool shutdown(THD *thd, enum mysql_enum_shutdown_level level, enum enum_server_command command)
+{
+  DBUG_ENTER("shutdown");
+  bool res= FALSE;
+  thd->lex->no_write_to_binlog= 1;
+
+  if (check_global_access(thd,SHUTDOWN_ACL))
+    goto error; /* purecov: inspected */
+
+  if (level == SHUTDOWN_DEFAULT)
+    level= SHUTDOWN_WAIT_ALL_BUFFERS; // soon default will be configurable
+  else if (level != SHUTDOWN_WAIT_ALL_BUFFERS)
+  {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "this shutdown level");
+    goto error;;
+  }
+
+  if(command == COM_SHUTDOWN)
+    my_eof(thd);
+  else if(command == COM_QUERY)
+    my_ok(thd);
+  else
+  {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0), "shutdown from this server command");
+    goto error;
+  }
+
+  DBUG_PRINT("quit",("Got shutdown command for level %u", level));
+  general_log_write(thd, command, NullS, 0);
+  sql_print_information(
+     "[SQL]COM_SHUTDOWN received from host/user = %s/%s",
+     thd->security_ctx->host_or_ip,
+     thd->security_ctx->user);
+  kill_mysql();
+  res= TRUE;
+
+  error:
+  DBUG_RETURN(res);
+}
+#endif
 
 
 /**
@@ -5519,6 +5565,15 @@ end_with_restore_list:
   case SQLCOM_RELEASE_EXPLICIT_SNAPSHOT:
   {
     thd->release_explicit_snapshot();
+    break;
+  }
+  case SQLCOM_SHUTDOWN:
+  {
+#ifndef EMBEDDED_LIBRARY
+    shutdown(thd, SHUTDOWN_DEFAULT, COM_QUERY);
+#else
+    my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
+#endif
     break;
   }
   case SQLCOM_BEGIN:
