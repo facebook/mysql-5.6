@@ -1836,7 +1836,8 @@ error:
 bool Sql_cmd_shutdown::execute(THD *thd) {
   DBUG_TRACE;
   bool res = true;
-  res = !shutdown(thd, SHUTDOWN_DEFAULT);
+  res = !shutdown(thd, SHUTDOWN_DEFAULT, thd->lex->shutdown_exit_code,
+                  thd->lex->shutdown_ro_instance_only);
 
   return res;
 }
