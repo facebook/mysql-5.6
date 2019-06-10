@@ -2251,7 +2251,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       level= SHUTDOWN_DEFAULT;
     else
       level= (enum mysql_enum_shutdown_level) (uchar) packet[0];
-    if (!shutdown(thd, level, command))
+    if (!shutdown(thd, level, command, 0, false))
     {
       break;
     }
@@ -2503,6 +2503,8 @@ done:
   @param  thd        Thread (session) context.
   @param  level      Shutdown level.
   @param command     type of command to perform
+  @param exit_code   exit code. No graceful shutdown if non zero is passed.
+  @param ro_instance_only   Shutting down only if read_only == TRUE
 
   @retval
     true                 success
@@ -2511,7 +2513,9 @@ done:
 
 */
 #ifndef EMBEDDED_LIBRARY
-bool shutdown(THD *thd, enum mysql_enum_shutdown_level level, enum enum_server_command command)
+bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
+              enum enum_server_command command, uchar exit_code,
+              bool ro_instance_only)
 {
   DBUG_ENTER("shutdown");
   bool res= FALSE;
@@ -2527,6 +2531,11 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level, enum enum_server_c
     my_error(ER_NOT_SUPPORTED_YET, MYF(0), "this shutdown level");
     goto error;;
   }
+  if (ro_instance_only && !read_only) {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "Only read_only instance can be killed.", MYF(0));
+    goto error;
+  }
 
   if(command == COM_SHUTDOWN)
     my_eof(thd);
@@ -2538,12 +2547,16 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level, enum enum_server_c
     goto error;
   }
 
-  DBUG_PRINT("quit",("Got shutdown command for level %u", level));
+  DBUG_PRINT("quit",("Got shutdown command for level %u, exit code %u",
+             level, exit_code));
   general_log_write(thd, command, NullS, 0);
   sql_print_information(
-     "[SQL]COM_SHUTDOWN received from host/user = %s/%s",
+     "[SQL]COM_SHUTDOWN received from host/user = %s/%s, exit code %u",
      thd->security_ctx->host_or_ip,
-     thd->security_ctx->user);
+     thd->security_ctx->user, exit_code);
+  if (exit_code > 0) {
+    exit(exit_code);
+  }
   kill_mysql();
   res= TRUE;
 
@@ -5570,7 +5583,8 @@ end_with_restore_list:
   case SQLCOM_SHUTDOWN:
   {
 #ifndef EMBEDDED_LIBRARY
-    shutdown(thd, SHUTDOWN_DEFAULT, COM_QUERY);
+    shutdown(thd, SHUTDOWN_DEFAULT, COM_QUERY, lex->shutdown_exit_code,
+             lex->shutdown_ro_instance_only);
 #else
     my_message(ER_UNKNOWN_COM_ERROR, ER(ER_UNKNOWN_COM_ERROR), MYF(0));
 #endif

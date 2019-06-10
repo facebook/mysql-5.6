@@ -2354,6 +2354,11 @@ struct LEX: public Query_tables_list
   /* START TRANSACTION WITH EXISTING <engine> SNAPSHOT */
   ulonglong snapshot_id = 0;
 
+  /* SHUTDOWN exit_code */
+  uchar shutdown_exit_code = 0;
+  /* Only shutdown read_only instances */
+  bool shutdown_ro_instance_only = false;
+
   /*
     The definer of the object being created (view, trigger, stored routine).
     I.e. the value of DEFINER clause.
