@@ -56,7 +56,7 @@ bool arch_wake_threads() {
   return (found_alive);
 }
 
-void arch_remove_file(const char *file_path, const char *file_name) {
+bool arch_remove_file(const char *file_path, const char *file_name) {
   char path[MAX_ARCH_PAGE_FILE_NAME_LEN];
 
   ut_ad(MAX_ARCH_LOG_FILE_NAME_LEN <= MAX_ARCH_PAGE_FILE_NAME_LEN);
@@ -68,7 +68,7 @@ void arch_remove_file(const char *file_path, const char *file_name) {
       0 != strncmp(file_name, ARCH_PAGE_FILE, strlen(ARCH_PAGE_FILE)) &&
       0 != strncmp(file_name, ARCH_PAGE_GROUP_DURABLE_FILE_NAME,
                    strlen(ARCH_PAGE_GROUP_DURABLE_FILE_NAME))) {
-    return;
+    return (true);
   }
 
   snprintf(path, sizeof(path), "%s%c%s", file_path, OS_PATH_SEPARATOR,
@@ -84,6 +84,8 @@ void arch_remove_file(const char *file_path, const char *file_name) {
 #endif /* UNIV_DEBUG */
 
   os_file_delete(innodb_arch_file_key, path);
+
+  return (true);
 }
 
 void arch_remove_dir(const char *dir_path, const char *dir_name) {
@@ -109,7 +111,7 @@ void arch_remove_dir(const char *dir_path, const char *dir_name) {
   ut_a(type == OS_FILE_TYPE_DIR);
 #endif /* UNIV_DEBUG */
 
-  os_file_scan_directory(path, arch_remove_file, true);
+  os_file_scan_directory(path, arch_remove_file, true, true);
 }
 
 /** Initialize Page and Log archiver system
@@ -274,7 +276,7 @@ void Arch_File_Ctx::delete_files(lsn_t begin_lsn) {
 
   if (exists) {
     ut_ad(type == OS_FILE_TYPE_DIR);
-    os_file_scan_directory(dir_name, arch_remove_file, true);
+    os_file_scan_directory(dir_name, arch_remove_file, true, true);
   }
 }
 

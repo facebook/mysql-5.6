@@ -193,6 +193,7 @@ mysql_pfs_key_t io_ibuf_thread_key;
 mysql_pfs_key_t io_log_thread_key;
 mysql_pfs_key_t io_read_thread_key;
 mysql_pfs_key_t io_write_thread_key;
+mysql_pfs_key_t srv_slowrm_thread_key;
 mysql_pfs_key_t srv_error_monitor_thread_key;
 mysql_pfs_key_t srv_lock_timeout_thread_key;
 mysql_pfs_key_t srv_master_thread_key;
@@ -1678,6 +1679,9 @@ void srv_shutdown_all_bg_threads() {
   /* All threads end up waiting for certain events. Put those events
   to the signaled state. Then the threads will exit themselves after
   os_event_wait(). */
+
+  os_event_set(srv_slowrm_event);
+
   for (i = 0; i < SHUTDOWN_SLEEP_ROUNDS; i++) {
     /* NOTE: IF YOU CREATE THREADS IN INNODB, YOU MUST EXIT THEM
     HERE OR EARLIER */
@@ -2825,6 +2829,11 @@ files_checked:
 
   ib::info(ER_IB_MSG_1151, INNODB_VERSION_STR,
            ulonglong{log_get_lsn(*log_sys)});
+
+  /* Create thread to slowly remove big files. */
+  srv_threads.m_slowrm =
+      os_thread_create(srv_slowrm_thread_key, srv_slowrm_thread);
+  srv_threads.m_slowrm.start();
 
   return (DB_SUCCESS);
 }

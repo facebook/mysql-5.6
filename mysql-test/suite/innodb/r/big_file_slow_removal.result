@@ -1,0 +1,12 @@
+SET GLOBAL local_infile = ON;
+SET GLOBAL innodb_big_file_slow_removal_speed = 100;
+SET GLOBAL debug = '+d,ib_os_big_file_slow_removal';
+CREATE TABLE t1 (x VARCHAR(100)) ENGINE=InnoDB;
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;
+t1.ibd
+DROP TABLE t1;
+SET debug_sync = 'now WAIT_FOR big_file_removed';
+SET GLOBAL debug = '-d,ib_os_big_file_slow_removal';
+CREATE TABLE t1 (x VARCHAR(100)) ENGINE=InnoDB;
+DROP TABLE t1;
+# restart

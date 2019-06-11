@@ -1,0 +1,24 @@
+--source include/load_sysvars.inc
+
+SET @old_val = @@global.innodb_big_file_slow_removal_speed;
+SELECT @old_val;
+
+SET @@global.innodb_big_file_slow_removal_speed = 10;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+
+SET @@global.innodb_big_file_slow_removal_speed = 100000;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+
+SET @@global.innodb_big_file_slow_removal_speed = DEFAULT;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+
+#--warning 1292
+SET @@global.innodb_big_file_slow_removal_speed = -1;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+
+#--warning 1292
+SET @@global.innodb_big_file_slow_removal_speed = 1000000;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+
+SET @@global.innodb_big_file_slow_removal_speed = @old_val;
+SELECT @@global.innodb_big_file_slow_removal_speed;

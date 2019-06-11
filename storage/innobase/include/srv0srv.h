@@ -264,6 +264,9 @@ struct Srv_threads {
   /** Thread for GTID persistence */
   IB_thread m_gtid_persister;
 
+  /** Thread for slow removal of big files. */
+  IB_thread m_slowrm;
+
 #ifdef UNIV_DEBUG
   /** Used in test scenario to delay threads' cleanup until the pre_dd_shutdown
   is ended and final plugin's shutdown is started (when plugin is DELETED).
@@ -306,6 +309,9 @@ extern bool srv_upgrade_old_undo_found;
 #endif /* INNODB_DD_TABLE */
 
 extern const char *srv_main_thread_op_info;
+
+/* The slow removal thread waits on this event. */
+extern os_event_t srv_slowrm_event;
 
 /* The monitor thread waits on this event. */
 extern os_event_t srv_monitor_event;
@@ -745,6 +751,9 @@ extern bool srv_print_ddl_logs;
 
 extern bool srv_cmp_per_index_enabled;
 
+/* big_file_slow_removal speed */
+extern ulong srv_slowrm_speed_mbps;
+
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 
@@ -779,6 +788,7 @@ extern mysql_pfs_key_t log_flush_notifier_thread_key;
 extern mysql_pfs_key_t page_flush_coordinator_thread_key;
 extern mysql_pfs_key_t page_flush_thread_key;
 extern mysql_pfs_key_t recv_writer_thread_key;
+extern mysql_pfs_key_t srv_slowrm_thread_key;
 extern mysql_pfs_key_t srv_error_monitor_thread_key;
 extern mysql_pfs_key_t srv_lock_timeout_thread_key;
 extern mysql_pfs_key_t srv_master_thread_key;

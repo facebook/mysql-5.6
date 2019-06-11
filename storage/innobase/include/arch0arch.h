@@ -124,7 +124,7 @@ enum Arch_Client_State {
 /** Remove files related to page and log archiving.
 @param[in]	file_path	path to the file
 @param[in]	file_name	name of the file */
-void arch_remove_file(const char *file_path, const char *file_name);
+bool arch_remove_file(const char *file_path, const char *file_name);
 
 /** Remove group directory and the files related to page and log archiving.
 @param[in]	dir_path	path to the directory
