@@ -6222,5 +6222,5 @@ static Sys_var_mybool Sys_innodb_stats_on_metadata(
        "Enable statistics gathering for metadata commands such as "
        "SHOW TABLE STATUS for tables that use transient statistics or "
        "persistent statistics. (OFF by default)",
-       SESSION_VAR(innodb_stats_on_metadata), NO_CMD_LINE,
+       SESSION_VAR(innodb_stats_on_metadata), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
