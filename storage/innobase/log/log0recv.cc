@@ -156,6 +156,7 @@ UNIV_INTERN lsn_t	recv_max_page_lsn;
 
 #ifdef UNIV_PFS_THREAD
 UNIV_INTERN mysql_pfs_key_t	trx_rollback_clean_thread_key;
+UNIV_INTERN mysql_pfs_key_t srv_slowrm_thread_key;
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_MUTEX

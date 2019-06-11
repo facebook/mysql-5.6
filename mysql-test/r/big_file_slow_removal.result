@@ -1,0 +1,9 @@
+set @@global.innodb_big_file_slow_removal_speed = 100;;
+CREATE TABLE t1 (x varchar(100)) ENGINE=InnoDB;
+LOAD DATA LOCAL INFILE 'INPUT_FILE' INTO TABLE t1;;
+t1.frm
+t1.ibd
+DROP TABLE t1;
+CREATE TABLE t1 (x varchar(100)) ENGINE=InnoDB;
+DROP TABLE t1;
+set @@global.innodb_big_file_slow_removal_speed = 100;;
