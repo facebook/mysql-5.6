@@ -1188,19 +1188,21 @@ class PT_option_value_no_option_type_password_for
 };
 
 class PT_option_value_type : public Parse_tree_node {
-  typedef Parse_tree_node super;
-
-  enum_var_type type;
+  enum_var_type option_type;
+  ulong thread_id;
   PT_option_value_following_option_type *value;
 
  public:
-  PT_option_value_type(enum_var_type type_arg,
+  PT_option_value_type(enum_var_type option_type_arg, ulong thread_id_arg,
                        PT_option_value_following_option_type *value_arg)
-      : type(type_arg), value(value_arg) {}
+      : option_type(option_type_arg),
+        thread_id(thread_id_arg),
+        value(value_arg) {}
 
-  virtual bool contextualize(Parse_context *pc) {
-    pc->thd->lex->option_type = type;
-    return super::contextualize(pc) || value->contextualize(pc);
+  virtual bool contextualize(Parse_context *pc) override {
+    pc->thd->lex->option_type = option_type;
+    pc->thd->lex->thread_id_opt = thread_id;
+    return Parse_tree_node::contextualize(pc) || value->contextualize(pc);
   }
 };
 
@@ -1376,17 +1378,26 @@ class PT_start_option_value_list_following_option_type_eq
     : public PT_start_option_value_list_following_option_type {
   typedef PT_start_option_value_list_following_option_type super;
 
+  enum_var_type option_type;
+  ulong thread_id;
   PT_option_value_following_option_type *head;
   POS head_pos;
   PT_option_value_list_head *opt_tail;
 
  public:
   PT_start_option_value_list_following_option_type_eq(
+      enum_var_type option_type_arg, ulong thread_id_arg,
       PT_option_value_following_option_type *head_arg, const POS &head_pos_arg,
       PT_option_value_list_head *opt_tail_arg)
-      : head(head_arg), head_pos(head_pos_arg), opt_tail(opt_tail_arg) {}
+      : option_type(option_type_arg),
+        thread_id(thread_id_arg),
+        head(head_arg),
+        head_pos(head_pos_arg),
+        opt_tail(opt_tail_arg) {}
 
-  virtual bool contextualize(Parse_context *pc) {
+  virtual bool contextualize(Parse_context *pc) override {
+    pc->thd->lex->option_type = option_type;
+    pc->thd->lex->thread_id_opt = thread_id;
     if (super::contextualize(pc) || head->contextualize(pc)) return true;
 
     if (sp_create_assignment_instr(pc->thd, head_pos.raw.end)) return true;
@@ -1403,17 +1414,21 @@ class PT_start_option_value_list_following_option_type_transaction
     : public PT_start_option_value_list_following_option_type {
   typedef PT_start_option_value_list_following_option_type super;
 
+  enum_var_type type;
   PT_transaction_characteristics *characteristics;
   POS characteristics_pos;
 
  public:
   PT_start_option_value_list_following_option_type_transaction(
+      enum_var_type type_arg,
       PT_transaction_characteristics *characteristics_arg,
       const POS &characteristics_pos_arg)
-      : characteristics(characteristics_arg),
+      : type(type_arg),
+        characteristics(characteristics_arg),
         characteristics_pos(characteristics_pos_arg) {}
 
   virtual bool contextualize(Parse_context *pc) {
+    pc->thd->lex->option_type = type;
     if (super::contextualize(pc) || characteristics->contextualize(pc))
       return true;
 
@@ -1429,17 +1444,14 @@ class PT_start_option_value_list_following_option_type_transaction
 class PT_start_option_value_list_type : public PT_start_option_value_list {
   typedef PT_start_option_value_list super;
 
-  enum_var_type type;
   PT_start_option_value_list_following_option_type *list;
 
  public:
   PT_start_option_value_list_type(
-      enum_var_type type_arg,
       PT_start_option_value_list_following_option_type *list_arg)
-      : type(type_arg), list(list_arg) {}
+      : list(list_arg) {}
 
-  virtual bool contextualize(Parse_context *pc) {
-    pc->thd->lex->option_type = type;
+  virtual bool contextualize(Parse_context *pc) override {
     return super::contextualize(pc) || list->contextualize(pc);
   }
 };
