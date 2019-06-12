@@ -336,7 +336,6 @@ bool sys_var_pluginvar::session_update(THD *thd, set_var *var) {
   bool rc = false;
   DBUG_ASSERT(!is_readonly());
   DBUG_ASSERT(plugin_var->flags & PLUGIN_VAR_THDLOCAL);
-  DBUG_ASSERT(thd == current_thd);
 
   mysql_mutex_lock(&LOCK_global_system_variables);
   void *tgt = real_value_ptr(thd, var->type);

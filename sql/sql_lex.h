@@ -3559,6 +3559,7 @@ struct LEX : public Query_tables_list {
   bool contains_plaintext_password;
   enum_keep_diagnostics keep_diagnostics;
   uint32 next_binlog_file_nr;
+  ulong thread_id_opt; /* thread id option */
 
  private:
   bool m_broken;  ///< see mark_broken()

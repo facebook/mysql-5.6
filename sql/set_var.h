@@ -107,6 +107,7 @@ class sys_var {
  public:
   sys_var *next;
   LEX_CSTRING name;
+  ulong thd_id;
   enum flag_enum {
     GLOBAL = 0x0001,
     SESSION = 0x0002,
@@ -381,6 +382,8 @@ class set_var_base {
     between the two phases.
   */
   virtual int light_check(THD *thd) { return (resolve(thd) || check(thd)); }
+
+  ulong thd_id = 0;
 };
 
 /**

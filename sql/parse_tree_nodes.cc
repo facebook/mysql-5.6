@@ -2907,8 +2907,9 @@ bool PT_option_value_no_option_type_sys_var::contextualize(Parse_context *pc) {
 }
 
 bool PT_option_value_type::contextualize(Parse_context *pc) {
-  pc->thd->lex->option_type = type;
-  return super::contextualize(pc) || value->contextualize(pc);
+  pc->thd->lex->option_type = option_type;
+  pc->thd->lex->thread_id_opt = thread_id;
+  return Parse_tree_node::contextualize(pc) || value->contextualize(pc);
 }
 
 bool PT_option_value_list_head::contextualize(Parse_context *pc) {
@@ -2972,6 +2973,8 @@ bool PT_start_option_value_list_transaction::contextualize(Parse_context *pc) {
 
 bool PT_start_option_value_list_following_option_type_eq::contextualize(
     Parse_context *pc) {
+  pc->thd->lex->option_type = option_type;
+  pc->thd->lex->thread_id_opt = thread_id;
   if (super::contextualize(pc) || head->contextualize(pc)) return true;
 
   if (sp_create_assignment_instr(pc->thd, head_pos.raw.end)) return true;
@@ -2985,6 +2988,7 @@ bool PT_start_option_value_list_following_option_type_eq::contextualize(
 
 bool PT_start_option_value_list_following_option_type_transaction::
     contextualize(Parse_context *pc) {
+  pc->thd->lex->option_type = type;
   if (super::contextualize(pc) || characteristics->contextualize(pc))
     return true;
 
@@ -2997,7 +3001,6 @@ bool PT_start_option_value_list_following_option_type_transaction::
 }
 
 bool PT_start_option_value_list_type::contextualize(Parse_context *pc) {
-  pc->thd->lex->option_type = type;
   return super::contextualize(pc) || list->contextualize(pc);
 }
 

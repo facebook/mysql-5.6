@@ -49,7 +49,8 @@
 #include "sql/item.h"
 #include "sql/item_func.h"
 #include "sql/log.h"
-#include "sql/mysqld.h"  // system_charset_info
+#include "sql/mysqld.h"              // system_charset_info
+#include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/persisted_variable.h"
 #include "sql/protocol_classic.h"
 #include "sql/session_tracker.h"
@@ -69,6 +70,7 @@
 
 using std::min;
 using std::string;
+using set_var_list_map = std::unordered_map<ulong, List<set_var_base>>;
 
 static collation_unordered_map<string, sys_var *> *system_variable_hash;
 static PolyLock_mutex PLock_global_system_variables(
@@ -752,6 +754,62 @@ sys_var *intern_find_sys_var(const char *str, size_t length) {
 }
 
 /**
+  Helper function to set variables.
+  Use the thd -> list<var> map to iterate over all threads
+  For each thread, for each variable in its list, perform the specified function
+  @param THD            Current thread
+  @param thd_var_map    Map of threads to list of variables to be updated
+  @param func           Function to be executed for each variable
+  @retval
+    0   ok
+  @retval
+    1   ERROR
+*/
+
+static int process_set_variable_map(THD *thd, set_var_list_map &thd_var_map,
+                                    int (*func)(THD *, set_var_base *)) {
+  DBUG_ENTER("process_set_variable_map");
+  int error = 0;
+
+  for (auto var_iter : thd_var_map) {
+    ulong thd_id = var_iter.first;
+    THD *change_thd = thd;
+    // Thread id of the current thread is 0
+    if (thd_id) {
+      Find_thd_with_id find_thd_with_id(thd_id);
+      change_thd =
+          Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+      if (!change_thd) {
+        my_error(ER_NO_SUCH_THREAD, MYF(0), thd_id);
+        DBUG_RETURN(1);
+      }
+
+      Security_context *sctx = thd->security_context();
+      if (!sctx->check_access(SUPER_ACL) &&
+          !sctx->has_global_grant(STRING_WITH_LEN("SYSTEM_VARIABLES_ADMIN"))
+               .first) {
+        mysql_mutex_unlock(&change_thd->LOCK_thd_data);
+        my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+                 "SUPER or SYSTEM_VARIABLES_ADMIN");
+        DBUG_RETURN(1);
+      }
+    }
+
+    List_iterator_fast<set_var_base> it(var_iter.second);
+    set_var_base *var;
+    while ((var = it++)) {
+      if ((error = func(change_thd, var))) break;
+    }
+
+    if (thd_id) mysql_mutex_unlock(&change_thd->LOCK_thd_data);
+
+    if (error) break;
+  }
+
+  DBUG_RETURN(error);
+}
+
+/**
   Execute update of all variables.
 
   First run a check of all variables that all updates will go ok.
@@ -780,26 +838,47 @@ int sql_set_variables(THD *thd, List<set_var_base> *var_list, bool opened) {
 
   LEX *lex = thd->lex;
   set_var_base *var;
+  const ulong current_thd_id = thd->thread_id();
+  /*
+    This map stores a list of variables to be updated for each thread specified
+    by the user, essentially grouping variabled by thread ID. Variable updates
+    are processed per thread.
+  */
+  set_var_list_map thd_var_map;
+
   while ((var = it++)) {
-    if ((error = var->resolve(thd))) goto err;
+    ulong thd_id_opt = var->thd_id;
+    if (thd_id_opt == current_thd_id) thd_id_opt = 0;
+    thd_var_map[thd_id_opt].push_back(var);
   }
+
+  if ((error = process_set_variable_map(thd, thd_var_map,
+                                        [](THD *each_thd, set_var_base *svar) {
+                                          return svar->resolve(each_thd);
+                                        })))
+    goto err;
+
   if ((error = thd->is_error())) goto err;
 
   if (opened && lock_tables(thd, lex->query_tables, lex->table_count, 0)) {
     error = 1;
     goto err;
   }
-  it.rewind();
-  while ((var = it++)) {
-    if ((error = var->check(thd))) goto err;
-  }
+
+  if ((error = process_set_variable_map(thd, thd_var_map,
+                                        [](THD *each_thd, set_var_base *svar) {
+                                          return svar->check(each_thd);
+                                        })))
+    goto err;
+
   if ((error = thd->is_error())) goto err;
 
-  it.rewind();
-  while ((var = it++)) {
-    if ((error = var->update(thd)))  // Returns 0, -1 or 1
-      goto err;
-  }
+  if ((error = process_set_variable_map(
+           thd, thd_var_map, [](THD *each_thd, set_var_base *svar) {
+             return svar->update(each_thd); /* Returns 0, -1 or 1 */
+           })))
+    goto err;
+
   if (!error) {
     /* At this point SET statement is considered a success. */
     Persisted_variables_cache *pv = nullptr;

@@ -1394,6 +1394,8 @@ void warn_about_deprecated_binary(THD *thd)
         now
         opt_checksum_type
         opt_ignore_lines
+        opt_var_tid
+        option_type_with_thread_id
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
@@ -14911,9 +14913,9 @@ start_option_value_list:
           {
             $$= NEW_PTN PT_start_option_value_list_transaction($2, @2);
           }
-        | option_type start_option_value_list_following_option_type
+        | start_option_value_list_following_option_type
           {
-            $$= NEW_PTN PT_start_option_value_list_type($1, $2);
+            $$= NEW_PTN PT_start_option_value_list_type($1);
           }
         | PASSWORD equal TEXT_STRING_password opt_replace_password opt_retain_current_password
           {
@@ -15023,18 +15025,20 @@ thread_id_list_options:
 
 // Start of option value list, option_type was given
 start_option_value_list_following_option_type:
-          option_value_following_option_type option_value_list_continued
-          {
-            $$=
-              NEW_PTN PT_start_option_value_list_following_option_type_eq($1,
-                                                                          @1,
-                                                                          $2);
-          }
-        | TRANSACTION_SYM transaction_characteristics
+          option_type_with_thread_id option_value_following_option_type option_value_list_continued
           {
             $$= NEW_PTN
-              PT_start_option_value_list_following_option_type_transaction($2,
-                                                                           @2);
+              PT_start_option_value_list_following_option_type_eq(OPT_SESSION, $1, $2, @2, $3);
+          }
+        | option_type option_value_following_option_type option_value_list_continued
+          {
+            $$= NEW_PTN
+              PT_start_option_value_list_following_option_type_eq($1, 0, $2, @2, $3);
+          }
+        | option_type TRANSACTION_SYM transaction_characteristics
+          {
+            $$= NEW_PTN
+              PT_start_option_value_list_following_option_type_transaction($1, $3, @3);
           }
         ;
 
@@ -15058,9 +15062,13 @@ option_value_list:
 
 // Wrapper around option values following the first option value in the stmt.
 option_value:
-          option_type option_value_following_option_type
+          option_type_with_thread_id option_value_following_option_type
           {
-            $$= NEW_PTN PT_option_value_type($1, $2);
+            $$= NEW_PTN PT_option_value_type(OPT_SESSION, $1, $2);
+          }
+        | option_type option_value_following_option_type
+          {
+            $$= NEW_PTN PT_option_value_type($1, 0, $2);
           }
         | option_value_no_option_type { $$= $1; }
         ;
@@ -15071,6 +15079,20 @@ option_type:
         | PERSIST_ONLY_SYM { $$=OPT_PERSIST_ONLY; }
         | LOCAL_SYM   { $$=OPT_SESSION; }
         | SESSION_SYM { $$=OPT_SESSION; }
+        ;
+
+opt_var_tid:
+         ulong_num
+          {
+            if ($1 <= 0)
+              MYSQL_YYABORT;
+            $$=$1;
+          }
+        ;
+
+option_type_with_thread_id:
+          LOCAL_SYM   opt_var_tid { $$= $2; }
+        | SESSION_SYM opt_var_tid { $$= $2; }
         ;
 
 opt_var_type:

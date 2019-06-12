@@ -3118,8 +3118,6 @@ static void plugin_vars_free_values(sys_var *vars) {
 
 void plugin_thdvar_safe_update(THD *thd, SYS_VAR *var, char **dest,
                                const char *value) {
-  DBUG_ASSERT(thd == current_thd);
-
   if (var->flags & PLUGIN_VAR_THDLOCAL) {
     if ((var->flags & PLUGIN_VAR_TYPEMASK) == PLUGIN_VAR_STR &&
         var->flags & PLUGIN_VAR_MEMALLOC)
