@@ -1,0 +1,159 @@
+--source include/count_sessions.inc
+
+#
+# test SET VARIABLES with thread id
+#
+
+--let $conn_root = `SELECT CONNECTION_ID()`
+
+# Create a regular user
+CREATE USER mysqluser1;
+
+--connect (user1,localhost,mysqluser1)
+--let $conn_mysqluser1 = `SELECT CONNECTION_ID()`
+
+# Set a variable for current thd
+SET max_join_size = 1000;
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1000
+--source include/assert.inc
+
+
+# Connect as root
+--connection default
+
+# Set a variable for current thd
+SET max_join_size = 2000;
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2000
+--source include/assert.inc
+
+# Set variable for user1 thd from root thd
+--replace_regex /SESSION [0-9]*/SESSION $mysqluser1/
+--eval SET SESSION $conn_mysqluser1 max_join_size = 1001
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2000
+--source include/assert.inc
+
+--replace_regex /SESSION [0-9]*/SESSION $mysqluser1/
+--eval SET SESSION $conn_mysqluser1 innodb_lock_wait_timeout = 100
+
+# Set variable for root thd from root thd
+--replace_regex /SESSION [0-9]*/SESSION $conn_root/
+--eval SET SESSION $conn_root max_join_size = 2001
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2001
+--source include/assert.inc
+
+# Set variable for root thd from root thd without session ID
+SET SESSION max_join_size = 2002;
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2002
+--source include/assert.inc
+
+
+--connection user1
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1001
+--source include/assert.inc
+
+--let $assert_text = Check if innodb_lock_wait_timeout is correct
+--let $assert_cond = @@innodb_lock_wait_timeout = 100
+--source include/assert.inc
+
+
+# Reconnect as root
+--connection default
+
+# Set variable for both current thd and user1 from root thd
+--replace_regex /SESSION [0-9]* max_join_size = 1002, SESSION [0-9]* max_join_size = 2003/SESSION $conn_mysqluser1 max_join_size = 1002, SESSION $conn_root max_join_size = 2003/
+--eval SET SESSION $conn_mysqluser1 max_join_size = 1002, SESSION $conn_root max_join_size = 2003
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2003
+--source include/assert.inc
+
+
+--connection user1
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1002
+--source include/assert.inc
+
+# Set variable for root thd from user1 thd
+--replace_regex /SESSION [0-9]*/SESSION $conn_root/ /thread [0-9]*/thread $root/
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+--eval SET SESSION $conn_mysqluser1 max_join_size = 1003, SESSION $conn_root max_join_size = 2004
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1002
+--source include/assert.inc
+
+# Set variable for user1 thd from user1 thd
+--replace_regex /SESSION [0-9]*/SESSION $mysqluser1/
+--eval SET SESSION $conn_mysqluser1 max_join_size = 1003
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1003
+--source include/assert.inc
+
+# Set variable for user1 thd from user1 thd without session ID
+SET SESSION max_join_size = 1004;
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1004
+--source include/assert.inc
+
+
+--connection default
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2003
+--source include/assert.inc
+
+# Set multiple variables for both current thd and user1 from root thd
+--replace_regex /SESSION [0-9]* max_join_size = 1005/SESSION $conn_mysqluser1 max_join_size = 1005/ /SESSION [0-9]* max_join_size = 2004/SESSION $conn_root max_join_size = 2004/
+--eval SET SESSION $conn_mysqluser1 max_join_size = 1005, max_sort_length = 30, SESSION $conn_root max_join_size = 2004, max_sort_length = 31
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 2004 AND @@max_sort_length = 31
+--source include/assert.inc
+
+
+--connection user1
+
+--let $assert_text = Check if max_join_size is correct
+--let $assert_cond = @@max_join_size = 1005 AND @@max_sort_length = 30
+--source include/assert.inc
+
+--error ER_NO_SUCH_THREAD
+--eval SET SESSION 999 max_join_size = 9999
+
+--error ER_PARSE_ERROR
+--eval SET GLOBAL 1 max_join_size = 1000
+
+--error ER_PARSE_ERROR
+--eval SET SESSION -1 max_join_size = 1000
+
+--error ER_PARSE_ERROR
+--eval SET SESSION 1 TRANSACTION READ WRITE
+
+--connection default
+SET GLOBAL TRANSACTION READ ONLY;
+SET SESSION TRANSACTION READ ONLY;
+--let $assert_text = Check if SET SESSION/GLOBAL TRANSACTION READ ONLY works correctly
+--let $assert_cond = @@GLOBAL.transaction_read_only = 1 AND @@transaction_read_only = 1
+--source include/assert.inc
+SET GLOBAL TRANSACTION READ WRITE;
+SET SESSION TRANSACTION READ WRITE;
+
+# cleanup
+DROP USER mysqluser1;
+--disconnect user1
+--source include/wait_until_count_sessions.inc

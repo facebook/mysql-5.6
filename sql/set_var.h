@@ -107,6 +107,7 @@ class sys_var {
  public:
   sys_var *next;
   LEX_CSTRING name;
+  ulong thd_id;
   /**
     If the variable has an alias in the persisted variables file, this
     should point to it.  This has the following consequences:
@@ -449,6 +450,8 @@ class set_var_base {
     between the two phases.
   */
   virtual int light_check(THD *thd) { return (resolve(thd) || check(thd)); }
+
+  ulong thd_id = 0;
 };
 
 /**
