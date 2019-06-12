@@ -486,6 +486,7 @@ void LEX::reset() {
   m_extended_show = false;
   option_type = OPT_DEFAULT;
   check_opt = HA_CHECK_OPT();
+  thread_id_opt = 0;
 
   clear_privileges();
   grant_as.cleanup();

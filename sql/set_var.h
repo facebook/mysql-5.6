@@ -109,6 +109,7 @@ class sys_var {
  public:
   sys_var *next;
   LEX_CSTRING name;
+  ulong thd_id;
   /**
     If the variable has an alias in the persisted variables file, this
     should point to it.  This has the following consequences:
@@ -966,6 +967,8 @@ class set_var_base {
 
   /** Used to identify if variable is sensitive or not */
   virtual bool is_sensitive() const { return false; }
+
+  ulong thd_id = 0;
 };
 
 /**

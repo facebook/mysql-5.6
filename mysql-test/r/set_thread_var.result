@@ -1,0 +1,42 @@
+CREATE USER mysqluser1;
+SET max_join_size = 1000;
+include/assert.inc [Check if max_join_size is correct]
+SET max_join_size = 2000;
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION $mysqluser1 max_join_size = 1001;
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION $mysqluser1 innodb_lock_wait_timeout = 100;
+SET SESSION $conn_root max_join_size = 2001;
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION max_join_size = 2002;
+include/assert.inc [Check if max_join_size is correct]
+include/assert.inc [Check if max_join_size is correct]
+include/assert.inc [Check if innodb_lock_wait_timeout is correct]
+SET SESSION $conn_mysqluser1 max_join_size = 1002, SESSION $conn_root max_join_size = 2003;
+include/assert.inc [Check if max_join_size is correct]
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION $conn_root max_join_size = 1003, SESSION $conn_root max_join_size = 2004;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION $mysqluser1 max_join_size = 1003;
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION max_join_size = 1004;
+include/assert.inc [Check if max_join_size is correct]
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION $conn_mysqluser1 max_join_size = 1005, max_sort_length = 30, SESSION $conn_root max_join_size = 2004, max_sort_length = 31;
+include/assert.inc [Check if max_join_size is correct]
+include/assert.inc [Check if max_join_size is correct]
+SET SESSION 999 max_join_size = 9999;
+ERROR HY000: Unknown thread id: 999
+SET GLOBAL 1 max_join_size = 1000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '1 max_join_size = 1000' at line 1
+SET SESSION -1 max_join_size = 1000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '-1 max_join_size = 1000' at line 1
+SET SESSION 1 TRANSACTION READ WRITE;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'READ WRITE' at line 1
+SET GLOBAL TRANSACTION READ ONLY;
+SET SESSION TRANSACTION READ ONLY;
+include/assert.inc [Check if SET SESSION/GLOBAL TRANSACTION READ ONLY works correctly]
+SET GLOBAL TRANSACTION READ WRITE;
+SET SESSION TRANSACTION READ WRITE;
+DROP USER mysqluser1;

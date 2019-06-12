@@ -260,12 +260,14 @@ bool sp_create_assignment_instr(THD *thd, const char *expr_end_ptr) {
   }
 
   /* Remember option_type of the currently parsed LEX. */
-  enum_var_type inner_option_type = lex->option_type;
+  const enum_var_type inner_option_type = lex->option_type;
+  const ulong thd_id_opt = lex->thread_id_opt;
 
   if (sp->restore_lex(thd)) return true;
 
   /* Copy option_type to outer lex in case it has changed. */
   thd->lex->option_type = inner_option_type;
+  thd->lex->thread_id_opt = thd_id_opt;
 
   return false;
 }

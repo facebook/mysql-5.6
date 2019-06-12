@@ -951,15 +951,16 @@ class PT_option_value_no_option_type_password_for
 };
 
 class PT_option_value_type : public Parse_tree_node {
-  typedef Parse_tree_node super;
-
-  enum_var_type type;
+  enum_var_type option_type;
+  ulong thread_id;
   PT_set_scoped_system_variable *value;
 
  public:
-  PT_option_value_type(enum_var_type type_arg,
+  PT_option_value_type(enum_var_type option_type_arg, ulong thread_id_arg,
                        PT_set_scoped_system_variable *value_arg)
-      : type(type_arg), value(value_arg) {}
+      : option_type(option_type_arg),
+        thread_id(thread_id_arg),
+        value(value_arg) {}
 
   bool contextualize(Parse_context *pc) override;
 };
@@ -1085,15 +1086,22 @@ class PT_start_option_value_list_following_option_type_eq
     : public PT_start_option_value_list_following_option_type {
   typedef PT_start_option_value_list_following_option_type super;
 
+  enum_var_type option_type;
+  ulong thread_id;
   PT_set_scoped_system_variable *head;
   POS head_pos;
   PT_option_value_list_head *opt_tail;
 
  public:
   PT_start_option_value_list_following_option_type_eq(
+      enum_var_type option_type_arg, ulong thread_id_arg,
       PT_set_scoped_system_variable *head_arg, const POS &head_pos_arg,
       PT_option_value_list_head *opt_tail_arg)
-      : head(head_arg), head_pos(head_pos_arg), opt_tail(opt_tail_arg) {}
+      : option_type(option_type_arg),
+        thread_id(thread_id_arg),
+        head(head_arg),
+        head_pos(head_pos_arg),
+        opt_tail(opt_tail_arg) {}
 
   bool contextualize(Parse_context *pc) override;
 };
@@ -1102,14 +1110,17 @@ class PT_start_option_value_list_following_option_type_transaction
     : public PT_start_option_value_list_following_option_type {
   typedef PT_start_option_value_list_following_option_type super;
 
+  enum_var_type type;
   PT_transaction_characteristics *characteristics;
   POS characteristics_pos;
 
  public:
   PT_start_option_value_list_following_option_type_transaction(
+      enum_var_type type_arg,
       PT_transaction_characteristics *characteristics_arg,
       const POS &characteristics_pos_arg)
-      : characteristics(characteristics_arg),
+      : type(type_arg),
+        characteristics(characteristics_arg),
         characteristics_pos(characteristics_pos_arg) {}
 
   bool contextualize(Parse_context *pc) override;
@@ -1118,14 +1129,12 @@ class PT_start_option_value_list_following_option_type_transaction
 class PT_start_option_value_list_type : public PT_start_option_value_list {
   typedef PT_start_option_value_list super;
 
-  enum_var_type type;
   PT_start_option_value_list_following_option_type *list;
 
  public:
   PT_start_option_value_list_type(
-      enum_var_type type_arg,
       PT_start_option_value_list_following_option_type *list_arg)
-      : type(type_arg), list(list_arg) {}
+      : list(list_arg) {}
 
   bool contextualize(Parse_context *pc) override;
 };
