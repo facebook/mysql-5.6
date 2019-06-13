@@ -3786,6 +3786,7 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
   DBUG_ASSERT(dst->gtrid_length >= 0 && dst->gtrid_length <= MAXGTRIDSIZE);
   DBUG_ASSERT(dst->bqual_length >= 0 && dst->bqual_length <= MAXBQUALSIZE);
 
+  memset(dst->data, 0, XIDDATASIZE);
   src.copy(dst->data, (dst->gtrid_length) + (dst->bqual_length),
            RDB_XIDHDR_LEN);
 }
