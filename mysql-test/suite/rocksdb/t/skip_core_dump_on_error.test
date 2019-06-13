@@ -1,5 +1,6 @@
 --source include/have_rocksdb.inc
 --source include/have_debug.inc
+--source include/not_valgrind.inc
 
 --enable_connect_log
 --enable_info
