@@ -34,16 +34,21 @@
 #include <chrono>
 #include <sstream>
 #include <my_stacktrace.h>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/algorithm/string.hpp>
 #include <exception>
+#ifdef HAVE_RAPIDJSON
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#else
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+using boost::property_tree::ptree;
+#endif
 
 using std::max;
 using std::min;
 using std::string;
 using std::list;
-using boost::property_tree::ptree;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -8469,6 +8474,132 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event)
   DBUG_RETURN(0);
 }
 
+#ifdef HAVE_RAPIDJSON
+/**
+  This function generated meta data in JSON format as a comment in a rows query
+  event.
+
+  @see binlog_trx_meta_data
+
+  @return JSON if all good, null string otherwise
+*/
+std::string THD::gen_trx_metadata()
+{
+  DBUG_ENTER("THD::gen_trx_metadata");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  rapidjson::Document doc;
+  doc.SetObject();
+
+  // case: read existing meta data received from the master
+  if (rli_slave && !rli_slave->trx_meta_data_json.empty())
+  {
+     if (doc.Parse(rli_slave->trx_meta_data_json.c_str()).HasParseError())
+     {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s",
+                       rli_slave->trx_meta_data_json.c_str());
+      DBUG_RETURN("");
+    }
+    // clear existing data
+    rli_slave->trx_meta_data_json.clear();
+  }
+
+  // add things to the meta data
+  if (!add_db_metadata(doc) || !add_time_metadata(doc))
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Exception while adding meta data");
+    DBUG_RETURN("");
+  }
+
+  // write meta data with new stuff in the binlog
+  rapidjson::StringBuffer buf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+  if (!doc.Accept(writer))
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Error while writing meta data");
+    DBUG_RETURN("");
+  }
+  std::string json = buf.GetString();
+  boost::trim(json);
+
+  std::string comment_str= std::string("/*")
+                           .append(TRX_META_DATA_HEADER)
+                           .append(json)
+                           .append("*/");
+
+  DBUG_RETURN(comment_str);
+}
+
+/**
+  This function adds timing information in meta data JSON of rows query event.
+
+  @see THD::write_trx_metadata
+
+  @param meta_data_root Property tree object which represents the JSON
+  @return true if all good, false if error
+*/
+bool THD::add_time_metadata(rapidjson::Document &meta_data_root)
+{
+  DBUG_ENTER("THD::add_time_metadata");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  rapidjson::Document::AllocatorType& allocator = meta_data_root.GetAllocator();
+
+  // get existing timestamps
+  auto times= meta_data_root.FindMember("ts");
+  if (times == meta_data_root.MemberEnd())
+  {
+    meta_data_root.AddMember("ts", rapidjson::Value().SetArray(), allocator);
+    times= meta_data_root.FindMember("ts");
+  }
+
+  // add our timestamp to the array
+  std::string millis=
+    std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>
+        (std::chrono::system_clock::now().time_since_epoch()).count());
+  times->value.PushBack(
+      rapidjson::Value().SetString(millis.c_str(), millis.size(), allocator),
+      allocator);
+
+  DBUG_RETURN(true);
+}
+
+bool THD::add_db_metadata(rapidjson::Document &meta_data_root)
+{
+  DBUG_ENTER("THD::add_db_meta_data");
+  DBUG_ASSERT(opt_binlog_trx_meta_data);
+
+  mysql_mutex_lock(&LOCK_db_metadata);
+  std::string local_db_metadata= db_metadata;
+  mysql_mutex_unlock(&LOCK_db_metadata);
+
+  if (!local_db_metadata.empty())
+  {
+    rapidjson::Document db_metadata_root;
+    if (db_metadata_root.Parse(local_db_metadata.c_str()).HasParseError())
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Exception while reading meta data: %s",
+                       local_db_metadata.c_str());
+      DBUG_RETURN(false);
+    }
+
+    // flatten DB metadata into trx metadata
+    auto& allocator= meta_data_root.GetAllocator();
+    for (auto& node : db_metadata_root.GetObject())
+    {
+      rapidjson::Value val(node.value, allocator);
+      if (!meta_data_root.HasMember(node.name))
+        meta_data_root.AddMember(node.name, val, allocator);
+    }
+  }
+
+  DBUG_RETURN(true);
+}
+#else
 /**
   This function generated meta data in JSON format as a comment in a rows query
   event.
@@ -8502,13 +8633,11 @@ std::string THD::gen_trx_metadata()
   }
 
   // add things to the meta data
-  try {
-    add_time_metadata(pt);
-    add_db_metadata(pt);
-  } catch (std::exception& e) {
-      // NO_LINT_DEBUG
-      sql_print_error("Exception while adding meta data: %s", e.what());
-      DBUG_RETURN("");
+  if (!add_time_metadata(pt) || !add_db_metadata(pt))
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Error while adding meta data");
+    DBUG_RETURN("");
   }
 
   // write meta data with new stuff in the binlog
@@ -8536,48 +8665,57 @@ std::string THD::gen_trx_metadata()
   @see THD::write_trx_metadata
 
   @param meta_data_root Property tree object which represents the JSON
+  @return true if all good, false if error
 */
-void THD::add_time_metadata(ptree &meta_data_root)
+bool THD::add_time_metadata(ptree &meta_data_root)
 {
   DBUG_ENTER("THD::add_time_metadata");
   DBUG_ASSERT(opt_binlog_trx_meta_data);
 
-  // get existing timestamps
-  ptree timestamps= meta_data_root.get_child("ts", ptree());
+  try {
+    // get existing timestamps
+    ptree timestamps= meta_data_root.get_child("ts", ptree());
 
-  // add our timestamp to the array
-  ptree timestamp;
-  ulonglong millis=
-    std::chrono::duration_cast<std::chrono::milliseconds>
-      (std::chrono::system_clock::now().time_since_epoch()).count();
-  timestamp.put("", millis);
-  timestamps.push_back(std::make_pair("", timestamp));
+    // add our timestamp to the array
+    ptree timestamp;
+    ulonglong millis=
+      std::chrono::duration_cast<std::chrono::milliseconds>
+        (std::chrono::system_clock::now().time_since_epoch()).count();
+    timestamp.put("", millis);
+    timestamps.push_back(std::make_pair("", timestamp));
 
-  // update timestamps in root
-  meta_data_root.erase("ts");
-  meta_data_root.add_child("ts", timestamps);
+    // update timestamps in root
+    meta_data_root.erase("ts");
+    meta_data_root.add_child("ts", timestamps);
+  } catch (std::exception& e) {
+    // NO_LINT_DEBUG
+    sql_print_error("Exception while writing time meta data: %s", e.what());
+    DBUG_RETURN(false);
+  }
 
-  DBUG_VOID_RETURN;
+  DBUG_RETURN(true);
 }
 
-void THD::add_db_metadata(ptree &meta_data_root)
+bool THD::add_db_metadata(ptree &meta_data_root)
 {
   DBUG_ENTER("THD::add_db_meta_data");
   DBUG_ASSERT(opt_binlog_trx_meta_data);
 
-  if (!db_metadata.empty())
+  mysql_mutex_lock(&LOCK_db_metadata);
+  std::string local_db_metadata= db_metadata;
+  mysql_mutex_unlock(&LOCK_db_metadata);
+
+  if (!local_db_metadata.empty())
   {
     ptree db_metadata_root;
-    mysql_mutex_lock(&LOCK_db_metadata);
-    std::istringstream is(db_metadata);
-    mysql_mutex_unlock(&LOCK_db_metadata);
+    std::istringstream is(local_db_metadata);
     try {
       read_json(is, db_metadata_root);
     } catch (std::exception& e) {
       // NO_LINT_DEBUG
-      sql_print_error("Exception while reading meta data: %s, JSON: %s",
-                       e.what(), db_metadata.c_str());
-      DBUG_VOID_RETURN;
+      sql_print_error("Exception while reading DB meta data: %s, JSON: %s",
+                       e.what(), local_db_metadata.c_str());
+      DBUG_RETURN(false);
     }
     // flatten DB metadata into trx metadata
     for (auto& node : db_metadata_root)
@@ -8587,8 +8725,9 @@ void THD::add_db_metadata(ptree &meta_data_root)
     }
   }
 
-  DBUG_VOID_RETURN;
+  DBUG_RETURN(true);
 }
+#endif
 
 /**
   This function writes a table map to the binary log.

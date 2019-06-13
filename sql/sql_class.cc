@@ -77,6 +77,7 @@
 
 using std::min;
 using std::max;
+using boost::property_tree::ptree;
 
 /*
   The following is used to initialise Table_ident with a internal

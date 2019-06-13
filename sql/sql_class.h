@@ -57,8 +57,13 @@
 #include "sql_db.h"
 #include "rpl_master.h"
 
+#ifdef HAVE_RAPIDJSON
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#else
 #include <boost/property_tree/ptree.hpp>
 using boost::property_tree::ptree;
+#endif
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
@@ -2707,8 +2712,13 @@ public:
   void binlog_prepare_row_images(TABLE* table, bool is_update);
 
   std::string gen_trx_metadata();
-  void add_time_metadata(ptree &meta_data_root);
-  void add_db_metadata(ptree &meta_data_root);
+#ifdef HAVE_RAPIDJSON
+  bool add_time_metadata(rapidjson::Document &meta_data_root);
+  bool add_db_metadata(rapidjson::Document &meta_data_root);
+#else
+  bool add_time_metadata(ptree &meta_data_root);
+  bool add_db_metadata(ptree &meta_data_root);
+#endif
 
   void set_server_id(uint32 sid) { server_id = sid; }
 
