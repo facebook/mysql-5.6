@@ -312,6 +312,13 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   // overrun level is symmetric to underrun (as underrun to the full queue)
   overrun_level= jobs.size - underrun_level;
 
+  // copy these over for easy access
+  mts_dependency_replication= c_rli->mts_dependency_replication;
+  mts_dependency_size= c_rli->mts_dependency_size;
+  mts_dependency_refill_threshold= c_rli->mts_dependency_refill_threshold;
+  mts_dependency_max_keys= c_rli->mts_dependency_max_keys;
+  mts_dependency_order_commits= c_rli->mts_dependency_order_commits;
+
   DBUG_RETURN(0);
 }
 
@@ -1863,7 +1870,7 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
 void wait_for_dep_workers_to_finish(Relay_log_info *rli,
                                     const bool partial_trx)
 {
-  DBUG_ASSERT(opt_mts_dependency_replication);
+  DBUG_ASSERT(rli->mts_dependency_replication);
   PSI_stage_info old_stage;
 
   mysql_mutex_lock(&rli->dep_lock);
@@ -1923,7 +1930,7 @@ int wait_for_workers_to_finish(Relay_log_info *rli, Slave_worker *ignore)
                           const_cast<Relay_log_info*>(rli)->get_event_relay_log_name(),
                           llbuf);
 
-  if (opt_mts_dependency_replication)
+  if (rli->mts_dependency_replication)
   {
     DBUG_ASSERT(ignore == NULL);
     wait_for_dep_workers_to_finish(rli, false);
@@ -2103,7 +2110,7 @@ bool append_item_to_jobs(slave_job_item *job_item,
   PSI_stage_info old_stage;
 
 
-  DBUG_ASSERT(opt_mts_dependency_replication || thd == current_thd);
+  DBUG_ASSERT(rli->mts_dependency_replication || thd == current_thd);
 
   if (ev_size > rli->mts_pending_jobs_size_max)
   {
@@ -2454,7 +2461,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   worker->current_event_index++;
   ev= static_cast<Log_event*>(job_item->data);
 
-  if (opt_mts_dependency_replication)
+  if (rli->mts_dependency_replication)
   {
     Slave_job_group *ptr_g= rli->gaq->get_job_group(ev->mts_group_idx);
     ptr_g->worker= worker;
@@ -2483,7 +2490,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   {
     if (part_event)
     {
-      if (!opt_mts_dependency_replication)
+      if (!rli->mts_dependency_replication)
       {
         uint num_dbs=  ev->mts_number_dbs();
         DYNAMIC_ARRAY *ep= &worker->curr_group_exec_parts;

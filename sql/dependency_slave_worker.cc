@@ -39,7 +39,7 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
   // case: place ourselves in the commit order queue
   if (ret && co_mngr != NULL)
   {
-    DBUG_ASSERT(opt_mts_dependency_order_commits);
+    DBUG_ASSERT(c_rli->mts_dependency_order_commits);
     set_current_db(ret->get_db());
     co_mngr->register_trx(this);
   }
@@ -54,7 +54,8 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
     DBUG_ASSERT(c_rli->dep_queue.size() > 0);
     // case: signal if dep has space
     if (c_rli->dep_queue.size() <
-        (opt_mts_dependency_size * opt_mts_dependency_refill_threshold / 100))
+        (c_rli->mts_dependency_size *
+         c_rli->mts_dependency_refill_threshold / 100))
     {
       c_rli->dep_full= false;
       mysql_cond_signal(&c_rli->dep_full_cond);

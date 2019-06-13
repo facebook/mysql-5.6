@@ -4188,7 +4188,7 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
 
     if (!exec_res && (ev->worker != rli))
     {
-      if (opt_mts_dependency_replication)
+      if (rli->mts_dependency_replication)
       {
         DBUG_ASSERT(ev->worker == NULL);
         ev->schedule_dep(rli);
@@ -5633,7 +5633,7 @@ pthread_handler_t handle_slave_worker(void *arg)
 
   DBUG_ASSERT(thd->is_slave_error == 0);
 
-  if (opt_mts_dependency_replication)
+  if (rli->mts_dependency_replication)
   {
     static_cast<Dependency_slave_worker*>(w)->start();
   }
@@ -6127,14 +6127,14 @@ bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
   // case: rebalance workers should be called only when the current event
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance == TRUE &&
-      !opt_mts_dependency_replication &&
+      !rli->mts_dependency_replication &&
       !rli->curr_group_seen_begin && !rli->curr_group_seen_gtid &&
       !rli->sql_thread_kill_accepted)
   {
     rebalance_workers(rli);
   }
 
-  if (!opt_mts_dependency_replication)
+  if (!rli->mts_dependency_replication)
   {
     /* TODO:
        to turn the least occupied selection in terms of jobs pieces
@@ -6412,7 +6412,7 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
                            Relay_log_info::UNTIL_NONE)?
                            rli->mts_groups_assigned:0;
 
-  if (opt_mts_dependency_replication)
+  if (rli->mts_dependency_replication)
   {
     mysql_mutex_lock(&rli->dep_lock);
     // figure out if any worker thread is working on a partially scheduled
@@ -6614,7 +6614,13 @@ pthread_handler_t handle_slave_sql(void *arg)
   rli->info_thd= thd;
   mysql_mutex_unlock(&rli->info_thd_lock);
 
-  if (opt_mts_dependency_replication &&
+  rli->mts_dependency_replication= opt_mts_dependency_replication;
+  rli->mts_dependency_size= opt_mts_dependency_size;
+  rli->mts_dependency_refill_threshold= opt_mts_dependency_refill_threshold;
+  rli->mts_dependency_max_keys= opt_mts_dependency_max_keys;
+  rli->mts_dependency_order_commits= opt_mts_dependency_order_commits;
+
+  if (rli->mts_dependency_replication &&
       !slave_use_idempotent_for_recovery_options)
   {
     sql_print_error("mts_dependency_replication is enabled but "
@@ -6626,7 +6632,7 @@ pthread_handler_t handle_slave_sql(void *arg)
   rli->info_thd->variables.tx_isolation=
     static_cast<enum_tx_isolation>(slave_tx_isolation);
 
-  if (opt_mts_dependency_order_commits && opt_mts_dependency_replication &&
+  if (rli->mts_dependency_order_commits && rli->mts_dependency_replication &&
       rli->opt_slave_parallel_workers > 0 &&
       opt_bin_log && opt_log_slave_updates)
     commit_order_mngr=

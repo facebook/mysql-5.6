@@ -1119,6 +1119,13 @@ public:
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
   /* Related to dependency tracking */
 
+  /* Cached global variables */
+  ulong mts_dependency_replication= 0;
+  ulonglong mts_dependency_size= 0;
+  double mts_dependency_refill_threshold= 0;
+  ulonglong mts_dependency_max_keys= 0;
+  my_bool mts_dependency_order_commits= TRUE;
+
   std::deque<std::shared_ptr<Log_event_wrapper>> dep_queue;
   mysql_mutex_t dep_lock;
 
