@@ -381,7 +381,7 @@ static int rocksdb_trace_block_cache_access(
           "RocksDB: Failed to parse trace option string: %s. The correct "
           "format is sampling_frequency:max_trace_file_size:trace_file_path. "
           "sampling_frequency and max_trace_file_size are positive integers. "
-          "The block accesses are saved to the trace_file_path. \n",
+          "The block accesses are saved to the trace_file_path.\n",
           trace_opt_str.c_str());
       return HA_EXIT_FAILURE;
     }
@@ -394,14 +394,14 @@ static int rocksdb_trace_block_cache_access(
           "RocksDB: Failed to parse trace option string: %s. The correct "
           "format is sampling_frequency:max_trace_file_size:trace_file_path. "
           "sampling_frequency and max_trace_file_size are positive integers. "
-          "The block accesses are saved to the trace_file_path. \n",
+          "The block accesses are saved to the trace_file_path.\n",
           trace_opt_str.c_str());
       return HA_EXIT_FAILURE;
     }
-    std::string trace_file_path = trace_opts_strs[2];
+    const std::string trace_file_path = trace_opts_strs[2];
     sql_print_information(
         "RocksDB: Start tracing block cache accesses. Sampling frequency: %lu, "
-        "Maximum trace file size: %lu, Trace file path %s\n",
+        "Maximum trace file size: %lu, Trace file path %s.\n",
         trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
         trace_file_path.c_str());
     std::unique_ptr<rocksdb::TraceWriter> trace_writer;
@@ -1948,10 +1948,15 @@ static MYSQL_SYSVAR_BOOL(
     "insertion attempt in INSERT ON DUPLICATE KEY UPDATE",
     nullptr, nullptr, TRUE);
 
-static MYSQL_SYSVAR_STR(trace_block_cache_access, rocksdb_block_cache_trace_options_str,
-                        PLUGIN_VAR_RQCMDARG, "Block cache trace file path",
-                        rocksdb_trace_block_cache_access,
-                        rocksdb_trace_block_cache_access_stub, "");
+static MYSQL_SYSVAR_STR(
+    trace_block_cache_access, rocksdb_block_cache_trace_options_str,
+    PLUGIN_VAR_RQCMDARG,
+    "Block cache trace option string. The format is "
+    "sampling_frequency:max_trace_file_size:trace_file_path. "
+    "sampling_frequency and max_trace_file_size are positive integers. The "
+    "block accesses are saved to the trace_file_path.",
+    rocksdb_trace_block_cache_access, rocksdb_trace_block_cache_access_stub,
+    "");
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
