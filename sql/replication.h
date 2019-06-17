@@ -154,6 +154,17 @@ typedef struct Binlog_storage_observer {
   */
   int (*after_flush)(Binlog_storage_param *param,
                      const char *log_file, my_off_t log_pos);
+
+  /**
+     This callback is called before events of a txn are written to binlog file
+
+     @param param Observer common parameter
+     @param cache IO_CACHE containing binlog events for the txn
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache);
 } Binlog_storage_observer;
 
 /**
