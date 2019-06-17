@@ -1181,6 +1181,20 @@ void remove_global_thread(THD *thd)
 {
   DBUG_PRINT("info", ("remove_global_thread %p current_linfo %p",
                       thd, thd->current_linfo));
+
+#ifdef HAVE_REPLICATION
+  /*
+    It is possible when a slave connection dies after register_slave,
+    it may end up leaking SLAVE_INFO structure with a dangling THD pointer
+    In most cases it may be freed by the same slave with the same server_id
+    when it register itself again with the same server_id, but if the
+    server_id ends up being different the entry could be leaked forever and
+    with an invalid THD pointer
+    To address this issue, we let the THD remove itself from the slave list
+  */
+  unregister_slave(thd, true, true);
+#endif
+
   mutex_lock_shard(SHARDED(&LOCK_thd_remove), thd);
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   DBUG_ASSERT(thd->release_resources_done());
