@@ -132,8 +132,9 @@ static std::string test_part_result_type_tostring(TestPartResult::Type type)
   case TestPartResult::kNonFatalFailure:
   case TestPartResult::kFatalFailure:
     return "Failure";
+  default:
+    return "";
   }
-  return "";
 }
 
 
