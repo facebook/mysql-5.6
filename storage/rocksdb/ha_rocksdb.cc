@@ -13639,12 +13639,8 @@ static int rocksdb_validate_update_cf_options(
   int length;
   length = sizeof(buff);
   str = value->val_str(value, buff, &length);
-  // In some cases, str can point to buff in the stack.
-  // This can cause invalid memory access after validation is finished.
-  // To avoid this kind case, let's alway duplicate the str if str is not
-  // nullptr
-  *(const char **)save = (str == nullptr) ? nullptr : my_strdup(str, MYF(0));
 
+  *(const char **)save = nullptr;
   if (str == nullptr) {
     return HA_EXIT_SUCCESS;
   }
@@ -13657,11 +13653,18 @@ static int rocksdb_validate_update_cf_options(
     my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "rocksdb_update_cf_options", str);
     return HA_EXIT_FAILURE;
   }
+
   // Loop through option_map and create missing column families
   for (Rdb_cf_options::Name_to_config_t::iterator it = option_map.begin();
        it != option_map.end(); ++it) {
     cf_manager.get_or_create_cf(rdb, it->first);
   }
+
+  // In some cases, str can point to buff in the stack.
+  // This can cause invalid memory access after validation is finished.
+  // To avoid this kind case, let's alway duplicate the str.
+  *(const char **)save = my_strdup(str, MYF(0));
+
   return HA_EXIT_SUCCESS;
 }
 
