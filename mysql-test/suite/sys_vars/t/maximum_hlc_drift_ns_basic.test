@@ -1,0 +1,45 @@
+-- source include/load_sysvars.inc
+-- source include/have_debug.inc
+-- source include/not_valgrind.inc
+
+####
+# Verify default value 300000000000
+####
+--echo Default value of maximum_hlc_drift_ns is 300000000000 ns (300 secs)
+SELECT @@global.maximum_hlc_drift_ns;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.maximum_hlc_drift_ns;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo maximum_hlc_drift_ns is a dynamic variable
+SET @@global.maximum_hlc_drift_ns = 1;
+SELECT @@global.maximum_hlc_drift_ns;
+
+SET @@global.maximum_hlc_drift_ns = 0;
+SELECT @@global.maximum_hlc_drift_ns;
+
+
+###
+## Verify that we cannot set minimum_hlc_ns beyond maximum_hlc_drift_ns
+###
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.minimum_hlc_ns= 2538630000000000000; # ~2050 AD
+select @@global.minimum_hlc_ns;
+
+###
+## Verify that having a higher value for maximum_hlc_drift_ns should allow us to
+## set a higher minimum_hlc_ns
+###
+SET @@global.maximum_hlc_drift_ns = 3154000000000000000; # ~100 years into future
+SELECT @@global.maximum_hlc_drift_ns;
+SET @@global.minimum_hlc_ns= 2538630000000000000; # ~2050 AD
+
+SET @@global.maximum_hlc_drift_ns = default;
+SET @@global.minimum_hlc_ns = default;

@@ -1082,6 +1082,13 @@ Sid_map *global_sid_map= NULL;
 Gtid_state *gtid_state= NULL;
 extern my_bool opt_core_file;
 
+/* Minimum HLC value for this instance. It is ensured that the next 'event' will
+   get a HLC timestamp greater than this value */
+ulonglong minimum_hlc_ns= 0;
+
+/* Maximum allowed forward drift in the HLC as compared to wall clock */
+ulonglong maximum_hlc_drift_ns= 0;
+
 std::unique_ptr<HHWheelTimer> hhWheelTimer;
 
 /*

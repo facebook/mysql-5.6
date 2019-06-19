@@ -934,6 +934,16 @@ void check_binlog_stmt_cache_size(THD *thd)
 }
 
 /**
+  Updates the HLC tracked by the binlog to a value greater than or equal to the
+  one specified in minimum_hlc_ns global system variable
+  */
+void update_binlog_hlc()
+{
+  // Update HLC
+  mysql_bin_log.update_hlc(minimum_hlc_ns);
+}
+
+/**
  Check whether binlog_hton has valid slot and enabled
 */
 bool binlog_enabled()
@@ -1691,6 +1701,56 @@ void Stage_manager::clear_preempt_status(THD *head)
   mysql_mutex_unlock(&m_lock_done);
 }
 #endif
+
+uint64_t HybridLogicalClock::get_next()
+{
+  uint64_t current_hlc, next_hlc;
+  bool done= false;
+
+  while (!done)
+  {
+    // Get the current wall clock in nanosecond precision
+    uint64_t current_wall_clock=
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+       std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+
+    // get the 'current' internal HLC
+    current_hlc= current_.load();
+
+    // Next HLC timestamp is max of current-hlc and current-wall-clock
+    next_hlc= std::max(current_hlc + 1, current_wall_clock);
+
+    // Conditionally update the internal hlc
+    done= current_.compare_exchange_strong(current_hlc, next_hlc);
+  }
+
+  return next_hlc;
+}
+
+uint64_t HybridLogicalClock::get_current()
+{
+  return current_.load();
+}
+
+uint64_t HybridLogicalClock::update(uint64_t minimum_hlc)
+{
+  uint64_t current_hlc, new_min_hlc;
+  bool done= false;
+
+  while (!done)
+  {
+    // get the 'current' internal HLC
+    current_hlc= current_.load();
+
+    // Next HLC timestamp is max of current-hlc, minimum-hlc
+    new_min_hlc= std::max(minimum_hlc, current_hlc);
+
+    // Conditionally update the internal hlc
+    done= current_.compare_exchange_strong(current_hlc, new_min_hlc);
+  }
+
+  return new_min_hlc;
+}
 
 /**
   Write a rollback record of the transaction to the binary log.

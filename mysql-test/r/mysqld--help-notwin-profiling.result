@@ -660,6 +660,12 @@ The following options may be given as the first argument:
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
+ --maximum-hlc-drift-ns[=#] 
+ Maximum value that the local HLC can be allowed to drift
+ forward from the wall clock (in nanoseconds). This limit
+ is only used when setting a lower/minimum bound on HLC
+ using minimum_hlc_ns system variable. The default value
+ is 300 secs
  --memlock           Lock mysqld in memory.
  --metadata-locks-cache-size=# 
  Size of unused metadata locks cache
@@ -668,6 +674,12 @@ The following options may be given as the first argument:
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
+ --minimum-hlc-ns[=#] 
+ Sets the minimum HLC value for the instance (in
+ nanoseconds). Any HLC timestamp doled out after
+ minimum_hlc_ns is successfully updated is guranteed to be
+ greater than this value. The maximum allowed drift 
+ (forward) is controlled by maximum_hlc_drift_ns
  --mts-dependency-max-keys[=#] 
  Max number of keys in a transaction after which it will
  be executed in isolation. This limits the amount of
@@ -2128,10 +2140,12 @@ max-tmp-tables 32
 max-user-connections 0
 max-waiting-queries 0
 max-write-lock-count 18446744073709551615
+maximum-hlc-drift-ns 300000000000
 memlock FALSE
 metadata-locks-cache-size 1024
 metadata-locks-hash-instances 256
 min-examined-row-limit 0
+minimum-hlc-ns 0
 mts-dependency-max-keys 100000
 mts-dependency-order-commits TRUE
 mts-dependency-refill-threshold 60
