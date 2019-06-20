@@ -1576,6 +1576,12 @@ The following options may be given as the first argument:
  Enable table scan based index calculation.
  --rocksdb-tmpdir[=name] 
  Directory for temporary files during DDL operations.
+ --rocksdb-trace-block-cache-access=name 
+ Block cache trace option string. The format is
+ sampling_frequency:max_trace_file_size:trace_file_name.
+ sampling_frequency and max_trace_file_size are positive
+ integers. The block accesses are saved to the
+ rocksdb_datadir/block_cache_traces/trace_file_name.
  --rocksdb-trace-sst-api 
  Generate trace output in the log for each call to the
  SstFileWriter
@@ -2443,6 +2449,7 @@ rocksdb-table-stats-recalc-threshold-pct 10
 rocksdb-table-stats-sampling-pct 10
 rocksdb-table-stats-use-table-scan FALSE
 rocksdb-tmpdir (No default value)
+rocksdb-trace-block-cache-access (No default value)
 rocksdb-trace-sst-api FALSE
 rocksdb-trx ON
 rocksdb-two-write-queues TRUE
