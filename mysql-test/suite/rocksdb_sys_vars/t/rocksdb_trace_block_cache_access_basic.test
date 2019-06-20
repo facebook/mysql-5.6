@@ -1,0 +1,61 @@
+--source include/have_rocksdb.inc
+
+SET @start_global_value = @@global.rocksdb_trace_block_cache_access;
+
+# End tracing.
+set global rocksdb_trace_block_cache_access='';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_block_cache_access';
+
+# Exists.
+select * from information_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
+
+# Start tracing.
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_block_cache_access';
+
+# End tracing.
+set global rocksdb_trace_block_cache_access='';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_block_cache_access';
+
+# Start tracing again with the same trace file path reports failure.
+--error 1231
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
+
+# Incorrect types
+--error ER_WRONG_TYPE_FOR_VAR
+set global rocksdb_trace_block_cache_access=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+set global rocksdb_trace_block_cache_access=NULL;
+
+# Incorrect arguments
+--error 1231
+set global rocksdb_trace_block_cache_access='1:1024';
+--error 1231
+set global rocksdb_trace_block_cache_access='1:';
+--error 1231
+set global rocksdb_trace_block_cache_access='test:test:test_trace_file_2';
+--error 1231
+set global rocksdb_trace_block_cache_access='test:test:/test_trace_file_2';
+--error 1231
+set global rocksdb_trace_block_cache_access='test:test:test_trace_file_/2';
+--error 1231
+set global rocksdb_trace_block_cache_access='test:test:../test_trace_file_2';
+--error 1231
+set global rocksdb_trace_block_cache_access='test:test:test_trace_../file_2';
+
+# Start tracing twice.
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_3';
+# Start tracing again reports a failure since the tracing is started already.
+--error 1296
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_4';
+show global variables like 'rocksdb_trace_block_cache_access';
+
+# Cleanup
+SET @@global.rocksdb_trace_block_cache_access = @start_global_value;
+SELECT @@global.rocksdb_trace_block_cache_access;
