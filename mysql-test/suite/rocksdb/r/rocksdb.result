@@ -979,6 +979,7 @@ rocksdb_table_stats_recalc_threshold_pct	10
 rocksdb_table_stats_sampling_pct	10
 rocksdb_table_stats_use_table_scan	OFF
 rocksdb_tmpdir	
+rocksdb_trace_block_cache_access	
 rocksdb_trace_sst_api	OFF
 rocksdb_two_write_queues	ON
 rocksdb_unsafe_for_binlog	OFF
