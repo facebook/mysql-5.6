@@ -1,0 +1,46 @@
+SET @start_global_value = @@global.rocksdb_trace_block_cache_access;
+set global rocksdb_trace_block_cache_access='';
+show global variables like 'rocksdb_trace_block_cache_access';
+Variable_name	Value
+rocksdb_trace_block_cache_access	
+select * from information_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
+VARIABLE_NAME	VARIABLE_VALUE
+ROCKSDB_TRACE_BLOCK_CACHE_ACCESS	
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
+show global variables like 'rocksdb_trace_block_cache_access';
+Variable_name	Value
+rocksdb_trace_block_cache_access	1:1024:test_trace_file_1
+set global rocksdb_trace_block_cache_access='';
+show global variables like 'rocksdb_trace_block_cache_access';
+Variable_name	Value
+rocksdb_trace_block_cache_access	
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of '1:1024:test_trace_file_1'
+set global rocksdb_trace_block_cache_access=1.1;
+ERROR 42000: Incorrect argument type to variable 'rocksdb_trace_block_cache_access'
+set global rocksdb_trace_block_cache_access=NULL;
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'NULL'
+set global rocksdb_trace_block_cache_access='1:1024';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of '1:1024'
+set global rocksdb_trace_block_cache_access='1:';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of '1:'
+set global rocksdb_trace_block_cache_access='test:test:test_trace_file_2';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'test:test:test_trace_file_2'
+set global rocksdb_trace_block_cache_access='test:test:/test_trace_file_2';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'test:test:/test_trace_file_2'
+set global rocksdb_trace_block_cache_access='test:test:test_trace_file_/2';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'test:test:test_trace_file_/2'
+set global rocksdb_trace_block_cache_access='test:test:../test_trace_file_2';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'test:test:../test_trace_file_2'
+set global rocksdb_trace_block_cache_access='test:test:test_trace_../file_2';
+ERROR 42000: Variable 'rocksdb_trace_block_cache_access' can't be set to the value of 'test:test:test_trace_../file_2'
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_3';
+set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_4';
+ERROR HY000: Got error 11 'Resource busy: ' from ROCKSDB
+show global variables like 'rocksdb_trace_block_cache_access';
+Variable_name	Value
+rocksdb_trace_block_cache_access	1:1024:test_trace_file_3
+SET @@global.rocksdb_trace_block_cache_access = @start_global_value;
+SELECT @@global.rocksdb_trace_block_cache_access;
+@@global.rocksdb_trace_block_cache_access
+
