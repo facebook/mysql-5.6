@@ -6,16 +6,17 @@ source suite/rocksdb_hotbackup/include/setup.inc;
 
 --exec suite/rocksdb_hotbackup/include/load_data_and_run.sh 2>&1
 
+# The binlogs are also copied, but roll forward after recovery will
+# does not update the storage engine's binlog offset and gtid, so
+# truncate the binlog to prevent this.
+--exec truncate -s 147 $MYSQLTEST_VARDIR/mysqld.2/data/mysqld-bin.0*
+
 --let $rpl_server_number= 2
 --source include/rpl_start_server.inc
 
 connection server_2;
 let $num_rows = `select count(*) from db1.t1`;
-let $max_id = `select id from db1.t1 order by id desc limit 1`;
 
-if($num_rows != $max_id) {
-  echo Number of rows($num_rows) and last_id($max_id) does not match;
-}
 if($num_rows < 250000) {
   echo Number of rows($num_rows) is less than 250000;
 }
