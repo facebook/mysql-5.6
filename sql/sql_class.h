@@ -1805,6 +1805,7 @@ public:
 
 extern Slow_log_throttle log_throttle_qni;
 extern Slow_log_throttle log_throttle_legacy;
+extern Slow_log_throttle log_throttle_ddl;
 
 
 /**

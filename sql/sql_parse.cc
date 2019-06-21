@@ -296,6 +296,12 @@ Slow_log_throttle log_throttle_legacy(&opt_log_throttle_legacy_user,
                                       "throttle: %10lu 'legacy user' "
                                       "warning(s) suppressed.");
 
+Slow_log_throttle log_throttle_ddl(&opt_log_throttle_ddl,
+                                   &LOCK_log_throttle_ddl,
+                                   Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
+                                   slow_log_print,
+                                   "throttle: %10lu 'ddl' "
+                                   "warning(s) suppressed.");
 
 #ifdef HAVE_REPLICATION
 /**
@@ -2019,7 +2025,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       thd->is_in_ac = false;
     }
     /* Need to set error to true for graceful shutdown */
-    if((thd->lex->sql_command == SQLCOM_SHUTDOWN) && (thd->get_stmt_da()->is_ok()))
+    if((thd->lex->sql_command == SQLCOM_SHUTDOWN)
+        && (thd->get_stmt_da()->is_ok()))
       error= TRUE;
 
     DBUG_PRINT("info",("query ready"));
@@ -2403,6 +2410,21 @@ done:
   if (!thd->is_error() && !thd->killed_errno())
     mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_RESULT, 0, 0);
 
+  if (log_ddl) {
+    // log to slow log here for a pre-defined set of ddls
+    auto it = slow_log_ddls.find(thd->lex->sql_command);
+    if (it != slow_log_ddls.end() &&
+      !log_throttle_ddl.log(thd, true)) {
+      /* log the ddl */
+      bool old_enable_slow_log= thd->enable_slow_log;
+      thd->enable_slow_log= TRUE;
+      auto output= it->second + ": "
+                 + get_user_query_info_from_thd(thd);
+      slow_log_print(thd, output.c_str(), output.size(), &(thd->status_var));
+      thd->enable_slow_log= old_enable_slow_log;
+    }
+  }
+
   mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_STATUS,
                       thd->get_stmt_da()->is_error() ?
                       thd->get_stmt_da()->sql_errno() : 0,
@@ -2509,7 +2531,8 @@ done:
   @retval
     true                 success
   @retval
-    false                When user has insufficient privilege or unsupported shutdown level
+    false                When user has insufficient privilege
+                         or unsupported shutdown level
 
 */
 #ifndef EMBEDDED_LIBRARY
@@ -2550,6 +2573,7 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
   DBUG_PRINT("quit",("Got shutdown command for level %u, exit code %u",
              level, exit_code));
   general_log_write(thd, command, NullS, 0);
+  // NO_LINT_DEBUG
   sql_print_information(
      "[SQL]COM_SHUTDOWN received from host/user = %s/%s, exit code %u",
      thd->security_ctx->host_or_ip,
@@ -3562,23 +3586,8 @@ mysql_execute_command(THD *thd,
       if (match && !log_throttle_legacy.log(thd, match)) // not suppressed
       {
         /* log the legacy user name */
-        auto output= std::string("LEGACY_USER: ") + thd->security_ctx->user;
-        if (thd->security_ctx->host_or_ip)
-        {
-          // log the hostname or ip
-          output += std::string("@") + thd->security_ctx->host_or_ip;
-        }
-        if (thd->db)
-        {
-          /* log the session DB */
-          output += std::string(" on ") + thd->db;
-        }
-        if (thd->query_length())
-        {
-          /* log the query */
-          output += ", query: ";
-          output += std::string(thd->query(), thd->query_length());
-        }
+        auto output= std::string("LEGACY_USER: ")
+                   + get_user_query_info_from_thd(thd);
         slow_log_print(thd, output.c_str(), output.size(), &(thd->status_var));
       }
     }
@@ -10131,4 +10140,32 @@ void get_active_master_info(std::string *str_ptr)
       }
     }
 #endif
+}
+
+std::string get_user_query_info_from_thd(THD* thd) {
+  DBUG_ASSERT(thd);
+
+  std::string user_info;
+  if (thd->security_ctx->user) {
+    // log the user
+    user_info += thd->security_ctx->user;
+  }
+  if (thd->security_ctx->host_or_ip)
+  {
+    // log the hostname or ip
+    user_info += std::string("@") + thd->security_ctx->host_or_ip;
+  }
+  if (thd->db)
+  {
+    /* log the session DB */
+    user_info += std::string(" on ") + thd->db;
+  }
+  if (thd->query_length())
+  {
+    /* log the query */
+    user_info += ", query: ";
+    user_info += std::string(thd->query(), thd->query_length());
+  }
+
+  return user_info;
 }

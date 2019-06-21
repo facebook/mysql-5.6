@@ -36,6 +36,16 @@ enum enum_mysql_completiontype {
   COMMIT_RELEASE=-1,   COMMIT=0,    COMMIT_AND_CHAIN=6
 };
 
+const std::unordered_map<int, std::string> slow_log_ddls= {
+  {SQLCOM_CREATE_TABLE, "CREATE_TABLE"},
+  {SQLCOM_ALTER_TABLE, "ALTER_TABLE"},
+  {SQLCOM_DROP_TABLE, "DROP_TABLE"},
+  {SQLCOM_CREATE_INDEX, "CREATE_INDEX"},
+  {SQLCOM_DROP_INDEX, "DROP_INDEX"},
+  {SQLCOM_RENAME_TABLE, "RENAME_TABLE"},
+  {SQLCOM_TRUNCATE, "TRUNCATE_TABLE"}
+};
+
 extern "C" int test_if_data_home_dir(const char *dir);
 
 bool stmt_causes_implicit_commit(const THD *thd, uint mask);
@@ -280,4 +290,5 @@ extern "C" bool sqlcom_can_generate_row_events(enum enum_sql_command command);
 
 void get_active_master_info(std::string *str);
 
+std::string get_user_query_info_from_thd(THD* thd);
 #endif /* SQL_PARSE_INCLUDED */

@@ -290,6 +290,7 @@ extern ulong log_backup_output_options;
 extern my_bool opt_log_queries_not_using_indexes;
 extern ulong opt_log_throttle_queries_not_using_indexes;
 extern ulong opt_log_throttle_legacy_user;
+extern ulong opt_log_throttle_ddl;
 extern ulong opt_log_throttle_sbr_unsafe_queries;
 extern bool log_sbr_unsafe;
 extern my_bool opt_disable_working_set_size;
@@ -391,6 +392,7 @@ extern char *opt_gap_lock_exception_list;
 extern my_bool legacy_global_read_lock_mode;
 
 extern my_bool log_legacy_user;
+extern my_bool log_ddl;
 extern const char *opt_legacy_user_name_pattern;
 
 extern int32 thread_binlog_client;
@@ -1119,6 +1121,7 @@ extern PSI_mutex_key
   key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
+  key_LOCK_log_throttle_ddl,
   key_gtid_info_run_lock,
   key_gtid_info_data_lock,
   key_gtid_info_sleep_lock,
@@ -1390,7 +1393,7 @@ extern mysql_mutex_t
        LOCK_delayed_status, LOCK_delayed_create, LOCK_crypt, LOCK_timezone,
        LOCK_slave_list, LOCK_active_mi, LOCK_manager,
        LOCK_global_system_variables, LOCK_user_conn, LOCK_log_throttle_qni,
-       LOCK_log_throttle_legacy,
+       LOCK_log_throttle_legacy, LOCK_log_throttle_ddl,
        LOCK_prepared_stmt_count, LOCK_error_messages, LOCK_connection_count,
        LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout,
        LOCK_log_throttle_sbr_unsafe;

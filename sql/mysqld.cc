@@ -476,6 +476,7 @@ my_bool opt_log_queries_not_using_indexes= 0;
 my_bool opt_disable_working_set_size = 0;
 ulong opt_log_throttle_queries_not_using_indexes= 0;
 ulong opt_log_throttle_legacy_user= 0;
+ulong opt_log_throttle_ddl= 0;
 bool log_sbr_unsafe = 0;
 ulong opt_log_throttle_sbr_unsafe_queries = 0;
 bool opt_improved_dup_key_error= 0;
@@ -497,6 +498,7 @@ bool enable_blind_replace= 0;
 my_bool async_query_counter_enabled = 0;
 
 my_bool log_legacy_user;
+my_bool log_ddl;
 const char *opt_legacy_user_name_pattern;
 Regex_list_handler *legacy_user_name_pattern;
 
@@ -1004,6 +1006,7 @@ mysql_mutex_t LOCK_sql_slave_skip_counter;
 mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_log_throttle_qni;
 mysql_mutex_t LOCK_log_throttle_legacy;
+mysql_mutex_t LOCK_log_throttle_ddl;
 mysql_mutex_t LOCK_log_throttle_sbr_unsafe;
 
 #ifdef HAVE_OPENSSL
@@ -2455,6 +2458,7 @@ static void clean_up_mutexes()
 #endif
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
   mysql_mutex_destroy(&LOCK_log_throttle_legacy);
+  mysql_mutex_destroy(&LOCK_log_throttle_ddl);
   mysql_mutex_destroy(&LOCK_log_throttle_sbr_unsafe);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_delayed_insert);
@@ -5394,6 +5398,8 @@ static int init_thread_environment()
                    &LOCK_log_throttle_qni, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_legacy,
                    &LOCK_log_throttle_legacy, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_log_throttle_ddl,
+                   &LOCK_log_throttle_ddl, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_sbr_unsafe,
                    &LOCK_log_throttle_sbr_unsafe, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_table_stats,
@@ -12475,6 +12481,7 @@ PSI_mutex_key
   key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
+  key_LOCK_log_throttle_ddl,
   key_gtid_info_run_lock,
   key_gtid_info_data_lock,
   key_gtid_info_sleep_lock,
@@ -12588,6 +12595,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_thd_remove, "LOCK_thd_remove", PSI_FLAG_GLOBAL},
   { &key_LOCK_log_throttle_qni, "LOCK_log_throttle_qni", PSI_FLAG_GLOBAL},
   { &key_LOCK_log_throttle_legacy, "LOCK_log_throttle_legacy", PSI_FLAG_GLOBAL},
+  { &key_LOCK_log_throttle_ddl, "LOCK_log_throttle_ddl", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_table_stats, "LOCK_global_table_stats", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },

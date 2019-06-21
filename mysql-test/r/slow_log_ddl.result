@@ -1,0 +1,77 @@
+set global log_output = 'TABLE';
+truncate mysql.slow_log;
+set @my_log_ddl = @@global.log_ddl;
+set global log_ddl = true;
+create table t1 (
+id1 int(10) unsigned not null default '0',
+primary key (id1));
+alter table t1 add id2 int(10) unsigned;
+create index sec_key on t1(id2);
+drop index sec_key on t1;
+truncate table t1;
+rename table t1 to t2;
+drop table t2;
+select @@global.log_throttle_ddl;
+@@global.log_throttle_ddl
+0
+set @my_log_throttle_ddl = @@global.log_throttle_ddl;
+set global log_throttle_ddl = 1;
+create table t2 (
+id1 int(10) unsigned not null default '0',
+primary key (id1));
+create table t3 (
+id1 int(10) unsigned not null default '0',
+primary key (id1));
+create table t4 (
+id1 int(10) unsigned not null default '0',
+primary key (id1));
+"There is one slow log entry for create table t1"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%CREATE_TABLE%create table t1%';
+user_host	db	sql_text
+root[root] @ localhost []	test	CREATE_TABLE: root@localhost on test, query: create table t1 (
+id1 int(10) unsigned not null default '0',
+primary key (id1))
+"There is one slow log entry for alter table t1"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%ALTER_TABLE%alter table t1%';
+user_host	db	sql_text
+root[root] @ localhost []	test	ALTER_TABLE: root@localhost on test, query: alter table t1 add id2 int(10) unsigned
+"There is one slow log entry for create index for t1"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%CREATE_INDEX%create index%t1%';
+user_host	db	sql_text
+root[root] @ localhost []	test	CREATE_INDEX: root@localhost on test, query: create index sec_key on t1(id2)
+"There is one slow log entry for drop index from t1"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%DROP_INDEX%drop index%t1%';
+user_host	db	sql_text
+root[root] @ localhost []	test	DROP_INDEX: root@localhost on test, query: drop index sec_key on t1
+"There is one slow log entry for truncate table t1"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%TRUNCATE_TABLE%truncate table t1%';
+user_host	db	sql_text
+root[root] @ localhost []	test	TRUNCATE_TABLE: root@localhost on test, query: truncate table t1
+"There is one slow log entry for rename table t1 to t2"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%RENAME_TABLE%rename table t1 to t2%';
+user_host	db	sql_text
+root[root] @ localhost []	test	RENAME_TABLE: root@localhost on test, query: rename table t1 to t2
+"There is one slow log entry for drop table t2"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%DROP_TABLE%drop table t2%';
+user_host	db	sql_text
+root[root] @ localhost []	test	DROP_TABLE: root@localhost on test, query: drop table t2
+"There is one slow log entry for create table t2"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%CREATE_TABLE%create table t2%';
+user_host	db	sql_text
+root[root] @ localhost []	test	CREATE_TABLE: root@localhost on test, query: create table t2 (
+id1 int(10) unsigned not null default '0',
+primary key (id1))
+"There is no slow log entry for create table t3"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%CREATE_TABLE%create table t3%';
+user_host	db	sql_text
+"There is one slow log entry for create table t4"
+select user_host, db, sql_text from mysql.slow_log where sql_text like '%CREATE_TABLE%create table t4%';
+user_host	db	sql_text
+root[root] @ localhost []	test	CREATE_TABLE: root@localhost on test, query: create table t4 (
+id1 int(10) unsigned not null default '0',
+primary key (id1))
+drop table t2, t3, t4;
+truncate mysql.slow_log;
+set global log_output = default;
+set @@global.log_ddl = @my_log_ddl;
+set @@global.log_throttle_ddl = @my_log_throttle_ddl;
