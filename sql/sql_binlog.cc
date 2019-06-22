@@ -81,6 +81,7 @@ static int check_event_type(int type, Relay_log_info *rli)
   case PRE_GA_WRITE_ROWS_EVENT:
   case PRE_GA_UPDATE_ROWS_EVENT:
   case PRE_GA_DELETE_ROWS_EVENT:
+  case METADATA_EVENT:
     /*
       Row events are only allowed if a Format_description_event has
       already been seen.

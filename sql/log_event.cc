@@ -689,6 +689,7 @@ const char* Log_event::get_type_str(Log_event_type type)
   case ROTATE_EVENT: return "Rotate";
   case INTVAR_EVENT: return "Intvar";
   case LOAD_EVENT:   return "Load";
+  case METADATA_EVENT:   return "Metadata";
   case NEW_LOAD_EVENT:   return "New_load";
   case CREATE_FILE_EVENT: return "Create_file";
   case APPEND_BLOCK_EVENT: return "Append_block";
@@ -1740,6 +1741,9 @@ Log_event* Log_event::read_log_event(const char* buf, uint event_len,
     case LOAD_EVENT:
       ev = new Load_log_event(buf, event_len, description_event);
       break;
+    case METADATA_EVENT:
+      ev = new Metadata_log_event(buf, event_len, description_event);
+      break;
     case NEW_LOAD_EVENT:
       ev = new Load_log_event(buf, event_len, description_event);
       break;
@@ -1871,10 +1875,8 @@ Log_event* Log_event::read_log_event(const char* buf, uint event_len,
     (because constructor is "void") ; so instead we leave the pointer we
     wanted to allocate (e.g. 'query') to 0 and we test it in is_valid().
     Same for Format_description_log_event, member 'post_header_len'.
-
-    SLAVE_EVENT is never used, so it should not be read ever.
   */
-  if (!ev || !ev->is_valid() || (event_type == SLAVE_EVENT))
+  if (!ev || !ev->is_valid())
   {
     DBUG_PRINT("error",("Found invalid event in binary log"));
 
@@ -6131,7 +6133,7 @@ Format_description_log_event(uint8 binlog_ver, const char* server_ver)
       post_header_len[ROTATE_EVENT-1]= ROTATE_HEADER_LEN;
       post_header_len[INTVAR_EVENT-1]= INTVAR_HEADER_LEN;
       post_header_len[LOAD_EVENT-1]= LOAD_HEADER_LEN;
-      post_header_len[SLAVE_EVENT-1]= 0;   /* Unused because the code for Slave log event was removed. (15th Oct. 2010) */
+      post_header_len[METADATA_EVENT-1]= METADATA_HEADER_LEN;
       post_header_len[CREATE_FILE_EVENT-1]= CREATE_FILE_HEADER_LEN;
       post_header_len[APPEND_BLOCK_EVENT-1]= APPEND_BLOCK_HEADER_LEN;
       post_header_len[EXEC_LOAD_EVENT-1]= EXEC_LOAD_HEADER_LEN;
@@ -6221,7 +6223,7 @@ Format_description_log_event(uint8 binlog_ver, const char* server_ver)
       post_header_len[ROTATE_EVENT-1]= (binlog_ver==1) ? 0 : ROTATE_HEADER_LEN;
       post_header_len[INTVAR_EVENT-1]= 0;
       post_header_len[LOAD_EVENT-1]= LOAD_HEADER_LEN;
-      post_header_len[SLAVE_EVENT-1]= 0;  /* Unused because the code for Slave log event was removed. (15th Oct. 2010) */
+      post_header_len[METADATA_EVENT-1]= METADATA_HEADER_LEN;
       post_header_len[CREATE_FILE_EVENT-1]= CREATE_FILE_HEADER_LEN;
       post_header_len[APPEND_BLOCK_EVENT-1]= APPEND_BLOCK_HEADER_LEN;
       post_header_len[EXEC_LOAD_EVENT-1]= EXEC_LOAD_HEADER_LEN;
@@ -6382,7 +6384,7 @@ Format_description_log_event(const char* buf,
     static const uint8 perm[EVENT_TYPE_PERMUTATION_NUM]=
       {
         UNKNOWN_EVENT, START_EVENT_V3, QUERY_EVENT, STOP_EVENT, ROTATE_EVENT,
-        INTVAR_EVENT, LOAD_EVENT, SLAVE_EVENT, CREATE_FILE_EVENT,
+        INTVAR_EVENT, LOAD_EVENT, METADATA_EVENT, CREATE_FILE_EVENT,
         APPEND_BLOCK_EVENT, EXEC_LOAD_EVENT, DELETE_FILE_EVENT,
         NEW_LOAD_EVENT,
         RAND_EVENT, USER_VAR_EVENT,
@@ -15727,6 +15729,251 @@ int Previous_gtids_log_event::do_update_pos(Relay_log_info *rli)
 }
 #endif
 
+#ifndef MYSQL_CLIENT
+Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans)
+  : Log_event(thd_arg, 0,
+             using_trans ? Log_event::EVENT_TRANSACTIONAL_CACHE :
+                           Log_event::EVENT_STMT_CACHE,
+             Log_event::EVENT_NORMAL_LOGGING) {}
+
+Metadata_log_event::Metadata_log_event(
+    THD *thd_arg, bool using_trans, uint64_t hlc_time_ns)
+  : Metadata_log_event(thd_arg, using_trans)
+{
+  set_hlc_time(hlc_time_ns);
+}
+#endif
+
+Metadata_log_event::Metadata_log_event(
+    const char *buffer,
+    uint event_len,
+    const Format_description_log_event *descr_event)
+  : Log_event(buffer, descr_event)
+{
+  uint8 const common_header_len=
+    descr_event->common_header_len;
+  uint read_len= common_header_len;
+
+  char const *ptr_buffer= buffer + common_header_len;
+
+  /* Read and intialize every type in the stream for this event */
+  while (read_len < event_len)
+  {
+    unsigned char type = *ptr_buffer;
+    ptr_buffer+= ENCODED_TYPE_SIZE;
+    read_len+= ENCODED_TYPE_SIZE;
+
+    DBUG_ASSERT(read_len < event_len);
+
+    uint length=
+      read_type(static_cast<Metadata_log_event_types>(type), ptr_buffer);
+
+    ptr_buffer+= length;
+    read_len+= length;
+  }
+
+  DBUG_ASSERT((read_len == event_len) &&
+      (read_len == get_total_size()));
+}
+
+void Metadata_log_event::set_hlc_time(uint64_t hlc_time_ns)
+{
+  hlc_time_ns_= hlc_time_ns;
+  set_exist(Metadata_log_event_types::HLC_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_= size_ + ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE;
+}
+
+void Metadata_log_event::set_exist(Metadata_log_event_types type)
+{
+  std::size_t index= static_cast<std::size_t>(type);
+  DBUG_ASSERT(index < existing_types_.size());
+  existing_types_[index]= true;
+}
+
+bool Metadata_log_event::does_exist(Metadata_log_event_types type) const
+{
+  std::size_t index= static_cast<std::size_t>(type);
+  DBUG_ASSERT(index < existing_types_.size());
+  return existing_types_[index];
+}
+
+uint64_t Metadata_log_event::get_hlc_time() const
+{
+  return hlc_time_ns_;
+}
+
+uint Metadata_log_event::read_type(
+    Metadata_log_event_types type, char const* buffer)
+{
+  DBUG_ENTER("Metadata_log_event::read_type");
+  using RLET= Metadata_log_event_types;
+
+  // Read the 'length' of the field's value
+  uint value_length= uint2korr(buffer);
+
+  switch (type)
+  {
+    case RLET::HLC_TYPE:
+      // HLC is a 8 byte numerical field
+      DBUG_ASSERT(value_length == 8);
+      set_hlc_time(uint8korr(buffer + ENCODED_LENGTH_SIZE));
+      break;
+    default:
+      // This is a event which we do not know about. Just skip this
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Unknown field type %u. Skipping past this field.", (uint)type);
+      break;
+  }
+
+  // return total length read (ENCODED_LENGTH_SIZE and the length of the
+  // 'VALUE' of the field)
+  DBUG_RETURN(value_length + ENCODED_LENGTH_SIZE);
+}
+
+#ifdef MYSQL_SERVER
+bool Metadata_log_event::write_data_body(IO_CACHE *file)
+{
+  DBUG_ENTER("Metadata_log_event::write_data_body");
+
+  if (write_hlc_time(file))
+    DBUG_RETURN(1);
+
+  DBUG_RETURN(0);
+}
+
+bool Metadata_log_event::write_hlc_time(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_hlc_time");
+
+  if (!does_exist(Metadata_log_event_types::HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write HLC time */
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::HLC_TYPE,
+        sizeof(hlc_time_ns_)))
+  {
+    DBUG_RETURN(1);
+  }
+
+  char buffer[ENCODED_HLC_SIZE];
+  char* ptr_buffer= buffer;
+
+  int8store(ptr_buffer, hlc_time_ns_);
+  ptr_buffer+= ENCODED_HLC_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_type_and_length(
+    IO_CACHE* file, Metadata_log_event_types type, uint32_t length)
+{
+  DBUG_ENTER("Metadata_log_event::write_type_and_length");
+
+  char buffer[ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE];
+  char* ptr_buffer= buffer;
+
+  *(unsigned char *)ptr_buffer= static_cast<unsigned char>(type);
+  ptr_buffer+= ENCODED_TYPE_SIZE;
+
+  int2store(ptr_buffer, length);
+  ptr_buffer+= ENCODED_LENGTH_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+#endif // MYSQL_SERVER
+
+// Get the type of thyis event
+Log_event_type Metadata_log_event::get_type_code()
+{
+  return METADATA_EVENT;
+}
+
+// The size of the data section of the event
+int Metadata_log_event::get_data_size()
+{
+  /* data header + data body size for this event when serialized into the
+     stream */
+  return size_;
+}
+
+// Total size of the event including common header
+uint Metadata_log_event::get_total_size()
+{
+  /* common header + data header + data body */
+  return LOG_EVENT_HEADER_LEN + get_data_size();
+}
+
+#ifndef MYSQL_CLIENT
+int Metadata_log_event::pack_info(Protocol *protocol)
+{
+  std::string buffer;
+
+  if (does_exist(Metadata_log_event_types::HLC_TYPE))
+  {
+    buffer.append("HLC time: ");
+    buffer.append(std::to_string(hlc_time_ns_));
+  }
+
+  if (buffer.length() > 0)
+    protocol->store(buffer.c_str(), buffer.length(), &my_charset_bin);
+
+  return 0;
+}
+#endif
+
+#ifdef MYSQL_CLIENT
+void
+Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
+{
+  IO_CACHE *const head= &print_event_info->head_cache;
+  IO_CACHE *const body= &print_event_info->body_cache;
+
+  if (!print_event_info->short_form)
+  {
+    std::string buffer;
+    buffer.append("\tMetadata");
+
+    if (does_exist(Metadata_log_event_types::HLC_TYPE))
+      buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
+
+    print_header(head, print_event_info, FALSE);
+    my_b_printf(head, "%s\n", buffer.c_str());
+    print_base64(body, print_event_info, FALSE);
+  }
+
+  return;
+}
+#endif
+
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+int Metadata_log_event::do_apply_event(Relay_log_info const *rli)
+{
+  DBUG_ENTER("Metadata_log_event::do_apply_event");
+  DBUG_ASSERT(rli->info_thd == thd);
+  int error= 0;
+
+  // Stash the HLC commit timestamp of this transaction in master
+  thd->hlc_time_ns_next= hlc_time_ns_;
+
+  DBUG_RETURN(error);
+}
+
+int Metadata_log_event::do_update_pos(Relay_log_info *rli)
+{
+  rli->inc_event_relay_log_pos();
+  return 0;
+}
+#endif
 
 #ifdef MYSQL_CLIENT
 /**

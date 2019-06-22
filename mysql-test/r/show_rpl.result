@@ -11,6 +11,7 @@ Rpl_count_format_description	0
 Rpl_count_incident	0
 Rpl_count_intvar	0
 Rpl_count_load	0
+Rpl_count_metadata	0
 Rpl_count_new_load	0
 Rpl_count_other	0
 Rpl_count_pre_ga_delete_rows	0
@@ -19,7 +20,6 @@ Rpl_count_pre_ga_write_rows	0
 Rpl_count_query	0
 Rpl_count_rand	0
 Rpl_count_rotate	0
-Rpl_count_slave	0
 Rpl_count_start_v3	0
 Rpl_count_stop	0
 Rpl_count_table_map	0
@@ -41,6 +41,7 @@ Rpl_seconds_format_description	0.000000
 Rpl_seconds_incident	0.000000
 Rpl_seconds_intvar	0.000000
 Rpl_seconds_load	0.000000
+Rpl_seconds_metadata	0.000000
 Rpl_seconds_new_load	0.000000
 Rpl_seconds_other	0.000000
 Rpl_seconds_pre_ga_delete_rows	0.000000
@@ -49,7 +50,6 @@ Rpl_seconds_pre_ga_write_rows	0.000000
 Rpl_seconds_query	0.000000
 Rpl_seconds_rand	0.000000
 Rpl_seconds_rotate	0.000000
-Rpl_seconds_slave	0.000000
 Rpl_seconds_start_v3	0.000000
 Rpl_seconds_stop	0.000000
 Rpl_seconds_table_map	0.000000

@@ -338,6 +338,7 @@ struct sql_ex_info
 #define HEARTBEAT_HEADER_LEN   0
 #define IGNORABLE_HEADER_LEN   0
 #define ROWS_HEADER_LEN_V2     10
+#define METADATA_HEADER_LEN    0
 
 /*
    The maximum number of updated databases that a status of
@@ -716,7 +717,7 @@ enum Log_event_type
   ROTATE_EVENT= 4,
   INTVAR_EVENT= 5,
   LOAD_EVENT= 6,
-  SLAVE_EVENT= 7,  /* Unused. Slave_log_event code has been removed. (15th Oct. 2010) */
+  METADATA_EVENT= 7,  /* SLAVE_EVENT is repurposed as METADATA_EVENT */
   CREATE_FILE_EVENT= 8,
   APPEND_BLOCK_EVENT= 9,
   EXEC_LOAD_EVENT= 10,
@@ -1536,7 +1537,6 @@ private:
       get_type_code() == STOP_EVENT              ||
       get_type_code() == ROTATE_EVENT            ||
       get_type_code() == LOAD_EVENT              ||
-      get_type_code() == SLAVE_EVENT             ||
       get_type_code() == CREATE_FILE_EVENT       ||
       get_type_code() == DELETE_FILE_EVENT       ||
       get_type_code() == NEW_LOAD_EVENT          ||
@@ -5261,6 +5261,157 @@ int append_query_string(THD *thd, const CHARSET_INFO *csinfo,
 bool event_checksum_test(uchar *buf, ulong event_len, uint8 alg);
 uint8 get_checksum_alg(const char* buf, ulong len);
 extern TYPELIB binlog_checksum_typelib;
+
+class Metadata_log_event : public Log_event
+{
+public:
+#ifndef MYSQL_CLIENT
+  /**
+   * Create a new metadata event
+   *
+   * @param thd_arg - The thread creating this event
+   * @param using_trans - Should use transaction cache?
+   */
+  Metadata_log_event(THD* thd_arg, bool using_trans);
+
+  /**
+   * Create a new metadata event which contains HLC timestamp
+   *
+   * @param thd_arg - The thread creating this event
+   * @param using_trans - Should use transaction cache?
+   * @param hlc_time_ns - The HLC timestamp in nanosecond
+   */
+  Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
+#endif
+
+  /**
+   * Create a new metadata event by deserializing buffer
+   *
+   * @param buffer - The buffer to deserialize from
+   * @param event_len - Total length of the event (common header + data)
+   * @param descr_event - Format description to deserialize the event
+   */
+  Metadata_log_event(
+      const char *buffer,
+      uint event_len,
+      const Format_description_log_event *descr_event);
+
+  virtual ~Metadata_log_event() {}
+
+  // Get the type of the event
+  Log_event_type get_type_code();
+
+  // The size of the data section of the event
+  int get_data_size();
+
+  // Total size of the event including common header
+  uint get_total_size();
+
+#ifdef MYSQL_CLIENT
+  void print(FILE *file, PRINT_EVENT_INFO *print_event_info);
+#endif
+#ifdef MYSQL_SERVER
+  bool write_data_body(IO_CACHE *file);
+#endif
+#ifndef MYSQL_CLIENT
+  int pack_info(Protocol*);
+#endif
+
+
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  int do_apply_event(Relay_log_info const *rli);
+  int do_update_pos(Relay_log_info *rli);
+#endif
+
+  bool is_valid() const { return true; }
+
+  /**
+   * Set hlc_time and update internal state needed later to write this to
+   * stream
+   *
+   * @param hlc_time_ns - HLC timestamp to set
+   */
+  void set_hlc_time(uint64_t hlc_time_ns);
+
+  /**
+   * Get hlc_time
+   *
+   * @return hlc_time_ns if present. 0 otherwise
+   */
+  uint64_t get_hlc_time() const;
+
+  /**
+   * The spec for different 'types' supported by this event
+   */
+  enum class Metadata_log_event_types : unsigned char
+  {
+    /* The type corresponding to HLC timestamp */
+    HLC_TYPE= 0,
+    METADATA_EVENT_TYPE_MAX,
+  };
+
+private:
+  /**
+   * Read the specified 'type' from the buffer and update internal state
+   *
+   * @param type - Metadata_log_event_type to read from the buffer
+   * @param buffer - Buffer to read from
+   *
+   * @returns - The size(in bytes) of the type read from buffer
+   */
+  uint read_type(Metadata_log_event_types type, char const* buffer);
+
+  /**
+   * Set a specific type as existing in this event
+   *
+   * @param The type to set to true to indicate it exists in thie event
+   */
+  void set_exist(Metadata_log_event_types type);
+
+  /**
+   * @returns TRUE if 'type' exists in this event, false otherwise
+   */
+  bool does_exist(Metadata_log_event_types type) const;
+
+  /**
+   * Write HLC timestamp to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_hlc_time(IO_CACHE* file);
+
+  /**
+   * Write type and length to file
+   *
+   * @param file   - file to write into
+   * @param type   - type to write to file
+   * @param length - length to write to file
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_type_and_length(
+      IO_CACHE* file, Metadata_log_event_types type, uint32_t length);
+
+  /* Use 1 byte to encode the type of the field */
+  static const uint32_t ENCODED_TYPE_SIZE= 1;
+  /* Use 2 byte to encode the length of the field's value */
+  static const uint32_t ENCODED_LENGTH_SIZE= 2;
+
+  /* HLC timestamp. The type corresponding to this is HLC_TYPE. */
+  uint64_t hlc_time_ns_= 0;
+  static const uint32_t ENCODED_HLC_SIZE= sizeof(hlc_time_ns_);
+
+  /* Total size of this event when encoded into the stream */
+  uint32_t size_= 0;
+
+  /* Types that exist in this event */
+  std::array<
+    bool,
+    static_cast<std::size_t>(Metadata_log_event_types::METADATA_EVENT_TYPE_MAX)>
+      existing_types_= {};
+};
 
 class Gtid_log_event : public Log_event
 {

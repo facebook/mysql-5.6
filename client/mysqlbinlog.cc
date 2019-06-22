@@ -926,7 +926,7 @@ static bool shall_skip_gtids(Log_event* ev, Gtid *cached_gtid)
       outputted.
     */
     case START_EVENT_V3: /* for completion */
-    case SLAVE_EVENT: /* for completion */
+    case METADATA_EVENT:
     case STOP_EVENT:
     case FORMAT_DESCRIPTION_EVENT:
     case ROTATE_EVENT:
@@ -1920,6 +1920,21 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
                 "any case. If you want to exclude or include transactions, "
                 "you should use the options --exclude-gtids or "
                 "--include-gtids, respectively, instead.");
+    case METADATA_EVENT:
+    {
+      ev->print(result_file, print_event_info);
+      if (head->error == -1)
+        goto err;
+
+      /* Copy and flush head cache and body cache */
+      if (copy_event_cache_to_file_and_reinit(&print_event_info->head_cache,
+                                              result_file, stop_never) ||
+          copy_event_cache_to_file_and_reinit(&print_event_info->body_cache,
+                                              result_file, stop_never))
+        goto err;
+
+      goto end;
+    }
 
       /* fall through */
     default:
