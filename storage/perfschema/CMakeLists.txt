@@ -164,6 +164,7 @@ table_status_by_account.h
 table_status_by_host.h
 table_status_by_thread.h
 table_status_by_user.h
+table_statistics_by_table.h
 table_sync_instances.h
 table_table_handles.h
 table_threads.h
@@ -330,6 +331,7 @@ table_status_by_account.cc
 table_status_by_host.cc
 table_status_by_thread.cc
 table_status_by_user.cc
+table_statistics_by_table.cc
 table_sync_instances.cc
 table_table_handles.cc
 table_threads.cc

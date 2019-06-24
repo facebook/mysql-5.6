@@ -628,6 +628,21 @@ class PFS_table_lock_stat_visitor : public PFS_object_visitor {
 };
 
 /**
+  A concrete object visitor that aggregates
+  table query statistics.
+*/
+class PFS_table_query_stat_visitor : public PFS_object_visitor {
+ public:
+  PFS_table_query_stat_visitor();
+  ~PFS_table_query_stat_visitor() override;
+  void visit_table_share(PFS_table_share *pfs) override;
+  void visit_table(PFS_table *pfs) override;
+
+  /** Table lock statistic collected. */
+  PFS_table_query_stat m_stat;
+};
+
+/**
   A concrete instance visitor that aggregates
   socket wait and byte count statistics.
 */
