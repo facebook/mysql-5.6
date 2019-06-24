@@ -193,6 +193,12 @@ struct PFS_ALIGNED PFS_table {
   /** True if table lock statistics have been collected. */
   bool m_has_lock_stats;
 
+  /** True if table query statistics have been collected. */
+  bool m_has_query_stats;
+
+  /* True if there are queries running against the table **/
+  bool m_has_queries_happened;
+
  public:
   /**
     Aggregate this table handle statistics to the parents.
@@ -207,6 +213,10 @@ struct PFS_ALIGNED PFS_table {
     if (m_has_lock_stats) {
       safe_aggregate_lock(&m_table_stat, m_share);
       m_has_lock_stats = false;
+    }
+    if (m_has_query_stats) {
+      safe_aggregate_query(&m_table_stat, m_share);
+      m_has_query_stats = false;
     }
   }
 
@@ -230,6 +240,12 @@ struct PFS_ALIGNED PFS_table {
     This method is safe to call on handles not owned by the calling code.
   */
   void sanitized_aggregate_lock(void);
+
+  /**
+    Aggregate this table handle query statistics to the parents.
+    This method is safe to call on handles not owned by the calling code.
+  */
+  void sanitized_aggregate_query(void);
 
   /** Internal lock. */
   pfs_lock m_lock;
@@ -256,6 +272,8 @@ struct PFS_ALIGNED PFS_table {
                                 PFS_table_share *safe_share);
   static void safe_aggregate_lock(PFS_table_stat *stat,
                                   PFS_table_share *safe_share);
+  static void safe_aggregate_query(PFS_table_stat *stat,
+                                   PFS_table_share *safe_share);
 };
 
 /** Instrumented socket implementation. @see PSI_socket. */

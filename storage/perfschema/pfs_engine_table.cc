@@ -133,6 +133,7 @@
 #include "storage/perfschema/table_socket_instances.h"
 #include "storage/perfschema/table_socket_summary_by_event_name.h"
 #include "storage/perfschema/table_socket_summary_by_instance.h"
+#include "storage/perfschema/table_statistics_by_table.h"
 #include "storage/perfschema/table_status_by_account.h"
 #include "storage/perfschema/table_status_by_host.h"
 #include "storage/perfschema/table_status_by_thread.h"
@@ -572,6 +573,7 @@ static PFS_engine_table_share *all_shares[] = {
     &table_mutex_instances::m_share,
     &table_os_global_by_type::m_share,
     &table_performance_timers::m_share,
+    &table_statistics_by_table::m_share,
     &table_rwlock_instances::m_share,
     &table_setup_actors::m_share,
     &table_setup_consumers::m_share,

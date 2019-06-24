@@ -311,6 +311,17 @@ struct PFS_table_share_lock {
   PFS_opaque_container_page *m_page;
 };
 
+/** query statistics of a table.*/
+struct PFS_table_share_query {
+  pfs_lock m_lock;
+  /** query stats. */
+  PFS_table_query_stat m_stat;
+  /** Owner table share. To be used later. */
+  PFS_table_share *m_owner;
+  /** Container page. */
+  PFS_opaque_container_page *m_page;
+};
+
 /** Instrumentation metadata for a table share. */
 struct PFS_ALIGNED PFS_table_share {
  public:
@@ -379,6 +390,11 @@ struct PFS_ALIGNED PFS_table_share {
       const TABLE_SHARE *server_share, uint index);
   void destroy_index_stats();
 
+  PFS_table_share_query *find_query_stat() const;
+  PFS_table_share_query *find_or_create_query_stat();
+  void destroy_query_stat();
+  void reset_query_stat();
+
  private:
   /** Number of opened table handles. */
   std::atomic<int> m_refcount;
@@ -386,6 +402,8 @@ struct PFS_ALIGNED PFS_table_share {
   std::atomic<PFS_table_share_lock *> m_race_lock_stat;
   /** Table indexes stats. */
   std::atomic<PFS_table_share_index *> m_race_index_stat[MAX_INDEXES + 1];
+  /** Table querys statistics. */
+  std::atomic<PFS_table_share_query *> m_race_query_stat;
 };
 
 /** Statistics for the IDLE instrument. */
@@ -503,6 +521,11 @@ int init_thread_class(uint thread_class_sizing);
 void cleanup_thread_class();
 int init_table_share(uint table_share_sizing);
 void cleanup_table_share();
+
+int init_table_share_query_stat(uint table_stat_sizing);
+void cleanup_table_share_query_stat();
+PFS_table_share_query *create_table_share_query_stat();
+void release_table_share_query_stat(PFS_table_share_query *pfs);
 
 int init_table_share_lock_stat(uint table_stat_sizing);
 void cleanup_table_share_lock_stat();

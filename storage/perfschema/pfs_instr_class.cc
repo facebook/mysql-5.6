@@ -515,6 +515,52 @@ static void set_table_share_key(PFS_table_share_key *key, bool temporary,
 }
 
 /**
+  Find an existing table share query instrumentation.
+  @return a table share query.
+*/
+PFS_table_share_query *PFS_table_share::find_query_stat() const {
+  return this->m_race_query_stat.load();
+}
+
+/**
+  Find or create a table share query instrumentation.
+  @return a table share lock, or NULL.
+*/
+PFS_table_share_query *PFS_table_share::find_or_create_query_stat() {
+  PFS_table_share_query *pfs = this->m_race_query_stat.load();
+  if (pfs != NULL) {
+    return pfs;
+  }
+
+  /* (2) Create a query stat */
+  PFS_table_share_query *new_pfs = create_table_share_query_stat();
+  if (new_pfs == NULL) {
+    return NULL;
+  }
+  new_pfs->m_owner = this;
+
+  /* (3) Atomic CAS */
+  if (atomic_compare_exchange_strong(&this->m_race_query_stat, &pfs, new_pfs)) {
+    /* Ok. */
+    return new_pfs;
+  }
+
+  /* Collision with another thread that also executed (2) and (3). */
+  release_table_share_query_stat(new_pfs);
+
+  return pfs;
+}
+
+/** Destroy a table share query instrumentation. */
+void PFS_table_share::destroy_query_stat() {
+  PFS_table_share_query *new_ptr = NULL;
+  PFS_table_share_query *old_ptr = this->m_race_query_stat.exchange(new_ptr);
+  if (old_ptr != NULL) {
+    release_table_share_query_stat(old_ptr);
+  }
+}
+
+/**
   Find an existing table share lock instrumentation.
   @return a table share lock.
 */
@@ -624,6 +670,52 @@ void PFS_table_share::refresh_setup_object_flags(PFS_thread *thread) {
   lookup_setup_object(thread, OBJECT_TYPE_TABLE, m_schema_name,
                       m_schema_name_length, m_table_name, m_table_name_length,
                       &m_enabled, &m_timed);
+}
+
+/**
+  Initialize the table query stat buffer.
+  @param table_stat_sizing           max number of table query statistics
+  @return 0 on success
+*/
+int init_table_share_query_stat(uint table_stat_sizing) {
+  if (global_table_share_query_container.init(table_stat_sizing)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/**
+  Create a table share lock instrumentation.
+  @return table share lock instrumentation, or NULL
+*/
+PFS_table_share_query *create_table_share_query_stat() {
+  PFS_table_share_query *pfs = NULL;
+  pfs_dirty_state dirty_state;
+
+  /* Create a new record in table stat array. */
+  pfs = global_table_share_query_container.allocate(&dirty_state);
+  if (pfs != NULL) {
+    /* Reset the stats. */
+    pfs->m_stat.reset();
+
+    /* Use this stat buffer. */
+    pfs->m_lock.dirty_to_allocated(&dirty_state);
+  }
+
+  return pfs;
+}
+
+/** Release a table share query instrumentation. */
+void release_table_share_query_stat(PFS_table_share_query *pfs) {
+  pfs->m_owner = NULL;
+  global_table_share_query_container.deallocate(pfs);
+  return;
+}
+
+/** Cleanup the table stat buffers. */
+void cleanup_table_share_query_stat(void) {
+  global_table_share_query_container.cleanup();
 }
 
 /**
@@ -1777,6 +1869,7 @@ search:
     pfs->init_refcount();
     pfs->destroy_lock_stat();
     pfs->destroy_index_stats();
+    pfs->destroy_query_stat();
     pfs->m_key_count = share->keys;
 
     int res;
@@ -1881,6 +1974,13 @@ void PFS_table_share::aggregate_lock(void) {
   }
 }
 
+void PFS_table_share::reset_query_stat(void) {
+  PFS_table_share_query *query_stat = find_query_stat();
+  if (query_stat != NULL) {
+    query_stat->m_stat.reset();
+  }
+}
+
 void release_table_share(PFS_table_share *pfs) {
   DBUG_ASSERT(pfs->get_refcount() > 0);
   pfs->dec_refcount();
@@ -1914,6 +2014,7 @@ void drop_table_share(PFS_thread *thread, bool temporary,
                    pfs->m_key.m_key_length);
     pfs->destroy_lock_stat();
     pfs->destroy_index_stats();
+    pfs->destroy_query_stat();
 
     global_table_share_container.deallocate(pfs);
   }

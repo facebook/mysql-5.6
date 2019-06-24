@@ -1164,6 +1164,8 @@ PFS_table *create_table(PFS_table_share *share, PFS_thread *opening_thread,
     pfs->m_lock_timed = share->m_timed && global_table_lock_class.m_timed;
     pfs->m_has_io_stats = false;
     pfs->m_has_lock_stats = false;
+    pfs->m_has_query_stats = false;
+    pfs->m_has_queries_happened = false;
     pfs->m_internal_lock = PFS_TL_NONE;
     pfs->m_external_lock = PFS_TL_NONE;
     share->inc_refcount();
@@ -1191,6 +1193,10 @@ void PFS_table::sanitized_aggregate(void) {
       safe_aggregate_lock(&m_table_stat, safe_share);
       m_has_lock_stats = false;
     }
+    if (m_has_query_stats) {
+      safe_aggregate_query(&m_table_stat, safe_share);
+      m_has_query_stats = false;
+    }
   }
 }
 
@@ -1208,6 +1214,31 @@ void PFS_table::sanitized_aggregate_lock(void) {
     safe_aggregate_lock(&m_table_stat, safe_share);
     m_has_lock_stats = false;
   }
+}
+
+void PFS_table::sanitized_aggregate_query(void) {
+  PFS_table_share *safe_share = sanitize_table_share(m_share);
+  if (safe_share != NULL && m_has_query_stats) {
+    safe_aggregate_query(&m_table_stat, safe_share);
+    m_has_query_stats = false;
+  }
+}
+
+void PFS_table::safe_aggregate_query(PFS_table_stat *table_stat,
+                                     PFS_table_share *table_share) {
+  DBUG_ASSERT(table_stat != NULL);
+  DBUG_ASSERT(table_share != NULL);
+
+  PFS_table_query_stat *from_stat = &table_stat->m_query_stat;
+
+  PFS_table_share_query *to_stat;
+
+  to_stat = table_share->find_or_create_query_stat();
+  if (to_stat != NULL) {
+    to_stat->m_stat.aggregate(from_stat);
+  }
+
+  table_stat->fast_reset_query();
 }
 
 void PFS_table::safe_aggregate_io(const TABLE_SHARE *optional_server_share,

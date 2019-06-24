@@ -1423,6 +1423,25 @@ void PFS_table_lock_stat_visitor::visit_table(PFS_table *pfs) {
   m_stat.aggregate(&pfs->m_table_stat.m_lock_stat);
 }
 
+/** Table query stat visitor */
+
+PFS_table_query_stat_visitor::PFS_table_query_stat_visitor() {}
+
+PFS_table_query_stat_visitor::~PFS_table_query_stat_visitor() {}
+
+void PFS_table_query_stat_visitor::visit_table_share(PFS_table_share *pfs) {
+  PFS_table_share_query *query_stat;
+
+  query_stat = pfs->find_query_stat();
+  if (query_stat != NULL) {
+    m_stat.aggregate(&query_stat->m_stat);
+  }
+}
+
+void PFS_table_query_stat_visitor::visit_table(PFS_table *pfs) {
+  m_stat.aggregate(&pfs->m_table_stat.m_query_stat);
+}
+
 PFS_instance_socket_io_stat_visitor::PFS_instance_socket_io_stat_visitor() {}
 
 PFS_instance_socket_io_stat_visitor::~PFS_instance_socket_io_stat_visitor() {}

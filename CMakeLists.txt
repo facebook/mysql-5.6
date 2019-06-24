@@ -783,6 +783,7 @@ ENDIF()
 OPTION(WITH_UBSAN "Enable undefined behavior sanitizer" OFF)
 IF(WITH_UBSAN)
   MY_SANITIZER_CHECK("-fsanitize=undefined" TRUE WITH_UBSAN_OK)
+  STRING_APPEND(CMAKE_CXX_FLAGS " -fno-sanitize=vptr")
   IF(NOT WITH_UBSAN_OK)
     MESSAGE(FATAL_ERROR
             "Do not know how to enable undefined behavior sanitizer")
