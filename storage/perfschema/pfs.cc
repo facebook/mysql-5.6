@@ -2640,8 +2640,23 @@ PSI_table *pfs_open_table_v1(PSI_table_share *share, const void *identity) {
 void pfs_unbind_table_v1(PSI_table *table) {
   PFS_table *pfs = reinterpret_cast<PFS_table *>(table);
   if (likely(pfs != NULL)) {
+    if (pfs->m_has_queries_happened) {
+      DBUG_ASSERT(pfs->m_thread_owner != NULL);
+      PFS_thread *thread_owner = pfs->m_thread_owner;
+      PFS_table_query_stat *query_stat = &pfs->m_table_stat.m_query_stat;
+      query_stat->m_queries_used.aggregate_counted();
+      DBUG_ASSERT(thread_owner->m_statement_stack != NULL);
+      THD *thd = thread_owner->m_thd;
+      if (thd != NULL && thd->lex != NULL &&
+          thd->lex->sql_command == SQLCOM_SELECT &&
+          thd->get_sent_row_count() == 0) {
+        query_stat->m_empty_queries.aggregate_counted();
+      }
+      pfs->m_has_query_stats = true;
+    }
     pfs->m_thread_owner = NULL;
     pfs->m_owner_event_id = 0;
+    pfs->m_has_queries_happened = false;
   }
 }
 
@@ -5011,6 +5026,7 @@ void pfs_end_table_io_wait_v1(PSI_table_locker *locker, ulonglong numrows) {
 
   table_io_stat = &table->m_table_stat.m_index_stat[state->m_index];
   table_io_stat->m_has_data = true;
+  table->m_has_queries_happened = true;
 
   switch (state->m_io_operation) {
     case PSI_TABLE_FETCH_ROW:

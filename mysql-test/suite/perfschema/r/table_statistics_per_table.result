@@ -1,0 +1,67 @@
+drop table if exists t1;
+drop table if exists t2;
+drop user if exists 'table_statistics_by_table_test';
+truncate performance_schema.table_statistics_by_table;
+create table t1 (a int primary key, b int);
+create table t2 (a int primary key, b int);
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	0	0
+t2	0	0
+select * from t1;
+a	b
+empty_queries for t1 should be 1 now
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	1	1
+t2	0	0
+create user 'table_statistics_by_table_test';
+grant all on *.* to 'table_statistics_by_table_test'@'%' with grant option;
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	1	1
+t2	0	0
+insert into t1 values (0, 1);
+insert into t1 values (1, 2);
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	3	1
+t2	0	0
+replace into t1 values (0, 2);
+replace into t1 values (2, 3);
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	5	1
+t2	0	0
+delete from t1 where a=0;
+delete from t1 where a=1;
+delete from t1 where a=7;
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	8	1
+t2	0	0
+t1 isn't marked as used because t2 is empty
+select count(*) from t1, t2 where t1.a = t2.a;
+count(*)
+0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	9	1
+t2	1	0
+insert into t2 values (2,0);
+select count(*) from t1, t2 where t1.a = t2.a;
+count(*)
+1
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	10	1
+t2	3	0
+flush to move query_stat from PFS_table to PFS_shared_table, query_stat should remain the same
+flush table t1;
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	10	1
+t2	3	0
+drop table t1;
+drop table t2;
+drop user 'table_statistics_by_table_test';

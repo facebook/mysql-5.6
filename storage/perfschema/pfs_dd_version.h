@@ -152,8 +152,14 @@
 
   - The last three digits reprents Facebook specific MySQL Schema changes.
   Version published is now 800171002. i.e. 8.0.17 facebook schema change no. 2.
-*/
 
-static const uint PFS_DD_VERSION = 800171002;
+   800171003:
+    performance_schema tables changed:
+    - table_statistics_per_table added.
+    - The last three digits reprents Facebook specific MySQL Schema changes.
+    Version published is now 800171003. i.e. 8.0.17 facebook schema change
+  no. 3.
+*/
+static const uint PFS_DD_VERSION = 800171003;
 
 #endif /* PFS_DD_VERSION_H */

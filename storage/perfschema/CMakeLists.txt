@@ -141,6 +141,7 @@ table_variables_by_thread.h
 table_global_variables.h
 table_session_variables.h
 table_persisted_variables.h
+table_statistics_by_table.h
 table_table_handles.h
 table_threads.h
 table_tiws_by_index_usage.h
@@ -281,6 +282,7 @@ table_variables_by_thread.cc
 table_global_variables.cc
 table_session_variables.cc
 table_persisted_variables.cc
+table_statistics_by_table.cc
 table_table_handles.cc
 table_threads.cc
 table_tiws_by_index_usage.cc
