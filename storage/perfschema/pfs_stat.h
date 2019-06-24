@@ -708,6 +708,22 @@ struct PFS_table_lock_stat {
   }
 };
 
+/** Statistics for table quries **/
+struct PFS_table_query_stat {
+  PFS_single_stat m_queries_used;
+  PFS_single_stat m_empty_queries;
+
+  inline void reset(void) {
+    m_empty_queries.reset();
+    m_queries_used.reset();
+  }
+
+  inline void aggregate(const PFS_table_query_stat *stat) {
+    m_empty_queries.aggregate(&stat->m_empty_queries);
+    m_queries_used.aggregate(&stat->m_queries_used);
+  }
+};
+
 /** Statistics for TABLE usage. */
 struct PFS_table_stat {
   /**
@@ -722,6 +738,11 @@ struct PFS_table_stat {
   */
   PFS_table_lock_stat m_lock_stat;
 
+  /**
+    Statistics, per table.
+  */
+  PFS_table_query_stat m_query_stat;
+
   /** Reset table I/O statistic. */
   inline void reset_io(void) {
     PFS_table_io_stat *stat = &m_index_stat[0];
@@ -734,10 +755,14 @@ struct PFS_table_stat {
   /** Reset table lock statistic. */
   inline void reset_lock(void) { m_lock_stat.reset(); }
 
+  /** Reset table query statistic. */
+  inline void reset_query(void) { m_query_stat.reset(); }
+
   /** Reset table statistic. */
   inline void reset(void) {
     reset_io();
     reset_lock();
+    reset_query();
   }
 
   inline void fast_reset_io(void) {
@@ -746,6 +771,10 @@ struct PFS_table_stat {
 
   inline void fast_reset_lock(void) {
     memcpy(&m_lock_stat, &g_reset_template.m_lock_stat, sizeof(m_lock_stat));
+  }
+
+  inline void fast_reset_query(void) {
+    memcpy(&m_query_stat, &g_reset_template.m_query_stat, sizeof(m_query_stat));
   }
 
   inline void fast_reset(void) {
@@ -777,9 +806,14 @@ struct PFS_table_stat {
     m_lock_stat.aggregate(&stat->m_lock_stat);
   }
 
+  inline void aggregate_query(const PFS_table_stat *stat) {
+    m_query_stat.aggregate(&stat->m_query_stat);
+  }
+
   inline void aggregate(const PFS_table_stat *stat, uint key_count) {
     aggregate_io(stat, key_count);
     aggregate_lock(stat);
+    aggregate_query(stat);
   }
 
   inline void sum_io(PFS_single_stat *result, uint key_count) {

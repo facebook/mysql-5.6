@@ -89,6 +89,11 @@ PFS_buffer_default_allocator<PFS_table_share_lock>
 PFS_table_share_lock_container global_table_share_lock_container(
     &default_table_share_lock_allocator);
 
+PFS_buffer_default_allocator<PFS_table_share_query>
+    default_table_share_query_allocator(&builtin_memory_table_share_lock);
+PFS_table_share_query_container global_table_share_query_container(
+    &default_table_share_query_allocator);
+
 PFS_buffer_default_allocator<PFS_program> default_program_allocator(
     &builtin_memory_program);
 PFS_program_container global_program_container(&default_program_allocator);

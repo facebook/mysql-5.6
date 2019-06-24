@@ -199,9 +199,15 @@
   table_users
   table_variables_info
 
-  Version published is now 80023002. i.e. 8.0.23 Facebook schema change no. 2.
+  80023-003:
+
+  performance_schema tables changed:
+  - table_statistics_per_table added.
+  - The last three digits reprents Facebook specific MySQL Schema changes.
+
+  Version published is now 80023-003. i.e. 8.0.23 Facebook schema change no. 3.
 */
 
-static const uint PFS_DD_VERSION = 80023002;
+static const uint PFS_DD_VERSION = 80023003;
 
 #endif /* PFS_DD_VERSION_H */
