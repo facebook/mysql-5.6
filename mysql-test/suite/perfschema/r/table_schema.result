@@ -1444,6 +1444,11 @@ def	performance_schema	table_lock_waits_summary_by_table	SUM_TIMER_WRITE_EXTERNA
 def	performance_schema	table_lock_waits_summary_by_table	MIN_TIMER_WRITE_EXTERNAL	66	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	table_lock_waits_summary_by_table	AVG_TIMER_WRITE_EXTERNAL	67	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	table_lock_waits_summary_by_table	MAX_TIMER_WRITE_EXTERNAL	68	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	table_statistics_by_table	OBJECT_TYPE	1	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	MUL		select,insert,update,references			NULL
+def	performance_schema	table_statistics_by_table	OBJECT_SCHEMA	2	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
+def	performance_schema	table_statistics_by_table	OBJECT_NAME	3	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
+def	performance_schema	table_statistics_by_table	QUERIES_USED	4	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	table_statistics_by_table	EMPTY_QUERIES	5	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	threads	THREAD_ID	1	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned	PRI		select,insert,update,references			NULL
 def	performance_schema	threads	NAME	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)	MUL		select,insert,update,references			NULL
 def	performance_schema	threads	TYPE	3	NULL	NO	varchar	10	40	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(10)			select,insert,update,references			NULL

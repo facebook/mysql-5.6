@@ -767,6 +767,16 @@ struct PFS_table_io_stat_row {
   }
 };
 
+struct PFS_query_stat_row {
+  ulonglong queries_used;
+  ulonglong empty_queries;
+
+  inline void set(const PFS_table_query_stat *stat) {
+    queries_used = stat->m_queries_used.m_count;
+    empty_queries = stat->m_empty_queries.m_count;
+  }
+};
+
 /** Row fragment for table lock statistics columns. */
 struct PFS_table_lock_stat_row {
   PFS_stat_row m_all;

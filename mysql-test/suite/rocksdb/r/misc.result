@@ -229,6 +229,9 @@ table_io_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_NAME	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_SCHEMA	NULL	NULL
 table_lock_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
+table_statistics_by_table	OBJECT_NAME	NULL	NULL
+table_statistics_by_table	OBJECT_SCHEMA	NULL	NULL
+table_statistics_by_table	OBJECT_TYPE	NULL	NULL
 tables_priv	Db	NULL	NULL
 tables_priv	Host	NULL	NULL
 tables_priv	Table_name	NULL	NULL

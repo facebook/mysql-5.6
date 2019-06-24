@@ -1334,6 +1334,17 @@ typedef PFS_table_share_lock_container::iterator_type
 extern PFS_table_share_lock_container global_table_share_lock_container;
 
 #ifdef USE_SCALABLE
+typedef PFS_buffer_scalable_container<PFS_table_share_query, 4 * 1024, 4 * 1024>
+    PFS_table_share_query_container;
+#else
+typedef PFS_buffer_container<PFS_table_share_query>
+    PFS_table_share_query_container;
+#endif
+typedef PFS_table_share_query_container::iterator_type
+    PFS_table_share_query_iterator;
+extern PFS_table_share_query_container global_table_share_query_container;
+
+#ifdef USE_SCALABLE
 typedef PFS_buffer_scalable_container<PFS_program, 1024, 1024>
     PFS_program_container;
 #else

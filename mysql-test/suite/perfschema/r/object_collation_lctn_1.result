@@ -27,6 +27,7 @@ performance_schema	table_handles	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	table_io_waits_summary_by_index_usage	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	table_io_waits_summary_by_table	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
 performance_schema	table_lock_waits_summary_by_table	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
+performance_schema	table_statistics_by_table	OBJECT_SCHEMA	utf8mb4_0900_ai_ci
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'performance_schema'
@@ -49,6 +50,7 @@ performance_schema	table_handles	OBJECT_NAME	utf8mb4_0900_ai_ci
 performance_schema	table_io_waits_summary_by_index_usage	OBJECT_NAME	utf8mb4_0900_ai_ci
 performance_schema	table_io_waits_summary_by_table	OBJECT_NAME	utf8mb4_0900_ai_ci
 performance_schema	table_lock_waits_summary_by_table	OBJECT_NAME	utf8mb4_0900_ai_ci
+performance_schema	table_statistics_by_table	OBJECT_NAME	utf8mb4_0900_ai_ci
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, COLLATION_NAME
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'performance_schema'

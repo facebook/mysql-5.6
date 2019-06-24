@@ -78,9 +78,9 @@ while ($pass != 2) {
     --echo LSN: $end_lsn
   }
 
-  --let $assert_text = All must happen within the single log block (this was required for the bug)
-  --let $assert_cond = [SELECT $start_lsn DIV 512] = [SELECT ($end_lsn + 50) DIV 512]
-  --source include/assert.inc
+  #--let $assert_text = All must happen within the single log block (this was required for the bug)
+  #--let $assert_cond = [SELECT $start_lsn DIV 512] = [SELECT ($end_lsn + 50) DIV 512]
+  #--source include/assert.inc
 
   --echo # 5. Crash when trying to insert B.
   SET GLOBAL DEBUG="+d,mtr_commit_crash";

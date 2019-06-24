@@ -159,5 +159,7 @@ void reset_table_lock_waits_by_table();
 void reset_table_waits_by_table_handle();
 void reset_table_io_waits_by_table_handle();
 void reset_table_lock_waits_by_table_handle();
+void reset_table_statistics_by_table();
+void reset_table_statistics_by_table_handle();
 
 #endif

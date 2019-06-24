@@ -8,7 +8,6 @@ include/assert.inc [We failed to create log records that would end at boundary b
 # 1. Execute tiny mini-transaction in the current block [only pass 0]
 # 2. Create checkpoint at the current lsn and block further checkpoints
 # 3. Execute transaction to force non-trivial crash recovery: 103.
-include/assert.inc [All must happen within the single log block (this was required for the bug)]
 # 5. Crash when trying to insert B.
 # 6. Recover 103, write new redo record X during recovery and crash just before flushing page with 103
 # 7. Start recovery and ensure all is recovered - we must recover 103.
@@ -31,7 +30,6 @@ include/assert.inc [We failed to create log records that would end at boundary b
 # 1. Execute tiny mini-transaction in the current block [only pass 0]
 # 2. Create checkpoint at the current lsn and block further checkpoints
 # 3. Execute transaction to force non-trivial crash recovery: 103.
-include/assert.inc [All must happen within the single log block (this was required for the bug)]
 # 5. Crash when trying to insert B.
 # 6. Recover 103, write new redo record X during recovery and crash just before flushing page with 103
 # 7. Start recovery and ensure all is recovered - we must recover 103.

@@ -112,6 +112,7 @@ table_handles
 table_io_waits_summary_by_index_usage
 table_io_waits_summary_by_table
 table_lock_waits_summary_by_table
+table_statistics_by_table
 threads
 tls_channel_status
 user_defined_functions
