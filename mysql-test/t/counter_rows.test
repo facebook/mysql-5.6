@@ -1,0 +1,90 @@
+#Set all to zero
+flush status;
+
+#
+--echo Variation 0: Return constant value. 
+#
+
+--let $sql = select 1;
+--let $expected_rows_examined = 1
+--let $expected_rows_sent = 1
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 1: Create Table. 
+#
+
+--let $sql = CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+--let $expected_rows_examined = 0
+--let $expected_rows_sent = 0
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 2: Insert one row into Table. 
+#
+
+--let $sql = INSERT INTO t1 VALUES (1);
+--let $expected_rows_examined = 0
+--let $expected_rows_sent = 0
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 3: Select one row from Table. 
+#
+
+--let $sql = SELECT * FROM t1;
+--let $expected_rows_examined = 1
+--let $expected_rows_sent = 1
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 4: Update one row. 
+#
+
+--let $sql = UPDATE t1 SET a = 1;
+--let $expected_rows_examined = 1
+--let $expected_rows_sent = 0
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 5: SELECT with JOIN 
+#
+
+--let $sql = SELECT * FROM t1 AS a1 JOIN t1 AS a2 ON a1.a = a2.a;
+--let $expected_rows_examined = 2
+--let $expected_rows_sent = 1
+--source include/counter_rows.inc
+
+#
+--echo Variation 6: UNION 
+#
+
+--let $sql = SELECT * FROM t1 AS a1 LEFT JOIN t1 AS a2 ON a1.a = a2.a UNION SELECT * FROM t1 AS a1  RIGHT JOIN t1 AS a2 ON a1.a = a2.a;
+--let $expected_rows_examined = 5
+--let $expected_rows_sent = 1
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 7: DELETE rows from Table. 
+#
+
+--let $sql = DELETE FROM t1;
+--let $expected_rows_examined = 1
+--let $expected_rows_sent = 0
+--source include/counter_rows.inc
+
+
+#
+--echo Variation 8: Drop Table. 
+#
+
+--let $sql = DROP TABLE t1;
+--let $expected_rows_examined = 0
+--let $expected_rows_sent = 0
+--source include/counter_rows.inc
