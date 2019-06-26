@@ -588,6 +588,8 @@ struct System_status_var {
   ulonglong com_stmt_fetch;
   ulonglong com_stmt_reset;
   ulonglong com_stmt_close;
+  ulonglong rows_examined;
+  ulonglong rows_sent;
 
   ulonglong bytes_received;
   ulonglong bytes_sent;
