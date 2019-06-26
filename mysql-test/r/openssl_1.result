@@ -235,3 +235,8 @@ Variable_name	Value
 Ssl_server_not_after	Dec  1 04:48:40 2029 GMT
 Ssl_server_not_before	Dec  5 04:48:40 2014 GMT
 End of 5.7 tests
+CREATE USER x509user@localhost REQUIRE X509;
+GRANT SELECT ON test.* TO x509user@localhost;
+FLUSH PRIVILEGES;
+DROP USER x509user@localhost;
+End of 8.0 tests

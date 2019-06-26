@@ -304,5 +304,15 @@ set sql_mode= @orig_sql_mode;
 
 --echo End of 5.7 tests
 
+CREATE USER x509user@localhost REQUIRE X509;
+GRANT SELECT ON test.* TO x509user@localhost;
+FLUSH PRIVILEGES;
+
+--exec $MYSQL_SLAP --silent --host=127.0.0.1 -P $MASTER_MYPORT -u x509user --concurrency=1 --iterations=1 --query="SELECT 1;" --ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem --create-schema="test" 2>&1
+
+DROP USER x509user@localhost;
+
+--echo End of 8.0 tests
+
 # Wait till we reached the initial number of concurrent sessions
 --source include/wait_until_count_sessions.inc
