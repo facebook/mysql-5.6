@@ -1,0 +1,45 @@
+flush status;
+Variation 0: Return constant value. 
+select 1;;
+1
+1
+include/assert.inc [Rows_examined should be increased by 1.]
+include/assert.inc [Rows_sent should be increased by 1.]
+Variation 1: Create Table. 
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;;
+include/assert.inc [Rows_examined should be increased by 0.]
+include/assert.inc [Rows_sent should be increased by 0.]
+Variation 2: Insert one row into Table. 
+INSERT INTO t1 VALUES (1);;
+include/assert.inc [Rows_examined should be increased by 0.]
+include/assert.inc [Rows_sent should be increased by 0.]
+Variation 3: Select one row from Table. 
+SELECT * FROM t1;;
+a
+1
+include/assert.inc [Rows_examined should be increased by 1.]
+include/assert.inc [Rows_sent should be increased by 1.]
+Variation 4: Update one row. 
+UPDATE t1 SET a = 1;;
+include/assert.inc [Rows_examined should be increased by 1.]
+include/assert.inc [Rows_sent should be increased by 0.]
+Variation 5: SELECT with JOIN 
+SELECT * FROM t1 AS a1 JOIN t1 AS a2 ON a1.a = a2.a;;
+a	a
+1	1
+include/assert.inc [Rows_examined should be increased by 2.]
+include/assert.inc [Rows_sent should be increased by 1.]
+Variation 6: UNION 
+SELECT * FROM t1 AS a1 LEFT JOIN t1 AS a2 ON a1.a = a2.a UNION SELECT * FROM t1 AS a1  RIGHT JOIN t1 AS a2 ON a1.a = a2.a;;
+a	a
+1	1
+include/assert.inc [Rows_examined should be increased by 5.]
+include/assert.inc [Rows_sent should be increased by 1.]
+Variation 7: DELETE rows from Table. 
+DELETE FROM t1;;
+include/assert.inc [Rows_examined should be increased by 1.]
+include/assert.inc [Rows_sent should be increased by 0.]
+Variation 8: Drop Table. 
+DROP TABLE t1;;
+include/assert.inc [Rows_examined should be increased by 0.]
+include/assert.inc [Rows_sent should be increased by 0.]
