@@ -2234,11 +2234,13 @@ void THD::set_sent_row_count(ha_rows count) {
 
 void THD::inc_sent_row_count(ha_rows count) {
   m_sent_row_count += count;
+  status_var.rows_sent += count;
   MYSQL_SET_STATEMENT_ROWS_SENT(m_statement_psi, m_sent_row_count);
 }
 
 void THD::inc_examined_row_count(ha_rows count) {
   m_examined_row_count += count;
+  status_var.rows_examined += count;
   MYSQL_SET_STATEMENT_ROWS_EXAMINED(m_statement_psi, m_examined_row_count);
 }
 
