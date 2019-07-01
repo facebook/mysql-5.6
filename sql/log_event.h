@@ -5350,6 +5350,11 @@ public:
     METADATA_EVENT_TYPE_MAX,
   };
 
+  /**
+   * @returns TRUE if 'type' exists in this event, false otherwise
+   */
+  bool does_exist(Metadata_log_event_types type) const;
+
 private:
   /**
    * Read the specified 'type' from the buffer and update internal state
@@ -5367,11 +5372,6 @@ private:
    * @param The type to set to true to indicate it exists in thie event
    */
   void set_exist(Metadata_log_event_types type);
-
-  /**
-   * @returns TRUE if 'type' exists in this event, false otherwise
-   */
-  bool does_exist(Metadata_log_event_types type) const;
 
   /**
    * Write HLC timestamp to file

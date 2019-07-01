@@ -15936,8 +15936,11 @@ int Metadata_log_event::do_apply_event(Relay_log_info const *rli)
   DBUG_ASSERT(rli->info_thd == thd);
   int error= 0;
 
-  // Stash the HLC commit timestamp of this transaction in master
-  thd->hlc_time_ns_next= hlc_time_ns_;
+  if (does_exist(Metadata_log_event_types::HLC_TYPE))
+  {
+    // Stash the HLC commit timestamp of this transaction in master
+    thd->hlc_time_ns_next= hlc_time_ns_;
+  }
 
   DBUG_RETURN(error);
 }

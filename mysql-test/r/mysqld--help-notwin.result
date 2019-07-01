@@ -251,6 +251,8 @@ The following options may be given as the first argument:
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
+ --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
+ event
  --enable-blind-replace 
  Optimize 'replace into' statement by doing a blind
  insert. Engine ignores primary key violations. This will
@@ -2013,6 +2015,7 @@ disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE
 enable-jemalloc-hpp OFF

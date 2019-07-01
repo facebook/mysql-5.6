@@ -1,0 +1,21 @@
+Default value of enable_binlog_hlc is false
+SELECT @@global.enable_binlog_hlc;
+@@global.enable_binlog_hlc
+0
+SELECT @@session.enable_binlog_hlc;
+ERROR HY000: Variable 'enable_binlog_hlc' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+enable_binlog_hlc can be enabled only when gtid is enabled
+SET @@global.enable_binlog_hlc = true;
+ERROR 42000: Variable 'enable_binlog_hlc' can't be set to the value of '1'
+SELECT @@global.enable_binlog_hlc;
+@@global.enable_binlog_hlc
+0
+SET @@global.enable_binlog_hlc = false;
+SELECT @@global.enable_binlog_hlc;
+@@global.enable_binlog_hlc
+0
+SET @@global.enable_binlog_hlc = default;
+SELECT @@global.enable_binlog_hlc;
+@@global.enable_binlog_hlc
+0

@@ -2380,7 +2380,7 @@ public:
 
   /* Next HLC value */
   uint64_t hlc_time_ns_next= 0;
-
+  bool should_update_hlc= false;
   void reset_for_next_command();
   /*
     Constant for THD::where initialization in the beginning of every query.
