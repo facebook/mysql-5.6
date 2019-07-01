@@ -932,7 +932,12 @@ void read_ok_ex(MYSQL *mysql, ulong length) {
 
               break;
             default:
-              DBUG_ASSERT(type <= SESSION_TRACK_END);
+              /*
+                We haven't ported SESSION_TRACK_RESP_ATTR feature yet
+                Skip the entire response for now
+               */
+              DBUG_ASSERT(type <= SESSION_TRACK_END ||
+                          type == SESSION_TRACK_RESP_ATTR);
               /*
                 Unknown/unsupported type received, get the total length and move
                 past it.

@@ -1078,7 +1078,12 @@ enum enum_session_state_type {
   SESSION_TRACK_STATE_CHANGE,     /**< track session state changes */
   SESSION_TRACK_GTIDS,            /**< See also: session_track_gtids */
   SESSION_TRACK_TRANSACTION_CHARACTERISTICS, /**< Transaction chistics */
-  SESSION_TRACK_TRANSACTION_STATE            /**< Transaction state */
+  SESSION_TRACK_TRANSACTION_STATE,           /**< Transaction state */
+
+  // Leave space before RPC_ID session tracking for other upstream values
+  // NOTE: This feature is not yet ported but we need the enum to avoid
+  // asserting in debug version
+  SESSION_TRACK_RESP_ATTR = 32, /* Response attributes */
 };
 
 /** start of ::enum_session_state_type */
