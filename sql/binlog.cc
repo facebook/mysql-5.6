@@ -1493,9 +1493,33 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
       transactions might trigger attempts to write to the binary log
       if the cache is not reset.
      */
-    if (!(error= gtid_before_write_cache(thd, this)))
+    error= gtid_before_write_cache(thd, this);
+
+    // TODO: It is probably better to move enable_raft_plugin check inside
+    // plugin.
+    if (!error && enable_raft_plugin)
+      error= RUN_HOOK(binlog_storage, before_flush, (thd, &cache_log));
+
+    if (!error)
+    {
+      /* TODO:
+       * 1. Eventually, the write to binlog cache will happen through consensus
+       * plugin. So, remove the call here when raft plugin is enabled
+       * 2. Dynamic enabling/disabling of raft plugin is a lot trickier and not
+       * handled in this diff. We have to make sure that whatever txn's are
+       * inside the plugin finish flushing to binlog file before we allow new
+       * txns to flush in mysql (outside the plugin)
+       * 3. Check if we even need the ability to dynamically disable raft plugin
+       * on a running mysql instance. Gracefull handling of disabling raft
+       * plugin means we have to block new txns until all txns inside RAFT are
+       * committed. Non-graceful handling would just fail all txns inside RAFT -
+       * in which case the instance cannot take any more txns which is as good
+       * as restarting the instance
+       */
       error= mysql_bin_log.write_cache(thd, this, async);
-    else
+    }
+
+    if (error)
       thd->commit_error= THD::CE_FLUSH_ERROR;
 
     if (flags.with_xid && error == 0)

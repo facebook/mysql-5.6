@@ -505,6 +505,7 @@ my_bool enable_acl_fast_lookup= 0;
 my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;
 ulonglong max_tmp_disk_usage;
+bool enable_raft_plugin= 0;
 
 /* write_control_level:
  * Global variable to control write throttling for short running queries and

@@ -1,0 +1,27 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 1
+####
+--echo Default value of enable_raft_plugin is 0
+SELECT @@global.enable_raft_plugin;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_raft_plugin;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the varisable is dynamic
+####
+--echo enable_raft_plugin is a dynamic variable
+SET @@global.enable_raft_plugin = 1;
+SELECT @@global.enable_raft_plugin;
+
+SET @@global.enable_raft_plugin = 0;
+SELECT @@global.enable_raft_plugin;
+
+SET @@global.enable_raft_plugin = default;
+SELECT @@global.enable_raft_plugin;

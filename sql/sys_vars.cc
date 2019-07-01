@@ -7258,3 +7258,10 @@ static Sys_var_uint Sys_write_statistics_histogram_width(
       VALID_RANGE(1, 2000), DEFAULT(100), BLOCK_SIZE(1),
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(update_write_statistics_histogram));
+
+static Sys_var_mybool Sys_enable_raft_plugin(
+       "enable_raft_plugin",
+       "Enables RAFT based consensus plugin. Replication will run through this "
+       "plugin when it is enabled",
+       GLOBAL_VAR(enable_raft_plugin),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

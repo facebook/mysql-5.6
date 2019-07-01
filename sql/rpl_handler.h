@@ -194,6 +194,7 @@ public:
   typedef Binlog_storage_observer Observer;
   int after_flush(THD *thd, const char *log_file,
                   my_off_t log_pos);
+  int before_flush(THD *thd, IO_CACHE* io_cache);
 };
 
 #ifdef HAVE_REPLICATION

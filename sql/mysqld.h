@@ -454,6 +454,7 @@ extern ulonglong minimum_hlc_ns;
 
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 extern ulonglong maximum_hlc_drift_ns;
+extern bool enable_raft_plugin;
 
 /* Enable query checksum validation for queries with a checksum sent */
 extern my_bool enable_query_checksum;
