@@ -1483,10 +1483,6 @@ public:
 
   /* Return start of query time or current time */
 
-  // This variable is set to TRUE for log events which needs be logged
-  // to binlog but should not be applied to the storage engine.
-  my_bool m_binlog_only = FALSE;
-
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
 
 private:
@@ -4730,6 +4726,10 @@ public:
   friend class Old_rows_log_event;
 
 public:
+  // This variable is set to TRUE for row log events which needs be logged
+  // to binlog but should not be applied to the storage engine.
+  my_bool m_binlog_only = FALSE;
+
   // This is set to TRUE when idempotent mode is used for recovery. When TRUE
   // the event is written to the binlog event if there were idempotent errors.
   my_bool m_force_binlog_idempotent= FALSE;
