@@ -194,7 +194,8 @@ EOF
 
 # Command line option --mysqlx-socket
 --replace_regex /mysqlx-socket=.*sock/mysqlx-socket=SOCKET/
-let $restart_parameters = restart: --mysqlx-socket=$MYSQL_TMP_DIR/valid_mysqlx.sock;
+# NOTE: socket name length should <= 14 characters ("mysqld.NN.sock")
+let $restart_parameters = restart: --mysqlx-socket=$MYSQL_TMP_DIR/x.valid.sock;
 --source include/restart_mysqld.inc
 
 # MySQL Server was started with new UNIX socket file for X Plugin
@@ -205,10 +206,10 @@ let $restart_parameters = restart: --mysqlx-socket=$MYSQL_TMP_DIR/valid_mysqlx.s
 --file_exists $MASTER_X_MYSOCK.lock
 
 # Check if the X Plugin is accessible through new file
---exec $MYSQLXTEST --socket=$MYSQL_TMP_DIR/valid_mysqlx.sock -ux_root --password='' --file=$MYSQL_TMP_DIR/check_unixsocket.xpl 2>&1
+--exec $MYSQLXTEST --socket=$MYSQL_TMP_DIR/x.valid.sock -ux_root --password='' --file=$MYSQL_TMP_DIR/check_unixsocket.xpl 2>&1
 
 # Connect through unixsocket using PLAIN authentication
---exec $MYSQLXTEST --plain-auth --socket=$MYSQL_TMP_DIR/valid_mysqlx.sock -uroot --password='' --file=$MYSQL_TMP_DIR/check_unixsocket.xpl 2>&1
+--exec $MYSQLXTEST --plain-auth --socket=$MYSQL_TMP_DIR/x.valid.sock -uroot --password='' --file=$MYSQL_TMP_DIR/check_unixsocket.xpl 2>&1
 
 ## Cleanup
 --let $restart_parameters = restart:
