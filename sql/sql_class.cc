@@ -69,6 +69,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#ifdef HAVE_RAPIDJSON
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#endif
 #include <sstream>
 
 #ifdef TARGET_OS_LINUX
@@ -5788,10 +5792,22 @@ int THD::parse_query_info_attr()
 static std::string get_shard_id(const std::string& db_metadata)
 {
   try {
+#ifdef HAVE_RAPIDJSON
+    rapidjson::Document db_metadata_root;
+    if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError()) {
+      return {};
+    }
+    const auto iter= db_metadata_root.FindMember("shard");
+    std::string shard_id;
+    if (iter == db_metadata_root.MemberEnd()) {
+      shard_id= iter->value.GetString();
+    }
+#else
     boost::property_tree::ptree db_metadata_root;
     std::istringstream is(db_metadata);
     boost::property_tree::read_json(is, db_metadata_root);
     std::string shard_id = db_metadata_root.get<std::string>("shard");
+#endif
     return shard_id;
   }
   catch (std::exception)

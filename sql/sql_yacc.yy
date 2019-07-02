@@ -66,8 +66,13 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include "opt_explain_json.h"
 #include "lex_token.h"
 #include <sstream>
+#ifdef HAVE_RAPIDJSON
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#else
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#endif
 
 /* this is to get the bison compilation windows warnings out */
 #ifdef _MSC_VER
@@ -6579,6 +6584,14 @@ db_metadata_str:
             /* Verify that a valid JSON is provided */
             if ($3.length > 0)
             {
+              #ifdef HAVE_RAPIDJSON
+              rapidjson::Document db_metadata_root;
+              if (db_metadata_root.Parse($3.str).HasParseError())
+              {
+                my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
+                MYSQL_YYABORT;
+              }
+              #else
               boost::property_tree::ptree db_metadata_root;
               std::istringstream is($3.str);
               try
@@ -6591,6 +6604,7 @@ db_metadata_str:
                 my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
                 MYSQL_YYABORT;
               }
+              #endif
             }
             Lex->create_info.db_metadata= String($3.str, $3.length,
               &my_charset_bin);
