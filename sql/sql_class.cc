@@ -32,10 +32,6 @@
 #include <memory>
 #include <utility>
 
-#include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <sstream>
 
 #include "m_ctype.h"
@@ -101,8 +97,6 @@
 #include "sql/sql_admission_control.h"
 #include "sql/xa.h"
 #include "thr_mutex.h"
-
-using boost::property_tree::ptree;
 
 using std::max;
 using std::min;
@@ -3041,29 +3035,44 @@ void THD::set_query_attrs(const char *attrs, size_t length) {
   mysql_mutex_unlock(&LOCK_thd_data);
 }
 
-int THD::parse_query_info_attr() {
-  static const std::string query_info_key = "query_info";
-  static const std::string traceid_key = "traceid";
+static const std::string query_info_key{"query_info"};
+static const std::string traceid_key{"traceid"};
+static const std::string query_type_key{"query_type"};
+static const std::string num_queries_key{"num_queries"};
 
+int THD::parse_query_info_attr() {
   for (const auto &kvp : query_attrs_list) {
     if (kvp.first == traceid_key) {
       this->trace_id = kvp.second;
     } else if (kvp.first == query_info_key) {
-      ptree root;
-      try {
-        std::istringstream query_info_attr(kvp.second);
-        boost::property_tree::read_json(query_info_attr, root);
-      } catch (const boost::property_tree::json_parser::json_parser_error &e) {
-        return -1;  // invalid json
+      rapidjson::Document root;
+      if (root.Parse(kvp.second.c_str()).HasParseError()) {
+        return -1;
       }
-      try {
-        boost::optional<std::string> trace_id =
-            root.get_optional<std::string>("traceid");
-        if (trace_id) this->trace_id = *trace_id;
-        this->query_type = root.get<std::string>("query_type");
-        this->num_queries = root.get<uint64_t>("num_queries");
-      } catch (const boost::property_tree::ptree_error &e) {
-        return -1;  // invalid key or value
+
+      {
+        const auto iter = root.FindMember(traceid_key.c_str());
+        if (iter != root.MemberEnd()) {
+          this->trace_id = iter->value.GetString();
+        }
+      }
+
+      {
+        const auto iter = root.FindMember(query_type_key.c_str());
+        if (iter != root.MemberEnd()) {
+          this->query_type = iter->value.GetString();
+        } else {
+          return -1;
+        }
+      }
+
+      {
+        const auto iter = root.FindMember(num_queries_key.c_str());
+        if (iter != root.MemberEnd()) {
+          this->num_queries = iter->value.GetUint64();
+        } else {
+          return -1;
+        }
       }
       return 0;
     }

@@ -40,10 +40,6 @@
 #include <string>
 #include <utility>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-
 #include "base64.h"
 #include "binary_log_funcs.h"  // my_timestamp_binary_length
 #include "debug_vars.h"
@@ -13023,21 +13019,24 @@ void Ignorable_log_event::print(FILE *,
 }
 #endif
 
+static const std::string ts_key{"ts"};
+
 ulonglong Rows_query_log_event::extract_last_timestamp() const {
-  boost::property_tree::ptree pt;
+  rapidjson::Document pt;
   std::string json = extract_trx_meta_data();
   if (json.empty()) return 0;
-  std::istringstream is(json);
-  try {
-    read_json(is, pt);
-  } catch (const std::exception &e) {
+  if (pt.Parse(json.c_str()).HasParseError()) {
     return 0;
   }
-
-  auto timestamps = pt.get_child("ts", boost::property_tree::ptree());
-  DBUG_ASSERT(!timestamps.empty());
-  return timestamps.empty() ? 0
-                            : timestamps.back().second.get_value<ulonglong>();
+  const auto ts_iter = pt.FindMember(ts_key.c_str());
+  ulonglong timestamps = 0;
+  if (ts_iter != pt.MemberEnd() && ts_iter->value.IsArray()) {
+    for (auto iter = ts_iter->value.MemberBegin();
+         iter != ts_iter->value.MemberEnd(); ++iter) {
+      timestamps = iter->value.GetUint64();
+    }
+  }
+  return timestamps;
 }
 
 Rows_query_log_event::Rows_query_log_event(
