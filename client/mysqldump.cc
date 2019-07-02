@@ -4101,9 +4101,10 @@ static void dump_table(char *table, char *db) {
                   plus 2 bytes for '0x' prefix.
                   - In non-HEX mode we need up to 2 bytes per character,
                   plus 2 bytes for leading and trailing '\'' characters.
+                  Also we need to reserve 8 bytes for "_binary ".
                   Also we need to reserve 1 byte for terminating '\0'.
                 */
-                dynstr_realloc_checked(&extended_row, length * 2 + 2 + 1);
+                dynstr_realloc_checked(&extended_row, length * 2 + 2 + 8 + 1);
                 if (opt_hex_blob && is_blob) {
                   dynstr_append_checked(&extended_row, "0x");
                   extended_row.length += mysql_hex_string(
