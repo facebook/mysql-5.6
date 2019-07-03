@@ -179,6 +179,9 @@ static void test_noop() {
   psi_statement_service->set_statement_lock_time(NULL, 0);
   psi_statement_service->set_statement_rows_sent(NULL, 0);
   psi_statement_service->set_statement_rows_examined(NULL, 0);
+  psi_statement_service->inc_statement_rows_deleted(NULL, 0);
+  psi_statement_service->inc_statement_rows_inserted(NULL, 0);
+  psi_statement_service->inc_statement_rows_updated(NULL, 0);
   psi_statement_service->inc_statement_created_tmp_disk_tables(NULL, 0);
   psi_statement_service->inc_statement_created_tmp_tables(NULL, 0);
   psi_statement_service->inc_statement_select_full_join(NULL, 0);

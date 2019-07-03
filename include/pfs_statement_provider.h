@@ -72,6 +72,15 @@ void pfs_set_statement_rows_sent_v1(PSI_statement_locker *locker,
 void pfs_set_statement_rows_examined_v1(PSI_statement_locker *locker,
                                         ulonglong count);
 
+void pfs_inc_statement_rows_deleted_v1(PSI_statement_locker *locker,
+                                        ulonglong count);
+
+void pfs_inc_statement_rows_inserted_v1(PSI_statement_locker *locker,
+                                        ulonglong count);
+
+void pfs_inc_statement_rows_updated_v1(PSI_statement_locker *locker,
+                                        ulonglong count);
+
 void pfs_inc_statement_created_tmp_disk_tables_v1(PSI_statement_locker *locker,
                                                   ulong count);
 
