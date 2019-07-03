@@ -665,6 +665,7 @@ int histogram_validate_step_size_string(const char* step_size_with_unit);
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
+extern std::atomic_bool need_update_malloc_status;
 extern bool enable_jemalloc_hppfunc(char *);
 #endif
 #endif

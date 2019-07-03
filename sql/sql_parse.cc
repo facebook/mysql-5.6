@@ -3188,18 +3188,6 @@ typedef struct
   char *end;
 } malloc_status;
 
-static void update_malloc_status()
-{
-#ifdef HAVE_JEMALLOC
-#ifndef EMBEDDED_LIBRARY
-  uint64_t val= 1;
-  size_t len = sizeof(val);
-
-  mallctl("epoch", &val, &len, &val, sizeof(uint64_t));
-#endif
-#endif
-}
-
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 static void get_jemalloc_status(void* mstat_arg, const char* status)
@@ -3711,7 +3699,11 @@ mysql_execute_command(THD *thd,
     system_status_var old_status_var= thd->status_var;
     thd->initial_status_var= &old_status_var;
 
-    update_malloc_status();
+#ifdef HAVE_JEMALLOC
+#ifndef EMBEDDED_LIBRARY
+    need_update_malloc_status = true;
+#endif
+#endif
 
     if (!(res= select_precheck(thd, lex, all_tables, first_table)))
       res= execute_sqlcom_select(thd, all_tables, post_parse);

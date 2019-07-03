@@ -9554,6 +9554,20 @@ struct my_option my_long_options[]=
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
+std::atomic_bool need_update_malloc_status;
+
+static void update_malloc_status()
+{
+  if (!need_update_malloc_status)
+    return;
+
+  uint64_t val= 1;
+  size_t len = sizeof(val);
+
+  mallctl("epoch", &val, &len, &val, sizeof(uint64_t));
+  need_update_malloc_status = false;
+}
+
 static int show_jemalloc_sizet(THD *thd, SHOW_VAR *var, char *buff,
                                const char* stat_name)
 {
@@ -9622,31 +9636,37 @@ static int show_jemalloc_bool(THD *thd, SHOW_VAR *var, char *buff,
 
 static int show_jemalloc_arenas_narenas(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_unsigned(thd, var, buff, "arenas.narenas");
 }
 
 static int show_jemalloc_opt_narenas(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "opt.narenas");
 }
 
 static int show_jemalloc_opt_tcache(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_bool(thd, var, buff, "opt.tcache");
 }
 
 static int show_jemalloc_active(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.active");
 }
 
 static int show_jemalloc_allocated(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.allocated");
 }
 
 static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff)
 {
+  update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
 }
 
