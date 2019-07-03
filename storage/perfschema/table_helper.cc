@@ -1054,13 +1054,22 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 24: /* SUM_CPU_TIME */
       set_field_ulonglong(f, m_cpu_time);
       break;
-    case 25: /* MAX_CONTROLLED_MEMORY */
+    case 25: /* SUM_ROWS_DELETED */
+      set_field_ulonglong(f, m_rows_deleted);
+      break;
+    case 26: /* SUM_ROWS_INSERTED */
+      set_field_ulonglong(f, m_rows_inserted);
+      break;
+    case 27: /* SUM_ROWS_UPDATED */
+      set_field_ulonglong(f, m_rows_updated);
+      break;
+    case 28: /* MAX_CONTROLLED_MEMORY */
       set_field_ulonglong(f, m_max_controlled_memory);
       break;
-    case 26: /* MAX_TOTAL_MEMORY */
+    case 29: /* MAX_TOTAL_MEMORY */
       set_field_ulonglong(f, m_max_total_memory);
       break;
-    case 27: /* COUNT_SECONDARY */
+    case 30: /* COUNT_SECONDARY */
       set_field_ulonglong(f, m_count_secondary);
       break;
     default:

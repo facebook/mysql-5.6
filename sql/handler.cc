@@ -7992,6 +7992,8 @@ int handler::ha_write_row(uchar *buf) {
 
   if (unlikely(error)) return error;
 
+  table->in_use->inc_inserted_row_count(1);
+
   if (unlikely((error = binlog_log_row(table, nullptr, buf, log_func))))
     return error; /* purecov: inspected */
 
@@ -8022,6 +8024,9 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
                       { error = update_row(old_data, new_data); })
 
   if (unlikely(error)) return error;
+
+  table->in_use->inc_updated_row_count(1);
+
   if (unlikely((error = binlog_log_row(table, old_data, new_data, log_func))))
     return error;
   return 0;
@@ -8048,6 +8053,8 @@ int handler::ha_delete_row(const uchar *buf) {
                       { error = delete_row(buf); })
 
   if (unlikely(error)) return error;
+  table->in_use->inc_deleted_row_count(1);
+
   if (unlikely((error = binlog_log_row(table, buf, nullptr, log_func))))
     return error;
   return 0;

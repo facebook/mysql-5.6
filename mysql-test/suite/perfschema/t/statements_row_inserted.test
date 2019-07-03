@@ -1,0 +1,70 @@
+#
+--echo Variation 0: No-op Select
+#
+
+--let $sql = SELECT 1;
+--let $expected_sum_rows_inserted = 0
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 1: Create Table. 
+#
+
+--let $sql = CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+--let $expected_sum_rows_inserted = 12
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 2: Insert three rows into Table t1. 
+#
+
+--let $sql = INSERT INTO t1 VALUES (1), (2), (3);
+--let $expected_sum_rows_inserted = 3
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 3: Select all rows from Table. 
+#
+
+--let $sql = SELECT * FROM t1;
+--let $expected_sum_rows_inserted = 0
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 4: Update one row. 
+#
+
+--let $sql = UPDATE t1 SET a = 1 where a = 2;
+--let $expected_sum_rows_inserted = 0
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 5: DELETE rows from Table. 
+#
+
+--let $sql = DELETE FROM t1;
+--let $expected_sum_rows_inserted = 0
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 6: Set up for next variation
+#
+
+--let $sql = INSERT INTO t1 VALUES (1), (2), (3); CREATE TABLE t2 (a INT); INSERT INTO t2 VALUES (1), (2), (3);
+--let $expected_sum_rows_inserted = 18
+--source ../include/statements_row_inserted.inc
+
+
+#
+--echo Variation 7: Drop Table. 
+#
+
+--let $sql = DROP TABLE t1; DROP TABLE t2;
+--let $expected_sum_rows_inserted = 0
+--source ../include/statements_row_inserted.inc
