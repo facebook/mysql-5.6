@@ -12,6 +12,10 @@
 # --source include/xplugin_wait_for_interfaces.inc
 #
 
+--let plugin_status= `SELECT plugin_status='ACTIVE' FROM information_schema.plugins WHERE plugin_name LIKE 'mysqlx'`
+
+if ($plugin_status)
+{
 if ($wait_for_tcpsocket_status != "no_wait")
 {
   --let $wait_operation= !=
@@ -38,7 +42,10 @@ if ($wait_for_tcpsocket_status != "no_wait")
     die;
   }
 }
+}
 
+if ($plugin_status)
+{
 if ($wait_for_unixsocket_status != "no_wait")
 {
   --let $wait_operation= !=
@@ -67,6 +74,7 @@ if ($wait_for_unixsocket_status != "no_wait")
   }
 
   --source include/wait_condition_or_abort.inc
+}
 }
 
 --let $wait_for_tcpsocket_status=

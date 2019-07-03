@@ -118,6 +118,8 @@ SELECT prio,error_code,subsystem,data
 # MY-012363: InnoDB-page-size changed, for chtest
 # MY-011953: InnoDB page cleaner. Timing-dependent and thus indeterministic.
 # MY-000000: sql_print_(error|warning|information)
+# MY-010821: Symbol: ER_BINLOG_EVENTS_READ_FROM_BINLOG_INFO
+# MY-011332: Plugin mysqlx reported
 
 SELECT prio,error_code,subsystem
   FROM performance_schema.error_log
@@ -128,7 +130,7 @@ SELECT prio,error_code,subsystem
                          "MY-011952", "MY-011323", "MY-010902", "MY-000000",
                          "MY-012937", "MY-012366", "MY-000067", "MY-010159",
                          "MY-013602", "MY-010069", "MY-013595", "MY-010108",
-                         "MY-012363", "MY-011953", "MY-010821")
+                         "MY-012363", "MY-011953", "MY-010821", "MY-011332")
  ORDER BY logged, error_code;
 
 --echo

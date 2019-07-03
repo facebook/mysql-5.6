@@ -1,2 +1,3 @@
 $CLONE_PLUGIN_OPT
+--mysqlx
 --skip-slave-start=1
