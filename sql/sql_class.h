@@ -2116,6 +2116,9 @@ class THD : public MDL_context_owner,
 
   void inc_sent_row_count(ha_rows count);
   void inc_examined_row_count(ha_rows count);
+  void inc_deleted_row_count(ha_rows count);
+  void inc_inserted_row_count(ha_rows count);
+  void inc_updated_row_count(ha_rows count);
 
   void inc_status_created_tmp_disk_tables();
   void inc_status_created_tmp_tables();

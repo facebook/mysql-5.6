@@ -87,6 +87,12 @@ struct PSI_statement_service_v2 {
   set_statement_rows_sent_t set_statement_rows_sent;
   /** @sa set_statement_rows_examined_t. */
   set_statement_rows_examined_t set_statement_rows_examined;
+  /** @sa set_statement_rows_deleted_t. */
+  inc_statement_rows_deleted_t inc_statement_rows_deleted;
+  /** @sa set_statement_rows_inserted_t. */
+  inc_statement_rows_inserted_t inc_statement_rows_inserted;
+  /** @sa set_statement_rows_updated_t. */
+  inc_statement_rows_updated_t inc_statement_rows_updated;
   /** @sa inc_statement_created_tmp_disk_tables. */
   inc_statement_created_tmp_disk_tables_t inc_statement_created_tmp_disk_tables;
   /** @sa inc_statement_created_tmp_tables. */

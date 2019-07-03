@@ -51,6 +51,9 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_lock_time;
   unsigned long long m_rows_sent;
   unsigned long long m_rows_examined;
+  unsigned long long m_rows_deleted;
+  unsigned long long m_rows_inserted;
+  unsigned long long m_rows_updated;
   unsigned long m_created_tmp_disk_tables;
   unsigned long m_created_tmp_tables;
   unsigned long m_select_full_join;
@@ -103,6 +106,12 @@ typedef void (*set_statement_lock_time_t)(struct PSI_statement_locker *locker,
 typedef void (*set_statement_rows_sent_t)(struct PSI_statement_locker *locker,
                                           unsigned long long count);
 typedef void (*set_statement_rows_examined_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+typedef void (*inc_statement_rows_deleted_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+typedef void (*inc_statement_rows_inserted_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+typedef void (*inc_statement_rows_updated_t)(
     struct PSI_statement_locker *locker, unsigned long long count);
 typedef void (*inc_statement_created_tmp_disk_tables_t)(
     struct PSI_statement_locker *locker, unsigned long count);
@@ -184,6 +193,9 @@ struct PSI_statement_service_v2 {
   set_statement_lock_time_t set_statement_lock_time;
   set_statement_rows_sent_t set_statement_rows_sent;
   set_statement_rows_examined_t set_statement_rows_examined;
+  inc_statement_rows_deleted_t inc_statement_rows_deleted;
+  inc_statement_rows_inserted_t inc_statement_rows_inserted;
+  inc_statement_rows_updated_t inc_statement_rows_updated;
   inc_statement_created_tmp_disk_tables_t inc_statement_created_tmp_disk_tables;
   inc_statement_created_tmp_tables_t inc_statement_created_tmp_tables;
   inc_statement_select_full_join_t inc_statement_select_full_join;

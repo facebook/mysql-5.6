@@ -410,6 +410,9 @@ events_statements_summary_by_digest	CREATE TABLE `events_statements_summary_by_d
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   `FIRST_SEEN` timestamp(6) NOT NULL DEFAULT '0000-00-00 00:00:00.000000',
   `LAST_SEEN` timestamp(6) NOT NULL DEFAULT '0000-00-00 00:00:00.000000',
   `QUANTILE_95` bigint unsigned NOT NULL,
@@ -449,6 +452,9 @@ events_statements_summary_by_host_by_event_name	CREATE TABLE `events_statements_
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   UNIQUE KEY `HOST` (`HOST`,`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_summary_by_thread_by_event_name;
@@ -480,6 +486,9 @@ events_statements_summary_by_thread_by_event_name	CREATE TABLE `events_statement
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   PRIMARY KEY (`THREAD_ID`,`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_summary_by_user_by_event_name;
@@ -511,6 +520,9 @@ events_statements_summary_by_user_by_event_name	CREATE TABLE `events_statements_
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   UNIQUE KEY `USER` (`USER`,`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_summary_by_account_by_event_name;
@@ -543,6 +555,9 @@ events_statements_summary_by_account_by_event_name	CREATE TABLE `events_statemen
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   UNIQUE KEY `ACCOUNT` (`USER`,`HOST`,`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_summary_global_by_event_name;
@@ -573,6 +588,9 @@ events_statements_summary_global_by_event_name	CREATE TABLE `events_statements_s
   `SUM_SORT_SCAN` bigint unsigned NOT NULL,
   `SUM_NO_INDEX_USED` bigint unsigned NOT NULL,
   `SUM_NO_GOOD_INDEX_USED` bigint unsigned NOT NULL,
+  `SUM_ROWS_DELETED` bigint unsigned NOT NULL,
+  `SUM_ROWS_INSERTED` bigint unsigned NOT NULL,
+  `SUM_ROWS_UPDATED` bigint unsigned NOT NULL,
   PRIMARY KEY (`EVENT_NAME`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_transactions_current;

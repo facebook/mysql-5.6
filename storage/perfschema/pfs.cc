@@ -5857,6 +5857,9 @@ PSI_statement_locker *pfs_get_thread_statement_locker_v2(
 
       pfs->m_rows_sent = 0;
       pfs->m_rows_examined = 0;
+      pfs->m_rows_deleted = 0;
+      pfs->m_rows_inserted = 0;
+      pfs->m_rows_updated = 0;
       pfs->m_created_tmp_disk_tables = 0;
       pfs->m_created_tmp_tables = 0;
       pfs->m_select_full_join = 0;
@@ -5952,6 +5955,9 @@ PSI_statement_locker *pfs_get_thread_statement_locker_v2(
   state->m_lock_time = 0;
   state->m_rows_sent = 0;
   state->m_rows_examined = 0;
+  state->m_rows_deleted = 0;
+  state->m_rows_inserted = 0;
+  state->m_rows_updated = 0;
   state->m_created_tmp_disk_tables = 0;
   state->m_created_tmp_tables = 0;
   state->m_select_full_join = 0;
@@ -6175,6 +6181,21 @@ void pfs_set_statement_rows_examined_v2(PSI_statement_locker *locker,
   SET_STATEMENT_ATTR_BODY(locker, m_rows_examined, count);
 }
 
+void pfs_inc_statement_rows_deleted_v2(PSI_statement_locker *locker,
+                                       ulonglong count) {
+  INC_STATEMENT_ATTR_BODY(locker, m_rows_deleted, count);
+}
+
+void pfs_inc_statement_rows_inserted_v2(PSI_statement_locker *locker,
+                                        ulonglong count) {
+  INC_STATEMENT_ATTR_BODY(locker, m_rows_inserted, count);
+}
+
+void pfs_inc_statement_rows_updated_v2(PSI_statement_locker *locker,
+                                       ulonglong count) {
+  INC_STATEMENT_ATTR_BODY(locker, m_rows_updated, count);
+}
+
 void pfs_inc_statement_created_tmp_disk_tables_v2(PSI_statement_locker *locker,
                                                   ulong count) {
   INC_STATEMENT_ATTR_BODY(locker, m_created_tmp_disk_tables, count);
@@ -6376,6 +6397,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
   stat->m_lock_time += state->m_lock_time;
   stat->m_rows_sent += state->m_rows_sent;
   stat->m_rows_examined += state->m_rows_examined;
+  stat->m_rows_deleted += state->m_rows_deleted;
+  stat->m_rows_updated += state->m_rows_updated;
+  stat->m_rows_inserted += state->m_rows_inserted;
   stat->m_created_tmp_disk_tables += state->m_created_tmp_disk_tables;
   stat->m_created_tmp_tables += state->m_created_tmp_tables;
   stat->m_select_full_join += state->m_select_full_join;
@@ -6454,6 +6478,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
     digest_stat->m_stat.m_lock_time += state->m_lock_time;
     digest_stat->m_stat.m_rows_sent += state->m_rows_sent;
     digest_stat->m_stat.m_rows_examined += state->m_rows_examined;
+    digest_stat->m_stat.m_rows_deleted += state->m_rows_deleted;
+    digest_stat->m_stat.m_rows_inserted += state->m_rows_inserted;
+    digest_stat->m_stat.m_rows_updated += state->m_rows_updated;
     digest_stat->m_stat.m_created_tmp_disk_tables +=
         state->m_created_tmp_disk_tables;
     digest_stat->m_stat.m_created_tmp_tables += state->m_created_tmp_tables;
@@ -6492,6 +6519,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
       sub_stmt_stat->m_lock_time += state->m_lock_time;
       sub_stmt_stat->m_rows_sent += state->m_rows_sent;
       sub_stmt_stat->m_rows_examined += state->m_rows_examined;
+      sub_stmt_stat->m_rows_deleted += state->m_rows_deleted;
+      sub_stmt_stat->m_rows_inserted += state->m_rows_inserted;
+      sub_stmt_stat->m_rows_updated += state->m_rows_updated;
       sub_stmt_stat->m_created_tmp_disk_tables +=
           state->m_created_tmp_disk_tables;
       sub_stmt_stat->m_created_tmp_tables += state->m_created_tmp_tables;
@@ -6534,6 +6564,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         prepared_stmt_stat->m_lock_time += state->m_lock_time;
         prepared_stmt_stat->m_rows_sent += state->m_rows_sent;
         prepared_stmt_stat->m_rows_examined += state->m_rows_examined;
+        prepared_stmt_stat->m_rows_deleted += state->m_rows_deleted;
+        prepared_stmt_stat->m_rows_inserted += state->m_rows_inserted;
+        prepared_stmt_stat->m_rows_updated += state->m_rows_updated;
         prepared_stmt_stat->m_created_tmp_disk_tables +=
             state->m_created_tmp_disk_tables;
         prepared_stmt_stat->m_created_tmp_tables += state->m_created_tmp_tables;
@@ -8229,6 +8262,9 @@ PSI_statement_service_v2 pfs_statement_service_v2 = {
     pfs_set_statement_lock_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
+    pfs_inc_statement_rows_deleted_v2,
+    pfs_inc_statement_rows_inserted_v2,
+    pfs_inc_statement_rows_updated_v2,
     pfs_inc_statement_created_tmp_disk_tables_v2,
     pfs_inc_statement_created_tmp_tables_v2,
     pfs_inc_statement_select_full_join_v2,
@@ -8267,6 +8303,9 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_statement_v1) = {
     pfs_set_statement_lock_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
+    pfs_inc_statement_rows_deleted_v2,
+    pfs_inc_statement_rows_inserted_v2,
+    pfs_inc_statement_rows_updated_v2,
     pfs_inc_statement_created_tmp_disk_tables_v2,
     pfs_inc_statement_created_tmp_tables_v2,
     pfs_inc_statement_select_full_join_v2,
@@ -8306,6 +8345,9 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_statement_v2) = {
     pfs_set_statement_lock_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
+    pfs_inc_statement_rows_deleted_v2,
+    pfs_inc_statement_rows_inserted_v2,
+    pfs_inc_statement_rows_updated_v2,
     pfs_inc_statement_created_tmp_disk_tables_v2,
     pfs_inc_statement_created_tmp_tables_v2,
     pfs_inc_statement_select_full_join_v2,

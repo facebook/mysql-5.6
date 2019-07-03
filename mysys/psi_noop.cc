@@ -647,6 +647,19 @@ static void set_statement_rows_examined_noop(PSI_statement_locker *,
   return;
 }
 
+static void inc_statement_rows_deleted_noop(PSI_statement_locker *, ulonglong) {
+  return;
+}
+
+static void inc_statement_rows_inserted_noop(PSI_statement_locker *,
+                                             ulonglong) {
+  return;
+}
+
+static void inc_statement_rows_updated_noop(PSI_statement_locker *, ulonglong) {
+  return;
+}
+
 static void inc_statement_created_tmp_disk_tables_noop(PSI_statement_locker *,
                                                        ulong) {
   return;
@@ -761,6 +774,9 @@ static PSI_statement_service_t psi_statement_noop = {
     set_statement_lock_time_noop,
     set_statement_rows_sent_noop,
     set_statement_rows_examined_noop,
+    inc_statement_rows_deleted_noop,
+    inc_statement_rows_inserted_noop,
+    inc_statement_rows_updated_noop,
     inc_statement_created_tmp_disk_tables_noop,
     inc_statement_created_tmp_tables_noop,
     inc_statement_select_full_join_noop,

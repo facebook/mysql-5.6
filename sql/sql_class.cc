@@ -2244,6 +2244,18 @@ void THD::inc_examined_row_count(ha_rows count) {
   MYSQL_SET_STATEMENT_ROWS_EXAMINED(m_statement_psi, m_examined_row_count);
 }
 
+void THD::inc_deleted_row_count(ha_rows count) {
+  MYSQL_INC_STATEMENT_ROWS_DELETED(m_statement_psi, count);
+}
+
+void THD::inc_inserted_row_count(ha_rows count) {
+  MYSQL_INC_STATEMENT_ROWS_INSERTED(m_statement_psi, count);
+}
+
+void THD::inc_updated_row_count(ha_rows count) {
+  MYSQL_INC_STATEMENT_ROWS_UPDATED(m_statement_psi, count);
+}
+
 void THD::inc_status_created_tmp_disk_tables() {
   DBUG_ASSERT(!status_var_aggregated);
   status_var.created_tmp_disk_tables++;

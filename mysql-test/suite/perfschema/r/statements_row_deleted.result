@@ -1,0 +1,69 @@
+Variation 0: No-op Select
+SELECT 1;;
+1
+1
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 1: Create Table. 
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 2: Insert three rows into Table t1. 
+INSERT INTO t1 VALUES (1), (2), (3);;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 3: Select all rows from Table. 
+SELECT * FROM t1;;
+a
+1
+2
+3
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 4: Update one row. 
+UPDATE t1 SET a = 1 where a = 2;;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 5: DELETE rows from Table. 
+DELETE FROM t1;;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 3.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 3.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 3.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 3.]
+Variation 6: Set up for next variation
+INSERT INTO t1 VALUES (1), (2), (3); CREATE TABLE t2 (a INT); INSERT INTO t2 VALUES (1), (2), (3);;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 0.]
+Variation 7: DELETE rows from two tables. 
+DELETE t1, t2 FROM t1 INNER JOIN t2 ON t1.a = t2.a;;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 6.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 6.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 6.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 6.]
+Variation 8: Drop Table. 
+DROP TABLE t1; DROP TABLE t2;;
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 24.]

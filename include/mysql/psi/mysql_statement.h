@@ -138,6 +138,33 @@ struct CHARSET_INFO;
 #endif
 
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_ROWS_DELETED(LOCKER, P1) \
+  inline_mysql_inc_statement_rows_deleted(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_ROWS_DELETED(LOCKER, P1) \
+  do {                                               \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_ROWS_INSERTED(LOCKER, P1) \
+  inline_mysql_inc_statement_rows_inserted(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_ROWS_INSERTED(LOCKER, P1) \
+  do {                                                \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_ROWS_UPDATED(LOCKER, P1) \
+  inline_mysql_inc_statement_rows_updated(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_ROWS_UPDATED(LOCKER, P1) \
+  do {                                               \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
 #define MYSQL_END_STATEMENT(LOCKER, DA) inline_mysql_end_statement(LOCKER, DA)
 #else
 #define MYSQL_END_STATEMENT(LOCKER, DA) \
@@ -234,6 +261,27 @@ static inline void inline_mysql_set_statement_rows_examined(
     PSI_statement_locker *locker, ulonglong count) {
   if (likely(locker != nullptr)) {
     PSI_STATEMENT_CALL(set_statement_rows_examined)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_rows_deleted(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_rows_deleted)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_rows_inserted(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_rows_inserted)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_rows_updated(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_rows_updated)(locker, count);
   }
 }
 
