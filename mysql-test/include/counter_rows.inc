@@ -1,6 +1,9 @@
 # Executes sql command and validates the values of Rows_examined and Rows_sent
 # values from status table.
 # The following variables should be set before invoking this inc file
+# $sql
+# $expected_rows_examined
+# $expected_rows_sent
 
 # Start counters
 --let $start_rows_examined = query_get_value(show status like "Rows_examined", Value, 1)

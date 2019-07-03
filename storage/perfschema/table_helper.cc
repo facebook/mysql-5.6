@@ -1042,6 +1042,15 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 23: /* SUM_NO_GOOD_INDEX_USED */
       set_field_ulonglong(f, m_no_good_index_used);
       break;
+    case 24: /* SUM_ROWS_DELETED */
+      set_field_ulonglong(f, m_rows_deleted);
+      break;
+    case 25: /* SUM_ROWS_INSERTED */
+      set_field_ulonglong(f, m_rows_inserted);
+      break;
+    case 26: /* SUM_ROWS_UPDATED */
+      set_field_ulonglong(f, m_rows_updated);
+      break;
     default:
       DBUG_ASSERT(false);
       break;
