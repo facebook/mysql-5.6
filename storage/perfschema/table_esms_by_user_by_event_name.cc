@@ -77,6 +77,9 @@ Plugin_table table_esms_by_user_by_event_name::m_table_def(
     "  SUM_NO_INDEX_USED BIGINT unsigned not null,\n"
     "  SUM_NO_GOOD_INDEX_USED BIGINT unsigned not null,\n"
     "  SUM_CPU_TIME BIGINT unsigned not null,\n"
+    "  SUM_ROWS_DELETED BIGINT unsigned not null,\n"
+    "  SUM_ROWS_INSERTED BIGINT unsigned not null,\n"
+    "  SUM_ROWS_UPDATED BIGINT unsigned not null,\n"
     "  UNIQUE KEY (user, event_name) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
