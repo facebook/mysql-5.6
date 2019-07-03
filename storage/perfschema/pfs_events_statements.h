@@ -83,6 +83,12 @@ struct PFS_events_statements : public PFS_events {
   ulonglong m_rows_sent;
   /** Optimizer metric, number of rows examined. */
   ulonglong m_rows_examined;
+  /** Diagnostics area, rows deleted. */
+  ulonglong m_rows_deleted;
+  /** Diagnostics area, rows inserted. */
+  ulonglong m_rows_inserted;
+  /** Diagnostics area, rows updated. */
+  ulonglong m_rows_updated;
   /** Optimizer metric, number of temporary tables created on disk. */
   ulonglong m_created_tmp_disk_tables;
   /** Optimizer metric, number of temporary tables created. */

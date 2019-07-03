@@ -382,6 +382,9 @@ struct PFS_statement_stat {
   ulonglong m_lock_time;
   ulonglong m_rows_sent;
   ulonglong m_rows_examined;
+  ulonglong m_rows_deleted;
+  ulonglong m_rows_inserted;
+  ulonglong m_rows_updated;
   ulonglong m_created_tmp_disk_tables;
   ulonglong m_created_tmp_tables;
   ulonglong m_select_full_join;
@@ -412,6 +415,9 @@ struct PFS_statement_stat {
       m_lock_time = 0;
       m_rows_sent = 0;
       m_rows_examined = 0;
+      m_rows_deleted = 0;
+      m_rows_inserted = 0;
+      m_rows_updated = 0;
       m_created_tmp_disk_tables = 0;
       m_created_tmp_tables = 0;
       m_select_full_join = 0;
@@ -450,6 +456,9 @@ struct PFS_statement_stat {
       m_lock_time += stat->m_lock_time;
       m_rows_sent += stat->m_rows_sent;
       m_rows_examined += stat->m_rows_examined;
+      m_rows_deleted += stat->m_rows_deleted;
+      m_rows_inserted += stat->m_rows_inserted;
+      m_rows_updated += stat->m_rows_updated;
       m_created_tmp_disk_tables += stat->m_created_tmp_disk_tables;
       m_created_tmp_tables += stat->m_created_tmp_tables;
       m_select_full_join += stat->m_select_full_join;

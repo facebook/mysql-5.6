@@ -160,6 +160,12 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_rows_sent;
   /** Rows examined. */
   unsigned long long m_rows_examined;
+  /** Rows deleted. */
+  unsigned long long m_rows_deleted;
+  /** Rows inserted. */
+  unsigned long long m_rows_inserted;
+  /** Rows updated. */
+  unsigned long long m_rows_updated;
   /** Metric, temporary tables created on disk. */
   unsigned long m_created_tmp_disk_tables;
   /** Metric, temporary tables created. */
@@ -303,6 +309,30 @@ typedef void (*set_statement_rows_sent_t)(struct PSI_statement_locker *locker,
   @param count the number of rows examined
 */
 typedef void (*set_statement_rows_examined_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+
+/**
+  Inc a statement event rows deleted metric.
+  @param locker the statement locker
+  @param count the number of rows deleted
+*/
+typedef void (*inc_statement_rows_deleted_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+
+/**
+  Inc a statement event rows inserted metric.
+  @param locker the statement locker
+  @param count the number of rows inserted
+*/
+typedef void (*inc_statement_rows_inserted_t)(
+    struct PSI_statement_locker *locker, unsigned long long count);
+
+/**
+  Inc a statement event rows updated metric.
+  @param locker the statement locker
+  @param count the number of rows updated
+*/
+typedef void (*inc_statement_rows_updated_t)(
     struct PSI_statement_locker *locker, unsigned long long count);
 
 /**
