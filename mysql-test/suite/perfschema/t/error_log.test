@@ -129,12 +129,14 @@ SELECT prio,error_code,subsystem,data
 # MY-013884: Redo log has been resized. Depends on existing files.
 # MY-013908: Invalid systemd socket. Bit indeterministic.
 # MY-013930: systemd debug.
+# MY-010821: Symbol: ER_BINLOG_EVENTS_READ_FROM_BINLOG_INFO
+# MY-011332: Plugin mysqlx reported
 # MY-013503: Directory '.rocksdb' will not be scanned because it is a hidden directory
 
 SELECT prio,error_code,subsystem
   FROM performance_schema.error_log
  WHERE logged>=@startup
-   AND error_code NOT IN("MY-013503", "MY-010821",
+   AND error_code NOT IN("MY-010821", "MY-011332", "MY-013503",
                          "MY-011243", "MY-011240", "MY-011245", "MY-010931",
                          "MY-010949", "MY-010747", "MY-013546", "MY-010051",
                          "MY-011946", "MY-012922", "MY-011810", "MY-012932",
