@@ -5266,6 +5266,7 @@ class Metadata_log_event : public Log_event
 {
 public:
 #ifndef MYSQL_CLIENT
+
   /**
    * Create a new metadata event
    *
@@ -5282,6 +5283,18 @@ public:
    * @param hlc_time_ns - The HLC timestamp in nanosecond
    */
   Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
+
+  /**
+   * Create a new metadata event which contains Previous HLC. Previous HLC is
+   * max HLC that could have been potentially stored in all the previous binlog
+   * for the instance. This can be easily extended later if we decide to
+   * support per-shard HLC. Metadata_log_event containing prev_hlc_time will be
+   * written immediately after Previous_gtid_log_event
+   *
+   * @param prev_hlc_time_ns - The previous HLC timestamp in nanosecond
+   */
+  Metadata_log_event(uint64_t prev_hlc_time_ns);
+
 #endif
 
   /**
@@ -5321,6 +5334,7 @@ public:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   int do_apply_event(Relay_log_info const *rli);
   int do_update_pos(Relay_log_info *rli);
+  enum_skip_reason do_shall_skip(Relay_log_info*);
 #endif
 
   bool is_valid() const { return true; }
@@ -5341,12 +5355,34 @@ public:
   uint64_t get_hlc_time() const;
 
   /**
+   * Set prev_hlc_time and update internal state needed later to write this to
+   * stream
+   *
+   * @param prev_hlc_time_ns - Previous HLC timestamp to set
+   */
+  void set_prev_hlc_time(uint64_t prev_hlc_time_ns);
+
+  /**
+   * Get prev_hlc_time
+   *
+   * @return prev_hlc_time_ns if present. 0 otherwise
+   */
+  uint64_t get_prev_hlc_time();
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_log_event_types : unsigned char
   {
     /* The type corresponding to HLC timestamp */
     HLC_TYPE= 0,
+    /* The type corresponding to Previous HLC timestamp. This is written after
+     * Previous_gtid_log_event in a new binlog file. Previous HLC is max HLC
+     * that could have been potentially stored in all the previous binlog for
+     * the instance. Server uses this to set its HLC to the right value when it
+     * is starting and it protects the HLC clock from moving back in time
+     * (during cases like a reset master followed by server restart) */
+    PREV_HLC_TYPE= 1,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -5383,6 +5419,15 @@ private:
   bool write_hlc_time(IO_CACHE* file);
 
   /**
+   * Write prev HLC timestamp to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_prev_hlc_time(IO_CACHE* file);
+
+  /**
    * Write type and length to file
    *
    * @param file   - file to write into
@@ -5402,6 +5447,10 @@ private:
   /* HLC timestamp. The type corresponding to this is HLC_TYPE. */
   uint64_t hlc_time_ns_= 0;
   static const uint32_t ENCODED_HLC_SIZE= sizeof(hlc_time_ns_);
+
+  /* Prev HLC timestamp. The type corresponding to this is PREV_HLC_TYPE. */
+  uint64_t prev_hlc_time_ns_= 0;
+  static const uint32_t ENCODED_PREV_HLC_SIZE= sizeof(prev_hlc_time_ns_);
 
   /* Total size of this event when encoded into the stream */
   uint32_t size_= 0;

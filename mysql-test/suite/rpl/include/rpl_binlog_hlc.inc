@@ -1,20 +1,3 @@
---source include/master-slave.inc
---source include/have_binlog_format_row.inc
---source include/have_debug.inc
-
-# Cleanup old binlog
-connection master;
-flush logs;
-let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
-replace_result $binlog binlog;
-eval purge binary logs to '$binlog';
-
-connection slave;
-flush logs;
-let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
-replace_result $binlog binlog;
-eval purge binary logs to '$binlog';
-
 # Setup
 # Set minimum_hlc_ns to a high value. Subsequent txn's should see monotonically
 # increasing timestamp from this point
@@ -36,9 +19,9 @@ create table t1 (a int primary key, b char(8)) engine=InnoDB;
 insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
 --source include/show_binlog_events.inc
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 --source include/show_binlog_events.inc
 
 --echo Case 2: Enable binlog_hlc in master and disable it in slave
@@ -52,9 +35,9 @@ insert into t1 values(6, 'f');
 insert into t1 values(7, 'g');
 
 --source include/show_binlog_events.inc
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 --source include/show_binlog_events.inc
 
 --echo Case 3: Disable binlog_hlc in master and enable it in slave
@@ -68,9 +51,9 @@ insert into t1 values(8, 'h');
 insert into t1 values(9, 'i');
 
 --source include/show_binlog_events.inc
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 --source include/show_binlog_events.inc
 
 --echo Case 4: Enable binlog_hlc in master again
@@ -82,9 +65,9 @@ insert into t1 values(10, 'j');
 insert into t1 values(11, 'k');
 
 --source include/show_binlog_events.inc
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 --source include/show_binlog_events.inc
 
 --echo Case 5: Setting a lower HLC is a no-op. HLC should continue to increase monotonically
@@ -101,9 +84,9 @@ insert into t1 values(12, 'j');
 insert into t1 values(13, 'k');
 
 --source include/show_binlog_events.inc
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 --source include/show_binlog_events.inc
 
 # Cleanup
@@ -111,9 +94,9 @@ connection master;
 drop table if exists t1;
 SET @@global.minimum_hlc_ns = default;
 SET @@global.enable_binlog_hlc = default;
---source include/sync_slave_sql_with_master.inc
 
 connection slave;
+--source include/sync_slave_sql_with_master.inc
 SET @@global.enable_binlog_hlc = default;
 
 connection master;

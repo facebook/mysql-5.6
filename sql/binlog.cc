@@ -3869,6 +3869,23 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     }
     bytes_written+= prev_gtids_ev.data_written;
   }
+
+  /* If HLC is enabled, then write the current HLC value into binlog. This is
+   * used during server restart to intialize the HLC clock of the instance.
+   * This is a guarantee that all trx's in all of the previous binlog have a HLC
+   * timestamp lower than or equal to the value seen here. Note that this
+   * function (open_binlog()) should be called during server restart only after
+   * initializing the local instance's HLC clock (by reading the previous binlog
+   * file) */
+  if (enable_binlog_hlc)
+  {
+    uint64_t current_hlc= mysql_bin_log.get_current_hlc();
+    Metadata_log_event metadata_ev(current_hlc);
+    if (metadata_ev.write(&log_file))
+      goto err;
+    bytes_written+= metadata_ev.get_total_size();
+  }
+
   if (need_sid_lock)
     global_sid_lock->unlock();
 

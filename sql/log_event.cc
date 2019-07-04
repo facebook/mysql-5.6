@@ -15716,6 +15716,13 @@ Metadata_log_event::Metadata_log_event(
 {
   set_hlc_time(hlc_time_ns);
 }
+
+Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
+  : Log_event(Log_event::EVENT_NO_CACHE,
+            Log_event::EVENT_IMMEDIATE_LOGGING)
+{
+  set_prev_hlc_time(prev_hlc_time_ns);
+}
 #endif
 
 Metadata_log_event::Metadata_log_event(
@@ -15746,8 +15753,14 @@ Metadata_log_event::Metadata_log_event(
     read_len+= length;
   }
 
+  // Ensure we read everything in the event
   DBUG_ASSERT((read_len == event_len) &&
       (read_len == get_total_size()));
+
+  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
+  DBUG_ASSERT(!(does_exist(Metadata_log_event_types::HLC_TYPE) &&
+        does_exist(Metadata_log_event_types::PREV_HLC_TYPE)));
+
 }
 
 void Metadata_log_event::set_hlc_time(uint64_t hlc_time_ns)
@@ -15755,7 +15768,7 @@ void Metadata_log_event::set_hlc_time(uint64_t hlc_time_ns)
   hlc_time_ns_= hlc_time_ns;
   set_exist(Metadata_log_event_types::HLC_TYPE);
   // Update the size of the event when it gets serialized into the stream.
-  size_= size_ + ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE;
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE);
 }
 
 void Metadata_log_event::set_exist(Metadata_log_event_types type)
@@ -15777,21 +15790,40 @@ uint64_t Metadata_log_event::get_hlc_time() const
   return hlc_time_ns_;
 }
 
+void Metadata_log_event::set_prev_hlc_time(uint64_t prev_hlc_time_ns)
+{
+  prev_hlc_time_ns_= prev_hlc_time_ns;
+  set_exist(Metadata_log_event_types::PREV_HLC_TYPE);
+
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_PREV_HLC_SIZE);
+}
+
+uint64_t Metadata_log_event::get_prev_hlc_time()
+{
+  return prev_hlc_time_ns_;
+}
+
 uint Metadata_log_event::read_type(
     Metadata_log_event_types type, char const* buffer)
 {
   DBUG_ENTER("Metadata_log_event::read_type");
-  using RLET= Metadata_log_event_types;
+  using MLET= Metadata_log_event_types;
 
   // Read the 'length' of the field's value
   uint value_length= uint2korr(buffer);
 
   switch (type)
   {
-    case RLET::HLC_TYPE:
+    case MLET::HLC_TYPE:
       // HLC is a 8 byte numerical field
       DBUG_ASSERT(value_length == 8);
       set_hlc_time(uint8korr(buffer + ENCODED_LENGTH_SIZE));
+      break;
+    case MLET::PREV_HLC_TYPE:
+      // Previous HLC is a 8 byte numerical field
+      DBUG_ASSERT(value_length == 8);
+      set_prev_hlc_time(uint8korr(buffer + ENCODED_LENGTH_SIZE));
       break;
     default:
       // This is a event which we do not know about. Just skip this
@@ -15811,7 +15843,14 @@ bool Metadata_log_event::write_data_body(IO_CACHE *file)
 {
   DBUG_ENTER("Metadata_log_event::write_data_body");
 
+  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
+  DBUG_ASSERT(!(does_exist(Metadata_log_event_types::HLC_TYPE) &&
+        does_exist(Metadata_log_event_types::PREV_HLC_TYPE)));
+
   if (write_hlc_time(file))
+    DBUG_RETURN(1);
+
+  if (write_prev_hlc_time(file))
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
@@ -15837,6 +15876,33 @@ bool Metadata_log_event::write_hlc_time(IO_CACHE* file)
 
   int8store(ptr_buffer, hlc_time_ns_);
   ptr_buffer+= ENCODED_HLC_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_prev_hlc_time(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_prev_hlc_time");
+
+  if (!does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write prev hlc time */
+
+  char buffer[ENCODED_PREV_HLC_SIZE];
+  char* ptr_buffer= buffer;
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::PREV_HLC_TYPE,
+        sizeof(prev_hlc_time_ns_)))
+  {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, prev_hlc_time_ns_);
+  ptr_buffer+= ENCODED_PREV_HLC_SIZE;
 
   DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
 
@@ -15898,6 +15964,12 @@ int Metadata_log_event::pack_info(Protocol *protocol)
     buffer.append(std::to_string(hlc_time_ns_));
   }
 
+  if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+  {
+    buffer.append("Prev HLC time: ");
+    buffer.append(std::to_string(prev_hlc_time_ns_));
+  }
+
   if (buffer.length() > 0)
     protocol->store(buffer.c_str(), buffer.length(), &my_charset_bin);
 
@@ -15919,6 +15991,8 @@ Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
 
     if (does_exist(Metadata_log_event_types::HLC_TYPE))
       buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
+    if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+      buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
 
     print_header(head, print_event_info, FALSE);
     my_b_printf(head, "%s\n", buffer.c_str());
@@ -15949,6 +16023,19 @@ int Metadata_log_event::do_update_pos(Relay_log_info *rli)
 {
   rli->inc_event_relay_log_pos();
   return 0;
+}
+
+Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
+    Relay_log_info* /*unused */)
+{
+  /*
+   * Metadata event containing previous hlc timestamp has no meaning for slave.
+   * hence slave should skip such events
+   */
+  if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  return Log_event::EVENT_SKIP_NOT;
 }
 #endif
 

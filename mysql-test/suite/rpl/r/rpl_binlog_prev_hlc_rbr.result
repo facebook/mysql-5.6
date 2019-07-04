@@ -1,0 +1,128 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.enable_binlog_hlc = true;
+use test;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Query	#	#	COMMIT
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Query	#	#	COMMIT
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Query	#	#	COMMIT
+include/show_relaylog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-relay-bin.000004	#	Rotate	#	#	master-bin.000002;pos=POS
+slave-relay-bin.000004	#	Format_desc	#	#	SERVER_VERSION, BINLOG_VERSION
+slave-relay-bin.000004	#	Rotate	#	#	master-bin.000002;pos=POS
+slave-relay-bin.000004	#	Rotate	#	#	slave-relay-bin.000005;pos=POS
+Case 1: Flush logs in master so that a new binlog file is generated with
+prev_hlc time in metadata event
+
+flush logs;
+insert into t1 values(3, 'c');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000003	#	Metadata	#	#	Prev HLC time: 2538630000000000003
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Query	#	#	COMMIT
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Query	#	#	COMMIT
+Case 2: Flush logs in slave so that a new binlog file is generated with
+prev_hlc time in metadata event
+
+flush logs;
+insert into t1 values(4, 'd');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000003	#	Metadata	#	#	Prev HLC time: 2538630000000000003
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Query	#	#	COMMIT
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Query	#	#	COMMIT
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000003	#	Metadata	#	#	Prev HLC time: 2538630000000000004
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Query	#	#	COMMIT
+include/show_relaylog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-relay-bin.000008	#	Metadata	#	#	Prev HLC time: 2538630000000000004
+slave-relay-bin.000008	#	Format_desc	#	#	SERVER_VERSION, BINLOG_VERSION
+slave-relay-bin.000008	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-relay-bin.000008	#	Query	#	#	BEGIN
+slave-relay-bin.000008	#	Table_map	#	#	table_id: # (test.t1)
+slave-relay-bin.000008	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-relay-bin.000008	#	Query	#	#	COMMIT
+use test;
+drop table if exists t1;
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+include/sync_slave_sql_with_master.inc
+SET @@global.enable_binlog_hlc = default;
+include/rpl_end.inc

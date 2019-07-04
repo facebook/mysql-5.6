@@ -88,9 +88,12 @@ insert into t2 values (2, 'b');
 
 # Generate some more txns on master. HLC timestamp of master will be retained on
 # slave when it applies using mysqlbinlog. HLC clock of slave will be
-# updated accordingly
+# updated accordingly. Also, flush logs so that a new binlog is generated with
+# metadata event containing prev-hlc. This should be skipped/ignored by
+# slave apply (when applied through mysqlbinlog)
 --connection master
 -- echo Generate some more txns on master instance
+flush logs;
 
 # Single-statement transaction
 set @@session.autocommit= on;
