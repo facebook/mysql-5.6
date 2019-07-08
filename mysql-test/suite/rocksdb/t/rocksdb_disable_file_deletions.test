@@ -1,0 +1,52 @@
+--source include/have_rocksdb.inc
+--source include/count_sessions.inc
+
+let $ROCKSDB_DATADIR = `select CONCAT(@@datadir, '/', @@rocksdb_datadir)`;
+
+CREATE TABLE t (a INT, b TEXT) ENGINE=ROCKSDB;
+
+# disable file deletions
+connect(con1,localhost,root,,test,,);
+connection con1;
+
+SET SESSION rocksdb_disable_file_deletions = 1;
+
+connection default;
+
+# save one of the WAL file names
+let wal=`SELECT storage_engines->>'$.RocksDB.wal_files[0].path_name' FROM performance_schema.log_status`;
+
+# write some data
+disable_query_log;
+let $i = 0;
+while ($i < 1000)
+{
+    eval INSERT INTO t VALUES ($i, REPEAT(UUID(), 100));
+    inc $i;
+}
+enable_query_log;
+
+# make sure the WAL has not been removed
+file_exists $ROCKSDB_DATADIR/$wal;
+
+connection con1;
+disconnect con1;
+# deletions should be enabled now
+connection default;
+--source include/wait_until_count_sessions.inc
+
+# write little more data
+disable_query_log;
+let $i = 0;
+while ($i < 10)
+{
+    eval INSERT INTO t VALUES ($i, REPEAT(UUID(), 100));
+    inc $i;
+}
+enable_query_log;
+
+# make sure the WAL has disappeared
+--error 1
+file_exists $ROCKSDB_DATADIR/$wal;
+
+DROP TABLE t;

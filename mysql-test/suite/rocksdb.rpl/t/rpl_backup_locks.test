@@ -1,0 +1,5 @@
+--source include/have_binlog_format_row.inc
+--source include/have_rocksdb.inc
+
+--let $engine= rocksdb
+--source extra/rpl_tests/rpl_backup_locks.inc

@@ -1,0 +1,7 @@
+--source include/have_rocksdb.inc
+
+--let $engine= rocksdb
+--let $handler_support= 0
+--let $tmp_table_support= 0
+--let $for_export_support= 0
+--source include/backup_locks.inc
