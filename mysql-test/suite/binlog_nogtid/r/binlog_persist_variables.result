@@ -109,6 +109,7 @@ SET PERSIST rpl_semi_sync_master_trace_level = @@GLOBAL.rpl_semi_sync_master_tra
 SET PERSIST rpl_semi_sync_master_wait_for_slave_count = @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count;
 SET PERSIST rpl_semi_sync_master_wait_no_slave = @@GLOBAL.rpl_semi_sync_master_wait_no_slave;
 SET PERSIST rpl_semi_sync_master_wait_point = @@GLOBAL.rpl_semi_sync_master_wait_point;
+SET PERSIST rpl_semi_sync_master_whitelist = @@GLOBAL.rpl_semi_sync_master_whitelist;
 SET PERSIST rpl_semi_sync_slave_enabled = @@GLOBAL.rpl_semi_sync_slave_enabled;
 SET PERSIST rpl_semi_sync_slave_trace_level = @@GLOBAL.rpl_semi_sync_slave_trace_level;
 SET PERSIST rpl_send_buffer_size = @@GLOBAL.rpl_send_buffer_size;
@@ -254,6 +255,7 @@ RESET PERSIST IF EXISTS rpl_semi_sync_master_trace_level;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_wait_for_slave_count;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_wait_no_slave;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_wait_point;
+RESET PERSIST IF EXISTS rpl_semi_sync_master_whitelist;
 RESET PERSIST IF EXISTS rpl_semi_sync_slave_enabled;
 RESET PERSIST IF EXISTS rpl_semi_sync_slave_trace_level;
 RESET PERSIST IF EXISTS rpl_send_buffer_size;

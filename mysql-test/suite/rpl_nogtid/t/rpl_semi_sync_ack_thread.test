@@ -20,6 +20,8 @@
 # Suppress warning:
 # "Semi-sync master failed on net_flush() before waiting for slave reply"
 CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
+CALL mtr.add_suppression("Run function 'before_send_event' in plugin 'rpl_semi_sync_master' failed");
+CALL mtr.add_suppression("Slave SQL.*Request to stop slave SQL Thread received while applying a group that has non-transactional changes; waiting for completion of the group");
 
 --echo ####################################################################
 --echo # Test Case: semisync master can be enabled and disabled sucessfully

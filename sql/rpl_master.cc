@@ -1040,6 +1040,9 @@ void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
   @param[out]   value String to return UUID value.
 
   @return       if success value is returned else NULL is returned.
+
+  NOTE: Please make sure this method is in sync with
+        ReplSemiSyncMaster::get_slave_uuid
 */
 String *get_slave_uuid(THD *thd, String *value) {
   if (value == nullptr) return nullptr;

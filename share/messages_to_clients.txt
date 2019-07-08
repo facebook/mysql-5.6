@@ -9613,6 +9613,12 @@ ER_RPL_FAILED_IN_RLI_INIT_INFO
 ER_SEMISYNC_FORCE_SHUTDOWN
    eng "Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions"
 
+ER_SEMISYNC_WHITELIST_UPDATED
+   eng "Semi-sync master: Whitelist updated from %s to %s"
+
+ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE
+   eng "Semi-sync master: Received an ACK from an unrecognized slave with UUID = %s, ignoring"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
