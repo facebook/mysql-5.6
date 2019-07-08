@@ -3477,7 +3477,7 @@ ER_SEMISYNC_REPLY_BINLOG_FILE_TOO_LARGE
   eng "Read semi-sync reply binlog file length too large."
 
 ER_SEMISYNC_SERVER_REPLY
-  eng "%s: Got reply(%s, %lu) from server %u."
+  eng "%s: Got reply(%s, %lu) from server %s."
 
 ER_SEMISYNC_FUNCTION_CALLED_TWICE
   eng "%s called twice."

@@ -112,7 +112,10 @@ static int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
   get_user_var_int("rpl_semi_sync_slave", &semi_sync_slave, nullptr);
 
   if (semi_sync_slave != 0) {
-    if (ack_receiver->add_slave(current_thd)) {
+    std::string slave_uuid = repl_semisync->get_slave_uuid(current_thd);
+
+    if (slave_uuid.empty() ||
+        ack_receiver->add_slave(current_thd, param->server_id, slave_uuid)) {
       LogErr(ERROR_LEVEL, ER_SEMISYNC_FAILED_REGISTER_SLAVE_TO_RECEIVER);
       return -1;
     }
@@ -220,6 +223,26 @@ static void fix_rpl_semi_sync_master_wait_for_slave_count(MYSQL_THD thd,
                                                           void *ptr,
                                                           const void *val);
 
+static void update_whitelist(THD *, SYS_VAR *, void *var_ptr,
+                             const void *save) {
+  auto wlist_buf = *static_cast<char **>(const_cast<void *>(save));
+
+  ack_receiver->lock();
+
+  if (wlist_buf) {
+    auto wlist = std::string(wlist_buf);
+    ack_receiver->update_whitelist(wlist);
+    // all good, now let's change the sysvar
+    *static_cast<const char **>(var_ptr) = my_strdup(
+        key_memory_global_system_variables, wlist.c_str(), MYF(MY_WME));
+    my_free(wlist_buf);
+  } else
+    *static_cast<const char **>(var_ptr) = nullptr;
+
+  ack_receiver->disconnect_non_whitelisted_slaves();
+  ack_receiver->unlock();
+}
+
 static MYSQL_SYSVAR_BOOL(
     enabled, rpl_semi_sync_master_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable semi-synchronous replication master (disabled by default). ",
@@ -291,6 +314,18 @@ static MYSQL_SYSVAR_UINT(
     &fix_rpl_semi_sync_master_wait_for_slave_count, /* update */
     1, 1, 65535, 1);
 
+static MYSQL_SYSVAR_STR(
+    whitelist, rpl_semi_sync_master_whitelist,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "Comma separated UUIDs of semi-sync slaves that are allowed to ACK "
+    "transactions. ACKs from slaves not in the list will be ignored and their "
+    "connections will be closed. UUIDs can be added and removed from the list "
+    "using +/- in the beginning of the string (e.g. +uuid1 or -uuid1) or a "
+    "complete list can be specified using a comma separated string. Default "
+    "value is ANY, the value ANY means that any slave can ACK trxs. An empty "
+    "list will lead to discarding all ACKs.",
+    nullptr, update_whitelist, "ANY");
+
 static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(enabled),
     MYSQL_SYSVAR(timeout),
@@ -299,6 +334,7 @@ static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(trace_level),
     MYSQL_SYSVAR(wait_point),
     MYSQL_SYSVAR(wait_for_slave_count),
+    MYSQL_SYSVAR(whitelist),
     nullptr,
 };
 static void fix_rpl_semi_sync_master_timeout(MYSQL_THD, SYS_VAR *, void *ptr,

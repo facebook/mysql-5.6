@@ -25,15 +25,17 @@
 
 #include <assert.h>
 #include <time.h>
+#include <fstream>
 
 #include "my_byteorder.h"
 #include "my_compiler.h"
 #include "my_systime.h"
-#include "sql/mysqld.h"  // max_connections
-#if defined(ENABLED_DEBUG_SYNC)
 #include "sql/current_thd.h"
-#include "sql/debug_sync.h"
+#include "sql/item_func.h"  // user_var_entry
+#include "sql/mysqld.h"     // max_connections
 #include "sql/sql_class.h"
+#if defined(ENABLED_DEBUG_SYNC)
+#include "sql/debug_sync.h"
 #endif
 
 #define TIME_THOUSAND 1000
@@ -62,6 +64,8 @@ unsigned long long rpl_semi_sync_master_net_wait_time = 0;
 unsigned long long rpl_semi_sync_master_trx_wait_time = 0;
 bool rpl_semi_sync_master_wait_no_slave = true;
 unsigned int rpl_semi_sync_master_wait_for_slave_count = 1;
+char *rpl_semi_sync_master_whitelist =
+    nullptr; /* protected by Ack_receiver::m_mutex */
 
 static int getWaitTime(const struct timespec &start_ts);
 
@@ -334,7 +338,9 @@ int ActiveTranx::clear_active_tranx_nodes(const char *log_file_name,
   return function_exit(kWho, 0);
 }
 
-int ReplSemiSyncMaster::reportReplyPacket(uint32 server_id, const uchar *packet,
+int ReplSemiSyncMaster::reportReplyPacket(uint32 server_id,
+                                          std::string &slave_uuid,
+                                          const uchar *packet,
                                           ulong packet_len) {
   const char *kWho = "ReplSemiSyncMaster::reportReplyPacket";
   int result = -1;
@@ -367,7 +373,7 @@ int ReplSemiSyncMaster::reportReplyPacket(uint32 server_id, const uchar *packet,
 
   if (trace_level_ & kTraceDetail)
     LogErr(INFORMATION_LEVEL, ER_SEMISYNC_SERVER_REPLY, kWho, log_file_name,
-           (ulong)log_file_pos, server_id);
+           (ulong)log_file_pos, slave_uuid.c_str());
 
   handleAck(server_id, log_file_name, log_file_pos);
 
@@ -553,6 +559,22 @@ bool ReplSemiSyncMaster::is_semi_sync_slave() {
   long long val = 0;
   get_user_var_int("rpl_semi_sync_slave", &val, &null_value);
   return val;
+}
+
+// This method was copied from get_slave_uuid() in rpl_master.cc
+std::string ReplSemiSyncMaster::get_slave_uuid(THD *thd) const {
+  std::string result;
+
+  /* Protects thd->user_vars. */
+  mysql_mutex_lock(&thd->LOCK_thd_data);
+
+  const auto it = thd->user_vars.find("slave_uuid");
+  if (it != thd->user_vars.end() && it->second->length() > 0) {
+    result = std::string(it->second->ptr(), it->second->length());
+  }
+
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
+  return result;
 }
 
 void ReplSemiSyncMaster::reportReplyBinlog(const char *log_file_name,

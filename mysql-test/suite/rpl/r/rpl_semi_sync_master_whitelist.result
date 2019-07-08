@@ -1,0 +1,120 @@
+include/rpl_init.inc [topology=1->2,1->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_default_connections.inc
+include/rpl_connect.inc [creating slave2]
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+call mtr.add_suppression("Semi-sync master: Received an ACK from an unrecognized slave with UUID");
+call mtr.add_suppression("Semi-sync master failed on net_flush.. before waiting for slave reply");
+call mtr.add_suppression("Run function 'transmit_start' in plugin 'rpl_semi_sync_master' failed");
+call mtr.add_suppression("Failed to register slave to semi-sync ACK receiver thread.*");
+call mtr.add_suppression("Slave I/O for channel '': Master command COM_REGISTER_SLAVE failed: failed registering on master");
+call mtr.add_suppression("Slave I/O for channel '': SET @master_heartbeat_period");
+call mtr.add_suppression("Read semi-sync reply magic number error");
+[connection master]
+create table t1(a int) engine=innodb;
+insert into t1 values(0);
+include/sync_slave_sql_with_master.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection slave1]
+include/assert.inc [The t1 table should have 1 row]
+[connection slave2]
+include/assert.inc [The t1 table should have 1 row]
+[connection slave1]
+[connection slave2]
+[connection master]
+set @@persist.rpl_semi_sync_master_whitelist = "slave1_uuid,slave2_uuid";
+[connection master]
+insert into t1 values(1);
+insert into t1 values(2);
+include/assert.inc [The t1 table should have 3 rows]
+include/sync_slave_sql_with_master.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection slave1]
+include/assert.inc [The t1 table should have 3 rows]
+[connection slave2]
+include/assert.inc [The t1 table should have 3 rows]
+[connection slave1]
+include/stop_slave.inc
+[connection master]
+insert into t1 values(3);
+insert into t1 values(4);
+include/assert.inc [The t1 table should have 5 rows]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 5 rows]
+[connection slave1]
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 5 rows]
+include/rpl_stop_slaves.inc
+[connection master]
+include/rpl_restart_server.inc [server_number=1]
+include/rpl_start_slaves.inc
+[connection master]
+select @@global.rpl_semi_sync_master_whitelist;
+@@global.rpl_semi_sync_master_whitelist
+slave1_uuid,slave2_uuid
+[connection slave1]
+include/stop_slave.inc
+[connection slave2]
+include/stop_slave.inc
+[connection master1]
+insert into t1 values(5);
+[connection master]
+include/assert.inc [The t1 table should have 5 rows]
+[connection slave1]
+include/start_slave.inc
+[connection slave2]
+include/start_slave.inc
+[connection master1]
+include/assert.inc [The t1 table should have 6 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 6 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 6 rows]
+[connection master]
+set @@global.rpl_semi_sync_master_whitelist='-slave2_uuid';
+[connection slave1]
+include/stop_slave.inc
+[connection master1]
+insert into t1 values(6);
+[connection master]
+[connection slave1]
+include/start_slave.inc
+[connection master1]
+set @@global.rpl_semi_sync_master_whitelist='+slave2_uuid';
+include/assert.inc [The t1 table should have 7 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 7 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 7 rows]
+[connection master]
+set @@global.rpl_semi_sync_master_whitelist='';
+[connection master1]
+insert into t1 values(7);
+[connection master]
+set @@global.rpl_semi_sync_master_whitelist = "slave1_uuid,slave2_uuid";
+[connection master1]
+include/assert.inc [The t1 table should have 8 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 8 rows]
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [The t1 table should have 8 rows]
+[connection master]
+drop table t1;
+set @@global.rpl_semi_sync_master_whitelist = ANY;
+reset persist rpl_semi_sync_master_whitelist;
+include/rpl_end.inc

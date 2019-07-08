@@ -1,0 +1,1 @@
+$SEMISYNC_MASTER_PLUGIN_OPT --plugin-load=rpl_semi_sync_master=$SEMISYNC_MASTER_PLUGIN;rpl_semi_sync_slave=$SEMISYNC_SLAVE_PLUGIN
