@@ -12578,7 +12578,7 @@ ER_SEMISYNC_REPLY_BINLOG_FILE_TOO_LARGE
   eng "Read semi-sync reply binlog file length too large."
 
 ER_SEMISYNC_SERVER_REPLY
-  eng "%s: Got reply(%s, %lu) from server %u."
+  eng "%s: Got reply(%s, %lu) from server %s."
 
 ER_SEMISYNC_FUNCTION_CALLED_TWICE
   eng "%s called twice."
@@ -19907,6 +19907,12 @@ ER_RPL_FAILED_IN_RLI_INIT_INFO
 
 ER_SEMISYNC_FORCE_SHUTDOWN
    eng "Force shutdown: Semi-sync master is being switched off while there are active un-acked transactions"
+
+ER_SEMISYNC_WHITELIST_UPDATED
+   eng "Semi-sync master: Whitelist updated from %s to %s"
+
+ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE
+   eng "Semi-sync master: Received an ACK from an unrecognized slave with UUID = %s, ignoring"
 
 ER_DB_ADMISSION_CONTROL
   eng "Maximum waiting queries %lu reached for database `%s`"
