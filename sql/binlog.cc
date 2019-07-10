@@ -3301,6 +3301,7 @@ err:
   must hold it.
   @param verify_checksum Set to true to verify event checksums.
   @param max_pos Read the binlog file upto max_pos offset.
+  @param max_prev_hlc The max HLC timestamp present in all previous binlog
 
   @retval GOT_GTIDS The file was successfully read and it contains
   both Gtid_log_events and Previous_gtids_log_events.
@@ -3320,7 +3321,8 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
                        Gtid *last_gtid,
                        Sid_map* sid_map,
                        bool verify_checksum,
-                       my_off_t max_pos)
+                       my_off_t max_pos,
+                       uint64_t *max_prev_hlc)
 {
   DBUG_ENTER("read_gtids_from_binlog");
   DBUG_PRINT("info", ("Opening file %s", filename));
@@ -3335,6 +3337,7 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
 
   File file;
   IO_CACHE log;
+  uint64_t prev_hlc= 0;
 
   /*
     We assert here that both all_gtids and prev_gtids, if specified,
@@ -3489,6 +3492,13 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
       }
       break;
     }
+    case METADATA_EVENT:
+      if (unlikely(max_prev_hlc))
+      {
+        prev_hlc= std::max(
+            prev_hlc, extract_hlc(static_cast<Metadata_log_event *>(ev)));
+      }
+      break;
     case ANONYMOUS_GTID_LOG_EVENT:
     default:
       // if we found any other event type without finding a
@@ -3520,8 +3530,18 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
   mysql_file_close(file, MYF(MY_WME));
   end_io_cache(&log);
 
+  // Set max HLC timestamp in all previous binlogs
+  if (max_prev_hlc)
+    *max_prev_hlc= prev_hlc;
+
   DBUG_PRINT("info", ("returning %d", ret));
   DBUG_RETURN(ret);
+}
+
+uint64_t MYSQL_BIN_LOG::extract_hlc(Metadata_log_event *metadata_ev)
+{
+  return std::max(
+      metadata_ev->get_hlc_time(), metadata_ev->get_prev_hlc_time());
 }
 
 bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
@@ -3572,7 +3592,7 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
 
 bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    Gtid *last_gtid, bool verify_checksum,
-                                   bool need_lock)
+                                   bool need_lock, uint64_t *max_prev_hlc)
 {
   char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   uchar *previous_gtid_set_in_file = NULL;
@@ -3674,7 +3694,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     DBUG_PRINT("info", ("last binlog with gtids %s\n",
                         last_binlog_file_with_gtids));
     switch (read_gtids_from_binlog(last_binlog_file_with_gtids, all_gtids, NULL,
-                                   NULL, last_gtid, sid_map, verify_checksum))
+                                   NULL, last_gtid, sid_map, verify_checksum,
+                                   ULONGLONG_MAX, max_prev_hlc))
     {
       case ERROR:
         error= 1;

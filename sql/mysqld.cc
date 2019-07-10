@@ -6244,12 +6244,14 @@ a file name for --log-bin-index option", opt_binlog_index_name);
 
   if (opt_bin_log)
   {
+    uint64_t prev_hlc= 0;
     if (mysql_bin_log.init_gtid_sets(
           const_cast<Gtid_set *>(gtid_state->get_logged_gtids()),
           const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
           NULL/*last_gtid*/,
           opt_master_verify_checksum,
-          true/*true=need lock*/))
+          true/*true=need lock*/,
+          &prev_hlc))
       unireg_abort(1);
 
     /*
@@ -6259,6 +6261,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     */
     mysql_bin_log.set_previous_gtid_set(
       const_cast<Gtid_set*>(gtid_state->get_logged_gtids()));
+
+    // Update the instance's HLC clock to be greater than or equal to the HLC
+    // times of trx's in all previous binlog
+    mysql_bin_log.update_hlc(prev_hlc);
+
     if (mysql_bin_log.open_binlog(opt_bin_logname, 0,
                                   WRITE_CACHE, max_binlog_size, false,
                                   true/*need_lock_index=true*/,

@@ -619,17 +619,21 @@ public:
   */
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
                       Gtid *last_gtid, bool verify_checksum,
-                      bool need_lock);
+                      bool need_lock, uint64_t *max_prev_hlc= NULL);
   enum_read_gtids_from_binlog_status
   read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
                          Gtid_set *prev_gtids, Gtid *first_gtid,
                          Gtid *last_gtid, Sid_map *sid_map,
                          bool verify_checksum,
-                         my_off_t max_pos = ULONGLONG_MAX);
+                         my_off_t max_pos= ULONGLONG_MAX,
+                         uint64_t *max_prev_hlc= NULL);
   void set_previous_gtid_set(Gtid_set *previous_gtid_set_param)
   {
     previous_gtid_set= previous_gtid_set_param;
   }
+
+  // Extract HLC time (either prev_hlc or regular hlc) from Metadata_log_event
+  uint64_t extract_hlc(Metadata_log_event *metadata_ev);
 
   /* Return the HLC timestamp for the caller (next txn) */
   uint64_t get_next_hlc() {
