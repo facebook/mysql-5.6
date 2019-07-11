@@ -1246,6 +1246,17 @@ static int hlc_before_write_cache(THD* thd, binlog_cache_data* cache_data)
   if (metadata_ev.write(&cache_data->cache_log))
     result= 1;
 
+  /* Update session tracker with hlc timestamp of this trx */
+  auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (!result && thd->variables.response_attrs_contain_hlc &&
+      tracker->is_enabled())
+  {
+    static LEX_CSTRING key= { STRING_WITH_LEN("hlc_ts") };
+    std::string value_str= std::to_string(hlc_time_ns);
+    LEX_CSTRING value= { value_str.c_str(), value_str.length() };
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+
   thd->should_update_hlc= false;
   return result;
 }

@@ -769,6 +769,13 @@ typedef struct system_variables
   Gtid_specification gtid_next;
   Gtid_set_or_null gtid_next_list;
   ulong session_track_gtids;
+
+  /*
+    Should we set the HLC timestamp of a read write transaction in response
+    attribute?
+   */
+  bool response_attrs_contain_hlc;
+
   /**
     Compatibility option to mark the pre MySQL-5.6.4 temporals columns using
     the old format using comments for SHOW CREATE TABLE and in I_S.COLUMNS

@@ -1,0 +1,151 @@
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+set @@session.response_attrs_contain_hlc = true;
+Case 1: Single statement txn. Commit ts needs to be updated at commit time
+use test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+create table t1 (a int primary key, b char(8));
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000001
+
+insert into t1 values(1, 'a');
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000002
+
+insert into t1 values(2, 'b');
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000003
+
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 2: Multi statement txn. Commit ts needs to be updated at commit time
+begin;
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+commit;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000004
+
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 3: Turning off binlog_hlc should stop sending hlc in ok packets
+SET @@global.enable_binlog_hlc = false;
+set @@session.response_attrs_contain_hlc = true;
+insert into t1 values(5, 'e');
+commit;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 4: Turning off response_attrs_contain_hlc should stop sending hlc in ok packets
+SET @@global.enable_binlog_hlc = true;
+set @@session.response_attrs_contain_hlc = false;
+insert into t1 values(6, 'f');
+commit;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8))
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+use test;
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+drop table if exists t1;
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+SET @@session.response_attrs_contain_hlc = default;

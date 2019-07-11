@@ -1,0 +1,79 @@
+--source include/have_binlog_format_row.inc
+--source include/have_debug.inc
+--source include/have_innodb.inc
+--source include/have_gtid.inc
+--source include/not_parallel.inc
+
+--enable_session_track_info
+
+# Cleanup old binlog
+connection default;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+# Setup
+# Set minimum_hlc_ns to a high value. Subsequent txn's should see monotonically
+# increasing timestamp from this point
+connection default;
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+# Enable binlog_hlc 
+SET @@global.enable_binlog_hlc = true;
+
+# Enable session to track HLC
+set @@session.response_attrs_contain_hlc = true;
+
+# Case 1: Enable binlog HLC and run a single statement txn
+--echo Case 1: Single statement txn. Commit ts needs to be updated at commit time
+connection default;
+use test;
+
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+--source include/show_binlog_events.inc
+
+# Case 2: Enable binlog HLC and run multi statement txn
+--echo Case 2: Multi statement txn. Commit ts needs to be updated at commit time
+connection default;
+begin;
+  insert into t1 values(3, 'c');
+  insert into t1 values(4, 'd');
+commit;
+
+select * from t1;
+
+--source include/show_binlog_events.inc
+
+# Case 3: Turning off binlog_hlc should stop sending hlc in ok packets
+--echo Case 3: Turning off binlog_hlc should stop sending hlc in ok packets
+# Disable binlog_hlc 
+SET @@global.enable_binlog_hlc = false;
+
+# Enable session to track HLC
+set @@session.response_attrs_contain_hlc = true;
+insert into t1 values(5, 'e');
+commit;
+
+--source include/show_binlog_events.inc
+
+# Case 4: Turning off response_attrs_contain_hlc should stop sending hlc in ok packets even though binlog_hlc is enabled
+--echo Case 4: Turning off response_attrs_contain_hlc should stop sending hlc in ok packets
+SET @@global.enable_binlog_hlc = true;
+set @@session.response_attrs_contain_hlc = false;
+insert into t1 values(6, 'f');
+commit;
+
+--source include/show_binlog_events.inc
+
+# Cleanup
+connection default;
+use test;
+drop table if exists t1;
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+SET @@session.response_attrs_contain_hlc = default;
+

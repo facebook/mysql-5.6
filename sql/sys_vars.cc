@@ -6140,6 +6140,18 @@ static Sys_var_charptr Sys_enable_jemalloc_hpp(
 #endif
 #endif
 
+static Sys_var_mybool Sys_response_attrs_contain_hlc(
+    "response_attrs_contain_hlc",
+    "If this is enabled, then the HLC timestamp of a RW transaction is sent "
+    "back to clients as part of OK packet in session response attribute. HLC "
+    "is sent as a key-value pair - 'hlc_ts' is the key and the value is the "
+    "stringified HLC timestamp. Note that HLC should be enabled by setting "
+    "enable_binlog_hlc",
+    SESSION_VAR(response_attrs_contain_hlc), CMD_LINE(OPT_ARG),
+    DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_outside_transaction),
+    ON_UPDATE(0));
+
 static bool update_session_track_state_change(sys_var *self, THD *thd,
                                               enum_var_type type)
 {
