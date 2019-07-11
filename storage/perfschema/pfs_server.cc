@@ -299,6 +299,7 @@ static void cleanup_performance_schema(void) {
   cleanup_table_share();
   cleanup_table_share_lock_stat();
   cleanup_table_share_index_stat();
+  cleanup_table_share_query_stat();
   cleanup_file_class();
   cleanup_stage_class();
   cleanup_statement_class();

@@ -712,6 +712,11 @@ void release_table_share_query_stat(PFS_table_share_query *pfs) {
   return;
 }
 
+/** Cleanup the table stat buffers. */
+void cleanup_table_share_query_stat(void) {
+  global_table_share_query_container.cleanup();
+}
+
 /**
   Initialize the table lock stat buffer.
   @param table_stat_sizing           max number of table lock statistics
