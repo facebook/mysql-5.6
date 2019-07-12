@@ -1083,7 +1083,7 @@ enum enum_session_state_type {
   // Leave space before RPC_ID session tracking for other upstream values
   // NOTE: This feature is not yet ported but we need the enum to avoid
   // asserting in debug version
-  SESSION_TRACK_RESP_ATTR = 32, /* Response attributes */
+  SESSION_TRACK_RESP_ATTR = 32 /* Response attributes */
 };
 
 /** start of ::enum_session_state_type */
