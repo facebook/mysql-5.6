@@ -112,8 +112,8 @@ class HttpServer {
   HttpServer(const HttpServer &) = delete;
   HttpServer &operator=(const HttpServer &) = delete;
 
-  HttpServer(HttpServer &&) = default;
-  HttpServer &operator=(HttpServer &&) = default;
+  HttpServer(HttpServer &&) = delete;
+  HttpServer &operator=(HttpServer &&) = delete;
 
   void join_all();
 
