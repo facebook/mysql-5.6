@@ -210,7 +210,8 @@ enum enum_session_state_type {
   SESSION_TRACK_STATE_CHANGE,
   SESSION_TRACK_GTIDS,
   SESSION_TRACK_TRANSACTION_CHARACTERISTICS,
-  SESSION_TRACK_TRANSACTION_STATE
+  SESSION_TRACK_TRANSACTION_STATE,
+  SESSION_TRACK_RESP_ATTR = 32
 };
 bool my_net_init(struct NET *net, struct Vio * vio);
 void my_net_local_init(struct NET *net);
