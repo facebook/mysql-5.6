@@ -52,8 +52,8 @@ constexpr int basename_prefix_find(const char *const path, const int index) {
 }
 
 #define LOG_SUBSYSTEM_TAG         \
-  basename_prefix_eval(__FILE__ + \
-                       basename_prefix_find(__FILE__, sizeof(__FILE__) - 1))
+  basename_prefix_eval(&(__FILE__[\
+                      basename_prefix_find(__FILE__, sizeof(__FILE__) - 1)]))
 
 #endif
 
