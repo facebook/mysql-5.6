@@ -4340,7 +4340,7 @@ static void lock_bench(MDL_context &ctx, const Name_vec &names) {
     MDL_request request;
     MDL_REQUEST_INIT(&request, MDL_key::TABLE, "S", name.c_str(),
                      MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
-    ctx.acquire_lock(&request, 2);
+    ctx.acquire_lock_nsec(&request, 2000000000ULL);
   }
   ctx.release_transactional_locks();
 }

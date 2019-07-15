@@ -7655,8 +7655,8 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
     case MYSQL_OPT_COMP_LIB: {
       mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_DELETE, "compression_lib");
       const char *lib_name = "zlib";
-      if (reinterpret_cast<enum mysql_compression_lib &>(arg) ==
-          MYSQL_COMPRESSION_ZSTD) {
+      if (static_cast<mysql_compression_lib>(*reinterpret_cast<const ulong *>(
+              arg)) == MYSQL_COMPRESSION_ZSTD) {
         lib_name = "zstd";
       }
       mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "compression_lib",
