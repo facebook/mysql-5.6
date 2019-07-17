@@ -1,0 +1,68 @@
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(1);
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES('on');
+INSERT INTO valid_values VALUES('off');
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+SET @start_global_value = @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+SELECT @start_global_value;
+@start_global_value
+1
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to 1"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = 1;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to 0"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = 0;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to on"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = on;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to off"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = off;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED = DEFAULT;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+"Trying to set variable @@session.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = 444;
+ERROR HY000: Variable 'rocksdb_select_bypass_fail_unsupported' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED to 'aaa'"
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+SET @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED = @start_global_value;
+SELECT @@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED;
+@@global.ROCKSDB_SELECT_BYPASS_FAIL_UNSUPPORTED
+1
+DROP TABLE valid_values;
+DROP TABLE invalid_values;
