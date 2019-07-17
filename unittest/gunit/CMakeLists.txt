@@ -77,6 +77,7 @@ ADD_LIBRARY(gunit_small STATIC
   strnxfrm.cc
   thread_utils.cc
   fake_table.cc
+  fake_mdl.cc
 )
 SET_TARGET_PROPERTIES(gunit_small
   PROPERTIES COMPILE_DEFINITIONS "${DISABLE_PSI_DEFINITIONS}"
