@@ -73,6 +73,8 @@ class MDL_context_backup_manager::MDL_context_backup
 
   void notify_shared_lock(MDL_context_owner *, bool) override { return; }
 
+  void kill_shared_lock(MDL_context_owner *) override { return; }
+
   bool notify_hton_pre_acquire_exclusive(const MDL_key *, bool *) override {
     return false;
   }
