@@ -1,0 +1,10 @@
+CREATE TABLE t1 (a int) engine=InnoDB;
+BEGIN;
+INSERT INTO t1 values (1);
+set high_priority_ddl=1;
+set lock_wait_timeout=1;
+set debug_sync='mdl_high_priority_kill_conflicting_locks SIGNAL parked WAIT_FOR go';
+ALTER TABLE t1 rename new_t1;
+set debug_sync='now WAIT_FOR parked';
+set debug_sync='now SIGNAL go';
+DROP TABLE new_t1;

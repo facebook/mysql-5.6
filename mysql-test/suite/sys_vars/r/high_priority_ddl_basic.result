@@ -1,0 +1,85 @@
+SET @session_start_value = @@session.high_priority_ddl;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @@session.high_priority_ddl = 0;
+SET @@session.high_priority_ddl = DEFAULT;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET @@session.high_priority_ddl = 1;
+SET @@session.high_priority_ddl = DEFAULT;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET high_priority_ddl = 1;
+SELECT @@high_priority_ddl;
+@@high_priority_ddl
+1
+SELECT session.high_priority_ddl;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.high_priority_ddl;
+ERROR 42S02: Unknown table 'local' in field list
+SET session high_priority_ddl = 0;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET @@session.high_priority_ddl = 0;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET @@session.high_priority_ddl = 1;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+1
+SET @@session.high_priority_ddl = -1;
+ERROR 42000: Variable 'high_priority_ddl' can't be set to the value of '-1'
+SET @@session.high_priority_ddl = 2;
+ERROR 42000: Variable 'high_priority_ddl' can't be set to the value of '2'
+SET @@session.high_priority_ddl = "T";
+ERROR 42000: Variable 'high_priority_ddl' can't be set to the value of 'T'
+SET @@session.high_priority_ddl = "Y";
+ERROR 42000: Variable 'high_priority_ddl' can't be set to the value of 'Y'
+SET @@session.high_priority_ddl = NO;
+ERROR 42000: Variable 'high_priority_ddl' can't be set to the value of 'NO'
+SET @@global.high_priority_ddl = 1;
+SELECT @@global.high_priority_ddl;
+@@global.high_priority_ddl
+1
+SET @@global.high_priority_ddl = 0;
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='high_priority_ddl';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.high_priority_ddl, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='high_priority_ddl';
+IF(@@session.high_priority_ddl, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+1
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='high_priority_ddl';
+VARIABLE_VALUE
+ON
+SET @@session.high_priority_ddl = OFF;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET @@session.high_priority_ddl = ON;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+1
+SET @@session.high_priority_ddl = TRUE;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+1
+SET @@session.high_priority_ddl = FALSE;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0
+SET @@session.high_priority_ddl = @session_start_value;
+SELECT @@session.high_priority_ddl;
+@@session.high_priority_ddl
+0

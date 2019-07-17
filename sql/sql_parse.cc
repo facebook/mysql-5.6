@@ -1061,6 +1061,27 @@ bool is_explainable_query(enum enum_sql_command command) {
   return (sql_command_flags[command] & CF_CAN_BE_EXPLAINED) != 0;
 }
 
+bool support_high_priority(enum enum_sql_command command) noexcept {
+  DBUG_ASSERT(command >= 0 && command <= SQLCOM_END);
+  switch (command) {
+    case SQLCOM_CREATE_TABLE:
+    case SQLCOM_ALTER_TABLE:
+    case SQLCOM_DROP_TABLE:
+    case SQLCOM_CREATE_INDEX:
+    case SQLCOM_DROP_INDEX:
+    case SQLCOM_TRUNCATE:
+    case SQLCOM_CREATE_TRIGGER:
+    case SQLCOM_DROP_TRIGGER:
+    case SQLCOM_OPTIMIZE:
+    case SQLCOM_LOCK_TABLES:
+      return true;
+
+    default:
+      return false;
+  }
+  return false;
+}
+
 /**
   Check if a sql command is allowed to write to log tables.
   @param command The SQL command

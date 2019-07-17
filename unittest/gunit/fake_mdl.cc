@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2019 Percona LLC and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -20,33 +20,24 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef TEST_MDL_CONTEXT_OWNER_INCLUDED
-#define TEST_MDL_CONTEXT_OWNER_INCLUDED
+#include <include/my_sqlcommand.h>
+#include <sql/auth/sql_security_ctx.h>
+#include <sql/protocol_classic.h>
+#include <sql/sql_class.h>
 
-#include "sql/mdl.h"
+/**
+  We need it for merge_test_small.cc
+*/
+bool slave_high_priority_ddl = 0;
+ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 
-class Test_MDL_context_owner : public MDL_context_owner {
- public:
-  Test_MDL_context_owner() {}
-  virtual void enter_cond(mysql_cond_t *, mysql_mutex_t *,
-                          const PSI_stage_info *, PSI_stage_info *,
-                          const char *, const char *, int) {}
+bool support_high_priority(enum enum_sql_command) noexcept { return false; }
+bool Security_context::check_access(ulong, const std::string &, bool) {
+  return false;
+}
 
-  virtual void exit_cond(const PSI_stage_info *, const char *, const char *,
-                         int) {}
+Vio *Protocol_classic::get_vio() { return nullptr; }
+const Vio *Protocol_classic::get_vio() const { return nullptr; }
 
-  virtual int is_killed() const final { return 0; }
-  virtual bool is_connected() { return true; }
-  virtual THD *get_thd() { return nullptr; }
-
-  virtual bool notify_hton_pre_acquire_exclusive(const MDL_key *, bool *) {
-    return false;
-  }
-  virtual void notify_hton_post_release_exclusive(const MDL_key *) {}
-
-  virtual uint get_rand_seed() const { return 0; }
-
-  virtual void kill_shared_lock(MDL_context_owner * /* unused */) {}
-};
-
-#endif  // TEST_MDL_CONTEXT_OWNER_INCLUDED
+void THD::enter_stage(const PSI_stage_info *, PSI_stage_info *, const char *,
+                      const char *, const unsigned int) SUPPRESS_TSAN {}

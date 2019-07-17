@@ -433,6 +433,14 @@ The following options may be given as the first argument:
  without a GTID to be replicated and executed on all
  servers, and finally set all servers to GTID_MODE = ON.
  -?, --help          Display this help and exit.
+ --high-priority-ddl Setting this flag will allow DDL commands to kill
+ conflicting connections (effective for admin user only).
+ --high-priority-lock-wait-timeout=# 
+ Timeout in seconds to wait for a lock before returning an
+ error. This timeout is specifically for high_priority
+ commands (DDLs), when the high_priority_ddl variable is
+ turned on. The argument will be treated as a decimal
+ value with nanosecond precision.
  --histogram-generation-max-mem-size=# 
  Maximum amount of memory available for generating
  histograms
@@ -1651,6 +1659,8 @@ group-replication-consistency EVENTUAL
 gtid-executed-compression-period 1000
 gtid-mode OFF
 help TRUE
+high-priority-ddl FALSE
+high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
 host-cache-size 279
 improved-dup-key-error FALSE

@@ -2756,6 +2756,17 @@ class THD : public MDL_context_owner,
   virtual void notify_shared_lock(MDL_context_owner *ctx_in_use,
                                   bool needs_thr_lock_abort);
 
+  /**
+      This function is similar to notify_shared_lock that is used to kill
+      blocking threads which hold shared MDL locks.
+      Invoked when acquiring an exclusive lock, for each thread that
+      has a conflicting shared metadata lock.
+      @note The current thread must hold an upgradable MDL lock, and must be a
+      super user to kill other threads.
+      @param ctx_in_use           The MDL context owner (thread) to wake up.
+     */
+  virtual void kill_shared_lock(MDL_context_owner *in_use);
+
   virtual bool notify_hton_pre_acquire_exclusive(const MDL_key *mdl_key,
                                                  bool *victimized);
 
