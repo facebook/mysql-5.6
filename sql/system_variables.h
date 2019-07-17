@@ -234,6 +234,7 @@ struct System_variables {
   ulonglong histogram_generation_max_mem_size;
   ulong join_buff_size;
   ulonglong lock_wait_timeout_nsec;
+  ulonglong high_priority_lock_wait_timeout_nsec;
   ulong max_allowed_packet;
   ulong max_error_count;
   ulong max_length_for_sort_data;  ///< Unused.
@@ -338,6 +339,7 @@ struct System_variables {
 
   double long_query_time_double;
   double lock_wait_timeout_double;
+  double high_priority_lock_wait_timeout_double;
 
   bool pseudo_replica_mode;
 
@@ -442,6 +444,7 @@ struct System_variables {
 
   ulong select_into_file_fsync_size;
   uint select_into_file_fsync_timeout;
+  bool high_priority_ddl;
 
   /**
     @sa Sys_select_into_buffer_size

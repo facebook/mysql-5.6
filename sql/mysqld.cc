@@ -11246,6 +11246,9 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   global_system_variables.lock_wait_timeout_nsec =
       (ulonglong)(global_system_variables.lock_wait_timeout_double * 1e9);
 
+  global_system_variables.high_priority_lock_wait_timeout_nsec = (ulonglong)(
+      global_system_variables.high_priority_lock_wait_timeout_double * 1e9);
+
   if (opt_short_log_format) opt_specialflag |= SPECIAL_SHORT_LOG_FORMAT;
 
   if (Connection_handler_manager::init()) {
