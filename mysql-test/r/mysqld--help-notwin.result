@@ -1773,6 +1773,17 @@ The following options may be given as the first argument:
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
+ --rocksdb-select-bypass-fail-unsupported 
+ Select bypass would fail for unsupported SELECT commands
+ (Defaults to on; use --skip-rocksdb-select-bypass-fail-unsupported to disable.)
+ --rocksdb-select-bypass-log-failed 
+ Log failed SELECT bypass queries
+ --rocksdb-select-bypass-log-rejected 
+ Log rejected SELECT bypass queries
+ (Defaults to on; use --skip-rocksdb-select-bypass-log-rejected to disable.)
+ --rocksdb-select-bypass-policy=# 
+ Change bypass SELECT related policy and allow directly
+ talk to RocksDB
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
  --rocksdb-sim-cache-size=# 
@@ -2756,6 +2767,10 @@ rocksdb-records-in-range 0
 rocksdb-reset-stats FALSE
 rocksdb-rollback-on-timeout FALSE
 rocksdb-seconds-between-stat-computes 3600
+rocksdb-select-bypass-fail-unsupported TRUE
+rocksdb-select-bypass-log-failed FALSE
+rocksdb-select-bypass-log-rejected TRUE
+rocksdb-select-bypass-policy 0
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE

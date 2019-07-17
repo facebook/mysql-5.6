@@ -3573,8 +3573,10 @@ class Item_equal;
 class Item_field : public Item_ident {
   typedef Item_ident super;
 
- protected:
+ public:
   void set_field(Field *field);
+
+ protected:
   type_conversion_status save_in_field_inner(Field *field,
                                              bool no_conversions) override;
 

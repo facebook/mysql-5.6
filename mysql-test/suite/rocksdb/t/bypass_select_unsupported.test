@@ -1,0 +1,225 @@
+--source include/have_rocksdb.inc
+
+# increase counter because of "bulk_load*" tests that may be run in background
+--let $explicit_default_counter= 10000
+# Make sure we have a fresh server with all status variables initialized to 0
+--source include/restart_mysqld.inc
+
+SELECT @@rocksdb_select_bypass_policy;
+SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+set global rocksdb_select_bypass_policy=2;
+SELECT @@rocksdb_select_bypass_policy;
+
+create table t1 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
+ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
+ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY, a INT, b INT, c VARCHAR(15) CHARACTER SET latin1, KEY a (a, b))
+ENGINE=ROCKSDB;
+
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+SELECT @@rocksdb_select_bypass_fail_unsupported into @save_fail_unsupported;
+set global rocksdb_select_bypass_fail_unsupported=true;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+
+# Interesting SELECT patterns that are not supported
+# Use https://dev.mysql.com/doc/refman/5.7/en/select.html as reference
+
+# Unsupported having
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 having pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Unsupported group by
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 group by pk;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# * is supported in 8.0 through PT_query_specification::contextualize
+SELECT /*+ bypass */ * from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ 1 from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ 1+2 from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ COUNT(*) from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ COUNT(pk) from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk+1 from t1 WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Unsupported index
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 USE INDEX (PRIMARY) WHERE pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Unsupported WHERE
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_OPERAND_COLUMNS
+SELECT /*+ bypass */ pk from t1 WHERE pk=(1,2,3);
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# DATE/TIME/TIMESTAMP are constant functions
+#--error ER_OPERAND_COLUMNS
+SELECT /*+ bypass */ pk from t1 WHERE pk=DATE '2019-03-25';
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+#--error ER_OPERAND_COLUMNS
+SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+#--error ER_OPERAND_COLUMNS
+SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk>ALL (SELECT pk FROM t1);
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Select modifiers
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ DISTINCT a from t1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ ALL a, b from t1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Joins
+SELECT /*+ bypass */ t1.pk, t2.pk from t1, t2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+SELECT /*+ bypass */ t1.pk FROM t1 LEFT JOIN t2 using (pk)
+WHERE t1.pk=1;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Subselect
+SELECT /*+ bypass */ pk, a from (SELECT pk, a FROM t1) AS t1_temp;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Union
+SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION DISTINCT
+SELECT pk FROM t2 WHERE pk=3;
+SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION ALL
+SELECT pk FROM t2 WHERE pk=3;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Index order
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 WHERE a=1 ORDER BY a;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
+
+--error ER_BAD_FIELD_ERROR
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
+ORDER BY a, b, c, c, c, a, b, c, d;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY c, a;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY a, a;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
+ORDER BY a, a, a, a, a, a, a, a;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t3 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
+
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# Unrecognized index
+--error ER_KEY_DOES_NOT_EXITS
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`abc`) WHERE a=1 ORDER BY b, a;
+
+# INTO @var
+# SELECT /*+ bypass */ pk into @a FROM t1
+# WHERE pk=1;
+# SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# INTO OUTFILE
+let $datadir = `SELECT @@datadir`;
+--replace_result $datadir <DATADIR>
+
+--replace_result $datadir datadir
+--error ER_NOT_SUPPORTED_YET
+eval SELECT /*+ bypass */ a from t1 WHERE a=1 INTO OUTFILE '$datadir/select.out';
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+--replace_result $datadir datadir
+--error ER_NOT_SUPPORTED_YET
+eval SELECT /*+ bypass */ a from t1 WHERE a=1 INTO DUMPFILE '$datadir/select.dump';
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+
+# FOR UPDATE
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE;
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE SKIP LOCKED;
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
+
+# HIGH PRIORITY
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
+
+# Too many SELECT expressions
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t3 WHERE pk=1;
+
+# Too many WHERE expressions
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+                                     a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+                                     a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+                                     a=1 AND a=1;
+
+# Restore rocksdb_select_bypass_policy
+SELECT @@rocksdb_select_bypass_policy;
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+SELECT @@rocksdb_select_bypass_policy;
+
+# Fallback
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+set global rocksdb_select_bypass_fail_unsupported=false;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+
+SELECT /*+ bypass */ * from t1;
+
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+set global rocksdb_select_bypass_fail_unsupported=@save_fail_unsupported;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+
+drop table t1;
+drop table t2;
+drop table t3;
+
