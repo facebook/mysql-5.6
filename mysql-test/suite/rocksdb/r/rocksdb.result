@@ -1002,6 +1002,10 @@ rocksdb_records_in_range	50
 rocksdb_reset_stats	OFF
 rocksdb_rollback_on_timeout	OFF
 rocksdb_seconds_between_stat_computes	3600
+rocksdb_select_bypass_fail_unsupported	ON
+rocksdb_select_bypass_log_failed	OFF
+rocksdb_select_bypass_log_rejected	ON
+rocksdb_select_bypass_policy	0
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_sim_cache_size	0
 rocksdb_skip_bloom_filter_on_read	OFF
@@ -1629,6 +1633,9 @@ rocksdb_number_superversion_cleanups	#
 rocksdb_number_superversion_releases	#
 rocksdb_row_lock_deadlocks	#
 rocksdb_row_lock_wait_timeouts	#
+rocksdb_select_bypass_executed	#
+rocksdb_select_bypass_failed	#
+rocksdb_select_bypass_rejected	#
 rocksdb_snapshot_conflict_errors	#
 rocksdb_stall_l0_file_count_limit_slowdowns	#
 rocksdb_stall_locked_l0_file_count_limit_slowdowns	#
@@ -1731,6 +1738,9 @@ ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROW_LOCK_DEADLOCKS
 ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS
+ROCKSDB_SELECT_BYPASS_EXECUTED
+ROCKSDB_SELECT_BYPASS_FAILED
+ROCKSDB_SELECT_BYPASS_REJECTED
 ROCKSDB_SNAPSHOT_CONFLICT_ERRORS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_SLOWDOWNS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_STOPS
@@ -1842,6 +1852,9 @@ ROCKSDB_ROWS_READ
 ROCKSDB_ROWS_UPDATED
 ROCKSDB_ROW_LOCK_DEADLOCKS
 ROCKSDB_ROW_LOCK_WAIT_TIMEOUTS
+ROCKSDB_SELECT_BYPASS_EXECUTED
+ROCKSDB_SELECT_BYPASS_FAILED
+ROCKSDB_SELECT_BYPASS_REJECTED
 ROCKSDB_SNAPSHOT_CONFLICT_ERRORS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_SLOWDOWNS
 ROCKSDB_STALL_L0_FILE_COUNT_LIMIT_STOPS

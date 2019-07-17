@@ -34,6 +34,13 @@
 /* MyRocks headers */
 #include "./ut0counter.h"
 
+/*
+  When taking measurements, replace this with __attribute__ ((noinline))
+  This is used in performance critical functions to make doing CPU
+  profiling easier
+ */
+#define INLINE_ATTR
+
 namespace myrocks {
 /*
  * class for exporting transaction information for
@@ -211,6 +218,28 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
   Default value for rocksdb_sst_mgr_rate_bytes_per_sec = 0 (disabled).
 */
 #define DEFAULT_SST_MGR_RATE_BYTES_PER_SEC 0
+
+/*
+  SELECT BYPASS related policy:
+  0x1 = ON/OFF MASK - whether bypass is on or off
+  0x2 = FORCED/DEFAULT MASK, whether the ON/OFF bit is being FORCED (0x0)
+  or simply inteneded as DEFAULT (0x1).
+
+  This effectively means:
+
+  ALWAYS_OFF = 0x0, always off regardless of hint. This is the default
+  ALWAYS_ON  = 0x1, always on regardless of hint
+  OPT_IN     = 0x2, default off, turn on with +bypass hint
+  OPT_OUT    = 0x3, default on, turn off with +no_bypass hint
+ */
+#define SELECT_BYPASS_POLICY_ON_MASK 0x1
+#define SELECT_BYPASS_POLICY_DEFAULT_MASK 0x2
+#define SELECT_BYPASS_POLICY_ALWAYS_OFF 0x0
+#define SELECT_BYPASS_POLICY_OPT_IN SELECT_BYPASS_POLICY_DEFAULT_MASK
+#define SELECT_BYPASS_POLICY_OPT_OUT \
+  (SELECT_BYPASS_POLICY_DEFAULT_MASK | SELECT_BYPASS_POLICY_ON_MASK)
+#define SELECT_BYPASS_POLICY_ALWAYS_ON SELECT_BYPASS_POLICY_ON_MASK
+#define SELECT_BYPASS_POLICY_DEFAULT SELECT_BYPASS_POLICY_ALWAYS_OFF
 
 /*
   Defines the field sizes for serializing XID object to a string representation.

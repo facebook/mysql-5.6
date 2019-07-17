@@ -1,0 +1,275 @@
+# restart
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+0
+SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
+set global rocksdb_select_bypass_policy=2;
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+2
+create table t1 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
+ENGINE=ROCKSDB;
+create table t2 (pk INT PRIMARY KEY, a INT, b INT, c INT, KEY a (a, b, c))
+ENGINE=ROCKSDB;
+create table t3 (pk INT PRIMARY KEY, a INT, b INT, c VARCHAR(15) CHARACTER SET latin1, KEY a (a, b))
+ENGINE=ROCKSDB;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+1
+SELECT @@rocksdb_select_bypass_fail_unsupported into @save_fail_unsupported;
+set global rocksdb_select_bypass_fail_unsupported=true;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+1
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 having pk=1;
+ERROR 42000: SELECT statement pattern not supported: HAVING not supported
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	0
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	1
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 group by pk;
+ERROR 42000: SELECT statement pattern not supported: GROUP BY not supported
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	0
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	2
+SELECT /*+ bypass */ * from t1 WHERE pk=1;
+Dump
+Index=0, Order=ASC, Fields={ (Name=pk, Index=0), (Name=a, Index=1), (Name=b, Index=2), (Name=c, Index=3) }, Cond={ (pk == 1) }
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	2
+SELECT /*+ bypass */ 1 from t1 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	3
+SELECT /*+ bypass */ 1+2 from t1 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	4
+SELECT /*+ bypass */ COUNT(*) from t1 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	5
+SELECT /*+ bypass */ COUNT(pk) from t1 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	6
+SELECT /*+ bypass */ pk+1 from t1 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: SELECT expressions can only be field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	7
+SELECT /*+ bypass */ pk from t1 USE INDEX (PRIMARY) WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: Index hint must be FORCE INDEX
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	8
+SELECT /*+ bypass */ pk from t1;
+ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	9
+SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
+ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	10
+SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
+ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE - needs to be >, >=, <, <=, =, IN
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	11
+SELECT /*+ bypass */ pk from t1 WHERE pk=(1,2,3);
+ERROR 21000: Operand should contain 1 column(s)
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	1
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	11
+SELECT /*+ bypass */ pk from t1 WHERE pk=DATE '2019-03-25';
+Dump
+Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 2019-03-25) }
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	2
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	11
+SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
+Dump
+Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 18:01:00) }
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	3
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	11
+SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
+Dump
+Index=0, Order=ASC, Fields={ (Name=pk, Index=0) }, Cond={ (pk == 2019-03-25 18:01:00) }
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	11
+SELECT /*+ bypass */ pk from t1 WHERE pk>ALL (SELECT pk FROM t1);
+ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE - needs to be >, >=, <, <=, =, IN
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	12
+SELECT /*+ bypass */ DISTINCT a from t1;
+ERROR 42000: SELECT statement pattern not supported: SELECT options not supported (such as SELECT DISTINCT)
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	13
+SELECT /*+ bypass */ ALL a, b from t1;
+ERROR 42000: SELECT statement pattern not supported: Unsupported WHERE: should be expr [(AND expr)*] where expr only contains >, >=, <, <=, =, IN
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	14
+SELECT /*+ bypass */ t1.pk, t2.pk from t1, t2;
+pk	pk
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	14
+SELECT /*+ bypass */ t1.pk FROM t1 LEFT JOIN t2 using (pk)
+WHERE t1.pk=1;
+pk
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	14
+SELECT /*+ bypass */ pk, a from (SELECT pk, a FROM t1) AS t1_temp;
+pk	a
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	14
+SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION DISTINCT
+SELECT pk FROM t2 WHERE pk=3;
+pk
+SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION ALL
+SELECT pk FROM t2 WHERE pk=3;
+pk
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	14
+SELECT /*+ bypass */ a, b, c FROM t1 WHERE a=1 ORDER BY a;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY field doesn't belong to the index
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, a;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
+ORDER BY a, b, c, c, c, a, b, c, d;
+ERROR 42S22: Unknown column 'd' in 'order clause'
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY c, a;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY a, a;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1
+ORDER BY a, a, a, a, a, a, a, a;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
+SELECT /*+ bypass */ a, b, c FROM t3 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
+ERROR 42000: SELECT statement pattern not supported: only utf8_bin, latin1_bin is supported for varchar field
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	21
+SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`abc`) WHERE a=1 ORDER BY b, a;
+ERROR 42000: Key 'abc' doesn't exist in table 't1'
+SELECT /*+ bypass */ a from t1 WHERE a=1 INTO OUTFILE 'datadir/select.out';
+ERROR 42000: SELECT statement pattern not supported: SELECT INTO/DUMP not supported
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	22
+SELECT /*+ bypass */ a from t1 WHERE a=1 INTO DUMPFILE 'datadir/select.dump';
+ERROR 42000: SELECT statement pattern not supported: SELECT INTO/DUMP not supported
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+Variable_name	Value
+rocksdb_select_bypass_executed	4
+rocksdb_select_bypass_failed	0
+rocksdb_select_bypass_rejected	23
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE;
+ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE SKIP LOCKED;
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
+SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
+ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
+SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
+SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t3 WHERE pk=1;
+ERROR 42000: SELECT statement pattern not supported: Too many SELECT expressions
+SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
+a=1 AND a=1;
+ERROR 42000: SELECT statement pattern not supported: Too many WHERE expressions
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+2
+set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
+SELECT @@rocksdb_select_bypass_policy;
+@@rocksdb_select_bypass_policy
+0
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+1
+set global rocksdb_select_bypass_fail_unsupported=false;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+0
+SELECT /*+ bypass */ * from t1;
+pk	a	b	c
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+0
+set global rocksdb_select_bypass_fail_unsupported=@save_fail_unsupported;
+SELECT @@rocksdb_select_bypass_fail_unsupported;
+@@rocksdb_select_bypass_fail_unsupported
+1
+drop table t1;
+drop table t2;
+drop table t3;
