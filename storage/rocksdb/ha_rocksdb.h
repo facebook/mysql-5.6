@@ -1038,4 +1038,20 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
 // file name indicating RocksDB data corruption
 std::string rdb_corruption_marker_file_name();
 
+/* Whether ROCKSDB_ENABLE_SELECT_BYPASS is enabled */
+uint32_t get_select_bypass_policy();
+
+/* Whether we should log unsupported SELECT bypass */
+bool should_fail_unsupported_select_bypass();
+
+/* Whether we should log rejected unsupported SELECT bypass */
+bool should_log_rejected_select_bypass();
+
+/* Whether we should log failed unsupported SELECT bypass */
+bool should_log_failed_select_bypass();
+
+extern std::atomic<uint64_t> rocksdb_select_bypass_executed;
+extern std::atomic<uint64_t> rocksdb_select_bypass_rejected;
+extern std::atomic<uint64_t> rocksdb_select_bypass_failed;
+
 }  // namespace myrocks
