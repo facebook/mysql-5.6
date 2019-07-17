@@ -241,6 +241,7 @@ ADD_LIBRARY(gunit_small STATIC
   tap_event_listener.cc
   thread_utils.cc
   fake_table.cc
+  fake_mdl.cc
 )
 SET_TARGET_PROPERTIES(gunit_small
   PROPERTIES COMPILE_DEFINITIONS "${DISABLE_PSI_DEFINITIONS}"
