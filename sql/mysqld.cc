@@ -1234,7 +1234,9 @@ bool thread_cache_size_specified = false;
 bool host_cache_size_specified = false;
 bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
-
+bool slave_high_priority_ddl = 0;
+double slave_high_priority_lock_wait_timeout_double = 1.0;
+ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 bool log_datagram = 0;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;

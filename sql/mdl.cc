@@ -52,6 +52,7 @@
 #include "prealloced_array.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/debug_sync.h"
+#include "sql/mysqld.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"  // support_high_priority
@@ -3399,11 +3400,20 @@ bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
 bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                     Timeout_type lock_wait_timeout_nsec) {
   THD *thd = get_thd();
-  if (thd != nullptr && thd->variables.high_priority_ddl) {
-    // if this is a high priority command, use the
-    // high_priority_lock_wait_timeout_nsec
-    lock_wait_timeout_nsec =
-        thd->variables.high_priority_lock_wait_timeout_nsec;
+  bool is_high_priority_ddl = false;
+  if (thd != nullptr) {
+    if (thd->variables.high_priority_ddl) {
+      // if this is a high priority command, use the
+      // high_priority_lock_wait_timeout_nsec
+      lock_wait_timeout_nsec =
+          thd->variables.high_priority_lock_wait_timeout_nsec;
+      is_high_priority_ddl =
+          thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
+    } else if (thd->slave_thread && slave_high_priority_ddl) {
+      lock_wait_timeout_nsec = slave_high_priority_lock_wait_timeout_nsec;
+      is_high_priority_ddl =
+          thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
+    }
   }
 
   if (lock_wait_timeout_nsec == 0) {
@@ -3494,10 +3504,6 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
     final timed_wait happens after connection kill. For other
     requests, connections will not be killed.
   */
-  bool is_high_priority_ddl =
-      thd != nullptr && thd->variables.high_priority_ddl &&
-      thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
-
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
     set_timespec(&abs_shortwait, 1);
