@@ -1,2 +1,3 @@
 --let $lock_wait_timeout = lock_wait_timeout
+--let $session = true
 --source suite/sys_vars/inc/lock_wait_timeout_basic.inc

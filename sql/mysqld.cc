@@ -1366,7 +1366,11 @@ bool thread_cache_size_specified = false;
 bool host_cache_size_specified = false;
 bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
-
+bool slave_high_priority_ddl = 0;
+double slave_high_priority_lock_wait_timeout_double = 1.0;
+ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
+std::atomic<ulonglong> slave_high_priority_ddl_executed(0);
+std::atomic<ulonglong> slave_high_priority_ddl_killed_connections(0);
 bool log_datagram = false;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
@@ -9645,6 +9649,11 @@ SHOW_VAR status_vars[] = {
 #endif
     {"Slave_running", (char *)&show_slave_running, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Slave_high_priority_ddl_executed",
+     (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG, SHOW_SCOPE_ALL},
+    {"Slave_high_priority_ddl_killed_connections",
+     (char *)&slave_high_priority_ddl_killed_connections, SHOW_LONGLONG,
+     SHOW_SCOPE_ALL},
     {"Slow_launch_threads",
      (char *)&Per_thread_connection_handler::slow_launch_threads, SHOW_LONG,
      SHOW_SCOPE_ALL},
