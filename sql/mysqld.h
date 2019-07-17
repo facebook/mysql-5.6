@@ -334,7 +334,9 @@ enum enum_binlog_error_action {
   ABORT_SERVER = 1
 };
 extern const char *binlog_error_action_list[];
-
+extern bool slave_high_priority_ddl;
+extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
+extern double slave_high_priority_lock_wait_timeout_double;
 extern bool opt_log_slow_extra;
 
 extern ulonglong rbr_unsafe_queries;

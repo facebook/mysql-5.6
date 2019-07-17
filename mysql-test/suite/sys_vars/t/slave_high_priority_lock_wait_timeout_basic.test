@@ -1,0 +1,3 @@
+--let $lock_wait_timeout = slave_high_priority_lock_wait_timeout
+--let $session = 0 
+--source suite/sys_vars/inc/lock_wait_timeout_basic.inc
