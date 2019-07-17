@@ -67,7 +67,7 @@ update t2 set variable_name= replace(variable_name, "lock_order_", "lo_");
 
 --sorted_result
 select variable_name as `There should be *no* long test name listed below:` from t2
-  where length(variable_name) > 50;
+  where length(variable_name) > 60;
 
 --sorted_result
 select variable_name as `There should be *no* variables listed below:` from t2

@@ -52,6 +52,7 @@
 #include "prealloced_array.h"
 #include "sql/auth/auth_acls.h"
 #include "sql/debug_sync.h"
+#include "sql/mysqld.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"  // support_high_priority
@@ -3371,6 +3372,7 @@ bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
   Ticket_iterator it(lock->m_granted);
   MDL_ticket *conflicting_ticket;
 
+  THD *thd = ctx->get_thd();
   while ((conflicting_ticket = it++)) {
     if (conflicting_ticket->get_ctx() != ctx) {
       // Use MDL_SHARED_NO_WRITE to kill "lock tables read" connection
@@ -3381,6 +3383,7 @@ bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
         // if any conflicting thread is not killed, stop and just return false
         return false;
       }
+      if (thd->slave_thread) slave_high_priority_ddl_killed_connections++;
     }
   }
   return true;
@@ -3401,11 +3404,20 @@ bool MDL_lock::object_lock_kill_conflicting_locks(MDL_context *ctx,
 bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                     Timeout_type lock_wait_timeout_nsec) {
   THD *thd = get_thd();
-  if (thd != nullptr && thd->variables.high_priority_ddl) {
-    // if this is a high priority command, use the
-    // high_priority_lock_wait_timeout_nsec
-    lock_wait_timeout_nsec =
-        thd->variables.high_priority_lock_wait_timeout_nsec;
+  bool is_high_priority_ddl = false;
+  if (thd != nullptr) {
+    if (thd->variables.high_priority_ddl) {
+      // if this is a high priority command, use the
+      // high_priority_lock_wait_timeout_nsec
+      lock_wait_timeout_nsec =
+          thd->variables.high_priority_lock_wait_timeout_nsec;
+      is_high_priority_ddl =
+          thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
+    } else if (thd->slave_thread && slave_high_priority_ddl) {
+      lock_wait_timeout_nsec = slave_high_priority_lock_wait_timeout_nsec;
+      is_high_priority_ddl =
+          thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
+    }
   }
 
   if (lock_wait_timeout_nsec == 0) {
@@ -3496,10 +3508,6 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
     final timed_wait happens after connection kill. For other
     requests, connections will not be killed.
   */
-  bool is_high_priority_ddl =
-      thd != nullptr && thd->variables.high_priority_ddl &&
-      thd->lex != nullptr && support_high_priority(thd->lex->sql_command);
-
   if (lock->needs_notification(ticket) || lock->needs_connection_check()) {
     struct timespec abs_shortwait;
     set_timespec(&abs_shortwait, 1);
@@ -3558,6 +3566,9 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       m_wait.reset_status();
     }
 
+    if (thd->slave_thread) {
+      slave_high_priority_ddl_executed++;
+    }
     mysql_prlock_wrlock(&lock->m_rwlock);
     lock->kill_conflicting_locks(this);
     mysql_prlock_unlock(&lock->m_rwlock);

@@ -1,0 +1,27 @@
+# Test high priority DDL through the system variable slave_high_priority_ddl
+
+--echo ##
+--echo ## Using the system variable slave_high_priority_ddl"
+--echo ##
+--source include/have_log_bin.inc
+--source include/have_debug.inc
+--let $rpl_gtid_utils= 1
+--source include/master-slave.inc
+
+# Default values
+--let $con_init = master
+--let $con_block = slave2
+--let $con_block_host = 127.0.0.1
+--let $con_block_user = root
+--let $con_block_port = $SLAVE_MYPORT
+--let $con_kill = slave
+--let $con_status = slave1
+--let $should_kill = 1
+--let $recreate_table = 1
+--let $throw_error = 1
+--let $high_priority_ddl = global slave_high_priority_ddl
+--let $tablename = t1
+--let $should_table_exist = 1 
+--let $slave_ddl = 1
+--source include/ddl_high_priority.inc
+--source include/rpl_end.inc

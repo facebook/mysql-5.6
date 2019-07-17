@@ -1475,7 +1475,8 @@ void THD::notify_shared_lock(MDL_context_owner *ctx_in_use,
 void THD::kill_shared_lock(MDL_context_owner *ctx_in_use) {
   THD *in_use = ctx_in_use->get_thd();
 
-  DBUG_ASSERT(variables.high_priority_ddl);
+  DBUG_ASSERT(variables.high_priority_ddl ||
+              (slave_thread && slave_high_priority_ddl));
   DBUG_ASSERT(support_high_priority(lex->sql_command));
   DBUG_ASSERT(m_security_ctx->master_access() & SUPER_ACL);
 

@@ -2313,6 +2313,14 @@ static bool update_cached_high_priority_lock_wait_timeout(
   return false;
 }
 
+static bool update_cached_slave_high_priority_lock_wait_timeout(
+    sys_var * /* unused */, THD * /* unused */, enum_var_type /* unused */) {
+  update_cached_timeout_var(slave_high_priority_lock_wait_timeout_nsec,
+                            slave_high_priority_lock_wait_timeout_double);
+
+  return false;
+}
+
 static Sys_var_double Sys_lock_wait_timeout(
     "lock_wait_timeout",
     "Timeout in seconds to wait for a lock before returning an error. "
@@ -2336,6 +2344,20 @@ static Sys_var_double Sys_high_priority_lock_wait_timeout(
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(1), /* default 1 second */
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
     ON_UPDATE(update_cached_high_priority_lock_wait_timeout));
+
+static Sys_var_double Sys_slave_high_priority_lock_wait_timeout(
+    "slave_high_priority_lock_wait_timeout",
+    "Timeout in seconds to wait for a lock before returning an error. "
+    "This timeout is specifically for high_priority commands (DDLs), "
+    "when the slave_high_priority_ddl variable is turned on. "
+    "The argument will be treated as a decimal value with nanosecond "
+    "precision.",
+    // very small nanosecond values will effectively be no waiting
+    GLOBAL_VAR(slave_high_priority_lock_wait_timeout_double),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
+    DEFAULT(1), /* default 1 second */
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(update_cached_slave_high_priority_lock_wait_timeout));
 
 #ifdef HAVE_MLOCKALL
 static Sys_var_bool Sys_locked_in_memory(
@@ -7358,3 +7380,9 @@ static Sys_var_bool Sys_high_priority_ddl(
     "Setting this flag will allow DDL commands to kill conflicting "
     "connections (effective for admin user only).",
     SESSION_VAR(high_priority_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_slave_high_priority_ddl(
+    "slave_high_priority_ddl",
+    "Setting this flag will allow DDL commands to kill conflicting"
+    "connections during replication (effective for admin user only).",
+    GLOBAL_VAR(slave_high_priority_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));
