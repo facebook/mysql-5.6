@@ -5383,6 +5383,8 @@ public:
      * is starting and it protects the HLC clock from moving back in time
      * (during cases like a reset master followed by server restart) */
     PREV_HLC_TYPE= 1,
+    /* Metadata added by raft consensus plugin */
+    RAFT_METADATA_TYPE= 2,
     METADATA_EVENT_TYPE_MAX,
   };
 
