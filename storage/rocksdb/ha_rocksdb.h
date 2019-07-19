@@ -277,10 +277,9 @@ class ha_rocksdb : public my_core::handler {
     This is a bitmap of indexes (i.e. a set) whose keys (in future, values) may
     be changed by this statement. Indexes that are not in the bitmap do not need
     to be updated.
-    @note Valid inside UPDATE statements, IIF(m_update_scope_is_valid == true).
+    @note Valid inside UPDATE statements, IIF(old_pk_slice is set).
   */
   my_core::key_map m_update_scope;
-  bool m_update_scope_is_valid;
 
   /* SST information used for bulk loading the primary key */
   std::shared_ptr<Rdb_sst_info> m_sst_info;
