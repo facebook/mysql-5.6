@@ -1,0 +1,37 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+"Creating a TTL enabled table on master and slave"
+create table t1(a bigint unsigned primary key, b int) engine = rocksdb comment='ttl_duration=1;ttl_col=a;';
+"Replacing the TTL table with a normal table on the master"
+set @@sql_log_bin= 0;
+drop table t1;
+create table t1(a bigint unsigned primary key, b int) engine = rocksdb;
+set @@sql_log_bin= 1;
+"Inserting some rows on the master, these rows will disappear immediately on the slave"
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+include/sync_slave_sql_with_master.inc
+"Force compaction on the slave"
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='default';
+"Rows on the slave (should be empty)"
+select * from t1;
+a	b
+"Executing update on the master"
+update t1 set a = a + 10;
+"The slave should be able to execute the update"
+include/sync_slave_sql_with_master.inc
+"Restarting the slave"
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+"Executing another update on master"
+update t1 set a = a + 10;
+"The slave should be able to execute the update"
+include/sync_slave_sql_with_master.inc
+"Cleaning up..."
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

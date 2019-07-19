@@ -965,6 +965,7 @@ class ha_rocksdb : public my_core::handler {
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
   virtual bool use_read_free_rpl() const override;
+  virtual bool has_ttl_column() const override;
 
  private:
   /* Flags tracking if we are inside different replication operation */
