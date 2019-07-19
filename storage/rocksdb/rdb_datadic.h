@@ -1075,7 +1075,7 @@ class Rdb_tbl_def {
   std::string m_dbname;
   std::string m_tablename;
   std::string m_partition;
-  std::atomic<boost::optional<bool>> m_cached_has_ttl_col;
+  std::atomic<int> m_cached_has_ttl_col{-1};
 
   void set_name(const std::string &name);
 
@@ -1119,20 +1119,20 @@ class Rdb_tbl_def {
 
   /* Does this table have a ttl col */
   bool has_ttl_col() {
-    boost::optional<bool> local_copy = m_cached_has_ttl_col.load();
-    if (local_copy) {
-      return *local_copy;
+    int local_copy = m_cached_has_ttl_col.load();
+    if (local_copy != -1) {
+      return local_copy;
     }
-    local_copy = false;
+    local_copy = 0;
     for (uint i = 0; i < m_key_count; ++i) {
       if (m_key_descr_arr[i]->has_ttl()) {
-        local_copy = true;
+        local_copy = 1;
         break;
       }
     }
     // cache the value
     m_cached_has_ttl_col = local_copy;
-    return *local_copy;
+    return local_copy;
   }
 
   bool put_dict(Rdb_dict_manager *const dict, rocksdb::WriteBatch *const batch,
