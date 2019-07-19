@@ -13820,6 +13820,12 @@ bool ha_rocksdb::use_read_free_rpl() const {
   DBUG_RETURN(false);
 }
 
+/**
+  @brief
+  The table has a TTL enabled column or not
+*/
+bool ha_rocksdb::has_ttl_column() const { return m_tbl_def->has_ttl_col(); }
+
 double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {
   DBUG_ENTER_FUNC();
 

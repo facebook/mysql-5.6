@@ -18,6 +18,7 @@
 /* C++ standard header files */
 #include <algorithm>
 #include <atomic>
+#include <boost/optional.hpp>
 #include <map>
 #include <mutex>
 #include <string>
@@ -1074,6 +1075,7 @@ class Rdb_tbl_def {
   std::string m_dbname;
   std::string m_tablename;
   std::string m_partition;
+  std::atomic<int> m_cached_has_ttl_col{-1};
 
   void set_name(const std::string &name);
 
@@ -1114,6 +1116,24 @@ class Rdb_tbl_def {
 
   /* Is this table read free repl enabled */
   std::atomic_bool m_is_read_free_rpl_table{false};
+
+  /* Does this table have a ttl col */
+  bool has_ttl_col() {
+    int local_copy = m_cached_has_ttl_col.load();
+    if (local_copy != -1) {
+      return local_copy;
+    }
+    local_copy = 0;
+    for (uint i = 0; i < m_key_count; ++i) {
+      if (m_key_descr_arr[i]->has_ttl()) {
+        local_copy = 1;
+        break;
+      }
+    }
+    // cache the value
+    m_cached_has_ttl_col = local_copy;
+    return local_copy;
+  }
 
   bool put_dict(Rdb_dict_manager *const dict, rocksdb::WriteBatch *const batch,
                 const rocksdb::Slice &key);
