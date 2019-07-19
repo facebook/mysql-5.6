@@ -10486,22 +10486,19 @@ int ha_rocksdb::rnd_pos(uchar *const buf, uchar *const pos) {
 */
 
 void ha_rocksdb::calc_updated_indexes() {
-  if (!m_update_scope_is_valid) {
-    m_update_scope_is_valid = true;
-    m_update_scope.clear_all();
+  m_update_scope.clear_all();
 
-    for (uint keynr = 0; keynr < table->s->keys; keynr++) {
-      const Rdb_key_def &kd = *m_key_descr_arr[keynr];
-      /* Walk over all key parts, including the "extended key" suffix */
-      const uint key_parts = kd.get_key_parts();
-      for (uint kp = 0; kp < key_parts; kp++) {
-        if (has_hidden_pk(table) && kp + 1 == key_parts) break;
+  for (uint keynr = 0; keynr < table->s->keys; keynr++) {
+    const Rdb_key_def &kd = *m_key_descr_arr[keynr];
+    /* Walk over all key parts, including the "extended key" suffix */
+    const uint key_parts = kd.get_key_parts();
+    for (uint kp = 0; kp < key_parts; kp++) {
+      if (has_hidden_pk(table) && kp + 1 == key_parts) break;
 
-        Field *const field = kd.get_table_field_for_part_no(table, kp);
-        if (bitmap_is_set(table->write_set, field->field_index)) {
-          m_update_scope.set_bit(keynr);
-          break;
-        }
+      Field *const field = kd.get_table_field_for_part_no(table, kp);
+      if (bitmap_is_set(table->write_set, field->field_index)) {
+        m_update_scope.set_bit(keynr);
+        break;
       }
     }
   }
@@ -10681,8 +10678,6 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
     */
     Rdb_transaction *const tx = get_or_create_tx(thd);
     read_thd_vars(thd);
-
-    m_update_scope_is_valid = false;
 
     if (skip_unique_check()) {
       if ((thd->lex->sql_command == SQLCOM_INSERT ||
