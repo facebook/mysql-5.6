@@ -221,16 +221,17 @@ void delegates_destroy()
 int Trans_delegate::before_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::before_commit");
-  Trans_param param = { 0, 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
     param.flags = true;
 
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_marker(&param.term, &param.index);
 
-  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu",
-                       param.log_file, param.log_pos));
+  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu, term: %ld, index: %ld",
+                       param.log_file, param.log_pos, param.term, param.index));
 
   int ret= 0;
   FOREACH_OBSERVER(ret, before_commit, thd, (&param));
@@ -242,7 +243,7 @@ int Trans_delegate::before_commit(THD *thd, bool all)
 int Trans_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::after_commit");
-  Trans_param param = { 0, 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
@@ -250,6 +251,8 @@ int Trans_delegate::after_commit(THD *thd, bool all)
 
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
 
+  // TODO: Once after commit hooks for raft plugin is implemented, think of
+  // updating (term, index) here
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
   DEBUG_SYNC(thd, "before_call_after_commit_observer");
 
@@ -260,7 +263,7 @@ int Trans_delegate::after_commit(THD *thd, bool all)
 
 int Trans_delegate::after_rollback(THD *thd, bool all)
 {
-  Trans_param param = { 0, 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
@@ -282,6 +285,24 @@ int Binlog_storage_delegate::after_flush(THD *thd,
 
   int ret= 0;
   FOREACH_OBSERVER(ret, after_flush, thd, (&param, log_file, log_pos));
+  DBUG_RETURN(ret);
+}
+
+int Binlog_storage_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
+{
+  DBUG_ENTER("Binlog_storage_delegate::before_flush");
+  Binlog_storage_param param;
+
+  int ret= 0;
+
+  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache));
+
+  DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
+
+  /* (term, index) will be used later in before_commit hook of trans
+   * observer */
+  thd->set_trans_marker(param.term, param.index);
+
   DBUG_RETURN(ret);
 }
 

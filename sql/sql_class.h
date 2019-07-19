@@ -2963,6 +2963,13 @@ private:
   std::vector<st_slave_gtid_info> slave_gtid_infos;
   /**@}*/
 
+  /* The term and index that need to be communicated across different raft
+   * plugin hooks. These fields are not protected by locks since they are
+   * accessed by the same THD serially during different stages of ordered commit
+   * today. Protect this by locks if things change in future. */
+  int64_t term_= -1;
+  int64_t index_= -1;
+
 public:
   const char *get_trans_gtid() const {
     return m_trans_gtid;
@@ -3793,6 +3800,12 @@ public:
   std::vector<st_slave_gtid_info> get_slave_gtid_info() const;
   void clear_slave_gtid_info();
   /**@}*/
+
+  /* Get the trans marker i.e (term, index) tuple stashed in this THD */
+  void get_trans_marker(int64_t *term, int64_t *index) const;
+
+  /* Stash the trans marker i.e (term, index) tuple in this THD */
+  void set_trans_marker(int64_t term, int64_t index);
 
   /*
     Error code from committing or rolling back the transaction.

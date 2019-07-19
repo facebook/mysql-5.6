@@ -49,6 +49,10 @@ typedef struct Trans_param {
   */
   const char *log_file;
   my_off_t log_pos;
+
+  /* Term and index that is passed across different raft plugins */
+  int64_t term;
+  int64_t index;
 } Trans_param;
 
 /**
@@ -123,6 +127,10 @@ enum Binlog_storage_flags {
 typedef struct Binlog_storage_param {
   uint32 server_id;
   const char* host_or_ip;
+
+  /* Term and index that is passed across different raft plugins */
+  int64_t term= -1;
+  int64_t index= -1;
 } Binlog_storage_param;
 
 /**

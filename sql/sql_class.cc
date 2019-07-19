@@ -5131,6 +5131,20 @@ void THD::clear_slave_gtid_info()
 
 /**@}*/
 
+void THD::get_trans_marker(int64_t *term, int64_t *index) const
+{
+  /* The get and set (below) is used and called today serially during different
+   * stages of ordered commit. Hence the get and set are mutually exlusive. If
+   * this changes later, then we may need to protect these by locks */
+  *term= term_;
+  *index= index_;
+}
+
+void THD::set_trans_marker(int64_t term, int64_t index)
+{
+  term_= term;
+  index_= index;
+}
 
 /****************************************************************************
   Handling of statement states in functions and triggers.
