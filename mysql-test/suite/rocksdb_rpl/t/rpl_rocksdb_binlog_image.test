@@ -1,0 +1,32 @@
+--source include/have_rocksdb.inc
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+
+connection master;
+CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY (a), KEY (B), KEY(c)) ENGINE=ROCKSDB;
+
+INSERT INTO t1 VALUES (1,1,1), (2,2,2);
+
+# This will generate a binlog event with two rows that have disjoint write-sets
+# b=1 applies to the second row, c=2 applies to the first row
+# This requires binlog_row_image to be complete or minimal
+INSERT INTO t1 VALUES (1,1,1), (2,2,2) ON DUPLICATE KEY UPDATE b=1, c=2;
+
+--echo # select output from master
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+SELECT a, b FROM t1 FORCE INDEX (b);
+SELECT a, c FROM t1 FORCE INDEX (c);
+
+# Switch to the slave
+sync_slave_with_master slave;
+
+--echo # select output from slave must match the master's
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+SELECT a, b FROM t1 FORCE INDEX (b);
+SELECT a, c FROM t1 FORCE INDEX (c);
+
+connection master;
+DROP TABLE t1;
+sync_slave_with_master slave;
+
+--source include/rpl_end.inc
