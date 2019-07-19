@@ -303,6 +303,13 @@ public:
   	    (ip_arg && !wild_compare(ip_arg, hostname, 0)));
   }
 
+  bool is_same(const ACL_HOST_AND_IP *host)
+  {
+    return hostname == host->hostname &&
+           hostname_length == host->hostname_length &&
+           ip == host->ip &&
+           ip_mask == host->ip_mask;
+  }
 };
 
 class ACL_ACCESS {
@@ -645,7 +652,7 @@ static bool initialized=0;
 static bool allow_all_hosts=1;
 static HASH acl_check_hosts, column_priv_hash, proc_priv_hash, func_priv_hash;
 static DYNAMIC_ARRAY acl_wild_hosts;
-static hash_filo *acl_cache;
+static hash_filo_rw *acl_cache;
 static uint grant_version=0; /* Version of priv tables. incremented by acl_load */
 static ulong get_access(TABLE *form,uint fieldnr, uint *next_field=0);
 static int acl_compare(ACL_ACCESS *a,ACL_ACCESS *b);
@@ -663,6 +670,268 @@ static bool update_user_table(THD *, TABLE *table, const char *host,
 static my_bool acl_load(THD *thd, TABLE_LIST *tables);
 static my_bool grant_load(THD *thd, TABLE_LIST *tables);
 static inline void get_grantor(THD *thd, char* grantor);
+
+struct acl_lookup_entry
+{
+  DYNAMIC_ARRAY hosts;
+
+  uint16 length;
+
+  /* Stores "user\0db\0" afterwards as key. Should always be the last
+     structure and account the size correctly during allocation */
+  char key[1];
+
+  static uchar* get_key(acl_lookup_entry *entry, size_t *length,
+                        my_bool not_used MY_ATTRIBUTE((unused)))
+  {
+    *length=(uint) entry->length;
+    return (uchar*) entry->key;
+  }
+
+  static void free_entry(void *ptr)
+  {
+    auto entry = (acl_lookup_entry *)ptr;
+
+    /* Call dtor + free to match malloc + placement new instead of delete -
+       just to be on the safe side */
+    entry->~acl_lookup_entry();
+    free(ptr);
+  }
+
+  acl_lookup_entry(const char *new_key, size_t key_length)
+  {
+    my_init_dynamic_array(&hosts, sizeof(ACL_ACCESS), 4, 16);
+    memcpy((char*) key, new_key, key_length);
+    length = key_length;
+  }
+
+  ~acl_lookup_entry()
+  {
+    delete_dynamic(&hosts);
+  }
+
+  bool find(const char *host, const char *ip, ulong *access)
+  {
+    for (uint i = 0; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      if (host_entry->host.compare_hostname(host, ip))
+      {
+        *access = host_entry->access;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void update(ACL_DB *acl_db)
+  {
+    DBUG_ASSERT(acl_db != NULL);
+
+    for (uint i = 0; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      if (host_entry && host_entry->host.is_same(&acl_db->host))
+      {
+        host_entry->access = acl_db->access;
+#ifndef DBUG_OFF
+        validate();
+#endif
+        return;
+      }
+    }
+  }
+
+  void remove(ACL_DB *acl_db)
+  {
+    DBUG_ASSERT(acl_db != NULL);
+
+    for (uint i = 0; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      if (host_entry && host_entry->host.is_same(&acl_db->host))
+      {
+        delete_dynamic_element(&hosts, i);
+#ifndef DBUG_OFF
+        validate();
+#endif
+        return;
+      }
+    }
+  }
+
+  void insert(ACL_DB *acl_db)
+  {
+    ACL_ACCESS new_entry;
+
+    new_entry.host = acl_db->host;
+    new_entry.access = acl_db->access;
+
+    /* Generate sort key so that more specific host pattern wins */
+    new_entry.sort = get_sort(1, acl_db->host.get_host());
+
+    /* Find the location to insert in descending order */
+    uint i = 0;
+    for (; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      if (new_entry.sort > host_entry->sort)
+        break;
+    }
+
+    insert_dynamic_before(&hosts, &new_entry, i);
+
+#ifndef DBUG_OFF
+    validate();
+#endif
+  }
+
+#ifndef DBUG_OFF
+  void validate()
+  {
+    for (uint i = 1; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      auto host_entry_before = dynamic_element(&hosts, i - 1, ACL_ACCESS*);
+      DBUG_ASSERT(host_entry_before->sort >= host_entry->sort);
+    }
+    my_qsort((uchar*) dynamic_element(&hosts, 0, ACL_ACCESS*),
+      hosts.elements, sizeof(ACL_ACCESS), (qsort_cmp) acl_compare);
+    for (uint i = 1; i < hosts.elements; i++)
+    {
+      auto host_entry = dynamic_element(&hosts, i, ACL_ACCESS*);
+      auto host_entry_before = dynamic_element(&hosts, i - 1, ACL_ACCESS*);
+      DBUG_ASSERT(host_entry_before->sort >= host_entry->sort);
+    }
+  }
+#endif
+};
+
+#define ACL_LOOKUP_KEY_LENGTH (NAME_LEN + 1 + USERNAME_LENGTH + 1)
+#define ACL_LOOKUP_TBL_SIZE 1024
+
+/*
+  Simple ACL lookup table that only looks up exact (user, db) pairs and do a
+  linear scan over the hosts. This is much faster than a linear scan over the
+  entire acl_dbs table and in many cases there is only one item for each
+  (user, db) pair anyway
+ */
+class acl_lookup_tbl {
+public:
+  acl_lookup_tbl()
+  {
+    memset(&cache, 0, sizeof(cache));
+    my_hash_init(&cache, &my_charset_utf8_bin, ACL_LOOKUP_TBL_SIZE, 0, 0,
+                 (my_hash_get_key) acl_lookup_entry::get_key,
+                 (my_hash_free_key) acl_lookup_entry::free_entry, 0);
+  }
+
+  ~acl_lookup_tbl()
+  {
+    my_hash_free(&cache);
+  }
+
+  void insert(ACL_DB *acl_db)
+  {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    /* Build the key (user, db) */
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = strmov(strmov(key, acl_db->user? acl_db->user : "") + 1, acl_db->db);
+    size_t key_length = (size_t) (end - key);
+
+    auto entry = (acl_lookup_entry *) my_hash_search(
+      &cache, (uchar *)key, key_length);
+    if (entry)
+    {
+      /* Insert the host into array of hosts for this (user, db) pair */
+      entry->insert(acl_db);
+    }
+    else
+    {
+      /* First one - create a new entry */
+      auto new_entry = (acl_lookup_entry *) malloc(
+        sizeof(acl_lookup_entry) + key_length);
+
+      /* Call the ctor */
+      new (new_entry) acl_lookup_entry(key, key_length);
+
+      /* Insert the host into array of hosts for this (user, db) pair */
+      new_entry->insert(acl_db);
+
+      /* Insert into the top level (user, db) -> (hosts) */
+      my_hash_insert(&cache, (uchar *)new_entry);
+    }
+  }
+
+  void update(ACL_DB *acl_db)
+  {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    /* Build the key (user, db) */
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = strmov(strmov(key, acl_db->user? acl_db->user : "") + 1, acl_db->db);
+    size_t key_length = (size_t) (end - key);
+
+    auto entry = (acl_lookup_entry *) my_hash_search(
+      &cache, (uchar *)key, key_length);
+    if (entry)
+      entry->update(acl_db);
+  }
+
+  void remove(ACL_DB *acl_db)
+  {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    /* Build the key (user, db) */
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = strmov(strmov(key, acl_db->user? acl_db->user : "") + 1, acl_db->db);
+    size_t key_length = (size_t) (end - key);
+
+    auto entry = (acl_lookup_entry *) my_hash_search(
+      &cache, (uchar *)key, key_length);
+    if (entry)
+    {
+      entry->remove(acl_db);
+      if (entry->hosts.elements == 0)
+      {
+        /* Last entry - delete the (user, db) hash entry */
+        my_hash_delete(&cache, (uchar *) entry);
+      }
+    }
+  }
+
+  bool find(const char *user, const char *db, const char *host,
+    const char *ip, ulong *access)
+  {
+    /* Just in case */
+    if (contains_wildcard(db))
+      return false;
+
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = strmov(strmov(key, user? user : "") + 1, db);
+    size_t key_length= (size_t) (end - key);
+
+    auto entry = (acl_lookup_entry *)my_hash_search(
+      &cache, (uchar *)key, key_length);
+    return (entry && entry->find(host, ip, access));
+  }
+
+  void clear()
+  {
+    my_hash_reset(&cache);
+  }
+
+private:
+  HASH cache;
+};
+
+static acl_lookup_tbl *acl_fast_lookup = nullptr;
+
 /*
  Enumeration of various ACL's and Hashes used in handle_grant_struct()
 */
@@ -757,10 +1026,10 @@ my_bool acl_init(bool dont_read_acl_tables)
   my_bool return_val;
   DBUG_ENTER("acl_init");
 
-  acl_cache= new hash_filo(ACL_CACHE_SIZE, 0, 0,
-                           (my_hash_get_key) acl_entry_get_key,
-                           (my_hash_free_key) free,
-                           &my_charset_utf8_bin);
+  acl_cache= new hash_filo_rw(ACL_CACHE_SIZE, 0, 0,
+                              (my_hash_get_key) acl_entry_get_key,
+                              (my_hash_free_key) free,
+                              &my_charset_utf8_bin);
 
   /*
     cache built-in native authentication plugins,
@@ -1116,7 +1385,9 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
       }
       mysql_user_table_is_in_short_password_format= true;
       if (global_system_variables.old_passwords)
+      {
         mysql_mutex_unlock(&LOCK_global_system_variables);
+      }
       else
       {
         global_system_variables.old_passwords= 1;
@@ -1193,6 +1464,8 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
     }
 #endif
     (void) push_dynamic(&acl_dbs,(uchar*) &db);
+    if (acl_fast_lookup)
+      acl_fast_lookup->insert(&db);
   } // END reading records from mysql.db tables
   
   my_qsort((uchar*) dynamic_element(&acl_dbs,0,ACL_DB*),acl_dbs.elements,
@@ -1252,9 +1525,17 @@ void acl_free(bool end)
   delete_dynamic(&acl_dbs);
   delete_dynamic(&acl_wild_hosts);
   delete_dynamic(&acl_proxy_users);
+  if (acl_fast_lookup)
+  {
+    delete acl_fast_lookup;
+    acl_fast_lookup=0;
+  }
+
   my_hash_free(&acl_check_hosts);
   if (!end)
+  {
     acl_cache->clear(1); /* purecov: inspected */
+  }
   else
   {
     plugin_unlock(0, native_password_plugin);
@@ -1387,14 +1668,14 @@ my_bool acl_reload(THD *thd)
 {
   TABLE_LIST tables[3];
   DYNAMIC_ARRAY old_acl_users, old_acl_dbs, old_acl_proxy_users;
+  acl_lookup_tbl *old_acl_fast_lookup;
   MEM_ROOT old_mem;
-  bool old_initialized;
   my_bool return_val= TRUE;
   DBUG_ENTER("acl_reload");
 
   /*
     To avoid deadlocks we should obtain table locks before
-    obtaining acl_cache->lock mutex.
+    obtaining acl_cache->lock write lock.
   */
   tables[0].init_one_table(C_STRING_WITH_LEN("mysql"),
                            C_STRING_WITH_LEN("user"), "user", TL_READ);
@@ -1422,15 +1703,24 @@ my_bool acl_reload(THD *thd)
     goto end;
   }
 
-  if ((old_initialized=initialized))
-    mysql_mutex_lock(&acl_cache->lock);
+  /*
+    Technically you don't need to take lock here for first initialization,
+    but it helps simplifying the code that asserts write lock is taken
+   */
+  acl_cache->acquire_write_lock();
 
   old_acl_users= acl_users;
   old_acl_proxy_users= acl_proxy_users;
   old_acl_dbs= acl_dbs;
+  old_acl_fast_lookup=acl_fast_lookup;
   my_init_dynamic_array(&acl_users, sizeof(ACL_USER), 50, 100);
   my_init_dynamic_array(&acl_dbs, sizeof(ACL_DB), 50, 100);
   my_init_dynamic_array(&acl_proxy_users, sizeof(ACL_PROXY_USER), 50, 100);
+  if (enable_acl_fast_lookup)
+    acl_fast_lookup= new acl_lookup_tbl();
+  else
+    acl_fast_lookup= nullptr;
+
   old_mem= global_acl_memory;
   delete_dynamic(&acl_wild_hosts);
   my_hash_free(&acl_check_hosts);
@@ -1442,6 +1732,7 @@ my_bool acl_reload(THD *thd)
     acl_users= old_acl_users;
     acl_proxy_users= old_acl_proxy_users;
     acl_dbs= old_acl_dbs;
+    acl_fast_lookup= old_acl_fast_lookup;
     global_acl_memory= old_mem;
     init_check_host();
   }
@@ -1451,9 +1742,10 @@ my_bool acl_reload(THD *thd)
     delete_dynamic(&old_acl_users);
     delete_dynamic(&old_acl_proxy_users);
     delete_dynamic(&old_acl_dbs);
+    acl_fast_lookup_enabled= (acl_fast_lookup != nullptr);
+    delete old_acl_fast_lookup;
   }
-  if (old_initialized)
-    mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 end:
   close_acl_tables(thd);
 
@@ -1609,7 +1901,7 @@ bool acl_getroot(Security_context *sctx, char *user, char *host,
     DBUG_RETURN(FALSE);
   }
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   sctx->master_access= 0;
   sctx->db_access= 0;
@@ -1668,7 +1960,7 @@ bool acl_getroot(Security_context *sctx, char *user, char *host,
 
     sctx->password_expired= acl_user->password_expired;
   }
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   DBUG_RETURN(res);
 }
 
@@ -1692,7 +1984,7 @@ static void acl_update_user(const char *user, const char *host,
 			    const LEX_STRING *auth)
 {
   DBUG_ENTER("acl_update_user");
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   for (uint i=0 ; i < acl_users.elements ; i++)
   {
     ACL_USER *acl_user=dynamic_element(&acl_users,i,ACL_USER*);
@@ -1771,7 +2063,7 @@ static void acl_insert_user(const char *user, const char *host,
   ACL_USER acl_user;
   int hash_not_ok;
 
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   /*
      All accounts can authenticate per default. This will change when
      we add a new field to the user table.
@@ -1838,7 +2130,7 @@ static void acl_insert_user(const char *user, const char *host,
 static void acl_update_db(const char *user, const char *host, const char *db,
 			  ulong privileges)
 {
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
 
   for (uint i=0 ; i < acl_dbs.elements ; i++)
   {
@@ -1855,9 +2147,17 @@ static void acl_update_db(const char *user, const char *host, const char *db,
 	    (acl_db->db && !strcmp(db,acl_db->db)))
 	{
 	  if (privileges)
-	    acl_db->access=privileges;
-	  else
+    {
+      acl_db->access=privileges;
+      if (acl_fast_lookup)
+        acl_fast_lookup->update(acl_db);
+    }
+    else
+    {
+      if (acl_fast_lookup)
+        acl_fast_lookup->remove(acl_db);
 	    delete_dynamic_element(&acl_dbs,i);
+    }
 	}
       }
     }
@@ -1883,13 +2183,15 @@ static void acl_insert_db(const char *user, const char *host, const char *db,
 			  ulong privileges)
 {
   ACL_DB acl_db;
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   acl_db.user= strdup_root(&global_acl_memory,user);
   acl_db.host.update_hostname(*host ? strdup_root(&global_acl_memory, host) : 0);
   acl_db.db= strdup_root(&global_acl_memory, db);
   acl_db.access= privileges;
   acl_db.sort= get_sort(3,acl_db.host.get_host(), acl_db.db, acl_db.user);
   (void) push_dynamic(&acl_dbs, (uchar*) &acl_db);
+  if (acl_fast_lookup)
+    acl_fast_lookup->insert(&acl_db);
   my_qsort((uchar*) dynamic_element(&acl_dbs, 0, ACL_DB*), acl_dbs.elements,
 	         sizeof(ACL_DB),(qsort_cmp) acl_compare);
 }
@@ -1923,7 +2225,9 @@ ulong acl_get(const char *host, const char *ip,
   if (copy_length >= ACL_KEY_LENGTH)
     DBUG_RETURN(0);
 
-  mysql_mutex_lock(&acl_cache->lock);
+  /*
+    Build the key
+   */
   end=strmov((tmp_db=strmov(strmov(key, ip ? ip : "")+1,user)+1),db);
   if (lower_case_table_names)
   {
@@ -1931,14 +2235,40 @@ ulong acl_get(const char *host, const char *ip,
     db=tmp_db;
   }
   key_length= (size_t) (end-key);
+
+  if (!db_is_pattern && acl_fast_lookup)
+  {
+    acl_cache->acquire_read_lock();
+
+    /*
+      First lookup for exact (user, db) -> (hosts) hash table
+      Note that db that has patterns won't be here but >99% of db entries
+      are exact so this works out pretty well in practice
+     */
+    if (acl_fast_lookup &&
+        acl_fast_lookup->find(user, db, host, ip, &db_access))
+    {
+      acl_cache->release_read_lock();
+      DBUG_PRINT("exit", ("access: 0x%lx", db_access));
+      DBUG_RETURN(db_access);
+    }
+
+    statistic_increment(acl_fast_lookup_miss, &LOCK_status);
+    acl_cache->release_read_lock();
+  }
+
+  acl_cache->acquire_write_lock();
+
   if (!db_is_pattern && (entry=(acl_entry*) acl_cache->search((uchar*) key,
                                                               key_length)))
   {
     db_access=entry->access;
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_write_lock();
     DBUG_PRINT("exit", ("access: 0x%lx", db_access));
     DBUG_RETURN(db_access);
   }
+
+  statistic_increment(acl_cache_miss, &LOCK_status);
 
   /*
     Check if there are some access rights for database and user
@@ -1953,17 +2283,12 @@ ulong acl_get(const char *host, const char *ip,
 	if (!acl_db->db || !wild_compare(db,acl_db->db,db_is_pattern))
 	{
 	  db_access=acl_db->access;
-	  if (acl_db->host.get_host())
-	    goto exit;				// Fully specified. Take it
 	  break; /* purecov: tested */
 	}
       }
     }
   }
-  if (!db_access)
-    goto exit;					// Can't be better
 
-exit:
   /* Save entry in cache for quick retrieval */
   if (!db_is_pattern &&
       (entry= (acl_entry*) malloc(sizeof(acl_entry)+key_length)))
@@ -1973,7 +2298,7 @@ exit:
     memcpy((uchar*) entry->key,key,key_length);
     acl_cache->add(entry);
   }
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
   DBUG_PRINT("exit", ("access: 0x%lx", db_access & host_access));
   DBUG_RETURN(db_access & host_access);
 }
@@ -2053,12 +2378,12 @@ bool acl_check_host(const char *host, const char *ip)
 {
   if (allow_all_hosts)
     return 0;
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   if ((host && my_hash_search(&acl_check_hosts,(uchar*) host,strlen(host))) ||
       (ip && my_hash_search(&acl_check_hosts,(uchar*) ip, strlen(ip))))
   {
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_read_lock();
     return 0;					// Found host
   }
   for (uint i=0 ; i < acl_wild_hosts.elements ; i++)
@@ -2066,11 +2391,11 @@ bool acl_check_host(const char *host, const char *ip)
     ACL_HOST_AND_IP *acl=dynamic_element(&acl_wild_hosts,i,ACL_HOST_AND_IP*);
     if (acl->compare_hostname(host, ip))
     {
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_read_lock();
       return 0;					// Host ok
     }
   }
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   if (ip != NULL)
   {
     /* Increment HOST_CACHE.COUNT_HOST_ACL_ERRORS. */
@@ -2247,15 +2572,15 @@ bool change_password(THD *thd, const char *host, const char *user,
   if ((save_binlog_row_based= thd->is_current_stmt_binlog_format_row()))
     thd->clear_current_stmt_binlog_format_row();
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
   ACL_USER *acl_user;
   if (!(acl_user= find_acl_user(host, user, TRUE)))
   {
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_write_lock();
     my_message(ER_PASSWORD_NO_MATCH, ER(ER_PASSWORD_NO_MATCH), MYF(0));
     goto end;
   }
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   table->use_all_columns();
   DBUG_ASSERT(host != NULL);
   table->field[MYSQL_USER_FIELD_HOST]->store(host, strlen(host),
@@ -2273,7 +2598,7 @@ bool change_password(THD *thd, const char *host, const char *user,
   else
   {
     my_message(ER_PASSWORD_NO_MATCH, ER(ER_PASSWORD_NO_MATCH), MYF(0));
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_write_lock();
     goto end;
   }
 
@@ -2293,7 +2618,7 @@ bool change_password(THD *thd, const char *host, const char *user,
     if (check_password_policy(password_str))
     {
       result= 1;
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_write_lock();
       goto end;
     }
   }
@@ -2322,7 +2647,7 @@ bool change_password(THD *thd, const char *host, const char *user,
         /* the current user is not the same as the user we operate on */
         my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));
         result= 1;
-        mysql_mutex_unlock(&acl_cache->lock);
+        acl_cache->release_write_lock();
         goto end;
       }
       acl_user->password_expired= false;
@@ -2348,7 +2673,7 @@ bool change_password(THD *thd, const char *host, const char *user,
           /* the current user is not the same as the user we operate on */
           my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));
           result= 1;
-          mysql_mutex_unlock(&acl_cache->lock);
+          acl_cache->release_write_lock();
           goto end;
         }
 
@@ -2367,7 +2692,7 @@ bool change_password(THD *thd, const char *host, const char *user,
       */
       my_error(ER_PASSWORD_FORMAT, MYF(0));
       result= 1;
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_write_lock();
       goto end;
     }
   }
@@ -2396,7 +2721,7 @@ bool change_password(THD *thd, const char *host, const char *user,
         {
           my_error(ER_PASSWD_LENGTH, MYF(0), SCRAMBLED_PASSWORD_CHAR_LENGTH);
           result= 1;
-          mysql_mutex_unlock(&acl_cache->lock);
+          acl_cache->release_write_lock();
           goto end;
         }
       }
@@ -2408,7 +2733,7 @@ bool change_password(THD *thd, const char *host, const char *user,
         {
           my_error(ER_PASSWD_LENGTH, MYF(0), SCRAMBLED_PASSWORD_CHAR_LENGTH);
           result= 1;
-          mysql_mutex_unlock(&acl_cache->lock);
+          acl_cache->release_write_lock();
           goto end;
         }
         else if (my_strcasecmp(system_charset_info, acl_user->plugin.str,
@@ -2417,7 +2742,7 @@ bool change_password(THD *thd, const char *host, const char *user,
         {
           my_error(ER_PASSWD_LENGTH, MYF(0), SCRAMBLED_PASSWORD_CHAR_LENGTH_323);
           result= 1;
-          mysql_mutex_unlock(&acl_cache->lock);
+          acl_cache->release_write_lock();
           goto end;
         }
       }
@@ -2436,7 +2761,7 @@ bool change_password(THD *thd, const char *host, const char *user,
     {
       my_error(ER_PASSWORD_FORMAT, MYF(0));
       result= 1;
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_write_lock();
       goto end;
     }
     if (!update_sctx_cache(thd->security_ctx, acl_user, false) &&
@@ -2444,7 +2769,7 @@ bool change_password(THD *thd, const char *host, const char *user,
     {
       my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));
       result= 1;
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_write_lock();
       goto end;
     }
   }
@@ -2464,12 +2789,12 @@ bool change_password(THD *thd, const char *host, const char *user,
                         acl_user->user ? acl_user->user : "",
                         new_password, new_password_len, password_field, false, true))
   {
-    mysql_mutex_unlock(&acl_cache->lock); /* purecov: deadcode */
+    acl_cache->release_write_lock();
     goto end;
   }
 
   acl_cache->clear(1);				// Clear locked hostname cache
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
   result= 0;
   query_length= sprintf(buff, "SET PASSWORD FOR '%-.120s'@'%-.120s'='%-.120s'",
                         acl_user->user ? acl_user->user : "",
@@ -2510,9 +2835,9 @@ bool is_acl_user(const char *host, const char *user)
   if (!initialized)
     return TRUE;
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
   res= find_acl_user(host, user, TRUE) != NULL;
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   return res;
 }
 
@@ -2527,7 +2852,7 @@ find_acl_user(const char *host, const char *user, my_bool exact)
   DBUG_ENTER("find_acl_user");
   DBUG_PRINT("enter",("host: '%s'  user: '%s'",host,user));
 
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_read_locked() || acl_cache->is_write_locked());
 
   for (uint i=0 ; i < acl_users.elements ; i++)
   {
@@ -2804,7 +3129,7 @@ static int replace_user_table(THD *thd, TABLE *table, LEX_USER *combo,
   LEX *lex= thd->lex;
   DBUG_ENTER("replace_user_table");
 
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   
   if (!table->key_info)
   {
@@ -3437,7 +3762,7 @@ abort:
 static void  
 acl_update_proxy_user(ACL_PROXY_USER *new_value, bool is_revoke)
 {
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
 
   DBUG_ENTER("acl_update_proxy_user");
   for (uint i= 0; i < acl_proxy_users.elements; i++)
@@ -3468,7 +3793,7 @@ static void
 acl_insert_proxy_user(ACL_PROXY_USER *new_value)
 {
   DBUG_ENTER("acl_insert_proxy_user");
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
   (void) push_dynamic(&acl_proxy_users, (uchar *) new_value);
   my_qsort((uchar*) dynamic_element(&acl_proxy_users, 0, ACL_PROXY_USER *),
            acl_proxy_users.elements,
@@ -4533,7 +4858,7 @@ int mysql_table_grant(THD *thd, TABLE_LIST *table_list,
   bool result= FALSE;
   bool is_partial_execution= false;
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
   MEM_ROOT *old_root= thd->mem_root;
   thd->mem_root= &memex;
   grant_version++;
@@ -4653,7 +4978,7 @@ int mysql_table_grant(THD *thd, TABLE_LIST *table_list,
       is_partial_execution= true;
   }
   thd->mem_root= old_root;
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   /*
     We only log "complete" successful commands, because partially
@@ -4799,7 +5124,7 @@ bool mysql_routine_grant(THD *thd, TABLE_LIST *table_list, bool is_proc,
   if (!revoke_grant)
     create_new_users= test_if_create_new_users(thd);
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
   MEM_ROOT *old_root= thd->mem_root;
   thd->mem_root= &memex;
 
@@ -4864,7 +5189,7 @@ bool mysql_routine_grant(THD *thd, TABLE_LIST *table_list, bool is_proc,
     is_partial_execution= true;
   }
   thd->mem_root= old_root;
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (write_to_binlog)
   {
@@ -5088,7 +5413,7 @@ bool mysql_grant(THD *thd, const char *db, List <LEX_USER> &list,
 
   /* go through users in user_list */
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
   grant_version++;
 
   int result= 0;
@@ -5151,7 +5476,7 @@ bool mysql_grant(THD *thd, const char *db, List <LEX_USER> &list,
     if (is_user_applied)
       is_partial_execution= true;
   }
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   /*
     Before ACLs are changed to execute fully or none at all, when
@@ -6342,12 +6667,12 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   }
 
   mysql_rwlock_rdlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   acl_user= find_acl_user(lex_user->host.str, lex_user->user.str, TRUE);
   if (!acl_user)
   {
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_read_lock();
     mysql_rwlock_unlock(&LOCK_grant);
 
     my_error(ER_NONEXISTING_GRANT, MYF(0),
@@ -6365,7 +6690,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
   {
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_read_lock();
     mysql_rwlock_unlock(&LOCK_grant);
 
     DBUG_RETURN(TRUE);
@@ -6703,7 +7028,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
   }
 
 end:
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   mysql_rwlock_unlock(&LOCK_grant);
 
   my_eof(thd);
@@ -6830,14 +7155,14 @@ void get_mqh(const char *user, const char *host, USER_CONN *uc)
 {
   ACL_USER *acl_user;
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   if (initialized && (acl_user= find_acl_user(host,user, FALSE)))
     uc->user_resources= acl_user->user_resource;
   else
     memset(&uc->user_resources, 0, sizeof(uc->user_resources));
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
 }
 
 /**
@@ -7199,7 +7524,7 @@ static int handle_grant_struct(enum enum_acl_lists struct_no, bool drop,
   LINT_INIT(user);
   LINT_INIT(host);
 
-  mysql_mutex_assert_owner(&acl_cache->lock);
+  DBUG_ASSERT(acl_cache->is_write_locked());
 
   /* Get the number of elements in the in-memory structure. */
   switch (struct_no) {
@@ -7299,6 +7624,8 @@ static int handle_grant_struct(enum enum_acl_lists struct_no, bool drop,
         break;
 
       case DB_ACL:
+        if (acl_fast_lookup)
+          acl_fast_lookup->remove(dynamic_element(&acl_dbs, idx, ACL_DB*));
         delete_dynamic_element(&acl_dbs, idx);
         elements--;
         idx--;
@@ -7724,7 +8051,7 @@ bool mysql_create_user(THD *thd, List <LEX_USER> &list)
   }
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   while ((tmp_user_name= user_list++))
   {
@@ -7772,7 +8099,7 @@ bool mysql_create_user(THD *thd, List <LEX_USER> &list)
     some_users_created= TRUE;
   } // END while tmp_user_name= user_lists++
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "CREATE USER", wrong_users.c_ptr_safe());
@@ -7848,7 +8175,7 @@ bool mysql_drop_user(THD *thd, List <LEX_USER> &list)
   thd->variables.sql_mode&= ~MODE_PAD_CHAR_TO_FULL_LENGTH;
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   while ((tmp_user_name= user_list++))
   {
@@ -7869,7 +8196,7 @@ bool mysql_drop_user(THD *thd, List <LEX_USER> &list)
   /* Rebuild 'acl_check_hosts' since 'acl_users' has been modified */
   rebuild_check_host();
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "DROP USER", wrong_users.c_ptr_safe());
@@ -7936,7 +8263,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
   }
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   while ((tmp_user_from= user_list++))
   {
@@ -7970,7 +8297,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
   /* Rebuild 'acl_check_hosts' since 'acl_users' has been modified */
   rebuild_check_host();
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "RENAME USER", wrong_users.c_ptr_safe());
@@ -8059,7 +8386,7 @@ bool mysql_user_password_expire(THD *thd, List <LEX_USER> &list)
     thd->clear_current_stmt_binlog_format_row();
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   while ((tmp_user_from= user_list++))
   {
@@ -8113,7 +8440,7 @@ bool mysql_user_password_expire(THD *thd, List <LEX_USER> &list)
   }
 
   acl_cache->clear(1);				// Clear locked hostname cache
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (result)
     my_error(ER_CANNOT_USER, MYF(0), "ALTER USER", wrong_users.c_ptr_safe());
@@ -8182,7 +8509,7 @@ bool mysql_revoke_all(THD *thd,  List <LEX_USER> &list)
   }
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   LEX_USER *lex_user, *tmp_lex_user;
   List_iterator <LEX_USER> user_list(list);
@@ -8330,7 +8657,7 @@ bool mysql_revoke_all(THD *thd,  List <LEX_USER> &list)
       is_partial_execution= true;
   }
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
 
   if (result)
     my_message(ER_REVOKE_GRANTS, ER(ER_REVOKE_GRANTS), MYF(0));
@@ -8467,7 +8794,7 @@ bool sp_revoke_privileges(THD *thd, const char *sp_db, const char *sp_name,
   thd->push_internal_handler(&error_handler);
 
   mysql_rwlock_wrlock(&LOCK_grant);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_write_lock();
 
   /*
     This statement will be replicated as a statement, even when using
@@ -8506,7 +8833,7 @@ bool sp_revoke_privileges(THD *thd, const char *sp_db, const char *sp_name,
     }
   } while (revoked);
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_write_lock();
   mysql_rwlock_unlock(&LOCK_grant);
 
   result= acl_trans_commit_and_close_tables(thd);
@@ -8552,7 +8879,7 @@ bool sp_grant_privileges(THD *thd, const char *sp_db, const char *sp_name,
 
   combo->user.str= sctx->user;
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   if ((au= find_acl_user(combo->host.str=(char*)sctx->host_or_ip,combo->user.str,FALSE)))
     goto found_acl;
@@ -8565,11 +8892,11 @@ bool sp_grant_privileges(THD *thd, const char *sp_db, const char *sp_name,
   if((au= find_acl_user(combo->host.str=(char*)"%", combo->user.str, FALSE)))
     goto found_acl;
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   DBUG_RETURN(TRUE);
 
  found_acl:
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
 
   memset(tables, 0, sizeof(TABLE_LIST));
   user_list.empty();
@@ -8682,10 +9009,10 @@ bool acl_validate_proxy_user(THD *thd, const char *user, const char *host,
       host = proxied_host;
     }
 
-    mysql_mutex_lock(&acl_cache->lock);
+    acl_cache->acquire_read_lock();
 
     auto acl_proxy_user= find_acl_user(host, auth_as, FALSE);
-    mysql_mutex_unlock(&acl_cache->lock);
+    acl_cache->release_read_lock();
 
     if (acl_proxy_user) {
       return !get_or_create_user_conn(thd, auth_as, host,
@@ -8739,7 +9066,7 @@ acl_check_proxy_grant_access(THD *thd, const char *host, const char *user,
     DBUG_RETURN(FALSE);
   }
 
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   /* check for matching WITH PROXY rights */
   for (uint i=0; i < acl_proxy_users.elements; i++)
@@ -8754,12 +9081,12 @@ acl_check_proxy_grant_access(THD *thd, const char *host, const char *user,
         proxy->get_with_grant())
     {
       DBUG_PRINT("info", ("found"));
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_read_lock();
       DBUG_RETURN(FALSE);
     }
   }
 
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
   my_error(ER_ACCESS_DENIED_NO_PASSWORD_ERROR, MYF(0),
            thd->security_ctx->user,
            thd->security_ctx->host_or_ip);
@@ -8883,7 +9210,7 @@ int fill_schema_user_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
 
   if (!initialized)
     DBUG_RETURN(0);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   for (counter=0 ; counter < acl_users.elements ; counter++)
   {
@@ -8898,7 +9225,7 @@ int fill_schema_user_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
         (strcmp(thd->security_ctx->priv_user, user) ||
          my_strcasecmp(system_charset_info, curr_host, host)))
       continue;
-      
+
     want_access= acl_user->access;
     if (!(want_access & GRANT_ACL))
       is_grantable= "NO";
@@ -8919,7 +9246,7 @@ int fill_schema_user_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
       ulong j,test_access= want_access & ~GRANT_ACL;
       for (priv_id=0, j = SELECT_ACL;j <= GLOBAL_ACLS; priv_id++,j <<= 1)
       {
-	if (test_access & j)
+      	if (test_access & j)
         {
           if (update_schema_privilege(thd, table, buff, 0, 0, 0, 0, 
                                       command_array[priv_id],
@@ -8933,7 +9260,7 @@ int fill_schema_user_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
     }
   }
 err:
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
 
   DBUG_RETURN(error);
 #else
@@ -8958,7 +9285,7 @@ int fill_schema_schema_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
 
   if (!initialized)
     DBUG_RETURN(0);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
 
   for (counter=0 ; counter < acl_dbs.elements ; counter++)
   {
@@ -9011,7 +9338,7 @@ int fill_schema_schema_privileges(THD *thd, TABLE_LIST *tables, Item *cond)
     }
   }
 err:
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
 
   DBUG_RETURN(error);
 #else
@@ -9868,7 +10195,7 @@ static bool find_mpvio_user(MPVIO_EXT *mpvio)
   DBUG_ENTER("find_mpvio_user");
   DBUG_PRINT("info", ("entry: %s", mpvio->auth_info.user_name));
   DBUG_ASSERT(mpvio->acl_user == 0);
-  mysql_mutex_lock(&acl_cache->lock);
+  acl_cache->acquire_read_lock();
   for (uint i=0; i < acl_users.elements; i++)
   {
     ACL_USER *acl_user_tmp= dynamic_element(&acl_users, i, ACL_USER*);
@@ -9892,7 +10219,7 @@ static bool find_mpvio_user(MPVIO_EXT *mpvio)
       break;
     }
   }
-  mysql_mutex_unlock(&acl_cache->lock);
+  acl_cache->release_read_lock();
 
   if (!mpvio->acl_user)
   {
@@ -11298,17 +11625,21 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     {
     case CR_AUTH_PLUGIN_ERROR:
       errors.m_auth_plugin= 1;
+      statistic_increment(connection_errors_auth_plugin, &LOCK_status);
       break;
     case CR_AUTH_HANDSHAKE:
+      statistic_increment(connection_errors_handshake, &LOCK_status);
       errors.m_handshake= 1;
       break;
     case CR_AUTH_USER_CREDENTIALS:
+      statistic_increment(connection_errors_auth, &LOCK_status);
       errors.m_authentication= 1;
       break;
     case CR_ERROR:
     default:
       /* Unknown of unspecified auth plugin error. */
       errors.m_auth_plugin= 1;
+      statistic_increment(connection_errors_auth_plugin, &LOCK_status);
       break;
     }
     inc_host_errors(mpvio.ip, &errors);
@@ -11350,8 +11681,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
                   acl_user->host.get_host() ? acl_user->host.get_host() : "");
 
       /* we're proxying : find the proxy user definition */
-      mysql_mutex_lock(&acl_cache->lock);
-      acl_proxy_user= find_acl_user(proxy_user->get_proxied_host() ? 
+      acl_cache->acquire_read_lock();
+      acl_proxy_user= find_acl_user(proxy_user->get_proxied_host() ?
                                     proxy_user->get_proxied_host() : "",
                                     mpvio.auth_info.authenticated_as, TRUE);
       if (!acl_proxy_user)
@@ -11361,13 +11692,14 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
         inc_host_errors(mpvio.ip, &errors);
         if (!thd->is_error())
           login_failed_error(&mpvio, mpvio.auth_info.password_used);
-        mysql_mutex_unlock(&acl_cache->lock);
+        acl_cache->release_read_lock();
+        statistic_increment(connection_errors_proxy_user, &LOCK_status);
         DBUG_RETURN(1);
       }
       acl_user= acl_proxy_user->copy(thd->mem_root);
       DBUG_PRINT("info", ("User %s is a PROXY and will assume a PROXIED"
                           " identity %s", auth_user, acl_user->user));
-      mysql_mutex_unlock(&acl_cache->lock);
+      acl_cache->release_read_lock();
     }
 #endif
 
@@ -11387,6 +11719,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       inc_host_errors(mpvio.ip, &errors);
       if (!thd->is_error())
         login_failed_error(&mpvio, thd->password);
+      statistic_increment(connection_errors_ssl_check, &LOCK_status);
       DBUG_RETURN(1);
     }
 
@@ -11411,6 +11744,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
 
       errors.m_authentication= 1;
       inc_host_errors(mpvio.ip, &errors);
+      statistic_increment(connection_errors_password_expired, &LOCK_status);
       DBUG_RETURN(1);
     }
 
@@ -11419,7 +11753,10 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
           (opt_old_style_user_limits ? sctx->user : sctx->priv_user),
           (opt_old_style_user_limits ? sctx->host_or_ip : sctx->priv_host),
           &acl_user->user_resource))
+    {
+      statistic_increment(connection_errors_user_conn, &LOCK_status);
       DBUG_RETURN(1); // The error is set by get_or_create_user_conn()
+    }
 
     /*
       We are copying the connected user's password expired flag to the security
@@ -11454,6 +11791,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     fix_user_conn(thd, OTHER_ACCESS); // Undo work by
     // get_or_create_user_conn
 #endif
+    statistic_increment(connection_errors_admin_conn_denied, &LOCK_status);
     DBUG_RETURN (1);
   }
   if (command == COM_CONNECT &&
@@ -11466,7 +11804,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     mysql_mutex_unlock(&LOCK_thread_count);
     if (!count_ok)
     {                                         // too many connections
-      statistic_increment(connection_errors_max_connection, &LOCK_status);
+      statistic_increment(connection_errors_max_connection_abort, &LOCK_status);
       my_error(ER_CON_COUNT_ERROR, MYF(0));
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
       fix_user_conn(thd, MAX_GLOBAL); // Undo work by
@@ -11487,6 +11825,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   {
     fix_user_conn(thd, global_max ? MAX_GLOBAL : MAX_USER); // Undo work by
     // get_or_create_user_conn
+    statistic_increment(connection_errors_max_user_connection, &LOCK_status);
     DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
   }
 #else
@@ -11494,6 +11833,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       (uc->user_resources.conn_per_hour || uc->user_resources.user_conn ||
        global_system_variables.max_user_connections))
   {
+    statistic_increment(connection_errors_max_user_connection, &LOCK_status);
     DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
   }
 #endif
@@ -11524,6 +11864,7 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       Host_errors errors;
       errors.m_default_database= 1;
       inc_host_errors(mpvio.ip, &errors);
+      statistic_increment(connection_errors_access_denied, &LOCK_status);
       DBUG_RETURN(1);
     }
   }
@@ -11562,6 +11903,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       Host_errors errors;
       errors.m_connect= 1;
       inc_host_errors(mpvio.ip, &errors);
+      statistic_increment(connection_errors_multi_tenancy_max_global,
+                          &LOCK_status);
       DBUG_RETURN(1);
     }
   }

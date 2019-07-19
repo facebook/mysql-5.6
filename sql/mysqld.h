@@ -418,6 +418,7 @@ extern my_bool recv_skip_ibuf_operations;
 extern bool enable_blind_replace;
 extern bool enable_binlog_hlc;
 extern my_bool async_query_counter_enabled;
+extern my_bool enable_acl_fast_lookup;
 
 /* Minimum HLC value for this instance. It is ensured that the next 'event' will
  * get a HLC timestamp greater than this value */
@@ -1068,6 +1069,7 @@ extern ulong connection_errors_accept;
 extern ulong connection_errors_tcpwrap;
 extern ulong connection_errors_internal;
 extern ulong connection_errors_max_connection;
+extern ulong connection_errors_max_connection_abort;
 extern ulong connection_errors_peer_addr;
 extern ulong connection_errors_net_ER_NET_ERROR_ON_WRITE;
 extern ulong connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
@@ -1076,6 +1078,24 @@ extern ulong connection_errors_net_ER_NET_READ_ERROR;
 extern ulong connection_errors_net_ER_NET_READ_INTERRUPTED;
 extern ulong connection_errors_net_ER_NET_UNCOMPRESS_ERROR;
 extern ulong connection_errors_net_ER_NET_WRITE_INTERRUPTED;
+extern ulong connection_errors_host_not_privileged;
+extern ulong connection_errors_host_blocked;
+extern ulong connection_errors_acl_auth;
+extern ulong connection_errors_out_of_resources;
+extern ulong connection_errors_auth_plugin;
+extern ulong connection_errors_auth;
+extern ulong connection_errors_handshake;
+extern ulong connection_errors_ssl_check;
+extern ulong connection_errors_proxy_user;
+extern ulong connection_errors_multi_tenancy_max_global;
+extern ulong connection_errors_password_expired;
+extern ulong connection_errors_user_conn;
+extern ulong connection_errors_admin_conn_denied;
+extern ulong connection_errors_max_user_connection;
+extern ulong connection_errors_access_denied;
+extern ulong acl_cache_miss;
+extern ulong acl_fast_lookup_miss;
+extern my_bool acl_fast_lookup_enabled;
 extern ulong log_warnings;
 extern uint opt_general_query_throttling_limit;
 extern uint opt_write_query_throttling_limit;
@@ -1187,7 +1207,7 @@ extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
   key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
   key_rwlock_LOCK_legacy_user_name_pattern,
-  key_rwlock_LOCK_admin_users_list_regex;
+  key_rwlock_LOCK_admin_users_list_regex, key_rwlock_hash_filo;
 
 #ifdef HAVE_MMAP
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;

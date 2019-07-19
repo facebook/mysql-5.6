@@ -489,6 +489,7 @@ ulong slave_tx_isolation;
 bool enable_blind_replace= 0;
 bool enable_binlog_hlc= 0;
 my_bool async_query_counter_enabled = 0;
+my_bool enable_acl_fast_lookup= 0;
 
 my_bool log_legacy_user;
 my_bool log_ddl;
@@ -909,6 +910,8 @@ ulong connection_errors_tcpwrap= 0;
 ulong connection_errors_internal= 0;
 /** Number of connection errors from the server max_connection limit. */
 ulong connection_errors_max_connection= 0;
+/** Number of connection abort errors from the server max_connection limit  */
+ulong connection_errors_max_connection_abort= 0;
 /** Number of errors when reading the peer address. */
 ulong connection_errors_peer_addr= 0;
 /** Number of connection errors while writing to client */
@@ -925,6 +928,46 @@ ulong connection_errors_net_ER_NET_READ_INTERRUPTED= 0;
 ulong connection_errors_net_ER_NET_UNCOMPRESS_ERROR= 0;
 /** Number of connection errors due to write timeout */
 ulong connection_errors_net_ER_NET_WRITE_INTERRUPTED= 0;
+/** Number of connection errors when host has insufficient privilege */
+ulong connection_errors_host_not_privileged = 0;
+/** Number of connection errors when host is blocked */
+ulong connection_errors_host_blocked = 0;
+/** Number of connection errors when acl_authenticate failed */
+ulong connection_errors_acl_auth= 0;
+/** Number of connection errors when out of resources */
+ulong connection_errors_out_of_resources= 0;
+/** Number of connection errors due to SSL */
+ulong connection_errors_ssl_check= 0;
+/** Number of connection errors with auth plugin */
+ulong connection_errors_auth_plugin= 0;
+/** Number of connection errors with authentication */
+ulong connection_errors_auth= 0;
+/** Number of connection errors with hand shaking */
+ulong connection_errors_handshake= 0;
+/** Number of connection errors when no proxy user is found */
+ulong connection_errors_proxy_user= 0;
+/** Number of connection errors when max global is reached */
+ulong connection_errors_multi_tenancy_max_global= 0;
+/** Number of connection errors when password expired */
+ulong connection_errors_password_expired= 0;
+/** Number of connection errors when user_conn cannot be created */
+ulong connection_errors_user_conn= 0;
+/** Number of connection errors when denied connection as admin */
+ulong connection_errors_admin_conn_denied= 0;
+/** Number of connection errors when max user connection is reached */
+ulong connection_errors_max_user_connection= 0;
+/** Number of connection errors when user is denied access to the database */
+ulong connection_errors_access_denied= 0;
+
+/** Number of cache misses for acl_cache */
+ulong acl_cache_miss= 0;
+
+/** Number of cache miss in acl_fast_lookup */
+ulong acl_fast_lookup_miss= 0;
+
+/** Whether acl_fast_lookup is enabled - it only gets updated when FLUSH
+    PRIVILEGES is issued */
+my_bool acl_fast_lookup_enabled= FALSE;
 
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
@@ -10498,6 +10541,9 @@ static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
 */
 
 SHOW_VAR status_vars[]= {
+  {"acl_cache_miss",           (char*) &acl_cache_miss,         SHOW_LONG},
+  {"acl_fast_lookup_enabled",  (char*) &acl_fast_lookup_enabled,SHOW_BOOL},
+  {"acl_fast_lookup_miss",     (char*) &acl_fast_lookup_miss,   SHOW_LONG},
   {"Aborted_clients",          (char*) &aborted_threads,        SHOW_LONG},
   {"Aborted_connects",         (char*) &aborted_connects,       SHOW_LONG},
   {"Last_evicted_page_age",    (char*) &last_evicted_page_age,  SHOW_LONG},
@@ -10517,6 +10563,7 @@ SHOW_VAR status_vars[]= {
   {"Connection_errors_accept", (char*) &connection_errors_accept, SHOW_LONG},
   {"Connection_errors_internal", (char*) &connection_errors_internal, SHOW_LONG},
   {"Connection_errors_max_connections", (char*) &connection_errors_max_connection, SHOW_LONG},
+  {"Connection_errors_max_connections_abort", (char*) &connection_errors_max_connection_abort, SHOW_LONG},
   {"Connection_errors_net_ER_NET_ERROR_ON_WRITE", (char*) &connection_errors_net_ER_NET_ERROR_ON_WRITE, SHOW_LONG},
   {"Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER", (char*) &connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER, SHOW_LONG},
   {"Connection_errors_net_ER_NET_PACKET_TOO_LARGE", (char*) &connection_errors_net_ER_NET_PACKET_TOO_LARGE, SHOW_LONG},
@@ -10527,6 +10574,21 @@ SHOW_VAR status_vars[]= {
   {"Connection_errors_peer_address", (char*) &connection_errors_peer_addr, SHOW_LONG},
   {"Connection_errors_select", (char*) &connection_errors_select, SHOW_LONG},
   {"Connection_errors_tcpwrap", (char*) &connection_errors_tcpwrap, SHOW_LONG},
+  {"Connection_errors_host_blocked", (char*) &connection_errors_host_blocked, SHOW_LONG},
+  {"Connection_errors_host_not_privileged", (char*) &connection_errors_host_not_privileged, SHOW_LONG},
+  {"Connection_errors_acl_auth", (char*) &connection_errors_acl_auth, SHOW_LONG},
+  {"Connection_errors_out_of_resources", (char*) &connection_errors_out_of_resources, SHOW_LONG},
+  {"Connection_errors_ssl_check", (char*) &connection_errors_ssl_check, SHOW_LONG},
+  {"Connection_errors_auth_plugin", (char*) &connection_errors_auth_plugin, SHOW_LONG},
+  {"Connection_errors_auth", (char*) &connection_errors_auth, SHOW_LONG},
+  {"Connection_errors_handshake", (char*) &connection_errors_handshake, SHOW_LONG},
+  {"Connection_errors_proxy_user", (char*) &connection_errors_proxy_user, SHOW_LONG},
+  {"Connection_errors_multi_tenancy_max_global", (char*) &connection_errors_multi_tenancy_max_global, SHOW_LONG},
+  {"Connection_errors_password_expired", (char*) &connection_errors_password_expired, SHOW_LONG},
+  {"Connection_errors_user_conn", (char*) &connection_errors_user_conn, SHOW_LONG},
+  {"Connection_errors_admin_conn_denied", (char*) &connection_errors_admin_conn_denied, SHOW_LONG},
+  {"Connection_errors_max_user_connection", (char*) &connection_errors_max_user_connection, SHOW_LONG},
+  {"Connection_errors_access_denied", (char*) &connection_errors_access_denied, SHOW_LONG},
   {"Created_tmp_disk_tables",  (char*) offsetof(STATUS_VAR, created_tmp_disk_tables), SHOW_LONGLONG_STATUS},
   {"Created_tmp_files",        (char*) &my_tmp_file_created, SHOW_LONG},
   {"Created_tmp_tables",       (char*) offsetof(STATUS_VAR, created_tmp_tables), SHOW_LONGLONG_STATUS},
@@ -12654,6 +12716,8 @@ PSI_rwlock_key key_rwlock_Binlog_transmit_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
 #endif
 
+PSI_rwlock_key key_rwlock_hash_filo;
+
 static PSI_rwlock_info all_server_rwlocks[]=
 {
 #ifdef HAVE_REPLICATION
@@ -12674,7 +12738,8 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_query_cache_query_lock, "Query_cache_query::lock", 0},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_GLOBAL},
   { &key_rwlock_Trans_delegate_lock, "Trans_delegate::lock", PSI_FLAG_GLOBAL},
-  { &key_rwlock_Binlog_storage_delegate_lock, "Binlog_storage_delegate::lock", PSI_FLAG_GLOBAL}
+  { &key_rwlock_Binlog_storage_delegate_lock, "Binlog_storage_delegate::lock", PSI_FLAG_GLOBAL},
+  { &key_rwlock_hash_filo, "LOCK_key_hash_filo_rwlock", PSI_FLAG_GLOBAL}
 };
 
 #ifdef HAVE_MMAP

@@ -28,7 +28,7 @@ wait/synch/rwlock/sql/LOCK_admin_users_list_regex	YES	YES
 wait/synch/rwlock/sql/LOCK_dboptions	YES	YES
 wait/synch/rwlock/sql/LOCK_gap_lock_exceptions	YES	YES
 wait/synch/rwlock/sql/LOCK_grant	YES	YES
-wait/synch/rwlock/sql/LOCK_legacy_user_name_pattern	YES	YES
+wait/synch/rwlock/sql/LOCK_key_hash_filo_rwlock	YES	YES
 select * from performance_schema.setup_instruments
 where name like 'Wait/Synch/Cond/sql/%'
   and name not in (

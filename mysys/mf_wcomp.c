@@ -88,3 +88,19 @@ int wild_compare(register const char *str, register const char *wildstr,
   }
   DBUG_RETURN (*str != 0);
 } /* wild_compare */
+
+my_bool contains_wildcard(const char *str)
+{
+  while (*str)
+  {
+    if (*str == wild_one || *str == wild_many)
+      return TRUE;
+    /* Skip \_ or \% */
+    if (*str == wild_prefix && str[1])
+      str += 2;
+    else
+      str++;
+  }
+
+  return FALSE;
+}

@@ -726,6 +726,7 @@ extern char * my_load_path(char * to, const char *path,
 			      const char *own_path_prefix);
 extern int wild_compare(const char *str,const char *wildstr,
                         pbool str_is_pattern);
+extern my_bool contains_wildcard(const char *str);
 extern my_bool array_append_string_unique(const char *str,
                                           const char **array, size_t size);
 extern void get_date(char * to,int timeflag,time_t use_time);
@@ -821,6 +822,8 @@ extern my_bool init_dynamic_array(DYNAMIC_ARRAY *array, uint element_size,
                                   uint init_alloc, uint alloc_increment);
 extern my_bool insert_dynamic(DYNAMIC_ARRAY *array, const void *element);
 extern my_bool insert_dynamic_set(DYNAMIC_ARRAY *array, const void *element);
+extern my_bool insert_dynamic_before(DYNAMIC_ARRAY *array, const void *element,
+                                     uint idx);
 extern void *alloc_dynamic(DYNAMIC_ARRAY *array);
 extern void *pop_dynamic(DYNAMIC_ARRAY*);
 extern my_bool set_dynamic(DYNAMIC_ARRAY *array, const void *element,

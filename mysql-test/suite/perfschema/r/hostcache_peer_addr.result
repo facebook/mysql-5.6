@@ -25,8 +25,19 @@ User	Host
 show global status like "connection_errors_%";
 Variable_name	Value
 Connection_errors_accept	0
+Connection_errors_access_denied	0
+Connection_errors_acl_auth	0
+Connection_errors_admin_conn_denied	0
+Connection_errors_auth	0
+Connection_errors_auth_plugin	0
+Connection_errors_handshake	0
+Connection_errors_host_blocked	0
+Connection_errors_host_not_privileged	0
 Connection_errors_internal	0
 Connection_errors_max_connections	0
+Connection_errors_max_connections_abort	0
+Connection_errors_max_user_connection	0
+Connection_errors_multi_tenancy_max_global	0
 Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
 Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
 Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
@@ -34,9 +45,14 @@ Connection_errors_net_ER_NET_READ_ERROR	0
 Connection_errors_net_ER_NET_READ_INTERRUPTED	0
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+Connection_errors_out_of_resources	0
+Connection_errors_password_expired	0
 Connection_errors_peer_address	0
+Connection_errors_proxy_user	0
 Connection_errors_select	0
+Connection_errors_ssl_check	0
 Connection_errors_tcpwrap	0
+Connection_errors_user_conn	0
 select "Con1 is alive";
 Con1 is alive
 Con1 is alive
@@ -48,8 +64,19 @@ ERROR HY000: Can't get hostname for your address
 show global status like "connection_errors_%";
 Variable_name	Value
 Connection_errors_accept	0
+Connection_errors_access_denied	0
+Connection_errors_acl_auth	0
+Connection_errors_admin_conn_denied	0
+Connection_errors_auth	0
+Connection_errors_auth_plugin	0
+Connection_errors_handshake	0
+Connection_errors_host_blocked	0
+Connection_errors_host_not_privileged	0
 Connection_errors_internal	0
 Connection_errors_max_connections	0
+Connection_errors_max_connections_abort	0
+Connection_errors_max_user_connection	0
+Connection_errors_multi_tenancy_max_global	0
 Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
 Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
 Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
@@ -57,16 +84,32 @@ Connection_errors_net_ER_NET_READ_ERROR	0
 Connection_errors_net_ER_NET_READ_INTERRUPTED	0
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+Connection_errors_out_of_resources	0
+Connection_errors_password_expired	0
 Connection_errors_peer_address	1
+Connection_errors_proxy_user	0
 Connection_errors_select	0
+Connection_errors_ssl_check	0
 Connection_errors_tcpwrap	0
+Connection_errors_user_conn	0
 "Dumping performance_schema.host_cache"
 ERROR HY000: Can't get hostname for your address
 show global status like "connection_errors_%";
 Variable_name	Value
 Connection_errors_accept	0
+Connection_errors_access_denied	0
+Connection_errors_acl_auth	0
+Connection_errors_admin_conn_denied	0
+Connection_errors_auth	0
+Connection_errors_auth_plugin	0
+Connection_errors_handshake	0
+Connection_errors_host_blocked	0
+Connection_errors_host_not_privileged	0
 Connection_errors_internal	0
 Connection_errors_max_connections	0
+Connection_errors_max_connections_abort	0
+Connection_errors_max_user_connection	0
+Connection_errors_multi_tenancy_max_global	0
 Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
 Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
 Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
@@ -74,17 +117,33 @@ Connection_errors_net_ER_NET_READ_ERROR	0
 Connection_errors_net_ER_NET_READ_INTERRUPTED	0
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+Connection_errors_out_of_resources	0
+Connection_errors_password_expired	0
 Connection_errors_peer_address	2
+Connection_errors_proxy_user	0
 Connection_errors_select	0
+Connection_errors_ssl_check	0
 Connection_errors_tcpwrap	0
+Connection_errors_user_conn	0
 "Dumping performance_schema.host_cache"
 set global debug= default;
 flush status;
 show global status like "connection_errors_%";
 Variable_name	Value
 Connection_errors_accept	0
+Connection_errors_access_denied	0
+Connection_errors_acl_auth	0
+Connection_errors_admin_conn_denied	0
+Connection_errors_auth	0
+Connection_errors_auth_plugin	0
+Connection_errors_handshake	0
+Connection_errors_host_blocked	0
+Connection_errors_host_not_privileged	0
 Connection_errors_internal	0
 Connection_errors_max_connections	0
+Connection_errors_max_connections_abort	0
+Connection_errors_max_user_connection	0
+Connection_errors_multi_tenancy_max_global	0
 Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
 Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
 Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
@@ -92,6 +151,11 @@ Connection_errors_net_ER_NET_READ_ERROR	0
 Connection_errors_net_ER_NET_READ_INTERRUPTED	0
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+Connection_errors_out_of_resources	0
+Connection_errors_password_expired	0
 Connection_errors_peer_address	0
+Connection_errors_proxy_user	0
 Connection_errors_select	0
+Connection_errors_ssl_check	0
 Connection_errors_tcpwrap	0
+Connection_errors_user_conn	0

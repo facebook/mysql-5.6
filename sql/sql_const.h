@@ -110,7 +110,7 @@
   Configuration parameters
 ****************************************************************************/
 
-#define ACL_CACHE_SIZE		256
+#define ACL_CACHE_SIZE		    1024
 #define MAX_PASSWORD_LENGTH	32
 #define HOST_CACHE_SIZE		128
 #define MAX_ACCEPT_RETRY	10	// Test accept this many times

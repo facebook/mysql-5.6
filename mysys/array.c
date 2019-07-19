@@ -132,6 +132,57 @@ my_bool insert_dynamic_set(DYNAMIC_ARRAY *array, const void *element)
   return insert_dynamic(array, element);
 }
 
+/*
+  Insert element before location and move the ones after the new element
+  towards the end. Allocate memory if needed.
+
+  SYNOPSIS
+    insert_dynamic_before()
+      array
+      element
+      idx
+
+  RETURN VALUE
+    TRUE        Insert failed
+    FALSE       Ok
+*/
+
+my_bool insert_dynamic_before(DYNAMIC_ARRAY *array, const void *element,
+                              uint idx)
+{
+  if (idx > array->elements)
+  {
+    /* You can insert at the end but not beyond that */
+    return TRUE;
+  }
+
+  if (array->elements == array->max_element)
+  {                                             /* Call only when */
+    if (!alloc_dynamic(array))
+      return TRUE;
+  }
+  else
+  {
+    /* alloc_dynamic increments the size - so match that */
+    array->elements++;
+  }
+
+  uchar* buffer;
+  buffer= (uchar*) array->buffer+array->size_of_element*idx;
+  if (array->elements > 1 && idx < array->elements - 1)
+  {
+    /* shift the items to the right */
+    memmove(buffer+array->size_of_element,
+            buffer,
+            (array->elements-idx-1)*array->size_of_element);
+  }
+
+  memcpy(buffer,element,(size_t) array->size_of_element);
+
+  return FALSE;
+}
+
+
 
 /*
   Alloc space for next element(s) 

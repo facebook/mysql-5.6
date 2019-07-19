@@ -66,6 +66,8 @@
 #include "log_event.h"
 #include "binlog.h"
 #include "global_threads.h"
+#include "sql_parse.h"                          // check_global_access
+#include "sql_reload.h"                         // reload_acl_and_cache
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "../storage/perfschema/pfs_server.h"
@@ -6435,3 +6437,24 @@ bool check_admin_users_list(USER_CONN *uc)
   uc->admin = USER_CONN::USER_CONN_ADMIN_NO;
   return false;
 }
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+
+static bool check_enable_acl_fast_lookup(sys_var *self, THD *thd, set_var *var)
+{
+  /*
+    Any change to this variable would need to trigger ACL reloading -
+    we need to make sure if the user has access to reload ACL
+   */
+  return check_global_access(thd,RELOAD_ACL);
+}
+
+static Sys_var_mybool Sys_acl_fast_lookup(
+       "enable_acl_fast_lookup",
+       "Enable ACL fast lookup on exact user/db pairs. Please issue "
+       "FLUSH PRIVILEGES for the changes to take effect.",
+       GLOBAL_VAR(enable_acl_fast_lookup),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_enable_acl_fast_lookup));
+#endif

@@ -253,6 +253,9 @@ The following options may be given as the first argument:
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
+ --enable-acl-fast-lookup 
+ Enable ACL fast lookup on exact user/db pairs. Please
+ issue FLUSH PRIVILEGES for the changes to take effect.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
  --enable-blind-replace 
@@ -2068,6 +2071,7 @@ disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE

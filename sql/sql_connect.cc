@@ -959,6 +959,7 @@ static int check_connection(THD *thd)
       if (rc == RC_BLOCKED_HOST)
       {
         /* HOST_CACHE stats updated by ip_to_hostname(). */
+        statistic_increment(connection_errors_host_blocked,&LOCK_status);
         my_error(ER_HOST_IS_BLOCKED, MYF(0), thd->main_security_ctx.host_or_ip);
         return 1;
       }
@@ -972,6 +973,7 @@ static int check_connection(THD *thd)
                        thd->main_security_ctx.get_ip()->ptr()))
     {
       /* HOST_CACHE stats updated by acl_check_host(). */
+      statistic_increment(connection_errors_host_not_privileged,&LOCK_status);
       my_error(ER_HOST_NOT_PRIVILEGED, MYF(0),
                thd->main_security_ctx.host_or_ip);
       return 1;
@@ -1015,6 +1017,11 @@ static int check_connection(THD *thd)
     reset_host_connect_errors(thd->main_security_ctx.get_ip()->ptr());
   }
 
+  if (auth_rc)
+  {
+    statistic_increment(connection_errors_acl_auth,&LOCK_status);
+  }
+
   return auth_rc;
 }
 
@@ -1037,6 +1044,7 @@ bool setup_connection_thread_globals(THD *thd)
   if (thd->store_globals())
   {
     close_connection(thd, ER_OUT_OF_RESOURCES);
+    statistic_increment(connection_errors_out_of_resources,&LOCK_status);
     statistic_increment(aborted_connects,&LOCK_status);
     MYSQL_CALLBACK(thread_scheduler, end_thread, (thd, 0));
     return 1;                                   // Error
@@ -1359,6 +1367,7 @@ void do_handle_one_connection(THD *thd_arg)
   {
     close_connection(thd, ER_OUT_OF_RESOURCES);
     statistic_increment(aborted_connects,&LOCK_status);
+    statistic_increment(connection_errors_out_of_resources,&LOCK_status);
     MYSQL_CALLBACK(thread_scheduler, end_thread, (thd, 0));
     return;
   }
