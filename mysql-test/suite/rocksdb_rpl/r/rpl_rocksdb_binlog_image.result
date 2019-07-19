@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY (a), KEY (B), KEY(c)) ENGINE=ROCKSDB;
+INSERT INTO t1 VALUES (1,1,1), (2,2,2);
+INSERT INTO t1 VALUES (1,1,1), (2,2,2) ON DUPLICATE KEY UPDATE b=1, c=2;
+# select output from master
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+a	b	c
+1	1	2
+2	1	2
+SELECT a, b FROM t1 FORCE INDEX (b);
+a	b
+1	1
+2	1
+SELECT a, c FROM t1 FORCE INDEX (c);
+a	c
+1	2
+2	2
+# select output from slave must match the master's
+SELECT * FROM t1 FORCE INDEX (PRIMARY);
+a	b	c
+1	1	2
+2	1	2
+SELECT a, b FROM t1 FORCE INDEX (b);
+a	b
+1	1
+2	1
+SELECT a, c FROM t1 FORCE INDEX (c);
+a	c
+1	2
+2	2
+DROP TABLE t1;
+include/rpl_end.inc
