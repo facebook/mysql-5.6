@@ -3564,6 +3564,13 @@ public:
              false if old rows should be read (the default)
    */
   virtual bool use_read_free_rpl() const { return false; }
+  /**
+     Whether the storage engine table has a TTL column
+
+     @return true if the table contains ttl col
+             false otherwise
+   */
+  virtual bool has_ttl_column() const { return false; }
   /*
      Storage engine hooks to be called before and after row write, delete, and
      update events
