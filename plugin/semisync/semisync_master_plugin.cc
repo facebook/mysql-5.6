@@ -112,11 +112,13 @@ int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
   if (unlikely(err && (rpl_wait_for_semi_sync_ack || err == 2)))
   {
     ret = 1;
+    repl_semisync.remove_slave();
   }
 
   sql_print_information("Start semi-sync binlog_dump to slave (server_id: %d), "
-                        "pos(%s, %lu), (host: %s)", param->server_id,
-                        log_file, (unsigned long)log_pos, param->host_or_ip);
+                        "pos(%s, %lu), (host: %s), (ret: %d)", param->server_id,
+                        log_file, (unsigned long)log_pos, param->host_or_ip,
+                        ret);
   
   return ret;
 }
