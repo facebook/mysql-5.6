@@ -1,0 +1,78 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= true;
+set @save.binlog_trx_meta_data= @@global.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= true;
+drop database if exists test2;
+drop database if exists test3;
+drop database if exists test4;
+create database test2 db_metadata '{"shard":"test2_shard", "replicaset":"test2_replicaset"}';
+create database test3 db_metadata '{"shard":"test3_shard", "replicaset":"test3_replicaset"}';
+use test;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+use test2;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+use test3;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+alter database test3 db_metadata '{"shard":"test3_shard_updated", "replicaset":"test3_replicaset_updated"}';
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+create database test4 db_metadata '{"shard":"newly_added_shard_for_test4", "replicaset":"new_replicaset_for_test4"}';
+insert into t1 values(5, 'e');
+insert into t1 values(6, 'f');
+use test4;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts]}*/
+include/sync_slave_sql_with_master.inc
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test2_shard","replicaset":"test2_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard","replicaset":"test3_replicaset","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"test3_shard_updated","replicaset":"test3_replicaset_updated","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"shard":"newly_added_shard_for_test4","replicaset":"new_replicaset_for_test4","ts":[ts,ts]}*/
+use test;
+drop table if exists t1;
+drop database if exists test2;
+drop database if exists test3;
+drop database if exists test4;
+include/sync_slave_sql_with_master.inc
+set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
+set @@global.binlog_trx_meta_data= @save.binlog_trx_meta_data;
+include/rpl_end.inc
