@@ -58,6 +58,7 @@
 #include "sql/current_thd.h"
 #include "sql/dd/cache/dictionary_client.h"  // Dictionary_client
 #include "sql/dd/dd_kill_immunizer.h"        // dd:DD_kill_immunizer
+#include "sql/dd/dd_schema.h"                // dd::Schema_MDL_locker
 #include "sql/debug_sync.h"                  // DEBUG_SYNC
 #include "sql/derror.h"                      // ER_THD
 #include "sql/error_handler.h"               // Internal_error_handler
@@ -511,6 +512,8 @@ THD::THD(bool enable_plugins)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_thd_db_metadata, &LOCK_thd_db_metadata,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
 
   /* Variables with default values */
@@ -576,6 +579,52 @@ void THD::set_transaction(Transaction_ctx *transaction_ctx) {
   m_transaction.reset(transaction_ctx);
 }
 
+void THD::set_db_metadata() {
+  if (m_db.length) {
+    dd::Schema_MDL_locker mdl_handler(this);
+    dd::cache::Dictionary_client::Auto_releaser releaser(dd_client());
+    const dd::Schema *schema = nullptr;
+
+    /*
+      Wait forever for the lock to be acquired if needed. Otherwise
+      it is possible for change database to succeed, but for the metadata
+      to not be loaded. Most code does not appear to be checking
+      for error return from setting the database, so either always ensure
+      we have the lock before we exit, or the failure is fatal such that
+      it does not matter what the metadata is.
+     */
+    while (mdl_handler.ensure_locked(m_db.str)) {
+      /* Something is wrong/unexpected if both conditions are false */
+      DBUG_ASSERT(is_error() || killed);
+      if (killed || !is_error()) return;
+
+      /*
+        Should db_metadata be reset for other errors? Since the lock was not
+        acquired, metadata could not be retrieved, so return immediately.
+       */
+      uint errcode = get_stmt_da()->mysql_errno();
+      if (errcode != ER_LOCK_WAIT_TIMEOUT && errcode != ER_LOCK_DEADLOCK)
+        return;
+
+      clear_error();
+    }
+
+    /*
+      acquire returns true on error, but schema could be null if database is not
+      found
+    */
+    if (!dd_client()->acquire(m_db.str, &schema) && schema != nullptr) {
+      mysql_mutex_lock(&LOCK_thd_db_metadata);
+      db_metadata = schema->get_db_metadata().c_str();
+      mysql_mutex_unlock(&LOCK_thd_db_metadata);
+      return;
+    }
+  }
+  mysql_mutex_lock(&LOCK_thd_db_metadata);
+  db_metadata.clear();
+  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+}
+
 bool THD::set_db(const LEX_CSTRING &new_db) {
   bool result;
   /*
@@ -596,6 +645,7 @@ bool THD::set_db(const LEX_CSTRING &new_db) {
   }
   m_db.length = m_db.str ? new_db.length : 0;
   mysql_mutex_unlock(&LOCK_thd_data);
+  set_db_metadata();
   result = new_db.str && !m_db.str;
 #ifdef HAVE_PSI_THREAD_INTERFACE
   if (!result)
@@ -1109,6 +1159,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_protocol);
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
+  mysql_mutex_destroy(&LOCK_thd_db_metadata);
   mysql_cond_destroy(&COND_thr_lock);
 #ifndef DBUG_OFF
   dbug_sentry = THD_SENTRY_GONE;

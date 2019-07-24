@@ -3467,17 +3467,16 @@ class Ndb_schema_event_handler {
     DBUG_ASSERT(sizeof(thd_server_id_save) == sizeof(thd->server_id));
     thd->server_id = loggedServerId;
 
-    LEX_CSTRING thd_db_save= thd->db();
-    LEX_CSTRING schema_db_lex_cstr= {schema->db, strlen(schema->db)};
+    LEX_CSTRING thd_db_save = thd->db();
+    LEX_CSTRING schema_db_lex_cstr = {schema->db, strlen(schema->db)};
     thd->reset_db(schema_db_lex_cstr);
 
     int errcode = query_error_code(thd, thd->killed == THD::NOT_KILLED);
-    thd->binlog_query(THD::STMT_QUERY_TYPE,
-                      schema->query, schema->query_length(),
-                      false, // is_trans
-                      true, // direct
-                      schema->name[0] == 0 || thd->db().str[0] == 0,
-                      errcode);
+    thd->binlog_query(THD::STMT_QUERY_TYPE, schema->query,
+                      schema->query_length(),
+                      false,  // is_trans
+                      true,   // direct
+                      schema->name[0] == 0 || thd->db().str[0] == 0, errcode);
 
     // Commit the binlog write
     (void)trans_commit_stmt(thd);
@@ -3486,7 +3485,7 @@ class Ndb_schema_event_handler {
       Restore original server_id and db after commit
       since the server_id is being used also in the commit logic
     */
-    thd->server_id= thd_server_id_save;
+    thd->server_id = thd_server_id_save;
     thd->reset_db(thd_db_save);
   }
 
@@ -8745,7 +8744,7 @@ restart_cluster_failure:
   ndb_notify_tables_writable();
 
   {
-    static LEX_CSTRING db_lex_cstr= EMPTY_CSTR;
+    static LEX_CSTRING db_lex_cstr = EMPTY_CSTR;
     thd->reset_db(db_lex_cstr);
   }
 
@@ -9393,10 +9392,10 @@ restart_cluster_failure:
   mysql_mutex_unlock(&injector_event_mutex);
 
   mysql_mutex_lock(&injector_data_mutex);
-  ndb_binlog_tables_inited= false;
+  ndb_binlog_tables_inited = false;
   mysql_mutex_unlock(&injector_data_mutex);
 
-  thd->reset_db(NULL_CSTR); // as not to try to free memory
+  thd->reset_db(NULL_CSTR);  // as not to try to free memory
   remove_all_event_operations(s_ndb, i_ndb);
 
   schema_dist_data.release();
