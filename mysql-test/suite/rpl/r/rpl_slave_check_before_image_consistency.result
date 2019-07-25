@@ -5,6 +5,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 include/rpl_set_gtid_mode.inc
 call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Error_code: 1756");
 create table t1 (a int primary key, b int, c int) engine = innodb;
 create table t2 (a int unique, b int, c int) engine = innodb;
 create table t3 (a int, b int, c int, key(a)) engine = innodb;
