@@ -5794,7 +5794,10 @@ static std::string get_shard_id(const std::string& db_metadata)
   try {
 #ifdef HAVE_RAPIDJSON
     rapidjson::Document db_metadata_root;
-    if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError()) {
+    // The local_db_metadata format should be:
+    // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
+    if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError() ||
+        !db_metadata_root.IsObject()) {
       return {};
     }
     const auto iter= db_metadata_root.FindMember("shard");

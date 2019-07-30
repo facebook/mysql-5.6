@@ -1,5 +1,6 @@
 # Test per-database database-metadata attribute
 --source include/have_innodb.inc
+--source include/have_log_bin.inc
 connection default;
 
 --disable_query_log
@@ -51,6 +52,38 @@ select catalog_name, schema_name, db_metadata from information_schema.schemata_e
 show create database test4;
 show create database test6;
 
+# create database with db_metadatae
+create database test7 db_metadata = "{\"shard\":\"test7_shard\"}";
+show create database test7;
+# modify database with bad db_metadatae
+# db_metadata should be a json object, but now we modify it with json array
+--exec echo "db-metadata=[{\"shard\": \"test3_shard\", \"data2\": \"date2_shard\"}]" > $MYSQLD_DATADIR/test7/db.opt
+
+# Restart server to get rid of the dboptions cache
+--source include/restart_mysqld.inc
+set @start_binlog_trx_meta_data= @@global.binlog_trx_meta_data;
+set @start_log_warnings = @@global.log_warnings;
+
+# show db_metadata
+set @@global.binlog_trx_meta_data= 1;
+set @@global.log_warnings= 2;
+select catalog_name, schema_name, default_character_set_name, default_collation_name, sql_path from information_schema.schemata;
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+show create database test7;
+
+# suppress error during THD::gen_trx_metadata
+--disable_query_log
+call mtr.add_suppression("Exception while adding meta data");
+call mtr.add_suppression("Exception while reading meta data: \\[\\{\"shard\": \"test3_shard\", \"data2\": \"date2_shard\"\\}\\]");
+--enable_query_log
+
+# bad db-metadata won't crash mysqld or trigger assert
+use test7;
+create table t7 (a int, b int, primary key(a,b));
+drop table t7;
+set @@global.binlog_trx_meta_data = @start_binlog_trx_meta_data;
+set @@global.log_warnings = @start_log_warnings;
+
 # cleanup
 --disable_warnings
 drop database if exists test2;
@@ -58,4 +91,5 @@ drop database if exists test3;
 drop database if exists test4;
 drop database if exists test5;
 drop database if exists test6;
+drop database if exists test7;
 --enable_warnings

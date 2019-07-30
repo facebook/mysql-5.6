@@ -68,8 +68,51 @@ test4	CREATE DATABASE `test4` /*!40100 DEFAULT CHARACTER SET latin1 */
 show create database test6;
 Database	Create Database
 test6	CREATE DATABASE `test6` /*!40100 DEFAULT CHARACTER SET latin1 */
+create database test7 db_metadata = "{\"shard\":\"test7_shard\"}";
+show create database test7;
+Database	Create Database
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"test7_shard"}' */
+set @start_binlog_trx_meta_data= @@global.binlog_trx_meta_data;
+set @start_log_warnings = @@global.log_warnings;
+set @@global.binlog_trx_meta_data= 1;
+set @@global.log_warnings= 2;
+select catalog_name, schema_name, default_character_set_name, default_collation_name, sql_path from information_schema.schemata;
+catalog_name	schema_name	default_character_set_name	default_collation_name	sql_path
+def	information_schema	utf8	utf8_general_ci	NULL
+def	mtr	latin1	latin1_swedish_ci	NULL
+def	mysql	latin1	latin1_swedish_ci	NULL
+def	performance_schema	utf8	utf8_general_ci	NULL
+def	test	latin1	latin1_swedish_ci	NULL
+def	test2	latin1	latin1_swedish_ci	NULL
+def	test3	utf8	utf8_general_ci	NULL
+def	test4	latin1	latin1_swedish_ci	NULL
+def	test5	utf16	utf16_general_ci	NULL
+def	test6	latin1	latin1_swedish_ci	NULL
+def	test7	latin1	latin1_swedish_ci	NULL
+select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
+catalog_name	schema_name	db_metadata
+def	information_schema	
+def	mtr	
+def	mysql	
+def	performance_schema	
+def	test	
+def	test2	
+def	test3	{"shard":"test3_shard"}
+def	test4	
+def	test5	{"shard":"test5_shard"}
+def	test6	
+def	test7	[{"shard": "test3_shard", "data2": "date2_shard"}]
+show create database test7;
+Database	Create Database
+test7	CREATE DATABASE `test7` /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '[{"shard": "test3_shard", "data2": "date2_shard"}]' */
+use test7;
+create table t7 (a int, b int, primary key(a,b));
+drop table t7;
+set @@global.binlog_trx_meta_data = @start_binlog_trx_meta_data;
+set @@global.log_warnings = @start_log_warnings;
 drop database if exists test2;
 drop database if exists test3;
 drop database if exists test4;
 drop database if exists test5;
 drop database if exists test6;
+drop database if exists test7;
