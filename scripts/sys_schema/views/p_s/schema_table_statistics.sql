@@ -66,7 +66,9 @@ VIEW schema_table_statistics (
   io_write,
   io_write_latency,
   io_misc_requests,
-  io_misc_latency
+  io_misc_latency,
+  queries_used,
+  queries_empty
 ) AS
 SELECT pst.object_schema AS table_schema,
        pst.object_name AS table_name,
@@ -86,9 +88,15 @@ SELECT pst.object_schema AS table_schema,
        format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
        format_pico_time(fsbi.sum_timer_write) AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
-       format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency
+       format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency,
+       psts.QUERIES_USED AS queries_used,
+       psts.EMPTY_QUERIES AS queries_empty
   FROM performance_schema.table_io_waits_summary_by_table AS pst
   LEFT JOIN x$ps_schema_table_statistics_io AS fsbi
     ON pst.object_schema = fsbi.table_schema
    AND pst.object_name = fsbi.table_name
+  LEFT JOIN performance_schema.table_statistics_by_table AS psts
+    ON pst.object_schema = psts.object_schema
+   AND pst.object_name = psts.object_name
+   AND pst.object_type = psts.object_type
  ORDER BY pst.sum_timer_wait DESC;
