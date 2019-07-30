@@ -1649,7 +1649,7 @@ static bool trx_write_serialisation_history(
   if (trx->mysql_log_file_name != NULL && trx->mysql_log_file_name[0] != '\0') {
     trx_sys_update_mysql_binlog_offset(
         trx->mysql_log_file_name, trx->mysql_log_offset, TRX_SYS_MYSQL_LOG_INFO,
-        mtr, trx->mysql_gtid);
+        mtr, trx->mysql_max_gtid);
 
     trx->mysql_log_file_name = NULL;
   }

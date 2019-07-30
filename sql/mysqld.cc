@@ -1113,6 +1113,7 @@ ulong open_files_limit, max_binlog_size, max_relay_log_size;
 ulong slave_trans_retries;
 uint slave_net_timeout;
 ulong slave_exec_mode_options;
+ulong slave_use_idempotent_for_recovery_options = 0;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
 ulong opt_mts_slave_parallel_workers;
@@ -8873,9 +8874,9 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Relay_log_sql_wait_seconds", (char *)&relay_sql_wait_time, SHOW_TIMER,
      SHOW_SCOPE_GLOBAL},
-    {"Rows_examined", (char*) offsetof(System_status_var, rows_examined),
+    {"Rows_examined", (char *)offsetof(System_status_var, rows_examined),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
-    {"Rows_sent", (char*) offsetof(System_status_var, rows_sent),
+    {"Rows_sent", (char *)offsetof(System_status_var, rows_sent),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
     {"Secondary_engine_execution_count",
      (char *)offsetof(System_status_var, secondary_engine_execution_count),

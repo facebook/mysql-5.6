@@ -160,6 +160,11 @@ struct MYSQL_LOCK;
 struct st_ac_node;
 using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
 
+enum enum_slave_use_idempotent_for_recovery {
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES
+};
+
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
                                const PSI_stage_info *stage,
@@ -1390,6 +1395,8 @@ class THD : public MDL_context_owner,
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
 
+  void binlog_reset_pending_rows_event(bool is_transactional);
+
   /**
     Determine the binlog format of the current statement.
 
@@ -1413,6 +1420,11 @@ class THD : public MDL_context_owner,
     @retval false otherwise
   */
   bool is_current_stmt_binlog_row_enabled_with_write_set_extraction() const;
+
+  /**
+    Determine if the recovery in idempotent mode is enabled
+   */
+  bool is_enabled_idempotent_recovery() const noexcept;
 
   /** Tells whether the given optimizer_switch flag is on */
   inline bool optimizer_switch_flag(ulonglong flag) const {
@@ -1514,7 +1526,9 @@ class THD : public MDL_context_owner,
   char *m_trans_fixed_log_file;
   my_off_t m_trans_end_pos;
   const char *m_trans_gtid;
+  const char *m_trans_max_gtid;
   char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+  char trans_max_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
   // but currently its design doesn't allow that.
@@ -2196,63 +2210,11 @@ class THD : public MDL_context_owner,
      transaction written when committing this transaction.
    */
   /**@{*/
-  void set_trans_pos(const char *file, my_off_t pos) {
-    DBUG_ENTER("THD::set_trans_pos");
-    DBUG_ASSERT(((file == 0) && (pos == 0)) || ((file != 0) && (pos != 0)));
-    if (file) {
-      DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
-      // Only the file name should be used, not the full path
-      m_trans_log_file = file + dirname_length(file);
-      if (!m_trans_fixed_log_file)
-        m_trans_fixed_log_file =
-            (char *)alloc_root(&main_mem_root, FN_REFLEN + 1);
-      DBUG_ASSERT(strlen(m_trans_log_file) <= FN_REFLEN);
-      strcpy(m_trans_fixed_log_file, m_trans_log_file);
-    } else {
-      m_trans_log_file = NULL;
-      m_trans_fixed_log_file = NULL;
-    }
-
-    m_trans_end_pos = pos;
-
-    if (!owned_gtid.is_empty() && owned_gtid.gno > 0) {
-      owned_gtid.to_string(global_sid_map, trans_gtid, true);
-      m_trans_gtid = trans_gtid;
-    } else {
-      m_trans_gtid = NULL;
-    }
-    DBUG_PRINT("return",
-               ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
-                "m_trans_end_pos: %llu",
-                m_trans_log_file, m_trans_fixed_log_file, m_trans_end_pos));
-    DBUG_VOID_RETURN;
-  }
+  void set_trans_pos(const char *file, my_off_t pos);
 
   void get_trans_pos(const char **file_var, my_off_t *pos_var,
-                     const char **gtid_var) const {
-    DBUG_ENTER("THD::get_trans_pos");
-    if (file_var) *file_var = m_trans_log_file;
-    if (pos_var) *pos_var = m_trans_end_pos;
-    if (gtid_var) {
-      *gtid_var = m_trans_gtid;
-    }
-    DBUG_PRINT(
-        "return",
-        ("file: %s, pos: %llu, gtid: %s", file_var ? *file_var : "<none>",
-         pos_var ? *pos_var : 0, gtid_var ? m_trans_gtid : "<none>"));
-    DBUG_VOID_RETURN;
-  }
-
-  void get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const {
-    DBUG_ENTER("THD::get_trans_fixed_pos");
-    if (file_var) *file_var = m_trans_fixed_log_file;
-    if (pos_var) *pos_var = m_trans_end_pos;
-    DBUG_PRINT("return",
-               ("file: %s, pos: %llu", file_var ? *file_var : "<none>",
-                pos_var ? *pos_var : 0));
-    DBUG_VOID_RETURN;
-  }
-
+                     const char **gtid_var, const char **max_gtid_var) const;
+  void get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const;
   my_off_t get_trans_pos() { return m_trans_end_pos; }
   /**@}*/
 

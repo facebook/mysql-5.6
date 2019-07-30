@@ -7548,7 +7548,7 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table) {
        THD::lock
 */
 
-static int write_locked_table_maps(THD *thd) {
+int handler::write_locked_table_maps(THD *thd) {
   DBUG_ENTER("write_locked_table_maps");
   DBUG_PRINT("enter", ("thd: %p  thd->lock: %p "
                        "thd->extra_lock: %p",
@@ -7623,7 +7623,7 @@ int binlog_log_row(TABLE *table, const uchar *before_record,
       the first row handled in this statement. In that case, we need
       to write table maps for all locked tables to the binary log.
     */
-    if (likely(!(error = write_locked_table_maps(thd)))) {
+    if (likely(!(error = table->file->write_locked_table_maps(thd)))) {
       /*
         We need to have a transactional behavior for SQLCOM_CREATE_TABLE
         (i.e. CREATE TABLE... SELECT * FROM TABLE) in order to keep a

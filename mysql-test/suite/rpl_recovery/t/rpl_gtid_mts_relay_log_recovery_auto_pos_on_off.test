@@ -19,8 +19,6 @@
 --source include/force_restart.inc
 # Script is independent of binlog format hence considering mixed mode
 --source include/have_binlog_format_mixed.inc
-# Test requires master-info-repository=TABLE, relay-log-info-repository=TABLE
---source include/have_slave_repository_type_table.inc
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --let $rpl_gtid_utils= 1
@@ -28,8 +26,10 @@
 
 --source include/rpl_connection_slave.inc
 CALL mtr.add_suppression("Recovery from master pos*");
-CALL mtr.add_suppression("Slave SQL.*Duplicate entry.* Error_code: MY-001062");
-CALL mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+CALL mtr.add_suppression("Slave SQL for channel '': .*Duplicate entry .1.*");
+CALL mtr.add_suppression("Error writing relay log configuration.");
+CALL mtr.add_suppression("Slave SQL for channel '': ... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state.");
+
 --let $auto_position=0
 --let $loop_count=2
 
@@ -41,6 +41,8 @@ while ($loop_count)
   --source include/stop_slave.inc
   eval CHANGE MASTER TO MASTER_AUTO_POSITION=$auto_position;
   SET @@global.slave_parallel_workers=4;
+  SET @@global.relay_log_info_repository='TABLE';
+  SET @@global.master_info_repository='TABLE';
   --source include/start_slave.inc
 
   --source extra/rpl_tests/rpl_gtid_mts_relay_log_recovery.test

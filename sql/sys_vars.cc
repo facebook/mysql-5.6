@@ -3573,6 +3573,20 @@ static Sys_var_bool sql_log_bin_triggers(
     "binlog if this option is false.",
     SESSION_VAR(sql_log_bin_triggers), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static const char *slave_use_idempotent_for_recovery_names[] = {"NO", "YES",
+                                                                nullptr};
+
+static Sys_var_enum Slave_use_idempotent_for_recovery(
+    "slave_use_idempotent_for_recovery",
+    "Modes for how replication events should be executed during recovery. "
+    "Legal values are NO (default) and YES. YES means "
+    "replication will not stop for operations that are idempotent. "
+    "Note that binlog format must be ROW and GTIDs should be enabled "
+    "for this option to have effect.",
+    GLOBAL_VAR(slave_use_idempotent_for_recovery_options),
+    CMD_LINE(REQUIRED_ARG), slave_use_idempotent_for_recovery_names,
+    DEFAULT(SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO));
+
 const char *slave_type_conversions_name[] = {"ALL_LOSSY", "ALL_NON_LOSSY",
                                              "ALL_UNSIGNED", "ALL_SIGNED", 0};
 static Sys_var_set Slave_type_conversions(
@@ -3694,8 +3708,8 @@ static bool update_binlog_transaction_dependency_tracking(sys_var *, THD *,
   return false;
 }
 
-static PolyLock_mutex
-PLock_slave_trans_dep_tracker(&LOCK_slave_trans_dep_tracker);
+static PolyLock_mutex PLock_slave_trans_dep_tracker(
+    &LOCK_slave_trans_dep_tracker);
 static const char *opt_binlog_transaction_dependency_tracking_names[] = {
     "COMMIT_ORDER", "WRITESET", "WRITESET_SESSION", NullS};
 static Sys_var_enum Binlog_transaction_dependency_tracking(

@@ -530,6 +530,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   MYSQL_BIN_LOG(uint *sync_period);
   ~MYSQL_BIN_LOG();
 
+  Gtid engine_binlog_max_gtid;
+
   // copy of Relay_log_info::last_master_timestamp
   std::atomic<time_t> last_master_timestamp;
 
@@ -750,7 +752,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /* Use this to start writing a new log file */
   int new_file(Format_description_log_event *extra_description_event);
 
-  bool write_event(Log_event *event_info);
+  enum force_cache_type {
+    FORCE_CACHE_DEFAULT,
+    FORCE_CACHE_STATEMENT,
+    FORCE_CACHE_TRANSACTIONAL
+  };
+  bool write_event(Log_event *event_info,
+                   force_cache_type force_cache = FORCE_CACHE_DEFAULT);
   bool write_cache(THD *thd, class binlog_cache_data *cache_data,
                    class Binlog_event_writer *writer);
   /**

@@ -56,6 +56,9 @@ typedef UT_LIST_BASE_NODE_T(trx_t) trx_ut_list_t;
 class MVCC;
 class ReadView;
 
+/** Binlog file max gtid */
+extern char trx_sys_mysql_bin_log_max_gtid[];
+
 /** The transaction system */
 extern trx_sys_t *trx_sys;
 
@@ -208,7 +211,7 @@ void trx_sys_update_mysql_binlog_offset(
     ulint field,           /*!< in: offset of the MySQL log info field in
                            the trx sys header */
     mtr_t *mtr,            /*!< in: mtr */
-    const char *gtid);     /*!< in: Gtid of the transaction */
+    const char *max_gtid); /*!< in: Max Gtid seen till this transaction */
 /** Prints to stderr the MySQL binlog offset info in the trx system header if
  the magic number shows it valid. */
 void trx_sys_print_mysql_binlog_offset(void);

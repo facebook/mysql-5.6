@@ -56,6 +56,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 /** The transaction system */
 trx_sys_t *trx_sys = NULL;
 
+/** Binlog max gitd */
+char trx_sys_mysql_bin_log_max_gtid[TRX_SYS_MYSQL_GTID_LEN];
+
 /** Check whether transaction id is valid.
 @param[in]	id              transaction id to check
 @param[in]      name            table name */
@@ -123,7 +126,7 @@ void trx_sys_update_mysql_binlog_offset(
     ulint field,           /*!< in: offset of the MySQL log info field in
                            the trx sys header */
     mtr_t *mtr,            /*!< in: mtr */
-    const char *gtid)      /*!< in: Gtid of the transaction */
+    const char *max_gtid)  /*!< in: Max Gtid seen till this transaction */
 {
   trx_sysf_t *sys_header;
 
@@ -156,16 +159,21 @@ void trx_sys_update_mysql_binlog_offset(
 
   mlog_write_ulint(sys_header + field + TRX_SYS_MYSQL_LOG_OFFSET_LOW,
                    (ulint)(offset & 0xFFFFFFFFUL), MLOG_4BYTES, mtr);
-  if (gtid) {
-    size_t gtid_length = ut_strlen(gtid);
+  if (max_gtid) {
+    size_t gtid_length = ut_strlen(max_gtid);
     if (gtid_length >= TRX_SYS_MYSQL_GTID_LEN) {
       /* This should not happen */
       DBUG_ASSERT(0);
       return;
     }
-    /* Write Gtid string */
-    mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID, (byte *)gtid,
-                      1 + gtid_length, mtr);
+    if (0 != strcmp(reinterpret_cast<char *>(sys_header + field +
+                                             TRX_SYS_MYSQL_GTID),
+                    max_gtid)) {
+      /* Write Gtid string */
+      mlog_write_string(sys_header + field + TRX_SYS_MYSQL_GTID,
+                        reinterpret_cast<const byte *>(max_gtid),
+                        1 + gtid_length, mtr);
+    }
   }
 }
 
@@ -200,8 +208,12 @@ void trx_sys_print_mysql_binlog_offset(void) {
                            << sys_header + TRX_SYS_MYSQL_LOG_INFO +
                                   TRX_SYS_MYSQL_LOG_NAME;
 
-  ib::info() << "Last MySQL Gtid "
-             << sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID;
+  ut_strlcpy(trx_sys_mysql_bin_log_max_gtid,
+             reinterpret_cast<const char *>(sys_header) +
+                 TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID,
+             TRX_SYS_MYSQL_GTID_LEN);
+
+  ib::info() << "Last MySQL Gtid " << trx_sys_mysql_bin_log_max_gtid;
 
   mtr_commit(&mtr);
 }

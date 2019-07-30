@@ -496,6 +496,34 @@ int init_slave() {
 
   is_slave = configured_as_slave();
 
+  // Yura: double check
+  /**
+    If engine binlog max gtid is set, then update recovery_max_engine_gtid.
+    recovery_max_engine_gtid is used later during slave's idempotent
+    recovery/apply of binnlog events.
+    engine_binlog_max_gtid is set during storage engine recovery using
+    global_sid_map. However, idempotent recovery/apply uses
+    rli->recovery_sid_map. Hence rli->recovery_max_engine_gtid needs to be
+    initialized by hashing into rli->recovery_sid_map
+   */
+  if (!mysql_bin_log.engine_binlog_max_gtid.is_empty()) {
+    char buf[Gtid::MAX_TEXT_LENGTH + 1];
+
+    /* Extract engine_binlog_max_gtid using global_sid_map */
+    global_sid_lock->rdlock();
+    mysql_bin_log.engine_binlog_max_gtid.to_string(global_sid_map, buf);
+    global_sid_lock->unlock();
+
+    /* Now set rli->recovery_max_engine_gtid (and optionally add
+       it into rli->recovery_sid_map */
+    for (const auto &channel : channel_map) {
+      channel.second->rli->recovery_sid_lock.rdlock();
+      channel.second->rli->recovery_max_engine_gtid.parse(
+          &channel.second->rli->recovery_sid_map, buf);
+      channel.second->rli->recovery_sid_lock.unlock();
+    }
+  }
+
   if (get_gtid_mode(GTID_MODE_LOCK_CHANNEL_MAP) == GTID_MODE_OFF) {
     for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
          it++) {
