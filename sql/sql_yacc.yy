@@ -6205,7 +6205,8 @@ db_metadata_str:
             if ($3.length > 0)
             {
               rapidjson::Document db_metadata_root;
-              if (db_metadata_root.Parse($3.str).HasParseError())
+              if (db_metadata_root.Parse($3.str).HasParseError() ||
+                  !db_metadata_root.IsObject())
               {
                 my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
                 MYSQL_YYABORT;

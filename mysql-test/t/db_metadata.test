@@ -56,6 +56,11 @@ select catalog_name, schema_name, db_metadata from information_schema.schemata_e
 create database test11 db_metadata = "{\'shard\':\'test11_shard\'}";
 select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
+# create database with JSON array
+--error ER_DB_METADATA_INVALID_JSON
+CREATE DATABASE test14 db_metadata = "[{\"shard\":\"test14_shard\", \"data\":\"1234\"}]";
+SELECT catalog_name, schema_name, db_metadata FROM information_schema.schemata_ext;
+
 # alter database tests
 
 # alter database character set
@@ -132,6 +137,11 @@ alter database test9 db_metadata = "invalid_json";
 show create database test9;
 select catalog_name, schema_name, db_metadata from information_schema.schemata_ext;
 
+# alter database with JSON array
+--error ER_DB_METADATA_INVALID_JSON
+ALTER DATABASE test10 db_metadata = "[{\"shard\":\"test10_shard\", \"data\":\"1234\"}]";
+SELECT catalog_name, schema_name, db_metadata FROM information_schema.schemata_ext;
+
 
 # create database without any options
 create database test10;
@@ -182,3 +192,4 @@ drop database test9;
 drop database test10;
 drop database test12;
 drop database test13;
+DROP DATABASE IF EXISTS test14;
