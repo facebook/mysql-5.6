@@ -111,6 +111,8 @@ io_write	varchar(11)	YES		NULL
 io_write_latency	varchar(11)	YES		NULL	
 io_misc_requests	decimal(42,0)	YES		NULL	
 io_misc_latency	varchar(11)	YES		NULL	
+queries_used	bigint unsigned	YES		NULL	
+queries_empty	bigint unsigned	YES		NULL	
 set allow_noncurrent_db_rw = ON;
 rename table mysqltest_db1.t1 to mysqltest_db2.t2_1;
 rename table mysqltest_db2.t2_1 to mysqltest_db1.t1;

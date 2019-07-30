@@ -19,6 +19,8 @@ io_write	varchar(11)	YES		NULL
 io_write_latency	varchar(11)	YES		NULL	
 io_misc_requests	decimal(42,0)	YES		NULL	
 io_misc_latency	varchar(11)	YES		NULL	
+queries_used	bigint unsigned	YES		NULL	
+queries_empty	bigint unsigned	YES		NULL	
 SELECT * FROM sys.schema_table_statistics;
 DESC sys.x$schema_table_statistics;
 Field	Type	Null	Key	Default	Extra
