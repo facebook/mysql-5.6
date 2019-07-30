@@ -14396,6 +14396,7 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next()
     /* Reset various per-group variables. */
     reset_group();
 
+    bool infix_exists = false;
     while (!append_next_infix())
     {
       if (have_min)
@@ -14438,7 +14439,20 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next()
       /* Break early on error. */
       if (result != HA_ERR_KEY_NOT_FOUND && result != HA_ERR_END_OF_FILE && result != 0)
         break;
+
+      if (result == 0)
+        infix_exists = true;
     }
+
+    // In the MIN/MAX case, get_next needs to emit a row if any keys were found
+    // while iterating through the infixes. Reset result back to 0 unless
+    // there was a serious error that needs to be propagated.
+    if ((have_min || have_max) &&
+        infix_exists &&
+        (result == HA_ERR_KEY_NOT_FOUND || result == HA_ERR_END_OF_FILE)) {
+      result = 0;
+    }
+
   } while ((result == HA_ERR_KEY_NOT_FOUND || result == HA_ERR_END_OF_FILE) &&
            is_last_prefix != 0);
 
