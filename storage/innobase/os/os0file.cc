@@ -5991,7 +5991,9 @@ AIO::AIO(latch_id_t id, ulint n, ulint segments)
 #ifdef LINUX_NATIVE_AIO
       ,
       m_aio_ctx(),
-      m_events(m_slots.size())
+      m_events(m_slots.size()),
+      m_pending(nullptr),
+      m_count(nullptr)
 #elif defined(_WIN32)
       ,
       m_handles()
@@ -6155,12 +6157,14 @@ AIO::~AIO() {
     m_events.clear();
     ut_free(m_aio_ctx);
 #ifdef UNIV_DEBUG
-    for (size_t idx = 0; idx < m_slots.size(); ++idx) {
-      ut_ad(m_pending[idx] == NULL);
-    }
-    for (size_t idx = 0; idx < m_n_segments; ++idx) {
-      ut_ad(m_count[idx] == 0);
-    }
+    if (m_pending != nullptr)
+      for (size_t idx = 0; idx < m_slots.size(); ++idx) {
+        ut_ad(m_pending[idx] == NULL);
+      }
+    if (m_count != nullptr)
+      for (size_t idx = 0; idx < m_n_segments; ++idx) {
+        ut_ad(m_count[idx] == 0);
+      }
 #endif
     ut_free(m_pending);
     ut_free(m_count);
