@@ -33,14 +33,15 @@ class FacebookMySQLTestResultLinter extends ArcanistLinter {
   }
 
   public function lintPath($path) {
-    if (preg_match_all(self::TEST_FILE_REGEX, $path, $matches)) {
+    $full_path = $this->getEngine()->getFilePathOnDisk($path);
+    if (preg_match_all(self::TEST_FILE_REGEX, $full_path, $matches)) {
       $result_path = $matches[1][0] . 'r' . $matches[2][0] . '.result';
       if (!file_exists($result_path)) {
         $this->raiseLintAtPath(self::MISSING_RESULT,
           "The result file ($result_path) for $path is missing");
       }
     }
-    elseif (preg_match_all(self::RESULT_FILE_REGEX, $path, $matches)) {
+    elseif (preg_match_all(self::RESULT_FILE_REGEX, $full_path, $matches)) {
       $test_path = $matches[1][0] . 't' . $matches[2][0] . '.test';
       if (!file_exists($test_path)) {
         $this->raiseLintAtPath(self::MISSING_TEST,
