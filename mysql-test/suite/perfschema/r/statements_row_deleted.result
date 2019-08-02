@@ -62,5 +62,8 @@ include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_e
 include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 6.]
 Variation 8: Drop Table. 
 DROP TABLE t1; DROP TABLE t2;;
-include/assert.inc [Rows_examined should be increased by 0.]
-include/assert.inc [Rows_sent should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_user_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_host_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_program should be increased by 0.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_by_thread_by_event_name should be increased by 24.]
+include/assert.inc [SUM_ROWS_DELETED on events_statements_summary_global_by_event_name should be increased by 24.]
