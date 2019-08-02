@@ -6421,19 +6421,34 @@ void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
   if (rli->mts_dependency_replication)
   {
     mysql_mutex_lock(&rli->dep_lock);
-    // figure out if any worker thread is working on a partially scheduled
-    // transaction, i.e. if the queue is empty and the SQL thread is maintaning
-    // a begin event
-    const bool partial= rli->dep_queue.empty() &&
-                        rli->current_begin_event != nullptr;
-    // case: clear all buffered transactions if UNTIL condition is not specified
-    if (likely(rli->until_condition == Relay_log_info::UNTIL_NONE))
+    // this will be used to determine if we need to deal with a worker that is
+    // handling a partially enqueued trx
+    bool partial= false;
+    // case: until condition is specified, so we have to execute all
+    // transactions in the queue
+    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE))
     {
+      // we have a partial trx if the coordinator has set the trx_queued flag,
+      // this is because this flag is set to false after coordinator sees an end
+      // event
+      partial= rli->trx_queued;
+    }
+    // case: until condition is not specified
+    else
+    {
+      // the partial check is slightly complicated in this case because we only
+      // care about partial trx that has been pulled by a worker, since the
+      // queue is going to be emptied next anyway, we make this check by
+      // checking of the queue is empty
+      partial= rli->dep_queue.empty() && rli->trx_queued;
+      // let's cleanup, we can clear the queue in this case
       rli->clear_dep(false);
     }
     mysql_mutex_unlock(&rli->dep_lock);
+
     wait_for_dep_workers_to_finish(rli, partial);
-    // case: if UNTIL is specified let's clear after waiting for workers
+
+    // case: if UNTIL is specified let's clean up after waiting for workers
     if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE))
     {
       rli->clear_dep(true);

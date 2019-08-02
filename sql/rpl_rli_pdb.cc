@@ -1868,8 +1868,17 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
   c_rli->va_report(level, err_code, buff_coord, msg, args);
 }
 
-void wait_for_dep_workers_to_finish(Relay_log_info *rli,
-                                    const bool partial_trx)
+/**
+ * Wait for all dependency slave workers to finish working on all enqueued trxs
+ *
+ * @param rli           Relay log info of the coordinator thread
+ * @param partial_trx   Have we queued a partial transaction?
+ *                      If true, we can't blindly wait for the trx counter to be
+ *                      zero (since the worker will not be able to complete
+ *                      that transaction)
+ * @return void
+ */
+void wait_for_dep_workers_to_finish(Relay_log_info *rli, const bool partial_trx)
 {
   DBUG_ASSERT(rli->mts_dependency_replication);
   PSI_stage_info old_stage;

@@ -3273,7 +3273,7 @@ void Log_event::schedule_dep(Relay_log_info *rli)
 
   if (unlikely(rli->dep_sync_group))
   {
-    wait_for_dep_workers_to_finish(rli, true);
+    wait_for_dep_workers_to_finish(rli, rli->trx_queued);
   }
 
   handle_terminal_dep_event(rli, ev);
