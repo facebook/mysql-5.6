@@ -733,6 +733,8 @@ class Metadata_event : public Binary_log_event {
     PREV_HLC_TYPE = 1,
     /* Raft term and index added by raft consensus plugin */
     RAFT_TERM_INDEX_TYPE = 2,
+    /* Config added by raft consensus plugin */
+    RAFT_CONFIG_TYPE = 3,
     METADATA_EVENT_TYPE_MAX,
   };
 
