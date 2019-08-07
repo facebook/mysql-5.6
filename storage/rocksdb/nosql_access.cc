@@ -223,7 +223,7 @@ class select_parser {
           if (ret == nullptr) {
             str += "NULL";
           } else {
-            str += ret->c_ptr();
+            str += ret->c_ptr_safe();
           }
         }
         str += ")";
@@ -233,7 +233,7 @@ class select_parser {
         if (ret == nullptr) {
           str += "NULL";
         } else {
-          str += ret->c_ptr();
+          str += ret->c_ptr_safe();
         }
       }
       str += ")";
