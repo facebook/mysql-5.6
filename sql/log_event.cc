@@ -3271,6 +3271,17 @@ void Log_event::schedule_dep(Relay_log_info *rli)
                          (rli->dbs_accessed_by_group.size() > 1);
   }
 
+  // when the number of events in a group is greater than max worker queue
+  // length the worker threads will clear the queue (i.e. destroy all buffered
+  // events, see @clear_current_group_events()), at that point we should treat
+  // the group as a sync group because we've lost its lineage and we don't want
+  // to accidentally reference any previous events to calculate dependencies
+  if (unlikely(
+       rli->num_events_in_current_group >= rli->mts_slave_worker_queue_len_max))
+  {
+    rli->dep_sync_group= true;
+  }
+
   if (unlikely(rli->dep_sync_group))
   {
     wait_for_dep_workers_to_finish(rli, rli->trx_queued);
@@ -3346,11 +3357,26 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     rli->dep_sync_group= false;
   }
 
+#ifndef DBUG_OFF
+  // assert: if we're done with an end event (i.e. done with scheduling the
+  // current trx) we should have reset the sync variable by now, otherwise the
+  // next trx will also be synced
+  if (ev->is_end_event)
+    DBUG_ASSERT(!rli->dep_sync_group);
+#endif
+
+  if (likely(!ev->is_end_event))
+    ++rli->num_events_in_current_group;
+  else
+    rli->num_events_in_current_group= 0;
+
   DBUG_VOID_RETURN;
 }
 
 /**
   Encapsulation for things to be done for terminal begin and end events
+  TODO (abhinavsharma): Refactor this, maybe split between start, end and
+  partition info events
 */
 void
 Log_event::handle_terminal_dep_event(Relay_log_info *rli,
@@ -3362,6 +3388,7 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
     DBUG_ASSERT(rli->table_map_events.empty());
     DBUG_ASSERT(rli->keys_accessed_by_group.empty());
     DBUG_ASSERT(!rli->trx_queued);
+    DBUG_ASSERT(!rli->num_events_in_current_group);
 
     // update rli state
     rli->current_begin_event= ev;
@@ -12174,6 +12201,14 @@ void Rows_log_event::prepare_dep(Relay_log_info *rli,
                                  std::shared_ptr<Log_event_wrapper> &ev)
 {
   DBUG_ENTER("Rows_log_event::prepare_dep");
+
+  DBUG_EXECUTE_IF("dep_wait_for_last_row_prepare", {
+    if (get_flags(STMT_END_F))
+    {
+      const char act[]= "now signal prepare.reached wait_for prepare.done";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
+     };});
 
   DBUG_ASSERT(rli->prev_event != NULL);
   DBUG_ASSERT(rli->table_map_events.count(get_table_id()));

@@ -1,0 +1,44 @@
+source include/master-slave.inc;
+source include/have_mts_dependency_replication.inc;
+source include/have_debug.inc;
+
+connection master;
+create table t1(a int) engine = innodb;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+# Stop the slave
+source include/stop_slave.inc;
+
+connection master;
+# Execute a multi-insert trx, this will generate 5 row events tied to the same
+# table map event (because binlog_rows_event_max_rows=1 in master.opt)
+insert into t1 values(1), (2), (3), (4), (5);
+
+connection slave;
+# This will wait just before preparing the last row event in coordinator thread
+set @@global.debug = '+d,dep_wait_for_last_row_prepare';
+# This will initialize the max queue size to 5, which we're guaranteed to exceed
+set @@global.debug = '+d,slave_worker_queue_size';
+# Wait for worker queue to be cleared
+set @@global.debug = '+d,after_clear_current_group_events';
+
+source include/start_slave.inc;
+
+# Wait till the worker thread has cleared the queue
+set debug_sync = "now wait_for clear.reached";
+# Wait till we're just about to prepare the last row event in the coordinator
+set debug_sync = "now wait_for prepare.reached";
+
+# Now continue both threads
+set @@global.debug = '-d,dep_wait_for_last_row_prepare';
+set @@global.debug = '-d,after_clear_current_group_events';
+set @@global.debug = '-d,slave_worker_queue_size';
+set debug_sync= 'now signal prepare.done';
+set debug_sync= 'now signal clear.done';
+
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

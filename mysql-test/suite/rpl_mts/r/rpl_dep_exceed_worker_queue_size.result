@@ -1,0 +1,23 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t1(a int) engine = innodb;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+insert into t1 values(1), (2), (3), (4), (5);
+set @@global.debug = '+d,dep_wait_for_last_row_prepare';
+set @@global.debug = '+d,slave_worker_queue_size';
+set @@global.debug = '+d,after_clear_current_group_events';
+include/start_slave.inc
+set debug_sync = "now wait_for clear.reached";
+set debug_sync = "now wait_for prepare.reached";
+set @@global.debug = '-d,dep_wait_for_last_row_prepare';
+set @@global.debug = '-d,after_clear_current_group_events';
+set @@global.debug = '-d,slave_worker_queue_size';
+set debug_sync= 'now signal prepare.done';
+set debug_sync= 'now signal clear.done';
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

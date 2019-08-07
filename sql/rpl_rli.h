@@ -1160,6 +1160,7 @@ public:
 
   mysql_cond_t dep_trx_all_done_cond;
   ulonglong num_in_flight_trx= 0;
+  ulonglong num_events_in_current_group= 0;
 
   // Statistics
   std::atomic<ulonglong> begin_event_waits{0};
@@ -1232,6 +1233,7 @@ public:
     mysql_mutex_unlock(&dep_key_lookup_mutex);
 
     trx_queued= false;
+    num_events_in_current_group= 0;
 
     if (need_dep_lock)
       mysql_mutex_unlock(&dep_lock);

@@ -295,6 +295,7 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   jobs.entry= jobs.size= c_rli->mts_slave_worker_queue_len_max;
   DBUG_EXECUTE_IF("slave_worker_queue_size",
                   {
+                    c_rli->mts_slave_worker_queue_len_max=
                     jobs.entry = jobs.size = 5;
                   }
                  );
@@ -2375,6 +2376,13 @@ void clear_current_group_events(Slave_worker *worker,
     worker->trans_retries = ULONG_MAX;
   else
     worker->trans_retries = 0;
+
+  DBUG_EXECUTE_IF("after_clear_current_group_events", {
+      const char act[]= "now signal clear.reached wait_for clear.done";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(worker->info_thd,
+                  STRING_WITH_LEN(act)));
+  };);
 }
 
 /**
