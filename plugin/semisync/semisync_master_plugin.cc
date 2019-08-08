@@ -365,6 +365,12 @@ static void fix_rpl_semi_sync_master_enabled(MYSQL_THD, SYS_VAR *, void *ptr,
     ack_receiver->stop();
   }
 
+  if (!rpl_semi_sync_master_enabled) {
+    mysql_bin_log.lock_binlog_end_pos();
+    mysql_bin_log.signal_update();
+    mysql_bin_log.unlock_binlog_end_pos();
+  }
+
   return;
 }
 

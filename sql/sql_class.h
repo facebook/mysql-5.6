@@ -1526,7 +1526,8 @@ class THD : public MDL_context_owner,
    */
   /**@{*/
   const char *m_trans_log_file;
-  char *m_trans_fixed_log_file;
+  const char *m_trans_fixed_log_file;
+  char *m_trans_fixed_log_path;
   my_off_t m_trans_end_pos;
   const char *m_trans_gtid;
   char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
@@ -2222,14 +2223,16 @@ class THD : public MDL_context_owner,
       DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
       // Only the file name should be used, not the full path
       m_trans_log_file = file + dirname_length(file);
-      if (!m_trans_fixed_log_file)
-        m_trans_fixed_log_file =
+      if (!m_trans_fixed_log_path)
+        m_trans_fixed_log_path =
             (char *)alloc_root(&main_mem_root, FN_REFLEN + 1);
-      DBUG_ASSERT(strlen(m_trans_log_file) <= FN_REFLEN);
-      strcpy(m_trans_fixed_log_file, m_trans_log_file);
+      DBUG_ASSERT(strlen(file) <= FN_REFLEN);
+      strcpy(m_trans_fixed_log_path, file);
+      m_trans_fixed_log_file =
+          m_trans_fixed_log_path + dirname_length(m_trans_fixed_log_path);
     } else {
       m_trans_log_file = NULL;
-      m_trans_fixed_log_file = NULL;
+      m_trans_fixed_log_file = m_trans_fixed_log_path = nullptr;
     }
 
     m_trans_end_pos = pos;
@@ -2272,6 +2275,9 @@ class THD : public MDL_context_owner,
     DBUG_VOID_RETURN;
   }
 
+  const char *get_trans_fixed_log_path() const {
+    return m_trans_fixed_log_path;
+  }
   my_off_t get_trans_pos() { return m_trans_end_pos; }
   /**@}*/
 
