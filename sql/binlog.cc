@@ -50,6 +50,10 @@ using std::min;
 using std::string;
 using std::list;
 
+#include "rpl_mi.h"
+extern Master_info *active_mi;
+static bool enable_raft_plugin_save= false;
+
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
 
@@ -1495,10 +1499,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
      */
     error= gtid_before_write_cache(thd, this);
 
-    // TODO: It is probably better to move enable_raft_plugin check inside
-    // plugin.
-    if (!error && enable_raft_plugin)
-    {
+    if (!error && enable_raft_plugin_save && !thd->rli_slave) {
       error= RUN_HOOK(binlog_storage, before_flush, (thd, &cache_log));
 
       // Do post write book keeping activities
@@ -3063,7 +3064,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
    checksum_alg_reset(BINLOG_CHECKSUM_ALG_UNDEF),
    relay_log_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF),
    engine_binlog_pos(ULONGLONG_MAX),
-   previous_gtid_set(0)
+   previous_gtid_set(0), setup_flush_done(false)
 {
   /*
     We don't want to initialize locks here as such initialization depends on
@@ -8457,6 +8458,107 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
     DEBUG_SYNC(thd, "after_binlog_closed_due_to_error");
   }
 }
+
+int MYSQL_BIN_LOG::register_log_entities(THD *thd,
+                                         int context,
+                                         bool need_lock,
+                                         bool is_relay_log)
+{
+  if (need_lock)
+    mysql_mutex_lock(&LOCK_log);
+  else
+    mysql_mutex_assert_owner(&LOCK_log);
+  int err= 0;
+  if (!is_relay_log)
+  {
+    err= RUN_HOOK(binlog_storage, setup_flush,
+                  (thd, &log_file, name, log_file_name,
+                   &LOCK_log, &LOCK_index, &cur_log_ext, context));
+  }
+#ifdef HAVE_REPLICATION
+  else
+  {
+    err= RUN_HOOK(binlog_relay_io, setup_flush,
+                  (thd, &log_file, name, log_file_name,
+                   &LOCK_log, &LOCK_index, &cur_log_ext, context));
+  }
+#endif
+  if (need_lock)
+    mysql_mutex_unlock(&LOCK_log);
+  return err;
+}
+
+void MYSQL_BIN_LOG::check_and_register_log_entities(THD *thd)
+{
+  mysql_mutex_assert_owner(&LOCK_log);
+  if (!enable_raft_plugin_save)
+    return;
+
+  // if this is a master and raft is turned ON,
+  // register the IO_cache and the appropriate locks
+  // with the plugin. Borrowed master check from @vinay
+  // TODO - we need to have a discussion about rli_slave
+  // and what is the proper check we should have for this
+  if (!thd->rli_slave)
+  {
+    // only register once
+    if (setup_flush_done)
+      return;
+
+    int err= register_log_entities(thd, 1 /* context */,
+                                   false /* need lock = false */,
+                                   false /* registering binlog file */);
+    setup_flush_done= (err == 0);
+    if (err)
+    {
+      // TODO. This will fatal right now as the flush stage will fail
+      sql_print_error("Failed to register log entities with plugin.");
+    }
+    return;
+  }
+
+  // we are no more a master. We should reset
+  // the variable for a future step up
+  setup_flush_done= false;
+}
+
+// This function is called by plugin after BinlogWrapper creation.
+// It asks the server to register the binlog & relaylog file
+// immediately
+int ask_server_to_register_with_raft()
+{
+  THD *thd= current_thd;
+  // First register the binlog for all servers
+  // both masters and slaves
+  // Eventually for a slave, this registration will not be important
+  // because a Slave's mysql_bin_log will point to apply log
+  int err= mysql_bin_log.register_log_entities(thd, 0, true, false);
+  if (err)
+  {
+    sql_print_error("Failed to register binlog file entities with storage observer");
+    return err;
+  }
+
+#ifdef HAVE_REPLICATION
+  if (!active_mi || !active_mi->host[0] ||
+      !active_mi->rli)
+  {
+    // degenerate case returns SUCCESS [ TODO ]
+    return 0;
+  }
+
+  // On a slave server, also register the relaylogs
+  // Plugin will make that the default file to write to
+  err= active_mi->rli->relay_log.register_log_entities(
+      thd, 0, true /* take locks */, true /* relay log observer */);
+  if (err)
+  {
+    sql_print_error("Failed to register relaylog file entities");
+  }
+#endif
+  return err;
+}
+
 /**
   Flush and commit the transaction.
 
@@ -8586,6 +8688,10 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
                           thd->thread_id(), thd->commit_error));
     DBUG_RETURN(finish_commit(thd, async));
   }
+
+  enable_raft_plugin_save= enable_raft_plugin;
+
+  check_and_register_log_entities(thd);
 
   THD *final_queue= NULL;
   mysql_mutex_t *leave_mutex_before_commit_stage= NULL;

@@ -53,12 +53,6 @@ int repl_semi_report_binlog_update(Binlog_storage_param *param,
   return error;
 }
 
-int repl_semi_before_flush_binlog(Binlog_storage_param *param, IO_CACHE *cache)
-{
-  // Do nothing
-  return 0;
-}
-
 int repl_semi_request_commit(Trans_param *param)
 {
   return 0;
@@ -438,7 +432,8 @@ Binlog_storage_observer storage_observer = {
   sizeof(Binlog_storage_observer), // len
 
   repl_semi_report_binlog_update, // report_update
-  repl_semi_before_flush_binlog, // before flush
+  nullptr, // before flush
+  nullptr, // setup flush
 };
 
 Binlog_transmit_observer transmit_observer = {

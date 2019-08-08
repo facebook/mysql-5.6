@@ -195,6 +195,11 @@ public:
   int after_flush(THD *thd, const char *log_file,
                   my_off_t log_pos);
   int before_flush(THD *thd, IO_CACHE* io_cache);
+
+  int setup_flush(THD *thd, IO_CACHE* log_file_cache,
+      const char *log_prefix, const char *log_name,
+      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+      ulong *cur_log_ext, int context);
 };
 
 #ifdef HAVE_REPLICATION
@@ -256,6 +261,11 @@ public:
                         const char *event_buf, ulong event_len,
                         bool synced);
   int after_reset_slave(THD *thd, Master_info *mi);
+
+  int setup_flush(THD *thd, IO_CACHE* log_file_cache,
+      const char *log_prefix, const char *log_name,
+      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+      ulong *cur_log_ext, int context);
 private:
   void init_param(Binlog_relay_IO_param *param, Master_info *mi);
 };

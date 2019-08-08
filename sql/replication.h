@@ -165,6 +165,25 @@ typedef struct Binlog_storage_observer {
      @retval 1 Failure
   */
   int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache);
+
+  /**
+     This callback is called once upfront to setup the appropriate
+     binlog file, io_cache and its mutexes
+
+     @param log_file_cache  the IO_CACHE pointer
+     @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
+     @param log_name the pointer to current log name
+     @param lock_log the mutex that protects the current log
+     @param lock_index the mutex that protects the index file
+     @param cur_log_ext a pointer the number of the file.
+     @param context context of the call (0 for 1st run, 1 for next time)
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*setup_flush)(IO_CACHE* log_file_cache, const char *log_prefix,
+      const char *log_name, mysql_mutex_t *lock_log,
+      mysql_mutex_t *lock_index, ulong *cur_log_ext, int context);
 } Binlog_storage_observer;
 
 /**
@@ -403,6 +422,26 @@ typedef struct Binlog_relay_IO_observer {
      @retval 1 Failure
   */
   int (*after_reset_slave)(Binlog_relay_IO_param *param);
+
+  /**
+     This callback is called initially to pass the locks and the IO_CACHE
+     file to raft, so that both parties can append to the log in a thread
+     safe manner.
+
+     @param log_file_cache  the IO_CACHE pointer
+     @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
+     @param log_name the pointer to current log name
+     @param lock_log the mutex that protects the current log
+     @param lock_index the mutex that protects the index file
+     @param cur_log_ext a pointer the number of the file.
+     @param context context of the call (0 for 1st run, 1 for next time)
+
+     @retval 0 Sucess
+     @retval 1 Failure
+   */
+  int (*setup_flush)(IO_CACHE* log_file_cache, const char *log_prefix,
+      const char *log_name, mysql_mutex_t *lock_log,
+      mysql_mutex_t *lock_index, ulong *cur_log_ext, int context);
 } Binlog_relay_IO_observer;
 
 
@@ -438,6 +477,15 @@ int unregister_trans_observer(Trans_observer *observer, void *p);
    @retval 1 Observer already exists
 */
 int register_binlog_storage_observer(Binlog_storage_observer *observer, void *p);
+
+/**
+    Ask the mysqld server to immediately register the binlog and relay
+    log files.
+
+    Eventually instead of setup_flush in both these observers we will have
+    a Raft specific delegate and observer
+*/
+int ask_server_to_register_with_raft();
 
 /**
    Unregister a binlog storage observer

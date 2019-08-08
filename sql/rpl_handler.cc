@@ -306,6 +306,25 @@ int Binlog_storage_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
   DBUG_RETURN(ret);
 }
 
+int Binlog_storage_delegate::setup_flush(THD *thd,
+    IO_CACHE* log_file_cache,
+    const char *log_prefix,
+    const char *log_name,
+    mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+    ulong *cur_log_ext, int context)
+{
+  DBUG_ENTER("Binlog_storage_delegate::setup_flush");
+  Binlog_storage_param param;
+  int ret= 0;
+
+  FOREACH_OBSERVER(ret, setup_flush, thd,
+      (log_file_cache, log_prefix, log_name,
+       lock_log, lock_index, cur_log_ext, context)
+  );
+
+  DBUG_RETURN(ret);
+}
+
 #ifdef HAVE_REPLICATION
 int Binlog_transmit_delegate::transmit_start(THD *thd, ushort flags,
                                              const char *log_file,
@@ -519,6 +538,23 @@ int Binlog_relay_IO_delegate::after_reset_slave(THD *thd, Master_info *mi)
 
   int ret= 0;
   FOREACH_OBSERVER(ret, after_reset_slave, thd, (&param));
+  return ret;
+}
+
+int Binlog_relay_IO_delegate::setup_flush(THD *thd, IO_CACHE* log_file_cache,
+      const char *log_prefix, const char *log_name,
+      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+      ulong *cur_log_ext, int context)
+{
+  Binlog_relay_IO_param param;
+  // not necessary
+  //init_param(&param, mi);
+
+  int ret= 0;
+  FOREACH_OBSERVER(ret, setup_flush, thd,
+      (log_file_cache, log_prefix, log_name,
+       lock_log, lock_index, cur_log_ext, context)
+  );
   return ret;
 }
 #endif /* HAVE_REPLICATION */

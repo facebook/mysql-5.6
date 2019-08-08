@@ -976,6 +976,13 @@ do
 
   start_time=`date +%M%S`
 
+  # We need to add these paths, so that we can place our
+  # compiled sasl plugins in the directory.
+  # This is temporary till we figure out why some plugins
+  # although present in installed paths are not discovered
+  if [ -d "/root/sasl2" ]; then
+    export SASL_PATH=/root/sasl2
+  fi
   eval_log_error "$cmd"
 
   # hypothetical: log was renamed but not
