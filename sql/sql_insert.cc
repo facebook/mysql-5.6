@@ -1770,8 +1770,17 @@ int write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)
           }
         }
 
-        if (!insert_id_consumed)
+        if (!insert_id_consumed) {
           table->file->restore_auto_increment(prev_insert_id);
+          // next_insert_id should act like a cursor, it should always greater
+          // than the interval. But if it is not, then reuse the
+          // insert_id_for_cur_row if insert_id_for_cur_row is bigger than 0
+          if (insert_id_for_cur_row > 0 &&
+              table->file->next_insert_id <
+                  table->file->auto_inc_interval_for_cur_row.minimum()) {
+            table->file->restore_auto_increment(insert_id_for_cur_row);
+          }
+        }
 
         /* CHECK OPTION for VIEW ... ON DUPLICATE KEY UPDATE ... */
         {

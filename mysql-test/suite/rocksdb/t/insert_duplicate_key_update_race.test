@@ -1,0 +1,30 @@
+--source include/have_rocksdb.inc
+
+source include/have_debug.inc;
+source include/have_debug_sync.inc;
+
+connect (con1, localhost, root,,);
+connection default;
+
+set global rocksdb_strict_collation_check = off;
+CREATE TABLE extra (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  a varchar(36) NOT NULL,
+  b varchar(128) NOT NULL,
+  c varchar(10240) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_idx (a,b)
+);
+set DEBUG_SYNC = "ha_write_row_end WAIT_FOR flushed EXECUTE 1";
+send insert into extra(id, a, b, c) values (null, 1, 'b1', 'cc1'), (6, 2,'b2','cc2'), (null,3,'b3','c3'),(null, 4,'b4','c4'),(null, 5,'b5','c5') on duplicate key update c=values(c); 
+
+connection con1;
+insert into extra(a, b, c) values (2,'b2','c2'),(3,'b3','c3'),(4,'b4','tc4'),(5,'b5','c5') on duplicate key update c=values(c); 
+set DEBUG_SYNC = "now SIGNAL flushed";
+
+connection default;
+reap;
+select id, a, b, c from extra;
+
+drop table extra;
+
