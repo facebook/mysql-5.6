@@ -1,0 +1,78 @@
+--source include/have_debug.inc
+
+--let $rpl_topology= 1->2,1->3
+--source include/rpl_init.inc
+
+--let $rpl_connection_name= master
+--let $rpl_server_number= 1
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= master1
+--let $rpl_server_number= 1
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= semi_sync_slave
+--let $rpl_server_number= 2
+--source include/rpl_connect.inc
+
+--let $rpl_connection_name= async_slave
+--let $rpl_server_number= 3
+--source include/rpl_connect.inc
+
+--connection master
+call mtr.add_suppression("Read semi-sync reply magic number error.");
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+
+--echo "Creating schema"
+CREATE TABLE t1(a INT) engine = InnoDB;
+
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+--connection master
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+
+--echo "The semi sync slave will error out before sending ACK"
+--connection semi_sync_slave
+SET @@GLOBAL.DEBUG= '+d,error_before_semi_sync_reply';
+
+--echo "Inserting a row on the master"
+--connection master
+send INSERT INTO t1 VALUES(1);
+
+--echo "Waiting for the semi-sync slave to stop"
+--connection semi_sync_slave
+--source include/wait_for_slave_io_to_stop.inc
+
+--echo "Waiting for the async dump thread to wait for ACK"
+--connection master1
+--let $wait_condition= select count(*)= 1 from information_schema.processlist where state like '%Waiting for semi-sync ACK from slave%'
+--source include/wait_condition.inc
+
+--connection semi_sync_slave
+--let $assert_text= Table in semi-sync slave should be empty.
+--let $assert_cond= "[SELECT COUNT(*) FROM t1]" = "0"
+--source include/assert.inc
+
+--connection async_slave
+--let $assert_text= Table in async slave should be empty.
+--let $assert_cond= "[SELECT COUNT(*) FROM t1]" = "0"
+--source include/assert.inc
+
+--echo "Starting semi-sync slave and cleaning up"
+--connection semi_sync_slave
+SET @@GLOBAL.DEBUG= '-d,error_before_semi_sync_reply';
+START REPLICA;
+
+# Cleanup
+--connection master
+--reap
+DROP TABLE t1;
+
+--let $sync_slave_connection= semi_sync_slave
+--source include/sync_slave_sql_with_master.inc
+--connection master
+--let $sync_slave_connection= async_slave
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

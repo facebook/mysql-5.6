@@ -30,6 +30,7 @@
 #include "my_inttypes.h"
 #include "my_macros.h"
 #include "plugin/semisync/semisync_slave.h"
+#include "sql/current_thd.h"  // current_thd
 #include "sql/debug_sync.h"
 
 ReplSemiSyncSlave *repl_semisync = nullptr;
@@ -130,7 +131,23 @@ static int repl_semi_slave_read_event(Binlog_relay_IO_param *,
 
 static int repl_semi_slave_queue_event(Binlog_relay_IO_param *param,
                                        const char *, unsigned long, uint32) {
+  DBUG_EXECUTE_IF("before_semi_sync_event", {
+    static constexpr char act[] =
+        "now SIGNAL semi_sync_event_reached "
+        "WAIT_FOR semi_sync_event_continue ";
+    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+    DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+  });
+
   if (rpl_semi_sync_slave_status && semi_sync_need_reply) {
+    DBUG_EXECUTE_IF("before_semi_sync_reply", {
+      static constexpr char act[] =
+          "now SIGNAL semi_sync_reply_reached "
+          "WAIT_FOR semi_sync_reply_continue ";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    });
+
     DBUG_EXECUTE_IF("dont_send_semi_sync_reply", { return 0; });
     /*
       We deliberately ignore the error in slaveReply, such error

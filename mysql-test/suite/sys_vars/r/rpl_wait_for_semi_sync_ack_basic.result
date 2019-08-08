@@ -1,0 +1,21 @@
+set @save.rpl_wait_for_semi_sync_ack= @@global.rpl_wait_for_semi_sync_ack;
+select @@session.rpl_wait_for_semi_sync_ack;
+ERROR HY000: Variable 'rpl_wait_for_semi_sync_ack' is a GLOBAL variable
+select variable_name from performance_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from performance_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.rpl_wait_for_semi_sync_ack= false;
+select @@global.rpl_wait_for_semi_sync_ack;
+@@global.rpl_wait_for_semi_sync_ack
+0
+set @@global.rpl_wait_for_semi_sync_ack= 1.1;
+ERROR 42000: Incorrect argument type to variable 'rpl_wait_for_semi_sync_ack'
+set @@global.rpl_wait_for_semi_sync_ack= "foo";
+ERROR 42000: Variable 'rpl_wait_for_semi_sync_ack' can't be set to the value of 'foo'
+set @@global.rpl_wait_for_semi_sync_ack= false;
+set @@global.rpl_wait_for_semi_sync_ack= true;
+select @@global.rpl_wait_for_semi_sync_ack as "truncated to the maximum";
+truncated to the maximum
+1
+set @@global.rpl_wait_for_semi_sync_ack= @save.rpl_wait_for_semi_sync_ack;
