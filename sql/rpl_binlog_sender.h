@@ -187,6 +187,7 @@ class Binlog_sender : Gtid_mode_copy {
   LEX_CSTRING m_orig_query;
   /* The number of times to skip calls to processlist_slave_offset */
   int m_skip_state_update = 0;
+  bool m_is_semi_sync_slave{false};
 
   /*
     It initializes the context, checks if the dump request is valid and

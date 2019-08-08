@@ -1,0 +1,166 @@
+include/rpl_init.inc [topology=1->2,1->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_default_connections.inc
+include/rpl_connect.inc [creating async_slave]
+include/rpl_connect.inc [creating semi_sync_slave]
+[connection master]
+call mtr.add_suppression("Run function 'wait_for_semi_sync_ack' in plugin 'rpl_semi_sync_master' failed");
+call mtr.add_suppression("Error while waiting for semi-sync ACK on dump thread");
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+call mtr.add_suppression("Timeout waiting for reply of binlog");
+call mtr.add_suppression("Slave SQL.*Request to stop slave SQL Thread received while applying a group that has non-transactional changes");
+[connection semi_sync_slave]
+set @@global.debug= '+d,before_semi_sync_reply';
+[connection master]
+"Store the last acked pos"
+create table t1 (a int);
+[connection semi_sync_slave]
+set debug_sync='now WAIT_FOR semi_sync_reply_reached';
+[connection async_slave]
+include/assert.inc [Async Slave: Should not contain any tables]
+[connection master1]
+"Last acked pos should not move"
+include/assert.inc [Last acked pos should not move]
+[connection semi_sync_slave]
+set debug_sync='now SIGNAL semi_sync_reply_continue';
+[connection master]
+include/assert.inc [Master: Should contain t1]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Async Slave: Should contain t1]
+[connection master]
+create table t2(a int);
+[connection semi_sync_slave]
+set debug_sync='now WAIT_FOR semi_sync_reply_reached';
+[connection master1]
+"Switching off rpl_semi_sync_master_enabled while async thread is waiting for ack"
+set @@global.rpl_semi_sync_master_enabled = 0;
+"Waiting till async slave is caught up"
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Async Slave: should have t1 and t2]
+[connection semi_sync_slave]
+set debug_sync='now SIGNAL semi_sync_reply_continue';
+"Switching rpl_semi_sync_master_enabled back on"
+[connection master]
+set @@global.rpl_semi_sync_master_enabled = 1;
+[connection master]
+"Waiting till semi-sync slave is caught up"
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Semi-sync Slave: should have t1 and t2]
+[connection master]
+create table t3(a int);
+[connection semi_sync_slave]
+set debug_sync='now WAIT_FOR semi_sync_reply_reached';
+[connection master1]
+"Switching off rpl_wait_for_semi_sync_ack while async thread is waiting for ack"
+set @@global.rpl_wait_for_semi_sync_ack = 0;
+"Waiting till async slave is caught up"
+include/sync_slave_sql_with_master.inc
+[connection semi_sync_slave]
+set debug_sync='now SIGNAL semi_sync_reply_continue';
+"Switching rpl_wait_for_semi_sync_ack back on"
+[connection master]
+set @@global.rpl_wait_for_semi_sync_ack = 1;
+[connection master]
+"Waiting till semi-sync slave is caught up"
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Semi-sync Slave: should have t1, t2 and t3]
+[connection semi_sync_slave]
+set @@global.debug= '-d,before_semi_sync_reply';
+"Stopping async slave to simulate lag"
+[connection async_slave]
+include/stop_slave.inc
+"Generating traffic on the master"
+[connection master]
+create table t4(a int);
+insert into t4 values(1);
+insert into t4 values(2);
+flush logs;
+insert into t4 values(3);
+insert into t4 values(4);
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection semi_sync_slave]
+include/stop_slave_io.inc
+[connection master]
+"Restarting master"
+include/rpl_restart_server.inc [server_number=1]
+[connection semi_sync_slave]
+include/start_slave_io.inc
+"Starting async slave"
+[connection async_slave]
+include/start_slave.inc
+"Waiting till async slave is caught up"
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Async Slave: t4 should have 4 entries]
+[connection semi_sync_slave]
+include/stop_slave.inc
+[connection async_slave]
+include/stop_slave.inc
+[connection master]
+set @gtid_exec= @@global.gtid_executed;
+reset master;
+include/assert.inc [Last acked pos should be empty]
+set @@global.gtid_purged= @gtid_exec;
+purge binary logs to 'binlog';
+[connection semi_sync_slave]
+include/start_slave.inc
+[connection async_slave]
+include/start_slave.inc
+[connection semi_sync_slave]
+set @@global.debug= '+d,before_semi_sync_reply';
+[connection master]
+create table t5 (a int);
+[connection semi_sync_slave]
+set debug_sync='now WAIT_FOR semi_sync_reply_reached';
+[connection async_slave]
+include/assert.inc [Async Slave: Should not contain t5]
+[connection semi_sync_slave]
+set debug_sync='now SIGNAL semi_sync_reply_continue';
+set @@global.debug= '-d,before_semi_sync_reply';
+[connection master]
+include/assert.inc [Master: Should contain t5]
+include/sync_slave_sql_with_master.inc
+include/assert.inc [Async Slave: Should contain t5]
+"Stopping async slave to simulate lag"
+[connection async_slave]
+include/stop_slave.inc
+"Generating traffic on the master"
+[connection master]
+create table t6 (a int);
+insert into t6 values(1);
+insert into t6 values(2);
+insert into t6 values(3);
+insert into t6 values(4);
+include/sync_slave_sql_with_master.inc
+"Blocking semi-sync slave just before sending an ack"
+[connection semi_sync_slave]
+set @@global.debug= '+d,before_semi_sync_event';
+[connection master]
+insert into t6 values(5)  # this transaction will be blocked;
+[connection semi_sync_slave]
+set debug_sync='now wait_for semi_sync_event_reached';
+"Restarting the semi-sync slave"
+[connection master]
+include/rpl_stop_server.inc [server_number=3]
+include/rpl_start_server.inc [server_number=3]
+"Starting async slave"
+[connection async_slave]
+include/start_slave.inc
+[connection master]
+[connection semi_sync_slave]
+"Waiting till async slave is caught up"
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+drop table t1, t2, t3, t4, t5, t6;
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

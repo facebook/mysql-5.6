@@ -1281,6 +1281,9 @@ The following options may be given as the first argument:
  --rpl-stop-slave-timeout=# 
  Timeout in seconds to wait for slave to stop before
  returning a warning.
+ --rpl-wait-for-semi-sync-ack 
+ Wait for events to be acked by a semi-sync slave before
+ sending them to the async slaves
  --safe-user-create  Don't allow new user creation by the user who has no
  write privileges to the mysql.user table.
  --schema-definition-cache=# 
@@ -1939,6 +1942,7 @@ rpl-read-size 8192
 rpl-receive-buffer-size 2097152
 rpl-send-buffer-size 2097152
 rpl-stop-slave-timeout 31536000
+rpl-wait-for-semi-sync-ack FALSE
 safe-user-create FALSE
 schema-definition-cache 256
 secondary-engine-cost-threshold 100000

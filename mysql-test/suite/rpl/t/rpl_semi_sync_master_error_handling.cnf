@@ -1,0 +1,24 @@
+!include ../my.cnf
+
+[mysqld.1]
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_master_timeout=86400000 # 1 day
+rpl_wait_for_semi_sync_ack=1
+log_slave_updates
+gtid_mode=ON
+enforce_gtid_consistency=ON
+
+[mysqld.2]
+rpl_semi_sync_slave_enabled=1
+log_slave_updates
+gtid_mode=ON
+enforce_gtid_consistency=ON
+
+[mysqld.3]
+rpl_semi_sync_slave_enabled=0
+log_slave_updates
+gtid_mode=ON
+enforce_gtid_consistency=ON
+
+[ENV]
+SERVER_MYPORT_3= @mysqld.3.port

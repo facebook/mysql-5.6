@@ -1217,8 +1217,10 @@ end:
     Only run after_reset_master hook, when all reset operations preceding this
     have succeeded.
   */
-  if (!ret)
+  if (!ret) {
     (void)RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
+    mysql_bin_log.reset_semi_sync_last_acked();
+  }
   return ret;
 }
 

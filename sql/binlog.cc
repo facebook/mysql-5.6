@@ -102,6 +102,7 @@
 #include "sql/protocol.h"
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
+#include "sql/replication.h"
 #include "sql/rpl_filter.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // RUN_HOOK
@@ -172,6 +173,7 @@ const char *log_bin_basename = nullptr;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
+bool rpl_semi_sync_master_enabled = false;
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
@@ -8914,6 +8916,10 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
       (void)RUN_HOOK(transaction, after_commit, (head, all));
+
+      my_off_t pos;
+      head->get_trans_pos(nullptr, &pos, nullptr);
+      signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
       /*
         When after_commit finished for the transaction, clear the run_hooks
         flag. This allow other parts of the system to check if after_commit was
@@ -9763,6 +9769,66 @@ inline void MYSQL_BIN_LOG::update_binlog_end_pos(const char *file,
   if (is_active(file) && (pos > atomic_binlog_end_pos))
     atomic_binlog_end_pos = pos;
   signal_update();
+  unlock_binlog_end_pos();
+}
+
+my_off_t MYSQL_BIN_LOG::get_binlog_end_pos() const {
+  mysql_mutex_assert_not_owner(&LOCK_log);
+  return atomic_binlog_end_pos;
+}
+
+/* wait_for_ack can be modified by this function */
+my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool &wait_for_ack, bool need_lock,
+                                           const char *sender_log_name) {
+  wait_for_ack = wait_for_ack && rpl_wait_for_semi_sync_ack &&
+                 rpl_semi_sync_master_enabled;
+
+  if (!wait_for_ack) return atomic_binlog_end_pos;
+
+  if (need_lock) lock_binlog_end_pos();
+  const int res = (last_acked.first.length() > strlen(sender_log_name))
+                      ? 1
+                      : strcmp(last_acked.first.c_str(), sender_log_name);
+  const my_off_t last_acked_pos = last_acked.second;
+  if (need_lock) unlock_binlog_end_pos();
+
+  if (res == 0) return last_acked_pos;
+  if (res < 0) return 0;  // wait for ack
+
+  wait_for_ack = false;
+  return atomic_binlog_end_pos;
+}
+
+void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
+                                         const my_off_t log_pos) {
+  if (!log_file) return;
+
+  const auto acked = std::make_pair(std::string(log_file), log_pos);
+  lock_binlog_end_pos();
+  const bool update = acked.first.length() == last_acked.first.length()
+                          ? acked > last_acked
+                          : acked.first.length() > last_acked.first.length();
+  if (update) {
+    last_acked = acked;
+    signal_update();
+  }
+  unlock_binlog_end_pos();
+}
+
+void MYSQL_BIN_LOG::reset_semi_sync_last_acked() {
+  lock_binlog_end_pos();
+  /* binary log is rotated and all trxs in previous binlog are already committed
+   * to the storage engine */
+  last_acked = std::make_pair(log_file_name, 0);
+  signal_update();
+  unlock_binlog_end_pos();
+}
+
+void MYSQL_BIN_LOG::get_semi_sync_last_acked(std::string &log_file,
+                                             my_off_t &log_pos) {
+  lock_binlog_end_pos();
+  log_file = last_acked.first;
+  log_pos = last_acked.second;
   unlock_binlog_end_pos();
 }
 

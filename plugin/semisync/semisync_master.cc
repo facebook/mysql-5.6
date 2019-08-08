@@ -30,6 +30,7 @@
 #include "my_byteorder.h"
 #include "my_compiler.h"
 #include "my_systime.h"
+#include "sql/binlog.h"  // rpl_semi_sync_master_enabled
 #include "sql/current_thd.h"
 #include "sql/item_func.h"  // user_var_entry
 #include "sql/mysqld.h"     // max_connections
@@ -43,7 +44,6 @@
 #define TIME_BILLION 1000000000
 
 /* This indicates whether semi-synchronous replication is enabled. */
-bool rpl_semi_sync_master_enabled;
 bool rpl_semi_sync_master_crash_if_active_trxs;
 unsigned long rpl_semi_sync_master_timeout;
 unsigned long rpl_semi_sync_master_trace_level;

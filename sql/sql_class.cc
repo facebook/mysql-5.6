@@ -406,6 +406,7 @@ THD::THD(bool enable_plugins)
       binlog_accessed_db_names(nullptr),
       m_trans_log_file(nullptr),
       m_trans_fixed_log_file(nullptr),
+      m_trans_fixed_log_path(nullptr),
       m_trans_end_pos(0),
       m_trans_gtid(NULL),
       m_transaction(new Transaction_ctx()),
@@ -1598,7 +1599,8 @@ void THD::cleanup_after_query() {
     In case of stored procedures, stored functions, triggers and events
     m_trans_fixed_log_file will not be set to NULL. The memory will be reused.
   */
-  if (!sp_runtime_ctx) m_trans_fixed_log_file = nullptr;
+  if (!sp_runtime_ctx)
+    m_trans_fixed_log_file = m_trans_fixed_log_path = nullptr;
 
   /*
     Forget the binlog stmt filter for the next query.

@@ -286,9 +286,17 @@ void Binlog_sender::cleanup() {
     my_eof(thd);
 }
 
+static bool is_semi_sync_slave() {
+  long long val = 0;
+  get_user_var_int("rpl_semi_sync_slave", &val, nullptr);
+  return val;
+}
+
 void Binlog_sender::run() {
   DBUG_TRACE;
   init();
+
+  m_is_semi_sync_slave = is_semi_sync_slave();
 
   unsigned int max_event_size =
       std::max(m_thd->variables.max_allowed_packet,
@@ -452,10 +460,13 @@ int Binlog_sender::get_binlog_end_pos(File_reader *reader, my_off_t *end_pos) {
       LOCK_binlog_end_pos if we reached the end of the hot log and are going
       to wait for updates on the binary log (Binlog_sender::wait_new_event()).
     */
-    *end_pos = mysql_bin_log.get_binlog_end_pos();
+    bool wait_for_ack = !m_is_semi_sync_slave;
+    *end_pos = mysql_bin_log.get_last_acked_pos(wait_for_ack, true,
+                                                m_linfo.log_file_name);
 
     /* If this is a cold binlog file, we are done getting the end pos */
-    if (unlikely(!mysql_bin_log.is_active(m_linfo.log_file_name))) {
+    if (unlikely(!wait_for_ack &&
+                 !mysql_bin_log.is_active(m_linfo.log_file_name))) {
       *end_pos = 0;
       return 0;
     }
@@ -701,8 +712,10 @@ int Binlog_sender::wait_new_events(my_off_t log_pos) {
     If the binary log was updated before reaching this waiting point,
     there is no need to wait.
   */
-  if (mysql_bin_log.get_binlog_end_pos() > log_pos ||
-      !mysql_bin_log.is_active(m_linfo.log_file_name)) {
+  bool wait_for_ack = !m_is_semi_sync_slave;
+  if (mysql_bin_log.get_last_acked_pos(wait_for_ack, false,
+                                       m_linfo.log_file_name) > log_pos ||
+      (!wait_for_ack && !mysql_bin_log.is_active(m_linfo.log_file_name))) {
     mysql_bin_log.unlock_binlog_end_pos();
     return ret;
   }
@@ -1396,12 +1409,6 @@ void Binlog_sender::calc_shrink_buffer_size(size_t current_size) {
   m_new_shrink_size = ALIGN_SIZE(new_size);
 }
 
-static bool is_semi_sync_slave() {
-  long long val = 0;
-  get_user_var_int("rpl_semi_sync_slave", &val, nullptr);
-  return val;
-}
-
 void Binlog_sender::processlist_slave_offset(const char *log_file_name,
                                              my_off_t log_pos) {
   DBUG_ENTER("processlist_show_binlog_state");
@@ -1415,7 +1422,7 @@ void Binlog_sender::processlist_slave_offset(const char *log_file_name,
   }
 
   int len = snprintf(m_state_msg, m_state_msg_len, "%s slave offset: %s %lld",
-                     is_semi_sync_slave() ? "Semisync" : "Async",
+                     m_is_semi_sync_slave ? "Semisync" : "Async",
                      log_file_name + dirname_length(log_file_name),
                      (long long int)log_pos);
 

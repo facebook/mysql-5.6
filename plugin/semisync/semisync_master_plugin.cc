@@ -32,6 +32,7 @@
 #include "plugin/semisync/semisync_master.h"
 #include "plugin/semisync/semisync_master_ack_receiver.h"
 #include "sql/current_thd.h"
+#include "sql/mysqld.h"
 #include "sql/protocol_classic.h"
 #include "sql/sql_class.h"  // THD
 #include "typelib.h"
@@ -179,6 +180,8 @@ static int repl_semi_after_send_event(Binlog_transmit_param *param,
                                       const char *event_buf, unsigned long,
                                       const char *skipped_log_file,
                                       my_off_t skipped_log_pos) {
+  int ret = 0;
+
   if (is_semi_sync_dump()) {
     if (skipped_log_pos > 0)
       repl_semisync->skipSlaveReply(event_buf, param->server_id,
@@ -186,16 +189,19 @@ static int repl_semi_after_send_event(Binlog_transmit_param *param,
     else {
       THD *thd = current_thd;
       /*
-        Possible errors in reading slave reply are ignored deliberately
-        because we do not want dump thread to quit on this. Error
-        messages are already reported.
+        Unless waiting for ACKs is enabled, possible errors in reading slave
+        reply are ignored deliberately because we do not want dump thread to
+        quit on this. Error messages are already reported.
       */
-      (void)repl_semisync->readSlaveReply(
+      int err = repl_semisync->readSlaveReply(
           thd->get_protocol_classic()->get_net(), event_buf);
-      thd->clear_error();
+      if (err && rpl_wait_for_semi_sync_ack)
+        ret = 1;
+      else
+        thd->clear_error();
     }
   }
-  return 0;
+  return ret;
 }
 
 static int repl_semi_reset_master(Binlog_transmit_param *) {
@@ -366,6 +372,12 @@ static void fix_rpl_semi_sync_master_enabled(MYSQL_THD, SYS_VAR *, void *ptr,
     if (repl_semisync->disableMaster() != 0)
       rpl_semi_sync_master_enabled = true;
     ack_receiver->stop();
+  }
+
+  if (!rpl_semi_sync_master_enabled) {
+    mysql_bin_log.lock_binlog_end_pos();
+    mysql_bin_log.signal_update();
+    mysql_bin_log.unlock_binlog_end_pos();
   }
 
   return;
