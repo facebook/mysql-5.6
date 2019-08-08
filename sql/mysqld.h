@@ -395,6 +395,13 @@ extern ulong relay_io_events, relay_sql_events;
 extern ulonglong relay_io_bytes, relay_sql_bytes;
 extern ulonglong relay_sql_wait_time;
 
+/* Minimum HLC value for this instance. It is ensured that the next 'event' will
+   get a HLC timestamp greater than this value */
+extern ulonglong minimum_hlc_ns;
+
+/* Maximum allowed forward drift in the HLC as compared to wall clock */
+extern ulonglong maximum_hlc_drift_ns;
+
 extern uint net_compression_level;
 extern uint zstd_net_compression_level;
 

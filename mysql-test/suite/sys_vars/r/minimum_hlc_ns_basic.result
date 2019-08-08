@@ -1,0 +1,27 @@
+Default value of minimum_hlc_ns is 0
+SELECT @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+0
+SELECT @@session.minimum_hlc_ns;
+ERROR HY000: Variable 'minimum_hlc_ns' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+minimum_hlc_ns is a dynamic variable
+SET @@global.minimum_hlc_ns = 1;
+SELECT @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+1
+SET @@global.minimum_hlc_ns = 0;
+SELECT @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+0
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+ERROR 42000: Variable 'minimum_hlc_ns' can't be set to the value of '2538630000000000000'
+select @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+0
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SELECT @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+2538630000000000000
+SET @@global.minimum_hlc_ns = default;
