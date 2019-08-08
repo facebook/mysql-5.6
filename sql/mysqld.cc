@@ -1049,6 +1049,13 @@ ulonglong relay_sql_bytes = 0;
 /* Time the SQL thread waits for events from the IO thread */
 ulonglong relay_sql_wait_time = 0;
 
+/* Minimum HLC value for this instance. It is ensured that the next 'event' will
+   get a HLC timestamp greater than this value */
+ulonglong minimum_hlc_ns = 0;
+
+/* Maximum allowed forward drift in the HLC as compared to wall clock */
+ulonglong maximum_hlc_drift_ns = 0;
+
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */
@@ -4476,10 +4483,10 @@ int init_common_variables() {
     return 1;
   }
 
-    /*
-      Reset the P_S view for global replication filter at
-      the end of server startup.
-    */
+  /*
+    Reset the P_S view for global replication filter at
+    the end of server startup.
+  */
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
   rpl_global_filter.wrlock();
   rpl_global_filter.reset_pfs_view();
@@ -4758,22 +4765,22 @@ static int init_ssl_communication() {
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
 #endif
     if (!ssl_acceptor_fd) {
-    /*
-      No real need for opt_use_ssl to be enabled in bootstrap mode,
-      but we want the SSL materal generation and/or validation (if supplied).
-      So we keep it on.
+      /*
+        No real need for opt_use_ssl to be enabled in bootstrap mode,
+        but we want the SSL materal generation and/or validation (if supplied).
+        So we keep it on.
 
-      For wolfSSL (since it can't auto-generate the certs from inside the
-      server) we need to hush the warning if in bootstrap mode, as in
-      that mode the server won't be listening for connections and thus
-      the lack of SSL material makes no real difference.
-      However if the user specified any of the --ssl options we keep the
-      warning as it's showing problems with the values supplied.
+        For wolfSSL (since it can't auto-generate the certs from inside the
+        server) we need to hush the warning if in bootstrap mode, as in
+        that mode the server won't be listening for connections and thus
+        the lack of SSL material makes no real difference.
+        However if the user specified any of the --ssl options we keep the
+        warning as it's showing problems with the values supplied.
 
-      For openssl, we don't hush the option since it would indicate a failure
-      in auto-generation, bad key material explicitly specified or
-      auto-generation disabled explcitly while SSL is still on.
-    */
+        For openssl, we don't hush the option since it would indicate a failure
+        in auto-generation, bad key material explicitly specified or
+        auto-generation disabled explcitly while SSL is still on.
+      */
 #ifdef HAVE_WOLFSSL
       if (!opt_initialize || SSL_ARTIFACTS_NOT_FOUND != auto_detection_status)
 #endif
@@ -5384,10 +5391,10 @@ static int init_server_components() {
   }
 
   {
-  /*
-    We have to call a function in log_resource.cc, or its references
-    won't be visible to plugins.
-  */
+    /*
+      We have to call a function in log_resource.cc, or its references
+      won't be visible to plugins.
+    */
 #ifndef DBUG_OFF
     int dummy =
 #endif
@@ -6372,10 +6379,10 @@ int mysqld_main(int argc, char **argv)
     unireg_abort(MYSQLD_ABORT_EXIT); /* purecov: inspected */
   }
 
-    /*
-     The subsequent calls may take a long time : e.g. innodb log read.
-     Thus set the long running service control manager timeout
-    */
+  /*
+   The subsequent calls may take a long time : e.g. innodb log read.
+   Thus set the long running service control manager timeout
+  */
 #if defined(_WIN32)
   if (windows_service) {
     if (setup_service_status_cmd_processed_handle())
@@ -6900,10 +6907,10 @@ int mysqld_main(int argc, char **argv)
   mysqld_exit(signal_hand_thr_exit_code);
 }
 
-  /****************************************************************************
-    Main and thread entry function for Win32
-    (all this is needed only to run mysqld as a service on WinNT)
-  ****************************************************************************/
+/****************************************************************************
+  Main and thread entry function for Win32
+  (all this is needed only to run mysqld as a service on WinNT)
+****************************************************************************/
 
 #if defined(_WIN32)
 
@@ -8875,9 +8882,9 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Relay_log_sql_wait_seconds", (char *)&relay_sql_wait_time, SHOW_TIMER,
      SHOW_SCOPE_GLOBAL},
-    {"Rows_examined", (char*) offsetof(System_status_var, rows_examined),
+    {"Rows_examined", (char *)offsetof(System_status_var, rows_examined),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
-    {"Rows_sent", (char*) offsetof(System_status_var, rows_sent),
+    {"Rows_sent", (char *)offsetof(System_status_var, rows_sent),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_GLOBAL},
     {"Secondary_engine_execution_count",
      (char *)offsetof(System_status_var, secondary_engine_execution_count),
@@ -9288,9 +9295,9 @@ static int mysql_init_variables() {
     dirname_part(cmake_binary_dir, mysql_home, &dlen);
     strmake(mysql_home, cmake_binary_dir, sizeof(mysql_home) - 1);
   }
-    // The sql_print_information below outputs nothing ??
-    // fprintf(stderr, "mysql_home %s\n", mysql_home);
-    // fflush(stderr);
+  // The sql_print_information below outputs nothing ??
+  // fprintf(stderr, "mysql_home %s\n", mysql_home);
+  // fflush(stderr);
 #else
   const char *tmpenv = getenv("MY_BASEDIR_VERSION");
   if (tmpenv != nullptr) {
@@ -10637,10 +10644,10 @@ void refresh_status() {
   Connection_handler_manager::reset_max_used_connections();
 }
 
-  /*****************************************************************************
-    Instantiate variables for missing storage engines
-    This section should go away soon
-  *****************************************************************************/
+/*****************************************************************************
+  Instantiate variables for missing storage engines
+  This section should go away soon
+*****************************************************************************/
 
 #ifdef HAVE_PSI_INTERFACE
 PSI_mutex_key key_LOCK_tc;
