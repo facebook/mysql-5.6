@@ -843,6 +843,7 @@ struct snapshot_info_st
   std::string gtid_executed;
   ulonglong snapshot_id= 0;
   enum snapshot_operation op= snapshot_operation::SNAPSHOT_NONE;
+  ulonglong snapshot_hlc= 0;
 };
 
 class explicit_snapshot

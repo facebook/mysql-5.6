@@ -6343,6 +6343,11 @@ void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info)
   const auto gtids= gtid_state->get_logged_gtids()->to_string();
   ss_info->gtid_executed = std::string(gtids);
   my_free(gtids);
+
+  // If HLC is enabled, then set the current HLC timestamp
+  if (enable_binlog_hlc)
+    ss_info->snapshot_hlc = get_current_hlc();
+
   global_sid_lock->unlock();
 }
 

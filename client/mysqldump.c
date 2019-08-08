@@ -124,7 +124,8 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_rocksdb_bulk_load_allow_sk= 0,
                 opt_order_by_primary_desc=0,
                 opt_view_error= 1,
-                opt_ignore_views = 0;
+                opt_ignore_views = 0,
+                opt_set_minimum_hlc = 0;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
 static my_bool opt_enable_checksum_table = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
@@ -701,6 +702,10 @@ static struct my_option my_long_options[] =
    " specified size in megabytes",
    &opt_compression_chunk_size, &opt_compression_chunk_size, 0,
    GET_UINT, OPT_ARG, 0, 0, 0xFFFFFFFFu, 0, 0, 0},
+  {"set-minimum-hlc", OPT_MINIMUM_HLC,
+   "Sets the minimum HLC in the output file based on the snapshot HLC",
+   &opt_set_minimum_hlc, &opt_set_minimum_hlc, 0,
+   GET_BOOL, NO_ARG,  0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -5875,7 +5880,8 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char* log_name)
 }
 
 static int start_transaction(MYSQL *mysql_con, char* filename_out,
-                             char* pos_out, char** gtid_executed_set_pointer)
+                             char* pos_out, char** gtid_executed_set_pointer,
+                             char* snapshot_hlc)
 {
   verbose_msg("-- Starting transaction...\n");
   /*
@@ -5920,21 +5926,41 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
         use_rocksdb? command_rocksdb : command_innodb) || !res)
       return 1;
 
+    // get the column indexes for all necessary columns
+    MYSQL_FIELD *field = NULL;
+    int snapshot_hlc_col = -1, gtid_executed_col = -1;
+    int file_col = -1, position_col = -1;
+    for (int i = 0; (field = mysql_fetch_field(res)); i++)
+    {
+      if (strcmp("Snapshot_HLC", field->name) == 0)
+        snapshot_hlc_col = i;
+      else if (strcmp("Gtid_executed", field->name) == 0)
+        gtid_executed_col = i;
+      else if (strcmp("File", field->name) == 0)
+        file_col = i;
+      else if (strcmp("Position", field->name) == 0)
+        position_col = i;
+    }
+
     {
       MYSQL_ROW row = mysql_fetch_row(res);
-      if (!row || !row[0][0] || !row[1][0]) {
+      if (!row || !row[0][0] || !row[1][0] ||
+          file_col == -1 || position_col == -1) {
         mysql_free_result(res);
         return 1;
       }
 
-      strcpy(filename_out, row[0]);
-      strcpy(pos_out, row[1]);
+      strcpy(filename_out, row[file_col]);
+      strcpy(pos_out, row[position_col]);
 
-      if(row[2][0] != '\0') {
-        *gtid_executed_set_pointer = (char*)my_malloc(strlen(row[2]) + 1,
-                                                      MYF(MY_WME));
-        strcpy(*gtid_executed_set_pointer, row[2]);
+      if(row[gtid_executed_col][0] != '\0') {
+        *gtid_executed_set_pointer =
+          (char*) my_malloc(strlen(row[gtid_executed_col]) + 1, MYF(MY_WME));
+        strcpy(*gtid_executed_set_pointer, row[gtid_executed_col]);
       }
+
+      if (snapshot_hlc_col != -1)
+        strcpy(snapshot_hlc, row[snapshot_hlc_col]);
     }
     if (res)
       mysql_free_result(res);
@@ -6704,6 +6730,7 @@ int main(int argc, char **argv)
 {
   char bin_log_name[FN_REFLEN] = "";
   char bin_log_pos[21] = ""; // 20 digits plus trailing null byte
+  char snapshot_hlc[21]= ""; // 20 digits plus trailing null byte
   char* gtid_executed_set = NULL;
   int exit_code, md_result_fd;
   MY_INIT("mysqldump");
@@ -6779,7 +6806,8 @@ int main(int argc, char **argv)
   }
 
   if (opt_single_transaction &&
-      start_transaction(mysql, bin_log_name, bin_log_pos, &gtid_executed_set))
+      start_transaction(
+        mysql, bin_log_name, bin_log_pos, &gtid_executed_set, snapshot_hlc))
     goto err;
   /* Add 'STOP SLAVE to beginning of dump */
   if (opt_slave_apply && add_stop_slave())
@@ -6797,6 +6825,11 @@ int main(int argc, char **argv)
   if (gtid_executed_set) {
     my_free(gtid_executed_set);
   }
+
+  // Set minimum hlc if asked for
+  if (opt_set_minimum_hlc && strlen(snapshot_hlc) != 0)
+    fprintf(
+        md_result_file, "SET @@GLOBAL.MINIMUM_HLC_NS = %s;\n", snapshot_hlc);
 
   if (opt_master_data) {
     if (bin_log_name[0] && bin_log_pos[0]) {

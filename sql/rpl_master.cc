@@ -3338,6 +3338,12 @@ bool show_master_offset(THD* thd, snapshot_info_st &ss_info, bool *need_ok)
                                             MYSQL_TYPE_LONGLONG));
   }
 
+  if (ss_info.snapshot_hlc != 0)
+  {
+    field_list.push_back(
+        new Item_return_int("Snapshot_HLC",20, MYSQL_TYPE_LONGLONG));
+  }
+
   if (protocol->send_result_set_metadata(&field_list,
                                          Protocol::SEND_NUM_ROWS |
                                          Protocol::SEND_EOF))
@@ -3355,6 +3361,11 @@ bool show_master_offset(THD* thd, snapshot_info_st &ss_info, bool *need_ok)
   if (ss_info.snapshot_id)
   {
     protocol->store(ss_info.snapshot_id);
+  }
+
+  if (ss_info.snapshot_hlc)
+  {
+    protocol->store(ss_info.snapshot_hlc);
   }
 
   if (protocol->write())
