@@ -135,6 +135,60 @@ struct LOG_INFO {
   }
 };
 
+/**
+ * A class abstracting a hybrid logical clock. Some important aspects of this
+ * clock:
+ * 1. 64 bit unsigned integer is used to track nanosecond precision
+ *    ticks (this should suffice well into 2500 AD)
+ * 2. There is no explicit 'Logical' component. The rationale is that it is not
+ *    common to generate 'events' frequently at a rate of greater than 1 per
+ *    nanosecond. If we do hit this ocassionally, then this clock simply
+ *    increments the current wall clock by 1 and sets that as the current
+ *    nanosecond time. The wall clock should eventually catch up with the
+ *    internal nanosecond clock.
+ */
+class HybridLogicalClock {
+ public:
+  explicit HybridLogicalClock(uint64_t start) { current_ = start; }
+
+  HybridLogicalClock() { current_ = 0; }
+
+  ~HybridLogicalClock() = default;
+
+  /**
+   * Get the next hlc value and update the internal clock to match the next hlc
+   * value. By definition of this clock (see above), the next value is
+   * max(current+1, wall-clock). This is called when we want to assign a HLC
+   * timestamp to a event.
+   *
+   * @return   The next HLC
+   */
+  uint64_t get_next();
+
+  /**
+   * Get the current value of the HLC
+   *
+   * @return   The current value of internal nanosecond clock
+   */
+  uint64_t get_current();
+
+  /**
+   * Update the internal clock to a value greater than or equal to minimum_hlc
+   * and return the updated value. This method is used to synchronize HLC
+   * clocks across different instances OR to set a minimum bound on the next
+   * hlc by an external entity. Returns the value of the updated internal hlc
+   *
+   * @param    minimum_hlc - The minimum/lower bound on the HLC
+   *
+   * @return   The hlc after setting the minimum bound
+   */
+  uint64_t update(uint64_t minimum_hlc);
+
+ private:
+  // nanosecond precision internal clock
+  std::atomic<uint64_t> current_;
+};
+
 /*
   TODO use mmap instead of IO_CACHE for binlog
   (mmap+fsync is two times faster than write+fsync)
@@ -488,11 +542,28 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   bool reencrypt_logs();
 
+  /* Return the HLC timestamp for the caller (next txn) */
+  uint64_t get_next_hlc() { return hlc.get_next(); }
+
+  uint64_t get_current_hlc() { return hlc.get_current(); }
+
+  /* Update the minimum HLC value. This is used to set the lower bound on the
+     HLC for this instance. This is achieved by exposing a global system var
+     'minimum hlc' - updates on which will call this function. This can also
+     be used to synchronize HLC across different communicating instances */
+  uint64_t update_hlc(uint64_t minimum_hlc) { return hlc.update(minimum_hlc); }
+
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
 
   /* The previous gtid set in relay log. */
   Gtid_set *previous_gtid_set_relaylog;
+
+  /* Hybrid logical clock for this instance. The logical clock is tracked per
+   * instance today. It should be relatively easy to convert this to per-shard
+   * by having a map of such  clocks
+   */
+  HybridLogicalClock hlc;
 
   int open(const char *opt_name) { return open_binlog(opt_name); }
 
@@ -1003,6 +1074,7 @@ bool mysql_show_binlog_events(THD *thd);
 bool show_gtid_executed(THD *thd);
 void check_binlog_cache_size(THD *thd);
 void check_binlog_stmt_cache_size(THD *thd);
+void update_binlog_hlc();
 bool binlog_enabled();
 void register_binlog_handler(THD *thd, bool trx);
 int query_error_code(const THD *thd, bool not_killed);

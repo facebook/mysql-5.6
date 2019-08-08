@@ -7398,3 +7398,52 @@ static Sys_var_bool Sys_slave_high_priority_ddl(
     "Setting this flag will allow DDL commands to kill conflicting"
     "connections during replication (effective for admin user only).",
     GLOBAL_VAR(slave_high_priority_ddl), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_ulonglong Sys_maximum_hlc_drift_ns(
+    "maximum_hlc_drift_ns",
+    "Maximum value that the local HLC can be allowed to drift "
+    "forward from the wall clock (in nanoseconds). This limit is only used "
+    "when setting a lower/minimum bound on HLC using minimum_hlc_ns system "
+    "variable. The default value is 300 secs",
+    GLOBAL_VAR(maximum_hlc_drift_ns), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(300000000000), BLOCK_SIZE(1),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+static bool update_binlog_hlc(sys_var * /* self */, THD * /* thd */,
+                              enum_var_type /* type */) {
+  mysql_bin_log.update_hlc(minimum_hlc_ns);
+  return false;  // This is success!
+}
+
+static bool validate_binlog_hlc(sys_var * /* self */, THD * /* thd */,
+                                set_var *var) {
+  DBUG_EXECUTE_IF("allow_long_hlc_drift_for_tests", { return false; });
+
+  // New proposed HLC value to set
+  uint64_t new_hlc_ns = var->save_result.ulonglong_value;
+
+  // Get current wall clock
+  uint64_t cur_wall_clock_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
+
+  // Updating the HLC cannot be allowed if HLC drifts forward by more than
+  // 'maximum_hlc_drift_ns' as compared to wall clock
+  if (new_hlc_ns > cur_wall_clock_ns &&
+      (new_hlc_ns - cur_wall_clock_ns) > maximum_hlc_drift_ns) {
+    return true;  // This is failure!
+  }
+
+  return false;  // This is success!
+}
+
+static Sys_var_ulonglong Sys_minimum_hlc_ns(
+    "minimum_hlc_ns",
+    "Sets the minimum HLC value for the instance (in nanoseconds). Any "
+    "HLC timestamp doled out after minimum_hlc_ns is successfully updated "
+    "is guranteed to be greater than this value. The maximum allowed drift "
+    " (forward) is controlled by maximum_hlc_drift_ns",
+    GLOBAL_VAR(minimum_hlc_ns), CMD_LINE(OPT_ARG), VALID_RANGE(0, ULLONG_MAX),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(validate_binlog_hlc), ON_UPDATE(update_binlog_hlc));

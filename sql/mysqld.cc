@@ -1130,6 +1130,13 @@ ulonglong relay_sql_bytes = 0;
 /* Time the SQL thread waits for events from the IO thread */
 ulonglong relay_sql_wait_time = 0;
 
+/* Minimum HLC value for this instance. It is ensured that the next 'event' will
+   get a HLC timestamp greater than this value */
+ulonglong minimum_hlc_ns = 0;
+
+/* Maximum allowed forward drift in the HLC as compared to wall clock */
+ulonglong maximum_hlc_drift_ns = 0;
+
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */

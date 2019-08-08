@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+-- source include/have_debug.inc
+-- source include/not_valgrind.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of minimum_hlc_ns is 0
+SELECT @@global.minimum_hlc_ns;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.minimum_hlc_ns;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo minimum_hlc_ns is a dynamic variable
+SET @@global.minimum_hlc_ns = 1;
+SELECT @@global.minimum_hlc_ns;
+
+SET @@global.minimum_hlc_ns = 0;
+SELECT @@global.minimum_hlc_ns;
+
+###
+## Verify that we cannot update variable beyond maximum_hlc_drift
+###
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+select @@global.minimum_hlc_ns;
+
+###
+## Verify that we can update variable beyond maximum_hlc_drift with debug
+## variable set. This is useful to have for tests
+###
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+SELECT @@global.minimum_hlc_ns;
+
+SET @@global.minimum_hlc_ns = default;

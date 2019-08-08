@@ -1,0 +1,28 @@
+Default value of maximum_hlc_drift_ns is 300000000000 ns (300 secs)
+SELECT @@global.maximum_hlc_drift_ns;
+@@global.maximum_hlc_drift_ns
+300000000000
+SELECT @@session.maximum_hlc_drift_ns;
+ERROR HY000: Variable 'maximum_hlc_drift_ns' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+maximum_hlc_drift_ns is a dynamic variable
+SET @@global.maximum_hlc_drift_ns = 1;
+SELECT @@global.maximum_hlc_drift_ns;
+@@global.maximum_hlc_drift_ns
+1
+SET @@global.maximum_hlc_drift_ns = 0;
+SELECT @@global.maximum_hlc_drift_ns;
+@@global.maximum_hlc_drift_ns
+0
+SET @@global.minimum_hlc_ns= 2538630000000000000;
+ERROR 42000: Variable 'minimum_hlc_ns' can't be set to the value of '2538630000000000000'
+select @@global.minimum_hlc_ns;
+@@global.minimum_hlc_ns
+0
+SET @@global.maximum_hlc_drift_ns = 3154000000000000000;
+SELECT @@global.maximum_hlc_drift_ns;
+@@global.maximum_hlc_drift_ns
+3154000000000000000
+SET @@global.minimum_hlc_ns= 2538630000000000000;
+SET @@global.maximum_hlc_drift_ns = default;
+SET @@global.minimum_hlc_ns = default;

@@ -733,10 +733,22 @@ The following options may be given as the first argument:
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
+ --maximum-hlc-drift-ns[=#] 
+ Maximum value that the local HLC can be allowed to drift
+ forward from the wall clock (in nanoseconds). This limit
+ is only used when setting a lower/minimum bound on HLC
+ using minimum_hlc_ns system variable. The default value
+ is 300 secs
  --memlock           Lock mysqld in memory.
  --min-examined-row-limit=# 
  Don't write queries to slow log that examine fewer rows
  than that
+ --minimum-hlc-ns[=#] 
+ Sets the minimum HLC value for the instance (in
+ nanoseconds). Any HLC timestamp doled out after
+ minimum_hlc_ns is successfully updated is guranteed to be
+ greater than this value. The maximum allowed drift 
+ (forward) is controlled by maximum_hlc_drift_ns
  --mts-dynamic-rebalance 
  Shuffle DB's within workers periodically for load
  balancing
@@ -1772,8 +1784,10 @@ max-sp-recursion-depth 0
 max-user-connections 0
 max-waiting-queries 0
 max-write-lock-count 18446744073709551615
+maximum-hlc-drift-ns 300000000000
 memlock FALSE
 min-examined-row-limit 0
+minimum-hlc-ns 0
 mts-dynamic-rebalance FALSE
 mts-imbalance-threshold 90
 myisam-block-size 1024
