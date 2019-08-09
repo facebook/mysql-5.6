@@ -25,6 +25,7 @@
 #include "codecs/factory.h"
 #include "compression/base.h"
 #include "event_reader_macros.h"
+#include "my_dbug.h"
 
 namespace binary_log {
 
@@ -432,6 +433,103 @@ void Transaction_payload_event::print_long_info(std::ostream &os) {
   print_event_info(os);
 }
 #endif
+
+Metadata_event::Metadata_event(const char *buf,
+                               const Format_description_event *fde)
+    : Binary_log_event(&buf, fde) {
+  BAPI_ENTER("Metadata_event::Metadata_event(const char*, ...)");
+  READER_TRY_INITIALIZATION;
+  READER_ASSERT_POSITION(fde->common_header_len);
+
+  uint8_t read_len = fde->common_header_len;
+
+  /* Read and intialize every type in the stream for this event */
+  while (READER_CALL(available_to_read) > 0) {
+    uint8_t type;
+    READER_TRY_SET(type, read<uint8_t>);
+    read_len += ENCODED_TYPE_SIZE;
+
+    // Read the 'type'
+    read_len += read_type(static_cast<Metadata_event_types>(type));
+  }
+
+  // Ensure we read everything in the event
+  DBUG_ASSERT(read_len == (size_ + LOG_EVENT_HEADER_LEN));
+
+  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
+  DBUG_ASSERT(!(does_exist(Metadata_event_types::HLC_TYPE) &&
+                does_exist(Metadata_event_types::PREV_HLC_TYPE)));
+
+  READER_CATCH_ERROR;
+  BAPI_VOID_RETURN;
+}
+
+void Metadata_event::set_hlc_time(uint64_t hlc_time_ns) {
+  hlc_time_ns_ = hlc_time_ns;
+  set_exist(Metadata_event_types::HLC_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_HLC_SIZE);
+}
+
+void Metadata_event::set_exist(Metadata_event_types type) {
+  std::size_t index = static_cast<std::size_t>(type);
+  DBUG_ASSERT(index < existing_types_.size());
+  existing_types_[index] = true;
+}
+
+bool Metadata_event::does_exist(Metadata_event_types type) const {
+  std::size_t index = static_cast<std::size_t>(type);
+  DBUG_ASSERT(index < existing_types_.size());
+  return existing_types_[index];
+}
+
+uint64_t Metadata_event::get_hlc_time() const { return hlc_time_ns_; }
+
+void Metadata_event::set_prev_hlc_time(uint64_t prev_hlc_time_ns) {
+  prev_hlc_time_ns_ = prev_hlc_time_ns;
+  set_exist(Metadata_event_types::PREV_HLC_TYPE);
+
+  // Update the size of the event when it gets serialized into the stream.
+  size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_PREV_HLC_SIZE);
+}
+
+uint64_t Metadata_event::get_prev_hlc_time() const { return prev_hlc_time_ns_; }
+
+uint Metadata_event::read_type(Metadata_event_types type) {
+  BAPI_ENTER("Metadata_event::read_type");
+  using MET = Metadata_event_types;
+
+  // Read the 'length' of the field's value
+  uint value_length = 0;
+  uint64_t hlc_time = 0;
+  uint64_t prev_hlc_time = 0;
+
+  READER_TRY_SET(value_length, read<uint16_t>);
+
+  switch (type) {
+    case MET::HLC_TYPE:
+      // HLC is a 8 byte numerical field
+      DBUG_ASSERT(value_length == 8);
+      READER_TRY_SET(hlc_time, read_and_letoh<uint64_t>);
+      set_hlc_time(hlc_time);
+      break;
+    case MET::PREV_HLC_TYPE:
+      // Previous HLC is a 8 byte numerical field
+      DBUG_ASSERT(value_length == 8);
+      READER_TRY_SET(prev_hlc_time, read_and_letoh<uint64_t>);
+      set_prev_hlc_time(prev_hlc_time);
+      break;
+    default:
+      // This is a event which we do not know about. Just skip this
+      READER_CALL(go_to, READER_CALL(position) - value_length);
+      break;
+  }
+
+  // return total length read (ENCODED_LENGTH_SIZE and the length of the
+  // 'VALUE' of the field)
+  READER_CATCH_ERROR;
+  BAPI_RETURN(value_length + ENCODED_LENGTH_SIZE);
+}
 
 Gtid_event::Gtid_event(const char *buf, const Format_description_event *fde)
     : Binary_log_event(&buf, fde),
