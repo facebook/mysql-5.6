@@ -38,6 +38,7 @@
 
 #include <sys/types.h>
 #include <time.h>
+#include <array>
 #include <list>
 #include <map>
 #include <vector>
@@ -682,6 +683,118 @@ class Ignorable_event : public Binary_log_event {
   void print_event_info(std::ostream &) override {}
   void print_long_info(std::ostream &) override {}
 #endif
+};
+
+class Metadata_event : public Binary_log_event {
+ public:
+  /**
+   * Create a new Metadata event object
+   */
+  Metadata_event() : Binary_log_event(METADATA_EVENT) {}
+
+  /**
+   * Create a new metadata event by deserializing buffer
+   *
+   * @param buf - The buffer to deserialize from
+   * @param fde - Format description to deserialize the event
+   */
+  Metadata_event(const char *buf, const Format_description_event *fde);
+
+#ifndef HAVE_MYSYS
+  void print_event_info(std::ostream &) override {}
+  void print_long_info(std::ostream &) override {}
+#endif
+
+  /**
+   * Set hlc_time and update internal state needed later to write this to
+   * stream
+   *
+   * @param hlc_time_ns - HLC timestamp to set
+   */
+  void set_hlc_time(uint64_t hlc_time_ns);
+
+  /**
+   * Get hlc_time
+   *
+   * @return hlc_time_ns if present. 0 otherwise
+   */
+  uint64_t get_hlc_time() const;
+
+  /**
+   * Set prev_hlc_time and update internal state needed later to write this to
+   * stream
+   *
+   * @param prev_hlc_time_ns - Previous HLC timestamp to set
+   */
+  void set_prev_hlc_time(uint64_t prev_hlc_time_ns);
+
+  /**
+   * Get prev_hlc_time
+   *
+   * @return prev_hlc_time_ns if present. 0 otherwise
+   */
+  uint64_t get_prev_hlc_time() const;
+
+  /**
+   * The spec for different 'types' supported by this event
+   */
+  enum class Metadata_event_types : unsigned char {
+    /* The type corresponding to HLC timestamp */
+    HLC_TYPE = 0,
+    /* The type corresponding to Previous HLC timestamp. This is written after
+     * Previous_gtid_log_event in a new binlog file. Previous HLC is max HLC
+     * that could have been potentially stored in all the previous binlog for
+     * the instance. Server uses this to set its HLC to the right value when it
+     * is starting and it protects the HLC clock from moving back in time
+     * (during cases like a reset master followed by server restart) */
+    PREV_HLC_TYPE = 1,
+    /* Raft term and index added by raft consensus plugin */
+    RAFT_TERM_INDEX_TYPE = 2,
+    METADATA_EVENT_TYPE_MAX,
+  };
+
+  /**
+   * @returns TRUE if 'type' exists in this event, false otherwise
+   */
+  bool does_exist(Metadata_event_types type) const;
+
+ protected:
+  /**
+   * Read the specified 'type' from the buffer and update internal state
+   *
+   * @param type - Metadata_log_event_type to read from the buffer
+   *
+   * @returns - The size(in bytes) of the type read from buffer
+   */
+  uint read_type(Metadata_event_types type);
+
+  /**
+   * Set a specific type as existing in this event
+   *
+   * @param The type to set to true to indicate it exists in thie event
+   */
+  void set_exist(Metadata_event_types type);
+
+  /* Use 1 byte to encode the type of the field */
+  static const uint32_t ENCODED_TYPE_SIZE = 1;
+  /* Use 2 byte to encode the length of the field's value */
+  static const uint32_t ENCODED_LENGTH_SIZE = 2;
+
+  /* HLC timestamp. The type corresponding to this is HLC_TYPE. */
+  uint64_t hlc_time_ns_ = 0;
+  static const uint32_t ENCODED_HLC_SIZE = sizeof(hlc_time_ns_);
+
+  /* Prev HLC timestamp. The type corresponding to this is PREV_HLC_TYPE. */
+  uint64_t prev_hlc_time_ns_ = 0;
+  static const uint32_t ENCODED_PREV_HLC_SIZE = sizeof(prev_hlc_time_ns_);
+
+  /* Total size of this event when encoded into the stream */
+  size_t size_ = 0;
+
+  /* Types that exist in this event */
+  std::array<bool, static_cast<std::size_t>(
+                       Metadata_event_types::METADATA_EVENT_TYPE_MAX)>
+      existing_types_ = {};
 };
 
 /**

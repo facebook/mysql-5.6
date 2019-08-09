@@ -293,7 +293,7 @@ enum Log_event_type {
   ROTATE_EVENT = 4,
   INTVAR_EVENT = 5,
 
-  SLAVE_EVENT = 7,
+  METADATA_EVENT = 7, /* SLAVE_EVENT is repurposed as METADATA_EVENT */
 
   APPEND_BLOCK_EVENT = 9,
   DELETE_FILE_EVENT = 11,

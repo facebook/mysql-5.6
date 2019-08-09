@@ -248,7 +248,7 @@ Transaction_boundary_parser::get_event_boundary_type(
     case binary_log::HEARTBEAT_LOG_EVENT_V2:
     case binary_log::PREVIOUS_GTIDS_LOG_EVENT:
     case binary_log::STOP_EVENT:
-    case binary_log::SLAVE_EVENT:
+    case binary_log::METADATA_EVENT:
     case binary_log::DELETE_FILE_EVENT:
     case binary_log::TRANSACTION_CONTEXT_EVENT:
       boundary_type = EVENT_BOUNDARY_TYPE_IGNORE;
