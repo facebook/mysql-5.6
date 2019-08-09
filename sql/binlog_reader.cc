@@ -281,6 +281,9 @@ Binlog_read_error::Error_type binlog_event_deserialize(
     case binary_log::PARTIAL_UPDATE_ROWS_EVENT:
       ev = new Update_rows_log_event(buf, fde);
       break;
+    case binary_log::METADATA_EVENT:
+      ev = new Metadata_log_event(buf, fde);
+      break;
     default:
       /*
         Create an object of Ignorable_log_event for unrecognized sub-class.
