@@ -1025,7 +1025,6 @@ class Log_event {
     switch (get_type_code()) {
       case binary_log::STOP_EVENT:
       case binary_log::ROTATE_EVENT:
-      case binary_log::SLAVE_EVENT:
       case binary_log::FORMAT_DESCRIPTION_EVENT:
       case binary_log::INCIDENT_EVENT:
         return true;
@@ -3877,6 +3876,101 @@ class Transaction_payload_log_event
   uint8 get_mts_dbs(Mts_db_names *arg, Rpl_filter *rpl_filter) override;
   void set_mts_dbs(Mts_db_names &arg);
   uint8 mts_number_dbs() override;
+#endif
+};
+
+class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
+ public:
+#ifdef MYSQL_SERVER
+
+  /**
+   * Create a new metadata event
+   *
+   * @param thd_arg - The thread creating this event
+   * @param using_trans - Should use transaction cache?
+   */
+  Metadata_log_event(THD *thd_arg, bool using_trans);
+
+  /**
+   * Create a new metadata event which contains HLC timestamp
+   *
+   * @param thd_arg - The thread creating this event
+   * @param using_trans - Should use transaction cache?
+   * @param hlc_time_ns - The HLC timestamp in nanosecond
+   */
+  Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
+
+  /**
+   * Create a new metadata event which contains Previous HLC. Previous HLC is
+   * max HLC that could have been potentially stored in all the previous binlog
+   * for the instance. This can be easily extended later if we decide to
+   * support per-shard HLC. Metadata_log_event containing prev_hlc_time will be
+   * written immediately after Previous_gtid_log_event
+   *
+   * @param prev_hlc_time_ns - The previous HLC timestamp in nanosecond
+   */
+  Metadata_log_event(uint64_t prev_hlc_time_ns);
+
+#endif
+
+  Metadata_log_event(
+      char const *buffer,
+      binary_log::Format_description_event const *description_event);
+
+  virtual ~Metadata_log_event() override {}
+
+  // The size of the data section of the event
+  size_t get_data_size() override;
+
+  // Total size of the event including common header
+  size_t get_total_size();
+
+#ifndef MYSQL_SERVER
+  void print(FILE *file, PRINT_EVENT_INFO *print_event_info) const override;
+#endif
+
+#ifdef MYSQL_SERVER
+  bool write_data_body(Basic_ostream *ostream) override;
+  int pack_info(Protocol *) override;
+#endif
+
+#if defined(MYSQL_SERVER)
+  int do_apply_event(Relay_log_info const *rli) override;
+  int do_update_pos(Relay_log_info *rli) override;
+  enum_skip_reason do_shall_skip(Relay_log_info *) override;
+#endif
+
+ private:
+#ifdef MYSQL_SERVER
+  /**
+   * Write HLC timestamp to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_hlc_time(Basic_ostream *ostream);
+
+  /**
+   * Write prev HLC timestamp to file
+   *
+   * @param ostream - stream to write to
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_prev_hlc_time(Basic_ostream *ostream);
+
+  /**
+   * Write type and length to file
+   *
+   * @param ostream - stream to write to
+   * @param type    - type to write to stream
+   * @param length  - length to write to file
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_type_and_length(Basic_ostream *ostream, Metadata_event_types type,
+                             uint32_t length);
 #endif
 };
 

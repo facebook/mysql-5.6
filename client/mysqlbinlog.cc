@@ -1231,13 +1231,21 @@ static bool shall_skip_gtids(const Log_event *ev, Gtid *cached_gtid) {
       In this case, ROTATE and FD events should be processed and
       outputted.
     */
-    case binary_log::SLAVE_EVENT: /* for completion */
     case binary_log::STOP_EVENT:
     case binary_log::FORMAT_DESCRIPTION_EVENT:
     case binary_log::ROTATE_EVENT:
     case binary_log::IGNORABLE_LOG_EVENT:
     case binary_log::INCIDENT_EVENT:
       filtered = false;
+      break;
+    case binary_log::METADATA_EVENT:
+      filtered = filter_based_on_gtids;
+      if (((const Metadata_log_event *)ev)
+              ->does_exist(
+                  Metadata_log_event::Metadata_event_types::PREV_HLC_TYPE)) {
+        /* Filter metadata event if it contains prev hlc timestamp */
+        filtered = true;
+      }
       break;
     default:
       filtered = filter_based_on_gtids;
@@ -2062,6 +2070,19 @@ static Exit_status process_event(PRINT_EVENT_INFO *print_event_info,
         if (head->error == -1) goto err;
         break;
       }
+      case binary_log::METADATA_EVENT: {
+        ev->print(result_file, print_event_info);
+        if (head->error == -1) goto err;
+
+        /* Copy and flush head cache and body cache */
+        if (copy_event_cache_to_file_and_reinit(&print_event_info->head_cache,
+                                                result_file, stop_never) ||
+            copy_event_cache_to_file_and_reinit(&print_event_info->body_cache,
+                                                result_file, stop_never))
+          goto err;
+
+        goto end;
+      } break;
       case binary_log::PREVIOUS_GTIDS_LOG_EVENT:
         if (one_database && !opt_skip_gtids)
           warning(

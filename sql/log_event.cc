@@ -984,6 +984,8 @@ const char *Log_event::get_type_str(Log_event_type type) {
       return "Update_rows_partial";
     case binary_log::TRANSACTION_PAYLOAD_EVENT:
       return "Transaction_payload";
+    case binary_log::METADATA_EVENT:
+      return "Metadata";
     default:
       return "Unknown"; /* impossible */
   }
@@ -13723,11 +13725,214 @@ int Previous_gtids_log_event::do_update_pos(Relay_log_info *rli) {
   rli->inc_event_relay_log_pos();
   return 0;
 }
+#endif
+
+#ifdef MYSQL_SERVER
+Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans)
+    : binary_log::Metadata_event(),
+      Log_event(thd_arg, 0,
+                using_trans ? Log_event::EVENT_TRANSACTIONAL_CACHE
+                            : Log_event::EVENT_STMT_CACHE,
+                Log_event::EVENT_NORMAL_LOGGING, header(), footer()) {}
+
+Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans,
+                                       uint64_t hlc_time_ns)
+    : Metadata_log_event(thd_arg, using_trans) {
+  set_hlc_time(hlc_time_ns);
+}
+
+Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
+    : binary_log::Metadata_event(),
+      Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
+                Log_event::EVENT_IMMEDIATE_LOGGING) {
+  set_prev_hlc_time(prev_hlc_time_ns);
+}
+#endif
+
+Metadata_log_event::Metadata_log_event(
+    char const *buffer,
+    binary_log::Format_description_event const *description_event)
+    : binary_log::Metadata_event(buffer, description_event),
+      Log_event(header(), footer()) {}
+
+#ifdef MYSQL_SERVER
+bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_data_body");
+
+  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
+  DBUG_ASSERT(!(does_exist(Metadata_event_types::HLC_TYPE) &&
+                does_exist(Metadata_event_types::PREV_HLC_TYPE)));
+
+  if (write_hlc_time(ostream)) DBUG_RETURN(1);
+
+  if (write_prev_hlc_time(ostream)) DBUG_RETURN(1);
+
+  DBUG_RETURN(0);
+}
+
+bool Metadata_log_event::write_hlc_time(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_hlc_time");
+
+  if (!does_exist(Metadata_event_types::HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write HLC time */
+
+  if (write_type_and_length(ostream, Metadata_event_types::HLC_TYPE,
+                            sizeof(hlc_time_ns_))) {
+    DBUG_RETURN(1);
+  }
+
+  char buffer[ENCODED_HLC_SIZE];
+  char *ptr_buffer = buffer;
+
+  int8store(ptr_buffer, hlc_time_ns_);
+  ptr_buffer += ENCODED_HLC_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_prev_hlc_time(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_prev_hlc_time");
+
+  if (!does_exist(Metadata_event_types::PREV_HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write prev hlc time */
+
+  char buffer[ENCODED_PREV_HLC_SIZE];
+  char *ptr_buffer = buffer;
+
+  if (write_type_and_length(ostream, Metadata_event_types::PREV_HLC_TYPE,
+                            sizeof(prev_hlc_time_ns_))) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, prev_hlc_time_ns_);
+  ptr_buffer += ENCODED_PREV_HLC_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
+                                               Metadata_event_types type,
+                                               uint32_t length) {
+  DBUG_ENTER("Metadata_log_event::write_type_and_length");
+
+  char buffer[ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE];
+  char *ptr_buffer = buffer;
+
+  *(unsigned char *)ptr_buffer = static_cast<unsigned char>(type);
+  ptr_buffer += ENCODED_TYPE_SIZE;
+
+  int2store(ptr_buffer, length);
+  ptr_buffer += ENCODED_LENGTH_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+#endif  // MYSQL_SERVER
+
+// The size of the data section of the event
+size_t Metadata_log_event::get_data_size() {
+  /* data header + data body size for this event when serialized into the
+     stream */
+  return size_;
+}
+
+// Total size of the event including common header
+size_t Metadata_log_event::get_total_size() {
+  /* common header + data header + data body */
+  return LOG_EVENT_HEADER_LEN + get_data_size();
+}
+
+#ifdef MYSQL_SERVER
+int Metadata_log_event::pack_info(Protocol *protocol) {
+  std::string buffer;
+
+  if (does_exist(Metadata_event_types::HLC_TYPE)) {
+    buffer.append("HLC time: ");
+    buffer.append(std::to_string(hlc_time_ns_));
+  }
+
+  if (does_exist(Metadata_event_types::PREV_HLC_TYPE)) {
+    buffer.append("Prev HLC time: ");
+    buffer.append(std::to_string(prev_hlc_time_ns_));
+  }
+
+  if (buffer.length() > 0)
+    protocol->store_string(buffer.c_str(), buffer.length(), &my_charset_bin);
+
+  return 0;
+}
+#endif
+
+#ifndef MYSQL_SERVER
+void Metadata_log_event::print(FILE * /* file */,
+                               PRINT_EVENT_INFO *print_event_info) const {
+  IO_CACHE *const head = &print_event_info->head_cache;
+  IO_CACHE *const body = &print_event_info->body_cache;
+
+  if (!print_event_info->short_form) {
+    std::string buffer;
+    buffer.append("\tMetadata");
+
+    if (does_exist(Metadata_event_types::HLC_TYPE))
+      buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
+    if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
+      buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
+
+    print_header(head, print_event_info, false);
+    my_b_printf(head, "%s\n", buffer.c_str());
+    print_base64(body, print_event_info, false);
+  }
+
+  return;
+}
+#endif
+
+#if defined(MYSQL_SERVER)
+int Metadata_log_event::do_apply_event(Relay_log_info const *rli) {
+  DBUG_ENTER("Metadata_log_event::do_apply_event");
+  DBUG_ASSERT(rli->info_thd == thd);
+  int error = 0;
+
+  if (does_exist(Metadata_event_types::HLC_TYPE)) {
+    // Stash the HLC commit timestamp of this transaction in master
+    rli->info_thd->hlc_time_ns_next = hlc_time_ns_;
+  }
+
+  DBUG_RETURN(error);
+}
+
+int Metadata_log_event::do_update_pos(Relay_log_info *rli) {
+  rli->inc_event_relay_log_pos();
+  return 0;
+}
+
+Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
+    Relay_log_info * /*unused */) {
+  /*
+   * Metadata event containing previous hlc timestamp has no meaning for slave.
+   * hence slave should skip such events
+   */
+  if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  return Log_event::EVENT_SKIP_NOT;
+}
+#endif
 
 /**************************************************************************
         Transaction_context_log_event methods
 **************************************************************************/
 
+#ifdef MYSQL_SERVER
 Transaction_context_log_event::Transaction_context_log_event(
     const char *server_uuid_arg, bool using_trans, my_thread_id thread_id_arg,
     bool is_gtid_specified_arg)
