@@ -1035,6 +1035,7 @@ ulong opt_keyring_migration_port = 0;
 bool migrate_connect_options = false;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
+bool enable_binlog_hlc = 0;
 
 #if defined(_WIN32)
 /*
@@ -6118,11 +6119,13 @@ static int init_server_components() {
      *
      * This state will be cleared later in the initialization process.
      */
+    uint64_t prev_hlc = 0;
     Gtid_set *executed_gtids =
         const_cast<Gtid_set *>(gtid_state->get_executed_gtids());
     if (mysql_bin_log.init_gtid_sets(
             executed_gtids, NULL /* lost_gtid */, opt_master_verify_checksum,
-            true /*true=need lock*/, NULL /*trx_parser*/, NULL /*partial_trx*/))
+            true /*true=need lock*/, NULL /*trx_parser*/, NULL /*partial_trx*/,
+            &prev_hlc))
       unireg_abort(1);
 
     /*
@@ -6133,6 +6136,10 @@ static int init_server_components() {
     DBUG_ASSERT(!mysql_bin_log.is_relay_log);
     mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
     mysql_mutex_lock(log_lock);
+
+    // Update the instance's HLC clock to be greater than or equal to the HLC
+    // times of trx's in all previous binlog
+    mysql_bin_log.update_hlc(prev_hlc);
 
     if (mysql_bin_log.open_binlog(opt_bin_logname, nullptr, max_binlog_size,
                                   false, true /*need_lock_index=true*/,
@@ -6969,11 +6976,16 @@ int mysqld_main(int argc, char **argv)
     Gtid_set gtids_in_binlog(global_sid_map, global_sid_lock);
     Gtid_set gtids_in_binlog_not_in_table(global_sid_map, global_sid_lock);
 
+    uint64_t prev_hlc = 0;
     if (mysql_bin_log.init_gtid_sets(
             &gtids_in_binlog, &purged_gtids_from_binlog,
             opt_master_verify_checksum, true /*true=need lock*/,
-            nullptr /*trx_parser*/, nullptr /*partial_trx*/))
+            nullptr /*trx_parser*/, nullptr /*partial_trx*/, &prev_hlc))
       unireg_abort(MYSQLD_ABORT_EXIT);
+
+    // Update the instance's HLC clock to be greater than or equal to the HLC
+    // times of trx's in all previous binlog
+    mysql_bin_log.update_hlc(prev_hlc);
 
     global_sid_lock->wrlock();
 

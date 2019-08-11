@@ -1,0 +1,318 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/sync_slave_sql_with_master.inc
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.enable_binlog_hlc = true;
+Case 1: Single statement txn. Commit ts needs to be updated at cmt time
+use test;
+create table t1 (a int primary key, b char(8)) engine=InnoDB;
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 2: Enable binlog_hlc in master and disable it in slave
+SET @@global.enable_binlog_hlc = true;
+SET @@global.enable_binlog_hlc = false;
+insert into t1 values(6, 'f');
+insert into t1 values(7, 'g');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 3: Disable binlog_hlc in master and enable it in slave
+SET @@global.enable_binlog_hlc = false;
+SET @@global.enable_binlog_hlc = true;
+insert into t1 values(8, 'h');
+insert into t1 values(9, 'i');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 4: Enable binlog_hlc in master again
+SET @@global.enable_binlog_hlc = true;
+insert into t1 values(10, 'j');
+insert into t1 values(11, 'k');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(10, 'j')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(11, 'k')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(10, 'j')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(11, 'k')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Case 5: Setting a lower HLC is a no-op. HLC should continue to increase
+monotonically
+SET @@global.enable_binlog_hlc = true;
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 1907478000000000000;
+SET @@global.enable_binlog_hlc = true;
+insert into t1 values(12, 'j');
+insert into t1 values(13, 'k');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(10, 'j')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(11, 'k')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000008
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(12, 'j')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000009
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; insert into t1 values(13, 'k')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(7, 'g')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(8, 'h')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(9, 'i')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(10, 'j')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(11, 'k')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000008
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(12, 'j')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000009
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; insert into t1 values(13, 'k')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+drop table if exists t1;
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+include/sync_slave_sql_with_master.inc
+SET @@global.enable_binlog_hlc = default;
+include/rpl_end.inc

@@ -7447,3 +7447,19 @@ static Sys_var_ulonglong Sys_minimum_hlc_ns(
     GLOBAL_VAR(minimum_hlc_ns), CMD_LINE(OPT_ARG), VALID_RANGE(0, ULLONG_MAX),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(validate_binlog_hlc), ON_UPDATE(update_binlog_hlc));
+
+static bool check_enable_binlog_hlc(sys_var * /* self */, THD * /* thd */,
+                                    set_var *var) {
+  uint64_t new_enable_binlog_hlc = var->save_result.ulonglong_value;
+  if (get_gtid_mode(GTID_MODE_LOCK_NONE) != GTID_MODE_ON &&
+      new_enable_binlog_hlc)
+    return true;  // Needs gtid mode to enable binlog hlc
+
+  return false;
+}
+
+static Sys_var_bool Sys_enable_binlog_hlc(
+    "enable_binlog_hlc",
+    "Enable logging HLC timestamp as part of Metadata log event",
+    GLOBAL_VAR(enable_binlog_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_binlog_hlc));

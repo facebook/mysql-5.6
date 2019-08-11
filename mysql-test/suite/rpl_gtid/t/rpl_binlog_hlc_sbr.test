@@ -1,0 +1,22 @@
+--source include/not_parallel.inc
+--source include/master-slave.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+--source include/have_debug.inc
+
+# Cleanup old binlog
+connection master;
+--source include/sync_slave_sql_with_master.inc
+connection master;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+connection slave;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+# Include the tests
+--source rpl_binlog_hlc.inc

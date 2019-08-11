@@ -62,6 +62,7 @@ class Log_event;
 class Master_info;
 class Relay_log_info;
 class Rows_log_event;
+class Metadata_log_event;
 class Sid_map;
 class THD;
 class Transaction_boundary_parser;
@@ -478,17 +479,20 @@ class MYSQL_BIN_LOG : public TC_LOG {
     used in the case of the rest of the transaction be added to the
     relaylog.
     @param is_server_starting True if the server is starting.
+    @param max_prev_hlc max hlc in all previous binlogs (out param)
     @return false on success, true on error.
   */
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
                       bool verify_checksum, bool need_lock,
                       Transaction_boundary_parser *trx_parser,
-                      Gtid_monitoring_info *partial_trx);
+                      Gtid_monitoring_info *partial_trx,
+                      uint64_t *max_prev_hlc = NULL);
 
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
       const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
       Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
-      bool is_relay_log, my_off_t max_pos = ULLONG_MAX);
+      bool is_relay_log, my_off_t max_pos = ULLONG_MAX,
+      uint64_t *max_prev_hlc = NULL);
 
   void set_previous_gtid_set_relaylog(Gtid_set *previous_gtid_set_param) {
     DBUG_ASSERT(is_relay_log);
@@ -541,6 +545,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
     @retval True  Error
   */
   bool reencrypt_logs();
+
+  // Extract HLC time (either prev_hlc or regular hlc) from Metadata_log_event
+  uint64_t extract_hlc(Metadata_log_event *metadata_ev);
 
   /* Return the HLC timestamp for the caller (next txn) */
   uint64_t get_next_hlc() { return hlc.get_next(); }
@@ -802,6 +809,28 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool write_event(Log_event *event_info, bool write_meta_data_event = false);
   bool write_cache(THD *thd, class binlog_cache_data *cache_data,
                    class Binlog_event_writer *writer);
+
+  /**
+   * Assign HLC timestamp to a thd in group commit
+   *
+   * @param thd - the THD in group commit
+   *
+   * @return false on success, true on failure
+   */
+  bool assign_hlc(THD *thd);
+
+  /**
+   * Write HLC timestamp of a thd in group commit to binlog
+   *
+   * @param thd - the THD in group commit
+   * @param cache_data - The cache that is being written dusring flush stage
+   * @param writer - Binlog writer
+   *
+   * @return false on success, true on failure
+   */
+  bool write_hlc(THD *thd, binlog_cache_data *cache_data,
+                 Binlog_event_writer *writer);
+
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush
     stage having gtid_next.type == AUTOMATIC_GTID.

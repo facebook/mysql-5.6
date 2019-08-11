@@ -1,0 +1,351 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/sync_slave_sql_with_master.inc
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.enable_binlog_hlc = true;
+include/stop_slave.inc
+Generate some txns in master instance
+create table t1 (a int primary key, b char(8)) engine=Innodb;
+set @@session.autocommit= on;
+insert into t1 values (1, 'a');
+set @@session.autocommit= off;
+begin;
+insert into t1 values (2, 'b');
+insert into t1 values (3, 'c');
+commit;
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=Innodb
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Restoring t1 on slave through mysqlbinlog should carry HLC from the master instance
+include/diff_tables.inc [master:t1, slave:t1]
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+HLC increases monotonically for txns generated on slave instance
+create table t2 (a int primary key, b char(8)) engine=Innodb;
+insert into t2 values (1, 'a');
+insert into t2 values (2, 'b');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=Innodb
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	use `test`; create table t2 (a int primary key, b char(8)) engine=Innodb
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Generate some more txns on master instance
+flush logs;
+set @@session.autocommit= on;
+insert into t1 values (4, 'd');
+insert into t1 values (5, 'e');
+insert into t1 values (6, 'f');
+set @@session.autocommit= off;
+begin;
+insert into t1 values (7, 'g');
+insert into t1 values (8, 'h');
+commit;
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000003	#	Metadata	#	#	Prev HLC time: 2538630000000000003
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000006
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+master-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000007
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+Restoring t1 on slave through mysqlbinlog should carry HLC from the master instance
+include/diff_tables.inc [master:t1, slave:t1]
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+HLC increases monotonically for txns generated on slave instance
+insert into t2 values (3, 'c');
+insert into t2 values (4, 'd');
+insert into t2 values (5, 'e');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; create table t1 (a int primary key, b char(8)) engine=Innodb
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	use `test`; create table t2 (a int primary key, b char(8)) engine=Innodb
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000008
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000009
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000010
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Generate some more txns on master and apply it on slave with --skip-gtids. HLC ts should be retained
+flush logs;
+set @@session.autocommit= on;
+insert into t1 values (9, 'i');
+insert into t1 values (10, 'j');
+insert into t1 values (11, 'k');
+insert into t1 values (12, 'l');
+insert into t1 values (13, 'm');
+set @@session.autocommit= off;
+begin;
+insert into t1 values (14, 'n');
+insert into t1 values (15, 'o');
+commit;
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+9	i
+10	j
+11	k
+12	l
+13	m
+14	n
+15	o
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000004	#	Metadata	#	#	Prev HLC time: 2538630000000000007
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000008
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000009
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000010
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000011
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000012
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Metadata	#	#	HLC time: 2538630000000000013
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+flush logs;
+Restoring t1 on slave through mysqlbinlog should carry HLC from the master instance
+include/diff_tables.inc [master:t1, slave:t1]
+select * from t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+7	g
+8	h
+9	i
+10	j
+11	k
+12	l
+13	m
+14	n
+15	o
+HLC increases monotonically for txns generated on slave instance
+insert into t2 values (6, 'f');
+insert into t2 values (7, 'g');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000003	#	Metadata	#	#	Prev HLC time: 2538630000000000010
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000008
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000009
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000010
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000011
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000012
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000013
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000014
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000015
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t2)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+flush logs;
+drop table t1;
+change master to master_auto_position=0;
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+drop table t2;
+SET @@global.enable_binlog_hlc = default;
