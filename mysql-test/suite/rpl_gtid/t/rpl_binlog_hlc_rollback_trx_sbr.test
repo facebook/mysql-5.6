@@ -1,0 +1,19 @@
+--source include/have_debug.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+--source include/master-slave.inc
+
+# Cleanup old binlogs; note, that default connection after 'master-slave.inc'
+# execution is 'master'
+FLUSH LOGS;
+--let $binlog=query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval PURGE BINARY LOGS TO '$binlog'
+
+--source include/rpl_connection_slave.inc
+FLUSH LOGS;
+--let $binlog=query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval PURGE BINARY LOGS TO '$binlog'
+
+# Include the tests
+--source rpl_binlog_hlc_rollback_trx.inc

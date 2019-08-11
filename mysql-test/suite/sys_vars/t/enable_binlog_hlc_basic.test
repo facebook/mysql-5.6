@@ -1,0 +1,29 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_binlog_hlc is false
+SELECT @@global.enable_binlog_hlc;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_binlog_hlc;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that thevariable cannot be set unless gtid is enabled.
+## Actual tests which enables this are in different file which test this feature
+####
+--echo enable_binlog_hlc can be enabled only when gtid is enabled
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.enable_binlog_hlc = true;
+SELECT @@global.enable_binlog_hlc;
+
+SET @@global.enable_binlog_hlc = false;
+SELECT @@global.enable_binlog_hlc;
+
+SET @@global.enable_binlog_hlc = default;
+SELECT @@global.enable_binlog_hlc;
