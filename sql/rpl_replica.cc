@@ -4470,6 +4470,7 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
           rli->curr_group_assigned_parts.clear();
           // reset the B-group and Gtid-group marker
           rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+          rli->curr_group_seen_metadata = false;
           rli->last_assigned_worker = nullptr;
         }
         /*
