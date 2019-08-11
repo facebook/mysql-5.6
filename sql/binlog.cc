@@ -1357,6 +1357,56 @@ int binlog_cache_data::write_event(Log_event *ev) {
   DBUG_RETURN(0);
 }
 
+/**
+ * Assign HLC timestamp to a thd in group commit
+ *
+ * @param thd - the THD in group commit
+ *
+ * @return false on success, true on failure
+ */
+bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
+  if (!enable_binlog_hlc) {
+    /* HLC not enabled, return */
+    thd->should_write_hlc = false;
+    return false;
+  }
+
+  /* Get next HLC timestamp on master instance. On slave instance
+   * HLC timestamp would be the same as seen in the binlog stream i.e slave
+   * retains master's HLC timestamp */
+  if (!thd->slave_thread && !thd->rli_fake)
+    thd->hlc_time_ns_next = mysql_bin_log.get_next_hlc();
+
+  thd->should_write_hlc = true;
+
+  return false;
+}
+
+/**
+ * Write HLC timestamp of a thd in group commit to binlog
+ *
+ * @param thd - the THD in group commit
+ * @param cache_data - The cache that is being written dusring flush stage
+ * @param writer - Binlog writer
+ *
+ * @return false on success, true on failure
+ */
+bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
+                              Binlog_event_writer *writer) {
+  if (!thd->should_write_hlc) {
+    /* HLC was not assigned to this thd */
+    thd->hlc_time_ns_next = 0;
+    return false;
+  }
+
+  /* HLC written, clear state */
+  thd->should_write_hlc = false;
+
+  Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache(),
+                                 thd->hlc_time_ns_next);
+  return metadata_ev.write(writer);
+}
+
 bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {
   DBUG_ENTER("MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group");
   bool error = false;
@@ -1392,6 +1442,9 @@ bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {
         DBUG_ASSERT(head->owned_gtid.sidno == THD::OWNED_SIDNO_ANONYMOUS);
       }
     }
+
+    // Assign HLC timestamp to the thd's in the group
+    assign_hlc(head);
   }
 
   if (locked_sidno > 0) gtid_state->unlock_sidno(locked_sidno);
@@ -1722,6 +1775,12 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
     if (!error)
       if ((error = mysql_bin_log.write_gtid(thd, this, &writer)))
         thd->commit_error = THD::CE_FLUSH_ERROR;
+
+    if (!error) {
+      if ((error = mysql_bin_log.write_hlc(thd, this, &writer)))
+        thd->commit_error = THD::CE_FLUSH_ERROR;
+    }
+
     if (!error) error = mysql_bin_log.write_cache(thd, this, &writer);
 
     if (flags.with_xid && error == 0) *wrote_xid = true;
@@ -4020,6 +4079,7 @@ static bool read_gtids_and_update_trx_parser_from_relaylog(
   must hold it.
   @param verify_checksum Set to true to verify event checksums.
   @param max_pos Read the binlog file upto max_pos offset.
+  @param max_prev_hlc max hlc in all previous binlogs (out param)
 
   @retval GOT_GTIDS The file was successfully read and it contains
   both Gtid_log_events and Previous_gtids_log_events.
@@ -4041,7 +4101,8 @@ MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status
 MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
                                       Gtid_set *prev_gtids, Gtid *first_gtid,
                                       Sid_map *sid_map, bool verify_checksum,
-                                      bool is_relay_log, my_off_t max_pos) {
+                                      bool is_relay_log, my_off_t max_pos,
+                                      uint64_t *max_prev_hlc) {
   DBUG_ENTER("read_gtids_from_binlog");
   DBUG_PRINT("info", ("Opening file %s", filename));
 
@@ -4074,6 +4135,8 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
   enum_read_gtids_from_binlog_status ret = NO_GTIDS;
   bool done = false;
   bool seen_first_gtid = false;
+  uint64_t prev_hlc = 0;
+
   while (!done && (ev = binlog_file_reader.read_event_object()) != NULL) {
 #ifndef DBUG_OFF
     event_counter++;
@@ -4180,6 +4243,13 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
         }
         break;
       }
+      case binary_log::METADATA_EVENT: {
+        if (unlikely(max_prev_hlc)) {
+          prev_hlc = std::max(
+              prev_hlc, extract_hlc(static_cast<Metadata_log_event *>(ev)));
+        }
+        break;
+      }
       case binary_log::ANONYMOUS_GTID_LOG_EVENT: {
         /*
           When this is a relaylog, we just check if it contains
@@ -4226,6 +4296,11 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
     LogErr(WARNING_LEVEL, ER_BINLOG_ERROR_READING_GTIDS_FROM_BINARY_LOG, -1);
   }
 
+  // Set max HLC timestamp in all previous binlogs
+  if (unlikely(max_prev_hlc)) {
+    *max_prev_hlc = prev_hlc;
+  }
+
   if (all_gtids)
     all_gtids->dbug_print("all_gtids");
   else
@@ -4249,6 +4324,11 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
            event_counter, filename);
 #endif
   DBUG_RETURN(ret);
+}
+
+uint64_t MYSQL_BIN_LOG::extract_hlc(Metadata_log_event *metadata_ev) {
+  return std::max(metadata_ev->get_hlc_time(),
+                  metadata_ev->get_prev_hlc_time());
 }
 
 bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
@@ -4318,7 +4398,8 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
 bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    bool verify_checksum, bool need_lock,
                                    Transaction_boundary_parser *trx_parser,
-                                   Gtid_monitoring_info *partial_trx) {
+                                   Gtid_monitoring_info *partial_trx,
+                                   uint64_t *max_prev_hlc) {
   char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   uchar *previous_gtid_set_in_file = NULL;
   bool found_lost_gtids = false;
@@ -4436,8 +4517,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
         if (normalize_binlog_name(full_log_name, file_name_and_gtid_set_length,
                                   is_relay_log) ||
             read_gtids_from_binlog(full_log_name, NULL, &unused_lost_gtid, NULL,
-                                   sid_map, verify_checksum,
-                                   is_relay_log) == ERROR) {
+                                   sid_map, verify_checksum, is_relay_log,
+                                   ULLONG_MAX, max_prev_hlc) == ERROR) {
           error = 1;
           goto end;
         }
@@ -4483,7 +4564,8 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
       goto end;
     }
     if (read_gtids_from_binlog(full_log_name, all_gtids, NULL, NULL, sid_map,
-                               verify_checksum, is_relay_log) == ERROR) {
+                               verify_checksum, is_relay_log, ULLONG_MAX,
+                               max_prev_hlc) == ERROR) {
       error = 1;
       goto end;
     }
@@ -4819,6 +4901,19 @@ bool MYSQL_BIN_LOG::open_binlog(
     if (is_relay_log) prev_gtids_ev.set_relay_log_event();
     if (need_sid_lock) sid_lock->unlock();
     if (write_event_to_binlog(&prev_gtids_ev)) goto err;
+
+    /* If HLC is enabled, then write the current HLC value into binlog. This is
+     * used during server restart to intialize the HLC clock of the instance.
+     * This is a guarantee that all trx's in all of the previous binlog have a
+     * HLC timestamp lower than or equal to the value seen here. Note that this
+     * function (open_binlog()) should be called during server restart only
+     * after initializing the local instance's HLC clock (by reading the
+     * previous binlog file) */
+    if (enable_binlog_hlc) {
+      uint64_t current_hlc = mysql_bin_log.get_current_hlc();
+      Metadata_log_event metadata_ev(current_hlc);
+      if (write_event_to_binlog(&metadata_ev)) goto err;
+    }
   }
 
   if (extra_description_event) {
@@ -8427,6 +8522,14 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     } else
       gtid_state->update_on_rollback(thd);
   }
+
+  /* If this is a slave, then update the local HLC to reflect the HLC of this
+   * trx (as generated by master) */
+  if (thd->hlc_time_ns_next != 0 && enable_binlog_hlc &&
+      (thd->rli_slave || thd->rli_fake)) {
+    update_hlc(thd->hlc_time_ns_next);
+  }
+  thd->hlc_time_ns_next = 0;
 
   DBUG_EXECUTE_IF("leaving_finish_commit", {
     const char act[] = "now SIGNAL signal_leaving_finish_commit";
