@@ -127,7 +127,8 @@ void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
                                   unsigned long long *binlog_pos,
                                   char **gtid_executed,
-                                  int *gtid_executed_length);
+                                  int *gtid_executed_length,
+                                  unsigned long long *snapshot_hlc);
 enum enum_ftparser_mode {
   MYSQL_FTPARSER_SIMPLE_MODE = 0,
   MYSQL_FTPARSER_WITH_STOPWORDS = 1,
