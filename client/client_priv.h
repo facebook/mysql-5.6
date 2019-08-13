@@ -190,6 +190,7 @@ enum options_client {
   OPT_INNODB_STATS_ON_METADATA,
   OPT_DUMP_FBOBJ_STATS,
   OPT_PRINT_GTIDS,
+  OPT_MINIMUM_HLC,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
