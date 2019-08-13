@@ -66,7 +66,7 @@ extern NAMED_ILIST key_caches;
 KEY_CACHE *create_key_cache(const char *name, uint length);
 KEY_CACHE *get_key_cache(LEX_STRING *cache_name);
 KEY_CACHE *get_or_create_key_cache(const char *name, uint length);
-void free_key_cache(const char *name, KEY_CACHE *key_cache);
+void free_key_cache(const char *name, uchar *data);
 bool process_key_caches(process_key_cache_t func);
 
 #endif /* KEYCACHES_INCLUDED */

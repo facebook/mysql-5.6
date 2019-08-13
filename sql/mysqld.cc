@@ -2327,7 +2327,7 @@ void clean_up(bool print_message)
   xid_cache_free();
   table_def_free();
   mdl_destroy();
-  key_caches.delete_elements((void (*)(const char*, uchar*)) free_key_cache);
+  key_caches.delete_elements(free_key_cache);
   multi_keycache_free();
   free_status_vars();
   end_thr_alarm(1);     /* Free allocated memory */

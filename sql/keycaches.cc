@@ -110,8 +110,9 @@ KEY_CACHE *get_or_create_key_cache(const char *name, uint length)
 }
 
 
-void free_key_cache(const char *name, KEY_CACHE *key_cache)
+void free_key_cache(const char *name, uchar *data)
 {
+  KEY_CACHE *key_cache = (KEY_CACHE *) data;
   end_key_cache(key_cache, 1);		// Can never fail
   my_free(key_cache);
 }
