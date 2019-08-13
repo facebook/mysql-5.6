@@ -943,6 +943,9 @@ enum enum_binlog_error_action
   ABORT_SERVER= 1
 };
 extern const char *binlog_error_action_list[];
+extern my_bool slave_high_priority_ddl;
+extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
+extern double slave_high_priority_lock_wait_timeout_double;
 extern my_bool log_gtid_unsafe_statements;
 extern char *mysqld_socket_umask;
 extern my_bool is_slave;

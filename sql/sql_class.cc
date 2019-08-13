@@ -2238,20 +2238,17 @@ bool THD::kill_shared_locks(MDL_context_owner *ctx_in_use)
   THD *in_use= ctx_in_use->get_thd();
 
   // Only allow super user with ddl command to kill blocking threads
-  if (this->security_ctx->master_access & SUPER_ACL
-      &&
-      (
-        ((this->variables.high_priority_ddl || lex->high_priority_ddl) &&
-      support_high_priority(lex->sql_command))
-        || variables.kill_conflicting_connections
-      )
-     )
-  {
-    return kill_one_thread(in_use, false) == 0;
+  if (this->security_ctx->master_access & SUPER_ACL) {
+    bool is_high_priority_ddl =
+        (this->variables.high_priority_ddl || lex->high_priority_ddl ||
+         (slave_thread && slave_high_priority_ddl)) &&
+        support_high_priority(lex->sql_command);
+
+    if (is_high_priority_ddl || variables.kill_conflicting_connections)
+      return kill_one_thread(in_use, false) == 0;
   }
   return false;
 }
-
 
 /*
   Remember the location of thread info, the structure needed for

@@ -2245,11 +2245,16 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
                                ulonglong lock_wait_timeout_nsec)
 {
   THD *thd = get_thd();
+  bool is_slave_high_priority_ddl = false;
+
   if (thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) {
     // if this is a high priority command, use the
     // high_priority_lock_wait_timeout_nsec
     lock_wait_timeout_nsec =
       thd->variables.high_priority_lock_wait_timeout_nsec;
+  } else if (thd->slave_thread && slave_high_priority_ddl) {
+    lock_wait_timeout_nsec = slave_high_priority_lock_wait_timeout_nsec;
+    is_slave_high_priority_ddl = true;
   }
 
   MDL_lock *lock;
@@ -2322,7 +2327,8 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   // indicates that no connections will be killed
   enum_mdl_type kill_conflicting_locks_lower_than = MDL_INTENTION_EXCLUSIVE;
   bool kill_conflicting_connections_after_timeout_and_retry = false;
-  if ((thd->variables.high_priority_ddl || thd->lex->high_priority_ddl) &&
+  if ((thd->variables.high_priority_ddl || thd->lex->high_priority_ddl ||
+       is_slave_high_priority_ddl) &&
       ticket->get_type() >= MDL_SHARED_UPGRADABLE) {
     kill_conflicting_connections_after_timeout_and_retry = true;
     kill_conflicting_locks_lower_than = MDL_SHARED_UPGRADABLE;

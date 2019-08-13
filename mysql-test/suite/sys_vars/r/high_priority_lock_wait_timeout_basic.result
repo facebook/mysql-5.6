@@ -139,7 +139,7 @@ WHERE VARIABLE_NAME='high_priority_lock_wait_timeout';
 1
 '#------------------FN_DYNVARS_002_07-----------------------#'
 SELECT @@session.high_priority_lock_wait_timeout = VARIABLE_VALUE
-FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
 WHERE VARIABLE_NAME='high_priority_lock_wait_timeout';
 @@session.high_priority_lock_wait_timeout = VARIABLE_VALUE
 1

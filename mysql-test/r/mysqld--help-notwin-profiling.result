@@ -1765,6 +1765,16 @@ The following options may be given as the first argument:
  If this value is OPTIMIZED, updating the table is done
  inside storage engines to avoid MySQL layer's performance
  overhead
+ --slave-high-priority-ddl 
+ Setting this flag will allow DDL commands to kill
+ conflictingconnections during replication (effective for
+ admin user only).
+ --slave-high-priority-lock-wait-timeout=# 
+ Timeout in seconds to wait for a lock before returning an
+ error. This timeout is specifically for high_priority
+ commands (DDLs), when the slave_high_priority_ddl
+ variable is turned on. The argument will be treated as a
+ decimal value with nanosecond precision.
  --slave-lag-sla-seconds[=#] 
  SLA for slave lag in seconds, any tansaction that
  violated the SLA increments the slave_lag_sla_misses
@@ -2525,6 +2535,8 @@ slave-compression-lib zlib
 slave-dump-thread-wait-sleep-usec 0
 slave-exec-mode STRICT
 slave-gtid-info ON
+slave-high-priority-ddl FALSE
+slave-high-priority-lock-wait-timeout 1
 slave-lag-sla-seconds 60
 slave-max-allowed-packet 1073741824
 slave-net-timeout 3600

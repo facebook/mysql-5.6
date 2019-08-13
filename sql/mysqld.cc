@@ -772,7 +772,9 @@ my_bool opt_log_slow_extra= FALSE;
 ulonglong binlog_fsync_count = 0;
 ulong opt_peak_lag_time;
 ulong opt_peak_lag_sample_rate;
-
+my_bool slave_high_priority_ddl= FALSE;
+double slave_high_priority_lock_wait_timeout_double= 1.0;
+ulonglong slave_high_priority_lock_wait_timeout_nsec= 1.0;
 my_bool log_datagram= 0;
 ulong log_datagram_usecs= 0;
 int log_datagram_sock= -1;
