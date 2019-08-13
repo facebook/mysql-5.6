@@ -2879,7 +2879,7 @@ bool subselect_single_select_engine::exec(THD *thd) {
     join->reset();
     item->reset();
     unit->reset_executed();
-    unit->clear_corr_ctes();
+    unit->clear_correlated_query_blocks();
     item->assigned(false);
   }
   if (!unit->is_executed()) {
@@ -3140,8 +3140,7 @@ bool subselect_indexsubquery_engine::exec(THD *) {
       subquery doesn't go through unit::execute() or JOIN::reset(), we have to
       do manual clearing:
     */
-    item->unit->clear_corr_ctes();
-    tab->join()->clear_corr_derived_tmp_tables();
+    item->unit->clear_correlated_query_blocks();
     if (!table->materialized) {
       THD *const thd = table->in_use;
       bool err = tl->create_materialized_table(thd);

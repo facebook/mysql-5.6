@@ -822,9 +822,14 @@ bool SELECT_LEX_UNIT::explain(THD *explain_thd, const THD *query_thd) {
 }
 
 /**
-   Empties all correlated CTEs defined in the unit's WITH clause.
-*/
-bool SELECT_LEX_UNIT::clear_corr_ctes() {
+  Empties all correlated query blocks defined within the query expression;
+  that is, correlated CTEs defined in the expression's WITH clause, and
+  correlated derived tables.
+ */
+bool SELECT_LEX_UNIT::clear_correlated_query_blocks() {
+  for (SELECT_LEX *sl = first_select(); sl; sl = sl->next_select()) {
+    sl->join->clear_corr_derived_tmp_tables();
+  }
   if (!m_with_clause) return false;
   for (auto el : m_with_clause->m_list->elements()) {
     Common_table_expr &cte = el->m_postparse;
@@ -1147,7 +1152,7 @@ bool SELECT_LEX_UNIT::execute(THD *thd) {
   Change_current_select save_select(thd);
 
   if (is_executed()) {
-    if (clear_corr_ctes()) return true;
+    if (clear_correlated_query_blocks()) return true;
     for (SELECT_LEX *sl = first_select(); sl; sl = sl->next_select()) {
       if (sl->join->is_executed()) {
         thd->lex->set_current_select(sl);

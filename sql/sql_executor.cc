@@ -1711,32 +1711,15 @@ unique_ptr_destroy_only<RowIterator> GetTableIterator(
     ConvertItemsToCopy(subjoin->fields, qep_tab->table()->visible_field_ptr(),
                        &subjoin->tmp_table_param, subjoin);
 
-    bool rematerialize = qep_tab->rematerialize;
-    if (qep_tab->join()->select_lex->uncacheable &&
-        qep_tab->table_ref->common_table_expr() == nullptr) {
-      // If the query is uncacheable, we need to rematerialize it each and
-      // every time it's read. In particular, this can happen for LATERAL
-      // tables.
-      //
-      // For (lateral) CTEs, we don't need this check, as we already
-      // explicitly clear CTEs when we start executing the query block where
-      // it is defined (clear_corr_ctes(), called whenever we start a query
-      // block or materialize a table, takes care of this). In fact,
-      // rematerializing every time is actively harmful, as it would risk
-      // clearing out a temporary table that an outer query block is still
-      // scanning.
-      rematerialize = true;
-    }
-
     bool copy_fields_and_items_in_materialize = !subjoin->streaming_aggregation;
     table_iterator.reset(new (thd->mem_root) MaterializeIterator(
         thd, subjoin->release_root_iterator(), &subjoin->tmp_table_param,
         qep_tab->table(), move(qep_tab->read_record.iterator),
         qep_tab->table_ref->common_table_expr(), subjoin->select_lex, subjoin,
-        /*ref_slice=*/-1, copy_fields_and_items_in_materialize, rematerialize,
+        /*ref_slice=*/-1, copy_fields_and_items_in_materialize, qep_tab->rematerialize,
         subjoin->tmp_table_param.end_write_records));
 
-    if (!rematerialize) {
+    if (!qep_tab->rematerialize) {
       MaterializeIterator *materialize =
           down_cast<MaterializeIterator *>(table_iterator.get());
       if (qep_tab->invalidators != nullptr) {

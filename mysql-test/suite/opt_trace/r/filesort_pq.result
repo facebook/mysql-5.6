@@ -6888,6 +6888,20 @@ LIMIT 30	{
               "select#": 1,
               "steps": [
                 {
+                  "creating_tmp_table": {
+                    "tmp_table_info": {
+                      "in_plan_at_position": 2,
+                      "columns": 6,
+                      "row_length": 419,
+                      "key_length": 0,
+                      "unique_constraint": false,
+                      "makes_grouped_rows": false,
+                      "cannot_insert_duplicates": false,
+                      "location": "TempTable"
+                    }
+                  }
+                },
+                {
                   "materialize": {
                     "select#": 2,
                     "steps": [
@@ -6926,20 +6940,6 @@ LIMIT 30	{
                         }
                       }
                     ]
-                  }
-                },
-                {
-                  "creating_tmp_table": {
-                    "tmp_table_info": {
-                      "in_plan_at_position": 2,
-                      "columns": 6,
-                      "row_length": 419,
-                      "key_length": 0,
-                      "unique_constraint": false,
-                      "makes_grouped_rows": false,
-                      "cannot_insert_duplicates": false,
-                      "location": "TempTable"
-                    }
                   }
                 },
                 {

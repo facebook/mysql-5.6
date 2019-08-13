@@ -768,19 +768,6 @@ bool MaterializeIterator::Init() {
     trace_exec.add_select_number(m_select_lex->select_number);
     Opt_trace_array trace_steps(trace, "steps");
 
-    if (m_subquery_iterator->Init()) {
-      // Nothing should really enable PSI batch mode from Init(), since nothing
-      // calls Read() from Init() without also being capable of cleaning up
-      // (e.g. MaterializeIterator); see the comment in
-      // LimitOffsetIterator::Read(). Nevertheless, just to be sure, we clean up
-      // here.
-      if (m_join->qep_tab != nullptr && m_join->primary_tables > 0) {
-        QEP_TAB *last_qep_tab = &m_join->qep_tab[m_join->primary_tables - 1];
-        last_qep_tab->table()->file->end_psi_batch_mode_if_started();
-      }
-      return true;
-    }
-
     if (!table()->is_created()) {
       if (instantiate_tmp_table(thd(), table())) {
         return true;
@@ -794,7 +781,22 @@ bool MaterializeIterator::Init() {
     }
 
     table()->file->ha_delete_all_rows();
-    m_join->unit->clear_corr_ctes();
+    m_join->unit->clear_correlated_query_blocks();
+
+    // FB - in 8.0.18, this code has been refactored so that the init occurs
+    // after the clear call
+    if (m_subquery_iterator->Init()) {
+      // Nothing should really enable PSI batch mode from Init(), since nothing
+      // calls Read() from Init() without also being capable of cleaning up
+      // (e.g. MaterializeIterator); see the comment in
+      // LimitOffsetIterator::Read(). Nevertheless, just to be sure, we clean up
+      // here.
+      if (m_join->qep_tab != nullptr && m_join->primary_tables > 0) {
+        QEP_TAB *last_qep_tab = &m_join->qep_tab[m_join->primary_tables - 1];
+        last_qep_tab->table()->file->end_psi_batch_mode_if_started();
+      }
+      return true;
+    }
 
     // If we are removing duplicates by way of a hash field
     // (see doing_hash_deduplication() for an explanation), we need to
