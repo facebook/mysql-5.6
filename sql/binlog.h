@@ -950,7 +950,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
       bool need_lock_index = true);
   void lock_commits(void);
   void unlock_commits(char *binlog_file, ulonglong *binlog_pos,
-                      char **gtid_executed, int *gtid_executed_length);
+                      char **gtid_executed, int *gtid_executed_length,
+                      ulonglong *snapshot_hlc);
   inline char *get_index_fname() { return index_file_name; }
   inline char *get_log_fname() { return log_file_name; }
   const char *get_name() const { return name; }

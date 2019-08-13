@@ -952,11 +952,13 @@ void mysql_bin_log_lock_commits(void);
   @param  binlog_pos   the pos in the binlog
   @param gtid_executed        logged gtids in the binlog
   @param gtid_executed_length the length of gtid_executed string
+  @param snapshot_hlc HLC timestamp when snapshot is taken
 */
 void mysql_bin_log_unlock_commits(char *binlog_file,
                                   unsigned long long *binlog_pos,
                                   char **gtid_executed,
-                                  int *gtid_executed_length);
+                                  int *gtid_executed_length,
+                                  unsigned long long *snapshot_hlc);
 
 #ifdef __cplusplus
 }

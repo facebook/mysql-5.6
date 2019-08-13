@@ -136,7 +136,8 @@ void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
                                   unsigned long long *binlog_pos,
                                   char **gtid_executed,
-                                  int *gtid_executed_length);
+                                  int *gtid_executed_length,
+                                  unsigned long long *snapshot_hlc);
 #include "my_command.h"
 enum enum_server_command {
   COM_SLEEP,

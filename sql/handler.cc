@@ -2458,7 +2458,8 @@ static bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
 
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                                  ulonglong *binlog_pos, char **gtid_executed,
-                                 int *gtid_executed_length) {
+                                 int *gtid_executed_length,
+                                 ulonglong *snapshot_hlc) {
   bool error = true;
   bool binlog_locked = false;
 
@@ -2478,13 +2479,13 @@ int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                      &error)) {
     if (binlog_locked)
       mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                                   gtid_executed_length);
+                                   gtid_executed_length, snapshot_hlc);
     return true;
   }
 
   if (binlog_locked)
     mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                                 gtid_executed_length);
+                                 gtid_executed_length, snapshot_hlc);
   /*
     Same idea as when one wants to CREATE TABLE in one engine which does not
     exist:
