@@ -291,4 +291,24 @@ class memroot_unordered_set
             /*bucket_count=*/10, Hash(), KeyEqual(),
             Memroot_allocator<Key>(mem_root)) {}
 };
+
+/** std::unordered_map, but allocated on a MEM_ROOT. */
+template <class Key, class Value, class Hash = std::hash<Key>,
+          class KeyEqual = std::equal_to<Key>>
+class memroot_unordered_map
+    : public std::unordered_map<
+          Key, Value, Hash, KeyEqual,
+          Memroot_allocator<std::pair<const Key, Value>>> {
+ public:
+  /*
+    In theory, we should be allowed to send in the allocator only, but GCC 4.8
+    is missing several unordered_map constructors, so let's give in everything.
+  */
+  memroot_unordered_map(MEM_ROOT *mem_root)
+      : std::unordered_map<Key, Value, Hash, KeyEqual,
+                           Memroot_allocator<std::pair<const Key, Value>>>(
+            /*bucket_count=*/10, Hash(), KeyEqual(),
+            Memroot_allocator<std::pair<const Key, Value>>(mem_root)) {}
+};
+
 #endif  // MAP_HELPERS_INCLUDED

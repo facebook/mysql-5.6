@@ -1318,7 +1318,9 @@ static int innobase_xa_recover(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root);      /*!< in: memory for table names */
+    MEM_ROOT *mem_root,       /*!< in: memory for table names */
+    Gtid *binlog_max_gtid);   /*!< in/out: Max valid binlog gtid */
+
 /** This function is used to commit one X/Open XA distributed transaction
  which is in the prepared state
  @return 0 or error number */
@@ -5005,7 +5007,8 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
       be a NULL pointer. */
       ulonglong pos;
 
-      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid);
+      thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos, &trx->mysql_gtid,
+                     &trx->mysql_max_gtid);
 
       trx->mysql_log_offset = static_cast<int64_t>(pos);
 
@@ -17889,9 +17892,16 @@ static int innobase_xa_recover(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root)       /*!< in: memory for table names */
+    MEM_ROOT *mem_root,       /*!< in: memory for table names */
+    Gtid *binlog_max_gtid)    /*!< in/out: Max valid binlog gtid*/
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
+
+  if (binlog_max_gtid != nullptr) {
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, trx_sys_mysql_bin_log_max_gtid);
+    global_sid_lock->unlock();
+  }
 
   if (len == 0 || txn_list == nullptr) {
     return (0);

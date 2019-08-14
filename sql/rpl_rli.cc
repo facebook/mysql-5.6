@@ -118,6 +118,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
       replicate_same_server_id(::replicate_same_server_id),
       relay_log(&sync_relaylog_period),
       is_relay_log_recovery(is_slave_recovery),
+      recovery_sid_lock(),
+      recovery_sid_map(&recovery_sid_lock),
       save_temporary_tables(0),
       error_on_rli_init_info(false),
       gtid_timestamps_warning_logged(false),
@@ -193,7 +195,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
 #endif
 
   group_relay_log_name[0] = event_relay_log_name[0] = group_master_log_name[0] =
-      0;
+      last_gtid[0] = 0;
   ign_master_log_name_end[0] = 0;
   set_timespec_nsec(&last_clock, 0);
   cached_charset_invalidate();
@@ -229,6 +231,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   do_server_version_split(::server_version, slave_version_split);
   until_option = NULL;
   rpl_filter = NULL;
+
+  recovery_max_engine_gtid.clear();
 
   DBUG_VOID_RETURN;
 }
@@ -447,7 +451,7 @@ err:
 bool Relay_log_info::mts_workers_queue_empty() const {
   ulong ret = 0;
 
-  for (const auto& worker: workers) {
+  for (const auto &worker : workers) {
     mysql_mutex_lock(&worker->jobs_lock);
     ret += worker->curr_jobs;
     mysql_mutex_unlock(&worker->jobs_lock);
@@ -464,7 +468,7 @@ bool Relay_log_info::cannot_safely_rollback() const {
 
   bool ret = false;
 
-  for (const auto& worker: workers) {
+  for (const auto &worker : workers) {
     mysql_mutex_lock(&worker->jobs_lock);
     ret = worker->info_thd->get_transaction()->cannot_safely_rollback(
         Transaction_ctx::SESSION);

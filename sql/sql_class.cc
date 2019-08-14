@@ -390,6 +390,7 @@ THD::THD(bool enable_plugins)
       m_trans_fixed_log_path(nullptr),
       m_trans_end_pos(0),
       m_trans_gtid(NULL),
+      m_trans_max_gtid(NULL),
       m_transaction(new Transaction_ctx()),
       m_attachable_trx(NULL),
       table_map_for_update(0),
@@ -560,6 +561,7 @@ THD::THD(bool enable_plugins)
   binlog_next_event_pos.file_name = NULL;
   binlog_next_event_pos.pos = 0;
   trans_gtid[0] = 0;
+  trans_max_gtid[0] = 0;
 
   timer = NULL;
   timer_cache = NULL;
@@ -889,6 +891,81 @@ void THD::set_new_thread_id() {
   m_thread_id = Global_THD_manager::get_instance()->get_new_thread_id();
   variables.pseudo_thread_id = m_thread_id;
   thr_lock_info_init(&lock_info, m_thread_id, &COND_thr_lock);
+}
+
+void THD::set_trans_pos(const char *file, my_off_t pos) {
+  DBUG_ENTER("THD::set_trans_pos");
+  DBUG_ASSERT(((file == 0) && (pos == 0)) || ((file != 0) && (pos != 0)));
+  if (file) {
+    DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
+    // Only the file name should be used, not the full path
+    m_trans_log_file = file + dirname_length(file);
+      if (!m_trans_fixed_log_path)
+        m_trans_fixed_log_path =
+            (char *)alloc_root(&main_mem_root, FN_REFLEN + 1);
+      DBUG_ASSERT(strlen(file) <= FN_REFLEN);
+      strcpy(m_trans_fixed_log_path, file);
+      m_trans_fixed_log_file =
+          m_trans_fixed_log_path + dirname_length(m_trans_fixed_log_path);
+  } else {
+    m_trans_log_file = NULL;
+    m_trans_fixed_log_file = m_trans_fixed_log_path = nullptr;
+  }
+
+  m_trans_end_pos = pos;
+
+  if (!owned_gtid.is_empty() && owned_gtid.gno > 0) {
+    owned_gtid.to_string(global_sid_map, trans_gtid, true);
+    m_trans_gtid = trans_gtid;
+
+    if (owned_gtid.greater_than(mysql_bin_log.engine_binlog_max_gtid) ||
+        mysql_bin_log.engine_binlog_max_gtid.sidno != owned_gtid.sidno) {
+      mysql_bin_log.engine_binlog_max_gtid = owned_gtid;
+    }
+
+    mysql_bin_log.engine_binlog_max_gtid.to_string(global_sid_map,
+                                                   trans_max_gtid, true);
+    m_trans_max_gtid = trans_max_gtid;
+  } else {
+    m_trans_gtid = nullptr;
+  }
+  DBUG_PRINT("return",
+             ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
+              "m_trans_end_pos: %llu, "
+              "m_trans_gtid: %s, m_trans_max_gtid: %s",
+              m_trans_log_file, m_trans_fixed_log_file, m_trans_end_pos,
+              m_trans_gtid != nullptr ? m_trans_gtid : "<null>",
+              m_trans_max_gtid != nullptr ? m_trans_max_gtid : "<null>"));
+  DBUG_VOID_RETURN;
+}
+
+void THD::get_trans_pos(const char **file_var, my_off_t *pos_var,
+                        const char **gtid_var,
+                        const char **max_gtid_var) const {
+  DBUG_ENTER("THD::get_trans_pos");
+  if (file_var) *file_var = m_trans_log_file;
+  if (pos_var) *pos_var = m_trans_end_pos;
+  if (gtid_var) *gtid_var = m_trans_gtid;
+  if (max_gtid_var) *max_gtid_var = m_trans_max_gtid;
+
+  DBUG_PRINT("return",
+             ("file: %s, pos: %llu, gtid: %s", file_var ? *file_var : "<none>",
+              pos_var ? *pos_var : 0, gtid_var ? m_trans_gtid : "<none>"));
+  DBUG_VOID_RETURN;
+}
+
+void THD::get_trans_fixed_pos(const char **file_var, my_off_t *pos_var) const {
+  DBUG_ENTER("THD::get_trans_fixed_pos");
+  if (file_var) *file_var = m_trans_fixed_log_file;
+  if (pos_var) *pos_var = m_trans_end_pos;
+  DBUG_PRINT("return", ("file: %s, pos: %llu", file_var ? *file_var : "<none>",
+                        pos_var ? *pos_var : 0));
+  DBUG_VOID_RETURN;
+}
+
+
+const char * THD::get_trans_fixed_log_path() const {
+  return m_trans_fixed_log_path;
 }
 
 /*
@@ -2862,6 +2939,13 @@ bool THD::is_current_stmt_binlog_row_enabled_with_write_set_extraction() const {
   return ((variables.transaction_write_set_extraction != HASH_ALGORITHM_OFF) &&
           is_current_stmt_binlog_format_row() &&
           !is_current_stmt_binlog_disabled());
+}
+
+bool THD::is_enabled_idempotent_recovery() const noexcept {
+  return get_gtid_mode(GTID_MODE_LOCK_NONE) != GTID_MODE_OFF &&
+         variables.binlog_format == BINLOG_FORMAT_ROW &&
+         slave_use_idempotent_for_recovery_options ==
+             SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES;
 }
 
 bool THD::Query_plan::is_single_table_plan() const {

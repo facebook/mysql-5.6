@@ -59,6 +59,7 @@
 #include "sql/discrete_interval.h"      // Discrete_interval
 #include "sql/json_dom.h"
 #include "sql/key.h"
+#include "sql/rpl_gtid.h"        // GTID
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -1090,7 +1091,7 @@ typedef int (*rollback_t)(handlerton *hton, THD *thd, bool all);
 typedef int (*prepare_t)(handlerton *hton, THD *thd, bool all);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
-                         MEM_ROOT *mem_root);
+                         MEM_ROOT *mem_root, Gtid *binlog_max_gtid);
 
 /** X/Open XA distributed transaction status codes */
 enum xa_status_code {
@@ -5994,6 +5995,7 @@ typedef bool Log_func(THD *, TABLE *, bool, const uchar *, const uchar *);
 
 int binlog_log_row(TABLE *table, const uchar *before_record,
                    const uchar *after_record, Log_func *log_func);
+int write_locked_table_maps(THD *thd);
 
 /* discovery */
 int ha_create_table_from_engine(THD *thd, const char *db, const char *name);
@@ -6040,7 +6042,10 @@ int ha_prepare(THD *thd);
 */
 
 typedef ulonglong my_xid;  // this line is the same as in log_event.h
-int ha_recover(const memroot_unordered_set<my_xid> *commit_list);
+using xid_to_gtid_container = memroot_unordered_map<my_xid, Gtid>;
+
+int ha_recover(const xid_to_gtid_container *commit_list,
+               Gtid *binlog_max_gtid = nullptr);
 
 /**
   Perform SE-specific cleanup after recovery of transactions.
@@ -6084,6 +6089,7 @@ void ha_binlog_log_query(THD *thd, handlerton *db_type,
                          size_t query_length, const char *db,
                          const char *table_name);
 void ha_binlog_wait(THD *thd);
+
 
 /* It is required by basic binlog features on both MySQL server and libmysqld */
 int ha_binlog_end(THD *thd);
