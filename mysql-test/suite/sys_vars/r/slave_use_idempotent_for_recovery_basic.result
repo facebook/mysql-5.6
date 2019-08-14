@@ -1,0 +1,41 @@
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery;
+@@GLOBAL.slave_use_idempotent_for_recovery
+NO
+'#---------------------BS_STVARS_002_01----------------------#'
+SET @start_value= @@global.slave_use_idempotent_for_recovery;
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+COUNT(@@GLOBAL.slave_use_idempotent_for_recovery)
+1
+1 Expected
+'#---------------------BS_STVARS_002_02----------------------#'
+SET @@GLOBAL.slave_use_idempotent_for_recovery='YES';
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery;
+@@GLOBAL.slave_use_idempotent_for_recovery
+YES
+'#---------------------BS_STVARS_002_03----------------------#'
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_use_idempotent_for_recovery';
+@@GLOBAL.slave_use_idempotent_for_recovery = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+COUNT(@@GLOBAL.slave_use_idempotent_for_recovery)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_use_idempotent_for_recovery';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+'#---------------------BS_STVARS_002_05----------------------#'
+SELECT COUNT(@@slave_use_idempotent_for_recovery);
+COUNT(@@slave_use_idempotent_for_recovery)
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+COUNT(@@GLOBAL.slave_use_idempotent_for_recovery)
+1
+1 Expected
+SET @@global.slave_use_idempotent_for_recovery= @start_value;
