@@ -1,0 +1,168 @@
+#
+# Simple multi database load generator
+
+#
+#
+# load volume parameter
+#
+
+if ($storage_engine == '')
+{
+  let $storage_engine='innodb';
+}
+
+if ($iter == '')
+{
+  let $iter=20;
+}
+
+if ($databases == '')
+{
+  let $databases=16;
+}
+
+if ($skip_cleanup == '')
+{
+  let $skip_cleanup=0;
+}
+
+if ($sync_with_master == '')
+{
+  let $sync_with_master=1;
+}
+
+if ($load == '')
+{
+  let $load=1;
+}
+
+if ($schema == '')
+{
+  let $schema=1;
+}
+
+let $init_rows= 50;
+
+#
+# Distribution of queries within an iteration:
+# legends:
+# auto = auto_increment=1, trans = inside BEGIN-COMMIT,
+# del = Delete, ins = Insert, upd = Update
+#
+let $ins_auto_nk= 1;
+let $ins_trans_nk= 1;
+let $upd_trans_nk= 1;
+let $del_trans_nk= 1;
+
+# windows run on PB2 is too slow to time out
+disable_query_log;
+if (`select convert(@@version_compile_os using latin1) IN ("Win32","Win64","Windows") as "TRUE"`)
+{
+  let $iter = 10;
+}
+enable_query_log;
+
+connection master;
+
+--disable_query_log
+--disable_result_log
+
+if ($schema)
+{
+  let $i = $databases + 1;
+  while($i)
+  {
+    let $i1 = $i;
+    dec $i1;
+
+    eval drop database if exists test$i1;
+    eval create database test$i1;
+    eval use test$i1;
+    eval create table ti_nk (a int, b int, c varchar(36) primary key) engine=$storage_engine default charset=latin1 collate=latin1_bin;
+    let $l1= $init_rows;
+    while($l1)
+    {
+      eval insert into ti_nk values($l1, $i1, uuid());
+      dec $l1;
+    }
+
+    dec $i;
+  }
+}
+
+if ($sync_with_master)
+{
+  --source include/sync_slave_sql_with_master.inc
+}
+
+#
+# Load producer
+#
+if ($load)
+{
+  connection master;
+
+  while ($iter)
+  {
+    let $i = $databases + 1;
+
+    while ($i)
+    {
+      let $i1 = $i;
+      dec $i1;
+
+      eval use test$i1;
+
+      let $ins= $ins_auto_nk;
+      while ($ins)
+      {
+        eval insert into ti_nk values($iter, $i1, uuid());
+        dec $ins;
+      }
+
+      begin;
+
+      let $ins= $ins_trans_nk;
+      while ($ins)
+      {
+        eval insert into ti_nk values($iter, $i1, uuid());
+        dec $ins;
+      }
+
+
+      let $min=`select min(a) from ti_nk`;
+      let $del= $del_trans_nk;
+      while ($del)
+      {
+        eval delete from ti_nk where a= $min + $del;
+        dec $del;
+      }
+
+      let $upd= $upd_trans_nk;
+      while ($upd)
+      {
+        update ti_nk set c= uuid();
+        dec $upd;
+      }
+
+      commit;
+      dec $i;
+    }
+
+    dec $iter;
+  }
+}
+
+if ($skip_cleanup != 1)
+{
+  --source extra/rpl_tests/rpl_parallel_simple_load_cleanup.test
+}
+
+if ($sync_with_master)
+{
+  connection master;
+  --source include/sync_slave_sql_with_master.inc
+}
+
+--enable_query_log
+--enable_result_log

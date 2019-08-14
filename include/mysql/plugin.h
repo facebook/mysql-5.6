@@ -867,7 +867,8 @@ void thd_set_kill_status(const MYSQL_THD thd);
   @param gtid_var Pointer to variable that will hold the GTID.
  */
 void thd_binlog_pos(const MYSQL_THD thd, const char **file_var,
-                    unsigned long long *pos_var, const char **gtid_var);
+                    unsigned long long *pos_var, const char **gtid_var,
+                    const char **max_gtid_var);
 
 /**
   Return the thread id of a user thread

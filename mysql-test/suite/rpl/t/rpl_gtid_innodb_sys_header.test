@@ -2,9 +2,20 @@ source include/master-slave.inc;
 source include/have_debug.inc;
 source include/not_valgrind.inc;
 
+connection master;
+
+# Change master's UUID so that Last GTID gets updated in this test case
+# This is required so that side effects of other tests that change Last GTID
+# are not reflected here.
+call mtr.add_suppression("The master's UUID has changed, although this should not happen unless you have changed it manually.");
+--let $uuid_file= auto.cnf
+--let $master_datadir=`SELECT @@DATADIR`
+--remove_file $master_datadir/$uuid_file
+--let $rpl_server_number= 1
+--source include/rpl_restart_server.inc
+
 --let $old_debug = `select @@global.debug;`
 
-connection master;
 create table t1 (a int);
 insert into t1 values(1);
 --eval SET GLOBAL debug = '+d,crash_before_writing_xid'

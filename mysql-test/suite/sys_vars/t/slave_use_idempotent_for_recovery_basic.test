@@ -1,0 +1,74 @@
+############## mysql-test\t\slave_use_idempotent_for_recovery_basic.test #########################
+#                                                                              #
+# Variable Name: slave_use_idempotent_for_recovery                             #
+# Scope: GLOBAL & SESSION                                                      #
+# Access Type: Dynamic                                                         #
+# Data Type: Numeric                                                           #
+# Default Value: 0                                                             #
+# Range: 0 - 1                                                                 #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2016-09-03                                                    #
+# Author:  Abhinav Sharma                                                      #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable                           #
+#              slave_use_idempotent_mode_for_recovery                          #
+#              that checks the behavior of this variable in the following ways #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+################################################################################
+
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery;
+
+--echo '#---------------------BS_STVARS_002_01----------------------#'
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SET @start_value= @@global.slave_use_idempotent_for_recovery;
+
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+--echo 1 Expected
+
+
+--echo '#---------------------BS_STVARS_002_02----------------------#'
+####################################################################
+#   Check if Value can be set                                         #
+####################################################################
+SET @@GLOBAL.slave_use_idempotent_for_recovery='YES';
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery;
+
+
+--echo '#---------------------BS_STVARS_002_03----------------------#'
+#################################################################
+# Check if the value in GLOBAL Table matches value in variable  #
+#################################################################
+
+SELECT @@GLOBAL.slave_use_idempotent_for_recovery = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_use_idempotent_for_recovery';
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+--echo 1 Expected
+
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_use_idempotent_for_recovery';
+--echo 1 Expected
+
+
+--echo '#---------------------BS_STVARS_002_05----------------------#'
+################################################################################
+#   Check if slave_use_idempotent_for_recovery can be accessed                 #
+#   with and without @@ sign                                                   #
+################################################################################
+
+SELECT COUNT(@@slave_use_idempotent_for_recovery);
+--echo 1 Expected
+SELECT COUNT(@@GLOBAL.slave_use_idempotent_for_recovery);
+--echo 1 Expected
+
+SET @@global.slave_use_idempotent_for_recovery= @start_value;
