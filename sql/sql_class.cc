@@ -409,6 +409,7 @@ THD::THD(bool enable_plugins)
       m_trans_fixed_log_path(nullptr),
       m_trans_end_pos(0),
       m_trans_gtid(NULL),
+      m_trans_max_gtid(NULL),
       m_transaction(new Transaction_ctx()),
       m_attachable_trx(nullptr),
       table_map_for_update(0),
@@ -575,6 +576,7 @@ THD::THD(bool enable_plugins)
   binlog_next_event_pos.file_name = nullptr;
   binlog_next_event_pos.pos = 0;
   trans_gtid[0] = 0;
+  trans_max_gtid[0] = 0;
 
   timer = nullptr;
   timer_cache = nullptr;
@@ -2514,6 +2516,20 @@ void THD::set_original_commit_timestamp_for_slave_thread() {
   }
 }
 
+void THD::update_global_binlog_max_gtid(void) {
+  DBUG_ENTER("THD::update_global_binlog_max_gtid");
+
+  if (owned_gtid.greater_than(mysql_bin_log.engine_binlog_max_gtid) ||
+      mysql_bin_log.engine_binlog_max_gtid.sidno != owned_gtid.sidno) {
+    mysql_bin_log.engine_binlog_max_gtid = owned_gtid;
+  }
+
+  mysql_bin_log.engine_binlog_max_gtid.to_string(global_sid_map, trans_max_gtid,
+                                                 true);
+
+  DBUG_VOID_RETURN;
+}
+
 void THD::set_user_connect(USER_CONN *uc) {
   DBUG_TRACE;
 
@@ -2935,6 +2951,13 @@ bool THD::is_current_stmt_binlog_row_enabled_with_write_set_extraction() const {
   return ((variables.transaction_write_set_extraction != HASH_ALGORITHM_OFF) &&
           is_current_stmt_binlog_format_row() &&
           !is_current_stmt_binlog_disabled());
+}
+
+bool THD::is_enabled_idempotent_recovery() const noexcept {
+  return get_gtid_mode(GTID_MODE_LOCK_NONE) != GTID_MODE_OFF &&
+         variables.binlog_format == BINLOG_FORMAT_ROW &&
+         slave_use_idempotent_for_recovery_options ==
+             SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES;
 }
 
 bool THD::Query_plan::is_single_table_plan() const {

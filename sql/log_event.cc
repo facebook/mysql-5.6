@@ -3159,6 +3159,18 @@ int Log_event::apply_gtid_event(Relay_log_info *rli) {
   return error;
 }
 
+bool Log_event::is_row_log_event() const noexcept {
+  switch (get_type_code()) {
+    case Log_event_type::WRITE_ROWS_EVENT:
+    case Log_event_type::UPDATE_ROWS_EVENT:
+    case Log_event_type::DELETE_ROWS_EVENT:
+      return true;
+    default:
+      return false;
+  }
+  return false;
+}
+
 /**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
@@ -3308,6 +3320,12 @@ int Log_event::apply_event(Relay_log_info *rli) {
     }
 
     int error = do_apply_event(rli);
+
+    if (is_gtid_event(this)) {
+      auto gtid_ev = static_cast<Gtid_log_event *>(this);
+      gtid_ev->extract_last_gtid_to(rli->last_gtid);
+    }
+
     if (rli->is_processing_trx()) {
       // needed to identify DDL's; uses the same logic as in get_slave_worker()
       if (starts_group() && get_type_code() == binary_log::QUERY_EVENT) {
@@ -10040,10 +10058,29 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
         DBUG_ASSERT(false);
     }
 
-    if (thd->slave_thread)  // set the mode for slave
-      this->rbr_exec_mode = slave_exec_mode_options;
-    else  // set the mode for user thread
-      this->rbr_exec_mode = thd->variables.rbr_exec_mode_options;
+    // check if idempotent mode is required (used after crash recovery)
+    if (rli->last_gtid[0] != '\0' && thd->is_enabled_idempotent_recovery() &&
+        !rli->recovery_max_engine_gtid.is_empty()) {
+      Gtid current_gtid;
+      global_sid_lock->rdlock();
+      current_gtid.parse(global_sid_map, rli->last_gtid);
+      global_sid_lock->unlock();
+
+      if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
+          current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
+        DBUG_PRINT("info",
+                   ("Setting idempotent mode for gtid %s", rli->last_gtid));
+        this->rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
+        m_force_binlog_idempotent = true;
+      }
+    }
+
+    if (!m_force_binlog_idempotent) {
+      if (thd->slave_thread)  // fix the mode for slave
+        this->rbr_exec_mode = slave_exec_mode_options;
+      else  // set the mode for user thread
+        this->rbr_exec_mode = thd->variables.rbr_exec_mode_options;
+    }
 
     // Do event specific preparations
     error = do_before_row_operations(rli);
@@ -10192,6 +10229,32 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
       error = 0;
     }
 
+    // Idempotent recovery is enabled so we log this event
+    // NOTE: Idempotent recovery requries tables have uniqure key to work
+    // correctly NOTE: error will be set to 0 in
+    // handle_idempotent_and_ignored_errors() if there was an idempotent error
+    if (m_force_binlog_idempotent && !error) {
+      DBUG_ASSERT(rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT);
+      DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
+
+      // reset all the pending rows that might have been added while applying
+      // the row events, we will directly write the relay log event
+      thd->binlog_reset_pending_rows_event(table->file->has_transactions());
+      reset_log_pos();
+
+      // Table map events are necessary before every row event.
+      if (write_locked_table_maps(thd)) {
+        error = HA_ERR_RBR_LOGGING_FAILED;
+      } else {
+        // Use the table_id of this server.
+        m_table_id = m_table->s->table_map_id;
+        error = mysql_bin_log.write_event(
+            this, /*write_meta_data_event*/ false,
+            table->file->has_transactions()
+                ? MYSQL_BIN_LOG::FORCE_CACHE_TRANSACTIONAL
+                : MYSQL_BIN_LOG::FORCE_CACHE_STATEMENT);
+      }
+    }
     // reset back the db
     thd->reset_db(current_db_name_saved);
   }  // if (table)
@@ -10238,6 +10301,9 @@ end:
             const_cast<Relay_log_info *>(rli)->get_rpl_log_name(),
             (ulong)common_header->log_pos);
       }
+    } else if (m_force_binlog_idempotent) {
+      // This is end row update in the current statement.
+      thd->clear_binlog_table_maps();
     }
     /* We are at end of the statement (STMT_END_F flag), lets clean
       the memory which was used from thd's mem_root now.
@@ -13594,6 +13660,10 @@ int Gtid_log_event::do_update_pos(Relay_log_info *rli) {
 
 Log_event::enum_skip_reason Gtid_log_event::do_shall_skip(Relay_log_info *rli) {
   return Log_event::continue_group(rli);
+}
+
+void Gtid_log_event::extract_last_gtid_to(char *last_gtid) const noexcept {
+  spec.to_string(&sid, last_gtid);
 }
 #endif  // MYSQL_SERVER
 

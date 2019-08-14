@@ -184,6 +184,7 @@ extern ulong opt_slave_compression_lib;
 extern ulonglong opt_slave_dump_thread_wait_sleep_usec;
 extern bool rpl_wait_for_semi_sync_ack;
 extern ulong slave_exec_mode_options;
+extern ulong slave_use_idempotent_for_recovery_options;
 extern Rpl_global_filter rpl_global_filter;
 extern int32_t opt_regexp_time_limit;
 extern int32_t opt_regexp_stack_limit;

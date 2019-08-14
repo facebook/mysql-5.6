@@ -62,6 +62,7 @@
 #include "sql/dd/types/object_table.h"  // dd::Object_table
 #include "sql/discrete_interval.h"      // Discrete_interval
 #include "sql/key.h"
+#include "sql/rpl_gtid.h"        // GTID
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -1249,7 +1250,8 @@ typedef int (*rollback_t)(handlerton *hton, THD *thd, bool all);
 typedef int (*prepare_t)(handlerton *hton, THD *thd, bool all);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
-                         MEM_ROOT *mem_root);
+                         MEM_ROOT *mem_root, Gtid *binlog_max_gtid,
+                         char *binlog_file, my_off_t *binlog_pos);
 
 /** X/Open XA distributed transaction status codes */
 enum xa_status_code {
@@ -6747,6 +6749,7 @@ typedef bool Log_func(THD *, TABLE *, bool, const uchar *, const uchar *);
 
 int binlog_log_row(TABLE *table, const uchar *before_record,
                    const uchar *after_record, Log_func *log_func);
+int write_locked_table_maps(THD *thd);
 
 /* discovery */
 int ha_create_table_from_engine(THD *thd, const char *db, const char *name);
@@ -6795,7 +6798,11 @@ int ha_xa_prepare(THD *thd);
 */
 
 typedef ulonglong my_xid;  // this line is the same as in log_event.h
-int ha_recover(const mem_root_unordered_set<my_xid> *commit_list);
+using xid_to_gtid_container = mem_root_unordered_map<my_xid, Gtid>;
+
+int ha_recover(const xid_to_gtid_container *commit_list,
+               Gtid *binlog_max_gtid = nullptr, char *binlog_file = nullptr,
+               my_off_t *binlog_pos = nullptr);
 
 /**
   Perform SE-specific cleanup after recovery of transactions.

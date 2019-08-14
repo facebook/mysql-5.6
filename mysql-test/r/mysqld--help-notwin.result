@@ -1462,6 +1462,12 @@ The following options may be given as the first argument:
  ALL_UNSIGNED. If the variable is assigned the empty set,
  no conversions are allowed and it is expected that the
  types match exactly.
+ --slave-use-idempotent-for-recovery=name 
+ Modes for how replication events should be executed
+ during recovery. Legal values are NO (default) and YES.
+ YES means replication will not stop for operations that
+ are idempotent. Note that binlog format must be ROW and
+ GTIDs should be enabled for this option to have effect.
  --slow-launch-time=# 
  If creating the thread takes longer than this value (in
  seconds), the Slow_launch_threads counter will be
@@ -1988,6 +1994,7 @@ slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
 slave-type-conversions 
+slave-use-idempotent-for-recovery NO
 slow-launch-time 2
 slow-query-log FALSE
 slowlog-space-limit 0

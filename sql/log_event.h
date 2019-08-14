@@ -81,6 +81,7 @@ class Basic_ostream;
 
 #include "my_compiler.h"
 #include "sql/key.h"
+#include "sql/mysqld.h"
 #include "sql/rpl_filter.h"  // rpl_filter
 #include "sql/table.h"
 #include "sql/table_column_iterator.h"  // Table_columns_view::iterator
@@ -970,8 +971,15 @@ class Log_event {
   inline bool is_using_stmt_cache() const {
     return (event_cache_type == EVENT_STMT_CACHE);
   }
+  void set_using_trans_cache() noexcept {
+    event_cache_type = EVENT_TRANSACTIONAL_CACHE;
+  }
+  void set_using_stmt_cache() noexcept { event_cache_type = EVENT_STMT_CACHE; }
   inline bool is_using_immediate_logging() const {
     return (event_logging_type == EVENT_IMMEDIATE_LOGGING);
+  }
+  void set_immediate_logging() noexcept {
+    event_logging_type = EVENT_IMMEDIATE_LOGGING;
   }
 
   /*
@@ -1353,6 +1361,14 @@ class Log_event {
      non-zero. The caller shall decrease the counter by one.
    */
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+
+ public:
+  bool is_row_log_event() const noexcept;
+  void reset_log_pos() noexcept {
+    // Reset log_pos while writing a relay log event to the binlog.
+    // This ensures log_pos is calculated relative to slave's binlog.
+    common_header->log_pos = 0;
+  }
 #endif
 };
 
@@ -3200,6 +3216,13 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     the values are caluclated, we set the write set back to it's original value.
   */
   MY_BITMAP write_set_backup;
+
+ public:
+  /**
+   * This is set to TRUE when idempotent mode is used for recovery. When TRUE
+   the event is written to the binlog event if there were idempotent errors.
+  */
+  bool m_force_binlog_idempotent = false;
 };
 
 /**
@@ -4096,6 +4119,7 @@ class Gtid_log_event : public binary_log::Gtid_event, public Log_event {
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
+  void extract_last_gtid_to(char *last_gtid) const noexcept;
 #endif
 
   /**

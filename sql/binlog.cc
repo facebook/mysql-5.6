@@ -191,7 +191,9 @@ static xa_status_code binlog_xa_commit(handlerton *hton, XID *xid);
 static xa_status_code binlog_xa_rollback(handlerton *hton, XID *xid);
 static void exec_binlog_error_action_abort(const char *err_string);
 static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
-                           my_off_t *valid_pos);
+                           my_off_t *valid_pos, Gtid *binlog_max_gtid,
+                           char *engine_binlog_file,
+                           my_off_t *engine_binlog_pos);
 static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
@@ -827,6 +829,7 @@ class binlog_cache_data {
     return 0;
   }
 
+ public:
   /**
     Remove the pending event.
    */
@@ -835,6 +838,8 @@ class binlog_cache_data {
     m_pending = nullptr;
     return 0;
   }
+
+ protected:
   struct Flags {
     /*
       Defines if this is either a trx-cache or stmt-cache, respectively, a
@@ -1235,7 +1240,7 @@ static void binlog_trans_log_savepos(THD *thd, my_off_t *pos) {
 }
 
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
-                                MEM_ROOT *) {
+                                MEM_ROOT *, Gtid *, char *, my_off_t *) {
   return 0;
 }
 
@@ -3669,6 +3674,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       is_relay_log(relay_log),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
+      engine_binlog_pos(ULLONG_MAX),
       previous_gtid_set_relaylog(nullptr),
       is_rotating_caused_by_incident(false) {
   /*
@@ -3678,6 +3684,8 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
     before main().
   */
   index_file_name[0] = 0;
+  engine_binlog_file[0] = 0;
+  engine_binlog_max_gtid.clear();
 }
 
 MYSQL_BIN_LOG::~MYSQL_BIN_LOG() { delete m_binlog_file; }
@@ -7304,7 +7312,8 @@ int MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
 */
 
 bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
-                                bool write_meta_data_event) {
+                                bool write_meta_data_event,
+                                force_cache_type force_cache) {
   THD *thd = event_info->thd;
   bool error = true;
   DBUG_TRACE;
@@ -7357,6 +7366,15 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info,
          (!event_info->is_no_filter_event() &&
           !binlog_filter->db_ok(local_db))))
       return false;
+
+    if (force_cache == FORCE_CACHE_STATEMENT) {
+      event_info->set_using_stmt_cache();
+      event_info->set_immediate_logging();
+    } else if (force_cache == FORCE_CACHE_TRANSACTIONAL) {
+      event_info->set_using_trans_cache();
+    } else {
+      DBUG_ASSERT(force_cache == FORCE_CACHE_DEFAULT);
+    }
 
     DBUG_ASSERT(event_info->is_using_trans_cache() ||
                 event_info->is_using_stmt_cache());
@@ -8238,7 +8256,9 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
       valid_pos = binlog_file_reader.position();
-      error = binlog_recover(&binlog_file_reader, &valid_pos);
+      error = binlog_recover(&binlog_file_reader, &valid_pos,
+                             &engine_binlog_max_gtid, engine_binlog_file,
+                             &engine_binlog_pos);
       binlog_size = binlog_file_reader.ifile()->length();
     } else
       error = 0;
@@ -8918,7 +8938,7 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       (void)RUN_HOOK(transaction, after_commit, (head, all));
 
       my_off_t pos;
-      head->get_trans_pos(nullptr, &pos, nullptr);
+      head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
       signal_semi_sync_ack(head->get_trans_fixed_log_path(), pos);
       /*
         When after_commit finished for the transaction, clear the run_hooks
@@ -9515,11 +9535,20 @@ commit_stage:
   @retval true Out of memory, or storage engine returns error.
 */
 static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
-                           my_off_t *valid_pos) {
+                           my_off_t *valid_pos, Gtid *binlog_max_gtid,
+                           char *engine_binlog_file,
+                           my_off_t *engine_binlog_pos) {
   bool res = false;
   binlog::tools::Iterator it(binlog_file_reader);
   it.set_copy_event_buffer();
 
+  /*
+    Prepared transactions are committed by XID during recovery but we need
+    to track the max GTID so we maintain a map from XID to GTID and update
+    the max GTID after committing by XID
+  */
+  Gtid current_gtid;
+  current_gtid.clear();
   /*
     The flag is used for handling the case that a transaction
     is partially written to the binlog.
@@ -9528,7 +9557,7 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
   int memory_page_size = my_getpagesize();
   {
     MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
-    mem_root_unordered_set<my_xid> xids(&mem_root);
+    xid_to_gtid_container xids(&mem_root);
 
     /*
       now process events in the queue. Queue is dynamically changed
@@ -9542,11 +9571,9 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
         // may be begin, middle or end of a transaction
         case binary_log::QUERY_EVENT: {
           // starts a transaction
-          if (!strcmp(((Query_log_event *)ev)->query, "BEGIN"))
+          if (!strcmp(((Query_log_event *)ev)->query, "BEGIN")) {
             in_transaction = true;
-
-          // ends a transaction
-          if (!strcmp(((Query_log_event *)ev)->query, "COMMIT")) {
+          } else if (!strcmp(((Query_log_event *)ev)->query, "COMMIT")) {
             DBUG_ASSERT(in_transaction == true);
             in_transaction = false;
           }
@@ -9555,7 +9582,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
             DBUG_ASSERT(in_transaction == false);
             auto qev = dynamic_cast<Query_log_event *>(ev);
             DBUG_ASSERT(qev != nullptr);
-            res = (qev == nullptr || !xids.insert(qev->ddl_xid).second);
+            res = (qev == nullptr ||
+                   !xids.emplace(qev->ddl_xid, current_gtid).second);
           }
           break;
         }
@@ -9565,8 +9593,17 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
           in_transaction = false;
           Xid_log_event *xev = dynamic_cast<Xid_log_event *>(ev);
           DBUG_ASSERT(xev != nullptr);
-          res = (xev == nullptr || !xids.insert(xev->xid).second);
+          res =
+              (xev == nullptr || !xids.emplace(xev->xid, current_gtid).second);
           break;
+        }
+        case binary_log::ANONYMOUS_GTID_LOG_EVENT:
+        case binary_log::GTID_LOG_EVENT: {
+          auto gev = static_cast<Gtid_log_event *>(ev);
+          if (gev->get_type() != ANONYMOUS_GTID)
+            current_gtid.set(gev->get_sidno(true), gev->get_gno());
+          else
+            current_gtid.clear();
         }
         default: {
           break;
@@ -9622,7 +9659,9 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
       will result in an assert. (Production builds would be safe since
       ha_recover returns right away if total_ha_2pc <= opt_log_bin.)
      */
-    res = res || (total_ha_2pc > 1 && ha_recover(&xids));
+    res = res || (total_ha_2pc > 1 &&
+                  ha_recover(&xids, binlog_max_gtid, engine_binlog_file,
+                             engine_binlog_pos));
   }
 
   if (res) LogErr(ERROR_LEVEL, ER_BINLOG_CRASH_RECOVERY_FAILED);
@@ -11931,6 +11970,18 @@ int THD::binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional) {
   }
 
   return error;
+}
+
+void THD::binlog_reset_pending_rows_event(bool is_transactional) {
+  DBUG_ENTER("THD::binlog_reset_pending_rows_event");
+  auto cache_mngr = thd_get_cache_mngr(this);
+  if (!cache_mngr) DBUG_VOID_RETURN;
+
+  auto cache_data = cache_mngr->get_binlog_cache_data(is_transactional);
+  DBUG_ASSERT(cache_data != nullptr);
+  cache_data->remove_pending_event();
+  DBUG_ASSERT(binlog_get_pending_rows_event(is_transactional) == nullptr);
+  DBUG_VOID_RETURN;
 }
 
 #if !defined(DBUG_OFF)

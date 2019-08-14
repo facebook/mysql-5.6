@@ -167,6 +167,11 @@ struct st_ac_node;
 using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
 using database_container = std::unordered_set<std::string>;
 
+enum enum_slave_use_idempotent_for_recovery {
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
+  SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES
+};
+
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
                                const PSI_stage_info *stage,
@@ -1467,6 +1472,8 @@ class THD : public MDL_context_owner,
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
 
+  void binlog_reset_pending_rows_event(bool is_transactional);
+
   /**
     Determine the binlog format of the current statement.
 
@@ -1532,6 +1539,11 @@ class THD : public MDL_context_owner,
     @retval false otherwise
   */
   bool is_current_stmt_binlog_row_enabled_with_write_set_extraction() const;
+
+  /**
+    Determine if the recovery in idempotent mode is enabled
+   */
+  bool is_enabled_idempotent_recovery() const noexcept;
 
   /** Tells whether the given optimizer_switch flag is on */
   inline bool optimizer_switch_flag(ulonglong flag) const {
@@ -1633,8 +1645,16 @@ class THD : public MDL_context_owner,
   const char *m_trans_fixed_log_file;
   char *m_trans_fixed_log_path;
   my_off_t m_trans_end_pos;
+  /**
+   current transaction gtid in this THD
+  */
   const char *m_trans_gtid;
+  /**
+   max transaction gtid in all THDs
+  */
+  const char *m_trans_max_gtid;
   char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+  char trans_max_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /**@}*/
   // NOTE: Ideally those two should be in Protocol,
   // but currently its design doesn't allow that.
@@ -2099,6 +2119,8 @@ class THD : public MDL_context_owner,
  private:
   USER_CONN *m_user_connect;
 
+  void update_global_binlog_max_gtid(void);
+
  public:
   void set_user_connect(USER_CONN *uc);
   const USER_CONN *get_user_connect() const { return m_user_connect; }
@@ -2347,24 +2369,30 @@ class THD : public MDL_context_owner,
     if (!owned_gtid.is_empty() && owned_gtid.gno > 0) {
       owned_gtid.to_string(global_sid_map, trans_gtid, true);
       m_trans_gtid = trans_gtid;
+
+      update_global_binlog_max_gtid();
+      m_trans_max_gtid = trans_max_gtid;
     } else {
-      m_trans_gtid = NULL;
+      m_trans_gtid = nullptr;
     }
     DBUG_PRINT("return",
                ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
-                "m_trans_end_pos: %llu",
-                m_trans_log_file, m_trans_fixed_log_file, m_trans_end_pos));
+                "m_trans_end_pos: %llu, "
+                "m_trans_gtid: %s, m_trans_max_gtid: %s",
+                m_trans_log_file, m_trans_fixed_log_file, m_trans_end_pos,
+                m_trans_gtid != nullptr ? m_trans_gtid : "<null>",
+                m_trans_max_gtid != nullptr ? m_trans_max_gtid : "<null>"));
     return;
   }
 
   void get_trans_pos(const char **file_var, my_off_t *pos_var,
-                     const char **gtid_var) const {
+                     const char **gtid_var, const char **max_gtid_var) const {
     DBUG_TRACE;
     if (file_var) *file_var = m_trans_log_file;
     if (pos_var) *pos_var = m_trans_end_pos;
-    if (gtid_var) {
-      *gtid_var = m_trans_gtid;
-    }
+    if (gtid_var) *gtid_var = m_trans_gtid;
+    if (max_gtid_var) *max_gtid_var = m_trans_max_gtid;
+
     DBUG_PRINT(
         "return",
         ("file: %s, pos: %llu, gtid: %s", file_var ? *file_var : "<none>",

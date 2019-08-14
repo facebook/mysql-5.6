@@ -1,0 +1,26 @@
+#
+# Consistency verification after rpl_parallel_simple_load.test
+#
+
+if ($databases == '')
+{
+  let $databases=16;
+}
+
+let $i = $databases;
+while($i)
+{
+  dec $i;
+
+  if (`select @@global.binlog_format like 'statement'`)
+  {
+    --disable_query_log
+    --connection master
+    eval alter table test$i.ti_nk drop c;
+    --source include/sync_slave_sql_with_master.inc
+    --enable_query_log
+  }
+
+  let $diff_tables=master:test$i.ti_nk, slave:test$i.ti_nk;
+  source include/diff_tables.inc;
+}

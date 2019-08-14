@@ -504,6 +504,109 @@ int init_slave() {
 
   is_slave = configured_as_slave();
 
+  /**
+    If engine binlog max gtid is set, then update recovery_max_engine_gtid.
+    recovery_max_engine_gtid is used later during slave's idempotent
+    recovery/apply of binnlog events.
+    engine_binlog_max_gtid is set during storage engine recovery using
+    global_sid_map. However, idempotent recovery/apply uses
+    rli->recovery_sid_map. Hence rli->recovery_max_engine_gtid needs to be
+    initialized by hashing into rli->recovery_sid_map
+    NOTE: idempotent recovery requires tables have unique key to work correctly
+   */
+  if (!mysql_bin_log.engine_binlog_max_gtid.is_empty()) {
+    char buf[Gtid::MAX_TEXT_LENGTH + 1];
+
+    /* Extract engine_binlog_max_gtid using global_sid_map */
+    mysql_bin_log.engine_binlog_max_gtid.to_string(global_sid_map, buf,
+                                                   /* need_lock */ true);
+
+    /* Now set rli->recovery_max_engine_gtid (and optionally add
+       it into rli->recovery_sid_map */
+    for (const auto &channel : channel_map) {
+      channel.second->rli->recovery_sid_lock.rdlock();
+      channel.second->rli->recovery_max_engine_gtid.parse(
+          &channel.second->rli->recovery_sid_map, buf);
+      channel.second->rli->recovery_sid_lock.unlock();
+    }
+  }
+
+  if (is_slave && mysql_bin_log.engine_binlog_pos != ULLONG_MAX &&
+      mysql_bin_log.engine_binlog_file[0] &&
+      get_gtid_mode(GTID_MODE_LOCK_CHANNEL_MAP) != GTID_MODE_OFF) {
+    /*
+      With less durable settins (sync_binlog !=1 and
+      innodb_flush_log_at_trx_commit !=1), a slave with GTIDs/MTS
+      may be inconsistent due to the two possible scenarios below
+      1) slave's binary log is behind innodb transaction log.
+      2) slave's binlary log is ahead of innodb transaction log.
+      The engine_binlog_max_gtid in innodb trx log stores
+      max gtid executed in engine and handles scenario 1. But in case
+      of scenario 2, slave will skip executing some transactions if it's
+      GTID is logged in the binlog even though it is not commiited in
+      innodb.
+      Scenario 2 is handled by changing gtid_executed when a
+      slave is initialized based on the binlog file and binlog position
+      which are logged inside innodb trx log. When gtid_executed is set
+      to an old value which is consistent with innodb, slave doesn't
+      miss any transactions.
+    */
+    mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
+    mysql_mutex_lock(log_lock);
+    global_sid_lock->wrlock();
+    char file_name[FN_REFLEN + 1];
+    mysql_bin_log.make_log_name(file_name, mysql_bin_log.engine_binlog_file);
+
+    char *binlog_gtid_set_buffer = nullptr;
+    gtid_state->get_executed_gtids()->to_string(&binlog_gtid_set_buffer);
+
+    const_cast<Gtid_set *>(gtid_state->get_executed_gtids())->clear();
+    MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status ret =
+        mysql_bin_log.read_gtids_from_binlog(
+            file_name, const_cast<Gtid_set *>(gtid_state->get_executed_gtids()),
+            NULL, NULL, global_sid_map, opt_master_verify_checksum, false,
+            mysql_bin_log.engine_binlog_pos);
+
+    if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
+      global_sid_lock->unlock();
+      mysql_mutex_unlock(log_lock);
+      my_free(binlog_gtid_set_buffer);
+      sql_print_error("Fail to read binlog");
+      error = 1;
+      goto err;
+    }
+
+    char *trx_gtid_set_buffer = nullptr;
+    gtid_state->get_executed_gtids()->to_string(&trx_gtid_set_buffer);
+    sql_print_information("Resetting GTID_EXECUTED: old : %s, new: %s",
+                          binlog_gtid_set_buffer, trx_gtid_set_buffer);
+    my_free(binlog_gtid_set_buffer);
+    my_free(trx_gtid_set_buffer);
+
+    global_sid_lock->unlock();
+    // rotate writes the consistent gtid_executed as previous_gtid_log_event
+    // in next binlog. This is done to avoid situations where there is a
+    // slave crash immediately after executing some relay log events.
+    // Those slave crashes are not safe if binlog is not rotated since the
+    // gtid_executed set after crash recovery will be inconsistent with InnoDB.
+    // A crash before this rotate is safe because of valid binlog file and
+    // position values inside innodb trx header which will not be updated
+    // until sql_thread is ready.
+    bool check_purge;
+    mysql_bin_log.rotate(true, &check_purge);
+    mysql_mutex_unlock(log_lock);
+    if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
+      sql_print_error(
+          "Failed to read log %s up to pos %llu "
+          "to find out crash safe gtid_executed "
+          "Replication will not be setup due to "
+          "possible data inconsistency with master. ",
+          mysql_bin_log.engine_binlog_file, mysql_bin_log.engine_binlog_pos);
+      error = 1;
+      goto err;
+    }
+  }
+
   if (get_gtid_mode(GTID_MODE_LOCK_CHANNEL_MAP) == GTID_MODE_OFF) {
     for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
          it++) {

@@ -7731,7 +7731,7 @@ static bool check_table_binlog_row_based(THD *thd, TABLE *table) {
        THD::lock
 */
 
-static int write_locked_table_maps(THD *thd) {
+int write_locked_table_maps(THD *thd) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("thd: %p  thd->lock: %p "
                        "thd->extra_lock: %p",

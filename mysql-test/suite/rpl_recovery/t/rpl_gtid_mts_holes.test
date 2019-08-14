@@ -1,0 +1,60 @@
+--source include/not_valgrind.inc
+--source include/master-slave.inc
+
+call mtr.add_suppression("Recovery from master pos");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+
+# Create schema
+--connection master
+--let $MASTER_UUID = `SELECT @@SERVER_UUID;`
+--let $skip_cleanup=1
+--let $schema=1
+--let $load=0
+--source extra/rpl_tests/rpl_parallel_simple_load.test
+
+# Sync schema with slave
+--connection master
+--let $use_gtids=1
+--source include/sync_slave_sql_with_master.inc
+
+# Stop slave SQL thread
+--connection slave
+STOP SLAVE SQL_THREAD;
+
+# Load the master
+--connection master
+--let $skip_cleanup=1
+--let $schema=0
+--let $load=1
+--let $sync_with_master=0
+--source extra/rpl_tests/rpl_parallel_simple_load.test
+
+# Lock one of the tables and start the SQL thread
+--connection slave
+LOCK TABLES test0.ti_nk READ;
+START SLAVE SQL_THREAD;
+--sleep 10
+--let $MYSQLD_DATADIR = `select @@datadir`
+
+# Crash the slave and restart
+--let $rpl_server_number = 2
+--let $rpl_start_with_gtids = 1
+--let $rpl_force_stop = 1
+--source include/rpl_restart_server.inc
+
+# Sync slave with master
+--connection slave
+--source include/start_slave.inc
+--connection master
+--let $use_gtids=1
+--source include/sync_slave_sql_with_master.inc
+
+# This consistency check verifies slave doesn't have missing binlog events.
+--let $include_silent=1
+--source extra/rpl_tests/rpl_parallel_simple_load_consistency.test
+--source extra/rpl_tests/rpl_parallel_simple_load_cleanup.test
+--connection master
+--let $include_silent =
+
+--let $use_gtids=0
+--source include/rpl_end.inc

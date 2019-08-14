@@ -57,6 +57,9 @@ typedef UT_LIST_BASE_NODE_T(trx_t) trx_ut_list_t;
 class MVCC;
 class ReadView;
 
+/** Binlog file max gtid */
+extern char trx_sys_mysql_bin_log_max_gtid[];
+
 /** The transaction system */
 extern trx_sys_t *trx_sys;
 
@@ -243,9 +246,9 @@ being prepared or rolled back. In a MySQL replication slave updates the latest
 master binlog position up to which replication has proceeded.
 @param[in]	trx	current transaction
 @param[in,out]	mtr	mini transaction for update
-@param[in]	gtid Gtid of the transaction */
+@param[in]	Max Gtid seen till this transaction */
 void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
-                                        const char *gtid);
+                                        const char *max_gtid);
 
 /** Prints to stderr the MySQL binlog offset info in the trx system header if
  *  the magic number shows it valid. */

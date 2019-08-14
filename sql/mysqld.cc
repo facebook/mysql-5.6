@@ -1210,6 +1210,7 @@ ulong open_files_limit, max_binlog_size, max_relay_log_size;
 ulong slave_trans_retries;
 uint slave_net_timeout;
 ulong slave_exec_mode_options;
+ulong slave_use_idempotent_for_recovery_options = 0;
 ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
 ulong opt_mts_slave_parallel_workers;

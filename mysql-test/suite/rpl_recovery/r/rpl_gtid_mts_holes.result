@@ -1,0 +1,33 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Recovery from master pos");
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+STOP SLAVE SQL_THREAD;
+LOCK TABLES test0.ti_nk READ;
+START SLAVE SQL_THREAD;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+drop database test15;
+drop database test14;
+drop database test13;
+drop database test12;
+drop database test11;
+drop database test10;
+drop database test9;
+drop database test8;
+drop database test7;
+drop database test6;
+drop database test5;
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+drop database test0;
+include/rpl_end.inc

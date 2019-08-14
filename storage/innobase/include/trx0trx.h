@@ -1148,6 +1148,12 @@ struct trx_t {
   this is NULL if binlog or gtids is not
   used*/
 
+  const char *mysql_max_gtid;
+  /*!< if MySQL binlog is used, this field
+  contains a pointer to the maximum GTID;
+  this is NULL if binlog or gtids is not
+  used*/
+
   uint64_t mysql_log_offset;
   /*!< if MySQL binlog is used, this
   field contains the end offset of the
