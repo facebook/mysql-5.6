@@ -1669,6 +1669,10 @@ The following options may be given as the first argument:
  --rocksdb-whole-key-filtering 
  BlockBasedTableOptions::whole_key_filtering for RocksDB
  (Defaults to on; use --skip-rocksdb-whole-key-filtering to disable.)
+ --rocksdb-write-batch-flush-threshold=# 
+ Maximum size of write batch in bytes before flushing.
+ Only valid if rocksdb_write_policy is WRITE_UNPREPARED. 0
+ means no limit.
  --rocksdb-write-batch-max-bytes=# 
  Maximum size of write batch in bytes. 0 means no limit.
  --rocksdb-write-disable-wal 
@@ -2554,6 +2558,7 @@ rocksdb-wal-recovery-mode 1
 rocksdb-wal-size-limit-mb 0
 rocksdb-wal-ttl-seconds 0
 rocksdb-whole-key-filtering TRUE
+rocksdb-write-batch-flush-threshold 0
 rocksdb-write-batch-max-bytes 0
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
