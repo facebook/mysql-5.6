@@ -4,6 +4,7 @@ source include/master-slave.inc;
 -- let $use_gtids = `select @@gtid_mode = "ON";`
 
 --exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
+--exec echo > $MYSQLTEST_VARDIR/log/mysqld.2.err
 
 connection master;
 --disable_warnings
@@ -29,6 +30,7 @@ source include/sync_slave_sql_with_master.inc;
 connection slave;
 --let slave_data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
 --let slave_pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+--let write_policy= query_get_value(SELECT @@rocksdb_write_policy, @@rocksdb_write_policy, 1)
 --disable_query_log
 select "--- slave state before crash ---" as "";
 --enable_query_log
@@ -43,7 +45,19 @@ select @@global.gtid_executed;
 
 F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
 SIZE=`stat -c %s $F`
-NEW_SIZE=`expr $SIZE - 30`
+
+case $1 in
+  write_committed)
+    NEW_SIZE=`expr $SIZE - 30`
+    ;;
+  write_prepared)
+    NEW_SIZE=`expr $SIZE - 30`
+    ;;
+  write_unprepared)
+    NEW_SIZE=`expr $SIZE - 200`
+    ;;
+esac
+
 truncate -s $NEW_SIZE $F
 rc=$?
 if [[ $rc != 0 ]]; then
@@ -55,7 +69,7 @@ kill -9 `head -1 $slave_pid_file`
 exit 0
 EOF
 --chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal.sh
---exec $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--exec $MYSQL_TMP_DIR/truncate_tail_wal.sh $write_policy
 
 --let $rpl_skip_start_slave= 1
 --source include/rpl_start_server.inc
@@ -115,7 +129,18 @@ connection slave;
 # expected to be around 950 bytes
 F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
 SIZE=`stat -c %s $F`
-OFFSET=$(( $SIZE-500 ))
+case $1 in
+  write_committed)
+    OFFSET=$(( $SIZE-500 ))
+    ;;
+  write_prepared)
+    OFFSET=$(( $SIZE-500 ))
+    ;;
+  write_unprepared)
+    OFFSET=$(( $SIZE-1000 ))
+    ;;
+esac
+
 dd bs=1 if=/dev/zero of=$F count=100 seek=$OFFSET conv=notrunc
 
 kill -9 `head -1 $slave_pid_file`
@@ -123,7 +148,7 @@ kill -9 `head -1 $slave_pid_file`
 exit 0
 EOF
 --chmod 0755 $MYSQL_TMP_DIR/corrupt_wal.sh
---exec $MYSQL_TMP_DIR/corrupt_wal.sh
+--exec $MYSQL_TMP_DIR/corrupt_wal.sh $write_policy
 
 --let $rpl_skip_start_slave= 1
 --source include/rpl_start_server.inc

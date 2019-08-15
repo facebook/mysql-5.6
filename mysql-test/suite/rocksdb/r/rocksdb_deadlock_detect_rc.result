@@ -44,7 +44,6 @@ ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
 select * from t;
 i
 rollback;
-i
 rollback;
 i
 rollback;
