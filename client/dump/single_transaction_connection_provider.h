@@ -45,6 +45,7 @@ class Single_transaction_connection_provider
       unsigned int connections,
       std::function<bool(const Mysql::Tools::Base::Message_data &)>
           *message_handler);
+  virtual ~Single_transaction_connection_provider() override;
 
   Mysql::Tools::Base::Mysql_query_runner *create_new_runner(
       std::function<bool(const Mysql::Tools::Base::Message_data &)>
