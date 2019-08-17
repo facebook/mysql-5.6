@@ -76,3 +76,11 @@ Single_transaction_connection_provider::Single_transaction_connection_provider(
     }
   }
 }
+
+Single_transaction_connection_provider::
+    ~Single_transaction_connection_provider() {
+  for (const auto &runner : m_runner_pool) {
+    delete runner;
+  }
+  m_runner_pool.clear();
+}
