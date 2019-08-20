@@ -45,6 +45,7 @@
 #include "rpl_gtid.h"
 #include "session_tracker.h"              // Session_tracker
 #include "sql_multi_tenancy.h"
+#include "sql_connect.h"
 
 #include "sql_digest_stream.h"            // sql_digest_state
 
@@ -4919,22 +4920,14 @@ public:
 */
 inline USER_STATS* thd_get_user_stats(THD* thd)
 {
-  USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
-  USER_STATS* us;
-  if (uc)
-  {
-    us= &(uc->user_stats);
-  }
-  else if (thd->slave_thread)
-  {
-    us= &slave_user_stats;
-  }
-  else
-  {
-    us= &other_user_stats;
-  }
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  USER_CONN *uc = get_user_conn_for_stats(thd);
+  USER_STATS* us = &uc->user_stats;
   DBUG_ASSERT(us->magic == USER_STATS_MAGIC);
   return us;
+#else
+  return NULL;
+#endif
 }
 
 /**

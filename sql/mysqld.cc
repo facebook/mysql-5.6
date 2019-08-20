@@ -460,14 +460,6 @@ static mysql_cond_t COND_thread_cache, COND_flush_thread_cache;
 
 /* Global variables */
 
-/* USER_STATS for the SQL slave */
-USER_STATS slave_user_stats;
-/*
-  USER_STATS for everything that doesn't have THD::user_connect except
-  the SQL slave
-*/
-USER_STATS other_user_stats;
-
 bool opt_bin_log, opt_ignore_builtin_innodb= 0;
 bool opt_trim_binlog= 0;
 my_bool opt_log, opt_slow_log, opt_log_raw;
@@ -660,6 +652,12 @@ const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 my_bool log_gtid_unsafe_statements;
 my_bool use_db_uuid;
 my_bool skip_core_dump_on_error;
+/* Controls implementation of user_table_statistics (see sys_vars.cc) */
+ulong user_table_stats_control;
+/* Contains the list of users with admin roles (comma separated) */
+char *admin_users_list;
+Regex_list_handler *admin_users_list_regex;
+
 ulong gtid_mode;
 ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
@@ -2342,6 +2340,9 @@ void clean_up(bool print_message)
   free_global_table_stats();
   free_global_db_stats();
   free_max_user_conn();
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  free_aux_user_table_stats();
+#endif
 #ifdef HAVE_REPLICATION
   end_slave_list();
   free_compressed_event_cache();
@@ -2392,6 +2393,7 @@ void clean_up(bool print_message)
 
   delete gap_lock_exceptions;
   delete legacy_user_name_pattern;
+  delete admin_users_list_regex;
 
   if (THR_THD)
     (void) pthread_key_delete(THR_THD);
@@ -5420,10 +5422,16 @@ static int init_thread_environment()
   // use the normalized delimiter as legacy_user_name only has one pattern
   legacy_user_name_pattern = new Regex_list_handler(
       key_rwlock_LOCK_legacy_user_name_pattern, '|');
+  // use the normalized delimiter as admin_users_list only has one pattern
+  admin_users_list_regex = new Regex_list_handler(
+      key_rwlock_LOCK_admin_users_list_regex, ',');
+
 #else
   gap_lock_exceptions = new Regex_list_handler();
   // use the normalized delimiter as legacy_user_name only has one pattern
   legacy_user_name_pattern = new Regex_list_handler('|');
+  // use the normalized delimiter as admin_users_list only has one pattern
+  admin_users_list_regex = new Regex_list_handler(',');
 #endif
   mysql_rwlock_init(key_rwlock_LOCK_grant, &LOCK_grant);
   mysql_cond_init(key_COND_thread_count, &COND_thread_count, NULL);
@@ -6342,6 +6350,9 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   ft_init_stopwords();
 
   init_max_user_conn();
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  init_aux_user_table_stats();
+#endif
   init_update_queries();
   setup_datagram_socket(NULL, NULL, OPT_GLOBAL);
   DBUG_RETURN(0);
@@ -7482,18 +7493,6 @@ int mysqld_main(int argc, char **argv)
   my_str_free= &my_str_free_mysqld;
   my_str_realloc= &my_str_realloc_mysqld;
 
-  /*
-    Initialize user_stats object for SQL replication thread.
-    See thd_get_user_stats.
-  */
-  init_user_stats(&slave_user_stats);
-
-  /*
-    Initialize user_stats object for everything else
-    (not SQL slave, not a real user)
-    See thd_get_user_stats.
-  */
-  init_user_stats(&other_user_stats);
 
   /*
     init signals & alarm
@@ -11778,6 +11777,7 @@ static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
 
   set_gap_lock_exception_list(0, 0, OPT_GLOBAL);
   set_legacy_user_name_pattern(0, 0, OPT_GLOBAL);
+  set_admin_users_list(0, 0, OPT_GLOBAL);
 
 #ifndef EMBEDDED_LIBRARY
   if (mysqld_chroot)
@@ -12515,7 +12515,8 @@ PSI_mutex_key
   key_gtid_info_run_lock,
   key_gtid_info_data_lock,
   key_gtid_info_sleep_lock,
-  key_gtid_info_thd_lock;
+  key_gtid_info_thd_lock,
+  key_USER_CONN_LOCK_user_table_stats;
 PSI_mutex_key key_LOCK_thd_remove;
 PSI_mutex_key key_RELAYLOG_LOCK_commit;
 PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;
@@ -12635,14 +12636,16 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_gtid_info_run_lock, "Gtid_info::run_lock", 0},
   { &key_gtid_info_data_lock, "Gtid_info::data_lock", 0},
   { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0},
-  { &key_LOCK_log_throttle_sbr_unsafe, "LOCK_log_throttle_sbr_unsafe", PSI_FLAG_GLOBAL}
+  { &key_LOCK_log_throttle_sbr_unsafe, "LOCK_log_throttle_sbr_unsafe", PSI_FLAG_GLOBAL},
+  { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats", 0}
 };
 
 PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
   key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
-  key_rwlock_LOCK_legacy_user_name_pattern;
+  key_rwlock_LOCK_legacy_user_name_pattern,
+  key_rwlock_LOCK_admin_users_list_regex;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
@@ -12666,6 +12669,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_sys_init_slave, "LOCK_sys_init_slave", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_gap_lock_exceptions, "LOCK_gap_lock_exceptions", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_legacy_user_name_pattern, "LOCK_legacy_user_name_pattern", PSI_FLAG_GLOBAL},
+  { &key_rwlock_LOCK_admin_users_list_regex, "LOCK_admin_users_list_regex", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_GLOBAL},
   { &key_rwlock_query_cache_query_lock, "Query_cache_query::lock", 0},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_GLOBAL},

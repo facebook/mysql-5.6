@@ -66,6 +66,14 @@ using std::max;
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
 static HASH hash_user_connections;
 
+/*
+  Fake USER_CONN objects to hold user table stats for slave/other users.
+  Only the HASH and mutex objects are used.
+*/
+USER_CONN slave_user_conn;
+USER_CONN other_user_conn;
+static bool aux_user_table_stats_initialized = false;
+
 /** Undo the work done by get_or_create_user_conn and increment the failed
     connection counters.
 */
@@ -135,6 +143,10 @@ int get_or_create_user_conn(THD *thd, const char *user,
     uc->connections= uc->questions= uc->updates= uc->conn_per_hour= 0;
     uc->user_resources= *mqh;
     uc->reset_utime= thd->thr_create_utime;
+    /* initialize the mutex for the user table stats HT */
+    mysql_mutex_init(key_USER_CONN_LOCK_user_table_stats,
+                     &(uc->LOCK_user_table_stats), MY_MUTEX_INIT_FAST);
+
     if (my_hash_insert(&hash_user_connections, (uchar*) uc))
     {
       /* The only possible error is out of memory, MY_WME sets an error. */
@@ -143,6 +155,12 @@ int get_or_create_user_conn(THD *thd, const char *user,
       goto end;
     }
     init_user_stats(&(uc->user_stats));
+    my_hash_clear(&uc->user_table_stats);
+    if (UTS_LEVEL_ALL())
+    {
+      init_table_stats_for_user(uc);
+    }
+    uc->admin = USER_CONN::USER_CONN_ADMIN_UNINITIALIZED;
   }
   thd->set_user_connect(uc);
   thd->increment_user_connections_counter();
@@ -161,6 +179,59 @@ end:
 
 }
 
+/*
+** init_aux_user_table_stats - Init Aux User Table Statistics
+**  initiliaze structures used to track table statisics for
+**  the auxiliary users (slave and other)
+*/
+void init_aux_user_table_stats()
+{
+  memset(&slave_user_conn, 0, sizeof(slave_user_conn));
+  memset(&other_user_conn, 0, sizeof(other_user_conn));
+
+  init_user_stats(&(slave_user_conn.user_stats));
+  init_user_stats(&(other_user_conn.user_stats));
+
+  /* slave user */
+  mysql_mutex_init(key_USER_CONN_LOCK_user_table_stats,
+                   &(slave_user_conn.LOCK_user_table_stats),
+                   MY_MUTEX_INIT_FAST);
+  init_table_stats_for_user(&slave_user_conn);
+  slave_user_conn.user = const_cast<char*>("sys:slave");
+  slave_user_conn.admin = USER_CONN::USER_CONN_ADMIN_UNINITIALIZED;
+
+  /* other user */
+  mysql_mutex_init(key_USER_CONN_LOCK_user_table_stats,
+                   &(other_user_conn.LOCK_user_table_stats),
+                   MY_MUTEX_INIT_FAST);
+  init_table_stats_for_user(&other_user_conn);
+  other_user_conn.user = const_cast<char*>("sys:other");
+  other_user_conn.admin = USER_CONN::USER_CONN_ADMIN_UNINITIALIZED;
+
+  /* remember it was initialized */
+  aux_user_table_stats_initialized = true;
+}
+
+/*
+** free_aux_user_table_stats - Free Aux User Table Statistics
+**  free structures used to track table statisics for the
+**  auxiliary users (slave and other)
+*/
+void free_aux_user_table_stats()
+{
+  if (aux_user_table_stats_initialized)
+  {
+    /* slave user */
+    free_table_stats_for_user(&slave_user_conn);
+    mysql_mutex_destroy(&(slave_user_conn.LOCK_user_table_stats));
+
+    /* other user */
+    free_table_stats_for_user(&other_user_conn);
+    mysql_mutex_destroy(&(other_user_conn.LOCK_user_table_stats));
+
+    aux_user_table_stats_initialized = false;
+  }
+}
 
 /*
   check if user has already too many connections
@@ -400,6 +471,9 @@ extern "C" uchar *get_key_conn(user_conn *buff, size_t *length,
 
 extern "C" void free_user(struct user_conn *uc)
 {
+  /* free the table stats hash table and destroy its mutex */
+  free_table_stats_for_user(uc);
+  mysql_mutex_destroy(&uc->LOCK_user_table_stats);
   my_free(uc);
 }
 
@@ -414,6 +488,208 @@ void init_max_user_conn(void)
 #endif
 }
 
+/*
+** apply_to_user_connections - Apply To User Connections
+**  visit all user connections and apply the provided callback function
+** Input:
+**  fn   :in - function to apply on a user connection
+*/
+int apply_to_user_connections(std::function<int(USER_CONN *)> fn) {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  int rc = 0;
+  mysql_mutex_lock(&LOCK_user_conn);
+  for (uint userIter = 0; userIter < hash_user_connections.records; ++userIter)
+  {
+    USER_CONN *uc =
+      (USER_CONN*) my_hash_element(&hash_user_connections, userIter);
+    rc = fn(uc);
+    if (rc) {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      return rc;
+    }
+  }
+  mysql_mutex_unlock(&LOCK_user_conn);
+
+  rc = fn(&slave_user_conn);
+  if (rc) {
+    return rc;
+  }
+
+  rc = fn(&other_user_conn);
+  if (rc) {
+    return rc;
+  }
+#endif
+  return 0;
+}
+
+/*
+  free_table_stats_for_all_users
+  Free the table stats hash tables for all users
+*/
+void free_table_stats_for_all_users()
+{
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  auto fn = [](USER_CONN *uc) {
+    mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+    /* free the table stats hash table */
+    if (my_hash_inited(&uc->user_table_stats))
+      free_table_stats_for_user(uc);
+
+    mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+    return 0;
+  };
+  apply_to_user_connections(fn);
+#endif
+}
+
+void reset_user_conn_admin_flag() {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  auto fn = [](USER_CONN *uc) {
+    uc->admin = USER_CONN::USER_CONN_ADMIN_UNINITIALIZED;
+    return 0;
+  };
+  apply_to_user_connections(fn);
+#endif
+}
+
+/*
+  rename_user_table_stats
+   Moves a table's existing statistics to a new hash based on the new name,
+   for all db users
+  Input:
+    old_name  :in - table old name, as: "db_name/table_name"
+    new_name  :in - table new name, as: "db_name/table_name"
+*/
+void rename_user_table_stats(const char *old_name, const char *new_name)
+{
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  if (!UTS_LEVEL_ALL())
+    return;
+
+  char *old_key_val = my_strdup(old_name, MYF(MY_WME));
+  int   old_key_len = strlen(old_name)+1;
+  char *old_table_name = old_key_val; // points to the (old) table name piece
+
+  char *new_key_val = my_strdup(new_name, MYF(MY_WME));
+  int   new_key_len = strlen(new_name)+1;
+  char *new_table_name = new_key_val; // points to the (new) table name piece
+
+  if (!old_key_val || !new_key_val) // check for memory allocation failures
+  {
+    /* free successful memory allocations */
+    if (new_key_val)
+      my_free(new_key_val);
+    if (old_key_val)
+      my_free(old_key_val);
+
+    // NO_LINT_DEBUG
+    sql_print_error("rename_user_table_stats: memory allocation failed");
+    return;
+  }
+
+  /* old/new_table points to the table name in the old/new_key_val */
+  strsep(&old_table_name, "/");
+  strsep(&new_table_name, "/");
+
+  auto fn = [&old_key_val, &old_key_len, &new_key_val, &new_key_len,
+             &new_table_name](USER_CONN *uc) {
+    USER_TABLE_STATS* stats;
+    mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+    if (!my_hash_inited(&uc->user_table_stats))
+    {
+      mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+      return 0;
+    }
+
+    stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
+                                                (uchar*) old_key_val,
+                                                old_key_len);
+    if (stats)
+    {
+      /* update the hash key value and length */
+      memcpy(stats->shared_stats.hash_key, new_key_val, new_key_len);
+      stats->shared_stats.hash_key_len = new_key_len;
+
+      /* update the DB name */
+      memcpy(stats->shared_stats.db, new_key_val, new_table_name - new_key_val);
+      /* update the table name */
+      memcpy(stats->shared_stats.table, new_table_name,
+             new_key_len - (new_table_name - new_key_val));
+
+      if (my_hash_update(&(uc->user_table_stats), (uchar*)stats,
+                         (uchar*)old_key_val, old_key_len))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("rename_user_table_stats: renaming table stats failed");
+      }
+    }
+
+    mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+    return 0;
+  };
+  apply_to_user_connections(fn);
+
+
+  my_free(new_key_val);
+  my_free(old_key_val);
+
+#endif /* NO_EMBEDDED_ACCESS_CHECKS */
+}
+
+/*
+  delete_user_table_stats
+   Delete entries for the table that has been dropped in the table statistics
+   hash tables for all db users
+  Input:
+    old_name  :in - table old name
+*/
+void delete_user_table_stats(const char *old_name)
+{
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  if (!UTS_LEVEL_ALL())
+    return;
+
+  char *old_key_val = my_strdup(old_name, MYF(MY_WME));
+  int   old_key_len = strlen(old_name)+1;
+  char *old_table_name = old_key_val; // points to the (old) table name piece
+
+  if (!old_key_val) // check for memory a allocation failure
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("delete_user_table_stats: memory allocation failure");
+    return;
+  }
+
+  /* old/new_table points to the table name in the old/new_key_val */
+  strsep(&old_table_name, "/");
+
+  auto fn = [&old_key_val, &old_key_len](USER_CONN *uc) {
+    USER_TABLE_STATS* old_stats;
+    mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+    if (!my_hash_inited(&uc->user_table_stats))
+    {
+      mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+      return 0;
+    }
+
+    old_stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
+                                                    (uchar*)old_key_val,
+                                                    old_key_len);
+    if (old_stats)
+      my_hash_delete(&uc->user_table_stats, (uchar*)old_stats);
+
+    mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+    return 0;
+  };
+  apply_to_user_connections(fn);
+
+  my_free(old_key_val);
+#endif /* NO_EMBEDDED_ACCESS_CHECKS */
+}
 
 void free_max_user_conn(void)
 {
@@ -1231,18 +1507,14 @@ void reset_global_user_stats()
   DBUG_ENTER("reset_global_user_stats");
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-  mysql_mutex_lock(&LOCK_user_conn);
-
-  for (uint i = 0; i < hash_user_connections.records; ++i)
-  {
-    USER_CONN *uc = (USER_CONN*)my_hash_element(&hash_user_connections, i);
-
+  auto fn = [](USER_CONN *uc) {
     init_user_stats(&(uc->user_stats));
-  }
-  init_user_stats(&slave_user_stats);
-  init_user_stats(&other_user_stats);
 
-  mysql_mutex_unlock(&LOCK_user_conn);
+    /* reset the table statistics for this user */
+    reset_table_stats_for_user(uc);
+    return 0;
+  };
+  apply_to_user_connections(fn);
 #endif
   DBUG_VOID_RETURN;
 }
@@ -1641,39 +1913,114 @@ int fill_user_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   TABLE* table= tables->table;
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-  mysql_mutex_lock(&LOCK_user_conn);
+  auto fn = [&thd, &table](USER_CONN *uc) {
+    fill_one_user_stats(table, uc, &uc->user_stats, uc->user, uc->connections);
+    if (schema_table_store_record(thd, table))
+    {
+      return -1;
+    }
+    return 0;
+  };
+  DBUG_RETURN(apply_to_user_connections(fn));
+#endif /* NO_EMBEDDED_ACCESS_CHECKS */
 
-  for (uint idx=0;idx < hash_user_connections.records; idx++)
+  DBUG_RETURN(0);
+}
+
+/*
+  fill_one_user_table_stats - Fill User Table Statistics
+   Builds the rows for USER_TABLE_STATISTICS for one user
+
+  Input:
+    thd    in  - thread descriptor handle
+    tables out - where to store the USER_TABLE_STATISTICS handle
+    uc     in  - user connection handle
+*/
+static
+int fill_one_user_table_stats(
+    THD        *thd,
+    TABLE_LIST *tables,
+    USER_CONN  *uc)
+{
+  DBUG_ENTER("fill_one_user_table_stats");
+  TABLE* table= tables->table;
+
+  mysql_mutex_lock(&uc->LOCK_user_table_stats);
+  if (!my_hash_inited(&uc->user_table_stats))
+    goto end;
+
+  for (unsigned iter = 0; iter < uc->user_table_stats.records; ++iter)
   {
-    USER_CONN *user_conn= (struct user_conn *)
-      my_hash_element(&hash_user_connections, idx);
-    USER_STATS *us = &(user_conn->user_stats);
+    int f = 0;                /* current field */
 
-    fill_one_user_stats(table, user_conn, us, user_conn->user,
-                        user_conn->connections);
+    USER_TABLE_STATS *user_table_stats =
+      (USER_TABLE_STATS*)my_hash_element(&(uc->user_table_stats), iter);
+
+    /* skip this one if the statistics are not valid */
+    if (!valid_user_table_stats(user_table_stats))
+      continue;
+
+    restore_record(table, s->default_values);
+
+    /* USER_NAME */
+    table->field[f++]->store(uc->user, strlen(uc->user), system_charset_info);
+
+    /* fill the rest through the shared function */
+    fill_shared_table_stats(&(user_table_stats->shared_stats), table, &f);
 
     if (schema_table_store_record(thd, table))
     {
-      mysql_mutex_unlock(&LOCK_user_conn);
+      mysql_mutex_unlock(&uc->LOCK_user_table_stats);
       DBUG_RETURN(-1);
     }
   }
 
-  fill_one_user_stats(table, NULL, &slave_user_stats, "sys:slave", 0);
-  if (schema_table_store_record(thd, table))
+end:
+  mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+  DBUG_RETURN(0);
+}
+
+USER_CONN *get_user_conn_for_stats(THD *thd)
+{
+  USER_CONN *uc = const_cast<USER_CONN*>(thd->get_user_connect());
+
+  if (!uc)
   {
-    mysql_mutex_unlock(&LOCK_user_conn);
-    DBUG_RETURN(-1);
+    if (thd->slave_thread)
+      uc = &slave_user_conn;
+    else
+      uc = &other_user_conn;
   }
 
-  fill_one_user_stats(table, NULL, &other_user_stats, "sys:other", 0);
-  if (schema_table_store_record(thd, table))
-  {
-    mysql_mutex_unlock(&LOCK_user_conn);
-    DBUG_RETURN(-1);
-  }
+  return uc;
+}
 
-  mysql_mutex_unlock(&LOCK_user_conn);
+/*
+  fill_user_table_stats
+   Builds the rows for USER_TABLE_STATISTICS for all users
+
+  Input:
+    thd    in  - thread descriptor handle
+    tables out - where to store the USER_TABLE_STATISTICS handle
+    cond   in  - filter condition on the table
+*/
+int  fill_user_table_stats(
+    THD        *thd,
+    TABLE_LIST *tables,
+    Item       *cond)
+{
+  DBUG_ENTER("fill_user_table_stats");
+
+  /* skip if tracking of activity per user-table pair is not allowed */
+  if (!UTS_LEVEL_ALL())
+    DBUG_RETURN(0);
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  auto fn = [&thd, &tables](USER_CONN *uc) {
+    fill_one_user_table_stats(thd, tables, uc);
+    return 0;
+  };
+  apply_to_user_connections(fn);
 #endif /* NO_EMBEDDED_ACCESS_CHECKS */
 
   DBUG_RETURN(0);

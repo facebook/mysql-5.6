@@ -25,6 +25,9 @@ typedef struct user_conn USER_CONN;
 
 void init_max_user_conn(void);
 void free_max_user_conn(void);
+void init_aux_user_table_stats(void);
+void free_aux_user_table_stats(void);
+USER_CONN *get_user_conn_for_stats(THD *thd);
 
 pthread_handler_t handle_one_connection(void *arg);
 void do_handle_one_connection(THD *thd_arg);

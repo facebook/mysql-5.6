@@ -1,4 +1,5 @@
 #include "sql_base.h"
+#include "sql_connect.h"
 #include "sql_show.h"
 #include "my_atomic.h"
 
@@ -10,7 +11,7 @@ HASH global_table_stats;
 
   SYNOPSIS
     update_table_stats()
-      tablep - the table for which global table stats are updated
+      tablep - the table for which global/user table stats are updated
       follow_next - when TRUE, update global stats for tables linked
                     via TABLE::next
  */
@@ -19,7 +20,12 @@ void update_table_stats(THD *thd, TABLE *tablep, bool follow_next)
   for (; tablep; tablep= tablep->next)
   {
     if (tablep->file)
+    {
+      /* update the table statistics for a given user-table pair */
+      tablep->file->update_user_table_stats(thd);
+      /* update the table statistics for a given table */
       tablep->file->update_global_table_stats(thd);
+    }
 
     if (!follow_next)
       return;
@@ -27,10 +33,27 @@ void update_table_stats(THD *thd, TABLE *tablep, bool follow_next)
 }
 
 static void
-clear_table_stats_counters(TABLE_STATS* table_stats)
+clear_shared_table_stats(SHARED_TABLE_STATS *table_stats)
 {
-  int x;
-  for (x=0; x < MAX_INDEX_STATS; ++x)
+  table_stats->queries_used.clear();
+  table_stats->queries_empty.clear();
+
+  table_stats->rows_inserted.clear();
+  table_stats->rows_updated.clear();
+  table_stats->rows_deleted.clear();
+  table_stats->rows_read.clear();
+  table_stats->rows_requested.clear();
+}
+
+static void
+clear_table_stats(TABLE_STATS* table_stats)
+{
+  clear_shared_table_stats(&(table_stats->shared_stats));
+
+  table_stats->last_admin.clear();
+  table_stats->last_non_admin.clear();
+
+  for (int x=0; x < MAX_INDEX_STATS; ++x)
   {
     table_stats->indexes[x].rows_inserted.clear();
     table_stats->indexes[x].rows_updated.clear();
@@ -43,12 +66,10 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
     table_stats->indexes[x].io_perf_read.init();
   }
 
-  table_stats->queries_used.clear();
-  table_stats->rows_inserted.clear();
-  table_stats->rows_updated.clear();
-  table_stats->rows_deleted.clear();
-  table_stats->rows_read.clear();
-  table_stats->rows_requested.clear();
+  table_stats->n_lock_wait.clear();
+  table_stats->n_lock_wait_timeout.clear();
+  table_stats->n_lock_deadlock.clear();
+
   table_stats->rows_index_first.clear();
   table_stats->rows_index_next.clear();
 
@@ -58,11 +79,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->io_perf_read_primary.init();
   table_stats->io_perf_read_secondary.init();
   table_stats->index_inserts.clear();
-  table_stats->queries_empty.clear();
   table_stats->comment_bytes.clear();
-  table_stats->n_lock_wait.clear();
-  table_stats->n_lock_wait_timeout.clear();
-  table_stats->n_lock_deadlock.clear();
 
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stats, 0, sizeof(table_stats->comp_stats));
@@ -105,6 +122,81 @@ set_index_stats_names(TABLE_STATS *table_stats, TABLE *table)
     return 0;
 }
 
+/*
+  set_table_stats_cache_key
+   Sets the table statistic cache key value and length
+   Returns TRUE if successful and FALSE otherwise
+  Input:
+   db_name       in:  - DB name
+   table_name    in:  - table name
+   engine_name   in:  - engine name
+   cache_key_val out: - cache key value
+   cache_key_len out: - cache key length
+*/
+static bool set_table_stats_cache_key(
+  const char *db_name,
+  const char *table_name,
+  const char *engine_name,
+  char   *cache_key_val,
+  size_t *cache_key_len)
+{
+  DBUG_ASSERT(db_name && table_name && engine_name);
+
+  if (!db_name || !table_name || !engine_name)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("No key for table stats.");
+    return false;
+  }
+
+  size_t db_name_len= strlen(db_name);
+  size_t table_name_len= strlen(table_name);
+
+  if (db_name_len > NAME_LEN || table_name_len > NAME_LEN)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Db or table name too long for table stats :%s:%s:\n",
+                    db_name, table_name);
+    DBUG_ABORT();
+    return false;
+  }
+
+  *cache_key_len = db_name_len + table_name_len + 2;
+
+  memcpy(cache_key_val, db_name, db_name_len + 1);
+  memcpy(cache_key_val + db_name_len + 1, table_name, table_name_len + 1);
+
+  return true;
+}
+
+/*
+  set_table_stats_attributes
+   Sets the table statistic attributes (cache key, db, table and engine names)
+  Input:
+   stats         out: - shared table statistics
+   db_name       in:  - DB name
+   table_name    in:  - table name
+   engine_name   in:  - engine name
+   cache_key_val in:  - cache key value
+   cache_key_len in:  - cache key length
+*/
+static void set_table_stats_attributes(
+    SHARED_TABLE_STATS *stats,
+    const char *db_name,
+    const char *table_name,
+    const char *engine_name,
+    char  *cache_key_val,
+    size_t cache_key_len)
+{
+  memcpy(stats->hash_key, cache_key_val, cache_key_len);
+  stats->hash_key_len = cache_key_len;
+
+  memcpy(stats->db, db_name, strlen(db_name) + 1);
+  memcpy(stats->table, table_name, strlen(table_name) + 1);
+
+  stats->engine_name= engine_name;
+}
+
 static TABLE_STATS*
 get_table_stats_by_name(const char *db_name,
                         const char *table_name,
@@ -113,64 +205,40 @@ get_table_stats_by_name(const char *db_name,
 {
   TABLE_STATS* table_stats;
   char cache_key[NAME_LEN * 2 + 2];
-  size_t cache_key_length;
+  size_t cache_key_len;
 
-  DBUG_ASSERT(db_name && table_name && engine_name);
+  if (!set_table_stats_cache_key(db_name, table_name, engine_name,
+                                 cache_key, &cache_key_len))
+    return NULL;;
 
-  if (!db_name || !table_name || !engine_name)
-  {
-    sql_print_error("No key for table stats.");
-    return NULL;
-  }
-
-  size_t db_name_len= strlen(db_name);
-  size_t table_name_len= strlen(table_name);
-
-  if (db_name_len > NAME_LEN || table_name_len > NAME_LEN)
-  {
-    sql_print_error("Db or table name too long for table stats :%s:%s:\n",
-                    db_name, table_name);
-    DBUG_ABORT();
-    return NULL;
-  }
-
-  cache_key_length = db_name_len + table_name_len + 2;
-
-  memcpy(cache_key, db_name, db_name_len + 1);
-  memcpy(cache_key + db_name_len + 1, table_name, table_name_len + 1);
-
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   // Get or create the TABLE_STATS object for this table.
   if (!(table_stats= (TABLE_STATS*)my_hash_search(&global_table_stats,
                                                (uchar*)cache_key,
-                                               cache_key_length)))
+                                               cache_key_len)))
   {
     if (!(table_stats= ((TABLE_STATS*)my_malloc(sizeof(TABLE_STATS),
                                                 MYF(MY_WME)))))
     {
       sql_print_error("Cannot allocate memory for TABLE_STATS.");
-      global_table_stats_unlock(table_stats_lock_acquired);
+      unlock_global_table_stats(table_stats_lock_acquired);
       return NULL;
     }
 
-    memcpy(table_stats->hash_key, cache_key, cache_key_length);
-    table_stats->hash_key_len= cache_key_length;
-
-    memcpy(table_stats->db, db_name, db_name_len + 1);
-    memcpy(table_stats->table, table_name, table_name_len + 1);
+    set_table_stats_attributes(&(table_stats->shared_stats), db_name,table_name,
+                               engine_name, cache_key, cache_key_len);
 
     table_stats->num_indexes= 0;
     if (tbl && set_index_stats_names(table_stats, tbl))
     {
       sql_print_error("Cannot generate name for index stats.");
       my_free((char*)table_stats);
-      global_table_stats_unlock(table_stats_lock_acquired);
+      unlock_global_table_stats(table_stats_lock_acquired);
       return NULL;
     }
 
-    clear_table_stats_counters(table_stats);
-    table_stats->engine_name= engine_name;
+    clear_table_stats(table_stats);
     table_stats->should_update = false;
 
     if (my_hash_insert(&global_table_stats, (uchar*)table_stats))
@@ -178,7 +246,7 @@ get_table_stats_by_name(const char *db_name,
       // Out of memory.
       sql_print_error("Inserting table stats failed.");
       my_free((char*)table_stats);
-      global_table_stats_unlock(table_stats_lock_acquired);
+      unlock_global_table_stats(table_stats_lock_acquired);
       return NULL;
     }
   }
@@ -195,14 +263,13 @@ get_table_stats_by_name(const char *db_name,
       if (set_index_stats_names(table_stats, tbl))
       {
         sql_print_error("Cannot generate name for index stats.");
-        global_table_stats_unlock(table_stats_lock_acquired);
+        unlock_global_table_stats(table_stats_lock_acquired);
         return NULL;
       }
     }
   }
 
-
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
 
   return table_stats;
 }
@@ -240,8 +307,8 @@ get_table_stats(TABLE *table, handlerton *engine_type)
 extern "C" uchar *get_key_table_stats(TABLE_STATS *table_stats, size_t *length,
                                       my_bool not_used MY_ATTRIBUTE((unused)))
 {
-  *length = table_stats->hash_key_len;
-  return (uchar*)table_stats->hash_key;
+  *length = table_stats->shared_stats.hash_key_len;
+  return (uchar*)table_stats->shared_stats.hash_key;
 }
 
 extern "C" void free_table_stats(TABLE_STATS* table_stats)
@@ -266,17 +333,17 @@ void free_global_table_stats(void)
 
 void reset_global_table_stats()
 {
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     TABLE_STATS *table_stats =
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
 
-    clear_table_stats_counters(table_stats);
+    clear_table_stats(table_stats);
     table_stats->num_indexes= 0;
   }
 
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
 }
 
 ST_FIELD_INFO table_stats_fields_info[]=
@@ -290,6 +357,16 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"ROWS_DELETED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"QUERIES_USED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"QUERIES_EMPTY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"LAST_ADMIN", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"LAST_NON_ADMIN", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"ROW_LOCK_WAITS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROW_LOCK_WAIT_TIMEOUTS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROW_LOCK_DEADLOCKS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_PADDING", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -348,13 +425,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_READ_SLOW_IOS_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_INDEX_INSERTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"QUERIES_USED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"QUERIES_EMPTY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMMENT_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-
-  {"ROW_LOCK_WAITS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"ROW_LOCK_WAIT_TIMEOUTS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"ROW_LOCK_DEADLOCKS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"INNODB_PAGES_READ", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"INNODB_PAGES_READ_INDEX", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -407,9 +478,8 @@ void fill_table_stats_cb(const char *db,
                          int n_lock_deadlock,
                          const char *engine)
 {
-  TABLE_STATS *stats;
+  TABLE_STATS *stats = get_table_stats_by_name(db, table, engine, NULL);
 
-  stats= get_table_stats_by_name(db, table, engine, NULL);
   if (!stats)
     return;
 
@@ -447,6 +517,72 @@ void fill_table_stats_cb(const char *db,
   stats->n_lock_deadlock.set_maybe(n_lock_deadlock);
 }
 
+/*
+  valid_shared_table_stats
+   Returns TRUE if shared table statistics are valid: considered as non
+   valid if all the statistics are 0.
+   Used in both user and global statistics check functions
+  Input:
+    stats  in - shared statistics handle
+*/
+static
+bool valid_shared_table_stats(SHARED_TABLE_STATS *stats)
+{
+  if (stats->rows_inserted.load() == 0 &&
+      stats->rows_updated.load() == 0 &&
+      stats->rows_deleted.load() == 0 &&
+      stats->rows_read.load() == 0 &&
+      stats->rows_requested.load() == 0 &&
+      stats->queries_used.load() == 0 &&
+      stats->queries_empty.load() == 0)
+    return false;
+  else
+    return true;
+}
+
+/*
+  valid_global_table_stats
+   Returns TRUE if global table statistics are valid: considered as non
+   valid if all the statistics are 0.
+   Checks both the shared (valid_shared_table_stats()) and
+   specific statistics.
+  Input:
+    table_stats  in - global table statistics handle
+*/
+static
+bool valid_global_table_stats(TABLE_STATS *table_stats)
+{
+  /* check shared statistics */
+  if (valid_shared_table_stats(&(table_stats->shared_stats)))
+    return true;
+
+  /* check statistics that are specific to TABLE_STATISTICS */
+  if (table_stats->n_lock_wait.load() == 0 &&
+      table_stats->n_lock_wait_timeout.load() == 0 &&
+      table_stats->n_lock_deadlock.load() == 0 &&
+      table_stats->comp_stats.compressed.load() == 0 &&
+      table_stats->comp_stats.compressed_ok.load() == 0 &&
+      table_stats->comp_stats.compressed_time.load() == 0 &&
+      table_stats->comp_stats.compressed_ok_time.load() == 0 &&
+      table_stats->comp_stats.decompressed.load() == 0 &&
+      table_stats->comp_stats.decompressed_time.load() == 0 &&
+      table_stats->io_perf_read.requests.load() == 0 &&
+      table_stats->io_perf_write.requests.load() == 0 &&
+      table_stats->io_perf_read_blob.requests.load() == 0 &&
+      table_stats->io_perf_read_primary.requests.load() == 0 &&
+      table_stats->io_perf_read_secondary.requests.load() == 0 &&
+      table_stats->comment_bytes.load() == 0 &&
+      table_stats->page_stats.n_pages_read.load() == 0 &&
+      table_stats->page_stats.n_pages_read_index.load() == 0 &&
+      table_stats->page_stats.n_pages_read_blob.load() == 0 &&
+      table_stats->page_stats.n_pages_written.load() == 0 &&
+      table_stats->page_stats.n_pages_written_index.load() == 0 &&
+      table_stats->page_stats.n_pages_written_blob.load() == 0)
+    return false;
+  else
+    return true;
+}
+
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_table_stats");
@@ -454,7 +590,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
   ha_get_table_stats(fill_table_stats_cb);
 
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     int f= 0;
@@ -462,52 +598,20 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     TABLE_STATS *table_stats =
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
 
-    if (table_stats->rows_inserted.load() == 0 &&
-        table_stats->rows_updated.load() == 0 &&
-        table_stats->rows_deleted.load() == 0 &&
-        table_stats->rows_read.load() == 0 &&
-        table_stats->rows_requested.load() == 0 &&
-        table_stats->comp_stats.compressed.load() == 0 &&
-        table_stats->comp_stats.compressed_ok.load() == 0 &&
-        table_stats->comp_stats.compressed_time.load() == 0 &&
-        table_stats->comp_stats.compressed_ok_time.load() == 0 &&
-        table_stats->comp_stats.decompressed.load() == 0 &&
-        table_stats->comp_stats.decompressed_time.load() == 0 &&
-        table_stats->io_perf_read.requests.load() == 0 &&
-        table_stats->io_perf_write.requests.load() == 0 &&
-        table_stats->io_perf_read_blob.requests.load() == 0 &&
-        table_stats->io_perf_read_primary.requests.load() == 0 &&
-        table_stats->io_perf_read_secondary.requests.load() == 0 &&
-        table_stats->queries_empty.load() == 0 &&
-        table_stats->comment_bytes.load() == 0 &&
-        table_stats->page_stats.n_pages_read.load() == 0 &&
-        table_stats->page_stats.n_pages_read_index.load() == 0 &&
-        table_stats->page_stats.n_pages_read_blob.load() == 0 &&
-        table_stats->page_stats.n_pages_written.load() == 0 &&
-        table_stats->page_stats.n_pages_written_index.load() == 0 &&
-        table_stats->page_stats.n_pages_written_blob.load() == 0 &&
-        table_stats->n_lock_wait.load() == 0 &&
-        table_stats->n_lock_wait_timeout.load() == 0 &&
-        table_stats->n_lock_deadlock.load() == 0)
-    {
+    /* skip this one if the statistics are not valid */
+    if (!valid_global_table_stats(table_stats))
       continue;
-    }
 
     restore_record(table, s->default_values);
-    table->field[f++]->store(table_stats->db, strlen(table_stats->db),
-                           system_charset_info);
-    table->field[f++]->store(table_stats->table, strlen(table_stats->table),
-                             system_charset_info);
 
-    table->field[f++]->store(table_stats->engine_name,
-                             strlen(table_stats->engine_name),
-                             system_charset_info);
+    fill_shared_table_stats(&(table_stats->shared_stats), table, &f);
 
-    table->field[f++]->store(table_stats->rows_inserted.load(), TRUE);
-    table->field[f++]->store(table_stats->rows_updated.load(), TRUE);
-    table->field[f++]->store(table_stats->rows_deleted.load(), TRUE);
-    table->field[f++]->store(table_stats->rows_read.load(), TRUE);
-    table->field[f++]->store(table_stats->rows_requested.load(), TRUE);
+    table->field[f++]->store(table_stats->last_admin.load(), TRUE);
+    table->field[f++]->store(table_stats->last_non_admin.load(), TRUE);
+
+    table->field[f++]->store(table_stats->n_lock_wait.load(), TRUE);
+    table->field[f++]->store(table_stats->n_lock_wait_timeout.load(), TRUE);
+    table->field[f++]->store(table_stats->n_lock_deadlock.load(), TRUE);
 
     table->field[f++]->store(table_stats->comp_stats.page_size.load(), TRUE);
     table->field[f++]->store(table_stats->comp_stats.padding.load(), TRUE);
@@ -615,14 +719,8 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
       table_stats->io_perf_read_secondary.slow_ios.load(), TRUE);
 
     table->field[f++]->store(table_stats->index_inserts.load(), TRUE);
-    table->field[f++]->store(table_stats->queries_used.load(), TRUE);
-    table->field[f++]->store(table_stats->queries_empty.load(), TRUE);
 
     table->field[f++]->store(table_stats->comment_bytes.load(), TRUE);
-
-    table->field[f++]->store(table_stats->n_lock_wait.load(), TRUE);
-    table->field[f++]->store(table_stats->n_lock_wait_timeout.load(), TRUE);
-    table->field[f++]->store(table_stats->n_lock_deadlock.load(), TRUE);
 
     table->field[f++]->store(
       table_stats->page_stats.n_pages_read.load(), TRUE);
@@ -641,11 +739,11 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      global_table_stats_unlock(table_stats_lock_acquired);
+      unlock_global_table_stats(table_stats_lock_acquired);
       DBUG_RETURN(-1);
     }
   }
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
 
   DBUG_RETURN(0);
 }
@@ -696,13 +794,15 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_index_stats");
   TABLE* table= tables->table;
 
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     uint ix;
 
     TABLE_STATS *table_stats =
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
+
+    SHARED_TABLE_STATS *sts = &(table_stats->shared_stats);
 
     for (ix=0; ix < table_stats->num_indexes; ++ix)
     {
@@ -719,15 +819,15 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
       }
 
       restore_record(table, s->default_values);
-      table->field[f++]->store(table_stats->db, strlen(table_stats->db),
-                             system_charset_info);
-      table->field[f++]->store(table_stats->table, strlen(table_stats->table),
+      table->field[f++]->store(sts->db, strlen(sts->db),
+                               system_charset_info);
+      table->field[f++]->store(sts->table, strlen(sts->table),
                                system_charset_info);
 
       table->field[f++]->store(index_stats->name, strlen(index_stats->name),
-                              system_charset_info);
-      table->field[f++]->store(table_stats->engine_name,
-                               strlen(table_stats->engine_name),
+                               system_charset_info);
+      table->field[f++]->store(sts->engine_name,
+                               strlen(sts->engine_name),
                                system_charset_info);
 
       table->field[f++]->store(index_stats->rows_inserted.load(), TRUE);
@@ -758,18 +858,17 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
       if (schema_table_store_record(thd, table))
       {
-        global_table_stats_unlock(table_stats_lock_acquired);
+        unlock_global_table_stats(table_stats_lock_acquired);
         DBUG_RETURN(-1);
       }
     }
   }
 
-
-
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
 
   DBUG_RETURN(0);
 }
+
 ST_FIELD_INFO user_stats_fields_info[]=
 {
   {"USER_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -892,6 +991,12 @@ void table_stats_rename(const char *old_name, const char *new_name)
 
   if (!old_key || !new_key) // Memory allocation error
   {
+    /* free successful memory allocations */
+    if (new_key)
+      my_free(new_key);
+    if (old_key)
+      my_free(old_key);
+
     sql_print_error("Memory allocation error in table stats.");
     return;
   }
@@ -899,26 +1004,31 @@ void table_stats_rename(const char *old_name, const char *new_name)
   strsep(&old_table, "/");
   strsep(&new_table, "/");
 
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   stats = (TABLE_STATS*)
               my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
   if (stats)
   {
-    memcpy(stats->hash_key, new_key, new_len);
-    stats->hash_key_len = new_len;
+    memcpy(stats->shared_stats.hash_key, new_key, new_len);
+    stats->shared_stats.hash_key_len = new_len;
 
-    memcpy(stats->db, new_key, new_table - new_key);
-    memcpy(stats->table, new_table, new_len - (new_table - new_key));
+    memcpy(stats->shared_stats.db, new_key, new_table - new_key);
+    memcpy(stats->shared_stats.table, new_table, new_len - (new_table-new_key));
 
     if (my_hash_update(&global_table_stats, (uchar*)stats,
                        (uchar*)old_key, old_len))
     {
-      sql_print_error("Renaming table stats failed.");
+      // NO_LINT_DEBUG
+      sql_print_error("table_stats_rename: renaming table stats failed");
     }
   }
 
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
+
+  /* rename the table entries for all users (user_table_statistics) */
+  rename_user_table_stats(old_name, new_name);
+
   my_free(new_key);
   my_free(old_key);
 }
@@ -941,7 +1051,8 @@ void table_stats_delete(const char *old_name)
 
   if (!old_key) // Memory allocation error
   {
-    sql_print_error("Memory allocation error in table stats.");
+    // NO_LINT_DEBUG
+    sql_print_error("table_stats_delete: memory allocation failed");
     return;
   }
 
@@ -950,7 +1061,7 @@ void table_stats_delete(const char *old_name)
     strsep(&temp, "/");
   }
 
-  bool table_stats_lock_acquired = global_table_stats_lock();
+  bool table_stats_lock_acquired = lock_global_table_stats();
 
   old_stats = (TABLE_STATS*)
               my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
@@ -959,7 +1070,11 @@ void table_stats_delete(const char *old_name)
     my_hash_delete(&global_table_stats, (uchar*)old_stats);
   }
 
-  global_table_stats_unlock(table_stats_lock_acquired);
+  unlock_global_table_stats(table_stats_lock_acquired);
+
+  /* delete the entries for all users (user_table_statistics) */
+  delete_user_table_stats(old_name);
+
   my_free(old_key);
 }
 
@@ -970,7 +1085,7 @@ void table_stats_delete(const char *old_name)
   We use an error checking mutex here so we can handle this situation.
   More details: https://github.com/facebook/mysql-5.6/issues/132.
 */
-bool global_table_stats_lock() {
+bool lock_global_table_stats() {
 /*
   In debug mode safe_mutex is turned on, and
   PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP is ignored.
@@ -995,7 +1110,7 @@ bool global_table_stats_lock() {
 #endif
 }
 
-void global_table_stats_unlock(bool acquired) {
+void unlock_global_table_stats(bool acquired) {
   /* If lock was already acquired by calling thread, do nothing. */
   if (acquired)
   {
@@ -1004,4 +1119,316 @@ void global_table_stats_unlock(bool acquired) {
 
   /* Otherwise, unlock the mutex */
   mysql_mutex_unlock(&LOCK_global_table_stats);
+}
+
+/*
+  USER_TABLE_STATISTICS
+
+  This was added to the INFORMATION_SCHEMA to provide user statistics
+  per user and table. It provides a subset of the statistics from the
+  TABLE_STATISTICS that are relevant for use cases identified so far:
+  - rows (inserted, updated, deleted, read, requested)
+  - queries (used, empty)
+*/
+ST_FIELD_INFO user_table_stats_fields_info[]=
+{
+  {"USER_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"TABLE_SCHEMA", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"TABLE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"TABLE_ENGINE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"ROWS_INSERTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                             SKIP_OPEN_TABLE},
+  {"ROWS_UPDATED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                            SKIP_OPEN_TABLE},
+  {"ROWS_DELETED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                            SKIP_OPEN_TABLE},
+  {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                              SKIP_OPEN_TABLE},
+
+  {"QUERIES_USED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                            SKIP_OPEN_TABLE},
+  {"QUERIES_EMPTY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                             SKIP_OPEN_TABLE},
+
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+/*
+  Service functions to support USER_TABLE_STATISTICS
+  - get_key_user_table_stats: get the key and length
+  - free the statistics hash table
+  - free the statistics structure
+  - initialize the statistics structure
+  - reset the statistics structure
+*/
+
+/*
+  get_key_user_table_stats - Get Key User Table Stats
+    Returns the key value and length for a user table stats
+
+  Input:
+    user_table_stats - user table statistics handle
+    length (OUT)     - length of key
+    <unused input>
+*/
+extern "C" uchar *get_key_user_table_stats(
+    USER_TABLE_STATS *user_table_stats,
+    size_t           *length,
+    my_bool not_used MY_ATTRIBUTE((unused)))
+{
+  *length = user_table_stats->shared_stats.hash_key_len;
+  return (uchar*)user_table_stats->shared_stats.hash_key;
+}
+
+/*
+  free_key_user_table_stats - Free User Key Table Stats
+    Free a user table statistics entry
+
+  Input:
+    user_table_stats - user table stats handle
+*/
+extern "C" void free_key_user_table_stats(
+    USER_TABLE_STATS *user_table_stats)
+{
+  my_free((char *) user_table_stats);
+}
+
+/*
+  free_table_stats_for_user - Free Table Statistics for a User
+    Frees the hash table used to track table statistics for a user
+
+  Input:
+    user_conn - use connection handle
+*/
+void free_table_stats_for_user(USER_CONN *user_conn)
+{
+  my_hash_free(&(user_conn->user_table_stats));
+}
+
+/*
+  init_table_stats_for_user - Initialize Table Statistics for User
+    Setup the hash table used to track all the table stats for user
+    Initial allocation is 4 entries.
+
+  Input:
+    uc   in - user connection handle
+*/
+void init_table_stats_for_user(
+    USER_CONN *uc)
+{
+  if (my_hash_init(&(uc->user_table_stats), system_charset_info, 4,
+                   0, 0, (my_hash_get_key)get_key_user_table_stats,
+                   (my_hash_free_key)free_key_user_table_stats, 0))
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Initializing a connection user_table_stats failed.");
+    DBUG_ABORT();
+  }
+}
+
+/*
+  clear_user_table_stats - Clear User Table Statistics
+   Clears the statistics counters for a user table pair
+
+  Input:
+    table_stats - user table statistics handle
+*/
+static void
+clear_user_table_stats(
+    USER_TABLE_STATS* table_stats)
+{
+  /* clear the shared statistics, nothing else */
+  clear_shared_table_stats(&(table_stats->shared_stats));
+}
+
+/*
+  reset_table_stats_for_user - Reset Table Statistics For a User
+   Resets the statistics for all the tables tracked for a user
+
+   Input:
+     uc  in - user connection handle
+*/
+void reset_table_stats_for_user(
+    USER_CONN *uc)
+{
+  mysql_mutex_lock(&uc->LOCK_user_table_stats);
+  if (!my_hash_inited(&uc->user_table_stats))
+    goto end;
+
+  for (uint iter = 0; iter < uc->user_table_stats.records; ++iter)
+  {
+    USER_TABLE_STATS *user_table_stats =
+      (USER_TABLE_STATS *)my_hash_element(&(uc->user_table_stats), iter);
+
+    clear_user_table_stats(user_table_stats);
+  }
+end:
+  mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+}
+
+/*
+  valid_user_table_stats
+   Returns TRUE if user table statistics are valid: considered as non
+   valid if all the statistics are 0.
+   Checks the shared statistics (valid_shared_table_stats())
+  Input:
+    table_stats  in - user table statistics handle
+*/
+bool valid_user_table_stats(USER_TABLE_STATS *table_stats)
+{
+  return valid_shared_table_stats(&(table_stats->shared_stats));
+}
+
+#ifndef EMBEDDED_LIBRARY
+/*
+  get_user_table_stats_by_name - Get User Table Stats By Name
+   Returns the handle on a table statistics stucture for a user
+
+  Input:
+    uc          in: - user connection handle
+    db_name     in: - database name
+    table_name  in: - table name
+    engine_name in: - engine name
+    tbl         in: - TABLE handle
+*/
+static USER_TABLE_STATS*
+get_user_table_stats_by_name(USER_CONN *uc,
+                             const char *db_name,
+                             const char *table_name,
+                             const char *engine_name,
+                             TABLE *tbl)
+{
+  USER_TABLE_STATS* table_stats;
+  char cache_key[NAME_LEN * 2 + 2];
+  size_t cache_key_len;
+
+  if (!UTS_LEVEL_ALL())
+    return NULL;
+
+  mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+  if (!my_hash_inited(&uc->user_table_stats))
+    init_table_stats_for_user(uc);
+
+  if (!set_table_stats_cache_key(db_name, table_name, engine_name,
+                                 cache_key, &cache_key_len))
+    return NULL;
+
+  // Get or create the USER_TABLE_STATS object for this table.
+  if (!(table_stats= (USER_TABLE_STATS*)my_hash_search(
+                                               &(uc->user_table_stats),
+                                               (uchar*)cache_key,
+                                               cache_key_len)))
+  {
+    if (!(table_stats= ((USER_TABLE_STATS*)my_malloc(sizeof(USER_TABLE_STATS),
+                                                     MYF(MY_WME)))))
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Cannot allocate memory for TABLE_STATS.");
+      goto end;
+    }
+
+    set_table_stats_attributes(&(table_stats->shared_stats), db_name,table_name,
+                               engine_name, cache_key, cache_key_len);
+
+    clear_user_table_stats(table_stats);
+
+    if (my_hash_insert(&(uc->user_table_stats), (uchar*)table_stats))
+    {
+      // Out of memory
+      // NO_LINT_DEBUG
+      sql_print_error("Inserting table stats failed.");
+      my_free((char*)table_stats);
+      table_stats = NULL;
+      goto end;
+    }
+  }
+
+end:
+  mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+  return table_stats;
+}
+#endif
+
+/*
+  get_user_table_stats()
+   Return the USER_TABLE_STATS object for a table and user pair
+
+  Input:
+   thd            in: THD handle
+   table          in: table for which an object is returned
+   type_of_db     in: storage engine type
+
+  RETURN VALUE
+    USER_TABLE_STATS structure for the requested table and user
+    NULL on failure
+*/
+USER_TABLE_STATS*
+get_user_table_stats(THD *thd, TABLE *table, handlerton *engine_type)
+{
+#ifndef EMBEDDED_LIBRARY
+  DBUG_ASSERT(table->s);
+  const char *engine_name;
+  USER_CONN  *user_conn;
+
+  if (!table->s)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("No key for user-table stats.");
+    return NULL;
+  }
+  engine_name = ha_resolve_storage_engine_name(engine_type);
+  user_conn   = get_user_conn_for_stats(thd);
+
+  if (!user_conn)
+    return NULL;
+
+  return get_user_table_stats_by_name(user_conn,
+                                      table->s->db.str,
+                                      table->s->table_name.str,
+                                      engine_name,
+                                      table);
+#else
+  return NULL;
+#endif
+}
+
+/*
+  fill_shared_table_stats
+   Fill the shared pieces of statistics for global and table.
+   Used in both user and global statistics fill functions
+  Input:
+    stats   in - shared statistics handle
+    table  out - where to store the statistics
+    offset out - position of the current column to fill
+*/
+void fill_shared_table_stats(
+    SHARED_TABLE_STATS *stats,
+    TABLE *table,
+    int   *offset)
+{
+  int f = *offset;
+
+  /* SCHEMA_NAME */
+  table->field[f++]->store(stats->db, strlen(stats->db), system_charset_info);
+  /* TABLE_NAME */
+  table->field[f++]->store(stats->table, strlen(stats->table),
+                           system_charset_info);
+  /* ENGINE_NAME */
+  table->field[f++]->store(stats->engine_name, strlen(stats->engine_name),
+                           system_charset_info);
+
+  table->field[f++]->store(stats->rows_inserted.load(), TRUE);
+  table->field[f++]->store(stats->rows_updated.load(), TRUE);
+  table->field[f++]->store(stats->rows_deleted.load(), TRUE);
+  table->field[f++]->store(stats->rows_read.load(), TRUE);
+  table->field[f++]->store(stats->rows_requested.load(), TRUE);
+
+  table->field[f++]->store(stats->queries_used.load(), TRUE);
+  table->field[f++]->store(stats->queries_empty.load(), TRUE);
+
+  *offset = f;
 }

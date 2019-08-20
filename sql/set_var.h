@@ -350,6 +350,7 @@ int sql_set_variables(THD *thd, List<set_var_base> *var_list);
 bool fix_delay_key_write(sys_var *self, THD *thd, enum_var_type type);
 bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type);
 bool set_legacy_user_name_pattern(sys_var *, THD *, enum_var_type);
+bool set_admin_users_list(sys_var *, THD *, enum_var_type);
 
 sql_mode_t expand_sql_mode(sql_mode_t sql_mode);
 bool sql_mode_string_representation(THD *thd, sql_mode_t sql_mode, LEX_STRING *ls);
