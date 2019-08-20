@@ -1,0 +1,28 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of user_table_stats_control is off
+SELECT @@global.user_table_stats_control;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.user_table_stats_control;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo user_table_stats_control is a dynamic variable (change to "basic")
+set @@global.user_table_stats_control = "basic";
+SELECT @@global.user_table_stats_control;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.user_table_stats_control = "off";
+SELECT @@global.user_table_stats_control;

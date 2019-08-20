@@ -1,0 +1,415 @@
+flush statistics;
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+create user user2@localhost identified by 'u2';
+grant alter, create, insert, select, drop on test.* to user2@localhost;
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+Case 1: both parameters are default (off, empty)
+select @@user_table_stats_control;
+@@user_table_stats_control
+OFF
+select @@admin_users_list;
+@@admin_users_list
+
+create table t_u1_2rows(c int);
+insert into t_u1_2rows values(1);
+insert into t_u1_2rows values(2);
+select * from t_u1_2rows;
+c
+1
+2
+create table t_u2_1rows(c int);
+create table t_u2_2rows(c int);
+create table t_u2_3rows(c int);
+create table t_u2_4rows(c int);
+create table t_u2_5rows(c int);
+insert into t_u2_1rows values(1);
+insert into t_u2_2rows select * From t_u2_1rows union all select 2 from dual;
+insert into t_u2_3rows select * From t_u2_2rows union all select 3 from dual;
+insert into t_u2_4rows select * From t_u2_3rows union all select 4 from dual;
+insert into t_u2_5rows select * From t_u2_4rows union all select 5 from dual;
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u2_1rows;
+c
+1
+select * from t_u2_2rows;
+c
+1
+2
+select * from t_u2_3rows;
+c
+1
+2
+3
+select * from t_u2_4rows;
+c
+1
+2
+3
+4
+select * from t_u2_5rows;
+c
+1
+2
+3
+4
+5
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin=0 then 'success' else 'error' end admin,
+case when last_non_admin=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name like 't_u%'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	5	success	success
+t_u2_1rows	3	success	success
+t_u2_2rows	3	success	success
+t_u2_3rows	3	success	success
+t_u2_4rows	3	success	success
+t_u2_5rows	2	success	success
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+Case 2: user_table_stats_control=basic, admin_users_list=empty
+set global user_table_stats_control="basic";
+select @@user_table_stats_control;
+@@user_table_stats_control
+BASIC
+select @@admin_users_list;
+@@admin_users_list
+
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u2_1rows;
+c
+1
+select * from t_u2_2rows;
+c
+1
+2
+select * from t_u2_3rows;
+c
+1
+2
+3
+select * from t_u2_4rows;
+c
+1
+2
+3
+4
+select * from t_u2_5rows;
+c
+1
+2
+3
+4
+5
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin=0 then 'success' else 'error' end admin,
+case when last_non_admin!=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name like 't_u%'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	8	success	success
+t_u2_1rows	4	success	success
+t_u2_2rows	4	success	success
+t_u2_3rows	4	success	success
+t_u2_4rows	4	success	success
+t_u2_5rows	3	success	success
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+Case 3: user_table_stats_control=basic, admin_users_list="user_super"
+set global user_table_stats_control="basic";
+set global admin_users_list="user_super";
+select @@user_table_stats_control;
+@@user_table_stats_control
+BASIC
+select @@admin_users_list;
+@@admin_users_list
+user_super
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u2_1rows;
+c
+1
+select * from t_u2_2rows;
+c
+1
+2
+select * from t_u2_3rows;
+c
+1
+2
+3
+select * from t_u2_4rows;
+c
+1
+2
+3
+4
+select * from t_u2_5rows;
+c
+1
+2
+3
+4
+5
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin!=0 then 'success' else 'error' end admin,
+case when last_non_admin!=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	11	success	success
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+Case 4: user_table_stats_control=all, admin_users_list=empty
+set global user_table_stats_control="all";
+set global admin_users_list="";
+select @@user_table_stats_control;
+@@user_table_stats_control
+ALL
+select @@admin_users_list;
+@@admin_users_list
+
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	12	success	success
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u2_1rows;
+c
+1
+select * from t_u2_2rows;
+c
+1
+2
+select * from t_u2_3rows;
+c
+1
+2
+3
+select * from t_u2_4rows;
+c
+1
+2
+3
+4
+select * from t_u2_5rows;
+c
+1
+2
+3
+4
+5
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	14	success	success
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+user1	test	t_u1_2rows	1	0	2	3	0
+user2	test	t_u1_2rows	1	0	2	3	0
+user2	test	t_u2_1rows	1	0	1	1	0
+user2	test	t_u2_2rows	1	0	2	3	0
+user2	test	t_u2_3rows	1	0	3	4	0
+user2	test	t_u2_4rows	1	0	4	5	0
+user2	test	t_u2_5rows	1	0	5	6	0
+user_super	test	t_u1_2rows	1	0	2	3	0
+Case 5: user_table_stats_control=all, admin_users_list="user_super"
+set global user_table_stats_control="all";
+set global admin_users_list="user_super";
+select @@user_table_stats_control;
+@@user_table_stats_control
+ALL
+select @@admin_users_list;
+@@admin_users_list
+user_super
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	15	success	success
+select * from t_u1_2rows;
+c
+1
+2
+select * from t_u2_1rows;
+c
+1
+select * from t_u2_2rows;
+c
+1
+2
+select * from t_u2_3rows;
+c
+1
+2
+3
+select * from t_u2_4rows;
+c
+1
+2
+3
+4
+select * from t_u2_5rows;
+c
+1
+2
+3
+4
+5
+select * from t_u1_2rows;
+c
+1
+2
+select table_name, queries_used,
+case when last_admin!=@t_u1_2rows_admin then 'success' else 'error' end admin,
+case when last_non_admin=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+table_name	queries_used	admin	non_admin
+t_u1_2rows	17	success	success
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+user1	test	t_u1_2rows	2	0	4	6	0
+user2	test	t_u1_2rows	2	0	4	6	0
+user2	test	t_u2_1rows	2	0	2	2	0
+user2	test	t_u2_2rows	2	0	4	6	0
+user2	test	t_u2_3rows	2	0	6	8	0
+user2	test	t_u2_4rows	2	0	8	10	0
+user2	test	t_u2_5rows	2	0	10	12	0
+user_super	test	t_u1_2rows	2	0	4	6	0
+Case 6: rename tables
+create database mz_db;
+grant alter, create, insert, select, drop on mz_db.* to user2@localhost;
+rename table t_u1_2rows to t_u1_2rows_tmp;
+rename table test.t_u2_2rows to mz_db.t_u2_2rows;
+rename table test.t_u2_3rows to mz_db.t_u2_3rows_tmp;
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+user1	test	t_u1_2rows_tmp	2	0	4	6	0
+user2	mz_db	t_u2_2rows	2	0	4	6	0
+user2	mz_db	t_u2_3rows_tmp	2	0	6	8	0
+user2	test	t_u1_2rows_tmp	2	0	4	6	0
+user2	test	t_u2_1rows	2	0	2	2	0
+user2	test	t_u2_4rows	2	0	8	10	0
+user2	test	t_u2_5rows	2	0	10	12	0
+user_super	test	t_u1_2rows_tmp	2	0	4	6	0
+rename table t_u1_2rows_tmp to t_u1_2rows;
+rename table mz_db.t_u2_2rows to test.t_u2_2rows;
+rename table mz_db.t_u2_3rows_tmp to test.t_u2_3rows;
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+user1	test	t_u1_2rows	2	0	4	6	0
+user2	test	t_u1_2rows	2	0	4	6	0
+user2	test	t_u2_1rows	2	0	2	2	0
+user2	test	t_u2_2rows	2	0	4	6	0
+user2	test	t_u2_3rows	2	0	6	8	0
+user2	test	t_u2_4rows	2	0	8	10	0
+user2	test	t_u2_5rows	2	0	10	12	0
+user_super	test	t_u1_2rows	2	0	4	6	0
+Case 7: drop tables and cleanup
+drop database mz_db;
+drop table t_u1_2rows;
+drop user user1@localhost;
+drop table t_u2_1rows;
+drop table t_u2_2rows;
+drop table t_u2_3rows;
+drop table t_u2_4rows;
+drop table t_u2_5rows;
+drop user user2@localhost;
+drop user user_super@localhost;
+select user_name, table_schema, table_name, queries_used,
+queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+user_name	table_schema	table_name	queries_used	queries_empty	ROWS_READ	ROWS_REQUESTED	rows_inserted
+set global user_table_stats_control = "off";
+set global admin_users_list = "";

@@ -28,6 +28,7 @@
 #include "mysql_com.h"                 /* NAME_LEN */
 #include "mysqld.h"                    /* my_io_perf */
 #include "atomic_stat.h"
+#include "hash.h"
 
 struct TABLE;
 class Field;
@@ -376,6 +377,25 @@ typedef struct  user_conn {
     Use thd_get_user_stats(THD*) rather than USER_CONN::user_stats directly
   */
   USER_STATS user_stats;
+  /*
+    Tracks resources consumed by this user by table. Each table will have
+    an entry in the hash table below
+  */
+  HASH user_table_stats;
+  /* Mutex to control access or modification to user_table_stats */
+  mysql_mutex_t LOCK_user_table_stats;
+
+  /*
+    Cache whether this user is admin or not.
+    0 means uninitialized. 1 means non-admin. 2 means admin.
+  */
+  enum enum_user_conn_admin {
+    USER_CONN_ADMIN_UNINITIALIZED,
+    USER_CONN_ADMIN_NO,
+    USER_CONN_ADMIN_YES
+  };
+  std::atomic<enum enum_user_conn_admin> admin;
+
 } USER_CONN;
 
 typedef struct st_index_stats {
@@ -403,17 +423,18 @@ typedef struct st_index_stats {
  */
 #define MAX_INDEX_STATS 10
 
-typedef struct st_table_stats {
-  char db[NAME_LEN + 1];     /* [db] + '\0' */
-  char table[NAME_LEN + 1];  /* [table] + '\0' */
+typedef struct st_shared_table_stats
+{
+  char db[NAME_LEN + 1];                /* [db] + '\0' */
+  char table[NAME_LEN + 1];             /* [table] + '\0' */
+  const char* engine_name;
+
   /* Hash table key, table->s->table_cache_key for the table */
   char hash_key[NAME_LEN * 2 + 2];
-  int hash_key_len;          /* table->s->key_length for the table */
-
-  INDEX_STATS indexes[MAX_INDEX_STATS];
-  uint num_indexes;         /* min(#indexes on table , MAX_INDEX_STATS) */
+  int  hash_key_len;                    /* table->s->key_length for the table */
 
   atomic_stat<ulonglong> queries_used;	/* number of times used by a query */
+  atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
 
   atomic_stat<ulonglong> rows_inserted;	/* Number of rows inserted */
   atomic_stat<ulonglong> rows_updated;	/* Number of rows updated */
@@ -422,6 +443,26 @@ typedef struct st_table_stats {
   atomic_stat<ulonglong> rows_requested;/* Number of row read attempts for
                                          this table.  This counts requests
                                          that do not return a row. */
+} SHARED_TABLE_STATS;
+
+/* user table statistics */
+typedef struct st_user_table_stats {
+  SHARED_TABLE_STATS shared_stats;
+} USER_TABLE_STATS;
+
+/* global table statistics */
+typedef struct st_table_stats {
+  SHARED_TABLE_STATS shared_stats;
+
+  INDEX_STATS indexes[MAX_INDEX_STATS];
+  uint num_indexes;         /* min(#indexes on table , MAX_INDEX_STATS) */
+
+  atomic_stat<ulonglong> last_admin;   /* last admin use, seconds since epoch */
+  atomic_stat<ulonglong> last_non_admin;   /* last non admin use, seconds ... */
+
+  atomic_stat<int> n_lock_wait;         /* Number of lock waits */
+  atomic_stat<int> n_lock_wait_timeout; /* Number of lock wait timeouts */
+  atomic_stat<int> n_lock_deadlock;     /* Number of deadlocks */
 
   comp_stats_atomic_t comp_stats;        /* Compression statistics */
 
@@ -439,18 +480,12 @@ typedef struct st_table_stats {
   my_io_perf_atomic_t io_perf_read_secondary;/* Read IO performance counters for
                                                 secondary index */
   atomic_stat<ulonglong> index_inserts;	/* Number of secondary index inserts. */
-  atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
   atomic_stat<ulonglong> comment_bytes;	/* Number of non-join empty queries */
-
-  atomic_stat<int> n_lock_wait;         /* Number of lock waits */
-  atomic_stat<int> n_lock_wait_timeout; /* Number of lock wait timeouts */
-  atomic_stat<int> n_lock_deadlock; /* Number of deadlocks */
 
   bool should_update; /* Set for partitioned tables so later partitions will
                          increment the perf stats. Clear after collecting
                          table stats. */
 
-  const char* engine_name;
 } TABLE_STATS;
 
 typedef struct st_db_stats {

@@ -164,6 +164,7 @@ DROP TABLE t1, t2;
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
+| USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
@@ -254,6 +255,7 @@ DROP TABLE t1, t2;
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
+| USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
 Wildcard: inf_rmation_schema
 +--------------------+

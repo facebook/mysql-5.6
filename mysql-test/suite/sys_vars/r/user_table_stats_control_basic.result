@@ -1,0 +1,17 @@
+Default value of user_table_stats_control is off
+SELECT @@global.user_table_stats_control;
+@@global.user_table_stats_control
+OFF
+SELECT @@session.user_table_stats_control;
+ERROR HY000: Variable 'user_table_stats_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+user_table_stats_control is a dynamic variable (change to "basic")
+set @@global.user_table_stats_control = "basic";
+SELECT @@global.user_table_stats_control;
+@@global.user_table_stats_control
+BASIC
+restore the default value
+SET @@global.user_table_stats_control = "off";
+SELECT @@global.user_table_stats_control;
+@@global.user_table_stats_control
+OFF

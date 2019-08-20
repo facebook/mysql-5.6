@@ -1,0 +1,17 @@
+Default value of admin_users_list is empty string
+SELECT @@global.admin_users_list;
+@@global.admin_users_list
+
+SELECT @@session.admin_users_list;
+ERROR HY000: Variable 'admin_users_list' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+admin_users_list is a dynamic variable (changed to "root")
+set @@global.admin_users_list = "root";
+SELECT @@global.admin_users_list;
+@@global.admin_users_list
+root
+restore the default value
+SET @@global.admin_users_list = "";
+SELECT @@global.admin_users_list;
+@@global.admin_users_list
+

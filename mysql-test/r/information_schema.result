@@ -100,6 +100,7 @@ AUTHINFO
 SLAVE_DB_LOAD
 SCHEMATA_EXT
 SOCKET_DIAG_SLAVES
+USER_TABLE_STATISTICS
 columns_priv
 db
 event
@@ -932,6 +933,7 @@ TABLES	TABLE_NAME	select
 TABLE_CONSTRAINTS	TABLE_NAME	select
 TABLE_PRIVILEGES	TABLE_NAME	select
 TABLE_STATISTICS	TABLE_NAME	select
+USER_TABLE_STATISTICS	TABLE_NAME	select
 VIEWS	TABLE_NAME	select
 delete from mysql.user where user='mysqltest_4';
 delete from mysql.db where user='mysqltest_4';
@@ -941,7 +943,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	47
+information_schema	48
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1427,6 +1429,7 @@ TRIGGERS	information_schema.TRIGGERS	1
 USER_LATENCY_HISTOGRAMS	information_schema.USER_LATENCY_HISTOGRAMS	1
 USER_PRIVILEGES	information_schema.USER_PRIVILEGES	1
 USER_STATISTICS	information_schema.USER_STATISTICS	1
+USER_TABLE_STATISTICS	information_schema.USER_TABLE_STATISTICS	1
 VIEWS	information_schema.VIEWS	1
 create table t1(f1 int);
 create view v1 as select f1+1 as a from t1;
@@ -2151,6 +2154,13 @@ ROWS_UPDATED	bigint(21)	NO		0
 ROWS_DELETED	bigint(21)	NO		0	
 ROWS_READ	bigint(21)	NO		0	
 ROWS_REQUESTED	bigint(21)	NO		0	
+QUERIES_USED	bigint(21)	NO		0	
+QUERIES_EMPTY	bigint(21)	NO		0	
+LAST_ADMIN	bigint(21)	NO		0	
+LAST_NON_ADMIN	bigint(21)	NO		0	
+ROW_LOCK_WAITS	int(11)	NO		0	
+ROW_LOCK_WAIT_TIMEOUTS	int(11)	NO		0	
+ROW_LOCK_DEADLOCKS	int(11)	NO		0	
 COMPRESSED_PAGE_SIZE	bigint(21)	NO		0	
 COMPRESS_PADDING	bigint(21)	NO		0	
 COMPRESS_OPS	bigint(21)	NO		0	
@@ -2201,12 +2211,7 @@ IO_READ_WAIT_USECS_SECONDARY	bigint(21)	NO		0
 IO_READ_WAIT_USECS_MAX_SECONDARY	bigint(21)	NO		0	
 IO_READ_SLOW_IOS_SECONDARY	bigint(21)	NO		0	
 IO_INDEX_INSERTS	bigint(21)	NO		0	
-QUERIES_USED	bigint(21)	NO		0	
-QUERIES_EMPTY	bigint(21)	NO		0	
 COMMENT_BYTES	bigint(21)	NO		0	
-ROW_LOCK_WAITS	int(11)	NO		0	
-ROW_LOCK_WAIT_TIMEOUTS	int(11)	NO		0	
-ROW_LOCK_DEADLOCKS	int(11)	NO		0	
 INNODB_PAGES_READ	int(11)	NO		0	
 INNODB_PAGES_READ_INDEX	int(11)	NO		0	
 INNODB_PAGES_READ_BLOB	int(11)	NO		0	

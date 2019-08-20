@@ -1,0 +1,403 @@
+--source include/count_sessions.inc
+
+flush statistics;
+
+##########################################
+### create 2 normal users and 1 super user
+##########################################
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+
+create user user2@localhost identified by 'u2';
+grant alter, create, insert, select, drop on test.* to user2@localhost;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+####################################################
+### Case 1: both parameters are default (off, empty)
+####################################################
+--echo Case 1: both parameters are default (off, empty)
+
+select @@user_table_stats_control;
+select @@admin_users_list;
+
+connect (con11, localhost, user1,u1,test);
+create table t_u1_2rows(c int);
+insert into t_u1_2rows values(1);
+insert into t_u1_2rows values(2);
+select * from t_u1_2rows;
+
+connect (con12, localhost, user2,u2,test);
+create table t_u2_1rows(c int);
+create table t_u2_2rows(c int);
+create table t_u2_3rows(c int);
+create table t_u2_4rows(c int);
+create table t_u2_5rows(c int);
+
+insert into t_u2_1rows values(1);
+insert into t_u2_2rows select * From t_u2_1rows union all select 2 from dual;
+insert into t_u2_3rows select * From t_u2_2rows union all select 3 from dual;
+insert into t_u2_4rows select * From t_u2_3rows union all select 4 from dual;
+insert into t_u2_5rows select * From t_u2_4rows union all select 5 from dual;
+
+
+select * from t_u1_2rows;
+select * from t_u2_1rows;
+select * from t_u2_2rows;
+select * from t_u2_3rows;
+select * from t_u2_4rows;
+select * from t_u2_5rows;
+
+connect (con13, localhost, user_super,su,test);
+select * from t_u1_2rows;
+
+### expected: admin information is not populated
+select table_name, queries_used,
+       case when last_admin=0 then 'success' else 'error' end admin,
+       case when last_non_admin=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name like 't_u%'
+order by table_name;
+
+### expected: empty result set (off)
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+
+##################################################################
+### case 2: user_table_stats_control=basic, admin_users_list=empty
+##################################################################
+--echo Case 2: user_table_stats_control=basic, admin_users_list=empty
+
+set global user_table_stats_control="basic";
+
+select @@user_table_stats_control;
+select @@admin_users_list;
+
+connect (con21, localhost, user1,u1,test);
+select * from t_u1_2rows;
+
+connect (con22, localhost, user2,u2,test);
+select * from t_u1_2rows;
+select * from t_u2_1rows;
+select * from t_u2_2rows;
+select * from t_u2_3rows;
+select * from t_u2_4rows;
+select * from t_u2_5rows;
+
+connect (con23, localhost, user_super,su,test);
+select * from t_u1_2rows;
+
+### expected: only last_non_admin information is populated
+select table_name, queries_used,
+       case when last_admin=0 then 'success' else 'error' end admin,
+       case when last_non_admin!=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name like 't_u%'
+order by table_name;
+
+### expected: empty result set (basic)
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+
+#########################################################################
+### Case 3: user_table_stats_control=basic, admin_users_list="user_super"
+#########################################################################
+--echo Case 3: user_table_stats_control=basic, admin_users_list="user_super"
+
+set global user_table_stats_control="basic";
+set global admin_users_list="user_super";
+
+select @@user_table_stats_control;
+select @@admin_users_list;
+
+connect (con31, localhost, user1,u1,test);
+select * from t_u1_2rows;
+
+connect (con32, localhost, user2,u2,test);
+select * from t_u1_2rows;
+select * from t_u2_1rows;
+select * from t_u2_2rows;
+select * from t_u2_3rows;
+select * from t_u2_4rows;
+select * from t_u2_5rows;
+
+connect (con33, localhost, user_super,su,test);
+select * from t_u1_2rows;
+
+### expected: last_*_admin information is populated
+select table_name, queries_used,
+       case when last_admin!=0 then 'success' else 'error' end admin,
+       case when last_non_admin!=0 then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+
+### expected: empty result set (basic)
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+
+################################################################
+### case 4: user_table_stats_control=all, admin_users_list=empty
+################################################################
+--echo Case 4: user_table_stats_control=all, admin_users_list=empty
+
+set global user_table_stats_control="all";
+set global admin_users_list="";
+
+select @@user_table_stats_control;
+select @@admin_users_list;
+
+connect (con41, localhost, user1,u1,test);
+
+disable_result_log;
+disable_query_log;
+select @t_u1_2rows_admin:=last_admin,
+       @t_u1_2rows_non_admin:=last_non_admin
+from information_schema.table_statistics
+where table_name='t_u1_2rows';
+
+### sleep 1 second
+SELECT sleep(1);
+
+enable_result_log;
+enable_query_log;
+select * from t_u1_2rows;
+
+### expected: only last_non_admin information is updated
+select table_name, queries_used,
+       case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+       case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+
+connect (con42, localhost, user2,u2,test);
+select * from t_u1_2rows;
+select * from t_u2_1rows;
+select * from t_u2_2rows;
+select * from t_u2_3rows;
+select * from t_u2_4rows;
+select * from t_u2_5rows;
+
+connect (con43, localhost, user_super,su,test);
+
+disable_result_log;
+disable_query_log;
+select @t_u1_2rows_admin:=last_admin,
+       @t_u1_2rows_non_admin:=last_non_admin
+from information_schema.table_statistics
+where table_name='t_u1_2rows';
+
+### sleep 1 second
+SELECT sleep(1);
+
+enable_result_log;
+enable_query_log;
+select * from t_u1_2rows;
+
+### expected: only last_non_admin information is updated
+select table_name, queries_used,
+       case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+       case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+
+### expected: shows entries for all users
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+
+#######################################################################
+### case 5: user_table_stats_control=all, admin_users_list="user_super"
+#######################################################################
+--echo Case 5: user_table_stats_control=all, admin_users_list="user_super"
+
+set global user_table_stats_control="all";
+set global admin_users_list="user_super";
+
+select @@user_table_stats_control;
+select @@admin_users_list;
+
+connect (con51, localhost, user1,u1,test);
+
+disable_result_log;
+disable_query_log;
+select @t_u1_2rows_admin:=last_admin,
+       @t_u1_2rows_non_admin:=last_non_admin
+from information_schema.table_statistics
+where table_name='t_u1_2rows';
+
+### sleep 1 second
+SELECT sleep(1);
+
+enable_result_log;
+enable_query_log;
+select * from t_u1_2rows;
+
+### expected: only last_non_admin information is updated
+select table_name, queries_used,
+       case when last_admin=@t_u1_2rows_admin then 'success' else 'error' end admin,
+       case when last_non_admin!=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+
+connect (con52, localhost, user2,u2,test);
+select * from t_u1_2rows;
+select * from t_u2_1rows;
+select * from t_u2_2rows;
+select * from t_u2_3rows;
+select * from t_u2_4rows;
+select * from t_u2_5rows;
+
+connect (con53, localhost, user_super,su,test);
+
+disable_result_log;
+disable_query_log;
+select @t_u1_2rows_admin:=last_admin,
+       @t_u1_2rows_non_admin:=last_non_admin
+from information_schema.table_statistics
+where table_name='t_u1_2rows';
+
+### sleep 1 second
+SELECT sleep(1);
+
+enable_result_log;
+enable_query_log;
+select * from t_u1_2rows;
+
+### expected: only last_admin information is updated
+select table_name, queries_used,
+       case when last_admin!=@t_u1_2rows_admin then 'success' else 'error' end admin,
+       case when last_non_admin=@t_u1_2rows_non_admin then 'success' else 'error' end non_admin
+from information_schema.table_statistics
+where table_name = 't_u1_2rows'
+order by table_name;
+
+### expected: shows entries for all users
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where user_name like 'user%'
+order by user_name, table_schema, table_name;
+
+#################
+### rename tables
+#################
+--echo Case 6: rename tables
+
+connect (con63, localhost, user_super,su,test);
+create database mz_db;
+grant alter, create, insert, select, drop on mz_db.* to user2@localhost;
+
+connect (con61, localhost, user1,u1,test);
+### table name change
+rename table t_u1_2rows to t_u1_2rows_tmp;
+
+connect (con62, localhost, user2,u2,test);
+### db name change
+rename table test.t_u2_2rows to mz_db.t_u2_2rows;
+### table and db name change
+rename table test.t_u2_3rows to mz_db.t_u2_3rows_tmp;
+
+### expected:
+## 1. t_u1_2rows_tmp replaces t_u1_2rows in test db
+## 2. t_u2_2rows shows under mz_db db (table_schema)
+## 3. t_u2_3rows_tmp replaces t_u2_3rows in mz_db db
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+
+### undo table name change
+connect (con71, localhost, user1,u1,test);
+rename table t_u1_2rows_tmp to t_u1_2rows;
+
+connect (con72, localhost, user2,u2,test);
+rename table mz_db.t_u2_2rows to test.t_u2_2rows;
+rename table mz_db.t_u2_3rows_tmp to test.t_u2_3rows;
+
+### expected: all tables show under original name in test db
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+
+###########
+### Cleanup
+###########
+-- echo Case 7: drop tables and cleanup
+
+connect (con81, localhost, root,,test);
+
+drop database mz_db;
+
+drop table t_u1_2rows;
+drop user user1@localhost;
+
+drop table t_u2_1rows;
+drop table t_u2_2rows;
+drop table t_u2_3rows;
+drop table t_u2_4rows;
+drop table t_u2_5rows;
+drop user user2@localhost;
+
+drop user user_super@localhost;
+
+### expected: empty result
+select user_name, table_schema, table_name, queries_used,
+       queries_empty, ROWS_READ, ROWS_REQUESTED, rows_inserted
+from information_schema.user_table_statistics
+where table_name like 't_u%'
+order by user_name, table_schema, table_name;
+
+set global user_table_stats_control = "off";
+set global admin_users_list = "";
+
+disconnect con11;
+disconnect con12;
+disconnect con13;
+
+disconnect con21;
+disconnect con22;
+disconnect con23;
+
+disconnect con31;
+disconnect con32;
+disconnect con33;
+
+disconnect con41;
+disconnect con42;
+disconnect con43;
+
+disconnect con51;
+disconnect con52;
+disconnect con53;
+
+disconnect con61;
+disconnect con62;
+disconnect con63;
+
+disconnect con71;
+disconnect con72;
+
+disconnect con81;
+
+connection default;
+# Check that all connections opened by test cases in this file are gone
+--source include/wait_until_count_sessions.inc

@@ -10239,6 +10239,10 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"SOCKET_DIAG_SLAVES", socket_diag_slaves_fields_info,
    create_schema_table, fill_socket_diag_slaves, make_old_format,
    0, 0, -1, 0, 0},
+#ifndef EMBEDDED_LIBRARY
+  {"USER_TABLE_STATISTICS", user_table_stats_fields_info, create_schema_table,
+   fill_user_table_stats, NULL, NULL, -1, -1, false, 0},
+#endif
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 

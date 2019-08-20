@@ -12,6 +12,8 @@ The following options may be given as the first argument:
  Option used by mysql-test for debugging and testing of
  replication.
  --admin-port=#      Port number to use for connections from admin.
+ --admin-users-list[=name] 
+ A comma separated list of users with admin role
  --admission-control-by-trx 
  Allow open transactions to go through admission control
  --admission-control-filter=name 
@@ -1971,6 +1973,10 @@ The following options may be given as the first argument:
  --use-socket-sharding 
  Use multiple listen sockets on the same mysqld port
  -u, --user=name     Run mysqld daemon as user.
+ --user-table-stats-control=name 
+ Provides control to fill data in columns LAST_ADMIN and
+ LAST_NON_ADMIN of table TABLE_STATISTICS and whether to
+ produce data for USER_TABLE_STATISTICS
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
  assigned to user accounts. 
@@ -1991,6 +1997,7 @@ The following options may be given as the first argument:
 Variables (--variable-name=value)
 abort-slave-event-count 0
 admin-port 0
+admin-users-list 
 admission-control-by-trx FALSE
 admission-control-filter 
 allow-document-type FALSE
@@ -2579,6 +2586,7 @@ use-fbson-input-format FALSE
 use-fbson-output-format FALSE
 use-lock-sharding FALSE
 use-socket-sharding FALSE
+user-table-stats-control OFF
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800

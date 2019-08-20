@@ -276,12 +276,15 @@ bool open_temporary_table(THD *thd, TABLE_LIST *tl);
 bool is_equal(const LEX_STRING *a, const LEX_STRING *b);
 
 /* for SHOW GLOBAL TABLE STATUS */
+/* for information_schema.table_statistics and index_statistics */
 void update_table_stats(THD* thd, TABLE *table_ptr, bool follow_next);
 extern HASH global_table_stats;
 extern mysql_mutex_t LOCK_global_table_stats;
 void init_global_table_stats(void);
 void free_global_table_stats(void);
 void reset_global_table_stats(void);
+bool lock_global_table_stats(void);
+void unlock_global_table_stats(bool acquired);
 extern ST_FIELD_INFO table_stats_fields_info[];
 extern ST_FIELD_INFO index_stats_fields_info[];
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
@@ -299,11 +302,27 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       int n_lock_deadlock,
 			       const char *engine);
 
+/* for information_schema.db_statistics */
 void init_global_db_stats(void);
 void free_global_db_stats(void);
 void reset_global_db_stats(void);
-bool global_table_stats_lock(void);
-void global_table_stats_unlock(bool acquired);
+
+/* for information_schema.user_table_statistics */
+extern ST_FIELD_INFO user_table_stats_fields_info[];
+void free_table_stats_for_user(USER_CONN *user_conn);
+void free_table_stats_for_all_users();
+void init_table_stats_for_user(USER_CONN *user_conn);
+void delete_user_table_stats(const char *old_name);
+void rename_user_table_stats(const char *old_name, const char *new_name);
+void reset_table_stats_for_user(USER_CONN *user_conn);
+int  fill_user_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+bool valid_user_table_stats(USER_TABLE_STATS *stats);
+void fill_shared_table_stats(SHARED_TABLE_STATS *stats, TABLE *table,
+                             int *offset);
+bool check_admin_users_list(USER_CONN *uc);
+void reset_user_conn_admin_flag();
+
+/* For information_schema.db_statistics */
 extern ST_FIELD_INFO db_stats_fields_info[];
 int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 

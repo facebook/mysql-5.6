@@ -3304,6 +3304,11 @@ public:
   */
   void update_global_table_stats(THD *thd);
 
+  /* Update per- user and per-table counters for work done by this handler.
+  ** Should be called at the end of a statement.
+  */
+  void update_user_table_stats(THD *thd);
+
   /**
     Called by owner ha_partition (if there's one) to assign stats object
   */
