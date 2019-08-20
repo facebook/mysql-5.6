@@ -45,7 +45,6 @@
 #include "sql_readonly.h"       // check_ro
 #include "sql_db.h"      // init_thd_db_read_only
                          // is_thd_db_read_only_by_name
-#include "sql_connect.h"
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"
@@ -7484,39 +7483,6 @@ TYPELIB* ha_known_exts()
 }
 
 /*
-  Update share table statistics for this table
-
-  SYNOPSIS
-    update_shared_table_stats
-      thd         - thread handle
-      table_stats - the shared table statistics handle
-      stats       - statistics from current statemnent
- */
-static
-void update_shared_table_stats(
-    THD *thd,
-    SHARED_TABLE_STATS *table_stats,
-    ha_statistics *stats)
-{
-  /* Queries statistics */
-  table_stats->queries_used.inc();
-
-  if (thd != NULL && thd->lex != NULL &&
-      thd->lex->sql_command == SQLCOM_SELECT &&
-      thd->get_sent_row_count() == 0)
-  {
-    table_stats->queries_empty.inc();
-  }
-
-  /* Rows statistics */
-  table_stats->rows_inserted.inc(stats->rows_inserted);
-  table_stats->rows_updated.inc(stats->rows_updated);
-  table_stats->rows_deleted.inc(stats->rows_deleted);
-  table_stats->rows_read.inc(stats->rows_read);
-  table_stats->rows_requested.inc(stats->rows_requested);
-}
-
-/*
   Updates global per-table counters with work done by this instance
 
   SYNOPSIS
@@ -7536,34 +7502,22 @@ void handler::update_global_table_stats(THD *thd)
 
   if (table_stats)
   {
-    /* update the shared table statistics */
-    update_shared_table_stats(thd, &(table_stats->shared_stats), &stats);
+    table_stats->queries_used.inc();
 
-    /* Record the most recent access by admin or non admin user*/
-    if (UTS_LEVEL_BASIC())
-    {
-#ifndef EMBEDDED_LIBRARY
-      /* update usage time statistics (recorded as seconds since epoch) */
-      ulonglong now = my_getsystime() / 10000000;
-
-      USER_CONN *user_conn = get_user_conn_for_stats(thd);
-
-      if (check_admin_users_list(user_conn))
-        table_stats->last_admin.set_max_maybe(now);
-      else
-        table_stats->last_non_admin.set_max_maybe(now);
-#endif
-    }
-    else
-    {
-      table_stats->last_admin.clear();
-      table_stats->last_non_admin.clear();
-    }
-
-    /* update the remaining table statistics, specific to TABLE_STATISTICS */
+    table_stats->rows_inserted.inc(stats.rows_inserted);
+    table_stats->rows_updated.inc(stats.rows_updated);
+    table_stats->rows_deleted.inc(stats.rows_deleted);
+    table_stats->rows_read.inc(stats.rows_read);
+    table_stats->rows_requested.inc(stats.rows_requested);
     table_stats->index_inserts.inc(stats.index_inserts);
     table_stats->rows_index_first.inc(stats.rows_index_first);
     table_stats->rows_index_next.inc(stats.rows_index_next);
+
+    if (thd != NULL && thd->lex != NULL &&
+        thd->lex->sql_command == SQLCOM_SELECT &&
+        thd->get_sent_row_count() == 0) {
+      table_stats->queries_empty.inc();
+    }
 
     if (thd && thd->open_tables)
     {
@@ -7626,35 +7580,6 @@ void handler::update_global_table_stats(THD *thd)
   }
 
   stats.reset_table_stats();
-}
-
-/*
-  Updates per-user and per-table counters with work done by this instance
-
-  SYNOPSIS
-    update_user_table_stats
-
-  NOTES
-    Should be called at the end of a statement.
-    Similar to update_global_table_stats() but for a user and table pair
-    instead of per table.
-    Called by update_global_table_stats()
-*/
-void handler::update_user_table_stats(THD *thd)
-{
-  /* skip if tracking of activity per user-table pair is not allowed */
-  if (!UTS_LEVEL_ALL())
-    return;
-
-  if (!stats.has_table_stats())
-    return;
-
-  /* use cached if any and get a new one otherwise */
-  USER_TABLE_STATS *user_table_stats = get_user_table_stats(thd, table, ht);
-
-  /* update the shared table statistics */
-  if (user_table_stats)
-    update_shared_table_stats(thd, &(user_table_stats->shared_stats), &stats);
 }
 
 static bool stat_print(THD *thd, const char *type, uint type_len,

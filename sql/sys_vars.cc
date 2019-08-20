@@ -61,7 +61,6 @@
 #include "table_cache.h"                        // Table_cache_manager
 #include "my_aes.h" // my_aes_opmode_names
 #include "sql_multi_tenancy.h"
-#include "sql_connect.h" // USER_CONN
 
 #include "log_event.h"
 #include "binlog.h"
@@ -6334,75 +6333,3 @@ static Sys_var_mybool Sys_enable_binlog_hlc(
        GLOBAL_VAR(enable_binlog_hlc),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_binlog_hlc));
-
-/*
-  Global variable to control the implementation to get statistics per
-  user-table pair
-  The basic version exposes two new columns in TABLE_STATISTICS
-  LAST_ADMIN and LAST_NON_ADMIN to record the last time a table was used
-  by an admin user and non admin user respectively (as in admin_users_list)
-  The full version provides information through USER_TABLE_STATISTICS.
-  The default value of the control is OFF (neither is populated).
-  Keep the array below in sync with the enum enum_uts_control (mysqld.h)
-*/
-static const char *uts_control_values[] =
-{ "OFF", "BASIC", "ALL",
-  /* Add new control before the following line */
-  0
-};
-
-static bool set_uts_control(sys_var *, THD *, enum_var_type type)
-{
-  if (user_table_stats_control == UTS_CONTROL_OFF ||
-      user_table_stats_control == UTS_CONTROL_BASIC)
-    free_table_stats_for_all_users();
-  return false; // success
-}
-
-static Sys_var_enum Sys_user_table_stats_control(
-       "user_table_stats_control",
-       "Provides control to fill data in columns LAST_ADMIN and "
-       "LAST_NON_ADMIN of table TABLE_STATISTICS and whether to "
-       "produce data for USER_TABLE_STATISTICS",
-       GLOBAL_VAR(user_table_stats_control),
-       CMD_LINE(REQUIRED_ARG),
-       uts_control_values, DEFAULT(UTS_CONTROL_OFF),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-       ON_UPDATE(set_uts_control));
-
-static Sys_var_charptr Sys_admin_users_list(
-       "admin_users_list",
-       "A comma separated list of users with admin role",
-       GLOBAL_VAR(admin_users_list), CMD_LINE(OPT_ARG),
-       IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(nullptr),
-       ON_UPDATE(set_admin_users_list)
-);
-
-extern Regex_list_handler *admin_users_list_regex;
-
-bool set_admin_users_list(sys_var *, THD *, enum_var_type)
-{
-  if (set_regex_list_handler(admin_users_list_regex,
-                             admin_users_list,
-                             "admin_users_list")) {
-    return true;
-  }
-
-  reset_user_conn_admin_flag();
-  return false ;
-
-}
-
-bool check_admin_users_list(USER_CONN *uc)
-{
-  if (uc->admin != USER_CONN::USER_CONN_ADMIN_UNINITIALIZED) {
-    return uc->admin == USER_CONN::USER_CONN_ADMIN_YES;
-  } else if (admin_users_list && admin_users_list_regex &&
-             admin_users_list_regex->matches(uc->user)) {
-    uc->admin = USER_CONN::USER_CONN_ADMIN_YES;
-    return true;
-  }
-  uc->admin = USER_CONN::USER_CONN_ADMIN_NO;
-  return false;
-}
