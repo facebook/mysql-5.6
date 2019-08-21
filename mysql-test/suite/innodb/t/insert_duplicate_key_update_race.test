@@ -1,0 +1,39 @@
+--source include/count_sessions.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+--connect (con1, localhost, root,,)
+SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+--connection default
+
+create table temp1 (a varchar(36) NOT NULL, b varchar(128) NOT NULL, c varchar(10240) NOT NULL);
+insert into temp1 values  (1, 'b1', 'c1'), (2,'b2','c2'),(3,'b3','c3'),(4,'b4','c4'),(5,'b5','c5');
+create table temp2 (a varchar(36) NOT NULL, b varchar(128) NOT NULL, c varchar(10240) NOT NULL);
+insert into temp2 values (2,'b2','c2'),(3,'b3','c3'),(4,'b4','c4'),(5,'b5','c5');
+
+CREATE TABLE extra (
+  id bigint unsigned NOT NULL AUTO_INCREMENT,
+  a varchar(36) NOT NULL,
+  b varchar(128) NOT NULL,
+  c varchar(10240) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_idx (a,b)
+) engine = innodb;
+set DEBUG_SYNC = "ha_write_row_end WAIT_FOR flushed";
+--send insert into extra(a, b, c) select * from temp1 on duplicate key update c=values(c)
+
+--connection con1
+insert into extra(a, b, c) select * from temp2 on duplicate key update c=values(c); 
+set DEBUG_SYNC = "now SIGNAL flushed";
+
+--connection default
+--reap
+select a, b, c from extra order by a;
+
+set DEBUG_SYNC = "RESET";
+drop table extra;
+drop table temp2;
+drop table temp1;
+--disconnect con1
+--source include/wait_until_count_sessions.inc
