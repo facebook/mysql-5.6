@@ -16,13 +16,13 @@ set DEBUG_SYNC = "ha_write_row_end WAIT_FOR flushed EXECUTE 1";
 insert into extra(a, b, c) select * from temp1 on duplicate key update c=values(c);
 insert into extra(a, b, c) select * from temp2 on duplicate key update c=values(c);
 set DEBUG_SYNC = "now SIGNAL flushed";
-select id, a, b, c from extra;
-id	a	b	c
-1	1	b1	c1
-2	2	b2	c2
-3	3	b3	c3
-4	4	b4	c4
-5	5	b5	c5
+select a, b, c from extra;
+a	b	c
+1	b1	c1
+2	b2	c2
+3	b3	c3
+4	b4	c4
+5	b5	c5
 drop table extra;
 drop table temp2;
 drop table temp1;
