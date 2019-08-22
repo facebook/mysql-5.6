@@ -1498,9 +1498,13 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
     // TODO: It is probably better to move enable_raft_plugin check inside
     // plugin.
     if (!error && enable_raft_plugin)
+    {
       error= RUN_HOOK(binlog_storage, before_flush, (thd, &cache_log));
 
-    if (!error)
+      // Do post write book keeping activities
+      error= mysql_bin_log.post_write(thd, this, error);
+    }
+    else if (!error)
     {
       /* TODO:
        * 1. Eventually, the write to binlog cache will happen through consensus
@@ -1516,6 +1520,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
        * in which case the instance cannot take any more txns which is as good
        * as restarting the instance
        */
+      // Continue to write to binlog in mysql when raft is not enabled
       error= mysql_bin_log.write_cache(thd, this, async);
     }
 
@@ -6934,6 +6939,126 @@ bool MYSQL_BIN_LOG::write_incident(THD *thd, bool need_lock_log,
   Incident_log_event ev(thd, incident, write_error_msg);
 
   DBUG_RETURN(write_incident(&ev, need_lock_log, do_flush_and_sync));
+}
+
+void MYSQL_BIN_LOG::handle_write_error(THD *thd, binlog_cache_data *cache_data)
+{
+  DBUG_ENTER("MYSQL_BIN_LOG::handle_write_error(THD *, binlog_cache_data *)");
+
+  IO_CACHE *cache= &cache_data->cache_log;
+  if (!write_error)
+  {
+    char errbuf[MYSYS_STRERROR_SIZE];
+    write_error= 1;
+    // NO_LINT_DEBUG
+    sql_print_error(
+        ER(ER_ERROR_ON_WRITE),
+        name,
+        errno,
+        my_strerror(errbuf, sizeof(errbuf), errno));
+  }
+
+  /* TODO: Verify how this works once raft plugin's log faking is working.
+   * If the flush has failed due to ENOSPC, set the flush_error flag.
+   */
+  if (cache->error && thd->is_error() && my_errno == ENOSPC)
+  {
+    cache_data->set_flush_error(thd);
+  }
+
+  thd->commit_error= THD::CE_FLUSH_ERROR;
+  if (binlog_error_action != IGNORE_ERROR)
+  {
+    set_write_error(thd, cache_data->is_trx_cache());
+  }
+
+  /* Remove gtid from logged_gtid set if error happened. */
+  if (write_error && thd->gtid_precommit)
+  {
+    global_sid_lock->rdlock();
+    gtid_state->remove_gtid_on_failure(thd);
+    global_sid_lock->unlock();
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+bool MYSQL_BIN_LOG::post_write(
+    THD *thd, binlog_cache_data *cache_data, int error)
+{
+  DBUG_ENTER("MYSQL_BIN_LOG::post_write(THD *, binlog_cache_data *, int)");
+
+  USER_STATS *us= thd ? thd_get_user_stats(thd) : NULL;
+  IO_CACHE *cache= &cache_data->cache_log;
+
+  mysql_mutex_assert_owner(&LOCK_log);
+
+  DBUG_ASSERT(is_open());
+
+  if (unlikely(!is_open()))
+  {
+    DBUG_RETURN(false);
+  }
+
+  // TODO: Ensure that binlog cache is still valid after plugin returns
+  size_t cache_size= my_b_tell(cache);
+  if (cache_size == 0)
+  {
+    DBUG_RETURN(false);
+  }
+
+  // TODO: write_error is supposed to be set when wrting to binlog. Ensure
+  // log faking does this correctly
+  if (write_error || error)
+  {
+    handle_write_error(thd, cache_data);
+    DBUG_RETURN(true);
+  }
+
+  if (us)
+  {
+    us->binlog_bytes_written.inc(cache_size);
+  }
+
+  binlog_bytes_written += cache_size;
+
+  if (cache->error)
+  {
+    char errbuf[MYSYS_STRERROR_SIZE];
+    // NO_LINT_DEBUG
+    sql_print_error(
+        ER(ER_ERROR_ON_READ),
+        cache->file_name,
+        errno,
+        my_strerror(errbuf, sizeof(errbuf), errno));
+
+    write_error= 1;
+    handle_write_error(thd, cache_data);
+    DBUG_RETURN(true);
+  }
+
+  if (!thd->gtid_precommit)
+  {
+    global_sid_lock->rdlock();
+    if (gtid_state->update_on_flush(thd) != RETURN_STATUS_OK)
+    {
+      global_sid_lock->unlock();
+      handle_write_error(thd, cache_data);
+      DBUG_RETURN(true);
+    }
+
+    global_sid_lock->unlock();
+  }
+
+  // Update slave's gtid_next session variable
+  if (thd->rli_slave)
+  {
+      thd->variables.gtid_next.set_automatic();
+  }
+
+  update_thd_next_event_pos(thd);
+
+  DBUG_RETURN(false);
 }
 
 /**

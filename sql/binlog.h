@@ -869,6 +869,28 @@ public:
                    bool async);
   int  do_write_cache(IO_CACHE *cache);
 
+  /**
+   * Called after a THD's iocache is written to binlog (i.e binlog's cache)
+   * during ordered commit. Updates all internal state maintained by mysql
+   * including gtid_executed, binlog_bytes_written and any flush stage error
+   * handling
+   *
+   * @param thd Thread variable
+   * @param cache The cache which was written to binlog
+   * @param error will be 1 on errors which needs to be handled in post_write
+   *
+   * @returns true on error, false on success
+   */
+  bool post_write(THD *thd, binlog_cache_data *cache_data, int error);
+
+  /**
+   * Handles error that occured when flushing the cache to binlog file
+   *
+   * @param thd Thread variable
+   * @param cache The cache which resulted in an error when writing to binlog
+   */
+  void handle_write_error(THD *thd, binlog_cache_data *cache_data);
+
   void set_write_error(THD *thd, bool is_transactional);
   bool check_write_error(THD *thd);
   bool write_incident(THD *thd, bool need_lock_log,
