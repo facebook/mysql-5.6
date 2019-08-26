@@ -15140,11 +15140,9 @@ ha_rocksdb::multi_range_read_info_const(
   
   res= handler::multi_range_read_info_const(keyno, seq, seq_init_param,
                                             n_ranges, bufsz, flags, cost);
-  if (res == HA_POS_ERROR)
+  if (res == HA_POS_ERROR || m_lock_rows != RDB_LOCK_NONE)
     return res;
 
-  //TODO: check m_lock_rows also?
-  
   bool all_eq_ranges = true;
   if (keyno == table->s->primary_key) {
     KEY_MULTI_RANGE range;
@@ -15179,7 +15177,7 @@ ha_rocksdb::multi_range_read_info(
   ha_rows res;
   
   res = handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags, cost);
-  if (res)
+  if (res || m_lock_rows == RDB_LOCK_NONE)
     return res;
 
   if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {
@@ -15205,7 +15203,8 @@ ha_rocksdb::multi_range_read_init(
   int res;
 
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
-      (mode & HA_MRR_USE_DEFAULT_IMPL))
+      (mode & HA_MRR_USE_DEFAULT_IMPL) ||
+      (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()))
   {
     mrr_uses_default_impl = true;
     res = handler::multi_range_read_init(seq, seq_init_param, n_ranges,
@@ -15214,12 +15213,6 @@ ha_rocksdb::multi_range_read_init(
   }
 
   // Ok, using a non-default MRR implementation, MultiGet-MRR
-
-  if (buf->buffer_end - buf->buffer < mrr_get_length_per_rec() * 2) {
-    // Should not normally happen. Could one theoretically construct such
-    // cases with BKA? Make this highly-visible:
-    return HA_ERR_INTERNAL_ERROR;
-  }
 
   mrr_uses_default_impl = false;
   mrr_ranges_eof = false;
