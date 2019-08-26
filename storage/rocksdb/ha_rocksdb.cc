@@ -15137,10 +15137,18 @@ ha_rocksdb::multi_range_read_info_const(
 	Cost_estimate*	cost)
 {
   ha_rows res;
+  THD *thd= table->in_use;
+
+  // MultiGet-MRR is allowed only with these settings:
+  //  optimizer_switch='mrr=on,mrr_cost_based=off'
+
+  bool mrr_enabled= thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
+                   !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
   
   res= handler::multi_range_read_info_const(keyno, seq, seq_init_param,
                                             n_ranges, bufsz, flags, cost);
-  if (res == HA_POS_ERROR || m_lock_rows != RDB_LOCK_NONE)
+
+  if (res == HA_POS_ERROR || m_lock_rows != RDB_LOCK_NONE || !mrr_enabled)
     return res;
 
   bool all_eq_ranges = true;
@@ -15175,9 +15183,12 @@ ha_rocksdb::multi_range_read_info(
 	Cost_estimate*	cost)
 {
   ha_rows res;
+  THD *thd= table->in_use;
+  bool mrr_enabled= thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
+                   !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
   
   res = handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags, cost);
-  if (res || m_lock_rows != RDB_LOCK_NONE)
+  if (res || m_lock_rows != RDB_LOCK_NONE || !mrr_enabled)
     return res;
 
   if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {

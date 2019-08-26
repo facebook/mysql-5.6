@@ -20,13 +20,30 @@ insert into t2 select a,a,a from t1;
 set global rocksdb_force_flush_memtable_now=1;
 
 set @save_optimizer_switch=@@optimizer_switch;
-set optimizer_switch='mrr_cost_based=off,batched_key_access=on';
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
 
 explain 
 select * from t2,t0 where t2.pk=t0.a;
 select * from t2,t0 where t2.pk=t0.a;
 
 --echo # This will use MRR:
+explain select * from t2 where pk in (1,2,3,4,5);
+
+--echo # Check how optimizer_switch flags effect it:
+set optimizer_switch='mrr_cost_based=on';
+
+--echo # No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+explain select * from t2 where pk in (1,2,3,4,5);
+
+set optimizer_switch='mrr_cost_based=off,mrr=off';
+--echo # No MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
+explain select * from t2 where pk in (1,2,3,4,5);
+
+set optimizer_switch='mrr_cost_based=off,mrr=on';
+--echo # Have MRR/BKA:
+explain select * from t2,t0 where t2.pk=t0.a;
 explain select * from t2 where pk in (1,2,3,4,5);
 
 --echo # This will not use MRR, as one of the ranges is a non-singlepoint:
