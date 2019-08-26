@@ -15177,7 +15177,7 @@ ha_rocksdb::multi_range_read_info(
   ha_rows res;
   
   res = handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags, cost);
-  if (res || m_lock_rows == RDB_LOCK_NONE)
+  if (res || m_lock_rows != RDB_LOCK_NONE)
     return res;
 
   if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {
