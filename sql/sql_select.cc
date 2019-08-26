@@ -2602,6 +2602,11 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
     flags= HA_MRR_NO_NULL_ENDPOINTS;
     if (tab->table->covering_keys.is_set(tab->ref.key))
       flags|= HA_MRR_INDEX_ONLY;
+
+    if (tab->table->key_info[tab->ref.key].actual_key_parts ==
+        tab->ref.key_parts)
+      flags |= HA_MRR_FULL_EXTENDED_KEYS;
+
     rows= tab->table->file->multi_range_read_info(tab->ref.key, 10, 20,
                                                   &bufsz, &flags, &cost);
     /*

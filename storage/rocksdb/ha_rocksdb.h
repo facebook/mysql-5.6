@@ -644,7 +644,46 @@ class ha_rocksdb : public my_core::handler {
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
+ 
+
+  // Multi-Range-Read implmentation
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF* seq,
+                                      void* seq_init_param,
+                                      uint n_ranges, uint* bufsz,
+                                      uint* flags, Cost_estimate* cost) override;
+  ha_rows multi_range_read_info(uint keyno, uint n_ranges, uint keys,
+                                uint* bufsz, uint* flags,
+                                Cost_estimate* cost) override;
+  int multi_range_read_init(RANGE_SEQ_IF* seq,
+                            void* seq_init_param,
+                            uint n_ranges, uint mode,
+                            HANDLER_BUFFER* buf) override;
+  int multi_range_read_next(char** range_info) override;
+
+  // TODO: this is compared with stats.data_file_length
+  longlong get_memory_buffer_size() const override { return 1024; }
+
  private:
+  // TRUE means this MRR scan is using the default implementation
+  bool mrr_uses_default_impl;
+
+  range_seq_t mrr_seq_it;
+  RANGE_SEQ_IF *mrr_seq; //TODO: we don't need to copy this, do we?
+  bool mrr_ranges_eof;
+  
+  std::vector<rocksdb::Slice> mrr_keys;
+  std::vector<char*> mrr_key_data;
+  std::vector<rocksdb::Status> mrr_res;
+  std::vector<std::string> mrr_values;
+  size_t mrr_read_index;
+
+  //TODO: get rid of this and use the buffer!
+  std::vector<std::string> mrr_keys_storage;
+
+  int mrr_fill_buffer();
+  void mrr_free_data();
+
+
   struct key_def_cf_info {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
     bool is_reverse_cf;

@@ -1834,6 +1834,7 @@ void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted,
 */
 #define HA_MRR_SUPPORT_SORTED 256
 
+#define HA_MRR_FULL_EXTENDED_KEYS 512
 
 class ha_statistics
 {

@@ -1,0 +1,55 @@
+--source include/have_rocksdb.inc
+
+--disable_warnings
+drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
+--enable_warnings
+
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+
+create table t2 (
+  pk int primary key,
+  col1 int,
+  filler char(32)
+) engine=rocksdb;
+
+insert into t2 select a,a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='mrr_cost_based=off,batched_key_access=on';
+
+explain 
+select * from t2,t0 where t2.pk=t0.a;
+select * from t2,t0 where t2.pk=t0.a;
+
+create table t3 (
+  pk1 int,
+  pk2 int,
+  col1 int,
+  filler char(32),
+  primary key(pk1, pk2),
+  key(col1)
+) engine=rocksdb;
+
+insert into t3 select a,a, a,a from t1;
+set global rocksdb_force_flush_memtable_now=1;
+
+--echo # This must not use BKA as it uses key prefix:
+explain 
+select * from t3,t0 where t3.pk1=t0.a;
+
+--echo # This must not use BKA as it uses secondary index:
+explain 
+select * from t3,t0 where t3.col1=t0.a;
+
+--echo # This will use BKA as it uses full key:
+explain 
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
+
+
+drop table t0,t1,t2;
+set optimizer_switch=@save_optimizer_switch;

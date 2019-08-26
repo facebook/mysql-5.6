@@ -3089,11 +3089,7 @@ class Rdb_transaction {
   virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
                               rocksdb::PinnableSlice *const value) const = 0;
-  virtual void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
-                         const size_t num_keys, const rocksdb::Slice *keys,
-                         rocksdb::PinnableSlice *values,
-                         rocksdb::Status *statuses,
-                         const bool sorted_input) const = 0;
+
   virtual rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -3102,6 +3098,18 @@ class Rdb_transaction {
   virtual rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *column_family) = 0;
+
+  virtual void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
+                         const size_t num_keys, const rocksdb::Slice *keys,
+                         rocksdb::PinnableSlice *values,
+                         rocksdb::Status *statuses,
+                         const bool sorted_input) const = 0;
+
+  virtual std::vector<rocksdb::Status> multi_get(
+      const rocksdb::ReadOptions& options,
+      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
+      const std::vector<rocksdb::Slice>& keys,
+      std::vector<std::string>* values) = 0;
 
   rocksdb::Iterator *get_iterator(
       rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
@@ -3476,6 +3484,14 @@ class Rdb_transaction_impl : public Rdb_transaction {
                            statuses, sorted_input);
   }
 
+  std::vector<rocksdb::Status> multi_get(
+      const rocksdb::ReadOptions& options,
+      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
+      const std::vector<rocksdb::Slice>& keys,
+      std::vector<std::string>* values) override {
+    return m_rocksdb_tx->MultiGet(options, column_family, keys, values);
+  }
+
   rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -3759,13 +3775,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                       value);
   }
 
-  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
-                 const size_t num_keys, const rocksdb::Slice *keys,
-                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
-                 const bool sorted_input) const override {
-    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts, column_family, num_keys,
-                                    keys, values, statuses, sorted_input);
-  }
 
   rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
@@ -3779,6 +3788,22 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     return get(column_family, key, value);
+  }
+
+  void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
+                 const size_t num_keys, const rocksdb::Slice *keys,
+                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
+                 const bool sorted_input) const override {
+    m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts, column_family, num_keys,
+                                    keys, values, statuses, sorted_input);
+  }
+
+  std::vector<rocksdb::Status> multi_get(
+      const rocksdb::ReadOptions& options,
+      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
+      const std::vector<rocksdb::Slice>& keys,
+      std::vector<std::string>* values) override {
+    return std::vector<rocksdb::Status>(keys.size(), rocksdb::Status::NotSupported());
   }
 
   rocksdb::Iterator *get_iterator(
@@ -15075,6 +15100,206 @@ void rdb_tx_multi_get(Rdb_transaction *tx,
                       const bool sorted_input) {
   tx->multi_get(column_family, num_keys, keys, values, statuses, sorted_input);
 }
+
+////
+/****************************************************************************
+ * DS-MRR implementation
+ ***************************************************************************/
+
+/*
+  A MultiGet-MRR is applicable if
+  - using the clustered PK
+  - all ranges are single-point lookups using full PK.
+*/
+ha_rows
+ha_rocksdb::multi_range_read_info_const(
+	uint		keyno,
+	RANGE_SEQ_IF*	seq,
+	void*		seq_init_param,
+	uint		n_ranges,
+	uint*		bufsz,
+	uint*		flags,
+	Cost_estimate*	cost)
+{
+  ha_rows res;
+  
+  res= handler::multi_range_read_info_const(keyno, seq, seq_init_param,
+                                            n_ranges, bufsz, flags, cost);
+  if (res)
+    return res;
+
+  //TODO: check m_lock_rows also?
+  
+  bool all_eq_ranges = true;
+  if (keyno == table->s->primary_key) {
+    KEY_MULTI_RANGE range;
+    range_seq_t seq_it;
+    seq_it= seq->init(seq_init_param, n_ranges, *flags);
+    while (!seq->next(seq_it, &range)) {
+      if (!(range.range_flag & UNIQUE_RANGE)) {
+        all_eq_ranges = false;
+        break;
+      }
+    }
+  }
+
+  if (keyno == table->s->primary_key && all_eq_ranges) {
+    *flags&= ~HA_MRR_USE_DEFAULT_IMPL;
+    // TODO: we actually can easily return records in order?
+    *flags&= ~HA_MRR_SUPPORT_SORTED;
+    //TODO: inform that we will need the buffer: *bufsz = 
+  }
+  return 0;
+}
+
+
+ha_rows
+ha_rocksdb::multi_range_read_info(
+	uint		keyno,
+	uint		n_ranges,
+	uint		keys,
+	uint*		bufsz,
+	uint*		flags,
+	Cost_estimate*	cost)
+{
+  ha_rows res;
+  
+  res = handler::multi_range_read_info(keyno, n_ranges, keys, bufsz, flags, cost);
+  if (res)
+    return res;
+
+  if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {
+    *flags&= ~HA_MRR_USE_DEFAULT_IMPL;
+  }
+
+  return 0;
+}
+
+/**
+ * Multi Range Read interface, DS-MRR calls
+ */
+
+int
+ha_rocksdb::multi_range_read_init(
+	RANGE_SEQ_IF*	seq,
+	void*		seq_init_param,
+	uint		n_ranges,
+	uint		mode,
+	HANDLER_BUFFER*	buf)
+{
+  int res;
+
+  if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
+      (mode & HA_MRR_USE_DEFAULT_IMPL))
+  {
+    mrr_uses_default_impl = true;
+    res = handler::multi_range_read_init(seq, seq_init_param, n_ranges,
+                                         mode, buf);
+    return res;
+  }
+  
+  // Ok, using a non-default MRR implementation, MultiGet-MRR
+  mrr_uses_default_impl = false;
+  mrr_ranges_eof = false;
+  mrr_seq = seq;
+
+  mrr_seq_it= mrr_seq->init(seq_init_param, n_ranges, mode);
+  mrr_fill_buffer();
+  return 0;
+}
+
+
+int ha_rocksdb::mrr_fill_buffer() {
+  KEY_MULTI_RANGE range;
+
+  key_part_map all_parts_map = 
+    (key_part_map(1) << m_pk_descr->get_key_parts()) - 1;
+
+  mrr_free_data();
+
+  while (!mrr_seq->next(mrr_seq_it, &range)) {
+
+    DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
+    DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
+    uint size;
+
+    size = m_pk_descr->pack_index_tuple(table, m_pack_buffer,
+                                        m_pk_packed_tuple, range.start_key.key,
+                                        all_parts_map);
+    //Create a string, push it to storage
+    mrr_keys_storage.push_back(std::string((const char*)m_pk_packed_tuple, size));
+    //Create a slice, push it to keys array
+    mrr_keys.push_back(rocksdb::Slice(mrr_keys_storage.back()));
+
+    mrr_key_data.push_back(range.ptr);
+  }
+
+  std::vector<rocksdb::ColumnFamilyHandle*> cf_vec(mrr_keys.size(), m_pk_descr->get_cf());
+  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+
+  mrr_res = tx->multi_get(tx->m_read_opts, cf_vec, mrr_keys, &mrr_values);
+
+  mrr_ranges_eof = true;
+  return 0;
+}
+
+void ha_rocksdb::mrr_free_data() {
+  // Note: C++ docs say the following does not necessarily clean memory
+  // (which might be a good thing for multiple MRR sweeps)
+  mrr_keys.clear();
+  mrr_key_data.clear();
+  mrr_res.clear();
+  mrr_values.clear();
+  mrr_read_index = 0;
+}
+
+int
+ha_rocksdb::multi_range_read_next(char **range_info)
+{
+  if (mrr_uses_default_impl) {
+    return handler::multi_range_read_next(range_info);
+  }
+
+  while (1) {
+    if (mrr_read_index >= mrr_values.size())
+    {
+      if (mrr_ranges_eof) {
+        table->status = STATUS_NOT_FOUND; // not sure if this is necessary?
+        return HA_ERR_END_OF_FILE;
+      }
+
+      mrr_fill_buffer();
+      mrr_read_index = 0;
+    }
+    // Skip the "is not found" errors
+    if (mrr_res[mrr_read_index].ok())
+      break;
+    mrr_read_index++;
+  }
+  // Ok, mrr_read_index points to the next row
+  size_t cur_key= mrr_read_index++;
+
+  // get the next row out
+#if 0
+    /* If we found the record, but it's expired, pretend we didn't find it.  */
+    if (!skip_ttl_check && m_pk_descr->has_ttl() &&
+        should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
+                            tx->m_snapshot_timestamp)) {
+      DBUG_RETURN(HA_ERR_KEY_NOT_FOUND);
+    }
+#endif
+  const rocksdb::Slice& rowkey= mrr_keys[cur_key];
+  m_last_rowkey.copy((const char *)rowkey.data(), rowkey.size(), &my_charset_bin);
+
+  *range_info = mrr_key_data[cur_key];
+  
+  m_retrieved_record.PinSelf(mrr_values[cur_key]);
+  int rc = convert_record_from_storage_format(&rowkey, table->record[0]);
+
+  table->status = rc ? STATUS_NOT_FOUND : 0;
+  return rc;
+}
+
 
 }  // namespace myrocks
 
