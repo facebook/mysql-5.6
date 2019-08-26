@@ -664,25 +664,34 @@ class ha_rocksdb : public my_core::handler {
   // longlong get_memory_buffer_size() const override { return 1024; }
 
  private:
-  // TRUE means this MRR scan is using the default implementation
+  // true <=> The scan uses the default MRR implementation, just redirect all
+  // calls to it
   bool mrr_uses_default_impl;
 
-  // we use handler::mrr_funcs to store the RANGE_SEQ_IF
-  range_seq_t mrr_seq_it;
-  bool mrr_ranges_eof;
-  
-  std::vector<rocksdb::Slice> mrr_keys;
-  std::vector<char*> mrr_key_data;
-  std::vector<rocksdb::Status> mrr_res;
-  std::vector<std::string> mrr_values;
-  size_t mrr_read_index;
+  bool mrr_sorted_mode; // true <=> we are in ordered-keys, ordered-results mode.
 
-  //TODO: get rid of this and use the buffer!
-  std::vector<std::string> mrr_keys_storage;
+  // RANGE_SEQ_IF is stored in handler::mrr_funcs
+  range_seq_t mrr_seq_it;
+  bool mrr_ranges_eof; // true means we've got eof when enumerating the ranges.
+  HANDLER_BUFFER mrr_buf;
+  
+  // MRR parameters and output values
+  rocksdb::Slice *mrr_keys;
+  rocksdb::Status *mrr_statuses;
+  char **mrr_range_ptrs;
+  rocksdb::PinnableSlice *mrr_values;
+
+  ssize_t mrr_n_elements; // Number of elements in the above arrays
+  ssize_t mrr_read_index; // Number of the element we will return next
+
+  // Number of ranges that are still left to scan. This is passed to
+  // multi_range_read_init as parameter and then decremented on each sweep.
+  // (note: is this number reliable when linked join caches are used?)
+  ssize_t mrr_n_ranges;
 
   int mrr_fill_buffer();
   void mrr_free_data();
-
+  uint mrr_get_length_per_rec();
 
   struct key_def_cf_info {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;

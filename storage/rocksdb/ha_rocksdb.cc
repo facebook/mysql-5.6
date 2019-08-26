@@ -3095,6 +3095,12 @@ class Rdb_transaction {
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
       bool exclusive, const bool do_validate) = 0;
 
+  virtual void multi_get(
+      const rocksdb::ReadOptions& read_options,
+      rocksdb::ColumnFamilyHandle* column_family,
+      const size_t num_keys, const rocksdb::Slice* keys,
+      rocksdb::PinnableSlice* values, rocksdb::Status* statuses,
+      bool sorted_input) = 0;
   virtual rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *column_family) = 0;
@@ -3105,11 +3111,6 @@ class Rdb_transaction {
                          rocksdb::Status *statuses,
                          const bool sorted_input) const = 0;
 
-  virtual std::vector<rocksdb::Status> multi_get(
-      const rocksdb::ReadOptions& options,
-      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
-      const std::vector<rocksdb::Slice>& keys,
-      std::vector<std::string>* values) = 0;
 
   rocksdb::Iterator *get_iterator(
       rocksdb::ColumnFamilyHandle *const column_family, bool skip_bloom_filter,
@@ -3476,6 +3477,16 @@ class Rdb_transaction_impl : public Rdb_transaction {
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
+  void multi_get(
+      const rocksdb::ReadOptions& read_options,
+      rocksdb::ColumnFamilyHandle* column_family,
+      const size_t num_keys, const rocksdb::Slice* keys,
+      rocksdb::PinnableSlice* values, rocksdb::Status* statuses,
+      bool sorted_input) override {
+    m_rocksdb_tx->MultiGet(read_options, column_family, num_keys, keys,
+                           values, statuses, sorted_input);
+  }
+
   void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
                  const size_t num_keys, const rocksdb::Slice *keys,
                  rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
@@ -3484,12 +3495,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
                            statuses, sorted_input);
   }
 
-  std::vector<rocksdb::Status> multi_get(
-      const rocksdb::ReadOptions& options,
-      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
-      const std::vector<rocksdb::Slice>& keys,
-      std::vector<std::string>* values) override {
-    return m_rocksdb_tx->MultiGet(options, column_family, keys, values);
   }
 
   rocksdb::Status get_for_update(
@@ -3790,6 +3795,17 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     return get(column_family, key, value);
   }
 
+  void multi_get(
+      const rocksdb::ReadOptions& read_options,
+      rocksdb::ColumnFamilyHandle* column_family,
+      const size_t num_keys, const rocksdb::Slice* keys,
+      rocksdb::PinnableSlice* values, rocksdb::Status* statuses,
+      bool sorted_input) override {
+    //todo: could we just read the committed content from the DB here?
+    //psergey-todo:!
+    DBUG_ASSERT(0);
+  }
+
   void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
                  const size_t num_keys, const rocksdb::Slice *keys,
                  rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
@@ -3798,12 +3814,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                                     keys, values, statuses, sorted_input);
   }
 
-  std::vector<rocksdb::Status> multi_get(
-      const rocksdb::ReadOptions& options,
-      const std::vector<rocksdb::ColumnFamilyHandle*>& column_family,
-      const std::vector<rocksdb::Slice>& keys,
-      std::vector<std::string>* values) override {
-    return std::vector<rocksdb::Status>(keys.size(), rocksdb::Status::NotSupported());
   }
 
   rocksdb::Iterator *get_iterator(
@@ -6236,6 +6246,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_keyread_only(false),
       m_insert_with_update(false),
       m_dup_pk_found(false),
+      mrr_n_elements(0),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false),
       m_force_skip_unique_check(false) {}
@@ -10585,6 +10596,8 @@ int ha_rocksdb::index_end() {
   active_index = MAX_KEY;
   in_range_check_pushed_down = FALSE;
 
+  mrr_free_data();
+
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
@@ -10787,6 +10800,8 @@ int ha_rocksdb::info(uint flag) {
     if (stats.records != 0) {
       stats.mean_rec_length = stats.data_file_length / stats.records;
     }
+
+    stats.mrr_length_per_rec = mrr_get_length_per_rec();
   }
 
   if (flag & HA_STATUS_CONST) {
@@ -15201,17 +15216,30 @@ ha_rocksdb::multi_range_read_init(
   // Ok, using a non-default MRR implementation, MultiGet-MRR
   mrr_uses_default_impl = false;
   mrr_ranges_eof = false;
+  mrr_n_ranges= n_ranges;
+  mrr_n_elements = 0; // nothing to cleanup, yet.
 
   mrr_funcs = *seq;
+  mrr_buf= *buf;
 
   bool is_mrr_assoc= !MY_TEST(mode & HA_MRR_NO_ASSOCIATION);
   if (is_mrr_assoc)
     status_var_increment(table->in_use->status_var.ha_multi_range_read_init_count);
 
-
+  mrr_sorted_mode = (mode & HA_MRR_SORTED)? true : false;
   mrr_seq_it= mrr_funcs.init(seq_init_param, n_ranges, mode);
   mrr_fill_buffer();
   return 0;
+}
+
+
+uint ha_rocksdb::mrr_get_length_per_rec() {
+  return
+    sizeof(rocksdb::Slice) +
+    sizeof(rocksdb::Status) +
+    sizeof(rocksdb::PinnableSlice) +
+    sizeof(char*) +  // this for KEY_MULTI_RANGE::ptr
+    m_pk_descr->max_storage_fmt_length();
 }
 
 
@@ -15222,41 +15250,89 @@ int ha_rocksdb::mrr_fill_buffer() {
     (key_part_map(1) << m_pk_descr->get_key_parts()) - 1;
 
   mrr_free_data();
+  mrr_read_index = 0;
 
-  while (!mrr_funcs.next(mrr_seq_it, &range)) {
+  //Assume mrr_buf.buffer is aligned.
+  //Assume mrr_buf.buffer_end is aligned.
 
-    DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
-    DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
-    uint size;
+  // This should agree with the code in mrr_get_length_per_rec():
+  ssize_t element_size =
+    sizeof(rocksdb::Slice) +
+    sizeof(rocksdb::Status) +
+    sizeof(rocksdb::PinnableSlice) +
+    sizeof(char*) +  // this for KEY_MULTI_RANGE::ptr
+    m_pk_descr->max_storage_fmt_length();
 
-    size = m_pk_descr->pack_index_tuple(table, m_pack_buffer,
-                                        m_pk_packed_tuple, range.start_key.key,
-                                        all_parts_map);
-    //Create a string, push it to storage
-    mrr_keys_storage.push_back(std::string((const char*)m_pk_packed_tuple, size));
-    //Create a slice, push it to keys array
-    mrr_keys.push_back(rocksdb::Slice(mrr_keys_storage.back()));
+  // We can fit into the buffer this many elements:
+  ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
 
-    mrr_key_data.push_back(range.ptr);
+  // The "+1" is there to:
+  // - try to use a bit more space but get finished in one sweep (and avoid
+  //   zero-sized second sweep)
+  // - for safety: we don't want 0-sized buffers
+  n_elements = std::min(n_elements, (ssize_t)mrr_n_ranges+1);
+
+  if (n_elements < 1) {
+    DBUG_ASSERT(0);
+    return 1; // error
   }
 
-  std::vector<rocksdb::ColumnFamilyHandle*> cf_vec(mrr_keys.size(), m_pk_descr->get_cf());
+  char *buf= (char*)mrr_buf.buffer;
+  mrr_keys= new (buf)rocksdb::Slice[n_elements];
+  buf += sizeof(rocksdb::Slice) * n_elements;
+
+  mrr_statuses = new (buf)rocksdb::Status[n_elements];
+  buf += sizeof(rocksdb::Status) * n_elements;
+
+  mrr_values = new (buf)rocksdb::PinnableSlice[n_elements];
+  buf += sizeof(rocksdb::PinnableSlice) * n_elements;
+
+  mrr_range_ptrs = (char**)buf;
+  buf += sizeof(char*) * n_elements;
+
+  ssize_t elem;
+  for (elem = 0; elem < n_elements; elem++) {
+
+    if ((mrr_ranges_eof = mrr_funcs.next(mrr_seq_it, &range))) {
+      elem--; // pretend current element wasn't there
+      break;
+    }
+    DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
+    DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
+
+    size_t key_size;
+    key_size = m_pk_descr->pack_index_tuple(table, m_pack_buffer,
+                                            (uchar*)buf, range.start_key.key,
+                                            all_parts_map);
+    mrr_keys[elem] = rocksdb::Slice(buf, key_size);
+    mrr_range_ptrs[elem] = range.ptr;
+    buf += key_size;
+  }
+  mrr_n_elements= elem+1;
+  mrr_n_ranges -= mrr_n_elements;
+
+  if (mrr_n_elements == 0)
+    return 0; // nothing to scan
+
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
 
-  mrr_res = tx->multi_get(tx->m_read_opts, cf_vec, mrr_keys, &mrr_values);
+  tx->multi_get(tx->m_read_opts,
+                m_pk_descr->get_cf(),
+                mrr_n_elements, // actual number of elements we've got
+                mrr_keys,
+                mrr_values,
+                mrr_statuses,
+                mrr_sorted_mode);
 
-  mrr_ranges_eof = true;
   return 0;
 }
 
 void ha_rocksdb::mrr_free_data() {
-  // Note: C++ docs say the following does not necessarily clean memory
-  // (which might be a good thing for multiple MRR sweeps)
-  mrr_keys.clear();
-  mrr_key_data.clear();
-  mrr_res.clear();
-  mrr_values.clear();
-  mrr_read_index = 0;
+  for (ssize_t i = 0; i < mrr_n_elements; i++)
+    mrr_values[i].Reset();
+  mrr_n_elements = 0;
+  // We can't rely on the data from HANDLER_BUFFER once the scan is over, so:
+  mrr_values = nullptr;
 }
 
 int
@@ -15267,18 +15343,17 @@ ha_rocksdb::multi_range_read_next(char **range_info)
   }
 
   while (1) {
-    if (mrr_read_index >= mrr_values.size())
+    if (mrr_read_index >= mrr_n_elements)
     {
       if (mrr_ranges_eof) {
         table->status = STATUS_NOT_FOUND; // not sure if this is necessary?
+        mrr_free_data();
         return HA_ERR_END_OF_FILE;
       }
-
       mrr_fill_buffer();
-      mrr_read_index = 0;
     }
     // Skip the "is not found" errors
-    if (mrr_res[mrr_read_index].ok())
+    if (mrr_statuses[mrr_read_index].ok())
       break;
     mrr_read_index++;
   }
@@ -15297,10 +15372,13 @@ ha_rocksdb::multi_range_read_next(char **range_info)
   const rocksdb::Slice& rowkey= mrr_keys[cur_key];
   m_last_rowkey.copy((const char *)rowkey.data(), rowkey.size(), &my_charset_bin);
 
-  *range_info = mrr_key_data[cur_key];
+  *range_info = mrr_range_ptrs[cur_key];
   
   m_retrieved_record.PinSelf(mrr_values[cur_key]);
   int rc = convert_record_from_storage_format(&rowkey, table->record[0]);
+
+  m_retrieved_record.Reset();
+  mrr_values[cur_key].Reset();
 
   table->status = rc ? STATUS_NOT_FOUND : 0;
   return rc;
