@@ -15161,7 +15161,7 @@ ha_rocksdb::multi_range_read_info_const(
   if (keyno == table->s->primary_key && all_eq_ranges) {
     *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
     *flags |= HA_MRR_SUPPORT_SORTED;
-    //TODO: inform that we will need the buffer: *bufsz = 
+    *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
   }
   return res;
 }
@@ -15212,8 +15212,15 @@ ha_rocksdb::multi_range_read_init(
                                          mode, buf);
     return res;
   }
-  
+
   // Ok, using a non-default MRR implementation, MultiGet-MRR
+
+  if (buf->buffer_end - buf->buffer < mrr_get_length_per_rec() * 2) {
+    // Should not normally happen. Could one theoretically construct such
+    // cases with BKA? Make this highly-visible:
+    return HA_ERR_INTERNAL_ERROR;
+  }
+
   mrr_uses_default_impl = false;
   mrr_ranges_eof = false;
   mrr_n_ranges= n_ranges;
@@ -15290,13 +15297,8 @@ int ha_rocksdb::mrr_fill_buffer() {
   mrr_range_ptrs = (char**)buf;
   buf += sizeof(char*) * n_elements;
 
-  ssize_t elem;
-  for (elem = 0; elem < n_elements; elem++) {
-
-    if ((mrr_ranges_eof = mrr_funcs.next(mrr_seq_it, &range))) {
-      elem--; // pretend current element wasn't there
-      break;
-    }
+  ssize_t elem = -1;
+  while (!(mrr_ranges_eof = mrr_funcs.next(mrr_seq_it, &range))) {
     DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
     DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
 
@@ -15304,11 +15306,19 @@ int ha_rocksdb::mrr_fill_buffer() {
     key_size = m_pk_descr->pack_index_tuple(table, m_pack_buffer,
                                             (uchar*)buf, range.start_key.key,
                                             all_parts_map);
+    elem++;
     mrr_keys[elem] = rocksdb::Slice(buf, key_size);
     mrr_range_ptrs[elem] = range.ptr;
     buf += key_size;
+
+    if (elem == n_elements-1) {
+      // the arrays are full. bail out
+      break;
+    }
   }
-  mrr_n_elements= elem+1;
+  // now, mrr_keys[elem] holds the last valid element (except when elem==-1)
+
+  mrr_n_elements= elem + 1;
   mrr_n_ranges -= mrr_n_elements;
 
   if (mrr_n_elements == 0)
@@ -15345,12 +15355,16 @@ ha_rocksdb::multi_range_read_next(char **range_info)
   while (1) {
     if (mrr_read_index >= mrr_n_elements)
     {
-      if (mrr_ranges_eof) {
+      if (mrr_ranges_eof || !mrr_n_elements) {
         table->status = STATUS_NOT_FOUND; // not sure if this is necessary?
         mrr_free_data();
         return HA_ERR_END_OF_FILE;
       }
       mrr_fill_buffer();
+      if (!mrr_n_elements) {
+        table->status = STATUS_NOT_FOUND; // not sure if this is necessary?
+        return HA_ERR_END_OF_FILE;
+      }
     }
     // Skip the "is not found" errors
     if (mrr_statuses[mrr_read_index].ok())
