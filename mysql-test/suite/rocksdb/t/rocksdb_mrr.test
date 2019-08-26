@@ -65,5 +65,45 @@ explain select * from t3 where (pk1 in (1,2,4,5) and pk2 in (4,5)) or pk1=3;
 --echo # Due to HA_MRR_SUPPORT_SORTED, the following will use MRR, and not require filesort:
 explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
 
-drop table t0,t1,t2,t3;
+#--echo #
+#--echo # More basic tests
+#--echo #
+
+--echo # Test for lookups returning nothing
+delete from t2 where pk in (3,5,7,9,10) or pk between 100 and 200;
+
+explain
+select * from t2,t0 where t2.pk=t0.a;
+select * from t2,t0 where t2.pk=t0.a;
+
+
+--echo # Test for a scan returning nothing at all:
+explain
+select * from t2,t0 where t2.pk=t0.a+500100;
+select * from t2,t0 where t2.pk=t0.a+500100;
+
+--echo # Make the scan finish before it has returned all the data:
+select * from t2,t0 where t2.pk=t0.a limit 1;
+
+--echo # Re-execute MRR scan in a subquery:
+create table t4(a int primary key);
+insert into t4 values (4),(6),(8);
+
+--replace_column 9 #
+explain
+select a ,
+       (select concat(t0.a,'-',t2.pk) 
+        from t2,t0 
+        where t2.pk=t0.a and t2.col1>=t4.a
+        limit 1) as SUBQ
+from t4;
+
+select a ,
+       (select concat(t0.a,'-',t2.pk) 
+        from t2,t0 
+        where t2.pk=t0.a and t2.col1>=t4.a
+        limit 1) as SUBQ
+from t4;
+
+drop table t0,t1,t2,t3,t4;
 set optimizer_switch=@save_optimizer_switch;

@@ -77,5 +77,56 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t3	range	PRIMARY	PRIMARY	8	NULL	15	Using where; Using MRR
-drop table t0,t1,t2,t3;
+# Test for lookups returning nothing
+delete from t2 where pk in (3,5,7,9,10) or pk between 100 and 200;
+explain
+select * from t2,t0 where t2.pk=t0.a;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	1	Using join buffer (Batched Key Access)
+select * from t2,t0 where t2.pk=t0.a;
+pk	col1	filler	a
+0	0	0	0
+1	1	1	1
+2	2	2	2
+4	4	4	4
+6	6	6	6
+8	8	8	8
+# Test for a scan returning nothing at all:
+explain
+select * from t2,t0 where t2.pk=t0.a+500100;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	NULL
+1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	4	func	1	Using where; Using join buffer (Batched Key Access)
+select * from t2,t0 where t2.pk=t0.a+500100;
+pk	col1	filler	a
+# Make the scan finish before it has returned all the data:
+select * from t2,t0 where t2.pk=t0.a limit 1;
+pk	col1	filler	a
+0	0	0	0
+# Re-execute MRR scan in a subquery:
+create table t4(a int primary key);
+insert into t4 values (4),(6),(8);
+explain
+select a ,
+(select concat(t0.a,'-',t2.pk) 
+from t2,t0 
+where t2.pk=t0.a and t2.col1>=t4.a
+limit 1) as SUBQ
+from t4;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t4	index	NULL	PRIMARY	4	NULL	#	Using index
+2	DEPENDENT SUBQUERY	t0	ALL	NULL	NULL	NULL	NULL	#	Using where
+2	DEPENDENT SUBQUERY	t2	eq_ref	PRIMARY	PRIMARY	4	test.t0.a	#	Using where; Using join buffer (Batched Key Access)
+select a ,
+(select concat(t0.a,'-',t2.pk) 
+from t2,t0 
+where t2.pk=t0.a and t2.col1>=t4.a
+limit 1) as SUBQ
+from t4;
+a	SUBQ
+4	4-4
+6	6-6
+8	8-8
+drop table t0,t1,t2,t3,t4;
 set optimizer_switch=@save_optimizer_switch;
