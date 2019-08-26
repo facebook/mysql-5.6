@@ -660,15 +660,15 @@ class ha_rocksdb : public my_core::handler {
                             HANDLER_BUFFER* buf) override;
   int multi_range_read_next(char** range_info) override;
 
-  // TODO: this is compared with stats.data_file_length
-  longlong get_memory_buffer_size() const override { return 1024; }
+  // Note: the following is only used by DS-MRR, so not needed for MyRocks:
+  // longlong get_memory_buffer_size() const override { return 1024; }
 
  private:
   // TRUE means this MRR scan is using the default implementation
   bool mrr_uses_default_impl;
 
+  // we use handler::mrr_funcs to store the RANGE_SEQ_IF
   range_seq_t mrr_seq_it;
-  RANGE_SEQ_IF *mrr_seq; //TODO: we don't need to copy this, do we?
   bool mrr_ranges_eof;
   
   std::vector<rocksdb::Slice> mrr_keys;

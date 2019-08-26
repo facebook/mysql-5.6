@@ -15201,9 +15201,15 @@ ha_rocksdb::multi_range_read_init(
   // Ok, using a non-default MRR implementation, MultiGet-MRR
   mrr_uses_default_impl = false;
   mrr_ranges_eof = false;
-  mrr_seq = seq;
 
-  mrr_seq_it= mrr_seq->init(seq_init_param, n_ranges, mode);
+  mrr_funcs = *seq;
+
+  bool is_mrr_assoc= !MY_TEST(mode & HA_MRR_NO_ASSOCIATION);
+  if (is_mrr_assoc)
+    status_var_increment(table->in_use->status_var.ha_multi_range_read_init_count);
+
+
+  mrr_seq_it= mrr_funcs.init(seq_init_param, n_ranges, mode);
   mrr_fill_buffer();
   return 0;
 }
@@ -15217,7 +15223,7 @@ int ha_rocksdb::mrr_fill_buffer() {
 
   mrr_free_data();
 
-  while (!mrr_seq->next(mrr_seq_it, &range)) {
+  while (!mrr_funcs.next(mrr_seq_it, &range)) {
 
     DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
     DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
