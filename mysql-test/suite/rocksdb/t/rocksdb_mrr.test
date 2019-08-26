@@ -1,7 +1,7 @@
 --source include/have_rocksdb.inc
 
 --disable_warnings
-drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
+drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11;
 --enable_warnings
 
 create table t0(a int);
@@ -25,6 +25,27 @@ set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
 explain 
 select * from t2,t0 where t2.pk=t0.a;
 select * from t2,t0 where t2.pk=t0.a;
+
+--echo # Check the counters
+create table t10 as 
+  select * from information_schema.global_status where variable_name like 'rocksdb%multiget%';
+
+flush status; # for Handler_mrr_init
+
+select * from t2,t0 where t2.pk=t0.a;
+
+show status like 'Handler_mrr_init';
+
+create table t11 as 
+  select * from information_schema.global_status where variable_name like 'rocksdb%multiget%';
+
+select 
+  variable_name, 
+  t11.variable_value - t10.variable_value as DIFF 
+from 
+  t10 join t11 using (VARIABLE_NAME);
+
+drop table t10, t11;
 
 --echo # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);
