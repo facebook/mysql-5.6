@@ -15125,7 +15125,7 @@ ha_rocksdb::multi_range_read_info_const(
   
   res= handler::multi_range_read_info_const(keyno, seq, seq_init_param,
                                             n_ranges, bufsz, flags, cost);
-  if (res)
+  if (res == HA_POS_ERROR)
     return res;
 
   //TODO: check m_lock_rows also?
@@ -15144,12 +15144,11 @@ ha_rocksdb::multi_range_read_info_const(
   }
 
   if (keyno == table->s->primary_key && all_eq_ranges) {
-    *flags&= ~HA_MRR_USE_DEFAULT_IMPL;
-    // TODO: we actually can easily return records in order?
-    *flags&= ~HA_MRR_SUPPORT_SORTED;
+    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_SUPPORT_SORTED;
     //TODO: inform that we will need the buffer: *bufsz = 
   }
-  return 0;
+  return res;
 }
 
 
@@ -15169,7 +15168,8 @@ ha_rocksdb::multi_range_read_info(
     return res;
 
   if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {
-    *flags&= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_SUPPORT_SORTED;
   }
 
   return 0;

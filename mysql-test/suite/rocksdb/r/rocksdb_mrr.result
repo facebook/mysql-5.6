@@ -29,6 +29,14 @@ pk	col1	filler	a
 7	7	7	7
 8	8	8	8
 9	9	9	9
+# This will use MRR:
+explain select * from t2 where pk in (1,2,3,4,5);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	PRIMARY	PRIMARY	4	NULL	5	Using where; Using MRR
+# This will not use MRR, as one of the ranges is a non-singlepoint:
+explain select * from t2 where pk in (1,2,3,4,5) or pk between 6 and 8;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	PRIMARY	PRIMARY	4	NULL	6	Using where
 create table t3 (
 pk1 int,
 pk2 int,
@@ -57,5 +65,17 @@ select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
 1	SIMPLE	t3	eq_ref	PRIMARY	PRIMARY	8	test.t0.a,func	1	Using where; Using join buffer (Batched Key Access)
-drop table t0,t1,t2;
+# This will use MRR as it uses full key:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	PRIMARY	PRIMARY	8	NULL	15	Using where; Using MRR
+# This will not use MRR as there are non-singlepoint ranges:
+explain select * from t3 where (pk1 in (1,2,4,5) and pk2 in (4,5)) or pk1=3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	PRIMARY	PRIMARY	8	NULL	9	Using where
+# Due to HA_MRR_SUPPORT_SORTED, the following will use MRR, and not require filesort:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	PRIMARY	PRIMARY	8	NULL	15	Using where; Using MRR
+drop table t0,t1,t2,t3;
 set optimizer_switch=@save_optimizer_switch;

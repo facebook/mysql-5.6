@@ -26,6 +26,12 @@ explain
 select * from t2,t0 where t2.pk=t0.a;
 select * from t2,t0 where t2.pk=t0.a;
 
+--echo # This will use MRR:
+explain select * from t2 where pk in (1,2,3,4,5);
+
+--echo # This will not use MRR, as one of the ranges is a non-singlepoint:
+explain select * from t2 where pk in (1,2,3,4,5) or pk between 6 and 8;
+
 create table t3 (
   pk1 int,
   pk2 int,
@@ -50,6 +56,14 @@ select * from t3,t0 where t3.col1=t0.a;
 explain 
 select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
 
+--echo # This will use MRR as it uses full key:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5);
 
-drop table t0,t1,t2;
+--echo # This will not use MRR as there are non-singlepoint ranges:
+explain select * from t3 where (pk1 in (1,2,4,5) and pk2 in (4,5)) or pk1=3;
+
+--echo # Due to HA_MRR_SUPPORT_SORTED, the following will use MRR, and not require filesort:
+explain select * from t3 where pk1 in (1,2,3,4,5) and pk2 in (3,4,5) order by pk1, pk2;
+
+drop table t0,t1,t2,t3;
 set optimizer_switch=@save_optimizer_switch;
