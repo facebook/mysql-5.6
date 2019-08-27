@@ -28,7 +28,7 @@ set DEBUG_SYNC = "now SIGNAL flushed";
 
 connection default;
 reap;
-select a, b, c from extra;
+select a, b, c from extra order by a;
 
 drop table extra;
 drop table temp2;
