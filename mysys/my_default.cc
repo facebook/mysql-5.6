@@ -1371,12 +1371,12 @@ void update_variable_source(const char *opt_name, const char *value) {
   string prefix[] = {"loose_", "disable_", "enable_", "maximum_", "skip_"};
   uint prefix_count = sizeof(prefix) / sizeof(prefix[0]);
 
-  /* opt_name must be of form --XXXXX which means min length must be 3 */
-  if (var_name.length() < 3) return;
-
   std::size_t pos = var_name.find("=");
   /* strip the value part if present */
   if (pos != string::npos) var_name = var_name.substr(0, pos);
+
+  /* opt_name must be of form --XXXXX which means min length must be 3 */
+  if (var_name.length() < 3) return;
 
   /* remove -- */
   var_name = var_name.substr(2);
