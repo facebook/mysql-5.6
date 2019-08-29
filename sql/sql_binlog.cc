@@ -171,6 +171,15 @@ void mysql_client_binlog_statement(THD* thd)
     if (opt_rbr_idempotent_tables)
       rli->rbr_idempotent_tables =
         split_into_set(opt_rbr_idempotent_tables, ',');
+    if (opt_rbr_column_type_mismatch_whitelist)
+    {
+      const auto& list=
+        split_into_set(opt_rbr_column_type_mismatch_whitelist, ',');
+      rli->set_rbr_column_type_mismatch_whitelist(list);
+    }
+    else
+      rli->set_rbr_column_type_mismatch_whitelist(
+          std::unordered_set<std::string>());
   }
 
   const char *error= 0;

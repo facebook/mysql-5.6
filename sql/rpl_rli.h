@@ -1094,6 +1094,8 @@ private:
   time_t row_stmt_start_timestamp;
   bool long_find_row_note_printed;
 
+  std::unordered_set<std::string> rbr_column_type_mismatch_whitelist;
+
 public:
   // store value to propagate to handler in open_tables
   bool skip_unique_check;
@@ -1114,7 +1116,17 @@ public:
   /* counter for the number of inconsistencies found */
   std::atomic<ulong> before_image_inconsistencies{0};
 
-  std::unordered_set<std::string> rbr_column_type_mismatch_whitelist;
+  virtual const std::unordered_set<std::string>*
+        get_rbr_column_type_mismatch_whitelist() const
+  {
+    return &rbr_column_type_mismatch_whitelist;
+  }
+
+  void set_rbr_column_type_mismatch_whitelist(
+      const std::unordered_set<std::string> &cols)
+  {
+    rbr_column_type_mismatch_whitelist= cols;
+  }
 
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
   /* Related to dependency tracking */

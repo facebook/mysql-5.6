@@ -513,6 +513,11 @@ public:
   {
     return current_db;
   }
+  virtual const std::unordered_set<std::string>*
+        get_rbr_column_type_mismatch_whitelist() const override
+  {
+    return c_rli ? c_rli->get_rbr_column_type_mismatch_whitelist() : nullptr;
+  }
 
 protected:
 
