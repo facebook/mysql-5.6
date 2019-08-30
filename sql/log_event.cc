@@ -7827,14 +7827,22 @@ int Rows_log_event::unpack_current_row(const Relay_log_info *const rli,
   }
   bool has_value_options =
       (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
-  ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
-  if (::unpack_row(rli, m_table, m_width, m_curr_row, cols, &m_curr_row_end,
-                   m_rows_end, row_image_type, has_value_options, only_seek,
-                   thd->row_query)) {
-    int error = thd->get_stmt_da()->mysql_errno();
-    DBUG_ASSERT(error);
+  DBUG_ASSERT(m_curr_row <= m_rows_end);
+  int res = 0;
+  if (unlikely(m_curr_row > m_rows_end)) {
+    res = HA_ERR_CORRUPT_EVENT;
+  } else {
+    res = ::unpack_row(rli, m_table, m_width, m_curr_row, cols, &m_curr_row_end,
+                       m_rows_end, row_image_type, has_value_options, only_seek,
+                       thd->row_query);
+  }
+  if (res) {
+    if (m_curr_row <= m_rows_end) {
+      res = thd->get_stmt_da()->mysql_errno();
+      DBUG_ASSERT(res);
+    }
     mysql_mutex_unlock(&thd->LOCK_thd_query);
-    return error;
+    return res;
   }
 #ifdef HAVE_PSI_THREAD_INTERFACE
   PSI_THREAD_CALL(set_thread_info)
@@ -8013,14 +8021,27 @@ int Rows_log_event::do_add_row_data(uchar *row_data, size_t length) {
   the slave knows about (column a and b).
 
   @param table   the table reference on the slave.
+  @param tabledef the table definition according to the master
   @param cols the bitmap signaling columns available in
                  the BI.
 
   @return true if BI contains usable colums for searching,
           false otherwise.
 */
-static bool is_any_column_signaled_for_table(TABLE *table, MY_BITMAP *cols) {
+static bool is_any_column_signaled_for_table(TABLE *table, table_def *tabledef,
+                                             MY_BITMAP *cols) {
   DBUG_ENTER("is_any_column_signaled_for_table");
+
+  if (tabledef->use_column_names(table)) {
+    DBUG_ASSERT(tabledef->size() == cols->n_bits);
+    for (uint i = 0; i < cols->n_bits; ++i) {
+      if (bitmap_is_set(cols, i)) {
+        const char *col_name = tabledef->get_column_name(i);
+        if (find_field_in_table_sef(table, col_name)) DBUG_RETURN(true);
+      }
+    }
+    DBUG_RETURN(false);
+  }
 
   for (Field **ptr = table->field; *ptr && ((*ptr)->field_index < cols->n_bits);
        ptr++) {
@@ -8054,20 +8075,31 @@ static bool is_any_column_signaled_for_table(TABLE *table, MY_BITMAP *cols) {
   the bitmap to see if all the fields required are
   signaled.
 
+  @param table    table definition
   @param keyinfo  reference to key.
+  @param tabledef the table definition according to the master
   @param cols     the bitmap signaling which columns
                   have available data.
 
   @return true if all fields are signaled in the bitmap
           for the given key, false otherwise.
 */
-static bool are_all_columns_signaled_for_key(KEY *keyinfo, MY_BITMAP *cols) {
+static bool are_all_columns_signaled_for_key(TABLE *table, KEY *keyinfo,
+                                             table_def *tabledef,
+                                             MY_BITMAP *cols) {
   DBUG_ENTER("are_all_columns_signaled_for_key");
 
   for (uint i = 0; i < keyinfo->user_defined_key_parts; i++) {
-    uint fieldnr = keyinfo->key_part[i].fieldnr - 1;
-    if (fieldnr >= cols->n_bits || !bitmap_is_set(cols, fieldnr))
-      DBUG_RETURN(false);
+    if (tabledef->use_column_names(table)) {
+      Field *key_field = keyinfo->key_part[i].field;
+      const std::pair<uint, bool> res =
+          tabledef->get_column_index(key_field->field_name);
+      if (!res.second || !bitmap_is_set(cols, res.first)) DBUG_RETURN(false);
+    } else {
+      uint fieldnr = keyinfo->key_part[i].fieldnr - 1;
+      if (fieldnr >= cols->n_bits || !bitmap_is_set(cols, fieldnr))
+        DBUG_RETURN(false);
+    }
   }
 
   DBUG_RETURN(true);
@@ -8103,6 +8135,7 @@ static bool are_all_columns_signaled_for_key(KEY *keyinfo, MY_BITMAP *cols) {
   is suitable, MAX_KEY is returned.
 
   @param table    reference to the table.
+  @param tabledef table definition according to the master
   @param bi_cols  a bitmap that filters out columns that should
                   not be considered while searching the key.
                   Columns that should be considered are set.
@@ -8112,8 +8145,8 @@ static bool are_all_columns_signaled_for_key(KEY *keyinfo, MY_BITMAP *cols) {
           is suitable. Returns the key otherwise.
 
 */
-static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
-                                uint key_type) {
+static uint search_key_in_table(TABLE *table, table_def *tabledef,
+                                MY_BITMAP *bi_cols, uint key_type) {
   DBUG_ENTER("search_key_in_table");
 
   KEY *keyinfo;
@@ -8123,7 +8156,7 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
   if (key_type & PRI_KEY_FLAG && (table->s->primary_key < MAX_KEY)) {
     DBUG_PRINT("debug", ("Searching for PK"));
     keyinfo = table->s->key_info + table->s->primary_key;
-    if (are_all_columns_signaled_for_key(keyinfo, bi_cols))
+    if (are_all_columns_signaled_for_key(table, keyinfo, tabledef, bi_cols))
       DBUG_RETURN(table->s->primary_key);
   }
 
@@ -8146,7 +8179,9 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
           keyinfo->flags & HA_MULTI_VALUED_KEY) {
         continue;
       }
-      res = are_all_columns_signaled_for_key(keyinfo, bi_cols) ? key : MAX_KEY;
+      res = are_all_columns_signaled_for_key(table, keyinfo, tabledef, bi_cols)
+                ? key
+                : MAX_KEY;
 
       if (res < MAX_KEY) DBUG_RETURN(res);
     }
@@ -8177,7 +8212,9 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
         continue;
       }
 
-      res = are_all_columns_signaled_for_key(keyinfo, bi_cols) ? key : MAX_KEY;
+      res = are_all_columns_signaled_for_key(table, keyinfo, tabledef, bi_cols)
+                ? key
+                : MAX_KEY;
 
       if (res < MAX_KEY) DBUG_RETURN(res);
     }
@@ -8187,7 +8224,7 @@ static uint search_key_in_table(TABLE *table, MY_BITMAP *bi_cols,
   DBUG_RETURN(res);
 }
 
-void Rows_log_event::decide_row_lookup_algorithm_and_key() {
+void Rows_log_event::decide_row_lookup_algorithm_and_key(table_def *tabledef) {
   DBUG_ENTER("decide_row_lookup_algorithm_and_key");
 
   /*
@@ -8220,8 +8257,8 @@ void Rows_log_event::decide_row_lookup_algorithm_and_key() {
     goto TABLE_OR_INDEX_HASH_SCAN;
 
   /* PK or UK => use LOOKUP_INDEX_SCAN */
-  this->m_key_index =
-      search_key_in_table(table, cols, (PRI_KEY_FLAG | UNIQUE_KEY_FLAG));
+  this->m_key_index = search_key_in_table(table, tabledef, cols,
+                                          (PRI_KEY_FLAG | UNIQUE_KEY_FLAG));
   if (this->m_key_index != MAX_KEY) {
     DBUG_PRINT("info",
                ("decide_row_lookup_algorithm_and_key: decided - INDEX_SCAN"));
@@ -8240,8 +8277,9 @@ TABLE_OR_INDEX_HASH_SCAN:
     goto TABLE_OR_INDEX_FULL_SCAN;
 
   /* search for a key to see if we can narrow the lookup domain further. */
-  this->m_key_index = search_key_in_table(
-      table, cols, (PRI_KEY_FLAG | UNIQUE_KEY_FLAG | MULTIPLE_KEY_FLAG));
+  this->m_key_index =
+      search_key_in_table(table, tabledef, cols,
+                          (PRI_KEY_FLAG | UNIQUE_KEY_FLAG | MULTIPLE_KEY_FLAG));
   this->m_rows_lookup_algorithm = ROW_LOOKUP_HASH_SCAN;
   if (m_key_index < MAX_KEY)
     m_distinct_key_spare_buf =
@@ -8257,7 +8295,8 @@ TABLE_OR_INDEX_FULL_SCAN:
   /* If we can use an index, try to narrow the scan a bit further. */
   if (slave_rows_search_algorithms_options & SLAVE_ROWS_INDEX_SCAN)
     this->m_key_index = search_key_in_table(
-        table, cols, (PRI_KEY_FLAG | UNIQUE_KEY_FLAG | MULTIPLE_KEY_FLAG));
+        table, tabledef, cols,
+        (PRI_KEY_FLAG | UNIQUE_KEY_FLAG | MULTIPLE_KEY_FLAG));
 
   if (this->m_key_index != MAX_KEY) {
     DBUG_PRINT("info",
@@ -8301,7 +8340,7 @@ end:
   @ret value error code
              0 success
 */
-int Rows_log_event::row_operations_scan_and_key_setup() {
+int Rows_log_event::row_operations_scan_and_key_setup(table_def *tabledef) {
   int error = 0;
   DBUG_ENTER("Row_log_event::row_operations_scan_and_key_setup");
 
@@ -8313,7 +8352,7 @@ int Rows_log_event::row_operations_scan_and_key_setup() {
      2. using key => decide on key to use and allocate mem structures
      3. using table scan => do nothing
    */
-  decide_row_lookup_algorithm_and_key();
+  decide_row_lookup_algorithm_and_key(tabledef);
 
   switch (m_rows_lookup_algorithm) {
     case ROW_LOOKUP_HASH_SCAN: {
@@ -8385,7 +8424,7 @@ bool Rows_log_event::is_auto_inc_in_extra_columns() {
 
   Returns true if different.
 */
-static bool record_compare(TABLE *table, MY_BITMAP *cols) {
+static bool record_compare(TABLE *table, table_def *tabledef, MY_BITMAP *cols) {
   DBUG_ENTER("record_compare");
 
   /*
@@ -8455,7 +8494,22 @@ static bool record_compare(TABLE *table, MY_BITMAP *cols) {
     3. then compare the contents of the field, if it is not
        set to null
    */
-  else {
+  else if (tabledef->use_column_names(table)) {
+    for (uint i = 0; i < tabledef->size() && !result; ++i) {
+      if (!bitmap_is_set(cols, i)) continue;
+      const char *col_name = tabledef->get_column_name(i);
+      Field *const field = find_field_in_table_sef(table, col_name);
+      if (field) {
+        /* compare null bit */
+        if (field->is_null() != field->is_null_in_record(table->record[1]))
+          result = true;
+
+        /* compare content, only if fields are not set to NULL */
+        else if (!field->is_null())
+          result = field->cmp_binary_offset(table->s->rec_buff_length);
+      }
+    }
+  } else {
     for (Field **ptr = table->field;
          *ptr && ((*ptr)->field_index < cols->n_bits) && !result; ptr++) {
       Field *field = *ptr;
@@ -8617,7 +8671,8 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
   return *err;
 }
 
-int Rows_log_event::do_apply_row(Relay_log_info const *rli) {
+int Rows_log_event::do_apply_row(Relay_log_info const *rli,
+                                 table_def *tabledef MY_ATTRIBUTE((unused))) {
   DBUG_ENTER("Rows_log_event::do_apply_row");
 
   int error = 0;
@@ -8802,7 +8857,8 @@ err:
   DBUG_RETURN(error);
 }
 
-int Rows_log_event::do_index_scan_and_update(Relay_log_info const *rli) {
+int Rows_log_event::do_index_scan_and_update(Relay_log_info const *rli,
+                                             table_def *tabledef) {
   DBUG_ENTER("Rows_log_event::do_index_scan_and_update");
   DBUG_ASSERT(m_table && m_table->in_use != nullptr);
 
@@ -8954,7 +9010,7 @@ INDEX_SCAN:
    */
   DBUG_PRINT("info", ("non-unique index, scanning it to find matching record"));
 
-  while (record_compare(m_table, &m_cols)) {
+  while (record_compare(m_table, tabledef, &m_cols)) {
     while ((error = next_record_scan(false))) {
       /* We just skip records that has already been deleted */
       if (error == HA_ERR_RECORD_DELETED) continue;
@@ -8970,7 +9026,7 @@ end:
   if (error && error != HA_ERR_RECORD_DELETED)
     m_table->file->print_error(error, MYF(0));
   else
-    error = do_apply_row(rli);
+    error = do_apply_row(rli, tabledef);
 
   if (!error)
     error = close_record_scan();
@@ -9114,7 +9170,8 @@ end:
   DBUG_RETURN(error);
 }
 
-int Rows_log_event::do_scan_and_update(Relay_log_info const *rli) {
+int Rows_log_event::do_scan_and_update(Relay_log_info const *rli,
+                                       table_def *tabledef) {
   DBUG_ENTER("Rows_log_event::do_scan_and_update");
   DBUG_ASSERT(m_table && m_table->in_use != nullptr);
   DBUG_ASSERT(m_hash.is_empty() == false);
@@ -9180,7 +9237,7 @@ int Rows_log_event::do_scan_and_update(Relay_log_info const *rli) {
             if ((error = unpack_current_row(rli, &m_cols, false /*is not AI*/)))
               goto close_table;
 
-            if (record_compare(table, &m_cols))
+            if (record_compare(table, tabledef, &m_cols))
               m_hash.next(&entry);
             else
               break;  // we found a match
@@ -9210,7 +9267,7 @@ int Rows_log_event::do_scan_and_update(Relay_log_info const *rli) {
             /* we don't need this entry anymore, just delete it */
             if ((error = m_hash.del(entry))) goto err;
 
-            if ((error = do_apply_row(rli))) {
+            if ((error = do_apply_row(rli, tabledef))) {
               if (handle_idempotent_and_ignored_errors(rli, &error))
                 goto close_table;
 
@@ -9280,7 +9337,8 @@ err:
   DBUG_RETURN(error);
 }
 
-int Rows_log_event::do_hash_scan_and_update(Relay_log_info const *rli) {
+int Rows_log_event::do_hash_scan_and_update(Relay_log_info const *rli,
+                                            table_def *tabledef) {
   DBUG_ENTER("Rows_log_event::do_hash_scan_and_update");
   DBUG_ASSERT(m_table && m_table->in_use != nullptr);
 
@@ -9298,10 +9356,11 @@ int Rows_log_event::do_hash_scan_and_update(Relay_log_info const *rli) {
 
   // SCANNING & UPDATE PART
 
-  DBUG_RETURN(this->do_scan_and_update(rli));
+  DBUG_RETURN(this->do_scan_and_update(rli, tabledef));
 }
 
-int Rows_log_event::do_table_scan_and_update(Relay_log_info const *rli) {
+int Rows_log_event::do_table_scan_and_update(Relay_log_info const *rli,
+                                             table_def *tabledef) {
   int error = 0;
   const uchar *saved_m_curr_row = m_curr_row;
   TABLE *table = m_table;
@@ -9352,7 +9411,7 @@ int Rows_log_event::do_table_scan_and_update(Relay_log_info const *rli) {
           // exception
           goto end;
       }
-    } while (restart_count < 2 && record_compare(m_table, &m_cols));
+    } while (restart_count < 2 && record_compare(m_table, tabledef, &m_cols));
   }
 
 end:
@@ -9366,7 +9425,7 @@ end:
                         error));
     m_table->file->print_error(error, MYF(0));
   } else
-    error = do_apply_row(rli);
+    error = do_apply_row(rli, tabledef);
 
   if (!error)
     error = close_record_scan();
@@ -9384,20 +9443,29 @@ end:
   DBUG_RETURN(error);
 }
 
-void Rows_log_event::set_writeset_from_col_names(TABLE *table,
-                                                 table_def *tabledef,
-                                                 MY_BITMAP *after_image) {
+void Rows_log_event::set_readwriteset_from_col_names(TABLE *table,
+                                                     table_def *tabledef,
+                                                     MY_BITMAP *after_image) {
   DBUG_ASSERT(tabledef->have_column_names());
+  bitmap_clear_all(table->read_set);
   bitmap_clear_all(table->write_set);
   // use column names to find out the correct field indices
   // on slave's table.
   for (uint i = 0; i < tabledef->size(); ++i) {
-    if (bitmap_is_set(after_image, i)) {
-      const char *col_name = tabledef->get_column_name(i);
-      Field *const field = find_field_in_table_sef(table, col_name);
-      // field may be NULL if the field is removed on slave.
-      if (field) bitmap_set_bit(table->write_set, field->field_index);
-    }
+    const char *col_name = tabledef->get_column_name(i);
+    Field *const field = find_field_in_table_sef(table, col_name);
+
+    // field may be NULL if the field is removed on slave.
+    if (!field) continue;
+
+    // handle write_set
+    if (bitmap_is_set(after_image, i))
+      bitmap_set_bit(table->write_set, field->field_index);
+    // handle read_set
+    if ((get_general_type_code() == binary_log::DELETE_ROWS_EVENT ||
+         get_general_type_code() == binary_log::UPDATE_ROWS_EVENT) &&
+        bitmap_is_set(&m_cols, i))
+      bitmap_set_bit(table->read_set, field->field_index);
   }
 }
 
@@ -9858,20 +9926,24 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     */
     switch (get_general_type_code()) {
       case binary_log::DELETE_ROWS_EVENT:
-        bitmap_intersect(table->read_set, &m_cols);
+        if (tabledef->use_column_names(table))
+          set_readwriteset_from_col_names(table, tabledef, &m_cols);
+        else
+          bitmap_intersect(table->read_set, &m_cols);
         stage = &stage_rpl_apply_row_evt_delete;
         if (m_table->vfield) m_table->mark_generated_columns(false);
         break;
       case binary_log::UPDATE_ROWS_EVENT:
-        bitmap_intersect(table->read_set, &m_cols);
-        if (tabledef->have_column_names())
-          set_writeset_from_col_names(table, tabledef, &m_cols_ai);
-        else
+        if (tabledef->use_column_names(table))
+          set_readwriteset_from_col_names(table, tabledef, &m_cols_ai);
+        else {
           bitmap_intersect(table->write_set, &m_cols_ai);
+          bitmap_intersect(table->read_set, &m_cols);
+        }
         if (m_table->vfield) m_table->mark_generated_columns(true);
         /* Skip update rows events that don't have data for this server's table.
          */
-        if (!is_any_column_signaled_for_table(table, &m_cols_ai))
+        if (!is_any_column_signaled_for_table(table, tabledef, &m_cols_ai))
           no_columns_to_update = true;
         stage = &stage_rpl_apply_row_evt_update;
         break;
@@ -9901,8 +9973,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
         */
         /* WRITE ROWS EVENTS store the bitmap in the m_cols bitmap */
         if (m_table->vfield) m_table->mark_generated_columns(false);
-        if (tabledef->have_column_names())
-          set_writeset_from_col_names(table, tabledef, &m_cols);
+        if (tabledef->use_column_names(table))
+          set_readwriteset_from_col_names(table, tabledef, &m_cols);
         else
           bitmap_intersect(table->write_set, &m_cols);
 
@@ -9937,7 +10009,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     }
 
     // Do event specific preparations
-    error = do_before_row_operations(rli);
+    error = do_before_row_operations(rli, tabledef);
 
     /*
       Bug#56662 Assertion failed: next_insert_id == 0, file handler.cc
@@ -9961,7 +10033,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
 
     const uchar *saved_m_curr_row = m_curr_row;
 
-    int (Rows_log_event::*do_apply_row_ptr)(Relay_log_info const *) = nullptr;
+    int (Rows_log_event::*do_apply_row_ptr)(Relay_log_info const *,
+                                            table_def *tabledef) = nullptr;
 
     /**
        Skip update rows events that don't have data for this slave's
@@ -9977,7 +10050,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
      */
 
     if ((m_rows_lookup_algorithm != ROW_LOOKUP_NOT_NEEDED) &&
-        !is_any_column_signaled_for_table(table, &m_cols)) {
+        !is_any_column_signaled_for_table(table, tabledef, &m_cols)) {
       error = HA_ERR_END_OF_FILE;
       goto AFTER_MAIN_EXEC_ROW_LOOP;
     }
@@ -10018,7 +10091,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     do {
       DBUG_PRINT("info", ("calling do_apply_row_ptr"));
 
-      error = (this->*do_apply_row_ptr)(rli);
+      error = (this->*do_apply_row_ptr)(rli, tabledef);
 
       if (handle_idempotent_and_ignored_errors(rli, &error)) break;
 
@@ -11958,7 +12031,7 @@ Write_rows_log_event::Write_rows_log_event(
 
 #if defined(MYSQL_SERVER)
 int Write_rows_log_event::do_before_row_operations(
-    const Slave_reporting_capability *const) {
+    const Slave_reporting_capability *const, table_def *tabledef) {
   int error = 0;
 
   /*
@@ -12057,7 +12130,7 @@ int Write_rows_log_event::do_before_row_operations(
   /**
      Sets it to ROW_LOOKUP_NOT_NEEDED.
    */
-  decide_row_lookup_algorithm_and_key();
+  decide_row_lookup_algorithm_and_key(tabledef);
   DBUG_ASSERT(m_rows_lookup_algorithm == ROW_LOOKUP_NOT_NEEDED);
 
   return error;
@@ -12479,7 +12552,7 @@ Delete_rows_log_event::Delete_rows_log_event(
 #if defined(MYSQL_SERVER)
 
 int Delete_rows_log_event::do_before_row_operations(
-    const Slave_reporting_capability *const) {
+    const Slave_reporting_capability *const, table_def *tabledef) {
   int error = 0;
   DBUG_ENTER("Delete_rows_log_event::do_before_row_operations");
   /*
@@ -12500,7 +12573,7 @@ int Delete_rows_log_event::do_before_row_operations(
   */
   thd->lex->sql_command = SQLCOM_DELETE;
 
-  error = row_operations_scan_and_key_setup();
+  error = row_operations_scan_and_key_setup(tabledef);
   DBUG_RETURN(error);
 }
 
@@ -12630,7 +12703,7 @@ Update_rows_log_event::Update_rows_log_event(
 #if defined(MYSQL_SERVER)
 
 int Update_rows_log_event::do_before_row_operations(
-    const Slave_reporting_capability *const) {
+    const Slave_reporting_capability *const, table_def *tabledef) {
   int error = 0;
   DBUG_ENTER("Update_rows_log_event::do_before_row_operations");
   /*
@@ -12651,7 +12724,7 @@ int Update_rows_log_event::do_before_row_operations(
    */
   thd->lex->sql_command = SQLCOM_UPDATE;
 
-  error = row_operations_scan_and_key_setup();
+  error = row_operations_scan_and_key_setup(tabledef);
   DBUG_RETURN(error);
 }
 
