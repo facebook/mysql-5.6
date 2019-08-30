@@ -568,6 +568,7 @@ my_bool block_create_memory = FALSE;
 my_bool block_create_no_primary_key = FALSE;
 my_bool read_only= 0, opt_readonly= 0;
 char* opt_read_only_error_msg_extra;
+my_bool skip_master_info_check_for_read_only_error_msg_extra;
 my_bool super_read_only = 0, opt_super_readonly = 0;
 my_bool use_temp_pool, relay_log_purge;
 my_bool relay_log_recovery;

@@ -10118,19 +10118,20 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
 void get_active_master_info(std::string *str_ptr)
 {
 #ifdef HAVE_REPLICATION
-    if (str_ptr && active_mi && active_mi->host[0])
-    {
+  if (str_ptr && ((active_mi && active_mi->host[0]) ||
+                  skip_master_info_check_for_read_only_error_msg_extra)) {
+    const std::string extra_str(opt_read_only_error_msg_extra);
+    if (active_mi && active_mi->host[0]) {
       *str_ptr = "Current master_host: ";
       *str_ptr += active_mi->host;
       *str_ptr += ", master_port: ";
       *str_ptr += std::to_string(active_mi->port);
-      const char *extra_str = opt_read_only_error_msg_extra;
-      if (extra_str && extra_str[0])
-      {
+      if (!extra_str.empty()) {
         *str_ptr += ". ";
-        *str_ptr += extra_str;
       }
     }
+    *str_ptr += extra_str;
+  }
 #endif
 }
 

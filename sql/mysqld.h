@@ -324,6 +324,7 @@ extern char* opt_rbr_column_type_mismatch_whitelist;
 extern ulonglong admission_control_filter;
 extern my_bool read_only, opt_readonly, super_read_only, opt_super_readonly;
 extern char* opt_read_only_error_msg_extra;
+extern my_bool skip_master_info_check_for_read_only_error_msg_extra;
 extern my_bool send_error_before_closing_timed_out_connection;
 extern my_bool allow_document_type;
 extern my_bool block_create_myisam;
