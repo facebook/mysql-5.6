@@ -332,9 +332,12 @@ inline type_conversion_status time_warning_to_type_conversion_status(
 #define ASSERT_COLUMN_MARKED_FOR_READ \
   assert(!table ||                    \
          (!table->read_set || bitmap_is_set(table->read_set, field_index())))
-#define ASSERT_COLUMN_MARKED_FOR_WRITE   \
-  assert(!table || (!table->write_set || \
-                    bitmap_is_set(table->write_set, field_index())))
+#define ASSERT_COLUMN_MARKED_FOR_WRITE                                        \
+  assert(                                                                     \
+      !table ||                                                               \
+      (!table->in_use ||                                                      \
+       table->in_use->variables.binlog_row_image != BINLOG_ROW_IMAGE_FULL) || \
+      (!table->write_set || bitmap_is_set(table->write_set, field_index())))
 
 /**
   Tests if field real type is temporal, i.e. represents

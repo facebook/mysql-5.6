@@ -43,6 +43,7 @@ struct MY_BITMAP;
 
 #ifdef MYSQL_SERVER
 #include <memory>
+#include <unordered_map>
 
 #include "map_helpers.h"
 #include "prealloced_array.h"  // Prealloced_array
@@ -466,6 +467,8 @@ class table_def {
                                  TABLE *target_table,
                                  bool replica_has_gipk) const;
 
+  bool use_column_names(TABLE *table);
+
   /**
     Evaluates if the source table might contain a GIPK
 
@@ -505,6 +508,13 @@ class table_def {
     return (index < m_column_names.size()) ? m_column_names[index] : nullptr;
   }
 
+  // return: if col is found <index, true>, <0, false> otherwise
+  std::pair<uint, bool> get_column_index(const char *name) const {
+    const auto itr = m_column_indices.find(name);
+    if (itr == m_column_indices.end()) return std::make_pair(0, false);
+    return std::make_pair(itr->second, true);
+  }
+
  private:
   ulong m_size;           // Number of elements in the types array
   unsigned char *m_type;  // Array of type descriptors
@@ -518,7 +528,9 @@ class table_def {
   bool m_is_gipk_set;
   bool m_is_gipk_on_table;
   std::vector<char *> m_column_names;
+  std::unordered_map<std::string, uint> m_column_indices;
   uchar *m_sign_bits;
+  int m_slave_schema_is_different;
 };
 
 #ifdef MYSQL_SERVER

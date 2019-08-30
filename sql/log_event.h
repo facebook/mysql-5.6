@@ -2893,13 +2893,14 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     an index.
     TODO(Bug#31173056): Remove SUPPRESS_UBSAN_CLANG10
    */
-  void decide_row_lookup_algorithm_and_key() SUPPRESS_UBSAN_CLANG10;
+  void decide_row_lookup_algorithm_and_key(table_def *tabledef)
+      SUPPRESS_UBSAN_CLANG10;
 
   /*
     Encapsulates the  operations to be done before applying
     row event for update and delete.
    */
-  int row_operations_scan_and_key_setup();
+  int row_operations_scan_and_key_setup(table_def *tabledef);
 
   /*
    Encapsulates the  operations to be done after applying
@@ -2946,8 +2947,8 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
   */
   ColumnViewPtr m_column_view{nullptr};
 
-  void set_writeset_from_col_names(TABLE *table, table_def *tabledef,
-                                   MY_BITMAP *after_image);
+  void set_readwriteset_from_col_names(TABLE *table, table_def *tabledef,
+                                       MY_BITMAP *after_image);
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
@@ -2969,7 +2970,8 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
       The member function will return 0 if all went OK, or a non-zero
       error code otherwise.
   */
-  virtual int do_before_row_operations(const Relay_log_info *const log) = 0;
+  virtual int do_before_row_operations(const Relay_log_info *const log,
+                                       table_def *table_def) = 0;
 
   /*
     Primitive to clean up after a sequence of row executions.
@@ -3028,14 +3030,14 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      Commodity wrapper around do_exec_row(), that deals with resetting
      the thd reference in the table.
    */
-  int do_apply_row(Relay_log_info const *rli);
+  int do_apply_row(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the index scan and update algorithm. It uses
      PK, UK or regular Key to search for the record to update. When
      found it updates it.
    */
-  int do_index_scan_and_update(Relay_log_info const *rli);
+  int do_index_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the hash_scan and update algorithm. It collects
@@ -3044,7 +3046,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      the table matches the one in the hashtable, the update/delete is
      performed.
    */
-  int do_hash_scan_and_update(Relay_log_info const *rli);
+  int do_hash_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the legacy table_scan and update algorithm. For
@@ -3052,7 +3054,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      match. When a match is found, the update/delete operations are
      performed.
    */
-  int do_table_scan_and_update(Relay_log_info const *rli);
+  int do_table_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
     Seek past the after-image of an update event, in case a row was processed
@@ -3136,7 +3138,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     @param rli The reference to the relay log info object.
     @returns 0 on success. Otherwise, the error code.
   */
-  int do_scan_and_update(Relay_log_info const *rli);
+  int do_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 #endif /* defined(MYSQL_SERVER) */
 
   friend class Old_rows_log_event;
@@ -3232,7 +3234,8 @@ class Write_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  int do_before_row_operations(const Relay_log_info *const) override;
+  int do_before_row_operations(const Relay_log_info *const,
+                               table_def *) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
   uint8 get_trg_event_map() const noexcept override;
@@ -3326,7 +3329,8 @@ class Update_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  int do_before_row_operations(const Relay_log_info *const) override;
+  int do_before_row_operations(const Relay_log_info *const,
+                               table_def *) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
   uint8 get_trg_event_map() const noexcept override;
@@ -3431,7 +3435,8 @@ class Delete_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  int do_before_row_operations(const Relay_log_info *const) override;
+  int do_before_row_operations(const Relay_log_info *const,
+                               table_def *) override;
   int do_after_row_operations(const Relay_log_info *const, int) override;
   int do_exec_row(const Relay_log_info *const) override;
   uint8 get_trg_event_map() const noexcept override;
