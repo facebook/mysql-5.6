@@ -1138,6 +1138,7 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
                                   pack_length);
     field_def->charset= slave_field->charset();
     field_def->interval= interval;
+    field_def->field_name= slave_field->field_name;
   }
 
   conv_table= create_virtual_tmp_table(thd, field_list);
@@ -1164,6 +1165,39 @@ err:
   DBUG_RETURN(conv_table);
 }
 
+bool table_def::use_column_names(TABLE *table)
+{
+  // case: no col names, just return
+  if (!have_column_names())
+    return false;
+
+  // case: return cached value
+  if (m_slave_schema_is_different != -1)
+    return m_slave_schema_is_different;
+
+  // case: schema is different because the number of cols differ
+  if (table->s->fields != size())
+  {
+    m_slave_schema_is_different= 1;
+    return true;
+  }
+
+  // check if the cols are in same order
+  for (uint i= 0; i < size(); ++i)
+  {
+    const char* col_name= get_column_name(i);
+    Field *const field= find_field_in_table_sef(table, col_name);
+    if (!field || field->field_index != i)
+    {
+      m_slave_schema_is_different= 1;
+      return true;
+    }
+  }
+  m_slave_schema_is_different= 0;
+  return false;
+}
+
+
 #endif /* MYSQL_CLIENT */
 
 table_def::table_def(unsigned char *types, ulong size,
@@ -1183,6 +1217,10 @@ table_def::table_def(unsigned char *types, ulong size,
                                      NULL);
 
   memset(m_field_metadata, 0, size * sizeof(uint16));
+
+  // -1 means that we haven't computed the value yet
+  // see @table_def::use_column_names()
+  m_slave_schema_is_different= -1;
 
   if (m_type)
     memcpy(m_type, types, size);
@@ -1269,7 +1307,7 @@ table_def::table_def(unsigned char *types, ulong size,
 
   init_dynamic_array(&m_column_names, sizeof(char*), 10, 10);
   if (column_names) {
-    // store column names in to an array.
+    // store column names in to an array and indices in a map
     for (uint i= 0; i < m_size; i++)
     {
       uint length = (uint) *column_names++;
@@ -1277,6 +1315,7 @@ table_def::table_def(unsigned char *types, ulong size,
       // the class destructor.
       char* str = (char*) my_malloc(length, MYF(0));
       strncpy(str, (const char*)column_names, length);
+      m_column_indices[str]= i;
       insert_dynamic(&m_column_names, (uchar*) &str);
       column_names += length;
     }

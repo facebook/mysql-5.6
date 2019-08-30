@@ -240,7 +240,6 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
   size_t const master_null_byte_count= (bitmap_bits_set(cols) + 7) / 8;
   uchar const *pack_ptr= row_data + master_null_byte_count;
   uint null_bit_index = 0;
-  uint conv_table_col = 0;
 
   for (uint i = 0; i < tabledef->size(); ++i)
   {
@@ -256,7 +255,7 @@ int unpack_row_with_column_info(TABLE *table, uint const colcnt,
     {
       // use conversion table if present.
       Field *conv_field = conv_table ?
-                          conv_table->field[conv_table_col++] : NULL;
+                          find_field_in_table_sef(conv_table, col_name) : NULL;
       Field *const field = conv_field ? conv_field : actual_field;
       if (is_null)
       {
@@ -441,7 +440,7 @@ unpack_row(Relay_log_info const *rli,
   if (rli && !table_found)
     DBUG_RETURN(HA_ERR_GENERIC);
 
-  if (tabledef->have_column_names())
+  if (tabledef->use_column_names(table))
   {
     DBUG_RETURN(unpack_row_with_column_info(table, colcnt, row_data, cols,
                                             current_row_end, master_reclength,

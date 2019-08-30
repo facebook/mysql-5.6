@@ -7301,7 +7301,7 @@ find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
 
 Field *find_field_in_table_sef(TABLE *table, const char *name)
 {
-  Field **field_ptr;
+  Field **field_ptr= nullptr;
   if (table->s->name_hash.records)
   {
     field_ptr= (Field**)my_hash_search(&table->s->name_hash,(uchar*) name,
@@ -7314,19 +7314,18 @@ Field *find_field_in_table_sef(TABLE *table, const char *name)
       */
       field_ptr= (table->field + (field_ptr - table->s->field));
     }
+    if (field_ptr)
+      return *field_ptr;
   }
   else
   {
-    if (!(field_ptr= table->field))
-      return (Field *)0;
-    for (; *field_ptr; ++field_ptr)
-      if ((*field_ptr)->check_field_name_match(name))
-        break;
+    if (!table->field)
+      return nullptr;
+    for (uint i= 0; i < table->s->fields; ++i)
+      if (table->field[i] && table->field[i]->check_field_name_match(name))
+        return table->field[i];
   }
-  if (field_ptr)
-    return *field_ptr;
-  else
-    return (Field *)0;
+  return nullptr;
 }
 
 

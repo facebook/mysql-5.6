@@ -4490,10 +4490,19 @@ private:
       thd->row_query.append(" ");
     }
 
-    ASSERT_OR_RETURN_ERROR(m_curr_row <= m_rows_end, HA_ERR_CORRUPT_EVENT);
-    int res = ::unpack_row(rli, m_table, m_width, m_curr_row, cols,
-                           &m_curr_row_end, &m_master_reclength, m_rows_end,
-                           &thd->row_query);
+    DBUG_ASSERT(m_curr_row <= m_rows_end);
+
+    int res= 0;
+    if (unlikely(m_curr_row > m_rows_end))
+    {
+      res= HA_ERR_CORRUPT_EVENT;
+    }
+    else
+    {
+      res = ::unpack_row(rli, m_table, m_width, m_curr_row, cols,
+                         &m_curr_row_end, &m_master_reclength, m_rows_end,
+                         &thd->row_query);
+    }
     mysql_mutex_unlock(&thd->LOCK_thd_data);
     return res;
   }
@@ -4505,13 +4514,13 @@ private:
     m_key_index with the key index to be used if the algorithm is dependent on
     an index.
    */
-  void decide_row_lookup_algorithm_and_key();
+  void decide_row_lookup_algorithm_and_key(table_def *tabledef);
 
   /*
     Encapsulates the  operations to be done before applying
     row event for update and delete.
    */
-  int row_operations_scan_and_key_setup();
+  int row_operations_scan_and_key_setup(table_def *tabledef);
 
   /*
    Encapsulates the  operations to be done after applying
@@ -4575,7 +4584,8 @@ private:
       error code otherwise.
   */
   virtual 
-  int do_before_row_operations(const Relay_log_info* rli) = 0;
+  int do_before_row_operations(const Relay_log_info* rli,
+                               table_def *table_def) = 0;
 
   /*
     Primitive to clean up after a sequence of row executions.
@@ -4632,14 +4642,14 @@ private:
      Commodity wrapper around do_exec_row(), that deals with resetting
      the thd reference in the table.
    */
-  int do_apply_row(Relay_log_info const *rli);
+  int do_apply_row(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the index scan and update algorithm. It uses
      PK, UK or regular Key to search for the record to update. When
      found it updates it.
    */
-  int do_index_scan_and_update(Relay_log_info const *rli);
+  int do_index_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
   
   /**
      Implementation of the hash_scan and update algorithm. It collects
@@ -4648,7 +4658,7 @@ private:
      the table matches the one in the hashtable, the update/delete is
      performed.
    */
-  int do_hash_scan_and_update(Relay_log_info const *rli);
+  int do_hash_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the legacy table_scan and update algorithm. For
@@ -4656,7 +4666,7 @@ private:
      match. When a match is found, the update/delete operations are
      performed.
    */
-  int do_table_scan_and_update(Relay_log_info const *rli);
+  int do_table_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
     Initializes scanning of rows. Opens an index and initailizes an iterator
@@ -4716,7 +4726,7 @@ private:
     @param rli The reference to the relay log info object.
     @returns 0 on success. Otherwise, the error code.
   */
-  int do_scan_and_update(Relay_log_info const *rli);
+  int do_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 public:
   bool process_triggers(trg_event_type event,
                         trg_action_time_type time_type,
@@ -4785,7 +4795,7 @@ private:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_before_row_operations(const Relay_log_info*, table_def*);
   virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
@@ -4859,7 +4869,7 @@ protected:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_before_row_operations(const Relay_log_info*, table_def*);
   virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
@@ -4923,7 +4933,7 @@ protected:
 #endif
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
-  virtual int do_before_row_operations(const Relay_log_info*);
+  virtual int do_before_row_operations(const Relay_log_info*, table_def*);
   virtual int do_after_row_operations(const Relay_log_info*, int);
   virtual int do_exec_row(const Relay_log_info *const);
   uint8 get_trg_event_map();
