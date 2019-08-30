@@ -1,0 +1,37 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+let $engine= rocksdb;
+
+connection master;
+set @@session.binlog_row_image = FULL;
+connection slave;
+source include/stop_slave.inc;
+set @@global.binlog_row_image = FULL;
+source include/start_slave.inc;
+source extra/rpl_tests/rpl_schema_change.inc;
+
+connection master;
+set @@session.binlog_row_image = COMPLETE;
+connection slave;
+source include/stop_slave.inc;
+set @@global.binlog_row_image = COMPLETE;
+source include/start_slave.inc;
+source extra/rpl_tests/rpl_schema_change.inc;
+
+connection master;
+set @@session.binlog_row_image = MINIMAL;
+connection slave;
+source include/stop_slave.inc;
+set @@global.binlog_row_image = MINIMAL;
+source include/start_slave.inc;
+source extra/rpl_tests/rpl_schema_change.inc;
+
+connection master;
+set @@session.binlog_row_image = default;
+connection slave;
+source include/stop_slave.inc;
+set @@global.binlog_row_image = default;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;
