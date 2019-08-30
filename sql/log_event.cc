@@ -16480,6 +16480,12 @@ int Metadata_log_event::do_apply_event(Relay_log_info const *rli)
     thd->hlc_time_ns_next= hlc_time_ns_;
   }
 
+  if (does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
+  {
+    // Stash the raft term and index in THD
+    thd->set_trans_marker(raft_term_, raft_index_);
+  }
+
   DBUG_RETURN(error);
 }
 
