@@ -43,6 +43,7 @@ struct MY_BITMAP;
 
 #ifdef MYSQL_SERVER
 #include <memory>
+#include <unordered_map>
 
 #include "map_helpers.h"
 #include "prealloced_array.h"  // Prealloced_array
@@ -452,12 +453,21 @@ class table_def {
    */
   TABLE *create_conversion_table(THD *thd, Relay_log_info *rli,
                                  TABLE *target_table) const;
+
+  bool use_column_names(TABLE *table);
 #endif
 
   bool have_column_names() const { return !m_column_names.empty(); }
 
   const char *get_column_name(uint index) const {
     return (index < m_column_names.size()) ? m_column_names[index] : nullptr;
+  }
+
+  // return: if col is found <index, true>, <0, false> otherwise
+  std::pair<uint, bool> get_column_index(const char *name) const {
+    const auto itr = m_column_indices.find(name);
+    if (itr == m_column_indices.end()) return std::make_pair(0, false);
+    return std::make_pair(itr->second, true);
   }
 
  private:
@@ -471,7 +481,9 @@ class table_def {
   mutable int m_json_column_count;  // Number of JSON columns
   bool *m_is_array;
   std::vector<char *> m_column_names;
+  std::unordered_map<std::string, uint> m_column_indices;
   uchar *m_sign_bits;
+  int m_slave_schema_is_different;
 };
 
 #ifdef MYSQL_SERVER
