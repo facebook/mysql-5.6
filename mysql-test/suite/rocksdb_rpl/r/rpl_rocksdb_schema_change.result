@@ -1,0 +1,1129 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @@session.binlog_row_image = FULL;
+include/stop_slave.inc
+set @@global.binlog_row_image = FULL;
+include/start_slave.inc
+create table t1
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+insert into t1 values(1, 1, 1, 1);
+insert into t1 values(2, 2, 2, 2);
+insert into t1 values(3, 3, 3, 3);
+insert into t1 values(4, 4, 4, 4);
+include/sync_slave_sql_with_master.inc
+"case 1: add column in the end on slave"
+set @@sql_log_bin = 0;
+alter table t1 add column e int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+set @@sql_log_bin = 0;
+alter table t1 drop column e;
+set @@sql_log_bin = 1;
+"case 2: drop last column on slave"
+set @@sql_log_bin = 0;
+alter table t1 drop column d;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+set @@sql_log_bin = 0;
+alter table t1 add column d int;
+update t1 set d = c;
+set @@sql_log_bin = 1;
+"case 3: rename column on slave"
+set @@sql_log_bin = 0;
+alter table t1 change b bb int;
+alter table t1 change c cc int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 change bb b int;
+alter table t1 change cc c int;
+set @@sql_log_bin = 1;
+"case 4: resize column on slave"
+set @@sql_log_bin = 0;
+alter table t1 modify b bigint;
+alter table t1 modify c bigint;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 modify b int;
+alter table t1 modify c int;
+set @@sql_log_bin = 1;
+"case 5: different col orders"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(c int, b int, a int primary key, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+select * from t2 force index(sec_key);
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+select * from t2 force index(sec_key);
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+select * from t2 force index(sec_key);
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 6: different col orders + different PK"
+set @@sql_log_bin = 0;
+create table t2 (a int primary key, b int, c int) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2 (c int primary key, b int, a int) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 7: add col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+1	2	NULL	4
+select * from t2 force index(sec_key);
+a	b	c	d
+1	2	NULL	4
+update t2 set d = 40 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+10	20	NULL	40
+select * from t2 force index(sec_key);
+a	b	c	d
+10	20	NULL	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+select * from t2 force index(sec_key);
+a	b	c	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 8: remove col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+1	2	4
+select * from t2 force index(sec_key);
+a	b	d
+1	2	4
+update t2 set d = 40 where a = 1;
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+10	20	40
+select * from t2 force index(sec_key);
+a	b	d
+10	20	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+select * from t2 force index(sec_key);
+a	b	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@session.binlog_row_image = COMPLETE;
+include/stop_slave.inc
+set @@global.binlog_row_image = COMPLETE;
+include/start_slave.inc
+create table t1
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+insert into t1 values(1, 1, 1, 1);
+insert into t1 values(2, 2, 2, 2);
+insert into t1 values(3, 3, 3, 3);
+insert into t1 values(4, 4, 4, 4);
+include/sync_slave_sql_with_master.inc
+"case 1: add column in the end on slave"
+set @@sql_log_bin = 0;
+alter table t1 add column e int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+set @@sql_log_bin = 0;
+alter table t1 drop column e;
+set @@sql_log_bin = 1;
+"case 2: drop last column on slave"
+set @@sql_log_bin = 0;
+alter table t1 drop column d;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+set @@sql_log_bin = 0;
+alter table t1 add column d int;
+update t1 set d = c;
+set @@sql_log_bin = 1;
+"case 3: rename column on slave"
+set @@sql_log_bin = 0;
+alter table t1 change b bb int;
+alter table t1 change c cc int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 change bb b int;
+alter table t1 change cc c int;
+set @@sql_log_bin = 1;
+"case 4: resize column on slave"
+set @@sql_log_bin = 0;
+alter table t1 modify b bigint;
+alter table t1 modify c bigint;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 modify b int;
+alter table t1 modify c int;
+set @@sql_log_bin = 1;
+"case 5: different col orders"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(c int, b int, a int primary key, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+select * from t2 force index(sec_key);
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+select * from t2 force index(sec_key);
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+select * from t2 force index(sec_key);
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 6: different col orders + different PK"
+set @@sql_log_bin = 0;
+create table t2 (a int primary key, b int, c int) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2 (c int primary key, b int, a int) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 7: add col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+1	2	NULL	4
+select * from t2 force index(sec_key);
+a	b	c	d
+1	2	NULL	4
+update t2 set d = 40 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+10	20	NULL	40
+select * from t2 force index(sec_key);
+a	b	c	d
+10	20	NULL	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+select * from t2 force index(sec_key);
+a	b	c	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 8: remove col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+1	2	4
+select * from t2 force index(sec_key);
+a	b	d
+1	2	4
+update t2 set d = 40 where a = 1;
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+10	20	40
+select * from t2 force index(sec_key);
+a	b	d
+10	20	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+select * from t2 force index(sec_key);
+a	b	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@session.binlog_row_image = MINIMAL;
+include/stop_slave.inc
+set @@global.binlog_row_image = MINIMAL;
+include/start_slave.inc
+create table t1
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+insert into t1 values(1, 1, 1, 1);
+insert into t1 values(2, 2, 2, 2);
+insert into t1 values(3, 3, 3, 3);
+insert into t1 values(4, 4, 4, 4);
+include/sync_slave_sql_with_master.inc
+"case 1: add column in the end on slave"
+set @@sql_log_bin = 0;
+alter table t1 add column e int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+5	5	5	5	NULL
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+50	50	50	50	NULL
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+select * from t1 force index(sec_key);
+a	b	c	d	e
+1	1	1	1	NULL
+2	2	2	2	NULL
+3	3	3	3	NULL
+4	4	4	4	NULL
+set @@sql_log_bin = 0;
+alter table t1 drop column e;
+set @@sql_log_bin = 1;
+"case 2: drop last column on slave"
+set @@sql_log_bin = 0;
+alter table t1 drop column d;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+select * from t1 force index(sec_key);
+a	b	c
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+set @@sql_log_bin = 0;
+alter table t1 add column d int;
+update t1 set d = c;
+set @@sql_log_bin = 1;
+"case 3: rename column on slave"
+set @@sql_log_bin = 0;
+alter table t1 change b bb int;
+alter table t1 change c cc int;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	NULL	NULL	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	NULL	NULL	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	bb	cc	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 change bb b int;
+alter table t1 change cc c int;
+set @@sql_log_bin = 1;
+"case 4: resize column on slave"
+set @@sql_log_bin = 0;
+alter table t1 modify b bigint;
+alter table t1 modify c bigint;
+set @@sql_log_bin = 1;
+insert into t1 values(5, 5, 5, 5);
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+5	5	5	5
+update t1 set d = 50 where a = 5;
+update t1 set c = 50 where a = 5;
+update t1 set b = 50 where a = 5;
+update t1 set a = 50 where a = 5;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+50	50	50	50
+delete from t1 where a = 50;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+select * from t1 force index(sec_key);
+a	b	c	d
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+set @@sql_log_bin = 0;
+alter table t1 modify b int;
+alter table t1 modify c int;
+set @@sql_log_bin = 1;
+"case 5: different col orders"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(c int, b int, a int primary key, key sec_key(c)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+select * from t2 force index(sec_key);
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+select * from t2 force index(sec_key);
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+select * from t2 force index(sec_key);
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 6: different col orders + different PK"
+set @@sql_log_bin = 0;
+create table t2 (a int primary key, b int, c int) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2 (c int primary key, b int, a int) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+3	2	1
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+30	20	10
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+c	b	a
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 7: add col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+1	2	NULL	4
+select * from t2 force index(sec_key);
+a	b	c	d
+1	2	NULL	4
+update t2 set d = 40 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+10	20	NULL	40
+select * from t2 force index(sec_key);
+a	b	c	d
+10	20	NULL	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	c	d
+select * from t2 force index(sec_key);
+a	b	c	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+"case 8: remove col in middle on slave"
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, c int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+set @@sql_log_bin = 0;
+create table t2
+(a int primary key, b int, d int, key sec_key(b)) engine = rocksdb;
+set @@sql_log_bin = 1;
+insert into t2 values(1, 2, 3, 4);
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+1	2	4
+select * from t2 force index(sec_key);
+a	b	d
+1	2	4
+update t2 set d = 40 where a = 1;
+update t2 set c = 30 where a = 1;
+update t2 set b = 20 where a = 1;
+update t2 set a = 10 where a = 1;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+10	20	40
+select * from t2 force index(sec_key);
+a	b	d
+10	20	40
+delete from t2 where a = 10;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+a	b	d
+select * from t2 force index(sec_key);
+a	b	d
+drop table t2;
+include/sync_slave_sql_with_master.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+set @@session.binlog_row_image = default;
+include/stop_slave.inc
+set @@global.binlog_row_image = default;
+include/start_slave.inc
+include/rpl_end.inc
