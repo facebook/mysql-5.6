@@ -492,8 +492,6 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
   Bit_reader null_bits(row_data);
   pack_ptr += (image_column_count + 7) / 8;
 
-  uint conv_table_col = 0;
-
   for (uint i = 0; i < tabledef->size(); ++i) {
     if (!bitmap_is_set(column_image, i))
       // Field not actually present in the row_data
@@ -504,7 +502,7 @@ bool unpack_row_with_column_info(TABLE *table, uchar const *const row_data,
     if (actual_field) {
       // use conversion table if present.
       Field *conv_field =
-          conv_table ? conv_table->field[conv_table_col++] : NULL;
+          conv_table ? find_field_in_table_sef(conv_table, col_name) : NULL;
       Field *const field = conv_field ? conv_field : actual_field;
       if (null_bits.get()) {
         // Handle null column case.
@@ -726,7 +724,7 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
   rli->get_table_data(table, &tabledef, &conv_table);
   DBUG_ASSERT(tabledef != nullptr);
 
-  if (tabledef->have_column_names()) {
+  if (tabledef->use_column_names(table)) {
     DBUG_ASSERT(!event_has_value_options);
     if (event_has_value_options) {
       my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));

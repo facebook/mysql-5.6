@@ -2987,13 +2987,13 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     m_key_index with the key index to be used if the algorithm is dependent on
     an index.
    */
-  void decide_row_lookup_algorithm_and_key();
+  void decide_row_lookup_algorithm_and_key(table_def *tabledef);
 
   /*
     Encapsulates the  operations to be done before applying
     row event for update and delete.
    */
-  int row_operations_scan_and_key_setup();
+  int row_operations_scan_and_key_setup(table_def *tabledef);
 
   /*
    Encapsulates the  operations to be done after applying
@@ -3015,8 +3015,8 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
 
  private:
 #if defined(MYSQL_SERVER)
-  void set_writeset_from_col_names(TABLE *table, table_def *tabledef,
-                                   MY_BITMAP *after_image);
+  void set_readwriteset_from_col_names(TABLE *table, table_def *tabledef,
+                                       MY_BITMAP *after_image);
   virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
@@ -3039,7 +3039,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
       error code otherwise.
   */
   virtual int do_before_row_operations(
-      const Slave_reporting_capability *const log) = 0;
+      const Slave_reporting_capability *const log, table_def *tabledef) = 0;
 
   /*
     Primitive to clean up after a sequence of row executions.
@@ -3098,14 +3098,14 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      Commodity wrapper around do_exec_row(), that deals with resetting
      the thd reference in the table.
    */
-  int do_apply_row(Relay_log_info const *rli);
+  int do_apply_row(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the index scan and update algorithm. It uses
      PK, UK or regular Key to search for the record to update. When
      found it updates it.
    */
-  int do_index_scan_and_update(Relay_log_info const *rli);
+  int do_index_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the hash_scan and update algorithm. It collects
@@ -3114,7 +3114,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      the table matches the one in the hashtable, the update/delete is
      performed.
    */
-  int do_hash_scan_and_update(Relay_log_info const *rli);
+  int do_hash_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
      Implementation of the legacy table_scan and update algorithm. For
@@ -3122,7 +3122,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
      match. When a match is found, the update/delete operations are
      performed.
    */
-  int do_table_scan_and_update(Relay_log_info const *rli);
+  int do_table_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 
   /**
     Seek past the after-image of an update event, in case a row was processed
@@ -3205,7 +3205,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
     @param rli The reference to the relay log info object.
     @returns 0 on success. Otherwise, the error code.
   */
-  int do_scan_and_update(Relay_log_info const *rli);
+  int do_scan_and_update(Relay_log_info const *rli, table_def *tabledef);
 #endif /* defined(MYSQL_SERVER) */
 
   friend class Old_rows_log_event;
@@ -3300,8 +3300,8 @@ class Write_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  virtual int do_before_row_operations(
-      const Slave_reporting_capability *const) override;
+  virtual int do_before_row_operations(const Slave_reporting_capability *const,
+                                       table_def *) override;
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;
@@ -3396,8 +3396,8 @@ class Update_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  virtual int do_before_row_operations(
-      const Slave_reporting_capability *const) override;
+  virtual int do_before_row_operations(const Slave_reporting_capability *const,
+                                       table_def *) override;
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;
@@ -3501,8 +3501,8 @@ class Delete_rows_log_event : public Rows_log_event,
 #endif
 
 #if defined(MYSQL_SERVER)
-  virtual int do_before_row_operations(
-      const Slave_reporting_capability *const) override;
+  virtual int do_before_row_operations(const Slave_reporting_capability *const,
+                                       table_def *) override;
   virtual int do_after_row_operations(const Slave_reporting_capability *const,
                                       int) override;
   virtual int do_exec_row(const Relay_log_info *const) override;

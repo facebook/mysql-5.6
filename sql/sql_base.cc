@@ -7601,17 +7601,16 @@ Field *find_field_in_table_sef(TABLE *table, const char *name) {
         field in table
       */
       field_ptr = (table->field + (it->second - table->s->field));
+      if (field_ptr) return *field_ptr;
     }
   } else {
-    if (!(field_ptr = table->field)) return (Field *)nullptr;
-    for (; *field_ptr; ++field_ptr)
-      if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name, name))
-        break;
+    if (!table->field) return nullptr;
+    for (uint i = 0; i < table->s->fields; ++i)
+      if (table->field[i] && !my_strcasecmp(system_charset_info,
+                                            table->field[i]->field_name, name))
+        return table->field[i];
   }
-  if (field_ptr)
-    return *field_ptr;
-  else
-    return (Field *)nullptr;
+  return nullptr;
 }
 
 /*

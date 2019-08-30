@@ -728,6 +728,7 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli,
                                   pack_length_override);
     field_def->charset = slave_field->charset();
     field_def->interval = interval;
+    field_def->field_name = slave_field->field_name;
   }
 
   conv_table = DBUG_EVALUATE_IF(
@@ -750,6 +751,31 @@ err:
   return conv_table;
 }
 
+bool table_def::use_column_names(TABLE *table) {
+  // case: no col names, just return
+  if (!have_column_names()) return false;
+
+  // case: return cached value
+  if (m_slave_schema_is_different != -1) return m_slave_schema_is_different;
+
+  // case: schema is different because the number of cols differ
+  if (table->s->fields != size()) {
+    m_slave_schema_is_different = 1;
+    return true;
+  }
+
+  // check if the cols are in same order
+  for (uint i = 0; i < size(); ++i) {
+    const char *col_name = get_column_name(i);
+    Field *const field = find_field_in_table_sef(table, col_name);
+    if (!field || field->field_index != i) {
+      m_slave_schema_is_different = 1;
+      return true;
+    }
+  }
+  m_slave_schema_is_different = 0;
+  return false;
+}
 #endif /* MYSQL_SERVER */
 
 /**
@@ -867,6 +893,10 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
   memset(m_field_metadata, 0, size * sizeof(uint));
   memset(m_is_array, 0, size * sizeof(bool));
 
+  // -1 means that we haven't computed the value yet
+  // see @table_def::use_column_names()
+  m_slave_schema_is_different = -1;
+
   if (m_type)
     memcpy(m_type, types, size);
   else
@@ -898,7 +928,7 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
   if (m_size && sign_bits) memcpy(m_sign_bits, sign_bits, (m_size + 7) / 8);
 
   if (column_names && column_names_size) {
-    // store column names in to an array.
+    // store column names in to an array and indices in a map
     for (uint i = 0; i < m_size; i++) {
       uint length = (uint)*column_names;
       if (!length || length + 1 > column_names_size) {
@@ -911,6 +941,7 @@ table_def::table_def(unsigned char *types, ulong size, uchar *field_metadata,
       char *str = (char *)my_malloc(PSI_NOT_INSTRUMENTED, length, MYF(0));
       strncpy(str, (const char *)column_names + 1, length);
       str[length - 1] = 0;
+      m_column_indices[str] = i;
       m_column_names.push_back(str);
       column_names += length + 1;
       column_names_size -= length + 1;
