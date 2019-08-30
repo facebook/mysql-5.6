@@ -12564,11 +12564,7 @@ int Rows_query_log_event::do_apply_event(Relay_log_info const *rli) {
     // Skip "*/"
     after_metadata += 2;
 
-    // this is an empty metadata query, skip
     auto len = strlen(after_metadata);
-    if (len == 0) {
-      DBUG_RETURN(0);
-    }
     DBUG_PRINT("info", ("query: %s", after_metadata));
     thd->set_query(after_metadata, (uint32)len);
   } else {
