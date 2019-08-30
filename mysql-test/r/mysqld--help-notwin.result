@@ -1818,6 +1818,9 @@ The following options may be given as the first argument:
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
+ --skip-master-info-check-for-read-only-error-msg-extra 
+ Skip master info validaton check for read only error
+ messages
  --skip-name-resolve Don't resolve hostnames. All hostnames are IP's or
  'localhost'.
  --skip-networking   Don't allow connection with TCP/IP
@@ -2605,6 +2608,7 @@ show-old-temporals FALSE
 show-slave-auth-info FALSE
 skip-flush-master-info FALSE
 skip-grant-tables TRUE
+skip-master-info-check-for-read-only-error-msg-extra FALSE
 skip-name-resolve FALSE
 skip-networking FALSE
 skip-show-database FALSE

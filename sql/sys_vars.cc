@@ -7230,6 +7230,12 @@ static Sys_var_charptr Sys_read_only_error_msg_extra(
     GLOBAL_VAR(opt_read_only_error_msg_extra), CMD_LINE(OPT_ARG),
     IN_SYSTEM_CHARSET, DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_skip_master_info_check_for_read_only_error_msg_extra(
+    "skip_master_info_check_for_read_only_error_msg_extra",
+    "Skip master info validaton check for read only error messages",
+    GLOBAL_VAR(skip_master_info_check_for_read_only_error_msg_extra),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
 #ifdef HAVE_JEMALLOC
 ulong enable_jemalloc_hpp;
 

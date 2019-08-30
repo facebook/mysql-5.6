@@ -1,0 +1,45 @@
+set @save.read_only = @@global.read_only;
+set @save.skip_master_info_check_for_read_only_error_msg_extra = @@global.skip_master_info_check_for_read_only_error_msg_extra;
+set @save.read_only_error_msg_extra = @@global.read_only_error_msg_extra;
+set global read_only = 1;
+select @@global.read_only;
+@@global.read_only
+1
+select @@global.skip_master_info_check_for_read_only_error_msg_extra;
+@@global.skip_master_info_check_for_read_only_error_msg_extra
+0
+create table tbl (id int primary key);
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+# create normal user
+create user normal_user;
+# test empty error msg when skip_master_info_check_for_read_only_error_msg_extra turned on
+insert into tbl values(1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+set global skip_master_info_check_for_read_only_error_msg_extra = 0;
+set global read_only_error_msg_extra='{"new_master": "new_master:1234", "timestamp": 1567019679.2644575}';
+change master to master_host='127.0.0.1', master_user='root';
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+# connecting conn with 'normal_user', master info should be displayed
+insert into tbl values(1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: 3306. {"new_master": "new_master:1234", "timestamp": 1567019679.2644575}
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+# now skip_master_info_check_for_read_only_error_msg_extra is on, we should display the same read_only_error_msg_extra as previous
+insert into tbl values(1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. Current master_host: 127.0.0.1, master_port: 3306. {"new_master": "new_master:1234", "timestamp": 1567019679.2644575}
+# reset master_info
+reset slave all;
+set global skip_master_info_check_for_read_only_error_msg_extra = 0;
+# master_info is empty, we shouldn't display any read_only_error_msg_extra
+insert into tbl values(1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+# now skip_master_info_check_for_read_only_error_msg_extra is on, we should display any read_only_error_msg_extra
+insert into tbl values(1);
+ERROR HY000: The MySQL server is running with the --read-only option so it cannot execute this statement. {"new_master": "new_master:1234", "timestamp": 1567019679.2644575}
+drop user normal_user;
+drop table tbl;
+set global read_only = @save.read_only;
+set global skip_master_info_check_for_read_only_error_msg_extra = @save.skip_master_info_check_for_read_only_error_msg_extra;
+set global read_only_error_msg_extra = @save.read_only_error_msg_extra;

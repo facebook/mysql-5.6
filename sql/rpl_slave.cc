@@ -10160,10 +10160,13 @@ std::string get_active_master_info() {
     str_ptr += mi->host;
     str_ptr += ", master_port: ";
     str_ptr += std::to_string(mi->port);
-    if (opt_read_only_error_msg_extra && opt_read_only_error_msg_extra[0]) {
-      str_ptr += ". ";
-      str_ptr += opt_read_only_error_msg_extra;
-    }
+  }
+
+  if ((Master_info::is_configured(mi) ||
+       skip_master_info_check_for_read_only_error_msg_extra) &&
+      opt_read_only_error_msg_extra && opt_read_only_error_msg_extra[0]) {
+    str_ptr += ". ";
+    str_ptr += opt_read_only_error_msg_extra;
   }
 
   channel_map.unlock();
