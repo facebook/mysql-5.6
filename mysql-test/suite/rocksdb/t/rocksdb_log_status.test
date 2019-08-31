@@ -1,0 +1,16 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE t (a INT, b TEXT) ENGINE=ROCKSDB;
+
+# we need this to make sure that logs are not deleted after memtable flush
+SET SESSION rocksdb_disable_file_deletions=1;
+
+INSERT INTO t VALUES (1, REPEAT(UUID(), 100));
+
+--echo verify that rocksdb info has been added to p_s.log_status
+--replace_regex /[0-9]+/x/
+SELECT storage_engines->>"$.RocksDB.wal_files[0]" FROM performance_schema.log_status;
+
+SET SESSION rocksdb_disable_file_deletions=0;
+
+DROP TABLE t;

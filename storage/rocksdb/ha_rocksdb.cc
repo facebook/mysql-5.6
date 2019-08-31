@@ -48,6 +48,9 @@
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
 #include "./my_sys.h"
+#ifdef MYROCKS_8
+#include "sql/json_dom.h"
+#endif  // MYROCKS_8
 #include "./sql_audit.h"
 #include "./sql_table.h"
 
@@ -354,6 +357,80 @@ static std::string rdb_normalize_dir(std::string dir) {
   return dir;
 }
 
+#ifdef MYROCKS_8
+static int rocksdb_create_checkpoint(const char *checkpoint_dir_raw) {
+  DBUG_ASSERT(checkpoint_dir_raw);
+
+  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
+  LogPluginErrMsg(INFORMATION_LEVEL, 0,
+                  "creating checkpoint in directory: %s\n",
+                  checkpoint_dir.c_str());
+  rocksdb::Checkpoint *checkpoint;
+  auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
+  if (status.ok()) {
+    status = checkpoint->CreateCheckpoint(checkpoint_dir.c_str());
+    delete checkpoint;
+    if (status.ok()) {
+      LogPluginErrMsg(INFORMATION_LEVEL, 0,
+                      "created checkpoint in directory: %s\n",
+                      checkpoint_dir.c_str());
+      return HA_EXIT_SUCCESS;
+    } else {
+      my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
+               rocksdb_hton_name);
+    }
+  } else {
+    my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
+             rocksdb_hton_name);
+  }
+
+  return HA_EXIT_FAILURE;
+}
+
+static int rocksdb_remove_checkpoint(const char *checkpoint_dir_raw) {
+  const auto checkpoint_dir = rdb_normalize_dir(checkpoint_dir_raw);
+  LogPluginErrMsg(INFORMATION_LEVEL, 0,
+                  "deleting temporary checkpoint in directory : %s\n",
+                  checkpoint_dir.c_str());
+  const auto status = rocksdb::DestroyDB(checkpoint_dir, rocksdb::Options());
+  if (status.ok()) {
+    return HA_EXIT_SUCCESS;
+  }
+  my_error(ER_GET_ERRMSG, MYF(0), status.code(), status.ToString().c_str(),
+           rocksdb_hton_name);
+  return HA_EXIT_FAILURE;
+}
+
+static int rocksdb_create_checkpoint_validate(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const save MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
+  char buf[FN_REFLEN];
+  int len = sizeof(buf);
+  const char *const checkpoint_dir_raw = value->val_str(value, buf, &len);
+  if (checkpoint_dir_raw) {
+    return rocksdb_create_checkpoint(checkpoint_dir_raw);
+  }
+  return HA_EXIT_FAILURE;
+}
+
+/* This method is needed to indicate that the
+   ROCKSDB_CREATE_CHECKPOINT command is not read-only */
+static void rocksdb_create_checkpoint_update(THD *const thd,
+                                             struct SYS_VAR *const var,
+                                             void *const var_ptr,
+                                             const void *const save) {}
+
+static int rocksdb_create_temporary_checkpoint_validate(
+    THD *const thd, struct SYS_VAR *const var, void *const save,
+    struct st_mysql_value *const value);
+
+static void rocksdb_disable_file_deletions_update(
+    my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save);
+
+#else  // !MY_ROCKS_8
 static int rocksdb_create_checkpoint(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
@@ -400,6 +477,8 @@ static void rocksdb_create_checkpoint_stub(THD *const thd,
                                            struct st_mysql_sys_var *const var,
                                            void *const var_ptr,
                                            const void *const save) {}
+
+#endif  // MYROCKS_8
 
 static void rocksdb_force_flush_memtable_now_stub(
     THD *const thd, struct st_mysql_sys_var *const var, void *const var_ptr,
@@ -1744,11 +1823,24 @@ static MYSQL_SYSVAR_STR(compact_cf, rocksdb_compact_cf_name,
 static MYSQL_SYSVAR_STR(delete_cf, rocksdb_delete_cf_name, PLUGIN_VAR_RQCMDARG,
                         "Delete column family", rocksdb_delete_column_family,
                         rocksdb_delete_column_family_stub, "");
+#ifdef MYROCKS_8
+static MYSQL_SYSVAR_STR(create_checkpoint, rocksdb_checkpoint_name,
+                        PLUGIN_VAR_RQCMDARG, "Checkpoint directory",
+                        rocksdb_create_checkpoint_validate,
+                        rocksdb_create_checkpoint_update, "");
 
+static MYSQL_THDVAR_STR(create_temporary_checkpoint,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
+                            PLUGIN_VAR_NOCMDOPT,
+                        "Temporary checkpoint directory",
+                        rocksdb_create_temporary_checkpoint_validate, nullptr,
+                        nullptr);
+#else  // !MYROCKS_8
 static MYSQL_SYSVAR_STR(create_checkpoint, rocksdb_checkpoint_name,
                         PLUGIN_VAR_RQCMDARG, "Checkpoint directory",
                         rocksdb_create_checkpoint,
                         rocksdb_create_checkpoint_stub, "");
+#endif  // MYROCKS_8
 
 static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
                          rocksdb_signal_drop_index_thread, PLUGIN_VAR_RQCMDARG,
@@ -1759,6 +1851,13 @@ static MYSQL_SYSVAR_BOOL(pause_background_work, rocksdb_pause_background_work,
                          PLUGIN_VAR_RQCMDARG,
                          "Disable all rocksdb background operations", nullptr,
                          rocksdb_set_pause_background_work, FALSE);
+
+#ifdef MYROCKS_8
+static MYSQL_THDVAR_BOOL(disable_file_deletions,
+                         PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_RQCMDARG,
+                         "Prevent file deletions", nullptr,
+                         rocksdb_disable_file_deletions_update, false);
+#endif  // MYROCKS_8
 
 static MYSQL_SYSVAR_BOOL(
     enable_ttl, rocksdb_enable_ttl, PLUGIN_VAR_RQCMDARG,
@@ -2231,6 +2330,10 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(datadir),
     MYSQL_SYSVAR(create_checkpoint),
+#ifdef MYROCKS_8
+    MYSQL_SYSVAR(create_temporary_checkpoint),
+    MYSQL_SYSVAR(disable_file_deletions),
+#endif  // MYROCKS_8
 
     MYSQL_SYSVAR(checksums_pct),
     MYSQL_SYSVAR(store_row_debug_checksums),
@@ -3753,10 +3856,66 @@ void Rdb_snapshot_notifier::SnapshotCreated(
 std::multiset<Rdb_transaction *> Rdb_transaction::s_tx_list;
 mysql_mutex_t Rdb_transaction::s_tx_list_mutex;
 
+#ifdef MYROCKS_8
+class Rdb_ha_data {
+ public:
+  Rdb_ha_data()
+      : checkpoint_dir(nullptr), trx(nullptr), disable_file_deletions(false) {}
+
+  const char *get_checkpoint_dir() const { return checkpoint_dir; }
+
+  void set_checkpoint_dir(const char *checkpoint_dir_) {
+    if (checkpoint_dir != nullptr) {
+      free(checkpoint_dir);
+      checkpoint_dir = nullptr;
+    }
+    if (checkpoint_dir_ != nullptr) {
+      checkpoint_dir = strdup(checkpoint_dir_);
+    }
+  }
+
+  Rdb_transaction *get_trx() const { return trx; }
+
+  void set_trx(Rdb_transaction *t) { trx = t; }
+
+  bool get_disable_file_deletions() const { return disable_file_deletions; }
+
+  void set_disable_file_deletions(bool d) { disable_file_deletions = d; }
+
+ private:
+  char *checkpoint_dir;
+  Rdb_transaction *trx;
+  bool disable_file_deletions;
+};
+
+static Rdb_ha_data *&get_ha_data(THD *const thd) {
+  Rdb_ha_data **ha_data =
+      reinterpret_cast<Rdb_ha_data **>(my_core::thd_ha_data(thd, rocksdb_hton));
+  if (*ha_data == nullptr) {
+    *ha_data = new Rdb_ha_data();
+  }
+  return *ha_data;
+}
+
+static void destroy_ha_data(THD *const thd) {
+  Rdb_ha_data *&ha_data = get_ha_data(thd);
+  delete ha_data;
+  ha_data = nullptr;
+}
+
+static Rdb_transaction *get_tx_from_thd(THD *const thd) {
+  return get_ha_data(thd)->get_trx();
+}
+
+static void set_tx_on_thd(THD *const thd, Rdb_transaction *trx) {
+  return get_ha_data(thd)->set_trx(trx);
+}
+#else  // !MYROCKS_8
 static Rdb_transaction *&get_tx_from_thd(THD *const thd) {
   return *reinterpret_cast<Rdb_transaction **>(
       my_core::thd_ha_data(thd, rocksdb_hton));
 }
+#endif  // MYROCKS_8
 
 class Rdb_perf_context_guard {
   Rdb_io_perf m_io_perf;
@@ -3798,7 +3957,11 @@ class Rdb_perf_context_guard {
 */
 
 static Rdb_transaction *get_or_create_tx(THD *const thd) {
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr) {
     if ((rpl_skip_tx_api && thd->rli_slave) ||
@@ -3809,6 +3972,9 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
     }
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     tx->start_tx();
+#ifdef MYROCKS_8
+    set_tx_on_thd(thd, tx);
+#endif  // MYROCKS_8
   } else {
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     if (!tx->is_tx_started()) {
@@ -3820,7 +3986,12 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
 }
 
 static int rocksdb_close_connection(handlerton *const hton, THD *const thd) {
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
+
   if (tx != nullptr) {
     bool is_critical_error;
     int rc = tx->finish_bulk_load(&is_critical_error, false);
@@ -3833,10 +4004,83 @@ static int rocksdb_close_connection(handlerton *const hton, THD *const thd) {
     }
 
     delete tx;
+#ifdef MYROCKS_8
+    set_tx_on_thd(thd, nullptr);
+  }
+  const char *checkpoint_dir = get_ha_data(thd)->get_checkpoint_dir();
+  if (checkpoint_dir != nullptr) {
+    rocksdb_remove_checkpoint(checkpoint_dir);
+    get_ha_data(thd)->set_checkpoint_dir(nullptr);
+  }
+  if (get_ha_data(thd)->get_disable_file_deletions()) {
+    rdb->EnableFileDeletions(false);
+  }
+  destroy_ha_data(thd);
+#else  //  !MYROCKS_8
     tx = nullptr;
+  }
+#endif  // MYROCKS_8
+  return HA_EXIT_SUCCESS;
+}
+
+#ifdef MYROCKS_8
+static int rocksdb_create_temporary_checkpoint_validate(
+    my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
+    void *const save, my_core::st_mysql_value *const value) {
+  DBUG_ASSERT(rdb != nullptr);
+  DBUG_ASSERT(thd != nullptr);
+
+  char buf[FN_REFLEN];
+  int len = sizeof(buf);
+
+  const char *current_checkpoint_dir = get_ha_data(thd)->get_checkpoint_dir();
+  const char *new_checkpoint_dir = value->val_str(value, buf, &len);
+
+  if (current_checkpoint_dir != nullptr && new_checkpoint_dir != nullptr) {
+    *reinterpret_cast<const char **>(save) = current_checkpoint_dir;
+    my_error(
+        ER_GET_ERRMSG, MYF(0), HA_ERR_ROCKSDB_STATUS_INVALID_ARGUMENT,
+        "Invalid argument: Temporary checkpoint already exists for session",
+        rocksdb_hton_name);
+    return HA_EXIT_FAILURE;
+  } else if (new_checkpoint_dir != nullptr) {
+    const auto res = rocksdb_create_checkpoint(new_checkpoint_dir);
+    if (res == HA_EXIT_SUCCESS) {
+      *reinterpret_cast<const char **>(save) = new_checkpoint_dir;
+      get_ha_data(thd)->set_checkpoint_dir(new_checkpoint_dir);
+    } else {
+      return res;
+    }
+  } else if (current_checkpoint_dir != nullptr) {
+    const auto res = rocksdb_remove_checkpoint(current_checkpoint_dir);
+    *reinterpret_cast<const char **>(save) = nullptr;
+    get_ha_data(thd)->set_checkpoint_dir(nullptr);
+    if (res != HA_EXIT_SUCCESS) {
+      return res;
+    }
+  } else {
+    *reinterpret_cast<const char **>(save) = nullptr;
+    get_ha_data(thd)->set_checkpoint_dir(nullptr);
   }
   return HA_EXIT_SUCCESS;
 }
+
+static void rocksdb_disable_file_deletions_update(
+    my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save) {
+  DBUG_ASSERT(rdb != nullptr);
+  DBUG_ASSERT(thd != nullptr);
+
+  bool val = *static_cast<bool *>(var_ptr) = *static_cast<const bool *>(save);
+  if (val && !get_ha_data(thd)->get_disable_file_deletions()) {
+    rdb->DisableFileDeletions();
+    get_ha_data(thd)->set_disable_file_deletions(true);
+  } else if (!val && get_ha_data(thd)->get_disable_file_deletions()) {
+    rdb->EnableFileDeletions(false);
+    get_ha_data(thd)->set_disable_file_deletions(false);
+  }
+}
+#endif  // MYROCKS_8
 
 /*
  * Serializes an xid to a string so that it can
@@ -3897,7 +4141,11 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
 */
 static int rocksdb_prepare(handlerton *const hton, THD *const thd,
                            bool prepare_tx, bool async) {
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
   if (!tx->can_prepare()) {
     return HA_EXIT_FAILURE;
   }
@@ -4089,7 +4337,11 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
   rocksdb::StopWatchNano timer(rocksdb::Env::Default(), true);
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
 
   /* this will trigger saving of perf_context information */
   Rdb_perf_context_guard guard(tx, rocksdb_perf_context_level(thd));
@@ -4128,7 +4380,11 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
 
 static int rocksdb_rollback(handlerton *const hton, THD *const thd,
                             bool rollback_tx) {
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
   Rdb_perf_context_guard guard(tx, rocksdb_perf_context_level(thd));
 
   if (tx != nullptr) {
@@ -4682,6 +4938,84 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
   return res;
 }
 
+#ifdef MYROCKS_8
+/*
+  Implements Log_resource lock.
+
+  returns false on success
+*/
+static bool rocksdb_lock_hton_log(handlerton *const /* unused */) {
+  DBUG_ASSERT(rdb != nullptr);
+  return !rdb->LockWAL().ok();
+}
+
+/*
+  Implements Log_resource unlock.
+
+  returns false on success
+*/
+static bool rocksdb_unlock_hton_log(handlerton *const /* unused */) {
+  DBUG_ASSERT(rdb != nullptr);
+  return !rdb->UnlockWAL().ok();
+}
+
+/*
+  Implements Log_resource collect_info.
+
+  Produces JSON object with following structure:
+
+  "RocksDB": {
+    "wal_files": [
+      { "log_number": N, "path_name": "...", "file_size_bytes": K },
+      ...
+    ]
+  }
+
+  returns JSON dom to receive the log info
+*/
+static bool rocksdb_collect_hton_log_info(handlerton *const /* unused */,
+                                          Json_dom *json) {
+  bool ret_val = false;
+  rocksdb::VectorLogPtr live_wal_files;
+  const auto s = rdb->GetSortedWalFiles(live_wal_files);
+
+  if (!s.ok()) {
+    return true;
+  }
+
+  Json_object *json_engines = static_cast<Json_object *>(json);
+  Json_object json_rocksdb;
+  Json_array json_wal_files;
+
+  size_t index = 0;
+  for (const auto &wal : live_wal_files) {
+    Json_uint json_log_number(wal->LogNumber());
+    Json_string json_path_name(wal->PathName());
+    Json_uint json_size_file_bytes(wal->SizeFileBytes());
+
+    Json_object json_wal;
+    ret_val = json_wal.add_clone("log_number", &json_log_number);
+    if (!ret_val)
+      json_wal.add_clone("path_name", &json_path_name);
+    if (!ret_val)
+      json_wal.add_clone("size_file_bytes", &json_size_file_bytes);
+    if (!ret_val)
+      json_wal_files.insert_clone(index, &json_wal);
+    if (ret_val)
+      break;
+    ++index;
+  }
+
+  if (!ret_val)
+    ret_val = json_rocksdb.add_clone("wal_files", &json_wal_files);
+
+  if (!ret_val)
+    ret_val = json_engines->add_clone("RocksDB", &json_rocksdb);
+
+  return ret_val;
+}
+#endif  // MYROCKS_8
+
 static inline void rocksdb_register_tx(handlerton *const hton, THD *const thd,
                                        Rdb_transaction *const tx) {
   DBUG_ASSERT(tx != nullptr);
@@ -4887,7 +5221,11 @@ static int rocksdb_savepoint(handlerton *const hton, THD *const thd,
 
 static int rocksdb_rollback_to_savepoint(handlerton *const hton, THD *const thd,
                                          void *const savepoint) {
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
   return tx->rollback_to_savepoint(savepoint);
 }
 
@@ -5130,6 +5468,11 @@ static int rocksdb_init_func(void *const p) {
   rocksdb_hton->rollback = rocksdb_rollback;
   rocksdb_hton->db_type = DB_TYPE_ROCKSDB;
   rocksdb_hton->show_status = rocksdb_show_status;
+#ifdef MYROCKS_8
+  rocksdb_hton->lock_hton_log = rocksdb_lock_hton_log;
+  rocksdb_hton->unlock_hton_log = rocksdb_unlock_hton_log;
+  rocksdb_hton->collect_hton_log_info = rocksdb_collect_hton_log_info;
+#endif  // MYROCKS_8
   rocksdb_hton->explicit_snapshot = rocksdb_explicit_snapshot;
   rocksdb_hton->start_consistent_snapshot =
       rocksdb_start_tx_and_assign_read_view;
@@ -5141,7 +5484,6 @@ static int rocksdb_init_func(void *const p) {
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
   rocksdb_hton->handle_single_table_select = rocksdb_handle_single_table_select;
-
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
 
@@ -14330,7 +14672,11 @@ int rocksdb_check_bulk_load(
     return 1;
   }
 
+#ifdef MYROCKS_8
+  Rdb_transaction *tx = get_tx_from_thd(thd);
+#else  // !MYROCKS_8
   Rdb_transaction *&tx = get_tx_from_thd(thd);
+#endif  // MYROCKS_8
   if (tx != nullptr) {
     bool is_critical_error;
     const int rc = tx->finish_bulk_load(&is_critical_error);

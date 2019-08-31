@@ -1,0 +1,47 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CREATE TABLE t_rocksdb (a INT) ENGINE=rocksdb;
+CREATE TABLE t_myisam (a INT) ENGINE=MyISAM;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+# connection master
+INSERT INTO t_rocksdb VALUES (0);
+# connection slave
+LOCK TABLES FOR BACKUP;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+UNLOCK TABLES;
+include/stop_slave.inc
+# connection master
+INSERT INTO t_myisam VALUES (0);
+# connection slave
+LOCK TABLES FOR BACKUP;
+include/start_slave.inc
+UNLOCK TABLES;
+# connection master
+# connection slave
+LOCK TABLES FOR BACKUP;
+# connection master
+INSERT INTO t_myisam VALUES (0);
+# connection slave
+STOP SLAVE SQL_THREAD;
+ERROR HY000: Can't execute the given command because you have active locked tables or an active transaction
+UNLOCK TABLES;
+# connection master
+include/sync_slave_sql_with_master.inc
+# connection slave
+LOCK INSTANCE FOR BACKUP;
+# connection master
+CREATE TABLE t (a INT);
+# connection slave
+STOP SLAVE SQL_THREAD;
+ERROR HY000: Can't execute the given command because you have active locked tables or an active transaction
+UNLOCK INSTANCE;
+# connection master
+DROP TABLE t;
+DROP TABLE t_rocksdb, t_myisam;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
