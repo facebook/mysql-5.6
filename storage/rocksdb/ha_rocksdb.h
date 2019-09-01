@@ -644,21 +644,19 @@ class ha_rocksdb : public my_core::handler {
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
- 
 
   // Multi-Range-Read implmentation
-  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF* seq,
-                                      void* seq_init_param,
-                                      uint n_ranges, uint* bufsz,
-                                      uint* flags, Cost_estimate* cost) override;
+  ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
+                                      void *seq_init_param, uint n_ranges,
+                                      uint *bufsz, uint *flags,
+                                      Cost_estimate *cost) override;
   ha_rows multi_range_read_info(uint keyno, uint n_ranges, uint keys,
-                                uint* bufsz, uint* flags,
-                                Cost_estimate* cost) override;
-  int multi_range_read_init(RANGE_SEQ_IF* seq,
-                            void* seq_init_param,
+                                uint *bufsz, uint *flags,
+                                Cost_estimate *cost) override;
+  int multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
                             uint n_ranges, uint mode,
-                            HANDLER_BUFFER* buf) override;
-  int multi_range_read_next(char** range_info) override;
+                            HANDLER_BUFFER *buf) override;
+  int multi_range_read_next(char **range_info) override;
 
   // Note: the following is only used by DS-MRR, so not needed for MyRocks:
   // longlong get_memory_buffer_size() const override { return 1024; }
@@ -668,21 +666,22 @@ class ha_rocksdb : public my_core::handler {
   // calls to it
   bool mrr_uses_default_impl;
 
-  bool mrr_sorted_mode; // true <=> we are in ordered-keys, ordered-results mode.
+  bool mrr_sorted_mode;  // true <=> we are in ordered-keys, ordered-results
+                         // mode.
 
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
   range_seq_t mrr_seq_it;
-  bool mrr_ranges_eof; // true means we've got eof when enumerating the ranges.
+  bool mrr_ranges_eof;  // true means we've got eof when enumerating the ranges.
   HANDLER_BUFFER mrr_buf;
-  
+ 
   // MRR parameters and output values
   rocksdb::Slice *mrr_keys;
   rocksdb::Status *mrr_statuses;
   char **mrr_range_ptrs;
   rocksdb::PinnableSlice *mrr_values;
 
-  ssize_t mrr_n_elements; // Number of elements in the above arrays
-  ssize_t mrr_read_index; // Number of the element we will return next
+  ssize_t mrr_n_elements;  // Number of elements in the above arrays
+  ssize_t mrr_read_index;  // Number of the element we will return next
 
   // Number of ranges that are still left to scan. This is passed to
   // multi_range_read_init as parameter and then decremented on each sweep.
