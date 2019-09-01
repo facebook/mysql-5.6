@@ -86,10 +86,6 @@ set global rocksdb_force_flush_memtable_now=1;
 explain 
 select * from t3,t0 where t3.pk1=t0.a;
 
---echo # This must not use BKA as it uses secondary index:
-explain 
-select * from t3,t0 where t3.col1=t0.a;
-
 --echo # This will use BKA as it uses full key:
 explain 
 select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a+1;
@@ -142,6 +138,20 @@ select a ,
         where t2.pk=t0.a and t2.col1>=t4.a
         limit 1) as SUBQ
 from t4;
+
+--echo #
+--echo # MRR/BKA on secondary keys
+--echo #
+
+--echo # This won't use BKA because it's an index-only scan:
+explain
+select t3.col1 from t3,t0 where t3.col1=t0.a;
+
+--echo # This will use BKA: 
+explain
+select * from t3,t0 where t3.col1=t0.a;
+
+select * from t3,t0 where t3.col1=t0.a;
 
 drop table t0,t1,t2,t3,t4;
 set optimizer_switch=@save_optimizer_switch;

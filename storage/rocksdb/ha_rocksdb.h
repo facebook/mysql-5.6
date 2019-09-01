@@ -131,6 +131,8 @@ enum table_cardinality_scan_type {
   SCAN_TYPE_FULL_TABLE,
 };
 
+class Mrr_rowid_source;
+
 /**
   @brief
   Class definition for ROCKSDB storage engine plugin handler
@@ -644,6 +646,7 @@ class ha_rocksdb : public my_core::handler {
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
+ 
 
   // Multi-Range-Read implmentation
   ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
@@ -670,10 +673,14 @@ class ha_rocksdb : public my_core::handler {
                          // mode.
 
   // RANGE_SEQ_IF is stored in handler::mrr_funcs
-  range_seq_t mrr_seq_it;
-  bool mrr_ranges_eof;  // true means we've got eof when enumerating the ranges.
   HANDLER_BUFFER mrr_buf;
- 
+
+  Mrr_rowid_source *mrr_rowid_reader;
+
+  friend class Mrr_rowid_source;
+  friend class Mrr_pk_scan_rowid_source;
+  friend class Mrr_sec_key_rowid_source;
+
   // MRR parameters and output values
   rocksdb::Slice *mrr_keys;
   rocksdb::Status *mrr_statuses;
@@ -689,7 +696,8 @@ class ha_rocksdb : public my_core::handler {
   ssize_t mrr_n_ranges;
 
   int mrr_fill_buffer();
-  void mrr_free_data();
+  void mrr_free_rows();
+  void mrr_free();
   uint mrr_get_length_per_rec();
 
   struct key_def_cf_info {

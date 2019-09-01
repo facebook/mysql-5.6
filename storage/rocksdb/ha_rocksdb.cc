@@ -6243,6 +6243,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_keyread_only(false),
       m_insert_with_update(false),
       m_dup_pk_found(false),
+      mrr_rowid_reader(nullptr),
       mrr_n_elements(0),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false),
@@ -10593,7 +10594,7 @@ int ha_rocksdb::index_end() {
   active_index = MAX_KEY;
   in_range_check_pushed_down = FALSE;
 
-  mrr_free_data();
+  mrr_free();
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -15144,8 +15145,8 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   if (res == HA_POS_ERROR || m_lock_rows != RDB_LOCK_NONE || !mrr_enabled)
     return res;
 
-  bool all_eq_ranges = true;
   if (keyno == table->s->primary_key) {
+    bool all_eq_ranges = true;
     KEY_MULTI_RANGE range;
     range_seq_t seq_it;
     seq_it = seq->init(seq_init_param, n_ranges, *flags);
@@ -15155,15 +15156,25 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
         break;
       }
     }
+
+    if (all_eq_ranges) {
+      *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_SUPPORT_SORTED;
+      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+    }
+  } else {
+    // Secondary keys are supported if the scan is non-index_only
+    if (!(*flags & HA_MRR_INDEX_ONLY)) {
+      *flags &= ~HA_MRR_SUPPORT_SORTED; //  Non-sorted mode
+      *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+      // TODO ^ add length of the rowid above
+    }
   }
 
-  if (keyno == table->s->primary_key && all_eq_ranges) {
-    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
-    *flags |= HA_MRR_SUPPORT_SORTED;
-    *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
-  }
   return res;
 }
+
 
 ha_rows ha_rocksdb::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
                                           uint *bufsz, uint *flags,
@@ -15183,8 +15194,88 @@ ha_rows ha_rocksdb::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
     *flags |= HA_MRR_SUPPORT_SORTED;
   }
 
-  return 0;
+  if (keyno != table->s->primary_key && !(*flags & HA_MRR_INDEX_ONLY)) {
+    // Secondary key mode
+    *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags &= ~HA_MRR_SUPPORT_SORTED; // Non-sorted mode
+  }
+
+  return 0; // "0" means ok, despite the ha_rows return type.
 }
+
+/*
+  The source of rowids for the MRR scan.
+*/
+class Mrr_rowid_source {
+ public:
+  // This will get the next rowid tuple. In on-disk format.
+  virtual int get_next_rowid(uchar *buf, char **range_ptr) = 0 ;
+  virtual bool eof() = 0;
+  virtual ~Mrr_rowid_source() {}
+};
+
+class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
+  range_seq_t mrr_seq_it;
+  bool mrr_ranges_eof;  // true means we've got eof when enumerating the ranges.
+  ha_rocksdb *self;
+ public:
+  Mrr_pk_scan_rowid_source(ha_rocksdb *self_arg, void *seq_init_param,
+                           uint n_ranges, uint mode) :
+    mrr_ranges_eof(false), self(self_arg) {
+    mrr_seq_it = self->mrr_funcs.init(seq_init_param, n_ranges, mode);
+  }
+
+  int get_next_rowid(uchar *buf, char **range_ptr) override {
+
+    if (mrr_ranges_eof)
+      return -1; //  At eof already
+
+    KEY_MULTI_RANGE range;
+    if ((mrr_ranges_eof = self->mrr_funcs.next(mrr_seq_it, &range)))
+      return -1; //  Got eof now
+
+    key_part_map all_parts_map =
+        (key_part_map(1) << self->m_pk_descr->get_key_parts()) - 1;
+    DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
+    DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
+
+    *range_ptr = range.ptr;
+    return self->m_pk_descr->pack_index_tuple(self->table, self->m_pack_buffer,
+                                              buf, range.start_key.key,
+                                              all_parts_map);
+  }
+
+  virtual bool eof() override { return mrr_ranges_eof; }
+};
+
+class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
+  ha_rocksdb *self;
+  int got_err;
+ public:
+  Mrr_sec_key_rowid_source(ha_rocksdb *self_arg) : self(self_arg), got_err(0) {
+  }
+
+  int init(RANGE_SEQ_IF *seq, void *seq_init_param,
+           uint n_ranges, uint mode) {
+    self->m_keyread_only = true; // TODO: is this ugly or fine?
+    return self->handler::multi_range_read_init(seq, seq_init_param, n_ranges,
+                                                mode, nullptr);
+  }
+
+  int get_next_rowid(uchar *buf, char **range_ptr) override {
+    if (got_err)
+      return got_err;
+
+    got_err = self->handler::multi_range_read_next(range_ptr);
+    if (!got_err) {
+      memcpy(buf, self->m_last_rowkey.ptr(), self->m_last_rowkey.length());
+      return self->m_last_rowkey.length();
+    }
+    return -1;
+  }
+  virtual bool eof() override { return got_err != 0; }
+};
+
 
 /**
  * Multi Range Read interface, DS-MRR calls
@@ -15207,9 +15298,9 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   // Ok, using a non-default MRR implementation, MultiGet-MRR
 
   mrr_uses_default_impl = false;
-  mrr_ranges_eof = false;
   mrr_n_ranges = n_ranges;
   mrr_n_elements = 0;  // nothing to cleanup, yet.
+  mrr_rowid_reader = nullptr;
 
   mrr_funcs = *seq;
   mrr_buf = *buf;
@@ -15220,7 +15311,15 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
         table->in_use->status_var.ha_multi_range_read_init_count);
 
   mrr_sorted_mode = (mode & HA_MRR_SORTED) ? true : false;
-  mrr_seq_it = mrr_funcs.init(seq_init_param, n_ranges, mode);
+
+  if (active_index == table->s->primary_key) {
+    mrr_rowid_reader =
+      new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
+  } else {
+    auto reader = new Mrr_sec_key_rowid_source(this);
+    reader->init(seq, seq_init_param, n_ranges, mode);
+    mrr_rowid_reader = reader;
+  }
   mrr_fill_buffer();
   return 0;
 }
@@ -15232,13 +15331,10 @@ uint ha_rocksdb::mrr_get_length_per_rec() {
          m_pk_descr->max_storage_fmt_length();
 }
 
+
 int ha_rocksdb::mrr_fill_buffer() {
-  KEY_MULTI_RANGE range;
 
-  key_part_map all_parts_map =
-      (key_part_map(1) << m_pk_descr->get_key_parts()) - 1;
-
-  mrr_free_data();
+  mrr_free_rows();
   mrr_read_index = 0;
 
   // Assume mrr_buf.buffer is aligned.
@@ -15278,16 +15374,13 @@ int ha_rocksdb::mrr_fill_buffer() {
   buf += sizeof(char *) * n_elements;
 
   ssize_t elem = -1;
-  while (!(mrr_ranges_eof = mrr_funcs.next(mrr_seq_it, &range))) {
-    DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
-    DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
+  int key_size;
+  char *range_ptr;
+  while ((key_size = mrr_rowid_reader->get_next_rowid((uchar*)buf, &range_ptr)) > 0 ) {
 
-    size_t key_size;
-    key_size = m_pk_descr->pack_index_tuple(table, m_pack_buffer, (uchar *)buf,
-                                            range.start_key.key, all_parts_map);
     elem++;
     mrr_keys[elem] = rocksdb::Slice(buf, key_size);
-    mrr_range_ptrs[elem] = range.ptr;
+    mrr_range_ptrs[elem] = range_ptr;
     buf += key_size;
 
     if (elem == n_elements - 1) {
@@ -15311,7 +15404,14 @@ int ha_rocksdb::mrr_fill_buffer() {
   return 0;
 }
 
-void ha_rocksdb::mrr_free_data() {
+void ha_rocksdb::mrr_free() {
+  // Free everything
+  mrr_free_rows();
+  delete mrr_rowid_reader;
+  mrr_rowid_reader = nullptr;
+}
+
+void ha_rocksdb::mrr_free_rows() {
   for (ssize_t i = 0; i < mrr_n_elements; i++) mrr_values[i].Reset();
   mrr_n_elements = 0;
   // We can't rely on the data from HANDLER_BUFFER once the scan is over, so:
@@ -15325,9 +15425,9 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
   while (1) {
     if (mrr_read_index >= mrr_n_elements) {
-      if (mrr_ranges_eof || !mrr_n_elements) {
+      if (mrr_rowid_reader->eof() || !mrr_n_elements) {
         table->status = STATUS_NOT_FOUND;  // not sure if this is necessary?
-        mrr_free_data();
+        mrr_free_rows();
         return HA_ERR_END_OF_FILE;
       }
       mrr_fill_buffer();
@@ -15357,7 +15457,7 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
                      &my_charset_bin);
 
   *range_info = mrr_range_ptrs[cur_key];
- 
+
   m_retrieved_record.PinSelf(mrr_values[cur_key]);
   int rc = convert_record_from_storage_format(&rowkey, table->record[0]);
 
