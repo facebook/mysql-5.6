@@ -15168,7 +15168,6 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       *flags &= ~HA_MRR_SUPPORT_SORTED; //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
-      // TODO ^ add length of the rowid above
     }
   }
 
@@ -15298,7 +15297,6 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   // Ok, using a non-default MRR implementation, MultiGet-MRR
 
   mrr_uses_default_impl = false;
-  mrr_n_ranges = n_ranges;
   mrr_n_elements = 0;  // nothing to cleanup, yet.
   mrr_rowid_reader = nullptr;
 
@@ -15315,10 +15313,12 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   if (active_index == table->s->primary_key) {
     mrr_rowid_reader =
       new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
+    mrr_n_rowids = n_ranges;
   } else {
     auto reader = new Mrr_sec_key_rowid_source(this);
     reader->init(seq, seq_init_param, n_ranges, mode);
     mrr_rowid_reader = reader;
+    mrr_n_rowids = SSIZE_MAX-1; // TODO: get rid of this
   }
   mrr_fill_buffer();
   return 0;
@@ -15353,13 +15353,13 @@ int ha_rocksdb::mrr_fill_buffer() {
   // - try to use a bit more space but get finished in one sweep (and avoid
   //   zero-sized second sweep)
   // - for safety: we don't want 0-sized buffers
-  n_elements = std::min(n_elements, (ssize_t)mrr_n_ranges + 1);
+  n_elements = std::min(n_elements, (ssize_t)mrr_n_rowids + 1);
 
   if (n_elements < 1) {
     DBUG_ASSERT(0);
     return 1;  // error
   }
-
+  // TODO: why are we allocating/de-allocating every time buffer is refilled?
   char *buf = (char *)mrr_buf.buffer;
   mrr_keys = new (buf) rocksdb::Slice[n_elements];
   buf += sizeof(rocksdb::Slice) * n_elements;
@@ -15391,7 +15391,14 @@ int ha_rocksdb::mrr_fill_buffer() {
   // now, mrr_keys[elem] holds the last valid element (except when elem==-1)
 
   mrr_n_elements = elem + 1;
-  mrr_n_ranges -= mrr_n_elements;
+
+  mrr_n_rowids -= mrr_n_elements;
+  if (mrr_n_rowids < 0) {
+    // a kind of "default batch size". This would be used when we were doing a
+    // clustered PK scan and ran over the range count
+    // (TODO: avoid array-based new[] and get rid of this altogether)
+    mrr_n_rowids = 2000;
+  }
 
   if (mrr_n_elements == 0) return 0;  // nothing to scan
 

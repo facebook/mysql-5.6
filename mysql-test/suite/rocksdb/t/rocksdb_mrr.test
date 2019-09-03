@@ -153,6 +153,49 @@ select * from t3,t0 where t3.col1=t0.a;
 
 select * from t3,t0 where t3.col1=t0.a;
 
+--echo # Now, run the query and check the counters
+create temporary table t11 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+
+select * from t3,t0 where t3.col1=t0.a;
+
+create temporary table t12 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+
+select 
+  variable_name, 
+  t12.variable_value - t11.variable_value as DIFF 
+from 
+  t11 join t12 using (VARIABLE_NAME)
+having
+  DIFF>0;
+
+drop table t11,t12;
+
+--echo # Same as above but for MRR (not BKA):
+--echo # This will not use MRR:
+explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+
+--echo # This will use MRR:
+explain 
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+
+--disable_parsing
+--echo # Check if index condition pushdown works
+explain 
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28);
+
+set optimizer_switch='mrr=off';
+explain
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+--enable_parsing
+
 drop table t0,t1,t2,t3,t4;
 
 --echo #

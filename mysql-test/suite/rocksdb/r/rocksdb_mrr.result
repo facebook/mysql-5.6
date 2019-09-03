@@ -208,6 +208,56 @@ pk1	pk2	col1	filler	a
 7	7	7	7	7
 8	8	8	8	8
 9	9	9	9	9
+# Now, run the query and check the counters
+create temporary table t11 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+select * from t3,t0 where t3.col1=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+create temporary table t12 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+select 
+variable_name, 
+t12.variable_value - t11.variable_value as DIFF 
+from 
+t11 join t12 using (VARIABLE_NAME)
+having
+DIFF>0;
+variable_name	DIFF
+ROCKSDB_NUMBER_DB_NEXT	20
+ROCKSDB_NUMBER_DB_NEXT_FOUND	9
+ROCKSDB_NUMBER_DB_SEEK	11
+ROCKSDB_NUMBER_DB_SEEK_FOUND	11
+ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
+ROCKSDB_NUMBER_MULTIGET_GET	1
+ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
+drop table t11,t12;
+# Same as above but for MRR (not BKA):
+# This will not use MRR:
+explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	col1	col1	5	NULL	2	Using where; Using index
+# This will use MRR:
+explain 
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	col1	col1	5	NULL	2	Using index condition; Using MRR
+select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
+pk1	pk2	col1	filler
+20	20	20	20
+25	25	25	25
+26	26	26	26
+27	27	27	27
+28	28	28	28
 drop table t0,t1,t2,t3,t4;
 #
 # Multi-keypart testcase

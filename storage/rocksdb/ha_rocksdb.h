@@ -690,10 +690,9 @@ class ha_rocksdb : public my_core::handler {
   ssize_t mrr_n_elements;  // Number of elements in the above arrays
   ssize_t mrr_read_index;  // Number of the element we will return next
 
-  // Number of ranges that are still left to scan. This is passed to
-  // multi_range_read_init as parameter and then decremented on each sweep.
-  // (note: is this number reliable when linked join caches are used?)
-  ssize_t mrr_n_ranges;
+  // Expected number of rowids that are left to scan.
+  //  This number is used to avoid allocating huge arrays in mrr_fill_buffer
+  ssize_t mrr_n_rowids;
 
   int mrr_fill_buffer();
   void mrr_free_rows();
