@@ -154,4 +154,60 @@ select * from t3,t0 where t3.col1=t0.a;
 select * from t3,t0 where t3.col1=t0.a;
 
 drop table t0,t1,t2,t3,t4;
+
+--echo #
+--echo # Multi-keypart testcase
+--echo #
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+CREATE TABLE t2 (
+  id bigint(20) unsigned NOT NULL DEFAULT '0',
+  type tinyint(3) unsigned NOT NULL DEFAULT '0',
+  c1 int(10) unsigned NOT NULL DEFAULT '0',
+  c2 int(10) unsigned NOT NULL DEFAULT '0',
+  time_updated int(10) unsigned NOT NULL DEFAULT '0',
+  id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+  c3 int(10) unsigned NOT NULL DEFAULT '0',
+  c_id bigint(20) unsigned NOT NULL DEFAULT '0',
+  a_id bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (id,`type`),
+  KEY time_updated (time_updated),
+  KEY id2 (id2),
+  KEY a_idx (a_id),
+  KEY c_a_idx (c_id,`a_id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+
+
+insert into t2 (id, type, id2, time_updated)
+ select a, 1, 1, 1565888298 
+from t0;
+
+insert into t2 (id, type, id2, time_updated)
+ select a, 2, 2, 1565888298 
+from t0;
+
+set optimizer_trace=1;
+--echo # The following should have type=range, and "Using MRR":
+--replace_column 9 #
+explain
+SELECT 
+  id2, type, SUM(c1), SUM(c2) 
+FROM t2 force index (id2) 
+WHERE 
+  id2 IN (1) AND 
+  time_updated > 1565888297 AND 
+  time_updated <= UNIX_TIMESTAMP() 
+GROUP BY id2, type;
+
+select 
+  MID(trace, locate('attached_conditions_computation', trace), 360) 
+    as TRACE_FRAGMENT
+from
+  information_schema.optimizer_trace;
+
+set optimizer_trace=0;
+
+drop table t0, t2;
+
 set optimizer_switch=@save_optimizer_switch;

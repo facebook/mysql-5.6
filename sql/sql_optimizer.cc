@@ -100,7 +100,7 @@ only_eq_ref_tables(JOIN *join, ORDER *order, table_map tables,
                    table_map *cached_eq_ref_tables, table_map
                    *eq_ref_tables);
 
-static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab);
+static const char* can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab);
 
 /**
   global select optimisation.
@@ -7778,7 +7778,9 @@ static bool make_join_select(JOIN *join, Item *cond)
       Item *tmp;
 
       /// See if you need to switch to range access
-      if (tab->type == JT_REF && can_switch_from_ref_to_range(thd, tab))
+      const char *switch_reason;
+      if (tab->type == JT_REF && 
+          (switch_reason= can_switch_from_ref_to_range(thd, tab)))
       {
         Opt_trace_object wrapper(trace);
         Opt_trace_object (trace, "access_type_changed").
@@ -7786,7 +7788,7 @@ static bool make_join_select(JOIN *join, Item *cond)
           add_utf8("index", tab->table->key_info[tab->ref.key].name).
           add_alnum("old_type", "ref").
           add_alnum("new_type", "range").
-          add_alnum("cause", "uses_more_keyparts");
+          add_alnum("cause", switch_reason);
 
 	tab->type=JT_ALL;
 	use_quick_range=1;
@@ -8322,19 +8324,27 @@ only_eq_ref_tables(JOIN *join, ORDER *order, table_map tables,
   @param thd THD      To re-run range optimizer.
   @param tab JOIN_TAB To check the above conditions.
 
-  @return true   Range is better than ref
-  @return false  Ref is better or switch isn't possible
+  @return Pointer  Range is better than ref
+  @return nullptr  Ref is better or switch isn't possible
 
   @todo: This decision should rather be made in best_access_path()
 */
-static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab)
+static const char* can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab)
 {
   if (!tab->ref.depend_map &&                                          // 1)
       tab->quick)                                                      // 2)
   {
+    // MRR use: TODO: check if quick would have used MRR:
+    if ((uint) tab->ref.key == tab->quick->index &&
+        tab->ref.key_length == tab->quick->max_used_key_length &&
+        tab->quick->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE &&
+        !(((QUICK_RANGE_SELECT*)tab->quick)->mrr_flags &
+          HA_MRR_USE_DEFAULT_IMPL))
+      return "uses_mrr";
+
     if ((uint) tab->ref.key == tab->quick->index &&                    // 3a)
         tab->ref.key_length < tab->quick->max_used_key_length)         // 3b)
-      return true;
+      return "uses_more_keyparts";
     else if (tab->dodgy_ref_cost)                                      // 4)
     {
       int error;
@@ -8369,11 +8379,13 @@ static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab)
         }
         select->quick= 0;
         delete select;
-        return retcode;
+        // The following might not be the true reason, but this is what
+        // upstream Oracle/MySQL-5.6 had:
+        return retcode? "uses_more_keyparts" : nullptr;
       }
     }
   }
-  return false;
+  return nullptr;
 }
 
 /**

@@ -209,4 +209,63 @@ pk1	pk2	col1	filler	a
 8	8	8	8	8
 9	9	9	9	9
 drop table t0,t1,t2,t3,t4;
+#
+# Multi-keypart testcase
+#
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+CREATE TABLE t2 (
+id bigint(20) unsigned NOT NULL DEFAULT '0',
+type tinyint(3) unsigned NOT NULL DEFAULT '0',
+c1 int(10) unsigned NOT NULL DEFAULT '0',
+c2 int(10) unsigned NOT NULL DEFAULT '0',
+time_updated int(10) unsigned NOT NULL DEFAULT '0',
+id2 bigint(20) unsigned NOT NULL DEFAULT '0',
+c3 int(10) unsigned NOT NULL DEFAULT '0',
+c_id bigint(20) unsigned NOT NULL DEFAULT '0',
+a_id bigint(20) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (id,`type`),
+KEY time_updated (time_updated),
+KEY id2 (id2),
+KEY a_idx (a_id),
+KEY c_a_idx (c_id,`a_id`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+insert into t2 (id, type, id2, time_updated)
+select a, 1, 1, 1565888298 
+from t0;
+insert into t2 (id, type, id2, time_updated)
+select a, 2, 2, 1565888298 
+from t0;
+set optimizer_trace=1;
+# The following should have type=range, and "Using MRR":
+explain
+SELECT 
+id2, type, SUM(c1), SUM(c2) 
+FROM t2 force index (id2) 
+WHERE 
+id2 IN (1) AND 
+time_updated > 1565888297 AND 
+time_updated <= UNIX_TIMESTAMP() 
+GROUP BY id2, type;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	id2	id2	8	NULL	#	Using index condition; Using where; Using MRR; Using temporary; Using filesort
+select 
+MID(trace, locate('attached_conditions_computation', trace), 360) 
+as TRACE_FRAGMENT
+from
+information_schema.optimizer_trace;
+TRACE_FRAGMENT
+attached_conditions_computation": [
+                {
+                  "access_type_changed": {
+                    "table": "`t2` FORCE INDEX (`id2`)",
+                    "index": "id2",
+                    "old_type": "ref",
+                    "new_type": "range",
+                    "cause": "uses_mrr"
+                  }
+                }
+            
+set optimizer_trace=0;
+drop table t0, t2;
 set optimizer_switch=@save_optimizer_switch;
