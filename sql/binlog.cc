@@ -1674,6 +1674,7 @@ static int binlog_rollback(handlerton *hton, THD *thd, bool all)
   DBUG_RETURN(error);
 }
 
+#ifndef DBUG_OFF
 static void wait_for_follower(THD* thd)
 {
   const char act[]=
@@ -1697,6 +1698,7 @@ static void wait_for_leader(THD* thd)
 
   DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
 }
+#endif
 
 bool
 Stage_manager::Mutex_queue::append(THD *first)
@@ -5890,6 +5892,13 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
 
   mysql_mutex_lock(&LOCK_index);
 
+  // Temporary raft cache for Rotate Event
+  IO_CACHE raft_io_cache;
+  bool rotate_via_raft= enable_raft_plugin;
+  if (rotate_via_raft) {
+    init_io_cache(&raft_io_cache, -1, 400, WRITE_CACHE, 0, 0, MYF(MY_WME));
+  }
+
   if (DBUG_EVALUATE_IF("expire_logs_always", 0, 1)
       && (error= ha_flush_logs(NULL)))
     goto end;
@@ -5919,6 +5928,9 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     */
     Rotate_log_event r(new_name+dirname_length(new_name), 0, LOG_EVENT_OFFSET,
                        is_relay_log ? Rotate_log_event::RELAY_LOG : 0);
+    if (rotate_via_raft) {
+      r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
+    }
     /*
       The current relay-log's closing Rotate event must have checksum
       value computed with an algorithm of the last relay-logged FD event.
@@ -5927,7 +5939,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
       r.checksum_alg= relay_log_checksum_alg;
     DBUG_ASSERT(!is_relay_log || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
     if(DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error=close_on_error=TRUE), FALSE) ||
-       (error= r.write(&log_file)))
+       (error= r.write((rotate_via_raft) ? &(raft_io_cache) : &log_file)))
     {
       char errbuf[MYSYS_STRERROR_SIZE];
       DBUG_EXECUTE_IF("fault_injection_new_file_rotate_event", errno=2;);
@@ -5938,6 +5950,15 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
       goto end;
     }
     bytes_written += r.data_written;
+  }
+
+  // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
+  if (rotate_via_raft) {
+    error= RUN_HOOK(raft_replication, before_flush,
+                    (current_thd, &raft_io_cache));
+    if (!error) {
+      error= RUN_HOOK(raft_replication, before_commit, (current_thd, false));
+    }
   }
 
   // Need flush before updating binlog_end_pos, otherwise dump thread
@@ -6562,6 +6583,17 @@ int MYSQL_BIN_LOG::rotate_and_purge(THD* thd, bool force_rotate)
   if (!error && check_purge)
     purge();
 
+  DBUG_RETURN(error);
+}
+
+int rotate_binlog_file(THD *thd)
+{
+  int error= 0;
+  DBUG_ENTER("rotate_binlog_file");
+  if (mysql_bin_log.is_open())
+  {
+    error= mysql_bin_log.rotate_and_purge(thd, true);
+  }
   DBUG_RETURN(error);
 }
 

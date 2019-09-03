@@ -36,6 +36,8 @@ Raft_replication_delegate *raft_replication_delegate;
 RaftListenerQueue raft_listener_queue;
 extern bool set_read_only(THD *thd, ulonglong read_only);
 extern int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
+extern int rotate_binlog_file(THD *thd);
+
 /*
   structure to save transaction log filename and position
 */
@@ -715,6 +717,22 @@ pthread_handler_t process_raft_queue(void *arg)
       case RaftListenerCallbackType::UNSET_READ_ONLY:
         set_read_only(thd, 0);
         break;
+      case RaftListenerCallbackType::ROTATE_BINLOG:
+      {
+        int rotate_res= rotate_binlog_file(current_thd);
+        (void)rotate_res;
+        break;
+      }
+      case RaftListenerCallbackType::ROTATE_RELAYLOG:
+      {
+        int rotate_res= 0;
+#ifdef HAVE_REPLICATION
+        rotate_res= rotate_relay_log_for_raft(element.arg.log_file_pos.first,
+            element.arg.log_file_pos.second);
+#endif
+        (void)rotate_res;
+        break;
+      }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         raft_listener_queue.deinit();
         exit= true;

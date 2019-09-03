@@ -9091,6 +9091,22 @@ end:
   DBUG_RETURN(error);
 }
 
+int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos)
+{
+  DBUG_ENTER("rotate_relay_log_for_raft");
+  Master_info *mi= active_mi;
+  int error= 0;
+  mysql_mutex_lock(&mi->data_lock);
+
+  memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
+         new_log_ident.length() + 1);
+  mi->set_master_log_pos(pos);
+
+  error= rotate_relay_log(mi, true/*need_log_space_lock=true*/);
+
+  mysql_mutex_unlock(&active_mi->data_lock);
+  DBUG_RETURN(error);
+}
 
 /**
    Detects, based on master's version (as found in the relay log), if master

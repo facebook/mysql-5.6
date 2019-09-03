@@ -21,6 +21,9 @@
 #include <queue>
 
 typedef struct st_mysql MYSQL;
+#ifdef DONT_SKIP_MYSQL_SERVER_IMPL
+extern bool enable_raft_plugin;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -449,6 +452,7 @@ typedef struct Raft_replication_observer {
      @param log_name the pointer to current log name
      @param lock_log the mutex that protects the current log
      @param lock_index the mutex that protects the index file
+     @param update_cond the condvar that is fired after writing to log
      @param cur_log_ext a pointer the number of the file.
      @param context context of the call (0 for 1st run, 1 for next time)
 
@@ -690,8 +694,10 @@ enum class RaftListenerCallbackType
 {
   SET_READ_ONLY= 1,
   UNSET_READ_ONLY= 2,
-  RAFT_LISTENER_THREADS_EXIT= 3,
-  TRIM_LOGGED_GTIDS= 4,
+  TRIM_LOGGED_GTIDS= 3,
+  ROTATE_BINLOG= 4,
+  ROTATE_RELAYLOG= 5,
+  RAFT_LISTENER_THREADS_EXIT= 6,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -703,6 +709,7 @@ class RaftListenerCallbackArg
     ~RaftListenerCallbackArg() {}
 
     std::vector<std::string> trim_gtids= {};
+    std::pair<std::string, ulonglong> log_file_pos= {};
 };
 
 class RaftListenerQueue
@@ -756,6 +763,10 @@ class RaftListenerQueue
     std::atomic_bool inited_; // Has this been inited?
 };
   
+#ifdef DONT_SKIP_MYSQL_SERVER_IMPL
+extern RaftListenerQueue raft_listener_queue;
+#endif
+
 
 #ifdef __cplusplus
 }
