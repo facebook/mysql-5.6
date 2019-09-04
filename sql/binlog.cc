@@ -10919,7 +10919,7 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
   // viable workaround.
   // case: wait till this log pos is <= to the last acked log pos, or if waiting
   // is not required anymore
-  const auto wait_for_pos= [&]() {
+  const auto wait_for_pos= [&current]() {
     return current.first.length() == last_acked.first.length() ?
       current > last_acked :
       current.first.length() > last_acked.first.length();
@@ -10951,7 +10951,11 @@ void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
     acked_coord->file_name + dirname_length(acked_coord->file_name);
   const auto acked= std::make_pair(std::string(file_name), acked_coord->pos);
   mysql_mutex_lock(&LOCK_last_acked);
-  if (acked > last_acked || acked.first.length() > last_acked.first.length())
+  const auto should_signal= [&acked]() {
+    return acked.first.length() == last_acked.first.length() ?
+      acked > last_acked : acked.first.length() > last_acked.first.length();
+  };
+  if (should_signal())
   {
     last_acked= acked;
     mysql_cond_broadcast(&COND_last_acked);
