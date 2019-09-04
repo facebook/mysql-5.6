@@ -74,6 +74,7 @@ typedef struct Trans_observer {
      @retval 1 Failure
   */
   int (*before_commit)(Trans_param *param);
+
   /**
      This callback is called after transaction commit
      
@@ -165,25 +166,6 @@ typedef struct Binlog_storage_observer {
      @retval 1 Failure
   */
   int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache);
-
-  /**
-     This callback is called once upfront to setup the appropriate
-     binlog file, io_cache and its mutexes
-
-     @param log_file_cache  the IO_CACHE pointer
-     @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
-     @param log_name the pointer to current log name
-     @param lock_log the mutex that protects the current log
-     @param lock_index the mutex that protects the index file
-     @param cur_log_ext a pointer the number of the file.
-     @param context context of the call (0 for 1st run, 1 for next time)
-
-     @retval 0 Sucess
-     @retval 1 Failure
-  */
-  int (*setup_flush)(IO_CACHE* log_file_cache, const char *log_prefix,
-      const char *log_name, mysql_mutex_t *lock_log,
-      mysql_mutex_t *lock_index, ulong *cur_log_ext, int context);
 } Binlog_storage_observer;
 
 /**
@@ -422,12 +404,44 @@ typedef struct Binlog_relay_IO_observer {
      @retval 1 Failure
   */
   int (*after_reset_slave)(Binlog_relay_IO_param *param);
+} Binlog_relay_IO_observer;
+
+/**
+   Observe special events for Raft replication to work
+*/
+typedef struct Raft_replication_observer {
+  uint32 len;
 
   /**
-     This callback is called initially to pass the locks and the IO_CACHE
-     file to raft, so that both parties can append to the log in a thread
-     safe manner.
+     This callback is called before transaction commit
+     and after binlog sync.
 
+     For both non-transactional tables and transactional
+     tables this is called after binlog sync.
+
+     @param param The parameter for transaction observers
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*before_commit)(Trans_param *param);
+
+  /**
+     This callback is called before events of a txn are written to binlog file
+
+     @param param Observer common parameter
+     @param cache IO_CACHE containing binlog events for the txn
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache);
+
+  /**
+     This callback is called once upfront to setup the appropriate
+     binlog file, io_cache and its mutexes
+
+     @param is_relay_log whether the file being registered is relay or binlog
      @param log_file_cache  the IO_CACHE pointer
      @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
      @param log_name the pointer to current log name
@@ -438,12 +452,13 @@ typedef struct Binlog_relay_IO_observer {
 
      @retval 0 Sucess
      @retval 1 Failure
-   */
-  int (*setup_flush)(IO_CACHE* log_file_cache, const char *log_prefix,
-      const char *log_name, mysql_mutex_t *lock_log,
-      mysql_mutex_t *lock_index, ulong *cur_log_ext, int context);
-} Binlog_relay_IO_observer;
-
+  */
+  int (*setup_flush)(bool is_relay_log, IO_CACHE* log_file_cache,
+                     const char *log_prefix, const char *log_name,
+                     mysql_mutex_t *lock_log,
+                     mysql_mutex_t *lock_index, ulong *cur_log_ext,
+                     int context);
+} Raft_replication_observer;
 
 /**
    Register a transaction observer
@@ -477,6 +492,30 @@ int unregister_trans_observer(Trans_observer *observer, void *p);
    @retval 1 Observer already exists
 */
 int register_binlog_storage_observer(Binlog_storage_observer *observer, void *p);
+
+/**
+   Register a Raft replication observer
+
+   @param observer The raft replication observer to register
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Sucess
+   @retval 1 Observer already exists
+*/
+int register_raft_replication_observer(
+    Raft_replication_observer *observer, void *p);
+
+/**
+   Unregister a raft replication observer
+
+   @param observer The raft observer to unregister
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Sucess
+   @retval 1 Observer not exists
+*/
+int unregister_raft_replication_observer(
+    Raft_replication_observer *observer, void *p);
 
 /**
     Ask the mysqld server to immediately register the binlog and relay

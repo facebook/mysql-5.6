@@ -1500,7 +1500,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
     error= gtid_before_write_cache(thd, this);
 
     if (!error && enable_raft_plugin_save && !thd->rli_slave) {
-      error= RUN_HOOK(binlog_storage, before_flush, (thd, &cache_log));
+      error= RUN_HOOK(raft_replication, before_flush, (thd, &cache_log));
 
       // Do post write book keeping activities
       error= mysql_bin_log.post_write(thd, this, error);
@@ -8127,6 +8127,9 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      // will have the maximum binlog position.
      (void) RUN_HOOK(transaction, before_commit,
                      (last_thd, last_thd->transaction.flags.real_commit));
+
+     (void) RUN_HOOK(raft_replication, before_commit,
+                     (last_thd, last_thd->transaction.flags.real_commit));
    }
 }
 
@@ -8468,21 +8471,9 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd,
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-  int err= 0;
-  if (!is_relay_log)
-  {
-    err= RUN_HOOK(binlog_storage, setup_flush,
-                  (thd, &log_file, name, log_file_name,
-                   &LOCK_log, &LOCK_index, &cur_log_ext, context));
-  }
-#ifdef HAVE_REPLICATION
-  else
-  {
-    err= RUN_HOOK(binlog_relay_io, setup_flush,
-                  (thd, &log_file, name, log_file_name,
-                   &LOCK_log, &LOCK_index, &cur_log_ext, context));
-  }
-#endif
+  int err= RUN_HOOK(raft_replication, setup_flush,
+                    (thd, is_relay_log, &log_file, name, log_file_name,
+                     &LOCK_log, &LOCK_index, &cur_log_ext, context));
   if (need_lock)
     mysql_mutex_unlock(&LOCK_log);
   return err;

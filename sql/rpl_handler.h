@@ -195,11 +195,6 @@ public:
   int after_flush(THD *thd, const char *log_file,
                   my_off_t log_pos);
   int before_flush(THD *thd, IO_CACHE* io_cache);
-
-  int setup_flush(THD *thd, IO_CACHE* log_file_cache,
-      const char *log_prefix, const char *log_name,
-      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-      ulong *cur_log_ext, int context);
 };
 
 #ifdef HAVE_REPLICATION
@@ -261,15 +256,37 @@ public:
                         const char *event_buf, ulong event_len,
                         bool synced);
   int after_reset_slave(THD *thd, Master_info *mi);
-
-  int setup_flush(THD *thd, IO_CACHE* log_file_cache,
-      const char *log_prefix, const char *log_name,
-      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-      ulong *cur_log_ext, int context);
 private:
   void init_param(Binlog_relay_IO_param *param, Master_info *mi);
 };
 #endif /* HAVE_REPLICATION */
+
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
+#endif
+
+class Raft_replication_delegate
+  :public Delegate {
+public:
+
+  Raft_replication_delegate()
+  : Delegate(
+#ifdef HAVE_PSI_INTERFACE
+             key_rwlock_Raft_replication_delegate_lock
+#endif
+             )
+  {}
+
+  typedef Raft_replication_observer Observer;
+  int before_flush(THD *thd, IO_CACHE* io_cache);
+  int before_commit(THD *thd, bool all);
+
+  int setup_flush(THD *thd, bool is_relay_log,
+                  IO_CACHE* log_file_cache,
+                  const char *log_prefix, const char *log_name,
+                  mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+                  ulong *cur_log_ext, int context);
+};
 
 int delegates_init();
 void delegates_destroy();
@@ -280,6 +297,7 @@ extern Binlog_storage_delegate *binlog_storage_delegate;
 extern Binlog_transmit_delegate *binlog_transmit_delegate;
 extern Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 #endif /* HAVE_REPLICATION */
+extern Raft_replication_delegate *raft_replication_delegate;
 
 /*
   if there is no observers in the delegate, we can return 0

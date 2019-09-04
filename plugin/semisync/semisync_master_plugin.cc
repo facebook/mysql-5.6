@@ -433,7 +433,6 @@ Binlog_storage_observer storage_observer = {
 
   repl_semi_report_binlog_update, // report_update
   nullptr, // before flush
-  nullptr, // setup flush
 };
 
 Binlog_transmit_observer transmit_observer = {

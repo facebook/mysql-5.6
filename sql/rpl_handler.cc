@@ -29,6 +29,7 @@ Binlog_storage_delegate *binlog_storage_delegate;
 Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 #endif /* HAVE_REPLICATION */
+Raft_replication_delegate *raft_replication_delegate;
 
 /*
   structure to save transaction log filename and position
@@ -96,6 +97,8 @@ int delegates_init()
   static my_aligned_storage<sizeof(Binlog_relay_IO_delegate),
                             MY_ALIGNOF(long)> relay_io_mem;
 #endif
+  static my_aligned_storage<sizeof(Raft_replication_delegate),
+                            MY_ALIGNOF(long)> raft_mem;
 
   void *place_trans_mem= trans_mem.data;
   void *place_storage_mem= storage_mem.data;
@@ -141,6 +144,17 @@ int delegates_init()
   }
 #endif
 
+  void *place_raft_mem = raft_mem.data;
+  raft_replication_delegate= new (place_raft_mem) Raft_replication_delegate;
+
+  if (!raft_replication_delegate->is_inited())
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Initialization of raft delegate failed. "
+                    "Please report a bug.");
+    return 1;
+  }
+
   return 0;
 }
 
@@ -156,6 +170,8 @@ void delegates_destroy()
   if (binlog_relay_io_delegate)
     binlog_relay_io_delegate->~Binlog_relay_IO_delegate();
 #endif /* HAVE_REPLICATION */
+  if (raft_replication_delegate)
+    raft_replication_delegate->~Raft_replication_delegate();
 }
 
 /*
@@ -302,25 +318,6 @@ int Binlog_storage_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
   /* (term, index) will be used later in before_commit hook of trans
    * observer */
   thd->set_trans_marker(param.term, param.index);
-
-  DBUG_RETURN(ret);
-}
-
-int Binlog_storage_delegate::setup_flush(THD *thd,
-    IO_CACHE* log_file_cache,
-    const char *log_prefix,
-    const char *log_name,
-    mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-    ulong *cur_log_ext, int context)
-{
-  DBUG_ENTER("Binlog_storage_delegate::setup_flush");
-  Binlog_storage_param param;
-  int ret= 0;
-
-  FOREACH_OBSERVER(ret, setup_flush, thd,
-      (log_file_cache, log_prefix, log_name,
-       lock_log, lock_index, cur_log_ext, context)
-  );
 
   DBUG_RETURN(ret);
 }
@@ -541,23 +538,67 @@ int Binlog_relay_IO_delegate::after_reset_slave(THD *thd, Master_info *mi)
   return ret;
 }
 
-int Binlog_relay_IO_delegate::setup_flush(THD *thd, IO_CACHE* log_file_cache,
-      const char *log_prefix, const char *log_name,
-      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-      ulong *cur_log_ext, int context)
+#endif /* HAVE_REPLICATION */
+
+int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
 {
-  Binlog_relay_IO_param param;
-  // not necessary
-  //init_param(&param, mi);
+  DBUG_ENTER("Raft_replication_delegate::before_flush");
+  Binlog_storage_param param;
 
   int ret= 0;
+
+  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache));
+
+  DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
+
+  /* (term, index) will be used later in before_commit hook of trans
+   * observer */
+  thd->set_trans_marker(param.term, param.index);
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::before_commit(THD *thd, bool all)
+{
+  DBUG_ENTER("Raft_replications_delegate::before_commit");
+  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+  bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
+
+  if (is_real_trans)
+    param.flags = true;
+
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_marker(&param.term, &param.index);
+
+  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu, term: %ld, index: %ld",
+                       param.log_file, param.log_pos, param.term, param.index));
+
+  int ret= 0;
+  FOREACH_OBSERVER(ret, before_commit, thd, (&param));
+
+  DEBUG_SYNC(thd, "after_call_after_sync_observer");
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::setup_flush(
+    THD *thd, bool is_relay_log,
+    IO_CACHE* log_file_cache,
+    const char *log_prefix,
+    const char *log_name,
+    mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+    ulong *cur_log_ext, int context)
+{
+  DBUG_ENTER("Raft_replication_delegate::setup_flush");
+  Binlog_storage_param param;
+  int ret= 0;
+
   FOREACH_OBSERVER(ret, setup_flush, thd,
-      (log_file_cache, log_prefix, log_name,
+      (is_relay_log, log_file_cache, log_prefix, log_name,
        lock_log, lock_index, cur_log_ext, context)
   );
-  return ret;
+
+  DBUG_RETURN(ret);
 }
-#endif /* HAVE_REPLICATION */
 
 int register_trans_observer(Trans_observer *observer, void *p)
 {
@@ -622,3 +663,19 @@ int unregister_binlog_relay_io_observer(Binlog_relay_IO_observer *observer, void
   return 0;
 }
 #endif /* HAVE_REPLICATION */
+
+int register_raft_replication_observer(
+    Raft_replication_observer *observer, void *p)
+{
+  DBUG_ENTER("register_raft_replication_observer");
+  int result= raft_replication_delegate->add_observer(
+      observer, (st_plugin_int *)p);
+  DBUG_RETURN(result);
+}
+
+int unregister_raft_replication_observer(
+    Raft_replication_observer *observer, void *p)
+{
+  return raft_replication_delegate->remove_observer(
+      observer, (st_plugin_int *)p);
+}
