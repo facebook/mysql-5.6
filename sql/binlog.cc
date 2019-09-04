@@ -10919,11 +10919,15 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
   // viable workaround.
   // case: wait till this log pos is <= to the last acked log pos, or if waiting
   // is not required anymore
+  const auto wait_for_pos= [&]() {
+    return current.first.length() == last_acked.first.length() ?
+      current > last_acked :
+      current.first.length() > last_acked.first.length();
+  };
   while (!current_thd->killed &&
          rpl_semi_sync_master_enabled &&
          rpl_wait_for_semi_sync_ack &&
-         (current > last_acked ||
-          current.first.length() > last_acked.first.length()))
+         wait_for_pos())
   {
     ++repl_semi_sync_master_ack_waits;
     // wait for an ack for with a timeout, then retry if applicable
