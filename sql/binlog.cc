@@ -10951,11 +10951,9 @@ void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
     acked_coord->file_name + dirname_length(acked_coord->file_name);
   const auto acked= std::make_pair(std::string(file_name), acked_coord->pos);
   mysql_mutex_lock(&LOCK_last_acked);
-  const auto should_signal= [&acked]() {
-    return acked.first.length() == last_acked.first.length() ?
-      acked > last_acked : acked.first.length() > last_acked.first.length();
-  };
-  if (should_signal())
+  const bool update= acked.first.length() == last_acked.first.length() ?
+    acked > last_acked : acked.first.length() > last_acked.first.length();
+  if (update)
   {
     last_acked= acked;
     mysql_cond_broadcast(&COND_last_acked);
