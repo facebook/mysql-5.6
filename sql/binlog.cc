@@ -9218,7 +9218,9 @@ void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
 
   const auto acked = std::make_pair(std::string(log_file), log_pos);
   lock_binlog_end_pos();
-  if (acked > last_acked || acked.first.length() > last_acked.first.length()) {
+  const bool update = acked.first.length() == last_acked.first.length() ?
+    acked > last_acked : acked.first.length() > last_acked.first.length();
+  if (update) {
     last_acked = acked;
     signal_update();
   }
