@@ -784,8 +784,8 @@ class select_exec {
   // map from field_index to where_list
   std::array<std::pair<int, int>, MAX_NOSQL_FIELD_COUNT> m_field_index_to_where;
 
-  // Number of fields(columns) in where eq key(prefix)
-  uint m_eq_key_count;
+  // Number of fields (columns) that are prefix of index
+  uint m_prefix_key_count;
 
   // The iterator used in secondary index query or range query
   std::unique_ptr<rocksdb::Iterator> m_scan_it;
@@ -973,19 +973,19 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Suppose we have index (A, B, C, D), then:
   //
   // WHERE A=1 AND B=2 And C=3:
-  //   KeyIndexTuples = {(1, 2, 3)}, eq_key_count=3
+  //   KeyIndexTuples = {(1, 2, 3)}, prefix_key_count=3
   // WHERE A=1 AND B=2 And C IN (1, 2, 3):
-  //   KeyIndexTuples = {(1, 2, 1), (1, 2, 2), (1, 2, 3)}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2, 1), (1, 2, 2), (1, 2, 3)}, prefix_key_count = 2
   // WHERE A=1 AND B=2 And C IN (1) AND D in (1, 2):
-  //   KeyIndexTuples = {(1, 2, 1, 1), (1, 2, 1, 2)}, eq_key_count = 4
+  //   KeyIndexTuples = {(1, 2, 1, 1), (1, 2, 1, 2)}, prefix_key_count = 4
   // WHERE A=1 AND B=2 AND D in (1, 2):
-  //   KeyIndexTuples = {(1, 2)}, Filters = {D in (1, 2)}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2)}, Filters = {D in (1, 2)}, prefix_key_count = 2
   // WHERE A=1 AND C=3:
-  //   KeyIndexTuples = {(1)}, Filters = (C=3), eq_key_count=1
+  //   KeyIndexTuples = {(1)}, Filters = (C=3), prefix_key_count=1
   // WHERE A=1 AND B=2 AND C>3:
-  //   KeyIndexTuples = {(1, 2, 3)}, Filters = {C>3}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2, 3)}, Filters = {C>3}, prefix_key_count = 2
   bool eq_only = true;
-  m_eq_key_count = 0;
+  m_prefix_key_count = 0;
   uint key_part_no = 0;
   for (; key_part_no < m_index_info->actual_key_parts; ++key_part_no) {
     auto &key_part = m_index_info->key_part[key_part_no];
@@ -1003,7 +1003,7 @@ bool INLINE_ATTR select_exec::scan_where() {
 
         if (eq_only) {
           // Remember how many key part in where eq(prefix)
-          m_eq_key_count++;
+          m_prefix_key_count++;
 
           // Remember we've processed this condition already
           // Anything we haven't processed here become filters
