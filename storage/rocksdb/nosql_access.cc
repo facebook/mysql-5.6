@@ -48,6 +48,7 @@
 static const size_t MAX_NOSQL_FIELD_COUNT = 16;
 static const size_t MAX_NOSQL_ITEM_COUNT = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
+static const size_t MAX_SIZE = std::numeric_limits<size_t>::max();
 
 // A soft max for key writers used for initial vector allocation and
 // for stack allocation
@@ -656,7 +657,8 @@ class select_exec {
     m_row_count = 0;
     m_offset_limit = m_parser.get_offset_limit();
     m_select_limit = m_parser.get_select_limit() + m_offset_limit;
-    m_send_mapping.resize(m_table_share->fields, std::make_pair(nullptr, 0));
+    m_send_mapping.resize(m_table_share->fields,
+                          std::make_pair(MAX_SIZE, MAX_SIZE));
     m_debug_row_delay = get_select_bypass_debug_row_delay();
 
     memset(reinterpret_cast<char *>(m_field_index_to_where.data()), 0xff,
@@ -795,8 +797,8 @@ class select_exec {
   // map from field_index to where_list
   std::array<std::pair<int, int>, MAX_NOSQL_FIELD_COUNT> m_field_index_to_where;
 
-  // Number of fields(columns) in where eq key(prefix)
-  uint m_eq_key_count;
+  // Number of fields (columns) that are prefix of index
+  uint m_prefix_key_count;
 
   // The iterator used in secondary index query or range query
   std::unique_ptr<rocksdb::Iterator> m_scan_it;
@@ -822,13 +824,13 @@ class select_exec {
   std::vector<uchar> m_index_tuple_buf;
   Rdb_string_writer m_row_buf;
 
-  // Remember where eq(prefix) byte offset in m_row_buf
-  // currently use only in range query
-  uint m_row_buf_offset_where_eq;
+  // Remember where prefix key (in text format) ends in m_row_buf
+  // Currently use only in range query
+  uint m_row_buf_prefix_end_pos;
 
   // For given key_part, keeps track of the text representation of the column
-  // in the form of (char *, length)
-  std::vector<std::pair<uchar *, size_t>> m_send_mapping;
+  // in the form of (offset, length)
+  std::vector<std::pair<size_t, size_t>> m_send_mapping;
 
   // Temporary buffer for storing value
   rocksdb::PinnableSlice m_pk_value;
@@ -992,19 +994,19 @@ bool INLINE_ATTR select_exec::scan_where() {
   // Suppose we have index (A, B, C, D), then:
   //
   // WHERE A=1 AND B=2 And C=3:
-  //   KeyIndexTuples = {(1, 2, 3)}, eq_key_count=3
+  //   KeyIndexTuples = {(1, 2, 3)}, prefix_key_count=3
   // WHERE A=1 AND B=2 And C IN (1, 2, 3):
-  //   KeyIndexTuples = {(1, 2, 1), (1, 2, 2), (1, 2, 3)}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2, 1), (1, 2, 2), (1, 2, 3)}, prefix_key_count = 2
   // WHERE A=1 AND B=2 And C IN (1) AND D in (1, 2):
-  //   KeyIndexTuples = {(1, 2, 1, 1), (1, 2, 1, 2)}, eq_key_count = 4
+  //   KeyIndexTuples = {(1, 2, 1, 1), (1, 2, 1, 2)}, prefix_key_count = 4
   // WHERE A=1 AND B=2 AND D in (1, 2):
-  //   KeyIndexTuples = {(1, 2)}, Filters = {D in (1, 2)}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2)}, Filters = {D in (1, 2)}, prefix_key_count = 2
   // WHERE A=1 AND C=3:
-  //   KeyIndexTuples = {(1)}, Filters = (C=3), eq_key_count=1
+  //   KeyIndexTuples = {(1)}, Filters = (C=3), prefix_key_count=1
   // WHERE A=1 AND B=2 AND C>3:
-  //   KeyIndexTuples = {(1, 2, 3)}, Filters = {C>3}, eq_key_count = 2
+  //   KeyIndexTuples = {(1, 2, 3)}, Filters = {C>3}, prefix_key_count = 2
   bool eq_only = true;
-  m_eq_key_count = 0;
+  m_prefix_key_count = 0;
   uint key_part_no = 0;
   for (; key_part_no < m_index_info->actual_key_parts; ++key_part_no) {
     auto &key_part = m_index_info->key_part[key_part_no];
@@ -1021,8 +1023,8 @@ bool INLINE_ATTR select_exec::scan_where() {
         }
 
         if (eq_only) {
-          // Remember how many key part in where eq(prefix)
-          m_eq_key_count++;
+          // Remember number of prefix keys
+          m_prefix_key_count++;
 
           // Remember we've processed this condition already
           // Anything we haven't processed here become filters
@@ -1351,7 +1353,7 @@ bool INLINE_ATTR select_exec::run_query() {
     m_converter->setup_field_decoders(m_table->read_set);
   }
 
-  m_row_buf_offset_where_eq = 0;
+  m_row_buf_prefix_end_pos = 0;
   m_row_buf.clear();
 
   if (is_pk_point_query) {
@@ -1802,11 +1804,11 @@ select_exec::unpack_fast_value(Rdb_string_reader *value_reader) {
     auto index = value_field_iterator.get_field_index();
     DBUG_ASSERT(index < m_send_mapping.size());
     if (value_field_iterator.is_null()) {
-      m_send_mapping[index].first = nullptr;
-      m_send_mapping[index].second = static_cast<size_t>(-1);
+      m_send_mapping[index].first = MAX_SIZE;
+      m_send_mapping[index].second = MAX_SIZE;
     } else {
       size_t len = value_field_iterator.get_length();
-      m_send_mapping[index].first = m_row_buf.end() - len;
+      m_send_mapping[index].first = m_row_buf.get_current_pos() - len;
       m_send_mapping[index].second = len;
     }
   }
@@ -1825,20 +1827,28 @@ bool INLINE_ATTR select_exec::unpack_fast_index(Rdb_string_reader *reader,
       auto index = f->field_index;
       DBUG_ASSERT(index < m_send_mapping.size());
 
-      // decode key parts required by read_set
-      // for prefix(i < m_eq_key_count), reuse data from previous row
-      // for example, select a, b, c, d from t where a = 1 and b = 2
-      // where as key is (a, b, c). it is unncessary to decode a and b for each
-      // row for range query
+      // Decode key parts required by read_set
+      // Skip if either it is not in the read set or it is part of the prefix
+      // that we've decoded earlier, in either case, we can skip
+      // For example, for the following statement:
+      // SELECT d, c, b, a FROM t FORCE INDEX key1 WHERE a=1 and b=2;
+      // Assuming key1 is (a, b, c, d), we only have to unpack a=1 and b=2
+      // once and rememeber the m_row_buf ends at "12" (note the strings
+      // aren't null terminated as we keep the offset+len), and next time
+      // truncate to "12" and start unpacking afterwards.
+      // The offset is saved in m_row_buf_prefix_end_pos.
+      // And m_send_mapping makes sure the actual order of d, c, b, a is
+      // preserved.
       if (bitmap_is_set(m_table->read_set, f->field_index) &&
-          (m_send_mapping[index].first == nullptr || i >= m_eq_key_count)) {
+          (m_send_mapping[index].first == MAX_SIZE ||
+           i >= m_prefix_key_count)) {
         error = myrocks_unpack_key_field(f, fpi, reader, unp_reader, &len,
                                          &m_row_buf);
         if (error) {
           m_handler->print_error(error, 0);
           return true;
         }
-        m_send_mapping[index].first = m_row_buf.end() - len;
+        m_send_mapping[index].first = m_row_buf.get_current_pos() - len;
         m_send_mapping[index].second = len;
       } else {
         error = myrocks_skip_key_field(f, fpi, reader, unp_reader);
@@ -1847,12 +1857,12 @@ bool INLINE_ATTR select_exec::unpack_fast_index(Rdb_string_reader *reader,
           return true;
         }
       }
-      // record where_eq offset
-      // for range query, its result rows share same prefix data,
-      // record its prefix data length(offset) for first time and reuse its
-      // prefix data for other rows
-      if (i == m_eq_key_count - 1 && m_row_buf_offset_where_eq == 0) {
-        m_row_buf_offset_where_eq = m_row_buf.get_current_pos();
+
+      // This records the offset at which the common prefix keys end in
+      // m_row_buf. Given m_row_buf is laid down in index order, it's safe
+      // to always start unpacking next row at this offset.
+      if (i == m_prefix_key_count - 1 && m_row_buf_prefix_end_pos == 0) {
+        m_row_buf_prefix_end_pos = m_row_buf.get_current_pos();
       }
     }
   }
@@ -1891,7 +1901,7 @@ bool INLINE_ATTR select_exec::unpack_fast(rocksdb::Slice rkey,
   m_protocol->prepare_for_resend();
 
   // only keep the prefix data in m_row_buf to be reused
-  m_row_buf.truncate(m_row_buf_offset_where_eq);
+  m_row_buf.truncate(m_row_buf_prefix_end_pos);
 
   // unpack index(key)
   if (unpack_fast_index(&reader, &unp_reader)) {
@@ -1910,10 +1920,11 @@ bool INLINE_ATTR select_exec::unpack_fast(rocksdb::Slice rkey,
   for (uint i = 0; i < m_parser.get_field_count(); ++i) {
     auto index = field_list[i]->field_index;
     DBUG_ASSERT(index < m_send_mapping.size());
-    if (m_send_mapping[index].first != nullptr) {
+    if (m_send_mapping[index].first != MAX_SIZE) {
       // TODO(yzha) - Handle charset conversion
       m_protocol->store_string_aux(
-          reinterpret_cast<char *>(m_send_mapping[index].first),
+          reinterpret_cast<char *>(m_row_buf.ptr() +
+                                   m_send_mapping[index].first),
           m_send_mapping[index].second, nullptr, nullptr);
     } else {
       m_protocol->store_null();
