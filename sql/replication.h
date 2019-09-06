@@ -16,7 +16,9 @@
 #ifndef REPLICATION_H
 #define REPLICATION_H
 
+#include <condition_variable>
 #include <mysql.h>
+#include <queue>
 
 typedef struct st_mysql MYSQL;
 
@@ -683,6 +685,74 @@ int get_user_var_str(const char *name,
                      char *value, unsigned long len,
                      unsigned int precision, int *null_value);
 
+/* Type of callbakc that raft pluginh wants to invoke in the server */
+enum class RaftListenerCallbackType
+{
+  SET_READ_ONLY= 1,
+  UNSET_READ_ONLY= 2,
+  RAFT_LISTENER_THREADS_EXIT= 3,
+};
+
+/* Callbak argument, each type needs specialization to pass arguments.
+ * Setting read only does not need any arguments, so we donot have any
+ * specialization (yet) */
+class ICallbackArg
+{
+  public:
+    explicit ICallbackArg() {}
+    virtual ~ICallbackArg() {}
+};
+
+class RaftListenerQueue
+{
+  public:
+    explicit RaftListenerQueue()
+    {
+      inited_.store(false);
+    }
+
+    /* Init the queue, this will create a listening thread for this queue
+     *
+     * @return 0 on success, 1 on error
+     */
+    int init();
+
+    /* Deinit the queue. This will add an exit event into the queue which will
+     * be picked up by any listening thread and it will stop listening */
+    void deinit();
+
+    /* Defines the element of the queue. It consists of the callback type to be
+     * invoked and the argument (optional) for the callback */
+    struct QueueElement
+    {
+      RaftListenerCallbackType type;
+      ICallbackArg arg;
+    };
+
+    /* Add an element to the queue. This will signal any listening threads
+     * after adding the element to the queue
+     *
+     * @param element QueueElement to add to queue
+     *
+     * @return 0 on success, 1 on error
+     */
+    int add(QueueElement element);
+
+    /* Get an element from the queue. This will block if there are no elements
+     * in the queue to be processed
+     *
+     * @return QueueElement to be processed next
+     * */
+    QueueElement get();
+
+  private:
+    std::mutex queue_mutex_; // Lock guarding the queue
+    std::condition_variable queue_cv_; // CV to wait and signal
+    std::queue<QueueElement> queue_; // The queue of events to be processed
+
+    std::mutex init_mutex_; // Mutex to guard against init and deinit races
+    std::atomic_bool inited_; // Has this been inited?
+};
   
 
 #ifdef __cplusplus

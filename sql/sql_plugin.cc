@@ -36,6 +36,8 @@
 #include <mysql/plugin_validate_password.h>
 #include "my_default.h"
 #include "debug_sync.h"
+#include "replication.h"
+
 #include <mysql/plugin_multi_tenancy.h>
 #include <mysql/plugin_statistics.h>
 #include <mysql/plugin_rim.h>
@@ -52,7 +54,7 @@ engine_set global_trx_engine;
 
 extern struct st_mysql_plugin *mysql_optional_plugins[];
 extern struct st_mysql_plugin *mysql_mandatory_plugins[];
-
+extern RaftListenerQueue raft_listener_queue;
 /**
   @note The order of the enumeration is critical.
   @see construct_options
@@ -870,6 +872,27 @@ static st_plugin_int *plugin_insert_or_reuse(struct st_plugin_int *plugin)
 }
 
 
+static bool init_raft_threads()
+{
+  DBUG_ENTER("init_raft_threads");
+  if (raft_listener_queue.init())
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed to create raft threads");
+    DBUG_RETURN(TRUE); // Failed to create raft threads
+  }
+
+  DBUG_RETURN(FALSE); // Success
+
+}
+
+static bool deinit_raft_threads()
+{
+  DBUG_ENTER("deinit_raft_threads");
+  raft_listener_queue.deinit();
+  DBUG_RETURN(FALSE); // Success
+}
+
 /*
   NOTE
     Requires that a write-lock is held on LOCK_system_variables_hash
@@ -928,6 +951,11 @@ static bool plugin_add(MEM_ROOT *tmp_root,
         if (!my_hash_insert(&plugin_hash[plugin->type], (uchar*)tmp_plugin_ptr))
         {
           init_alloc_root(&tmp_plugin_ptr->mem_root, 4096, 4096);
+          if (strcasecmp(name->str, "mysql_raft_plugin") == 0)
+          {
+            if (init_raft_threads())
+              goto err;
+          }
           DBUG_RETURN(FALSE);
         }
         tmp_plugin_ptr->state= PLUGIN_IS_FREED;
@@ -944,6 +972,7 @@ static bool plugin_add(MEM_ROOT *tmp_root,
   report_error(report, ER_CANT_FIND_DL_ENTRY, name->str);
 err:
   plugin_dl_del(dl);
+  deinit_raft_threads();
   DBUG_RETURN(TRUE);
 }
 
@@ -2142,6 +2171,10 @@ bool mysql_uninstall_plugin(THD *thd, const LEX_STRING *name)
       DBUG_RETURN(TRUE);
     }
   }
+
+  if (strcasecmp(name->str, "mysql_raft_plugin") == 0)
+    deinit_raft_threads();
+
   DBUG_RETURN(FALSE);
 err:
   mysql_mutex_unlock(&LOCK_plugin);

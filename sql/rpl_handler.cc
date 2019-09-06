@@ -22,6 +22,8 @@
 #include <my_dir.h>
 #include "rpl_handler.h"
 #include "debug_sync.h"
+#include "global_threads.h"
+#include <thread>
 
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
@@ -30,6 +32,9 @@ Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 #endif /* HAVE_REPLICATION */
 Raft_replication_delegate *raft_replication_delegate;
+
+RaftListenerQueue raft_listener_queue;
+extern bool set_read_only(THD *thd, ulonglong read_only);
 
 /*
   structure to save transaction log filename and position
@@ -679,3 +684,127 @@ int unregister_raft_replication_observer(
   return raft_replication_delegate->remove_observer(
       observer, (st_plugin_int *)p);
 }
+
+#ifndef MYSQL_CLIENT
+pthread_handler_t process_raft_queue(void *arg)
+{
+  THD *thd;
+  bool thd_added= false;
+
+  /* Setup this thread */
+  my_thread_init();
+  thd= new THD;
+  pthread_detach_this_thread();
+  thd->thread_stack= (char *)&thd;
+
+  mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
+  add_global_thread(thd);
+  thd_added= true;
+  mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
+
+  /* Start listening for new events in the queue */
+  bool exit= false;
+  while (!exit)
+  {
+    RaftListenerQueue::QueueElement element= raft_listener_queue.get();
+    switch (element.type)
+    {
+      case RaftListenerCallbackType::SET_READ_ONLY:
+        set_read_only(current_thd, 1);
+        break;
+      case RaftListenerCallbackType::UNSET_READ_ONLY:
+        set_read_only(current_thd, 0);
+        break;
+      case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
+        raft_listener_queue.deinit();
+        exit= true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Cleanup and exit
+  dec_thread_running();
+  thd->release_resources();
+  if (thd_added)
+  {
+    remove_global_thread(thd);
+  }
+  delete thd;
+  my_thread_end();
+  pthread_exit(0);
+  return 0;
+}
+
+int start_raft_listener_thread()
+{
+  pthread_t th;
+  int error= 0;
+  if ((error= mysql_thread_create(0,
+                                  &th,
+                                  &connection_attrib,
+                                  process_raft_queue,
+                                  (void *) 0)))
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Could not create raft_listener_thread");
+    return 1;
+  }
+
+  return 0;
+}
+
+int RaftListenerQueue::add(QueueElement element)
+{
+  std::unique_lock<std::mutex> lock(queue_mutex_);
+  queue_.emplace(std::move(element));
+  lock.unlock();
+  queue_cv_.notify_all();
+
+  return 0;
+}
+
+RaftListenerQueue::QueueElement RaftListenerQueue::get()
+{
+  // Wait for something to be put into the event queue
+  std::unique_lock<std::mutex> lock(queue_mutex_);
+  while (queue_.empty())
+    queue_cv_.wait(lock);
+
+  QueueElement element= queue_.front();
+  queue_.pop();
+
+  return element;
+}
+
+int RaftListenerQueue::init()
+{
+  std::unique_lock<std::mutex> lock(init_mutex_);
+  if (inited_)
+    return 0; // Already inited
+
+  if (start_raft_listener_thread())
+    return 1; // Fails to initialize
+
+  inited_= true;
+  return 0; // Initialization success
+}
+
+void RaftListenerQueue::deinit()
+{
+  std::unique_lock<std::mutex> lock(init_mutex_);
+  if (!inited_)
+    return;
+
+  // Queue an exit event in the queue. The listener thread will eventually pick
+  // this up and exit
+  QueueElement element;
+  element.type= RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
+  add(element);
+
+  inited_= false;
+  return;
+}
+
+#endif /* !defined(MYSQL_CLIENT) */
