@@ -7392,3 +7392,8 @@ static Sys_var_bool Sys_fast_integer_to_string(
     "fast_integer_to_string",
     "Optimized implementation of integer to string conversion",
     GLOBAL_VAR(fast_integer_to_string), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_high_precision_processlist(
+    "high_precision_processlist",
+    "If set, MySQL will display the time in 1/1000000 of a second precision",
+    SESSION_VAR(high_precision_processlist), CMD_LINE(OPT_ARG), DEFAULT(false));

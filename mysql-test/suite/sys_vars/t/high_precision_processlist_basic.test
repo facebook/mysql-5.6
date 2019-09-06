@@ -1,0 +1,23 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of high_precision_processlist is OFF
+SELECT @@session.high_precision_processlist;
+
+####
+# Verify that this is a session variable
+####
+--echo Can set session value and is different from global
+set @@session.high_precision_processlist=on;
+SELECT @@session.high_precision_processlist;
+SELECT @@global.high_precision_processlist;
+
+####
+## Verify that setting it globally does not affect the session
+####
+--echo Setting it globally does not affects the session value
+set @@global.high_precision_processlist = off;
+SELECT @@session.high_precision_processlist;
+SELECT @@global.high_precision_processlist;

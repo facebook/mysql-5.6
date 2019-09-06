@@ -195,6 +195,11 @@ inline unsigned long long int my_micro_time() {
 #endif /* _WIN32 */
 }
 
+inline unsigned long long my_timeval_to_micro_time(const struct timeval &tm) {
+  return (static_cast<unsigned long long int>(tm.tv_sec) * 1000000 +
+          tm.tv_usec);
+}
+
 void get_date(char *to, int flag, time_t date);
 
 #endif  // MY_SYSTIME_INCLUDED
