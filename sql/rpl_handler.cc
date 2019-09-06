@@ -591,7 +591,7 @@ int Raft_replication_delegate::setup_flush(
     const char *log_prefix,
     const char *log_name,
     mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-    ulong *cur_log_ext, int context)
+    mysql_cond_t *update_cond, ulong *cur_log_ext, int context)
 {
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   Binlog_storage_param param;
@@ -599,7 +599,7 @@ int Raft_replication_delegate::setup_flush(
 
   FOREACH_OBSERVER(ret, setup_flush, thd,
       (is_relay_log, log_file_cache, log_prefix, log_name,
-       lock_log, lock_index, cur_log_ext, context)
+       lock_log, lock_index, update_cond, cur_log_ext, context)
   );
 
   DBUG_RETURN(ret);

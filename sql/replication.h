@@ -457,8 +457,8 @@ typedef struct Raft_replication_observer {
   */
   int (*setup_flush)(bool is_relay_log, IO_CACHE* log_file_cache,
                      const char *log_prefix, const char *log_name,
-                     mysql_mutex_t *lock_log,
-                     mysql_mutex_t *lock_index, ulong *cur_log_ext,
+                     mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+                     mysql_cond_t *update_cond, ulong *cur_log_ext,
                      int context);
 } Raft_replication_observer;
 

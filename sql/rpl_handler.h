@@ -285,7 +285,7 @@ public:
                   IO_CACHE* log_file_cache,
                   const char *log_prefix, const char *log_name,
                   mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-                  ulong *cur_log_ext, int context);
+                  mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
 };
 
 int delegates_init();

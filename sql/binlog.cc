@@ -8473,7 +8473,8 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd,
     mysql_mutex_assert_owner(&LOCK_log);
   int err= RUN_HOOK(raft_replication, setup_flush,
                     (thd, is_relay_log, &log_file, name, log_file_name,
-                     &LOCK_log, &LOCK_index, &cur_log_ext, context));
+                     &LOCK_log, &LOCK_index, &update_cond, &cur_log_ext,
+                     context));
   if (need_lock)
     mysql_mutex_unlock(&LOCK_log);
   return err;
