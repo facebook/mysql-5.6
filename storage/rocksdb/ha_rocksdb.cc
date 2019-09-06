@@ -6245,6 +6245,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_dup_pk_found(false),
       mrr_rowid_reader(nullptr),
       mrr_n_elements(0),
+      mrr_enabled_keyread(false),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false),
       m_force_skip_unique_check(false) {}
@@ -8042,14 +8043,17 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
 #endif
 
   if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
-    pk_size =
-        kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
-    if (pk_size == RDB_INVALID_KEY_LEN) {
-      rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
-    } else {
-      rc = kd.unpack_record(table, buf, &rkey, &value,
-                            m_converter->get_verify_row_debug_checksums());
-      global_stats.covered_secondary_key_lookups.inc();
+    // Due to MRR, we can have ICP enabled with covered_lookup == true
+    if (!(rc = find_icp_matching_index_rec(move_forward, buf))) {
+      pk_size =
+          kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
+      if (pk_size == RDB_INVALID_KEY_LEN) {
+        rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
+      } else {
+        rc = kd.unpack_record(table, buf, &rkey, &value,
+                              m_converter->get_verify_row_debug_checksums());
+        global_stats.covered_secondary_key_lookups.inc();
+      }
     }
   } else {
     if (kd.m_is_reverse_cf) move_forward = !move_forward;
@@ -15257,6 +15261,7 @@ class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
   int init(RANGE_SEQ_IF *seq, void *seq_init_param,
            uint n_ranges, uint mode) {
     self->m_keyread_only = true; // TODO: is this ugly or fine?
+    self->mrr_enabled_keyread = true;
     return self->handler::multi_range_read_init(seq, seq_init_param, n_ranges,
                                                 mode, nullptr);
   }
@@ -15298,6 +15303,7 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
 
   mrr_uses_default_impl = false;
   mrr_n_elements = 0;  // nothing to cleanup, yet.
+  mrr_enabled_keyread = false;
   mrr_rowid_reader = nullptr;
 
   mrr_funcs = *seq;
@@ -15413,6 +15419,10 @@ int ha_rocksdb::mrr_fill_buffer() {
 
 void ha_rocksdb::mrr_free() {
   // Free everything
+  if (mrr_enabled_keyread) {
+    m_keyread_only = false;
+    mrr_enabled_keyread = false;
+  }
   mrr_free_rows();
   delete mrr_rowid_reader;
   mrr_rowid_reader = nullptr;

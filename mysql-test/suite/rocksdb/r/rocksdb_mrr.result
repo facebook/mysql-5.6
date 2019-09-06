@@ -258,6 +258,32 @@ pk1	pk2	col1	filler
 26	26	26	26
 27	27	27	27
 28	28	28	28
+# Check if Index Condition Pushdown works
+explain 
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	col1	col1	5	NULL	2	Using index condition; Using MRR
+select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler
+20	20	20	20
+26	26	26	26
+28	28	28	28
+select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler
+20	20	20	20
+26	26	26	26
+28	28	28	28
+explain
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	col1	col1	5	NULL	2	Using index condition; Using MRR
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+pk1	pk2	col1	filler	mod(t3.col1,2)
+20	20	20	20	0
+26	26	26	26	0
+28	28	28	28	0
 drop table t0,t1,t2,t3,t4;
 #
 # Multi-keypart testcase

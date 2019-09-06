@@ -690,6 +690,9 @@ class ha_rocksdb : public my_core::handler {
   ssize_t mrr_n_elements;  // Number of elements in the above arrays
   ssize_t mrr_read_index;  // Number of the element we will return next
 
+  // if true, MRR code has enabled keyread (and should disable it back)
+  bool mrr_enabled_keyread;
+
   // Expected number of rowids that are left to scan.
   //  This number is used to avoid allocating huge arrays in mrr_fill_buffer
   ssize_t mrr_n_rowids;

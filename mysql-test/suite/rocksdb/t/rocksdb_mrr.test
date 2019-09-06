@@ -181,20 +181,19 @@ explain
 select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 select * from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 
---disable_parsing
---echo # Check if index condition pushdown works
+--echo # Check if Index Condition Pushdown works
 explain 
 select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 select * from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 
 select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
-select * from t3 use index() where (t3.col1=20 or t3.col1 between 25 and 28);
 
-set optimizer_switch='mrr=off';
 explain
-select pk1,pk2,col1, filler,mod(t3.col1,2) from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
-select pk1,pk2,col1, filler,mod(t3.col1,2) from t3 where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
---enable_parsing
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
+
+select pk1,pk2,col1, filler,mod(t3.col1,2) from t3
+where (t3.col1=20 or t3.col1 between 25 and 28) and mod(t3.col1,2)=0;
 
 drop table t0,t1,t2,t3,t4;
 
