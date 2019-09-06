@@ -44,7 +44,7 @@ static ulong const days_at_timestart=719528;	/* daynr at 1970.01.01 */
 uchar days_in_month[]= {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
 
 /*
-  Offset of system time zone from UTC in seconds used to speed up 
+  Offset of system time zone from UTC in seconds used to speed up
   work of my_system_gmt_sec() function.
 */
 static long my_time_zone=0;
@@ -169,7 +169,7 @@ my_bool check_time_mmssff_range(const MYSQL_TIME *ltime)
   @param ltime   Rime value.
   @returns       Test result.
   @retval        FALSE if value is Ok.
-  @retval        TRUE if value is out of range. 
+  @retval        TRUE if value is out of range.
 */
 my_bool check_time_range_quick(const MYSQL_TIME *ltime)
 {
@@ -198,7 +198,7 @@ my_bool check_datetime_range(const MYSQL_TIME *ltime)
     In case of MYSQL_TIMESTAMP_DATETIME it cannot be bigger than 23.
   */
   return
-    ltime->year > 9999 || ltime->month > 12  || ltime->day > 31 || 
+    ltime->year > 9999 || ltime->month > 12  || ltime->day > 31 ||
     ltime->minute > 59 || ltime->second > 59 || ltime->second_part > 999999 ||
     (ltime->hour >
      (ltime->time_type == MYSQL_TIMESTAMP_TIME ? TIME_MAX_HOUR : 23));
@@ -764,7 +764,7 @@ fractional:
   }
   else
     date[4]=0;
-    
+
   /* Check for exponent part: E<gigit> | E<sign><digit> */
   /* (may occur as result of %g formatting of time value) */
   if ((end - str) > 1 &&
@@ -797,10 +797,10 @@ fractional:
       date[2] > UINT_MAX || date[3] > UINT_MAX ||
       date[4] > UINT_MAX)
     return 1;
-  
+
   l_time->year=         0;                      /* For protocol::store_time */
   l_time->month=        0;
-  
+
   l_time->day=  0;
   l_time->hour= date[1] + date[0] * 24; /* Mix days and hours */
 
@@ -891,7 +891,7 @@ number_to_time(longlong nr, MYSQL_TIME *ltime, int *warnings)
   @param  time     pointer to MYSQL_TIME value
   @param  warning  set MYSQL_TIME_WARN_OUT_OF_RANGE flag if the value is out of range
 */
-void adjust_time_range(struct st_mysql_time *my_time, int *warning) 
+void adjust_time_range(struct st_mysql_time *my_time, int *warning)
 {
   DBUG_ASSERT(!check_time_mmssff_range(my_time));
   if (check_time_range_quick(my_time))
@@ -1002,9 +1002,9 @@ long calc_daynr(uint year,uint month,uint day)
       in_dst_time_gap - set to true if time falls into spring time-gap
 
   NOTES
-    The idea is to cache the time zone offset from UTC (including daylight 
-    saving time) for the next call to make things faster. But currently we 
-    just calculate this offset during startup (by calling my_init_time() 
+    The idea is to cache the time zone offset from UTC (including daylight
+    saving time) for the next call to make things faster. But currently we
+    just calculate this offset during startup (by calling my_init_time()
     function) and use it all the time.
     Time value provided should be legal time value (e.g. '2003-01-01 25:00:00'
     is not allowed).
@@ -1277,7 +1277,7 @@ TIME_to_datetime_str(char *to, const MYSQL_TIME *ltime)
   *to++= (char) ('0' + (char) (temp2));
   *to++= (char) ('0' + (char) (temp));
   *to++= '-';
-  /* Day */ 
+  /* Day */
   temp= ltime->day;
   temp2= temp / 10;
   temp= temp - temp2 * 10;
@@ -1313,7 +1313,7 @@ TIME_to_datetime_str(char *to, const MYSQL_TIME *ltime)
 
   @l_time       The MYSQL_TIME value to print.
   @to      OUT  The string pointer to print at.
-  @return       The length of the result string.  
+  @return       The length of the result string.
 */
 int my_datetime_to_str(const MYSQL_TIME *l_time, char *to, uint dec)
 {
@@ -1358,10 +1358,10 @@ int my_TIME_to_str(const MYSQL_TIME *l_time, char *to, uint dec)
 
 
 /**
-  Print a timestamp with an oprional fractional part: XXXXX[.YYYYY]
+  Print a timestamp with an optional fractional part: XXXXX[.YYYYY]
 
   @param      tm  The timestamp value to print.
-  @param  OUT to  The string pointer to print at. 
+  @param  OUT to  The string pointer to print at.
   @param      dec Precision, in the range 0..6.
   @return         The length of the result string.
 */
@@ -1373,6 +1373,44 @@ int my_timeval_to_str(const struct timeval *tm, char *to, uint dec)
   return len;
 }
 
+/**
+  Return a timestamp in seconds including a fractional component
+
+  @param      tm  The timestamp value
+  @return         The number of seconds
+*/
+double my_timeval_to_double(const struct timeval *tm)
+{
+  return tm->tv_sec + (double)tm->tv_usec/1000000;
+}
+
+/**
+  Return a timestamp in seconds
+
+  @param      tm  The timestamp value
+  @return         The number of seconds
+*/
+longlong my_timeval_to_longlong(const struct timeval *tm)
+{
+  return (longlong)tm->tv_sec;
+}
+
+/**
+  Return the difference between two timestamps
+
+  @param      tm_left  The left timestamp value
+  @param      tm_right The right timestamp value
+  @param  OUT tm_out   The out timestamp value
+*/
+void my_timeval_minus(const struct timeval *tm_left,
+                      const struct timeval *tm_right,
+                            struct timeval *tm_out)
+{
+  if (!(tm_out && tm_left && tm_right))
+    return;
+  tm_out->tv_sec = (tm_left->tv_sec - tm_right->tv_sec);
+  tm_out->tv_usec = (tm_left->tv_usec - tm_right->tv_usec);
+}
 
 /*
   Convert datetime value specified as number to broken-down TIME
@@ -1618,7 +1656,7 @@ ulonglong TIME_to_ulonglong(const MYSQL_TIME *my_time)
 
 /**
   Convert time value to numeric packed representation.
-  
+
   @param    ltime   The value to convert.
   @return           Numeric packed representation.
 */
@@ -1657,7 +1695,7 @@ void TIME_from_longlong_time_packed(MYSQL_TIME *ltime, longlong tmp)
 
 /**
   Calculate binary size of packed numeric time representation.
-  
+
   @param   dec   Precision.
 */
 uint my_time_binary_length(uint dec)
@@ -1677,7 +1715,7 @@ uint my_time_binary_length(uint dec)
 
 /**
   Convert in-memory numeric time representation to on-disk representation
-  
+
   @param       nr   Value in packed numeric time format.
   @param   OUT ptr  The buffer to put value at.
   @param       dec  Precision.
@@ -1686,7 +1724,7 @@ void my_time_packed_to_binary(longlong nr, uchar *ptr, uint dec)
 {
   DBUG_ASSERT(dec <= DATETIME_MAX_DECIMALS);
   /* Make sure the stored value was previously properly rounded or truncated */
-  DBUG_ASSERT((MY_PACKED_TIME_GET_FRAC_PART(nr) % 
+  DBUG_ASSERT((MY_PACKED_TIME_GET_FRAC_PART(nr) %
               (int) log_10_int[DATETIME_MAX_DECIMALS - dec]) == 0);
 
   switch (dec)
@@ -1717,9 +1755,9 @@ void my_time_packed_to_binary(longlong nr, uchar *ptr, uint dec)
 
 
 /**
-  Convert on-disk time representation to in-memory packed numeric 
+  Convert on-disk time representation to in-memory packed numeric
   representation.
-  
+
   @param   ptr  The pointer to read the value at.
   @param   dec  Precision.
   @return       Packed numeric time representation.
@@ -1825,7 +1863,7 @@ longlong TIME_to_longlong_datetime_packed(const MYSQL_TIME *ltime)
   Convert date to packed numeric date representation.
   Numeric packed date format is similar to numeric packed datetime
   representation, with zero hhmmss part.
-  
+
   @param ltime The value to convert.
   @return      Packed numeric representation of ltime.
 */
@@ -1873,7 +1911,7 @@ void TIME_from_longlong_datetime_packed(MYSQL_TIME *ltime, longlong tmp)
   ltime->second= hms % (1 << 6);
   ltime->minute= (hms >> 6) % (1 << 6);
   ltime->hour= (hms >> 12);
-  
+
   ltime->time_type= MYSQL_TIMESTAMP_DATETIME;
 }
 
@@ -2076,7 +2114,7 @@ longlong TIME_to_longlong_packed(const MYSQL_TIME *ltime)
   case MYSQL_TIMESTAMP_DATETIME:
     return TIME_to_longlong_datetime_packed(ltime);
   case MYSQL_TIMESTAMP_TIME:
-    return TIME_to_longlong_time_packed(ltime);   
+    return TIME_to_longlong_time_packed(ltime);
   case MYSQL_TIMESTAMP_NONE:
   case MYSQL_TIMESTAMP_ERROR:
     return 0;

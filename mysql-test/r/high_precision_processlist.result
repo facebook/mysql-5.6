@@ -1,0 +1,24 @@
+Test #1: variable is off (low precision)
+SELECT @@session.high_precision_processlist;
+@@session.high_precision_processlist
+0
+SELECT @@global.high_precision_processlist;
+@@global.high_precision_processlist
+0
+select case when time=round(time) then 'success' else 'failure' end status
+from information_schema.processlist where time < 1;
+status
+success
+Test #2: variable is on (high precision)
+set @@session.high_precision_processlist=on;
+SELECT @@session.high_precision_processlist;
+@@session.high_precision_processlist
+1
+SELECT @@global.high_precision_processlist;
+@@global.high_precision_processlist
+0
+select case when time!=round(time) then 'success' else 'failure' end status
+from information_schema.processlist where time < 1;
+status
+success
+set @@session.high_precision_processlist=off;

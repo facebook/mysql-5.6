@@ -6463,4 +6463,11 @@ static Sys_var_mybool Sys_acl_fast_lookup(
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_enable_acl_fast_lookup));
+
+static Sys_var_mybool Sys_high_precision_processlist(
+       "high_precision_processlist",
+       "If set, MySQL will display the time in 1/1000000 of a second precision",
+       SESSION_VAR(high_precision_processlist),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 #endif

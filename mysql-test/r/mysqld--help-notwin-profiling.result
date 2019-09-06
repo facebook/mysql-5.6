@@ -365,6 +365,9 @@ The following options may be given as the first argument:
  gtid_executed set before flushing binlog from cache to
  file.
  -?, --help          Display this help and exit.
+ --high-precision-processlist 
+ If set, MySQL will display the time in 1/1000000 of a
+ second precision
  --high-priority-ddl Setting this flag will allow DDL commands to kill
  conflicting connections (effective for admin user only).
  --high-priority-lock-wait-timeout=# 
@@ -2121,6 +2124,7 @@ group-concat-max-len 1024
 gtid-mode OFF
 gtid-precommit FALSE
 help TRUE
+high-precision-processlist FALSE
 high-priority-ddl FALSE
 high-priority-lock-wait-timeout 1
 histogram-step-size-binlog-fsync 16ms

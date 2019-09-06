@@ -811,6 +811,9 @@ typedef struct system_variables
   ulong dscp_on_socket;
 
   my_bool innodb_stats_on_metadata;
+
+  my_bool high_precision_processlist;
+
 } SV;
 
 

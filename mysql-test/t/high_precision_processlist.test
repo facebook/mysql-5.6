@@ -1,0 +1,23 @@
+
+### the test relies on information_schema.processlist where
+### it is easier to process the time using SQL statements
+
+### 1: use high precision time, round yields same value for sub-sec time
+--echo Test #1: variable is off (low precision)
+SELECT @@session.high_precision_processlist;
+SELECT @@global.high_precision_processlist;
+
+select case when time=round(time) then 'success' else 'failure' end status
+from information_schema.processlist where time < 1;
+
+### 2: use high precision time, round yields higher value for sub-sec time
+--echo Test #2: variable is on (high precision)
+set @@session.high_precision_processlist=on;
+SELECT @@session.high_precision_processlist;
+SELECT @@global.high_precision_processlist;
+
+select case when time!=round(time) then 'success' else 'failure' end status
+from information_schema.processlist where time < 1;
+
+### restore the variable to its default value
+set @@session.high_precision_processlist=off;
