@@ -275,7 +275,7 @@ class ReaperWorker(WorkerThread):
       logging.info('killing server...')
       with open(OPTIONS.expect_file, 'w+') as expect_file:
         expect_file.write('restart')
-      os.kill(self.get_server_pid(), signal.SIGTERM)
+      os.kill(self.get_server_pid(), signal.SIGKILL)
       self.kills += 1
       time_remain = random.randint(0, 30) + OPTIONS.reap_delay;
 
