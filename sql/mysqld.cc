@@ -13042,6 +13042,7 @@ PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
+PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
 #ifdef HAVE_REPLICATION
 PSI_rwlock_key key_rwlock_Binlog_transmit_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
@@ -13077,6 +13078,8 @@ static PSI_rwlock_info all_server_rwlocks[]=
 #if (defined(_WIN32) || defined(HAVE_SMEM)) && !defined(EMBEDDED_LIBRARY)
   { &key_rwlock_LOCK_named_pipe_full_access_group, "LOCK_named_pipe_full_access_group", PSI_FLAG_GLOBAL},
 #endif /* _WIN32 || HAVE_SMEM && !EMBEDDED_LIBRARY */
+  { &key_rwlock_Raft_replication_delegate_lock,
+    "Raft_replication_delegate::lock", PSI_FLAG_GLOBAL},
 };
 
 #ifdef HAVE_MMAP
