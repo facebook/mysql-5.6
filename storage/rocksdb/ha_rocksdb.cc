@@ -3493,8 +3493,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
                            statuses, sorted_input);
   }
 
-  }
-
   rocksdb::Status get_for_update(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -3809,8 +3807,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
                  const bool sorted_input) const override {
     m_batch->MultiGetFromBatchAndDB(rdb, m_read_opts, column_family, num_keys,
                                     keys, values, statuses, sorted_input);
-  }
-
   }
 
   rocksdb::Iterator *get_iterator(
