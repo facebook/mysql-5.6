@@ -734,6 +734,24 @@ static bool check_has_super(sys_var *self, THD *thd, set_var *var)
   return false;
 }
 
+static bool check_has_super_or_repl_slave_and_admin_port(sys_var *self,
+                                                         THD *thd,
+                                                         set_var *var) {
+  // don't abuse check_has_super_or_repl_slave_and_admin_port()
+  DBUG_ASSERT(self->scope() != sys_var::GLOBAL);
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  if (!(thd->security_ctx->master_access & SUPER_ACL) &&
+      !((thd->security_ctx->master_access & REPL_SLAVE_ACL) &&
+        (thd->security_ctx->master_access & ADMIN_PORT_ACL))) {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+             "SUPER or (REPLICATION SLAVE AND ADMIN PORT)");
+    return true;
+  }
+#endif
+  return false;
+}
+
 #if defined(HAVE_GTID_NEXT_LIST) || defined(NON_DISABLED_GTID) || defined(HAVE_REPLICATION)
 static bool check_top_level_stmt(sys_var *self, THD *thd, set_var *var)
 {
@@ -2370,12 +2388,10 @@ static Sys_var_ulong Sys_metadata_locks_hash_instances(
        BLOCK_SIZE(1));
 
 static Sys_var_uint Sys_pseudo_thread_id(
-       "pseudo_thread_id",
-       "This variable is for internal server use",
-       SESSION_ONLY(pseudo_thread_id),
-       NO_CMD_LINE, VALID_RANGE(0, UINT_MAX32), DEFAULT(0),
-       BLOCK_SIZE(1), NO_MUTEX_GUARD, IN_BINLOG,
-       ON_CHECK(check_has_super));
+    "pseudo_thread_id", "This variable is for internal server use",
+    SESSION_ONLY(pseudo_thread_id), NO_CMD_LINE, VALID_RANGE(0, UINT_MAX32),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, IN_BINLOG,
+    ON_CHECK(check_has_super_or_repl_slave_and_admin_port));
 
 static bool fix_max_join_size(sys_var *self, THD *thd, enum_var_type type)
 {

@@ -1,0 +1,85 @@
+source include/have_gtid.inc;
+source include/master-slave.inc;
+
+connection master;
+create table tbl (id int primary key, value int);
+insert into tbl values (1, 1);
+update tbl set value=value+1 where id=1;
+insert into tbl values (2, 10);
+
+let $MYSQLD_DATADIR= `select @@datadir;`;
+let $BINLOG_NAME = query_get_value(show master status, File, 1);
+--copy_file $MYSQLD_DATADIR/$BINLOG_NAME $MYSQLD_DATADIR/master-bin.saved
+
+flush logs;
+connection master;
+select id, value from tbl; 
+drop table tbl;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+show tables like 'tbl';
+
+connection master;
+create user 'olm'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'olm'@'localhost';
+revoke super on *.* from 'olm'@'localhost';
+show tables like 'tbl';
+
+connection master;
+create user 'normal'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'normal'@'localhost';
+revoke super on *.* from 'normal'@'localhost';
+revoke REPLICATION SLAVE on *.* from 'normal'@'localhost';
+revoke Admin port on *.* from 'normal'@'localhost';
+show tables like 'tbl';
+
+--echo User without replication slave privilege can't replay binlog
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='normal' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+connection master;
+# Table 'test.tbl' doesn't exist
+--error 1146
+select * from test.tbl; 
+
+grant REPLICATION SLAVE on *.* to 'normal'@'localhost';
+--echo User without replication slave privilege can't replay binlog
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='normal' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+connection master;
+# Table 'test.tbl' doesn't exist
+--error 1146
+select * from test.tbl; 
+revoke REPLICATION SLAVE on *.* from 'normal'@'localhost';
+
+grant Admin port on *.* to 'normal'@'localhost';
+--echo User without admin port privilege can't replay binlog
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='normal' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+connection master;
+# Table 'test.tbl' doesn't exist
+--error 1146
+select * from test.tbl; 
+
+
+--echo User user who has replication slave privilege and admin port can replay binlog
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--remove_file $MYSQLD_DATADIR/master-bin.saved  
+
+# with replication privilege, mysqlbinlog can generate binlog and gtid 
+--source include/sync_slave_sql_with_master.inc
+connection master;
+select * from test.tbl; 
+
+connection slave;
+select * from test.tbl; 
+
+connection master;
+DROP user 'olm'@'localhost';
+DROP user 'normal'@'localhost';
+DROP table tbl;
+--source include/rpl_end.inc
+

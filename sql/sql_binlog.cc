@@ -131,9 +131,13 @@ void mysql_client_binlog_statement(THD* thd)
                      (int) (thd->lex->comment.length < 2048 ?
                             thd->lex->comment.length : 2048),
                      thd->lex->comment.str));
-
-  if (check_global_access(thd, SUPER_ACL))
+  if (!(thd->security_ctx->master_access & SUPER_ACL) &&
+      !((thd->security_ctx->master_access & REPL_SLAVE_ACL) &&
+        (thd->security_ctx->master_access & ADMIN_PORT_ACL))) {
+    my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+             "SUPER or (REPLICATION SLAVE AND ADMIN PORT)");
     DBUG_VOID_RETURN;
+  }
 
   size_t coded_len= thd->lex->comment.length;
   if (!coded_len)
