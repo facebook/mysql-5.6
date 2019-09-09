@@ -15322,8 +15322,9 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
     mrr_rowid_reader = reader;
     mrr_n_rowids = SSIZE_MAX-1; // TODO: get rid of this
   }
-  mrr_fill_buffer();
-  return 0;
+
+  res = mrr_fill_buffer();
+  return res;
 }
 
 uint ha_rocksdb::mrr_get_length_per_rec() {
@@ -15359,7 +15360,7 @@ int ha_rocksdb::mrr_fill_buffer() {
 
   if (n_elements < 1) {
     DBUG_ASSERT(0);
-    return 1;  // error
+    return HA_ERR_INTERNAL_ERROR;  // error
   }
   // TODO: why are we allocating/de-allocating every time buffer is refilled?
   char *buf = (char *)mrr_buf.buffer;
@@ -15379,6 +15380,11 @@ int ha_rocksdb::mrr_fill_buffer() {
   int key_size;
   char *range_ptr;
   while ((key_size = mrr_rowid_reader->get_next_rowid((uchar*)buf, &range_ptr)) > 0 ) {
+
+    DEBUG_SYNC(table->in_use, "rocksdb.mrr_fill_buffer.loop");
+    if (table->in_use->killed) {
+      return HA_ERR_QUERY_INTERRUPTED;
+    }
 
     elem++;
     mrr_keys[elem] = rocksdb::Slice(buf, key_size);
@@ -15443,7 +15449,12 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
         mrr_free_rows();
         return HA_ERR_END_OF_FILE;
       }
-      mrr_fill_buffer();
+      int res;
+
+      if ((res = mrr_fill_buffer())) {
+        return res;
+      }
+
       if (!mrr_n_elements) {
         table->status = STATUS_NOT_FOUND;  // not sure if this is necessary?
         return HA_ERR_END_OF_FILE;
