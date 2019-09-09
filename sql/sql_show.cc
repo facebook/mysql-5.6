@@ -4655,3 +4655,5 @@ void show_sql_type(enum_field_types type, bool is_array, uint metadata,
   if (is_array) str->append(STRING_WITH_LEN(" array"));
   DBUG_VOID_RETURN;
 }
+
+/* Test change 2 */
