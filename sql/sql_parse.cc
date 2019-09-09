@@ -7146,3 +7146,5 @@ bool merge_sp_var_charset_and_collation(const CHARSET_INFO *charset,
   }
   return merge_charset_and_collation(charset, collation, to);
 }
+
+/* TEST1 */
