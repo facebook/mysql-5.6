@@ -501,6 +501,7 @@ bool enable_blind_replace= 0;
 bool enable_binlog_hlc= 0;
 bool maintain_database_hlc= 0;
 my_bool async_query_counter_enabled = 0;
+ulong opt_commit_consensus_error_action= 0;
 my_bool enable_acl_fast_lookup= 0;
 my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;

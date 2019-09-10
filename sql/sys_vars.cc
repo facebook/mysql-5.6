@@ -7265,3 +7265,19 @@ static Sys_var_mybool Sys_enable_raft_plugin(
        "plugin when it is enabled",
        GLOBAL_VAR(enable_raft_plugin),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static const char *commit_consensus_error_actions[]=
+{
+  "ROLLBACK_TRXS_IN_GROUP",
+  "IGNORE_COMMIT_CONSENSUS_ERROR",
+  0
+};
+
+static Sys_var_enum Sys_commit_consensus_error_action(
+       "commit_consensus_error_action",
+       "Defines the server action when a thread fails inside ordered commit "
+       "due to consensus error",
+       GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
+       commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+

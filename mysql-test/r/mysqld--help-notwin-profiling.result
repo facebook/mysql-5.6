@@ -226,6 +226,9 @@ The following options may be given as the first argument:
  column statistics data from memory. OFF_SOFT: Stop
  collecting column statistics, but retain any data
  collected so far. ON: Collect the statistics.
+ --commit-consensus-error-action[=name] 
+ Defines the server action when a thread fails inside
+ ordered commit due to consensus error
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
@@ -2320,6 +2323,7 @@ character-sets-dir MYSQL_CHARSETSDIR/
 chroot (No default value)
 collation-server latin1_swedish_ci
 column-stats-control OFF_HARD
+commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
 completion-type NO_CHAIN
 compressed-event-cache-evict-threshold 60
 concurrent-insert AUTO

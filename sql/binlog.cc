@@ -1674,6 +1674,29 @@ static int binlog_rollback(handlerton *hton, THD *thd, bool all)
   DBUG_RETURN(error);
 }
 
+static void wait_for_follower(THD* thd)
+{
+  const char act[]=
+    "now signal group_leader_selected wait_for group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void signal_leader(THD* thd)
+{
+  const char act[]=
+    "now signal group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void wait_for_leader(THD* thd)
+{
+  const char act[]=
+    "now wait_for group_leader_selected";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
 
 bool
 Stage_manager::Mutex_queue::append(THD *first)
@@ -1725,7 +1748,25 @@ Stage_manager::enroll_for(StageID stage, THD *thd, mysql_mutex_t *leave_mutex,
 
   DBUG_ASSERT(enter_mutex);
 
+  DBUG_EXECUTE_IF("become_group_follower",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      wait_for_leader(thd);
+                  });
+
   bool leader= m_queue[stage].append(thd);
+
+  DBUG_EXECUTE_IF("become_group_leader",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      wait_for_follower(thd);
+                  });
+
+  DBUG_EXECUTE_IF("become_group_follower",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      signal_leader(thd);
+                  });
 
 #ifdef HAVE_REPLICATION
   // case: we have waited for our turn and will be committing next so unregister
@@ -8015,8 +8056,14 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
       /*
         storage engine commit
       */
-      if (ha_commit_low(head, all, async, false))
+      if (head->commit_consensus_error)
+      {
+        handle_commit_consensus_error(head, async);
+      }
+      else if (ha_commit_low(head, all, async, false))
+      {
         head->commit_error= THD::CE_COMMIT_ERROR;
+      }
       else if (enable_binlog_hlc && maintain_database_hlc &&
           head->hlc_time_ns_next)
       {
@@ -8112,6 +8159,7 @@ void
 MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
 {
    THD *last_thd = NULL;
+   int error= 0;
    for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
    {
       if (thd->commit_error == THD::CE_NONE)
@@ -8128,9 +8176,74 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      (void) RUN_HOOK(transaction, before_commit,
                      (last_thd, last_thd->transaction.flags.real_commit));
 
-     (void) RUN_HOOK(raft_replication, before_commit,
+     // TODO: Handle the error correctly once raft plugin has its own
+     // delegates/observers
+     error= RUN_HOOK(raft_replication, before_commit,
                      (last_thd, last_thd->transaction.flags.real_commit));
+     DBUG_EXECUTE_IF("simulate_before_commit_error", {error= 1;});
+
+     if (error)
+       set_commit_consensus_error(queue_head);
    }
+}
+
+/**
+  Sets the commit_consensus_error flag in all thd's of this group if there was
+  an error in the before_commit hook
+
+  @param queue_head  Head of the semisync stage queue.
+*/
+void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head)
+{
+   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
+   {
+     thd->commit_consensus_error= true;
+   }
+}
+
+/**
+  Sets the commit_consensus_error flag in all thd's of this group if there was
+  an error in the before_commit hook
+
+  @param thd Thd for which conecnsus error need to be handled
+*/
+void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd, bool async)
+{
+  DBUG_ENTER("MYSQL_BIN_LOG::handle_commit_consensus_error");
+  bool all= thd->transaction.flags.real_commit;
+
+  /* Handle commit consensus error appropriately */
+  switch (opt_commit_consensus_error_action)
+  {
+    case ROLLBACK_TRXS_IN_GROUP:
+      /* Rollbak the trx and set commit_error in thd->commit_error
+       * Also clear commit_low flag to prevent commit getting
+       * triggered when the session ends. ha_rollback_low() could fail,
+       * but there is nothing much we can do */
+       ha_rollback_low(thd, all);
+       thd->commit_error= THD::CE_COMMIT_ERROR;
+       thd->transaction.flags.commit_low= false;
+
+       // Clear hlc_time since we did not commit this trx
+       thd->hlc_time_ns_next= 0;
+
+       /* Insert a error frame. TODO: See if this has to be a different
+        * error code */
+       my_error(ER_ERROR_DURING_COMMIT, MYF(0), 1);
+       break;
+     case IGNORE_COMMIT_CONSENSUS_ERROR:
+       /* Ignore commit consensus error and commit to engine as usual */
+       if (ha_commit_low(thd, all, async, false))
+       {
+         thd->commit_error= THD::CE_COMMIT_ERROR;
+       }
+       break;
+     default:
+       // Should not happen. This is here to placate the compiler
+       DBUG_ASSERT(true);
+  }
+
+  DBUG_VOID_RETURN;;
 }
 
 #ifndef DBUG_OFF
@@ -8311,8 +8424,15 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
       storage engine commit
     */
     DBUG_ASSERT(thd->commit_error != THD::CE_COMMIT_ERROR);
-    if (ha_commit_low(thd, all, async, false))
+    if (thd->commit_consensus_error)
+    {
+      handle_commit_consensus_error(thd, async);
+    }
+    else if (ha_commit_low(thd, all, async, false))
+    {
       thd->commit_error= THD::CE_COMMIT_ERROR;
+    }
+
     /*
       Decrement the prepared XID counter after storage engine commit
     */

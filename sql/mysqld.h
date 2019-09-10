@@ -462,6 +462,9 @@ extern my_bool enable_query_checksum;
 /* Enable resultset checksum validation when enabled by query attr */
 extern my_bool enable_resultset_checksum;
 
+/* What should the server do when trxs fail inside ordered commit */
+extern ulong opt_commit_consensus_error_action;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */

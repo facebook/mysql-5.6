@@ -35,6 +35,22 @@ class Master_info;
 
 class Format_description_log_event;
 
+/* The enum defining the server's action when a trx fails inside ordered commit
+ * due to an error related to consensus (raft plugin) */
+enum enum_commit_consensus_error_actions
+{
+  /* Transactions that fail in ordered commit will be rolled back.
+   * Currently all trxs in the group will be rolled back when the leader thread
+   * of the group fails. An optimization to just rollback the failing trx is
+   * left as a TODO */
+  ROLLBACK_TRXS_IN_GROUP= 0,
+  /* Ignore consensus errors and proceed as usual. Might be useful as an
+   * override in some cases like consensus plugin bugs, easier rollouts, full
+   * region failures etc */
+  IGNORE_COMMIT_CONSENSUS_ERROR= 1,
+  INVALID_COMMIT_CONSENSUS_ERROR_ACTION
+};
+
 /**
   Class for maintaining the commit stages for binary log group commit.
  */
@@ -793,6 +809,8 @@ private:
   std::pair<bool, bool> sync_binlog_file(bool force, bool async);
   void process_semisync_stage_queue(THD *queue_head);
   void process_commit_stage_queue(THD *thd, THD *queue, bool async);
+  void set_commit_consensus_error(THD *queue_head);
+  void handle_commit_consensus_error(THD *thd, bool async);
   void process_after_commit_stage_queue(THD *thd, THD *first, bool async);
   int process_flush_stage_queue(my_off_t *total_bytes_var, bool *rotate_var,
                                 THD **out_queue_var, bool async);

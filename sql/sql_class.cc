@@ -1054,6 +1054,8 @@ THD::THD(bool enable_plugins)
   binlog_evt_union.do_union= FALSE;
   enable_slow_log= 0;
   commit_error= CE_NONE;
+  commit_consensus_error= false;
+
   durability_property= HA_REGULAR_DURABILITY;
 #ifndef DBUG_OFF
   dbug_sentry=THD_SENTRY_MAGIC;

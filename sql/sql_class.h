@@ -3242,6 +3242,12 @@ public:
     mode, row-based binlogging is used for such cases where two
     auto_increment columns are inserted.
   */
+
+  /* Was there an error during consensus commit of a trx? This is usually set
+   * when the raft plugin fails to obtain majority acks (in before_commit hook)
+   */
+  bool commit_consensus_error= false;
+
   inline void record_first_successful_insert_id_in_cur_stmt(ulonglong id_arg)
   {
     if (first_successful_insert_id_in_cur_stmt == 0)

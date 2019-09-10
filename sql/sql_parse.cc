@@ -7929,6 +7929,7 @@ void THD::reset_for_next_command()
   thd->audited_event_for_command = false;
 
   thd->commit_error= THD::CE_NONE;
+  thd->commit_consensus_error= false;
   thd->durability_property= HA_REGULAR_DURABILITY;
   thd->set_trans_pos(NULL, 0, NULL);
   thd->m_gap_lock_log_written= false;
