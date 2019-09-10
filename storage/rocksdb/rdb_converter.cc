@@ -715,7 +715,8 @@ void Rdb_converter::setup_field_encoders() {
 int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
                           uchar *dst,  // address to fill data
                           const rocksdb::Slice *key_slice,
-                          const rocksdb::Slice *value_slice) {
+                          const rocksdb::Slice *value_slice,
+                          bool decode_value) {
   // Currently only support decode primary key, Will add decode secondary
   // later
   assert(key_def->m_index_type == Rdb_key_def::INDEX_TYPE_PRIMARY ||
@@ -731,11 +732,11 @@ int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
   updated_key_slice = &rowkey_slice;
 #endif
   return convert_record_from_storage_format(key_def, updated_key_slice,
-                                            value_slice, dst);
+                                            value_slice, dst, decode_value);
 }
 
 /*
-  Decode value slice header
+  Decode value slice header for pk
   @param    reader         IN          value slice reader
   @param    pk_def         IN          key definition to decode
   @param    unpack_slice   OUT         unpack info slice
@@ -743,7 +744,7 @@ int Rdb_converter::decode(const std::shared_ptr<Rdb_key_def> &key_def,
     0      OK
     other  HA_ERR error code (can be SE-specific)
 */
-int Rdb_converter::decode_value_header(
+int Rdb_converter::decode_value_header_for_pk(
     Rdb_string_reader *reader, const std::shared_ptr<Rdb_key_def> &pk_def,
     rocksdb::Slice *unpack_slice) {
   /* If it's a TTL record, skip the 8 byte TTL value */
@@ -793,12 +794,13 @@ int Rdb_converter::decode_value_header(
 int Rdb_converter::convert_record_from_storage_format(
     const std::shared_ptr<Rdb_key_def> &pk_def,
     const rocksdb::Slice *const key_slice,
-    const rocksdb::Slice *const value_slice, uchar *const dst) {
+    const rocksdb::Slice *const value_slice, uchar *const dst,
+    bool decode_value = true) {
   int err = HA_EXIT_SUCCESS;
 
   Rdb_string_reader value_slice_reader(value_slice);
   rocksdb::Slice unpack_slice;
-  err = decode_value_header(&value_slice_reader, pk_def, &unpack_slice);
+  err = decode_value_header_for_pk(&value_slice_reader, pk_def, &unpack_slice);
   if (err != HA_EXIT_SUCCESS) {
     return err;
   }
@@ -813,6 +815,11 @@ int Rdb_converter::convert_record_from_storage_format(
   }
   if (err != HA_EXIT_SUCCESS) {
     return err;
+  }
+
+  if (!decode_value) {
+    // We are done
+    return HA_EXIT_SUCCESS;
   }
 
   Rdb_value_field_iterator<Rdb_convert_to_record_value_decoder, uchar *>

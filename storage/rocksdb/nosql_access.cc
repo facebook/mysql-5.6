@@ -1501,16 +1501,13 @@ bool INLINE_ATTR select_exec::eval_cond() {
 
 bool INLINE_ATTR select_exec::unpack_for_pk(rocksdb::Slice rkey,
                                             rocksdb::Slice rvalue) {
-  int rc;
-  if (m_unpack_value) {
-    // PRIMARY KEY - we just let read-set take care of everything
-    rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue);
-  } else {
-    rc =
-        m_key_def->unpack_record(m_table, m_table->record[0], &rkey, &rvalue,
-                                 m_converter->get_verify_row_debug_checksums());
-  }
+  // Always unpack pk
+  // NOTE since we don't necessarily call setup_field_decoders we need to
+  // always call set_is_key_requested. This needs further refactoring
+  m_converter->set_is_key_requested(true);
 
+  int rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue,
+                               m_unpack_value);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
@@ -1558,21 +1555,10 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
       return true;
     }
 
-    if (m_unpack_pk) {
-      rc = m_pk_def->unpack_record(
-          m_table, m_table->record[0], &pk_key, &m_pk_value,
-          m_converter->get_verify_row_debug_checksums());
-      if (rc) {
-        m_handler->print_error(rc, 0);
-        return true;
-      }
-    }
-
-    // We already have the secondary key
-    if (m_unpack_value) {
-      m_converter->set_is_key_requested(false);
+    if (m_unpack_pk || m_unpack_value) {
+      m_converter->set_is_key_requested(m_unpack_pk);
       rc = m_converter->decode(m_pk_def, m_table->record[0], &pk_key,
-                               &m_pk_value);
+                               &m_pk_value, m_unpack_value);
       if (rc) {
         m_handler->print_error(rc, 0);
         return true;

@@ -2278,6 +2278,27 @@ id1	id2	data	time	version
 2	1	data21	1	1
 2	2	data22	1	1
 2	3	data32	1	1
+# Range query with PK key only
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+id2
+1
+# Range query with PK key only with filters
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 > 1;
+id2
+2
+3
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+id2
+1
+2
+3
 CREATE TABLE `link_table7` (
 `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
 `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
@@ -2326,6 +2347,37 @@ id1	id2	link_type	visibility	data	time	version
 9223372036854775807	1223372036854775802	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234562	9223372036854775802
 9223372036854775807	1223372036854775803	9223372036854775807	0	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890	1234563	9223372036854775803
 DROP TABLE link_table7;
+CREATE TABLE `link_table8` (
+`id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+`link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+`visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+`data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+`time` int(10) unsigned NOT NULL DEFAULT '0' ,
+`version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table8 FORCE INDEX (PRIMARY) WHERE link_type = 100 and id1 = 1
+ORDER BY id2 ASC limit 0, 1000;
+id1	id2	link_type	visibility	data	time	version
+1	1	100	0	data1	0	0
+DROP TABLE link_table8;
 # Establish connection con1 (user=root)
 # Switch to connection con1
 SHOW STATUS LIKE 'rows_%';
@@ -2355,7 +2407,7 @@ FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 ROCKSDB_SELECT_BYPASS_EXECUTED
-123
+128
 DROP TABLE count_table;
 DROP TABLE link_table;
 DROP TABLE link_table2;
