@@ -172,8 +172,8 @@ class Rdb_converter {
                             bool decode_all_fields = false);
 
   int decode(const std::shared_ptr<Rdb_key_def> &key_def, uchar *dst,
-             const rocksdb::Slice *key_slice,
-             const rocksdb::Slice *value_slice);
+             const rocksdb::Slice *key_slice, const rocksdb::Slice *value_slice,
+             bool decode_value = true);
 
   int encode_value_slice(const std::shared_ptr<Rdb_key_def> &pk_def,
                          const rocksdb::Slice &pk_packed_slice,
@@ -206,9 +206,9 @@ class Rdb_converter {
     return &m_decoders_vect;
   }
 
-  int decode_value_header(Rdb_string_reader *reader,
-                          const std::shared_ptr<Rdb_key_def> &pk_def,
-                          rocksdb::Slice *unpack_slice);
+  int decode_value_header_for_pk(Rdb_string_reader *reader,
+                                 const std::shared_ptr<Rdb_key_def> &pk_def,
+                                 rocksdb::Slice *unpack_slice);
 
  private:
   void setup_field_encoders();
@@ -218,7 +218,7 @@ class Rdb_converter {
   int convert_record_from_storage_format(
       const std::shared_ptr<Rdb_key_def> &pk_def,
       const rocksdb::Slice *const key, const rocksdb::Slice *const value,
-      uchar *const buf);
+      uchar *const buf, bool decode_value);
 
   int verify_row_debug_checksum(const std::shared_ptr<Rdb_key_def> &pk_def,
                                 Rdb_string_reader *reader,

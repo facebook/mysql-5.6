@@ -1142,6 +1142,18 @@ WHERE link_type=1 and id1=2 and id2 > 1;
 SELECT /*+ bypass */ id1, id2, data, time, version FROM link_table5
 WHERE link_type=1 and id1=2 and id2 >= 1;
 
+--echo # Range query with PK key only
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2=1;
+
+--echo # Range query with PK key only with filters
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 > 1;
+SELECT /*+ bypass */ id2 FROM link_table5
+WHERE link_type=1 and id1=2 and id2 >= 1;
+
 # Prefix query returning large rows causing reallocation m_row_buf
 # which lead to stale pointers in m_send_mapping.first
 CREATE TABLE `link_table7` (
@@ -1181,6 +1193,30 @@ WHERE link_type = 9223372036854775807  and id1 = 9223372036854775807
 and visibility = 0 ORDER BY time ASC, id2 ASC limit 0, 1000;
 
 DROP TABLE link_table7;
+
+# Incorrectly detecting 0x3 as unpacking in PK and returning 'data corruption'
+CREATE TABLE `link_table8` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  `visibility` tinyint(3) NOT NULL DEFAULT '0' ,
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '' ,
+  `time` int(10) unsigned NOT NULL DEFAULT '0' ,
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0' ,
+  PRIMARY KEY (`link_type` , `id1` , `id2`) COMMENT 'cf_link' ,
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`)
+  COMMENT 'rev:cf_assoc_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into link_table8 values (1, 0x03030303, 1, 0, 100, 0, 'data1', 0, 0);
+
+SELECT /*+ bypass */ id1, id2, link_type, visibility, data, time, version
+FROM link_table8 FORCE INDEX (PRIMARY) WHERE link_type = 100 and id1 = 1
+ORDER BY id2 ASC limit 0, 1000;
+
+DROP TABLE link_table8;
 
 # KILL
 --echo # Establish connection con1 (user=root)
