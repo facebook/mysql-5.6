@@ -1523,16 +1523,13 @@ bool INLINE_ATTR select_exec::eval_cond() {
 
 bool INLINE_ATTR select_exec::unpack_for_pk(rocksdb::Slice rkey,
                                             rocksdb::Slice rvalue) {
-  int rc;
-  if (m_unpack_value) {
-    // PRIMARY KEY - we just let read-set take care of everything
-    rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue);
-  } else {
-    rc =
-        m_key_def->unpack_record(m_table, m_table->record[0], &rkey, &rvalue,
-                                 m_converter->get_verify_row_debug_checksums());
-  }
+  // Always unpack pk
+  // NOTE since we don't necessarily call setup_field_decoders we need to
+  // always call set_is_key_requested. This needs further refactoring
+  m_converter->set_is_key_requested(true);
 
+  int rc = m_converter->decode(m_key_def, m_table->record[0], &rkey, &rvalue,
+                               m_unpack_value);
   if (rc) {
     m_handler->print_error(rc, 0);
     return true;
@@ -1580,21 +1577,10 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
       return true;
     }
 
-    if (m_unpack_pk) {
-      rc = m_pk_def->unpack_record(
-          m_table, m_table->record[0], &pk_key, &m_pk_value,
-          m_converter->get_verify_row_debug_checksums());
-      if (rc) {
-        m_handler->print_error(rc, 0);
-        return true;
-      }
-    }
-
-    // We already have the secondary key
-    if (m_unpack_value) {
-      m_converter->set_is_key_requested(false);
+    if (m_unpack_pk || m_unpack_value) {
+      m_converter->set_is_key_requested(m_unpack_pk);
       rc = m_converter->decode(m_pk_def, m_table->record[0], &pk_key,
-                               &m_pk_value);
+                               &m_pk_value, m_unpack_value);
       if (rc) {
         m_handler->print_error(rc, 0);
         return true;
@@ -1786,12 +1772,6 @@ bool INLINE_ATTR
 select_exec::unpack_fast_value(Rdb_string_reader *value_reader) {
   int err = HA_EXIT_SUCCESS;
 
-  rocksdb::Slice unpack_slice;
-  err = m_converter->decode_value_header(value_reader, m_pk_def, &unpack_slice);
-  if (err != HA_EXIT_SUCCESS) {
-    return err;
-  }
-
   Rdb_value_field_iterator<Rdb_protocol_value_decoder, Rdb_string_writer *>
       value_field_iterator(m_table, value_reader, m_converter.get(),
                            &m_row_buf);
@@ -1879,23 +1859,11 @@ bool INLINE_ATTR select_exec::unpack_fast(rocksdb::Slice rkey,
                                           rocksdb::Slice rvalue) {
   // optimized implementation borrowed from prototype
   Rdb_string_reader reader(&rkey);
-  Rdb_string_reader unp_reader = Rdb_string_reader::read_or_empty(&rvalue);
+  Rdb_string_reader value_reader = Rdb_string_reader::read_or_empty(&rvalue);
 
   if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
     m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
     return true;
-  }
-
-  const char *unpack_header = unp_reader.get_current_ptr();
-  const bool has_unpack_info =
-      unp_reader.remaining_bytes() &&
-      Rdb_key_def::is_unpack_data_tag(unpack_header[0]);
-  if (has_unpack_info) {
-    if (!unp_reader.read(
-            Rdb_key_def::get_unpack_header_size(unpack_header[0]))) {
-      m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
-      return true;
-    }
   }
 
   m_protocol->prepare_for_resend();
@@ -1903,16 +1871,44 @@ bool INLINE_ATTR select_exec::unpack_fast(rocksdb::Slice rkey,
   // only keep the prefix data in m_row_buf to be reused
   m_row_buf.truncate(m_row_buf_prefix_end_pos);
 
-  // unpack index(key)
-  if (unpack_fast_index(&reader, &unp_reader)) {
-    m_protocol->remove_last_row();
-    return true;
-  }
+  if (m_index_is_pk) {
+    // Decode unpacking header for primary key
+    rocksdb::Slice unpack_slice;
+    int err = m_converter->decode_value_header_for_pk(&value_reader, m_pk_def,
+                                                      &unpack_slice);
+    if (err != HA_EXIT_SUCCESS) {
+      return true;
+    }
 
-  // unpack value for PK
-  if (m_unpack_value && m_index_is_pk && unpack_fast_value(&unp_reader)) {
-    m_protocol->remove_last_row();
-    return true;
+    Rdb_string_reader unp_reader =
+        Rdb_string_reader::read_or_empty(&unpack_slice);
+
+    // unpack PK
+    if (unpack_fast_index(&reader, &unp_reader)) {
+      m_protocol->remove_last_row();
+      return true;
+    }
+
+    // unpack value for PK
+    if (m_unpack_value && unpack_fast_value(&value_reader)) {
+      m_protocol->remove_last_row();
+      return true;
+    }
+  } else {
+    DBUG_ASSERT(!m_unpack_value);
+
+    // Decode unpacking header for secondary key
+    bool has_unpack_info;
+    const char *unpack_header;
+    if (m_key_def->decode_unpack_info(&value_reader, &has_unpack_info,
+                                      &unpack_header) != HA_EXIT_SUCCESS) {
+      return true;
+    }
+
+    if (unpack_fast_index(&reader, &value_reader)) {
+      m_protocol->remove_last_row();
+      return true;
+    }
   }
 
   // Send out in the right order
