@@ -21,8 +21,6 @@
 #include <vector>
 
 // MySQL header files
-#include "./handler.h"    // handler
-#include "./my_global.h"  // ulonglong
 #include "./sql_string.h"
 #include "./ut0counter.h"
 
@@ -220,7 +218,7 @@ class Rdb_converter {
   */
   const char *m_null_bytes;
   /*
-   TRUE <=> Some fields in the PK may require unpack_info.
+   true <=> Some fields in the PK may require unpack_info.
   */
   bool m_maybe_unpack_info;
   /*

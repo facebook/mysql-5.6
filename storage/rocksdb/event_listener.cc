@@ -22,7 +22,6 @@
 #include <vector>
 
 /* MySQL includes */
-#include <my_global.h>
 #include <mysql/plugin.h>
 
 /* MyRocks includes */

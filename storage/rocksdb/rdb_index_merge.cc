@@ -18,7 +18,9 @@
 #include "./rdb_index_merge.h"
 
 /* MySQL header files */
-#include "../sql/sql_class.h"
+#include "mysql/psi/mysql_file.h"
+#include "sql/sql_class.h"
+#include "sql/sql_thd_internal_api.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"

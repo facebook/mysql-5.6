@@ -18,9 +18,8 @@
 #include "./rdb_mutex_wrapper.h"
 
 /* MySQL header files */
-#include "../sql/sql_class.h"
-
-#include "../sql/replication.h"
+#include "sql/sql_class.h"
+#include "sql/replication.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -31,7 +30,7 @@ using namespace rocksdb;
 namespace myrocks {
 
 static PSI_stage_info stage_waiting_on_row_lock2 = {0, "Waiting for row lock",
-                                                    0};
+                                                    0,PSI_DOCUMENT_ME};
 
 static const int64_t ONE_SECOND_IN_MICROSECS = 1000 * 1000;
 // A timeout as long as one full non-leap year worth of microseconds is as
@@ -39,7 +38,7 @@ static const int64_t ONE_SECOND_IN_MICROSECS = 1000 * 1000;
 static const int64_t ONE_YEAR_IN_MICROSECS =
     ONE_SECOND_IN_MICROSECS * 60 * 60 * 24 * 365;
 
-Rdb_cond_var::Rdb_cond_var() { mysql_cond_init(0, &m_cond, nullptr); }
+Rdb_cond_var::Rdb_cond_var() { mysql_cond_init(0, &m_cond); }
 
 Rdb_cond_var::~Rdb_cond_var() { mysql_cond_destroy(&m_cond); }
 
@@ -73,7 +72,7 @@ Status Rdb_cond_var::WaitFor(
   struct timespec wait_timeout;
 
   if (timeout_micros < 0) timeout_micros = ONE_YEAR_IN_MICROSECS;
-  set_timespec_nsec(wait_timeout, timeout_micros * 1000);
+  set_timespec_nsec(&wait_timeout, timeout_micros * 1000);
 
 #ifndef STANDALONE_UNITTEST
   PSI_stage_info old_stage;

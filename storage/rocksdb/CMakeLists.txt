@@ -32,6 +32,17 @@ INCLUDE_DIRECTORIES(
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-conditional-uninitialized")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-reinterpret-cast")
+# TODO(yzha): Fix warnings in RocksDB
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-extra-semi")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow-field")
+# platform007 (tbb, etc) has throw() which is deprecated
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-dynamic-exception-spec")
+
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     ADD_DEFINITIONS(-DOS_LINUX)
@@ -86,6 +97,22 @@ ELSE()
 ENDIF()
 
 SET(rocksdb_static_libs )
+
+IF (WITH_JEMALLOC)
+  SET(rocksdb_static_libs ${rocksdb_static_libs}
+    ${JEMALLOC_LIBRARY})
+  ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
+  ADD_DEFINITIONS(-DROCKSDB_MALLOC_USABLE_SIZE)
+ENDIF()
+
+IF (WITH_UNWIND)
+  FIND_LIBRARY(UNWIND_LIBRARY
+    NAMES libunwind${PIC_EXT}.a unwind
+    HINTS ${WITH_UNWIND}/lib)
+  SET(rocksdb_static_libs ${rocksdb_static_libs}
+    ${UNWIND_LIBRARY})
+ENDIF()
+
 IF (WITH_SNAPPY)
   FIND_LIBRARY(SNAPPY_LIBRARY
     NAMES libsnappy${PIC_EXT}.a snappy
@@ -135,7 +162,7 @@ IF (HAVE_ZLIB_H)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZLIB_LIBRARY})
 ENDIF()
 
-SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt")
+SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt" "-ldl" "-lpthread")
 
 MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
   LINK_LIBRARIES ${rocksdb_static_libs}

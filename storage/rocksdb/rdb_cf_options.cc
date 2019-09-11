@@ -25,7 +25,7 @@
 #include <string>
 
 /* MySQL header files */
-#include "./log.h"
+#include "sql/log.h"
 
 /* RocksDB header files */
 #include "rocksdb/utilities/convenience.h"

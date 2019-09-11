@@ -18,7 +18,8 @@
 #pragma implementation  // gcc: Class implementation
 #endif
 
-#include "./debug_sync.h"
+/* MySQL header files */
+#include "sql/debug_sync.h"
 
 #include "./rdb_threads.h"
 /* This C++ files header file */
