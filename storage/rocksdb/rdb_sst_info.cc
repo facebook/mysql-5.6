@@ -22,10 +22,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <inttypes.h>
 
 /* MySQL header files */
-#include "../sql/log.h"
+#include "sql/log.h"
 #include "./my_dir.h"
+#include "mysqld_error.h"
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
@@ -517,7 +519,7 @@ void Rdb_sst_info::report_error_msg(const rocksdb::Status &s,
 
 void Rdb_sst_info::init(const rocksdb::DB *const db) {
   const std::string path = db->GetName() + FN_DIRSEP;
-  struct st_my_dir *const dir_info = my_dir(path.c_str(), MYF(MY_DONT_SORT));
+  struct MY_DIR *const dir_info = my_dir(path.c_str(), MYF(MY_DONT_SORT));
 
   // Access the directory
   if (dir_info == nullptr) {

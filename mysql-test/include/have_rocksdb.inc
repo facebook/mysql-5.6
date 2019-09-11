@@ -3,10 +3,11 @@ if (`SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.ENGINES WHERE engine = 'rocksdb
   --skip Test requires default engine RocksDB
 }
 
-if (`select count(*) = 0 from information_schema.tables where engine='rocksdb' and table_name='slave_gtid_info'`)
-{
-  --skip Test requires default engine RocksDB
-}
+# TODO(yzha) - 0f402cb8381 Improve singled thread replication performance
+#if (`select count(*) = 0 from information_schema.tables where engine='rocksdb' and table_name='slave_gtid_info'`)
+#{
+#  --skip Test requires default engine RocksDB
+#}
 
 --disable_query_log
 # Table statistics can vary depending on when the memtables are flushed, so

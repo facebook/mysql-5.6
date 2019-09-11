@@ -27,10 +27,14 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./handler.h"   /* handler */
-#include "./my_global.h" /* ulonglong */
-#include "./sql_string.h"
-#include "./ut0counter.h"
+#include "my_icp.h"          /* icp_result */
+#include "sql/handler.h"   /* handler */
+#include "sql_string.h"
+#include "mysql/psi/mysql_rwlock.h"
+#include "sql/handler.h"
+#include "sql/sql_bitmap.h"      /* Key_map */
+#include "my_dbug.h"
+#include "sql/table.h"
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
@@ -172,7 +176,7 @@ class ha_rocksdb : public my_core::handler {
   uint m_pk_key_parts;
 
   /*
-    TRUE <=> Primary Key columns can be decoded from the index
+    true <=> Primary Key columns can be decoded from the index
   */
   mutable bool m_pk_can_be_decoded;
 
@@ -247,29 +251,29 @@ class ha_rocksdb : public my_core::handler {
   /* Type of locking to apply to rows */
   enum { RDB_LOCK_NONE, RDB_LOCK_READ, RDB_LOCK_WRITE } m_lock_rows;
 
-  /* TRUE means we're doing an index-only read. FALSE means otherwise. */
+  /* true means we're doing an index-only read. false means otherwise. */
   bool m_keyread_only;
 
   bool m_skip_scan_it_next_call;
 
-  /* TRUE means we are accessing the first row after a snapshot was created */
+  /* true means we are accessing the first row after a snapshot was created */
   bool m_rnd_scan_is_new_snapshot;
 
   /*
-    TRUE means we should skip unique key checks for this table if the
+    true means we should skip unique key checks for this table if the
     replication lag gets too large
    */
   bool m_skip_unique_check;
 
   /*
-    TRUE means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
+    true means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
     remember the failed attempt (if there is one that violates uniqueness check)
     in write_row and in the following index_read to skip the lock check and read
     entirely
    */
   bool m_insert_with_update;
 
-  /* TRUE if last time the insertion failed due to duplicated PK */
+  /* true if last time the insertion failed due to duplicated PK */
   bool m_dup_pk_found;
 
 #ifndef DBUG_OFF
@@ -284,7 +288,7 @@ class ha_rocksdb : public my_core::handler {
     to be updated.
     @note Valid inside UPDATE statements, IIF(old_pk_slice is set).
   */
-  my_core::key_map m_update_scope;
+  my_core::Key_map m_update_scope;
 
   /* SST information used for bulk loading the primary key */
   std::shared_ptr<Rdb_sst_info> m_sst_info;
@@ -357,7 +361,8 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   bool is_blind_delete_enabled();
   bool skip_unique_check() const MY_ATTRIBUTE((__warn_unused_result__));
-  void set_force_skip_unique_check(bool skip) override;
+  /* TODO(yzha) - c0e6859bffd Add skip unique check whitelist and new debug_skip_unique_check */
+  void set_force_skip_unique_check(bool skip);
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *const tx)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -373,7 +378,7 @@ class ha_rocksdb : public my_core::handler {
     current lookup to be covered. If the bitmap field is null, that means this
     index does not cover the current lookup for any record.
    */
-  MY_BITMAP m_lookup_bitmap = {nullptr, 0, 0, nullptr, nullptr};
+  MY_BITMAP m_lookup_bitmap;
 
   int alloc_key_buffers(const TABLE *const table_arg,
                         const Rdb_tbl_def *const tbl_def_arg,
@@ -417,18 +422,6 @@ class ha_rocksdb : public my_core::handler {
     DBUG_RETURN(rocksdb_hton_name);
   }
 
-  /* The following is only used by SHOW KEYS: */
-  const char *index_type(uint inx) override {
-    DBUG_ENTER_FUNC();
-
-    DBUG_RETURN("LSMTREE");
-  }
-
-  /** @brief
-    The file extensions.
-   */
-  const char **bas_ext() const override;
-
   /*
     Returns the name of the table's base name
   */
@@ -450,14 +443,16 @@ class ha_rocksdb : public my_core::handler {
         If we don't set it, filesort crashes, because it assumes rowids are
         1..8 byte numbers
     */
+    /* TODO(yzha) - HA_REC_NOT_IN_SEQ & HA_ONLINE_ANALYZE is gone in 8.0 */
     DBUG_RETURN(HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
-                HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
+                /* HA_REC_NOT_IN_SEQ | */ HA_CAN_INDEX_BLOBS |
                 (m_pk_can_be_decoded ? HA_PRIMARY_KEY_IN_READ_INDEX : 0) |
                 HA_PRIMARY_KEY_REQUIRED_FOR_POSITION | HA_NULL_IN_KEY |
                 HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE);
   }
 
-  bool init_with_fields() override;
+  /* TODO(yzha) - 070a257a1c3 Issue #108: Index-only scans do not work for partitioned tables and extended keys  */
+  bool init_with_fields() /* override */;
 
   /** @brief
     This is a bitmap of flags that indicates how the storage engine
@@ -471,13 +466,15 @@ class ha_rocksdb : public my_core::handler {
   */
   ulong index_flags(uint inx, uint part, bool all_parts) const override;
 
-  const key_map *keys_to_use_for_scanning() override {
+  /* TODO(yzha) - This override is gone in 8.0
+  const Key_map *keys_to_use_for_scanning() override {
     DBUG_ENTER_FUNC();
 
     DBUG_RETURN(&key_map_full);
   }
+  */
 
-  bool primary_key_is_clustered() override {
+  bool primary_key_is_clustered() const override {
     DBUG_ENTER_FUNC();
 
     DBUG_RETURN(true);
@@ -487,7 +484,8 @@ class ha_rocksdb : public my_core::handler {
     return m_store_row_debug_checksums && (rand() % 100 < m_checksums_pct);
   }
 
-  int rename_table(const char *const from, const char *const to) override
+  int rename_table(const char *const from, const char *const to,
+                   const dd::Table *from_table_def, dd::Table *to_table_def) override
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
@@ -555,7 +553,7 @@ class ha_rocksdb : public my_core::handler {
     DBUG_RETURN(MAX_REF_PARTS);
   }
 
-  uint max_supported_key_part_length() const override;
+  uint max_supported_key_part_length(HA_CREATE_INFO *create_info) const override;
 
   /** @brief
     unireg.cc will call this to make sure that the storage engine can handle
@@ -615,7 +613,8 @@ class ha_rocksdb : public my_core::handler {
   virtual double read_time(uint, uint, ha_rows rows) override;
   virtual void print_error(int error, myf errflag) override;
 
-  int open(const char *const name, int mode, uint test_if_locked) override
+  int open(const char *const name, int mode, uint test_if_locked,
+           const dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int close(void) override MY_ATTRIBUTE((__warn_unused_result__));
 
@@ -820,7 +819,7 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void read_thd_vars(THD *const thd) MY_ATTRIBUTE((__nonnull__));
 
-  bool contains_foreign_key(THD *const thd)
+  bool contains_foreign_key()
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int inplace_populate_sk(
@@ -875,7 +874,7 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   int external_lock(THD *const thd, int lock_type) override
       MY_ATTRIBUTE((__warn_unused_result__));
-  int truncate() override MY_ATTRIBUTE((__warn_unused_result__));
+  int truncate(dd::Table *table_def  MY_ATTRIBUTE((unused))) override MY_ATTRIBUTE((__warn_unused_result__));
 
   int reset() override {
     DBUG_ENTER_FUNC();
@@ -894,10 +893,11 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int delete_table(Rdb_tbl_def *const tbl);
-  int delete_table(const char *const from) override
+  int delete_table(const char *const from, const dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int create(const char *const name, TABLE *const form,
-             HA_CREATE_INFO *const create_info) override
+             HA_CREATE_INFO *const create_info,
+             dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int create_table(const std::string &table_name, const TABLE *table_arg,
                    ulonglong auto_increment_value);
@@ -908,16 +908,6 @@ class ha_rocksdb : public my_core::handler {
   THR_LOCK_DATA **store_lock(THD *const thd, THR_LOCK_DATA **to,
                              enum thr_lock_type lock_type) override
       MY_ATTRIBUTE((__warn_unused_result__));
-
-  my_bool register_query_cache_table(THD *const thd, char *const table_key,
-                                     uint key_length,
-                                     qc_engine_callback *const engine_callback,
-                                     ulonglong *const engine_data) override {
-    DBUG_ENTER_FUNC();
-
-    /* Currently, we don't support query cache */
-    DBUG_RETURN(FALSE);
-  }
 
   bool get_error_message(const int error, String *const buf) override
       MY_ATTRIBUTE((__nonnull__));
@@ -942,15 +932,21 @@ class ha_rocksdb : public my_core::handler {
 
   bool prepare_inplace_alter_table(
       TABLE *const altered_table,
-      my_core::Alter_inplace_info *const ha_alter_info) override;
+      my_core::Alter_inplace_info *const ha_alter_info,
+      const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
+      dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
 
   bool inplace_alter_table(
       TABLE *const altered_table,
-      my_core::Alter_inplace_info *const ha_alter_info) override;
+      my_core::Alter_inplace_info *const ha_alter_info,
+      const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
+      dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
 
   bool commit_inplace_alter_table(
       TABLE *const altered_table,
-      my_core::Alter_inplace_info *const ha_alter_info, bool commit) override;
+      my_core::Alter_inplace_info *const ha_alter_info, bool commit,
+      const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
+      dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
 
   void set_skip_unique_check_tables(const char *const whitelist);
   bool is_read_free_rpl_table() const;
@@ -958,13 +954,19 @@ class ha_rocksdb : public my_core::handler {
   int adjust_handler_stats_table_scan();
 
  public:
+  /* TODO(yzha) - 019a9fcd7f6 Add Tokutek's read-free replication api in mysqld
   virtual void rpl_before_delete_rows() override;
   virtual void rpl_after_delete_rows() override;
   virtual void rpl_before_update_rows() override;
   virtual void rpl_after_update_rows() override;
-  virtual bool use_read_free_rpl() const override;
-  virtual bool has_ttl_column() const override;
+   */
 
+  /* TODO(yzha) - af531c246d35 New variable to control read free replication
+  virtual bool use_read_free_rpl() const override;
+   */
+  /* TODO(yzha) - 92a364f86100 Ignore idempotent error in TTL tables
+  virtual bool has_ttl_column() const override;
+   */
  private:
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;

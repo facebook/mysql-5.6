@@ -26,7 +26,6 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./my_global.h"
 #include "./my_stacktrace.h"
 
 /* MyRocks header files */
