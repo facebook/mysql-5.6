@@ -9903,7 +9903,7 @@ ER_RDB_TTL_UNSUPPORTED
   eng "TTL support is currently disabled when table has a hidden PK."
 
 ER_RDB_TTL_COL_FORMAT
-  eng "TTL column (%s) in MyRocks must be an unsigned non-null 64-bit integer or non-null timestamp, exist inside the table, and have an accompanying ttl duration."
+  eng "TTL column (%s) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration."
 
 ER_RDB_TTL_DURATION_FORMAT
   eng "TTL duration (%s) in MyRocks must be an unsigned non-null 64-bit integer."
@@ -9911,20 +9911,20 @@ ER_RDB_TTL_DURATION_FORMAT
 ER_PER_INDEX_CF_DEPRECATED
   eng "The per-index column family option has been deprecated"
 
-ER_PLACEHOLDER_50058
-  eng "Placeholder"
+ER_NP_PROCEDURE_EXISTS
+  eng "Native procedure '%-.192s' exists."
 
-ER_PLACEHOLDER_50059
-  eng "Placeholder"
+ER_NP_UNKNOWN_PROCEDURE
+  eng "Unknown native procedure. '%-.192s'"
 
-ER_PLACEHOLDER_50060
-  eng "Placeholder"
+ER_NP_WRONG_ARGUMENTS
+  eng "Incorrect arguments to native procedure. (query '%-.192s')"
 
-ER_PLACEHOLDER_50061
-  eng "Placeholder"
+ER_NP_FAILED
+  eng "Native procedure failed. (code: %d, msg: '%-.192s', query '%-.192s')"
 
-ER_PLACEHOLDER_50062
-  eng "Placeholder"
+ER_CANT_SET_DEPENDENCY_REPLICATION_WITHOUT_IDEMPOTENT_RECOVERY
+  eng "@@GLOBAL.MTS_DEPENDENCY_REPLICATION cannot be set when @@GLOBAL.SLAVE_USE_IDEMPOTENT_FOR_RECOVERY = NO"
 
 ER_DB_METADATA_TOO_LONG
   eng "Metadata for the database is too long. Max length is %d bytes"
@@ -9935,9 +9935,10 @@ ER_DB_METADATA_INVALID_JSON
 ER_DB_METADATA_READ_ERROR
   eng "Error reading db metadata option: '%-.64s'"
 
-ER_PLACEHOLDER_50066
-  eng "Placeholder"
+ER_UPDATES_WITH_EXPLICIT_SNAPSHOT
+  eng "Can't execute updates when an explicit snapshot is associated with the connection using CREATE|ATTACH EXPLICIT [ENGINE] SNAPSHOT"
 
+# RPC detached session errors start here
 ER_PLACEHOLDER_50067
   eng "Placeholder"
 

@@ -932,15 +932,11 @@ MySQL clients support the protocol:
 #include <functional>
 #include <new>
 
-#ifndef EMBEDDED_LIBRARY
 #ifdef WITH_LOCK_ORDER
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
-#endif /* EMBEDDED_LIBRARY */
 
-#ifndef EMBEDDED_LIBRARY
 #include "srv_session.h"
-#endif
 
 #include <mysql/components/minimal_chassis.h>
 #include <mysql/components/services/dynamic_loader_scheme_file.h>
@@ -9530,7 +9526,6 @@ struct my_option my_long_options[] = {
      0, nullptr, 0, nullptr}};
 
 #ifdef HAVE_JEMALLOC
-#ifndef EMBEDDED_LIBRARY
 std::atomic_bool need_update_malloc_status;
 
 static void update_malloc_status() {
@@ -9641,7 +9636,6 @@ static int show_jemalloc_tcache_bytes(THD *thd, SHOW_VAR *var, char *buff) {
       thd, var, buff,
       "stats.arenas." JEMALLOC_STRINGIFY(MALLCTL_ARENAS_ALL) ".tcache_bytes");
 }
-#endif /* EMBEDDED_LIBRARY */
 #endif /* HAVE_JEMALLOC */
 
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {

@@ -746,18 +746,6 @@ ENDIF()
 
 INCLUDE(CMakePushCheckState)
 
-OPTION(DISABLE_SHARED
- "Don't build shared libraries, compile code as position-dependent" OFF)
-IF(DISABLE_SHARED)
-  MESSAGE("Dynamic plugins are disabled.")
-ENDIF()
-
-IF(NOT DISABLE_SHARED)
-  SET(PIC_EXT "_pic")
-ELSE()
-  SET(PIC_EXT "")
-ENDIF()
-
 # Add macros
 INCLUDE(add_custom_target)
 INCLUDE(pkg-config)
@@ -810,9 +798,31 @@ IF(WITH_TCMALLOC OR WITH_TCMALLOC_DEBUG)
   ENDIF()
 ENDIF()
 
+OPTION(DISABLE_SHARED
+ "Don't build shared libraries, compile code as position-dependent" OFF)
+IF(DISABLE_SHARED)
+  MESSAGE("Dynamic plugins are disabled.")
+ENDIF()
+
+IF(NOT DISABLE_SHARED)
+  SET(PIC_EXT "_pic")
+ELSE()
+  SET(PIC_EXT "")
+ENDIF()
+
 OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
 IF(WITH_JEMALLOC)
-  FIND_MALLOC_LIBRARY(jemalloc)
+  IF(EXISTS "${WITH_JEMALLOC}/lib")
+    # If WITH_JEMALLOC points to a path
+    MESSAGE("${WITH_JEMALLOC}/lib/libjemalloc${PIC_EXT}.a")
+    FIND_LIBRARY(JEMALLOC_SYSTEM_LIBRARY NAMES libjemalloc${PIC_EXT}.a HINTS ${WITH_JEMALLOC}/lib)
+    IF(NOT JEMALLOC_SYSTEM_LIBRARY)
+      MESSAGE(FATAL_ERROR "Could not find jemalloc library")
+    ENDIF()
+    SET(JEMALLOC_LIBRARY ${JEMALLOC_SYSTEM_LIBRARY})
+  ELSE()
+    FIND_MALLOC_LIBRARY(jemalloc)
+  ENDIF()
   SET(HAVE_JEMALLOC ON)
 ENDIF()
 
