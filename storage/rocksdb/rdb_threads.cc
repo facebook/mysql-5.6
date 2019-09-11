@@ -21,7 +21,7 @@
 
 /* The C++ file's header */
 #include "./rdb_threads.h"
-#include "./sql_class.h"
+#include "sql/sql_class.h"
 
 namespace myrocks {
 
@@ -49,7 +49,7 @@ void Rdb_thread::init(
 ) {
   DBUG_ASSERT(!m_run_once);
   mysql_mutex_init(stop_bg_psi_mutex_key, &m_signal_mutex, MY_MUTEX_INIT_FAST);
-  mysql_cond_init(stop_bg_psi_cond_key, &m_signal_cond, nullptr);
+  mysql_cond_init(stop_bg_psi_cond_key, &m_signal_cond);
 }
 
 void Rdb_thread::uninit() {

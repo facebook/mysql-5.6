@@ -21,9 +21,10 @@
 #include <vector>
 
 /* MySQL header files */
-#include "../sql/log.h"
+#include "sql/log.h"
 #include "./my_stacktrace.h"
 #include "./sql_string.h"
+#include "sql/mysqld.h"
 
 /* RocksDB header files */
 #include "rocksdb/slice.h"
@@ -120,18 +121,17 @@ namespace myrocks {
 /*
   Error handling pattern used across MySQL abides by the following rules: "All
   functions that can report an error (usually an allocation error), should
-  return 0/FALSE/false on success, 1/TRUE/true on failure."
+  return 0/false/false on success, 1/true/true on failure."
 
   https://dev.mysql.com/doc/internals/en/additional-suggestions.html has more
   details.
 
   To increase the comprehension and readability of MyRocks codebase we'll use
   constants similar to ones from C standard (EXIT_SUCCESS and EXIT_FAILURE) to
-  make sure that both failure and success paths are clearly identifiable. The
-  definitions of FALSE and TRUE come from <my_global.h>.
+  make sure that both failure and success paths are clearly identifiable.
 */
-#define HA_EXIT_SUCCESS FALSE
-#define HA_EXIT_FAILURE TRUE
+#define HA_EXIT_SUCCESS 0
+#define HA_EXIT_FAILURE 1
 
 /*
   Macros to better convey the intent behind checking the results from locking
@@ -253,7 +253,7 @@ void rdb_persist_corruption_marker();
   Helper functions to parse strings.
 */
 
-const char *rdb_skip_spaces(const struct charset_info_st *const cs,
+const char *rdb_skip_spaces(const struct CHARSET_INFO *const cs,
                             const char *str)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -264,16 +264,16 @@ const char *rdb_find_in_string(const char *str, const char *pattern,
                                bool *const succeeded)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-const char *rdb_check_next_token(const struct charset_info_st *const cs,
+const char *rdb_check_next_token(const struct CHARSET_INFO *const cs,
                                  const char *str, const char *const pattern,
                                  bool *const succeeded)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
-const char *rdb_parse_id(const struct charset_info_st *const cs,
+const char *rdb_parse_id(const struct CHARSET_INFO *const cs,
                          const char *str, std::string *const id)
     MY_ATTRIBUTE((__nonnull__(1, 2), __warn_unused_result__));
 
-const char *rdb_skip_id(const struct charset_info_st *const cs, const char *str)
+const char *rdb_skip_id(const struct CHARSET_INFO *const cs, const char *str)
     MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
 const std::vector<std::string> parse_into_tokens(const std::string &s,

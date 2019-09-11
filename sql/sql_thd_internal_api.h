@@ -32,6 +32,8 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+#include <string>
+
 #include "dur_prop.h"  // durability_properties
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -125,6 +127,8 @@ LEX_CSTRING thd_query_unsafe(THD *thd);
         into the provided buffer. @see thd_query_unsafe().
 */
 size_t thd_query_safe(THD *thd, char *buf, size_t buflen);
+
+void thd_query_safe(THD *thd, std::string *query);
 
 /**
   Check if a user thread is a replication slave thread

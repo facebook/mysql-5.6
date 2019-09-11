@@ -915,7 +915,7 @@ class Rdb_field_packing {
   int m_unpack_data_len;
   int m_unpack_data_offset;
 
-  bool m_maybe_null; /* TRUE <=> NULL-byte is stored */
+  bool m_maybe_null; /* true <=> NULL-byte is stored */
 
   /*
     Valid only for VARCHAR fields.
@@ -944,11 +944,11 @@ class Rdb_field_packing {
   const Rdb_collation_codec *m_charset_codec;
 
   /*
-    @return TRUE: this field makes use of unpack_info.
+    @return true: this field makes use of unpack_info.
   */
   bool uses_unpack_info() const { return (m_make_unpack_info_func != nullptr); }
 
-  /* TRUE means unpack_info stores the original field value */
+  /* true means unpack_info stores the original field value */
   bool m_unpack_info_stores_value;
 
   rdb_index_field_pack_t m_pack_func;
@@ -1188,6 +1188,7 @@ class Rdb_seq_generator {
 
 interface Rdb_tables_scanner {
   virtual int add_table(Rdb_tbl_def * tdef) = 0;
+  virtual ~Rdb_tables_scanner() {};
 };
 
 /*
@@ -1277,7 +1278,7 @@ class Rdb_ddl_manager {
 
   /* Helper functions to be passed to my_core::HASH object */
   static const uchar *get_hash_key(Rdb_tbl_def *const rec, size_t *const length,
-                                   my_bool not_used MY_ATTRIBUTE((unused)));
+                                   bool not_used MY_ATTRIBUTE((unused)));
   static void free_hash_elem(void *const data);
 
   bool validate_schemas();
@@ -1430,7 +1431,7 @@ class Rdb_dict_manager {
 
   bool init(rocksdb::TransactionDB *const rdb_dict,
             Rdb_cf_manager *const cf_manager,
-            const my_bool enable_remove_orphaned_cf_flags);
+            const bool enable_remove_orphaned_cf_flags);
 
   inline void cleanup() { mysql_mutex_destroy(&m_mutex); }
 
@@ -1480,7 +1481,7 @@ class Rdb_dict_manager {
 
   int remove_orphaned_dropped_cfs(
       Rdb_cf_manager *const cf_manager,
-      const my_bool &enable_remove_orphaned_dropped_cfs) const;
+      const bool &enable_remove_orphaned_dropped_cfs) const;
 
   void delete_dropped_cf_and_flags(rocksdb::WriteBatch *const batch,
                                    const uint &cf_id) const;

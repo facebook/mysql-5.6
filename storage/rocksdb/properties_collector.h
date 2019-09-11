@@ -38,7 +38,7 @@ extern std::atomic<uint64_t> rocksdb_num_sst_entry_delete;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_merge;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_other;
-extern my_bool rocksdb_compaction_sequential_deletes_count_sd;
+extern bool rocksdb_compaction_sequential_deletes_count_sd;
 
 struct Rdb_compact_params {
   uint64_t m_deletes, m_window, m_file_size;

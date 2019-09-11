@@ -32,12 +32,15 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./field.h"
-#include "./key.h"
+#include "sql/field.h"
+#include "sql/key.h"
 #include "./m_ctype.h"
 #include "./my_bit.h"
 #include "./my_bitmap.h"
-#include "./sql_table.h"
+#include "sql/sql_table.h"
+#include "my_dir.h"
+#include "myisampack.h"         // mi_int2store
+#include "my_compare.h"         // get_rec_bits
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -46,6 +49,10 @@
 #include "./rdb_cf_manager.h"
 #include "./rdb_psi.h"
 #include "./rdb_utils.h"
+
+extern CHARSET_INFO my_charset_utf16_bin;
+extern CHARSET_INFO my_charset_utf16le_bin;
+extern CHARSET_INFO my_charset_utf32_bin;
 
 namespace myrocks {
 
@@ -351,13 +358,13 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
     m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(size, MYF(0)));
+        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pack_info, k.m_pack_info, size);
   }
 
   if (k.m_pk_part_no) {
     const size_t size = sizeof(uint) * m_key_parts;
-    m_pk_part_no = reinterpret_cast<uint *>(my_malloc(size, MYF(0)));
+    m_pk_part_no = reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pk_part_no, k.m_pk_part_no, size);
   }
 }
@@ -431,14 +438,14 @@ void Rdb_key_def::setup(const TABLE *const tbl,
 
     if (secondary_key) {
       m_pk_part_no = reinterpret_cast<uint *>(
-          my_malloc(sizeof(uint) * m_key_parts, MYF(0)));
+          my_malloc(PSI_NOT_INSTRUMENTED, sizeof(uint) * m_key_parts, MYF(0)));
     } else {
       m_pk_part_no = nullptr;
     }
 
     const size_t size = sizeof(Rdb_field_packing) * m_key_parts;
     m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(size, MYF(0)));
+        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
 
     /*
       Guaranteed not to error here as checks have been made already during
@@ -522,7 +529,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
           the offset of the TTL key part here.
         */
         if (!m_ttl_column.empty() &&
-            field->check_field_name_match(m_ttl_column.c_str())) {
+            !my_strcasecmp(system_charset_info, field->field_name,
+                           m_ttl_column.c_str())) {
           DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
           DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
           DBUG_ASSERT(!field->real_maybe_null());
@@ -637,7 +645,7 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   if (skip_checks) {
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (field->check_field_name_match(ttl_col_str.c_str())) {
+      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str())) { 
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
       }
@@ -650,7 +658,7 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
     bool found = false;
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (field->check_field_name_match(ttl_col_str.c_str()) &&
+      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str()) &&
           field->real_type() == MYSQL_TYPE_LONGLONG &&
           field->key_type() == HA_KEYTYPE_ULONGLONG &&
           !field->real_maybe_null()) {
@@ -981,8 +989,8 @@ uint Rdb_key_def::pack_index_tuple(TABLE *const tbl, uchar *const pack_buffer,
   DBUG_ASSERT(key_tuple != nullptr);
 
   /* We were given a record in KeyTupleFormat. First, save it to record */
-  const uint key_len = calculate_key_len(tbl, m_keyno, key_tuple, keypart_map);
-  key_restore(tbl->record[0], key_tuple, &tbl->key_info[m_keyno], key_len);
+  const uint key_len = calculate_key_len(tbl, m_keyno, keypart_map);
+  key_restore(tbl->record[0], const_cast<uchar *>(key_tuple), &tbl->key_info[m_keyno], key_len);
 
   uint n_used_parts = my_count_bits(keypart_map);
   if (keypart_map == HA_WHOLE_KEY) n_used_parts = 0;  // Full key is used
@@ -1409,9 +1417,9 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     // ha_rocksdb::convert_record_to_storage_format
     //
     if (should_store_row_debug_checksums) {
-      const uint32_t key_crc32 = crc32(0, packed_tuple, tuple - packed_tuple);
-      const uint32_t val_crc32 =
-          crc32(0, unpack_info->ptr(), unpack_info->get_current_pos());
+      const ha_checksum key_crc32 = my_core::my_checksum(0, packed_tuple, tuple - packed_tuple);
+      const ha_checksum val_crc32 =
+          my_core::my_checksum(0, unpack_info->ptr(), unpack_info->get_current_pos());
 
       unpack_info->write_uint8(RDB_CHECKSUM_DATA_TAG);
       unpack_info->write_uint32(key_crc32);
@@ -1660,10 +1668,10 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       const uint32_t stored_val_chksum = rdb_netbuf_to_uint32(
           (const uchar *)unp_reader.read(RDB_CHECKSUM_SIZE));
 
-      const uint32_t computed_key_chksum =
-          crc32(0, (const uchar *)packed_key->data(), packed_key->size());
-      const uint32_t computed_val_chksum =
-          crc32(0, (const uchar *)unpack_info->data(),
+      const ha_checksum computed_key_chksum =
+          my_core::my_checksum(0, (const uchar *)packed_key->data(), packed_key->size());
+      const ha_checksum computed_val_chksum =
+          my_core::my_checksum(0, (const uchar *)unpack_info->data(),
                 unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
       DBUG_EXECUTE_IF("myrocks_simulate_bad_key_checksum1",
@@ -2815,15 +2823,16 @@ static uint rdb_read_unpack_simple(Rdb_bit_reader *const reader,
 void Rdb_key_def::make_unpack_simple_varchar(
     const Rdb_collation_codec *const codec, const Field *const field,
     Rdb_pack_field_context *const pack_ctx) {
-  const auto f = static_cast<const Field_varstring *>(field);
+  auto f = static_cast<const Field_varstring *>(field);
   uchar *const src = f->ptr + f->length_bytes;
   const size_t src_len =
       f->length_bytes == 1 ? (uint)*f->ptr : uint2korr(f->ptr);
   Rdb_bit_writer bit_writer(pack_ctx->writer);
   // The std::min compares characters with bytes, but for simple collations,
   // mbmaxlen = 1.
+  /* TODO(yzha) - Make field->char_length const */
   rdb_write_unpack_simple(&bit_writer, codec, src,
-                          std::min((size_t)f->char_length(), src_len));
+                          std::min((size_t)const_cast<Field_varstring *>(f)->char_length(), src_len));
 }
 
 /*
@@ -2844,7 +2853,7 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
   const Field_varstring *const field_var =
       static_cast<Field_varstring *>(field);
   // For simple collations, char_length is also number of bytes.
-  DBUG_ASSERT((size_t)fpi->m_max_image_len >= field_var->char_length());
+  DBUG_ASSERT((size_t)fpi->m_max_image_len >= const_cast<Field_varstring *>(field_var)->char_length());
   uchar *dst_end = dst + field_var->pack_length();
   dst += field_var->length_bytes;
   Rdb_bit_reader bit_reader(unp_reader);
@@ -3170,8 +3179,8 @@ static int get_segment_size_from_collation(const CHARSET_INFO *const cs) {
     field  IN  field to be packed/un-packed
 
   @return
-    TRUE  -  Field can be read with index-only reads
-    FALSE -  Otherwise
+    true  -  Field can be read with index-only reads
+    false -  Otherwise
 */
 
 bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
@@ -3373,7 +3382,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // either.
         // Currently we handle these collations as NO_PAD, even if they have
         // PAD_SPACE attribute.
-        if (cs->levels_for_order == 1) {
+        /* TODO(yzha) - levels_for_order is gone in 8.0 */
+        if (cs->levels_for_compare == 1) {
           m_pack_func = Rdb_key_def::pack_with_varchar_space_pad;
           m_skip_func = Rdb_key_def::skip_variable_space_pad;
           m_segment_size = get_segment_size_from_collation(cs);
@@ -3698,11 +3708,11 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner {
 
   bool compare_to_actual_tables(const std::string &datadir, bool *has_errors);
 
-  bool scan_for_frms(const std::string &datadir, const std::string &dbname,
-                     bool *has_errors);
-
-  bool check_frm_file(const std::string &fullpath, const std::string &dbname,
-                      const std::string &tablename, bool *has_errors);
+  // bool scan_for_frms(const std::string &datadir, const std::string &dbname,
+  //                    bool *has_errors);
+  // 
+  // bool check_frm_file(const std::string &fullpath, const std::string &dbname,
+  //                     const std::string &tablename, bool *has_errors);
 };
 }  // anonymous namespace
 
@@ -3727,107 +3737,107 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
   Access the .frm file for this dbname/tablename and see if it is a RocksDB
   table (or partition table).
 */
-bool Rdb_validate_tbls::check_frm_file(const std::string &fullpath,
-                                       const std::string &dbname,
-                                       const std::string &tablename,
-                                       bool *has_errors) {
-  /* Check this .frm file to see what engine it uses */
-  String fullfilename(fullpath.c_str(), &my_charset_bin);
-  fullfilename.append(FN_DIRSEP);
-  fullfilename.append(tablename.c_str());
-  fullfilename.append(".frm");
-
-  /*
-    This function will return the legacy_db_type of the table.  Currently
-    it does not reference the first parameter (THD* thd), but if it ever
-    did in the future we would need to make a version that does it without
-    the connection handle as we don't have one here.
-  */
-  enum legacy_db_type eng_type;
-  frm_type_enum type = dd_frm_type(nullptr, fullfilename.c_ptr(), &eng_type);
-  if (type == FRMTYPE_ERROR) {
-    // NO_LINT_DEBUG
-    sql_print_warning("RocksDB: Failed to open/read .from file: %s",
-                      fullfilename.ptr());
-    return false;
-  }
-
-  if (type == FRMTYPE_TABLE) {
-    /* For a RocksDB table do we have a reference in the data dictionary? */
-    if (eng_type == DB_TYPE_ROCKSDB) {
-      /*
-        Attempt to remove the table entry from the list of tables.  If this
-        fails then we know we had a .frm file that wasn't registered in RocksDB.
-      */
-      tbl_info_t element(tablename, false);
-      if (m_list.count(dbname) == 0 || m_list[dbname].erase(element) == 0) {
-        // NO_LINT_DEBUG
-        sql_print_warning(
-            "RocksDB: Schema mismatch - "
-            "A .frm file exists for table %s.%s, "
-            "but that table is not registered in RocksDB",
-            dbname.c_str(), tablename.c_str());
-        *has_errors = true;
-      }
-    } else if (eng_type == DB_TYPE_PARTITION_DB) {
-      /*
-        For partition tables, see if it is in the m_list as a partition,
-        but don't generate an error if it isn't there - we don't know that the
-        .frm is for RocksDB.
-      */
-      if (m_list.count(dbname) > 0) {
-        m_list[dbname].erase(tbl_info_t(tablename, true));
-      }
-    }
-  }
-
-  return true;
-}
+// bool Rdb_validate_tbls::check_frm_file(const std::string &fullpath,
+//                                        const std::string &dbname,
+//                                        const std::string &tablename,
+//                                        bool *has_errors) {
+//   /* Check this .frm file to see what engine it uses */
+//   String fullfilename(fullpath.c_str(), &my_charset_bin);
+//   fullfilename.append(FN_DIRSEP);
+//   fullfilename.append(tablename.c_str());
+//   fullfilename.append(".frm");
+// 
+//   /*
+//     This function will return the legacy_db_type of the table.  Currently
+//     it does not reference the first parameter (THD* thd), but if it ever
+//     did in the future we would need to make a version that does it without
+//     the connection handle as we don't have one here.
+//   */
+//   enum legacy_db_type eng_type;
+//   frm_type_enum type = dd_frm_type(nullptr, fullfilename.c_ptr(), &eng_type);
+//   if (type == FRMTYPE_ERROR) {
+//     // NO_LINT_DEBUG
+//     sql_print_warning("RocksDB: Failed to open/read .from file: %s",
+//                       fullfilename.ptr());
+//     return false;
+//   }
+// 
+//   if (type == FRMTYPE_TABLE) {
+//     /* For a RocksDB table do we have a reference in the data dictionary? */
+//     if (eng_type == DB_TYPE_ROCKSDB) {
+//       /*
+//         Attempt to remove the table entry from the list of tables.  If this
+//         fails then we know we had a .frm file that wasn't registered in RocksDB.
+//       */
+//       tbl_info_t element(tablename, false);
+//       if (m_list.count(dbname) == 0 || m_list[dbname].erase(element) == 0) {
+//         // NO_LINT_DEBUG
+//         sql_print_warning(
+//             "RocksDB: Schema mismatch - "
+//             "A .frm file exists for table %s.%s, "
+//             "but that table is not registered in RocksDB",
+//             dbname.c_str(), tablename.c_str());
+//         *has_errors = true;
+//       }
+//     } else if (eng_type == DB_TYPE_PARTITION_DB) {
+//       /*
+//         For partition tables, see if it is in the m_list as a partition,
+//         but don't generate an error if it isn't there - we don't know that the
+//         .frm is for RocksDB.
+//       */
+//       if (m_list.count(dbname) > 0) {
+//         m_list[dbname].erase(tbl_info_t(tablename, true));
+//       }
+//     }
+//   }
+// 
+//   return true;
+// }
 
 /* Scan the database subdirectory for .frm files */
-bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
-                                      const std::string &dbname,
-                                      bool *has_errors) {
-  bool result = true;
-  std::string fullpath = datadir + dbname;
-  struct st_my_dir *dir_info = my_dir(fullpath.c_str(), MYF(MY_DONT_SORT));
-
-  /* Access the directory */
-  if (dir_info == nullptr) {
-    // NO_LINT_DEBUG
-    sql_print_warning("RocksDB: Could not open database directory: %s",
-                      fullpath.c_str());
-    return false;
-  }
-
-  /* Scan through the files in the directory */
-  struct fileinfo *file_info = dir_info->dir_entry;
-  for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
-    /* Find .frm files that are not temp files (those that contain '#sql') */
-    const char *ext = strrchr(file_info->name, '.');
-    if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr &&
-        strcmp(ext, ".frm") == 0) {
-      std::string tablename =
-          std::string(file_info->name, ext - file_info->name);
-
-      /* Check to see if the .frm file is from RocksDB */
-      if (!check_frm_file(fullpath, dbname, tablename, has_errors)) {
-        result = false;
-        break;
-      }
-    }
-  }
-
-  /* Remove any databases who have no more tables listed */
-  if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
-    m_list.erase(dbname);
-  }
-
-  /* Release the directory entry */
-  my_dirend(dir_info);
-
-  return result;
-}
+// bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
+//                                       const std::string &dbname,
+//                                       bool *has_errors) {
+//   bool result = true;
+//   std::string fullpath = datadir + dbname;
+//   struct MY_DIR *dir_info = my_dir(fullpath.c_str(), MYF(MY_DONT_SORT));
+// 
+//   /* Access the directory */
+//   if (dir_info == nullptr) {
+//     // NO_LINT_DEBUG
+//     sql_print_warning("RocksDB: Could not open database directory: %s",
+//                       fullpath.c_str());
+//     return false;
+//   }
+// 
+//   /* Scan through the files in the directory */
+//   struct fileinfo *file_info = dir_info->dir_entry;
+//   for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
+//     /* Find .frm files that are not temp files (those that contain '#sql') */
+//     const char *ext = strrchr(file_info->name, '.');
+//     if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr &&
+//         strcmp(ext, ".frm") == 0) {
+//       std::string tablename =
+//           std::string(file_info->name, ext - file_info->name);
+// 
+//       /* Check to see if the .frm file is from RocksDB */
+//       if (!check_frm_file(fullpath, dbname, tablename, has_errors)) {
+//         result = false;
+//         break;
+//       }
+//     }
+//   }
+// 
+//   /* Remove any databases who have no more tables listed */
+//   if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
+//     m_list.erase(dbname);
+//   }
+// 
+//   /* Release the directory entry */
+//   my_dirend(dir_info);
+// 
+//   return result;
+// }
 
 /*
   Scan the datadir for all databases (subdirectories) and get a list of .frm
@@ -3836,7 +3846,7 @@ bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
 bool Rdb_validate_tbls::compare_to_actual_tables(const std::string &datadir,
                                                  bool *has_errors) {
   bool result = true;
-  struct st_my_dir *dir_info;
+  struct MY_DIR *dir_info;
   struct fileinfo *file_info;
 
   dir_info = my_dir(datadir.c_str(), MYF(MY_DONT_SORT | MY_WANT_STAT));
@@ -3855,10 +3865,11 @@ bool Rdb_validate_tbls::compare_to_actual_tables(const std::string &datadir,
     if (!MY_S_ISDIR(file_info->mystat->st_mode)) continue;
 
     /* Scan all the .frm files in the directory */
-    if (!scan_for_frms(datadir, file_info->name, has_errors)) {
-      result = false;
-      break;
-    }
+    /* TODO(yzha) - New validation for data dictionary in 8.0 */
+    // if (!scan_for_frms(datadir, file_info->name, has_errors)) {
+    //   result = false;
+    //   break;
+    // }
   }
 
   /* Release the directory info */
@@ -3946,26 +3957,27 @@ bool Rdb_ddl_manager::validate_schemas(void) {
     return false;
   }
 
+  /* TODO(yzha) - New validation for data dictionary in 8.0 */
   /* Compare that to the list of actual .frm files */
-  if (!table_list.compare_to_actual_tables(datadir, &has_errors)) {
-    return false;
-  }
-
+  // if (!table_list.compare_to_actual_tables(datadir, &has_errors)) {
+  //   return false;
+  // }
+  //
   /*
     Any tables left in the tables list are ones that are registered in RocksDB
     but don't have .frm files.
   */
-  for (const auto &db : table_list.m_list) {
-    for (const auto &table : db.second) {
-      // NO_LINT_DEBUG
-      sql_print_warning(
-          "RocksDB: Schema mismatch - "
-          "Table %s.%s is registered in RocksDB "
-          "but does not have a .frm file",
-          db.first.c_str(), table.first.c_str());
-      has_errors = true;
-    }
-  }
+  // for (const auto &db : table_list.m_list) {
+  //   for (const auto &table : db.second) {
+  //     // NO_LINT_DEBUG
+  //     sql_print_warning(
+  //         "RocksDB: Schema mismatch - "
+  //         "Table %s.%s is registered in RocksDB "
+  //         "but does not have a .frm file",
+  //         db.first.c_str(), table.first.c_str());
+  //     has_errors = true;
+  //   }
+  // }
 
   return !has_errors;
 }
@@ -4718,7 +4730,7 @@ void Rdb_binlog_manager::update_slave_gtid_info(
 
 bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
                             Rdb_cf_manager *const cf_manager,
-                            const my_bool enable_remove_orphaned_dropped_cfs) {
+                            const bool enable_remove_orphaned_dropped_cfs) {
   DBUG_ASSERT(rdb_dict != nullptr);
   DBUG_ASSERT(cf_manager != nullptr);
 
@@ -5174,7 +5186,7 @@ int Rdb_dict_manager::add_missing_cf_flags(
  */
 int Rdb_dict_manager::remove_orphaned_dropped_cfs(
     Rdb_cf_manager *const cf_manager,
-    const my_bool &enable_remove_orphaned_dropped_cfs) const {
+    const bool &enable_remove_orphaned_dropped_cfs) const {
   const std::unique_ptr<rocksdb::WriteBatch> wb = begin();
   rocksdb::WriteBatch *const batch = wb.get();
 
