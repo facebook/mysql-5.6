@@ -1993,7 +1993,8 @@ USER_CONN *get_user_conn_for_stats(THD *thd)
 {
   USER_CONN *uc = const_cast<USER_CONN*>(thd->get_user_connect());
 
-  if (!uc)
+  /* make sure the aux users have been setup */
+  if (!uc && aux_user_table_stats_initialized)
   {
     if (thd->slave_thread)
       uc = &slave_user_conn;

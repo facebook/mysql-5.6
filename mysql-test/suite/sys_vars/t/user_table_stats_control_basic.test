@@ -23,6 +23,21 @@ SELECT @@global.user_table_stats_control;
 ####
 ## Restore the default value
 ####
--- echo restore the default value
+--echo restore the default value
 SET @@global.user_table_stats_control = "off";
+SELECT @@global.user_table_stats_control;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (ALL)
+--let $_mysqld_option=--user_table_stats_control=all
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.user_table_stats_control;
+
+--echo restart the server with the default value (OFF)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
 SELECT @@global.user_table_stats_control;

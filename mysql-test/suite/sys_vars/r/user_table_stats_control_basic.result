@@ -15,3 +15,11 @@ SET @@global.user_table_stats_control = "off";
 SELECT @@global.user_table_stats_control;
 @@global.user_table_stats_control
 OFF
+restart the server with non default value (ALL)
+SELECT @@global.user_table_stats_control;
+@@global.user_table_stats_control
+ALL
+restart the server with the default value (OFF)
+SELECT @@global.user_table_stats_control;
+@@global.user_table_stats_control
+OFF
