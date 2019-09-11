@@ -772,15 +772,11 @@ The documentation is based on the source files such as:
 #include <string>
 #include <vector>
 
-#ifndef EMBEDDED_LIBRARY
 #ifdef WITH_LOCK_ORDER
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
-#endif /* EMBEDDED_LIBRARY */
 
-#ifndef EMBEDDED_LIBRARY
 #include "srv_session.h"
-#endif
 
 #include <mysql/components/minimal_chassis.h>
 #include <mysql/components/services/dynamic_loader_scheme_file.h>
@@ -8803,7 +8799,6 @@ struct my_option my_long_options[] = {
      0, nullptr, 0, nullptr}};
 
 #ifdef HAVE_JEMALLOC
-#ifndef EMBEDDED_LIBRARY
 std::atomic_bool need_update_malloc_status;
 
 static void update_malloc_status() {
@@ -8905,7 +8900,6 @@ static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff) {
   update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
 }
-#endif /* EMBEDDED_LIBRARY */
 #endif /* HAVE_JEMALLOC */
 
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {

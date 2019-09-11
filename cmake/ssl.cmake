@@ -194,6 +194,8 @@ MACRO (MYSQL_CHECK_SSL)
       MESSAGE(STATUS "OPENSSL_APPLINK_C ${OPENSSL_APPLINK_C}")
     ENDIF()
 
+    # "_pic" suffix isn't a standard convention so probe for both with and
+    # without, preferring with _pic
     FIND_LIBRARY(OPENSSL_LIBRARY
       NAMES ssl${PIC_EXT} libssl${PIC_EXT} ssleay32${PIC_EXT} ssleay32MD${PIC_EXT}
             ssl libssl ssleay32 ssleay32MD

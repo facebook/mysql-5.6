@@ -246,7 +246,9 @@ void Rdb_io_perf::end_and_record(const uint32_t perf_context_level) {
         rocksdb::get_perf_context()->block_read_time;
 
     m_shared_io_perf_read->sum(io_perf_read);
+    /* TODO(yzha) - bcebc1ebf02 Port v5.1 Extra Stats: Per-Table
     m_stats->table_io_perf_read.sum(io_perf_read);
+    */
   }
 
   if (m_shared_io_perf_write &&
@@ -256,12 +258,15 @@ void Rdb_io_perf::end_and_record(const uint32_t perf_context_level) {
     io_perf_write.bytes = io_write_bytes;
     io_perf_write.requests = io_write_requests;
     m_shared_io_perf_write->sum(io_perf_write);
+    /* TODO(yzha) - bcebc1ebf02 Port v5.1 Extra Stats: Per-Table
     m_stats->table_io_perf_write.sum(io_perf_write);
+    */
     io_write_bytes = 0;
     io_write_requests = 0;
   }
 
   if (m_stats) {
+    /* TODO(yzha) - bcebc1ebf02 Port v5.1 Extra Stats: Per-Table
     if (rocksdb::get_perf_context()->internal_key_skipped_count != 0) {
       m_stats->key_skipped +=
           rocksdb::get_perf_context()->internal_key_skipped_count;
@@ -271,6 +276,7 @@ void Rdb_io_perf::end_and_record(const uint32_t perf_context_level) {
       m_stats->delete_skipped +=
           rocksdb::get_perf_context()->internal_delete_skipped_count;
     }
+    */
   }
 }
 

@@ -24,9 +24,10 @@
 #include <vector>
 
 /* MySQL header files */
-#include "./handler.h"   /* handler */
-#include "./my_global.h" /* ulonglong */
+#include "sql/handler.h"   /* handler */
 #include "./sql_string.h"
+
+/* MyRocks headers */
 #include "./ut0counter.h"
 
 namespace myrocks {
