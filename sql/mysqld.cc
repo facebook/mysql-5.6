@@ -942,15 +942,11 @@ MySQL clients support the protocol:
 #include <functional>
 #include <new>
 
-#ifndef EMBEDDED_LIBRARY
 #ifdef WITH_LOCK_ORDER
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
-#endif /* EMBEDDED_LIBRARY */
 
-#ifndef EMBEDDED_LIBRARY
 #include "srv_session.h"
-#endif
 
 #include <mysql/components/minimal_chassis.h>
 #include <mysql/components/services/dynamic_loader_scheme_file.h>
