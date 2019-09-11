@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+#include <fcntl.h>
+
 namespace myrocks {
 
 void Rdb_io_watchdog::expire_io_callback(union sigval timer_data) {

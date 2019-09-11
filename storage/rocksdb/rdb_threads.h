@@ -23,14 +23,12 @@
 #include <utility>
 
 /* MySQL includes */
-#include "./my_global.h"
-
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
+#include "sql/sql_class.h"
 
 /* MyRocks header files */
 #include "./rdb_utils.h"
-#include "./sql_class.h"
 #include "rocksdb/db.h"
 
 namespace myrocks {
@@ -44,7 +42,7 @@ class Rdb_thread {
   // Make sure we run only once
   std::atomic_bool m_run_once;
 
-  pthread_t m_handle;
+  my_thread_handle m_handle;
 
   std::string m_name;
 
@@ -54,7 +52,7 @@ class Rdb_thread {
 
   // TODO: When porting to 8.0 we should move to std::atomic
   // instead of volatile
-  THD::killed_state volatile m_killed;
+  std::atomic<THD::killed_state> m_killed;
 
  public:
   Rdb_thread() : m_run_once(false), m_killed(THD::NOT_KILLED) {}
@@ -73,7 +71,7 @@ class Rdb_thread {
 
   void signal(const bool stop_thread = false);
 
-  int join() { return pthread_join(m_handle, nullptr); }
+  int join() { return pthread_join(m_handle.thread, nullptr); }
 
   void setname() {
     /*
@@ -91,7 +89,7 @@ class Rdb_thread {
     */
     DBUG_ASSERT(!m_name.empty());
 #ifdef __linux__
-    int err = pthread_setname_np(m_handle, m_name.c_str());
+    int err = pthread_setname_np(m_handle.thread, m_name.c_str());
     if (err) {
       // NO_LINT_DEBUG
       sql_print_warning(

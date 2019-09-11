@@ -132,62 +132,6 @@
 #include "varlen_sort.h"
 
 /**
-  @def MYSQL_TABLE_IO_WAIT
-  Instrumentation helper for table io_waits.
-  Note that this helper is intended to be used from
-  within the handler class only, as it uses members
-  from @c handler
-  Performance schema events are instrumented as follows:
-  - in non batch mode, one event is generated per call
-  - in batch mode, the number of rows affected is saved
-  in @c m_psi_numrows, so that @c end_psi_batch_mode()
-  generates a single event for the batch.
-  @param OP the table operation to be performed
-  @param INDEX the table index used if any, or MAX_KEY.
-  @param RESULT the result of the table operation performed
-  @param PAYLOAD instrumented code to execute
-  @sa handler::end_psi_batch_mode.
-*/
-#ifdef HAVE_PSI_TABLE_INTERFACE
-#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD)                     \
-  {                                                                         \
-    if (m_psi != NULL) {                                                    \
-      switch (m_psi_batch_mode) {                                           \
-        case PSI_BATCH_MODE_NONE: {                                         \
-          PSI_table_locker *sub_locker = NULL;                              \
-          PSI_table_locker_state reentrant_safe_state;                      \
-          sub_locker = PSI_TABLE_CALL(start_table_io_wait)(                 \
-              &reentrant_safe_state, m_psi, OP, INDEX, __FILE__, __LINE__); \
-          PAYLOAD                                                           \
-          if (sub_locker != NULL) PSI_TABLE_CALL(end_table_io_wait)         \
-          (sub_locker, 1);                                                  \
-          break;                                                            \
-        }                                                                   \
-        case PSI_BATCH_MODE_STARTING: {                                     \
-          m_psi_locker = PSI_TABLE_CALL(start_table_io_wait)(               \
-              &m_psi_locker_state, m_psi, OP, INDEX, __FILE__, __LINE__);   \
-          PAYLOAD                                                           \
-          if (!RESULT) m_psi_numrows++;                                     \
-          m_psi_batch_mode = PSI_BATCH_MODE_STARTED;                        \
-          break;                                                            \
-        }                                                                   \
-        case PSI_BATCH_MODE_STARTED:                                        \
-        default: {                                                          \
-          DBUG_ASSERT(m_psi_batch_mode == PSI_BATCH_MODE_STARTED);          \
-          PAYLOAD                                                           \
-          if (!RESULT) m_psi_numrows++;                                     \
-          break;                                                            \
-        }                                                                   \
-      }                                                                     \
-    } else {                                                                \
-      PAYLOAD                                                               \
-    }                                                                       \
-  }
-#else
-#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD) PAYLOAD
-#endif
-
-/**
   @def MYSQL_TABLE_LOCK_WAIT
   Instrumentation helper for table io_waits.
   @param OP the table operation to be performed
@@ -3331,6 +3275,25 @@ int handler::ha_index_first(uchar *buf) {
   }
   table->set_row_status_from_handler(result);
   DBUG_RETURN(result);
+}
+
+bool handler::is_using_full_key(key_part_map keypart_map,
+                                uint actual_key_parts)
+{
+  return (keypart_map == HA_WHOLE_KEY) ||
+         (keypart_map == ((key_part_map(1) << actual_key_parts)
+                        - 1));
+}
+
+bool handler::is_using_full_unique_key(uint index,
+                                        key_part_map keypart_map,
+                                        enum ha_rkey_function find_flag)
+{
+  return (is_using_full_key(keypart_map,
+                            table->key_info[index].actual_key_parts)
+          && find_flag == HA_READ_KEY_EXACT
+          && (index == table->s->primary_key
+              || (table->key_info[index].flags & HA_NOSAME)));
 }
 
 /**

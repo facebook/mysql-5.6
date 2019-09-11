@@ -203,6 +203,13 @@ size_t thd_query_safe(THD *thd, char *buf, size_t buflen) {
   return len;
 }
 
+void thd_query_safe(THD *thd, std::string *query) {
+  mysql_mutex_lock(&thd->LOCK_thd_query);
+  LEX_CSTRING query_string = thd->query();
+  query->assign(query_string.str, query_string.length);
+  mysql_mutex_unlock(&thd->LOCK_thd_query);
+}
+
 int thd_slave_thread(const THD *thd) { return (thd->slave_thread); }
 
 int thd_non_transactional_update(const THD *thd) {

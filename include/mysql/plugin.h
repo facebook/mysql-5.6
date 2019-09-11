@@ -187,6 +187,8 @@ struct MYSQL_XID {
   0x10000 /* SET PERSIST_ONLY is prohibited \
              for read only variables */
 
+#define PLUGIN_VAR_ALLOCATED 0x20000 /* memory for string has been allocated*/
+
 /**
   There can be some variables which needs to be set before plugin is loaded but
   not after plugin is loaded. ex: GR specific variables. Below flag must be set

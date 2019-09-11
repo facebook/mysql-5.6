@@ -15,9 +15,11 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 #pragma once
 
-#include <log.h>
 #include <sstream>
 #include <string>
+
+/* MySQL header files */
+#include <sql/log.h>
 
 namespace myrocks {
 
@@ -52,7 +54,7 @@ class Rdb_logger : public rocksdb::Logger {
     // log to MySQL
     std::string f("LibRocksDB:");
     f.append(format);
-    error_log_print(mysql_log_level, f.c_str(), ap);
+    sql_print_error(mysql_log_level, f.c_str(), ap);
   }
 
   void Logv(const char *format, va_list ap) override {
