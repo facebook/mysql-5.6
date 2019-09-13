@@ -400,13 +400,16 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db)
                                       db, "", MY_DB_OPT_FILE, 0);
 
   bool super = (thd->security_ctx->master_access & SUPER_ACL);
+  bool has_repl_slave_and_admin_port =
+      (thd->security_ctx->master_access & REPL_SLAVE_ACL) &&
+      (thd->security_ctx->master_access & ADMIN_PORT_ACL);
   my_dbopt_t *opt= (my_dbopt_t *)my_hash_search
     (&thd->db_read_only_hash, (const uchar*)path, path_len);
 
   if (opt)
   {
     DBUG_ASSERT(opt->db_read_only);
-    if (opt->db_read_only > 1 || !super)
+    if (opt->db_read_only > 1 || (!super && !has_repl_slave_and_admin_port))
       ret = true;
   }
 

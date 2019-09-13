@@ -64,20 +64,45 @@ connection master;
 --error 1146
 select * from test.tbl; 
 
-
 --echo User user who has replication slave privilege and admin port can replay binlog
 --exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
---remove_file $MYSQLD_DATADIR/master-bin.saved  
 
-# with replication privilege, mysqlbinlog can generate binlog and gtid 
---source include/sync_slave_sql_with_master.inc
 connection master;
 select * from test.tbl; 
 
+--echo # With replication privilege and admin port privilege, replaying binlog should generate gtid
+--source include/sync_slave_sql_with_master.inc
 connection slave;
 select * from test.tbl; 
 
 connection master;
+DROP table test.tbl;
+
+set global read_only=1;
+--echo # user who has replication slave and admin port privilege can't replay binlog for a read only database instance
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+# Table 'test.tbl' doesn't exist
+--error 1146
+select * from test.tbl; 
+set global read_only=0;
+
+alter database test read_only=True;
+--echo # user who has replication slave and admin port privileges can replay binlog for a read only database
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--remove_file $MYSQLD_DATADIR/master-bin.saved  
+
+connection master;
+select * from test.tbl; 
+
+--echo # With replication privilege and admin port privilege, reply binlog should generate gtid for read_only database
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+select * from test.tbl; 
+
+connection master;
+alter database test read_only=False;
 DROP user 'olm'@'localhost';
 DROP user 'normal'@'localhost';
 DROP table tbl;

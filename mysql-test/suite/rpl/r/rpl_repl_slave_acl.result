@@ -41,15 +41,35 @@ User without admin port privilege can't replay binlog
 select * from test.tbl;
 ERROR 42S02: Table 'test.tbl' doesn't exist
 User user who has replication slave privilege and admin port can replay binlog
+select * from test.tbl;
+id	value
+1	2
+2	10
+# With replication privilege and admin port privilege, replaying binlog should generate gtid
 include/sync_slave_sql_with_master.inc
 select * from test.tbl;
 id	value
 1	2
 2	10
+DROP table test.tbl;
+set global read_only=1;
+# user who has replication slave and admin port privilege can't replay binlog for a read only database instance
+select * from test.tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+set global read_only=0;
+alter database test read_only=True;
+# user who has replication slave and admin port privileges can replay binlog for a read only database
 select * from test.tbl;
 id	value
 1	2
 2	10
+# With replication privilege and admin port privilege, reply binlog should generate gtid for read_only database
+include/sync_slave_sql_with_master.inc
+select * from test.tbl;
+id	value
+1	2
+2	10
+alter database test read_only=False;
 DROP user 'olm'@'localhost';
 DROP user 'normal'@'localhost';
 DROP table tbl;
