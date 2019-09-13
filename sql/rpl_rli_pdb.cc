@@ -301,6 +301,7 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
                  );
   jobs.inited_queue= true;
   curr_group_seen_begin= curr_group_seen_gtid= false;
+  curr_group_seen_metadata= false;
 
   my_init_dynamic_array(&jobs.Q, sizeof(Slave_job_item), jobs.size, 0);
   for (k= 0; k < jobs.size; k++)

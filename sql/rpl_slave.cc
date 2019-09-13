@@ -4221,6 +4221,7 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
                                    curr_group_assigned_parts, i - 1);
           // reset the B-group and Gtid-group marker
           rli->curr_group_seen_begin= rli->curr_group_seen_gtid= false;
+          rli->curr_group_seen_metadata= false;
           rli->last_assigned_worker= NULL;
         }
         /* 
@@ -6356,6 +6357,7 @@ int slave_start_workers(Relay_log_info *rli, ulong n, bool *mts_inited)
   rli->mts_coordinator_basic_nap= mts_coordinator_basic_nap;
   rli->mts_worker_underrun_level= mts_worker_underrun_level;
   rli->curr_group_seen_begin= rli->curr_group_seen_gtid= false;
+  rli->curr_group_seen_metadata= false;
   rli->curr_group_isolated= FALSE;
   rli->checkpoint_seqno= 0;
   rli->mts_last_online_stat= my_time(0);

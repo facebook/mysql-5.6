@@ -2880,6 +2880,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
 
   // Beginning of a group designated explicitly with BEGIN or GTID
   if ((is_s_event= starts_group()) || is_gtid_event(this) ||
+      get_type_code() == METADATA_EVENT ||
       // or DDL:s or autocommit queries possibly associated with own p-events
       (!rli->curr_group_seen_begin && !rli->curr_group_seen_gtid &&
        /*
@@ -2932,6 +2933,19 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
         return ret_worker;
       }
     }
+    else if (get_type_code() == METADATA_EVENT)
+    {
+      // Metadata event allowed only when gtid is enabled
+      DBUG_ASSERT(rli->curr_group_seen_gtid);
+      rli->curr_group_seen_metadata= true;
+      Log_event *ptr_curr_ev= this;
+      insert_dynamic(&rli->curr_group_da, (uchar*) &ptr_curr_ev);
+
+      // By the time we see Metadata event for the group, we should have already
+      // seen gtid event. Hence number of elements in the array is 2
+      DBUG_ASSERT(rli->curr_group_da.elements == 2);
+      return ret_worker;
+    }
     else
     {
       Log_event *ptr_curr_ev= this;
@@ -2939,7 +2953,17 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
       insert_dynamic(&rli->curr_group_da, (uchar*) &ptr_curr_ev);
       rli->curr_group_seen_begin= true;
       rli->mts_end_group_sets_max_dbs= true;
-      DBUG_ASSERT(rli->curr_group_da.elements == 2);
+
+      // If metadata event is seen, then there should be 3 elements in the array
+      // (GTID event, metadata event and the query 'begin' event). Else, there
+      // should only be two events in the array (GTID event and query 'begin'
+      // event)
+      DBUG_ASSERT(
+          (!rli->curr_group_seen_metadata &&
+           rli->curr_group_da.elements == 2) ||
+          (rli->curr_group_seen_metadata &&
+           rli->curr_group_da.elements == 3));
+
       DBUG_ASSERT(starts_group());
       return ret_worker;
     }
@@ -3776,8 +3800,10 @@ int Log_event::apply_event(Relay_log_info *rli)
   }
 
   if (!rli->mts_dependency_replication)
+  {
     worker= (Relay_log_info*)
       (rli->last_assigned_worker= get_slave_worker(rli));
+  }
 
 #ifndef DBUG_OFF
   if (rli->last_assigned_worker)
