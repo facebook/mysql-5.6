@@ -693,10 +693,6 @@ class ha_rocksdb : public my_core::handler {
   // if true, MRR code has enabled keyread (and should disable it back)
   bool mrr_enabled_keyread;
 
-  // Expected number of rowids that are left to scan.
-  //  This number is used to avoid allocating huge arrays in mrr_fill_buffer
-  ssize_t mrr_n_rowids;
-
   int mrr_fill_buffer();
   void mrr_free_rows();
   void mrr_free();
