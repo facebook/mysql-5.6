@@ -4556,7 +4556,7 @@ FLUSH STATUS;
 FLUSH TABLES;
 EXPLAIN EXTENDED SELECT * FROM t1     WHERE c1_idx = 'y' ORDER BY pk DESC LIMIT 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	c1_idx	c1_idx	2	const	2	100.00	Using index condition; Using where; Using filesort
+1	SIMPLE	t1	range	c1_idx	c1_idx	2	NULL	2	100.00	Using index condition; Using MRR; Using filesort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y') order by `test`.`t1`.`pk` desc limit 2
 # Status of EXPLAIN EXTENDED "equivalent" SELECT query execution
@@ -4570,7 +4570,7 @@ EXPLAIN
       "using_filesort": true,
       "table": {
         "table_name": "t1",
-        "access_type": "ref",
+        "access_type": "range",
         "possible_keys": [
           "c1_idx"
         ] /* possible_keys */,
@@ -4579,13 +4579,10 @@ EXPLAIN
           "c1_idx"
         ] /* used_key_parts */,
         "key_length": "2",
-        "ref": [
-          "const"
-        ] /* ref */,
         "rows": 2,
         "filtered": 100,
         "index_condition": "(`test`.`t1`.`c1_idx` = 'y')",
-        "attached_condition": "((`test`.`t1`.`c1_idx` <=> 'y'))"
+        "using_MRR": true
       } /* table */
     } /* ordering_operation */
   } /* query_block */
@@ -4655,7 +4652,7 @@ FLUSH STATUS;
 FLUSH TABLES;
 EXPLAIN EXTENDED SELECT * FROM t1 WHERE c1_idx = 'y' ORDER BY pk DESC LIMIT 2;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ref	c1_idx	c1_idx	2	const	2	100.00	Using index condition; Using where; Using filesort
+1	SIMPLE	t1	range	c1_idx	c1_idx	2	NULL	2	100.00	Using index condition; Using MRR; Using filesort
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`c1_idx` AS `c1_idx`,`test`.`t1`.`c2` AS `c2` from `test`.`t1` where (`test`.`t1`.`c1_idx` = 'y') order by `test`.`t1`.`pk` desc limit 2
 # Status of EXPLAIN EXTENDED "equivalent" SELECT query execution
@@ -4669,7 +4666,7 @@ EXPLAIN
       "using_filesort": true,
       "table": {
         "table_name": "t1",
-        "access_type": "ref",
+        "access_type": "range",
         "possible_keys": [
           "c1_idx"
         ] /* possible_keys */,
@@ -4678,13 +4675,10 @@ EXPLAIN
           "c1_idx"
         ] /* used_key_parts */,
         "key_length": "2",
-        "ref": [
-          "const"
-        ] /* ref */,
         "rows": 2,
         "filtered": 100,
         "index_condition": "(`test`.`t1`.`c1_idx` = 'y')",
-        "attached_condition": "((`test`.`t1`.`c1_idx` <=> 'y'))"
+        "using_MRR": true
       } /* table */
     } /* ordering_operation */
   } /* query_block */
