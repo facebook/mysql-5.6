@@ -252,4 +252,23 @@ set optimizer_trace=0;
 
 drop table t0, t2;
 
+--echo #
+--echo # Test for the "fallback to default MRR implementation if SQL layer
+--echo # requests the sorted mode". 
+--echo #
+create table t0(a int primary key);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (kp1 int, kp2 int, kp3 int, col1 int, key (kp1, kp2, kp3));
+insert into t1 select A.a, B.a, C.a, 123456 from t0 A, t0 B, t0 C;
+
+set global rocksdb_force_flush_memtable_now=1;
+analyze table t1;
+--replace_column 9 #
+explain
+select * from t1 where kp1=1 order by kp2 limit 10;
+# This shouldn't fail an assert:
+select * from t1 where kp1=1 order by kp2 limit 10;
+
+drop table t0, t1;
 set optimizer_switch=@save_optimizer_switch;

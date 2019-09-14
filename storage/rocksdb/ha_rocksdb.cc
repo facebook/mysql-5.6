@@ -15312,7 +15312,8 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
 
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
       (mode & HA_MRR_USE_DEFAULT_IMPL) ||
-      (buf->buffer_end - buf->buffer < mrr_get_length_per_rec())) {
+      (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()) ||
+      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED))) {
     mrr_uses_default_impl = true;
     res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
                                          buf);
