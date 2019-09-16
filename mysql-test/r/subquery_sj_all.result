@@ -6240,7 +6240,7 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	ALL	NULL	NULL	NULL	NULL	2	Using join buffer (Block Nested Loop)
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	2	Using where; Using join buffer (Block Nested Loop)
 2	MATERIALIZED	t4	ALL	NULL	NULL	NULL	NULL	1	NULL
-2	MATERIALIZED	t3	range	uid	uid	5	NULL	1	Using index condition; Using where; Using MRR; Using join buffer (Block Nested Loop)
+2	MATERIALIZED	t3	ref	uid	uid	5	const	1	Using where
 select t2.uid from t2, t1 
 where t1.uid in (select t4.uid from t4, t3 where t3.uid=1 and t4.uid=t3.fid)
 and t2.uid=t1.fid;
@@ -6874,7 +6874,7 @@ explain select name from t2, t1
 where t1.uid in (select t4.uid from t4, t3 where t3.uid=1 and t4.uid=t3.fid)
 and t2.uid=t1.fid;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t3	range	uid	uid	5	NULL	4	Using index condition; Using where; Using MRR; Start temporary
+1	SIMPLE	t3	ref	uid	uid	5	const	4	Using where; Start temporary
 1	SIMPLE	t4	eq_ref	PRIMARY	PRIMARY	4	test.t3.fid	1	Using index
 1	SIMPLE	t1	ref	uid	uid	5	test.t3.fid	2	Using where
 1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	4	test.t1.fid	1	End temporary
@@ -7952,7 +7952,7 @@ WHERE t2.col_int_key = 1
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t4	ALL	NULL	NULL	NULL	NULL	2	Using where
 1	SIMPLE	<subquery2>	eq_ref	<auto_key>	<auto_key>	9	test.t4.col_int_nokey,test.t4.col_varchar_key	1	NULL
-2	MATERIALIZED	t2	range	col_int_key	col_int_key	5	NULL	3	Using index condition; Using where; Using MRR
+2	MATERIALIZED	t2	ref	col_int_key	col_int_key	5	const	3	Using where
 2	MATERIALIZED	t1	ref	col_varchar_key	col_varchar_key	4	test.t2.col_varchar_key	2	Using index
 SELECT *
 FROM t4
@@ -8113,9 +8113,9 @@ AND grandparent1.col_int_key <> 3
 );
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-2	DEPENDENT SUBQUERY	grandparent1	range	col_int_key	col_int_key	4	NULL	12	Using index condition; Using where; Using MRR
+2	DEPENDENT SUBQUERY	grandparent1	ref	col_int_key	col_int_key	4	func	2	Using index condition; Using where
 2	DEPENDENT SUBQUERY	<subquery3>	eq_ref	<auto_key>	<auto_key>	8	test.grandparent1.col_int_nokey,test.grandparent1.col_int_nokey	1	NULL
-3	MATERIALIZED	parent1	range	col_int_key	col_int_key	4	NULL	12	Using where; Using MRR
+3	MATERIALIZED	parent1	ref	col_int_key	col_int_key	4	func	2	NULL
 3	MATERIALIZED	parent2	index	col_int_key	col_int_key	4	NULL	1	Using where; Using index; Using join buffer (Block Nested Loop)
 explain format=json SELECT * FROM t3
 WHERE g1 NOT IN
@@ -8146,7 +8146,7 @@ EXPLAIN
               {
                 "table": {
                   "table_name": "grandparent1",
-                  "access_type": "range",
+                  "access_type": "ref",
                   "possible_keys": [
                     "col_int_key"
                   ],
@@ -8155,10 +8155,12 @@ EXPLAIN
                     "col_int_key"
                   ],
                   "key_length": "4",
-                  "rows": 12,
+                  "ref": [
+                    "func"
+                  ],
+                  "rows": 2,
                   "filtered": 100,
                   "index_condition": "(`test`.`grandparent1`.`col_int_key` <> 3)",
-                  "using_MRR": true,
                   "attached_condition": "(((`test`.`grandparent1`.`col_int_key` = `test`.`grandparent1`.`col_int_nokey`) and (<cache>('8') = `test`.`grandparent1`.`col_int_nokey`)) and ((`test`.`grandparent1`.`col_int_nokey` is not null) and (`test`.`grandparent1`.`col_int_nokey` is not null)))"
                 }
               },
@@ -8180,7 +8182,7 @@ EXPLAIN
                         {
                           "table": {
                             "table_name": "parent1",
-                            "access_type": "range",
+                            "access_type": "ref",
                             "possible_keys": [
                               "col_int_key"
                             ],
@@ -8189,10 +8191,11 @@ EXPLAIN
                               "col_int_key"
                             ],
                             "key_length": "4",
-                            "rows": 12,
-                            "filtered": 100,
-                            "using_MRR": true,
-                            "attached_condition": "1"
+                            "ref": [
+                              "func"
+                            ],
+                            "rows": 2,
+                            "filtered": 100
                           }
                         },
                         {
@@ -8325,7 +8328,7 @@ FROM t1
 );
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t2	system	PRIMARY,col_int_key	NULL	NULL	NULL	1	NULL
-1	SIMPLE	t1a	range	col_int_key	col_int_key	4	NULL	1	Using index condition; Using MRR
+1	SIMPLE	t1a	ref	col_int_key	col_int_key	4	const	1	NULL
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	4	Using where; FirstMatch(t1a); Using join buffer (Block Nested Loop)
 1	SIMPLE	t1b	ALL	NULL	NULL	NULL	NULL	4	Using where; Using join buffer (Block Nested Loop)
 SELECT t1a.*
@@ -10620,7 +10623,7 @@ EXPLAIN SELECT name FROM t2, t1
 WHERE t1.uid IN (SELECT t4.uid FROM t4, t3 WHERE t3.uid=1 AND t4.uid=t3.fid)
 AND t2.uid=t1.fid;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t3	range	uid	uid	5	NULL	4	Using index condition; Using where; Using MRR; Start temporary
+1	SIMPLE	t3	ref	uid	uid	5	const	4	Using where; Start temporary
 1	SIMPLE	t4	eq_ref	PRIMARY	PRIMARY	4	test.t3.fid	1	Using index
 1	SIMPLE	t1	ALL	uid	NULL	NULL	NULL	11	Using where; End temporary; Using join buffer (Block Nested Loop)
 1	SIMPLE	t2	eq_ref	PRIMARY	PRIMARY	4	test.t1.fid	1	NULL
@@ -10647,7 +10650,7 @@ Handler_read_key	16
 Handler_read_last	0
 Handler_read_next	4
 Handler_read_prev	0
-Handler_read_rnd	4
+Handler_read_rnd	0
 Handler_read_rnd_next	12
 DROP TABLE t1,t2,t3,t4;
 # End of test for Bug#18194196
