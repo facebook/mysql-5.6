@@ -8369,6 +8369,9 @@ commit_stage:
   semisync_queue =
     stage_manager.fetch_queue_for(Stage_manager::SEMISYNC_STAGE);
 
+  // The delay is very long to allow large write batches in stress tests.
+  DBUG_EXECUTE_IF("emulate_async_delay", usleep(500000););
+
   ulonglong start_time;
   start_time = my_timer_now();
   process_semisync_stage_queue(semisync_queue);
