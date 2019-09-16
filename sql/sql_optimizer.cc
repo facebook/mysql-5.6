@@ -8324,7 +8324,9 @@ only_eq_ref_tables(JOIN *join, ORDER *order, table_map tables,
   @param thd THD      To re-run range optimizer.
   @param tab JOIN_TAB To check the above conditions.
 
-  @return Pointer  Range is better than ref
+  @return Pointer  Range is better than ref. The pointer points to a string
+                   describing why (the string is intended to be used in the
+                   optimizer trace)
   @return nullptr  Ref is better or switch isn't possible
 
   @todo: This decision should rather be made in best_access_path()
@@ -8334,13 +8336,22 @@ static const char* can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab)
   if (!tab->ref.depend_map &&                                          // 1)
       tab->quick)                                                      // 2)
   {
-    // MRR use: TODO: check if quick would have used MRR:
+    /*
+      If there was a quick select that
+       - was scanning the same range
+       - used MRR
+       - MRR implementation indicated that it's preferred to use MRR over
+         ref(const).
+      then switch to range access as it will read rows using the MRR interface
+    */
     if ((uint) tab->ref.key == tab->quick->index &&
         tab->ref.key_length == tab->quick->max_used_key_length &&
-        tab->quick->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE &&
-        !(((QUICK_RANGE_SELECT*)tab->quick)->mrr_flags &
-          HA_MRR_USE_DEFAULT_IMPL))
+        tab->quick->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE) {
+      QUICK_RANGE_SELECT *qr = (QUICK_RANGE_SELECT*)tab->quick;
+      if (!(qr->mrr_flags & HA_MRR_USE_DEFAULT_IMPL) &&
+           (qr->mrr_flags & HA_MRR_CONVERT_REF_TO_RANGE))
       return "uses_mrr";
+    }
 
     if ((uint) tab->ref.key == tab->quick->index &&                    // 3a)
         tab->ref.key_length < tab->quick->max_used_key_length)         // 3b)

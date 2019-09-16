@@ -15175,6 +15175,7 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     if (all_eq_ranges) {
       // Indicate that we will use Mutlit-Get MRR
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
       *flags |= HA_MRR_SUPPORT_SORTED;
       *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
     }
@@ -15184,6 +15185,7 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     if (!(*flags & HA_MRR_INDEX_ONLY)) {
       *flags &= ~HA_MRR_SUPPORT_SORTED; //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+      *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
       *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
     }
   }
@@ -15207,11 +15209,13 @@ ha_rows ha_rocksdb::multi_range_read_info(uint keyno, uint n_ranges, uint keys,
 
   if (keyno == table->s->primary_key && (*flags & HA_MRR_FULL_EXTENDED_KEYS)) {
     *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
     *flags |= HA_MRR_SUPPORT_SORTED;
   }
 
   if (keyno != table->s->primary_key && !(*flags & HA_MRR_INDEX_ONLY)) {
     *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
+    *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
     *flags &= ~HA_MRR_SUPPORT_SORTED; // Non-sorted mode
   }
 
