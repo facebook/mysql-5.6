@@ -110,10 +110,10 @@ IF (WITH_SNAPPY)
   ADD_DEFINITIONS(-DSNAPPY)
 ENDIF()
 
-IF (WITH_LZ4)
+IF (WITH_LZ4 AND LZ4_PATH)
   FIND_LIBRARY(LZ4_LIBRARY
     NAMES liblz4${PIC_EXT}.a lz4
-    HINTS ${WITH_LZ4}/lib)
+    HINTS ${LZ4_PATH}/lib)
   SET(rocksdb_static_libs ${rocksdb_static_libs}
     ${LZ4_LIBRARY})
   ADD_DEFINITIONS(-DLZ4)
