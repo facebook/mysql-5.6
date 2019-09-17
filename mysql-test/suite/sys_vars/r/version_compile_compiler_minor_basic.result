@@ -1,0 +1,8 @@
+select @@global.version_compile_compiler_minor;
+@@global.version_compile_compiler_minor
+2
+failed: 1238: Variable 'version_compile_compiler_minor' is a read only variable
+-- error 1238
+set global version_compile_compiler_minor = 10
+select @@session.version_compile_compiler_minor;
+ERROR HY000: Variable 'version_compile_compiler_minor' is a GLOBAL variable

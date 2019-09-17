@@ -1,0 +1,8 @@
+select @@global.version_compile_compiler;
+# echo failed: 1238: Variable 'version_compile_compiler' is a read only variable
+-- error 1238
+set global version_compile_compiler = 1;
+
+# echo version_compile_compiler is a global variable
+-- error 1238
+select @@session.version_compile_compiler;

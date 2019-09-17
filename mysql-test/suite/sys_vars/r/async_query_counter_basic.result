@@ -1,0 +1,9 @@
+select @@global.async_query_counter;
+@@global.async_query_counter
+0
+set @old_value =  @@global.async_query_counter;
+set global async_query_counter = True;
+set global async_query_counter = False;
+select @@session.async_query_counter;
+ERROR HY000: Variable 'async_query_counter' is a GLOBAL variable
+set global async_query_counter = @old_value;

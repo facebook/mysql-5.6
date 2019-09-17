@@ -1,0 +1,8 @@
+select @@global.binlog_expire_logs_seconds;
+@@global.binlog_expire_logs_seconds
+0
+set @default_val = @@global.binlog_expire_logs_seconds;
+set global binlog_expire_logs_seconds = 15;
+select @@session.binlog_expire_logs_seconds;
+ERROR HY000: Variable 'binlog_expire_logs_seconds' is a GLOBAL variable
+set global binlog_expire_logs_seconds = @default_val;

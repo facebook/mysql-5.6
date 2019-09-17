@@ -1,0 +1,8 @@
+select @@global.async_query_counter;
+set @old_value =  @@global.async_query_counter;
+set global async_query_counter = True;
+set global async_query_counter = False;
+# echo async_query_counter is a global variable
+-- error 1238
+select @@session.async_query_counter;
+set global async_query_counter = @old_value;

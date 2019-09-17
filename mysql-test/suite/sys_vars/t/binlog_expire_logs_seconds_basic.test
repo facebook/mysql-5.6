@@ -1,0 +1,9 @@
+select @@global.binlog_expire_logs_seconds;
+set @default_val = @@global.binlog_expire_logs_seconds;
+set global binlog_expire_logs_seconds = 15;
+
+
+# echo binlog_expire_logs_seconds is a global variable
+-- error 1238
+select @@session.binlog_expire_logs_seconds;
+set global binlog_expire_logs_seconds = @default_val;

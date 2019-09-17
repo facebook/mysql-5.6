@@ -1,0 +1,7 @@
+select @@global.version_compile_compiler;
+@@global.version_compile_compiler
+Clang
+set global version_compile_compiler = 1;
+ERROR HY000: Variable 'version_compile_compiler' is a read only variable
+select @@session.version_compile_compiler;
+ERROR HY000: Variable 'version_compile_compiler' is a GLOBAL variable
