@@ -685,22 +685,24 @@ int get_user_var_str(const char *name,
                      char *value, unsigned long len,
                      unsigned int precision, int *null_value);
 
-/* Type of callbakc that raft pluginh wants to invoke in the server */
+/* Type of callback that raft plugin wants to invoke in the server */
 enum class RaftListenerCallbackType
 {
   SET_READ_ONLY= 1,
   UNSET_READ_ONLY= 2,
   RAFT_LISTENER_THREADS_EXIT= 3,
+  TRIM_LOGGED_GTIDS= 4,
 };
 
-/* Callbak argument, each type needs specialization to pass arguments.
- * Setting read only does not need any arguments, so we donot have any
- * specialization (yet) */
-class ICallbackArg
+/* Callback argument, each type would just populate the fields needed for its
+ * callback */
+class RaftListenerCallbackArg
 {
   public:
-    explicit ICallbackArg() {}
-    virtual ~ICallbackArg() {}
+    explicit RaftListenerCallbackArg() {}
+    ~RaftListenerCallbackArg() {}
+
+    std::vector<std::string> trim_gtids= {};
 };
 
 class RaftListenerQueue
@@ -726,7 +728,7 @@ class RaftListenerQueue
     struct QueueElement
     {
       RaftListenerCallbackType type;
-      ICallbackArg arg;
+      RaftListenerCallbackArg arg;
     };
 
     /* Add an element to the queue. This will signal any listening threads

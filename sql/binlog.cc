@@ -11887,6 +11887,20 @@ bool set_read_only(THD* thd, ulonglong readonly)
   DBUG_RETURN(result);
 }
 
+int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids)
+{
+  if (trimmed_gtids.empty())
+    return 0;
+
+  global_sid_lock->rdlock();
+
+  int error = gtid_state->remove_logged_gtid_on_trim(trimmed_gtids);
+
+  global_sid_lock->unlock();
+
+  return error;
+}
+
 #endif /* !defined(MYSQL_CLIENT) */
 
 struct st_mysql_storage_engine binlog_storage_engine=

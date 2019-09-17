@@ -2245,7 +2245,16 @@ public:
     @param thd Thread for which owned groups are updated.
   */
   void update_on_rollback(THD *thd);
+
 #endif // ifndef MYSQL_CLIENT
+
+  /* Remove gtid from logged_gtid when binlog gets trimmed.
+
+    @param trimmed_gtids The gtids to remove from logged_gtids
+  */
+  enum_return_status remove_logged_gtid_on_trim(
+      const std::vector<std::string>& trimmed_gtids);
+
   /**
     Allocates a GNO for an automatically numbered group.
 

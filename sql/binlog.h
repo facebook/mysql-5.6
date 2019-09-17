@@ -1242,6 +1242,7 @@ void reset_semi_sync_last_acked();
 bool set_read_only(THD *thd, ulonglong read_only);
 bool before_set_read_only(THD *thd, ulonglong read_only);
 void print_read_only_change(THD *thd);
+int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 #endif
 
 #endif /* BINLOG_H_INCLUDED */

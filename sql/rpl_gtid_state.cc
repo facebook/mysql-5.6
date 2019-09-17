@@ -439,3 +439,46 @@ int Gtid_state::init()
 
   DBUG_RETURN(0);
 }
+
+enum_return_status Gtid_state::remove_logged_gtid_on_trim(
+    const std::vector<std::string>& trimmed_gtids)
+{
+  DBUG_ENTER("Gtid_state::remove_logged_gtid_on_trim");
+  global_sid_lock->assert_some_lock();
+
+
+  if (trimmed_gtids.empty())
+    RETURN_OK;
+
+  const auto& first_gtid= trimmed_gtids.front();
+
+  Gtid gtid;
+  gtid.parse(global_sid_map, first_gtid.c_str());
+  rpl_sidno first_sidno= gtid.sidno;
+  sid_locks.lock(first_sidno);
+
+  for (const auto& trimmed_gtid : trimmed_gtids)
+  {
+    gtid.parse(global_sid_map, trimmed_gtid.c_str());
+    DBUG_ASSERT(first_sidno == gtid.sidno);
+    if (gtid.sidno > 0)
+    {
+      /* Remove Gtid from logged_gtid set. */
+      DBUG_PRINT("info", ("Removing gtid(sidno:%d, gno:%lld) from logged gtids",
+            gtid.sidno, gtid.gno));
+      if (logged_gtids._remove_gtid(gtid) != RETURN_STATUS_OK)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to remove gtid(sidno:%d, gno: %lld) from "
+            "logged gtids. ", gtid.sidno, gtid.gno);
+        sid_locks.unlock(first_sidno);
+        RETURN_REPORTED_ERROR;
+
+      }
+    }
+  }
+
+  sid_locks.unlock(first_sidno);
+  RETURN_OK;
+}
+

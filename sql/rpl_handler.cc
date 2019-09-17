@@ -35,7 +35,7 @@ Raft_replication_delegate *raft_replication_delegate;
 
 RaftListenerQueue raft_listener_queue;
 extern bool set_read_only(THD *thd, ulonglong read_only);
-
+extern int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 /*
   structure to save transaction log filename and position
 */
@@ -718,6 +718,9 @@ pthread_handler_t process_raft_queue(void *arg)
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         raft_listener_queue.deinit();
         exit= true;
+        break;
+      case RaftListenerCallbackType::TRIM_LOGGED_GTIDS:
+        trim_logged_gtid(element.arg.trim_gtids);
         break;
       default:
         break;
