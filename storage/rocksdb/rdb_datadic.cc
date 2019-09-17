@@ -1903,6 +1903,62 @@ int Rdb_key_def::unpack_integer(
   return UNPACK_SUCCESS;
 }
 
+int Rdb_key_def::unpack_float_80(
+    Rdb_field_packing *const fpi, Field *const field, uchar *const to,
+    Rdb_string_reader *const reader,
+    Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
+  const int length = fpi->m_max_image_len;
+
+  const uchar *from;
+  if (!(from = (const uchar *)reader->read(length))) {
+    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  }
+
+  memcpy(to, from, length);
+
+#if !defined(WORDS_BIGENDIAN)
+  using std::swap;
+  swap(to[0], to[3]);
+  swap(to[1], to[2]);
+#endif
+
+  // See Field_float::make_sort_key
+  int nr_int = *reinterpret_cast<int *>(to);
+  *reinterpret_cast<int *>(to) =
+    (nr_int ^ ((~nr_int) >> 31) ^ (nr_int & 0x80000000));
+
+  return UNPACK_SUCCESS;
+}
+
+int Rdb_key_def::unpack_double_80(
+    Rdb_field_packing *const fpi, Field *const field, uchar *const to,
+    Rdb_string_reader *const reader,
+    Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
+  const int length = fpi->m_max_image_len;
+
+  const uchar *from;
+  if (!(from = (const uchar *)reader->read(length))) {
+    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
+  }
+
+  memcpy(to, from, length);
+
+#if !defined(WORDS_BIGENDIAN)
+  using std::swap;
+  swap(to[0], to[7]);
+  swap(to[1], to[6]);
+  swap(to[2], to[5]);
+  swap(to[3], to[4]);
+#endif
+
+  // See Field_double::make_sort_key
+  int64 nr_int = *reinterpret_cast<int64 *>(to);
+  *reinterpret_cast<int64 *>(to) =
+    (nr_int ^ ((~nr_int) >> 63) ^ (nr_int & 0x8000000000000000ULL));
+
+  return UNPACK_SUCCESS;
+}
+
 #if !defined(WORDS_BIGENDIAN)
 static void rdb_swap_double_bytes(uchar *const dst, const uchar *const src) {
 #if defined(__FLOAT_WORD_ORDER) && (__FLOAT_WORD_ORDER == __BIG_ENDIAN)
@@ -3226,12 +3282,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       return true;
 
     case MYSQL_TYPE_DOUBLE:
-      m_unpack_func = Rdb_key_def::unpack_double;
+      // TODO(yzha) - Consider using 5.6 algorithm for compat/physical copy
+      m_unpack_func = Rdb_key_def::unpack_double_80;
       m_covered = true;
       return true;
 
     case MYSQL_TYPE_FLOAT:
-      m_unpack_func = Rdb_key_def::unpack_float;
+      // TODO(yzha) - Consider using 5.6 algorithm for compat/physical copy
+      m_unpack_func = Rdb_key_def::unpack_float_80;
       m_covered = true;
       return true;
 

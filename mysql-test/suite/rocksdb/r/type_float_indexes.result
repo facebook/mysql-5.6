@@ -8,8 +8,8 @@ d DOUBLE,
 dp DOUBLE PRECISION (64,10)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	f	A	1000	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	f	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp) VALUES
 (1.2345,1422.22,1.2345,1234567.89),
 (0,0,0,0),
@@ -17,8 +17,10 @@ INSERT INTO t1 (f,r,d,dp) VALUES
 (17.5843,4953453454.44,29229114.0,1111111.23),
 (4644,1422.22,466664.999,0.5);
 EXPLAIN SELECT f FROM t1 ORDER BY f;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	4	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	4	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`f` AS `f` from `test`.`t1` order by `test`.`t1`.`f`
 SELECT f FROM t1 ORDER BY f;
 f
 -1
@@ -27,8 +29,10 @@ f
 17.5843
 4644
 EXPLAIN SELECT f FROM t1 IGNORE INDEX (PRIMARY) ORDER BY f;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using filesort
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`f` AS `f` from `test`.`t1` IGNORE INDEX (PRIMARY) order by `test`.`t1`.`f`
 SELECT f FROM t1 IGNORE INDEX (PRIMARY) ORDER BY f;
 f
 -1
@@ -46,10 +50,10 @@ pk DOUBLE PRIMARY KEY,
 UNIQUE KEY r_dp (r,dp)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	0	r_dp	1	r	A	500	NULL	NULL	YES	LSMTREE		
-t1	0	r_dp	2	dp	A	1000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	r_dp	1	r	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	r_dp	2	dp	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -57,8 +61,10 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (17.5843,4953453454.44,29229114.0,1111111.23,4),
 (4644,1422.22,466664.999,0.5,5);
 EXPLAIN SELECT r, dp FROM t1 WHERE r > 0 or dp > 0;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	r_dp	r_dp	18	NULL	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	r_dp	r_dp	18	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`r` AS `r`,`test`.`t1`.`dp` AS `dp` from `test`.`t1` where ((`test`.`t1`.`r` > 0) or (`test`.`t1`.`dp` > 0))
 SELECT r, dp FROM t1 WHERE r > 0 or dp > 0;
 r	dp
 1422.220	0.5000000000
@@ -74,9 +80,9 @@ pk FLOAT PRIMARY KEY,
 UNIQUE KEY(d)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	0	d	1	d	A	1000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	d	1	d	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -84,8 +90,10 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (17.5843,4953453454.44,29229114.0,1111111.23,4),
 (4644,1422.22,466664.999,0.5,5);
 EXPLAIN SELECT DISTINCT d FROM t1 ORDER BY d;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	d	d	9	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	d	d	9	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`d`
 SELECT DISTINCT d FROM t1 ORDER BY d;
 d
 -1
@@ -103,9 +111,9 @@ pk FLOAT PRIMARY KEY,
 KEY(d)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	d	1	d	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	d	1	d	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -113,8 +121,10 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (17.5843,4953453454.44,29229114.0,1111111.23,4),
 (4644,1422.22,466664.999,0.5,5);
 EXPLAIN SELECT DISTINCT d FROM t1 ORDER BY d;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	d	d	9	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	d	d	9	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`d` AS `d` from `test`.`t1` order by `test`.`t1`.`d`
 SELECT DISTINCT d FROM t1 ORDER BY d;
 d
 -1
@@ -132,9 +142,9 @@ pk FLOAT PRIMARY KEY,
 UNIQUE KEY(f)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	0	f	1	f	A	1000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	f	1	f	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -145,8 +155,10 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,0,0,0,6);
 ERROR 23000: Duplicate entry '1.2345' for key 'f'
 EXPLAIN SELECT DISTINCT f FROM t1 ORDER BY f;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	f	f	5	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	f	f	5	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`f` AS `f` from `test`.`t1` order by `test`.`t1`.`f`
 SELECT DISTINCT f FROM t1 ORDER BY f;
 f
 -1
@@ -164,9 +176,9 @@ pk FLOAT PRIMARY KEY,
 KEY(f)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	f	1	f	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	f	1	f	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -176,8 +188,10 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,0,0,0,6);
 EXPLAIN SELECT DISTINCT f FROM t1 ORDER BY f;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	f	f	5	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	f	f	5	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`f` AS `f` from `test`.`t1` order by `test`.`t1`.`f`
 SELECT DISTINCT f FROM t1 ORDER BY f;
 f
 -1
