@@ -1,0 +1,91 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Found table without primary key while performing idempotent recovery");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Recovery from master pos");
+[connection slave]
+include/stop_slave.inc
+change master to master_auto_position=1;
+include/start_slave.inc
+[connection master]
+create table t1(a int) engine = innodb;
+include/sync_slave_sql_with_master.inc
+[connection slave]
+flush logs;
+[connection master]
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+include/sync_slave_sql_with_master.inc
+[connection slave]
+"Table contents on the slave before crash:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+[connection slave]
+"Table contents on the slave after crash:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+start slave;
+include/wait_for_slave_sql_error.inc [errno=13117]
+"Table contents on the slave after recovery fails:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+[connection slave]
+include/stop_slave.inc
+[connection master]
+DROP TABLE t1;
+RESET MASTER;
+[connection slave]
+DROP TABLE t1;
+RESET MASTER;
+RESET SLAVE;
+include/start_slave.inc
+[connection master]
+create table t1(a int) engine = blackhole;
+create table t2(a int primary key) engine = innodb;
+include/sync_slave_sql_with_master.inc
+[connection slave]
+flush logs;
+[connection master]
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t2 values(1);
+include/sync_slave_sql_with_master.inc
+[connection slave]
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+[connection slave]
+"The slave will continue even though t1 doesn't have PK because it's a blackhole table"
+include/start_slave.inc
+[connection master]
+drop table t1;
+drop table t2;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

@@ -1882,8 +1882,8 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
     if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
         current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
-      DBUG_PRINT("info",
-                 ("Setting idempotent mode for gtid %s", worker_last_gtid));
+      sql_print_information("Enabling idempotent mode for %s",
+                            worker_last_gtid);
       ev->rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
       auto rev = static_cast<Rows_log_event *>(ev);
       rev->m_force_binlog_idempotent = true;

@@ -1,0 +1,113 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+source include/have_slave_use_idempotent_for_recovery.inc;
+
+call mtr.add_suppression("Recovery from master pos.*");
+call mtr.add_suppression("The master's UUID has changed.*");
+
+connection slave;
+source include/stop_slave.inc;
+CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
+source include/start_slave.inc;
+
+# Creating different schemas in master and slave to detect incorrect gtid
+# comparison as a binlog corruption
+connection master;
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+
+connection slave;
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+
+# start with a fresh binlog
+connection master;
+FLUSH LOGS;
+source include/sync_slave_sql_with_master.inc;
+connection master;
+let $binlog = query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval PURGE BINARY LOGS TO '$binlog';
+
+connection slave;
+FLUSH LOGS;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval PURGE BINARY LOGS TO '$binlog';
+
+# write stuff
+connection master;
+INSERT INTO t1 VALUES(1, 1);
+INSERT INTO t1 VALUES(2, 2);
+INSERT INTO t1 VALUES(3, 3);
+INSERT INTO t1 VALUES(4, 4);
+INSERT INTO t1 VALUES(5, 5);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+FLUSH LOGS;
+
+# Restart the slave
+let $rpl_server_number = 2;
+let $rpl_start_with_gtids = 1;
+let $rpl_force_stop = 1;
+source include/rpl_restart_server.inc;
+connection slave;
+source include/stop_slave.inc;
+CHANGE MASTER TO MASTER_AUTO_POSITION = 1, MASTER_RETRY_COUNT = 100;
+source include/start_slave.inc;
+
+connection master;
+let $MASTER_MYSQLD_DATADIR = `select @@datadir`;
+connection slave;
+let $SLAVE_MYSQLD_DATADIR = `select @@datadir`;
+
+# Restart master with a new UUID
+remove_file $MASTER_MYSQLD_DATADIR/auto.cnf;
+let $rpl_server_number = 1;
+let $rpl_start_with_gtids = 1;
+source include/rpl_restart_server.inc;
+
+connection master;
+# Write more stuff on the master (this time the GTIDs will have the new UUID)
+INSERT INTO t1 VALUES(6, 6);
+INSERT INTO t1 VALUES(7, 7);
+INSERT INTO t1 VALUES(8, 8);
+source include/sync_slave_sql_with_master.inc;
+
+# Check if the binlogs have corrupted events
+exec $MYSQL_BINLOG -v -v $SLAVE_MYSQLD_DATADIR/slave-bin.0* > $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+exec egrep -c "**Corrupt" $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql || true;
+
+# Check that if we replay the slave binlogs we reach a consistent state
+connection slave;
+let $slave_gtid_executed= `SELECT @@GLOBAL.GTID_EXECUTED`;
+
+SET @@SQL_LOG_BIN= 0;
+DROP TABLE t1;
+CREATE TABLE t1(a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN= 1;
+RESET MASTER;
+
+exec $MYSQL --user=root --host=127.0.0.1 --port=$SLAVE_MYPORT < $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+remove_file $MYSQLTEST_VARDIR/tmp/slave_fulldump.sql;
+
+let $diff_tables= master:t1, slave:t1;
+source include/diff_tables.inc;
+
+RESET MASTER;
+replace_result $slave_gtid_executed slave_gtid_executed;
+eval SET @@GLOBAL.GTID_PURGED = "$slave_gtid_executed";
+FLUSH LOGS;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval PURGE BINARY LOGS TO '$binlog';
+
+# Cleanup
+connection master;
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

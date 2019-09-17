@@ -1,0 +1,177 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Recovery from master pos");
+call mtr.add_suppression("Slave SQL.*Could not execute Delete_rows event on table test.t.* Error_code: 1032");
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1032");
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1062");
+[connection master]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+include/sync_slave_sql_with_master.inc
+[connection slave]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+[connection master]
+FLUSH LOGS;
+include/sync_slave_sql_with_master.inc
+[connection master]
+PURGE BINARY LOGS TO 'binlog';
+[connection slave]
+FLUSH LOGS;
+PURGE BINARY LOGS TO 'binlog';
+[connection master]
+INSERT INTO t1 VALUES(1, 10);
+INSERT INTO t1 VALUES(2, 20);
+INSERT INTO t1 VALUES(3, 30);
+INSERT INTO t1 VALUES(4, 40);
+INSERT INTO t1 VALUES(5, 50);
+UPDATE t1 SET a = a + 5;
+DELETE FROM t1 WHERE b < 30;
+include/sync_slave_sql_with_master.inc
+[connection master]
+[connection slave]
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+[connection slave]
+change master to master_auto_position=1, master_heartbeat_period=0.25;
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+7
+7
+0
+[connection slave]
+SET @@SQL_LOG_BIN= 0;
+DROP TABLE t1;
+CREATE TABLE t1(a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN= 1;
+RESET MASTER;
+include/diff_tables.inc [master:t1, slave:t1]
+[connection slave]
+include/stop_slave.inc
+[connection master]
+DROP TABLE t1;
+RESET MASTER;
+[connection slave]
+DROP TABLE t1;
+RESET MASTER;
+RESET SLAVE;
+include/start_slave.inc
+[connection master]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+include/sync_slave_sql_with_master.inc
+[connection slave]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT, c INT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+[connection master]
+FLUSH LOGS;
+include/sync_slave_sql_with_master.inc
+[connection master]
+PURGE BINARY LOGS TO 'binlog';
+[connection slave]
+FLUSH LOGS;
+PURGE BINARY LOGS TO 'binlog';
+[connection master]
+INSERT INTO t1 VALUES(1, 10);
+INSERT INTO t1 VALUES(2, 20);
+INSERT INTO t1 VALUES(3, 30);
+INSERT INTO t1 VALUES(4, 40);
+INSERT INTO t1 VALUES(5, 50);
+UPDATE t1 SET a = a + 5;
+DELETE FROM t1 WHERE b < 30;
+include/sync_slave_sql_with_master.inc
+[connection master]
+[connection slave]
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+[connection slave]
+change master to master_auto_position=1, master_heartbeat_period=0.25;
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+7
+7
+0
+[connection slave]
+SET @@SQL_LOG_BIN= 0;
+DROP TABLE t1;
+CREATE TABLE t1(a INT PRIMARY KEY, b TINYINT, c INT) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN= 1;
+RESET MASTER;
+[connection master]
+SET @@SQL_LOG_BIN= 0;
+ALTER TABLE t1 ADD COLUMN c INT;
+SET @@SQL_LOG_BIN= 1;
+include/diff_tables.inc [master:t1, slave:t1]
+[connection slave]
+include/stop_slave.inc
+[connection master]
+DROP TABLE t1;
+RESET MASTER;
+[connection slave]
+DROP TABLE t1;
+RESET MASTER;
+RESET SLAVE;
+include/start_slave.inc
+[connection master]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT, b TINYINT, PRIMARY KEY(a, b)) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+include/sync_slave_sql_with_master.inc
+[connection slave]
+SET @@SQL_LOG_BIN = 0;
+CREATE TABLE t1(a INT, b TINYINT, PRIMARY KEY(b, a)) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN = 1;
+[connection master]
+FLUSH LOGS;
+include/sync_slave_sql_with_master.inc
+[connection master]
+PURGE BINARY LOGS TO 'binlog';
+[connection slave]
+FLUSH LOGS;
+PURGE BINARY LOGS TO 'binlog';
+[connection master]
+INSERT INTO t1 VALUES(1, 10);
+INSERT INTO t1 VALUES(2, 20);
+INSERT INTO t1 VALUES(3, 30);
+INSERT INTO t1 VALUES(4, 40);
+INSERT INTO t1 VALUES(5, 50);
+UPDATE t1 SET a = a + 5;
+DELETE FROM t1 WHERE b < 30;
+include/sync_slave_sql_with_master.inc
+[connection master]
+[connection slave]
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+[connection slave]
+change master to master_auto_position=1, master_heartbeat_period=0.25;
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+7
+7
+0
+[connection slave]
+SET @@SQL_LOG_BIN= 0;
+DROP TABLE t1;
+CREATE TABLE t1(a INT, b TINYINT, PRIMARY KEY(b, a)) ENGINE = InnoDB;
+SET @@SQL_LOG_BIN= 1;
+RESET MASTER;
+include/diff_tables.inc [master:t1, slave:t1]
+[connection slave]
+include/stop_slave.inc
+[connection master]
+DROP TABLE t1;
+RESET MASTER;
+[connection slave]
+DROP TABLE t1;
+RESET MASTER;
+RESET SLAVE;
+include/start_slave.inc
+include/rpl_end.inc

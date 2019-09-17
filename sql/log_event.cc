@@ -9568,6 +9568,84 @@ static void restore_empty_query_table_list(LEX *lex) {
   lex->query_tables_last = &lex->query_tables;
 }
 
+int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
+  int error = 0;
+
+  reset_log_pos();
+  // Table map events are necessary before every row event.
+  if (write_locked_table_maps(thd)) return HA_ERR_RBR_LOGGING_FAILED;
+
+  const uchar *saved_m_curr_row = m_curr_row;
+  const uchar *saved_m_curr_row_end = m_curr_row_end;
+
+  bool has_trans = thd->lex->sql_command == SQLCOM_CREATE_TABLE ||
+                   m_table->file->has_transactions();
+
+  // Figure out type conversions
+  TABLE *conv_table = nullptr;
+  if (!rli->tables_to_lock->m_tabledef.compatible_with(
+          thd, const_cast<Relay_log_info *>(rli), rli->tables_to_lock->table,
+          &conv_table)) {
+    sql_print_error("Table schema is not compatible with master's at %s:%llu",
+                    rli->get_rpl_log_name(), common_header->log_pos);
+    return HA_ERR_GENERIC;
+  }
+
+  rli->tables_to_lock->m_conv_table = conv_table;
+
+  m_curr_row = m_rows_buf;
+  m_curr_row_end = NULL;
+  uint i = 0;  // update event count
+  while (m_curr_row != m_rows_end) {
+    Log_event_type event_type = get_general_type_code();
+
+    bool is_after_image = false;
+    MY_BITMAP *cols = &m_cols;  // init with before image bitmap
+
+    if (event_type == binary_log::WRITE_ROWS_EVENT) {
+      is_after_image = true;
+    }
+    // NOTE: In updates, the after image follows the before image, hence
+    // every odd index will be an after image
+    else if (event_type == binary_log::UPDATE_ROWS_EVENT && i++ % 2 == 1) {
+      cols = &m_cols_ai;
+      is_after_image = true;
+    }
+
+    if ((error = unpack_current_row(rli, cols, is_after_image))) goto end;
+
+    // advance m_curr_row
+    m_curr_row = m_curr_row_end;
+    // write to binlog
+    switch (event_type) {
+      case binary_log::WRITE_ROWS_EVENT:
+        error = Write_rows_log_event::binlog_row_logging_function(
+            thd, m_table, has_trans, NULL, m_table->record[0]);
+        break;
+      case binary_log::UPDATE_ROWS_EVENT:
+        if (is_after_image)
+          error = Update_rows_log_event::binlog_row_logging_function(
+              thd, m_table, has_trans, m_table->record[1], m_table->record[0]);
+        else
+          store_record(m_table, record[1]);
+        break;
+      case binary_log::DELETE_ROWS_EVENT:
+        error = Delete_rows_log_event::binlog_row_logging_function(
+            thd, m_table, has_trans, m_table->record[0], NULL);
+        break;
+      default:
+        sql_print_error("Got event other than rows event at %s:%llu",
+                        rli->get_rpl_log_name(), common_header->log_pos);
+        error = HA_ERR_GENERIC;
+    }
+  }
+
+end:
+  m_curr_row = saved_m_curr_row;
+  m_curr_row_end = saved_m_curr_row_end;
+  return error;
+}
+
 int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
   DBUG_TRACE;
   TABLE *table = nullptr;
@@ -10068,8 +10146,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
 
       if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
           current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
-        DBUG_PRINT("info",
-                   ("Setting idempotent mode for gtid %s", rli->last_gtid));
+        sql_print_information("Enabling idempotent mode for %s",
+                              rli->last_gtid);
         this->rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
         m_force_binlog_idempotent = true;
       }
@@ -10234,26 +10312,26 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     // correctly NOTE: error will be set to 0 in
     // handle_idempotent_and_ignored_errors() if there was an idempotent error
     if (m_force_binlog_idempotent && !error) {
+      if (table->s->primary_key == MAX_KEY &&
+          strcmp(table->file->table_type(), "BLACKHOLE") != 0) {
+        char buf[256];
+        snprintf(buf, sizeof(buf),
+                 "Found table without primary key while performing idempotent "
+                 "recovery: %s.%s",
+                 table->s->db.str, table->s->table_name.str);
+        rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                    ER_THD(thd, ER_SLAVE_FATAL_ERROR), buf);
+        error = ER_SLAVE_FATAL_ERROR;
+        thd->reset_db(current_db_name_saved);
+        goto err;
+      }
       DBUG_ASSERT(rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT);
       DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
 
       // reset all the pending rows that might have been added while applying
       // the row events, we will directly write the relay log event
-      thd->binlog_reset_pending_rows_event(table->file->has_transactions());
-      reset_log_pos();
-
-      // Table map events are necessary before every row event.
-      if (write_locked_table_maps(thd)) {
-        error = HA_ERR_RBR_LOGGING_FAILED;
-      } else {
-        // Use the table_id of this server.
-        m_table_id = m_table->s->table_map_id;
-        error = mysql_bin_log.write_event(
-            this, /*write_meta_data_event*/ false,
-            table->file->has_transactions()
-                ? MYSQL_BIN_LOG::FORCE_CACHE_TRANSACTIONAL
-                : MYSQL_BIN_LOG::FORCE_CACHE_STATEMENT);
-      }
+      thd->binlog_reset_pending_rows_event(m_table->file->has_transactions());
+      error = force_write_to_binlog(const_cast<Relay_log_info *>(rli));
     }
     // reset back the db
     thd->reset_db(current_db_name_saved);
