@@ -24,7 +24,7 @@ CHANGE REPLICATION SOURCE TO source_auto_position=1, source_heartbeat_period=0.2
 include/start_slave.inc
 [connection master]
 include/sync_slave_sql_with_master.inc
-3
+0
 [connection master]
 DROP TABLE t1;
 include/sync_slave_sql_with_master.inc
