@@ -670,6 +670,18 @@ class Rdb_key_def {
       Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
+  static int unpack_float_80(
+      Rdb_field_packing *const fpi,
+      Field *const field MY_ATTRIBUTE((__unused__)), uchar *const field_ptr,
+      Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
+
+  static int unpack_double_80(
+      Rdb_field_packing *const fpi,
+      Field *const field MY_ATTRIBUTE((__unused__)), uchar *const field_ptr,
+      Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
+
   static int unpack_binary_str(Rdb_field_packing *const fpi, Field *const field,
                                uchar *const to, Rdb_string_reader *const reader,
                                Rdb_string_reader *const unp_reader
