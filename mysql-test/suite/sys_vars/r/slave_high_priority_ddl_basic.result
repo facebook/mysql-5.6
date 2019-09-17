@@ -1,0 +1,9 @@
+select @@global.slave_high_priority_ddl;
+@@global.slave_high_priority_ddl
+0
+set @default_value = @@global.slave_high_priority_ddl;
+set global slave_high_priority_ddl = True;
+set global slave_high_priority_ddl = False;
+select @@session.slave_high_priority_ddl;
+ERROR HY000: Variable 'slave_high_priority_ddl' is a GLOBAL variable
+set global slave_high_priority_ddl = @default_value;

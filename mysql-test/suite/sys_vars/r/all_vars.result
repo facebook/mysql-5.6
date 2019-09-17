@@ -9,10 +9,8 @@ update t2 set variable_name= replace(variable_name, "_history_", "_h_");
 update t2 set variable_name= replace(variable_name, "_throttle_queries_not_using_indexes", "_throttle_qni");
 update t2 set variable_name= replace(variable_name, "lock_order_", "lo_");
 select variable_name as `There should be *no* long test name listed below:` from t2
-where length(variable_name) > 50;
+where length(variable_name) > 60;
 There should be *no* long test name listed below:
-skip_master_info_check_for_read_only_error_msg_extra
-skip_master_info_check_for_read_only_error_msg_extra
 select variable_name as `There should be *no* variables listed below:` from t2
 left join t1 on variable_name=test_name where test_name is null ORDER BY variable_name;
 There should be *no* variables listed below:
@@ -53,10 +51,6 @@ regexp_stack_limit
 regexp_time_limit
 regexp_time_limit
 resultset_metadata
-skip_master_info_check_for_read_only_error_msg_extra
-skip_master_info_check_for_read_only_error_msg_extra
-slave_high_priority_ddl
-slave_high_priority_ddl
 sql_require_primary_key
 sql_require_primary_key
 temptable_use_mmap
