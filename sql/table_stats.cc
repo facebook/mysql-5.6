@@ -2,8 +2,204 @@
 #include "sql_connect.h"
 #include "sql_show.h"
 #include "my_atomic.h"
+#include "mysqld.h"
 
 HASH global_table_stats;
+
+/* ########### begin of encoding service ########### */
+
+static bool names_map_initialized = false;
+
+std::array<NAME_ID_MAP, MAX_MAP_NAME> my_names;
+
+/*
+** maximum size of each map:
+** - DB:    1024
+** - Table:  32K
+** - Index: 128K
+** These are absolute maximum and when reached will lead to
+** no more objects added to their respective maps. Function
+** check_name_maps_valid() will return FALSE if any of the
+** maps is full.
+** When an object is dropped we track it in a soft deleteed
+** array until the number of soft deleted objected > 25% of
+** the maximum size at which point we do a hard delete of
+** those objects that are not referenced in the db instance
+** and not just the shard (names are shared across shards).
+*/
+const std::array<uint, MAX_MAP_NAME> my_names_max_size =
+   {(1024), (32*1024), (128*1024)};
+
+/*
+** init_names
+**
+** Initialize the name maps for all object names we care about
+** Called at server startup
+*/
+void init_names()
+{
+  if (names_map_initialized)
+    return;
+
+  for (auto& map : my_names)
+  {
+    map.current_id = 0;
+    mysql_rwlock_init(key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
+                      &(map.LOCK_name_id_map));
+  }
+  names_map_initialized = true;
+}
+
+/*
+** destroy_names
+**
+** Destroy the name maps. Called server shutdown
+*/
+void destroy_names()
+{
+  if (!names_map_initialized)
+    return;
+
+  names_map_initialized = false;
+  for (auto& map : my_names)
+  {
+    /* free the names in the array then clear it */
+    for (char *elt : map.names)
+      my_free(elt);
+    map.names.clear();
+
+    map.map.clear();
+    map.current_id=0;
+
+    mysql_rwlock_destroy(&(map.LOCK_name_id_map));
+  }
+}
+
+/*
+** check_name_maps_valid
+**
+** Check that the name maps are valid, i.e, new names can be added
+** It is called in get_id() which returns INVALID_NAME_ID if this
+** function returns false.
+*/
+static bool check_name_maps_valid()
+{
+  if (!names_map_initialized)
+    return false;
+
+  int map_name = DB_MAP_NAME;
+  for (const auto& map : my_names)
+  {
+    DBUG_ASSERT(map_name < MAX_MAP_NAME);
+    if (map.current_id >= my_names_max_size[map_name])
+      return false;
+    map_name++;
+  }
+  return true;
+}
+
+/*
+** fill_invert_map
+**
+** Fill id_map with the invert of map, i.e, stores (name,id) from
+** from the input map as (id,name) in the outout map (id_map)
+*/
+bool fill_invert_map(enum_map_name map_name, ID_NAME_MAP *id_map)
+{
+  DBUG_ASSERT(map_name < MAX_MAP_NAME);
+  NAME_ID_MAP *name_map = &(my_names[map_name]);
+
+  mysql_rwlock_rdlock(&(name_map->LOCK_name_id_map)); /* read */
+
+  for (auto it = name_map->map.begin(); it != name_map->map.end(); it++)
+    id_map->insert(std::make_pair(it->second, it->first.c_str()));
+
+  mysql_rwlock_unlock(&(name_map->LOCK_name_id_map));
+
+  return true;
+}
+
+/*
+** get_id
+**
+** Returns the ID for a given name (db, table, etc).
+** If the name is already in the map then it returns its ID, else
+** it'll either reuse the ID of a dropped name or create a new ID
+** It returns INVALID_NAME_ID in case of an exception, e.g, if we
+** reach the maximum capacity of the map
+*/
+uint get_id(enum_map_name map_name, const char *name, uint length)
+{
+  DBUG_ASSERT(map_name < MAX_MAP_NAME);
+  NAME_ID_MAP *map = &(my_names[map_name]);
+  uint table_id;
+  bool write_lock = false;
+  bool retry = true;
+
+  while (retry)
+  {
+    /* we use a read lock first hoping to find a match for the
+    ** provided name and retry with write lock in case a match
+    ** is not found (write lock is required to update the map)
+    */
+    if (write_lock)
+      mysql_rwlock_wrlock(&(map->LOCK_name_id_map));         /* write */
+    else
+      mysql_rwlock_rdlock(&(map->LOCK_name_id_map));          /* read */
+
+    retry = false;
+    auto iter = map->map.find(name);
+
+    if (iter != map->map.end())       /* found a match: return the ID */
+      table_id = iter->second;
+    else
+    if (!check_name_maps_valid())  /* one of the name maps is invalid */
+    {
+      my_atomic_add64((longlong*)&object_stats_misses, 1);
+      table_id = INVALID_NAME_ID;
+    }
+    else
+    if (write_lock)      /* enter a new entry of we have a write lock */
+    {
+      assert(length <= 256);
+      char *str = (char *) my_malloc(length+1, MYF(MY_WME | MY_ZEROFILL));
+      memcpy(str, name, length);
+      str[length] = '\0';
+
+      map->names.emplace_back(str);
+      map->map.emplace(str, map->current_id);
+      table_id = map->current_id++;
+    }
+    else                /* release the read lock and get a write lock */
+    {
+      retry = true;        /* we only want to retry with a write lock */
+      write_lock = true;
+      mysql_rwlock_unlock(&(map->LOCK_name_id_map));
+    }
+  }
+
+  mysql_rwlock_unlock(&(map->LOCK_name_id_map));
+
+  return table_id;
+}
+
+/*
+** get_name - get a name from an ID
+**  Lookup the inverted map for the specified ID
+**  The inverted map is built for every query to return the stats
+**  at the beginning of the associated fill_ function. It needs to
+**  cleaned at the end.
+*/
+const char *get_name(ID_NAME_MAP *id_map, uint id)
+{
+  auto elt = id_map->find(id);
+  if (elt == id_map->end())
+    return nullptr;
+  else
+    return elt->second.c_str();
+}
+
+/* ########### end of encoding service ########### */
 
 /*
   Update global table statistics for this table and optionally tables
@@ -102,58 +298,66 @@ clear_table_stats(TABLE_STATS* table_stats)
 static int
 set_index_stats_names(TABLE_STATS *table_stats, TABLE *table)
 {
-    uint x;
+  uint idxIter;
+  int  rc = 0;
 
-    table_stats->num_indexes= std::min(table->s->keys,(uint)MAX_INDEX_STATS);
+  table_stats->num_indexes= std::min(table->s->keys,(uint)MAX_INDEX_STATS);
 
-    for (x=0; x < table_stats->num_indexes; ++x)
+  for (idxIter = 0; idxIter < table_stats->num_indexes; ++idxIter)
+  {
+    uint index_id;
+    char const *index_name = table->s->key_info[idxIter].name;
+
+    if (idxIter == (MAX_INDEX_STATS - 1) && table->s->keys > MAX_INDEX_STATS)
+      index_name = "STATS_OVERFLOW";
+    if ((index_id = get_id(INDEX_MAP_NAME, index_name, strlen(index_name)))
+        != INVALID_NAME_ID)
+      table_stats->indexes[idxIter].index_id = index_id;
+    else
     {
-      char const *index_name = table->s->key_info[x].name;
-
-      if (x == (MAX_INDEX_STATS - 1) && table->s->keys > MAX_INDEX_STATS)
-        index_name = "STATS_OVERFLOW";
-
-      if (snprintf(table_stats->indexes[x].name, NAME_LEN+1, "%s",index_name) < 0)
-      {
-          return -1;
-      }
+      rc = -1;
+      break;
     }
+  }
 
-    return 0;
+  return rc;
 }
 
 /*
-  set_table_stats_cache_key
-   Sets the table statistic cache key value and length
+  get_table_stats_attributes
+   Get the table statistic attributes
    Returns TRUE if successful and FALSE otherwise
   Input:
    db_name       in:  - DB name
    table_name    in:  - table name
    engine_name   in:  - engine name
-   cache_key_val out: - cache key value
-   cache_key_len out: - cache key length
+   db_id        out:  - DB ID
+   table_id     out:  - table ID
+   hash_key     out:  - hash key
 */
-static bool set_table_stats_cache_key(
+static bool get_table_stats_attributes(
   const char *db_name,
   const char *table_name,
   const char *engine_name,
-  char   *cache_key_val,
-  size_t *cache_key_len)
+  uint32_t *db_id,
+  uint32_t *table_id,
+  uint64_t *hash_key)
 {
   DBUG_ASSERT(db_name && table_name && engine_name);
 
   if (!db_name || !table_name || !engine_name)
   {
     // NO_LINT_DEBUG
-    sql_print_error("No key for table stats.");
+    sql_print_error("No key for table or user_table statistics.");
     return false;
   }
 
-  size_t db_name_len= strlen(db_name);
-  size_t table_name_len= strlen(table_name);
+  size_t db_name_len    = strlen(db_name);
+  size_t table_name_len = strlen(table_name);
 
   if (db_name_len > NAME_LEN || table_name_len > NAME_LEN)
   {
+
     // NO_LINT_DEBUG
     sql_print_error("Db or table name too long for table stats :%s:%s:\n",
                     db_name, table_name);
@@ -161,10 +365,19 @@ static bool set_table_stats_cache_key(
     return false;
   }
 
-  *cache_key_len = db_name_len + table_name_len + 2;
+  /* skip tables created internally for full text search */
+  if (is_fts_table(table_name))
+    return false;
 
-  memcpy(cache_key_val, db_name, db_name_len + 1);
-  memcpy(cache_key_val + db_name_len + 1, table_name, table_name_len + 1);
+  /* get the id's and check they are valid */
+  if ((*db_id = get_id(DB_MAP_NAME, db_name, db_name_len)) == INVALID_NAME_ID)
+    return false;
+
+  if ((*table_id = get_id(TABLE_MAP_NAME, table_name, table_name_len)) ==
+      INVALID_NAME_ID)
+    return false;
+
+  *hash_key = ((uint64_t)(*db_id) << 32) | (*table_id);
 
   return true;
 }
@@ -174,27 +387,22 @@ static bool set_table_stats_cache_key(
    Sets the table statistic attributes (cache key, db, table and engine names)
   Input:
    stats         out: - shared table statistics
-   db_name       in:  - DB name
-   table_name    in:  - table name
+   db_id         in:  - DB ID
+   table_id      in:  - table ID
    engine_name   in:  - engine name
-   cache_key_val in:  - cache key value
-   cache_key_len in:  - cache key length
+   hash_key      in:  - hash key
 */
 static void set_table_stats_attributes(
     SHARED_TABLE_STATS *stats,
-    const char *db_name,
-    const char *table_name,
-    const char *engine_name,
-    char  *cache_key_val,
-    size_t cache_key_len)
+    const uint32_t db_id,
+    const uint32_t table_id,
+    const char  *engine_name,
+    const uint64_t hash_key)
 {
-  memcpy(stats->hash_key, cache_key_val, cache_key_len);
-  stats->hash_key_len = cache_key_len;
-
-  memcpy(stats->db, db_name, strlen(db_name) + 1);
-  memcpy(stats->table, table_name, strlen(table_name) + 1);
-
+  stats->db_id = db_id;
+  stats->table_id = table_id;
   stats->engine_name= engine_name;
+  stats->hash_key = hash_key;
 }
 
 static TABLE_STATS*
@@ -204,30 +412,34 @@ get_table_stats_by_name(const char *db_name,
                         TABLE *tbl)
 {
   TABLE_STATS* table_stats;
-  char cache_key[NAME_LEN * 2 + 2];
-  size_t cache_key_len;
+  uint32_t  db_id;
+  uint32_t  table_id;
+  uint64_t  hash_key;
 
-  if (!set_table_stats_cache_key(db_name, table_name, engine_name,
-                                 cache_key, &cache_key_len))
-    return NULL;;
+  if (!names_map_initialized)
+    return NULL;
+
+  if (!get_table_stats_attributes(db_name, table_name, engine_name,
+                                  &db_id, &table_id, &hash_key))
+    return NULL;
 
   bool table_stats_lock_acquired = lock_global_table_stats();
 
   // Get or create the TABLE_STATS object for this table.
-  if (!(table_stats= (TABLE_STATS*)my_hash_search(&global_table_stats,
-                                               (uchar*)cache_key,
-                                               cache_key_len)))
+  if (!(table_stats= (TABLE_STATS *)my_hash_search(&global_table_stats,
+                                                   (uchar*)&hash_key,
+                                                   sizeof(hash_key))))
   {
     if (!(table_stats= ((TABLE_STATS*)my_malloc(sizeof(TABLE_STATS),
                                                 MYF(MY_WME)))))
     {
-      sql_print_error("Cannot allocate memory for TABLE_STATS.");
+      sql_print_error("Cannot allocate memory for TABLE_STATISTICS.");
       unlock_global_table_stats(table_stats_lock_acquired);
       return NULL;
     }
 
-    set_table_stats_attributes(&(table_stats->shared_stats), db_name,table_name,
-                               engine_name, cache_key, cache_key_len);
+    set_table_stats_attributes(&(table_stats->shared_stats), db_id, table_id,
+                               engine_name, hash_key);
 
     table_stats->num_indexes= 0;
     if (tbl && set_index_stats_names(table_stats, tbl))
@@ -307,8 +519,8 @@ get_table_stats(TABLE *table, handlerton *engine_type)
 extern "C" uchar *get_key_table_stats(TABLE_STATS *table_stats, size_t *length,
                                       my_bool not_used MY_ATTRIBUTE((unused)))
 {
-  *length = table_stats->shared_stats.hash_key_len;
-  return (uchar*)table_stats->shared_stats.hash_key;
+  *length = sizeof(table_stats->shared_stats.hash_key);
+  return (uchar*) (&table_stats->shared_stats.hash_key);
 }
 
 extern "C" void free_table_stats(TABLE_STATS* table_stats)
@@ -592,6 +804,12 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
   bool table_stats_lock_acquired = lock_global_table_stats();
 
+  ID_NAME_MAP db_map;
+  ID_NAME_MAP table_map;
+  std::array<ID_NAME_MAP*, 2> id_map {&db_map, &table_map};
+  fill_invert_map(DB_MAP_NAME, &db_map);
+  fill_invert_map(TABLE_MAP_NAME, &table_map);
+
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     int f= 0;
 
@@ -604,7 +822,9 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     restore_record(table, s->default_values);
 
-    fill_shared_table_stats(&(table_stats->shared_stats), table, &f);
+    if (!fill_shared_table_stats(&(table_stats->shared_stats), table,
+                                 &f, &id_map))
+      continue;
 
     table->field[f++]->store(table_stats->last_admin.load(), TRUE);
     table->field[f++]->store(table_stats->last_non_admin.load(), TRUE);
@@ -796,6 +1016,14 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
   bool table_stats_lock_acquired = lock_global_table_stats();
 
+  ID_NAME_MAP db_map;
+  ID_NAME_MAP table_map;
+  ID_NAME_MAP index_map;
+  std::array<ID_NAME_MAP*, 3> id_map {&db_map, &table_map, &index_map};
+  fill_invert_map(DB_MAP_NAME,    &db_map);
+  fill_invert_map(TABLE_MAP_NAME, &table_map);
+  fill_invert_map(INDEX_MAP_NAME, &index_map);
+
   for (unsigned i = 0; i < global_table_stats.records; ++i) {
     uint ix;
 
@@ -819,13 +1047,23 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
       }
 
       restore_record(table, s->default_values);
-      table->field[f++]->store(sts->db, strlen(sts->db),
-                               system_charset_info);
-      table->field[f++]->store(sts->table, strlen(sts->table),
-                               system_charset_info);
 
-      table->field[f++]->store(index_stats->name, strlen(index_stats->name),
-                               system_charset_info);
+      const char *a_name;
+      /* DB_NAME */
+      if (!(a_name = get_name(id_map.at(DB_MAP_NAME), sts->db_id)))
+        continue;
+      table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
+      /* TABLE_NAME */
+      if (!(a_name = get_name(id_map.at(TABLE_MAP_NAME), sts->table_id)))
+        continue;
+      table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
+      /* INDEX_NAME */
+      if (!(a_name = get_name(id_map.at(INDEX_MAP_NAME), index_stats->index_id)))
+        continue;
+      table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
       table->field[f++]->store(sts->engine_name,
                                strlen(sts->engine_name),
                                system_charset_info);
@@ -978,6 +1216,9 @@ static inline const char *norm_table(const char *name)
  */
 void table_stats_rename(const char *old_name, const char *new_name)
 {
+  if (!names_map_initialized)
+    return;
+
   old_name = norm_table(old_name);
   new_name = norm_table(new_name);
 
@@ -1004,23 +1245,46 @@ void table_stats_rename(const char *old_name, const char *new_name)
   strsep(&old_table, "/");
   strsep(&new_table, "/");
 
+  uint32_t  db_id    = get_id(DB_MAP_NAME, old_key, old_table-old_key);
+  uint32_t  table_id = get_id(TABLE_MAP_NAME,
+                            old_table, old_len-(old_table-old_key));
+  /* both DB and table ID should be valid */
+  DBUG_ASSERT(db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID);
+  uint64_t  hash_key = ((uint64_t)db_id << 32) | table_id;
+
   bool table_stats_lock_acquired = lock_global_table_stats();
 
   stats = (TABLE_STATS*)
-              my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
+    my_hash_search(&global_table_stats, (uchar*)&hash_key, sizeof(hash_key));
+
   if (stats)
   {
-    memcpy(stats->shared_stats.hash_key, new_key, new_len);
-    stats->shared_stats.hash_key_len = new_len;
+    /* Update the DB ID and/or table ID, and hash key */
 
-    memcpy(stats->shared_stats.db, new_key, new_table - new_key);
-    memcpy(stats->shared_stats.table, new_table, new_len - (new_table-new_key));
+    /* db_id can be invalid if new DB name could not be inserted */
+    if ((db_id = get_id(DB_MAP_NAME, new_key, new_table-new_key))
+        != INVALID_NAME_ID)
+      stats->shared_stats.db_id    = db_id;
 
-    if (my_hash_update(&global_table_stats, (uchar*)stats,
-                       (uchar*)old_key, old_len))
+    /* table_id can be invalid if new table name could not be inserted */
+    if (db_id != INVALID_NAME_ID &&
+        (table_id=get_id(TABLE_MAP_NAME,new_table, new_len-(new_table-new_key)))
+        != INVALID_NAME_ID)
+      stats->shared_stats.table_id = table_id;
+
+    /* if both IDs are valid then compute the hash and update the structure */
+    if (db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID)
     {
-      // NO_LINT_DEBUG
-      sql_print_error("table_stats_rename: renaming table stats failed");
+      stats->shared_stats.hash_key =
+        ((uint64_t)stats->shared_stats.db_id << 32) |
+        stats->shared_stats.table_id;
+
+      if (my_hash_update(&global_table_stats, (uchar*)stats,
+                         (uchar*)&hash_key, sizeof(hash_key)))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("table_stats_rename: renaming table stats failed");
+      }
     }
   }
 
@@ -1043,9 +1307,11 @@ void table_stats_rename(const char *old_name, const char *new_name)
  */
 void table_stats_delete(const char *old_name)
 {
+  if (!names_map_initialized)
+    return;
+
   old_name = norm_table(old_name);
 
-  TABLE_STATS* old_stats;
   char *old_key = my_strdup(old_name, MYF(MY_WME));
   int old_len = strlen(old_name)+1;
 
@@ -1056,24 +1322,41 @@ void table_stats_delete(const char *old_name)
     return;
   }
 
+  char *old_table = old_key;
+  strsep(&old_table, "/");
+
+  /* skip tables created internally for full text search */
+  if (is_fts_table(old_table))
   {
-    char *temp = old_key;
-    strsep(&temp, "/");
+    my_free(old_key);
+    return;
   }
 
-  bool table_stats_lock_acquired = lock_global_table_stats();
+  uint32_t  db_id = get_id(DB_MAP_NAME, old_key, old_table-old_key);
+  uint32_t  table_id = get_id(TABLE_MAP_NAME,
+                            old_table, old_len-(old_table-old_key));
 
-  old_stats = (TABLE_STATS*)
-              my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
-  if (old_stats)
+  /* both DB and table ID should be valid */
+  DBUG_ASSERT(db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID);
+
+  if (db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID)
   {
-    my_hash_delete(&global_table_stats, (uchar*)old_stats);
+    uint64_t  hash_key = ((uint64_t)db_id << 32) | (table_id);
+
+    bool table_stats_lock_acquired = lock_global_table_stats();
+
+    TABLE_STATS* old_stats;
+    old_stats = (TABLE_STATS*)
+      my_hash_search(&global_table_stats, (uchar*)&hash_key, sizeof(hash_key));
+
+    if (old_stats)
+      my_hash_delete(&global_table_stats, (uchar*)old_stats);
+
+    unlock_global_table_stats(table_stats_lock_acquired);
+
+    /* delete the entries for all users (user_table_statistics) */
+    delete_user_table_stats(old_name);
   }
-
-  unlock_global_table_stats(table_stats_lock_acquired);
-
-  /* delete the entries for all users (user_table_statistics) */
-  delete_user_table_stats(old_name);
 
   my_free(old_key);
 }
@@ -1179,8 +1462,8 @@ extern "C" uchar *get_key_user_table_stats(
     size_t           *length,
     my_bool not_used MY_ATTRIBUTE((unused)))
 {
-  *length = user_table_stats->shared_stats.hash_key_len;
-  return (uchar*)user_table_stats->shared_stats.hash_key;
+  *length = sizeof(user_table_stats->shared_stats.hash_key);
+  return (uchar*) (&user_table_stats->shared_stats.hash_key);
 }
 
 /*
@@ -1301,38 +1584,39 @@ get_user_table_stats_by_name(USER_CONN *uc,
                              const char *engine_name,
                              TABLE *tbl)
 {
-  USER_TABLE_STATS* table_stats;
-  char cache_key[NAME_LEN * 2 + 2];
-  size_t cache_key_len;
+  USER_TABLE_STATS* table_stats = nullptr;
 
-  if (!UTS_LEVEL_ALL())
-    return NULL;
+  if (!(UTS_LEVEL_ALL() && names_map_initialized))
+    return table_stats;
 
   mysql_mutex_lock(&uc->LOCK_user_table_stats);
 
   if (!my_hash_inited(&uc->user_table_stats))
     init_table_stats_for_user(uc);
 
-  if (!set_table_stats_cache_key(db_name, table_name, engine_name,
-                                 cache_key, &cache_key_len))
-    return NULL;
+  uint32_t  db_id;
+  uint32_t  table_id;
+  uint64_t  hash_key;
+  if (!get_table_stats_attributes(db_name, table_name, engine_name,
+                                  &db_id, &table_id, &hash_key))
+    goto end;
 
   // Get or create the USER_TABLE_STATS object for this table.
   if (!(table_stats= (USER_TABLE_STATS*)my_hash_search(
                                                &(uc->user_table_stats),
-                                               (uchar*)cache_key,
-                                               cache_key_len)))
+                                               (uchar*)&hash_key,
+                                               sizeof(hash_key))))
   {
     if (!(table_stats= ((USER_TABLE_STATS*)my_malloc(sizeof(USER_TABLE_STATS),
                                                      MYF(MY_WME)))))
     {
       // NO_LINT_DEBUG
-      sql_print_error("Cannot allocate memory for TABLE_STATS.");
+      sql_print_error("Cannot allocate memory for USER_TABLE_STATISTICS.");
       goto end;
     }
 
-    set_table_stats_attributes(&(table_stats->shared_stats), db_name,table_name,
-                               engine_name, cache_key, cache_key_len);
+    set_table_stats_attributes(&(table_stats->shared_stats), db_id, table_id,
+                               engine_name, hash_key);
 
     clear_user_table_stats(table_stats);
 
@@ -1405,18 +1689,25 @@ get_user_table_stats(THD *thd, TABLE *table, handlerton *engine_type)
     table  out - where to store the statistics
     offset out - position of the current column to fill
 */
-void fill_shared_table_stats(
+bool fill_shared_table_stats(
     SHARED_TABLE_STATS *stats,
     TABLE *table,
-    int   *offset)
+    int   *offset,
+    std::array<ID_NAME_MAP*, 2> *id_map)
 {
   int f = *offset;
+  const char *a_name;
 
   /* SCHEMA_NAME */
-  table->field[f++]->store(stats->db, strlen(stats->db), system_charset_info);
+  if (!(a_name = get_name(id_map->at(DB_MAP_NAME), stats->db_id)))
+    return false;
+  table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
   /* TABLE_NAME */
-  table->field[f++]->store(stats->table, strlen(stats->table),
-                           system_charset_info);
+  if (!(a_name = get_name(id_map->at(TABLE_MAP_NAME), stats->table_id)))
+    return false;
+  table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
   /* ENGINE_NAME */
   table->field[f++]->store(stats->engine_name, strlen(stats->engine_name),
                            system_charset_info);
@@ -1431,4 +1722,5 @@ void fill_shared_table_stats(
   table->field[f++]->store(stats->queries_empty.load(), TRUE);
 
   *offset = f;
+  return true;
 }

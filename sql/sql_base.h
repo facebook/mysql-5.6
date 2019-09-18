@@ -275,6 +275,45 @@ bool open_temporary_tables(THD *thd, TABLE_LIST *tl_list);
 bool open_temporary_table(THD *thd, TABLE_LIST *tl);
 bool is_equal(const LEX_STRING *a, const LEX_STRING *b);
 
+/* ########### begin of name encoding service ########### */
+
+/*
+** init_names
+**
+** Initialize the name maps for all object names we care about
+** Called at server startup
+*/
+void init_names();
+
+/*
+** destroy_names
+**
+** Destroy the name maps. Called server shutdown
+*/
+void destroy_names();
+
+/*
+** fill_invert_map
+** Populate id-to-name map from name-to-id map to allow efficient
+** lookup of names based on an ID when fetching data for tables
+** *_STATISTICS
+*/
+bool fill_invert_map(enum_map_name map_name, ID_NAME_MAP *id_map);
+
+/*
+** get_id
+**
+** Returns the ID for a given name (db, table, etc).
+** If the name is already in the map then it returns its ID, else
+** it'll either reuse the ID of a dropped name or create a new ID
+** It returns INVALID_NAME_ID in case of an exception, e.g, if we
+** reach the maximum capacity of the map
+*/
+#define INVALID_NAME_ID UINT_MAX
+uint get_id(enum_map_name map_name, const char *name, uint length);
+
+/* ########### end of name encoding service ########### */
+
 /* for SHOW GLOBAL TABLE STATUS */
 /* for information_schema.table_statistics and index_statistics */
 void update_table_stats(THD* thd, TABLE *table_ptr, bool follow_next);
@@ -319,8 +358,9 @@ void rename_user_table_stats(const char *old_name, const char *new_name);
 void reset_table_stats_for_user(USER_CONN *user_conn);
 int  fill_user_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 bool valid_user_table_stats(USER_TABLE_STATS *stats);
-void fill_shared_table_stats(SHARED_TABLE_STATS *stats, TABLE *table,
-                             int *offset);
+bool fill_shared_table_stats(SHARED_TABLE_STATS *stats, TABLE *table,
+                             int *offset,
+                             std::array<ID_NAME_MAP*, 2> *i_map);
 bool check_admin_users_list(USER_CONN *uc);
 void reset_user_conn_admin_flag();
 

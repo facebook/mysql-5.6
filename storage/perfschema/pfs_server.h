@@ -25,7 +25,7 @@
   #define PFS_MAX_MUTEX_CLASS 200
 #endif
 #ifndef PFS_MAX_RWLOCK_CLASS
-  #define PFS_MAX_RWLOCK_CLASS 40
+  #define PFS_MAX_RWLOCK_CLASS 60
 #endif
 #ifndef PFS_MAX_COND_CLASS
   #define PFS_MAX_COND_CLASS 80
@@ -152,7 +152,7 @@ struct PFS_global_param
   long m_file_handle_sizing;
   /**
     Maxium number of instrumented socket instances
-    @sa socket_lost  
+    @sa socket_lost
   */
   long m_socket_sizing;
   /**

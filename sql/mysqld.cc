@@ -491,6 +491,7 @@ bool enable_binlog_hlc= 0;
 bool maintain_database_hlc= 0;
 my_bool async_query_counter_enabled = 0;
 my_bool enable_acl_fast_lookup= 0;
+my_bool use_cached_table_stats_ptr;
 
 my_bool log_legacy_user;
 my_bool log_ddl;
@@ -764,6 +765,7 @@ uint opt_write_query_throttling_limit= 0;
 int32 write_query_running= 0;
 ulonglong read_queries= 0, write_queries= 0;
 ulonglong total_query_rejected= 0, write_query_rejected= 0;
+ulonglong object_stats_misses = 0;
 
 Error_log_throttle err_log_throttle(Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
                                     sql_print_error,
@@ -2393,6 +2395,7 @@ void clean_up(bool print_message)
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   free_aux_user_table_stats();
 #endif
+  destroy_names();
 #ifdef HAVE_REPLICATION
   end_slave_list();
   free_compressed_event_cache();
@@ -6111,6 +6114,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   }
 #endif /* !EMBEDDED_LIBRARY */
 
+  init_names();
   init_global_table_stats();
   init_global_db_stats();
   init_global_error_stats();
@@ -10663,6 +10667,7 @@ SHOW_VAR status_vars[]= {
   {"Max_statement_time_set_failed", (char*) offsetof(STATUS_VAR, max_statement_time_set_failed), SHOW_LONG_STATUS},
   {"Non_super_connections",    (char*) &nonsuper_connections,   SHOW_INT},
   {"Not_flushed_delayed_rows", (char*) &delayed_rows_in_use,    SHOW_LONG_NOFLUSH},
+  {"Object_stats_misses",      (char*) &object_stats_misses,    SHOW_LONGLONG},
   {"Open_files",               (char*) &my_file_opened,         SHOW_LONG_NOFLUSH},
   {"Open_streams",             (char*) &my_stream_opened,       SHOW_LONG_NOFLUSH},
   {"Open_table_definitions",   (char*) &show_table_definitions, SHOW_FUNC},
@@ -11044,6 +11049,7 @@ static int mysql_init_variables(void)
   read_queries= 0;
   write_query_rejected= 0;
   total_query_rejected= 0;
+  object_stats_misses = 0;
   slave_open_temp_tables= 0;
   blocked_pthread_count= 0;
   opt_endinfo= using_udf_functions= 0;
@@ -12716,7 +12722,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_gtid_info_data_lock, "Gtid_info::data_lock", 0},
   { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0},
   { &key_LOCK_log_throttle_sbr_unsafe, "LOCK_log_throttle_sbr_unsafe", PSI_FLAG_GLOBAL},
-  { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats", 0}
+  { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats",0}
 };
 
 PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
@@ -12724,7 +12730,8 @@ PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
   key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
   key_rwlock_LOCK_legacy_user_name_pattern,
-  key_rwlock_LOCK_admin_users_list_regex;
+  key_rwlock_LOCK_admin_users_list_regex,
+  key_rwlock_NAME_ID_MAP_LOCK_name_id_map;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
@@ -12751,6 +12758,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_LOCK_gap_lock_exceptions, "LOCK_gap_lock_exceptions", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_legacy_user_name_pattern, "LOCK_legacy_user_name_pattern", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_admin_users_list_regex, "LOCK_admin_users_list_regex", PSI_FLAG_GLOBAL},
+  { &key_rwlock_NAME_ID_MAP_LOCK_name_id_map, "NAME_ID_MAP::LOCK_name_id_map", 0},
   { &key_rwlock_LOCK_system_variables_hash, "LOCK_system_variables_hash", PSI_FLAG_GLOBAL},
   { &key_rwlock_query_cache_query_lock, "Query_cache_query::lock", 0},
   { &key_rwlock_global_sid_lock, "gtid_commit_rollback", PSI_FLAG_GLOBAL},

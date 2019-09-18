@@ -6539,3 +6539,9 @@ static Sys_var_enum Sys_sql_stats_control(
        sql_stats_control_values, DEFAULT(SQL_STATS_CONTROL_OFF_HARD),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_stats_control));
+
+static Sys_var_mybool Sys_use_cached_table_stats_ptr(
+       "use_cached_table_stats_ptr",
+       "Controls the use of the cached table_stats ptr in the handler object",
+       GLOBAL_VAR(use_cached_table_stats_ptr),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));

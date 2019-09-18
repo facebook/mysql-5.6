@@ -2000,6 +2000,9 @@ The following options may be given as the first argument:
  Prohibit update of a VIEW, which does not contain a key
  of the underlying table and the query uses a LIMIT clause
  (usually get from GUI tools)
+ --use-cached-table-stats-ptr 
+ Controls the use of the cached table_stats ptr in the
+ handler object
  --use-db-uuid       If set, MySQL uses database UUID while generating the
  GTID for a transaction on that database. UUID of a
  database must be set either while creating the database
@@ -2323,7 +2326,7 @@ performance-schema-max-file-handles 32768
 performance-schema-max-file-instances -1
 performance-schema-max-mutex-classes 200
 performance-schema-max-mutex-instances -1
-performance-schema-max-rwlock-classes 40
+performance-schema-max-rwlock-classes 60
 performance-schema-max-rwlock-instances -1
 performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
@@ -2634,6 +2637,7 @@ trim-binlog-to-recover FALSE
 unique-check-lag-reset-threshold 2
 unique-check-lag-threshold 0
 updatable-views-with-limit YES
+use-cached-table-stats-ptr FALSE
 use-db-uuid FALSE
 use-fbson-input-format FALSE
 use-fbson-output-format FALSE

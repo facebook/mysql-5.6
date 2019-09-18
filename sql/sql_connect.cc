@@ -594,45 +594,58 @@ void rename_user_table_stats(const char *old_name, const char *new_name)
   strsep(&old_table_name, "/");
   strsep(&new_table_name, "/");
 
-  auto fn = [&old_key_val, &old_key_len, &new_key_val, &new_key_len,
-             &new_table_name](USER_CONN *uc) {
-    USER_TABLE_STATS* stats;
-    mysql_mutex_lock(&uc->LOCK_user_table_stats);
+  uint32_t  old_db_id    = get_id(DB_MAP_NAME, old_key_val,
+                                old_table_name-old_key_val);
+  uint32_t  old_table_id = get_id(TABLE_MAP_NAME, old_table_name,
+                                old_key_len-(old_table_name-old_key_val));
+  /* both DB and table ID should be valid */
+  DBUG_ASSERT(old_db_id != INVALID_NAME_ID && old_table_id != INVALID_NAME_ID);
+  uint64_t  old_hash_key = ((uint64_t)old_db_id << 32) | old_table_id;
 
-    if (!my_hash_inited(&uc->user_table_stats))
-    {
+  uint32_t  new_db_id    = get_id(DB_MAP_NAME, new_key_val,
+                                new_table_name-new_key_val);
+  uint32_t  new_table_id = get_id(TABLE_MAP_NAME, new_table_name,
+                                new_key_len-(new_table_name-new_key_val));
+
+  if (new_db_id != INVALID_NAME_ID && new_table_id != INVALID_NAME_ID)
+  {
+    uint64_t  new_hash_key = ((uint64_t)new_db_id << 32) | new_table_id;
+
+    auto fn = [&old_hash_key,
+               &new_db_id, &new_table_id, &new_hash_key](USER_CONN *uc) {
+      USER_TABLE_STATS* stats;
+      mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+      if (!my_hash_inited(&uc->user_table_stats))
+      {
+        mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+        return 0;
+      }
+
+      stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
+                                                  (uchar*)&old_hash_key,
+                                                  sizeof(old_hash_key));
+
+      if (stats)
+      {
+        /* Update the DB ID, table ID, and hash key */
+        stats->shared_stats.db_id    = new_db_id;
+        stats->shared_stats.table_id = new_table_id;
+        stats->shared_stats.hash_key = new_hash_key;
+
+        if (my_hash_update(&(uc->user_table_stats), (uchar*)stats,
+                           (uchar*)&old_hash_key, sizeof(old_hash_key)))
+        {
+          // NO_LINT_DEBUG
+          sql_print_error("rename_user_table_stats: rename table stats failed");
+        }
+      }
+
       mysql_mutex_unlock(&uc->LOCK_user_table_stats);
       return 0;
-    }
-
-    stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
-                                                (uchar*) old_key_val,
-                                                old_key_len);
-    if (stats)
-    {
-      /* update the hash key value and length */
-      memcpy(stats->shared_stats.hash_key, new_key_val, new_key_len);
-      stats->shared_stats.hash_key_len = new_key_len;
-
-      /* update the DB name */
-      memcpy(stats->shared_stats.db, new_key_val, new_table_name - new_key_val);
-      /* update the table name */
-      memcpy(stats->shared_stats.table, new_table_name,
-             new_key_len - (new_table_name - new_key_val));
-
-      if (my_hash_update(&(uc->user_table_stats), (uchar*)stats,
-                         (uchar*)old_key_val, old_key_len))
-      {
-        // NO_LINT_DEBUG
-        sql_print_error("rename_user_table_stats: renaming table stats failed");
-      }
-    }
-
-    mysql_mutex_unlock(&uc->LOCK_user_table_stats);
-    return 0;
-  };
-  apply_to_user_connections(fn);
-
+    };
+    apply_to_user_connections(fn);
+  }
 
   my_free(new_key_val);
   my_free(old_key_val);
@@ -667,26 +680,37 @@ void delete_user_table_stats(const char *old_name)
   /* old/new_table points to the table name in the old/new_key_val */
   strsep(&old_table_name, "/");
 
-  auto fn = [&old_key_val, &old_key_len](USER_CONN *uc) {
-    USER_TABLE_STATS* old_stats;
-    mysql_mutex_lock(&uc->LOCK_user_table_stats);
+  uint32_t  db_id    = get_id(DB_MAP_NAME, old_key_val, old_table_name-old_key_val);
+  uint32_t  table_id = get_id(TABLE_MAP_NAME,
+                            old_table_name,
+                            old_key_len-(old_table_name-old_key_val));
+  /* both DB and table ID should be valid */
+  DBUG_ASSERT(db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID);
 
-    if (!my_hash_inited(&uc->user_table_stats))
-    {
+  if (db_id != INVALID_NAME_ID && table_id != INVALID_NAME_ID)
+  {
+    uint64_t  hash_key = ((uint64_t)db_id << 32) | (table_id);
+    auto fn = [&hash_key](USER_CONN *uc) {
+      USER_TABLE_STATS* old_stats;
+      mysql_mutex_lock(&uc->LOCK_user_table_stats);
+
+      if (!my_hash_inited(&uc->user_table_stats))
+      {
+        mysql_mutex_unlock(&uc->LOCK_user_table_stats);
+        return 0;
+      }
+
+      old_stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
+                                                      (uchar*)&hash_key,
+                                                      sizeof(hash_key));
+      if (old_stats)
+        my_hash_delete(&uc->user_table_stats, (uchar*)old_stats);
+
       mysql_mutex_unlock(&uc->LOCK_user_table_stats);
       return 0;
-    }
-
-    old_stats = (USER_TABLE_STATS *) my_hash_search(&(uc->user_table_stats),
-                                                    (uchar*)old_key_val,
-                                                    old_key_len);
-    if (old_stats)
-      my_hash_delete(&uc->user_table_stats, (uchar*)old_stats);
-
-    mysql_mutex_unlock(&uc->LOCK_user_table_stats);
-    return 0;
-  };
-  apply_to_user_connections(fn);
+    };
+    apply_to_user_connections(fn);
+  }
 
   my_free(old_key_val);
 #endif /* NO_EMBEDDED_ACCESS_CHECKS */
@@ -1950,7 +1974,8 @@ static
 int fill_one_user_table_stats(
     THD        *thd,
     TABLE_LIST *tables,
-    USER_CONN  *uc)
+    USER_CONN  *uc,
+    std::array<ID_NAME_MAP*, 2> *id_map)
 {
   DBUG_ENTER("fill_one_user_table_stats");
   TABLE* table= tables->table;
@@ -1976,7 +2001,9 @@ int fill_one_user_table_stats(
     table->field[f++]->store(uc->user, strlen(uc->user), system_charset_info);
 
     /* fill the rest through the shared function */
-    fill_shared_table_stats(&(user_table_stats->shared_stats), table, &f);
+    if (!fill_shared_table_stats(&(user_table_stats->shared_stats), table,
+                                 &f, id_map))
+      continue;
 
     if (schema_table_store_record(thd, table))
     {
@@ -2027,11 +2054,18 @@ int  fill_user_table_stats(
     DBUG_RETURN(0);
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-  auto fn = [&thd, &tables](USER_CONN *uc) {
-    fill_one_user_table_stats(thd, tables, uc);
+  ID_NAME_MAP db_map;
+  ID_NAME_MAP table_map;
+  std::array<ID_NAME_MAP*, 2> id_map {&db_map, &table_map};
+  fill_invert_map(DB_MAP_NAME,    &db_map);
+  fill_invert_map(TABLE_MAP_NAME, &table_map);
+
+  auto fn = [&thd, &tables, &id_map](USER_CONN *uc) {
+              fill_one_user_table_stats(thd, tables, uc, &id_map);
     return 0;
   };
   apply_to_user_connections(fn);
+
 #endif /* NO_EMBEDDED_ACCESS_CHECKS */
 
   DBUG_RETURN(0);

@@ -1,0 +1,28 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 0
+####
+--echo Default value of use_cached_table_stats_ptr is 0
+SELECT @@global.use_cached_table_stats_ptr;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.use_cached_table_stats_ptr;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo use_cached_table_stats_ptr is a dynamic variable (changed to 1)
+set @@global.use_cached_table_stats_ptr = 1;
+SELECT @@global.use_cached_table_stats_ptr;
+
+####
+## Restore the default value
+####
+-- echo restore the default value (0)
+SET @@global.use_cached_table_stats_ptr = 0;
+SELECT @@global.use_cached_table_stats_ptr;

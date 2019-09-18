@@ -7531,7 +7531,7 @@ void handler::update_global_table_stats(THD *thd)
   if (!stats.has_table_stats())
     return;
 
-  if (!table_stats)
+  if (!table_stats || !use_cached_table_stats_ptr)
     table_stats = get_table_stats(table, ht);
 
   if (table_stats)

@@ -30,6 +30,7 @@
 #include "atomic_stat.h"
 #include "hash.h"
 #include "sql_digest.h"
+#include <unordered_map>
 
 struct TABLE;
 class Field;
@@ -400,7 +401,7 @@ typedef struct  user_conn {
 } USER_CONN;
 
 typedef struct st_index_stats {
-  char name [NAME_LEN + 1];   /* [name] + '\0' */
+  uint index_id;
 
   atomic_stat<ulonglong> rows_inserted;   /* Number of rows inserted */
   atomic_stat<ulonglong> rows_updated;    /* Number of rows updated */
@@ -426,13 +427,15 @@ typedef struct st_index_stats {
 
 typedef struct st_shared_table_stats
 {
-  char db[NAME_LEN + 1];                /* [db] + '\0' */
-  char table[NAME_LEN + 1];             /* [table] + '\0' */
+  uint32_t db_id;
+  uint32_t table_id;
   const char* engine_name;
 
-  /* Hash table key, table->s->table_cache_key for the table */
-  char hash_key[NAME_LEN * 2 + 2];
-  int  hash_key_len;                    /* table->s->key_length for the table */
+  /* Hash key to lookup table stats or user-table stats hash table
+  ** Combines db_id and table_id (combines db_id and table_id):
+  ** hash_key = db_id << 32 + table_id
+  */
+  uint64_t hash_key;
 
   atomic_stat<ulonglong> queries_used;	/* number of times used by a query */
   atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
@@ -562,6 +565,50 @@ typedef struct st_sql_text {
   struct sql_digest_storage digest_storage;
   unsigned char token_array_storage[1024];
 } SQL_TEXT;
+
+/*
+** enum_map_name
+**
+** Types of names that we encode using an ID in the statistics structures
+** The enum is used to index into array of maps
+*/
+enum enum_map_name
+{
+  DB_MAP_NAME   =0,
+  TABLE_MAP_NAME=1,
+  INDEX_MAP_NAME=2,
+  MAX_MAP_NAME
+};
+
+/*
+** NAME_ID_MAP
+**
+** Used to store mapping of various object names used in the statistics
+** structures (DB, user, schema, table, index) to an internal ID. An ID
+** is used instead of the object name. Names used to be stored on fixed
+** size string fields (size NAME_LEN+1=64*3+1=193).
+**
+*/
+typedef struct st_name_id_map {
+  std::vector<char*>  names;
+  std::unordered_map<std::string, uint> map;
+
+  uint current_id;                /* ID sequence, starting from 0 */
+
+  /* Mutex to control access or modification to the array and map */
+  mysql_rwlock_t LOCK_name_id_map;
+} NAME_ID_MAP;
+
+/*
+** ID_NAME_MAP
+**
+** Stores the inverse mapping of the data stored in NAME_ID_MAP. Used
+** only when returning rows for *_STATISTICS tables where we fetch a
+** name for an ID and this makes the lookup O(1) instead of O(n).
+** It is built at the beginning of fill_*_stats() functions then freed
+** at the end.
+*/
+typedef std::unordered_map<uint, std::string> ID_NAME_MAP;
 
 	/* Bits in form->update */
 #define REG_MAKE_DUPP		1	/* Make a copy of record when read */

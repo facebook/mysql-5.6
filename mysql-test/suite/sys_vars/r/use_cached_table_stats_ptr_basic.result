@@ -1,0 +1,17 @@
+Default value of use_cached_table_stats_ptr is 0
+SELECT @@global.use_cached_table_stats_ptr;
+@@global.use_cached_table_stats_ptr
+0
+SELECT @@session.use_cached_table_stats_ptr;
+ERROR HY000: Variable 'use_cached_table_stats_ptr' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+use_cached_table_stats_ptr is a dynamic variable (changed to 1)
+set @@global.use_cached_table_stats_ptr = 1;
+SELECT @@global.use_cached_table_stats_ptr;
+@@global.use_cached_table_stats_ptr
+1
+restore the default value (0)
+SET @@global.use_cached_table_stats_ptr = 0;
+SELECT @@global.use_cached_table_stats_ptr;
+@@global.use_cached_table_stats_ptr
+0

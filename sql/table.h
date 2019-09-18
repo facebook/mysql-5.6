@@ -63,6 +63,13 @@ using time_point = std::chrono::system_clock::time_point;
 #define tmp_file_prefix_length 4
 #define TMP_TABLE_KEY_EXTRA 8
 
+/* FTS tables are created by innodb to support the fulltext search feature */
+#define fts_file_prefix "FTS_000" /* prefix for innodb fulltext index tables */
+#define fts_file_prefix_length 7
+/* check if it is an FTS table */
+#define is_fts_table(table_name)                                      \
+  (strncmp((table_name), fts_file_prefix, fts_file_prefix_length)==0)
+
 /**
   Enumerate possible types of a table from re-execution
   standpoint.
@@ -292,7 +299,7 @@ typedef struct st_grant_info
   /**
      @brief The set of privileges that the current user has fulfilled for a
      certain host, database, and object.
-     
+
      @details This field is continually updated throughout the access checking
      process. In each step the "wanted privilege" is checked against the
      fulfilled privileges. When/if the intersection of these sets is empty,
@@ -735,7 +742,7 @@ struct TABLE_SHARE
   LEX_STRING normalized_path;		/* unpack_filename(path) */
   LEX_STRING connect_string;
 
-  /* 
+  /*
      Set of keys in use, implemented as a Bitmap.
      Excludes keys disabled by ALTER TABLE ... DISABLE KEYS.
   */
@@ -755,7 +762,7 @@ struct TABLE_SHARE
 
   plugin_ref db_plugin;			/* storage engine plugin */
   inline handlerton *db_type() const	/* table_type for handler */
-  { 
+  {
     // DBUG_ASSERT(db_plugin);
     return db_plugin ? plugin_data(db_plugin, handlerton*) : NULL;
   }
@@ -786,7 +793,7 @@ struct TABLE_SHARE
   uint db_record_offset;		/* if HA_REC_IN_SEQ */
   uint rowid_field_offset;		/* Field_nr +1 to rowid field */
   /* Primary key index number, used in TABLE::key_info[] */
-  uint primary_key;                     
+  uint primary_key;
   uint next_number_index;               /* autoincrement key number */
   uint next_number_key_offset;          /* autoinc keypart offset in a key */
   uint next_number_keypart;             /* autoinc keypart number in a key */
@@ -854,7 +861,7 @@ struct TABLE_SHARE
   /**
     For shares representing views File_parser object with view
     definition read from .FRM file.
-  */ 
+  */
   const File_parser *view_def;
 
 
@@ -1127,19 +1134,19 @@ public:
   uchar *write_row_record;		/* Used as optimisation in
 					   THD::write_row */
   uchar *insert_values;                  /* used by INSERT ... UPDATE */
-  /* 
-    Map of keys that can be used to retrieve all data from this table 
+  /*
+    Map of keys that can be used to retrieve all data from this table
     needed by the query without reading the row.
   */
   key_map covering_keys;
   key_map quick_keys, merge_keys;
   key_map used_keys;  /* Indexes that cover all fields used by the query */
-  
+
   /*
     possible_quick_keys is a superset of quick_keys to use with EXPLAIN of
     JOIN-less commands (single-table UPDATE and DELETE).
-    
-    When explaining regular JOINs, we use JOIN_TAB::keys to output the 
+
+    When explaining regular JOINs, we use JOIN_TAB::keys to output the
     "possible_keys" column value. However, it is not available for
     single-table UPDATE and DELETE commands, since they don't use JOIN
     optimizer at the top level. OTOH they directly use the range optimizer,
@@ -1151,9 +1158,9 @@ public:
     A set of keys that can be used in the query that references this
     table.
 
-    All indexes disabled on the table's TABLE_SHARE (see TABLE::s) will be 
+    All indexes disabled on the table's TABLE_SHARE (see TABLE::s) will be
     subtracted from this set upon instantiation. Thus for any TABLE t it holds
-    that t.keys_in_use_for_query is a subset of t.s.keys_in_use. Generally we 
+    that t.keys_in_use_for_query is a subset of t.s.keys_in_use. Generally we
     must not introduce any new keys here (see setup_tables).
 
     The set is implemented as a bitmap.
@@ -1201,7 +1208,7 @@ public:
   */
   query_id_t	query_id;
 
-  /* 
+  /*
     For each key that has quick_keys.is_set(key) == TRUE: estimate of #records
     and max #key parts that range access would use.
   */
@@ -1213,12 +1220,12 @@ public:
   uint		quick_key_parts[MAX_KEY];
   uint		quick_n_ranges[MAX_KEY];
 
-  /* 
+  /*
     Estimate of number of records that satisfy SARGable part of the table
     condition, or table->file->records if no SARGable condition could be
     constructed.
     This value is used by join optimizer as an estimate of number of records
-    that will pass the table condition (condition that depends on fields of 
+    that will pass the table condition (condition that depends on fields of
     this table and constants)
   */
   ha_rows       quick_condition_rows;
@@ -1241,7 +1248,7 @@ public:
   */
   uint maybe_null;
   /*
-    If true, the current table row is considered to have all columns set to 
+    If true, the current table row is considered to have all columns set to
     NULL, including columns declared as "not null" (see maybe_null).
   */
   my_bool null_row;
@@ -1270,7 +1277,7 @@ public:
   my_bool distinct,const_table,no_rows;
 
   /**
-     If set, the optimizer has found that row retrieval should access index 
+     If set, the optimizer has found that row retrieval should access index
      tree only.
    */
   my_bool key_read;
@@ -1449,7 +1456,7 @@ public:
 
 
 enum enum_schema_table_state
-{ 
+{
   NOT_PROCESSED= 0,
   PROCESSED_BY_CREATE_SORT_INDEX,
   PROCESSED_BY_JOIN_EXEC
@@ -1479,8 +1486,8 @@ typedef struct st_foreign_key_info
 
 typedef struct st_field_info
 {
-  /** 
-      This is used as column name. 
+  /**
+      This is used as column name.
   */
   const char* field_name;
   /**
@@ -1527,7 +1534,7 @@ typedef struct st_schema_table
   int (*old_format) (THD *thd, struct st_schema_table *schema_table);
   int (*process_table) (THD *thd, TABLE_LIST *tables, TABLE *table,
                         bool res, LEX_STRING *db_name, LEX_STRING *table_name);
-  int idx_field1, idx_field2; 
+  int idx_field1, idx_field2;
   bool hidden;
   uint i_s_requested_object;  /* the object we need to open(TABLE | VIEW) */
 } ST_SCHEMA_TABLE;
@@ -1799,20 +1806,20 @@ public:
   /**
      @brief Normally, this field is non-null for anonymous derived tables only.
 
-     @details This field is set to non-null for 
-     
+     @details This field is set to non-null for
+
      - Anonymous derived tables, In this case it points to the SELECT_LEX_UNIT
      representing the derived table. E.g. for a query
-     
+
      @verbatim SELECT * FROM (SELECT a FROM t1) b @endverbatim
-     
+
      For the @c TABLE_LIST representing the derived table @c b, @c derived
      points to the SELECT_LEX_UNIT representing the result of the query within
      parenteses.
-     
+
      - Views. This is set for views with @verbatim ALGORITHM = TEMPTABLE
      @endverbatim by mysql_make_view().
-     
+
      @note Inside views, a subquery in the @c FROM clause is not allowed.
      @note Do not use this field to separate views/base tables/anonymous
      derived tables. Use TABLE_LIST::is_anonymous_derived_table().
@@ -1886,13 +1893,13 @@ public:
   st_lex_user   definer;                /* definer of view */
   ulonglong	file_version;		/* version of file's field set */
   ulonglong     updatable_view;         /* VIEW can be updated */
-  /** 
+  /**
       @brief The declared algorithm, if this is a view.
       @details One of
       - VIEW_ALGORITHM_UNDEFINED
       - VIEW_ALGORITHM_TMPTABLE
       - VIEW_ALGORITHM_MERGE
-      @to do Replace with an enum 
+      @to do Replace with an enum
   */
   ulonglong	algorithm;
   ulonglong     view_suid;              /* view is suid (TRUE dy default) */
@@ -1902,13 +1909,13 @@ public:
     algorithm)
   */
   uint8         effective_with_check;
-  /** 
+  /**
       @brief The view algorithm that is actually used, if this is a view.
       @details One of
       - VIEW_ALGORITHM_UNDEFINED
       - VIEW_ALGORITHM_TMPTABLE
       - VIEW_ALGORITHM_MERGE
-      @to do Replace with an enum 
+      @to do Replace with an enum
   */
   enum_derived_type effective_algorithm;
   GRANT_INFO	grant;
@@ -2107,7 +2114,7 @@ public:
   void reinit_before_use(THD *thd);
   Item_subselect *containing_subselect();
 
-  /* 
+  /*
     Compiles the tagged hints list and fills up TABLE::keys_in_use_for_query,
     TABLE::keys_in_use_for_group_by, TABLE::keys_in_use_for_order_by,
     TABLE::force_index and TABLE::covering_keys.
@@ -2177,14 +2184,14 @@ public:
   /**
     @brief Returns the outer join nest that this TABLE_LIST belongs to, if any.
 
-    @details There are two kinds of join nests, outer-join nests and semi-join 
+    @details There are two kinds of join nests, outer-join nests and semi-join
     nests.  This function returns non-NULL in the following cases:
-      @li 1. If this table/nest is embedded in a nest and this nest IS NOT a 
+      @li 1. If this table/nest is embedded in a nest and this nest IS NOT a
              semi-join nest.  (In other words, it is an outer-join nest.)
-      @li 2. If this table/nest is embedded in a nest and this nest IS a 
-             semi-join nest, but this semi-join nest is embedded in another 
-             nest. (This other nest will be an outer-join nest, since all inner 
-             joined nested semi-join nests have been merged in 
+      @li 2. If this table/nest is embedded in a nest and this nest IS a
+             semi-join nest, but this semi-join nest is embedded in another
+             nest. (This other nest will be an outer-join nest, since all inner
+             joined nested semi-join nests have been merged in
              @c simplify_joins() ).
     Note: This function assumes that @c simplify_joins() has been performed.
     Before that, join nests will be present for all types of join.
@@ -2213,7 +2220,7 @@ public:
 
 
 struct st_position;
-  
+
 class Item;
 
 /*
@@ -2234,7 +2241,7 @@ public:
 };
 
 
-/* 
+/*
   Iterator over the fields of a base table, view with temporary
   table, or subquery.
 */
@@ -2389,9 +2396,9 @@ typedef struct st_nested_join
   uint              nj_total;
   /**
     Used to count tables in the nested join in 2 isolated places:
-    1. In make_outerjoin_info(). 
+    1. In make_outerjoin_info().
     2. check_interleaving_with_nj/backout_nj_state (these are called
-       by the join optimizer. 
+       by the join optimizer.
     Before each use the counters are zeroed by reset_nj_counters.
   */
   uint              nj_counter;
@@ -2473,7 +2480,7 @@ static inline void dbug_tmp_restore_column_map(MY_BITMAP *bitmap,
 }
 
 
-/* 
+/*
   Variant of the above : handle both read and write sets.
   Provide for the possiblity of the read set being the same as the write set
 */

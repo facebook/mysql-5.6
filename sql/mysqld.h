@@ -421,6 +421,7 @@ extern bool enable_binlog_hlc;
 extern bool maintain_database_hlc;
 extern my_bool async_query_counter_enabled;
 extern my_bool enable_acl_fast_lookup;
+extern my_bool use_cached_table_stats_ptr;
 
 /* Minimum HLC value for this instance. It is ensured that the next 'event' will
  * get a HLC timestamp greater than this value */
@@ -1128,6 +1129,7 @@ extern int32 write_query_running;
 extern my_atomic_rwlock_t write_query_running_lock;
 extern ulonglong tmp_table_rpl_max_file_size;
 extern ulong slave_tx_isolation;
+extern ulonglong object_stats_misses;
 
 /** The size of the host_cache. */
 extern uint host_cache_size;
@@ -1233,7 +1235,9 @@ extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
   key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
   key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
   key_rwlock_LOCK_legacy_user_name_pattern,
-  key_rwlock_LOCK_admin_users_list_regex, key_rwlock_hash_filo;
+  key_rwlock_LOCK_admin_users_list_regex,
+  key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
+  key_rwlock_hash_filo;
 
 #ifdef HAVE_MMAP
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
