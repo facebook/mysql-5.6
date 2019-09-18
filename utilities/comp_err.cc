@@ -760,7 +760,7 @@ static int parse_input_file(const char *file_name, struct errors ***last_error,
         goto done;
       }
       if (!parse_message_string(&current_message, str)) {
-        fprintf(stderr, "Failed to parse message string for error '%s'",
+        fprintf(stderr, "Failed to parse message string for error '%s'\n",
                 current_error->er_name);
         fail = "\n";
         goto done;
@@ -1179,6 +1179,7 @@ static struct message *parse_message_string(struct message *new_message,
   while (*str == ' ' || *str == '\t' || *str == '\n') str++;
 
   if (!*str) {
+    fprintf(stderr, "Unexpected empty line\n");
     /* It was not a message line, but an empty line. */
     fprintf(stderr, "No error message was found on line.\n");
     DBUG_PRINT("info", ("str: %s", str));
