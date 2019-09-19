@@ -2289,6 +2289,7 @@ void Rdb_key_def::pack_with_varchar_encoding(
   const size_t value_length = (field_var->length_bytes == 1)
                                   ? (uint)*field->ptr
                                   : uint2korr(field->ptr);
+
   size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len, field_var->char_length(),
       field_var->ptr + field_var->length_bytes, value_length, 0);
@@ -2401,11 +2402,23 @@ void Rdb_key_def::pack_with_varchar_space_pad(
                                   ? (uint)*field->ptr
                                   : uint2korr(field->ptr);
 
+  // We only store the trimmed contents but encode the missing char with
+  // removed_chars later to save space
   const size_t trimmed_len = charset->cset->lengthsp(
       charset, (const char *)field_var->ptr + field_var->length_bytes,
       value_length);
+
+  // In MySQL 8.0 strnxfrm needs to be passed the number of code points that
+  // will be padded to, but we don't want the padding behavior here as we
+  // only want save the trimmed string contents.
+  // So we need to either use the trimmed length or the max length, which ever
+  // is smaller.
+  // In MySQL 5.6 the value of char_len is ignored unless you pass padding flag
+  const size_t char_len = std::min<size_t>(trimmed_len,
+                                           field_var->char_length());
+
   const size_t xfrm_len = charset->coll->strnxfrm(
-      charset, buf, fpi->m_max_image_len, field_var->char_length(),
+      charset, buf, fpi->m_max_image_len, char_len,
       field_var->ptr + field_var->length_bytes, trimmed_len, 0);
 
   /* Got a mem-comparable image in 'buf'. Now, produce varlength encoding */
