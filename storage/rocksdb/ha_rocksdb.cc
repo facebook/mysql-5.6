@@ -15350,11 +15350,13 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
     mrr_rowid_reader = reader;
   }
 
+  res = mrr_fill_buffer();
+
   // note: here, we must NOT return HA_ERR_END_OF_FILE even if we know there
   // are no matches. We should return 0 here and return HA_ERR_END_OF_FILE
   // from the first multi_range_read_next() call.
+  if (res == HA_ERR_END_OF_FILE) res = 0;
 
-  res = mrr_fill_buffer();
   return res;
 }
 
@@ -15554,7 +15556,8 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
   *range_info = mrr_range_ptrs[cur_key];
 
-  m_retrieved_record.PinSelf(mrr_values[cur_key]);
+  m_retrieved_record.Reset();
+  m_retrieved_record.PinSlice(mrr_values[cur_key], &mrr_values[cur_key]);
   int rc = convert_record_from_storage_format(&rowkey, table->record[0]);
 
   m_retrieved_record.Reset();
