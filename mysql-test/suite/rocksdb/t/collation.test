@@ -1,5 +1,4 @@
 --source include/have_rocksdb.inc
---source include/have_fullregex.inc
 
 call mtr.add_suppression("Invalid pattern");
 
@@ -155,7 +154,7 @@ DROP TABLE t2;
 
 # test invalid regex (missing end bracket)
 SET GLOBAL rocksdb_strict_collation_exceptions="[a-b";
---exec grep "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | tail -n 1
+--exec grep -o "Invalid pattern .*$" $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1
 --error ER_UNSUPPORTED_COLLATION
 CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
 SET GLOBAL rocksdb_strict_collation_exceptions="[a-b]";
@@ -167,7 +166,7 @@ DROP TABLE a, b;
 
 # test invalid regex (trailing escape)
 SET GLOBAL rocksdb_strict_collation_exceptions="abc\\";
---exec grep "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | tail -n 1
+--exec grep -o "Invalid pattern .*$" $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1
 --error ER_UNSUPPORTED_COLLATION
 CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
 SET GLOBAL rocksdb_strict_collation_exceptions="abc";
