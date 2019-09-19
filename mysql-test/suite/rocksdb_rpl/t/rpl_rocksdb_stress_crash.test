@@ -1,7 +1,6 @@
 -- source include/big_test.inc
 -- source include/master-slave.inc
 -- source include/not_valgrind.inc
--- source include/have_gtid.inc
 -- source include/have_rocksdb.inc
 
 connection master;
