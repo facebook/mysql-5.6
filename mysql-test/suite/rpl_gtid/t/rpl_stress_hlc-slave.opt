@@ -1,1 +1,1 @@
---enable_binlog_hlc=ON
+--enable_binlog_hlc=ON --slave_parallel_workers=30

@@ -1122,7 +1122,8 @@ class Relay_log_info : public Rpl_info {
 
   bool curr_group_seen_gtid;   // current group started with Gtid-event or not
   bool curr_group_seen_begin;  // current group started with B-event or not
-  bool curr_group_isolated;    // current group requires execution in isolation
+  bool curr_group_seen_metadata;  // Have we encountered metadata event
+  bool curr_group_isolated;  // current group requires execution in isolation
   bool mts_end_group_sets_max_dbs;  // flag indicates if partitioning info is
                                     // discovered
   volatile ulong

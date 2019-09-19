@@ -2707,6 +2707,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
 
   // Beginning of a group designated explicitly with BEGIN or GTID
   if ((is_s_event = starts_group()) || is_gtid_event(this) ||
+      get_type_code() == binary_log::METADATA_EVENT ||
       // or DDL:s or autocommit queries possibly associated with own p-events
       (!rli->curr_group_seen_begin && !rli->curr_group_seen_gtid &&
        /*
@@ -2766,6 +2767,20 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
         }
         return ret_worker;
       }
+    } else if (get_type_code() == binary_log::METADATA_EVENT) {
+      // Metadata event allowed only when gtid is enabled
+      DBUG_ASSERT(rli->curr_group_seen_gtid);
+
+      rli->curr_group_seen_metadata = true;
+      Slave_job_item job_item = {this, rli->get_event_relay_log_number(),
+                                 rli->get_event_relay_log_pos()};
+
+      rli->curr_group_da.push_back(job_item);
+
+      // By the time we see Metadata event for the group, we should have already
+      // seen gtid event. Hence number of elements in the array is 2
+      DBUG_ASSERT(rli->curr_group_da.size() == 2);
+      return ret_worker;
     } else {
       /*
        The block is a result of not making GTID event as group starter.
@@ -2784,7 +2799,14 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
         return nullptr;
       }
 
-      DBUG_ASSERT(rli->curr_group_da.size() == 2);
+      // If metadata event is seen, then there should be 3 elements in the array
+      // (GTID event, metadata event and the query 'begin' event). Else, there
+      // should only be two events in the array (GTID event and query 'begin'
+      // event)
+      DBUG_ASSERT(
+          (!rli->curr_group_seen_metadata && rli->curr_group_da.size() == 2) ||
+          (rli->curr_group_seen_metadata && rli->curr_group_da.size() == 3));
+
       DBUG_ASSERT(starts_group());
       return ret_worker;
     }
