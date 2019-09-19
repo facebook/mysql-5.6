@@ -20,12 +20,12 @@ SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 v0	varchar(0)	YES		NULL	
 v1	varchar(1)	YES		NULL	
-v64	varchar(64)	NO	PRI		
+v64	varchar(64)	NO	PRI	NULL	
 v65000	varchar(65000)	YES		NULL	
 CREATE TABLE t2 (v VARCHAR(65532), PRIMARY KEY (v(255))) ENGINE=rocksdb;
 SHOW COLUMNS IN t2;
 Field	Type	Null	Key	Default	Extra
-v	varchar(65532)	NO	PRI		
+v	varchar(65532)	NO	PRI	NULL	
 INSERT INTO t1 (v0,v1,v64,v65000) VALUES ('','','','');
 INSERT INTO t1 (v0,v1,v64,v65000) VALUES ('','y','Once there, double check that an article doesn\'t already exist','Here is a list of recommended books on MariaDB and MySQL. We\'ve provided links to Amazon.com here for convenience, but they can be found at many other bookstores, both online and off.
 
@@ -132,7 +132,7 @@ SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 v0	varchar(0)	YES		NULL	
 v1	varchar(1)	YES		NULL	
-v64	varchar(64)	NO	PRI		
+v64	varchar(64)	NO	PRI	NULL	
 v65000	varchar(65000)	YES		NULL	
 v65536	mediumtext	YES		NULL	
 DROP TABLE t1, t2;
@@ -195,8 +195,10 @@ test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	col1	67	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	col1	67	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
 select col1, hex(col1) from t1;
 col1	hex(col1)
 a  		61202009
@@ -206,8 +208,10 @@ ab	6162
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	col1	col1	67	NULL	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	index	col1	col1	67	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
 col1	hex(col1)
 a  		61202009
@@ -225,8 +229,10 @@ insert into t1 values(22, repeat(' ',17), '17x-space');
 insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	NULL	col1	67	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	index	NULL	col1	67	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
 pk	col1	hex(col1)	length(col1)
 10			0
@@ -263,6 +269,9 @@ pk varchar(64) CHARACTER SET utf8 COLLATE utf8_bin,
 col1 varchar(64),
 primary key (pk)
 );
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
 ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
@@ -300,6 +309,9 @@ col1 varchar(64) CHARACTER SET utf8 COLLATE utf8_bin,
 col2 varchar(64),
 key (col1)
 );
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values (0, 'ab', 'a-b');
 insert into t1 values (1, 'a ', 'a-space');
 insert into t1 values (2, 'a',  'a');
@@ -310,8 +322,10 @@ test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	col1	195	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	col1	195	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
 select col1, hex(col1) from t1;
 col1	hex(col1)
 a  		61202009
@@ -321,8 +335,10 @@ ab	6162
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	col1	col1	195	NULL	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	index	col1	col1	195	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
 col1	hex(col1)
 a  		61202009
@@ -340,8 +356,10 @@ insert into t1 values(22, repeat(' ',17), '17x-space');
 insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	NULL	col1	195	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	index	NULL	col1	195	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
 pk	col1	hex(col1)	length(col1)
 10			0
@@ -425,8 +443,10 @@ test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
 select col1, hex(col1) from t1;
 col1	hex(col1)
 ab	00610062
@@ -436,8 +456,10 @@ a  		0061002000200009
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	col1	col1	131	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	range	col1	col1	131	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
 col1	hex(col1)
 a  		0061002000200009
@@ -455,8 +477,10 @@ insert into t1 values(22, repeat(' ',17), '17x-space');
 insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
 pk	col1	hex(col1)	length(col1)
 10			0
@@ -540,8 +564,10 @@ test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
 select col1, hex(col1) from t1;
 col1	hex(col1)
 ab	6162
@@ -551,8 +577,10 @@ a  		61202009
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	col1	col1	259	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	range	col1	col1	259	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
 col1	hex(col1)
 a  		61202009
@@ -570,8 +598,10 @@ insert into t1 values(22, repeat(' ',17), '17x-space');
 insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
 pk	col1	hex(col1)	length(col1)
 10			0
@@ -655,8 +685,10 @@ test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
 select col1, hex(col1) from t1;
 col1	hex(col1)
 ab	00610062
@@ -666,8 +698,10 @@ a  		0061002000200009
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	col1	col1	259	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	range	col1	col1	259	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
 col1	hex(col1)
 a  		0061002000200009
@@ -685,8 +719,10 @@ insert into t1 values(22, repeat(' ',17), '17x-space');
 insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	#	NULL	NULL	NULL	NULL	#	NULL
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
 pk	col1	hex(col1)	length(col1)
 10			0
@@ -734,8 +770,10 @@ drop table t1;
 create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
 insert into t values (1, 'abcabcabcabcabcabcabcabcabcabcabc  ');
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t	index	NULL	email_i	33	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	NULL	email_i	33	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select 'email_i' AS `index_name`,count(0) AS `count` from `test`.`t` FORCE INDEX (`email_i`)
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 index_name	count
 email_i	1
@@ -747,8 +785,10 @@ set session rocksdb_verify_row_debug_checksums = on;
 create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
 insert into t values (1, 'a');
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t	index	NULL	email_i	33	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t	NULL	index	NULL	email_i	33	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select 'email_i' AS `index_name`,count(0) AS `count` from `test`.`t` FORCE INDEX (`email_i`)
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 index_name	count
 email_i	1
@@ -759,6 +799,9 @@ drop table if exists t;
 Warnings:
 Note	1051	Unknown table 'test.t'
 create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) engine=rocksdb;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t(i,h) values('a','b');
 check table t;
 Table	Op	Msg_type	Msg_text
