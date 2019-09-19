@@ -14,7 +14,8 @@ SET GLOBAL rocksdb_force_flush_memtable_and_lzero_now=1;
 DROP TABLE t1;
 SELECT @@global.rocksdb_max_open_files;
 @@global.rocksdb_max_open_files
--1
+4294967295
 SELECT FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files;
 FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files
 1
+# restart
