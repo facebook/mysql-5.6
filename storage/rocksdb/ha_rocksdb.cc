@@ -283,7 +283,6 @@ static void rocksdb_delete_column_family_stub(
 static int rocksdb_delete_column_family(
     THD *const /* thd */, struct st_mysql_sys_var *const /* var */,
     void *const /* var_ptr */, struct st_mysql_value *const value) {
-
   char buff[STRING_BUFFER_USUAL_SIZE];
   int len = sizeof(buff);
 
