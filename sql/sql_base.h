@@ -303,9 +303,11 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       const char *engine);
 
 /* for information_schema.db_statistics */
+extern ST_FIELD_INFO db_stats_fields_info[];
 void init_global_db_stats(void);
 void free_global_db_stats(void);
 void reset_global_db_stats(void);
+int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 
 /* for information_schema.user_table_statistics */
 extern ST_FIELD_INFO user_table_stats_fields_info[];
@@ -322,9 +324,19 @@ void fill_shared_table_stats(SHARED_TABLE_STATS *stats, TABLE *table,
 bool check_admin_users_list(USER_CONN *uc);
 void reset_user_conn_admin_flag();
 
-/* For information_schema.db_statistics */
-extern ST_FIELD_INFO db_stats_fields_info[];
-int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+/* For information_schema.sql_statistics */
+extern ST_FIELD_INFO sql_stats_fields_info[];
+extern mysql_mutex_t LOCK_global_sql_stats;
+void free_global_sql_stats(void);
+int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats);
+void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats);
+void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
+                               SHARED_SQL_STATS *stats);
+
+/* For information_schema.sql_text */
+extern ST_FIELD_INFO sql_text_fields_info[];
+int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond);
 
 /* For information_schema.user_latency_histograms */
 extern char *histogram_step_size_connection_create;

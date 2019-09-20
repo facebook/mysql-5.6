@@ -190,6 +190,7 @@ SET(SQL_SHARED_SOURCES
   sql_show.cc
   sql_signal.cc
   sql_state.c
+  sql_stats.cc
   sql_string.cc 
   sql_table.cc
   sql_tablespace.cc

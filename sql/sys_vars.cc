@@ -6508,3 +6508,34 @@ static Sys_var_mybool Sys_high_precision_processlist(
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
 #endif
+
+static const char *sql_stats_control_values[] =
+{ "OFF_HARD", "OFF_SOFT", "ON",
+  /* Add new control before the following line */
+  0
+};
+
+static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
+{
+  if (sql_stats_control == SQL_STATS_CONTROL_OFF_HARD) {
+    free_global_sql_stats();
+  }
+
+  return false; // success
+}
+
+static Sys_var_enum Sys_sql_stats_control(
+       "sql_stats_control",
+       "Provides a control to collect normalized SQL text and statistics "
+       "for every SQL statement. This data is exposed via SQL_TEXT and "
+       "SQL_STATISTICS tables. Takes the following values: "
+       "OFF_HARD: Default value. Stop collecting the statistics and flush "
+       "all SQL statistics related data from memory. "
+       "OFF_SOFT: Stop collecting the statistics, but retain any data "
+       "collected so far. "
+       "ON: Collect the statistics.",
+       GLOBAL_VAR(sql_stats_control),
+       CMD_LINE(REQUIRED_ARG),
+       sql_stats_control_values, DEFAULT(SQL_STATS_CONTROL_OFF_HARD),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+       ON_UPDATE(set_sql_stats_control));

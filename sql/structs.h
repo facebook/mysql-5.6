@@ -29,6 +29,7 @@
 #include "mysqld.h"                    /* my_io_perf */
 #include "atomic_stat.h"
 #include "hash.h"
+#include "sql_digest.h"
 
 struct TABLE;
 class Field;
@@ -512,6 +513,54 @@ typedef struct st_db_stats {
   }
 } DB_STATS;
 
+typedef struct st_shared_sql_stats {
+  /* Row metrics */
+  ulonglong rows_inserted;
+  ulonglong rows_updated;
+  ulonglong rows_deleted;
+  ulonglong rows_read;
+
+  /* CPU metrics */
+  ulonglong us_tot;  /* Total CPU time in microseconds */
+
+  void reset()
+  {
+    rows_inserted= 0;
+    rows_updated= 0;
+    rows_deleted= 0;
+    rows_read= 0;
+    us_tot= 0;
+  }
+} SHARED_SQL_STATS;
+
+/* SQL statistics - Cumulative statistics for every normalized SQL statement */
+typedef struct st_sql_stats {
+  unsigned char sql_id[MD5_HASH_SIZE];
+  unsigned char plan_id[MD5_HASH_SIZE];
+  char schema[NAME_LEN + 1];      /* [schema] + '\0' */
+  char user[NAME_LEN + 1];        /* [user] + '\0' */
+
+  ulonglong count;   /* execution count of the normalized SQL */
+                                  /* statement */
+  SHARED_SQL_STATS shared_stats;
+
+  void reset() {
+    count= 0;
+    shared_stats.reset();
+  }
+} SQL_STATS;
+
+/* SQL text - stores the normalized text, type and Id for every SQL statement*/
+typedef struct st_sql_text {
+  enum_sql_command sql_type;
+  size_t sql_text_length;
+  /*
+    We use sql_digest_storage but it contains fields that we don't need, that
+    we can remove if memory is a concern.
+  */
+  struct sql_digest_storage digest_storage;
+  unsigned char token_array_storage[1024];
+} SQL_TEXT;
 
 	/* Bits in form->update */
 #define REG_MAKE_DUPP		1	/* Make a copy of record when read */

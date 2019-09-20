@@ -993,6 +993,27 @@ extern char *admin_users_list;
 #define UTS_LEVEL_BASIC()                         \
   (user_table_stats_control != UTS_CONTROL_OFF)
 
+/*
+  Global variable to control collecting sql statistics and normalized sql text.
+
+  - Setting the control to "OFF_HARD" will stop the stats collection and all
+    data from sql-stats related in-memory structures is evicted.
+  - Setting the control to a "OFF_SOFT" will stop collecting the stats, but
+    any existing stats will continue to be in memory. The stats are not flushed.
+  - Setting the control to "ON" will (re-)start collecting the stats.
+
+  Keep the enum in the sync with sql_stats_control_values[] (sys_vars.cc)
+*/
+enum enum_sql_stats_control
+{
+  SQL_STATS_CONTROL_OFF_HARD   = 0,
+  SQL_STATS_CONTROL_OFF_SOFT   = 1,
+  SQL_STATS_CONTROL_ON         = 2,
+  /* Add new control before the following line */
+  SQL_STATS_CONTROL_INVALID
+};
+extern ulong sql_stats_control;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
@@ -1179,6 +1200,7 @@ extern PSI_mutex_key
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOCK_thread_count, key_LOCK_thd_remove,
   key_LOCK_global_table_stats,
+  key_LOCK_global_sql_stats,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

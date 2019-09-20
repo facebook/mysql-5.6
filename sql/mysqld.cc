@@ -660,6 +660,8 @@ ulong user_table_stats_control;
 /* Contains the list of users with admin roles (comma separated) */
 char *admin_users_list;
 Regex_list_handler *admin_users_list_regex;
+/* Controls collecting statistics for every SQL statement */
+ulong sql_stats_control;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1014,6 +1016,9 @@ pthread_key(THD*, THR_THD);
 mysql_mutex_t LOCK_global_table_stats;
 mysql_mutex_t LOCK_thread_created;
 mysql_mutex_t LOCK_thread_count, LOCK_thd_remove;
+
+/* Lock to protect global_sql_stats_map and global_sql_text_map structures */
+mysql_mutex_t LOCK_global_sql_stats;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2519,6 +2524,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_mutex_destroy(&LOCK_connection_count);
   mysql_mutex_destroy(&LOCK_global_table_stats);
+  mysql_mutex_destroy(&LOCK_global_sql_stats);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5455,6 +5461,8 @@ static int init_thread_environment()
                    &LOCK_log_throttle_sbr_unsafe, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_table_stats,
                    &LOCK_global_table_stats, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_global_sql_stats,
+                   &LOCK_global_sql_stats, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -12575,6 +12583,7 @@ PSI_mutex_key
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOG_INFO_lock, key_LOCK_thread_count,
   key_LOCK_global_table_stats,
+  key_LOCK_global_sql_stats,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12697,6 +12706,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_log_throttle_legacy, "LOCK_log_throttle_legacy", PSI_FLAG_GLOBAL},
   { &key_LOCK_log_throttle_ddl, "LOCK_log_throttle_ddl", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_table_stats, "LOCK_global_table_stats", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_sql_stats, "LOCK_global_sql_stats", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

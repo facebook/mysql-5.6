@@ -1,0 +1,162 @@
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+Case 1: sql_stats_control=OFF_HARD
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select 42;
+42
+42
+select sql_id, plan_id, table_schema, user_name, execution_count
+from information_schema.sql_statistics;
+sql_id	plan_id	table_schema	user_name	execution_count
+Case 2: sql_stats_control=ON
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 1;
+1
+1
+select 2;
+2
+2
+select 100;
+100
+100
+select sql_id, plan_id, table_schema, user_name, execution_count
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count
+7607b20afdca65f50cf919609d171ad8	7607b20afdca65f50cf919609d171ad8	test	user_super	1
+ea1a18bec5a37513f7a0720e73526477	ea1a18bec5a37513f7a0720e73526477	test	user_super	3
+create table t1(c int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read
+279bcd77d61df560ddc2ce0524b09da4	279bcd77d61df560ddc2ce0524b09da4	test	user_super	5	5	0	0	0
+3da33426ba270d36ad95b2b819d03a24	3da33426ba270d36ad95b2b819d03a24	test	user_super	2	0	0	2	9
+7607b20afdca65f50cf919609d171ad8	7607b20afdca65f50cf919609d171ad8	test	user_super	1	0	0	0	0
+b2c751001aacadcf66d589277fe89c39	b2c751001aacadcf66d589277fe89c39	test	user_super	3	0	15	0	15
+b473dac11510107b3dd116f54e106008	b473dac11510107b3dd116f54e106008	test	user_super	1	0	0	0	0
+bcb18f202af627f545e12f03303093b0	bcb18f202af627f545e12f03303093b0	test	user_super	1	0	0	0	0
+ea1a18bec5a37513f7a0720e73526477	ea1a18bec5a37513f7a0720e73526477	test	user_super	3	0	0	0	0
+select information_schema.sql_statistics.sql_id, table_schema, user_name, execution_count, sql_text
+from information_schema.sql_statistics, information_schema.sql_text
+where information_schema.sql_statistics.sql_id=information_schema.sql_text.sql_id
+order by sql_id;
+sql_id	table_schema	user_name	execution_count	sql_text
+279bcd77d61df560ddc2ce0524b09da4	test	user_super	5	INSERT INTO `t1` VALUES (?) 
+3da33426ba270d36ad95b2b819d03a24	test	user_super	2	DELETE FROM `t1` WHERE `c` = ? 
+4dbe914e82a9f71f7ecd7e0829306d3e	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+7607b20afdca65f50cf919609d171ad8	test	user_super	1	SELECT @@`sql_stats_control` 
+b2c751001aacadcf66d589277fe89c39	test	user_super	3	UPDATE `t1` SET `c` = `c` + ? 
+b473dac11510107b3dd116f54e106008	test	user_super	1	CREATE TABLE `t1` ( `c` INTEGER ) 
+bcb18f202af627f545e12f03303093b0	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+ea1a18bec5a37513f7a0720e73526477	test	user_super	3	SELECT ? 
+Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
+set @@GLOBAL.sql_stats_control="OFF_SOFT";
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_SOFT
+select 1 union select 2;
+1
+1
+2
+select 1 union select 2 union select 3;
+1
+1
+2
+3
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read
+279bcd77d61df560ddc2ce0524b09da4	279bcd77d61df560ddc2ce0524b09da4	test	user_super	5	5	0	0	0
+3da33426ba270d36ad95b2b819d03a24	3da33426ba270d36ad95b2b819d03a24	test	user_super	2	0	0	2	9
+4dbe914e82a9f71f7ecd7e0829306d3e	4dbe914e82a9f71f7ecd7e0829306d3e	test	user_super	1	0	0	0	0
+7607b20afdca65f50cf919609d171ad8	7607b20afdca65f50cf919609d171ad8	test	user_super	1	0	0	0	0
+b2c751001aacadcf66d589277fe89c39	b2c751001aacadcf66d589277fe89c39	test	user_super	3	0	15	0	15
+b473dac11510107b3dd116f54e106008	b473dac11510107b3dd116f54e106008	test	user_super	1	0	0	0	0
+bcb18f202af627f545e12f03303093b0	bcb18f202af627f545e12f03303093b0	test	user_super	1	0	0	0	0
+c0cc565ac4469288962d2e15f96722c0	c0cc565ac4469288962d2e15f96722c0	test	user_super	1	0	0	0	0
+ea1a18bec5a37513f7a0720e73526477	ea1a18bec5a37513f7a0720e73526477	test	user_super	3	0	0	0	0
+Case 4: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read
+Case 5: sql_stats_control=ON. Re-enable to make sure that data is making its way to sql_statistics.
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 101;
+101
+101
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read
+7607b20afdca65f50cf919609d171ad8	7607b20afdca65f50cf919609d171ad8	test	user_super	1	0	0	0	0
+ea1a18bec5a37513f7a0720e73526477	ea1a18bec5a37513f7a0720e73526477	test	user_super	1	0	0	0	0
+Case 6: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+1
+1
+2
+2
+3
+3
+c
+100
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id||||
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read
+1a15305517598063a249eb3eaac3044f	1a15305517598063a249eb3eaac3044f	test	user_super	1	1	0	0	0
+30db1722a6d958b0de756ec322a0ac6b	30db1722a6d958b0de756ec322a0ac6b	test	user_super	1	0	0	1	1
+41e549ce8a53912cafa487f3aace1e94	41e549ce8a53912cafa487f3aace1e94	test	user_super	1	0	0	0	1
+7607b20afdca65f50cf919609d171ad8	7607b20afdca65f50cf919609d171ad8	test	user_super	1	0	0	0	0
+a78554303c31babf6aaaaf2193428953	a78554303c31babf6aaaaf2193428953	test	user_super	1	0	0	0	0
+b551871920521a753f36a52ad702c054	b551871920521a753f36a52ad702c054	test	user_super	1	0	1	0	1
+e5672050f068011f4e794f8aa32262bd	e5672050f068011f4e794f8aa32262bd	test	user_super	1	0	0	0	0
+ea1a18bec5a37513f7a0720e73526477	ea1a18bec5a37513f7a0720e73526477	test	user_super	3	0	0	0	0
+Cleanup
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+drop table t1;
+drop user user_super@localhost;

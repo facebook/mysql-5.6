@@ -3362,6 +3362,8 @@ public:
 
   void time_out_user_resource_limits();
 
+  ulonglong sql_cpu = 0;
+
 public:
   ha_rows get_sent_row_count() const
   { return m_sent_row_count; }

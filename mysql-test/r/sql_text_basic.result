@@ -1,0 +1,448 @@
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+Case 1: sql_stats_control=OFF_HARD
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select 42;
+42
+42
+select * from information_schema.sql_text;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+Case 2: sql_stats_control=ON, small simple queries
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 1;
+1
+1
+select 2;
+2
+2
+select 100;
+100
+100
+select * from information_schema.sql_text
+order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+create table t1(c int, cname varchar(20));
+insert into t1 values(1, "one");
+insert into t1 values(2, "two");
+insert into t1 values(3, "three");
+insert into t1 values(4, "four");
+insert into t1 values(5, "five");
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+select * from information_schema.sql_text
+order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+3da33426ba270d36ad95b2b819d03a24	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+3fab49c00bde15e6a54785bb560e3dd1	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+4549801ba16fede877021d2cd8121c35	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+b2c751001aacadcf66d589277fe89c39	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+cb0e569b1c256ebd6c7da7fc5451ecf5	INSERT	30	INSERT INTO `t1` VALUES (...) 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+Case 3a: sql_stats_control=ON, big queries, around 800 chars
+select cname from t1 where c=901
+union
+select cname from t1 where c=2
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3;
+cname
+one
+Case 3b: sql_stats_control=ON, big queries, around 5000 chars
+select cname from t1 where c=902
+union
+select cname from t1 where c=2
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3
+union
+select cname from t1 where c=3;
+cname
+two
+select * from information_schema.sql_text
+order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+2419593c2c923aa57ec78ad7b112ab90	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
+3da33426ba270d36ad95b2b819d03a24	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+3fab49c00bde15e6a54785bb560e3dd1	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+4549801ba16fede877021d2cd8121c35	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+7f7d628600aa7f4b602c67db316c8373	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
+b2c751001aacadcf66d589277fe89c39	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+cb0e569b1c256ebd6c7da7fc5451ecf5	INSERT	30	INSERT INTO `t1` VALUES (...) 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+Case 4: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
+set @@GLOBAL.sql_stats_control="OFF_SOFT";
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_SOFT
+select 1 union select 2;
+1
+1
+2
+select 1 union select 2 union select 3;
+1
+1
+2
+3
+select * from information_schema.sql_text
+order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+2419593c2c923aa57ec78ad7b112ab90	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
+3da33426ba270d36ad95b2b819d03a24	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+3fab49c00bde15e6a54785bb560e3dd1	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+4549801ba16fede877021d2cd8121c35	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+7f7d628600aa7f4b602c67db316c8373	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
+b2c751001aacadcf66d589277fe89c39	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+cb0e569b1c256ebd6c7da7fc5451ecf5	INSERT	30	INSERT INTO `t1` VALUES (...) 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+Case 5: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select * from information_schema.sql_text;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+Case 6: sql_stats_control=ON. Re-enable to make sure that data is making its way to sql_text.
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 101;
+101
+101
+select * from information_schema.sql_text
+order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+Case 7: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+1
+1
+2
+2
+3
+3
+c
+100
+select * from information_schema.sql_text
+order by sql_id||||
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+1a15305517598063a249eb3eaac3044f	INSERT	28	INSERT INTO `t2` VALUES (?) 
+30db1722a6d958b0de756ec322a0ac6b	DELETE	31	DELETE FROM `t2` WHERE `c` = ? 
+41e549ce8a53912cafa487f3aace1e94	SELECT	19	SELECT * FROM `t2` 
+7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
+a78554303c31babf6aaaaf2193428953	CREATE	34	CREATE TABLE `t2` ( `c` INTEGER ) 
+b551871920521a753f36a52ad702c054	UPDATE	30	UPDATE `t2` SET `c` = `c` + ? 
+e5672050f068011f4e794f8aa32262bd	DROP	16	DROP TABLE `t2` 
+ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+Cleanup
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+drop table t1;
+drop user user_super@localhost;

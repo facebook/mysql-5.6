@@ -1,0 +1,131 @@
+--source include/no_perfschema.inc
+
+--source include/count_sessions.inc
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+connect (con13, localhost, user_super,su,test);
+
+####################################################
+### Case 1: sql_stats_control=OFF_HARD, no data will be stored in sql_statistics.
+####################################################
+--echo Case 1: sql_stats_control=OFF_HARD
+select @@sql_stats_control;
+select 42;
+select sql_id, plan_id, table_schema, user_name, execution_count
+from information_schema.sql_statistics;
+
+####################################################
+### Case 2: sql_stats_control=ON, Data will be stored in sql_statistics.
+####################################################
+--echo Case 2: sql_stats_control=ON
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+select 1;
+select 2;
+select 100;
+
+select sql_id, plan_id, table_schema, user_name, execution_count
+from information_schema.sql_statistics
+order by sql_id;
+
+create table t1(c int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+update t1 set c=c+100;
+update t1 set c=c+300;
+update t1 set c=c+500;
+delete from t1 where c=905;
+delete from t1 where c=903;
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+       rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+# Join sql_statistics and sql_text tables
+select information_schema.sql_statistics.sql_id, table_schema, user_name, execution_count, sql_text
+from information_schema.sql_statistics, information_schema.sql_text
+where information_schema.sql_statistics.sql_id=information_schema.sql_text.sql_id
+order by sql_id;
+
+
+####################################################
+### Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
+####################################################
+--echo Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
+set @@GLOBAL.sql_stats_control="OFF_SOFT";
+select @@sql_stats_control;
+select 1 union select 2;
+select 1 union select 2 union select 3;
+select sql_id, plan_id, table_schema, user_name, execution_count,
+       rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+####################################################
+### Case 4: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
+####################################################
+--echo Case 4: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+select @@sql_stats_control;
+select sql_id, plan_id, table_schema, user_name, execution_count,
+       rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+####################################################
+### Case 5: sql_stats_control=ON. Re-enable to make sure that data is making its way to sql_statistics.
+####################################################
+--echo Case 5: sql_stats_control=ON. Re-enable to make sure that data is making its way to sql_statistics.
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+select 101;
+select sql_id, plan_id, table_schema, user_name, execution_count,
+       rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+####################################################
+### Case 6: Multi-query support
+####################################################
+--echo Case 6: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t2(c int);
+insert into t2 values(100);
+select * from t2;
+update t2 set c=c+7;
+delete from t2 where c=107;
+drop table t2;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+       rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+drop table t1;
+drop user user_super@localhost;
+disconnect con13;
+
+--source include/wait_until_count_sessions.inc

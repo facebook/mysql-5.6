@@ -1546,6 +1546,32 @@ static inline bool is_query(enum enum_server_command command) {
   return command == COM_QUERY || command == COM_QUERY_ATTRS;
 }
 
+/*
+  update_sql_stats
+    A helper/wrapper around update_sql_stats_after_statement to keep track of
+    some internal state.
+*/
+static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats)
+{
+  if (sql_stats_control == SQL_STATS_CONTROL_ON)
+  {
+    SHARED_SQL_STATS sql_stats;
+    /*
+      THD will contain the cumulative stats for the multi-query statement
+      executed so far. To get the stats only for the current SQL statement,
+      previous cumulative stats should be subtracted from the current THD
+      stats.
+      sql_stats = thd-stats - cumulative_sql_stats
+    */
+    reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
+
+    update_sql_stats_after_statement(thd, &sql_stats);
+
+    /* Update the cumulative_sql_stats with the stats from THD */
+    reset_sql_stats_from_thd(thd, cumulative_sql_stats);
+  }
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1576,6 +1602,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   /* for USER_STATISTICS */
   my_io_perf_t start_perf_read, start_perf_read_blob;
   my_io_perf_t start_perf_read_primary, start_perf_read_secondary;
+  /* for SQL_STATISTICS */
+  SHARED_SQL_STATS cumulative_sql_stats = {};
   my_bool async_commit = FALSE;
   /* For per-query performance counters with log_slow_statement */
   struct system_status_var query_start_status;
@@ -1933,6 +1961,17 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
 
+      /*
+        Update SQL stats.
+        For multi-query statements, SQL stats should be updated after every
+        individual SQL query. An `update_sql_stats_after_statement` will
+        follow every `mysql_parse` to update the statistics right after the
+        execution of the query.
+        The stats updated here will be for the first statement of the
+        multi-query set.
+      */
+      update_sql_stats(thd, &cumulative_sql_stats);
+
       /* Check to see if any state changed */
       if (!state_changed && srv_session) {
         state_changed = srv_session->session_state_changed();
@@ -1994,6 +2033,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
 /* PSI begin */
       thd->m_digest= & thd->m_digest_state;
+      thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
       thd->m_statement_psi= MYSQL_START_STATEMENT(&thd->m_statement_state,
                                                   com_statement_info[command].m_key,
@@ -2014,6 +2054,16 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
                   &last_timer, &async_commit);
     }
+
+    /*
+      Update SQL stats.
+      If multi-query: The stats updated here will be for the last statement
+        out of the multi-query set.
+      If not multi-query: The stats updated here will be fore the entire
+        statement.
+    */
+    update_sql_stats(thd, &cumulative_sql_stats);
+
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {
       MT_RESOURCE_ATTRS attrs = {
@@ -6366,6 +6416,8 @@ finish:
       if (dbstats)
         dbstats->update_cpu_stats_tot(diff);
       us->microseconds_cpu.inc(diff);
+
+      thd->sql_cpu = diff;
     }
 #elif HAVE_GETRUSAGE
     DB_STATS *dbstats= thd->db_stats;
@@ -6381,6 +6433,8 @@ finish:
       us->microseconds_cpu.inc(diffu+diffs);
       us->microseconds_cpu_user.inc(diffu);
       us->microseconds_cpu_sys.inc(diffs);
+
+      thd->sql_cpu = diffu+diffs;
     }
 #endif
 
@@ -9961,7 +10015,8 @@ bool parse_sql(THD *thd,
     parser_state->m_digest_psi= MYSQL_DIGEST_START(thd->m_statement_psi);
 
     if (parser_state->m_input.m_compute_digest ||
-       (parser_state->m_digest_psi != NULL))
+       (parser_state->m_digest_psi != NULL) ||
+       (sql_stats_control == SQL_STATS_CONTROL_ON))
     {
       /*
         If either:

@@ -10316,6 +10316,10 @@ ST_SCHEMA_TABLE schema_tables[]=
 #ifndef EMBEDDED_LIBRARY
   {"USER_TABLE_STATISTICS", user_table_stats_fields_info, create_schema_table,
    fill_user_table_stats, NULL, NULL, -1, -1, false, 0},
+  {"SQL_STATISTICS", sql_stats_fields_info, create_schema_table,
+   fill_sql_stats, NULL, NULL, -1, -1, false, 0},
+  {"SQL_TEXT", sql_text_fields_info, create_schema_table,
+   fill_sql_text, NULL, NULL, -1, -1, false, 0},
 #endif
   {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
    fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},
