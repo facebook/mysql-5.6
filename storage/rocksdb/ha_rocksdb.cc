@@ -8022,8 +8022,6 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   int rc = 0;
   uint pk_size;
 
-  /* Get the key columns and primary key value */
-  const rocksdb::Slice &rkey = m_scan_it->key();
   const rocksdb::Slice &value = m_scan_it->value();
 
 #ifndef DBUG_OFF
@@ -8041,12 +8039,14 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
   if (covered_lookup && m_lock_rows == RDB_LOCK_NONE) {
     // Due to MRR, we can have ICP enabled with covered_lookup == true
     if (!(rc = find_icp_matching_index_rec(move_forward, buf))) {
+      const rocksdb::Slice &rkey = m_scan_it->key();
+      const rocksdb::Slice &rval = m_scan_it->value();
       pk_size =
           kd.get_primary_key_tuple(table, *m_pk_descr, &rkey, m_pk_packed_tuple);
       if (pk_size == RDB_INVALID_KEY_LEN) {
         rc = HA_ERR_ROCKSDB_CORRUPT_DATA;
       } else {
-        rc = kd.unpack_record(table, buf, &rkey, &value,
+        rc = kd.unpack_record(table, buf, &rkey, &rval,
                               m_converter->get_verify_row_debug_checksums());
         global_stats.covered_secondary_key_lookups.inc();
       }
