@@ -1244,6 +1244,481 @@ The following options may be given as the first argument:
  between 0 and the real lag when the IO thread is the
  bottleneck.
  (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
+ --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
+ OFF, FORCE (don't start if the plugin fails to load).
+ --rocksdb-access-hint-on-compaction-start=# 
+ DBOptions::access_hint_on_compaction_start for RocksDB
+ --rocksdb-advise-random-on-open 
+ DBOptions::advise_random_on_open for RocksDB
+ (Defaults to on; use --skip-rocksdb-advise-random-on-open to disable.)
+ --rocksdb-allow-concurrent-memtable-write 
+ DBOptions::allow_concurrent_memtable_write for RocksDB
+ --rocksdb-allow-mmap-reads 
+ DBOptions::allow_mmap_reads for RocksDB
+ --rocksdb-allow-mmap-writes 
+ DBOptions::allow_mmap_writes for RocksDB
+ --rocksdb-allow-to-start-after-corruption 
+ Allow server still to start successfully even if RocksDB
+ corruption is detected.
+ --rocksdb-blind-delete-primary-key 
+ Deleting rows by primary key lookup, without reading rows
+ (Blind Deletes). Blind delete is disabled if the table
+ has secondary key
+ --rocksdb-block-cache-size=# 
+ block_cache size for RocksDB
+ --rocksdb-block-restart-interval=# 
+ BlockBasedTableOptions::block_restart_interval for
+ RocksDB
+ --rocksdb-block-size=# 
+ BlockBasedTableOptions::block_size for RocksDB
+ --rocksdb-block-size-deviation=# 
+ BlockBasedTableOptions::block_size_deviation for RocksDB
+ --rocksdb-bulk-load Use bulk-load mode for inserts. This disables
+ unique_checks and enables rocksdb_commit_in_the_middle.
+ --rocksdb-bulk-load-allow-sk 
+ Allow bulk loading of sk keys during bulk-load. Can be
+ changed only when bulk load is disabled.
+ --rocksdb-bulk-load-allow-unsorted 
+ Allow unsorted input during bulk-load. Can be changed
+ only when bulk load is disabled.
+ --rocksdb-bulk-load-size=# 
+ Max #records in a batch for bulk-load mode
+ --rocksdb-bytes-per-sync=# 
+ DBOptions::bytes_per_sync for RocksDB
+ --rocksdb-cache-dump 
+ Include RocksDB block cache content in core dump.
+ (Defaults to on; use --skip-rocksdb-cache-dump to disable.)
+ --rocksdb-cache-high-pri-pool-ratio=# 
+ Specify the size of block cache high-pri pool
+ --rocksdb-cache-index-and-filter-blocks 
+ BlockBasedTableOptions::cache_index_and_filter_blocks for
+ RocksDB
+ (Defaults to on; use --skip-rocksdb-cache-index-and-filter-blocks to disable.)
+ --rocksdb-cache-index-and-filter-with-high-priority 
+ cache_index_and_filter_blocks_with_high_priority for
+ RocksDB
+ (Defaults to on; use --skip-rocksdb-cache-index-and-filter-with-high-priority to disable.)
+ --rocksdb-cf-options[=name] 
+ Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-cfstats[=name] 
+ Enable or disable ROCKSDB_CFSTATS plugin. Possible values
+ are ON, OFF, FORCE (don't start if the plugin fails to
+ load).
+ --rocksdb-checksums-pct=# 
+ How many percentages of rows to be checksummed
+ --rocksdb-collect-sst-properties 
+ Enables collecting SST file properties on each flush
+ (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
+ --rocksdb-commit-in-the-middle 
+ Commit rows implicitly every rocksdb_bulk_load_size, on
+ bulk load/insert, update and delete
+ --rocksdb-commit-time-batch-for-recovery 
+ TransactionOptions::commit_time_batch_for_recovery for
+ RocksDB
+ (Defaults to on; use --skip-rocksdb-commit-time-batch-for-recovery to disable.)
+ --rocksdb-compact-cf=name 
+ Compact column family
+ --rocksdb-compaction-readahead-size=# 
+ DBOptions::compaction_readahead_size for RocksDB
+ --rocksdb-compaction-sequential-deletes=# 
+ RocksDB will trigger compaction for the file if it has
+ more than this number sequential deletes per window
+ --rocksdb-compaction-sequential-deletes-count-sd 
+ Counting SingleDelete as
+ rocksdb_compaction_sequential_deletes
+ --rocksdb-compaction-sequential-deletes-file-size=# 
+ Minimum file size required for
+ compaction_sequential_deletes
+ --rocksdb-compaction-sequential-deletes-window=# 
+ Size of the window for counting
+ rocksdb_compaction_sequential_deletes
+ --rocksdb-compaction-stats[=name] 
+ Enable or disable ROCKSDB_COMPACTION_STATS plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
+ --rocksdb-create-checkpoint=name 
+ Checkpoint directory
+ --rocksdb-create-if-missing 
+ DBOptions::create_if_missing for RocksDB
+ (Defaults to on; use --skip-rocksdb-create-if-missing to disable.)
+ --rocksdb-create-missing-column-families 
+ DBOptions::create_missing_column_families for RocksDB
+ --rocksdb-datadir[=name] 
+ RocksDB data directory
+ --rocksdb-db-write-buffer-size=# 
+ DBOptions::db_write_buffer_size for RocksDB
+ --rocksdb-dbstats[=name] 
+ Enable or disable ROCKSDB_DBSTATS plugin. Possible values
+ are ON, OFF, FORCE (don't start if the plugin fails to
+ load).
+ --rocksdb-ddl[=name] 
+ Enable or disable ROCKSDB_DDL plugin. Possible values are
+ ON, OFF, FORCE (don't start if the plugin fails to load).
+ --rocksdb-deadlock[=name] 
+ Enable or disable ROCKSDB_DEADLOCK plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-deadlock-detect 
+ Enables deadlock detection
+ --rocksdb-deadlock-detect-depth=# 
+ Number of transactions deadlock detection will traverse
+ through before assuming deadlock
+ --rocksdb-debug-manual-compaction-delay=# 
+ For debugging purposes only. Sleeping specified seconds
+ for simulating long running compactions.
+ --rocksdb-debug-optimizer-n-rows=# 
+ Test only to override rocksdb estimates of table size in
+ a memtable
+ --rocksdb-debug-optimizer-no-zero-cardinality 
+ In case if cardinality is zero, overrides it with some
+ value
+ (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
+ --rocksdb-debug-ttl-ignore-pk 
+ For debugging purposes only. If true, compaction
+ filtering will not occur on PK TTL data. This variable is
+ a no-op in non-debug builds.
+ --rocksdb-debug-ttl-read-filter-ts=# 
+ For debugging purposes only.  Overrides the TTL read
+ filtering time to time + debug_ttl_read_filter_ts. A
+ value of 0 denotes that the variable is not set. This
+ variable is a no-op in non-debug builds.
+ --rocksdb-debug-ttl-rec-ts=# 
+ For debugging purposes only.  Overrides the TTL of
+ records to now() + debug_ttl_rec_ts.  The value can be
+ +/- to simulate a record inserted in the past vs a record
+ inserted in the 'future'. A value of 0 denotes that the
+ variable is not set. This variable is a no-op in
+ non-debug builds.
+ --rocksdb-debug-ttl-snapshot-ts=# 
+ For debugging purposes only.  Sets the snapshot during
+ compaction to now() + debug_set_ttl_snapshot_ts.  The
+ value can be +/- to simulate a snapshot in the past vs a
+ snapshot created in the 'future'. A value of 0 denotes
+ that the variable is not set. This variable is a no-op in
+ non-debug builds.
+ --rocksdb-default-cf-options=name 
+ default cf options for RocksDB
+ --rocksdb-delayed-write-rate=# 
+ DBOptions::delayed_write_rate
+ --rocksdb-delete-cf=name 
+ Delete column family
+ --rocksdb-delete-obsolete-files-period-micros=# 
+ DBOptions::delete_obsolete_files_period_micros for
+ RocksDB
+ --rocksdb-enable-2pc 
+ Enable two phase commit for MyRocks
+ (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
+ --rocksdb-enable-bulk-load-api 
+ Enables using SstFileWriter for bulk loading
+ (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
+ --rocksdb-enable-insert-with-update-caching 
+ Whether to enable optimization where we cache the read
+ from a failed insertion attempt in INSERT ON DUPLICATE
+ KEY UPDATE
+ (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
+ --rocksdb-enable-remove-orphaned-dropped-cfs 
+ Enables removing dropped cfs from metadata if it doesn't
+ exist in cf manager
+ (Defaults to on; use --skip-rocksdb-enable-remove-orphaned-dropped-cfs to disable.)
+ --rocksdb-enable-thread-tracking 
+ DBOptions::enable_thread_tracking for RocksDB
+ (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
+ --rocksdb-enable-ttl 
+ Enable expired TTL records to be dropped during
+ compaction.
+ (Defaults to on; use --skip-rocksdb-enable-ttl to disable.)
+ --rocksdb-enable-ttl-read-filtering 
+ For tables with TTL, expired records are skipped/filtered
+ out during processing and in query results. Disabling
+ this will allow these records to be seen, but as a result
+ rows may disappear in the middle of transactions as they
+ are dropped during compaction. Use with caution.
+ (Defaults to on; use --skip-rocksdb-enable-ttl-read-filtering to disable.)
+ --rocksdb-enable-write-thread-adaptive-yield 
+ DBOptions::enable_write_thread_adaptive_yield for RocksDB
+ --rocksdb-error-if-exists 
+ DBOptions::error_if_exists for RocksDB
+ --rocksdb-error-on-suboptimal-collation 
+ Raise an error instead of warning if a sub-optimal
+ collation is used
+ (Defaults to on; use --skip-rocksdb-error-on-suboptimal-collation to disable.)
+ --rocksdb-flush-log-at-trx-commit=# 
+ Sync on transaction commit. Similar to
+ innodb_flush_log_at_trx_commit. 1: sync on commit, 0,2:
+ not sync on commit
+ --rocksdb-force-compute-memtable-stats 
+ Force to always compute memtable stats
+ (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
+ --rocksdb-force-compute-memtable-stats-cachetime=# 
+ Time in usecs to cache memtable estimates
+ --rocksdb-force-flush-memtable-and-lzero-now 
+ Acts similar to force_flush_memtable_now, but also
+ compacts all L0 files.
+ --rocksdb-force-flush-memtable-now 
+ Forces memstore flush which may block all write requests
+ so be careful
+ --rocksdb-force-index-records-in-range=# 
+ Used to override the result of records_in_range() when
+ FORCE INDEX is used.
+ --rocksdb-global-info[=name] 
+ Enable or disable ROCKSDB_GLOBAL_INFO plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-hash-index-allow-collision 
+ BlockBasedTableOptions::hash_index_allow_collision for
+ RocksDB
+ (Defaults to on; use --skip-rocksdb-hash-index-allow-collision to disable.)
+ --rocksdb-ignore-unknown-options 
+ Enable ignoring unknown options passed to RocksDB
+ (Defaults to on; use --skip-rocksdb-ignore-unknown-options to disable.)
+ --rocksdb-index-file-map[=name] 
+ Enable or disable ROCKSDB_INDEX_FILE_MAP plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-index-type=name 
+ BlockBasedTableOptions::index_type for RocksDB
+ --rocksdb-info-log-level=name 
+ Filter level for info logs to be written mysqld error
+ log. Valid values include 'debug_level', 'info_level',
+ 'warn_level''error_level' and 'fatal_level'.
+ --rocksdb-io-write-timeout=# 
+ Timeout for experimental I/O watchdog.
+ --rocksdb-is-fd-close-on-exec 
+ DBOptions::is_fd_close_on_exec for RocksDB
+ (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
+ --rocksdb-keep-log-file-num=# 
+ DBOptions::keep_log_file_num for RocksDB
+ --rocksdb-large-prefix 
+ Support large index prefix length of 3072 bytes. If off,
+ the maximum index prefix length is 767.
+ --rocksdb-lock-scanned-rows 
+ Take and hold locks on rows that are scanned but not
+ updated
+ --rocksdb-lock-wait-timeout=# 
+ Number of seconds to wait for lock
+ --rocksdb-locks[=name] 
+ Enable or disable ROCKSDB_LOCKS plugin. Possible values
+ are ON, OFF, FORCE (don't start if the plugin fails to
+ load).
+ --rocksdb-log-file-time-to-roll=# 
+ DBOptions::log_file_time_to_roll for RocksDB
+ --rocksdb-manifest-preallocation-size=# 
+ DBOptions::manifest_preallocation_size for RocksDB
+ --rocksdb-manual-compaction-threads=# 
+ How many rocksdb threads to run for manual compactions
+ --rocksdb-manual-wal-flush 
+ DBOptions::manual_wal_flush for RocksDB
+ (Defaults to on; use --skip-rocksdb-manual-wal-flush to disable.)
+ --rocksdb-master-skip-tx-api 
+ Skipping holding any lock on row access. Not effective on
+ slave.
+ --rocksdb-max-background-jobs=# 
+ DBOptions::max_background_jobs for RocksDB
+ --rocksdb-max-latest-deadlocks=# 
+ Maximum number of recent deadlocks to store
+ --rocksdb-max-log-file-size=# 
+ DBOptions::max_log_file_size for RocksDB
+ --rocksdb-max-manifest-file-size=# 
+ DBOptions::max_manifest_file_size for RocksDB
+ --rocksdb-max-manual-compactions=# 
+ Maximum number of pending + ongoing number of manual
+ compactions.
+ --rocksdb-max-open-files=# 
+ DBOptions::max_open_files for RocksDB
+ --rocksdb-max-row-locks=# 
+ Maximum number of locks a transaction can have
+ --rocksdb-max-subcompactions=# 
+ DBOptions::max_subcompactions for RocksDB
+ --rocksdb-max-total-wal-size=# 
+ DBOptions::max_total_wal_size for RocksDB
+ --rocksdb-merge-buf-size=# 
+ Size to allocate for merge sort buffers written out to
+ disk during inplace index creation.
+ --rocksdb-merge-combine-read-size=# 
+ Size that we have to work with during combine (reading
+ from disk) phase of external sort during fast index
+ creation.
+ --rocksdb-merge-tmp-file-removal-delay-ms=# 
+ Fast index creation creates a large tmp file on disk
+ during index creation.  Removing this large file all at
+ once when index creation is complete can cause trim
+ stalls on Flash.  This variable specifies a duration to
+ sleep (in milliseconds) between calling chsize() to
+ truncate the file in chunks.  The chunk size is  the same
+ as merge_buf_size.
+ --rocksdb-new-table-reader-for-compaction-inputs 
+ DBOptions::new_table_reader_for_compaction_inputs for
+ RocksDB
+ --rocksdb-no-block-cache 
+ BlockBasedTableOptions::no_block_cache for RocksDB
+ --rocksdb-override-cf-options=name 
+ option overrides per cf for RocksDB
+ --rocksdb-paranoid-checks 
+ DBOptions::paranoid_checks for RocksDB
+ (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
+ --rocksdb-pause-background-work 
+ Disable all rocksdb background operations
+ --rocksdb-perf-context[=name] 
+ Enable or disable ROCKSDB_PERF_CONTEXT plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-perf-context-global[=name] 
+ Enable or disable ROCKSDB_PERF_CONTEXT_GLOBAL plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
+ --rocksdb-perf-context-level=# 
+ Perf Context Level for rocksdb internal timer stat
+ collection
+ --rocksdb-persistent-cache-path=name 
+ Path for BlockBasedTableOptions::persistent_cache for
+ RocksDB
+ --rocksdb-persistent-cache-size-mb=# 
+ Size of cache in MB for
+ BlockBasedTableOptions::persistent_cache for RocksDB
+ --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
+ pin_l0_filter_and_index_blocks_in_cache for RocksDB
+ (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
+ --rocksdb-print-snapshot-conflict-queries 
+ Logging queries that got snapshot conflict errors into
+ *.err log
+ --rocksdb-rate-limiter-bytes-per-sec=# 
+ DBOptions::rate_limiter bytes_per_sec for RocksDB
+ --rocksdb-read-free-rpl=name 
+ Use read-free replication on the slave (i.e. no row
+ lookup during replication). Default is OFF, PK_SK will
+ enable it on all tables with primary key. PK_ONLY will
+ enable it on tables where the only key is the primary key
+ (i.e. no secondary keys).
+ --rocksdb-read-free-rpl-tables=name 
+ List of tables that will use read-free replication on the
+ slave (i.e. not lookup a row during replication)
+ --rocksdb-records-in-range=# 
+ Used to override the result of records_in_range(). Set to
+ a positive number to override
+ --rocksdb-reset-stats 
+ Reset the RocksDB internal statistics without restarting
+ the DB.
+ --rocksdb-rollback-on-timeout 
+ Whether to roll back the complete transaction or a single
+ statement on lock wait timeout (a single statement by
+ default)
+ --rocksdb-seconds-between-stat-computes=# 
+ Sets a number of seconds to wait between optimizer stats
+ recomputation. Only changed indexes will be refreshed.
+ --rocksdb-signal-drop-index-thread 
+ Wake up drop index thread
+ --rocksdb-sim-cache-size=# 
+ Simulated cache size for RocksDB
+ --rocksdb-skip-bloom-filter-on-read 
+ Skip using bloom filter for reads
+ --rocksdb-skip-fill-cache 
+ Skip filling block cache on read requests
+ --rocksdb-skip-unique-check-tables=name 
+ Skip unique constraint checking for the specified tables
+ --rocksdb-sst-mgr-rate-bytes-per-sec=# 
+ DBOptions::sst_file_manager rate_bytes_per_sec for
+ RocksDB
+ --rocksdb-sst-props[=name] 
+ Enable or disable ROCKSDB_SST_PROPS plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
+ --rocksdb-stats-dump-period-sec=# 
+ DBOptions::stats_dump_period_sec for RocksDB
+ --rocksdb-stats-level=# 
+ Statistics Level for RocksDB. Default is 0
+ (kExceptHistogramOrTimers)
+ --rocksdb-stats-recalc-rate=# 
+ The number of indexes per second to recalculate
+ statistics for. 0 to disable background recalculation.
+ --rocksdb-store-row-debug-checksums 
+ Include checksums when writing index/table records
+ --rocksdb-strict-collation-check 
+ Enforce case sensitive collation for MyRocks indexes
+ (Defaults to on; use --skip-rocksdb-strict-collation-check to disable.)
+ --rocksdb-strict-collation-exceptions=name 
+ List of tables (using regex) that are excluded from the
+ case sensitive collation enforcement
+ --rocksdb-table-cache-numshardbits=# 
+ DBOptions::table_cache_numshardbits for RocksDB
+ --rocksdb-table-stats-background-thread-nice-value=# 
+ nice value for index stats
+ --rocksdb-table-stats-max-num-rows-scanned=# 
+ The maximum number of rows to scan in table scan based
+ cardinality calculation
+ --rocksdb-table-stats-recalc-threshold-count=# 
+ Number of modified rows to trigger stats recalculation
+ --rocksdb-table-stats-recalc-threshold-pct=# 
+ Percentage of number of modified rows over total number
+ of rows to trigger stats recalculation
+ --rocksdb-table-stats-sampling-pct=# 
+ Percentage of entries to sample when collecting
+ statistics about table properties. Specify either 0 to
+ sample everything or percentage [1..100]. By default 10%
+ of entries are sampled.
+ --rocksdb-table-stats-use-table-scan 
+ Enable table scan based index calculation.
+ --rocksdb-tmpdir[=name] 
+ Directory for temporary files during DDL operations.
+ --rocksdb-trace-block-cache-access=name 
+ Block cache trace option string. The format is
+ sampling_frequency:max_trace_file_size:trace_file_name.
+ sampling_frequency and max_trace_file_size are positive
+ integers. The block accesses are saved to the
+ rocksdb_datadir/block_cache_traces/trace_file_name.
+ --rocksdb-trace-sst-api 
+ Generate trace output in the log for each call to the
+ SstFileWriter
+ --rocksdb-trx[=name] 
+ Enable or disable ROCKSDB_TRX plugin. Possible values are
+ ON, OFF, FORCE (don't start if the plugin fails to load).
+ --rocksdb-two-write-queues 
+ DBOptions::two_write_queues for RocksDB
+ (Defaults to on; use --skip-rocksdb-two-write-queues to disable.)
+ --rocksdb-unsafe-for-binlog 
+ Allowing statement based binary logging which may break
+ consistency
+ --rocksdb-update-cf-options=name 
+ Option updates per column family for RocksDB
+ --rocksdb-use-adaptive-mutex 
+ DBOptions::use_adaptive_mutex for RocksDB
+ --rocksdb-use-clock-cache 
+ Use ClockCache instead of default LRUCache for RocksDB
+ --rocksdb-use-direct-io-for-flush-and-compaction 
+ DBOptions::use_direct_io_for_flush_and_compaction for
+ RocksDB
+ --rocksdb-use-direct-reads 
+ DBOptions::use_direct_reads for RocksDB
+ --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-validate-tables=# 
+ Verify all .frm files match all RocksDB tables (0 means
+ no verification, 1 means verify and fail on error, and 2
+ means verify but continue
+ --rocksdb-verify-row-debug-checksums 
+ Verify checksums when reading index/table records
+ --rocksdb-wal-bytes-per-sync=# 
+ DBOptions::wal_bytes_per_sync for RocksDB
+ --rocksdb-wal-dir=name 
+ DBOptions::wal_dir for RocksDB
+ --rocksdb-wal-recovery-mode=# 
+ DBOptions::wal_recovery_mode for RocksDB. Default is
+ kAbsoluteConsistency
+ --rocksdb-wal-size-limit-mb=# 
+ DBOptions::WAL_size_limit_MB for RocksDB
+ --rocksdb-wal-ttl-seconds=# 
+ DBOptions::WAL_ttl_seconds for RocksDB
+ --rocksdb-whole-key-filtering 
+ BlockBasedTableOptions::whole_key_filtering for RocksDB
+ (Defaults to on; use --skip-rocksdb-whole-key-filtering to disable.)
+ --rocksdb-write-batch-max-bytes=# 
+ Maximum size of write batch in bytes. 0 means no limit.
+ --rocksdb-write-disable-wal 
+ WriteOptions::disableWAL for RocksDB
+ --rocksdb-write-ignore-missing-column-families 
+ WriteOptions::ignore_missing_column_families for RocksDB
+ --rocksdb-write-policy=name 
+ DBOptions::write_policy for RocksDB
  --rpl-read-size=#   The size for reads done from the binlog and relay log. It
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
@@ -1919,6 +2394,170 @@ report-port 0
 report-user (No default value)
 require-secure-transport FALSE
 reset-seconds-behind-master TRUE
+rocksdb ON
+rocksdb-access-hint-on-compaction-start 1
+rocksdb-advise-random-on-open TRUE
+rocksdb-allow-concurrent-memtable-write FALSE
+rocksdb-allow-mmap-reads FALSE
+rocksdb-allow-mmap-writes FALSE
+rocksdb-allow-to-start-after-corruption FALSE
+rocksdb-blind-delete-primary-key FALSE
+rocksdb-block-cache-size 536870912
+rocksdb-block-restart-interval 16
+rocksdb-block-size 4096
+rocksdb-block-size-deviation 10
+rocksdb-bulk-load FALSE
+rocksdb-bulk-load-allow-sk FALSE
+rocksdb-bulk-load-allow-unsorted FALSE
+rocksdb-bulk-load-size 1000
+rocksdb-bytes-per-sync 0
+rocksdb-cache-dump TRUE
+rocksdb-cache-high-pri-pool-ratio 0
+rocksdb-cache-index-and-filter-blocks TRUE
+rocksdb-cache-index-and-filter-with-high-priority TRUE
+rocksdb-cf-options ON
+rocksdb-cfstats ON
+rocksdb-checksums-pct 100
+rocksdb-collect-sst-properties TRUE
+rocksdb-commit-in-the-middle FALSE
+rocksdb-commit-time-batch-for-recovery TRUE
+rocksdb-compact-cf 
+rocksdb-compaction-readahead-size 0
+rocksdb-compaction-sequential-deletes 0
+rocksdb-compaction-sequential-deletes-count-sd FALSE
+rocksdb-compaction-sequential-deletes-file-size 0
+rocksdb-compaction-sequential-deletes-window 0
+rocksdb-compaction-stats ON
+rocksdb-create-checkpoint 
+rocksdb-create-if-missing TRUE
+rocksdb-create-missing-column-families FALSE
+rocksdb-datadir ./.rocksdb
+rocksdb-db-write-buffer-size 0
+rocksdb-dbstats ON
+rocksdb-ddl ON
+rocksdb-deadlock ON
+rocksdb-deadlock-detect FALSE
+rocksdb-deadlock-detect-depth 50
+rocksdb-debug-manual-compaction-delay 0
+rocksdb-debug-optimizer-n-rows 0
+rocksdb-debug-optimizer-no-zero-cardinality TRUE
+rocksdb-debug-ttl-ignore-pk FALSE
+rocksdb-debug-ttl-read-filter-ts 0
+rocksdb-debug-ttl-rec-ts 0
+rocksdb-debug-ttl-snapshot-ts 0
+rocksdb-default-cf-options 
+rocksdb-delayed-write-rate 0
+rocksdb-delete-cf 
+rocksdb-delete-obsolete-files-period-micros 21600000000
+rocksdb-enable-2pc TRUE
+rocksdb-enable-bulk-load-api TRUE
+rocksdb-enable-insert-with-update-caching TRUE
+rocksdb-enable-remove-orphaned-dropped-cfs TRUE
+rocksdb-enable-thread-tracking TRUE
+rocksdb-enable-ttl TRUE
+rocksdb-enable-ttl-read-filtering TRUE
+rocksdb-enable-write-thread-adaptive-yield FALSE
+rocksdb-error-if-exists FALSE
+rocksdb-error-on-suboptimal-collation TRUE
+rocksdb-flush-log-at-trx-commit 1
+rocksdb-force-compute-memtable-stats TRUE
+rocksdb-force-compute-memtable-stats-cachetime 60000000
+rocksdb-force-flush-memtable-and-lzero-now FALSE
+rocksdb-force-flush-memtable-now FALSE
+rocksdb-force-index-records-in-range 0
+rocksdb-global-info ON
+rocksdb-hash-index-allow-collision TRUE
+rocksdb-ignore-unknown-options TRUE
+rocksdb-index-file-map ON
+rocksdb-index-type kBinarySearch
+rocksdb-info-log-level error_level
+rocksdb-io-write-timeout 0
+rocksdb-is-fd-close-on-exec TRUE
+rocksdb-keep-log-file-num 1000
+rocksdb-large-prefix FALSE
+rocksdb-lock-scanned-rows FALSE
+rocksdb-lock-wait-timeout 1
+rocksdb-locks ON
+rocksdb-log-file-time-to-roll 0
+rocksdb-manifest-preallocation-size 4194304
+rocksdb-manual-compaction-threads 0
+rocksdb-manual-wal-flush TRUE
+rocksdb-master-skip-tx-api FALSE
+rocksdb-max-background-jobs 2
+rocksdb-max-latest-deadlocks 5
+rocksdb-max-log-file-size 0
+rocksdb-max-manifest-file-size 1073741824
+rocksdb-max-manual-compactions 10
+rocksdb-max-open-files -2
+rocksdb-max-row-locks 1048576
+rocksdb-max-subcompactions 1
+rocksdb-max-total-wal-size 0
+rocksdb-merge-buf-size 67108864
+rocksdb-merge-combine-read-size 1073741824
+rocksdb-merge-tmp-file-removal-delay-ms 0
+rocksdb-new-table-reader-for-compaction-inputs FALSE
+rocksdb-no-block-cache FALSE
+rocksdb-override-cf-options 
+rocksdb-paranoid-checks TRUE
+rocksdb-pause-background-work FALSE
+rocksdb-perf-context ON
+rocksdb-perf-context-global ON
+rocksdb-perf-context-level 0
+rocksdb-persistent-cache-path 
+rocksdb-persistent-cache-size-mb 0
+rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
+rocksdb-print-snapshot-conflict-queries FALSE
+rocksdb-rate-limiter-bytes-per-sec 0
+rocksdb-read-free-rpl OFF
+rocksdb-read-free-rpl-tables .*
+rocksdb-records-in-range 0
+rocksdb-reset-stats FALSE
+rocksdb-rollback-on-timeout FALSE
+rocksdb-seconds-between-stat-computes 3600
+rocksdb-signal-drop-index-thread FALSE
+rocksdb-sim-cache-size 0
+rocksdb-skip-bloom-filter-on-read FALSE
+rocksdb-skip-fill-cache FALSE
+rocksdb-skip-unique-check-tables .*
+rocksdb-sst-mgr-rate-bytes-per-sec 0
+rocksdb-sst-props ON
+rocksdb-stats-dump-period-sec 600
+rocksdb-stats-level 0
+rocksdb-stats-recalc-rate 0
+rocksdb-store-row-debug-checksums FALSE
+rocksdb-strict-collation-check TRUE
+rocksdb-strict-collation-exceptions 
+rocksdb-table-cache-numshardbits 6
+rocksdb-table-stats-background-thread-nice-value 19
+rocksdb-table-stats-max-num-rows-scanned 0
+rocksdb-table-stats-recalc-threshold-count 100
+rocksdb-table-stats-recalc-threshold-pct 10
+rocksdb-table-stats-sampling-pct 10
+rocksdb-table-stats-use-table-scan FALSE
+rocksdb-tmpdir 
+rocksdb-trace-block-cache-access 
+rocksdb-trace-sst-api FALSE
+rocksdb-trx ON
+rocksdb-two-write-queues TRUE
+rocksdb-unsafe-for-binlog FALSE
+rocksdb-update-cf-options (No default value)
+rocksdb-use-adaptive-mutex FALSE
+rocksdb-use-clock-cache FALSE
+rocksdb-use-direct-io-for-flush-and-compaction FALSE
+rocksdb-use-direct-reads FALSE
+rocksdb-use-fsync FALSE
+rocksdb-validate-tables 1
+rocksdb-verify-row-debug-checksums FALSE
+rocksdb-wal-bytes-per-sync 0
+rocksdb-wal-dir 
+rocksdb-wal-recovery-mode 1
+rocksdb-wal-size-limit-mb 0
+rocksdb-wal-ttl-seconds 0
+rocksdb-whole-key-filtering TRUE
+rocksdb-write-batch-max-bytes 0
+rocksdb-write-disable-wal FALSE
+rocksdb-write-ignore-missing-column-families FALSE
+rocksdb-write-policy write_committed
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
 rpl-send-buffer-size 2097152

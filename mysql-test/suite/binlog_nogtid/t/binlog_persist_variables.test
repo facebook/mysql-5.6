@@ -53,7 +53,8 @@ INSERT INTO rplvars (varname, varvalue)
         'innodb_master_thread_disabled_debug',
         'binlog_file_basedir', 'binlog_index_basedir',
         'read_only_slave', 'rpl_semi_sync_master_crash_if_active_trxs',
-        'reset_seconds_behind_master', 'skip_flush_master_info'))
+        'reset_seconds_behind_master', 'skip_flush_master_info')) AND
+       (VARIABLE_NAME NOT LIKE 'rocksdb%')
        ORDER BY VARIABLE_NAME;
 --enable_warnings
 --let $countvars= `SELECT COUNT(*) FROM rplvars;`
