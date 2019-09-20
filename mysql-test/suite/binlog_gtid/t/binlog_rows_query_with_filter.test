@@ -2,7 +2,9 @@ create database d1;
 create database d2;
 
 flush logs;
-purge binary logs before now();
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
 
 use d1;
 /*comment*/ create table t1(a int) engine = innodb;
