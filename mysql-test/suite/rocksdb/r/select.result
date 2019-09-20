@@ -25,7 +25,7 @@ foobar	100
 foobar	100
 z	1
 z	1
-SELECT STRAIGHT_JOIN SQL_CACHE t1.* FROM t2, t1 WHERE t1.a <> t2.a;
+SELECT STRAIGHT_JOIN t1.* FROM t2, t1 WHERE t1.a <> t2.a;
 a	b	pk
 1	z	2
 1	z	2
@@ -39,7 +39,7 @@ a	b	pk
 200	bar	3
 200	bar	6
 200	bar	6
-SELECT SQL_SMALL_RESULT SQL_NO_CACHE t1.a FROM t1, t2;
+SELECT SQL_SMALL_RESULT t1.a FROM t1, t2;
 a
 1
 1
@@ -68,52 +68,27 @@ a
 SELECT FOUND_ROWS();
 FOUND_ROWS()
 3
-SET GLOBAL query_cache_size = 1024*1024;
-SELECT SQL_CACHE * FROM t1, t2;
-a	b	pk	a	b	pk
-1	z	2	1	z	2
-1	z	2	100	foobar	1
-1	z	2	200	bar	3
-1	z	5	1	z	2
-1	z	5	100	foobar	1
-1	z	5	200	bar	3
-100	foobar	1	1	z	2
-100	foobar	1	100	foobar	1
-100	foobar	1	200	bar	3
-100	foobar	4	1	z	2
-100	foobar	4	100	foobar	1
-100	foobar	4	200	bar	3
-200	bar	3	1	z	2
-200	bar	3	100	foobar	1
-200	bar	3	200	bar	3
-200	bar	6	1	z	2
-200	bar	6	100	foobar	1
-200	bar	6	200	bar	3
-SET GLOBAL query_cache_size = 1048576;
 SELECT a+10 AS field1, CONCAT(b,':',b) AS field2 FROM t1 
 WHERE b > 'b' AND a IS NOT NULL 
-GROUP BY 2 DESC, field1 ASC
+GROUP BY 2, field1
 HAVING field1 < 1000
-ORDER BY field2, 1 DESC, field1*2
+ORDER BY field2 DESC, 1 DESC, field1*2
 LIMIT 5 OFFSET 1;
 field1	field2
-11	z:z
 110	foobar:foobar
+210	bar:bar
 SELECT SUM(a), MAX(a), b FROM t1 GROUP BY b WITH ROLLUP;
 SUM(a)	MAX(a)	b
 2	1	z
 200	100	foobar
 400	200	bar
 602	200	NULL
-SELECT * FROM t2 WHERE a>0 PROCEDURE ANALYSE();
-Field_name	Min_value	Max_value	Min_length	Max_length	Empties_or_zeros	Nulls	Avg_value_or_avg_length	Std	Optimal_fieldtype
-test.t2.a	1	200	1	3	0	0	100.3333	81.2418	ENUM('1','100','200') NOT NULL
-test.t2.b	bar	z	1	6	0	0	3.3333	NULL	ENUM('bar','foobar','z') NOT NULL
-test.t2.pk	1	3	1	1	0	0	2.0000	0.8165	ENUM('1','2','3') NOT NULL
 SELECT t1.a, t2.b FROM t2, t1 WHERE t1.a = t2.a ORDER BY t2.b, t1.a 
 INTO OUTFILE '<DATADIR>/select.out' 
 CHARACTER SET utf8
 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '''';
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 200,'bar'
 200,'bar'
 100,'foobar'

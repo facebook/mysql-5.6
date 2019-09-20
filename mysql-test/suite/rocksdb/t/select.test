@@ -30,40 +30,29 @@ SELECT ALL b, a FROM t1;
 # but we will add them for completness
 
 --sorted_result
-SELECT STRAIGHT_JOIN SQL_CACHE t1.* FROM t2, t1 WHERE t1.a <> t2.a;
+SELECT STRAIGHT_JOIN t1.* FROM t2, t1 WHERE t1.a <> t2.a;
 
 --sorted_result
-SELECT SQL_SMALL_RESULT SQL_NO_CACHE t1.a FROM t1, t2;
+SELECT SQL_SMALL_RESULT t1.a FROM t1, t2;
 
 --sorted_result
 SELECT SQL_BIG_RESULT SQL_CALC_FOUND_ROWS DISTINCT(t2.a) 
   FROM t1 t1_1, t2, t1 t1_2;
 SELECT FOUND_ROWS();
 
-let $query_cache = `SELECT @@query_cache_size`;
-SET GLOBAL query_cache_size = 1024*1024;
---sorted_result
-SELECT SQL_CACHE * FROM t1, t2;
-eval SET GLOBAL query_cache_size = $query_cache;
-
 # Combination of main clauses
 
 --sorted_result
 SELECT a+10 AS field1, CONCAT(b,':',b) AS field2 FROM t1 
 WHERE b > 'b' AND a IS NOT NULL 
-GROUP BY 2 DESC, field1 ASC
+GROUP BY 2, field1
 HAVING field1 < 1000
-ORDER BY field2, 1 DESC, field1*2
+ORDER BY field2 DESC, 1 DESC, field1*2
 LIMIT 5 OFFSET 1;
 
 # ROLLUP
 --sorted_result
 SELECT SUM(a), MAX(a), b FROM t1 GROUP BY b WITH ROLLUP;
-
-# Procedure
-
---sorted_result
-SELECT * FROM t2 WHERE a>0 PROCEDURE ANALYSE();
 
 # SELECT INTO
 let $datadir = `SELECT @@datadir`;
