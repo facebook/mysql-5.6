@@ -55,7 +55,7 @@ analyze table t1;
 # Cardinality of key c should be 1 for c, 10 for b, 100 for a and the other fields.
 --echo cardinality of the columns after 'a' must be equal to the cardinality of column 'a'
 
-select table_name, index_name, column_name, seq_in_index, cardinality from information_schema.statistics where table_name='t1';
+select table_name, index_name, column_name, seq_in_index, cardinality from information_schema.statistics where table_name='t1' order by table_name, index_name, column_name;
 
 select cardinality into @c from information_schema.statistics where table_name='t1' and index_name='c' and column_name='a';
 

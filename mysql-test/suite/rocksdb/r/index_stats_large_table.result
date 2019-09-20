@@ -17,37 +17,38 @@ analyze table t0;
 Table	Op	Msg_type	Msg_text
 test.t0	analyze	status	OK
 show index in t0;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t0	0	PRIMARY	1	id	A	10000	NULL	NULL		LSMTREE		
-t0	1	t0_1	1	id	A	10000	NULL	NULL		LSMTREE		
-t0	1	t0_1	2	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_2	1	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_2	2	i2	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_3	1	i2	A	1111	NULL	NULL	YES	LSMTREE		
-t0	1	t0_3	2	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_4	1	c1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_4	2	c2	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_5	1	c2	A	1111	NULL	NULL	YES	LSMTREE		
-t0	1	t0_5	2	c1	A	10000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t0	0	PRIMARY	1	id	A	10000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t0	1	t0_1	1	id	A	10000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t0	1	t0_1	2	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_2	1	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_2	2	i2	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_3	1	i2	A	1111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_3	2	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_4	1	c1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_4	2	c2	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_5	1	c2	A	1111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_5	2	c1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = 't0';
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t0	10000
 restarting...
+# restart
 show index in t0;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t0	0	PRIMARY	1	id	A	10000	NULL	NULL		LSMTREE		
-t0	1	t0_1	1	id	A	10000	NULL	NULL		LSMTREE		
-t0	1	t0_1	2	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_2	1	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_2	2	i2	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_3	1	i2	A	1111	NULL	NULL	YES	LSMTREE		
-t0	1	t0_3	2	i1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_4	1	c1	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_4	2	c2	A	10000	NULL	NULL	YES	LSMTREE		
-t0	1	t0_5	1	c2	A	1111	NULL	NULL	YES	LSMTREE		
-t0	1	t0_5	2	c1	A	10000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t0	0	PRIMARY	1	id	A	10000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t0	1	t0_1	1	id	A	10000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t0	1	t0_1	2	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_2	1	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_2	2	i2	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_3	1	i2	A	1111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_3	2	i1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_4	1	c1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_4	2	c2	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_5	1	c2	A	1111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t0	1	t0_5	2	c1	A	10000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = 't0';
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t0	10000
 create table t1 (a int, b int, c int, d int, e int, f int, g int,
 primary key (a), key (c, b, a, d, e, f, g))
@@ -57,19 +58,19 @@ analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 cardinality of the columns after 'a' must be equal to the cardinality of column 'a'
-select table_name, index_name, column_name, seq_in_index, cardinality from information_schema.statistics where table_name='t1';
-table_name	index_name	column_name	seq_in_index	cardinality
-t1	PRIMARY	a	1	100
-t1	c	c	1	1
-t1	c	b	2	11
+select table_name, index_name, column_name, seq_in_index, cardinality from information_schema.statistics where table_name='t1' order by table_name, index_name, column_name;
+TABLE_NAME	INDEX_NAME	COLUMN_NAME	SEQ_IN_INDEX	CARDINALITY
 t1	c	a	3	100
+t1	c	b	2	11
+t1	c	c	1	1
 t1	c	d	4	100
 t1	c	e	5	100
 t1	c	f	6	100
 t1	c	g	7	100
+t1	PRIMARY	a	1	100
 select cardinality into @c from information_schema.statistics where table_name='t1' and index_name='c' and column_name='a';
 select column_name, cardinality, cardinality = @c from information_schema.statistics where table_name='t1' and index_name='c' and seq_in_index > 3;
-column_name	cardinality	cardinality = @c
+COLUMN_NAME	CARDINALITY	cardinality = @c
 d	100	1
 e	100	1
 f	100	1

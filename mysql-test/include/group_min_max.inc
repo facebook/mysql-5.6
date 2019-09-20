@@ -556,7 +556,7 @@ select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1
 # plans
 explain select distinct a1,a2,b from t1;
 explain select distinct a1,a2,b from t1 where (a2 >= 'b') and (b = 'a');
-explain extended select distinct a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
+explain select distinct a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
 explain select distinct a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c');
 explain select distinct b from t1 where (a2 >= 'b') and (b = 'a');
 explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'b';
@@ -566,7 +566,7 @@ explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'e';
 explain select distinct a1,a2,b from t2;
 --replace_column 9 #
 explain select distinct a1,a2,b from t2 where (a2 >= 'b') and (b = 'a');
-explain extended select distinct a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
+explain select distinct a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
 --replace_column 9 #
 explain select distinct a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c');
 explain select distinct b from t2 where (a2 >= 'b') and (b = 'a');
@@ -653,9 +653,9 @@ select distinct a1 from t2 where a1 in ('a', 'd') and a2 = 'e' group by a1;
 
 explain select count(distinct a1,a2,b) from t1 where (a2 >= 'b') and (b = 'a');
 explain select count(distinct a1,a2,b,c) from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
-explain extended select count(distinct a1,a2,b) from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c');
+explain select count(distinct a1,a2,b) from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c');
 explain select count(distinct b) from t1 where (a2 >= 'b') and (b = 'a');
-explain extended select 98 + count(distinct a1,a2,b) from t1 where (a1 > 'a') and (a2 > 'a');
+explain select 98 + count(distinct a1,a2,b) from t1 where (a1 > 'a') and (a2 > 'a');
 
 select count(distinct a1,a2,b) from t1 where (a2 >= 'b') and (b = 'a');
 select count(distinct a1,a2,b,c) from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
@@ -692,14 +692,14 @@ explain select a1,a2,b,d from t1 group by a1,a2,b;
 
 # predicate that references an attribute that is after the MIN/MAX argument
 # in the index
-explain extended select a1,a2,min(b),max(b) from t1
+explain select a1,a2,min(b),max(b) from t1
 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (c > 'a111') group by a1,a2;
 
 # predicate that references a non-indexed attribute
-explain extended select a1,a2,b,min(c),max(c) from t1
+explain select a1,a2,b,min(c),max(c) from t1
 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (d > 'xy2') group by a1,a2,b;
 
-explain extended select a1,a2,b,c from t1
+explain select a1,a2,b,c from t1
 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (d > 'xy2') group by a1,a2,b,c;
 
 # non-equality predicate for a non-group select attribute
@@ -707,7 +707,7 @@ explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'b') or (
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b < 'b') group by a1;
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b') group by a1;
 explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b <= 'b' and b >= 'a') group by a1;
-explain extended select a1,a2,b from t1 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (c > 'a111') group by a1,a2,b;
+explain select a1,a2,b from t1 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') and (c > 'a111') group by a1,a2,b;
 
 # non-group field with an equality predicate that references a keypart after the
 # MIN/MAX argument
@@ -726,8 +726,8 @@ explain select a1, a2, b, c, min(d), max(d) from t1 group by a1,a2,b,c;
 
 # other aggregate functions than MIN/MAX
 explain select a1,a2,count(a2) from t1 group by a1,a2,b;
-explain extended select a1,a2,count(a2) from t1 where (a1 > 'a') group by a1,a2,b;
-explain extended select sum(ord(a1)) from t1 where (a1 > 'a') group by a1,a2,b;
+explain select a1,a2,count(a2) from t1 where (a1 > 'a') group by a1,a2,b;
+explain select sum(ord(a1)) from t1 where (a1 > 'a') group by a1,a2,b;
 
 # test multi_range_groupby flag
 set optimizer_switch = 'multi_range_groupby=off';
@@ -1059,7 +1059,7 @@ insert into  t1 (a,b) values
 insert into t1 (a,b) select a, max(b)+1 from t1 where a = 0 group by a;
 ANALYZE TABLE t1;
 select * from t1;
-explain extended select sql_buffer_result a, max(b)+1 from t1 where a = 0 group by a;
+explain select sql_buffer_result a, max(b)+1 from t1 where a = 0 group by a;
 drop table t1;
 
 

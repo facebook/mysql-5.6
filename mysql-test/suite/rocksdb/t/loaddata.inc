@@ -28,7 +28,7 @@ SELECT a,b FROM t1;
 
 --replace_result $datadir <DATADIR>
 eval
-LOAD DATA LOCAL INFILE '$datadir/se_loaddata.dat' INTO TABLE t1
+LOAD DATA INFILE '$datadir/se_loaddata.dat' INTO TABLE t1
   CHARACTER SET utf8 COLUMNS TERMINATED BY ','
   ESCAPED BY '/' (a,b);
 --sorted_result
@@ -43,7 +43,7 @@ EOF
 
 --replace_result $datadir <DATADIR>
 eval
-LOAD DATA LOCAL INFILE '$datadir/se_loaddata.dat' INTO TABLE t1
+LOAD DATA INFILE '$datadir/se_loaddata.dat' INTO TABLE t1
   FIELDS TERMINATED BY ';'
   (a) SET b='loaded';
 

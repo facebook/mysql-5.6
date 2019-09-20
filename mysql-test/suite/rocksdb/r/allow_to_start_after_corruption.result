@@ -33,3 +33,4 @@ ERROR HY000: Lost connection to MySQL server during query
 #  Remove corruption file and restart cleanly
 #
 drop table t1;
+# restart

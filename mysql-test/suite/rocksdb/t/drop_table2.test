@@ -118,3 +118,4 @@ let $wait_condition = select count(*) = 0
 --exec perl suite/rocksdb/t/drop_table2_check.pl $output
 
 # Cleanup
+--remove_file $output

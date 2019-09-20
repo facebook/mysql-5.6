@@ -69,12 +69,12 @@ UNLOCK TABLES;
 --error ER_TABLE_NOT_LOCKED
 CREATE TABLE t2 (a INT, b CHAR(8), PRIMARY KEY(a)) ENGINE=rocksdb;
 
---disable_parsing
+--disable_testcase BUG#0000
 
 CREATE TEMPORARY TABLE t2 (a INT, b CHAR(8), PRIMARY KEY(a)) ENGINE=rocksdb;
 DROP TABLE IF EXISTS t2;
 
---enable_parsing
+--enable_testcase
 
 UNLOCK TABLES;
 
@@ -184,13 +184,13 @@ CREATE TABLE t2 (a INT, b CHAR(8), PRIMARY KEY(b)) ENGINE=rocksdb;
 
 LOCK TABLE t1 WRITE, t2 WRITE;
 
---disable_parsing
+--disable_testcase BUG#0000
 
 CREATE TEMPORARY TABLE t1 (a INT, b CHAR(8), PRIMARY KEY(a)) ENGINE=rocksdb;
 FLUSH TABLE t1;
 DROP TEMPORARY TABLE t1;
 
---enable_parsing
+--enable_testcase
 
 SELECT a,b FROM t1;
 UNLOCK TABLES;
