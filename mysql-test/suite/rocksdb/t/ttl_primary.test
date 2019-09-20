@@ -516,11 +516,11 @@ set global rocksdb_enable_ttl=0;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
 
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_enable_ttl=1;
 set global rocksdb_compact_cf='default';
 
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 SELECT COUNT(*) FROM t1;
 DROP TABLE t1;
 
@@ -537,9 +537,9 @@ INSERT INTO t1 values (1);
 INSERT INTO t1 values (2);
 INSERT INTO t1 values (3);
 
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 
 DROP TABLE t1;

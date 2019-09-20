@@ -9,11 +9,11 @@ CF_NAME	OPTION_TYPE	VALUE
 __system__	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.24
 cf1	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.24
 default	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.24
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
 COUNT(*)
 1
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 variable_value-@u
 1
 
@@ -40,19 +40,19 @@ __system__	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.24
 cf1	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.26
 cf2	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.28
 default	PREFIX_EXTRACTOR	rocksdb.CappedPrefix.24
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
 COUNT(*)
 1
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 variable_value-@u
 0
 set global rocksdb_force_flush_memtable_now = 1;
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
 COUNT(*)
 1
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 variable_value-@u
 1
 SELECT COUNT(*) FROM information_schema.rocksdb_index_file_map WHERE COLUMN_FAMILY != 1;
@@ -63,20 +63,20 @@ set global rocksdb_force_flush_memtable_now = 1;
 SELECT COUNT(*) FROM information_schema.rocksdb_index_file_map WHERE COLUMN_FAMILY != 1;
 COUNT(*)
 3
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
 COUNT(*)
 0
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 variable_value-@u
 2
 SET @@global.rocksdb_update_cf_options = '';
 set global rocksdb_compact_cf='cf1';
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=30 AND id3=30;
 COUNT(*)
 11
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 variable_value-@u
 1
 DROP TABLE t1;

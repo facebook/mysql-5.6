@@ -18,13 +18,13 @@ insert into t5 values (1, 1);
 insert into t5 values (2, 2);
 insert into t5 values (3, 3);
 select * from t5;
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 replace into t5 values (1, 11);
 replace into t5 values (2, 22);
 replace into t5 values (3, 33);
 
 # Ensure that this was a blind replace
-select case when variable_value-@c = 3 then 'true' else 'false' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@c = 3 then 'true' else 'false' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t5;
 --source include/show_binlog_events.inc
 
