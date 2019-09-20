@@ -28,7 +28,7 @@ while ($t <= 2) {
 --enable_query_log
 
 SET session rocksdb_blind_delete_primary_key=1;
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 # Deleting 1000 rows from t1
 --disable_query_log
 let $i = 1;
@@ -38,7 +38,7 @@ while ($i <= 1000) {
   eval $insert;
 }
 --enable_query_log
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 SELECT count(*) FROM t1;
 
 --source include/sync_slave_sql_with_master.inc
@@ -48,7 +48,7 @@ SELECT count(*) FROM t1;
 connection master;
 
 # Deleting 1000 rows from t2 (blind delete disabled because of secondary key)
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 --disable_query_log
 let $i = 1;
 while ($i <= 1000) {
@@ -57,12 +57,12 @@ while ($i <= 1000) {
   eval $insert;
 }
 --enable_query_log
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 SELECT count(*) FROM t2;
 
 SET session rocksdb_master_skip_tx_api=1;
 
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 --disable_query_log
 let $t = 1;
 while ($t <= 2) {
@@ -75,7 +75,7 @@ while ($t <= 2) {
   inc $t;
 }
 --enable_query_log
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 SELECT count(*) FROM t1;
 SELECT count(*) FROM t2;
 --source include/sync_slave_sql_with_master.inc
@@ -86,10 +86,10 @@ connection master;
 
 
 # Range Deletes (blind delete disabled)
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 DELETE FROM t1 WHERE id BETWEEN 3001 AND 4000;
 DELETE FROM t2 WHERE id BETWEEN 3001 AND 4000;
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_deleted_blind';
 SELECT count(*) FROM t1;
 SELECT count(*) FROM t2;
 --source include/sync_slave_sql_with_master.inc

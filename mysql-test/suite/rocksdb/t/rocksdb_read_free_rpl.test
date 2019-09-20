@@ -20,14 +20,14 @@ insert into t1 values (1,1), (2,2), (3,3), (4,4);
 --echo # regular update/delete. With rocks_read_free_rpl=PK_SK, rocksdb_rows_read does not increase on slaves
 --echo
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 update t1 set value=value+1 where id=1;
 delete from t1 where id=4;
 select * from t1;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t1;
 
 
@@ -38,7 +38,7 @@ connection slave;
 --source include/stop_slave.inc
 delete from t1 where id in (2, 3);
 --source include/start_slave.inc
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 
 connection master;
 update t1 set value=value+1 where id=3;
@@ -46,7 +46,7 @@ delete from t1 where id=2;
 select * from t1;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t1;
 
 
@@ -62,13 +62,13 @@ create table t1 (c1 int, c2 int);
 insert into t1 values (1,1), (2,2),(3,3),(4,4),(5,5);
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 update t1 set c2=100 where c1=3;
 delete from t1 where c1 <= 2;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t1;
 
 --echo
@@ -80,13 +80,13 @@ create table t1 (c1 int, c2 int, index i(c1));
 insert into t1 values (1,1), (2,2),(3,3),(4,4),(5,5);
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 update t1 set c2=100 where c1=3;
 delete from t1 where c1 <= 2;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t1;
 
 
@@ -110,7 +110,7 @@ while ($i<=10000)
 
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 
 --echo
@@ -126,7 +126,7 @@ while ($i<=10000)
 --enable_query_log
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --source include/diff_tables.inc
 
@@ -134,7 +134,7 @@ connection master;
 --echo #updating all primary keys by 2
 --echo
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --disable_query_log
 let $i=1;
@@ -146,7 +146,7 @@ while ($i<=10000)
 --enable_query_log
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --source include/diff_tables.inc
 
@@ -155,12 +155,12 @@ connection master;
 --echo
 connection slave;
 truncate table t1;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 update t1 set c2=c2+10;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --source include/diff_tables.inc
 
@@ -169,12 +169,12 @@ connection master;
 --echo
 connection slave;
 truncate table t1;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 update t1 set id2=id2+10;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --source include/diff_tables.inc
 
@@ -182,12 +182,12 @@ connection master;
 --echo #deleting half rows
 --echo
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 delete from t1 where id1 <= 5000;
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 --source include/diff_tables.inc
 
@@ -394,7 +394,7 @@ drop table if exists t3;
 create table t2 (id int primary key, i1 int, i2 int);
 create table t3 (id int primary key, i1 int, i2 int, key(i1));
 connection slave;
-select variable_value into @up from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select variable_value into @up from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 connection master;
 insert into t2 values(1, 1, 1);
 insert into t2 values(2, 2, 2);
@@ -402,7 +402,7 @@ insert into t3 values(1, 1, 1);
 insert into t3 values(2, 2, 2);
 --source include/sync_slave_sql_with_master.inc
 connection slave;
-select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from information_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 select * from t2;
 select * from t3;
 

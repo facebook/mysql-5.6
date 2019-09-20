@@ -111,7 +111,7 @@ commit;
 connection con1;
 update test set value = value + 10;
 connection con2;
-select variable_value into @a from information_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
+select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
 select * from test;
 send delete from test where value = 20;
 connection con1;
@@ -127,7 +127,7 @@ if ($trx_isolation == "REPEATABLE READ")
 {
   --error ER_LOCK_DEADLOCK
   reap;
-  select variable_value-@a from information_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
+  select variable_value-@a from performance_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
 
 }
 commit;

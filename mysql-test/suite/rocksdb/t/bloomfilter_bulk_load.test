@@ -21,14 +21,14 @@ while ($t <= 2) {
 set session rocksdb_bulk_load=0;
 
 # bloom filter should be useful on insert (calling GetForUpdate)
-select variable_value into @h from information_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
+select variable_value into @h from performance_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
 insert into r1 values (100, 100);
-select variable_value-@h from information_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
+select variable_value-@h from performance_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
 
 # cf2 has no bloo filter in the bottommost level
-select variable_value into @h from information_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
+select variable_value into @h from performance_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
 insert into r2 values (100, 100);
-select variable_value-@h from information_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
+select variable_value-@h from performance_schema.global_status where variable_name='rocksdb_block_cache_filter_hit';
 
 DROP TABLE r1, r2;
 

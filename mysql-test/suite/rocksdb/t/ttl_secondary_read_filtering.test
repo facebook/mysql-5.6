@@ -29,11 +29,11 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 --sorted_result
 SELECT * FROM t1 FORCE INDEX (kb);
 
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_debug_ttl_ignore_pk = 1;
 set global rocksdb_compact_cf='default';
 set global rocksdb_debug_ttl_ignore_pk = 0;
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 
 DROP TABLE t1;
 
@@ -142,7 +142,7 @@ INSERT INTO t1 values (1,2,2);
 INSERT INTO t1 values (1,2,3);
 set global rocksdb_debug_ttl_rec_ts = 0;
 
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 
 set global rocksdb_force_flush_memtable_now=1;
 
@@ -184,11 +184,11 @@ SELECT max(a) FROM t1 FORCE INDEX (kb) WHERE a <=10;
 SELECT a FROM t1 FORCE INDEX (PRIMARY) WHERE a > 0 and a <= 2;
 SELECT a FROM t1 FORCE INDEX (kb) WHERE a > 0 and a <= 2;
 
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_debug_ttl_ignore_pk = 1;
 set global rocksdb_compact_cf='default';
 set global rocksdb_debug_ttl_ignore_pk = 0;
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 DROP TABLE t1;
 
 --echo # Attempt to update expired value, should filter out
