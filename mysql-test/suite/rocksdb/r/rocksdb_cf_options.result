@@ -7,6 +7,7 @@ primary key (a) comment 'z') engine=rocksdb;
 insert into t1 values (1);
 insert into t2 values (2);
 insert into t3 values (2);
+# restart
 
 Default options for all column families:
 
@@ -57,5 +58,6 @@ z	WRITE_BUFFER_SIZE	12582912
 __system__	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
 __system__	TARGET_FILE_SIZE_BASE	1048576
 __system__	WRITE_BUFFER_SIZE	12582912
+# restart
 
 drop table t1,t2,t3;

@@ -92,7 +92,7 @@ let $wait_condition = select count(*) = 2 from information_schema.processlist wh
 --source include/wait_condition.inc
 # longer enough than manual compaction thread to start compaction
 --sleep 2
-select * from information_schema.global_status where variable_name='rocksdb_manual_compactions_running';
+select * from performance_schema.global_status where variable_name='rocksdb_manual_compactions_running';
 
 connection con3;
 --error ER_INTERNAL_ERROR

@@ -39,14 +39,14 @@ insert into t1 values
 (1,1,1), (2,2,2), (3,3,3), (4,4,4);
 
 set @var1=(select variable_value 
-           from information_schema.global_status 
+           from performance_schema.global_status 
            where variable_name='rocksdb_number_keys_written');
 
 --echo # Do an update that doesn't change the key 'a'.
 update t1 set b=3334341 where a=2;
 
 set @var2=(select variable_value 
-           from information_schema.global_status 
+           from performance_schema.global_status 
            where variable_name='rocksdb_number_keys_written');
 --echo # The following should produce 1
 select @var2 - @var1;
@@ -54,7 +54,7 @@ select @var2 - @var1;
 --echo # Do an update that sets the key to the same value
 update t1 set a=pk where a=3;
 set @var3=(select variable_value 
-           from information_schema.global_status 
+           from performance_schema.global_status 
            where variable_name='rocksdb_number_keys_written');
 --echo # We have 'updated' column to the same value, so the following must return 0:
 select @var3 - @var2;
@@ -1105,7 +1105,7 @@ update t1 set a = sleep(100) where pk = 1;
 
 --connect (con1,localhost,root,,)
 
-let $wait_condition= select State='User sleep' from information_schema.processlist where id=$con_id or srv_id=$con_id;
+let $wait_condition= select State='User sleep' from information_schema.processlist where id=$con_id/* or srv_id=$con_id */;
 --source include/wait_condition.inc
 
 --echo kill query \$con_id;
@@ -1139,7 +1139,7 @@ DROP TABLE t1;
 --echo #
 CREATE TABLE t1 (pk INT PRIMARY KEY, a int) ENGINE=RocksDB;
 set @a=-1;
-insert into t1 select (@a:=@a+1), 1234 from information_schema.session_variables limit 100;
+insert into t1 select (@a:=@a+1), 1234 from performance_schema.session_variables limit 100;
 set @tmp1= @@rocksdb_max_row_locks;
 set rocksdb_max_row_locks= 20;
 --error ER_GET_ERRMSG 
@@ -1391,13 +1391,13 @@ explain
 select * from t1 where id1=30 and value1=30 for update;
 
 set @var1=(select variable_value 
-           from information_schema.global_status 
+           from performance_schema.global_status 
            where variable_name='rocksdb_number_keys_read');
 
 select * from t1 where id1=3 and value1=3 for update;
 
 set @var2=(select variable_value 
-           from information_schema.global_status 
+           from performance_schema.global_status 
            where variable_name='rocksdb_number_keys_read');
 --echo # The following must return true (before the fix, the difference was 70):
 select if((@var2 - @var1) < 30, 1, @var2-@var1);

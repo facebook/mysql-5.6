@@ -4,9 +4,9 @@ pk INT PRIMARY KEY,
 KEY  (a)
 ) ENGINE=rocksdb;
 SHOW KEYS IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	#	NULL	NULL		LSMTREE		
-t1	1	a	1	a	A	#	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 DROP TABLE t1;
 CREATE TABLE t1 (a INT,
 b CHAR(8),
@@ -14,10 +14,10 @@ pk INT PRIMARY KEY,
 KEY a_b  (a,b) COMMENT 'a_b index'
 ) ENGINE=rocksdb;
 SHOW KEYS IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	#	NULL	NULL		LSMTREE		
-t1	1	a_b	1	a	A	#	NULL	NULL	YES	LSMTREE		a_b index
-t1	1	a_b	2	b	A	#	NULL	NULL	YES	LSMTREE		a_b index
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a_b	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC		a_b index	YES	NULL
+t1	1	a_b	2	b	A	#	NULL	NULL	YES	SE_SPECIFIC		a_b index	YES	NULL
 DROP TABLE t1;
 CREATE TABLE t1 (a INT,
 b CHAR(8),
@@ -26,18 +26,18 @@ KEY  (a),
 KEY  (b)
 ) ENGINE=rocksdb;
 SHOW KEYS IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	#	NULL	NULL		LSMTREE		
-t1	1	a	1	a	A	#	NULL	NULL	YES	LSMTREE		
-t1	1	b	1	b	A	#	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	b	1	b	A	#	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 DROP TABLE t1;
 CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 (a,b) VALUES (100,'z');
 ALTER TABLE t1 ADD KEY (a)  COMMENT 'simple index on a';
 SHOW INDEX FROM t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	#	NULL	NULL		LSMTREE		
-t1	1	a	1	a	A	#	NULL	NULL	YES	LSMTREE		simple index on a
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	#	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a	1	a	A	#	NULL	NULL	YES	SE_SPECIFIC		simple index on a	YES	NULL
 ALTER TABLE t1 DROP KEY a;
 DROP TABLE t1;
 set global rocksdb_large_prefix=0;
@@ -84,6 +84,8 @@ key(a)
 insert into t2 select A.a, FLOOR(A.a/10), A.a from t1 A;
 # This must have type=range, index=a, and must not have 'Using filesort':
 explain select * from t2 force index (a) where a=0 and pk>=3 order by pk;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	8	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	a	a	8	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`a` AS `a`,`test`.`t2`.`b` AS `b` from `test`.`t2` FORCE INDEX (`a`) where ((`test`.`t2`.`a` = 0) and (`test`.`t2`.`pk` >= 3)) order by `test`.`t2`.`pk`
 drop table t0,t1,t2;

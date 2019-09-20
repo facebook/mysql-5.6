@@ -27,7 +27,7 @@ update r1 set value1=value1+100 where id1=1 and id2=1 and id3='1';
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+ SET NAMES utf8mb4 ;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -41,15 +41,15 @@ update r1 set value1=value1+100 where id1=1 and id2=1 and id3='1';
 /*!50601 SET @enable_bulk_load = IF (@is_rocksdb_supported, 'SET SESSION rocksdb_bulk_load=1', 'SET @dummy = 0') */;
 /*!50601 PREPARE s FROM @enable_bulk_load */;
 /*!50601 EXECUTE s */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=BINLOG_START;
+-- CHANGE MASTER TO MASTER_LOG_FILE='binlog.000001', MASTER_LOG_POS=BINLOG_START;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `r1` (
-  `id1` int(11) NOT NULL DEFAULT '0',
-  `id2` int(11) NOT NULL DEFAULT '0',
-  `id3` varchar(100) NOT NULL DEFAULT '',
-  `id4` int(11) NOT NULL DEFAULT '0',
+  `id1` int(11) NOT NULL,
+  `id2` int(11) NOT NULL,
+  `id3` varchar(100) NOT NULL,
+  `id4` int(11) NOT NULL,
   `value1` int(11) DEFAULT NULL,
   `value2` int(11) DEFAULT NULL,
   `value3` int(11) DEFAULT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE `r1` (
   KEY `value1` (`value1`,`value2`,`value3`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-/* ORDERING KEY (DESC) : PRIMARY */;
+/* ORDERING KEY (DESC) : (null) */;
 
 LOCK TABLES `r1` WRITE;
 /*!40000 ALTER TABLE `r1` DISABLE KEYS */;
@@ -82,7 +82,7 @@ UNLOCK TABLES;
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+ SET NAMES utf8mb4 ;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -99,15 +99,15 @@ UNLOCK TABLES;
 /*!50601 SET @enable_bulk_load = IF (@is_rocksdb_supported, 'SET SESSION rocksdb_bulk_load=1', 'SET @dummy = 0') */;
 /*!50601 PREPARE s FROM @enable_bulk_load */;
 /*!50601 EXECUTE s */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=BINLOG_START;
+-- CHANGE MASTER TO MASTER_LOG_FILE='binlog.000001', MASTER_LOG_POS=BINLOG_START;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `r1` (
-  `id1` int(11) NOT NULL DEFAULT '0',
-  `id2` int(11) NOT NULL DEFAULT '0',
-  `id3` varchar(100) NOT NULL DEFAULT '',
-  `id4` int(11) NOT NULL DEFAULT '0',
+  `id1` int(11) NOT NULL,
+  `id2` int(11) NOT NULL,
+  `id3` varchar(100) NOT NULL,
+  `id4` int(11) NOT NULL,
   `value1` int(11) DEFAULT NULL,
   `value2` int(11) DEFAULT NULL,
   `value3` int(11) DEFAULT NULL,
@@ -116,7 +116,7 @@ CREATE TABLE `r1` (
   KEY `value1` (`value1`,`value2`,`value3`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
-/* ORDERING KEY (DESC) : PRIMARY */;
+/* ORDERING KEY (DESC) : (null) */;
 
 LOCK TABLES `r1` WRITE;
 /*!40000 ALTER TABLE `r1` DISABLE KEYS */;
@@ -148,22 +148,22 @@ SET GLOBAL default_storage_engine=rocksdb;
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+ SET NAMES utf8mb4 ;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=BINLOG_START;
+-- CHANGE MASTER TO MASTER_LOG_FILE='binlog.000001', MASTER_LOG_POS=BINLOG_START;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `r1` (
-  `id1` int(11) NOT NULL DEFAULT '0',
-  `id2` int(11) NOT NULL DEFAULT '0',
-  `id3` varchar(100) NOT NULL DEFAULT '',
-  `id4` int(11) NOT NULL DEFAULT '0',
+  `id1` int(11) NOT NULL,
+  `id2` int(11) NOT NULL,
+  `id3` varchar(100) NOT NULL,
+  `id4` int(11) NOT NULL,
   `value1` int(11) DEFAULT NULL,
   `value2` int(11) DEFAULT NULL,
   `value3` int(11) DEFAULT NULL,
@@ -195,22 +195,22 @@ UNLOCK TABLES;
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+ SET NAMES utf8mb4 ;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=BINLOG_START;
+-- CHANGE MASTER TO MASTER_LOG_FILE='binlog.000001', MASTER_LOG_POS=BINLOG_START;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `r1` (
-  `id1` int(11) NOT NULL DEFAULT '0',
-  `id2` int(11) NOT NULL DEFAULT '0',
-  `id3` varchar(100) NOT NULL DEFAULT '',
-  `id4` int(11) NOT NULL DEFAULT '0',
+  `id1` int(11) NOT NULL,
+  `id2` int(11) NOT NULL,
+  `id3` varchar(100) NOT NULL,
+  `id4` int(11) NOT NULL,
   `value1` int(11) DEFAULT NULL,
   `value2` int(11) DEFAULT NULL,
   `value3` int(11) DEFAULT NULL,
