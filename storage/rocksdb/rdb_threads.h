@@ -54,6 +54,9 @@ class Rdb_thread {
   // instead of volatile
   std::atomic<THD::killed_state> m_killed;
 
+  virtual void on_init() {}
+  virtual void on_uninit() {}
+
  public:
   Rdb_thread() : m_run_once(false), m_killed(THD::NOT_KILLED) {}
 
@@ -146,10 +149,13 @@ class Rdb_index_stats_thread : public Rdb_thread {
 
  public:
   Rdb_index_stats_thread() : m_tid_set(false), m_tid(0) {
+  }
+
+  virtual void on_init() override {
     mysql_mutex_init(0, &m_is_mutex, MY_MUTEX_INIT_FAST);
   }
 
-  virtual ~Rdb_index_stats_thread() override {
+  virtual void on_uninit() override {
     mysql_mutex_destroy(&m_is_mutex);
   }
 
@@ -178,10 +184,13 @@ class Rdb_manual_compaction_thread : public Rdb_thread {
 
  public:
   Rdb_manual_compaction_thread() {
+  }
+
+  virtual void on_init() override {
     mysql_mutex_init(0, &m_mc_mutex, MY_MUTEX_INIT_FAST);
   }
 
-  virtual ~Rdb_manual_compaction_thread() override {
+  virtual void on_uninit() override {
     mysql_mutex_destroy(&m_mc_mutex);
   }
 
