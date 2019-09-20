@@ -22,9 +22,9 @@ set global rocksdb_force_flush_memtable_now = 1;
 SELECT * FROM information_schema.rocksdb_cf_options WHERE option_type like '%prefix_extractor%';
 
 # BF used (4+8+8+8)
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 
 --let $_mysqld_option=--rocksdb_override_cf_options=cf1={prefix_extractor=capped:26};
 
@@ -48,9 +48,9 @@ SELECT * FROM information_schema.rocksdb_cf_options WHERE option_type like '%pre
 
 # Satisfies can_use_bloom_filter (4+8+8+8), but can't use because the old SST
 # files have old prefix extractor
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 
 # Insert more data into t1, verify it uses new bloom filter
 --disable_query_log
@@ -67,9 +67,9 @@ set global rocksdb_force_flush_memtable_now = 1;
 # BF used w/ new prefix extractor (4+8+8+8) (still increments once because it
 # needs to check the new SST file, but doesnt increment for SST file with old
 # extractor)
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 
 # should have 2 sst files, one with old prefix extractor and one with new
 SELECT COUNT(*) FROM information_schema.rocksdb_index_file_map WHERE COLUMN_FAMILY != 1;
@@ -81,16 +81,16 @@ set global rocksdb_force_flush_memtable_now = 1;
 
 # should have 3 sst files, one with old prefix extractor and two with new
 SELECT COUNT(*) FROM information_schema.rocksdb_index_file_map WHERE COLUMN_FAMILY != 1;
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=1 AND id3=1;
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 
 SET @@global.rocksdb_update_cf_options = '';
 set global rocksdb_compact_cf='cf1';
 
 # Select the updated, make sure bloom filter is checked now
-select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 SELECT COUNT(*) FROM t1 WHERE id1=1 AND id2=30 AND id3=30;
-select variable_value-@u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value-@u from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 
 DROP TABLE t1;
