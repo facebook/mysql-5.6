@@ -13,6 +13,7 @@
 
 
 let $extra_col_opts = NOT NULL;
+let $extra_pk_col_opts = NOT NULL;
 
 --echo ########################
 --echo # BINARY columns
@@ -119,10 +120,6 @@ SET TIMESTAMP=UNIX_TIMESTAMP('2013-12-12 12:12:12');
 --let $col_default = '2012'
 --source col_not_null.inc
 
---let $col_type = YEAR(2)
---let $col_default = '12'
---source col_not_null.inc
-
 --echo ########################
 --echo # ENUM columns
 --echo ########################
@@ -220,5 +217,6 @@ SET TIMESTAMP=UNIX_TIMESTAMP('2013-12-12 12:12:12');
 --let $col_type =
 --let $col_default =
 --let $extra_col_opts =
+--let $extra_pk_col_opts =
 
 
