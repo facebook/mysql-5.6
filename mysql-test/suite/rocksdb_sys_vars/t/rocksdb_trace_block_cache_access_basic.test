@@ -9,7 +9,7 @@ set global rocksdb_trace_block_cache_access='';
 show global variables like 'rocksdb_trace_block_cache_access';
 
 # Exists.
-select * from information_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
+select * from performance_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
 
 # Start tracing.
 set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
