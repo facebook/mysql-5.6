@@ -50,11 +50,15 @@ void Rdb_thread::init(
   DBUG_ASSERT(!m_run_once);
   mysql_mutex_init(stop_bg_psi_mutex_key, &m_signal_mutex, MY_MUTEX_INIT_FAST);
   mysql_cond_init(stop_bg_psi_cond_key, &m_signal_cond);
+
+  on_init();
 }
 
 void Rdb_thread::uninit() {
   mysql_mutex_destroy(&m_signal_mutex);
   mysql_cond_destroy(&m_signal_cond);
+
+  on_uninit();
 }
 
 int Rdb_thread::create_thread(const std::string &thread_name
