@@ -4,17 +4,17 @@
 class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
   // This hook is called just after this class is instantiated.
   public function updateConfig($working_copy, $configuration_manager) {
-    $using_sandcastle = getenv("SANDCASTLE");
+    $using_sandcastle = self::isUsingSandcastle();
     $console = PhutilConsole::getConsole();
 
-    $tools_config_file = self::pathInTools($working_copy, '.arcconfig');
+    $tools_config_file = self::pathInTools(false, $working_copy, '.arcconfig');
     if (!Filesystem::pathExists($tools_config_file)) {
       // At this point we have determined that we aren't running in the
       // environment where there's a `tools` directory at the same level as
       // MySQL source code. Let's check if we're inside Sandcastle first.
       if ($using_sandcastle) {
-        $tools_config_file = self::pathInSandcastle(
-          $working_copy, '.arcconfig');
+        $tools_config_file = self::pathInTools(
+          true, $working_copy, '.arcconfig');
         $console->writeOut(
           "Operating in Sandcastle. Using: %s\n", $tools_config_file);
       } else {
@@ -46,11 +46,9 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
 
     // Load the tool's libraries too.
     foreach (idx($tools_config, 'load', array()) as $location) {
-      if ($using_sandcastle) {
-        $full_path = self::pathInSandcastle($working_copy, $location);
-      } else {
-        $full_path = self::pathInTools($working_copy, $location);
-      }
+      $full_path = self::pathInTools(
+        $using_sandcastle, $working_copy, $location);
+
       $console->writeOut("Loading library from ".$full_path."\n");
       phutil_load_library($full_path);
     }
@@ -64,14 +62,19 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
     }
   }
 
-  private static function pathInSandcastle($working_copy, $suffix) {
-    $project_root = $working_copy->getProjectRoot();
-    return $project_root.'/tools/'.$suffix;
+  public static function isUsingSandcastle() {
+    return getenv("SANDCASTLE");
   }
 
-  private static function pathInTools($working_copy, $suffix) {
-    $project_root = $working_copy->getProjectRoot();
-    return $project_root.'/../tools/'.$suffix;
+  public static function pathInTools($using_sandcastle,
+                                     $working_copy, $suffix) {
+    if ($using_sandcastle) {
+      $project_root = $working_copy->getProjectRoot();
+      return $project_root.'/tools/'.$suffix;
+    } else {
+      $project_root = $working_copy->getProjectRoot();
+      return $project_root.'/../tools/'.$suffix;
+    }
   }
 
   // Hook into arcanist lifecycle to resolve to a custom workflow.
