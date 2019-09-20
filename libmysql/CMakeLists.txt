@@ -344,7 +344,8 @@ IF(UNIX)
   SET_TARGET_PROPERTIES(libmysql PROPERTIES 
     OUTPUT_NAME mysqlclient 
     VERSION "${OS_SHARED_LIB_VERSION}" 
-    SOVERSION "${SHARED_LIB_MAJOR_VERSION}")
+    # Link against specific major.minor.patch to avoid potential conflicts
+    SOVERSION "${SHARED_LIB_MAJOR_VERSION}.${SHARED_LIB_MINOR_VERSION}.${SHARED_LIB_PATCH_VERSION}")
   CONFIGURE_FILE(libmysql.ver.in ${CMAKE_CURRENT_BINARY_DIR}/libmysql.ver)
 
   IF(APPLE)
@@ -424,4 +425,4 @@ ENDIF()
 ADD_CUSTOM_COMMAND(TARGET libmysql_api_test POST_BUILD
   COMMAND libmysql_api_test
   > ${CMAKE_CURRENT_BINARY_DIR}/libmysql_api_test.out
-  )
+)
