@@ -8,12 +8,14 @@ v16 VARCHAR(16),
 v128 VARCHAR(128)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	c20	A	1000	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	c20	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (c,c20,v16,v128) VALUES ('a','char1','varchar1a','varchar1b'),('a','char2','varchar2a','varchar2b'),('b','char3','varchar1a','varchar1b'),('c','char4','varchar3a','varchar3b');
 EXPLAIN SELECT c20 FROM t1 ORDER BY c20;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	20	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	20	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c20` AS `c20` from `test`.`t1` order by `test`.`t1`.`c20`
 SELECT c20 FROM t1 ORDER BY c20;
 c20
 char1
@@ -21,8 +23,10 @@ char2
 char3
 char4
 EXPLAIN SELECT c20 FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY c20;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	20	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	20	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c20` AS `c20` from `test`.`t1` FORCE INDEX FOR ORDER BY (PRIMARY) order by `test`.`t1`.`c20`
 SELECT c20 FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY c20;
 c20
 char1
@@ -39,13 +43,15 @@ pk VARCHAR(64) PRIMARY KEY,
 INDEX (v16)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	v16	1	v16	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	v16	1	v16	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (c,c20,v16,v128,pk) VALUES ('a','char1','varchar1a','varchar1b','1'),('a','char2','varchar2a','varchar2b','2'),('b','char3','varchar1a','varchar1b','3'),('c','char4','varchar3a','varchar3b','4');
 EXPLAIN SELECT SUBSTRING(v16,0,3) FROM t1 WHERE v16 LIKE 'varchar%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	v16	v16	19	NULL	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	v16	v16	19	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select substr(`test`.`t1`.`v16`,0,3) AS `SUBSTRING(v16,0,3)` from `test`.`t1` where (`test`.`t1`.`v16` like 'varchar%')
 SELECT SUBSTRING(v16,7,3) FROM t1 WHERE v16 LIKE 'varchar%';
 SUBSTRING(v16,7,3)
 r1a
@@ -53,8 +59,10 @@ r1a
 r2a
 r3a
 EXPLAIN SELECT SUBSTRING(v16,0,3) FROM t1 IGNORE INDEX (v16) WHERE v16 LIKE 'varchar%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select substr(`test`.`t1`.`v16`,0,3) AS `SUBSTRING(v16,0,3)` from `test`.`t1` IGNORE INDEX (`v16`) where (`test`.`t1`.`v16` like 'varchar%')
 SELECT SUBSTRING(v16,7,3) FROM t1 IGNORE INDEX (v16) WHERE v16 LIKE 'varchar%';
 SUBSTRING(v16,7,3)
 r1a
@@ -62,8 +70,10 @@ r1a
 r2a
 r3a
 EXPLAIN SELECT c,c20,v16,v128 FROM t1 WHERE v16 = 'varchar1a' OR v16 = 'varchar3a' ORDER BY v16;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	v16	NULL	NULL	NULL	#	Using where; Using filesort
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	v16	NULL	NULL	NULL	#	#	Using where; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c`,`test`.`t1`.`c20` AS `c20`,`test`.`t1`.`v16` AS `v16`,`test`.`t1`.`v128` AS `v128` from `test`.`t1` where ((`test`.`t1`.`v16` = 'varchar1a') or (`test`.`t1`.`v16` = 'varchar3a')) order by `test`.`t1`.`v16`
 SELECT c,c20,v16,v128 FROM t1 WHERE v16 = 'varchar1a' OR v16 = 'varchar3a' ORDER BY v16;
 c	c20	v16	v128
 a	char1	varchar1a	varchar1b

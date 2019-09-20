@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS t1, t2;
 eval CREATE TABLE t1 (
   v0 VARCHAR(0) $extra_col_opts,
   v1 VARCHAR(1) $extra_col_opts,
-  v64 VARCHAR(64) $extra_col_opts,
+  v64 VARCHAR(64) $extra_pk_col_opts,
   v65000 VARCHAR(65000) $extra_col_opts,
   PRIMARY KEY (v64)
 ) ENGINE=rocksdb;

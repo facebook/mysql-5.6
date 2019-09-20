@@ -11,7 +11,7 @@ eval CREATE TABLE t1 (
   c0 CHAR(0) $extra_col_opts,
   c1 CHAR(1) $extra_col_opts,
   c20 CHAR(20) $extra_col_opts,
-  c255 CHAR(255) $extra_col_opts,
+  c255 CHAR(255) $extra_pk_col_opts,
   PRIMARY KEY (c255)
 ) ENGINE=rocksdb;
 

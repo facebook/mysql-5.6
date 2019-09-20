@@ -30,11 +30,11 @@ INSERT INTO t1 (d1,d2,n1,n2) VALUES
 (4540424564.23,3343303441.0,12,13),
 (15,17,23,100000);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT d1 FROM t1 ORDER BY d1 DESC;
 SELECT d1 FROM t1 ORDER BY d1 DESC;
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT d1 FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY d1 DESC;
 SELECT d1 FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY d1 DESC;
 
@@ -50,7 +50,7 @@ CREATE TABLE t1 (
   UNIQUE INDEX n1_n2 (n1,n2)
 ) ENGINE=rocksdb;
 
-# --disable_parsing
+# --disable_testcase BUG#0000
 
 SHOW INDEX IN t1;
 
@@ -63,14 +63,14 @@ INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (4540424564.23,3343303441.0,12,13,6),
 (15,17,23,100000,7);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT DISTINCT n1+n2 FROM t1;
 --sorted_result
 SELECT DISTINCT n1+n2 FROM t1;
 
 DROP TABLE t1;
 
-#--enable_parsing
+#--enable_testcase
 
 CREATE TABLE t1 (
   d1 DECIMAL(10,2),
@@ -92,15 +92,15 @@ INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (4540424564.23,3343303441.0,12,13,6),
 (15,17,23,100000,7);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT d2, COUNT(*) FROM t1 GROUP BY d2;
 --sorted_result
 SELECT d2, COUNT(*) FROM t1 GROUP BY d2;
 
---replace_column 9 #
-EXPLAIN SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2;
+--replace_column 10 # 11 #
+EXPLAIN SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2 ORDER BY d2;
 --sorted_result
-SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2;
+SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2 ORDER BY d2;
 
 DROP TABLE t1;
 

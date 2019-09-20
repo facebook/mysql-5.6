@@ -8,8 +8,8 @@ n1 NUMERIC,
 n2 NUMERIC(65,4)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	d1	A	1000	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	d1	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (d1,d2,n1,n2) VALUES 
 (10.22,60.12345,123456,14.3456),
 (10.0,60.12345,123456,14),
@@ -21,8 +21,10 @@ INSERT INTO t1 (d1,d2,n1,n2) VALUES
 Warnings:
 Warning	1264	Out of range value for column 'd1' at row 6
 EXPLAIN SELECT d1 FROM t1 ORDER BY d1 DESC;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	5	NULL	#	#	Backward index scan; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`d1` AS `d1` from `test`.`t1` order by `test`.`t1`.`d1` desc
 SELECT d1 FROM t1 ORDER BY d1 DESC;
 d1
 99999999.99
@@ -33,8 +35,10 @@ d1
 10.00
 0.00
 EXPLAIN SELECT d1 FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY d1 DESC;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index; Using filesort
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	5	NULL	#	#	Using index; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`d1` AS `d1` from `test`.`t1` IGNORE INDEX FOR ORDER BY (PRIMARY) order by `test`.`t1`.`d1` desc
 SELECT d1 FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY d1 DESC;
 d1
 99999999.99
@@ -54,10 +58,10 @@ pk NUMERIC PRIMARY KEY,
 UNIQUE INDEX n1_n2 (n1,n2)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	0	n1_n2	1	n1	A	500	NULL	NULL	YES	LSMTREE		
-t1	0	n1_n2	2	n2	A	1000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	n1_n2	1	n1	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	n1_n2	2	n2	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (10.22,60.12345,123456,14.3456,1),
 (10.0,60.12345,123456,14,2),
@@ -69,8 +73,10 @@ INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 Warnings:
 Warning	1264	Out of range value for column 'd1' at row 6
 EXPLAIN SELECT DISTINCT n1+n2 FROM t1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	n1_n2	n1_n2	37	NULL	#	Using index; Using temporary
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	n1_n2	n1_n2	37	NULL	#	#	Using index; Using temporary
+Warnings:
+Note	1003	/* select#1 */ select distinct (`test`.`t1`.`n1` + `test`.`t1`.`n2`) AS `n1+n2` from `test`.`t1`
 SELECT DISTINCT n1+n2 FROM t1;
 n1+n2
 0.0000
@@ -90,9 +96,9 @@ pk DECIMAL(20,10) PRIMARY KEY,
 INDEX (d2)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	d2	1	d2	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	d2	1	d2	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (10.22,60.12345,123456,14.3456,1),
 (10.0,60.12345,123456,14,2),
@@ -104,8 +110,10 @@ INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 Warnings:
 Warning	1264	Out of range value for column 'd1' at row 6
 EXPLAIN SELECT d2, COUNT(*) FROM t1 GROUP BY d2;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	d2	d2	29	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	d2	d2	29	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`d2` AS `d2`,count(0) AS `COUNT(*)` from `test`.`t1` group by `test`.`t1`.`d2`
 SELECT d2, COUNT(*) FROM t1 GROUP BY d2;
 d2	COUNT(*)
 0.0000000000	1
@@ -114,10 +122,12 @@ d2	COUNT(*)
 17.0000000000	1
 3343303441.0000000000	1
 60.1234500000	2
-EXPLAIN SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	d2	d2	29	NULL	#	Using index; Using temporary; Using filesort
-SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2;
+EXPLAIN SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2 ORDER BY d2;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	d2	d2	29	NULL	#	#	Using index; Using temporary; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`d2` AS `d2`,count(0) AS `COUNT(*)` from `test`.`t1` IGNORE INDEX FOR GROUP BY (`d2`) group by `test`.`t1`.`d2` order by `test`.`t1`.`d2`
+SELECT d2, COUNT(*) FROM t1 IGNORE INDEX FOR GROUP BY (d2) GROUP BY d2 ORDER BY d2;
 d2	COUNT(*)
 0.0000000000	1
 100.0000000000	1
