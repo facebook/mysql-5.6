@@ -18,8 +18,8 @@ CREATE TABLE t1 (id INT, value int, PRIMARY KEY (id), INDEX (value)) ENGINE=Rock
 INSERT INTO t1 VALUES (1,1);
 
 # Read-only, long-running transaction. SingleDelete/Put shouldn't increase much.
-select variable_value into @p from information_schema.global_status where variable_name='rocksdb_number_sst_entry_put';
-select variable_value into @s from information_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
+select variable_value into @p from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_put';
+select variable_value into @s from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
 -- replace_result $uuid uuid
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 
@@ -34,8 +34,8 @@ while ($i <= 10000) {
 --enable_query_log
 
 connection con1;
-select case when variable_value-@p < 1000 then 'true' else variable_value-@p end from information_schema.global_status where variable_name='rocksdb_number_sst_entry_put';
-select case when variable_value-@s < 100 then 'true' else variable_value-@s end from information_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
+select case when variable_value-@p < 1000 then 'true' else variable_value-@p end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_put';
+select case when variable_value-@s < 100 then 'true' else variable_value-@s end from performance_schema.global_status where variable_name='rocksdb_number_sst_entry_singledelete';
 SELECT * FROM t1;
 --error ER_UPDATES_WITH_CONSISTENT_SNAPSHOT
 INSERT INTO t1 values (2, 2);

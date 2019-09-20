@@ -26,7 +26,7 @@ let $max = 50000;
 let $table = t1;
 --source drop_table3_repopulate_table.inc
 
-select variable_value into @a from information_schema.global_status where variable_name='rocksdb_compact_read_bytes';
+select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_compact_read_bytes';
 if ($truncate_table)
 {
   truncate table t1;
@@ -43,7 +43,7 @@ let $wait_condition = select count(*) = 0
                       where TYPE = 'DDL_DROP_INDEX_ONGOING';
 --source include/wait_condition.inc
 
-select case when variable_value-@a < 500000 then 'true' else 'false' end  from information_schema.global_status where variable_name='rocksdb_compact_read_bytes';
+select case when variable_value-@a < 500000 then 'true' else 'false' end  from performance_schema.global_status where variable_name='rocksdb_compact_read_bytes';
 
 # Cleanup
 DROP TABLE IF EXISTS t1;
