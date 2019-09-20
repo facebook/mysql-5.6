@@ -1,7 +1,7 @@
 create database d1;
 create database d2;
 flush logs;
-purge binary logs before now();
+purge binary logs to 'binlog';
 use d1;
 /*comment*/ create table t1(a int) engine = innodb;
 /*comment*/ create table t2(a int) engine = innodb;
