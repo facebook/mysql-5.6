@@ -329,7 +329,7 @@ IF(UNIX)
   # Name of shared library is libmysqlclient on Unix
   SET(UNIX_OUTPUT_NAME OUTPUT_NAME mysqlclient)
   SET(UNIX_VERSION     VERSION     "${OS_SHARED_LIB_VERSION}")
-  SET(UNIX_SOVERSION   SOVERSION   "${SHARED_LIB_MAJOR_VERSION}")
+  SET(UNIX_SOVERSION   SOVERSION   "${OS_SHARED_LIB_VERSION}")
 ENDIF()
 
 # Merge several convenience libraries into one big mysqlclient
