@@ -64,7 +64,7 @@ eval CREATE TABLE t1 (a INT,
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
---disable_parsing
+--disable_testcase BUG#0000
 
 eval CREATE TABLE t1 (a INT,
   b CHAR(8),
@@ -82,7 +82,7 @@ DROP TABLE t1;
 
 --source drop_table_sync.inc
 
---enable_parsing
+--enable_testcase
 
 #
 # ALTER TABLE
@@ -97,7 +97,7 @@ SHOW INDEX FROM t1;
 ALTER TABLE t1 DROP KEY a;
 DROP TABLE t1;
 
---disable_parsing
+--disable_testcase BUG#0000
 
 eval CREATE TABLE t1 (a INT,
   b CHAR(8),
@@ -117,7 +117,7 @@ INSERT INTO t1 (a,b) VALUES (1,'c');
 eval ALTER TABLE t1 ADD UNIQUE INDEX a(a) $using_index_type;
 DROP TABLE t1;
 
---enable_parsing
+--enable_testcase
 
 #
 # Test index prefix length limits.

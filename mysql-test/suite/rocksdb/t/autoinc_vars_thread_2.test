@@ -77,7 +77,7 @@ while ($i > 0)
 # Make sure we have the required number of rows
 connection default;
 SELECT COUNT(*) FROM t1;
-SELECT thr, COUNT(pk) FROM t1 GROUP BY thr;
+SELECT thr, COUNT(pk) FROM t1 GROUP BY thr ORDER BY thr;
 
 # Cleanup the connection and file used for LOAD DATA INFILE
 let $i = `SELECT $num_threads`;
