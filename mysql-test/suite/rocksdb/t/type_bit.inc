@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS t1;
 eval CREATE TABLE t1 (
   a BIT $extra_col_opts,
   b BIT(20) $extra_col_opts,
-  c BIT(64) $extra_col_opts,
+  c BIT(64) $extra_pk_col_opts,
   d BIT(1) $extra_col_opts,
   PRIMARY KEY (c)
 ) ENGINE=rocksdb;
@@ -19,7 +19,7 @@ eval CREATE TABLE t1 (
 SHOW COLUMNS IN t1;
 
 ALTER TABLE t1 DROP COLUMN d;
-eval ALTER TABLE t1 ADD COLUMN d BIT(0) $extra_col_opts;
+eval ALTER TABLE t1 ADD COLUMN d BIT(1) $extra_col_opts;
 SHOW COLUMNS IN t1;
 
 INSERT INTO t1 (a,b,c,d) VALUES (0,POW(2,20)-1,b'1111111111111111111111111111111111111111111111111111111111111111',1);

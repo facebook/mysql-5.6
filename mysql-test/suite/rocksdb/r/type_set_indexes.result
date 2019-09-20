@@ -7,8 +7,8 @@ b SET('test1','test2','test3','test4','test5'),
 c SET('01','22','23','33','34','39','40','44','50','63','64') PRIMARY KEY
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	c	A	1000	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	c	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (a,b,c) VALUES 
 ('','test2,test3','01,34,44,23'),
 ('',5,2),
@@ -20,8 +20,10 @@ INSERT INTO t1 (a,b,c) VALUES
 Warnings:
 Warning	1265	Data truncated for column 'b' at row 7
 EXPLAIN SELECT c FROM t1 ORDER BY c;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	2	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	2	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` order by `test`.`t1`.`c`
 SELECT c FROM t1 ORDER BY c;
 c
 
@@ -32,8 +34,10 @@ c
 01,23,34,44
 50
 EXPLAIN SELECT c FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY c;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	2	NULL	#	Using index; Using filesort
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	2	NULL	#	#	Using index; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` IGNORE INDEX FOR ORDER BY (PRIMARY) order by `test`.`t1`.`c`
 SELECT c FROM t1 IGNORE INDEX FOR ORDER BY (PRIMARY) ORDER BY c;
 c
 
@@ -56,9 +60,9 @@ pk SET('1','2','3','4','5','6','7','8','9') PRIMARY KEY,
 INDEX(a)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	a	1	a	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a	1	a	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (a,b,c,pk) VALUES
 ('','test2,test3','01,34,44,23',1),
 ('',5,2,2),
@@ -70,8 +74,10 @@ INSERT INTO t1 (a,b,c,pk) VALUES
 Warnings:
 Warning	1265	Data truncated for column 'b' at row 7
 EXPLAIN SELECT a FROM t1 WHERE FIND_IN_SET('Europe',a) > 0;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (find_in_set('Europe',`test`.`t1`.`a`) > 0)
 SELECT a FROM t1 WHERE FIND_IN_SET('Europe',a) > 0;
 a
 Africa,Europe,Asia
@@ -85,10 +91,10 @@ pk SET('1','2','3','4','5','6','7','8','9') PRIMARY KEY,
 UNIQUE INDEX b_a (b,a)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	0	b_a	1	b	A	500	NULL	NULL	YES	LSMTREE		
-t1	0	b_a	2	a	A	1000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	0	b_a	1	b	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	0	b_a	2	a	A	1000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 INSERT INTO t1 (a,b,c,pk) VALUES
 ('','test2,test3','01,34,44,23',1),
 ('',5,2,2),
@@ -100,8 +106,10 @@ INSERT INTO t1 (a,b,c,pk) VALUES
 Warnings:
 Warning	1265	Data truncated for column 'b' at row 7
 EXPLAIN SELECT DISTINCT a, b FROM t1 ORDER BY b DESC, a;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using temporary; Using filesort
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using temporary; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select distinct `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` order by `test`.`t1`.`b` desc,`test`.`t1`.`a`
 SELECT DISTINCT a, b FROM t1 ORDER BY b DESC, a;
 a	b
 	test1,test3

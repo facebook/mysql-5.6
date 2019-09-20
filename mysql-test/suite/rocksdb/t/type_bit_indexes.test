@@ -25,14 +25,14 @@ INSERT INTO t1 (a,b,c,d) VALUES
 (1,100,101,102),(0,12,13,14),(1,13,14,15),(0,101,201,202),(1,1000,1001,1002),
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT b+0 FROM t1 ORDER BY b;
 SELECT b+0 FROM t1 ORDER BY b;
 
 DROP TABLE t1;
 
 --echo # TODO: Unique indexes are not enforced
---disable_parsing
+--disable_testcase BUG#0000
 --error ER_GET_ERRMSG
 CREATE TABLE t1 (
   a BIT,
@@ -51,14 +51,14 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,100,101,102,5),(0,12,13,14,6),(1,13,14,15,7),(0,101,201,202,8),(1,1000,1001,1002,9),
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT HEX(b+c) FROM t1 WHERE c > 1 OR HEX(b) < 0xFFFFFF;
 --sorted_result
 SELECT HEX(b+c) FROM t1 WHERE c > 1 OR HEX(b) < 0xFFFFFF;
 
 DROP TABLE t1;
 
---enable_parsing
+--enable_testcase
 
 CREATE TABLE t1 (
   a BIT,
@@ -76,13 +76,13 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,100,101,102,5),(0,12,13,14,6),(1,13,14,15,7),(0,101,201,202,8),(1,1000,1001,1002,9),
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 
 DROP TABLE t1;
 
---disable_parsing
+--disable_testcase BUG#0000
 --error ER_GET_ERRMSG
 CREATE TABLE t1 (
   a BIT,
@@ -101,13 +101,13 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,100,101,102,5),(0,12,13,14,6),(1,13,14,15,7),(0,101,201,202,8),(1,1000,1001,1002,9),
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN SELECT d FROM t1 WHERE d BETWEEN 1 AND 10000;
 --sorted_result
 SELECT d+0 FROM t1 WHERE d BETWEEN 1 AND 10000;
 
 DROP TABLE t1;
 
---enable_parsing
+--enable_testcase
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;

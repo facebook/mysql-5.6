@@ -5,6 +5,7 @@
 #
 
 let $extra_col_opts = ZEROFILL;
+let $extra_pk_col_opts = ZEROFILL;
 
 --echo ########################
 --echo # Fixed point columns (NUMERIC, DECIMAL)
@@ -64,4 +65,5 @@ SELECT t,s,m,i,b FROM t1;
 DROP TABLE t1;
 
 --let $extra_col_opts =
+--let $extra_pk_col_opts =
 
