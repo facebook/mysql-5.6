@@ -68,6 +68,7 @@ select * from t1;
 
 --exec rm $MYSQLTEST_VARDIR/mysqld.$_server_id/data/.rocksdb/ROCKSDB_CORRUPTED
 --source include/start_mysqld_with_option.inc
+--remove_file $LOG
 
 drop table t1;
 

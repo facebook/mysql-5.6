@@ -3,11 +3,11 @@ insert into t0 values (0, 0),(1, 1),(2, 2),(3, 3),(4, 4),
 (5, 4),(6, 4),(7, 4),(8, 4),(9, 4);
 SELECT cardinality FROM information_schema.statistics where table_name="t0" and
 column_name="id";
-cardinality
+CARDINALITY
 NULL
 SELECT cardinality FROM information_schema.statistics where table_name="t0" and
 column_name="a";
-cardinality
+CARDINALITY
 NULL
 SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 ANALYZE TABLE t0;
@@ -39,37 +39,38 @@ optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
 show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	100000	NULL	NULL		LSMTREE		
-t1	1	t1_1	1	id	A	100000	NULL	NULL		LSMTREE		
-t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	LSMTREE		
-t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	LSMTREE		
-t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	id	A	100000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	t1_1	1	id	A	100000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t1	100000
 restarting...
+# restart
 show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	100000	NULL	NULL		LSMTREE		
-t1	1	t1_1	1	id	A	100000	NULL	NULL		LSMTREE		
-t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	LSMTREE		
-t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	LSMTREE		
-t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	LSMTREE		
-t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	id	A	100000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	t1_1	1	id	A	100000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t1	100000
 CREATE TABLE t2 (a INT, b INT, c INT, d INT, e INT, f INT, g INT,
 PRIMARY KEY (a), KEY (c, b, a, d, e, f, g))
