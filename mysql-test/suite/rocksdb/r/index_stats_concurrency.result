@@ -15,27 +15,27 @@ analyze table t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	2	j	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	3	k	A	8	NULL	NULL		LSMTREE		
-t	1	secondary_key	1	j	A	4	NULL	NULL		LSMTREE		
-t	1	secondary_key	2	k	A	4	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	2	j	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	3	k	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	1	j	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	2	k	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	8
 set debug_sync = "now wait_for index_stats_calculation_done";
 flush tables t;
 index stats should not change after the background thread finishes calculation
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	2	j	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	3	k	A	8	NULL	NULL		LSMTREE		
-t	1	secondary_key	1	j	A	4	NULL	NULL		LSMTREE		
-t	1	secondary_key	2	k	A	4	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	2	j	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	3	k	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	1	j	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	2	k	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	8
 set @@global.debug = @old_debug;
 drop table t;
@@ -53,21 +53,21 @@ set debug_sync = "now signal ready_to_save_table_stats";
 show indexes in t;
 ERROR 42S02: Table 'test.t' doesn't exist
 select table_name, table_rows, data_length, index_length from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows	data_length	index_length
+TABLE_NAME	TABLE_ROWS	DATA_LENGTH	INDEX_LENGTH
 set @@global.debug = @old_debug;
 create table t (i int auto_increment,
 j int,
 k int,
 primary key(i, j, k),  key `secondary_key` (j, k)) engine=rocksdb;
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	NULL	NULL	NULL		LSMTREE		
-t	0	PRIMARY	2	j	A	NULL	NULL	NULL		LSMTREE		
-t	0	PRIMARY	3	k	A	NULL	NULL	NULL		LSMTREE		
-t	1	secondary_key	1	j	A	NULL	NULL	NULL		LSMTREE		
-t	1	secondary_key	2	k	A	NULL	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	2	j	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	3	k	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	1	j	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	1	secondary_key	2	k	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	0
 set @@global.debug = '+d,rocksdb_is_bg_thread';
 set @@global.debug = '+d,rocksdb_calculate_stats';
@@ -81,12 +81,12 @@ set debug_sync = "now signal ready_to_save_index_stats";
 set debug_sync = "now wait_for index_stats_calculation_done";
 flush tables t;
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	2	j	A	8	NULL	NULL		LSMTREE		
-t	0	PRIMARY	3	k	A	8	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	2	j	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
+t	0	PRIMARY	3	k	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	8
 set @@global.debug = @old_debug;
 drop table t;

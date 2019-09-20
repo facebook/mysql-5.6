@@ -26,70 +26,70 @@ while ($i <= $max) {
 
 # get results for records_in_range prior to memtable flush
 # normal CF
-explain extended select * from t1 where a> 500 and a< 750;
-explain extended select * from t1 where a< 750;
-explain extended select * from t1 where a> 500;
-explain extended select * from t1 where a>=0 and a<=1000;
+explain select * from t1 where a> 500 and a< 750;
+explain select * from t1 where a< 750;
+explain select * from t1 where a> 500;
+explain select * from t1 where a>=0 and a<=1000;
 
 #reverse CF
-explain extended select * from t1 where b> 500 and b< 750;
-explain extended select * from t1 where b< 750;
-explain extended select * from t1 where b> 500;
-explain extended select * from t1 where b>=0 and b<=1000;
+explain select * from t1 where b> 500 and b< 750;
+explain select * from t1 where b< 750;
+explain select * from t1 where b> 500;
+explain select * from t1 where b>=0 and b<=1000;
 
 ## cost calculation differences between covering vs non-covering (#298)
 set @save_rocksdb_records_in_range = @@session.rocksdb_records_in_range;
 set rocksdb_records_in_range = 15000;
 # covering, range
-explain extended select a from t1 where a < 750;
+explain select a from t1 where a < 750;
 # non-covering, full
-explain extended select a, b from t1 where a < 750;
+explain select a, b from t1 where a < 750;
 # covering, ref
-explain extended select a from t1 where a = 700;
+explain select a from t1 where a = 700;
 # non-covering, ref
-explain extended select a,b from t1 where a = 700;
+explain select a,b from t1 where a = 700;
 # covering, full index
-explain extended select a from t1 where a in (700, 800);
+explain select a from t1 where a in (700, 800);
 # non-covering, full
-explain extended select a,b from t1 where a in (700, 800);
+explain select a,b from t1 where a in (700, 800);
 set rocksdb_records_in_range=8000;
 # covering, range
-explain extended select a from t1 where a in (700, 800);
+explain select a from t1 where a in (700, 800);
 # non-covering, full
-explain extended select a,b from t1 where a in (700, 800);
+explain select a,b from t1 where a in (700, 800);
 set rocksdb_records_in_range = @save_rocksdb_records_in_range;
 
 # flush memtable and repeat
 set global rocksdb_force_flush_memtable_now = true;
 # normal CF
-explain extended select * from t1 where a> 500 and a< 750;
-explain extended select * from t1 where a< 750;
-explain extended select * from t1 where a> 500;
-explain extended select * from t1 where a>=0 and a<=1000;
+explain select * from t1 where a> 500 and a< 750;
+explain select * from t1 where a< 750;
+explain select * from t1 where a> 500;
+explain select * from t1 where a>=0 and a<=1000;
 
 #reverse CF
-explain extended select * from t1 where b> 500 and b< 750;
-explain extended select * from t1 where b< 750;
-explain extended select * from t1 where b> 500;
-explain extended select * from t1 where b>=0 and b<=1000;
+explain select * from t1 where b> 500 and b< 750;
+explain select * from t1 where b< 750;
+explain select * from t1 where b> 500;
+explain select * from t1 where b>=0 and b<=1000;
 
 # a set of 1
-explain extended select * from t1 where a>= 500 and a<= 500;
-explain extended select * from t1 where b>= 500 and b<= 500;
+explain select * from t1 where a>= 500 and a<= 500;
+explain select * from t1 where b>= 500 and b<= 500;
 
 # two indexes
-explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+explain select * from t1 where a< 750 and b> 500 and b< 750;
 
 # composite index
 drop index ka on t1;
 drop index kb on t1;
 create index kab on t1(a,b);
 set global rocksdb_force_flush_memtable_now = true;
-explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+explain select * from t1 where a< 750 and b> 500 and b< 750;
 
 # override records in range
 set rocksdb_records_in_range=444;
-explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+explain select * from t1 where a< 750 and b> 500 and b< 750;
 set rocksdb_records_in_range=0;
 
 # issue 82

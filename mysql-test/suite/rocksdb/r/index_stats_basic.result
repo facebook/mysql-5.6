@@ -6,10 +6,10 @@ analyze table t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	NULL	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	NULL	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	0
 insert into t values (), (), (), (), (), (), (), ();
 set @@global.rocksdb_table_stats_use_table_scan = 1;
@@ -21,10 +21,10 @@ analyze table t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	8	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	8
 set @@global.rocksdb_table_stats_use_table_scan = 0;
 select @@global.rocksdb_table_stats_use_table_scan;
@@ -34,10 +34,10 @@ analyze table t;
 Table	Op	Msg_type	Msg_text
 test.t	analyze	status	OK
 show indexes in t;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t	0	PRIMARY	1	i	A	8	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t	0	PRIMARY	1	i	A	8	NULL	NULL		SE_SPECIFIC			YES	NULL
 select table_name, table_rows from information_schema.tables where table_schema = database() and table_name = "t";
-table_name	table_rows
+TABLE_NAME	TABLE_ROWS
 t	8
 set @@global.rocksdb_table_stats_use_table_scan = default;
 drop table t;

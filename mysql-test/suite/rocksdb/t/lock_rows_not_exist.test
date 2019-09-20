@@ -54,7 +54,7 @@ BEGIN;
 DELETE FROM t WHERE id1=1 AND id2=1 AND id3=1;
 DELETE FROM t WHERE id1=1 AND id2=1 AND id3=0;
 
---disable_parsing
+--disable_testcase BUG#0000
 # 
 #  The following is commented out because RocksDB's Transaction API doesn't
 #  "support" READ COMMITED, in particular, it doesn't release row locks 
@@ -102,7 +102,7 @@ ROLLBACK;
 connection con2;
 ROLLBACK;
 
---enable_parsing
+--enable_testcase
 connection default;
 disconnect con1;
 disconnect con2;

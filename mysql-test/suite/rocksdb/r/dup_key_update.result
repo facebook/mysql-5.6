@@ -184,6 +184,9 @@ id2 varchar(256) CHARACTER SET utf8 COLLATE utf8_bin,
 id3 varchar(200) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
 PRIMARY KEY (id1, id2, id3),
 UNIQUE KEY (id3, id1)) ENGINE=ROCKSDB;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 set global rocksdb_large_prefix=DEFAULT;
 set global rocksdb_large_prefix=1;
 CREATE TABLE t2 (id1 varchar(128) CHARACTER SET latin1 COLLATE latin1_bin,
@@ -191,6 +194,9 @@ id2 varchar(256) CHARACTER SET utf8 COLLATE utf8_bin,
 id3 varchar(200) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
 PRIMARY KEY (id1, id2, id3),
 UNIQUE KEY (id3, id1) COMMENT 'rev:cf') ENGINE=ROCKSDB;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 set global rocksdb_large_prefix=DEFAULT;
 INSERT INTO t1 VALUES (1, 1, 1) ON DUPLICATE KEY UPDATE id2 = 9;
 SELECT * FROM t1 WHERE id1 = 1;
