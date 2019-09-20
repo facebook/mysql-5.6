@@ -9,14 +9,14 @@ DROP TABLE IF EXISTS t1, t2;
 eval CREATE TABLE t1 (
   v0 VARBINARY(0) $extra_col_opts,
   v1 VARBINARY(1) $extra_col_opts,
-  v64 VARBINARY(64) $extra_col_opts,
+  v64 VARBINARY(64) $extra_pk_col_opts,
   v65000 VARBINARY(65000) $extra_col_opts,
   PRIMARY KEY (v64)
 ) ENGINE=rocksdb;
 
 SHOW COLUMNS IN t1;
 
-eval CREATE TABLE t2 (v VARBINARY(65532) $extra_col_opts, PRIMARY KEY(v(255))) ENGINE=rocksdb;
+eval CREATE TABLE t2 (v VARBINARY(65532) $extra_pk_col_opts, PRIMARY KEY(v(255))) ENGINE=rocksdb;
 SHOW COLUMNS IN t2;
 
 INSERT INTO t1 (v0,v1,v64,v65000) VALUES ('','','','');

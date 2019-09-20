@@ -9,8 +9,8 @@ t TIME,
 y YEAR
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	dt	A	1000	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	dt	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000'),
@@ -20,16 +20,20 @@ INSERT INTO t1 (d,dt,ts,t,y) VALUES
 ('2011-03-31', '2011-08-28 20:33:56', '1997-01-31 11:54:01', '22:04:10', '1994'),
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm));
 EXPLAIN SELECT dt FROM t1 ORDER BY dt LIMIT 3;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	5	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`dt` AS `dt` from `test`.`t1` order by `test`.`t1`.`dt` limit 3
 SELECT dt FROM t1 ORDER BY dt LIMIT 3;
 dt
 2010-11-22 11:43:14
 2010-11-22 12:33:54
 2011-08-27 21:33:56
 EXPLAIN SELECT dt FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY dt LIMIT 3;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	PRIMARY	5	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`dt` AS `dt` from `test`.`t1` FORCE INDEX FOR ORDER BY (PRIMARY) order by `test`.`t1`.`dt` limit 3
 SELECT dt FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY dt LIMIT 3;
 dt
 2010-11-22 11:43:14
@@ -49,9 +53,9 @@ pk TIME PRIMARY KEY,
 INDEX (ts)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	ts	1	ts	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	ts	1	ts	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000','12:00:00'),
@@ -61,13 +65,17 @@ INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2011-03-31', '2011-08-28 20:33:56', '1997-01-31 11:54:01', '22:04:10', '1994','12:04:00'),
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm),'12:05:00');
 EXPLAIN SELECT ts FROM t1 WHERE ts > NOW();
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	ts	ts	5	NULL	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	ts	ts	5	NULL	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`ts` AS `ts` from `test`.`t1` where (`test`.`t1`.`ts` > <cache>(now()))
 SELECT ts FROM t1 WHERE ts > NOW();
 ts
 EXPLAIN SELECT ts FROM t1 USE INDEX () WHERE ts > NOW();
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`ts` AS `ts` from `test`.`t1` USE INDEX () where (`test`.`t1`.`ts` > <cache>(now()))
 SELECT ts FROM t1 USE INDEX () WHERE ts > NOW();
 ts
 DROP TABLE t1;
@@ -81,10 +89,10 @@ pk TIME PRIMARY KEY,
 INDEX (y,t)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		LSMTREE		
-t1	1	y	1	y	A	250	NULL	NULL	YES	LSMTREE		
-t1	1	y	2	t	A	500	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	y	1	y	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	y	2	t	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000','18:18:18'),
@@ -94,8 +102,10 @@ INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2011-03-31', '2011-08-28 20:33:56', '1997-01-31 11:54:01', '22:04:10', '1994','22:18:18'),
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm),'23:18:18');
 EXPLAIN SELECT y, COUNT(*) FROM t1 GROUP BY y;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	y	y	6	NULL	#	Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	y	y	6	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`y` AS `y`,count(0) AS `COUNT(*)` from `test`.`t1` group by `test`.`t1`.`y`
 SELECT y, COUNT(*) FROM t1 GROUP BY y;
 y	COUNT(*)
 1994	1
@@ -104,10 +114,12 @@ y	COUNT(*)
 2000	1
 2001	1
 2012	1
-EXPLAIN SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	y	y	6	NULL	#	Using index; Using temporary; Using filesort
-SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y;
+EXPLAIN SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y ORDER BY y;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	y	y	6	NULL	#	#	Using index; Using temporary; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`y` AS `y`,count(0) AS `COUNT(*)` from `test`.`t1` USE INDEX FOR GROUP BY () group by `test`.`t1`.`y` order by `test`.`t1`.`y`
+SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y ORDER BY y;
 y	COUNT(*)
 1994	1
 1998	1
