@@ -13524,11 +13524,12 @@ static SHOW_VAR myrocks_status_variables[] = {
 
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
-static void show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
+static int show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
   myrocks_update_status();
   myrocks_update_memory_status();
   var->type = SHOW_ARRAY;
   var->value = reinterpret_cast<char *>(&myrocks_status_variables);
+  return 0;
 }
 
 static ulonglong io_stall_prop_value(
@@ -13612,10 +13613,11 @@ static SHOW_VAR rocksdb_stall_status_variables[] = {
     // end of the array marker
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
-static void show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
+static int show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
   update_rocksdb_stall_status();
   var->type = SHOW_ARRAY;
   var->value = reinterpret_cast<char *>(&rocksdb_stall_status_variables);
+  return 0;
 }
 
 static SHOW_VAR rocksdb_status_vars[] = {
