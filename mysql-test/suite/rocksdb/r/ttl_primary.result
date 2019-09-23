@@ -434,7 +434,7 @@ INSERT INTO t1 values (3, UNIX_TIMESTAMP());
 INSERT INTO t1 values (5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (7, UNIX_TIMESTAMP());
 set global rocksdb_debug_ttl_rec_ts = 300;
-UPDATE t1 SET b=UNIX_TIMESTAMP() WHERE a < 4;
+UPDATE t1 SET b=UNIX_TIMESTAMP()+1 WHERE a < 4;
 set global rocksdb_debug_ttl_rec_ts = 0;
 SELECT a FROM t1;
 a
@@ -462,10 +462,10 @@ set global rocksdb_debug_ttl_rec_ts = 0;
 set global rocksdb_enable_ttl=0;
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_enable_ttl=1;
 set global rocksdb_compact_cf='default';
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 variable_value-@c
 3
 SELECT COUNT(*) FROM t1;
@@ -480,10 +480,10 @@ COMMENT='ttl_duration=100;';
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (2);
 INSERT INTO t1 values (3);
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_force_flush_memtable_now=1;
 set global rocksdb_compact_cf='default';
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 variable_value-@c
 0
 DROP TABLE t1;

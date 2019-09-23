@@ -13,11 +13,11 @@ SELECT * FROM t1 FORCE INDEX (PRIMARY);
 a	b
 SELECT * FROM t1 FORCE INDEX (kb);
 a	b
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_debug_ttl_ignore_pk = 1;
 set global rocksdb_compact_cf='default';
 set global rocksdb_debug_ttl_ignore_pk = 0;
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 variable_value-@c
 2
 DROP TABLE t1;
@@ -120,7 +120,7 @@ INSERT INTO t1 values (1,2,1);
 INSERT INTO t1 values (1,2,2);
 INSERT INTO t1 values (1,2,3);
 set global rocksdb_debug_ttl_rec_ts = 0;
-select variable_value into @c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 set global rocksdb_force_flush_memtable_now=1;
 SELECT * FROM t1 FORCE INDEX (PRIMARY) WHERE a=1 AND b=2 AND c=2;
 a	b	c
@@ -168,13 +168,13 @@ SELECT a FROM t1 FORCE INDEX (PRIMARY) WHERE a > 0 and a <= 2;
 a
 SELECT a FROM t1 FORCE INDEX (kb) WHERE a > 0 and a <= 2;
 a
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 variable_value-@c
 0
 set global rocksdb_debug_ttl_ignore_pk = 1;
 set global rocksdb_compact_cf='default';
 set global rocksdb_debug_ttl_ignore_pk = 0;
-select variable_value-@c from information_schema.global_status where variable_name='rocksdb_rows_expired';
+select variable_value-@c from performance_schema.global_status where variable_name='rocksdb_rows_expired';
 variable_value-@c
 8
 DROP TABLE t1;
