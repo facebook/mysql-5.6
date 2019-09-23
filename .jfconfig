@@ -20,7 +20,7 @@
         "steps": [
           {
             "name": "Determine MySQL targets",
-            "shell": "python3 tools/sandcastle/target-determinator.py --schedule diff --project mysql-8.0",
+            "shell": "python3 tools/sandcastle/target-determinator.py --schedule diff --project mysql-8.0 --branch myrocks8",
             "required": true,
             "determinator": true
           }
