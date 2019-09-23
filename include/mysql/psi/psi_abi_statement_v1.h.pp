@@ -53,6 +53,9 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_lock_time;
   unsigned long long m_rows_sent;
   unsigned long long m_rows_examined;
+  unsigned long long m_rows_deleted;
+  unsigned long long m_rows_inserted;
+  unsigned long long m_rows_updated;
   unsigned long m_created_tmp_disk_tables;
   unsigned long m_created_tmp_tables;
   unsigned long m_select_full_join;
