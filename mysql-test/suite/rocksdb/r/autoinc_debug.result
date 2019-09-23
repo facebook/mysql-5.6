@@ -21,6 +21,7 @@ from information_schema.rocksdb_ddl where table_name = 't';
 table_name	index_name	auto_increment
 t	PRIMARY	NULL
 set debug='-d,myrocks_autoinc_upgrade';
+# restart
 insert into t values ();
 insert into t values ();
 insert into t values ();
@@ -35,6 +36,7 @@ from information_schema.rocksdb_ddl where table_name = 't';
 table_name	index_name	auto_increment
 t	PRIMARY	5
 delete from t where i > 1;
+# restart
 insert into t values ();
 insert into t values ();
 insert into t values ();
@@ -61,7 +63,7 @@ commit;
 ERROR HY000: Lost connection to MySQL server during query
 select max(i) into @row_max from t;
 select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment > @row_max
+TABLE_SCHEMA	TABLE_NAME	auto_increment > @row_max
 test	t	1
 # After engine prepare
 begin;
@@ -72,7 +74,7 @@ commit;
 ERROR HY000: Lost connection to MySQL server during query
 select max(i) into @row_max from t;
 select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment > @row_max
+TABLE_SCHEMA	TABLE_NAME	auto_increment > @row_max
 test	t	1
 # After binlog
 begin;
@@ -83,7 +85,7 @@ commit;
 ERROR HY000: Lost connection to MySQL server during query
 select max(i) into @row_max from t;
 select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment > @row_max
+TABLE_SCHEMA	TABLE_NAME	auto_increment > @row_max
 test	t	1
 # After everything
 begin;
@@ -94,6 +96,6 @@ commit;
 ERROR HY000: Lost connection to MySQL server during query
 select max(i) into @row_max from t;
 select table_schema, table_name, auto_increment > @row_max from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment > @row_max
+TABLE_SCHEMA	TABLE_NAME	auto_increment > @row_max
 test	t	1
 drop table t;

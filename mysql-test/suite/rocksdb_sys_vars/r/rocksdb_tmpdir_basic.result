@@ -11,12 +11,12 @@ rocksdb_tmpdir
 show session variables like 'rocksdb_tmpdir';
 Variable_name	Value
 rocksdb_tmpdir	
-select * from information_schema.global_variables where variable_name='rocksdb_tmpdir';
+select * from performance_schema.global_variables where variable_name='rocksdb_tmpdir';
 VARIABLE_NAME	VARIABLE_VALUE
-ROCKSDB_TMPDIR	
-select * from information_schema.session_variables where variable_name='rocksdb_tmpdir';
+rocksdb_tmpdir	
+select * from performance_schema.session_variables where variable_name='rocksdb_tmpdir';
 VARIABLE_NAME	VARIABLE_VALUE
-ROCKSDB_TMPDIR	
+rocksdb_tmpdir	
 set global rocksdb_tmpdir='value';
 set session rocksdb_tmpdir='value';
 set global rocksdb_tmpdir=1.1;

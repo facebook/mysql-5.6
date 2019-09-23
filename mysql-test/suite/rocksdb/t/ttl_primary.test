@@ -485,7 +485,8 @@ INSERT INTO t1 values (5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (7, UNIX_TIMESTAMP());
 
 set global rocksdb_debug_ttl_rec_ts = 300;
-UPDATE t1 SET b=UNIX_TIMESTAMP() WHERE a < 4;
+# +1 to ensure b value to change and trigger TTL update
+UPDATE t1 SET b=UNIX_TIMESTAMP()+1 WHERE a < 4;
 set global rocksdb_debug_ttl_rec_ts = 0;
 
 --sorted_result
