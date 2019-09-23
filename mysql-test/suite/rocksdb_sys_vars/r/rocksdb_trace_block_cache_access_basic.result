@@ -3,9 +3,9 @@ set global rocksdb_trace_block_cache_access='';
 show global variables like 'rocksdb_trace_block_cache_access';
 Variable_name	Value
 rocksdb_trace_block_cache_access	
-select * from information_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
+select * from performance_schema.global_variables where variable_name='rocksdb_trace_block_cache_access';
 VARIABLE_NAME	VARIABLE_VALUE
-ROCKSDB_TRACE_BLOCK_CACHE_ACCESS	
+rocksdb_trace_block_cache_access	
 set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
 show global variables like 'rocksdb_trace_block_cache_access';
 Variable_name	Value
