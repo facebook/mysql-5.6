@@ -11076,6 +11076,14 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
     m_db_lock.type = lock_type;
   }
 
+  if (lock_type != TL_IGNORE) {
+    auto action = table->pos_in_table_list->lock_descriptor().action;
+    if (action != THR_DEFAULT && action != THR_WAIT) {
+      my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+               "SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine");
+    }
+  }
+  
   *to++ = &m_db_lock;
 
   DBUG_RETURN(to);
