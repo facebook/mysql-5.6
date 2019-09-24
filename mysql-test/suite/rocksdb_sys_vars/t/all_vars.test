@@ -1,5 +1,4 @@
 --source include/have_rocksdb.inc
---source include/not_embedded.inc
 --source include/not_threadpool.inc
 
 # This test verifies that *all* MyRocks system variables are tested by the
@@ -25,8 +24,8 @@ create table t2 (variable_name text) engine=MyISAM;
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
 eval load data infile "$MYSQLTEST_VARDIR/tmp/rocksdb_sys_vars.all_vars.txt" into table t1;
 
-insert into t2 select variable_name from information_schema.global_variables where variable_name like "rocksdb_%";
-insert into t2 select variable_name from information_schema.session_variables where variable_name like "rocksdb_%";
+insert into t2 select variable_name from performance_schema.global_variables where variable_name like "rocksdb_%";
+insert into t2 select variable_name from performance_schema.session_variables where variable_name like "rocksdb_%";
 
 --sorted_result
 select variable_name as `There should be *no* long test name listed below:` from t2
@@ -38,3 +37,7 @@ select variable_name as `There should be *no* variables listed below:` from t2
 
 drop table t1;
 drop table t2;
+
+# Cleanup
+--remove_file $MYSQLTEST_VARDIR/tmp/rocksdb_sys_vars.all_vars.txt
+

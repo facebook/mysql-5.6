@@ -94,6 +94,7 @@ UPDATE t1 SET b = '';
 ROLLBACK TO SAVEPOINT spt1;
 ERROR HY000: MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows.
 UPDATE t1 SET b = 'upd' WHERE a = 10050;
+ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
 COMMIT;
 ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
 SELECT * FROM t1 ORDER BY pk;
