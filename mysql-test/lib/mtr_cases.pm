@@ -344,6 +344,8 @@ sub create_disabled_test_list($$) {
   # Add 'disabled.def' files.
   unshift(@disabled_collection,
           "$::glob_mysql_test_dir/collections/disabled.def");
+  unshift(@disabled_collection,
+          "$::glob_mysql_test_dir/collections/disabled_rocksdb.def");
 
   # Add internal 'disabled.def' file only if it exists
   my $internal_disabled_def_file =
