@@ -710,10 +710,10 @@ pthread_handler_t process_raft_queue(void *arg)
     switch (element.type)
     {
       case RaftListenerCallbackType::SET_READ_ONLY:
-        set_read_only(current_thd, 1);
+        set_read_only(thd, 1);
         break;
       case RaftListenerCallbackType::UNSET_READ_ONLY:
-        set_read_only(current_thd, 0);
+        set_read_only(thd, 0);
         break;
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         raft_listener_queue.deinit();
