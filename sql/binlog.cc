@@ -11863,7 +11863,7 @@ bool set_read_only(THD* thd, ulonglong readonly)
     DBUG_RETURN(false);
   }
 
-  if (before_set_read_only(thd, 0)) // just in case
+  if (before_set_read_only(thd, read_only)) // just in case
   {
     mysql_mutex_unlock(&LOCK_global_system_variables);
     goto end;

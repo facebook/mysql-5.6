@@ -1,0 +1,35 @@
+source ../include/raft_3_node.inc;
+
+connection server1;
+show status like 'rpl_raft_role';
+
+connection server2;
+show status like 'rpl_raft_role';
+
+connection server3;
+show status like 'rpl_raft_role';
+
+connection server1;
+create table t1 (a int primary key);
+insert into t1 values(1);
+
+let $sync_slave_connection= server2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server2;
+select * from t1;
+
+connection server3;
+select * from t1;
+
+connection server1;
+drop table t1;
+
+let $sync_slave_connection= server2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

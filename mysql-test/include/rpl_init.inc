@@ -111,6 +111,9 @@
 #    $rpl_gtid_utils
 #      Create stored functions for GTID manipulation on every server (see
 #      gtid_utils.inc).
+
+#    $rpl_enable_raft
+#      Enable raft plugin on the servers
 #
 #
 # ==== Side effects ====
@@ -268,6 +271,11 @@ if ($use_gtids == '')
 if (!$rpl_skip_start_slave)
 {
   --source include/rpl_start_slaves.inc
+}
+
+if ($rpl_enable_raft)
+{
+  --source include/rpl_init_raft.inc
 }
 
 
