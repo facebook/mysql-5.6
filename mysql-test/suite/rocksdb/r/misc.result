@@ -1,44 +1,116 @@
-INSERT INTO mysql.event (
-db,
-name,
-body,
-definer,
-interval_value,
-interval_field,
-originator,
-character_set_client,
-collation_connection,
-db_collation,
-body_utf8)
-values (
-database(),
-"ev1",
-"select 1",
-user(),
-100,
-"SECOND_MICROSECOND",
-1,
-'utf8',
-'utf8_general_ci',
-'utf8_general_ci',
-'select 1');
-SHOW EVENTS;
+CREATE EVENT micro_test ON SCHEDULE EVERY 100 MICROSECOND DO SELECT 1;
 ERROR 42000: This version of MySQL doesn't yet support 'MICROSECOND'
-DROP EVENT ev1;
 SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE ORDER BY TABLE_NAME;
 TABLE_NAME	COLUMN_NAME	REFERENCED_TABLE_NAME	REFERENCED_COLUMN_NAME
+accounts	HOST	NULL	NULL
+accounts	USER	NULL	NULL
 columns_priv	Column_name	NULL	NULL
 columns_priv	Db	NULL	NULL
 columns_priv	Host	NULL	NULL
 columns_priv	Table_name	NULL	NULL
 columns_priv	User	NULL	NULL
+component	component_id	NULL	NULL
+cond_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
+data_locks	ENGINE	NULL	NULL
+data_locks	ENGINE_LOCK_ID	NULL	NULL
 db	Db	NULL	NULL
 db	Host	NULL	NULL
 db	User	NULL	NULL
-event	db	NULL	NULL
-event	name	NULL	NULL
+default_roles	DEFAULT_ROLE_HOST	NULL	NULL
+default_roles	DEFAULT_ROLE_USER	NULL	NULL
+default_roles	HOST	NULL	NULL
+default_roles	USER	NULL	NULL
+engine_cost	cost_name	NULL	NULL
+engine_cost	device_type	NULL	NULL
+engine_cost	engine_name	NULL	NULL
+events_errors_summary_by_account_by_error	ERROR_NUMBER	NULL	NULL
+events_errors_summary_by_account_by_error	HOST	NULL	NULL
+events_errors_summary_by_account_by_error	USER	NULL	NULL
+events_errors_summary_by_host_by_error	ERROR_NUMBER	NULL	NULL
+events_errors_summary_by_host_by_error	HOST	NULL	NULL
+events_errors_summary_by_thread_by_error	ERROR_NUMBER	NULL	NULL
+events_errors_summary_by_thread_by_error	THREAD_ID	NULL	NULL
+events_errors_summary_by_user_by_error	ERROR_NUMBER	NULL	NULL
+events_errors_summary_by_user_by_error	USER	NULL	NULL
+events_errors_summary_global_by_error	ERROR_NUMBER	NULL	NULL
+events_stages_current	EVENT_ID	NULL	NULL
+events_stages_current	THREAD_ID	NULL	NULL
+events_stages_history	EVENT_ID	NULL	NULL
+events_stages_history	THREAD_ID	NULL	NULL
+events_stages_summary_by_account_by_event_name	EVENT_NAME	NULL	NULL
+events_stages_summary_by_account_by_event_name	HOST	NULL	NULL
+events_stages_summary_by_account_by_event_name	USER	NULL	NULL
+events_stages_summary_by_host_by_event_name	EVENT_NAME	NULL	NULL
+events_stages_summary_by_host_by_event_name	HOST	NULL	NULL
+events_stages_summary_by_thread_by_event_name	EVENT_NAME	NULL	NULL
+events_stages_summary_by_thread_by_event_name	THREAD_ID	NULL	NULL
+events_stages_summary_by_user_by_event_name	EVENT_NAME	NULL	NULL
+events_stages_summary_by_user_by_event_name	USER	NULL	NULL
+events_stages_summary_global_by_event_name	EVENT_NAME	NULL	NULL
+events_statements_current	EVENT_ID	NULL	NULL
+events_statements_current	THREAD_ID	NULL	NULL
+events_statements_histogram_by_digest	BUCKET_NUMBER	NULL	NULL
+events_statements_histogram_by_digest	DIGEST	NULL	NULL
+events_statements_histogram_by_digest	SCHEMA_NAME	NULL	NULL
+events_statements_histogram_global	BUCKET_NUMBER	NULL	NULL
+events_statements_history	EVENT_ID	NULL	NULL
+events_statements_history	THREAD_ID	NULL	NULL
+events_statements_summary_by_account_by_event_name	EVENT_NAME	NULL	NULL
+events_statements_summary_by_account_by_event_name	HOST	NULL	NULL
+events_statements_summary_by_account_by_event_name	USER	NULL	NULL
+events_statements_summary_by_digest	DIGEST	NULL	NULL
+events_statements_summary_by_digest	SCHEMA_NAME	NULL	NULL
+events_statements_summary_by_host_by_event_name	EVENT_NAME	NULL	NULL
+events_statements_summary_by_host_by_event_name	HOST	NULL	NULL
+events_statements_summary_by_program	OBJECT_NAME	NULL	NULL
+events_statements_summary_by_program	OBJECT_SCHEMA	NULL	NULL
+events_statements_summary_by_program	OBJECT_TYPE	NULL	NULL
+events_statements_summary_by_thread_by_event_name	EVENT_NAME	NULL	NULL
+events_statements_summary_by_thread_by_event_name	THREAD_ID	NULL	NULL
+events_statements_summary_by_user_by_event_name	EVENT_NAME	NULL	NULL
+events_statements_summary_by_user_by_event_name	USER	NULL	NULL
+events_statements_summary_global_by_event_name	EVENT_NAME	NULL	NULL
+events_transactions_current	EVENT_ID	NULL	NULL
+events_transactions_current	THREAD_ID	NULL	NULL
+events_transactions_history	EVENT_ID	NULL	NULL
+events_transactions_history	THREAD_ID	NULL	NULL
+events_transactions_summary_by_account_by_event_name	EVENT_NAME	NULL	NULL
+events_transactions_summary_by_account_by_event_name	HOST	NULL	NULL
+events_transactions_summary_by_account_by_event_name	USER	NULL	NULL
+events_transactions_summary_by_host_by_event_name	EVENT_NAME	NULL	NULL
+events_transactions_summary_by_host_by_event_name	HOST	NULL	NULL
+events_transactions_summary_by_thread_by_event_name	EVENT_NAME	NULL	NULL
+events_transactions_summary_by_thread_by_event_name	THREAD_ID	NULL	NULL
+events_transactions_summary_by_user_by_event_name	EVENT_NAME	NULL	NULL
+events_transactions_summary_by_user_by_event_name	USER	NULL	NULL
+events_transactions_summary_global_by_event_name	EVENT_NAME	NULL	NULL
+events_waits_current	EVENT_ID	NULL	NULL
+events_waits_current	THREAD_ID	NULL	NULL
+events_waits_history	EVENT_ID	NULL	NULL
+events_waits_history	THREAD_ID	NULL	NULL
+events_waits_summary_by_account_by_event_name	EVENT_NAME	NULL	NULL
+events_waits_summary_by_account_by_event_name	HOST	NULL	NULL
+events_waits_summary_by_account_by_event_name	USER	NULL	NULL
+events_waits_summary_by_host_by_event_name	EVENT_NAME	NULL	NULL
+events_waits_summary_by_host_by_event_name	HOST	NULL	NULL
+events_waits_summary_by_instance	OBJECT_INSTANCE_BEGIN	NULL	NULL
+events_waits_summary_by_thread_by_event_name	EVENT_NAME	NULL	NULL
+events_waits_summary_by_thread_by_event_name	THREAD_ID	NULL	NULL
+events_waits_summary_by_user_by_event_name	EVENT_NAME	NULL	NULL
+events_waits_summary_by_user_by_event_name	USER	NULL	NULL
+events_waits_summary_global_by_event_name	EVENT_NAME	NULL	NULL
+file_instances	FILE_NAME	NULL	NULL
+file_summary_by_event_name	EVENT_NAME	NULL	NULL
+file_summary_by_instance	OBJECT_INSTANCE_BEGIN	NULL	NULL
 func	name	NULL	NULL
+global_grants	HOST	NULL	NULL
+global_grants	PRIV	NULL	NULL
+global_grants	USER	NULL	NULL
+global_status	VARIABLE_NAME	NULL	NULL
+global_variables	VARIABLE_NAME	NULL	NULL
+gtid_executed	interval_start	NULL	NULL
+gtid_executed	source_uuid	NULL	NULL
 help_category	help_category_id	NULL	NULL
 help_category	name	NULL	NULL
 help_keyword	help_keyword_id	NULL	NULL
@@ -51,9 +123,9 @@ ndb_binlog_index	epoch	NULL	NULL
 ndb_binlog_index	orig_epoch	NULL	NULL
 ndb_binlog_index	orig_server_id	NULL	NULL
 plugin	name	NULL	NULL
-proc	db	NULL	NULL
-proc	name	NULL	NULL
-proc	type	NULL	NULL
+prepared_statements_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
+prepared_statements_instances	OWNER_EVENT_ID	NULL	NULL
+prepared_statements_instances	OWNER_THREAD_ID	NULL	NULL
 procs_priv	Db	NULL	NULL
 procs_priv	Host	NULL	NULL
 procs_priv	Routine_name	NULL	NULL
@@ -63,16 +135,71 @@ proxies_priv	Host	NULL	NULL
 proxies_priv	Proxied_host	NULL	NULL
 proxies_priv	Proxied_user	NULL	NULL
 proxies_priv	User	NULL	NULL
+replication_applier_configuration	CHANNEL_NAME	NULL	NULL
+replication_applier_status	CHANNEL_NAME	NULL	NULL
+replication_applier_status_by_coordinator	CHANNEL_NAME	NULL	NULL
+replication_applier_status_by_worker	CHANNEL_NAME	NULL	NULL
+replication_applier_status_by_worker	WORKER_ID	NULL	NULL
+replication_connection_configuration	CHANNEL_NAME	NULL	NULL
+replication_connection_status	CHANNEL_NAME	NULL	NULL
+role_edges	FROM_HOST	NULL	NULL
+role_edges	FROM_USER	NULL	NULL
+role_edges	TO_HOST	NULL	NULL
+role_edges	TO_USER	NULL	NULL
+rwlock_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
+server_cost	cost_name	NULL	NULL
 servers	Server_name	NULL	NULL
-slave_gtid_info	Id	NULL	NULL
-slave_master_info	Host	NULL	NULL
-slave_master_info	Port	NULL	NULL
-slave_relay_log_info	Id	NULL	NULL
+session_account_connect_attrs	ATTR_NAME	NULL	NULL
+session_account_connect_attrs	PROCESSLIST_ID	NULL	NULL
+session_connect_attrs	ATTR_NAME	NULL	NULL
+session_connect_attrs	PROCESSLIST_ID	NULL	NULL
+session_status	VARIABLE_NAME	NULL	NULL
+session_variables	VARIABLE_NAME	NULL	NULL
+setup_actors	HOST	NULL	NULL
+setup_actors	ROLE	NULL	NULL
+setup_actors	USER	NULL	NULL
+setup_consumers	NAME	NULL	NULL
+setup_instruments	NAME	NULL	NULL
+setup_objects	OBJECT_NAME	NULL	NULL
+setup_objects	OBJECT_SCHEMA	NULL	NULL
+setup_objects	OBJECT_TYPE	NULL	NULL
+setup_threads	NAME	NULL	NULL
+slave_master_info	Channel_name	NULL	NULL
+slave_relay_log_info	Channel_name	NULL	NULL
+slave_worker_info	Channel_name	NULL	NULL
 slave_worker_info	Id	NULL	NULL
+socket_instances	OBJECT_INSTANCE_BEGIN	NULL	NULL
+socket_summary_by_event_name	EVENT_NAME	NULL	NULL
+socket_summary_by_instance	OBJECT_INSTANCE_BEGIN	NULL	NULL
+status_by_account	HOST	NULL	NULL
+status_by_account	USER	NULL	NULL
+status_by_account	VARIABLE_NAME	NULL	NULL
+status_by_host	HOST	NULL	NULL
+status_by_host	VARIABLE_NAME	NULL	NULL
+status_by_thread	THREAD_ID	NULL	NULL
+status_by_thread	VARIABLE_NAME	NULL	NULL
+status_by_user	USER	NULL	NULL
+status_by_user	VARIABLE_NAME	NULL	NULL
+sys_config	variable	NULL	NULL
+table_handles	OBJECT_INSTANCE_BEGIN	NULL	NULL
+table_io_waits_summary_by_index_usage	INDEX_NAME	NULL	NULL
+table_io_waits_summary_by_index_usage	OBJECT_NAME	NULL	NULL
+table_io_waits_summary_by_index_usage	OBJECT_SCHEMA	NULL	NULL
+table_io_waits_summary_by_index_usage	OBJECT_TYPE	NULL	NULL
+table_io_waits_summary_by_table	OBJECT_NAME	NULL	NULL
+table_io_waits_summary_by_table	OBJECT_SCHEMA	NULL	NULL
+table_io_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
+table_lock_waits_summary_by_table	OBJECT_NAME	NULL	NULL
+table_lock_waits_summary_by_table	OBJECT_SCHEMA	NULL	NULL
+table_lock_waits_summary_by_table	OBJECT_TYPE	NULL	NULL
+table_statistics_by_table	OBJECT_NAME	NULL	NULL
+table_statistics_by_table	OBJECT_SCHEMA	NULL	NULL
+table_statistics_by_table	OBJECT_TYPE	NULL	NULL
 tables_priv	Db	NULL	NULL
 tables_priv	Host	NULL	NULL
 tables_priv	Table_name	NULL	NULL
 tables_priv	User	NULL	NULL
+threads	THREAD_ID	NULL	NULL
 time_zone	Time_zone_id	NULL	NULL
 time_zone_leap_second	Transition_time	NULL	NULL
 time_zone_name	Name	NULL	NULL
@@ -82,3 +209,9 @@ time_zone_transition_type	Time_zone_id	NULL	NULL
 time_zone_transition_type	Transition_type_id	NULL	NULL
 user	Host	NULL	NULL
 user	User	NULL	NULL
+user_defined_functions	UDF_NAME	NULL	NULL
+user_variables_by_thread	THREAD_ID	NULL	NULL
+user_variables_by_thread	VARIABLE_NAME	NULL	NULL
+users	USER	NULL	NULL
+variables_by_thread	THREAD_ID	NULL	NULL
+variables_by_thread	VARIABLE_NAME	NULL	NULL
