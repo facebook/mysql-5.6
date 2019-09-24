@@ -38,10 +38,17 @@ while ($i <= $max) {
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 SELECT * FROM t3 FORCE INDEX (PRIMARY) ORDER BY a;
 SELECT count(*) FROM t1 FORCE INDEX (PRIMARY);
-SELECT count(*) FROM t1 FORCE INDEX (b);
-SELECT count(*) FROM t1 FORCE INDEX (c);
+
+# Following doesn't work in 8.0
+# SELECT count(*) FROM t1 FORCE INDEX (b);
+
+SELECT count(*) FROM t1 FORCE INDEX (b) WHERE b > 0;
+SELECT count(*) FROM t1 FORCE INDEX (c) WHERE c > 0;
+
 SET rocksdb_bulk_load=0;
 SELECT * FROM t1 FORCE INDEX (PRIMARY);
+SELECT count(*) FROM t1 FORCE INDEX (b) WHERE b > 0;
+SELECT count(*) FROM t1 FORCE INDEX (c) WHERE c > 0;
 SELECT b FROM t1 FORCE INDEX (b);
 SELECT c FROM t1 FORCE INDEX (c);
 --echo Checksums should match
