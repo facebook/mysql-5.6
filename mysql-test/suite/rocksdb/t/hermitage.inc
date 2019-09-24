@@ -125,6 +125,8 @@ if ($trx_isolation == "READ COMMITTED")
 }
 if ($trx_isolation == "REPEATABLE READ")
 {
+  # TODO(yzha) - Update error message once following patch is ported
+  # 1e50e3fe7bf Add lock information to lock timeout error message
   --error ER_LOCK_DEADLOCK
   reap;
   select variable_value-@a from performance_schema.global_status where variable_name='rocksdb_snapshot_conflict_errors';
@@ -155,6 +157,8 @@ if ($trx_isolation == "READ COMMITTED")
 }
 if ($trx_isolation == "REPEATABLE READ")
 {
+  # TODO(yzha) - Update error message once following patch is ported
+  # 1e50e3fe7bf Add lock information to lock timeout error message
   --error ER_LOCK_DEADLOCK
   reap;
 }
@@ -207,6 +211,8 @@ if ($trx_isolation == "READ COMMITTED")
 }
 if ($trx_isolation == "REPEATABLE READ")
 {
+  # TODO(yzha) - Update error message once following patch is ported
+  # 1e50e3fe7bf Add lock information to lock timeout error message
   --error ER_LOCK_DEADLOCK
   delete from test where value = 20;
 }

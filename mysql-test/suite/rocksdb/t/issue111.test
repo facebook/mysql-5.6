@@ -31,6 +31,8 @@ commit;
 
 connection default;
 
+# TODO(yzha) - Update error message once following patch is ported
+# 1e50e3fe7bf Add lock information to lock timeout error message
 --error ER_LOCK_DEADLOCK
 update t1 set col2=col2+1 where col1 < 10 limit 5;
 

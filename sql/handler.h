@@ -7015,6 +7015,8 @@ std::unordered_set<std::string> split_into_set(const std::string &input,
                                                char delimiter);
 std::vector<std::string> split_into_vector(const std::string& input,
                                            char delimiter);
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type);
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type);
 
 /**
   @def MYSQL_TABLE_IO_WAIT

@@ -9007,3 +9007,18 @@ void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
   sql_print_warning("Invalid pattern in %s: %s", name,
                     regex_list_handler->bad_pattern().c_str());
 }
+
+bool can_hold_read_locks_on_select(THD *thd, thr_lock_type lock_type)
+{
+  return (lock_type == TL_READ_WITH_SHARED_LOCKS
+          || lock_type == TL_READ_NO_INSERT
+          || (lock_type != TL_IGNORE
+            && thd->lex->sql_command != SQLCOM_SELECT));
+}
+
+bool can_hold_locks_on_trans(THD *thd, thr_lock_type lock_type)
+{
+  return (lock_type >= TL_WRITE_ALLOW_WRITE
+          || can_hold_read_locks_on_select(thd, lock_type));
+}
+

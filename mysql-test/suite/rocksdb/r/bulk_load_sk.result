@@ -20,12 +20,12 @@ INSERT INTO t1 SELECT * FROM t3 FORCE INDEX (PRIMARY) ORDER BY a;
 SELECT count(*) FROM t1 FORCE INDEX (PRIMARY);
 count(*)
 0
-SELECT count(*) FROM t1 FORCE INDEX (b);
+SELECT count(*) FROM t1 FORCE INDEX (b) WHERE b > 0;
 count(*)
-10
-SELECT count(*) FROM t1 FORCE INDEX (c);
+5
+SELECT count(*) FROM t1 FORCE INDEX (c) WHERE c > 0;
 count(*)
-10
+5
 SET rocksdb_bulk_load=0;
 SELECT * FROM t1 FORCE INDEX (PRIMARY);
 a	b	c
@@ -39,6 +39,12 @@ a	b	c
 6	-4	-4
 8	-6	-6
 10	-8	-8
+SELECT count(*) FROM t1 FORCE INDEX (b) WHERE b > 0;
+count(*)
+5
+SELECT count(*) FROM t1 FORCE INDEX (c) WHERE c > 0;
+count(*)
+5
 SELECT b FROM t1 FORCE INDEX (b);
 b
 -8

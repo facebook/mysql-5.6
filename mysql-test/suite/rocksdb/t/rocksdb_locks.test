@@ -85,6 +85,8 @@ UPDATE t1 SET value=30 WHERE id=3;
 COMMIT;
 
 --connection con1
+# TODO(yzha) - Update error message once following patch is ported
+# 1e50e3fe7bf Add lock information to lock timeout error message
 --error ER_LOCK_DEADLOCK
 SELECT * FROM t1 WHERE id=3 FOR UPDATE;
 

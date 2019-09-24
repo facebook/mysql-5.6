@@ -8,7 +8,7 @@
 #
 
 let $MYSQL_BASEDIR = `SELECT @@BASEDIR`;
-let RQG_BASE = $MYSQL_BASEDIR/rqg/rqg/common/mariadb-patches;
+let RQG_BASE = $MYSQL_BASEDIR/../rqg/rqg/common/mariadb-patches;
 let MYSQL_SOCKET = `SELECT @@SOCKET`;
 let GRAMMAR_FILES = $GRAMMAR_FILES;
 let DATA_FILE = $DATA_FILE;
@@ -41,3 +41,4 @@ foreach $grammar_file (split(/ /, $ENV{'GRAMMAR_FILES'})) {
 EOF
 
 --eval DROP DATABASE $TESTDB
+--remove_file $MYSQLTEST_VARDIR/tmp/$TESTDB.log
