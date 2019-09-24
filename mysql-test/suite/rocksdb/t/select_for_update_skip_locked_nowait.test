@@ -19,13 +19,13 @@ select 1 for update skip locked;
 --error ER_NO_SUCH_TABLE
 select * from nonexistence for update skip locked;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 select * from t1 for update skip locked;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 select * from t1 where a > 1 and a < 3 for update skip locked;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 insert into t1 select * from t1 for update skip locked;
 
 ### NOWAIT
@@ -36,13 +36,13 @@ select 1 for update nowait;
 --error ER_NO_SUCH_TABLE
 select * from nonexistence for update nowait;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 select * from t1 for update nowait;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 select * from t1 where a > 1 and a < 3 for update nowait;
 
---error ER_ILLEGAL_HA
+--error ER_NOT_SUPPORTED_YET
 insert into t1 select * from t1 for update nowait;
 
 drop table t1;
