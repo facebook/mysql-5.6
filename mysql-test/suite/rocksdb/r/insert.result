@@ -187,6 +187,7 @@ INSERT t1 SET b = DEFAULT;
 ROLLBACK TO SAVEPOINT spt1;
 ERROR HY000: MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows.
 INSERT INTO t1 (b,a) VALUES ('test1',10);
+ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
 COMMIT;
 ERROR HY000: This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction.
 SELECT a,b FROM t1;

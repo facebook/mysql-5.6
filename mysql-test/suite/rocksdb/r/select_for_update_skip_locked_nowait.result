@@ -8,11 +8,11 @@ select 1 for update skip locked;
 select * from nonexistence for update skip locked;
 ERROR 42S02: Table 'test.nonexistence' doesn't exist
 select * from t1 for update skip locked;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 select * from t1 where a > 1 and a < 3 for update skip locked;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 insert into t1 select * from t1 for update skip locked;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 Should succeed since no table gets involved
 select 1 for update nowait;
 1
@@ -20,9 +20,9 @@ select 1 for update nowait;
 select * from nonexistence for update nowait;
 ERROR 42S02: Table 'test.nonexistence' doesn't exist
 select * from t1 for update nowait;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 select * from t1 where a > 1 and a < 3 for update nowait;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 insert into t1 select * from t1 for update nowait;
-ERROR HY000: Table storage engine for 't1' doesn't have this option
+ERROR 42000: This version of MySQL doesn't yet support 'SKIP LOCKED | NOWAIT is not yet supported in RocksDB storage engine'
 drop table t1;
