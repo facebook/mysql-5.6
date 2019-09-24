@@ -2566,6 +2566,12 @@ class THD : public MDL_context_owner,
   void init(void);
 
  public:
+  void fix_capability_based_variables() {
+    if (m_protocol->has_client_capability(CLIENT_INTERACTIVE))
+      variables.net_wait_timeout = variables.net_interactive_timeout;
+    if (m_protocol->has_client_capability(CLIENT_IGNORE_SPACE))
+      variables.sql_mode |= MODE_IGNORE_SPACE;
+  }
   /**
     Initialize memory roots necessary for query processing and (!)
     pre-allocate memory for it. We can't do that in THD constructor because

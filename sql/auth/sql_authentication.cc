@@ -3001,8 +3001,7 @@ static void server_mpvio_initialize(THD *thd, MPVIO_EXT *mpvio,
 
 static void server_mpvio_update_thd(THD *thd, MPVIO_EXT *mpvio) {
   thd->max_client_packet_length = mpvio->max_client_packet_length;
-  if (mpvio->protocol->has_client_capability(CLIENT_INTERACTIVE))
-    thd->variables.net_wait_timeout = thd->variables.net_interactive_timeout;
+  thd->fix_capability_based_variables();
   thd->security_context()->assign_user(
       mpvio->auth_info.user_name,
       (mpvio->auth_info.user_name ? strlen(mpvio->auth_info.user_name) : 0));
@@ -3013,8 +3012,6 @@ static void server_mpvio_update_thd(THD *thd, MPVIO_EXT *mpvio) {
   LEX_CSTRING sctx_user = thd->security_context()->user();
   mpvio->auth_info.user_name = const_cast<char *>(sctx_user.str);
   mpvio->auth_info.user_name_length = sctx_user.length;
-  if (thd->get_protocol()->has_client_capability(CLIENT_IGNORE_SPACE))
-    thd->variables.sql_mode |= MODE_IGNORE_SPACE;
 }
 
 /**

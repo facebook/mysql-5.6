@@ -534,7 +534,6 @@ THD::THD(bool enable_plugins)
   /* Call to init() below requires fully initialized Open_tables_state. */
   reset_open_tables_state();
 
-  init();
 #if defined(ENABLED_PROFILING)
   profiling->set_thd(this);
 #endif
@@ -549,6 +548,8 @@ THD::THD(bool enable_plugins)
   protocol_text.init(this);
   protocol_binary.init(this);
   protocol_text.set_client_capabilities(0);  // minimalistic client
+
+  init();
 
   /*
     Make sure thr_lock_info_init() is called for threads which do not get
@@ -833,6 +834,11 @@ void THD::init(void) {
     avoid temporary tables replication failure.
   */
   variables.pseudo_thread_id = m_thread_id;
+  /*
+   variables= global_system_variables also clobbers several variables set
+   based on per-connection capabilities
+   */
+  fix_capability_based_variables();
 
   /*
     NOTE: reset_connection command will reset the THD to its default state.
