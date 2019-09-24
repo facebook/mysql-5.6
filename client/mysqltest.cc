@@ -321,6 +321,9 @@ static my_bool show_ok_gtid = FALSE;
 // if to disable sending CLIENT_DEPRECATE_EOF in client flags
 static my_bool disable_deprecate_eof = FALSE;
 
+// To enable sending CLIENT_INTERACTIVE in client flags
+static my_bool enable_client_interactive = FALSE;
+
 static MYSQL_ROW
 mysql_fetch_row_wrapper(MYSQL_RES* res)
 {
@@ -571,13 +574,15 @@ mysql_real_connect_wrapper(MYSQL *mysql, const char *host,
                            const char *db, uint port,
                            const char *unix_socket, ulong client_flag)
 {
+  client_flag |= (disable_deprecate_eof ? 0 : CLIENT_DEPRECATE_EOF) |
+      (enable_client_interactive ? CLIENT_INTERACTIVE : 0);
   if (enable_async_client)
     return async_mysql_real_connect_wrapper(mysql, host, user, passwd, db,
                                             port, unix_socket, client_flag);
   else
-    return mysql_real_connect(mysql, host, user, passwd, db, port, unix_socket,
-                              client_flag |
-                              (disable_deprecate_eof? 0: CLIENT_DEPRECATE_EOF));
+    return mysql_real_connect(
+        mysql, host, user, passwd, db, port, unix_socket,
+        client_flag);
 }
 static void
 mysql_free_result_wrapper(MYSQL_RES *result)
@@ -806,6 +811,7 @@ enum enum_commands {
   Q_CONN_ATTRS_DELETE,
   Q_CONN_ATTRS_RESET,
   Q_DISABLE_DEPRECATE_EOF,
+  Q_ENABLE_CLIENT_INTERACTIVE,
   Q_RESET_CONNECTION,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
@@ -922,6 +928,7 @@ const char *command_names[]=
   "conn_attrs_delete",
   "conn_attrs_reset",
   "disable_deprecate_eof",
+  "enable_client_interactive",
   "resetconnection",
 
   0
@@ -10305,7 +10312,8 @@ int main(int argc, char **argv)
       case Q_DISABLE_DEPRECATE_EOF:
         disable_deprecate_eof = TRUE;
         break;
-
+      case Q_ENABLE_CLIENT_INTERACTIVE:
+        enable_client_interactive = TRUE;
       default:
         processed= 0;
         break;

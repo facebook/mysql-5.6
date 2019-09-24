@@ -1471,6 +1471,11 @@ void THD::init(void)
     avoid temporary tables replication failure.
   */
   fix_pseudo_thread_id();
+  /*
+   variables= global_system_variables also clobbers several variables set
+   based on per-connection capabilities
+   */
+  fix_capability_based_variables();
   mysql_mutex_unlock(&LOCK_global_system_variables);
   server_status= SERVER_STATUS_AUTOCOMMIT;
   if (variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES)

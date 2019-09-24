@@ -3744,6 +3744,13 @@ private:
 public:
   void init(void);
   void fix_pseudo_thread_id() { variables.pseudo_thread_id = m_thread_id; }
+  void fix_capability_based_variables() {
+    if (client_capabilities & CLIENT_INTERACTIVE)
+      variables.net_wait_timeout_seconds =
+        variables.net_interactive_timeout_seconds;
+    if (client_capabilities & CLIENT_IGNORE_SPACE)
+      variables.sql_mode|= MODE_IGNORE_SPACE;
+  }
   /*
     Initialize memory roots necessary for query processing and (!)
     pre-allocate memory for it. We can't do that in THD constructor because

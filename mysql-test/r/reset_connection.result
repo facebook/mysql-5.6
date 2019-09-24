@@ -165,4 +165,18 @@ DROP TABLE t2;
 DROP TABLE IF EXISTS t1;
 DROP DATABASE wl6797;
 
+MYSQL_RESET_CONNECTION DOES NOT SET WAIT_TIMEOUT = INTERACTIVE_TIMEOUT
+
+## Setting initial value of variable to 1 ##
+SET @@global.interactive_timeout = 1;
+connection new;
+SELECT @@session.wait_timeout;
+@@session.wait_timeout
+1
+resetconnection
+SELECT @@session.wait_timeout;
+@@session.wait_timeout
+1
+SET @@global.interactive_timeout= 28800;
+
 End of tests
