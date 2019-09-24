@@ -40,3 +40,4 @@ foreach $grammar_file (split(/ /, $ENV{'GRAMMAR_FILES'})) {
 EOF
 
 --eval DROP DATABASE $TESTDB
+--remove_file $MYSQLTEST_VARDIR/tmp/$TESTDB.log

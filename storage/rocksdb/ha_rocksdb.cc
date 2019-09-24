@@ -11030,8 +11030,7 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *const thd, THR_LOCK_DATA **to,
       const uint sql_command = my_core::thd_sql_command(thd);
       if ((lock_type == TL_READ && in_lock_tables) ||
           (lock_type == TL_READ_HIGH_PRIORITY && in_lock_tables) 
-          /* TODO(yzha) - 85e5baf2eed Optionally block/log queries relying on Gap Locks
-          || can_hold_read_locks_on_select(thd, lock_type)*/) {
+          || can_hold_read_locks_on_select(thd, lock_type)) {
         ulong tx_isolation = my_core::thd_tx_isolation(thd);
         if (sql_command != SQLCOM_CHECKSUM &&
             ((my_core::thd_test_options(thd, OPTION_BIN_LOG) &&
