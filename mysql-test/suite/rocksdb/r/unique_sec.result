@@ -174,16 +174,6 @@ alter table t1 add unique(a);
 ERROR 23000: Duplicate entry '1' for key 'a'
 drop table t1;
 #
-# Issue #111
-#
-CREATE TABLE t2 (pk int, a int, PRIMARY KEY (pk, a), UNIQUE KEY (a)) ENGINE=ROCKSDB PARTITION BY KEY (a) PARTITIONS 16;
-INSERT INTO t2 VALUES (1,1);
-INSERT INTO t2 VALUES (1,1);
-ERROR 23000: Duplicate entry '1-1' for key 'PRIMARY'
-INSERT INTO t2 VALUES (2,1);
-ERROR 23000: Duplicate entry '1' for key 'a'
-DROP TABLE t2;
-#
 # Issue #491 (https://github.com/facebook/mysql-5.6/issues/491)
 #
 CREATE TABLE t (a BLOB, PRIMARY KEY(a(2)), UNIQUE KEY (a(1))) engine=rocksdb;

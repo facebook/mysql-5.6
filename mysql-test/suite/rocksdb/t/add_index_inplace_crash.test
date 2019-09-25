@@ -33,6 +33,8 @@ CHECK TABLE t1;
 
 DROP TABLE t1;
 
+# Disable until partition support is added
+--disable_testcase BUG#888001
 #
 # Test crash recovery with partitioned tables
 #
@@ -105,3 +107,4 @@ SHOW CREATE TABLE t1;
 SELECT COUNT(*) FROM t1;
 
 DROP TABLE t1;
+--enable_testcase

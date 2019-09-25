@@ -72,8 +72,12 @@ eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
      ENGINE=ROCKSDB;
 eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(b) COMMENT "$pk_cf")
      ENGINE=ROCKSDB;
+
+# Disable until partition support is added
+--disable_testcase BUG#888001
 eval CREATE TABLE t3(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
      ENGINE=ROCKSDB PARTITION BY KEY() PARTITIONS 4;
+--enable_testcase
 
 --let $file = `SELECT CONCAT(@@datadir, "test_loadfile.txt")`
 # Create a text file with data to import into the table.
@@ -82,6 +86,7 @@ eval CREATE TABLE t3(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
 perl;
 my $fn = $ENV{'ROCKSDB_INFILE'};
 open(my $fh, '>', $fn) || die "perl open($fn): $!";
+
 my $max = 5000000;
 my $sign = 1;
 for (my $ii = 0; $ii < $max; $ii++)
@@ -111,20 +116,30 @@ set rocksdb_bulk_load_size=100000;
 eval LOAD DATA INFILE '$file' INTO TABLE t1;
 --echo LOAD DATA INFILE <input_file> INTO TABLE t2;
 eval LOAD DATA INFILE '$file' INTO TABLE t2;
+
+# Disable until partition support is added
+--disable_testcase BUG#888001
 --echo LOAD DATA INFILE <input_file> INTO TABLE t3;
 eval LOAD DATA INFILE '$file' INTO TABLE t3;
+--enable_testcase
+
 --enable_query_log
 set rocksdb_bulk_load=0;
 
 --remove_file $file
 
 # Make sure row count index stats are correct
---replace_column 6 # 7 # 8 # 9 #
+--replace_column 6 # 7 # 8 # 9 # 12 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
 
-ANALYZE TABLE t1, t2, t3;
+ANALYZE TABLE t1, t2;
 
---replace_column 6 # 7 # 8 # 9 #
+# Disable until partition support is added
+--disable_testcase BUG#888001
+ANALYZE TABLE t3;
+--enable_testcase
+
+--replace_column 6 # 7 # 8 # 9 # 12 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
 
 # Make sure all the data is there.
@@ -132,13 +147,22 @@ select count(a) from t1;
 select count(b) from t1;
 select count(a) from t2;
 select count(b) from t2;
+
+# Disable until partition support is added
+--disable_testcase BUG#888001
 select count(a) from t3;
 select count(b) from t3;
+--enable_testcase
 
 SELECT * FROM t1 FORCE INDEX (PRIMARY) LIMIT 3;
 SELECT * FROM t2 FORCE INDEX (PRIMARY) LIMIT 3;
 
 disconnect other;
-DROP TABLE t1, t2, t3;
+DROP TABLE t1, t2;
+
+# Disable until partition support is added
+--disable_testcase BUG#888001
+DROP TABLE t3;
+--enable_testcase
 
 --source include/wait_until_count_sessions.inc
