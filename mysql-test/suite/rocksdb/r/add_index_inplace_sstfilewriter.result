@@ -13,31 +13,21 @@ count(a)
 select count(b) from t1;
 count(b)
 3000000
-ALTER TABLE t1 ADD INDEX kb(b), ALGORITHM=INPLACE;
-ALTER TABLE t1 ADD INDEX kb_copy(b), ALGORITHM=COPY;
-ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rocksdb_max_row_locks limit' from ROCKSDB
 set session rocksdb_bulk_load=1;
-ALTER TABLE t1 ADD INDEX kb_copy(b), ALGORITHM=COPY;
+ALTER TABLE t1 ADD INDEX kb(b), ALGORITHM=COPY;
 set session rocksdb_bulk_load=0;
 SELECT COUNT(*) as c FROM
 (SELECT COALESCE(LOWER(CONV(BIT_XOR(CAST(CRC32(CONCAT_WS('#', `b`, CONCAT(ISNULL(`b`)))) AS UNSIGNED)), 10, 16)), 0) AS crc FROM `t1` FORCE INDEX(`kb`)
 UNION DISTINCT
 SELECT COALESCE(LOWER(CONV(BIT_XOR(CAST(CRC32(CONCAT_WS('#',
 `b`, CONCAT(ISNULL(`b`)))) AS UNSIGNED)), 10, 16)), 0) AS crc FROM `t1` FORCE
-INDEX(`kb_copy`)) as temp;
+INDEX(`kb`)) as temp;
 c
 1
-select count(*) from t1 FORCE INDEX(kb);
-count(*)
-3000000
-select count(*) from t1 FORCE INDEX(kb_copy);
-count(*)
-3000000
 select count(*) from t1 FORCE INDEX(PRIMARY);
 count(*)
 3000000
 ALTER TABLE t1 DROP INDEX kb, ALGORITHM=INPLACE;
-ALTER TABLE t1 DROP INDEX kb_copy, ALGORITHM=INPLACE;
 ALTER TABLE t1 ADD INDEX kb(b), ADD INDEX kab(a,b), ALGORITHM=INPLACE;
 SELECT COUNT(*) FROM t1 FORCE INDEX(kab);
 COUNT(*)
