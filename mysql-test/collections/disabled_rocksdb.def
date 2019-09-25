@@ -13,6 +13,7 @@ rocksdb_hotbackup.wdt : hotbackup feature is missing in 8.0
 rocksdb_hotbackup.xbstream_socket : hotbackup feature is missing in 8.0
 
 # Disable partition tests
+# disable_testcase BUG#888001
 rocksdb.rocksdb_cf_per_partition : partition feature is missing in 8.0
 rocksdb.partition : partition feature is missing in 8.0
 rocksdb.truncate_partition : partition feature is missing in 8.0
@@ -20,6 +21,7 @@ rocksdb.ttl_primary_with_partitions : partition feature is missing in 8.0
 rocksdb.ttl_secondary_with_partitions : partition feature is missing in 8.0
 rocksdb.issue495 : partition feature is missing in 8.0
 rocksdb.rocksdb_parts : partition feature is missing in 8.0
+rocksdb.get_error_message : partition feature is missing in 8.0
 
 # Missing authentication plugin
 rocksdb.rocksdb_deadlock_stress : authentication plugin is missing in 8.0
@@ -30,6 +32,7 @@ rocksdb.rqg_runtime : authentication plugin is missing in 8.0
 rocksdb.rqg_transactions : authentication plugin is missing in 8.0
 
 # Missing features
+# disable_testcase BUG#888001
 rocksdb.explicit_snapshot : missing patch
 rocksdb.create_no_primary_key_table : missing patch
 rocksdb.rocksdb_qcache : missing patch
@@ -43,4 +46,9 @@ rocksdb.gap_lock_raise_error : missing patch
 rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : missing patch
 rocksdb.innodb_i_s_tables_disabled : missing patch
 rocksdb.force_shutdown: missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
+
+# Schema Validation
+rocksdb.validate_datadic : redesign the testcase around schema validation
+rocksdb.skip_validate_tmp_table : redesign the testcase around schema validation
+rocksdb.duplicate_table: redesign the testcase around schema validation
 
