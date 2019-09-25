@@ -116,6 +116,9 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -150,6 +153,9 @@ pk	a	b
 bbb	2222	2
 DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -185,6 +191,9 @@ pk	a	b
 bbb	2222	2
 DROP TABLE t1;
 CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -245,36 +254,6 @@ a	b
 SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 a	b
 3	7
-DROP TABLE t1;
-CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE = ROCKSDB PARTITION BY KEY(i) PARTITIONS 4;
-ALTER TABLE t1 ADD INDEX kij(i,j), ALGORITHM=INPLACE;
-DROP INDEX kij ON t1;
-SHOW CREATE TABLE t1;
-Table	Create Table
-t1	CREATE TABLE `t1` (
-  `i` int(11) NOT NULL DEFAULT '0',
-  `j` int(11) DEFAULT NULL,
-  `k` int(11) DEFAULT NULL,
-  PRIMARY KEY (`i`),
-  KEY `j` (`j`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
-/*!50100 PARTITION BY KEY (i)
-PARTITIONS 4 */
-SELECT * FROM t1 ORDER BY i LIMIT 10;
-i	j	k
-1	1	1
-2	2	2
-3	3	3
-4	4	4
-5	5	5
-6	6	6
-7	7	7
-8	8	8
-9	9	9
-10	10	10
-SELECT COUNT(*) FROM t1;
-COUNT(*)
-100
 DROP TABLE t1;
 CREATE TABLE t1 (a INT, b TEXT);
 ALTER TABLE t1 ADD KEY kb(b(10));
@@ -369,13 +348,15 @@ CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
 set global rocksdb_force_flush_memtable_now=1;
 ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
 larger
-1
+0
+# restart
 larger
-1
+0
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 larger
 1
+# restart
 larger
 1
 Table	Op	Msg_type	Msg_text
@@ -427,6 +408,9 @@ a INT PRIMARY KEY,
 b varchar(10),
 index kb(b(5))
 ) ENGINE = ROCKSDB charset utf8 collate utf8_bin;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 INSERT INTO t1 (a,b) VALUES (1,'1111122222');
 INSERT INTO t1 (a,b) VALUES (2,'2222233333');
 INSERT INTO t1 (a,b) VALUES (3,'3333344444');
@@ -457,12 +441,12 @@ analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 SHOW INDEX in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	a	A	4	NULL	NULL		LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	a	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
 ALTER TABLE t1 ADD INDEX kb(b), ALGORITHM=INPLACE;
 SHOW INDEX in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	a	A	4	NULL	NULL		LSMTREE		
-t1	1	kb	1	b	A	2	NULL	NULL	YES	LSMTREE		
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	a	A	4	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	kb	1	b	A	2	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
 DROP TABLE t1;
 SET global rocksdb_table_stats_sampling_pct = @prior_rocksdb_table_stats_sampling_pct;

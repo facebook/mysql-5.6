@@ -143,6 +143,8 @@ SELECT * FROM t1 FORCE INDEX(kb) WHERE b > 5;
 SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 DROP TABLE t1;
 
+# Disable until partition support is added
+--disable_testcase BUG#888001
 #
 # Create tables with partitions and try to update/select from them.
 #
@@ -166,6 +168,7 @@ SELECT * FROM t1 ORDER BY i LIMIT 10;
 SELECT COUNT(*) FROM t1;
 
 DROP TABLE t1;
+--enable_testcase
 
 # test failure in prepare phase (due to collation)
 CREATE TABLE t1 (a INT, b TEXT);
