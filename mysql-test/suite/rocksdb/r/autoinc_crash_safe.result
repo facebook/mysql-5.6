@@ -22,23 +22,23 @@ commit;
 delete from t;
 # Master value before restart
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	7
 # Slave value before restart
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	6
 include/stop_slave.inc
 include/rpl_restart_server.inc [server_number=1]
 # Master value after restart
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
-test	t	6
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
+test	t	7
 include/rpl_restart_server.inc [server_number=2]
 include/start_slave.inc
 # Slave value after restart
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	6
 #
 # Testing interaction of merge markers with various DDL statements.
@@ -51,60 +51,84 @@ alter table t add primary key (i);
 alter table t modify i int auto_increment;
 include/rpl_restart_server.inc [server_number=1]
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
-test	t	6
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
+test	t	7
 # Remove auto_increment property.
 alter table t modify i int;
 include/rpl_restart_server.inc [server_number=1]
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
-test	t	NULL
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
+test	t	7
 # Add auto_increment property.
 insert into t values (123);
 alter table t modify i int auto_increment;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 # Add column j.
 alter table t add column j int;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 # Rename tables.
 rename table t to t2;
 rename table t2 to t;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 # Change auto_increment property
 alter table t auto_increment = 1000;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	1000
 alter table t auto_increment = 1;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 alter table t drop primary key, add key (i), auto_increment = 1;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 alter table t add key (j), auto_increment = 1;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	124
 alter table t modify i int;
 alter table t add column (k int auto_increment), add key(k), auto_increment=15;
 include/rpl_restart_server.inc [server_number=1]
+analyze table t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
 select table_schema, table_name, auto_increment from information_schema.tables where table_name = 't';
-table_schema	table_name	auto_increment
+TABLE_SCHEMA	TABLE_NAME	AUTO_INCREMENT
 test	t	16
 # Drop table.
 drop table t;
