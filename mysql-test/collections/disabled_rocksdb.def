@@ -52,3 +52,11 @@ rocksdb.validate_datadic : redesign the testcase around schema validation
 rocksdb.skip_validate_tmp_table : redesign the testcase around schema validation
 rocksdb.duplicate_table: redesign the testcase around schema validation
 
+# rpl_skip_tx_api
+rocksdb.trx_info_rpl : rpl_skip_tx_api missing
+rocksdb_rpl.rpl_skip_trx_api_binlog_format : rpl_skip_tx_api missing
+
+# rocksdb_read_free_rpl
+rocksdb.rocksdb_read_free_rpl : rocksdb_read_free_rpl missing
+rocksdb.rocksdb_read_free_rpl_stress : rocksdb_read_free_rpl missing
+
