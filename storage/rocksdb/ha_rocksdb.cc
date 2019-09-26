@@ -23,7 +23,7 @@
 /* The C++ file's header */
 #include "./ha_rocksdb.h"
 
-#ifdef TARGET_OS_LINUX
+#ifndef _WIN32 
 #include <errno.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
@@ -13822,7 +13822,7 @@ void Rdb_background_thread::run() {
 
 void Rdb_index_stats_thread::run() {
   const int WAKE_UP_INTERVAL = 1;
-#ifdef TARGET_OS_LINUX
+#ifndef _WIN32
   RDB_MUTEX_LOCK_CHECK(m_is_mutex);
   m_tid_set = true;
   m_tid = syscall(SYS_gettid);
@@ -13984,7 +13984,7 @@ int Rdb_index_stats_thread::renice(int nice_val) {
     return HA_EXIT_FAILURE;
   }
 
-#ifdef TARGET_OS_LINUX
+#ifndef _WIN32 
   int ret = setpriority(PRIO_PROCESS, m_tid, nice_val);
   if (ret != 0) {
     // NO_LINT_DEBUG
