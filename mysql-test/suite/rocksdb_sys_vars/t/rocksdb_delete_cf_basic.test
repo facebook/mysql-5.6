@@ -15,7 +15,6 @@ call mtr.add_suppression("Column family '[a-z_]+' not found");
 
 alter table mysql.slave_worker_info engine = MyISAM;
 alter table mysql.slave_relay_log_info engine = MyISAM;
-alter table mysql.slave_gtid_info engine = MyISAM;
 alter table mysql.slave_master_info engine = MyISAM;
 
 select count(*) from information_schema.rocksdb_ddl where cf = 'default';
@@ -65,5 +64,4 @@ DROP TABLE cf_deletion_test_table2;
 
 alter table mysql.slave_worker_info engine = ROCKSDB;
 alter table mysql.slave_relay_log_info engine = ROCKSDB;
-alter table mysql.slave_gtid_info engine = ROCKSDB;
 alter table mysql.slave_master_info engine = ROCKSDB;
