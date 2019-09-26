@@ -21,7 +21,7 @@
 #include <queue>
 
 typedef struct st_mysql MYSQL;
-#ifdef DONT_SKIP_MYSQL_SERVER_IMPL
+#ifdef INCL_DEFINED_IN_MYSQL_SERVER
 extern bool enable_raft_plugin;
 #endif
 
@@ -464,6 +464,12 @@ typedef struct Raft_replication_observer {
                      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
                      mysql_cond_t *update_cond, ulong *cur_log_ext,
                      int context);
+
+  /**
+   * This callback is invoked by the server to gracefully shutdown the
+   * Raft threads
+   */
+  int (*before_shutdown)();
 } Raft_replication_observer;
 
 /**
@@ -763,7 +769,7 @@ class RaftListenerQueue
     std::atomic_bool inited_; // Has this been inited?
 };
   
-#ifdef DONT_SKIP_MYSQL_SERVER_IMPL
+#ifdef INCL_DEFINED_IN_MYSQL_SERVER
 extern RaftListenerQueue raft_listener_queue;
 #endif
 

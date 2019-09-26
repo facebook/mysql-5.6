@@ -2139,6 +2139,12 @@ static void close_connections(void)
   DBUG_VOID_RETURN;
 }
 
+static void plugin_shutdown_prework()
+{
+  sql_print_information("Sending shutdown call to raft plugin");
+  RUN_HOOK(raft_replication, before_shutdown, (nullptr));
+}
+
 #ifdef HAVE_CLOSE_SERVER_SOCK
 static void close_socket(MYSQL_SOCKET *sock, const char *info)
 {
@@ -2289,6 +2295,8 @@ static void __cdecl kill_server(int sig_ptr)
 
   /* Craete shutdown file */
   create_shutdown_file();
+
+  plugin_shutdown_prework();
 
   close_connections();
   if (sig != MYSQL_KILL_SIGNAL &&

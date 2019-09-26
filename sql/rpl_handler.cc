@@ -190,8 +190,10 @@ void delegates_destroy()
   plugins add to thd->lex will be automatically unlocked.
  */
 #define FOREACH_OBSERVER(r, f, thd, args)                               \
-  param.server_id= thd->server_id;                                      \
-  param.host_or_ip= thd->security_ctx->host_or_ip;                      \
+  if (thd) {                                                            \
+    param.server_id= thd->server_id;                                    \
+    param.host_or_ip= thd->security_ctx->host_or_ip;                    \
+  }                                                                     \
   /*
      Use a struct to make sure that they are allocated adjacent, check
      delete_dynamic().
@@ -607,6 +609,17 @@ int Raft_replication_delegate::setup_flush(
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::before_shutdown(THD *thd)
+{
+  DBUG_ENTER("Raft_replication_delegate::before_shutdown");
+  Binlog_storage_param param;
+  int ret= 0;
+
+  FOREACH_OBSERVER(ret, before_shutdown, thd, ());
+
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p)
 {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
@@ -675,6 +688,7 @@ int register_raft_replication_observer(
     Raft_replication_observer *observer, void *p)
 {
   DBUG_ENTER("register_raft_replication_observer");
+  raft_listener_queue.init();
   int result= raft_replication_delegate->add_observer(
       observer, (st_plugin_int *)p);
   DBUG_RETURN(result);
@@ -683,6 +697,7 @@ int register_raft_replication_observer(
 int unregister_raft_replication_observer(
     Raft_replication_observer *observer, void *p)
 {
+  raft_listener_queue.deinit();
   return raft_replication_delegate->remove_observer(
       observer, (st_plugin_int *)p);
 }
@@ -706,6 +721,11 @@ pthread_handler_t process_raft_queue(void *arg)
 
   /* Start listening for new events in the queue */
   bool exit= false;
+  // The exit is triggered by the raft plugin gracefully
+  // enqueing an exit function for this thread.
+  // if we listen to abort_loop or thd->killed
+  // then we might not give the plugin the opportunity to
+  // do some critical tasks before exit
   while (!exit)
   {
     RaftListenerQueue::QueueElement element= raft_listener_queue.get();
@@ -801,6 +821,7 @@ RaftListenerQueue::QueueElement RaftListenerQueue::get()
 
 int RaftListenerQueue::init()
 {
+  sql_print_information("Initializing Raft listener queue");
   std::unique_lock<std::mutex> lock(init_mutex_);
   if (inited_)
     return 0; // Already inited
@@ -814,6 +835,7 @@ int RaftListenerQueue::init()
 
 void RaftListenerQueue::deinit()
 {
+  sql_print_information("Shutting down Raft listener queue");
   std::unique_lock<std::mutex> lock(init_mutex_);
   if (!inited_)
     return;

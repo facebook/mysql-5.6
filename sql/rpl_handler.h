@@ -286,6 +286,8 @@ public:
                   const char *log_prefix, const char *log_name,
                   mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
                   mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
+
+  int before_shutdown(THD *thd);
 };
 
 int delegates_init();
