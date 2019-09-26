@@ -34,8 +34,6 @@ select "--- slave state before crash ---" as "";
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
--- replace_result $uuid uuid
-select * from mysql.slave_gtid_info;
 
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
 
@@ -68,8 +66,6 @@ connection slave;
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
--- replace_result $uuid uuid
-select * from mysql.slave_gtid_info;
 
 --disable_query_log
 select "--- slave state after restart, slave start ---" as "";
@@ -81,8 +77,6 @@ connection slave;
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
--- replace_result $uuid uuid
-select * from mysql.slave_gtid_info;
 
 connection master;
 insert into x values (6,1,1);
@@ -91,8 +85,6 @@ connection slave;
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
--- replace_result $uuid uuid
-select * from mysql.slave_gtid_info;
 
 connection master;
 insert into x values (7,1,1);
@@ -143,8 +135,6 @@ connection slave;
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
--- replace_result $uuid uuid
-select * from mysql.slave_gtid_info;
 
 connection master;
 drop table x;
