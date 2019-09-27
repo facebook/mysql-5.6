@@ -260,8 +260,7 @@ int Rdb_cf_manager::remove_dropped_cf(Rdb_dict_manager *const dict_manager,
     thd->thread_stack = reinterpret_cast<char *>(&(thd));
     thd->store_globals();
     const char act[] =
-        "now signal ready_to_restart_during_drop_cf wait_for "
-        "restart_done_during_drop_cf";
+        "now signal ready_to_restart_during_drop_cf";
     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
     thd->restore_globals();
     delete thd;

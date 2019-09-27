@@ -54,7 +54,13 @@ class Rdb_logger : public rocksdb::Logger {
     // log to MySQL
     std::string f("LibRocksDB:");
     f.append(format);
-    sql_print_error(mysql_log_level, f.c_str(), ap);
+
+    // Given that we are working with a va_list, we can't pass it down
+    // to log_errlog_formatted and need to format the message ourselves
+    char msg[LOG_BUFF_MAX];
+    vsnprintf(msg, sizeof(msg) - 1, f.c_str(), ap);
+
+    log_errlog_formatted(mysql_log_level, msg);
   }
 
   void Logv(const char *format, va_list ap) override {
