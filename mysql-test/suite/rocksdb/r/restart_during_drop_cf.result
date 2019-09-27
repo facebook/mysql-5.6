@@ -14,6 +14,7 @@ cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 set debug_sync = "now wait_for ready_to_restart_during_drop_cf";
+# restart
 set @@global.debug = @old_debug;
 set @@global.debug = '+d,rocksdb_drop_cf';
 set global rocksdb_signal_drop_index_thread = true;
