@@ -60,3 +60,13 @@ rocksdb_rpl.rpl_skip_trx_api_binlog_format : rpl_skip_tx_api missing
 rocksdb.rocksdb_read_free_rpl : rocksdb_read_free_rpl missing
 rocksdb.rocksdb_read_free_rpl_stress : rocksdb_read_free_rpl missing
 
+# i_s.table_statistics
+rocksdb.show_table_status : table_statistics missing
+rocksdb.rocksdb_icp : table_statistics missing
+rocksdb.rocksdb_icp_rev : table_statistics missing
+rocksdb.optimizer_loose_index_scans : table_statistics missing
+rocksdb.lock_wait_timeout_stats : table_statistics missing
+rocksdb.rpl_row_stats : table_statistics missing
+rocksdb.table_stats : table_statistics missing
+rocksdb.bytes_written : table_statistics missing
+rocksdb.deadlock_statsh : table_statistics missing
