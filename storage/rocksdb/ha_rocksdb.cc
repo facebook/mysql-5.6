@@ -4068,17 +4068,37 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
 }
 
 /**
+  Compare two binlog files:positions
+  @param b1    binlog file1, might be null
+  @param p1    binlog pos2
+  @param b2    binlog file2
+  @param p2    binlog pos2
+  @return
+    true if (b2,p2) is larger than (b1,p1)
+*/
+bool is_binlog_advanced(const char *b1, const my_off_t p1,
+                        const char *b2, const my_off_t p2)
+{
+  if(!b1 || !b2 || p1 <= 0 || p2 <= 0)
+    return false;
+  int cmp = strlen(b1) - strlen(b2);
+  if(cmp)
+    return cmp < 0 ? true : false;
+  if(strcmp(b1, b2) == 0 && p1 < p2)
+    return true;
+  return false;
+}
+
+/**
   Reading last committed binary log info from RocksDB system row.
   The info is needed for crash safe slave/master to work.
 */
 static int rocksdb_recover(handlerton *const hton, XA_recover_txn *const xid_list,
                            uint len,
                            MEM_ROOT *mem_root,
-                           /* TODO(yzha) - 00861dd66bf make gtid enabled slave with less durable settings crash safe
+                           Gtid *const binlog_max_gtid,
                            char *const binlog_file,
-                           my_off_t *const binlog_pos, */
-                           Gtid *const binlog_max_gtid) {
-  /* TODO(yzha) - 00861dd66bf make gtid enabled slave with less durable settings crash safe
+                           my_off_t *const binlog_pos) {
   if (binlog_file && binlog_pos) {
     char file_buf[FN_REFLEN + 1] = {0};
     my_off_t pos;
@@ -4092,6 +4112,7 @@ static int rocksdb_recover(handlerton *const hton, XA_recover_txn *const xid_lis
                 "RocksDB: Last binlog file position %llu,"
                 " file name %s\n",
                 pos, file_buf);
+
         if (*gtid_buf) {
           global_sid_lock->rdlock();
           binlog_max_gtid->parse(global_sid_map, gtid_buf);
@@ -4102,7 +4123,6 @@ static int rocksdb_recover(handlerton *const hton, XA_recover_txn *const xid_lis
       }
     }
   }
-  */
 
   if (len == 0 || xid_list == nullptr) {
     return HA_EXIT_SUCCESS;
