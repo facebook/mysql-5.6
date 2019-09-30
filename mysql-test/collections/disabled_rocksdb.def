@@ -22,10 +22,12 @@ rocksdb.ttl_secondary_with_partitions : partition feature is missing in 8.0
 rocksdb.issue495 : partition feature is missing in 8.0
 rocksdb.rocksdb_parts : partition feature is missing in 8.0
 rocksdb.get_error_message : partition feature is missing in 8.0
+rocksdb.autoinc_crash_safe_partition : partition feature is missing in 8.0
 
 # Missing authentication plugin
 rocksdb.rocksdb_deadlock_stress : authentication plugin is missing in 8.0
 rocksdb.rocksdb_deadlock_stress_rc : authentication plugin is missing in 8.0
+rocksdb.rocksdb_deadlock_stress_rr : authentication plugin is missing in 8.0
 rocksdb.allow_no_pk_concurrent_insert : authentication plugin is missing in 8.0
 rocksdb.rqg_examples : authentication plugin is missing in 8.0
 rocksdb.rqg_runtime : authentication plugin is missing in 8.0
@@ -33,19 +35,34 @@ rocksdb.rqg_transactions : authentication plugin is missing in 8.0
 
 # Missing features
 # disable_testcase BUG#888001
-rocksdb.explicit_snapshot : missing patch
+rocksdb.explicit_snapshot : missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
 rocksdb.create_no_primary_key_table : missing patch
 rocksdb.rocksdb_qcache : missing patch
 rocksdb.skip_core_dump_on_error : missing patch
-rocksdb.optimize_myrocks_replace_into_base : missing patch
-rocksdb.optimize_myrocks_replace_into_lock : missing patch
-rocksdb_rpl.optimize_myrocks_replace_into : missing patch
-rocksdb.mysqlbinlog_blind_replace : missing patch
 rocksdb.gap_lock_issue254 : missing patch
 rocksdb.gap_lock_raise_error : missing patch
 rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : missing patch
 rocksdb.innodb_i_s_tables_disabled : missing patch
 rocksdb.force_shutdown: missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
+rocksdb_rpl.rpl_rocksdb_schema_change : missing 031b5cec711 Use column names while applying row changes on slave
+rocksdb_rpl.rpl_gtid_rocksdb_sys_header: missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
+rocksdb_rpl.rocksdb_slave_check_before_image_consistency : missing d8c69f9f5a9 [replication] Check before image consistency before applying row events
+rocksdb_rpl.rpl_no_unique_check_on_lag : missing d80175902ee Disable unique checks when replica is lagging
+rocksdb_rpl.rpl_no_unique_check_on_lag_mts : missing d80175902ee Disable unique checks when replica is lagging
+rocksdb.percona_nonflushing_analyze_debug : missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE TABLE from flushing table definition cache)
+rocksdb.2pc_group_commit : missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
+rocksdb.slow_query_log : missing 91d708f9efb Add support for reporting keys/deletes skipped in the extra slow query log
+
+# Blind replace
+rocksdb.optimize_myrocks_replace_into_base : missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb.optimize_myrocks_replace_into_lock : missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb_rpl.optimize_myrocks_replace_into : missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb.mysqlbinlog_blind_replace : missing patch f14c64cf950 Optimize replace into to do a blind write
+
+# Recovery
+rocksdb_rpl.rpl_ttl_ignore_idempotent_errors : missing 92a364f86100 Ignore idempotent error in TTL tables
+rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
+rocksdb_rpl.rpl_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
 
 # Schema Validation
 rocksdb.validate_datadic : redesign the testcase around schema validation
@@ -69,4 +86,12 @@ rocksdb.lock_wait_timeout_stats : table_statistics missing
 rocksdb.rpl_row_stats : table_statistics missing
 rocksdb.table_stats : table_statistics missing
 rocksdb.bytes_written : table_statistics missing
-rocksdb.deadlock_statsh : table_statistics missing
+rocksdb.deadlock_stats : table_statistics missing
+
+# Detached session
+rocksdb.com_rpc_tx : detached session is missing in 8.0
+
+# Misc bugs
+rocksdb.bloomfilter3 : query plan is different between 8.0 and 5.6
+rocksdb.issue884 : query plan is different between 8.0 and 5.6
+

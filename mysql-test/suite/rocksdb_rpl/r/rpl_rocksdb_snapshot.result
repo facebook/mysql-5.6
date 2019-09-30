@@ -30,7 +30,7 @@ ROLLBACK;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	531	UUID:1-2
+master-bin.000001	629	UUID:1-2
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);
@@ -50,16 +50,16 @@ CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 VALUES(1);
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1510	UUID:1-7
+master-bin.000001	1840	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1510	UUID:1-7
+master-bin.000001	1840	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1510	UUID:1-7
+master-bin.000001	1840	UUID:1-7
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	1510	UUID:1-7
+master-bin.000001	1840	UUID:1-7
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);
@@ -80,7 +80,7 @@ LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_rocksdb_snapshot.out.file' INTO TAB
 SELECT * FROM t1;
 a
 1
-CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos;
+CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos,master_auto_position=0;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -134,16 +134,16 @@ CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=rocksdb;
 INSERT INTO t1 VALUES(1);
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	3688	UUID:1-18
+master-bin.000001	4534	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	3688	UUID:1-18
+master-bin.000001	4534	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	3688	UUID:1-18
+master-bin.000001	4534	UUID:1-18
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000001	3688	UUID:1-18
+master-bin.000001	4534	UUID:1-18
 # Switch to connection con2
 INSERT INTO t1 VALUES(2);
 INSERT INTO t1 VALUES(3);

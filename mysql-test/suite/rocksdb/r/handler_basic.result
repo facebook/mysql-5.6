@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS t1;
-FLUSH STATUS;
 CREATE TABLE t1 (id INT PRIMARY KEY, a VARCHAR(100), b INT,
 INDEX b(b)) ENGINE=rocksdb;
+FLUSH STATUS;
 INSERT INTO t1 (id,a,b) VALUES (1,'foobar',100),(2,'z',0),(3,'bar',50);
 SHOW SESSION STATUS LIKE 'Handler_write%';
 Variable_name	Value
