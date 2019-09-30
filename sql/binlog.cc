@@ -8666,7 +8666,13 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   for (THD *head = first_seen; head; head = head->next_to_commit) {
     std::pair<int, my_off_t> result = flush_thread_caches(head);
     total_bytes += result.second;
-    if (flush_error == 1) flush_error = result.first;
+    if (flush_error == 1)
+      flush_error = result.first;
+    else if (result.first) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "flush stage hides errors of follower threads in the group");
+    }
 #ifndef DBUG_OFF
     no_flushes++;
 #endif
