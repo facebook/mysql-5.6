@@ -32,7 +32,7 @@ connection con1;
 select * from i1;
 select * from r1;
 
-# This takes RocksDB snapshot only but both InnoDB participates in transaction.
+# Both Rocksdb/InnoDB participate in snapshot
 -- replace_result $uuid uuid
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 
@@ -41,7 +41,6 @@ insert into i1 values (2,2);
 insert into r1 values (2,2);
 
 connection con1;
-# takes InnoDB snapshot here so changes after that not visible
 select * from i1;
 select * from r1;
 
@@ -53,7 +52,7 @@ connection con1;
 select * from i1;
 select * from r1;
 
-# RocksDB also partipates in transaction
+# Both Rocksdb/InnoDB participate in snapshot
 -- replace_result $uuid uuid
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
 
@@ -61,7 +60,6 @@ connection con2;
 insert into r1 values (4,4);
 
 connection con1;
-# takes RocksDB snapshot here so changes after that are not visible
 select * from r1;
 
 connection con2;
