@@ -3,10 +3,6 @@
 ################################################################################
 # Test the --skip-empty-trans option for mysqlbinlog with rocksdb
 ################################################################################
---disable_warnings
---source include/have_gtid.inc
---enable_warnings
-
 reset master;
 set timestamp=1000000000;
 let $storage_engine=rocksdb;

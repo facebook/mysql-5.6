@@ -10,6 +10,6 @@ insert into t1 values(2);
 FLUSH LOGS;
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 File	Position	Gtid_executed
-master-bin.000003	120	
+master-bin.000003	155	
 drop table t1;
 include/rpl_end.inc
