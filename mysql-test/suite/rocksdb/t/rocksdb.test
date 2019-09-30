@@ -38,23 +38,23 @@ create table t1 (
 insert into t1 values
 (1,1,1), (2,2,2), (3,3,3), (4,4,4);
 
-set @var1=(select variable_value 
-           from performance_schema.global_status 
+set @var1=(select variable_value
+           from performance_schema.global_status
            where variable_name='rocksdb_number_keys_written');
 
 --echo # Do an update that doesn't change the key 'a'.
 update t1 set b=3334341 where a=2;
 
-set @var2=(select variable_value 
-           from performance_schema.global_status 
+set @var2=(select variable_value
+           from performance_schema.global_status
            where variable_name='rocksdb_number_keys_written');
 --echo # The following should produce 1
 select @var2 - @var1;
 
 --echo # Do an update that sets the key to the same value
 update t1 set a=pk where a=3;
-set @var3=(select variable_value 
-           from performance_schema.global_status 
+set @var3=(select variable_value
+           from performance_schema.global_status
            where variable_name='rocksdb_number_keys_written');
 --echo # We have 'updated' column to the same value, so the following must return 0:
 select @var3 - @var2;
@@ -80,7 +80,7 @@ select * from t2;
 select * from t1;
 
 explain select * from t2 where a='no-such-key';
---replace_column 9 #
+--replace_column 10 # 11 #
 explain select * from t2 where a='abc';
 select * from t2 where a='abc';
 
@@ -188,7 +188,7 @@ insert into t8 values
  ('five', 'funf');
 
 --echo # Delete by PK
---replace_column 9 #
+--replace_column 10 # 11 #
 explain delete from t8 where a='three';
 delete from t8 where a='three';
 
@@ -263,7 +263,7 @@ INSERT INTO t11 VALUES (1),(4);
 
 select * from t10;
 select * from t11;
---replace_column 9 #
+--replace_column 10 # 11 #
 EXPLAIN
 SELECT * FROM t10, t11 WHERE i=j;
 SELECT * FROM t10, t11 WHERE i=j;
@@ -278,6 +278,8 @@ INSERT INTO t12 VALUES (2),(1);
 SELECT * FROM t12 ORDER BY pk;
 DROP TABLE t12;
 
+# Disable until partition support is added
+--disable_testcase BUG#888001
 --echo #
 --echo # MDEV-3964: Assertion `!pk_descr' fails in ha_rocksdb::open on adding partitions ...
 --echo #
@@ -286,6 +288,7 @@ create table t14 (pk int primary key) engine=RocksDB partition by hash(pk) parti
 #alter table t14 add partition partitions 2;
 # ^^ works, but causes weird warnings in error log.
 drop table t14;
+--enable_testcase
 
 --echo #
 --echo # MDEV-3960: Server crashes on running DISCARD TABLESPACE on a RocksDB table
@@ -539,18 +542,18 @@ insert into t30 values ('row1', 'row1-key', 'row1-data');
 insert into t30 values ('row2', 'row2-key', 'row2-data');
 insert into t30 values ('row3', 'row3-key', 'row3-data');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select * from t30 where key1='row2-key';
 select * from t30 where key1='row2-key';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where key1='row1';
 --echo # This will produce nothing:
 select * from t30 where key1='row1';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select key1 from t30;
 select key1 from t30;
@@ -575,37 +578,37 @@ insert into t30 values
   ('row4', 'row4-key', 'row4-data'),
   ('row5', 'row5-key', 'row5-data');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where key1 <='row3-key'; 
 select * from t30 where key1 <='row3-key'; 
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where key1 between 'row2-key' and 'row4-key';
 select * from t30 where key1 between 'row2-key' and 'row4-key';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where key1 in ('row2-key','row4-key');
 select * from t30 where key1 in ('row2-key','row4-key');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t30 where key1 in ('row2-key','row4-key');
 select key1 from t30 where key1 in ('row2-key','row4-key');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
 select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 order by key1 limit 3;
 select * from t30 order by key1 limit 3;
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 order by key1 desc limit 3;
 select * from t30 order by key1 desc limit 3;
@@ -613,22 +616,22 @@ select * from t30 order by key1 desc limit 3;
 --echo #
 --echo # Range scans on primary key
 --echo #
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where pk <='row3'; 
 select * from t30 where pk <='row3'; 
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where pk between 'row2' and 'row4';
 select * from t30 where pk between 'row2' and 'row4';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 where pk in ('row2','row4');
 select * from t30 where pk in ('row2','row4');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t30 order by pk limit 3;
 select * from t30 order by pk limit 3;
@@ -871,7 +874,7 @@ insert into t1 values (1,1,1);
 insert into t1 values (2,2,2);
 insert into t1 values (-5,-5,-5);
 --echo # INT column uses index-only:
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select key1 from t1 where key1=2;
 select key1 from t1 where key1=2;
@@ -882,7 +885,7 @@ drop table t1;
 create table t2 (pk int primary key, key1 int unsigned, col1 int, key(key1)) engine=rocksdb;
 insert into t2 values (1,1,1), (2,2,2);
 --echo # INT UNSIGNED column uses index-only:
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select key1 from t2 where key1=2;
 select key1 from t2 where key1=2;
@@ -892,7 +895,7 @@ drop table t2;
 create table t3 (pk bigint primary key, key1 bigint, col1 int, key(key1)) engine=rocksdb;
 insert into t3 values (1,1,1), (2,2,2);
 --echo # BIGINT uses index-only:
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t3 where key1=2;
 select key1 from t3 where key1=2;
@@ -908,7 +911,7 @@ create table t1 (
   key (key1)
 ) engine=rocksdb;
 insert into t1 values(1, 'one',11), (2,'two',22);
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t1 where key1='one';
 --echo # The following will produce no rows. This looks like a bug,
@@ -916,7 +919,7 @@ select key1 from t1 where key1='one';
 --echo #  with \0 character (and not space).  Comparison does not ignore
 --echo #   the tail of \0.
 select key1 from t1 where key1='one';
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
 select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
@@ -930,7 +933,7 @@ create table t2 (
   key (key1)
 ) engine=rocksdb;
 insert into t2 values(1, 'one',11), (2,'two',22);
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t2 where key1='one';
 select key1 from t2 where key1='one';
@@ -944,7 +947,7 @@ create table t3 (
   key (key1)
 ) engine=rocksdb;
 insert into t3 values(1, 'one',11), (2,'two',22);
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t3 where key1='one';
 select key1 from t3 where key1='one';
@@ -959,14 +962,14 @@ create table t4 (
 ) engine=rocksdb; 
 insert into t4 values(1, 'one'), (2,'two'),(3,'threee'),(55,'fifty-five');
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t4 where key1='two';
 select key1 from t4 where key1='two';
 
 select key1 from t4 where key1='fifty-five';
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select key1 from t4 where key1 between 's' and 'u';
 select key1 from t4 where key1 between 's' and 'u';
@@ -1198,7 +1201,7 @@ drop table t1;
 create table t1 (i int primary key auto_increment) engine=RocksDB;
 
 insert into t1 values (null),(null);
---replace_column 7 #
+--replace_column 7 # 12 #
 show table status like 't1';
 drop table t1;
 
@@ -1247,10 +1250,12 @@ drop table t0, t1;
 --replace_column 2 #
 show status where variable_name like 'rocksdb%' and variable_name not like '%num_get_for_update%';
 
-select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
+--sorted_result
+select UPPER(VARIABLE_NAME) from performance_schema.global_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 --echo # RocksDB-SE's status variables are global internally 
 --echo #  but they are shown as both session and global, like InnoDB's status vars.
-select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
+--sorted_result
+select UPPER(VARIABLE_NAME) from performance_schema.session_status where VARIABLE_NAME LIKE 'rocksdb%' and VARIABLE_NAME NOT LIKE '%num_get_for_update%';
 
 
 --echo #
@@ -1306,12 +1311,12 @@ create table t1 (
 
 insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select * from t1 where col1=2;
 select * from t1 where col1=2;
  
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select * from t1 where col2=3;
 select * from t1 where col2=3;
@@ -1333,7 +1338,7 @@ create table t1 (
 ) engine=rocksdb;
 insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain
 select * from t1 where col1=2;
 select * from t1 where col1=2;
@@ -1386,18 +1391,18 @@ create table t1 (
 
 insert into t1 select A.a, B.a, 31, 1234 from t0 A, t0 B;
 
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select * from t1 where id1=30 and value1=30 for update;
 
-set @var1=(select variable_value 
-           from performance_schema.global_status 
+set @var1=(select variable_value
+           from performance_schema.global_status
            where variable_name='rocksdb_number_keys_read');
 
 select * from t1 where id1=3 and value1=3 for update;
 
-set @var2=(select variable_value 
-           from performance_schema.global_status 
+set @var2=(select variable_value
+           from performance_schema.global_status
            where variable_name='rocksdb_number_keys_read');
 --echo # The following must return true (before the fix, the difference was 70):
 select if((@var2 - @var1) < 30, 1, @var2-@var1);
@@ -1410,7 +1415,7 @@ drop table t0,t1;
 create table t1 (id int primary key, value int) engine=rocksdb;
 insert into t1 values (1,1),(2,2),(3,3);
 --echo # The following must not use 'Using filesort':
---replace_column 9 #
+--replace_column 10 # 11 #
 explain select * from t1 ORDER BY id;
 drop table t1;
 
@@ -1434,7 +1439,7 @@ select date_add('2015-01-01 12:34:56', interval a day), a from t0;
 select * from t1;
 
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
@@ -1452,7 +1457,7 @@ create table t2 (
 ) engine=rocksdb;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
@@ -1475,7 +1480,7 @@ select date_add('2015-01-01', interval a day), a from t0;
 select * from t1;
 
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01' and '2015-01-05';
@@ -1493,7 +1498,7 @@ create table t2 (
 ) engine=rocksdb;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
@@ -1518,7 +1523,7 @@ select date_add('2015-01-01 12:34:56', interval a day), a from t0;
 select * from t1;
 
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
@@ -1536,7 +1541,7 @@ create table t2 (
 ) engine=rocksdb;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
@@ -1563,7 +1568,7 @@ select date_add('2015-01-01 09:00:00', interval a minute), a from t0;
 select * from t1;
 
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
@@ -1581,7 +1586,7 @@ create table t2 (
 ) engine=rocksdb;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '09:01:00' and '09:05:00';
@@ -1607,7 +1612,7 @@ insert into t1 (kp1,kp2) select 2015+a, a from t0;
 select * from t1;
 
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2016' and '2020';
@@ -1625,7 +1630,7 @@ create table t2 (
 ) engine=rocksdb;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
---replace_column 9 #
+--replace_column 10 # 11 #
 explain 
 select kp1,kp2 from t2 force index (kp1) 
 where kp1 between '2016' and '2020';
@@ -1670,9 +1675,9 @@ create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) en
 set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
---replace_column 9 #
+--replace_column 10 # 11 #
 explain select * from t1 where b like '1%';
---replace_column 9 #
+--replace_column 10 # 11 #
 explain select b, a from t1 where b like '1%';
 update t1 set b= '12345' where b = '2abcde';
 select * from t1;
@@ -1850,6 +1855,8 @@ COMMIT;
 UNLOCK TABLES;
 DROP TABLE t1;
 
+# Disable until partition support is added
+--disable_testcase BUG#888001
 --echo #
 --echo # Issue#213 Crash on LOCK TABLES + partitions
 --echo #
@@ -1861,6 +1868,7 @@ truncate t1;
 INSERT INTO t1 VALUES(X'042000200020',X'042000200020'),(X'200400200020',X'200400200020');
 UNLOCK TABLES;
 DROP TABLE t1;
+--enable_testcase
 
 --echo #
 --echo # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
@@ -1878,7 +1886,7 @@ INSERT INTO t1 VALUES ('c1-val1','c2-val1',5);
 INSERT INTO t1 VALUES ('c1-val2','c2-val3',6);
 INSERT INTO t1 VALUES ('c1-val3','c2-val3',7);
 SELECT * FROM t1 force index(idx) WHERE c1 <> 'c1-val2' ORDER BY c1 DESC;
---replace_column 9 #
+--replace_column 10 # 11 #
 explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
 drop table t1;
 
@@ -1903,11 +1911,13 @@ DROP TABLE t1;
 # value is 4 while MyRocks will show it as 3.
 CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
 INSERT INTO t1 VALUES(0),(-1),(0);
+--replace_column 12 #
 SHOW TABLE STATUS LIKE 't1';
 SELECT * FROM t1;
 DROP TABLE t1;
 CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
 INSERT INTO t1 VALUES(0),(10),(0);
+--replace_column 12 #
 SHOW TABLE STATUS LIKE 't1';
 SELECT * FROM t1;
 DROP TABLE t1;

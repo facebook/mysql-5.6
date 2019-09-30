@@ -122,7 +122,7 @@ eval LOAD DATA INFILE '$outfile' INTO TABLE t1;
 SELECT * FROM t1;
 
 --replace_result $MASTER_MYPORT MASTER_PORT $binlog_pos binlog_pos
-eval CHANGE MASTER TO master_host="127.0.0.1",master_port=$MASTER_MYPORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=$binlog_pos;
+eval CHANGE MASTER TO master_host="127.0.0.1",master_port=$MASTER_MYPORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=$binlog_pos,master_auto_position=0;
 --source include/start_slave.inc
 
 connection master;
