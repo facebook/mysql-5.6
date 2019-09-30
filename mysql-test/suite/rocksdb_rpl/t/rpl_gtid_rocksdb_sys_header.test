@@ -22,6 +22,7 @@ insert into t1 values(2);
 
 connection slave;
 disable_warnings;
+--let $rpl_allow_error=1
 source include/start_slave.inc;
 enable_warnings;
 connection master;

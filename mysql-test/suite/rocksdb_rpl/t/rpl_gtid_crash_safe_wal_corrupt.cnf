@@ -16,3 +16,4 @@ gtid_mode=ON
 enforce_gtid_consistency=ON
 rocksdb_enable_2pc=OFF
 rocksdb_wal_recovery_mode=2
+slave_use_idempotent_for_recovery=Yes
