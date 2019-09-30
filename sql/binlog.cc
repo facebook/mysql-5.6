@@ -7544,6 +7544,12 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
     total_bytes+= result.second;
     if (flush_error == 1)
       flush_error= result.first;
+    else if (result.first)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "flush stage hides errors of follower threads in the group");
+    }
 
     /* Reset prepared_engine for every thd in the queue. */
     head->prepared_engine->clear();
