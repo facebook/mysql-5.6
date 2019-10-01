@@ -11957,11 +11957,6 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
         max_key->flag == HA_READ_AFTER_KEY) {
       kd.successor(m_sk_packed_tuple_old, size2);
     }
-    // pad the upper key with FFFFs to make sure it is more than the lower
-    if (size1 > size2) {
-      memset(m_sk_packed_tuple_old + size2, 0xff, size1 - size2);
-      size2 = size1;
-    }
   } else {
     kd.get_supremum_key(m_sk_packed_tuple_old, &size2);
   }
@@ -11969,8 +11964,11 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
   const rocksdb::Slice slice1((const char *)m_sk_packed_tuple, size1);
   const rocksdb::Slice slice2((const char *)m_sk_packed_tuple_old, size2);
 
-  // slice1 >= slice2 means no row will match
+  // It's possible to get slice1 == slice2 for a non-inclusive range with the
+  // right bound being successor() of the left one, e.g. "t.key>10 AND t.key<11"
   if (slice1.compare(slice2) >= 0) {
+    // It's not possible to get slice2 > slice1
+    DBUG_ASSERT(slice1.compare(slice2) == 0);
     DBUG_RETURN(HA_EXIT_SUCCESS);
   }
 
