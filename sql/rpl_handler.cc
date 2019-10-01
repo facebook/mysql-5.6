@@ -754,7 +754,6 @@ pthread_handler_t process_raft_queue(void *arg)
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
-        raft_listener_queue.deinit();
         exit= true;
         break;
       case RaftListenerCallbackType::TRIM_LOGGED_GTIDS:
