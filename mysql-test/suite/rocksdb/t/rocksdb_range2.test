@@ -19,3 +19,63 @@ select count(*) from t1;
 explain select c1 from t1 where c1 > 5 limit 10;
 drop table t1;
 
+
+--echo #
+--echo # Issue #1052: ha_rocksdb::records_in_range() vastly overestimates the number of rows in certain ranges
+--echo #
+
+CREATE TABLE t1 (
+  part_id smallint(5) unsigned NOT NULL,
+  oid bigint(20) unsigned NOT NULL,
+  tid bigint(20) unsigned NOT NULL,
+  filler char(32),
+  KEY tid (part_id,tid,oid)
+) ENGINE=ROCKSDB;
+
+create table t2(a int primary key);
+insert into t2 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t3(a int primary key);
+insert into t3 select A.a + B.a* 10 + C.a * 100 from t2 A, t2 B, t2 C;
+
+set rocksdb_max_row_locks=1000000;
+insert into t1
+select 
+  0, 
+  A.a + 1000*B.a,
+  A.a + 1000*B.a,
+  'filler-data'
+from t2 A, t3 B;
+
+insert into t1
+select 
+  1,
+  A.a + 1000*B.a,
+  A.a + 1000*B.a,
+  'filler-data'
+from t2 A, t3 B;
+set global rocksdb_force_flush_memtable_now=1;
+
+--replace_column 9 #
+explain select * from t1 where part_id=0 and tid>100000000;
+
+--echo # We can't check "rows" in EXPLAIN output directly as that value tends
+--echo # to change a bit. Instead, check that the value is sufficiently low
+
+let $explain=`explain select * from t1 where part_id=0 and tid>100000000`;
+--disable_query_log
+eval set @a= '$explain';
+set @a=(select substr(@a, 1+locate('\t', @a))); # id
+set @a=(select substr(@a, 1+locate('\t', @a))); # select_type
+set @a=(select substr(@a, 1+locate('\t', @a))); # table
+set @a=(select substr(@a, 1+locate('\t', @a))); # type
+set @a=(select substr(@a, 1+locate('\t', @a))); # possible_keys
+set @a=(select substr(@a, 1+locate('\t', @a))); # key
+set @a=(select substr(@a, 1+locate('\t', @a))); # key_len
+set @a=(select substr(@a, 1+locate('\t', @a))); # ref
+# ok now at rows
+set @a=(select substr(@a, 1, locate('\t', @a)-1)); # rows
+--enable_query_log
+
+select @a < 10 as "MUST BE 1";
+drop table t2,t3,t1;
