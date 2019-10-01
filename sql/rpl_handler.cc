@@ -713,6 +713,8 @@ pthread_handler_t process_raft_queue(void *arg)
   thd= new THD;
   pthread_detach_this_thread();
   thd->thread_stack= (char *)&thd;
+  thd->store_globals();
+  thd->thr_create_utime= thd->start_utime= my_micro_time();
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
