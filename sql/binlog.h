@@ -28,6 +28,8 @@
 #include <time.h>
 #include <atomic>
 #include <list>
+#include <mutex>
+#include <unordered_map>
 #include <utility>
 
 #include "binlog_event.h"  // enum_binlog_checksum_alg
@@ -48,6 +50,7 @@
 #include "mysql_com.h"  // Item_result
 #include "rpl_gtid.h"
 #include "sql/rpl_trx_tracking.h"
+#include "sql/sql_class.h"         // THD
 #include "sql/tc_log.h"            // TC_LOG
 #include "sql/transaction_info.h"  // Transaction_ctx
 #include "thr_mutex.h"
@@ -74,6 +77,7 @@ struct Gtid;
 typedef int64 query_id_t;
 
 using log_file_name_container = std::list<std::string>;
+using database_hlc_container = std::unordered_map<std::string, uint64_t>;
 
 /*
   Maximum unique log filename extension.
@@ -375,9 +379,34 @@ class HybridLogicalClock {
    */
   uint64_t update(uint64_t minimum_hlc);
 
+  /**
+   * Update the applied HLC for specified databases
+   *
+   * @param  databases - the databases for which hlc needs to be updated
+   * @param  applied_hlc - Applied HLC
+   */
+  void update_database_hlc(const database_container &databases,
+                           uint64_t applied_hlc);
+
+  /**
+   * Get the applied hlc for all the database that is being tracked by this
+   * clock
+   *
+   * @param  [out] A map of database->applied_hlc
+   */
+  database_hlc_container get_database_hlc() const;
+
  private:
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
+
+  /**
+   * A map of applied HLC for each database. The key is the name of the database
+   * and the value is the applied_hlc for that database. Applied HLC is the HLC
+   * of the last known trx that was applied (committed) to the engine
+   */
+  database_hlc_container database_applied_hlc_;
+  mutable std::mutex database_applied_hlc_lock_;
 };
 
 /*
@@ -769,6 +798,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
      'minimum hlc' - updates on which will call this function. This can also
      be used to synchronize HLC across different communicating instances */
   uint64_t update_hlc(uint64_t minimum_hlc) { return hlc.update(minimum_hlc); }
+
+  /* get the applied HLC for all known databases in this instance */
+  database_hlc_container get_database_hlc() const {
+    return hlc.get_database_hlc();
+  }
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};

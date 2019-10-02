@@ -1,2 +1,2 @@
 --gtid_mode=ON --enforce_gtid_consistency --log_bin --log_slave_updates
---enable_binlog_hlc=ON
+--enable_binlog_hlc=ON --maintain_database_hlc=ON

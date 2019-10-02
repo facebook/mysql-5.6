@@ -7469,6 +7469,20 @@ static Sys_var_bool Sys_enable_binlog_hlc(
     GLOBAL_VAR(enable_binlog_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_binlog_hlc));
 
+static bool check_maintain_database_hlc(sys_var *, THD *, set_var *var) {
+  uint64_t new_maintain_db_hlc = var->save_result.ulonglong_value;
+  if (!enable_binlog_hlc && new_maintain_db_hlc)
+    return true;  // Needs enable_binlog_hlc
+
+  return false;
+}
+
+static Sys_var_bool Sys_maintain_database_hlc(
+    "maintain_database_hlc",
+    "Enable maintaining of max HLC applied per database",
+    GLOBAL_VAR(maintain_database_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_maintain_database_hlc));
+
 static Sys_var_bool Sys_fast_integer_to_string(
     "fast_integer_to_string",
     "Optimized implementation of integer to string conversion",

@@ -660,6 +660,8 @@ The following options may be given as the first argument:
  --lz4f-net-compression-level[=#] 
  Compression level for compressed protocol when lz4f
  library is selected.
+ --maintain-database-hlc 
+ Enable maintaining of max HLC applied per database
  --mandatory-roles=name 
  All the specified roles are always considered granted to
  every user and they can't be revoked. Mandatory roles
@@ -2298,6 +2300,7 @@ long-query-time 10
 low-priority-updates FALSE
 lower-case-table-names 1
 lz4f-net-compression-level 0
+maintain-database-hlc FALSE
 mandatory-roles 
 master-info-file master.info
 master-info-repository TABLE
