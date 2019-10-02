@@ -3633,6 +3633,23 @@ bool get_netlink_diag(socket_diag_hashmap *socket_diags,
   return false;
 }
 
+int fill_db_applied_hlc(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  auto table= tables->table;
+  std::unordered_map<std::string, uint64_t> database_hlc;
+  mysql_bin_log.get_database_hlc(database_hlc);
+
+  for (const auto& hlc : database_hlc)
+  {
+    table->field[0]->store(
+        hlc.first.c_str(), hlc.first.length(), system_charset_info);
+    table->field[1]->store((ulonglong) hlc.second, TRUE);
+    schema_table_store_record(thd, table);
+  }
+
+  return 0;
+}
+
 /* fill socket_diag table */
 int fill_socket_diag_slaves(THD *thd, TABLE_LIST *tables, Item *cond)
 {
@@ -10144,6 +10161,13 @@ ST_FIELD_INFO socket_diag_slaves_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO db_applied_hlc_fields_info[]=
+{
+  {"DATABASE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"APPLIED_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0,
+    SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
 
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
@@ -10293,6 +10317,8 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"USER_TABLE_STATISTICS", user_table_stats_fields_info, create_schema_table,
    fill_user_table_stats, NULL, NULL, -1, -1, false, 0},
 #endif
+  {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
+   fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 

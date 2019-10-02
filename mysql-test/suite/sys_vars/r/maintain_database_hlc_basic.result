@@ -1,0 +1,20 @@
+Default value of maintain_database_hlc is false
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0
+SET @@global.maintain_database_hlc = true;
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of '1'
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0
+SELECT @@session.maintain_database_hlc;
+ERROR HY000: Variable 'maintain_database_hlc' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.maintain_database_hlc = false;
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0
+SET @@global.maintain_database_hlc = default;
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0

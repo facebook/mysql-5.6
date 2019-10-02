@@ -4131,6 +4131,9 @@ bool Query_log_event::write(IO_CACHE* file)
         {
           strcpy((char*) start, db_name);
           start += strlen(db_name) + 1;
+          if (enable_binlog_hlc && maintain_database_hlc)
+            thd->databases.insert(db_name);
+
         } while ((db_name= it++));
     }
     else
@@ -13621,6 +13624,9 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
       index += length;
     }
   }
+
+  if (enable_binlog_hlc && maintain_database_hlc && m_dbnam)
+    thd->databases.insert(m_dbnam);
 }
 #endif /* !defined(MYSQL_CLIENT) */
 

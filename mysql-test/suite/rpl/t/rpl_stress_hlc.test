@@ -17,6 +17,7 @@
 --source extra/rpl_tests/rpl_stress_test.inc
 
 connection master;
+
 --let $datadir= `SELECT @@datadir`
 
 # Use mysqlbinlog to parse binlog files and extract the HLC timestamp for all transactions
@@ -35,11 +36,23 @@ exec diff $MYSQLTEST_VARDIR/tmp/master-unsorted-hlc.dat $MYSQLTEST_VARDIR/tmp/un
 
 # Now connect to slave and extract hlc list from the slave binlog files
 connection slave;
+
 --let $datadir= `SELECT @@datadir`
 
 exec $MYSQL_BINLOG -v -v $datadir/slave-bin.0* | grep "Metadata" | rev | cut -f 1 -d " " | rev | sort -n > $MYSQLTEST_VARDIR/tmp/slave-sorted-hlc.dat;
 
 # Slave retains master's HLC timestamp. So, there should be no diff between the master and slave HLC list
 exec diff $MYSQLTEST_VARDIR/tmp/master-unsorted-hlc.dat $MYSQLTEST_VARDIR/tmp/slave-sorted-hlc.dat;
+
+connection master;
+--let $master_applied_hlc= `select applied_hlc from information_schema.database_applied_hlc where database_name like 'test'`
+
+connection slave;
+--let $slave_applied_hlc= `select applied_hlc from information_schema.database_applied_hlc where database_name like 'test'`
+
+# master and slave should have the same applied hlc on the test database
+if ($master_applied_hlc != $slave_applied_hlc) {
+  echo master and slave applied hlc do not match;
+} 
 
 --source include/rpl_end.inc

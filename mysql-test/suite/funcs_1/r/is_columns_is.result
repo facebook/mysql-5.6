@@ -50,6 +50,8 @@ def	information_schema	COLUMN_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	64	192	NULL	
 def	information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME	2	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
 def	information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE	3	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
 def	information_schema	CONNECTION_ATTRIBUTES	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	DB_STATISTICS	CPU	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	DB_STATISTICS	DB	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	DB_STATISTICS	ROWS_DELETED	6	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
@@ -718,6 +720,8 @@ NULL	information_schema	COLUMNS	DATETIME_PRECISION	bigint	NULL	NULL	NULL	NULL	bi
 NULL	information_schema	CONNECTION_ATTRIBUTES	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 1.0000	information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
 1.0000	information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
+3.0000	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	DB_STATISTICS	DB	varchar	192	576	utf8	utf8_general_ci	varchar(192)
 NULL	information_schema	DB_STATISTICS	WORKING_SET_SIZE	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	DB_STATISTICS	USER_CPU	bigint	NULL	NULL	NULL	NULL	bigint(21)

@@ -6388,6 +6388,22 @@ static Sys_var_mybool Sys_enable_binlog_hlc(
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_binlog_hlc));
 
+static bool check_maintain_database_hlc(sys_var *self, THD *thd, set_var *var)
+{
+  uint64_t new_maintain_db_hlc= var->save_result.ulonglong_value;
+  if (!enable_binlog_hlc && new_maintain_db_hlc)
+    return true; // Needs enable_binlog_hlc
+
+  return false;
+}
+
+static Sys_var_mybool Sys_maintain_database_hlc(
+       "maintain_database_hlc",
+       "Enable maintaining of max HLC applied per database",
+       GLOBAL_VAR(maintain_database_hlc),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_maintain_database_hlc));
+
 /*
   Global variable to control the implementation to get statistics per
   user-table pair

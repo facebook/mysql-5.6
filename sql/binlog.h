@@ -22,6 +22,7 @@
 #include "rpl_gtid.h"
 #include <atomic>
 #include <list>
+#include <unordered_map>
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
@@ -306,9 +307,35 @@ class HybridLogicalClock {
    */
   uint64_t update(uint64_t minimum_hlc);
 
+  /**
+   * Update the applied HLC for specified databases
+   *
+   * @param  databases - the databases for which hlc needs to be updated
+   * @param  applied_hlc - Applied HLC
+   */
+  void update_database_hlc(
+      const std::unordered_set<std::string>& databases, uint64_t applied_hlc);
+
+  /**
+   * Get the applied hlc for all the database that is being tracked by this
+   * clock
+   *
+   * @param  [out] A map of database->applied_hlc
+   */
+  void get_database_hlc(std::unordered_map<std::string, uint64_t>& applied_hlc);
+
  private:
+
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
+
+  /**
+   * A map of applied HLC for each database. The key is the name of the database
+   * and the value is the applied_hlc for that database. Applied HLC is the HLC
+   * of the last known trx that was applied (committed) to the engine
+   */
+  std::unordered_map<std::string, uint64_t> database_applied_hlc_;
+  std::mutex database_applied_hlc_lock_;
 };
 
 class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
@@ -652,6 +679,12 @@ public:
     return hlc.update(minimum_hlc);
   }
 
+  /* get the applied HLC for all known databases in this instance */
+  void get_database_hlc(
+      std::unordered_map<std::string, uint64_t>& database_hlc) {
+    return hlc.get_database_hlc(database_hlc);
+  }
+
 private:
   Gtid_set* previous_gtid_set;
 
@@ -659,9 +692,6 @@ private:
      1. The logical clock is tracked per instance today. It should be
         relatively easy to convert this to per-shard by having a map of such
         clocks
-     TODO:
-     1. During startup, the hlc value needs to be initialized correctly so that
-        it is greater than the hlc associated with the last txn
   */
   HybridLogicalClock hlc;
 

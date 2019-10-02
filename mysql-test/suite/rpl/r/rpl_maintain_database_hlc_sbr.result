@@ -1,0 +1,370 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+call mtr.add_suppression("Databases were empty for this trx");
+create database test1;
+create database test2;
+create table test1.t1(a int primary key, b char(8)) engine=InnoDB;
+create table test2.t1(a int primary key, b char(8)) engine=InnoDB;
+include/sync_slave_sql_with_master.inc
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+Case 1: Single statement txn
+use test1;
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+master-bin.000002	#	Query	#	#	COMMIT
+master-bin.000002	#	Query	#	#	create database test1
+master-bin.000002	#	Query	#	#	create database test2
+master-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000002
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Query	#	#	create database test1
+slave-bin.000002	#	Query	#	#	create database test2
+slave-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000002
+Case 2: Multi statement txn
+set autocommit=off;
+use test1;
+insert into t1 values(3, 'c');
+insert into t1 values(4, 'd');
+commit;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+master-bin.000002	#	Query	#	#	COMMIT
+master-bin.000002	#	Query	#	#	create database test1
+master-bin.000002	#	Query	#	#	create database test2
+master-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000003
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Query	#	#	create database test1
+slave-bin.000002	#	Query	#	#	create database test2
+slave-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000003
+Case 3: Multi statement txn spanning multiple database
+set autocommit=off;
+insert into test1.t1 values(5, 'e');
+insert into test2.t1 values(5, 'e');
+commit;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+master-bin.000002	#	Query	#	#	COMMIT
+master-bin.000002	#	Query	#	#	create database test1
+master-bin.000002	#	Query	#	#	create database test2
+master-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(5, 'e')
+master-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(5, 'e')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+select * from test2.t1;
+a	b
+5	e
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test2	2538630000000000004
+test1	2538630000000000004
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Query	#	#	create database test1
+slave-bin.000002	#	Query	#	#	create database test2
+slave-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(5, 'e')
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(5, 'e')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+select * from test2.t1;
+a	b
+5	e
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test2	2538630000000000004
+test1	2538630000000000004
+Case 4: Multiple single stmt txns txn spanning multiple database
+set autocommit=off;
+insert into test1.t1 values(6, 'f');
+commit;
+insert into test2.t1 values(8, 'g');
+commit;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+master-bin.000002	#	Query	#	#	COMMIT
+master-bin.000002	#	Query	#	#	create database test1
+master-bin.000002	#	Query	#	#	create database test2
+master-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+master-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(5, 'e')
+master-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(5, 'e')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(8, 'g')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+select * from test2.t1;
+a	b
+5	e
+8	g
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000005
+test2	2538630000000000006
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_latin1'Databases were empty for this trx' COLLATE 'latin1_swedish_ci'))
+slave-bin.000002	#	Query	#	#	COMMIT
+slave-bin.000002	#	Query	#	#	create database test1
+slave-bin.000002	#	Query	#	#	create database test2
+slave-bin.000002	#	Query	#	#	use `test`; create table test1.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Query	#	#	use `test`; create table test2.t1(a int primary key, b char(8)) engine=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(3, 'c')
+slave-bin.000002	#	Query	#	#	use `test1`; insert into t1 values(4, 'd')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(5, 'e')
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(5, 'e')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test1.t1 values(6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test1`; insert into test2.t1 values(8, 'g')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+select * from test1.t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+5	e
+6	f
+select * from test2.t1;
+a	b
+5	e
+8	g
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000005
+test2	2538630000000000006
+Case 5: Pure DDL should also update and maintain per database HLC
+set autocommit=off;
+create table test1.t2(a int);
+create table test2.t2(a int);
+create database test3;
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+include/sync_slave_sql_with_master.inc
+select * from information_schema.database_applied_hlc order by 2;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+SET @@global.minimum_hlc_ns = default;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.maintain_database_hlc = default;
+drop table if exists test1.t1;
+drop table if exists test2.t1;
+drop table if exists test1.t2;
+drop table if exists test2.t2;
+drop database test1;
+drop database test2;
+drop database test3;
+include/sync_slave_sql_with_master.inc
+SET @@global.enable_binlog_hlc = default;
+SET @@global.maintain_database_hlc = default;
+include/rpl_end.inc

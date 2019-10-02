@@ -1,0 +1,32 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of maintain_database_hlc is false
+SELECT @@global.maintain_database_hlc;
+
+####
+# Cannot be set unless enable_binlog_hlc is also set
+###
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.maintain_database_hlc = true;
+SELECT @@global.maintain_database_hlc;
+
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.maintain_database_hlc;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SET @@global.maintain_database_hlc = false;
+SELECT @@global.maintain_database_hlc;
+
+#SET @@global.maintain_database_hlc = true;
+#SELECT @@global.maintain_database_hlc;
+
+SET @@global.maintain_database_hlc = default;
+SELECT @@global.maintain_database_hlc;
+#SET @@global.enable_binlog_hlc = default;

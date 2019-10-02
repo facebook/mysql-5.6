@@ -1258,6 +1258,10 @@ static int hlc_before_write_cache(THD* thd, binlog_cache_data* cache_data)
   }
 
   thd->should_update_hlc= false;
+
+  // This is used later on a master instance to update per-database applied hlc
+  thd->hlc_time_ns_next= hlc_time_ns;
+
   return result;
 }
 
@@ -1819,6 +1823,38 @@ uint64_t HybridLogicalClock::update(uint64_t minimum_hlc)
   }
 
   return new_min_hlc;
+}
+
+void HybridLogicalClock::update_database_hlc(
+    const std::unordered_set<std::string>& databases, uint64_t applied_hlc)
+{
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+
+  for (const auto& database : databases)
+  {
+    auto database_hlc= database_applied_hlc_.find(database);
+    if (database_hlc == database_applied_hlc_.end())
+    {
+      // Seeing this database for the first time. Create a new entry
+      database_applied_hlc_.emplace(database, applied_hlc);
+    }
+    else if (database_hlc->second < applied_hlc)
+    {
+      database_hlc->second = applied_hlc;
+    }
+  }
+
+  return;
+}
+
+void HybridLogicalClock::get_database_hlc(
+    std::unordered_map<std::string, uint64_t>& applied_hlc)
+{
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+
+  applied_hlc= database_applied_hlc_;
+
+  return;
 }
 
 /**
@@ -7624,6 +7660,24 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
       */
       if (ha_commit_low(head, all, async, false))
         head->commit_error= THD::CE_COMMIT_ERROR;
+      else if (enable_binlog_hlc && maintain_database_hlc &&
+          head->hlc_time_ns_next)
+      {
+        if (likely(!head->databases.empty()))
+        {
+          // Successfully committed the trx to engine. Update applied hlc for
+          // all databases that this trx touches
+          hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
+        }
+        else
+        {
+          // Log a error line if databases are empty. This could happen in SBR
+          // NO_LINT_DEBUG
+          sql_print_error("Databases were empty for this trx. HLC= %lu",
+              head->hlc_time_ns_next);
+        }
+      }
+      head->databases.clear();
     }
     DBUG_PRINT("debug", ("commit_error: %d, flags.pending: %s",
                          head->commit_error,

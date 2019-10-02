@@ -418,6 +418,7 @@ extern ulonglong repl_semi_sync_master_ack_waits;
 extern my_bool recv_skip_ibuf_operations;
 extern bool enable_blind_replace;
 extern bool enable_binlog_hlc;
+extern bool maintain_database_hlc;
 extern my_bool async_query_counter_enabled;
 extern my_bool enable_acl_fast_lookup;
 
