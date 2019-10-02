@@ -1,2 +1,0 @@
---gtid-mode=ON --enforce-gtid-consistency
---sync-binlog=1000 --relay-log-recovery=1

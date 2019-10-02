@@ -244,6 +244,8 @@ struct xarecover_st {
   const xid_to_gtid_container *commit_list;
   bool dry_run;
   Gtid *binlog_max_gtid;
+  char *binlog_file;
+  my_off_t *binlog_pos;
 };
 
 static bool xarecover_create_mdl_backup(XA_recover_txn &txn,
@@ -324,7 +326,8 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
     while ((got = hton->recover(
                 hton, info->list, info->len,
                 Recovered_xa_transactions::instance().get_allocated_memroot(),
-                info->binlog_max_gtid)) > 0) {
+                info->binlog_max_gtid, info->binlog_file, info->binlog_pos)) >
+           0) {
       // case: check if the max gtid recovered from the engine in
       // this iteration is greater than what we recovered before
       if (info->binlog_max_gtid &&
@@ -414,8 +417,8 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
   return false;
 }
 
-int ha_recover(const xid_to_gtid_container *commit_list,
-               Gtid *binlog_max_gtid) {
+int ha_recover(const xid_to_gtid_container *commit_list, Gtid *binlog_max_gtid,
+               char *binlog_file, my_off_t *binlog_pos) {
   xarecover_st info;
   DBUG_ENTER("ha_recover");
   info.found_foreign_xids = info.found_my_xids = 0;
@@ -424,6 +427,8 @@ int ha_recover(const xid_to_gtid_container *commit_list,
       (info.commit_list == 0 && tc_heuristic_recover == TC_HEURISTIC_NOT_USED);
   info.list = NULL;
   info.binlog_max_gtid = binlog_max_gtid;
+  info.binlog_file = binlog_file;
+  info.binlog_pos = binlog_pos;
 
   /* commit_list and tc_heuristic_recover cannot be set both */
   DBUG_ASSERT(info.commit_list == 0 ||

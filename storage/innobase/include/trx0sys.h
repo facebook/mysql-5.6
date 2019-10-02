@@ -201,6 +201,12 @@ UNIV_INLINE
 ibool trx_assert_recovered(trx_id_t trx_id) /*!< in: transaction identifier */
     MY_ATTRIBUTE((warn_unused_result));
 #endif /* UNIV_DEBUG || UNIV_BLOB_LIGHT_DEBUG */
+
+/** Get current binary log positions stored.
+@param[out] file  binary log file name
+@param[out] offset  binary log file offset */
+void trx_sys_read_binlog_position(char *file, uint64_t &offset);
+
 /** Updates the offset information about the end of the MySQL binlog entry
  which corresponds to the transaction just being committed. In a MySQL
  replication slave updates the latest master binlog position up to which

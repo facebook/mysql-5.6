@@ -1319,7 +1319,9 @@ static int innobase_xa_recover(
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
     MEM_ROOT *mem_root,       /*!< in: memory for table names */
-    Gtid *binlog_max_gtid);   /*!< in/out: Max valid binlog gtid */
+    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid */
+    char *binlog_file,        /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos);    /*!< in/out: Last valid binlog pos */
 
 /** This function is used to commit one X/Open XA distributed transaction
  which is in the prepared state
@@ -17893,7 +17895,9 @@ static int innobase_xa_recover(
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
     MEM_ROOT *mem_root,       /*!< in: memory for table names */
-    Gtid *binlog_max_gtid)    /*!< in/out: Max valid binlog gtid*/
+    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid*/
+    char *binlog_file,        /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos)     /*!< in/out: Last valid binlog pos */
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
 
@@ -17901,6 +17905,12 @@ static int innobase_xa_recover(
     global_sid_lock->rdlock();
     binlog_max_gtid->parse(global_sid_map, trx_sys_mysql_bin_log_max_gtid);
     global_sid_lock->unlock();
+  }
+
+  if (binlog_file != nullptr && binlog_pos != nullptr) {
+    uint64_t offset = 0;
+    trx_sys_read_binlog_position(binlog_file, offset);
+    *binlog_pos = offset;
   }
 
   if (len == 0 || txn_list == nullptr) {

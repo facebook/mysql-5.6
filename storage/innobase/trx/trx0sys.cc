@@ -116,6 +116,61 @@ void trx_sys_flush_max_trx_id(void) {
   }
 }
 
+/** Read binary log positions from buffer passed.
+@param[in]    binlog_buf    binary log buffer from trx sys page
+@param[out]    file_name    binary log file name
+@param[out]    high        offset part high order bytes
+@param[out]    low        offset part low order bytes
+@return    true, if buffer has valid binary log position. */
+static bool read_binlog_position(const byte *binlog_buf, const char *&file_name,
+                                 uint32_t &high, uint32_t &low) {
+  /* Initialize out parameters. */
+  file_name = nullptr;
+  high = low = 0;
+
+  /* Check if binary log position is stored. */
+  if (mach_read_from_4(binlog_buf + TRX_SYS_MYSQL_LOG_MAGIC_N_FLD) !=
+      TRX_SYS_MYSQL_LOG_MAGIC_N) {
+    return (true);
+  }
+
+  /* Read binary log file name. */
+  file_name =
+      reinterpret_cast<const char *>(binlog_buf + TRX_SYS_MYSQL_LOG_NAME);
+
+  /* read log file offset. */
+  high = mach_read_from_4(binlog_buf + TRX_SYS_MYSQL_LOG_OFFSET_HIGH);
+  low = mach_read_from_4(binlog_buf + TRX_SYS_MYSQL_LOG_OFFSET_LOW);
+
+  return (false);
+}
+
+void trx_sys_read_binlog_position(char *file, uint64_t &offset) {
+  const char *current_name = nullptr;
+  uint32_t high = 0;
+  uint32_t low = 0;
+
+  mtr_t mtr;
+  mtr_start(&mtr);
+
+  byte *binlog_pos = trx_sysf_get(&mtr) + TRX_SYS_MYSQL_LOG_INFO;
+  auto empty = read_binlog_position(binlog_pos, current_name, high, low);
+
+  if (empty) {
+    file[0] = '\0';
+    offset = 0;
+    mtr_commit(&mtr);
+    return;
+  }
+
+  strncpy(file, current_name, TRX_SYS_MYSQL_LOG_NAME_LEN);
+  offset = static_cast<uint64_t>(high);
+  offset = (offset << 32);
+  offset |= static_cast<uint64_t>(low);
+
+  mtr_commit(&mtr);
+}
+
 /** Updates the offset information about the end of the MySQL binlog entry
  which corresponds to the transaction just being committed. In a MySQL
  replication slave updates the latest master binlog position up to which

@@ -184,7 +184,9 @@ static xa_status_code binlog_xa_commit(handlerton *hton, XID *xid);
 static xa_status_code binlog_xa_rollback(handlerton *hton, XID *xid);
 static void exec_binlog_error_action_abort(const char *err_string);
 static int binlog_recover(Binlog_file_reader *binlog_file_reader,
-                          my_off_t *valid_pos, Gtid *binlog_max_gtid);
+                          my_off_t *valid_pos, Gtid *binlog_max_gtid,
+                          char *engine_binlog_file,
+                          my_off_t *engine_binlog_pos);
 
 static inline bool has_commit_order_manager(THD *thd) {
   return is_mts_worker(thd) &&
@@ -1171,7 +1173,7 @@ static void binlog_trans_log_savepos(THD *thd, my_off_t *pos) {
 }
 
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
-                                MEM_ROOT *, Gtid *) {
+                                MEM_ROOT *, Gtid *, char *, my_off_t *) {
   return 0;
 }
 
@@ -3381,6 +3383,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
       is_relay_log(0),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
+      engine_binlog_pos(ULLONG_MAX),
       previous_gtid_set_relaylog(0),
       is_rotating_caused_by_incident(false) {
   /*
@@ -3390,6 +3393,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
     before main().
   */
   index_file_name[0] = 0;
+  engine_binlog_file[0] = 0;
   engine_binlog_max_gtid.clear();
 }
 
@@ -7765,7 +7769,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
              opt_name);
       valid_pos = binlog_file_reader.position();
       error = binlog_recover(&binlog_file_reader, &valid_pos,
-                             &engine_binlog_max_gtid);
+                             &engine_binlog_max_gtid, engine_binlog_file,
+                             &engine_binlog_pos);
     } else
       error = 0;
 
@@ -9060,7 +9065,9 @@ commit_stage:
   @retval 1 Out of memory, or storage engine returns error.
 */
 static int binlog_recover(Binlog_file_reader *binlog_file_reader,
-                          my_off_t *valid_pos, Gtid *binlog_max_gtid) {
+                          my_off_t *valid_pos, Gtid *binlog_max_gtid,
+                          char *engine_binlog_file,
+                          my_off_t *engine_binlog_pos) {
   Log_event *ev;
   /*
     Prepared transactions are committed by XID during recovery but we need
@@ -9157,7 +9164,9 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
       will result in an assert. (Production builds would be safe since
       ha_recover returns right away if total_ha_2pc <= opt_log_bin.)
      */
-    if (total_ha_2pc > 1 && ha_recover(&xids, binlog_max_gtid)) goto err1;
+    if (total_ha_2pc > 1 && ha_recover(&xids, binlog_max_gtid,
+                                       engine_binlog_file, engine_binlog_pos))
+      goto err1;
   }
 
   return 0;

@@ -597,6 +597,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   ~MYSQL_BIN_LOG();
 
   Gtid engine_binlog_max_gtid;
+  char engine_binlog_file[FN_REFLEN + 1];
+  my_off_t engine_binlog_pos;
 
   // copy of Relay_log_info::last_master_timestamp
   std::atomic<time_t> last_master_timestamp;

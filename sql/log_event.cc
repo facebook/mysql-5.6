@@ -9937,6 +9937,7 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     }
 
     // Idempotent recovery is enabled so we log this event
+    // NOTE: Idempotent recovery requries tables have uniqure key to work correctly
     // NOTE: error will be set to 0 in handle_idempotent_and_ignored_errors()
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error) {
