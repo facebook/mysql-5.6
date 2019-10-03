@@ -6567,6 +6567,40 @@ static bool update_binlog_hlc(sys_var *self, THD *thd, enum_var_type type)
   return false; // This is success!
 }
 
+static bool validate_enable_raft(sys_var *self, THD *thd, set_var *var)
+{
+  bool err= false;
+#ifdef HAVE_REPLICATION
+  bool enable_raft= var->save_result.ulonglong_value;
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (active_mi != NULL)
+  {
+    lock_slave_threads(active_mi);  // this allows us to cleanly read slave_running
+
+    // Get a mask of _stopped_ threads
+    int thread_mask;
+    init_thread_mask(&thread_mask,active_mi,0 /* inverse = 0 */);
+    if (enable_raft && (thread_mask & SLAVE_IO))
+    {
+      my_error(ER_SLAVE_IO_RAFT_CONFLICT, MYF(0));
+      // SLAVE_IO cannot be running
+      err= true;
+    }
+    unlock_slave_threads(active_mi);
+  }
+  mysql_mutex_unlock(&LOCK_active_mi);
+
+  if (enable_raft && !err && binlog_error_action == ABORT_SERVER)
+  {
+    my_error(ER_RAFT_BINLOG_ERROR_ACTION, MYF(0));
+    // we can't have raft co-exist with ABORT_SERVER
+    // as flush failures can be common during leader change.
+    err= true;
+  }
+#endif
+  return err;
+}
+
 static bool validate_binlog_hlc(sys_var *self, THD *thd, set_var *var)
 {
   DBUG_EXECUTE_IF("allow_long_hlc_drift_for_tests", {return false;});
@@ -7289,7 +7323,7 @@ static Sys_var_mybool Sys_enable_raft_plugin(
        GLOBAL_VAR(enable_raft_plugin),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(0), ON_UPDATE(log_enable_raft_change));
+       ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
 
 static const char *commit_consensus_error_actions[]=
 {

@@ -7422,6 +7422,12 @@ ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
 ER_WRITE_QUERY_THROTTLED
   eng "Exceeded write workload limit. Try again later"
 
+ER_SLAVE_IO_RAFT_CONFLICT
+  eng "slave io thread cannot be started if raft is enabled"
+
+ER_RAFT_BINLOG_ERROR_ACTION
+  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
+
 #
 #  End of 5.6 error messages.
 #

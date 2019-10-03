@@ -1,0 +1,34 @@
+--source include/master-slave.inc
+--source include/have_innodb.inc
+
+# Able to set raft plugin on instance with no slave threads
+--connection slave
+--source include/start_slave_io.inc
+
+--error ER_SLAVE_IO_RAFT_CONFLICT
+SET @@global.enable_raft_plugin=1;
+
+--source include/stop_slave_io.inc
+SET @@global.enable_raft_plugin=1;
+
+--error ER_SLAVE_IO_RAFT_CONFLICT
+START SLAVE IO_THREAD;
+
+SET @@global.enable_raft_plugin=0;
+--source include/start_slave_io.inc
+
+SET @@global.binlog_error_action="ABORT_SERVER";
+--source include/stop_slave_io.inc
+
+--error ER_RAFT_BINLOG_ERROR_ACTION
+SET @@global.enable_raft_plugin=1;
+
+SET @@global.binlog_error_action="ROLLBACK_TRX";
+SET @@global.enable_raft_plugin=1;
+
+
+SET @@global.enable_raft_plugin=0;
+--source include/start_slave_io.inc
+
+--connection master
+--source include/rpl_end.inc
