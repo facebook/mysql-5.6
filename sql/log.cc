@@ -1782,7 +1782,8 @@ bool MYSQL_LOG::open(
   DBUG_RETURN(0);
 
 err:
-  if (log_type == LOG_BIN && binlog_error_action == ABORT_SERVER)
+  if (log_type == LOG_BIN && (binlog_error_action == ABORT_SERVER ||
+      binlog_error_action == ROLLBACK_TRX))
   {
     exec_binlog_error_action_abort("Either disk is full or file system is read "
                                    "only while opening the binlog. Aborting the"

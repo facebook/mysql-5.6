@@ -686,7 +686,8 @@ const char *binlog_format_names[]= {"MIXED", "STATEMENT", "ROW", NullS};
 my_bool enforce_gtid_consistency;
 my_bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
-const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
+const char *binlog_error_action_list[]=
+  {"IGNORE_ERROR", "ABORT_SERVER", "ROLLBACK_TRX", NullS};
 my_bool log_gtid_unsafe_statements;
 my_bool use_db_uuid;
 my_bool skip_core_dump_on_error;

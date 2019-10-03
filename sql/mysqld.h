@@ -1004,7 +1004,13 @@ enum enum_binlog_error_action
   /// Ignore the error and let server continue without binlogging
   IGNORE_ERROR= 0,
   /// Abort the server
-  ABORT_SERVER= 1
+  ABORT_SERVER= 1,
+  /// Rollback the trx which failed to flush to binlog and continue.
+  /// Transaction which fail to write to binlog during ordered-commit will be
+  /// rolled back. The server is not aborted and continues to be up and running
+  /// Other cases of flush-error (outside of ordered-commit) will
+  /// continue to abort server.
+  ROLLBACK_TRX= 2
 };
 extern const char *binlog_error_action_list[];
 extern my_bool slave_high_priority_ddl;

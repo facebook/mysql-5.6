@@ -1502,6 +1502,24 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
     if (!error && enable_raft_plugin_save && !thd->rli_slave) {
       error= RUN_HOOK(raft_replication, before_flush, (thd, &cache_log));
 
+      DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
+
+      /*
+       * before_flush hook failing is a guarantee by raft that any subsequent
+       * replicate message sent to raft (through before_flush) hook fails (in
+       * this group and in subsequent groups). In other words, raft will
+       * initiate a step down and will not take any more writes. This
+       * is necessary condition to avoid having holes or duplicates in
+       * executed_gtid
+       */
+      if (error)
+      {
+        // Calling into mysql_raft plugin failed. Set commit consensus error.
+        // This will ensure that if this THD's trx is allowed to proceed to
+        // commit stage, then we rollback the trx
+        thd->commit_consensus_error= true;
+      }
+
       // Do post write book keeping activities
       error= mysql_bin_log.post_write(thd, this, error);
     }
@@ -4171,7 +4189,8 @@ err:
   my_free(name);
   name= NULL;
   log_state= LOG_CLOSED;
-  if (binlog_error_action == ABORT_SERVER)
+  if (binlog_error_action == ABORT_SERVER ||
+      binlog_error_action == ROLLBACK_TRX)
   {
     exec_binlog_error_action_abort("Either disk is full or file system is read "
                                    "only while opening the binlog. Aborting the"
@@ -6043,7 +6062,8 @@ end:
        - ...
     */
     close(LOG_CLOSE_INDEX);
-    if (binlog_error_action == ABORT_SERVER)
+    if (binlog_error_action == ABORT_SERVER ||
+        binlog_error_action == ROLLBACK_TRX)
     {
       exec_binlog_error_action_abort("Either disk is full or file system is"
                                      " read only while rotating the binlog."
@@ -7193,6 +7213,14 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
                         DBUG_SUICIDE();
                       });
 
+      DBUG_EXECUTE_IF("fail_binlog_flush_raft",
+          {
+            write_error= 1;
+            thd->commit_error= THD::CE_FLUSH_ERROR;
+            thd->commit_consensus_error= true;
+            goto err;
+          });
+
       if ((write_error= do_write_cache(cache)))
         goto err;
       if (us)
@@ -7976,6 +8004,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   DBUG_ASSERT(total_bytes_var && rotate_var && out_queue_var);
   my_off_t total_bytes= 0;
   int flush_error= 1;
+  int commit_consensus_error= 0;
   mysql_mutex_assert_owner(&LOCK_log);
 
   /*
@@ -8017,6 +8046,16 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
           "flush stage hides errors of follower threads in the group");
     }
 
+    /* There is a weird check above that if first thread in the group could
+     * flush successfully, then every thread in the group will also flush
+     * successfully. This does not look right - so for the time being, we will
+     * use commit_consensus_error flag to identify if there was a error in
+     * before_flush hook of raft plugin and set flush_error here. This will
+     * subsequently fail the entire group
+     */
+    if (head->commit_consensus_error)
+      commit_consensus_error= 1;
+
     /* Reset prepared_engine for every thd in the queue. */
     head->prepared_engine->clear();
     ++thd_count;
@@ -8029,6 +8068,10 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   *total_bytes_var= total_bytes;
   if (total_bytes > 0 && my_b_tell(&log_file) >= (my_off_t) max_size)
     *rotate_var= true;
+
+  if (commit_consensus_error && enable_raft_plugin)
+    flush_error= 1;
+
   return flush_error;
 }
 
@@ -8234,8 +8277,7 @@ void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head)
 }
 
 /**
-  Sets the commit_consensus_error flag in all thd's of this group if there was
-  an error in the before_commit hook
+  Handles commit_consensus_error by consulting commit_consensus_error_action
 
   @param thd Thd for which conecnsus error need to be handled
 */
@@ -8261,6 +8303,7 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd, bool async)
 
        /* Insert a error frame. TODO: See if this has to be a different
         * error code */
+       thd->clear_error(); // Clear previous errors first
        my_error(ER_ERROR_DURING_COMMIT, MYF(0), 1);
        break;
      case IGNORE_COMMIT_CONSENSUS_ERROR:
@@ -8272,10 +8315,10 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd, bool async)
        break;
      default:
        // Should not happen. This is here to placate the compiler
-       DBUG_ASSERT(true);
+       DBUG_ASSERT(false);
   }
 
-  DBUG_VOID_RETURN;;
+  DBUG_VOID_RETURN;
 }
 
 #ifndef DBUG_OFF
@@ -8567,13 +8610,57 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
 void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
                                                       bool need_lock_log)
 {
+  bool commit_consensus_error= false;
+  for (THD* head = thd; head; head = head->next_to_commit)
+  {
+    if (head->commit_consensus_error &&
+        head->commit_error == THD::CE_FLUSH_ERROR)
+    {
+      commit_consensus_error= true;
+      break;
+    }
+  }
+
+  /* This trx (and the group) will be rolled back in the engine if:
+   * (1) binlog_error_action is set to rollback_trx
+   * (2) There was a flush error because of a commit_consensus_error (i.e flush
+   * error was due to a error inside the before_flush hook of raft plugin)
+   *
+   * If (2) is not true, then we cannot safely rollbak the trx (either it
+   * is too late OR safety of the raft consensus plugin will be violated. hence
+   * we proceed and abort the server
+   */
+  if (binlog_error_action == ROLLBACK_TRX &&
+      commit_consensus_error)
+  {
+    // Set commit consensus error for the entire group
+    set_commit_consensus_error(thd);
+    return;
+  }
+
   char errmsg[MYSQL_ERRMSG_SIZE];
   sprintf(errmsg, "An error occurred during %s stage of the commit. "
           "'binlog_error_action' is set to '%s'.",
           thd->commit_error== THD::CE_FLUSH_ERROR ? "flush" : "sync",
-          binlog_error_action == ABORT_SERVER ? "ABORT_SERVER" : "IGNORE_ERROR");
-  if (binlog_error_action == ABORT_SERVER)
+          binlog_error_action == IGNORE_ERROR ?
+          "IGNORE_ERROR" : "ABORT_SERVER");
+
+  if (binlog_error_action == ABORT_SERVER ||
+      binlog_error_action == ROLLBACK_TRX)
   {
+    /* At this stage the error is either due to
+     * (1) sync stage error
+     * (2) flush stage error, but consensus error was not set - indicating that
+     * the error did not happen inside raft plugin
+     *
+     * In both these cases we abort the server even when error_action is set to
+     * rollback_trx. This is because sync happens periodically and the trx has
+     * already committed to engine (so cannot rollback). We cannot safely
+     * rollback flush stage errors happening outside of raft plugin.
+     *
+     * TODO: revisit if and when we have the ability to step down from within
+     * mysql server
+     */
     char err_buff[MYSQL_ERRMSG_SIZE];
     sprintf(err_buff, "%s Hence aborting the server.", errmsg);
     exec_binlog_error_action_abort(err_buff);
@@ -8756,7 +8843,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
                                   bool async)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::ordered_commit");
-  int flush_error= 0, sync_error= 0;
+  int flush_stage_error= 0, flush_error= 0, sync_error= 0;
   my_off_t total_bytes= 0;
   bool do_rotate= false;
   THD *semisync_queue= nullptr;
@@ -8853,11 +8940,16 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     goto commit_stage;
   }
   DEBUG_SYNC(thd, "waiting_in_the_middle_of_flush_stage");
-  flush_error= process_flush_stage_queue(&total_bytes, &do_rotate,
+  flush_stage_error= process_flush_stage_queue(&total_bytes, &do_rotate,
                                          &final_queue, async);
 
-  if (flush_error == 0 && total_bytes > 0)
-    flush_error = flush_cache_to_file(&flush_end_pos);
+  /* If there was something written to log_file during flush stage, then flush
+   * the entire group to file. Note that flush_stage_error indicates that some
+   * thd in the group failed to write to log_file, but remaining threads might
+   * still have written
+   */
+  if (total_bytes > 0)
+    flush_error= flush_cache_to_file(&flush_end_pos);
 
   DBUG_EXECUTE_IF("crash_after_flush_binlog", DBUG_SUICIDE(););
   /*
@@ -8866,7 +8958,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     executed before the before/after_send_hooks on the dump thread
     preventing race conditions among these plug-ins.
   */
-  if (flush_error == 0)
+  if (flush_error == 0 && flush_end_pos != 0)
   {
     const char *file_name_ptr= log_file_name + dirname_length(log_file_name);
     DBUG_ASSERT(flush_end_pos != 0);
@@ -8911,7 +9003,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (flush_error == ER_ERROR_ON_WRITE && skip_core_dump_on_error)
     opt_core_file = false;
 
-  if (flush_error)
+  if (flush_error || flush_stage_error)
   {
     /*
       Handle flush error (if any) after leader finishes it's flush stage.

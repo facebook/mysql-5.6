@@ -1,0 +1,6 @@
+# Build connections
+
+select * from t1;
+c1
+drop table t1;
+set global binlog_error_action = default;
