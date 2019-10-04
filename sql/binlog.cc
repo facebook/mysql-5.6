@@ -5913,7 +5913,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
 
   // Temporary raft cache for Rotate Event
   IO_CACHE raft_io_cache;
-  bool rotate_via_raft= enable_raft_plugin;
+  bool rotate_via_raft= enable_raft_plugin && !is_relay_log;
   if (rotate_via_raft) {
     init_io_cache(&raft_io_cache, -1, 400, WRITE_CACHE, 0, 0, MYF(MY_WME));
   }

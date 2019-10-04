@@ -16496,13 +16496,20 @@ int Metadata_log_event::do_update_pos(Relay_log_info *rli)
 }
 
 Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
-    Relay_log_info* /*unused */)
+    Relay_log_info* rli)
 {
   /*
    * Metadata event containing previous hlc timestamp has no meaning for slave.
    * hence slave should skip such events
    */
   if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  /*
+   * A metadata event not in the context of a transaction
+   * can be skipped as it is for a rotate/no-op event
+   */
+  if (enable_raft_plugin && !rli->curr_group_seen_gtid)
     return Log_event::EVENT_SKIP_IGNORE;
 
   return Log_event::EVENT_SKIP_NOT;
