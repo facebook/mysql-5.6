@@ -17,6 +17,7 @@
 #define REPLICATION_H
 
 #include <condition_variable>
+#include <future>
 #include <mysql.h>
 #include <queue>
 
@@ -718,6 +719,19 @@ class RaftListenerCallbackArg
     std::pair<std::string, ulonglong> log_file_pos= {};
 };
 
+/* Result of the callback execution in the server. This will be set in the
+ * future's promise (in the QueueElement) and the invoker can get()/wait() for
+ * the result. Add more fields as needed */
+class RaftListenerCallbackResult
+{
+  public:
+    explicit RaftListenerCallbackResult() {}
+    ~RaftListenerCallbackResult() {}
+
+    // Indicates if the callback was able to execute successfully
+    int error= 0;
+};
+
 class RaftListenerQueue
 {
   public:
@@ -740,8 +754,31 @@ class RaftListenerQueue
      * invoked and the argument (optional) for the callback */
     struct QueueElement
     {
+      // Type of the callback to invoke in the server
       RaftListenerCallbackType type;
+
+      // Argument to the callback
       RaftListenerCallbackArg arg;
+
+      /* result of the callback will be fulfilled through this promise. If this
+       * is set, then the invoker should ensure tht he eventually calls
+       * get()/wait() to retrieve the result. Example:
+       *
+       * std::promise<RaftListenerCallbackResult> promise;
+       * std::future<RaftListenerCallbackResult> fut = promise.get_future();
+       *
+       * QueueElement e;
+       * e.type = RaftListenerCallbackType::SET_READ_ONLY;
+       * e.result = &promise;
+       * listener_queue.add(std::move(e));
+       * ....
+       * ....
+       * ....
+       * // Get the result when we want it. This wll block until the promise is
+       * // fullfilled by the raft listener thread after executing the callback
+       * RaftListenerCallbackResult result = fut.get();
+       */
+      std::promise<RaftListenerCallbackResult>* result= nullptr;
     };
 
     /* Add an element to the queue. This will signal any listening threads
@@ -757,7 +794,7 @@ class RaftListenerQueue
      * in the queue to be processed
      *
      * @return QueueElement to be processed next
-     * */
+     */
     QueueElement get();
 
   private:
@@ -768,7 +805,7 @@ class RaftListenerQueue
     std::mutex init_mutex_; // Mutex to guard against init and deinit races
     std::atomic_bool inited_; // Has this been inited?
 };
-  
+
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER
 extern RaftListenerQueue raft_listener_queue;
 #endif

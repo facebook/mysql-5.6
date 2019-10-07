@@ -731,39 +731,41 @@ pthread_handler_t process_raft_queue(void *arg)
   while (!exit)
   {
     RaftListenerQueue::QueueElement element= raft_listener_queue.get();
+    RaftListenerCallbackResult result;
     switch (element.type)
     {
       case RaftListenerCallbackType::SET_READ_ONLY:
-        set_read_only(thd, 1);
+        result.error= set_read_only(thd, 1);
         break;
       case RaftListenerCallbackType::UNSET_READ_ONLY:
-        set_read_only(thd, 0);
+        result.error= set_read_only(thd, 0);
         break;
       case RaftListenerCallbackType::ROTATE_BINLOG:
       {
-        int rotate_res= rotate_binlog_file(current_thd);
-        (void)rotate_res;
+        result.error= rotate_binlog_file(current_thd);
         break;
       }
       case RaftListenerCallbackType::ROTATE_RELAYLOG:
       {
-        int rotate_res= 0;
 #ifdef HAVE_REPLICATION
-        rotate_res= rotate_relay_log_for_raft(element.arg.log_file_pos.first,
+        result.error= rotate_relay_log_for_raft(element.arg.log_file_pos.first,
             element.arg.log_file_pos.second);
 #endif
-        (void)rotate_res;
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         exit= true;
         break;
       case RaftListenerCallbackType::TRIM_LOGGED_GTIDS:
-        trim_logged_gtid(element.arg.trim_gtids);
+        result.error= trim_logged_gtid(element.arg.trim_gtids);
         break;
       default:
         break;
     }
+
+    // Fulfill the promise (if requested)
+    if (element.result)
+      element.result->set_value(std::move(result));
   }
 
   // Cleanup and exit
@@ -800,6 +802,13 @@ int start_raft_listener_thread()
 int RaftListenerQueue::add(QueueElement element)
 {
   std::unique_lock<std::mutex> lock(queue_mutex_);
+  if (!inited_)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Raft listener queue and thread is not inited");
+    return 1;
+  }
+
   queue_.emplace(std::move(element));
   lock.unlock();
   queue_cv_.notify_all();
