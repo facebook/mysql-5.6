@@ -4,6 +4,7 @@ INSERT INTO t (a,b) VALUES (1,'bar'),(2,'foo');
 SET @ORIG_FORCE_COMPUTE_MEMTABLE_STATS = @@rocksdb_force_compute_memtable_stats;
 set global rocksdb_force_flush_memtable_now = true;
 INSERT INTO t (a,b) VALUES (3,'dead'),(4,'beef'),(5,'a'),(6,'bbb'),(7,'c'),(8,'d');
+SET information_schema_stats_expiry = 0;
 set global rocksdb_force_compute_memtable_stats=0;
 SELECT TABLE_ROWS INTO @ROWS_EXCLUDE_MEMTABLE FROM information_schema.TABLES WHERE table_name = 't';
 set global rocksdb_force_compute_memtable_stats=1;

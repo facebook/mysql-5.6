@@ -19,23 +19,23 @@ CREATE TABLE t1rev(id1 BIGINT, id2 BIGINT, count INT, PRIMARY KEY(id1, id2) COMM
 SET @save = @@global.rocksdb_lock_wait_timeout;
 SET GLOBAL rocksdb_lock_wait_timeout = 60;
 
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="INSERT INTO t1 VALUES(1, 1, 1) ON DUPLICATE KEY UPDATE count=count+1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="INSERT INTO t1 VALUES(1, 1, 1) ON DUPLICATE KEY UPDATE count=count+1"
 SELECT count from t1;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1 SET count=count+1 WHERE id1=1 AND id2=1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1 SET count=count+1 WHERE id1=1 AND id2=1"
 SELECT count from t1;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1 SET count=count+1 WHERE id2=1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1 SET count=count+1 WHERE id2=1"
 SELECT count from t1;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1 SET count=count+1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1 SET count=count+1"
 SELECT count from t1;
 
 # Same tests on a table with reverse orderings
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="INSERT INTO t1rev VALUES(1, 1, 1) ON DUPLICATE KEY UPDATE count=count+1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="INSERT INTO t1rev VALUES(1, 1, 1) ON DUPLICATE KEY UPDATE count=count+1"
 SELECT count from t1rev;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1rev SET count=count+1 WHERE id1=1 AND id2=1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1rev SET count=count+1 WHERE id1=1 AND id2=1"
 SELECT count from t1rev;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1rev SET count=count+1 WHERE id2=1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1rev SET count=count+1 WHERE id2=1"
 SELECT count from t1rev;
---exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=50000 --query="UPDATE t1rev SET count=count+1"
+--exec $MYSQL_SLAP --silent --concurrency=50 --number-of-queries=5000 --query="UPDATE t1rev SET count=count+1"
 SELECT count from t1rev;
 
 SET GLOBAL rocksdb_lock_wait_timeout = @save;

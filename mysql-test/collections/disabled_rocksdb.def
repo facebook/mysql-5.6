@@ -52,6 +52,7 @@ rocksdb_rpl.rpl_no_unique_check_on_lag_mts : missing d80175902ee Disable unique 
 rocksdb.percona_nonflushing_analyze_debug : missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE TABLE from flushing table definition cache)
 rocksdb.2pc_group_commit : missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
 rocksdb.slow_query_log : missing 91d708f9efb Add support for reporting keys/deletes skipped in the extra slow query log
+rocksdb.group_min_max : missing infinite loop fix
 
 # Blind replace
 rocksdb.optimize_myrocks_replace_into_base : missing patch f14c64cf950 Optimize replace into to do a blind write
@@ -76,6 +77,8 @@ rocksdb_rpl.rpl_skip_trx_api_binlog_format : rpl_skip_tx_api missing
 # rocksdb_read_free_rpl
 rocksdb.rocksdb_read_free_rpl : rocksdb_read_free_rpl missing
 rocksdb.rocksdb_read_free_rpl_stress : rocksdb_read_free_rpl missing
+rocksdb.blind_delete_rc : rocksdb_read_free_rpl missing
+rocksdb.blind_delete_rr : rocksdb_read_free_rpl missing
 
 # i_s.table_statistics
 rocksdb.show_table_status : table_statistics missing
@@ -94,4 +97,5 @@ rocksdb.com_rpc_tx : detached session is missing in 8.0
 # Misc bugs
 rocksdb.bloomfilter3 : query plan is different between 8.0 and 5.6
 rocksdb.issue884 : query plan is different between 8.0 and 5.6
+rocksdb.persistent_cache : only repros with other tests running
 

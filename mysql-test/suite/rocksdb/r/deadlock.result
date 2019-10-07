@@ -11,27 +11,27 @@ SET @save = @@global.rocksdb_lock_wait_timeout;
 SET GLOBAL rocksdb_lock_wait_timeout = 60;
 SELECT count from t1;
 count
-50000
+5000
 SELECT count from t1;
 count
-100000
+10000
 SELECT count from t1;
 count
-150000
+15000
 SELECT count from t1;
 count
-200000
+20000
 SELECT count from t1rev;
 count
-50000
+5000
 SELECT count from t1rev;
 count
-100000
+10000
 SELECT count from t1rev;
 count
-150000
+15000
 SELECT count from t1rev;
 count
-200000
+20000
 SET GLOBAL rocksdb_lock_wait_timeout = @save;
 DROP DATABASE mysqlslap;

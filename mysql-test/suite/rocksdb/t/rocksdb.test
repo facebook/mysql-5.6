@@ -48,7 +48,7 @@ update t1 set b=3334341 where a=2;
 set @var2=(select variable_value
            from performance_schema.global_status
            where variable_name='rocksdb_number_keys_written');
---echo # The following should produce 1
+--echo # The following should produce 2 when binlog is enabled
 select @var2 - @var1;
 
 --echo # Do an update that sets the key to the same value
@@ -1876,6 +1876,7 @@ DROP TABLE t1;
 --echo #   needs a datype that doesn't support index-inly)
 --echo #
 
+--disable_testcase BUG#888003
 CREATE TABLE t1(
   c1 varchar(10) character set utf8 collate utf8_general_ci NOT NULL, 
   c2 varchar(10) character set utf8 collate utf8_general_ci, 
@@ -1889,6 +1890,7 @@ SELECT * FROM t1 force index(idx) WHERE c1 <> 'c1-val2' ORDER BY c1 DESC;
 --replace_column 10 # 11 #
 explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
 drop table t1;
+--enable_testcase
 
 --echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
