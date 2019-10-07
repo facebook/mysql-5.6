@@ -70,7 +70,7 @@ let $table = t4;
 drop table t3;
 
 # Insert enough data to trigger compactions that eliminate t2 and t3
-let $max = 50000;
+let $max = 5000;
 let $table = t1;
 --source drop_table_repopulate_table.inc
 let $table = t4;
@@ -101,6 +101,7 @@ SET GLOBAL rocksdb_compact_cf='cf1';
 SET GLOBAL rocksdb_compact_cf='rev:cf2';
 
 connection default;
+--let $shutdown_server_timeout= 500
 --source include/restart_mysqld.inc
 
 drop table t4;
