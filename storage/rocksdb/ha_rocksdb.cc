@@ -5723,6 +5723,8 @@ static int rocksdb_done_func(void *const p) {
   rdb_mc_thread.signal(true);
 
   // Wait for the background thread to finish.
+  // NO_LINT_DEBUG
+  sql_print_information("Waiting for MyRocks background to finish");
   auto err = rdb_bg_thread.join();
   if (err != 0) {
     // We'll log the message and continue because we're shutting down and
@@ -5733,6 +5735,8 @@ static int rocksdb_done_func(void *const p) {
   }
 
   // Wait for the drop index thread to finish.
+  // NO_LINT_DEBUG
+  sql_print_information("Waiting for MyRocks drop index thread to finish");
   err = rdb_drop_idx_thread.join();
   if (err != 0) {
     // NO_LINT_DEBUG
@@ -5740,6 +5744,8 @@ static int rocksdb_done_func(void *const p) {
   }
 
   // Wait for the index stats calculation thread to finish.
+  // NO_LINT_DEBUG
+  sql_print_information("Waiting for MyRocks index stats thread to finish");
   err = rdb_is_thread.join();
   if (err != 0) {
     // NO_LINT_DEBUG
@@ -5749,6 +5755,8 @@ static int rocksdb_done_func(void *const p) {
   }
 
   // Wait for the manual compaction thread to finish.
+  // NO_LINT_DEBUG
+  sql_print_information("Waiting for MyRocks compaction thread to finish");
   err = rdb_mc_thread.join();
   if (err != 0) {
     // NO_LINT_DEBUG
@@ -14071,7 +14079,15 @@ void Rdb_manual_compaction_thread::run() {
                           mcr.cf->GetName().c_str());
     rocksdb_manual_compactions_running++;
     if (rocksdb_debug_manual_compaction_delay > 0) {
-      my_sleep(rocksdb_debug_manual_compaction_delay * 1000000);
+      uint32 delay = rocksdb_debug_manual_compaction_delay;
+      for (uint32 i = 0; i < delay; ++i) {
+        // Sleep in 1s increments so that shutdown/abort can happen properly
+        my_sleep(1000000);
+        if (m_killed) {
+          // Let it run through to the end to simplify abort processing
+          break;
+        }
+      }
     }
 
     DBUG_EXECUTE_IF("rocksdb_manual_compaction", {

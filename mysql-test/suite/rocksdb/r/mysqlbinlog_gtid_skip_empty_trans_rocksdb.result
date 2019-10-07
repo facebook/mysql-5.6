@@ -4,10 +4,10 @@ set SESSION binlog_format = 'ROW';
 create database test2;
 create database test3;
 use test;
-create table t1 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t1(a int primary key, b char(8)) ENGINE = rocksdb;
 insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
-create table t2 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t2(a int primary key, b char(8)) ENGINE = rocksdb;
 start transaction;
 insert into t2 values(1, 'a');
 insert into t2 values(2, 'b');
@@ -15,10 +15,10 @@ insert into t2 values(3, 'c');
 insert into t2 values(4, 'd');
 commit;
 use test2;
-create table t1 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t1(a int primary key, b char(8)) ENGINE = rocksdb;
 insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
-create table t2 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t2(a int primary key, b char(8)) ENGINE = rocksdb;
 start transaction;
 insert into t2 values(1, 'a');
 insert into t2 values(2, 'b');
@@ -26,10 +26,10 @@ insert into t2 values(3, 'c');
 insert into t2 values(4, 'd');
 commit;
 use test3;
-create table t1 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t1(a int primary key, b char(8)) ENGINE = rocksdb;
 insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
-create table t2 (a int primary key, b char(8)) ENGINE=rocksdb;
+create table t2(a int primary key, b char(8)) ENGINE = rocksdb;
 start transaction;
 insert into t2 values(1, 'a');
 insert into t2 values(2, 'b');
@@ -37,45 +37,50 @@ insert into t2 values(3, 'c');
 insert into t2 values(4, 'd');
 commit;
 FLUSH LOGS;
-==== Output of mysqlbinlog with --short-form --skip-empty-trans, --database and --skip-gtids options ====
+include/mysqlbinlog.inc
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
-/*!40019 SET @@session.max_insert_delayed_threads=0*/;
 /*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
 DELIMITER /*!*/;
 ROLLBACK/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
-SET @@session.pseudo_thread_id=999999999/*!*/;
+SET TIMESTAMP=#/*!*/;
+SET @@session.pseudo_thread_id=#/*!*/;
 SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
 SET @@session.sql_mode=1073741824/*!*/;
 SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
-/*!\C latin1 *//*!*/;
-SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+/*!\C utf8mb4 *//*!*/;
+SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=8/*!*/;
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 create database test2
 /*!*/;
 use `test2`/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
-create table t1 (a int primary key, b char(8)) ENGINE=rocksdb
+SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
+create table t1(a int primary key, b char(8)) ENGINE = rocksdb
 /*!*/;
-SET TIMESTAMP=1000000000/*!*/;
+SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
+SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
-SET TIMESTAMP=1000000000/*!*/;
-create table t2 (a int primary key, b char(8)) ENGINE=rocksdb
+SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
+create table t2(a int primary key, b char(8)) ENGINE = rocksdb
 /*!*/;
-SET TIMESTAMP=1000000000/*!*/;
+SET TIMESTAMP=#/*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
 DELIMITER ;
 # End of log file
-ROLLBACK /* added by mysqlbinlog */;
 /*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
 use test2;
@@ -87,26 +92,26 @@ insert into t2 values(7, 'g');
 insert into t2 values(8, 'h');
 commit;
 FLUSH LOGS;
-==== Output of mysqlbinlog with --short-form --skip-empty-trans, --database and --skip-gtids options ====
-==== DB changed in the middle of the transaction, which belongs to the selected database
+include/mysqlbinlog.inc
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
-/*!40019 SET @@session.max_insert_delayed_threads=0*/;
 /*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
 DELIMITER /*!*/;
-SET TIMESTAMP=1000000000/*!*/;
-SET @@session.pseudo_thread_id=999999999/*!*/;
+SET TIMESTAMP=#/*!*/;
+SET @@session.pseudo_thread_id=#/*!*/;
 SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
 SET @@session.sql_mode=1073741824/*!*/;
 SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
-/*!\C latin1 *//*!*/;
-SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+/*!\C utf8mb4 *//*!*/;
+SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=8/*!*/;
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
+/*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
+/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
+ROLLBACK /* added by mysqlbinlog */ /*!*/;
 DELIMITER ;
 # End of log file
-ROLLBACK /* added by mysqlbinlog */;
 /*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
 use test;
@@ -118,15 +123,13 @@ insert into t2 values(11, 'k');
 insert into t2 values(12, 'l');
 commit;
 FLUSH LOGS;
-==== Output of mysqlbinlog with --short-form --skip-empty-trans, --database and --skip-gtids options ====
-==== DB changed in the middle of the transaction, which belongs to the non-selected database
+include/mysqlbinlog.inc
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
-/*!40019 SET @@session.max_insert_delayed_threads=0*/;
 /*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
 DELIMITER /*!*/;
+ROLLBACK /* added by mysqlbinlog */ /*!*/;
 DELIMITER ;
 # End of log file
-ROLLBACK /* added by mysqlbinlog */;
 /*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
 use test;
