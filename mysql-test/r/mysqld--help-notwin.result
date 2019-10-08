@@ -1460,6 +1460,10 @@ The following options may be given as the first argument:
  from a failed insertion attempt in INSERT ON DUPLICATE
  KEY UPDATE
  (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
+ --rocksdb-enable-iterate-bounds 
+ Enable rocksdb iterator upper/lower bounds in read
+ options.
+ (Defaults to on; use --skip-rocksdb-enable-iterate-bounds to disable.)
  --rocksdb-enable-remove-orphaned-dropped-cfs 
  Enables removing dropped cfs from metadata if it doesn't
  exist in cf manager
@@ -2528,6 +2532,7 @@ rocksdb-disable-file-deletions FALSE
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-insert-with-update-caching TRUE
+rocksdb-enable-iterate-bounds TRUE
 rocksdb-enable-remove-orphaned-dropped-cfs TRUE
 rocksdb-enable-thread-tracking TRUE
 rocksdb-enable-ttl TRUE
