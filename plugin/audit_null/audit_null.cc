@@ -137,6 +137,9 @@ static const constexpr size_t event_response_buffer_len = 1000;
 static char generic_event_response[event_response_buffer_len + 1] = {
     0,
 };
+static char connect_event_response[event_response_buffer_len + 1] = {
+    0,
+};
 #endif
 
 /*
@@ -155,6 +158,8 @@ static SHOW_VAR simple_status[] = {
 
 #ifndef DBUG_OFF
     {"Audit_null_generic_event_response", (char *)generic_event_response,
+     SHOW_CHAR, SHOW_SCOPE_GLOBAL},
+    {"Audit_null_connect_event_response", (char *)connect_event_response,
      SHOW_CHAR, SHOW_SCOPE_GLOBAL},
 #endif
 
@@ -461,13 +466,21 @@ static void log_event(const mysql_event_general *event) {
   EVENT_PARAM_STR(database);
   EVENT_PARAM(affected_rows);
   EVENT_PARAM(port);
-  EVENT_PARAM_STR(connection_certificate);
-#undef EVENT_PARAM
-#undef EVENT_PARAM_STR
 
   const std::string str = event_str.str();
   strncpy(generic_event_response, str.c_str(), event_response_buffer_len);
 }
+
+static void log_connect_event(const mysql_event_connection *event) {
+  std::stringstream event_str;
+
+  EVENT_PARAM_STR(connection_certificate);
+
+  const std::string str = event_str.str();
+  strncpy(connect_event_response, str.c_str(), event_response_buffer_len);
+}
+#undef EVENT_PARAM
+#undef EVENT_PARAM_STR
 #endif
 
 /**
@@ -531,9 +544,16 @@ static int audit_null_notify(MYSQL_THD thd, mysql_event_class_t event_class,
         (const struct mysql_event_connection *)event;
 
     switch (event_connection->event_subclass) {
-      case MYSQL_AUDIT_CONNECTION_CONNECT:
+      case MYSQL_AUDIT_CONNECTION_CONNECT: {
+#ifndef DBUG_OFF
+        const int extended_info = static_cast<int>(THDVAR(thd, extended_log));
+        if (extended_info != 0) {
+          log_connect_event(event_connection);
+        }
+#endif
         number_of_calls_connection_connect++;
         break;
+      }
       case MYSQL_AUDIT_CONNECTION_DISCONNECT:
         number_of_calls_connection_disconnect++;
         break;

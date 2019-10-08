@@ -18,7 +18,7 @@ SELECT * FROM foo;
 # max status var length limit, taking only first 255 chars here to make this
 # test stable
 --replace_regex /.*(connection_certificate:[^;]{255}).*/\1/
-SHOW STATUS LIKE "Audit_null_generic_event_response";
+SHOW STATUS LIKE "Audit_null_connect_event_response";
 
 disconnect con1;
 connection default;
