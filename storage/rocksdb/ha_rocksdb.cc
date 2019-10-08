@@ -1070,6 +1070,11 @@ static MYSQL_THDVAR_BOOL(
     " Blind delete is disabled if the table has secondary key",
     nullptr, nullptr, FALSE);
 
+static MYSQL_THDVAR_BOOL(
+    enable_iterate_bounds, PLUGIN_VAR_OPCMDARG,
+    "Enable rocksdb iterator upper/lower bounds in read options.", nullptr,
+    nullptr, TRUE);
+
 static const char *DEFAULT_READ_FREE_RPL_TABLES = ".*";
 
 static int rocksdb_validate_read_free_rpl_tables(
@@ -2153,6 +2158,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
+    MYSQL_SYSVAR(enable_iterate_bounds),
     MYSQL_SYSVAR(read_free_rpl_tables),
     MYSQL_SYSVAR(read_free_rpl),
     MYSQL_SYSVAR(bulk_load_size),
@@ -3119,9 +3125,12 @@ class Rdb_transaction {
     rocksdb::ReadOptions options = m_read_opts;
 
     if (skip_bloom_filter) {
+      const bool enable_iterate_bounds = THDVAR(get_thd(), enable_iterate_bounds);
       options.total_order_seek = true;
-      options.iterate_lower_bound = &eq_cond_lower_bound;
-      options.iterate_upper_bound = &eq_cond_upper_bound;
+      options.iterate_lower_bound =
+          enable_iterate_bounds ? &eq_cond_lower_bound : nullptr;
+      options.iterate_upper_bound =
+          enable_iterate_bounds ? &eq_cond_upper_bound : nullptr;
     } else {
       // With this option, Iterator::Valid() returns false if key
       // is outside of the prefix bloom filter range set at Seek().
@@ -11525,12 +11534,17 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
     kd.get_infimum_key(reinterpret_cast<uchar *>(key_buf), &key_len);
     rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
     const rocksdb::Slice table_key(key_buf, key_len);
-    setup_iterator_bounds(kd, table_key, Rdb_key_def::INDEX_NUMBER_SIZE,
-                          lower_bound_buf, upper_bound_buf, &lower_bound_slice,
-                          &upper_bound_slice);
     DBUG_ASSERT(key_len == Rdb_key_def::INDEX_NUMBER_SIZE);
-    opts.iterate_lower_bound = &lower_bound_slice;
-    opts.iterate_upper_bound = &upper_bound_slice;
+    if (THDVAR(ha_thd(), enable_iterate_bounds)) {
+      setup_iterator_bounds(kd, table_key, Rdb_key_def::INDEX_NUMBER_SIZE,
+                            lower_bound_buf, upper_bound_buf,
+                            &lower_bound_slice, &upper_bound_slice);
+      opts.iterate_lower_bound = &lower_bound_slice;
+      opts.iterate_upper_bound = &upper_bound_slice;
+    } else {
+      opts.iterate_lower_bound = nullptr;
+      opts.iterate_upper_bound = nullptr;
+    }
     std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(opts, cf));
 
     it->Seek(table_key);
@@ -14169,7 +14183,7 @@ bool ha_rocksdb::check_bloom_and_set_bounds(
     uchar *const upper_bound, rocksdb::Slice *lower_bound_slice,
     rocksdb::Slice *upper_bound_slice) {
   bool can_use_bloom = can_use_bloom_filter(thd, kd, eq_cond, use_all_keys);
-  if (!can_use_bloom) {
+  if (!can_use_bloom && (THDVAR(thd, enable_iterate_bounds))) {
     setup_iterator_bounds(kd, eq_cond, bound_len, lower_bound, upper_bound,
                           lower_bound_slice, upper_bound_slice);
   }
