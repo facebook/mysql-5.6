@@ -1,0 +1,30 @@
+SET SESSION rocksdb_enable_iterate_bounds=1;
+SET SESSION rocksdb_enable_iterate_bounds=0;
+SELECT @@rocksdb_enable_iterate_bounds;
+@@rocksdb_enable_iterate_bounds
+0
+DROP TABLE IF EXISTS t;
+Warnings:
+Note	1051	Unknown table 'test.t'
+SELECT COUNT(*) FROM t WHERE a = 1;
+COUNT(*)
+1
+SELECT COUNT(*) FROM t WHERE a >= 1 AND a <= 32;
+COUNT(*)
+32
+SELECT COUNT(*) FROM t;
+COUNT(*)
+64
+SELECT @@rocksdb_enable_iterate_bounds;
+@@rocksdb_enable_iterate_bounds
+1
+SELECT COUNT(*) FROM t WHERE a = 1;
+COUNT(*)
+1
+SELECT COUNT(*) FROM t WHERE a >= 1 AND a <= 32;
+COUNT(*)
+32
+SELECT COUNT(*) FROM t;
+COUNT(*)
+64
+DROP TABLE t;
