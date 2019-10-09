@@ -6235,15 +6235,43 @@ bool MYSQL_BIN_LOG::open_binlog(
 
     if (!is_relay_log) {
       const Gtid_set *executed_gtids = gtid_state->get_executed_gtids();
-      const Gtid_set *gtids_only_in_table =
-          gtid_state->get_gtids_only_in_table();
-      /* logged_gtids_binlog= executed_gtids - gtids_only_in_table */
+      /* logged_gtids_binlog= executed_gtids
+         Always store full executed_gtids set into Previous_gtids_log_event to
+         make binlogs self-contained
+         NOTE:
+         This store full gtids set behavior is different than official MySQL.
+         offical mysql behavior: store delta gtids set in Previous_gtids
+                                 its value: executed_gtids - gtids_only_in_table
+              fb mysql behavior: store full gtids set in Previous_gtids
+                                 its value: executed_gtids
+         The reason for this change is that infra depends on correct
+         Previous_gtids value(full GTIDS SET) and uses "set GTID_PURGED +
+         FLUSH LOGS" to control Previous_gtids value.
+         *When call set global GTID_PURGED="UUID:ID1-ID2", it will
+            store "UUID:ID1:ID2" into lost_gtids, executed_gtids,
+            gtids_only_in_table variables and also store "UUID:ID1:ID2" into
+            mysql.executed_gtid table.
+         *When call flush logs, it will store
+            (executed_gtids - gtids_only_in_table) or (executed_gtids) as
+            Previous_gtid_set.
+         Example:
+         1. set global GTID_PURGED="UUID:ID1-ID2";flush logs;
+           executed_gtids ==  UUID:ID1-ID2
+           executed_gtids - gtids_only_in_table ==  <empty>
+         2. set global GTID_PURGED="UUID:ID1-ID2"; sync another trans;flush logs
+           executed_gtids ==  UUID:ID1-ID3
+           executed_gtids - gtids_only_in_table == UUID:ID3
+         3. set global GTID_PURGED="UUID:ID1-ID2"; restart slave;flush logs
+           executed_gtids ==  UUID:ID1-ID2
+           executed_gtids - gtids_only_in_table ==  <empty>
+         For all of these above example, FB MySQL will store executed_gtids as
+         Previous_gtid_set.
+      */
       if (logged_gtids_binlog.add_gtid_set(executed_gtids) !=
           RETURN_STATUS_OK) {
         if (need_sid_lock) sid_lock->unlock();
         goto err;
       }
-      logged_gtids_binlog.remove_gtid_set(gtids_only_in_table);
     }
 
     /* Generate the encoded gtid set for storing in the index file */
