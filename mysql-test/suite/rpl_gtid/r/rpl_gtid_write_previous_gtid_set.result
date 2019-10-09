@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_reset.inc
+scenario1: execute transactions on master and sync to slave
+CREATE TABLE t1 (a int);
+INSERT INTO t1 values(1);
+INSERT INTO t1 values(2);
+scenario1: set GTID_PURGED and FLUSH LOGS
+RESET MASTER;
+SET @@GLOBAL.GTID_PURGED = "slave_gtid_executed";
+FLUSH LOGS;
+scenario1: verify previous_gtid event contains UUID:1-3
+extra/rpl_tests/rpl_check_gtid.inc
+scenario2: execute another transaction in master
+INSERT INTO t1 values(3);
+scenario2: FLUSH LOGS
+FLUSH LOGS;
+scenario2: verify another transaction info exists in previous_gtid
+extra/rpl_tests/rpl_check_gtid.inc
+scenario3: execute another transaction in master
+INSERT INTO t1 values(4);
+scenario3: restart slave between set GTID_PURGED and FLUSH LOGS
+RESET MASTER;
+SET @@GLOBAL.GTID_PURGED = "slave_gtid_executed";
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+FLUSH LOGS;
+scenario3: verify another transaction info exists in previous_gtid
+extra/rpl_tests/rpl_check_gtid.inc
+DROP TABLE t1;
+include/rpl_end.inc
