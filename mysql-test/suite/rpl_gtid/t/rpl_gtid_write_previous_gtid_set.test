@@ -1,0 +1,87 @@
+# ==== Purpose ====
+# Verify full gtid sets are stored in Previous_gtids after 
+# SET GTID_PURGED and FLUSH LOGS
+
+--source include/master-slave.inc
+
+--disable_warnings
+--source include/rpl_reset.inc
+--enable_warnings
+
+--echo scenario1: execute transactions on master and sync to slave
+--connection master
+--let $server_uuid= `SELECT @@GLOBAL.SERVER_UUID`
+CREATE TABLE t1 (a int);
+INSERT INTO t1 values(1);
+INSERT INTO t1 values(2);
+--sync_slave_with_master
+
+--echo scenario1: set GTID_PURGED and FLUSH LOGS
+--connection slave
+--let $slave_gtid_executed= `SELECT @@GLOBAL.GTID_EXECUTED`
+RESET MASTER;
+replace_result $slave_gtid_executed slave_gtid_executed;
+EVAL SET @@GLOBAL.GTID_PURGED = "$slave_gtid_executed";
+FLUSH LOGS;
+
+--echo scenario1: verify previous_gtid event contains UUID:1-3
+--connection slave
+--let $binlog= binlog
+--let $gtid_set_ini= 1
+--let $gtid_set_end= 3
+--let $gtid_ini=
+--let $gtid_end=
+--source extra/rpl_tests/rpl_check_gtid.inc
+
+--echo scenario2: execute another transaction in master
+--connection master
+INSERT INTO t1 values(3);
+--sync_slave_with_master
+
+--echo scenario2: FLUSH LOGS
+--connection slave
+FLUSH LOGS;
+
+--echo scenario2: verify another transaction info exists in previous_gtid
+--connection slave
+--let $binlog= binlog
+--let $gtid_set_ini= 1
+--let $gtid_set_end= 4
+--let $gtid_ini=
+--let $gtid_end=
+--source extra/rpl_tests/rpl_check_gtid.inc
+
+--echo  scenario3: execute another transaction in master
+--connection master
+INSERT INTO t1 values(4);
+--sync_slave_with_master
+
+--echo scenario3: restart slave between set GTID_PURGED and FLUSH LOGS
+--connection slave
+--let $slave_gtid_executed= `SELECT @@GLOBAL.GTID_EXECUTED`
+RESET MASTER;
+replace_result $slave_gtid_executed slave_gtid_executed;
+EVAL SET @@GLOBAL.GTID_PURGED = "$slave_gtid_executed";
+
+--let $rpl_server_number= 2
+--source include/rpl_restart_server.inc
+--source include/start_slave.inc
+
+FLUSH LOGS;
+
+--echo scenario3: verify another transaction info exists in previous_gtid
+--connection slave
+--let $binlog= binlog
+--let $gtid_set_ini= 1
+--let $gtid_set_end= 5
+--let $gtid_ini=
+--let $gtid_end=
+--source extra/rpl_tests/rpl_check_gtid.inc
+
+# Cleanup
+--connection master
+DROP TABLE t1;
+--sync_slave_with_master
+
+source include/rpl_end.inc;
+
