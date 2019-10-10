@@ -2,3 +2,4 @@
 --force-restart
 --binlog_format=STATEMENT
 --local-infile=true
+--binlog-checksum=CRC32
