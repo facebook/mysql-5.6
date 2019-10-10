@@ -531,6 +531,32 @@ let $binlog_file= query_get_value(SHOW MASTER STATUS, File, 1);
 source include/show_binlog_events.inc;
 
 #
+# Bug #96827mysqlbinlog needs options to abort if invalid events are found on in-use binlogs
+# This test checks that mysqldbinlog program returns with expected exit status if it finds
+# corruptions in binlog file.
+#
+RESET MASTER;
+USE test;
+CREATE TABLE t123456 (a INT);
+INSERT INTO t123456 VALUES (1);
+INSERT INTO t123456 VALUES (2);
+# The following file should still be open at this point
+--let $master_binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+# Intentionally corrupt the binlog
+--exec sed "s/t123456/txxxxxx/" $MYSQLD_DATADIR/$master_binlog > $MYSQLTEST_VARDIR/corrupt.binlog
+
+--error 0 # expect to succeed
+--exec $MYSQL_BINLOG --verify-binlog-checksum --force-if-open=1 --skip-verify-if-open=1 $MYSQLTEST_VARDIR/corrupt.binlog > /dev/null
+
+--error 1 # expect to fail
+--exec $MYSQL_BINLOG --verify-binlog-checksum --force-if-open=1 --skip-verify-if-open=0 $MYSQLTEST_VARDIR/corrupt.binlog > /dev/null
+
+--exec rm -rf $MYSQLTEST_VARDIR/corrupt.binlog
+
+DROP TABLE t123456;
+FLUSH LOGS;
+
+#
 # BUG#11766427 BUG#59530: Filter by server id in mysqlbinlog fails
 # This test checks that the format description log event is not
 # filtered out by the --server-id option.
