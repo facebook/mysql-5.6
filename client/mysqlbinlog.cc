@@ -139,6 +139,7 @@ static my_bool debug_info_flag, debug_check_flag;
 static my_bool force_if_open_opt= 1, raw_mode= 0;
 static my_bool to_last_remote_log= 0, stop_never= 0;
 static my_bool opt_verify_binlog_checksum= 1;
+static my_bool opt_skip_verify_if_open= 1;
 static ulonglong offset = 0;
 static int64 stop_never_slave_server_id= -1;
 #ifndef DBUG_OFF
@@ -2234,6 +2235,9 @@ static struct my_option my_long_options[] =
   {"verify-binlog-checksum", 'c', "Verify checksum binlog events.",
    (uchar**) &opt_verify_binlog_checksum, (uchar**) &opt_verify_binlog_checksum,
    0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"skip-verify-if-open", 'n', "Skip verify checksum binlog events if binlog file is open.",
+   (uchar**) &opt_skip_verify_if_open, (uchar**) &opt_skip_verify_if_open,
+   0, GET_BOOL, NO_ARG, 1, 0, 0, 0, 0, 0},
   {"binlog-row-event-max-size", OPT_BINLOG_ROWS_EVENT_MAX_SIZE,
    "The maximum size of a row-based binary log event in bytes. Rows will be "
    "grouped into events smaller than this size if possible. "
@@ -3790,7 +3794,8 @@ static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
         if binlog wasn't closed properly ("in use" flag is set) don't complain
         about a corruption, but treat it as EOF and move to the next binlog.
       */
-      if (glob_description_event->flags & LOG_EVENT_BINLOG_IN_USE_F)
+      if (opt_skip_verify_if_open &&
+             (glob_description_event->flags & LOG_EVENT_BINLOG_IN_USE_F))
         file->error= 0;
       else if (file->error)
       {
