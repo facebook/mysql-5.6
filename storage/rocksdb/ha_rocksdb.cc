@@ -3095,11 +3095,6 @@ class Rdb_transaction {
       const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
       bool exclusive, const bool do_validate) = 0;
 
-  virtual void multi_get(const rocksdb::ReadOptions &read_options,
-                         rocksdb::ColumnFamilyHandle *column_family,
-                         const size_t num_keys, const rocksdb::Slice *keys,
-                         rocksdb::PinnableSlice *values,
-                         rocksdb::Status *statuses, bool sorted_input) = 0;
   virtual rocksdb::Iterator *get_iterator(
       const rocksdb::ReadOptions &options,
       rocksdb::ColumnFamilyHandle *column_family) = 0;
@@ -3476,15 +3471,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
-  void multi_get(const rocksdb::ReadOptions &read_options,
-                 rocksdb::ColumnFamilyHandle *column_family,
-                 const size_t num_keys, const rocksdb::Slice *keys,
-                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
-                 bool sorted_input) override {
-    m_rocksdb_tx->MultiGet(read_options, column_family, num_keys, keys, values,
-                           statuses, sorted_input);
-  }
-
   void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
                  const size_t num_keys, const rocksdb::Slice *keys,
                  rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
@@ -3789,16 +3775,6 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     }
 
     return get(column_family, key, value);
-  }
-
-  void multi_get(const rocksdb::ReadOptions &read_options,
-                 rocksdb::ColumnFamilyHandle *column_family,
-                 const size_t num_keys, const rocksdb::Slice *keys,
-                 rocksdb::PinnableSlice *values, rocksdb::Status *statuses,
-                 bool sorted_input) override {
-    // todo: could we just read the committed content from the DB here?
-    //psergey-todo:!
-    DBUG_ASSERT(0);
   }
 
   void multi_get(rocksdb::ColumnFamilyHandle *const column_family,
@@ -15173,9 +15149,8 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
     }
 
     if (all_eq_ranges) {
-      // Indicate that we will use Mutlit-Get MRR
+      // Indicate that we will use MultiGet MRR
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
-      *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
       *flags |= HA_MRR_SUPPORT_SORTED;
       *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
     }
@@ -15237,7 +15212,7 @@ class Mrr_rowid_source {
 
 
 //
-// Rowid source that produces rowids by enumerating a seqence of ranges
+// Rowid source that produces rowids by enumerating a sequence of ranges
 //
 class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
   range_seq_t mrr_seq_it;
@@ -15263,6 +15238,8 @@ class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
         (key_part_map(1) << self->m_pk_descr->get_key_parts()) - 1;
     DBUG_ASSERT(range.start_key.keypart_map == all_parts_map);
     DBUG_ASSERT(range.end_key.keypart_map == all_parts_map);
+    DBUG_ASSERT(range.start_key.flag == HA_READ_KEY_EXACT);
+    DBUG_ASSERT(range.end_key.flag == HA_READ_AFTER_KEY);
 
     *range_ptr = range.ptr;
     *size = self->m_pk_descr->pack_index_tuple(self->table,
@@ -15299,10 +15276,23 @@ class Mrr_sec_key_rowid_source : public Mrr_rowid_source {
     if (err)
       return err;
 
-    err = self->handler::multi_range_read_next(range_ptr);
-    if (!err) {
+    while (!(err = self->handler::multi_range_read_next(range_ptr))) {
+
+      if (self->mrr_funcs.skip_index_tuple &&
+          self->mrr_funcs.skip_index_tuple(self->mrr_iter, *range_ptr)) {
+        // BKA's variant of "Index Condition Pushdown" check failed
+        continue;
+      }
+
+      if (self->mrr_funcs.skip_record &&
+          self->mrr_funcs.skip_record(self->mrr_iter, *range_ptr,
+                                      (uchar*)self->m_last_rowkey.ptr())) {
+        continue;
+      }
+
       memcpy(buf, self->m_last_rowkey.ptr(), self->m_last_rowkey.length());
       *size = self->m_last_rowkey.length();
+      break;
     }
     return err;
   }
@@ -15344,6 +15334,9 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   mrr_sorted_mode = (mode & HA_MRR_SORTED) ? true : false;
 
   if (active_index == table->s->primary_key) {
+    // ICP is not supported for PK, so we don't expect that BKA's variant
+    // of ICP would be used:
+    DBUG_ASSERT(!mrr_funcs.skip_index_tuple);
     mrr_rowid_reader =
       new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
   } else {
@@ -15489,9 +15482,8 @@ int ha_rocksdb::mrr_fill_buffer() {
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
 
-  tx->multi_get(tx->m_read_opts, m_pk_descr->get_cf(),
-                mrr_n_elements,  // actual number of elements we've got
-                mrr_keys, mrr_values, mrr_statuses, mrr_sorted_mode);
+  tx->multi_get(m_pk_descr->get_cf(), mrr_n_elements, mrr_keys, mrr_values,
+                mrr_statuses, mrr_sorted_mode);
 
   return 0;
 }
@@ -15527,7 +15519,7 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
   Rdb_transaction *&tx = get_tx_from_thd(table->in_use);
   int rc;
 
-  do {
+  while (1) {
     while (1) {
       if (mrr_read_index >= mrr_n_elements) {
         if (mrr_rowid_reader->eof() || !mrr_n_elements) {
@@ -15543,13 +15535,26 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
           return rc;
         }
       }
-      // Skip the "is not found" errors
+      // If we found a status that has a row, leave the loop
       if (mrr_statuses[mrr_read_index].ok()) break;
+
+      // Skip the NotFound errors, return any other error to the SQL layer
+      if (!mrr_statuses[mrr_read_index].IsNotFound())
+        return rdb_error_to_mysql(mrr_statuses[mrr_read_index]);
+
       mrr_read_index++;
     }
     size_t cur_key = mrr_read_index++;
 
     const rocksdb::Slice &rowkey = mrr_keys[cur_key];
+
+    if (mrr_funcs.skip_record &&
+        mrr_funcs.skip_record(mrr_iter, mrr_range_ptrs[cur_key],
+                              (uchar*)rowkey.data())) {
+      rc = HA_ERR_END_OF_FILE;
+      continue;
+    }
+
     m_last_rowkey.copy((const char *)rowkey.data(), rowkey.size(),
                        &my_charset_bin);
 
@@ -15570,8 +15575,9 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
     rc = convert_record_from_storage_format(&rowkey, table->record[0]);
     m_retrieved_record.Reset();
     mrr_values[cur_key].Reset();
-    table->status = rc ? STATUS_NOT_FOUND : 0;
-  } while (0);
+    break;
+  }
+  table->status = rc ? STATUS_NOT_FOUND : 0;
   return rc;
 }
 

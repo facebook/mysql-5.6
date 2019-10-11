@@ -284,6 +284,65 @@ pk1	pk2	col1	filler	mod(t3.col1,2)
 20	20	20	20	0
 26	26	26	26	0
 28	28	28	28	0
+#
+# Test for BKA's variant of Index Condition Pushdown. With BKA,
+# pushed index conditions that refer to preceding tables are 
+# handled in a special way because there's no clear concept of 
+# "current row" for the preceding table(s)
+#
+explain
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	SIMPLE	t3	ref	col1	col1	5	test.t0.a	4	Using index condition; Using join buffer (Batched Key Access)
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+a	pk1	pk2	col1	filler
+0	0	0	0	0
+1	1	1	1	1
+set optimizer_switch='mrr=off';
+select * from t0,t3 where t3.col1=t0.a and mod(t3.pk2,2)=t0.a;
+a	pk1	pk2	col1	filler
+0	0	0	0	0
+1	1	1	1	1
+set optimizer_switch='mrr=on';
+#
+# A query which has RANGE_SEQ_IF::skip_record != nullptr.
+#
+# MultiGet/MRR does not invoke skip_record() as it would not produce
+# much speedup.
+#
+insert into t3 select 10000+a, 10000+a, a, 'duplicate-match' from t1;
+delete from t3 where col1 in (3,5);
+explain
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	NULL
+1	SIMPLE	t3	ref	col1	col1	5	test.t0.a	4	Using where; Not exists; Using join buffer (Batched Key Access)
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+a	pk1	pk2	col1	filler
+3	NULL	NULL	NULL	NULL
+5	NULL	NULL	NULL	NULL
+set optimizer_switch='mrr=off';
+select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+a	pk1	pk2	col1	filler
+3	NULL	NULL	NULL	NULL
+5	NULL	NULL	NULL	NULL
+set optimizer_switch='mrr=on';
+explain
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	SIMPLE	t3	ref	col1	col1	5	test.t0.a	4	Using where; FirstMatch(t0); Using join buffer (Batched Key Access)
+select * from t0 where t0.a in (select t3.col1 from t3 where char_length(t3.filler)<30);
+a
+0
+1
+2
+4
+6
+7
+8
+9
 drop table t0,t1,t2,t3,t4;
 #
 # Multi-keypart testcase
