@@ -62,7 +62,6 @@ rocksdb_rpl.optimize_myrocks_replace_into : missing patch f14c64cf950 Optimize r
 rocksdb.mysqlbinlog_blind_replace : missing patch f14c64cf950 Optimize replace into to do a blind write
 
 # Recovery
-rocksdb_rpl.rpl_ttl_ignore_idempotent_errors : missing 92a364f86100 Ignore idempotent error in TTL tables
 rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
 rocksdb_rpl.rpl_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
 
@@ -76,10 +75,10 @@ rocksdb.trx_info_rpl : rpl_skip_tx_api missing
 rocksdb_rpl.rpl_skip_trx_api_binlog_format : rpl_skip_tx_api missing
 
 # rocksdb_read_free_rpl
-rocksdb.rocksdb_read_free_rpl : rocksdb_read_free_rpl missing
-rocksdb.rocksdb_read_free_rpl_stress : rocksdb_read_free_rpl missing
-rocksdb.blind_delete_rc : rocksdb_read_free_rpl missing
-rocksdb.blind_delete_rr : rocksdb_read_free_rpl missing
+rocksdb.rocksdb_read_free_rpl : missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.rocksdb_read_free_rpl_stress : missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.blind_delete_rc : missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.blind_delete_rr : missing af531c246d35 Added a new variable to control read-free replication
 
 # i_s.table_statistics
 rocksdb.show_table_status : table_statistics missing
