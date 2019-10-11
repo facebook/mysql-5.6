@@ -1,7 +1,6 @@
 --source include/have_log_bin.inc
 --source include/have_rocksdb.inc
 --enable_connect_log
--- let $uuid = `select @@server_uuid;`
 
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
@@ -21,7 +20,6 @@ create table r1 (id int primary key , value int) engine=rocksdb;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
 # Without setting engine, this takes both InnoDB and RocksDB snapshots
--- replace_result $uuid uuid
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 
 connection con2;
@@ -33,8 +31,9 @@ select * from i1;
 select * from r1;
 
 # Both Rocksdb/InnoDB participate in snapshot
--- replace_result $uuid uuid
+--disable_result_log
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
+--enable_result_log
 
 connection con2;
 insert into i1 values (2,2);
@@ -53,8 +52,9 @@ select * from i1;
 select * from r1;
 
 # Both Rocksdb/InnoDB participate in snapshot
--- replace_result $uuid uuid
+--disable_result_log
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+--enable_result_log
 
 connection con2;
 insert into r1 values (4,4);
