@@ -53,6 +53,7 @@ rocksdb.percona_nonflushing_analyze_debug : missing dbc7c09e252 Fix bug 1704195 
 rocksdb.2pc_group_commit : missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
 rocksdb.slow_query_log : missing 91d708f9efb Add support for reporting keys/deletes skipped in the extra slow query log
 rocksdb.group_min_max : missing infinite loop fix
+rocksdb.native_procedure : missing 7292a82ad28 Native procedures in MySQL
 
 # Blind replace
 rocksdb.optimize_myrocks_replace_into_base : missing patch f14c64cf950 Optimize replace into to do a blind write
@@ -98,4 +99,5 @@ rocksdb.com_rpc_tx : detached session is missing in 8.0
 rocksdb.bloomfilter3 : query plan is different between 8.0 and 5.6
 rocksdb.issue884 : query plan is different between 8.0 and 5.6
 rocksdb.persistent_cache : only repros with other tests running
+rocksdb.index_merge_rocksdb2 : query plan is different between 8.0 and 5.6
 
