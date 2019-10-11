@@ -15,8 +15,6 @@ id	value
 select * from r1;
 id	value
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
-File	Position	Gtid_executed
-master-bin.000001	1350	uuid:1-5
 connection con2;
 insert into i1 values (2,2);
 insert into r1 values (2,2);
@@ -38,8 +36,6 @@ select * from r1;
 id	value
 1	1
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
-File	Position	Gtid_executed
-master-bin.000001	2458	uuid:1-9
 connection con2;
 insert into r1 values (4,4);
 connection con1;
