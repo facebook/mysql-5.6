@@ -15072,9 +15072,7 @@ bool ha_rocksdb::use_read_free_rpl() const {
   @brief
   The table has a TTL enabled column or not
 */
-/* TODO(yzha) - 92a364f86100 (Ignore idempotent error in TTL tables)
 bool ha_rocksdb::has_ttl_column() const { return m_tbl_def->has_ttl_col(); }
-*/
 
 double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {
   DBUG_ENTER_FUNC();

@@ -964,9 +964,9 @@ class ha_rocksdb : public my_core::handler {
   /* TODO(yzha) - af531c246d35 New variable to control read free replication
   virtual bool use_read_free_rpl() const override;
    */
-  /* TODO(yzha) - 92a364f86100 Ignore idempotent error in TTL tables
+
   virtual bool has_ttl_column() const override;
-   */
+
  private:
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
