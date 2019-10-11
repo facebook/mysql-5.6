@@ -1,5 +1,7 @@
 source include/master-slave.inc;
 
+CALL mtr.add_suppression("handler error HA_ERR_KEY_NOT_FOUND");
+
 connection master;
 echo "Creating a TTL enabled table on master and slave";
 create table t1(a bigint unsigned primary key, b int) engine = rocksdb comment='ttl_duration=1;ttl_col=a;';
