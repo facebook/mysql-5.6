@@ -322,7 +322,7 @@ disconnect con2;
 UNINSTALL PLUGIN innodb;
 
 --echo #
---echo # Bug #19917521: MEMORY LEAK WITH STRING THREAD VARIABLE 
+--echo # Bug #19917521: MEMORY LEAK WITH STRING THREAD VARIABLE
 --echo #                THAT SET MEMALLOC FLAG
 --echo #
 --replace_regex /\.dll/.so/

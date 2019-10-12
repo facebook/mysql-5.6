@@ -260,7 +260,7 @@ disconnect con2;
 UNINSTALL PLUGIN innodb;
 ERROR HY000: Built-in plugins cannot be deleted
 #
-# Bug #19917521: MEMORY LEAK WITH STRING THREAD VARIABLE 
+# Bug #19917521: MEMORY LEAK WITH STRING THREAD VARIABLE
 #                THAT SET MEMALLOC FLAG
 #
 INSTALL PLUGIN example SONAME 'ha_example.so';

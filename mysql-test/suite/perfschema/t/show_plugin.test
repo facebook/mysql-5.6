@@ -5,7 +5,7 @@
 # variable tables while the EXAMPLE plugin is loaded and unloaded.             #
 #                                                                              #
 # The EXAMPLE plugin defines the following system and status variables:        #
-# Global system variables:                                                     # 
+# Global system variables:                                                     #
 #   example_double_thdvar                                                      #
 #   example_double_var                                                         #
 #   example_enum_var                                                           #
