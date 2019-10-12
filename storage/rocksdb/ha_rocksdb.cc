@@ -8013,6 +8013,9 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
 #ifndef DBUG_OFF
   m_keyread_only = save_keyread_only;
 #endif
+  // Due to MRR, now an index-only scan have pushed index condition.
+  // (If it does, we follow non-index only code path here, except that
+  //  we don't fetch the row).
   bool have_icp = (pushed_idx_cond && pushed_idx_cond_keyno == active_index);
 
   if (covered_lookup && m_lock_rows == RDB_LOCK_NONE && !have_icp) {
@@ -10569,7 +10572,8 @@ int ha_rocksdb::index_end() {
   active_index = MAX_KEY;
   in_range_check_pushed_down = FALSE;
 
-  mrr_free();
+  if (mrr_rowid_reader)
+    mrr_free();
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -15520,14 +15524,14 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
   while (1) {
     while (1) {
+      if (table->in_use->killed) return HA_ERR_QUERY_INTERRUPTED;
+
       if (mrr_read_index >= mrr_n_elements) {
         if (mrr_rowid_reader->eof() || !mrr_n_elements) {
           table->status = STATUS_NOT_FOUND;  // not sure if this is necessary?
           mrr_free_rows();
           return HA_ERR_END_OF_FILE;
         }
-
-        if (table->in_use->killed) return HA_ERR_QUERY_INTERRUPTED;
 
         if ((rc = mrr_fill_buffer())) {
           if (rc == HA_ERR_END_OF_FILE) table->status = STATUS_NOT_FOUND;
