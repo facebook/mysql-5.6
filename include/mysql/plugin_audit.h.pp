@@ -31,7 +31,9 @@ enum enum_mysql_show_type {
   SHOW_LONG_NOFLUSH,
   SHOW_LONGLONG_STATUS,
   SHOW_LEX_STRING,
+  SHOW_SIGNED_INT,
   SHOW_SIGNED_LONG,
+  SHOW_SIGNED_LONGLONG,
   SHOW_TIMER,
   SHOW_TIMER_STATUS
 };
@@ -386,7 +388,7 @@ struct mysql_event_general {
   long long query_id;
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
-  unsigned int port;  
+  unsigned int port;
 };
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,

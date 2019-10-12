@@ -52,7 +52,12 @@ enum enum_mysql_show_type {
   SHOW_LONG_NOFLUSH,
   SHOW_LONGLONG_STATUS,
   SHOW_LEX_STRING,
+  /*
+    Support for signed values are extended for plugins.
+  */
+  SHOW_SIGNED_INT,
   SHOW_SIGNED_LONG,
+  SHOW_SIGNED_LONGLONG,
   SHOW_TIMER,
   SHOW_TIMER_STATUS
 };
