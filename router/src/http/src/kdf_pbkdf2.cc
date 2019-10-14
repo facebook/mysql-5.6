@@ -50,7 +50,7 @@ constexpr char Pbkdf2McfType::kTypeSha512[];
 std::vector<uint8_t> Pbkdf2::salt() {
   std::vector<uint8_t> out(16);
 
-  if (out.size() > std::numeric_limits<int>::max()) {
+  if (out.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
     throw std::out_of_range("out.size() too large");
   }
 
