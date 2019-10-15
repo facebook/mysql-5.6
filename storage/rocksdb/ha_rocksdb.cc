@@ -720,9 +720,8 @@ static int rocksdb_trace_block_cache_access(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var, void *const save,
     struct st_mysql_value *const value) {
-  char buf[FN_REFLEN];
-  int len = sizeof(buf);
-  const char *const trace_opt_str_raw = value->val_str(value, buf, &len);
+  int len = 0;
+  const char *const trace_opt_str_raw = value->val_str(value, nullptr, &len);
   rocksdb::Status s;
   if (trace_opt_str_raw == nullptr || rdb == nullptr) {
     return HA_EXIT_FAILURE;
@@ -738,7 +737,7 @@ static int rocksdb_trace_block_cache_access(
       rc = ha_rocksdb::rdb_error_to_mysql(s);
       return HA_EXIT_FAILURE;
     }
-    *static_cast<const char **>(save) = my_strdup(PSI_NOT_INSTRUMENTED, "", MYF(0));
+    *static_cast<const char **>(save) = "";
     return HA_EXIT_SUCCESS;
   }
 
@@ -820,7 +819,7 @@ static int rocksdb_trace_block_cache_access(
       trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
       trace_file_path.c_str());
   // Save the trace option.
-  *static_cast<const char **>(save) = my_strdup(PSI_NOT_INSTRUMENTED, trace_opt_str_raw, MYF(0));
+  *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
 }
 
@@ -1098,9 +1097,8 @@ static int rocksdb_validate_read_free_rpl_tables(
     THD *thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *var MY_ATTRIBUTE((__unused__)), void *save,
     struct st_mysql_value *value) {
-  char buff[STRING_BUFFER_USUAL_SIZE];
-  int length = sizeof(buff);
-  const char *wlist_buf = value->val_str(value, buff, &length);
+  int length = 0;
+  const char *wlist_buf = value->val_str(value, nullptr, &length);
   const auto wlist = wlist_buf ? wlist_buf : DEFAULT_READ_FREE_RPL_TABLES;
 
 #if defined(HAVE_PSI_INTERFACE)
@@ -1114,7 +1112,7 @@ static int rocksdb_validate_read_free_rpl_tables(
     return HA_EXIT_FAILURE;
   }
 
-  *static_cast<const char **>(save) = my_strdup(PSI_NOT_INSTRUMENTED, wlist, MYF(MY_WME));
+  *static_cast<const char **>(save) = wlist;
   return HA_EXIT_SUCCESS;
 }
 
@@ -1152,7 +1150,7 @@ static void rocksdb_update_read_free_rpl_tables(
 
 static MYSQL_SYSVAR_STR(
     read_free_rpl_tables, rocksdb_read_free_rpl_tables,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "List of tables that will use read-free replication on the slave "
     "(i.e. not lookup a row during replication)",
     rocksdb_validate_read_free_rpl_tables, rocksdb_update_read_free_rpl_tables,
@@ -1717,8 +1715,7 @@ static MYSQL_SYSVAR_STR(override_cf_options, rocksdb_override_cf_options,
                         "");
 
 static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
-                            PLUGIN_VAR_ALLOCATED,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Option updates per column family for RocksDB",
                         rocksdb_validate_update_cf_options,
                         rocksdb_set_update_cf_options, nullptr);
@@ -2109,7 +2106,7 @@ static MYSQL_SYSVAR_BOOL(
 
 static MYSQL_SYSVAR_STR(
     trace_block_cache_access, rocksdb_block_cache_trace_options_str,
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
     "Block cache trace option string. The format is "
     "sampling_frequency:max_trace_file_size:trace_file_name. "
     "sampling_frequency and max_trace_file_size are positive integers. The "
@@ -14855,11 +14852,8 @@ static int rocksdb_validate_set_block_cache_size(
 static int rocksdb_validate_update_cf_options(
     THD * /* unused */, struct SYS_VAR * /*unused*/, void *save,
     struct st_mysql_value *value) {
-  char buff[STRING_BUFFER_USUAL_SIZE];
-  const char *str;
-  int length;
-  length = sizeof(buff);
-  str = value->val_str(value, buff, &length);
+  int length = 0;
+  const char *str = value->val_str(value, nullptr, &length);
 
   *(const char **)save = nullptr;
   if (str == nullptr) {
@@ -14897,10 +14891,7 @@ static int rocksdb_validate_update_cf_options(
     }
   }
 
-  // In some cases, str can point to buff in the stack.
-  // This can cause invalid memory access after validation is finished.
-  // To avoid this kind case, let's alway duplicate the str.
-  *(const char **)save = my_strdup(PSI_NOT_INSTRUMENTED, str, MYF(0));
+  *(const char **)save = str;
 
   return HA_EXIT_SUCCESS;
 }
