@@ -191,18 +191,19 @@ void Rdb_mutex::set_unlock_action(const PSI_stage_info *const old_stage_arg) {
 
 // Unlock Mutex that was successfully locked by Lock() or TryLockUntil()
 void Rdb_mutex::UnLock() {
-  // MySQL 8.0 requires you to unlock the mutex before THD_EXIT_COND while
-  // 5.6 THD_EXIT_COND does it for you
-  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 #ifndef STANDALONE_UNITTEST
   if (m_old_stage_info.count(current_thd) > 0) {
     const std::shared_ptr<PSI_stage_info> old_stage =
         m_old_stage_info[current_thd];
     m_old_stage_info.erase(current_thd);
+    // MySQL 8.0 requires you to unlock the mutex before THD_EXIT_COND while
+    // 5.6 THD_EXIT_COND does it for you
+    RDB_MUTEX_UNLOCK_CHECK(m_mutex);
     THD_EXIT_COND(current_thd, old_stage.get());
     return;
   }
 #endif
+  RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 }
 
 }  // namespace myrocks
