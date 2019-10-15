@@ -22,7 +22,9 @@ insert into x values (5,1,1);
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
 
-sync_slave_with_master;
+--let $use_gtids = 1
+source include/sync_slave_sql_with_master.inc;
+
 connection slave;
 --let slave_data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
 --let slave_pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
@@ -74,7 +76,8 @@ select "--- slave state after restart, slave start ---" as "";
 --enable_query_log
 --source include/start_slave.inc
 connection master;
-sync_slave_with_master;
+--let $use_gtids = 1;
+source include/sync_slave_sql_with_master.inc;
 connection slave;
 select * from x;
 -- replace_result $uuid uuid
@@ -84,8 +87,8 @@ select * from mysql.slave_gtid_info;
 
 connection master;
 insert into x values (6,1,1);
-
-sync_slave_with_master;
+--let $use_gtids = 1
+source include/sync_slave_sql_with_master.inc;
 connection slave;
 select * from x;
 -- replace_result $uuid uuid
@@ -103,7 +106,8 @@ insert into x values (12,1,1);
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
-sync_slave_with_master;
+--let $use_gtids = 1
+source include/sync_slave_sql_with_master.inc;
 
 connection slave;
 
@@ -136,7 +140,9 @@ select "--- slave state after crash recovery, slave stop, WAL was corrupted, poi
 select * from x;
 --source include/start_slave.inc
 connection master;
-sync_slave_with_master;
+--let $use_gtids = 1
+source include/sync_slave_sql_with_master.inc;
+
 connection slave;
 select * from x;
 -- replace_result $uuid uuid
