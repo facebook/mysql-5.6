@@ -12749,7 +12749,7 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     }
   }
 
-  ha_alter_info->handler_ctx = new Rdb_inplace_alter_ctx(
+  ha_alter_info->handler_ctx = new (*THR_MALLOC) Rdb_inplace_alter_ctx(
       new_tdef, old_key_descr, new_key_descr, old_n_keys, new_n_keys,
       added_indexes, dropped_index_ids, n_added_keys, n_dropped_keys,
       max_auto_incr);
