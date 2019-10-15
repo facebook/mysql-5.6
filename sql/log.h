@@ -274,6 +274,13 @@ public:
             enum_log_type log_type,
             const char *new_name,
             enum cache_type io_cache_type_arg);
+
+  bool open_existing(
+#ifdef HAVE_PSI_INTERFACE
+            PSI_file_key log_file_key
+#endif
+                    );
+
   bool init_and_set_log_file_name(const char *log_name,
                                   const char *new_name,
                                   enum_log_type log_type_arg,
@@ -285,6 +292,11 @@ public:
   const char *generate_name(const char *log_name, const char *suffix,
                             bool strip_ext, char *buff);
   int generate_new_name(char *new_name, const char *log_name);
+
+  // Used by raft to reopen files and continue from where
+  // the previous term left off, while switching from 
+  // master->slave and vice-versa
+  int find_existing_last_file(char *new_name, const char *log_name);
  protected:
   /* LOCK_log is inited by init_pthread_objects() */
   mysql_mutex_t LOCK_log;

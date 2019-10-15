@@ -301,6 +301,8 @@ public:
   }
   const Gtid_set *get_gtid_set() const { return &gtid_set; }
 
+  Gtid_set *get_gtid_set_nc() { return  &gtid_set; }
+
   int init_relay_log_pos(const char* log,
                          ulonglong pos, bool need_data_lock,
                          const char** errmsg,

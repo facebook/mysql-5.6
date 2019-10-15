@@ -30,6 +30,11 @@ Binlog_storage_delegate *binlog_storage_delegate;
 #ifdef HAVE_REPLICATION
 Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
+extern int rli_relay_log_raft_reset(bool do_global_init=false);
+extern int raft_reset_slave(THD *thd);
+extern int raft_stop_sql_thread(THD *thd);
+extern int raft_stop_io_thread(THD *thd);
+extern int raft_start_sql_thread(THD *thd);
 #endif /* HAVE_REPLICATION */
 Raft_replication_delegate *raft_replication_delegate;
 
@@ -37,6 +42,7 @@ RaftListenerQueue raft_listener_queue;
 extern bool set_read_only(THD *thd, ulonglong read_only);
 extern int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 extern int rotate_binlog_file(THD *thd);
+extern int binlog_change_to_apply();
 
 /*
   structure to save transaction log filename and position
@@ -549,14 +555,15 @@ int Binlog_relay_IO_delegate::after_reset_slave(THD *thd, Master_info *mi)
 
 #endif /* HAVE_REPLICATION */
 
-int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
+int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
+                                            bool no_op)
 {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
   Binlog_storage_param param;
 
   int ret= 0;
 
-  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache));
+  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache, no_op));
 
   DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
 
@@ -715,6 +722,7 @@ pthread_handler_t process_raft_queue(void *arg)
   thd->thread_stack= (char *)&thd;
   thd->store_globals();
   thd->thr_create_utime= thd->start_utime= my_micro_time();
+  thd->security_ctx->skip_grants();
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   add_global_thread(thd);
@@ -749,7 +757,7 @@ pthread_handler_t process_raft_queue(void *arg)
       {
 #ifdef HAVE_REPLICATION
         result.error= rotate_relay_log_for_raft(element.arg.log_file_pos.first,
-            element.arg.log_file_pos.second);
+            element.arg.log_file_pos.second, MYF(element.arg.val_uint));
 #endif
         break;
       }
@@ -759,6 +767,52 @@ pthread_handler_t process_raft_queue(void *arg)
       case RaftListenerCallbackType::TRIM_LOGGED_GTIDS:
         result.error= trim_logged_gtid(element.arg.trim_gtids);
         break;
+      case RaftListenerCallbackType::RLI_RELAY_LOG_RESET:
+      {
+        /* val_bool = do a init of the relay log first time */
+#ifdef HAVE_REPLICATION
+        result.error= rli_relay_log_raft_reset(element.arg.val_bool);
+#endif
+        break;
+      }
+      case RaftListenerCallbackType::RESET_SLAVE:
+      {
+#ifdef HAVE_REPLICATION
+        result.error= raft_reset_slave(current_thd);
+#endif
+        break;
+      }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY:
+      {
+        result.error= binlog_change_to_apply();
+        break;
+      }
+      case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG:
+      {
+        result.error= binlog_change_to_binlog();
+        break;
+      }
+      case RaftListenerCallbackType::STOP_SQL_THREAD:
+      {
+#ifdef HAVE_REPLICATION
+        result.error= raft_stop_sql_thread(current_thd);
+#endif
+        break;
+      }
+      case RaftListenerCallbackType::START_SQL_THREAD:
+      {
+#ifdef HAVE_REPLICATION
+        result.error= raft_start_sql_thread(current_thd);
+#endif
+        break;
+      }
+      case RaftListenerCallbackType::STOP_IO_THREAD:
+      {
+#ifdef HAVE_REPLICATION
+        result.error= raft_stop_io_thread(current_thd);
+#endif
+        break;
+      }
       default:
         break;
     }

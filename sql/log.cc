@@ -1805,6 +1805,98 @@ err:
   DBUG_RETURN(1);
 }
 
+/*
+  Open an (existing) log file. To be used only by Raft flow
+
+  SYNOPSIS
+    open_existing()
+
+    log_file_name, io_cache_type and log_type have been set previously
+  DESCRIPTION
+    Open the logfile, init IO_CACHE and write startup messages
+
+  RETURN VALUES
+    0   ok
+    1   error
+*/
+
+bool MYSQL_LOG::open_existing(
+#ifdef HAVE_PSI_INTERFACE
+                     PSI_file_key log_file_key
+#endif
+                             )
+{
+  MY_STAT f_stat;
+  File file= -1;
+  my_off_t pos= 0;
+  int open_flags= O_CREAT | O_BINARY;
+  DBUG_ENTER("MYSQL_LOG::open_existing");
+
+  write_error= 0;
+
+  /* File is regular writable file */
+  if (my_stat(log_file_name, &f_stat, MYF(0)) && !MY_S_ISREG(f_stat.st_mode))
+    goto err;
+
+  if (io_cache_type == SEQ_READ_APPEND)
+    open_flags |= O_RDWR | O_APPEND;
+  else
+    open_flags |= O_WRONLY | (log_type == LOG_BIN ? 0 : O_APPEND);
+
+  db[0]= 0;
+
+#ifdef HAVE_PSI_INTERFACE
+  /* Keep the key for reopen */
+  m_log_file_key= log_file_key;
+#endif
+
+  if ((file= mysql_file_open(log_file_key, log_file_name, open_flags,
+                             MYF(MY_WME | ME_WAITTANG))) < 0)
+    goto err;
+
+  // seek to end of file
+  mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
+
+  if ((pos= mysql_file_tell(file, MYF(MY_WME))) == MY_FILEPOS_ERROR)
+  {
+    if (my_errno == ESPIPE)
+      pos= 0;
+    else
+      goto err;
+  }
+
+  // sets the IO cache and opens it
+  if (init_io_cache(&log_file, file, IO_SIZE, io_cache_type, pos, 0,
+                    MYF(MY_WME | MY_NABP | MY_WAIT_IF_FULL)))
+    goto err;
+
+  log_state= LOG_OPENED;
+  DBUG_RETURN(0);
+
+err:
+  if (log_type == LOG_BIN && (binlog_error_action == ABORT_SERVER ||
+      binlog_error_action == ROLLBACK_TRX))
+  {
+    exec_binlog_error_action_abort("Either disk is full or file system is read "
+                                   "only while opening the binlog. Aborting the"
+                                   " server.");
+  }
+  else
+    sql_print_error("Could not open %s for logging (error %d). "
+                    "Turning logging off for the whole duration "
+                    "of the MySQL server process. To turn it on "
+                    "again: fix the cause, shutdown the MySQL "
+                    "server and restart it.",
+                    name, errno);
+  if (file >= 0)
+    mysql_file_close(file, MYF(0));
+  end_io_cache(&log_file);
+  my_free(name);
+  name= NULL;
+  log_state= LOG_CLOSED;
+  DBUG_RETURN(1);
+}
+
 MYSQL_LOG::MYSQL_LOG()
   : name(0), write_error(FALSE), inited(FALSE), log_type(LOG_UNKNOWN),
     log_state(LOG_CLOSED), cur_log_ext(-1)
@@ -1887,6 +1979,26 @@ void MYSQL_LOG::cleanup()
   DBUG_VOID_RETURN;
 }
 
+// Mimic what generate_new_name does but do not increment the file ext
+// after finding the last file, thus returning the current latest file
+int MYSQL_LOG::find_existing_last_file(char *new_name, const char *log_name)
+{
+  // only used by Raft for binlogs
+  DBUG_ASSERT(log_type == LOG_BIN);
+
+  fn_format(new_name, log_name, mysql_data_home, "", 4);
+  if (fn_ext(log_name)[0])
+    return 0;
+
+  if (find_uniq_filename(new_name, &cur_log_ext, false /* need next */))
+  {
+    my_printf_error(ER_NO_UNIQUE_LOGFILE, ER(ER_NO_UNIQUE_LOGFILE),
+                    MYF(ME_FATALERROR), log_name);
+	  sql_print_error(ER(ER_NO_UNIQUE_LOGFILE), log_name);
+	  return 1;
+  }
+  return 0;
+}
 
 int MYSQL_LOG::generate_new_name(char *new_name, const char *log_name)
 {
@@ -1899,8 +2011,8 @@ int MYSQL_LOG::generate_new_name(char *new_name, const char *log_name)
       {
         my_printf_error(ER_NO_UNIQUE_LOGFILE, ER(ER_NO_UNIQUE_LOGFILE),
                         MYF(ME_FATALERROR), log_name);
-	sql_print_error(ER(ER_NO_UNIQUE_LOGFILE), log_name);
-	return 1;
+	      sql_print_error(ER(ER_NO_UNIQUE_LOGFILE), log_name);
+	      return 1;
       }
     }
   }

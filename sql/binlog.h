@@ -547,7 +547,8 @@ public:
     LOCK_log.
   */
   int new_file_without_locking(Format_description_log_event *extra_description_event);
-  int new_file_impl(bool need_lock, Format_description_log_event *extra_description_event);
+  int new_file_impl(bool need_lock, Format_description_log_event *extra_description_event,
+                    myf raft_flags= MYF(0));
 
   /** Manage the stages in ordered_commit. */
   Stage_manager stage_manager;
@@ -894,11 +895,29 @@ public:
                    ulong max_size,
                    bool null_created,
                    bool need_lock_index, bool need_sid_lock,
-                   Format_description_log_event *extra_description_event);
+                   Format_description_log_event *extra_description_event,
+                   bool raft_specific_handling = false);
+
+  /**
+    Open an existing binlog/relaylog file
+    @param log_name Name of binlog
+    @param io_cache_type_arg Specifies how the IO cache is opened:
+    read-only or read-write.
+    @param max_size The size at which this binlog will be rotated.
+  */
+  bool open_existing_binlog(const char *log_name,
+                            enum cache_type io_cache_type_arg,
+                            ulong max_size_arg);
+
   bool open_index_file(const char *index_file_name_arg,
                        const char *log_name, bool need_lock_index);
-  /* Use this to start writing a new log file */
-  int new_file(Format_description_log_event *extra_description_event);
+
+  /* Use this to start writing a new log file.
+     @param raft_flags - Used by raft to optionally control
+     how file rotation happens
+   */
+  int new_file(Format_description_log_event *extra_description_event,
+               myf raft_flags=MYF(0));
 
   bool write_event(Log_event* event_info,
                    int force_cache_type = Log_event::EVENT_INVALID_CACHE,
@@ -1244,8 +1263,20 @@ bool before_set_read_only(THD *thd, ulonglong read_only);
 void print_read_only_change(THD *thd);
 int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 int rotate_binlog_file(THD *thd);
+/* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
+   to point to the apply binlog/reopen new one. Apply binlogs are binlog
+   files used by FOLLOWERS/SLAVES in Raft. They are only on the State
+   Machine side */
+int binlog_change_to_apply();
+
+/* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
+   to point to latest binlog-330*.# (Raft LOG). This has to be done
+   before a Raft LEADER can become a MySQL Master and start proposing
+   transactions via ORDERED COMMIT */
+int binlog_change_to_binlog();
 #ifdef HAVE_REPLICATION
-int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos);
+int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos,
+                              myf raft_flags=MYF(0));
 #endif
 #endif
 

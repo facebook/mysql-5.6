@@ -485,7 +485,6 @@ int init_slave()
     rli->get_event_relay_log_name(),
     (ulong) rli->get_event_relay_log_pos()));
 
-
   /**
     If engine binlog max gtid is set, then update recovery_max_engine_gtid.
     recovery_max_engine_gtid is used later during slave's idempotent
@@ -1029,6 +1028,102 @@ err:
   rli->inited=0;
   rli->error_on_rli_init_info= true;
   DBUG_RETURN(recovery_error);
+}
+
+int raft_reset_slave(THD *thd)
+{
+  DBUG_ENTER("raft_reset_slave");
+  int error= 0;
+  mysql_mutex_lock(&LOCK_active_mi);
+  thd->lex->reset_slave_info.all= true;
+
+  error= reset_slave(thd, active_mi);
+
+  mysql_mutex_unlock(&LOCK_active_mi);
+  DBUG_RETURN(error);
+}
+
+/**
+ * This changes the name of the raft relay log
+ * to binlog name
+ */
+int rli_relay_log_raft_reset(bool do_global_init)
+{
+  DBUG_ENTER("rli_relay_log_raft_reset");
+  int error= 0;
+
+  mysql_mutex_lock(&LOCK_active_mi);
+  Master_info* mi= active_mi;
+  DBUG_ASSERT(mi != NULL && mi->rli != NULL);
+  const char *errmsg;
+  LOG_INFO lastlog_linfo;
+
+  if (do_global_init && global_init_info(mi, false, SLAVE_SQL))
+    sql_print_error("Failed to initialize the master info structure");
+
+  /*
+    We need a mutex while we are changing master info parameters to
+    keep other threads from reading bogus info
+  */
+  mysql_mutex_lock(&mi->data_lock);
+  mysql_mutex_lock(&mi->rli->data_lock);
+
+  mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
+  mi->rli->relay_log.lock_index();
+
+  mi->rli->relay_log.close(LOG_CLOSE_INDEX);
+
+  if (mi->rli->relay_log.open_index_file(opt_binlog_index_name,
+                                        opt_bin_logname, false))
+  {
+    sql_print_error("rli_relay_log_raft_reset::failed to open index file");
+    error= 1;
+    goto err;
+  }
+
+  global_sid_lock->wrlock();
+  mi->rli->relay_log.init_gtid_sets(mi->rli->get_gtid_set_nc(), NULL,
+                                    mi->rli->get_last_retrieved_gtid(),
+                                    opt_slave_sql_verify_checksum,
+                                    false);
+  global_sid_lock->unlock();
+
+  mi->rli->relay_log.set_previous_gtid_set(mi->rli->get_gtid_set_nc());
+
+  // TODO ( figure out disconnect between SEQ_READ_APPEND and WRITE_CACHE)
+  // At the end of this
+  // cur_log_ext, log_file_name, name and IO_CACHE(log_file) should all be
+  // up to date
+  if (mi->rli->relay_log.open_existing_binlog(opt_bin_logname,
+                                    SEQ_READ_APPEND, max_binlog_size))
+  {
+    sql_print_error("rli_relay_log_raft_reset::failed to open binlog file");
+    error= 1;
+    goto err;
+  }
+
+  mi->rli->relay_log.unlock_index();
+  mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+
+  if (do_global_init) {
+    (void) mi->rli->relay_log.get_current_log(&lastlog_linfo);
+
+    if (mi->rli->init_relay_log_pos(lastlog_linfo.log_file_name,
+                                    lastlog_linfo.pos,
+                                    false/*need_data_lock=true*/, &errmsg,
+                                    0 /*look for a description_event*/))
+    {
+      sql_print_error("rli_relay_log_raft_reset::failed to init_relay_log_pos");
+      goto err;
+    }
+  }
+
+err:
+
+  mysql_mutex_unlock(&mi->rli->data_lock);
+  mysql_mutex_unlock(&mi->data_lock);
+  mysql_mutex_unlock(&LOCK_active_mi);
+  DBUG_RETURN(error);
 }
 
 int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask)
@@ -9020,7 +9115,7 @@ err:
   is void).
 */
 
-int rotate_relay_log(Master_info* mi, bool need_log_space_lock)
+int rotate_relay_log(Master_info* mi, bool need_log_space_lock, myf raft_flags)
 {
   DBUG_ENTER("rotate_relay_log");
 
@@ -9066,7 +9161,7 @@ int rotate_relay_log(Master_info* mi, bool need_log_space_lock)
   }
   mysql_mutex_unlock(&mi->data_lock);
   /* If the relay log is closed, new_file() will do nothing. */
-  error= rli->relay_log.new_file(fde_copy);
+  error= rli->relay_log.new_file(fde_copy, raft_flags);
   mysql_mutex_lock(&mi->data_lock);
   if (fde_copy)
     delete fde_copy;
@@ -9091,18 +9186,25 @@ end:
   DBUG_RETURN(error);
 }
 
-int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos)
+int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos, myf raft_flags)
 {
   DBUG_ENTER("rotate_relay_log_for_raft");
   Master_info *mi= active_mi;
   int error= 0;
   mysql_mutex_lock(&mi->data_lock);
 
-  memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
-         new_log_ident.length() + 1);
-  mi->set_master_log_pos(pos);
+  bool no_op = raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
 
-  error= rotate_relay_log(mi, true/*need_log_space_lock=true*/);
+  /* in case of no_op we would be starting the file name from the master
+     so new_log_ident and pos wont be used */
+  if (!no_op)
+  {
+    memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
+           new_log_ident.length() + 1);
+    mi->set_master_log_pos(pos);
+  }
+
+  error= rotate_relay_log(mi, /* need_log_space_lock= */ true, raft_flags);
 
   mysql_mutex_unlock(&active_mi->data_lock);
   DBUG_RETURN(error);
@@ -9469,6 +9571,56 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
   DBUG_RETURN(0);
 }
 
+int raft_stop_io_thread(THD *thd)
+{
+  int res= 0;
+  thd->lex->slave_thd_opt = SLAVE_IO;
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (!active_mi)
+  {
+    goto end;
+  }
+
+  res= stop_slave(thd, active_mi, false);
+
+end:
+  mysql_mutex_unlock(&LOCK_active_mi);
+  return res;
+}
+
+int raft_stop_sql_thread(THD *thd)
+{
+  int res= 0;
+  thd->lex->slave_thd_opt = SLAVE_SQL;
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (!active_mi)
+  {
+    goto end;
+  }
+
+  res= stop_slave(thd, active_mi, false);
+
+end:
+  mysql_mutex_unlock(&LOCK_active_mi);
+  return res;
+}
+
+int raft_start_sql_thread(THD *thd)
+{
+  int res= 0;
+  thd->lex->slave_thd_opt = SLAVE_SQL;
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (!active_mi)
+  {
+    goto end;
+  }
+
+  res= start_slave(thd, active_mi, false);
+
+end:
+  mysql_mutex_unlock(&LOCK_active_mi);
+  return res;
+}
 
 /**
   Execute a STOP SLAVE statement.
@@ -9555,7 +9707,7 @@ int stop_slave(THD* thd, Master_info* mi, bool net_report )
   @retval 0 success
   @retval 1 error
 */
-int reset_slave(THD *thd, Master_info* mi)
+int reset_slave(THD *thd, Master_info* mi, bool purge)
 {
   int thread_mask= 0, error= 0;
   uint sql_errno=ER_UNKNOWN_ERROR;
@@ -9575,12 +9727,15 @@ int reset_slave(THD *thd, Master_info* mi)
   ha_reset_slave(thd);
 
   // delete relay logs, clear relay log coordinates
-  if ((error= mi->rli->purge_relay_logs(thd,
+  if (purge)
+  {
+    if ((error= mi->rli->purge_relay_logs(thd,
                                         1 /* just reset */,
                                         &errmsg)))
-  {
-    sql_errno= ER_RELAY_LOG_FAIL;
-    goto err;
+    {
+      sql_errno= ER_RELAY_LOG_FAIL;
+      goto err;
+    }
   }
 
   mysql_bin_log.last_master_timestamp.store(0);

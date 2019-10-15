@@ -71,6 +71,8 @@ while ($_rpl_server)
     source include/stop_slave_io.inc;
   }
 
+  SET GLOBAL ENABLE_RAFT_PLUGIN= ON;
+
   # Enable raft plugin
   send SET GLOBAL MYSQL_RAFT_PLUGIN_ON= ON;
 
@@ -93,9 +95,6 @@ while ($_rpl_server)
     let $master_raft_uuid= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_PEER_UUID"`;
     let $master_server_num= $_rpl_server;
   }
-
-  # Enable raft
-  SET GLOBAL ENABLE_RAFT_PLUGIN= ON;
 
   --dec $_rpl_server
 }
@@ -126,3 +125,4 @@ while ($master_raft_role != 'LEADER')
   let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
 }
 
+--echo "Raft leadership transferred to true master"

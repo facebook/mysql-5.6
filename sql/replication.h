@@ -437,11 +437,13 @@ typedef struct Raft_replication_observer {
 
      @param param Observer common parameter
      @param cache IO_CACHE containing binlog events for the txn
+     @param noop  Is this a Raft NOOP event being faked as a Rotate Event
 
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache);
+  int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache,
+                      bool no_op);
 
   /**
      This callback is called once upfront to setup the appropriate
@@ -705,6 +707,13 @@ enum class RaftListenerCallbackType
   ROTATE_BINLOG= 4,
   ROTATE_RELAYLOG= 5,
   RAFT_LISTENER_THREADS_EXIT= 6,
+  RLI_RELAY_LOG_RESET = 7,
+  RESET_SLAVE = 8,
+  BINLOG_CHANGE_TO_APPLY = 9,
+  BINLOG_CHANGE_TO_BINLOG= 10,
+  STOP_SQL_THREAD = 11,
+  START_SQL_THREAD = 12,
+  STOP_IO_THREAD = 13,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -717,6 +726,8 @@ class RaftListenerCallbackArg
 
     std::vector<std::string> trim_gtids= {};
     std::pair<std::string, ulonglong> log_file_pos= {};
+    bool val_bool;
+    uint32 val_uint;
 };
 
 /* Result of the callback execution in the server. This will be set in the
@@ -735,6 +746,9 @@ class RaftListenerCallbackResult
 class RaftListenerQueue
 {
   public:
+    static const int RAFT_FLAGS_POSTAPPEND = 1;
+    static const int RAFT_FLAGS_NOOP = 2;
+
     explicit RaftListenerQueue()
     {
       inited_.store(false);

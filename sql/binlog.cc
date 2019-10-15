@@ -52,6 +52,7 @@ using std::list;
 
 #include "rpl_mi.h"
 extern Master_info *active_mi;
+extern char *opt_binlog_index_name;
 static bool enable_raft_plugin_save= false;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
@@ -1500,7 +1501,8 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
     error= gtid_before_write_cache(thd, this);
 
     if (!error && enable_raft_plugin_save && !thd->rli_slave) {
-      error= RUN_HOOK(raft_replication, before_flush, (thd, &cache_log));
+      error= RUN_HOOK(raft_replication, before_flush,
+                      (thd, &cache_log, false /* not a noop event */));
 
       DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
 
@@ -3949,7 +3951,8 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
                                 bool null_created_arg,
                                 bool need_lock_index,
                                 bool need_sid_lock,
-                                Format_description_log_event *extra_description_event)
+                                Format_description_log_event *extra_description_event,
+                                bool raft_specific_handling)
 {
   File file= -1;
 
@@ -4055,7 +4058,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     goto err;
   s.dont_set_created= null_created_arg;
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
-  if (is_relay_log)
+  if (!raft_specific_handling && is_relay_log)
     s.set_relay_log_event();
   if (s.write(&log_file))
     goto err;
@@ -4073,7 +4076,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (gtid_mode > 0 || !previous_gtid_set->is_empty())
   {
     Previous_gtids_log_event prev_gtids_ev(previous_gtid_set);
-    if (is_relay_log)
+    if (!raft_specific_handling && is_relay_log)
       prev_gtids_ev.set_relay_log_event();
     prev_gtids_ev.checksum_alg= s.checksum_alg;
     if (prev_gtids_ev.write(&log_file))
@@ -4204,6 +4207,68 @@ err:
   DBUG_RETURN(1);
 }
 
+/**
+  Open an (existing) binlog file.
+
+  - Open the log file and the index file. Register the new
+  file name in it
+  - When calling this when the file is in use, you must have a locks
+  on LOCK_log and LOCK_index.
+
+  @retval
+    0	ok
+  @retval
+    1	error
+*/
+bool MYSQL_BIN_LOG::open_existing_binlog(
+    const char *log_name, enum cache_type io_cache_type_arg,
+    ulong max_size_arg)
+{
+  DBUG_ENTER("MYSQL_BIN_LOG::open_existing_binlog(const char *, ...)");
+  DBUG_PRINT("enter",("name: %s", log_name));
+
+  // This sets the cur_log_ext telling the plugin that
+  // RLI initialization has happened.
+  // i.e. cur_log_ext != (ulong)-1
+  char existing_file[FN_REFLEN];
+  if (find_existing_last_file(existing_file, log_name))
+  {
+    sql_print_error("MYSQL_BIN_LOG::open_existing_binlog failed to locate last file");
+    DBUG_RETURN(1);
+  }
+
+  // At the end of this "log_file_name" is set to existing_file
+  if (init_and_set_log_file_name(log_name, existing_file, LOG_BIN,
+                                 io_cache_type_arg))
+  {
+    sql_print_error("MYSQL_BIN_LOG::open_existing_binlog failed to generate new file name.");
+    DBUG_RETURN(1);
+  }
+
+  if (!(name= my_strdup(log_name, MYF(MY_WME))))
+  {
+    sql_print_error("Could not allocate name %s (error %d)", log_name, errno);
+    DBUG_RETURN(1);
+  }
+
+  /* open the main log file */
+  if (MYSQL_LOG::open_existing(
+#ifdef HAVE_PSI_INTERFACE
+                      m_key_file_log
+#endif
+                      ))
+  {
+    DBUG_RETURN(1);
+  }
+
+  max_size= max_size_arg;
+  open_count++;
+
+  update_binlog_end_pos();
+
+  log_state= LOG_OPENED;
+  DBUG_RETURN(0);
+}
 
 /**
   Move crash safe index file to index file.
@@ -5842,9 +5907,14 @@ bool MYSQL_BIN_LOG::is_active(const char *log_file_name_arg)
 
 */
 
-int MYSQL_BIN_LOG::new_file(Format_description_log_event *extra_description_event)
+/* raft_flags | POSTAPPEND (append to log has already happened)
+              | NO_OP (use consensus but special hook)
+*/
+int MYSQL_BIN_LOG::new_file(Format_description_log_event *extra_description_event,
+                            myf raft_flags)
 {
-  return new_file_impl(true/*need_lock_log=true*/, extra_description_event);
+  return new_file_impl(true/*need_lock_log=true*/, extra_description_event,
+                       raft_flags);
 }
 
 /*
@@ -5862,13 +5932,19 @@ int MYSQL_BIN_LOG::new_file_without_locking(Format_description_log_event *extra_
 
   @param need_lock_log If true, this function acquires LOCK_log;
   otherwise the caller should already have acquired it.
+  @param raft_flags  POSTAPPEND|NOOP
+  POSTAPPEND - the rotate event has already
+               been appended via raft and hence needs to be skipped.
+  NOOP - in this option, this rotate event also acts as a Raft NOOP
+         and hence needs to call a separate hook.
 
   @retval 0 success
   @retval nonzero - error
 
   @note The new file name is stored last in the index file
 */
-int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_event *extra_description_event)
+int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_event *extra_description_event,
+                                 myf raft_flags)
 {
   int error= 0, close_on_error= FALSE;
   char new_name[FN_REFLEN], *new_name_ptr, *old_name, *file_to_open;
@@ -5909,14 +5985,30 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     mysql_mutex_unlock(&LOCK_non_xid_trxs);
   }
 
-  mysql_mutex_lock(&LOCK_index);
-
+  // rotate events need to go through consensus so that we don't have
+  // to trim previous a rotate event, i.e. into a rotated file.
   // Temporary raft cache for Rotate Event
   IO_CACHE raft_io_cache;
-  bool rotate_via_raft= enable_raft_plugin && !is_relay_log;
+  bool no_op= raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
+
+  bool rotate_via_raft= enable_raft_plugin && (no_op || !is_relay_log);
+
+  // skip rotate event append
+  // We explicitly pass this flag today for keeping the control in Raft.
+  bool skip_re_append= raft_flags & RaftListenerQueue::RAFT_FLAGS_POSTAPPEND;
+  if (rotate_via_raft) {
+    DBUG_ASSERT(!skip_re_append);
+  }
+
+  if (skip_re_append) {
+    DBUG_ASSERT(is_relay_log);
+  }
+
   if (rotate_via_raft) {
     init_io_cache(&raft_io_cache, -1, 400, WRITE_CACHE, 0, 0, MYF(MY_WME));
   }
+
+  mysql_mutex_lock(&LOCK_index);
 
   if (DBUG_EVALUATE_IF("expire_logs_always", 0, 1)
       && (error= ha_flush_logs(NULL)))
@@ -5931,6 +6023,9 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     We have to do this here and not in open as we want to store the
     new file name in the current binary log file.
   */
+  // NOTE - the cur_log_ext is changed after generate_new_name,
+  // although we are still writing to old file till it is closed
+  // below
   new_name_ptr= new_name;
   if ((error= generate_new_name(new_name, name)))
   {
@@ -5939,7 +6034,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     close_on_error= TRUE;
     goto end;
   }
-  else
+  else if (!skip_re_append)
   {
     /*
       We log the whole file name for log file as the user may decide
@@ -5947,15 +6042,17 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     */
     Rotate_log_event r(new_name+dirname_length(new_name), 0, LOG_EVENT_OFFSET,
                        is_relay_log ? Rotate_log_event::RELAY_LOG : 0);
-    if (rotate_via_raft) {
-      r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
-    }
     /*
       The current relay-log's closing Rotate event must have checksum
       value computed with an algorithm of the last relay-logged FD event.
     */
     if (is_relay_log)
       r.checksum_alg= relay_log_checksum_alg;
+
+    // in raft mode checks are calculated in plugin
+    if (rotate_via_raft) {
+      r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
+    }
     DBUG_ASSERT(!is_relay_log || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
     if(DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error=close_on_error=TRUE), FALSE) ||
        (error= r.write((rotate_via_raft) ? &(raft_io_cache) : &log_file)))
@@ -5974,7 +6071,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
   if (rotate_via_raft) {
     error= RUN_HOOK(raft_replication, before_flush,
-                    (current_thd, &raft_io_cache));
+                    (current_thd, &raft_io_cache, no_op));
     if (!error) {
       error= RUN_HOOK(raft_replication, before_commit, (current_thd, false));
     }
@@ -6031,7 +6128,8 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
                        max_size, true/*null_created_arg=true*/,
                        false/*need_lock_index=false*/,
                        true/*need_sid_lock=true*/,
-                       extra_description_event);
+                       extra_description_event,
+                       rotate_via_raft && no_op);
   }
 
   /* handle reopening errors */
@@ -6614,6 +6712,110 @@ int rotate_binlog_file(THD *thd)
   {
     error= mysql_bin_log.rotate_and_purge(thd, true);
   }
+  DBUG_RETURN(error);
+}
+
+int binlog_change_to_apply()
+{
+  DBUG_ENTER("binlog_change_to_apply");
+  int error= 0;
+
+  mysql_mutex_lock(mysql_bin_log.get_log_lock());
+  mysql_bin_log.lock_index();
+
+  mysql_bin_log.close(LOG_CLOSE_INDEX);
+
+  if (mysql_bin_log.open_index_file(opt_binlog_apply_index_name,
+                                   opt_bin_logname_apply, false/*need_lock_index=false*/))
+  {
+    error= 1;
+    goto err;
+  }
+
+  /*
+    Configures what object is used by the current log to store processed
+    gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to
+    corretly compute the set of previous gtids.
+  */
+  mysql_bin_log.set_previous_gtid_set(
+    const_cast<Gtid_set*>(gtid_state->get_logged_gtids()));
+
+  // HLC is TBD
+  if (mysql_bin_log.open_binlog(opt_bin_logname_apply, 0,
+                                  WRITE_CACHE, max_binlog_size, false,
+                                  false/*need_lock_index=false*/,
+                                  true/*need_sid_lock=true*/,
+                                  NULL))
+  {
+    error= 1;
+    goto err;
+  }
+
+err:
+
+  mysql_bin_log.unlock_index();
+  mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+
+  DBUG_RETURN(error);
+}
+
+int binlog_change_to_binlog()
+{
+  DBUG_ENTER("binlog_change_to_binlog");
+  int error= 0;
+  uint64_t prev_hlc= 0;
+
+  mysql_mutex_lock(mysql_bin_log.get_log_lock());
+  mysql_bin_log.lock_index();
+
+  mysql_bin_log.close(LOG_CLOSE_INDEX);
+
+  if (mysql_bin_log.open_index_file(opt_binlog_index_name,
+                                   opt_bin_logname, false/*need_lock_index=false*/))
+  {
+    error= 1;
+    goto err;
+  }
+
+  global_sid_lock->wrlock();
+  if (mysql_bin_log.init_gtid_sets(
+       const_cast<Gtid_set *>(gtid_state->get_logged_gtids()),
+       const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
+       NULL/*last_gtid*/,
+       opt_master_verify_checksum,
+       false,
+       &prev_hlc))
+  {
+    global_sid_lock->unlock();
+    error= 1;
+    goto err;
+  }
+  global_sid_lock->unlock();
+
+  /*
+    Configures what object is used by the current log to store processed
+    gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to
+    correctly compute the set of previous gtids.
+  */
+  mysql_bin_log.set_previous_gtid_set(
+    const_cast<Gtid_set*>(gtid_state->get_logged_gtids()));
+
+  // Update the instance's HLC clock to be greater than or equal to the HLC
+  // times of trx's in all previous binlog
+  mysql_bin_log.update_hlc(prev_hlc);
+
+  if (mysql_bin_log.open_existing_binlog(opt_bin_logname, WRITE_CACHE,
+                                         max_binlog_size))
+  {
+    error= 1;
+    goto err;
+  }
+
+err:
+
+  mysql_bin_log.unlock_index();
+  mysql_mutex_unlock(mysql_bin_log.get_log_lock());
+
   DBUG_RETURN(error);
 }
 
@@ -8761,8 +8963,9 @@ int ask_server_to_register_with_raft()
   THD *thd= current_thd;
   // First register the binlog for all servers
   // both masters and slaves
-  // Eventually for a slave, this registration will not be important
-  // because a Slave's mysql_bin_log will point to apply log
+  // a Slave's mysql_bin_log will point to apply log
+  // however when the slave becomes the master, its registered binlog
+  // entities will be used by binlog wrapper
   int err= mysql_bin_log.register_log_entities(thd, 0, true, false);
   if (err)
   {
@@ -8771,8 +8974,7 @@ int ask_server_to_register_with_raft()
   }
 
 #ifdef HAVE_REPLICATION
-  if (!active_mi || !active_mi->host[0] ||
-      !active_mi->rli)
+  if (!active_mi || /* !active_mi->host[0] || */  !active_mi->rli)
   {
     // degenerate case returns SUCCESS [ TODO ]
     return 0;

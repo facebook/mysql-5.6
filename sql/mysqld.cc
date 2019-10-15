@@ -1205,6 +1205,8 @@ char *master_info_file;
 char *relay_log_info_file, *report_user, *report_password, *report_host;
 char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
 char *opt_logname, *opt_slow_logname, *opt_bin_logname;
+char *opt_bin_logname_apply;
+char *opt_binlog_apply_index_name;
 char *opt_gap_lock_logname;
 /* Static variables */
 
@@ -6301,6 +6303,31 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       my_free(opt_bin_logname);
       opt_bin_logname=my_strdup(buf, MYF(0));
     }
+
+    {
+      /* create the apply binlog name for Raft */
+      std::string tstr(opt_bin_logname);
+      std::string rep_from("binary");
+      std::string rep_to("apply");
+      size_t fpos = tstr.find(rep_from);
+      if (fpos != std::string::npos)
+      {
+        tstr.replace(fpos, rep_from.length(), rep_to);
+        opt_bin_logname_apply= my_strdup(tstr.c_str(), MYF(0));
+      }
+
+      if (opt_binlog_index_name)
+      {
+        tstr.assign(opt_binlog_index_name);
+        fpos = tstr.find(rep_from);
+        if (fpos != std::string::npos)
+        {
+          tstr.replace(fpos, rep_from.length(), rep_to);
+          opt_binlog_apply_index_name= my_strdup(tstr.c_str(), MYF(0));
+        }
+      }
+    }
+
     if (mysql_bin_log.open_index_file(opt_binlog_index_name, ln, TRUE))
     {
       unireg_abort(1);
@@ -11319,6 +11346,7 @@ static int mysql_init_variables(void)
   opt_skip_name_resolve= 0;
   opt_ignore_builtin_innodb= 0;
   opt_logname= opt_update_logname= opt_binlog_index_name= opt_slow_logname= 0;
+  opt_binlog_apply_index_name= 0;
   opt_gap_lock_logname= 0;
   opt_tc_log_file= (char *)"tc.log";      // no hostname in tc_log file name !
   opt_secure_auth= 0;
@@ -11352,6 +11380,7 @@ static int mysql_init_variables(void)
   relay_log_bytes_written= 0;
   max_used_connections= slow_launch_threads = 0;
   mysqld_user= mysqld_chroot= opt_init_file= opt_bin_logname = 0;
+  opt_bin_logname_apply= 0;
   prepared_stmt_count= 0;
   mysqld_unix_port= opt_mysql_tmpdir= my_bind_addr_str= NullS;
   memset(&mysql_tmpdir_list, 0, sizeof(mysql_tmpdir_list));

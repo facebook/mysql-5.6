@@ -276,8 +276,10 @@ extern uint rpl_receive_buffer_size;
 int start_slave(THD* thd, Master_info* mi, bool net_report);
 int stop_slave(THD* thd, Master_info* mi, bool net_report);
 bool change_master(THD* thd, Master_info* mi);
-int reset_slave(THD *thd, Master_info* mi);
+int reset_slave(THD *thd, Master_info* mi, bool purge=true);
 int init_slave();
+int rli_relay_log_raft_reset(bool do_global_init=false);
+int raft_reset_slave(THD *thd);
 int init_recovery(Master_info* mi, const char** errmsg);
 int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask);
 void end_info(Master_info* mi);
@@ -332,7 +334,10 @@ void init_thread_mask(int* mask,Master_info* mi,bool inverse);
 void set_slave_thread_options(THD* thd);
 void set_slave_thread_default_charset(THD *thd, Relay_log_info const *rli);
 int apply_event_and_update_pos(Log_event* ev, THD* thd, Relay_log_info* rli);
-int rotate_relay_log(Master_info* mi, bool need_log_space_lock);
+int rotate_relay_log(Master_info* mi, bool need_log_space_lock,
+                     myf raft_flags=MYF(0));
+int raft_stop_sql_thread(THD *thd);
+int raft_stop_io_thread(THD *thd);
 
 pthread_handler_t handle_slave_io(void *arg);
 pthread_handler_t handle_slave_sql(void *arg);
