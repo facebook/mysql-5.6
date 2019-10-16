@@ -16,6 +16,7 @@ insert into x values (5,1,1);
 select @@global.gtid_executed;
 @@global.gtid_executed
 
+include/sync_slave_sql_with_master.inc
 
 --- slave state before crash ---
 select * from x;
@@ -47,6 +48,7 @@ Id	Database_name	Last_gtid
 
 --- slave state after restart, slave start ---
 include/start_slave.inc
+include/sync_slave_sql_with_master.inc
 select * from x;
 id	value	value2
 1	1	1
@@ -60,6 +62,7 @@ select @@global.gtid_executed;
 select * from mysql.slave_gtid_info;
 Id	Database_name	Last_gtid
 insert into x values (6,1,1);
+include/sync_slave_sql_with_master.inc
 select * from x;
 id	value	value2
 1	1	1
@@ -96,6 +99,7 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 
+include/sync_slave_sql_with_master.inc
 include/rpl_start_server.inc [server_number=2]
 
 --- slave state after crash recovery, slave stop, WAL was corrupted, point in time recovery with wal_recovery_mode=2 ---
@@ -111,6 +115,7 @@ id	value	value2
 8	1	1
 9	1	1
 include/start_slave.inc
+include/sync_slave_sql_with_master.inc
 select * from x;
 id	value	value2
 1	1	1
