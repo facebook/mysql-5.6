@@ -1,6 +1,7 @@
 source include/have_rocksdb.inc;
 source include/master-slave.inc;
 -- let $uuid = `select @@server_uuid;`
+-- let $use_gtids = `select @@gtid_mode = "ON";`
 
 --exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
 
@@ -22,7 +23,6 @@ insert into x values (5,1,1);
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
 
---let $use_gtids = 1
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
@@ -76,7 +76,6 @@ select "--- slave state after restart, slave start ---" as "";
 --enable_query_log
 --source include/start_slave.inc
 connection master;
---let $use_gtids = 1;
 source include/sync_slave_sql_with_master.inc;
 connection slave;
 select * from x;
@@ -87,7 +86,6 @@ select * from mysql.slave_gtid_info;
 
 connection master;
 insert into x values (6,1,1);
---let $use_gtids = 1
 source include/sync_slave_sql_with_master.inc;
 connection slave;
 select * from x;
@@ -106,7 +104,6 @@ insert into x values (12,1,1);
 select * from x;
 -- replace_result $uuid uuid
 select @@global.gtid_executed;
---let $use_gtids = 1
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
@@ -140,7 +137,6 @@ select "--- slave state after crash recovery, slave stop, WAL was corrupted, poi
 select * from x;
 --source include/start_slave.inc
 connection master;
---let $use_gtids = 1
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
