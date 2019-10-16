@@ -2451,8 +2451,10 @@ void Rdb_key_def::pack_string(
 
   if (field_charset->pad_attribute == NO_PAD) {
     /*
-      Our CHAR default behavior is to strip spaces. For PAD SPACE collations,
-      this doesn't matter, for but NO PAD, we need to do it ourselves here.
+      Our CHAR default behavior is to strip spaces upon retrieval.
+      For PAD SPACE collations, we'll pad with spaces later so it doesn't
+      matter anyway. But for NO PAD collations, we need to strip spaces and
+      pad with correct pad char later.
     */
     input_length = field_charset->cset->lengthsp(
         field_charset, (const char *)field->ptr, input_length);
@@ -2680,9 +2682,29 @@ void Rdb_key_def::pack_with_varchar_encoding(
                                   ? (uint)*field->ptr
                                   : uint2korr(field->ptr);
 
-  size_t xfrm_len = charset->coll->strnxfrm(
-      charset, buf, fpi->m_max_image_len, field_var->char_length(),
-      field_var->ptr + field_var->length_bytes, value_length, 0);
+  const char *src =
+      reinterpret_cast<const char *>(field_var->ptr + field_var->length_bytes);
+
+  // We only store the trimmed contents but encode the missing char with
+  // removed_chars later to save space
+  const size_t trimmed_len = charset->cset->lengthsp(
+      charset, src, value_length);
+
+  // Max memcmp byte length with char_length(), in case we need to truncate
+  const size_t max_xfrm_len = charset->cset->charpos(
+      charset, src, src + trimmed_len, field_var->char_length());
+
+  // Trimmed length in code points - this is needed to avoid the padding
+  // behavior in strnxfrm for padding collations otherwise strnxfrm would
+  // pad to max length which defeats the trimming earlier
+  const size_t trimmed_codepoints =
+    charset->cset->numchars(charset, src, src + trimmed_len);
+
+  const size_t xfrm_len = charset->coll->strnxfrm(
+      charset, buf, fpi->m_max_image_len_before_encoding,
+      std::min<size_t>(trimmed_codepoints, field_var->char_length()),
+      reinterpret_cast<const uchar *>(src),
+      std::min<size_t>(trimmed_len, max_xfrm_len), 0);
 
   /* Got a mem-comparable image in 'buf'. Now, produce varlength encoding */
   if (fpi->m_use_legacy_varbinary_format) {
@@ -2792,24 +2814,30 @@ void Rdb_key_def::pack_with_varchar_space_pad(
                                   ? (uint)*field->ptr
                                   : uint2korr(field->ptr);
 
+  const char *src =
+      reinterpret_cast<const char *>(field_var->ptr + field_var->length_bytes);
+
   // We only store the trimmed contents but encode the missing char with
   // removed_chars later to save space
   const size_t trimmed_len = charset->cset->lengthsp(
-      charset, (const char *)field_var->ptr + field_var->length_bytes,
-      value_length);
+      charset, src, value_length);
 
-  // In MySQL 8.0 strnxfrm needs to be passed the number of code points that
-  // will be padded to, but we don't want the padding behavior here as we
-  // only want save the trimmed string contents.
-  // So we need to either use the trimmed length or the max length, which ever
-  // is smaller.
-  // In MySQL 5.6 the value of char_len is ignored unless you pass padding flag
-  const size_t char_len = std::min<size_t>(trimmed_len,
-                                           field_var->char_length());
+  // Max memcmp byte length with char_length(), in case we need to truncate
+  // for prefix keys
+  const size_t max_xfrm_len = charset->cset->charpos(
+      charset, src, src + trimmed_len, field_var->char_length());
+
+  // Trimmed length in code points - this is needed to avoid the padding
+  // behavior in strnxfrm for padding collations otherwise strnxfrm would
+  // pad to max length which defeats the trimming earlier
+  const size_t trimmed_codepoints =
+    charset->cset->numchars(charset, src, src + trimmed_len);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
-      charset, buf, fpi->m_max_image_len, char_len,
-      field_var->ptr + field_var->length_bytes, trimmed_len, 0);
+      charset, buf, fpi->m_max_image_len_before_encoding,
+      std::min<size_t>(trimmed_codepoints, field_var->char_length()),
+      reinterpret_cast<const uchar *>(src),
+      std::min<size_t>(trimmed_len, max_xfrm_len), 0);
 
   /* Got a mem-comparable image in 'buf'. Now, produce varlength encoding */
   uchar *const buf_end = buf + xfrm_len;
@@ -3669,6 +3697,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len =
       field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
+  m_max_image_len_before_encoding = 0;
+
   m_skip_func = Rdb_key_def::skip_max_length;
   m_pack_func = nullptr;
 
@@ -3836,6 +3866,10 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     */
     const CHARSET_INFO *cs = field->charset();
     m_max_image_len = cs->coll->strnxfrmlen(cs, field->field_length);
+
+    /* Remember the original length before encoding - we'll use it in
+      packing / padding calculations later */
+    m_max_image_len_before_encoding = m_max_image_len;
   }
   const bool is_varchar = (type == MYSQL_TYPE_VARCHAR);
   const CHARSET_INFO *cs = field->charset();
@@ -3918,7 +3952,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // either.
         // Currently we handle these collations as NO_PAD, even if they have
         // PAD_SPACE attribute.
-        /* TODO(yzha) - levels_for_order is gone in 8.0 */
         if (cs->levels_for_compare == 1) {
           m_pack_func = Rdb_key_def::pack_with_varchar_space_pad;
           m_skip_func = Rdb_key_def::skip_variable_space_pad;

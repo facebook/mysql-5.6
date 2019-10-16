@@ -811,3 +811,18 @@ check table t;
 Table	Op	Msg_type	Msg_text
 test.t	check	status	OK
 drop table t;
+# PS-4971 : Setting utf8mb4 as a key in MyRocks table could lead to a server crash
+create table t1 (
+str varchar(255) character set utf8mb4,
+key str (str(2))) default character set utf8mb4 engine=rocksdb;
+insert INTO t1 values("1111111111111111111111111111111111111111111111111111");
+drop table t1;
+create table t1(
+t_vers varchar(4) not null,
+key ix_5 (t_vers)
+) charset latin1 engine=rocksdb;
+insert into t1 values ('7.6 ');
+select t_vers from t1 where t_vers = '7.6';
+t_vers
+7.6 
+drop table t1;
