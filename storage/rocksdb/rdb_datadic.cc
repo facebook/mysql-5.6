@@ -32,13 +32,14 @@
 #include <vector>
 
 /* MySQL header files */
-#include "sql/field.h"
-#include "sql/key.h"
 #include "./m_ctype.h"
 #include "./my_bit.h"
 #include "./my_bitmap.h"
-#include "sql/sql_table.h"
+#include "./my_byteorder.h"
 #include "my_dir.h"
+#include "sql/field.h"
+#include "sql/key.h"
+#include "sql/sql_table.h"
 #include "myisampack.h"         // mi_int2store
 #include "my_compare.h"         // get_rec_bits
 
@@ -1462,24 +1463,6 @@ uint Rdb_key_def::pack_hidden_pk(const longlong hidden_pk_id,
 }
 
 /*
-  Function of type rdb_index_field_pack_t
-*/
-
-void Rdb_key_def::pack_with_make_sort_key(
-    Rdb_field_packing *const fpi, Field *const field,
-    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
-    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
-  DBUG_ASSERT(fpi != nullptr);
-  DBUG_ASSERT(field != nullptr);
-  DBUG_ASSERT(dst != nullptr);
-  DBUG_ASSERT(*dst != nullptr);
-
-  const int max_len = fpi->m_max_image_len;
-  field->make_sort_key(*dst, max_len);
-  *dst += max_len;
-}
-
-/*
   Compares two keys without unpacking
 
   @detail
@@ -1866,13 +1849,87 @@ int Rdb_key_def::skip_variable_space_pad(const Rdb_field_packing *const fpi,
 
 /*
   Function of type rdb_index_field_unpack_t
-*/
 
+  Packs an integer by converting them to big endian. After that,
+  unsigned integers are naturally in the right order. For signed
+  integer, reverse the sign bit so that positive numbers are
+  bigger than negative numbers, byte-wise.
+*/
+template <int length>
+void Rdb_key_def::pack_integer(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(length == fpi->m_max_image_len);
+
+  const uchar *ptr = field->ptr;
+  const bool unsigned_flag = static_cast<Field_num *>(field)->unsigned_flag;
+  uchar *to = *dst;
+
+#ifdef WORDS_BIGENDIAN
+  {
+    if (unsigned_flag) {
+      to[0] = ptr[0];
+    } else {
+      to[0] = static_cast<char>(ptr[0] ^ 128);  // Reverse the sign bit.
+    }
+
+    /* Parameterized length should enable loop unrolling */
+    for (int i = 1; i < length; i++) to[i] = ptr[i];
+  }
+#else
+  {
+    const int sign_byte = ptr[length - 1];
+    if (unsigned_flag) {
+      to[0] = sign_byte;
+    } else {
+      to[0] = static_cast<char>(sign_byte ^ 128);  // Reverse the sign bit.
+    }
+
+    /* Parameterized length should enable loop unrolling */
+    for (int i = 1, j = length - 2; i < length; ++i, --j) to[i] = ptr[j];
+  }
+#endif
+
+  *dst += length;
+}
+
+template <int length>
+void Rdb_key_def::pack_unsigned(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(length == fpi->m_max_image_len);
+
+  const uchar *ptr = field->ptr;
+  uchar *to = *dst;
+
+#ifdef WORDS_BIGENDIAN
+  /* Parameterized length should enable loop unrolling */
+  for (int i = 0; i < length; i++) to[i] = ptr[i];
+#else
+  /* Parameterized length should enable loop unrolling */
+  for (int i = 0, j = length - 1; i < length; ++i, --j) to[i] = ptr[j];
+#endif
+
+  *dst += length;
+}
+
+
+template <int length>
 int Rdb_key_def::unpack_integer(
     Rdb_field_packing *const fpi, Field *const field, uchar *const to,
     Rdb_string_reader *const reader,
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
-  const int length = fpi->m_max_image_len;
+  DBUG_ASSERT(length == fpi->m_max_image_len);
 
   const uchar *from;
   if (!(from = (const uchar *)reader->read(length))) {
@@ -1886,7 +1943,8 @@ int Rdb_key_def::unpack_integer(
     } else {
       to[0] = static_cast<char>(from[0] ^ 128);  // Reverse the sign bit.
     }
-    memcpy(to + 1, from + 1, length - 1);
+    /* Parameterized length should enable loop unrolling */
+    for (int i = 1; i < length; i++) to[i] = from[i];
   }
 #else
   {
@@ -1897,64 +1955,33 @@ int Rdb_key_def::unpack_integer(
       to[length - 1] =
           static_cast<char>(sign_byte ^ 128);  // Reverse the sign bit.
     }
+
+    /* Parameterized length should enable loop unrolling */
     for (int i = 0, j = length - 1; i < length - 1; ++i, --j) to[i] = from[j];
   }
 #endif
   return UNPACK_SUCCESS;
 }
 
-int Rdb_key_def::unpack_float_80(
+template <int length>
+int Rdb_key_def::unpack_unsigned(
     Rdb_field_packing *const fpi, Field *const field, uchar *const to,
     Rdb_string_reader *const reader,
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
-  const int length = fpi->m_max_image_len;
+  DBUG_ASSERT(length == fpi->m_max_image_len);
 
   const uchar *from;
   if (!(from = (const uchar *)reader->read(length))) {
     return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
   }
 
-  memcpy(to, from, length);
-
-#if !defined(WORDS_BIGENDIAN)
-  using std::swap;
-  swap(to[0], to[3]);
-  swap(to[1], to[2]);
+#ifdef WORDS_BIGENDIAN
+  /* Parameterized length should enable loop unrolling */
+  for (int i = 0; i < length; i++) to[i] = from[i];
+#else
+  /* Parameterized length should enable loop unrolling */
+  for (int i = 0, j = length - 1; i < length; ++i, --j) to[i] = from[j];
 #endif
-
-  // See Field_float::make_sort_key
-  int nr_int = *reinterpret_cast<int *>(to);
-  *reinterpret_cast<int *>(to) =
-    (nr_int ^ ((~nr_int) >> 31) ^ (nr_int & 0x80000000));
-
-  return UNPACK_SUCCESS;
-}
-
-int Rdb_key_def::unpack_double_80(
-    Rdb_field_packing *const fpi, Field *const field, uchar *const to,
-    Rdb_string_reader *const reader,
-    Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
-  const int length = fpi->m_max_image_len;
-
-  const uchar *from;
-  if (!(from = (const uchar *)reader->read(length))) {
-    return UNPACK_FAILURE; /* Mem-comparable image doesn't have enough bytes */
-  }
-
-  memcpy(to, from, length);
-
-#if !defined(WORDS_BIGENDIAN)
-  using std::swap;
-  swap(to[0], to[7]);
-  swap(to[1], to[6]);
-  swap(to[2], to[5]);
-  swap(to[3], to[4]);
-#endif
-
-  // See Field_double::make_sort_key
-  int64 nr_int = *reinterpret_cast<int64 *>(to);
-  *reinterpret_cast<int64 *>(to) =
-    (nr_int ^ ((~nr_int) >> 63) ^ (nr_int & 0x8000000000000000ULL));
 
   return UNPACK_SUCCESS;
 }
@@ -2048,6 +2075,95 @@ int Rdb_key_def::unpack_floating_point(
 #define DBL_EXP_DIG (sizeof(double) * 8 - DBL_MANT_DIG)
 #endif
 
+void Rdb_key_def::pack_double_internal(double nr, uchar *to) {
+  uchar *tmp = to;
+  if (nr == 0.0) { /* Change to zero string */
+    tmp[0] = 0x80;
+    memset(tmp + 1, 0, sizeof(nr) - 1);
+  } else {
+#ifdef WORDS_BIGENDIAN
+    memcpy(tmp, &nr, sizeof(nr));
+#else
+    {
+      uchar *ptr = reinterpret_cast<uchar *>(&nr);
+#if defined(__FLOAT_WORD_ORDER) && (__FLOAT_WORD_ORDER == __BIG_ENDIAN)
+      tmp[0] = ptr[3];
+      tmp[1] = ptr[2];
+      tmp[2] = ptr[1];
+      tmp[3] = ptr[0];
+      tmp[4] = ptr[7];
+      tmp[5] = ptr[6];
+      tmp[6] = ptr[5];
+      tmp[7] = ptr[4];
+#else
+      tmp[0] = ptr[7];
+      tmp[1] = ptr[6];
+      tmp[2] = ptr[5];
+      tmp[3] = ptr[4];
+      tmp[4] = ptr[3];
+      tmp[5] = ptr[2];
+      tmp[6] = ptr[1];
+      tmp[7] = ptr[0];
+#endif
+    }
+#endif
+    /* Negative */
+    if (tmp[0] & 0x80) {
+      /* make complement */
+      uint i;
+      for (i = 0; i < sizeof(nr); i++) tmp[i] = tmp[i] ^ (uchar)255;
+    } else {
+      /* Set high and move exponent one up */
+      ushort exp_part =
+          (((ushort)tmp[0] << 8) | (ushort)tmp[1] | (ushort)32768);
+      exp_part += (ushort)1 << (16 - 1 - DBL_EXP_DIG);
+      tmp[0] = (uchar)(exp_part >> 8);
+      tmp[1] = (uchar)exp_part;
+    }
+  }
+}
+
+/*
+  Function of type rdb_index_field_unpack_t
+
+  Pack a double in the same way as float
+*/
+void Rdb_key_def::pack_double(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(field->real_type() == MYSQL_TYPE_DOUBLE);
+
+  const int length = fpi->m_max_image_len;
+  const uchar *ptr = field->ptr;
+  uchar *to = *dst;
+
+  double nr;
+#ifdef WORDS_BIGENDIAN
+  if (field->table->s->db_low_byte_first) {
+    float8get(&nr, ptr);
+  } else {
+#endif
+    doubleget(&nr, ptr);
+#ifdef WORDS_BIGENDIAN
+  }
+#endif
+
+  if (length < 8) {
+    std::array<uchar, 8> buff;
+    pack_double_internal(nr, buff.data());
+    memcpy(to, buff.data(), length);
+  } else {
+    pack_double_internal(nr, to);
+  }
+
+  *dst += length;
+}
+
 /*
   Function of type rdb_index_field_unpack_t
 
@@ -2076,6 +2192,84 @@ int Rdb_key_def::unpack_double(
 /*
   Function of type rdb_index_field_unpack_t
 
+  Pack a float in memcmp key format:
+  1) If positive, add 1 to exponent and make sign bit to be 1 (so that
+  positive floats are bigger than negative floats, byte-wise). The +1
+  part wasn't strictly necessary but need to be preserved for compat
+  2) If negative, negate all bits to preserve the ordering (note
+  negative floats are stored as-is without compliments)
+  3) If 0 / -0, convert to positive 0 with sign bit 1 in order to be
+  bigger than negative floats, byte-wise
+
+  Note that this only works on IEEE values.
+
+  Note also that this code assumes that NaN and +/-Infinity are never
+  allowed in the database.
+*/
+void Rdb_key_def::pack_float(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(field->real_type() == MYSQL_TYPE_FLOAT);
+
+  const int length = fpi->m_max_image_len;
+  const uchar *ptr = field->ptr;
+  uchar *to = *dst;
+
+  DBUG_ASSERT(length == sizeof(float));
+  float nr;
+#ifdef WORDS_BIGENDIAN
+  if (field->table->s->db_low_byte_first) {
+    float4get(nr, ptr);
+  } else {
+#endif
+    memcpy(&nr, ptr, std::min<uint>(length, sizeof(float)));
+#ifdef WORDS_BIGENDIAN
+  }
+#endif
+
+  uchar *tmp = to;
+  if (nr == 0.0f) { /* Change to zero string */
+    tmp[0] = (uchar)128;
+    memset(tmp + 1, 0, std::min<uint>(length, sizeof(nr) - 1));
+  } else {
+#ifdef WORDS_BIGENDIAN
+    memcpy(tmp, &nr, sizeof(nr));
+#else
+    tmp[0] = ptr[3];
+    tmp[1] = ptr[2];
+    tmp[2] = ptr[1];
+    tmp[3] = ptr[0];
+#endif
+    /* Negative */
+    if (tmp[0] & 128) {
+      /* make complement */
+      uint i;
+      for (i = 0; i < sizeof(nr); i++) tmp[i] = (uchar)(tmp[i] ^ (uchar)255);
+    } else {
+      /* exponent + 1 */
+      ushort exp_part =
+          (((ushort)tmp[0] << 8) | (ushort)tmp[1] | (ushort)32768);
+      exp_part += (ushort)1 << (16 - 1 - FLT_EXP_DIG);
+      tmp[0] = (uchar)(exp_part >> 8);
+      tmp[1] = (uchar)exp_part;
+    }
+  }
+
+  *dst += length;
+}
+
+/*
+  Function of type rdb_index_field_unpack_t
+
+  Unpack a float by doing the reverse action of pack_float
+
+  Note that this only works on IEEE values.
+
   Unpack a float by doing the reverse action of Field_float::make_sort_key
   (sql/field.cc).  Note that this only works on IEEE values.
   Note also that this code assumes that NaN and +/-Infinity are never
@@ -2094,8 +2288,35 @@ int Rdb_key_def::unpack_float(
 }
 
 /*
+  Function of type rdb_index_field_unpack_t
+
+  Pack a newdate with byte 0 and byte 2 swapped
+ */
+void Rdb_key_def::pack_newdate(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(field->real_type() == MYSQL_TYPE_NEWDATE);
+
+  const int length = fpi->m_max_image_len;
+  const uchar *ptr = field->ptr;
+  uchar *to = *dst;
+
+  DBUG_ASSERT(length == 3);
+  to[0] = ptr[2];
+  to[1] = ptr[1];
+  to[2] = ptr[0];
+
+  *dst += length;
+}
+
+/*
   Function of type rdb_index_field_unpack_t used to
-  Unpack by doing the reverse action to Field_newdate::make_sort_key.
+  Unpack by doing the reverse action to pack_newdate
 */
 
 int Rdb_key_def::unpack_newdate(
@@ -2117,6 +2338,63 @@ int Rdb_key_def::unpack_newdate(
 }
 
 /*
+  Function of type rdb_index_field_unpack_t
+
+  Pack bit type with uneven hights bits (mod of 8) first and then
+  the rest. See Field_bit::Field_bit for more details.
+ */
+void Rdb_key_def::pack_bit(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+  DBUG_ASSERT(field->real_type() == MYSQL_TYPE_BIT);
+
+  uint length = fpi->m_max_image_len;
+  const uchar *ptr = field->ptr;
+  uchar *to = *dst;
+  auto *field_bit = static_cast<Field_bit *>(field);
+
+  if (field_bit->bit_len) {
+    /* uneven high bits */
+    uchar bits = get_rec_bits(field_bit->bit_ptr, field_bit->bit_ofs,
+                              field_bit->bit_len);
+    *to++ = bits;
+    length--;
+  }
+
+  /* copy the rest */
+  uint data_length = std::min(length, field_bit->bytes_in_rec);
+  memcpy(to, ptr, data_length);
+
+  *dst += fpi->m_max_image_len;
+}
+
+/*
+  Function of type rdb_index_field_unpack_t, used to
+  unpack the string by copying it over.
+  This is for any data type that is a simply memcpy, such as
+  BINARY(n) where the value occupies the whole length.
+*/
+
+void Rdb_key_def::pack_binary_str(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+
+  memcpy(*dst, field->ptr, fpi->m_max_image_len);
+
+  *dst += fpi->m_max_image_len;
+}
+
+/*
   Function of type rdb_index_field_unpack_t, used to
   Unpack the string by copying it over.
   This is for BINARY(n) where the value occupies the whole length.
@@ -2134,6 +2412,118 @@ int Rdb_key_def::unpack_binary_str(
 
   memcpy(to, from, fpi->m_max_image_len);
   return UNPACK_SUCCESS;
+}
+
+/*
+  Function of type rdb_index_field_unpack_t.
+
+  Pack string with strnxfrm which converts a given string to memcmp format
+
+  See CHARSET_INFO.txt for more details.
+*/
+void Rdb_key_def::pack_string(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+
+  auto field_charset = field->charset();
+  auto field_length = field->field_length;
+  auto char_length = field->char_length();
+
+  /*
+    We don't store explicitly how many bytes long this string is.
+    Find out by calling charpos, since just using field_length
+    could give strnxfrm a buffer with more than char_length() code
+    points, which is not allowed.
+
+    The min() is because charpos() is allowed to return a value past
+    the end of the string for “end of string”.
+  */
+  size_t input_length = std::min<size_t>(
+      field_length, field_charset->cset->charpos(
+                        field_charset, pointer_cast<const char *>(field->ptr),
+                        pointer_cast<const char *>(field->ptr) + field_length,
+                        field->char_length()));
+
+  if (field_charset->pad_attribute == NO_PAD) {
+    /*
+      Our CHAR default behavior is to strip spaces. For PAD SPACE collations,
+      this doesn't matter, for but NO PAD, we need to do it ourselves here.
+    */
+    input_length = field_charset->cset->lengthsp(
+        field_charset, (const char *)field->ptr, input_length);
+  }
+
+  size_t tmp MY_ATTRIBUTE((unused)) = field_charset->coll->strnxfrm(
+      field_charset, *dst, fpi->m_max_image_len, char_length, field->ptr,
+      input_length, MY_STRXFRM_PAD_TO_MAXLEN);
+  DBUG_ASSERT((int)tmp == fpi->m_max_image_len);
+
+  *dst += fpi->m_max_image_len;
+}
+
+void Rdb_key_def::pack_blob(
+    Rdb_field_packing *const fpi, Field *const field,
+    uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
+    Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  DBUG_ASSERT(dst != nullptr);
+  DBUG_ASSERT(*dst != nullptr);
+
+  uchar *to = *dst;
+  uint length = fpi->m_max_image_len;
+
+  auto field_blob = static_cast<Field_blob *>(field);
+  auto field_charset = field->charset();
+  auto packlength = field_blob->pack_length_no_ptr();
+  auto ptr = field->ptr;
+
+  uchar *blob;
+
+  uint blob_length = field_blob->get_length();
+
+  if (!blob_length && field_charset->pad_char == 0) {
+    memset(to, 0, length);
+  } else {
+    if (field_charset == &my_charset_bin) {
+      uchar *pos;
+
+      /*
+        Store length of blob last in blob to shorter blobs before longer blobs
+      */
+      length -= packlength;
+      pos = to + length;
+      uint key_length = MY_MIN(blob_length, length);
+
+      switch (packlength) {
+        case 1:
+          *pos = static_cast<char>(key_length);
+          break;
+        case 2:
+          mi_int2store(pos, key_length);
+          break;
+        case 3:
+          mi_int3store(pos, key_length);
+          break;
+        case 4:
+          mi_int4store(pos, key_length);
+          break;
+      }
+    }
+    memcpy(&blob, ptr + packlength, sizeof(char *));
+
+    blob_length =
+        field_charset->coll->strnxfrm(field_charset, to, length, length, blob,
+                                      blob_length, MY_STRXFRM_PAD_TO_MAXLEN);
+    DBUG_ASSERT(blob_length == length);
+  }
+
+  *dst += fpi->m_max_image_len;
 }
 
 /*
@@ -3280,64 +3670,85 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_max_image_len =
       field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
   m_skip_func = Rdb_key_def::skip_max_length;
-  m_pack_func = Rdb_key_def::pack_with_make_sort_key;
+  m_pack_func = nullptr;
 
   m_covered = false;
 
   switch (type) {
     case MYSQL_TYPE_LONGLONG:
+      m_pack_func = Rdb_key_def::pack_integer<8>;
+      m_unpack_func = Rdb_key_def::unpack_integer<8>;
+      m_covered = true;
+      return true;
+
     case MYSQL_TYPE_LONG:
+      m_pack_func = Rdb_key_def::pack_integer<4>;
+      m_unpack_func = Rdb_key_def::unpack_integer<4>;
+      m_covered = true;
+      return true;
+
     case MYSQL_TYPE_INT24:
+      m_pack_func = Rdb_key_def::pack_integer<3>;
+      m_unpack_func = Rdb_key_def::unpack_integer<3>;
+      m_covered = true;
+      return true;
+
     case MYSQL_TYPE_SHORT:
+      m_pack_func = Rdb_key_def::pack_integer<2>;
+      m_unpack_func = Rdb_key_def::unpack_integer<2>;
+      m_covered = true;
+      return true;
+
     case MYSQL_TYPE_TINY:
-      m_unpack_func = Rdb_key_def::unpack_integer;
+      m_pack_func = Rdb_key_def::pack_integer<1>;
+      m_unpack_func = Rdb_key_def::unpack_integer<1>;
       m_covered = true;
       return true;
 
     case MYSQL_TYPE_DOUBLE:
-      // TODO(yzha) - Consider using 5.6 algorithm for compat/physical copy
-      m_unpack_func = Rdb_key_def::unpack_double_80;
+      m_pack_func = Rdb_key_def::pack_double;
+      m_unpack_func = Rdb_key_def::unpack_double;
       m_covered = true;
       return true;
 
     case MYSQL_TYPE_FLOAT:
-      // TODO(yzha) - Consider using 5.6 algorithm for compat/physical copy
-      m_unpack_func = Rdb_key_def::unpack_float_80;
+      m_pack_func = Rdb_key_def::pack_float;
+      m_unpack_func = Rdb_key_def::unpack_float;
       m_covered = true;
       return true;
 
     case MYSQL_TYPE_NEWDECIMAL:
     /*
-      Decimal is packed with Field_new_decimal::make_sort_key, which just
-      does memcpy.
       Unpacking decimal values was supported only after fix for issue#253,
       because of that ha_rocksdb::get_storage_type() handles decimal values
       in a special way.
     */
     case MYSQL_TYPE_DATETIME2:
     case MYSQL_TYPE_TIMESTAMP2:
-    /* These are packed with Field_temporal_with_date_and_timef::make_sort_key
-     */
-    case MYSQL_TYPE_TIME2: /* TIME is packed with Field_timef::make_sort_key */
-    case MYSQL_TYPE_YEAR:  /* YEAR is packed with  Field_tiny::make_sort_key */
+    case MYSQL_TYPE_TIME2:
+    case MYSQL_TYPE_YEAR:
       /* Everything that comes here is packed with just a memcpy(). */
+      m_pack_func = Rdb_key_def::pack_binary_str;
       m_unpack_func = Rdb_key_def::unpack_binary_str;
       m_covered = true;
       return true;
 
     case MYSQL_TYPE_NEWDATE:
       /*
-        This is packed by Field_newdate::make_sort_key. It assumes the data is
-        3 bytes, and packing is done by swapping the byte order (for both big-
-        and little-endian)
+        It assumes the data is 3 bytes, and packing is done by swapping
+        the byte order (for both big- and little-endian)
       */
+      m_pack_func = Rdb_key_def::pack_newdate;
       m_unpack_func = Rdb_key_def::unpack_newdate;
       m_covered = true;
       return true;
+
     case MYSQL_TYPE_TINY_BLOB:
     case MYSQL_TYPE_MEDIUM_BLOB:
     case MYSQL_TYPE_LONG_BLOB:
     case MYSQL_TYPE_BLOB: {
+      m_pack_func = Rdb_key_def::pack_blob;
+
       if (key_descr) {
         // The my_charset_bin collation is special in that it will consider
         // shorter strings sorting as less than longer strings.
@@ -3348,16 +3759,71 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                               ? reinterpret_cast<const Field_blob *>(field)
                                     ->pack_length_no_ptr()
                               : 0);
-        // Return false because indexes on text/blob will always require
-        // a prefix. With a prefix, the optimizer will not be able to do an
-        // index-only scan since there may be content occuring after the prefix
-        // length.
-        return false;
       }
-      break;
+
+      // Return false because indexes on text/blob will always require
+      // a prefix. With a prefix, the optimizer will not be able to do an
+      // index-only scan since there may be content occuring after the prefix
+      // length.
+      return false;
     }
-    default:
+
+    case MYSQL_TYPE_SET:
+    case MYSQL_TYPE_ENUM: {
+      const auto field_enum = static_cast<const Field_enum *>(field);
+      switch (field_enum->pack_length()) {
+        case 1:
+          m_pack_func = Rdb_key_def::pack_unsigned<1>;
+          m_unpack_func = Rdb_key_def::unpack_unsigned<1>;
+          break;
+
+        case 2:
+          m_pack_func = Rdb_key_def::pack_unsigned<2>;
+          m_unpack_func = Rdb_key_def::unpack_unsigned<2>;
+          break;
+
+        case 3:
+          m_pack_func = Rdb_key_def::pack_unsigned<3>;
+          m_unpack_func = Rdb_key_def::unpack_unsigned<3>;
+          break;
+
+        case 4:
+          m_pack_func = Rdb_key_def::pack_unsigned<4>;
+          m_unpack_func = Rdb_key_def::unpack_unsigned<4>;
+          break;
+
+        case 8:
+          m_pack_func = Rdb_key_def::pack_unsigned<8>;
+          m_unpack_func = Rdb_key_def::unpack_unsigned<8>;
+          break;
+
+        default:
+          DBUG_ASSERT(false);
+          break;
+      }
+      return false;
+    }
+
+    case MYSQL_TYPE_BIT:
+      m_pack_func = Rdb_key_def::pack_bit;
+      return false;
+
+    case MYSQL_TYPE_VARCHAR:
+      m_pack_func = Rdb_key_def::pack_with_varchar_encoding;
+      break;  // More handling below
+
+    case MYSQL_TYPE_STRING:
+      m_pack_func = Rdb_key_def::pack_string;
       break;
+
+    default:
+      // MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TIMESTAMP,
+      // MYSQL_TYPE_TIME, MYSQL_TYPE_DATETIME,
+      // MYSQL_TYPE_VAR_STRING are obsolete
+      // MYSQL_TYPE_JSON is not supported as index
+      // MYSQL_TYPE_GEOMETRY is not supported by MyRocks yet
+      SHIP_ASSERT(!"Unexpected MYSQL_TYPE_* seen in packing");
+      return false;
   }
 
   m_unpack_info_stores_value = false;
@@ -3381,7 +3847,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     // comparisons
     m_varchar_charset = cs;
     m_skip_func = Rdb_key_def::skip_variable_length;
-    m_pack_func = Rdb_key_def::pack_with_varchar_encoding;
     if (!key_descr || key_descr->use_legacy_varbinary_format()) {
       m_max_image_len = RDB_LEGACY_ENCODED_SIZE(m_max_image_len);
     } else {
