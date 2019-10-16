@@ -125,3 +125,14 @@ create table t (id int primary key, email varchar(767), KEY email_i (email)) eng
 insert into t values (1, REPEAT('a', 700));
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 drop table t;
+
+# test utf8mb4 and padding behavior
+create table t1 (
+  str char(255) character set utf8mb4,
+  val int,
+  key str (str(100))) default character set utf8mb4 engine=rocksdb;
+
+insert into t1 values ('abc  ', 1), ('abc ', 2), ('abc', 3), ('abc\t', 4), ('abca', 5);
+# Use like to trigger prefix scan using index
+select str, val from t1 force index (str) where str like 'abc%' order by str, val;
+drop table t1;
