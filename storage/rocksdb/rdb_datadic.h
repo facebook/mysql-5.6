@@ -960,6 +960,12 @@ class Rdb_field_packing {
   /* Length of mem-comparable image of the field, in bytes */
   int m_max_image_len;
 
+  /*
+    Length of mem-comparable image of the field, before taking varchar chunk
+    encoding into account. For non-varchar case the value isn't used.
+   */
+  int m_max_image_len_before_encoding;
+
   /* Length of image in the unpack data */
   int m_unpack_data_len;
   int m_unpack_data_offset;

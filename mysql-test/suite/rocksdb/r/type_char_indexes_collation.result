@@ -106,3 +106,16 @@ select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 index_name	count
 email_i	1
 drop table t;
+create table t1 (
+str char(255) character set utf8mb4,
+val int,
+key str (str(100))) default character set utf8mb4 engine=rocksdb;
+insert into t1 values ('abc  ', 1), ('abc ', 2), ('abc', 3), ('abc\t', 4), ('abca', 5);
+select str, val from t1 force index (str) where str like 'abc%' order by str, val;
+str	val
+abc	1
+abc	2
+abc	3
+abc		4
+abca	5
+drop table t1;
