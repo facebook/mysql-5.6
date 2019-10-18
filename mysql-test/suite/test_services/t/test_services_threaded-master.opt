@@ -1,2 +1,3 @@
 $TESTSERVICESTHREADED_OPT
 --local-infile=true
+--skip-rocksdb
