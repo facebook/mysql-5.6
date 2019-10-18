@@ -292,6 +292,81 @@ std::string rdb_hexdump(const char *data, const std::size_t data_len,
  */
 bool rdb_database_exists(const std::string &db_name);
 
+/**
+  Helper class wrappers to meansure startup time
+  Warning: not thread safe. It is mainly designed to
+  be used during the server startup to collect stats
+  on startup function's exection time.
+
+Usage:
+  * member function: MyClass::func(args...)
+  *   Rdb_exec_time::record(
+  *     str, std::mem_fn(MyClass::func), &obj, args...);
+  * static function: static MyClass::fun(args...)
+  *   Rdb_exec_time::record(
+  *     str, &MyClass::func, args...);
+  *
+  * To report:
+  *   Rdb_exec_time::report();
+*/
+class Rdb_exec_time {
+ private:
+  std::unordered_map<std::string, uint64_t> entries_;
+
+  struct Auto_timer {
+    explicit Auto_timer(std::function<void(uint64_t &)> &&cb)
+        : start_(std::chrono::high_resolution_clock::now()), callback_(cb) {}
+
+    ~Auto_timer() {
+      auto end = std::chrono::high_resolution_clock::now();
+      uint64_t elapsed =
+          std::chrono::duration_cast<std::chrono::microseconds>(end - start_)
+              .count();
+
+      callback_(elapsed);
+    }
+
+    std::chrono::high_resolution_clock::time_point start_;
+    std::function<void(uint64_t &)> callback_;
+  };
+
+ public:
+  /**
+   * Currently overloaded functions are not cleanly supported as
+   * template (static_cast on the designated function is required
+   * so that compiler can select the right overloaded version,
+   * but the syntax is ugly). Boost has a lift API (BOOST_HOF_LIFT)
+   * which solves this problem but it only supports c++14 and
+   * we're currently on c++11. Until then, this API requires
+   * static cast on overloaded functions passed in as template param.
+   */
+  template <class Fn, class... Args>
+  auto exec(const std::string &key, const Fn &&fn, Args &&... args)
+      -> decltype(fn(args...)) {
+    Auto_timer timer([&](uint64_t &e) { entries_.emplace(key, e); });
+    return fn(args...);
+  }
+
+  void report() {
+    if (entries_.size() == 0) {
+      return;
+    }
+
+    std::string result = "\n{\n";
+    for (auto const &t : entries_) {
+      result += "  \"" + t.first + "\" : ";
+      result += std::to_string(t.second) + "\n";
+    }
+    entries_.clear();
+
+    result += "}";
+
+    /* NO_LINT_DEBUG */
+    sql_print_information("MyRocks: rdb execution report (microsec): %s",
+                          result.c_str());
+  }
+};
+
 /*
   Helper class to make sure cleanup always happens. Helpful for complicated
   logic where there can be multiple exits/returns requiring cleanup

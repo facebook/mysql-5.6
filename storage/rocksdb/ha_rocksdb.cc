@@ -128,8 +128,9 @@ const std::string PER_INDEX_CF_NAME("$per_index_cf");
 
 static std::vector<std::string> rdb_tables_to_recalc;
 
-enum snapshot_operation
-{
+static Rdb_exec_time st_rdb_exec_time;
+
+enum snapshot_operation {
   SNAPSHOT_CREATE,
   SNAPSHOT_ATTACH,
   SNAPSHOT_RELEASE,
@@ -5787,6 +5788,9 @@ static int rocksdb_init_func(void *const p) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Opening TransactionDB...");
+
   status = rocksdb::TransactionDB::Open(
       main_opts, tx_db_options, rocksdb_datadir, cf_descr, &cf_handles, &rdb);
 
@@ -5796,20 +5800,36 @@ static int rocksdb_init_func(void *const p) {
   }
   cf_manager.init(std::move(cf_options_map), &cf_handles);
 
-  if (dict_manager.init(rdb, &cf_manager,
-                        rocksdb_enable_remove_orphaned_dropped_cfs)) {
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Initializing data dictionary...");
+
+  if (st_rdb_exec_time.exec("Rdb_dict_manager::init", [&]() {
+        return dict_manager.init(rdb, &cf_manager,
+                                 rocksdb_enable_remove_orphaned_dropped_cfs);
+      })) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize data dictionary.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  if (binlog_manager.init(&dict_manager)) {
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Initializing binlog manager...");
+
+  if (st_rdb_exec_time.exec("Rdb_binlog_manager::init", [&]() {
+        return binlog_manager.init(&dict_manager);
+      })) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize binlog manager.");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
-  if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables)) {
+  // NO_LINT_DEBUG
+  sql_print_information("RocksDB: Initializing DDL Manager...");
+
+  if (st_rdb_exec_time.exec("Rdb_ddl_manager::init", [&]() {
+        return ddl_manager.init(&dict_manager, &cf_manager,
+                                rocksdb_validate_tables);
+      })) {
     // NO_LINT_DEBUG
     sql_print_error("RocksDB: Failed to initialize DDL manager.");
     DBUG_RETURN(HA_EXIT_FAILURE);
@@ -5938,6 +5958,8 @@ static int rocksdb_init_func(void *const p) {
   sql_print_information(
       "MyRocks storage engine plugin has been successfully "
       "initialized.");
+
+  st_rdb_exec_time.report();
 
   // Skip cleaning up rdb_open_tables as we've succeeded
   rdb_open_tables_cleanup.skip();
