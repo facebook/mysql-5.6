@@ -15570,14 +15570,10 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
     if (m_pk_descr->has_ttl() &&
         should_hide_ttl_rec(*m_pk_descr, m_retrieved_record,
                             tx->m_snapshot_timestamp)) {
-      m_retrieved_record.Reset();
-      mrr_values[cur_key].Reset();
       continue;
     }
 
     rc = convert_record_from_storage_format(&rowkey, table->record[0]);
-    m_retrieved_record.Reset();
-    mrr_values[cur_key].Reset();
     break;
   }
   table->status = rc ? STATUS_NOT_FOUND : 0;
