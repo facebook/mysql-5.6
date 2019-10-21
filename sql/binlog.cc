@@ -7227,6 +7227,25 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       /* Change binlog file size to valid_pos */
       if (valid_pos < binlog_size)
       {
+        if (opt_trim_binlog)
+        {
+          char backup_file[FN_REFLEN];
+          myf opt= MY_REPLACE_DIR | MY_UNPACK_FILENAME | MY_APPEND_EXT;
+          fn_format(
+              backup_file, "binlog_backup", opt_mysql_tmpdir, ".trunc", opt);
+
+          // NO_LINT_DEBUG
+          sql_print_error("Taking backup from %s to %s\n",
+              log_name, backup_file);
+          if (my_copy(log_name, backup_file, MYF(MY_WME)))
+          {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "Could not take backup of the truncated binlog file %s",
+                log_name);
+          }
+        }
+
         if (my_chsize(file, valid_pos, 0, MYF(MY_WME)))
         {
           sql_print_error("Failed to trim the crashed binlog file "
