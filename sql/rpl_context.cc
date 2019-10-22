@@ -59,6 +59,9 @@ inline bool Session_consistency_gtids_ctx::shall_collect(const THD *thd) {
        m_curr_session_track_gtids == SESSION_TRACK_GTIDS_ALL_GTIDS) &&
       /* if there is no listener/tracker, then there is no reason to collect */
       m_listener != nullptr &&
+      /* No need to track GTIDs for system threads to avoid performance issues
+         like replication lag */
+      thd->system_thread == NON_SYSTEM_THREAD &&
       /* ROLLBACK statements may end up calling trans_commit_stmt */
       thd->lex->sql_command != SQLCOM_ROLLBACK &&
       thd->lex->sql_command != SQLCOM_ROLLBACK_TO_SAVEPOINT;
