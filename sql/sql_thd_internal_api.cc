@@ -182,6 +182,11 @@ void thd_increment_bytes_received(size_t length) {
   if (likely(thd != nullptr)) thd->status_var.bytes_received += length;
 }
 
+void thd_increment_tmp_table_bytes_written(size_t length) {
+  THD *thd = current_thd;
+  if (likely(thd != NULL)) thd->status_var.tmp_table_bytes_written += length;
+}
+
 partition_info *thd_get_work_part_info(THD *thd) { return thd->work_part_info; }
 
 enum_tx_isolation thd_get_trx_isolation(const THD *thd) {
