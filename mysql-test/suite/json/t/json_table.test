@@ -629,7 +629,7 @@ SELECT * FROM JSON_TABLE(
     c6 CHAR(255) PATH '$',
     c7 CHAR(255) PATH '$',
     c8 CHAR(255) PATH '$')) AS jt;
-SHOW STATUS LIKE '%tmp%';
+SHOW STATUS LIKE '%_tmp%';
 set @@max_heap_table_size= @save_heap_size;
 set @@internal_tmp_mem_storage_engine= @save_mem_se;
 
@@ -642,7 +642,7 @@ SELECT * FROM
     '[{"a":"3"}]',
     '$[*]' COLUMNS (id FOR ORDINALITY)
   ) AS tt;
-SHOW STATUS LIKE '%tmp%';
+SHOW STATUS LIKE '%_tmp%';
 
 --echo #
 --echo # Bug#25525409: ASSERTION `TABLE_LIST->TABLE' FAILED IN SQL/SQL_BASE.CC

@@ -334,6 +334,20 @@ struct Add_dirty_blocks_to_flush_list {
 
     block = reinterpret_cast<buf_block_t *>(slot->object);
 
+    /* Since innodb doesn't ship logs for temp tables, this
+    should be the only place the counter gets updated */
+    if (fsp_is_system_temporary(block->page.id.space())) {
+      /* This means this mtr has dirtied the page and is going
+      to add this page to the flush list, so that we don't
+      double count a re-dirtied page. It's ok to read the block
+      without holding its mutex here because this mtr still has
+      the page latched and flush cannot happen at the same time */
+      if (block->page.get_oldest_lsn() == 0) {
+        extern void thd_increment_tmp_table_bytes_written(size_t length);
+        thd_increment_tmp_table_bytes_written(block->page.size.physical());
+      }
+    }
+
     buf_flush_note_modification(block, m_start_lsn, m_end_lsn,
                                 m_flush_observer);
 #endif /* !UNIV_HOTBACKUP */

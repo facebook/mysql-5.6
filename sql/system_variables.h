@@ -608,6 +608,8 @@ struct System_status_var {
   ulonglong bytes_received;
   ulonglong bytes_sent;
 
+  ulonglong tmp_table_bytes_written;
+
   /* Performance counters */
   ulonglong command_time;  /* Time handling client commands */
   ulonglong parse_time;    /* Time parsing client commands */

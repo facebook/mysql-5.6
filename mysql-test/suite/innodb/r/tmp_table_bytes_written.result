@@ -1,0 +1,58 @@
+create table t1 (i int, c char(255), index(i, c));
+create table t2 (i int, c varchar(255), index(i, c));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+insert into t1 select i+4096,c from t1;
+insert into t2 select * from t1;
+set session tmp_table_size=16384;
+set session max_heap_table_size=16384;
+create temporary table tm(i int, c char(255)) engine=innodb;
+include/assert.inc [The above statements should have increased Tmp_table_bytes_written]
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+update tm set c = lpad('b', 250, 'a');
+include/assert.inc [The above statements should have increased Tmp_table_bytes_written]
+drop temporary table tm;
+create temporary table tm(i int, c varchar(255)) engine=innodb;
+insert into tm select * from t2;
+include/assert.inc [The above statements should have increased Tmp_table_bytes_written]
+update tm set c = lpad('b', 250, 'a');
+include/assert.inc [The above statements should have increased Tmp_table_bytes_written]
+delete from tm where i < 100;
+include/assert.inc [The above statements should have increased Tmp_table_bytes_written]
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+include/assert.inc [The above statements should not have increased Tmp_table_bytes_written]
+select i, c, count(*) from t2 group by i, c having count(*) > 1;
+i	c	count(*)
+include/assert.inc [The above statements should not have not increased Tmp_table_bytes_written]
+drop temporary table tm;
+create temporary table tm(i int, c char(255)) engine=innodb;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+include/assert.inc [The above statements should not have increased session Tmp_table_bytes_written]
+drop temporary table tm;
+create temporary table tm(i int, c char(255)) engine=innodb;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+include/assert.inc [The above statement should not decrease global Tmp_table_bytes_written]
+drop table t1;
+drop table t2;
