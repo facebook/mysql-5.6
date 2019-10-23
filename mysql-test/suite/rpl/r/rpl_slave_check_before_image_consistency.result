@@ -23,6 +23,9 @@ update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -31,6 +34,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t2 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -39,6 +45,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t3 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -46,6 +55,9 @@ include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t4 set b = 2;
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -102,6 +114,9 @@ update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	3
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -110,6 +125,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t2 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	3
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -118,6 +136,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t3 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	3
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -125,6 +146,9 @@ include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t4 set b = 2;
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	3
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;

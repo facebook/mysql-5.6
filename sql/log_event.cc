@@ -11643,7 +11643,7 @@ end:
       !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
       record_compare(m_table, tabledef, &m_cols))
   {
-    ++const_cast<Relay_log_info*>(rli)->before_image_inconsistencies;
+    const_cast<Relay_log_info*>(rli)->inc_before_image_inconsistencies();
     if (log_warnings > 1)
     {
       sql_print_warning("Slave before-image consistency check failed at "

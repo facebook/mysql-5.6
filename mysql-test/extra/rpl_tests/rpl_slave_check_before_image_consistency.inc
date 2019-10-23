@@ -27,6 +27,7 @@ update t1 set b = 2;
 connection slave;
 let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
 source include/wait_for_slave_sql_error.inc;
+show status like 'Slave_before_image_inconsistencies';
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -40,6 +41,7 @@ update t2 set b = 2;
 connection slave;
 let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
 source include/wait_for_slave_sql_error.inc;
+show status like 'Slave_before_image_inconsistencies';
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -53,6 +55,7 @@ update t3 set b = 2;
 connection slave;
 let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
 source include/wait_for_slave_sql_error.inc;
+show status like 'Slave_before_image_inconsistencies';
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -65,6 +68,7 @@ connection master;
 update t4 set b = 2;
 connection slave;
 let $slave_sql_errno= 1032; # HA_ERR_END_OF_FILE
+show status like 'Slave_before_image_inconsistencies';
 source include/wait_for_slave_sql_error.inc;
 set @@sql_log_bin = 0;
 update t4 set c = 1;

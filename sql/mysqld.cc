@@ -9962,7 +9962,7 @@ static int show_slave_before_image_inconsistencies(THD *thd, SHOW_VAR *var,
     var->type= SHOW_LONGLONG;
     var->value= buff;
     *((ulonglong *)buff)=
-      (ulonglong) active_mi->rli->before_image_inconsistencies.load();
+      (ulonglong) active_mi->rli->get_before_image_inconsistencies();
   }
   else
     var->type= SHOW_UNDEF;

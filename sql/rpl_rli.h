@@ -1097,6 +1097,10 @@ private:
 
   std::unordered_set<std::string> rbr_column_type_mismatch_whitelist;
 
+  /* counter for the number of BI inconsistencies found */
+  /* @see opt_slave_check_before_image_consistency */
+  std::atomic<ulong> before_image_inconsistencies{0};
+
 public:
   // store value to propagate to handler in open_tables
   bool skip_unique_check;
@@ -1114,8 +1118,16 @@ public:
 
   /* @see opt_slave_check_before_image_consistency */
   ulong check_before_image_consistency= 0;
-  /* counter for the number of inconsistencies found */
-  std::atomic<ulong> before_image_inconsistencies{0};
+
+  virtual void inc_before_image_inconsistencies()
+  {
+    ++before_image_inconsistencies;
+  }
+
+  virtual ulong get_before_image_inconsistencies() const
+  {
+    return before_image_inconsistencies.load();
+  }
 
   virtual const std::unordered_set<std::string>*
         get_rbr_column_type_mismatch_whitelist() const
