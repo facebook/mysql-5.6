@@ -1028,7 +1028,7 @@ c1	c2	c3	c4	c5	c6	c7	c8
 18	18	18	18	18	18	18	18
 19	19	19	19	19	19	19	19
 20	20	20	20	20	20	20	20
-SHOW STATUS LIKE '%tmp%';
+SHOW STATUS LIKE '%_tmp%';
 Variable_name	Value
 Created_tmp_disk_tables	1
 Created_tmp_files	0
@@ -1046,7 +1046,7 @@ JSON_TABLE(
 ) AS tt;
 id
 1
-SHOW STATUS LIKE '%tmp%';
+SHOW STATUS LIKE '%_tmp%';
 Variable_name	Value
 Created_tmp_disk_tables	0
 Created_tmp_files	0

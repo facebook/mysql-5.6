@@ -1,0 +1,171 @@
+--source include/count_sessions.inc
+
+--let $prevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+# Add an index so the folloging `select ... group by` commands don't generate a temp tables
+# https://dev.mysql.com/doc/refman/8.0/en/internal-temporary-tables.html
+create table t1 (i int, c char(255), index(i, c));
+create table t2 (i int, c varchar(255), index(i, c));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+insert into t1 select i+4096,c from t1;
+
+insert into t2 select * from t1;
+
+set session tmp_table_size=16384;
+set session max_heap_table_size=16384;
+
+create temporary table tm(i int, c char(255)) engine=innodb;
+
+--let $nextSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize > $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+
+--let $wait_condition = select variable_value > $prevSize from performance_schema.session_status where variable_name = 'Tmp_table_bytes_written'
+--source include/wait_condition.inc
+--let $prevSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+
+update tm set c = lpad('b', 250, 'a');
+
+# The current approach measures file size, and as such, it doesn't result in any increase for this update
+--let $nextSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize > $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+drop temporary table tm;
+
+# The location where the byte count is increment is different for static and dynamic
+# records. Test with varchar to see if the code path for dynamic records also works. The
+# char version above only tests static records.
+create temporary table tm(i int, c varchar(255)) engine=innodb;
+
+insert into tm select * from t2;
+
+# The current approach measures file size, and as such, it doesn't result in any increase for this insert
+--let $nextSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize > $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+update tm set c = lpad('b', 250, 'a');
+
+# The current approach measures file size, and as such, it doesn't result in any increase for this update
+--let $nextSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize > $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+delete from tm where i < 100;
+
+# The current approach measures file size, and as such, it doesn't result in any increase for this delete
+--let $nextSize = query_get_value(show status like 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize > $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+# Test implicit tables.
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should not have increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize = $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+select i, c, count(*) from t2 group by i, c having count(*) > 1;
+
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should not have not increased Tmp_table_bytes_written
+--let $assert_cond= $nextSize = $prevSize
+--source include/assert.inc
+--let $prevSize = $nextSize
+
+# Test whether variable is session level.
+#
+drop temporary table tm;
+create temporary table tm(i int, c char(255)) engine=innodb;
+
+# First record session and global variable on con1
+connect(con1, localhost, root,,);
+connection con1;
+--let $con1PrevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $globalPrevSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+# Second, do some work on default connection.
+connection default;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+--let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+# Third, check variables on con1
+connection con1;
+
+--let $wait_condition = select variable_value > $prevSize from performance_schema.global_status where variable_name = 'Tmp_table_bytes_written'
+--source include/wait_condition.inc
+
+--let $con1NextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statements should not have increased session Tmp_table_bytes_written
+--let $assert_cond= $con1NextSize = $con1PrevSize
+--source include/assert.inc
+
+connection default;
+drop temporary table tm;
+
+
+# Test whether the global variable is monotonically increasing even when
+# session go away.
+
+# Record global status in default connection.
+--let $globalPrevSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+# Do work in con1
+connection con1;
+create temporary table tm(i int, c char(255)) engine=innodb;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+insert into tm select * from t1;
+
+--let $wait_condition = select variable_value > $prevSize from performance_schema.global_status where variable_name = 'Tmp_table_bytes_written'
+--source include/wait_condition.inc
+
+disconnect con1;
+--source include/wait_until_disconnected.inc
+
+connection default;
+--let $globalPrevSize = $globalNextSize
+--let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $assert_text= The above statement should not decrease global Tmp_table_bytes_written
+--let $assert_cond= $globalNextSize >= $globalPrevSize
+--source include/assert.inc
+
+drop table t1;
+drop table t2;
+
+--source include/wait_until_count_sessions.inc
