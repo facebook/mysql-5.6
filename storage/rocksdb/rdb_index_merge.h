@@ -30,7 +30,6 @@
 #include "rocksdb/db.h"
 
 /* MyRocks header files */
-#include "./rdb_comparator.h"
 
 namespace myrocks {
 
