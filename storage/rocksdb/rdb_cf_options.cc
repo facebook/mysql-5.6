@@ -37,9 +37,6 @@
 
 namespace myrocks {
 
-Rdb_pk_comparator Rdb_cf_options::s_pk_comparator;
-Rdb_rev_comparator Rdb_cf_options::s_rev_pk_comparator;
-
 bool Rdb_cf_options::init(
     const rocksdb::BlockBasedTableOptions &table_options,
     std::shared_ptr<rocksdb::TablePropertiesCollectorFactory> prop_coll_factory,
@@ -48,7 +45,7 @@ bool Rdb_cf_options::init(
   DBUG_ASSERT(default_cf_options != nullptr);
   DBUG_ASSERT(override_cf_options != nullptr);
 
-  m_default_cf_opts.comparator = &s_pk_comparator;
+  m_default_cf_opts.comparator = rocksdb::BytewiseComparator();
   m_default_cf_opts.compaction_filter_factory.reset(
       new Rdb_compact_filter_factory);
 
@@ -313,9 +310,9 @@ bool Rdb_cf_options::set_override(const std::string &override_config) {
 const rocksdb::Comparator *Rdb_cf_options::get_cf_comparator(
     const std::string &cf_name) {
   if (Rdb_cf_manager::is_cf_name_reverse(cf_name.c_str())) {
-    return &s_rev_pk_comparator;
+    return rocksdb::ReverseBytewiseComparator();
   } else {
-    return &s_pk_comparator;
+    return rocksdb::BytewiseComparator();
   }
 }
 
