@@ -71,7 +71,6 @@ endif()
 SET(ROCKSDB_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
   logger.h
-  rdb_comparator.h
   rdb_datadic.cc rdb_datadic.h
   rdb_cf_options.cc rdb_cf_options.h
   rdb_cf_manager.cc rdb_cf_manager.h
