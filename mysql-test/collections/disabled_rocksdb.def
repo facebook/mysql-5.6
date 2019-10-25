@@ -24,15 +24,6 @@ rocksdb.rocksdb_parts : partition feature is missing in 8.0
 rocksdb.get_error_message : partition feature is missing in 8.0
 rocksdb.autoinc_crash_safe_partition : partition feature is missing in 8.0
 
-# Missing authentication plugin
-rocksdb.rocksdb_deadlock_stress : authentication plugin is missing in 8.0
-rocksdb.rocksdb_deadlock_stress_rc : authentication plugin is missing in 8.0
-rocksdb.rocksdb_deadlock_stress_rr : authentication plugin is missing in 8.0
-rocksdb.allow_no_pk_concurrent_insert : authentication plugin is missing in 8.0
-rocksdb.rqg_examples : authentication plugin is missing in 8.0
-rocksdb.rqg_runtime : authentication plugin is missing in 8.0
-rocksdb.rqg_transactions : authentication plugin is missing in 8.0
-
 # Missing features
 # disable_testcase BUG#888001
 rocksdb.explicit_snapshot : missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
@@ -99,4 +90,6 @@ rocksdb.bloomfilter3 : query plan is different between 8.0 and 5.6
 rocksdb.issue884 : query plan is different between 8.0 and 5.6
 rocksdb.persistent_cache : only repros with other tests running
 rocksdb.index_merge_rocksdb2 : query plan is different between 8.0 and 5.6
+rocksdb.rqg_runtime: commit without prepare
+rocksdb.rqg_transactions : commit without prepare
 

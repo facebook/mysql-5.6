@@ -14,10 +14,17 @@ SET @ORIG_EVENT_SCHEDULER = @@EVENT_SCHEDULER;
 # tests, so they need to be restored to the original
 # state.
 --disable_warnings
-CREATE TABLE mysql.user_temp LIKE mysql.user;
-INSERT mysql.user_temp SELECT * FROM mysql.user;
-CREATE TABLE mysql.tables_priv_temp LIKE mysql.tables_priv;
-INSERT mysql.tables_priv_temp SELECT * FROM mysql.tables_priv_temp;
+# CREATE TABLE user_temp LIKE mysql.user;
+# MySQL 8.0 has a regression and always create the table in mysql tablespace
+# Official doc recommends the following workaround
+CREATE TABLE user_temp SELECT * FROM mysql.user LIMIT 0;
+INSERT user_temp SELECT * FROM mysql.user;
+
+# CREATE TABLE tables_priv_temp LIKE mysql.tables_priv;
+# MySQL 8.0 has a regression and always create the table in mysql tablespace
+# Official doc recommends the following workaround
+CREATE TABLE tables_priv_temp SELECT * FROM mysql.tables_priv LIMIT 0;
+INSERT tables_priv_temp SELECT * FROM mysql.tables_priv;
 --enable_warnings
 
 # RQG's runtime test
@@ -46,10 +53,10 @@ let $DATA_FILE = metadata_stability.zz;
 --disable_warnings
 DELETE FROM mysql.tables_priv;
 DELETE FROM mysql.user;
-INSERT mysql.user SELECT * FROM mysql.user_temp;
-INSERT mysql.tables_priv SELECT * FROM mysql.tables_priv_temp;
-DROP TABLE mysql.user_temp;
-DROP TABLE mysql.tables_priv_temp;
+INSERT mysql.user SELECT * FROM user_temp;
+INSERT mysql.tables_priv SELECT * FROM tables_priv_temp;
+DROP TABLE user_temp;
+DROP TABLE tables_priv_temp;
 DROP TABLE IF EXISTS test.executors;
 DROP DATABASE IF EXISTS testdb_N;
 DROP DATABASE IF EXISTS testdb_S;
