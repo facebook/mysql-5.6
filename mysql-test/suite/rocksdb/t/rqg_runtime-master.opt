@@ -1,1 +1,1 @@
---rocksdb_strict_collation_check=0 --secure-file-priv=/tmp
+--rocksdb_strict_collation_check=0 --secure-file-priv=/tmp --local_infile
