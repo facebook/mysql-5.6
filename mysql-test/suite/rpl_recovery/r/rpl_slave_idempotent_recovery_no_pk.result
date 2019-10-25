@@ -1,0 +1,59 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Error_code: 1593");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Recovery from master pos");
+include/stop_slave.inc
+change master to master_auto_position=1;
+include/start_slave.inc
+create table t1(a int) engine = innodb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+include/sync_slave_sql_with_master.inc
+"Table contents on the slave before crash:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+"Table contents on the slave after crash:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+start slave;
+include/wait_for_slave_sql_error.inc [errno=1593]
+"Table contents on the slave after recovery fails:"
+select * from t1;
+a
+1
+2
+3
+4
+5
+include/stop_slave.inc
+reset master;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/start_slave.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

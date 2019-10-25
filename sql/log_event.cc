@@ -13007,6 +13007,19 @@ AFTER_MAIN_EXEC_ROW_LOOP:
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error)
     {
+      if (table->s->primary_key == MAX_KEY)
+      {
+        char buf[256];
+        my_snprintf(
+            buf, sizeof(buf),
+            "Found table without primary key while performing idempotent "
+            "recovery: %s.%s", table->s->db.str, table->s->table_name.str);
+        rli->report(
+            ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, ER(ER_SLAVE_FATAL_ERROR), buf);
+        error= ER_SLAVE_FATAL_ERROR;
+        goto err;
+      }
+
       DBUG_ASSERT(slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT);
       DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
 
