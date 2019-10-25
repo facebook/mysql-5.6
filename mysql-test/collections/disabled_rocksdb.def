@@ -54,7 +54,6 @@ rocksdb.mysqlbinlog_blind_replace : missing patch f14c64cf950 Optimize replace i
 
 # Recovery
 rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
-rocksdb_rpl.rpl_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
 
 # Schema Validation
 rocksdb.validate_datadic : redesign the testcase around schema validation
