@@ -4742,63 +4742,6 @@ bool Rdb_binlog_manager::unpack_value(const uchar *const value,
   return false;
 }
 
-/**
-  Inserts a row into mysql.slave_gtid_info table. Doing this inside
-  storage engine is more efficient than inserting/updating through MySQL.
-
-  @param[IN] id Primary key of the table.
-  @param[IN] db Database name. This is column 2 of the table.
-  @param[IN] gtid Gtid in human readable form. This is column 3 of the table.
-  @param[IN] write_batch Handle to storage engine writer.
-*/
-void Rdb_binlog_manager::update_slave_gtid_info(
-    const uint id, const char *const db, const char *const gtid,
-    rocksdb::WriteBatchBase *const write_batch) {
-  if (id && db && gtid) {
-    // Make sure that if the slave_gtid_info table exists we have a
-    // pointer to it via m_slave_gtid_info_tbl.
-    if (!m_slave_gtid_info_tbl.load()) {
-      m_slave_gtid_info_tbl.store(
-          rdb_get_ddl_manager()->find("mysql.slave_gtid_info"));
-    }
-    if (!m_slave_gtid_info_tbl.load()) {
-      // slave_gtid_info table is not present. Simply return.
-      return;
-    }
-    DBUG_ASSERT(m_slave_gtid_info_tbl.load()->m_key_count == 1);
-
-    const std::shared_ptr<const Rdb_key_def> &kd =
-        m_slave_gtid_info_tbl.load()->m_key_descr_arr[0];
-    String value;
-
-    // Build key
-    Rdb_buf_writer<Rdb_key_def::INDEX_NUMBER_SIZE + 4> key_writer;
-    key_writer.write_index(kd->get_index_number());
-    key_writer.write_uint32(id);
-
-    // Build value
-    Rdb_buf_writer<128> value_writer;
-    DBUG_ASSERT(gtid);
-    const uint db_len = strlen(db);
-    const uint gtid_len = strlen(gtid);
-    // 1 byte used for flags. Empty here.
-    value_writer.write_byte(0);
-
-    // Write column 1.
-    DBUG_ASSERT(strlen(db) <= 64);
-    value_writer.write_byte(db_len);
-    value_writer.write(db, db_len);
-
-    // Write column 2.
-    DBUG_ASSERT(gtid_len <= 56);
-    value_writer.write_byte(gtid_len);
-    value_writer.write(gtid, gtid_len);
-
-    write_batch->Put(kd->get_cf(), key_writer.to_slice(),
-                     value_writer.to_slice());
-  }
-}
-
 bool Rdb_dict_manager::init(rocksdb::TransactionDB *const rdb_dict,
                             Rdb_cf_manager *const cf_manager,
                             const bool enable_remove_orphaned_dropped_cfs) {

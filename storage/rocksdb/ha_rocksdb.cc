@@ -3938,15 +3938,6 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
       (!my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
-    /* TODO(yzha) - 0f402cb8381b - Improve singled thread replication performance */
-    /*
-    std::vector<st_slave_gtid_info> slave_gtid_info;
-    my_core::thd_slave_gtid_info(thd, &slave_gtid_info);
-    for (const auto &it : slave_gtid_info) {
-      rocksdb::WriteBatchBase *const write_batch = tx->get_blind_write_batch();
-      binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
-    }
-    */
     if (tx->is_two_phase()) {
       if (thd->durability_property == HA_IGNORE_DURABILITY) {
         tx->set_sync(false);
