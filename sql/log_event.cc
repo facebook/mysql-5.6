@@ -9941,6 +9941,18 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     // NOTE: error will be set to 0 in handle_idempotent_and_ignored_errors()
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error) {
+      if (table->s->primary_key == MAX_KEY) {
+        char buf[256];
+        snprintf(
+            buf, sizeof(buf),
+            "Found table without primary key while performing idempotent "
+            "recovery: %s.%s", table->s->db.str, table->s->table_name.str);
+        rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                    ER_THD(thd, ER_SLAVE_FATAL_ERROR), buf);
+        error= ER_SLAVE_FATAL_ERROR;
+        thd->reset_db(current_db_name_saved);
+        goto err;
+      }
       DBUG_ASSERT(rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT);
       DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
 
