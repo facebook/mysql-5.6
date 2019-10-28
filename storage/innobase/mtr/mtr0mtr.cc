@@ -253,8 +253,6 @@ struct Add_dirty_blocks_to_flush_list {
     /* Since innodb doesn't ship logs for temp tables, this
     should be the only place the counter gets updated */
     if (fsp_is_system_temporary(block->page.id.space())) {
-
-      ut_ad(m_end_lsn == 0 && m_start_lsn == 0); /* no redo */
       /* This means this mtr has dirtied the page and is going
       to add this page to the flush list, so that we don't
       double count a re-dirtied page. It's ok to read the block
