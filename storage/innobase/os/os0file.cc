@@ -1812,6 +1812,11 @@ static char *os_file_get_parent_dir(const char *path) {
     return (NULL);
   }
 
+  /* Safety check */
+  if (path > last_slash) {
+    return (NULL);
+  }
+
   /* Non-trivial directory component */
 
   return (mem_strdupl(path, last_slash - path));
