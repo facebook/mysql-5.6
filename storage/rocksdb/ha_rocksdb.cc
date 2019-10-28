@@ -6218,6 +6218,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       mrr_rowid_reader(nullptr),
       mrr_n_elements(0),
       mrr_enabled_keyread(false),
+      mrr_used_cpk(false),
       m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false),
       m_force_skip_unique_check(false) {}
@@ -15340,9 +15341,11 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
     // ICP is not supported for PK, so we don't expect that BKA's variant
     // of ICP would be used:
     DBUG_ASSERT(!mrr_funcs.skip_index_tuple);
+    mrr_used_cpk = true;
     mrr_rowid_reader =
       new Mrr_pk_scan_rowid_source(this, seq_init_param, n_ranges, mode);
   } else {
+    mrr_used_cpk = false;
     auto reader = new Mrr_sec_key_rowid_source(this);
     reader->init(seq, seq_init_param, n_ranges, mode);
     mrr_rowid_reader = reader;
@@ -15485,6 +15488,9 @@ int ha_rocksdb::mrr_fill_buffer() {
 
   Rdb_transaction *const tx = get_or_create_tx(table->in_use);
 
+  if (active_index == table->s->primary_key)
+    stats.rows_requested += mrr_n_elements;
+
   tx->multi_get(m_pk_descr->get_cf(), mrr_n_elements, mrr_keys, mrr_values,
                 mrr_statuses, mrr_sorted_mode);
 
@@ -15503,12 +15509,24 @@ void ha_rocksdb::mrr_free() {
 }
 
 void ha_rocksdb::mrr_free_rows() {
+  ssize_t n_pinned = 0;
   for (ssize_t i = 0; i < mrr_n_elements; i++) {
-    mrr_values[i].Reset();
+    if (mrr_values[i].IsPinned()) {
+      n_pinned++;
+      mrr_values[i].Reset();
+    }
     mrr_values[i].~PinnableSlice();
     mrr_statuses[i].~Status();
     // no need to free mrr_keys
   }
+
+  // There could be rows that MultiGet has returned but MyRocks hasn't
+  // returned to the SQL layer (typically due to LIMIT clause)
+  // Count them in in "rows_read" anyway. (This is only necessary when using
+  // clustered PK. When using a secondary key, the index-only part of the scan
+  // that collects the rowids has caused all counters to be incremented)
+  if (mrr_used_cpk) stats.rows_read += n_pinned;
+
   mrr_n_elements = 0;
   // We can't rely on the data from HANDLER_BUFFER once the scan is over, so:
   mrr_values = nullptr;
@@ -15565,6 +15583,7 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
     m_retrieved_record.Reset();
     m_retrieved_record.PinSlice(mrr_values[cur_key], &mrr_values[cur_key]);
+    mrr_values[cur_key].Reset();
 
     /* If we found the record, but it's expired, pretend we didn't find it.  */
     if (m_pk_descr->has_ttl() &&
@@ -15574,6 +15593,8 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
     }
 
     rc = convert_record_from_storage_format(&rowkey, table->record[0]);
+    if (active_index == table->s->primary_key)
+      stats.rows_read++;
     break;
   }
   table->status = rc ? STATUS_NOT_FOUND : 0;

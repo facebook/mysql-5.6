@@ -1,8 +1,7 @@
+#
+#  Test for MyRocks' MRR implementation based on MultiGet.
+#
 --source include/have_rocksdb.inc
-
---disable_warnings
-drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11;
---enable_warnings
 
 create table t0(a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
@@ -172,8 +171,89 @@ having
 
 drop table t11,t12;
 
---echo # Same as above but for MRR (not BKA):
---echo # This will not use MRR:
+--echo #
+--echo # Check the userstat counters
+--echo #
+show variables like '%user_table_stat%';
+set optimizer_switch='mrr=off';
+flush statistics;
+
+select * from t3,t0 where t3.col1=t0.a;
+
+--echo # COUNTERS FOR: mrr=OFF, secondary index lookups
+query_vertical
+select
+  rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+  information_schema.table_statistics
+where table_name = 't3';
+
+set optimizer_switch='mrr=on';
+flush statistics;
+
+select * from t3,t0 where t3.col1=t0.a;
+
+--echo # COUNTERS FOR: mrr=ON, secondary index lookups
+query_vertical
+select
+  rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+  information_schema.table_statistics
+where table_name = 't3';
+
+set optimizer_switch='mrr=off';
+flush statistics;
+explain
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+
+--echo # COUNTERS FOR: mrr=OFF, primary index lookups
+query_vertical
+select
+  rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+  information_schema.table_statistics
+where table_name = 't3';
+
+set optimizer_switch='mrr=on';
+flush statistics;
+explain
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+
+--echo # COUNTERS FOR: mrr=ON, primary index lookups
+query_vertical
+select
+  rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+  information_schema.table_statistics
+where table_name = 't3';
+
+--echo #
+--echo # Check how the counters are incremented when SQL
+--echo # layer doesn't read all of the MultiGet results
+--echo #
+create table t20 (a int);
+insert into t20 values (1);
+set global rocksdb_force_flush_memtable_now=1;
+
+explain
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+
+create temporary table t11 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+flush statistics;
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+--echo # COUNTERS FOR: mrr=ON, primary index lookups
+query_vertical
+select rows_read, rows_requested
+from information_schema.table_statistics
+where table_name = 't2';
+
+drop table t20;
+--echo #
+--echo # Check how MRR works without BKA
+--echo #
 explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 
 --echo # This will use MRR:

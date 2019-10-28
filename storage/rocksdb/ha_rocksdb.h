@@ -692,6 +692,7 @@ class ha_rocksdb : public my_core::handler {
 
   // if true, MRR code has enabled keyread (and should disable it back)
   bool mrr_enabled_keyread;
+  bool mrr_used_cpk;
 
   int mrr_fill_buffer();
   void mrr_free_rows();

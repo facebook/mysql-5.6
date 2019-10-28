@@ -1,4 +1,3 @@
-drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11;
 create table t0(a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t1(a int);
@@ -241,8 +240,151 @@ ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
 ROCKSDB_NUMBER_MULTIGET_GET	1
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
 drop table t11,t12;
-# Same as above but for MRR (not BKA):
-# This will not use MRR:
+#
+# Check the userstat counters
+#
+show variables like '%user_table_stat%';
+Variable_name	Value
+user_table_stats_control	OFF
+set optimizer_switch='mrr=off';
+flush statistics;
+select * from t3,t0 where t3.col1=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+# COUNTERS FOR: mrr=OFF, secondary index lookups
+select
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+information_schema.table_statistics
+where table_name = 't3';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+rows_requested	20
+set optimizer_switch='mrr=on';
+flush statistics;
+select * from t3,t0 where t3.col1=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+# COUNTERS FOR: mrr=ON, secondary index lookups
+select
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+information_schema.table_statistics
+where table_name = 't3';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+rows_requested	20
+set optimizer_switch='mrr=off';
+flush statistics;
+explain
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	SIMPLE	t3	eq_ref	PRIMARY	PRIMARY	8	test.t0.a,test.t0.a	1	NULL
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+# COUNTERS FOR: mrr=OFF, primary index lookups
+select
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+information_schema.table_statistics
+where table_name = 't3';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+rows_requested	10
+set optimizer_switch='mrr=on';
+flush statistics;
+explain
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	ALL	NULL	NULL	NULL	NULL	10	Using where
+1	SIMPLE	t3	eq_ref	PRIMARY	PRIMARY	8	test.t0.a,test.t0.a	1	Using join buffer (Batched Key Access)
+select * from t3,t0 where t3.pk1=t0.a and t3.pk2=t0.a;
+pk1	pk2	col1	filler	a
+0	0	0	0	0
+1	1	1	1	1
+2	2	2	2	2
+3	3	3	3	3
+4	4	4	4	4
+5	5	5	5	5
+6	6	6	6	6
+7	7	7	7	7
+8	8	8	8	8
+9	9	9	9	9
+# COUNTERS FOR: mrr=ON, primary index lookups
+select
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_requested
+from
+information_schema.table_statistics
+where table_name = 't3';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+rows_requested	10
+#
+# Check how the counters are incremented when SQL
+# layer doesn't read all of the MultiGet results
+#
+create table t20 (a int);
+insert into t20 values (1);
+set global rocksdb_force_flush_memtable_now=1;
+explain
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	PRIMARY	t20	ALL	NULL	NULL	NULL	NULL	1	NULL
+2	DEPENDENT SUBQUERY	t0	ALL	NULL	NULL	NULL	NULL	10	NULL
+2	DEPENDENT SUBQUERY	t2	eq_ref	PRIMARY	PRIMARY	4	func	1	Using where; Using join buffer (Batched Key Access)
+create temporary table t11 as
+select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+flush statistics;
+select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+a	a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20)
+1	1
+# COUNTERS FOR: mrr=ON, primary index lookups
+select rows_read, rows_requested
+from information_schema.table_statistics
+where table_name = 't2';
+rows_read	10
+rows_requested	10
+drop table t20;
+#
+# Check how MRR works without BKA
+#
 explain select t3.col1 from t3 where t3.col1=20 or t3.col1 between 25 and 28;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t3	range	col1	col1	5	NULL	2	Using where; Using index
