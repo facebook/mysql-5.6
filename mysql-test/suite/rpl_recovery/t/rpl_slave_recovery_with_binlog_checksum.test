@@ -5,7 +5,7 @@ call mtr.add_suppression("Error in Log_event::read_log_event()");
 call mtr.add_suppression("Recovery from master pos");
 
 connection master;
-CREATE TABLE t1(a INT) ENGINE = InnoDB;
+CREATE TABLE t1(a INT primary key) ENGINE = InnoDB;
 sync_slave_with_master;
 
 connection slave;
