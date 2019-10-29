@@ -762,12 +762,15 @@ static bool check_top_level_stmt(sys_var *self, THD *thd, set_var *var)
   }
   return false;
 }
+#endif
 
+#if defined(HAVE_GTID_NEXT_LIST) || defined(NON_DISABLED_GTID)
 static bool check_top_level_stmt_and_super(sys_var *self, THD *thd, set_var *var)
 {
   return (check_has_super(self, thd, var) ||
           check_top_level_stmt(self, thd, var));
 }
+
 #endif
 
 static bool check_outside_transaction(sys_var *self, THD *thd, set_var *var)
@@ -5619,8 +5622,10 @@ static bool check_gtid_next(sys_var *self, THD *thd, set_var *var)
 
   DBUG_PRINT("info", ("thd->in_sub_stmt=%d", thd->in_sub_stmt));
 
-  // GTID_NEXT must be set by SUPER in a top-level statement
-  if (check_top_level_stmt_and_super(self, thd, var))
+  // GTID_NEXT must be set by SUPER or REPL_SLAVE + ADMIN_PORT in a top-level
+  // statement
+  if (check_has_super_or_repl_slave_and_admin_port(self, thd, var) ||
+      check_top_level_stmt(self, thd, var))
     DBUG_RETURN(true);
 
   // check compatibility with GTID_NEXT

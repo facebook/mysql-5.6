@@ -1,0 +1,19 @@
+create user 'olm'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'olm'@'localhost';
+revoke super on *.* from 'olm'@'localhost';
+create user 'normal'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'normal'@'localhost';
+revoke super on *.* from 'normal'@'localhost';
+revoke REPLICATION SLAVE on *.* from 'normal'@'localhost';
+revoke Admin port on *.* from 'normal'@'localhost';
+alter database test read_only=True;
+# Without repl_slave and admin_port, none-super user can't execute set gtid_next when replaying binlog
+select * from test.tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+# With repl_slave and admin_port, none-super user can execute set gtid_next when replaying binlog
+select * from test.tbl;
+a
+1
+DROP user 'olm'@'localhost';
+DROP user 'normal'@'localhost';
+DROP table tbl;
