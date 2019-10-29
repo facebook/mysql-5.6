@@ -1,0 +1,37 @@
+#
+# Test if MyRocks/MRR correctly releases PinnableSlice objects with value data
+# (if it doesn't, this test will produce valgrind errors: invalid memory reads
+# inside my_md5_hash)
+#
+--source include/have_rocksdb.inc
+
+show variables like 'rocksdb_block_cache_size%';
+create table t0(a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100  from t0 A, t0 B, t0 C;
+
+create table t2 (
+  pk int primary key,
+  col1 int,
+  blob1 text,
+  blob2 text
+) engine=rocksdb;
+
+insert into t2 select a,a,repeat(a,100), repeat(a,200) from t1;
+
+set global rocksdb_force_flush_memtable_now=1;
+
+set @save_optimizer_switch=@@optimizer_switch;
+set optimizer_switch='mrr=on,mrr_cost_based=off,batched_key_access=on';
+
+--replace_column 11 #
+explain 
+select pk, col1 from t2,t0 
+where t2.pk=t0.a*90 and md5(blob1)=md5(repeat(t2.pk,100)) and md5(blob2)=md5(repeat(t2.pk,200));
+
+select pk, col1 from t2,t0
+where t2.pk=t0.a*90 and md5(blob1)=md5(repeat(t2.pk,100)) and md5(blob2)=md5(repeat(t2.pk,200));
+
+drop table t0,t1,t2;
