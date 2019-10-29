@@ -77,6 +77,7 @@ Database: test
 DROP TABLE t1, t2;
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
+| CLIENT_ATTRIBUTES                     |
 | COLLATIONS                            |
 | COLLATION_CHARACTER_SET_APPLICABILITY |
 | COLUMNS                               |
@@ -171,6 +172,7 @@ DROP TABLE t1, t2;
 | VIEWS                                 |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
+| CLIENT_ATTRIBUTES                     |
 | COLLATIONS                            |
 | COLLATION_CHARACTER_SET_APPLICABILITY |
 | COLUMNS                               |

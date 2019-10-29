@@ -537,6 +537,7 @@ typedef struct st_shared_sql_stats {
 typedef struct st_sql_stats {
   unsigned char sql_id[MD5_HASH_SIZE];
   unsigned char plan_id[MD5_HASH_SIZE];
+  unsigned char client_id[MD5_HASH_SIZE];
   char schema[NAME_LEN + 1];      /* [schema] + '\0' */
   char user[NAME_LEN + 1];        /* [user] + '\0' */
 

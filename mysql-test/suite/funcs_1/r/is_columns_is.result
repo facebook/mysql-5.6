@@ -12,6 +12,8 @@ def	information_schema	CHARACTER_SETS	CHARACTER_SET_NAME	1		NO	varchar	32	96	NUL
 def	information_schema	CHARACTER_SETS	DEFAULT_COLLATE_NAME	2		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	CHARACTER_SETS	DESCRIPTION	3		NO	varchar	60	180	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(60)			select	
 def	information_schema	CHARACTER_SETS	MAXLEN	4	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(3)			select	
+def	information_schema	CLIENT_ATTRIBUTES	CLIENT_ATTRIBUTES	2		NO	varchar	4096	12288	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(4096)			select	
+def	information_schema	CLIENT_ATTRIBUTES	CLIENT_ID	1		NO	varchar	33	99	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(33)			select	
 def	information_schema	COLLATIONS	CHARACTER_SET_NAME	2		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	COLLATIONS	COLLATION_NAME	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	COLLATIONS	ID	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
@@ -325,16 +327,17 @@ def	information_schema	SOCKET_DIAG_SLAVES	TOTAL_RETRANS	14	0	NO	bigint	NULL	NULL
 def	information_schema	SOCKET_DIAG_SLAVES	UID	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SOCKET_DIAG_SLAVES	USER	2		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SOCKET_DIAG_SLAVES	WQUEUE	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	EXECUTION_COUNT	5	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	CLIENT_ID	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
+def	information_schema	SQL_STATISTICS	EXECUTION_COUNT	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	PLAN_ID	2		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
-def	information_schema	SQL_STATISTICS	ROWS_DELETED	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	ROWS_INSERTED	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	ROWS_READ	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	ROWS_UPDATED	7	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ROWS_DELETED	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ROWS_INSERTED	7	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ROWS_READ	10	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ROWS_UPDATED	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
-def	information_schema	SQL_STATISTICS	TABLE_SCHEMA	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SQL_STATISTICS	TOTAL_CPU	10	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	USER_NAME	4		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
+def	information_schema	SQL_STATISTICS	TABLE_SCHEMA	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	SQL_STATISTICS	TOTAL_CPU	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	USER_NAME	5		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SQL_TEXT	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_TEXT	SQL_TEXT	4		NO	varchar	4096	12288	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(4096)			select	
 def	information_schema	SQL_TEXT	SQL_TEXT_LENGTH	3	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
@@ -696,6 +699,8 @@ NULL	information_schema	AUTHINFO	SSL	int	NULL	NULL	NULL	NULL	int(7)
 3.0000	information_schema	CHARACTER_SETS	DEFAULT_COLLATE_NAME	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	CHARACTER_SETS	DESCRIPTION	varchar	60	180	utf8	utf8_general_ci	varchar(60)
 NULL	information_schema	CHARACTER_SETS	MAXLEN	bigint	NULL	NULL	NULL	NULL	bigint(3)
+3.0000	information_schema	CLIENT_ATTRIBUTES	CLIENT_ID	varchar	33	99	utf8	utf8_general_ci	varchar(33)
+3.0000	information_schema	CLIENT_ATTRIBUTES	CLIENT_ATTRIBUTES	varchar	4096	12288	utf8	utf8_general_ci	varchar(4096)
 3.0000	information_schema	COLLATIONS	COLLATION_NAME	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	COLLATIONS	CHARACTER_SET_NAME	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 NULL	information_schema	COLLATIONS	ID	bigint	NULL	NULL	NULL	NULL	bigint(11)
@@ -1011,6 +1016,7 @@ NULL	information_schema	SOCKET_DIAG_SLAVES	IS_SEMI_SYNC	int	NULL	NULL	NULL	NULL	
 3.0000	information_schema	SOCKET_DIAG_SLAVES	REPLICATION STATUS	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	SQL_STATISTICS	SQL_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SQL_STATISTICS	PLAN_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+3.0000	information_schema	SQL_STATISTICS	CLIENT_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SQL_STATISTICS	TABLE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	SQL_STATISTICS	USER_NAME	varchar	80	240	utf8	utf8_general_ci	varchar(80)
 NULL	information_schema	SQL_STATISTICS	EXECUTION_COUNT	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned

@@ -10320,6 +10320,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_sql_stats, NULL, NULL, -1, -1, false, 0},
   {"SQL_TEXT", sql_text_fields_info, create_schema_table,
    fill_sql_text, NULL, NULL, -1, -1, false, 0},
+  {"CLIENT_ATTRIBUTES", client_attrs_fields_info, create_schema_table,
+   fill_client_attrs, NULL, NULL, -1, -1, false, 0},
 #endif
   {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
    fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},

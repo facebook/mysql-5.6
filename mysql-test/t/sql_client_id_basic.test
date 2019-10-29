@@ -1,0 +1,167 @@
+--source include/no_perfschema.inc
+--source include/count_sessions.inc
+
+set global sql_stats_control = ON;
+use information_schema;
+
+--echo #
+--echo # Verify with nothing
+--echo #
+select 1;
+
+select * from sql_text;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with async id
+--echo #
+/* async-12345 */ select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with query attrs = qa_test1
+--echo #
+query_attrs_add caller qa_test1;
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with query attrs = qa_test1 and async id
+--echo #
+/* async-12345 */ select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+# change user command to re-send connection attributes
+create user user@localhost identified by 'su';
+grant all on *.* to user@localhost with grant option;
+
+connect (con1, localhost, user, su, test);
+conn_attrs_add caller ca_test2;
+# change_user is needed just to set the correct connection attributes.
+change_user user,su,test;
+use information_schema;
+
+--echo #
+--echo # Verify with just conn attrs = ca_test2
+--echo #
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with conn attrs = ca_test2 and async id
+--echo #
+/* async-12345 */ select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with just conn attrs = ca_test2 and query attrs = qa_test3
+--echo #
+query_attrs_add caller qa_test3;
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with just conn attrs = ca_test2 and query attrs = qa_test3 and async id
+--echo #
+/* async-12345 */ select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+--echo #
+--echo # Verify with just conn attrs = ca_test2 again
+--echo #
+query_attrs_reset;
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+set global sql_stats_control = OFF_HARD;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+set global sql_stats_control = ON;
+
+--echo #
+--echo # Test multiquery cases
+--echo #
+delimiter ||||;
+/* async-12345 */ select 1; select 2;
+||||
+delimiter ;||||
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+query_attrs_add caller qa_test3;
+delimiter ||||;
+/* async-12345 */ select 1; select 2;
+||||
+delimiter ;||||
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+order by client_id;
+
+query_attrs_reset;
+
+connection default;
+
+# Cleanup
+conn_attrs_reset;
+set global sql_stats_control = DEFAULT;
+drop user user@localhost;
+disconnect con1;
+
+--source include/wait_until_count_sessions.inc

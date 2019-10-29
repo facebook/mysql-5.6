@@ -338,6 +338,9 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
 extern ST_FIELD_INFO sql_text_fields_info[];
 int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond);
 
+extern ST_FIELD_INFO client_attrs_fields_info[];
+int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond);
+
 /* For information_schema.user_latency_histograms */
 extern char *histogram_step_size_connection_create;
 extern char *histogram_step_size_update_command;

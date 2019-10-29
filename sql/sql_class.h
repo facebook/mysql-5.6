@@ -4758,6 +4758,7 @@ public:
 
   std::unordered_map<std::string, std::string> query_attrs_map;
   std::unordered_map<std::string, std::string> connection_attrs_map;
+  StringBuffer<256> client_attrs_string;
 
 private:
   char* connection_certificate_buf;

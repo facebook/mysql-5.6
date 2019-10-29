@@ -1,9 +1,30 @@
 #include "sql_base.h"
 #include "sql_show.h"
+#include "sql_string.h"
 #include "sql_digest.h"
 #include "my_murmur3.h"
 
 #define MD5_BUFF_LENGTH 32
+
+/*
+  md5_key is used as the hash key into the SQL_STATISTICS and related tables.
+
+  It needs a hash function for usage in std::unordered_map since the standard
+  library doesn't provide a specialization for std::array<>. Just use murmur3
+  from mysql.
+*/
+using md5_key = std::array<unsigned char, MD5_HASH_SIZE>;
+
+namespace std {
+  template <>
+  struct hash<md5_key>
+  {
+    std::size_t operator()(const md5_key& k) const
+    {
+      return murmur3_32(k.data(), k.size(), 0);
+    }
+  };
+}
 
 /*
   SQL_STATISTICS
@@ -15,6 +36,7 @@ ST_FIELD_INFO sql_stats_fields_info[]=
 {
   {"SQL_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"PLAN_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"CLIENT_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"TABLE_SCHEMA", NAME_CHAR_LEN, MYSQL_TYPE_STRING,
       0, 0, 0, SKIP_OPEN_TABLE},
   {"USER_NAME", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING,
@@ -38,6 +60,9 @@ ST_FIELD_INFO sql_stats_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+/* Global sql stats hash map to track and update metrics in-memory */
+std::unordered_map<md5_key, SQL_STATS*> global_sql_stats_map;
+
 /*
   SQL_TEXT
 
@@ -55,32 +80,23 @@ ST_FIELD_INFO sql_text_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-/*
-  md5_key is used as the hash key into the SQL_STATISTICS and related tables.
-
-  It needs a hash function for usage in std::unordered_map since the standard
-  library doesn't provide a specialization for std::array<>. Just use murmur3
-  from mysql.
-*/
-using md5_key = std::array<unsigned char, MD5_HASH_SIZE>;
-
-namespace std {
-  template <>
-  struct hash<md5_key>
-  {
-    std::size_t operator()(const md5_key& k) const
-    {
-      return murmur3_32(k.data(), k.size(), 0);
-    }
-  };
-}
-
-
-/* Global sql stats hash map to track and update metrics in-memory */
-std::unordered_map<md5_key, SQL_STATS*> global_sql_stats_map;
-
 /* Global sql text hash map to track and update metrics in-memory */
 std::unordered_map<md5_key, SQL_TEXT*> global_sql_text_map;
+
+/*
+  CLIENT_ATTRIBUTES
+
+  Associates a client id with the attributes of that client. The attributes
+  are displayed in JSON format.
+*/
+ST_FIELD_INFO client_attrs_fields_info[]=
+{
+  {"CLIENT_ID", 33, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"CLIENT_ATTRIBUTES", 4096, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+std::unordered_map<md5_key, std::string> global_client_attrs_map;
 
 /*
   sql_cmd_type
@@ -352,6 +368,7 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
   Input:
     sql_id        in:  - sql id
     plan_id       in:  - plan id
+    client_id     in:  - client id
     schema        in:  - schema
     user          in:  - user
     cache_key_val out: - cache key value
@@ -359,11 +376,12 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
 static bool set_sql_stats_cache_key(
     const unsigned char *sql_id,
     const unsigned char *plan_id,
+    const unsigned char *client_id,
     const char *schema,
     const char *user,
     unsigned char *cache_key)
 {
-  DBUG_ASSERT(sql_id && plan_id && schema && user);
+  DBUG_ASSERT(sql_id && plan_id && client_id && schema && user);
 
   if (!schema || !user)
   {
@@ -372,7 +390,7 @@ static bool set_sql_stats_cache_key(
     return false;
   }
 
-  char sql_stats_cache_key[(MD5_HASH_SIZE * 2) + (NAME_LEN * 2) + 2];
+  char sql_stats_cache_key[(MD5_HASH_SIZE * 3) + (NAME_LEN * 2) + 2];
   size_t schema_len= strlen(schema);
   size_t user_len= strlen(user);
 
@@ -390,6 +408,8 @@ static bool set_sql_stats_cache_key(
   offset += MD5_HASH_SIZE;
   memcpy(sql_stats_cache_key + offset, plan_id, MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
+  memcpy(sql_stats_cache_key + offset, client_id, MD5_HASH_SIZE);
+  offset += MD5_HASH_SIZE;
   memcpy(sql_stats_cache_key + offset, schema, schema_len + 1);
   offset += (schema_len + 1);
   memcpy(sql_stats_cache_key + offset, user, user_len + 1);
@@ -404,11 +424,13 @@ static void set_sql_stats_attributes(
     SQL_STATS *stats,
     const unsigned char *sql_id,
     const unsigned char *plan_id,
+    const unsigned char *client_id,
     const char *schema,
     const char *user)
 {
   memcpy(stats->sql_id, sql_id, MD5_HASH_SIZE);
   memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
+  memcpy(stats->client_id, client_id, MD5_HASH_SIZE);
   memcpy(stats->schema, schema, strlen(schema) + 1);
   memcpy(stats->user, user, strlen(user) + 1);
 }
@@ -492,7 +514,80 @@ void free_global_sql_stats(void)
   }
   global_sql_text_map.clear();
 
+  global_client_attrs_map.clear();
+
   unlock_sql_stats(lock_acquired);
+}
+
+/*
+  serialize_client_attrs
+    Extracts and serializes client attributes into the buffer
+    THD::client_attrs_string.
+
+    This is only calculated once per command (as opposed to per statement),
+    and cleared at the end of the command. This is because attributes are
+    attached comamnds, not statements.
+*/
+static void serialize_client_attrs(THD *thd) {
+  if (thd->client_attrs_string.is_empty()) {
+    std::vector<std::pair<String, String>> client_attrs;
+
+    // Populate caller
+    static const std::string caller = "caller";
+    auto it = thd->query_attrs_map.find(caller);
+    if (it != thd->query_attrs_map.end()) {
+      client_attrs.emplace_back(String(it->first.data(), it->first.size(),
+                                       &my_charset_bin),
+                                String(it->second.data(), it->second.size(),
+                                       &my_charset_bin));
+    } else {
+      auto it = thd->connection_attrs_map.find(caller);
+      if (it != thd->connection_attrs_map.end()) {
+        client_attrs.emplace_back(String(it->first.data(), it->first.size(),
+                                         &my_charset_bin),
+                                  String(it->second.data(), it->second.size(),
+                                         &my_charset_bin));
+      }
+    }
+
+    // Populate async id (inspired from find_async_tag)
+    //
+    // Search only in first 100 characters to avoid scanning the whole query.
+    // The async id is usually near the beginning.
+    String query100(thd->query(), MY_MIN(100, thd->query_length()), &my_charset_bin);
+    String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
+
+    int pos = query100.strstr(async_word);
+
+    if (pos != -1) {
+      pos += async_word.length();
+      int epos = pos;
+
+      while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
+        epos++;
+      }
+      client_attrs.emplace_back(String("async_id", &my_charset_bin),
+                                String(&query100[pos], epos - pos, &my_charset_bin));
+    }
+
+    // Serialize into JSON
+    auto& buf = thd->client_attrs_string;
+    buf.q_append('{');
+
+    for (size_t i = 0; i < client_attrs.size(); i++) {
+      const auto& p = client_attrs[i];
+
+      if (i > 0) {
+        buf.q_append(C_STRING_WITH_LEN(", "));
+      }
+      buf.q_append('\'');
+      buf.q_append(p.first.ptr(), MY_MIN(100, p.first.length()));
+      buf.q_append(C_STRING_WITH_LEN("' : '"));
+      buf.q_append(p.second.ptr(), MY_MIN(100, p.second.length()));
+      buf.q_append('\'');
+    }
+    buf.q_append('}');
+  }
 }
 
 /*
@@ -526,12 +621,25 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
   md5_key sql_id;
   compute_digest_md5(&thd->m_digest->m_digest_storage, sql_id.data());
 
+  md5_key client_id;
+  serialize_client_attrs(thd);
+  compute_md5_hash((char *)client_id.data(), thd->client_attrs_string.ptr(),
+                   thd->client_attrs_string.length());
+
   md5_key sql_stats_cache_key;
-  if (!set_sql_stats_cache_key(sql_id.data(), sql_id.data(), schema, user,
-                               sql_stats_cache_key.data()))
+  if (!set_sql_stats_cache_key(sql_id.data(), sql_id.data(), client_id.data(),
+                               schema, user, sql_stats_cache_key.data()))
     return;
 
   bool lock_acquired = lock_sql_stats();
+
+  /* Get or create client attributes for this statement. */
+  auto client_id_iter = global_client_attrs_map.find(client_id);
+  if (client_id_iter == global_client_attrs_map.end()) {
+    global_client_attrs_map.emplace(client_id,
+                                    std::string(thd->client_attrs_string.ptr(),
+                                                thd->client_attrs_string.length()));
+  }
 
   /* Get or create the SQL_TEXT object for this sql statement. */
   SQL_TEXT *sql_text;
@@ -572,7 +680,8 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
 
     /* For now pass in sql_id as plan_id */
     /* TODO (svemuri): Change to the correct plan_id later */
-    set_sql_stats_attributes(sql_stats, sql_id.data(), sql_id.data(), schema, user);
+    set_sql_stats_attributes(sql_stats, sql_id.data(), sql_id.data(),
+                             client_id.data(), schema, user);
     sql_stats->reset();
 
     auto ret= global_sql_stats_map.emplace(sql_stats_cache_key, sql_stats);
@@ -623,11 +732,17 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     char sql_id_hex_string[MD5_BUFF_LENGTH];
     array_to_hex(sql_id_hex_string, sql_stats->sql_id, MD5_HASH_SIZE);
 
+    char client_id_hex_string[MD5_BUFF_LENGTH];
+    array_to_hex(client_id_hex_string, sql_stats->client_id, MD5_HASH_SIZE);
+
     /* SQL ID */
     table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
     /* PLAN ID */
     table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
+                             system_charset_info);
+    /* CLIENT ID */
+    table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
     /* Table Schema */
     table->field[f++]->store(sql_stats->schema, strlen(sql_stats->schema),
@@ -695,6 +810,43 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
     /* SQL Text */
     table->field[f++]->store(digest_text.c_ptr(),
                              MY_MIN(digest_text.length(), 4096),
+                             system_charset_info);
+
+    if (schema_table_store_record(thd, table))
+    {
+      unlock_sql_stats(lock_acquired);
+      DBUG_RETURN(-1);
+    }
+  }
+  unlock_sql_stats(lock_acquired);
+
+  DBUG_RETURN(0);
+}
+
+int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_client_attrs");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = lock_sql_stats();
+
+  for (auto iter= global_client_attrs_map.cbegin();
+      iter != global_client_attrs_map.cend(); ++iter)
+  {
+    int f= 0;
+
+    restore_record(table, s->default_values);
+
+    char client_id_hex_string[MD5_BUFF_LENGTH];
+    array_to_hex(client_id_hex_string, iter->first.data(), iter->first.size());
+
+    /* CLIENT_ID */
+    table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
+                             system_charset_info);
+
+    /* CLIENT_ATTRIBUTES */
+    table->field[f++]->store(iter->second.c_str(),
+                             MY_MIN(4096, iter->second.size()),
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
