@@ -26,8 +26,9 @@ select * from t2,t0 where t2.pk=t0.a;
 select * from t2,t0 where t2.pk=t0.a;
 
 --echo # Check the counters
-create table t10 as 
-  select * from information_schema.global_status where variable_name like 'rocksdb%multiget%';
+create temporary table t10 as 
+select * from information_schema.global_status
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
 
 flush status; # for Handler_mrr_init
 
@@ -35,15 +36,17 @@ select * from t2,t0 where t2.pk=t0.a;
 
 show status like 'Handler_mrr_init';
 
-create table t11 as 
-  select * from information_schema.global_status where variable_name like 'rocksdb%multiget%';
+create temporary table t11 as 
+select * from information_schema.global_status
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
 
 select 
   variable_name, 
   t11.variable_value - t10.variable_value as DIFF 
 from 
-  t10 join t11 using (VARIABLE_NAME);
-
+  t10 join t11 using (VARIABLE_NAME)
+having
+  DIFF>0;
 drop table t10, t11;
 
 --echo # This will use MRR:
@@ -154,12 +157,14 @@ select * from t3,t0 where t3.col1=t0.a;
 
 --echo # Now, run the query and check the counters
 create temporary table t11 as
-select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+select * from information_schema.global_status 
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
 
 select * from t3,t0 where t3.col1=t0.a;
 
 create temporary table t12 as
-select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+select * from information_schema.global_status 
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
 
 select 
   variable_name, 
@@ -239,10 +244,32 @@ set global rocksdb_force_flush_memtable_now=1;
 explain
 select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
 
-create temporary table t11 as
-select * from information_schema.global_status where variable_name like 'rocksdb_num%';
+create temporary table t10 as 
+select * from information_schema.global_status
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
 flush statistics;
+
 select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
+
+create temporary table t11 as 
+select * from information_schema.global_status
+where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
+
+--echo # The below shows ROCKSDB_ROWS_READ=13. 
+--echo #  1 is from table t20
+--echo # 10 are from table t0, BKA reads all its rows into buffer
+--echo #  2 are from table t2.  BKA code reads two rows before it figures that
+--echo #    the subquery has a match and no more rows are needed.
+--echo #    (note that MultiGet call has read all 10 rows, but SQL layer only has read 2)
+select 
+  variable_name, 
+  t11.variable_value - t10.variable_value as DIFF 
+from 
+  t10 join t11 using (VARIABLE_NAME)
+having
+  DIFF>0;
+drop table t10, t11;
+
 --echo # COUNTERS FOR: mrr=ON, primary index lookups
 query_vertical
 select rows_read, rows_requested

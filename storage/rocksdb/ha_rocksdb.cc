@@ -15509,12 +15509,7 @@ void ha_rocksdb::mrr_free() {
 }
 
 void ha_rocksdb::mrr_free_rows() {
-  ssize_t n_pinned = 0;
   for (ssize_t i = 0; i < mrr_n_elements; i++) {
-    if (mrr_values[i].IsPinned()) {
-      n_pinned++;
-      mrr_values[i].Reset();
-    }
     mrr_values[i].~PinnableSlice();
     mrr_statuses[i].~Status();
     // no need to free mrr_keys
@@ -15525,7 +15520,9 @@ void ha_rocksdb::mrr_free_rows() {
   // Count them in in "rows_read" anyway. (This is only necessary when using
   // clustered PK. When using a secondary key, the index-only part of the scan
   // that collects the rowids has caused all counters to be incremented)
-  if (mrr_used_cpk) stats.rows_read += n_pinned;
+  if (mrr_used_cpk && mrr_n_elements) {
+    stats.rows_read += mrr_n_elements - mrr_read_index;
+  }
 
   mrr_n_elements = 0;
   // We can't rely on the data from HANDLER_BUFFER once the scan is over, so:
@@ -15583,7 +15580,6 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
 
     m_retrieved_record.Reset();
     m_retrieved_record.PinSlice(mrr_values[cur_key], &mrr_values[cur_key]);
-    mrr_values[cur_key].Reset();
 
     /* If we found the record, but it's expired, pretend we didn't find it.  */
     if (m_pk_descr->has_ttl() &&
@@ -15593,8 +15589,13 @@ int ha_rocksdb::multi_range_read_next(char **range_info) {
     }
 
     rc = convert_record_from_storage_format(&rowkey, table->record[0]);
-    if (active_index == table->s->primary_key)
+
+    // When using a secondary index, the scan on secondary index increments the
+    // count
+    if (active_index == table->s->primary_key) {
       stats.rows_read++;
+      update_row_stats(ROWS_READ);
+    }
     break;
   }
   table->status = rc ? STATUS_NOT_FOUND : 0;
