@@ -243,9 +243,6 @@ drop table t11,t12;
 #
 # Check the userstat counters
 #
-show variables like '%user_table_stat%';
-Variable_name	Value
-user_table_stats_control	OFF
 set optimizer_switch='mrr=off';
 flush statistics;
 select * from t3,t0 where t3.col1=t0.a;
