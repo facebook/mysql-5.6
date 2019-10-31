@@ -917,6 +917,7 @@ static PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
 static PSI_mutex_key key_BINLOG_LOCK_sync;
 static PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 static PSI_mutex_key key_BINLOG_LOCK_xids;
+static PSI_mutex_key key_BINLOG_LOCK_non_xid_trxs;
 static PSI_rwlock_key key_rwlock_global_sid_lock;
 static PSI_rwlock_key key_rwlock_gtid_mode_lock;
 static PSI_rwlock_key key_rwlock_LOCK_system_variables_hash;
@@ -4440,15 +4441,16 @@ int init_common_variables() {
     initialization, and can not be set in the MYSQL_BIN_LOG constructor (called
     before main()).
   */
-  mysql_bin_log.set_psi_keys(
-      key_BINLOG_LOCK_index, key_BINLOG_LOCK_commit,
-      key_BINLOG_LOCK_commit_queue, key_BINLOG_LOCK_done,
-      key_BINLOG_LOCK_flush_queue, key_BINLOG_LOCK_log,
-      key_BINLOG_LOCK_binlog_end_pos, key_BINLOG_LOCK_sync,
-      key_BINLOG_LOCK_sync_queue, key_BINLOG_LOCK_xids, key_BINLOG_COND_done,
-      key_BINLOG_update_cond, key_BINLOG_prep_xids_cond, key_file_binlog,
-      key_file_binlog_index, key_file_binlog_cache,
-      key_file_binlog_index_cache);
+  mysql_bin_log.set_psi_keys(key_BINLOG_LOCK_index, key_BINLOG_LOCK_commit,
+                             key_BINLOG_LOCK_commit_queue, key_BINLOG_LOCK_done,
+                             key_BINLOG_LOCK_flush_queue, key_BINLOG_LOCK_log,
+                             key_BINLOG_LOCK_binlog_end_pos,
+                             key_BINLOG_LOCK_sync, key_BINLOG_LOCK_sync_queue,
+                             key_BINLOG_LOCK_xids, key_BINLOG_LOCK_non_xid_trxs,
+                             key_BINLOG_COND_done, key_BINLOG_update_cond,
+                             key_BINLOG_prep_xids_cond, key_file_binlog,
+                             key_file_binlog_index, key_file_binlog_cache,
+                             key_file_binlog_index_cache);
 #endif
 
   /*
@@ -10879,6 +10881,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_log_end_pos;
 PSI_mutex_key key_RELAYLOG_LOCK_sync;
 PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
+PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_object_cache_mutex;  // TODO need to initialize
 PSI_cond_key key_object_loading_cond;  // TODO need to initialize
@@ -10902,6 +10905,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_BINLOG_LOCK_sync, "MYSQL_BIN_LOG::LOCK_sync", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_sync_queue, "MYSQL_BIN_LOG::LOCK_sync_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_xids, "MYSQL_BIN_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
+  { &key_BINLOG_LOCK_non_xid_trxs, "MYSQL_BIN_LOG::LOCK_non_xid_trxs", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_commit, "MYSQL_RELAY_LOG::LOCK_commit", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_commit_queue, "MYSQL_RELAY_LOG::LOCK_commit_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_done, "MYSQL_RELAY_LOG::LOCK_done", 0, 0, PSI_DOCUMENT_ME},
@@ -10912,6 +10916,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_RELAYLOG_LOCK_sync, "MYSQL_RELAY_LOG::LOCK_sync", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_sync_queue, "MYSQL_RELAY_LOG::LOCK_sync_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_xids, "MYSQL_RELAY_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
+  { &key_RELAYLOG_LOCK_non_xid_trxs, "MYSQL_RELAY_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
   { &key_hash_filo_lock, "hash_filo::lock", 0, 0, PSI_DOCUMENT_ME},
   { &Gtid_set::key_gtid_executed_free_intervals_mutex, "Gtid_set::gtid_executed::free_intervals_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_crypt, "LOCK_crypt", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

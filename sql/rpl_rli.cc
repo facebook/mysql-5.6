@@ -185,9 +185,10 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
                          key_RELAYLOG_LOCK_flush_queue, key_RELAYLOG_LOCK_log,
                          key_RELAYLOG_LOCK_log_end_pos, key_RELAYLOG_LOCK_sync,
                          key_RELAYLOG_LOCK_sync_queue, key_RELAYLOG_LOCK_xids,
-                         key_RELAYLOG_COND_done, key_RELAYLOG_update_cond,
-                         key_RELAYLOG_prep_xids_cond, key_file_relaylog,
-                         key_file_relaylog_index, key_file_relaylog_cache,
+                         key_RELAYLOG_LOCK_non_xid_trxs, key_RELAYLOG_COND_done,
+                         key_RELAYLOG_update_cond, key_RELAYLOG_prep_xids_cond,
+                         key_file_relaylog, key_file_relaylog_index,
+                         key_file_relaylog_cache,
                          key_file_relaylog_index_cache);
 #endif
 
