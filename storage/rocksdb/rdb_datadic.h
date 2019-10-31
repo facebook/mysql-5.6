@@ -1097,7 +1097,9 @@ class Rdb_tbl_def {
       : m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
-        m_tbl_stats() {
+        m_tbl_stats(),
+        m_update_time(0),
+        m_create_time(CREATE_TIME_UNKNOWN) {
     set_name(name);
   }
 
@@ -1105,7 +1107,9 @@ class Rdb_tbl_def {
       : m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
-        m_tbl_stats() {
+        m_tbl_stats(),
+        m_update_time(0),
+        m_create_time(CREATE_TIME_UNKNOWN) {
     set_name(std::string(name, len));
   }
 
@@ -1113,7 +1117,9 @@ class Rdb_tbl_def {
       : m_key_descr_arr(nullptr),
         m_hidden_pk_val(0),
         m_auto_incr_val(0),
-        m_tbl_stats() {
+        m_tbl_stats(),
+        m_update_time(0),
+        m_create_time(CREATE_TIME_UNKNOWN) {
     set_name(std::string(slice.data() + pos, slice.size() - pos));
   }
 
@@ -1164,6 +1170,14 @@ class Rdb_tbl_def {
   const std::string &base_tablename() const { return m_tablename; }
   const std::string &base_partition() const { return m_partition; }
   GL_INDEX_ID get_autoincr_gl_index_id();
+
+  time_t get_create_time();
+  std::atomic<time_t> m_update_time;  // in-memory only value
+ private:
+  const time_t CREATE_TIME_UNKNOWN = 1;
+  // CREATE_TIME_UNKNOWN means "didn't try to read, yet"
+  // 0 means "no data available"
+  std::atomic<time_t> m_create_time;
 };
 
 /*
