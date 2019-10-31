@@ -1,4 +1,7 @@
 CREATE TABLE t1(c1 INT);
+INSERT INTO t1 VALUES(100);
+COMMIT;
+FLUSH LOGS;
 # Crash right after flushing engine log
 SET SESSION DEBUG="+d,crash_after_flush_engine_log";
 BEGIN;

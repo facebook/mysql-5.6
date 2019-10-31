@@ -3631,6 +3631,7 @@ public:
 
   /** number of name_const() substitutions, see sp_head.cc:subst_spvars() */
   uint       query_name_consts;
+  bool non_xid_trx= false;
 
   /*
     If we do a purge of binary logs, log index info of the threads

@@ -17,6 +17,9 @@
 -- source include/have_innodb.inc
 
 CREATE TABLE t1(c1 INT);
+INSERT INTO t1 VALUES(100);
+COMMIT;
+FLUSH LOGS;
 
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --echo # Crash right after flushing engine log

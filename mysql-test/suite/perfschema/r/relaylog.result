@@ -68,6 +68,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_done	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_flush_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_non_xid_trxs	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	NONE
@@ -164,6 +165,7 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_done	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_flush_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_non_xid_trxs	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync_queue	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	NONE

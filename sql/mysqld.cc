@@ -4962,6 +4962,7 @@ int init_common_variables(my_bool logging)
                              key_BINLOG_LOCK_sync,
                              key_BINLOG_LOCK_sync_queue,
                              key_BINLOG_LOCK_xids,
+                             key_BINLOG_LOCK_non_xid_trxs,
                              key_BINLOG_LOCK_binlog_end_pos,
                              key_BINLOG_COND_done,
                              key_BINLOG_update_cond,
@@ -12546,6 +12547,7 @@ PSI_mutex_key key_BINLOG_LOCK_sync;
 PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 PSI_mutex_key key_BINLOG_LOCK_xids;
 PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
+PSI_mutex_key key_BINLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_commit_order_manager_mutex;
 PSI_mutex_key
   key_delayed_insert_mutex, key_hash_filo_lock, key_LOCK_active_mi,
@@ -12593,6 +12595,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_log;
 PSI_mutex_key key_RELAYLOG_LOCK_sync;
 PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
+PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 PSI_mutex_key key_LOCK_sql_rand;
 PSI_mutex_key key_gtid_ensure_index_mutex;
@@ -12628,6 +12631,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_BINLOG_LOCK_sync, "MYSQL_BIN_LOG::LOCK_sync", 0},
   { &key_BINLOG_LOCK_sync_queue, "MYSQL_BIN_LOG::LOCK_sync_queue", 0 },
   { &key_BINLOG_LOCK_xids, "MYSQL_BIN_LOG::LOCK_xids", 0 },
+  { &key_BINLOG_LOCK_non_xid_trxs, "MYSQL_BIN_LOG::LOCK_non_xid_trxs", 0 },
   { &key_BINLOG_LOCK_binlog_end_pos, "MYSQL_BIN_LOG::LOCK_binlog_end_pos", 0 },
   { &key_commit_order_manager_mutex, "Commit_order_manager::m_mutex", 0 },
   { &key_RELAYLOG_LOCK_commit, "MYSQL_RELAY_LOG::LOCK_commit", 0},
@@ -12639,6 +12643,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_RELAYLOG_LOCK_sync, "MYSQL_RELAY_LOG::LOCK_sync", 0},
   { &key_RELAYLOG_LOCK_sync_queue, "MYSQL_RELAY_LOG::LOCK_sync_queue", 0 },
   { &key_RELAYLOG_LOCK_xids, "MYSQL_RELAY_LOG::LOCK_xids", 0},
+  { &key_RELAYLOG_LOCK_non_xid_trxs, "MYSQL_RELAY_LOG::LOCK_xids", 0},
   { &key_RELAYLOG_LOCK_binlog_end_pos,
     "MYSQL_RELAY_LOG::LOCK_binlog_end_pos", 0},
   { &key_delayed_insert_mutex, "Delayed_insert::mutex", 0},

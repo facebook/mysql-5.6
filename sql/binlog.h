@@ -364,6 +364,7 @@ public:
   PSI_mutex_key m_key_LOCK_sync;
   /** The instrumentation key to use for @ LOCK_xids. */
   PSI_mutex_key m_key_LOCK_xids;
+  PSI_mutex_key m_key_LOCK_non_xid_trxs;
   /** The instrumentation key to use for @ LOCK_binlog. */
   PSI_mutex_key m_key_LOCK_binlog_end_pos;
   /** The instrumentation key to use for @ update_cond. */
@@ -381,6 +382,7 @@ public:
   mysql_mutex_t LOCK_semisync;
   mysql_mutex_t LOCK_sync;
   mysql_mutex_t LOCK_xids;
+  mysql_mutex_t LOCK_non_xid_trxs;
   mysql_mutex_t LOCK_binlog_end_pos;
   mysql_cond_t update_cond;
   ulonglong bytes_written;
@@ -509,6 +511,48 @@ public:
   Stage_manager stage_manager;
   void do_flush(THD *thd);
 
+  uint32_t non_xid_trxs;
+  mysql_cond_t non_xid_trxs_cond;
+
+  void inc_non_xid_trxs(THD *thd)
+  {
+    DBUG_ENTER("MYSQL_BIN_LOG::inc_non_xid_trxs");
+    mysql_mutex_lock(&LOCK_non_xid_trxs);
+    ++non_xid_trxs;
+    thd->non_xid_trx= true;
+    mysql_mutex_unlock(&LOCK_non_xid_trxs);
+    DBUG_VOID_RETURN;
+  }
+
+  void dec_non_xid_trxs(THD *thd)
+  {
+    DBUG_ENTER("MYSQL_BIN_LOG::dec_non_xid_trxs");
+
+    mysql_mutex_lock(&LOCK_non_xid_trxs);
+    DBUG_ASSERT(non_xid_trxs > 0);
+
+    if (non_xid_trxs > 0)
+      --non_xid_trxs;
+
+    thd->non_xid_trx= false;
+
+    DBUG_PRINT("debug", ("non_xid_trxs: %d", non_xid_trxs));
+
+    /* Signal the threads that could be blocked in binlog rotation if the
+     * non_xid_trxs is zero*/
+    if (non_xid_trxs == 0)
+      mysql_cond_signal(&non_xid_trxs_cond);
+
+    mysql_mutex_unlock(&LOCK_non_xid_trxs);
+    DBUG_VOID_RETURN;
+  }
+
+  int32 get_non_xid_trxs()
+  {
+    mysql_mutex_assert_owner(&LOCK_non_xid_trxs);
+    return non_xid_trxs;
+  }
+
 public:
   using MYSQL_LOG::generate_name;
   using MYSQL_LOG::is_open;
@@ -577,6 +621,7 @@ public:
                     PSI_mutex_key key_LOCK_sync,
                     PSI_mutex_key key_LOCK_sync_queue,
                     PSI_mutex_key key_LOCK_xids,
+                    PSI_mutex_key key_LOCK_non_xid_trxs,
                     PSI_mutex_key key_LOCK_binlog_end_pos,
                     PSI_cond_key key_COND_done,
                     PSI_cond_key key_update_cond,
@@ -598,6 +643,7 @@ public:
     m_key_LOCK_semisync = key_LOCK_semisync;
     m_key_LOCK_sync= key_LOCK_sync;
     m_key_LOCK_xids= key_LOCK_xids;
+    m_key_LOCK_non_xid_trxs= key_LOCK_non_xid_trxs;
     m_key_LOCK_binlog_end_pos = key_LOCK_binlog_end_pos;
     m_key_update_cond= key_update_cond;
     m_key_prep_xids_cond= key_prep_xids_cond;
@@ -718,8 +764,14 @@ public:
   int rollback(THD *thd, bool all);
   int prepare(THD *thd, bool all, bool async);
   int recover(IO_CACHE *log, Format_description_log_event *fdle,
-              my_off_t *valid_pos);
+              my_off_t *valid_pos, const std::string& cur_binlog_file);
   int recover(IO_CACHE *log, Format_description_log_event *fdle);
+  int set_valid_pos(
+      my_off_t* valid_pos,
+      const std::string& cur_binlog_file,
+      my_off_t first_gtid_start);
+  std::pair<std::string, uint> extract_file_index(const std::string& file_name);
+
 #if !defined(MYSQL_CLIENT)
 
   void update_thd_next_event_pos(THD *thd);
