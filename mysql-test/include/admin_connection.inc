@@ -39,6 +39,36 @@ flush privileges;
 connect (success_admin_con2,$IP,nosuper,,,$admin_port);
 disconnect success_admin_con2;
 
+--echo ## Start connections nosuper at regular ports
+let $i=1;
+while($i<=4) {
+  connect (noadmin_con_nosuper$i,$IP,nosuper,,);
+  inc $i;
+}
+connection default;
+SET @save_max_nonsuper_connections=@@global.max_nonsuper_connections;
+SET GLOBAL max_nonsuper_connections=2;
+
+--echo ## This will fail since connecting to regular port
+--replace_result $MASTER_MYSOCK MASTER_SOCKET $MASTER_MYPORT MASTER_PORT
+--error ER_CON_COUNT_ERROR
+connect (noadmin_con_nosuperX,$IP,nosuper,,);
+--echo ## This will succeed since connecting to admin port
+connect (admin_con_nosuperX,$IP,nosuper,,,$admin_port);
+disconnect admin_con_nosuperX;
+
+--echo ## Disconnect nosuper at regular ports
+let $i=1;
+while($i<=4) {
+  disconnect noadmin_con_nosuper$i;
+  inc $i;
+}
+--echo ## Switch to default connection
+connection default;
+--echo ## Wait for all the connections except the default one to be completedly disconnected
+let $count_sessions= 1;
+--source include/wait_until_count_sessions.inc
+
 --echo ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 --echo ## This will succeed since root has SUPER ACL
 let $i=1;
@@ -175,3 +205,4 @@ while ($i<=4) {
 
 --echo ## Switch to default connection
 connection default;
+SET GLOBAL max_nonsuper_connections=@save_max_nonsuper_connections;

@@ -261,7 +261,8 @@ int check_for_max_user_connections(THD *thd, USER_CONN *uc, bool *global_max)
   mysql_mutex_lock(&LOCK_user_conn);
   if (max_nonsuper_connections &&
       !(thd->main_security_ctx.master_access & SUPER_ACL) &&
-      nonsuper_connections > max_nonsuper_connections)
+      nonsuper_connections > max_nonsuper_connections &&
+      !thd->is_admin_connection())
   {
     DBUG_PRINT("info",
         ("max_nonsuper_connections: %d, "

@@ -31,6 +31,16 @@ ERRORS_TOTAL	CONNECTIONS_CONCURRENT	CONNECTIONS_DENIED_MAX_USER	CONNECTIONS_DENI
 ## the user can now successfully connect to the admin port
 grant admin port on *.* to 'nosuper'@'localhost' identified by password '';
 flush privileges;
+## Start connections nosuper at regular ports
+SET @save_max_nonsuper_connections=@@global.max_nonsuper_connections;
+SET GLOBAL max_nonsuper_connections=2;
+## This will fail since connecting to regular port
+connect(127.0.0.1,nosuper,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR 08004: Too many connections
+## This will succeed since connecting to admin port
+## Disconnect nosuper at regular ports
+## Switch to default connection
+## Wait for all the connections except the default one to be completedly disconnected
 ## Start connections admin_con_root1,2,3 at ADMIN_PORT
 ## This will succeed since root has SUPER ACL
 ## Switch to admin_con_root1
@@ -191,6 +201,7 @@ root
 ## Disconnect non_admin_con_super1_1,2,3,4
 ## Disconnect non_admin_con_super2_1,2,3,4
 ## Switch to default connection
+SET GLOBAL max_nonsuper_connections=@save_max_nonsuper_connections;
 ## ------------------------------------------------------------------
 ## -- End of admin connection ipv4 tests
 ## ------------------------------------------------------------------
