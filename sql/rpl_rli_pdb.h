@@ -156,6 +156,7 @@ struct Slave_job_group {
         done(other.done.load()),
         shifted(other.shifted),
         ts(other.ts),
+        ts_millis(other.ts_millis),
 #ifndef DBUG_OFF
         notified(other.notified),
 #endif
@@ -181,6 +182,7 @@ struct Slave_job_group {
     done.store(other.done.load());
     shifted = other.shifted;
     ts = other.ts;
+    ts_millis = other.ts_millis;
 #ifndef DBUG_OFF
     notified = other.notified;
 #endif
@@ -273,6 +275,7 @@ struct Slave_job_group {
     checkpoint_seqno = (uint)-1;
     done = 0;
     ts = 0;
+    ts_millis = 0;
 #ifndef DBUG_OFF
     notified = false;
 #endif
