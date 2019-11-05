@@ -13007,7 +13007,8 @@ AFTER_MAIN_EXEC_ROW_LOOP:
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error)
     {
-      if (table->s->primary_key == MAX_KEY)
+      if (table->s->primary_key == MAX_KEY &&
+          strcmp(table->file->table_type(), "BLACKHOLE") != 0)
       {
         char buf[256];
         my_snprintf(
