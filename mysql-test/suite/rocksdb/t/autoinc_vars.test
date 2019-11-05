@@ -66,41 +66,79 @@ DROP TABLE t1;
 --echo # test large autoincrement values
 --echo #---------------------------
 
-SET auto_increment_increment = 1;
-SET auto_increment_offset = 1;
-CREATE TABLE t1 (a BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
-INSERT INTO t1 VALUES (18446744073709551613, 'a');
-SHOW CREATE TABLE t1;
-INSERT INTO t1 VALUES (NULL, 'b');
-SHOW CREATE TABLE t1;
---error ER_AUTOINC_READ_FAILED
-INSERT INTO t1 VALUES (NULL, 'c');
-SELECT * FROM t1;
-DROP TABLE t1;
+# Unsigned BIGINT is special case since incrementing max value will cause overflow
+# As a result the error pattern is a bit different. 
+--let $errorType = 1;
+--let $col_type = BIGINT UNSIGNED
+--let $col_value = 18446744073709551613
+--let $error = ER_AUTOINC_READ_FAILED
+--source autoinc_vars_maxval.inc
 
-SET auto_increment_increment = 300;
-CREATE TABLE t1 (a BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
-INSERT INTO t1 VALUES (18446744073709551613, 'a');
-SHOW CREATE TABLE t1;
---error ER_AUTOINC_READ_FAILED
-INSERT INTO t1 VALUES (NULL, 'b');
-SHOW CREATE TABLE t1;
---error ER_AUTOINC_READ_FAILED
-INSERT INTO t1 VALUES (NULL, 'c');
-SELECT * FROM t1;
-DROP TABLE t1;
+--let $errorType = 0;
+--let $col_type = BIGINT
+--let $col_value = 9223372036854775806
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
 
-SET auto_increment_offset = 200;
-CREATE TABLE t1 (a BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
-INSERT INTO t1 VALUES (18446744073709551613, 'a');
-SHOW CREATE TABLE t1;
---error ER_AUTOINC_READ_FAILED
-INSERT INTO t1 VALUES (NULL, 'b');
-SHOW CREATE TABLE t1;
---error ER_AUTOINC_READ_FAILED
-INSERT INTO t1 VALUES (NULL, 'c');
-SELECT * FROM t1;
-DROP TABLE t1;
+--let $errorType = 0;
+--let $col_type = TINYINT UNSIGNED
+--let $col_value = 254
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = TINYINT 
+--let $col_value = 126
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = SMALLINT UNSIGNED
+--let $col_value = 65534
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = SMALLINT 
+--let $col_value = 32766
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = MEDIUMINT UNSIGNED
+--let $col_value = 16777214
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = MEDIUMINT
+--let $col_value = 8388606  
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = INT UNSIGNED
+--let $col_value = 4294967294
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = INT
+--let $col_value = 2147483646
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = FLOAT
+--let $col_value = 16777215.0
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
+
+--let $errorType = 0;
+--let $col_type = DOUBLE
+--let $col_value = 9007199254740991.0
+--let $error = ER_DUP_ENTRY
+--source autoinc_vars_maxval.inc
 
 --echo #----------------------------------
 --echo # Issue #792 Crash in autoincrement
