@@ -5925,55 +5925,6 @@ std::vector<std::string> Rdb_open_tables_map::get_table_names(void) const {
   return names;
 }
 
-/*
-  Inspired by innobase_get_int_col_max_value from InnoDB. This returns the
-  maximum value a type can take on.
-*/
-static ulonglong rdb_get_int_col_max_value(const Field *field) {
-  ulonglong max_value = 0;
-  switch (field->key_type()) {
-    case HA_KEYTYPE_BINARY:
-      max_value = 0xFFULL;
-      break;
-    case HA_KEYTYPE_INT8:
-      max_value = 0x7FULL;
-      break;
-    case HA_KEYTYPE_USHORT_INT:
-      max_value = 0xFFFFULL;
-      break;
-    case HA_KEYTYPE_SHORT_INT:
-      max_value = 0x7FFFULL;
-      break;
-    case HA_KEYTYPE_UINT24:
-      max_value = 0xFFFFFFULL;
-      break;
-    case HA_KEYTYPE_INT24:
-      max_value = 0x7FFFFFULL;
-      break;
-    case HA_KEYTYPE_ULONG_INT:
-      max_value = 0xFFFFFFFFULL;
-      break;
-    case HA_KEYTYPE_LONG_INT:
-      max_value = 0x7FFFFFFFULL;
-      break;
-    case HA_KEYTYPE_ULONGLONG:
-      max_value = 0xFFFFFFFFFFFFFFFFULL;
-      break;
-    case HA_KEYTYPE_LONGLONG:
-      max_value = 0x7FFFFFFFFFFFFFFFULL;
-      break;
-    case HA_KEYTYPE_FLOAT:
-      max_value = 0x1000000ULL;
-      break;
-    case HA_KEYTYPE_DOUBLE:
-      max_value = 0x20000000000000ULL;
-      break;
-    default:
-      abort();
-  }
-
-  return max_value;
-}
 
 void ha_rocksdb::load_auto_incr_value() {
   ulonglong auto_incr = 0;
@@ -6030,7 +5981,7 @@ ulonglong ha_rocksdb::load_auto_incr_value_from_index() {
   if (!index_last(table->record[0])) {
     Field *field =
         table->key_info[table->s->next_number_index].key_part[0].field;
-    ulonglong max_val = rdb_get_int_col_max_value(field);
+    ulonglong max_val = field->get_max_int_value();
     my_bitmap_map *const old_map =
         dbug_tmp_use_all_columns(table, table->read_set);
     last_val = field->val_int();
@@ -6082,7 +6033,7 @@ void ha_rocksdb::update_auto_incr_val_from_field() {
   Field *field;
   ulonglong new_val, max_val;
   field = table->key_info[table->s->next_number_index].key_part[0].field;
-  max_val = rdb_get_int_col_max_value(field);
+  max_val = field->get_max_int_value();
 
   my_bitmap_map *const old_map =
       dbug_tmp_use_all_columns(table, table->read_set);
@@ -12359,7 +12310,7 @@ void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
   Field *field;
   ulonglong new_val, max_val;
   field = table->key_info[table->s->next_number_index].key_part[0].field;
-  max_val = rdb_get_int_col_max_value(field);
+  max_val = field->get_max_int_value();
 
   // Local variable reference to simplify code below
   auto &auto_incr = m_tbl_def->m_auto_incr_val;
