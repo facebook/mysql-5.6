@@ -1347,6 +1347,7 @@ bool opt_replica_preserve_commit_order;
 uint replica_rows_last_search_algorithm_used;
 #endif
 ulong mts_parallel_option;
+ulonglong binlog_bytes_written = 0;
 ulong binlog_cache_size = 0;
 ulonglong max_binlog_cache_size = 0;
 ulong replica_max_allowed_packet = 0;
@@ -9389,6 +9390,8 @@ SHOW_VAR status_vars[] = {
      (char *)&show_ongoing_automatic_gtid_violating_transaction_count,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
 #endif  //! NDEBUG
+    {"Binlog_bytes_written", (char *)&binlog_bytes_written, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
     {"Binlog_cache_disk_use", (char *)&binlog_cache_disk_use, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Binlog_cache_use", (char *)&binlog_cache_use, SHOW_LONG,
@@ -9886,6 +9889,7 @@ static int mysql_init_variables() {
   delayed_insert_threads = delayed_insert_writes = delayed_rows_in_use = 0;
   delayed_insert_errors = 0;
   specialflag = 0;
+  binlog_bytes_written = 0;
   binlog_cache_use = binlog_cache_disk_use = 0;
   mysqld_user = mysqld_chroot = opt_init_file = opt_bin_logname = nullptr;
   prepared_stmt_count = 0;

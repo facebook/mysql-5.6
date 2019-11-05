@@ -6802,6 +6802,9 @@ bool MYSQL_BIN_LOG::write_event(Log_event *ev, Master_info *mi) {
   bool error = false;
   if (!binary_event_serialize(ev, m_binlog_file)) {
     bytes_written += ev->common_header->data_written;
+    if (!is_relay_log) {
+      binlog_bytes_written += ev->common_header->data_written;
+    }
     error = after_write_to_relay_log(mi);
   } else {
     mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,
@@ -7416,6 +7419,9 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, THD *thd,
     else
       mysql_mutex_assert_owner(&LOCK_log);
   }
+  if (!is_relay_log) {
+    binlog_bytes_written += ev->common_header->data_written;
+  }
 
   if (do_flush_and_sync) {
     if (!error && !(error = flush_and_sync())) {
@@ -7582,6 +7588,7 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
       });
       if (do_write_cache(cache, writer)) goto err;
 
+      binlog_bytes_written += cache->length();
       const char *err_msg =
           "Non-transactional changes did not get into "
           "the binlog.";
