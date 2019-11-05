@@ -163,3 +163,6 @@ tests/mysql_client_test
 
 # Jellyfish config
 /.jfconfig 
+
+# Clangd code completion index.
+/.clangd
