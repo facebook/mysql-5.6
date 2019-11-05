@@ -3204,7 +3204,10 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
                                     const char *log_name, bool need_lock_index)
 {
   File index_file_nr= -1;
-  DBUG_ASSERT(!my_b_inited(&index_file));
+  DBUG_ASSERT(enable_raft_plugin || !my_b_inited(&index_file));
+
+  if (enable_raft_plugin && my_b_inited(&index_file))
+    end_io_cache(&index_file);
 
   /*
     First open of this class instance
@@ -6159,7 +6162,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
       to change base names at some point.
     */
     Rotate_log_event r(new_name+dirname_length(new_name), 0, LOG_EVENT_OFFSET,
-                       is_relay_log ? Rotate_log_event::RELAY_LOG : 0);
+                       is_relay_log && !no_op ? Rotate_log_event::RELAY_LOG : 0);
     /*
       The current relay-log's closing Rotate event must have checksum
       value computed with an algorithm of the last relay-logged FD event.
@@ -6197,7 +6200,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
 
   // Need flush before updating binlog_end_pos, otherwise dump thread
   // may give errors.
-  if (flush_io_cache(&log_file))
+  if (error || flush_io_cache(&log_file))
   {
     error = 1;
     close_on_error = TRUE;

@@ -1043,15 +1043,39 @@ err:
   DBUG_RETURN(recovery_error);
 }
 
+// TODO: currently we're only setting host port
 int raft_reset_slave(THD *thd)
 {
   DBUG_ENTER("raft_reset_slave");
   int error= 0;
   mysql_mutex_lock(&LOCK_active_mi);
-  thd->lex->reset_slave_info.all= true;
 
-  error= reset_slave(thd, active_mi);
+  strmake(active_mi->host, "\0", sizeof(active_mi->host)-1);
+  active_mi->port = 0;
+  active_mi->inited= false;
 
+  mysql_mutex_unlock(&LOCK_active_mi);
+  DBUG_RETURN(error);
+}
+
+// TODO: currently we're only setting host port
+int raft_change_master(
+    THD *thd,
+    const std::pair<const std::string, uint>& master_instance)
+{
+  DBUG_ENTER("raft_change_master");
+  int error= 0;
+
+  mysql_mutex_lock(&LOCK_active_mi);
+
+  if (!active_mi) goto end;
+  strmake(active_mi->host, const_cast<char*>(master_instance.first.c_str()),
+          sizeof(active_mi->host)-1);
+  active_mi->port= master_instance.second;
+  active_mi->set_auto_position(true);
+  active_mi->inited= true;
+
+end:
   mysql_mutex_unlock(&LOCK_active_mi);
   DBUG_RETURN(error);
 }
@@ -5241,6 +5265,13 @@ pthread_handler_t handle_slave_io(void *arg)
   // needs to call my_thread_init(), otherwise we get a coredump in DBUG_ stuff
   my_thread_init();
   DBUG_ENTER("handle_slave_io");
+
+  if (enable_raft_plugin)
+  {
+    sql_print_information(
+        "Did not start IO thread because enable_raft_plugin was ON");
+    DBUG_RETURN(0);
+  }
 
   DBUG_ASSERT(mi->inited);
   mysql= NULL ;

@@ -32,6 +32,8 @@ Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 extern int rli_relay_log_raft_reset(bool do_global_init=false);
 extern int raft_reset_slave(THD *thd);
+extern int raft_change_master(THD *thd,
+    const std::pair<const std::string, uint>& master_instance);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
 extern int raft_start_sql_thread(THD *thd);
@@ -281,9 +283,8 @@ int Trans_delegate::after_commit(THD *thd, bool all)
     param.flags = true;
 
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  thd->get_trans_marker(&param.term, &param.index);
 
-  // TODO: Once after commit hooks for raft plugin is implemented, think of
-  // updating (term, index) here
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
   DEBUG_SYNC(thd, "before_call_after_commit_observer");
 
@@ -738,6 +739,7 @@ pthread_handler_t process_raft_queue(void *arg)
   // do some critical tasks before exit
   while (!exit)
   {
+    thd->get_stmt_da()->reset_diagnostics_area();
     RaftListenerQueue::QueueElement element= raft_listener_queue.get();
     RaftListenerCallbackResult result;
     switch (element.type)
@@ -779,6 +781,14 @@ pthread_handler_t process_raft_queue(void *arg)
       {
 #ifdef HAVE_REPLICATION
         result.error= raft_reset_slave(current_thd);
+#endif
+        break;
+      }
+      case RaftListenerCallbackType::CHANGE_MASTER:
+      {
+#ifdef HAVE_REPLICATION
+        result.error=
+          raft_change_master(current_thd, element.arg.master_instance);
 #endif
         break;
       }

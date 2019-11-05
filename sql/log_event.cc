@@ -46,6 +46,7 @@
 #include "rpl_rli_pdb.h"
 #include "sql_show.h"    // append_identifier
 #include <mysql/psi/mysql_statement.h>
+#include "rpl_handler.h"
 #define window_size Log_throttle::LOG_THROTTLE_WINDOW_SIZE
 Error_log_throttle
 slave_ignored_err_throttle(window_size,
@@ -7686,6 +7687,13 @@ bool Rotate_log_event::write(IO_CACHE* file)
 
 
 #if defined(HAVE_REPLICATION) && !defined(MYSQL_CLIENT)
+
+int Rotate_log_event::do_apply_event(Relay_log_info const *rli)
+{
+  if (enable_raft_plugin)
+    return RUN_HOOK(transaction, after_commit, (thd, false));
+  return 0;
+}
 
 /*
   Got a rotate log event from the master.
@@ -16513,7 +16521,14 @@ Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
    */
   if (enable_raft_plugin && (rli->slave_parallel_workers > 0) &&
       !rli->curr_group_seen_gtid)
+  {
+    if (does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
+    {
+      // Stash the raft term and index in THD
+      thd->set_trans_marker(raft_term_, raft_index_);
+    }
     return Log_event::EVENT_SKIP_IGNORE;
+  }
 
   return Log_event::EVENT_SKIP_NOT;
 }

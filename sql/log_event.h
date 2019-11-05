@@ -3307,6 +3307,7 @@ public:
 private:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   virtual int do_update_pos(Relay_log_info *rli);
+  virtual int do_apply_event(Relay_log_info const *rli);
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
 #endif
 };

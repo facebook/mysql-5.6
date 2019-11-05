@@ -21,6 +21,7 @@ enum class RaftListenerCallbackType
   STOP_SQL_THREAD = 11,
   START_SQL_THREAD = 12,
   STOP_IO_THREAD = 13,
+  CHANGE_MASTER = 14,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -35,6 +36,7 @@ class RaftListenerCallbackArg
     std::pair<std::string, unsigned long long> log_file_pos= {};
     bool val_bool;
     uint32_t val_uint;
+    std::pair<std::string, unsigned int> master_instance;
 };
 
 /* Result of the callback execution in the server. This will be set in the
