@@ -42,5 +42,5 @@ extra/wolfssl-*
 # Configuration files for Visual Studio Code
 .vscode/
 
-# Jellyfish config
-/.jfconfig
+# Clangd code completion index.
+/.clangd
