@@ -107,7 +107,7 @@ bool Dependency_slave_worker::execute_group()
     --c_rli->num_in_flight_trx;
   }
   if (c_rli->num_in_flight_trx <= 1)
-    mysql_cond_signal(&c_rli->dep_trx_all_done_cond);
+    mysql_cond_broadcast(&c_rli->dep_trx_all_done_cond);
   mysql_mutex_unlock(&c_rli->dep_lock);
 
   c_rli->cleanup_group(begin_event);

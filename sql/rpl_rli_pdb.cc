@@ -1878,9 +1878,9 @@ void Slave_worker::do_report(loglevel level, int err_code, const char *msg,
  *                      If true, we can't blindly wait for the trx counter to be
  *                      zero (since the worker will not be able to complete
  *                      that transaction)
- * @return void
+ * @return bool         true if all is well, false otherwise
  */
-void wait_for_dep_workers_to_finish(Relay_log_info *rli, const bool partial_trx)
+bool wait_for_dep_workers_to_finish(Relay_log_info *rli, bool partial_trx)
 {
   DBUG_ASSERT(rli->mts_dependency_replication);
   PSI_stage_info old_stage;
@@ -1898,6 +1898,8 @@ void wait_for_dep_workers_to_finish(Relay_log_info *rli, const bool partial_trx)
   }
 
   rli->info_thd->EXIT_COND(&old_stage);
+
+  return !rli->info_thd->killed;
 }
 
 /**
@@ -1945,7 +1947,8 @@ int wait_for_workers_to_finish(Relay_log_info *rli, Slave_worker *ignore)
   if (rli->mts_dependency_replication)
   {
     DBUG_ASSERT(ignore == NULL);
-    wait_for_dep_workers_to_finish(rli, false);
+    if (!wait_for_dep_workers_to_finish(rli, false))
+      DBUG_RETURN(-1);
   }
   else
   {

@@ -3250,7 +3250,7 @@ bool Log_event::is_row_log_event()
 /*
   Adds an event to the dependency queue
 */
-void Log_event::schedule_dep(Relay_log_info *rli)
+bool Log_event::schedule_dep(Relay_log_info *rli)
 {
   DBUG_ENTER("Log_event::schedule_dep");
 
@@ -3308,7 +3308,8 @@ void Log_event::schedule_dep(Relay_log_info *rli)
 
   if (unlikely(rli->dep_sync_group))
   {
-    wait_for_dep_workers_to_finish(rli, rli->trx_queued);
+    if (!wait_for_dep_workers_to_finish(rli, rli->trx_queued))
+      DBUG_RETURN(false);
   }
 
   handle_terminal_dep_event(rli, ev);
@@ -3346,10 +3347,7 @@ void Log_event::schedule_dep(Relay_log_info *rli)
     }
 
     // admission control in dep queue
-    if (unlikely(rli->dep_queue.size() >= rli->mts_dependency_size))
-    {
-      rli->dep_full= true;
-    }
+    rli->dep_full= rli->dep_queue.size() >= rli->mts_dependency_size;
 
     ++rli->num_in_flight_trx;
     rli->trx_queued= true;
@@ -3377,7 +3375,8 @@ void Log_event::schedule_dep(Relay_log_info *rli)
   // case: this group needs to be executed in isolation
   if (unlikely(rli->dep_sync_group && ev->is_end_event))
   {
-    wait_for_workers_to_finish(rli);
+    if (wait_for_workers_to_finish(rli) == -1)
+      DBUG_RETURN(false);
     rli->dep_sync_group= false;
   }
 
@@ -3394,7 +3393,7 @@ void Log_event::schedule_dep(Relay_log_info *rli)
   else
     rli->num_events_in_current_group= 0;
 
-  DBUG_VOID_RETURN;
+  DBUG_RETURN(true);
 }
 
 /**

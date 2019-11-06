@@ -1668,7 +1668,7 @@ public:
      Adds events to a dep queue according to write-write dependencies
      see @mts_dependency_replication
   */
-  void schedule_dep(Relay_log_info *rli);
+  bool schedule_dep(Relay_log_info *rli);
 
   /**
      Apply the event to the database.
