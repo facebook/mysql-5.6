@@ -1069,6 +1069,7 @@ bool opt_super_large_pages = 0;
 bool opt_myisam_use_mmap = 0;
 std::atomic<bool> offline_mode;
 uint opt_large_page_size = 0;
+uint net_compression_level = 6;
 uint default_password_lifetime = 0;
 volatile bool password_require_current = false;
 std::atomic<bool> partial_revokes;
