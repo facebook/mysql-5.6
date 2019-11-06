@@ -200,7 +200,8 @@ static bool zstd_uncompress(mysql_zstd_compress_context *comp_ctx,
 
 static uchar *zlib_compress_alloc(mysql_zlib_compress_context *comp_ctx,
                                   const uchar *packet, size_t *len,
-                                  size_t *complen) {
+                                  size_t *complen,
+                                  uint zlib_net_compression_level) {
   uchar *compbuf;
   uLongf tmp_complen;
   int res;
@@ -213,7 +214,8 @@ static uchar *zlib_compress_alloc(mysql_zlib_compress_context *comp_ctx,
   tmp_complen = (uint)*complen;
   res = compress2((Bytef *)compbuf, &tmp_complen,
                   (Bytef *)const_cast<uchar *>(packet), (uLong)*len,
-                  comp_ctx->compression_level);
+                  zlib_net_compression_level ? zlib_net_compression_level
+                                             : comp_ctx->compression_level);
   *complen = tmp_complen;
 
   if (res != Z_OK) {
@@ -277,13 +279,14 @@ static bool zlib_uncompress(uchar *packet, size_t len, size_t *complen) {
 */
 
 bool my_compress(mysql_compress_context *comp_ctx, uchar *packet, size_t *len,
-                 size_t *complen) {
+                 size_t *complen, uint zlib_net_compression_level) {
   DBUG_ENTER("my_compress");
   if (*len < MIN_COMPRESS_LENGTH) {
     *complen = 0;
     DBUG_PRINT("note", ("Packet too short: Not compressed"));
   } else {
-    uchar *compbuf = my_compress_alloc(comp_ctx, packet, len, complen);
+    uchar *compbuf = my_compress_alloc(comp_ctx, packet, len, complen,
+                                       zlib_net_compression_level);
     if (!compbuf) DBUG_RETURN(*complen ? 0 : 1);
     memcpy(packet, compbuf, *len);
     my_free(compbuf);
@@ -292,7 +295,8 @@ bool my_compress(mysql_compress_context *comp_ctx, uchar *packet, size_t *len,
 }
 
 uchar *my_compress_alloc(mysql_compress_context *comp_ctx, const uchar *packet,
-                         size_t *len, size_t *complen) {
+                         size_t *len, size_t *complen,
+                         uint zlib_net_compression_level) {
   if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD)
     return zstd_compress_alloc(&comp_ctx->u.zstd_ctx, packet, len, complen);
 
@@ -304,7 +308,8 @@ uchar *my_compress_alloc(mysql_compress_context *comp_ctx, const uchar *packet,
   }
 
   assert(comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZLIB);
-  return zlib_compress_alloc(&comp_ctx->u.zlib_ctx, packet, len, complen);
+  return zlib_compress_alloc(&comp_ctx->u.zlib_ctx, packet, len, complen,
+                             zlib_net_compression_level);
 }
 
 /**

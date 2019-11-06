@@ -91,6 +91,9 @@ extern void thd_increment_bytes_received(size_t length);
 
 /* Additional instrumentation hooks for the server */
 #include "mysql_com_server.h"
+extern uint net_compression_level;
+#else
+#define net_compression_level 6
 #endif
 
 static bool net_write_buff(NET *, const uchar *, size_t);
@@ -1253,7 +1256,7 @@ static uchar *compress_packet(NET *net, const uchar *packet, size_t *length) {
 
   /* Compress the encapsulated packet. */
   if (my_compress(compress_ctx, compr_packet + header_length, length,
-                  &compr_length)) {
+                  &compr_length, net_compression_level)) {
     /*
       If the length of the compressed packet is larger than the
       original packet, the original packet is sent uncompressed.
