@@ -56,4 +56,22 @@ Note	1760	Storing MySQL user name or password information in the master info rep
 include/start_slave.inc
 drop table t1;
 include/sync_slave_sql_with_master.inc
+create table t1(a int) engine = blackhole;
+create table t2(a int primary key) engine = innodb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+insert into t2 values(1);
+include/sync_slave_sql_with_master.inc
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+"The slave will continue even though t1 doesn't have PK because it's a blackhole table"
+include/start_slave.inc
+drop table t1;
+drop table t2;
+include/sync_slave_sql_with_master.inc
 include/rpl_end.inc

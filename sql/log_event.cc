@@ -9941,7 +9941,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     // NOTE: error will be set to 0 in handle_idempotent_and_ignored_errors()
     // if there was an idempotent error
     if (m_force_binlog_idempotent && !error) {
-      if (table->s->primary_key == MAX_KEY) {
+      if (table->s->primary_key == MAX_KEY &&
+          strcmp(table->file->table_type(), "BLACKHOLE") != 0) {
         char buf[256];
         snprintf(
             buf, sizeof(buf),
