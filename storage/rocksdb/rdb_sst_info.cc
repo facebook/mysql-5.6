@@ -18,16 +18,16 @@
 #include "./rdb_sst_info.h"
 
 /* C++ standard header files */
+#include <inttypes.h>
 #include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
-#include <inttypes.h>
 
 /* MySQL header files */
-#include "sql/log.h"
 #include "./my_dir.h"
 #include "mysqld_error.h"
+#include "sql/log.h"
 
 /* RocksDB header files */
 #include "rocksdb/db.h"

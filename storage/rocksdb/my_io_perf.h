@@ -16,14 +16,14 @@
 #ifndef _io_perf_h_
 #define _io_perf_h_
 
-#include <algorithm>
 #include <string.h>
+#include <algorithm>
 
 #include "my_inttypes.h"
 
 #include "atomic_stat.h"
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -40,12 +40,10 @@ struct my_io_perf_struct {
   ulonglong slow_ios; /*!< requests that take too long */
 
   /* Initialize a my_io_perf_t struct. */
-  inline void init() {
-    memset(this, 0, sizeof(*this));
-  }
+  inline void init() { memset(this, 0, sizeof(*this)); }
 
   /* Sets this to a - b in diff */
-  inline void diff(const my_io_perf_struct& a, const my_io_perf_struct& b) {
+  inline void diff(const my_io_perf_struct &a, const my_io_perf_struct &b) {
     if (a.bytes > b.bytes)
       bytes = a.bytes - b.bytes;
     else
@@ -76,7 +74,7 @@ struct my_io_perf_struct {
   }
 
   /* Accumulates io perf values */
-  inline void sum(const my_io_perf_struct& that) {
+  inline void sum(const my_io_perf_struct &that) {
     bytes += that.bytes;
     requests += that.requests;
     svc_time += that.svc_time;
@@ -110,7 +108,7 @@ struct my_io_perf_atomic_struct {
   }
 
   /* Accumulates io perf values using atomic operations */
-  inline void sum(const my_io_perf_struct& that) {
+  inline void sum(const my_io_perf_struct &that) {
     bytes.inc(that.bytes);
     requests.inc(that.requests);
 
@@ -129,7 +127,7 @@ struct my_io_perf_atomic_struct {
   }
 
   /* These assignments allow for races. That is OK. */
-  inline void set_maybe(const my_io_perf_struct& that) {
+  inline void set_maybe(const my_io_perf_struct &that) {
     bytes.set_maybe(that.bytes);
     requests.set_maybe(that.requests);
     svc_time.set_maybe(that.svc_time);
@@ -141,7 +139,7 @@ struct my_io_perf_atomic_struct {
 };
 typedef struct my_io_perf_atomic_struct my_io_perf_atomic_t;
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif

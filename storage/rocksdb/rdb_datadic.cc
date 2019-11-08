@@ -356,14 +356,15 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
                   m_total_index_flags_length == 0);
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
-    m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
+        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pack_info, k.m_pack_info, size);
   }
 
   if (k.m_pk_part_no) {
     const size_t size = sizeof(uint) * m_key_parts;
-    m_pk_part_no = reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pk_part_no =
+        reinterpret_cast<uint *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
     memcpy(m_pk_part_no, k.m_pk_part_no, size);
   }
 }
@@ -443,8 +444,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     }
 
     const size_t size = sizeof(Rdb_field_packing) * m_key_parts;
-    m_pack_info =
-        reinterpret_cast<Rdb_field_packing *>(my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
+    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
+        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
 
     /*
       Guaranteed not to error here as checks have been made already during
@@ -644,7 +645,8 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
   if (skip_checks) {
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str())) { 
+      if (!my_strcasecmp(system_charset_info, field->field_name,
+                         ttl_col_str.c_str())) {
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
       }
@@ -657,7 +659,8 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
     bool found = false;
     for (uint i = 0; i < table_arg->s->fields; i++) {
       Field *const field = table_arg->field[i];
-      if (!my_strcasecmp(system_charset_info, field->field_name, ttl_col_str.c_str()) &&
+      if (!my_strcasecmp(system_charset_info, field->field_name,
+                         ttl_col_str.c_str()) &&
           field->real_type() == MYSQL_TYPE_LONGLONG &&
           field->key_type() == HA_KEYTYPE_ULONGLONG &&
           !field->real_maybe_null()) {
@@ -989,7 +992,8 @@ uint Rdb_key_def::pack_index_tuple(TABLE *const tbl, uchar *const pack_buffer,
 
   /* We were given a record in KeyTupleFormat. First, save it to record */
   const uint key_len = calculate_key_len(tbl, m_keyno, keypart_map);
-  key_restore(tbl->record[0], const_cast<uchar *>(key_tuple), &tbl->key_info[m_keyno], key_len);
+  key_restore(tbl->record[0], const_cast<uchar *>(key_tuple),
+              &tbl->key_info[m_keyno], key_len);
 
   uint n_used_parts = my_count_bits(keypart_map);
   if (keypart_map == HA_WHOLE_KEY) n_used_parts = 0;  // Full key is used
@@ -1416,9 +1420,10 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     // ha_rocksdb::convert_record_to_storage_format
     //
     if (should_store_row_debug_checksums) {
-      const ha_checksum key_crc32 = my_core::my_checksum(0, packed_tuple, tuple - packed_tuple);
-      const ha_checksum val_crc32 =
-          my_core::my_checksum(0, unpack_info->ptr(), unpack_info->get_current_pos());
+      const ha_checksum key_crc32 =
+          my_core::my_checksum(0, packed_tuple, tuple - packed_tuple);
+      const ha_checksum val_crc32 = my_core::my_checksum(
+          0, unpack_info->ptr(), unpack_info->get_current_pos());
 
       unpack_info->write_uint8(RDB_CHECKSUM_DATA_TAG);
       unpack_info->write_uint32(key_crc32);
@@ -1649,11 +1654,11 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       const uint32_t stored_val_chksum = rdb_netbuf_to_uint32(
           (const uchar *)unp_reader.read(RDB_CHECKSUM_SIZE));
 
-      const ha_checksum computed_key_chksum =
-          my_core::my_checksum(0, (const uchar *)packed_key->data(), packed_key->size());
+      const ha_checksum computed_key_chksum = my_core::my_checksum(
+          0, (const uchar *)packed_key->data(), packed_key->size());
       const ha_checksum computed_val_chksum =
           my_core::my_checksum(0, (const uchar *)unpack_info->data(),
-                unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
+                               unpack_info->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
       DBUG_EXECUTE_IF("myrocks_simulate_bad_key_checksum1",
                       stored_key_chksum++;);
@@ -1920,7 +1925,6 @@ void Rdb_key_def::pack_unsigned(
 
   *dst += length;
 }
-
 
 template <int length>
 int Rdb_key_def::unpack_integer(
@@ -2685,8 +2689,8 @@ void Rdb_key_def::pack_with_varchar_encoding(
 
   // We only store the trimmed contents but encode the missing char with
   // removed_chars later to save space
-  const size_t trimmed_len = charset->cset->lengthsp(
-      charset, src, value_length);
+  const size_t trimmed_len =
+      charset->cset->lengthsp(charset, src, value_length);
 
   // Max memcmp byte length with char_length(), in case we need to truncate
   const size_t max_xfrm_len = charset->cset->charpos(
@@ -2696,7 +2700,7 @@ void Rdb_key_def::pack_with_varchar_encoding(
   // behavior in strnxfrm for padding collations otherwise strnxfrm would
   // pad to max length which defeats the trimming earlier
   const size_t trimmed_codepoints =
-    charset->cset->numchars(charset, src, src + trimmed_len);
+      charset->cset->numchars(charset, src, src + trimmed_len);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len_before_encoding,
@@ -2817,8 +2821,8 @@ void Rdb_key_def::pack_with_varchar_space_pad(
 
   // We only store the trimmed contents but encode the missing char with
   // removed_chars later to save space
-  const size_t trimmed_len = charset->cset->lengthsp(
-      charset, src, value_length);
+  const size_t trimmed_len =
+      charset->cset->lengthsp(charset, src, value_length);
 
   // Max memcmp byte length with char_length(), in case we need to truncate
   // for prefix keys
@@ -2829,7 +2833,7 @@ void Rdb_key_def::pack_with_varchar_space_pad(
   // behavior in strnxfrm for padding collations otherwise strnxfrm would
   // pad to max length which defeats the trimming earlier
   const size_t trimmed_codepoints =
-    charset->cset->numchars(charset, src, src + trimmed_len);
+      charset->cset->numchars(charset, src, src + trimmed_len);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len_before_encoding,
@@ -3316,8 +3320,10 @@ void Rdb_key_def::make_unpack_simple_varchar(
   // The std::min compares characters with bytes, but for simple collations,
   // mbmaxlen = 1.
   /* TODO(yzha) - Make field->char_length const */
-  rdb_write_unpack_simple(&bit_writer, codec, src,
-                          std::min((size_t)const_cast<Field_varstring *>(f)->char_length(), src_len));
+  rdb_write_unpack_simple(
+      &bit_writer, codec, src,
+      std::min((size_t) const_cast<Field_varstring *>(f)->char_length(),
+               src_len));
 }
 
 /*
@@ -3338,7 +3344,8 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
   const Field_varstring *const field_var =
       static_cast<Field_varstring *>(field);
   // For simple collations, char_length is also number of bytes.
-  DBUG_ASSERT((size_t)fpi->m_max_image_len >= const_cast<Field_varstring *>(field_var)->char_length());
+  DBUG_ASSERT((size_t)fpi->m_max_image_len >=
+              const_cast<Field_varstring *>(field_var)->char_length());
   uchar *dst_end = dst + field_var->pack_length();
   dst += field_var->length_bytes;
   Rdb_bit_reader bit_reader(unp_reader);
@@ -4277,7 +4284,7 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner {
 
   // bool scan_for_frms(const std::string &datadir, const std::string &dbname,
   //                    bool *has_errors);
-  // 
+  //
   // bool check_frm_file(const std::string &fullpath, const std::string &dbname,
   //                     const std::string &tablename, bool *has_errors);
 };
@@ -4313,7 +4320,7 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //   fullfilename.append(FN_DIRSEP);
 //   fullfilename.append(tablename.c_str());
 //   fullfilename.append(".frm");
-// 
+//
 //   /*
 //     This function will return the legacy_db_type of the table.  Currently
 //     it does not reference the first parameter (THD* thd), but if it ever
@@ -4328,13 +4335,14 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //                       fullfilename.ptr());
 //     return false;
 //   }
-// 
+//
 //   if (type == FRMTYPE_TABLE) {
 //     /* For a RocksDB table do we have a reference in the data dictionary? */
 //     if (eng_type == DB_TYPE_ROCKSDB) {
 //       /*
 //         Attempt to remove the table entry from the list of tables.  If this
-//         fails then we know we had a .frm file that wasn't registered in RocksDB.
+//         fails then we know we had a .frm file that wasn't registered in
+//         RocksDB.
 //       */
 //       tbl_info_t element(tablename, false);
 //       if (m_list.count(dbname) == 0 || m_list[dbname].erase(element) == 0) {
@@ -4349,15 +4357,15 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //     } else if (eng_type == DB_TYPE_PARTITION_DB) {
 //       /*
 //         For partition tables, see if it is in the m_list as a partition,
-//         but don't generate an error if it isn't there - we don't know that the
-//         .frm is for RocksDB.
+//         but don't generate an error if it isn't there - we don't know that
+//         the .frm is for RocksDB.
 //       */
 //       if (m_list.count(dbname) > 0) {
 //         m_list[dbname].erase(tbl_info_t(tablename, true));
 //       }
 //     }
 //   }
-// 
+//
 //   return true;
 // }
 
@@ -4368,7 +4376,7 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //   bool result = true;
 //   std::string fullpath = datadir + dbname;
 //   struct MY_DIR *dir_info = my_dir(fullpath.c_str(), MYF(MY_DONT_SORT));
-// 
+//
 //   /* Access the directory */
 //   if (dir_info == nullptr) {
 //     // NO_LINT_DEBUG
@@ -4376,17 +4384,18 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //                       fullpath.c_str());
 //     return false;
 //   }
-// 
+//
 //   /* Scan through the files in the directory */
 //   struct fileinfo *file_info = dir_info->dir_entry;
 //   for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
 //     /* Find .frm files that are not temp files (those that contain '#sql') */
 //     const char *ext = strrchr(file_info->name, '.');
-//     if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr &&
+//     if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr
+//     &&
 //         strcmp(ext, ".frm") == 0) {
 //       std::string tablename =
 //           std::string(file_info->name, ext - file_info->name);
-// 
+//
 //       /* Check to see if the .frm file is from RocksDB */
 //       if (!check_frm_file(fullpath, dbname, tablename, has_errors)) {
 //         result = false;
@@ -4394,15 +4403,15 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 //       }
 //     }
 //   }
-// 
+//
 //   /* Remove any databases who have no more tables listed */
 //   if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
 //     m_list.erase(dbname);
 //   }
-// 
+//
 //   /* Release the directory entry */
 //   my_dirend(dir_info);
-// 
+//
 //   return result;
 // }
 

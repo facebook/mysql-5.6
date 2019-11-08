@@ -27,14 +27,14 @@
 #include <vector>
 
 /* MySQL header files */
-#include "my_icp.h"          /* icp_result */
-#include "sql/handler.h"   /* handler */
-#include "sql_string.h"
-#include "mysql/psi/mysql_rwlock.h"
-#include "sql/handler.h"
-#include "sql/sql_bitmap.h"      /* Key_map */
 #include "my_dbug.h"
+#include "my_icp.h" /* icp_result */
+#include "mysql/psi/mysql_rwlock.h"
+#include "sql/handler.h" /* handler */
+#include "sql/handler.h"
+#include "sql/sql_bitmap.h" /* Key_map */
 #include "sql/table.h"
+#include "sql_string.h"
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
@@ -360,7 +360,8 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   bool is_blind_delete_enabled();
   bool skip_unique_check() const MY_ATTRIBUTE((__warn_unused_result__));
-  /* TODO(yzha) - c0e6859bffd Add skip unique check whitelist and new debug_skip_unique_check */
+  /* TODO(yzha) - c0e6859bffd Add skip unique check whitelist and new
+   * debug_skip_unique_check */
   void set_force_skip_unique_check(bool skip);
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *const tx)
@@ -450,7 +451,8 @@ class ha_rocksdb : public my_core::handler {
                 HA_PARTIAL_COLUMN_READ /* | HA_ONLINE_ANALYZE */);
   }
 
-  /* TODO(yzha) - 070a257a1c3 Issue #108: Index-only scans do not work for partitioned tables and extended keys  */
+  /* TODO(yzha) - 070a257a1c3 Issue #108: Index-only scans do not work for
+   * partitioned tables and extended keys  */
   bool init_with_fields() /* override */;
 
   /** @brief
@@ -484,7 +486,8 @@ class ha_rocksdb : public my_core::handler {
   }
 
   int rename_table(const char *const from, const char *const to,
-                   const dd::Table *from_table_def, dd::Table *to_table_def) override
+                   const dd::Table *from_table_def,
+                   dd::Table *to_table_def) override
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
@@ -552,7 +555,8 @@ class ha_rocksdb : public my_core::handler {
     DBUG_RETURN(MAX_REF_PARTS);
   }
 
-  uint max_supported_key_part_length(HA_CREATE_INFO *create_info) const override;
+  uint max_supported_key_part_length(
+      HA_CREATE_INFO *create_info) const override;
 
   /** @brief
     unireg.cc will call this to make sure that the storage engine can handle
@@ -873,7 +877,8 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   int external_lock(THD *const thd, int lock_type) override
       MY_ATTRIBUTE((__warn_unused_result__));
-  int truncate(dd::Table *table_def  MY_ATTRIBUTE((unused))) override MY_ATTRIBUTE((__warn_unused_result__));
+  int truncate(dd::Table *table_def MY_ATTRIBUTE((unused))) override
+      MY_ATTRIBUTE((__warn_unused_result__));
 
   int reset() override {
     DBUG_ENTER_FUNC();
@@ -895,8 +900,7 @@ class ha_rocksdb : public my_core::handler {
   int delete_table(const char *const from, const dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int create(const char *const name, TABLE *const form,
-             HA_CREATE_INFO *const create_info,
-             dd::Table *table_def) override
+             HA_CREATE_INFO *const create_info, dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int create_table(const std::string &table_name, const TABLE *table_arg,
                    ulonglong auto_increment_value);
