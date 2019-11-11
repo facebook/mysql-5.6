@@ -85,7 +85,6 @@ rocksdb.deadlock_stats : table_statistics missing
 rocksdb.com_rpc_tx : detached session is missing in 8.0
 
 # Misc bugs
-rocksdb.bloomfilter3 : query plan is different between 8.0 and 5.6
 rocksdb.issue884 : query plan is different between 8.0 and 5.6
 rocksdb.persistent_cache : only repros with other tests running
 rocksdb.index_merge_rocksdb2 : query plan is different between 8.0 and 5.6
