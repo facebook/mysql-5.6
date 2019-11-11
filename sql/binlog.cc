@@ -8656,9 +8656,9 @@ int MYSQL_BIN_LOG::set_valid_pos(
       // prefix. We cannot trim. So give up. Note that server will fail to start
       // in this case
       // NO_LINT_DEBUG
-      sql_print_error("The file prefix in engine does not match the file "
-                      "prefix of the recovering binlog");
-      error= 1;
+      sql_print_information("The file prefix in engine does not match "
+                            "the file prefix of the recovering binlog. There "
+                            "will be no special trimming of the file");
     }
     else if (engine_file_pair.second < cur_file_pair.second)
     {
