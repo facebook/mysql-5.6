@@ -34,10 +34,13 @@ set global rocksdb_force_flush_memtable_now = true;
 analyze table test;
 --enable_query_log
 
---replace_column 9 #
+--replace_column 10 # 11 #
+# Use index hint to force index merge as in 8.0 CPK scan cost is too high and
+# is not considered in index merge
 explain
-select * from test where d = 10 and a = 10 and b = 2;
-select * from test where d = 10 and a = 10 and b = 2;
-
+select /*+ INDEX_MERGE(test d, PRIMARY) */ * from test
+where d = 10 and a = 10 and b = 2;
+select /*+ INDEX_MERGE(test d, PRIMARY) */ * from test
+where d = 10 and a = 10 and b = 2;
 
 drop table test;
