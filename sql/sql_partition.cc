@@ -5294,14 +5294,8 @@ that are reorganised.
         my_error(ER_ONLY_ON_RANGE_LIST_PARTITION, MYF(0), "DROP");
         goto err;
       }
-      if (num_parts_dropped >= tab_part_info->num_parts)
-      {
-        my_error(ER_DROP_LAST_PARTITION, MYF(0));
-        goto err;
-      }
-      do
-      {
-        partition_element *part_elem= part_it++;
+      do {
+        partition_element *part_elem = part_it++;
         if (is_name_in_list(part_elem->partition_name,
                             alter_info->partition_names))
         {
@@ -5317,8 +5311,11 @@ that are reorganised.
         my_error(ER_DROP_PARTITION_NON_EXISTENT, MYF(0), "DROP");
         goto err;
       }
-      if (table->file->is_fk_defined_on_table_or_index(MAX_KEY))
-      {
+      if (num_parts_found == tab_part_info->num_parts) {
+        my_error(ER_DROP_LAST_PARTITION, MYF(0));
+        goto err;
+      }
+      if (table->file->is_fk_defined_on_table_or_index(MAX_KEY)) {
         my_error(ER_ROW_IS_REFERENCED, MYF(0));
         goto err;
       }
