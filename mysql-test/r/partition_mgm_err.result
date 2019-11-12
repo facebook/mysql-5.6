@@ -23,6 +23,10 @@ ALTER TABLE t1 DROP PARTITION x10, x1, x2, x1;
 ERROR HY000: Error in list of partitions to DROP
 ALTER TABLE t1 DROP PARTITION x10, x1, x2, x3;
 ERROR HY000: Error in list of partitions to DROP
+ALTER TABLE t1 DROP PARTITION x10, x1, x2, x3, x4, x5, x6, x7, x8, x9, x11, x12;
+ERROR HY000: Error in list of partitions to DROP
+ALTER TABLE t1 DROP PARTITION x0, x1, x2, x3, x4, x5, x6, x7, x8, x9;
+ERROR HY000: Cannot remove all partitions, use DROP TABLE instead
 ALTER TABLE t1 REORGANIZE PARTITION x0,x1,x2,x3,x4,x5,x6,x7,x8,x9,x10 INTO
 (PARTITION x11 VALUES LESS THAN (22));
 ERROR HY000: More partitions to reorganize than there are partitions
