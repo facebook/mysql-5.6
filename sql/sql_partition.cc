@@ -4695,10 +4695,6 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
         my_error(ER_ONLY_ON_RANGE_LIST_PARTITION, MYF(0), "DROP");
         goto err;
       }
-      if (num_parts_dropped >= tab_part_info->num_parts) {
-        my_error(ER_DROP_LAST_PARTITION, MYF(0));
-        goto err;
-      }
       do {
         partition_element *part_elem = part_it++;
         if (is_name_in_list(part_elem->partition_name,
@@ -4712,6 +4708,10 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
       } while (++part_count < tab_part_info->num_parts);
       if (num_parts_found != num_parts_dropped) {
         my_error(ER_DROP_PARTITION_NON_EXISTENT, MYF(0), "DROP");
+        goto err;
+      }
+      if (num_parts_found == tab_part_info->num_parts) {
+        my_error(ER_DROP_LAST_PARTITION, MYF(0));
         goto err;
       }
       tab_part_info->num_parts -= num_parts_dropped;
