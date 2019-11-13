@@ -155,7 +155,7 @@ class Rdb_io_perf {
   bool start(const uint32_t perf_context_level);
   void update_bytes_written(const uint32_t perf_context_level,
                             ulonglong bytes_written);
-  void end_and_record(const uint32_t perf_context_level);
+  void end_and_record(THD *thd);
 
   explicit Rdb_io_perf()
       : m_atomic_counters(nullptr),
