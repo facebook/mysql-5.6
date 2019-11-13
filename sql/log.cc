@@ -943,6 +943,7 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         " Read_first: %lu Read_last: %lu Read_key: %lu"
         " Read_next: %lu Read_prev: %lu"
         " Read_rnd: %lu Read_rnd_next: %lu"
+        " RocksDB_key_skipped: %lu RocksDB_del_skipped: %lu"
         " Sort_merge_passes: %lu Sort_range_count: %lu"
         " Sort_rows: %lu Sort_scan_count: %lu"
         " Created_tmp_disk_tables: %lu"
@@ -966,6 +967,10 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
         thd->status_var.ha_read_rnd_count >= query_start->ha_read_rnd_count &&
         thd->status_var.ha_read_rnd_next_count >=
             query_start->ha_read_rnd_next_count &&
+        thd->status_var.ha_key_skipped_count >=
+            query_start->ha_key_skipped_count &&
+        thd->status_var.ha_delete_skipped_count >=
+            query_start->ha_delete_skipped_count &&
         thd->status_var.filesort_merge_passes >=
             query_start->filesort_merge_passes &&
         thd->status_var.filesort_range_count >=
@@ -998,6 +1003,10 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
                   query_start->ha_read_rnd_count),
           (ulong)(thd->status_var.ha_read_rnd_next_count -
                   query_start->ha_read_rnd_next_count),
+          (ulong)(thd->status_var.ha_key_skipped_count -
+                  query_start->ha_key_skipped_count),
+          (ulong)(thd->status_var.ha_delete_skipped_count -
+                  query_start->ha_delete_skipped_count),
           (ulong)(thd->status_var.filesort_merge_passes -
                   query_start->filesort_merge_passes),
           (ulong)(thd->status_var.filesort_range_count -
@@ -1027,6 +1036,8 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           (ulong)thd->status_var.ha_read_prev_count,
           (ulong)thd->status_var.ha_read_rnd_count,
           (ulong)thd->status_var.ha_read_rnd_next_count,
+          (ulong)thd->status_var.ha_key_skipped_count,
+          (ulong)thd->status_var.ha_delete_skipped_count,
           (ulong)thd->status_var.filesort_merge_passes,
           (ulong)thd->status_var.filesort_range_count,
           (ulong)thd->status_var.filesort_rows,
