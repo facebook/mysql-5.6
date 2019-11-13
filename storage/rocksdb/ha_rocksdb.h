@@ -134,6 +134,8 @@ enum table_cardinality_scan_type {
   SCAN_TYPE_FULL_TABLE,
 };
 
+uint32_t rocksdb_perf_context_level(THD *const thd);
+
 /**
   @brief
   Class definition for ROCKSDB storage engine plugin handler
