@@ -207,18 +207,16 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
   if (ht->state == SHOW_OPTION_YES && ht->recover) {
     ::recovery_statistics external_stats{{0, 0, 0}, {0, 0, 0}};
     ::recovery_statistics internal_stats{{0, 0, 0}, {0, 0, 0}};
-    while ((got = ht->recover(
-                ht, info->list, info->len,
-                Recovered_xa_transactions::instance().get_allocated_memroot(),
-                info->binlog_max_gtid, info->binlog_file, info->binlog_pos)) >
-           0) {
-      // case: check if the max gtid recovered from the engine in
-      // this iteration is greater than what we recovered before
-      if (info->binlog_max_gtid &&
-          (info->binlog_max_gtid->greater_than(recovered_max_gtid) ||
-           info->binlog_max_gtid->sidno != recovered_max_gtid.sidno)) {
-        recovered_max_gtid = *(info->binlog_max_gtid);
-      }
+    if (ht->recover_binlog_pos) {
+      ht->recover_binlog_pos(ht, info->binlog_max_gtid, info->binlog_file,
+                             info->binlog_pos);
+    }
+
+    while (
+        (got = ht->recover(
+             ht, info->list, info->len,
+             Recovered_xa_transactions::instance().get_allocated_memroot())) >
+        0) {
       assert(got <= info->len);
       LogErr(INFORMATION_LEVEL, ER_XA_RECOVER_FOUND_TRX_IN_SE, got,
              ha_resolve_storage_engine_name(ht));
