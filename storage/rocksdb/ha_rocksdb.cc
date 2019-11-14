@@ -4077,16 +4077,12 @@ bool is_binlog_advanced(const char *b1, const my_off_t p1,
   return false;
 }
 
-/**
-  Reading last committed binary log info from RocksDB system row.
-  The info is needed for crash safe slave/master to work.
-*/
-static int rocksdb_recover(handlerton *const hton, XA_recover_txn *const xid_list,
-                           uint len,
-                           MEM_ROOT *mem_root,
-                           Gtid *const binlog_max_gtid,
-                           char *const binlog_file,
-                           my_off_t *const binlog_pos) {
+static void rocksdb_recover_binlog_pos(
+    handlerton *const hton, /*!< in: rocksdb handler */
+    Gtid *binlog_max_gtid,  /*!< in/out: Max valid binlog gtid*/
+    char *binlog_file,      /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos)   /*!< in/out: Last valid binlog pos */
+{
   if (binlog_file && binlog_pos) {
     char file_buf[FN_REFLEN + 1] = {0};
     my_off_t pos;
@@ -4111,7 +4107,15 @@ static int rocksdb_recover(handlerton *const hton, XA_recover_txn *const xid_lis
       }
     }
   }
+}
 
+/**
+  Reading last committed binary log info from RocksDB system row.
+  The info is needed for crash safe slave/master to work.
+*/
+static int rocksdb_recover(handlerton *const hton,
+                           XA_recover_txn *const xid_list, uint len,
+                           MEM_ROOT *mem_root) {
   if (len == 0 || xid_list == nullptr) {
     return HA_EXIT_SUCCESS;
   }
@@ -5206,6 +5210,7 @@ static int rocksdb_init_func(void *const p) {
   rocksdb_hton->prepare = rocksdb_prepare;
   rocksdb_hton->commit_by_xid = rocksdb_commit_by_xid;
   rocksdb_hton->rollback_by_xid = rocksdb_rollback_by_xid;
+  rocksdb_hton->recover_binlog_pos = rocksdb_recover_binlog_pos;
   rocksdb_hton->recover = rocksdb_recover;
   rocksdb_hton->commit = rocksdb_commit;
   rocksdb_hton->rollback = rocksdb_rollback;
