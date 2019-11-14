@@ -1219,8 +1219,11 @@ static void binlog_trans_log_savepos(THD *thd, my_off_t *pos) {
   DBUG_VOID_RETURN;
 }
 
+static void binlog_dummy_recover_binlog_pos(handlerton *, Gtid *, char *,
+                                            my_off_t *) {}
+
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
-                                MEM_ROOT *, Gtid *, char *, my_off_t *) {
+                                MEM_ROOT *) {
   return 0;
 }
 
@@ -1360,6 +1363,7 @@ static int binlog_init(void *p) {
   binlog_hton->rollback = binlog_rollback;
   binlog_hton->rollback_by_xid = binlog_xa_rollback;
   binlog_hton->prepare = binlog_prepare;
+  binlog_hton->recover_binlog_pos = binlog_dummy_recover_binlog_pos;
   binlog_hton->recover = binlog_dummy_recover;
   binlog_hton->flags = HTON_NOT_USER_SELECTABLE | HTON_HIDDEN;
   return 0;

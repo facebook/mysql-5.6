@@ -1318,6 +1318,13 @@ to 0, even if it was initially set to nonzero at the command line
 or configuration file. */
 static void innobase_commit_concurrency_init_default();
 
+/** This function is used to recover binlog positions and Gtid.
+ */
+static void innobase_recover_binlog_pos(
+    handlerton *hton,      /*!< in: InnoDB handlerton */
+    Gtid *binlog_max_gtid, /*!< in/out: Max valid binlog gtid*/
+    char *binlog_file,     /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos); /*!< in/out: Last valid binlog pos */
 /** This function is used to prepare an X/Open XA distributed transaction.
  @return 0 or error number */
 static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
@@ -1333,10 +1340,7 @@ static int innobase_xa_recover(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
     uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root,       /*!< in: memory for table names */
-    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid */
-    char *binlog_file,        /*!< in/out: Last valid binlog file */
-    my_off_t *binlog_pos);    /*!< in/out: Last valid binlog pos */
+    MEM_ROOT *mem_root);      /*!< in: memory for table names */
 
 /** This function is used to commit one X/Open XA distributed transaction
  which is in the prepared state
@@ -4741,6 +4745,7 @@ static int innodb_init(void *p) {
   innobase_hton->commit = innobase_commit;
   innobase_hton->rollback = innobase_rollback;
   innobase_hton->prepare = innobase_xa_prepare;
+  innobase_hton->recover_binlog_pos = innobase_recover_binlog_pos;
   innobase_hton->recover = innobase_xa_recover;
   innobase_hton->commit_by_xid = innobase_commit_by_xid;
   innobase_hton->rollback_by_xid = innobase_rollback_by_xid;
@@ -19457,16 +19462,13 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
   return (0);
 }
 
-/** This function is used to recover X/Open XA distributed transactions.
- @return number of prepared transactions stored in xid_list */
-static int innobase_xa_recover(
-    handlerton *hton,         /*!< in: InnoDB handlerton */
-    XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
-    uint len,                 /*!< in: number of slots in xid_list */
-    MEM_ROOT *mem_root,       /*!< in: memory for table names */
-    Gtid *binlog_max_gtid,    /*!< in/out: Max valid binlog gtid*/
-    char *binlog_file,        /*!< in/out: Last valid binlog file */
-    my_off_t *binlog_pos)     /*!< in/out: Last valid binlog pos */
+/** This function is used to recover binlog positions and Gtid.
+ */
+static void innobase_recover_binlog_pos(
+    handlerton *hton,      /*!< in: InnoDB handlerton */
+    Gtid *binlog_max_gtid, /*!< in/out: Max valid binlog gtid*/
+    char *binlog_file,     /*!< in/out: Last valid binlog file */
+    my_off_t *binlog_pos)  /*!< in/out: Last valid binlog pos */
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
 
@@ -19481,6 +19483,17 @@ static int innobase_xa_recover(
     trx_sys_read_binlog_position(binlog_file, offset);
     *binlog_pos = offset;
   }
+}
+
+/** This function is used to recover X/Open XA distributed transactions.
+ @return number of prepared transactions stored in xid_list */
+static int innobase_xa_recover(
+    handlerton *hton,         /*!< in: InnoDB handlerton */
+    XA_recover_txn *txn_list, /*!< in/out: prepared transactions */
+    uint len,                 /*!< in: number of slots in xid_list */
+    MEM_ROOT *mem_root)       /*!< in: memory for table names */
+{
+  DBUG_ASSERT(hton == innodb_hton_ptr);
 
   if (len == 0 || txn_list == nullptr) {
     return (0);

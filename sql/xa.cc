@@ -325,18 +325,16 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
   if (info->binlog_max_gtid) recovered_max_gtid = *(info->binlog_max_gtid);
 
   if (hton->state == SHOW_OPTION_YES && hton->recover) {
-    while ((got = hton->recover(
-                hton, info->list, info->len,
-                Recovered_xa_transactions::instance().get_allocated_memroot(),
-                info->binlog_max_gtid, info->binlog_file, info->binlog_pos)) >
-           0) {
-      // case: check if the max gtid recovered from the engine in
-      // this iteration is greater than what we recovered before
-      if (info->binlog_max_gtid &&
-          (info->binlog_max_gtid->greater_than(recovered_max_gtid) ||
-           info->binlog_max_gtid->sidno != recovered_max_gtid.sidno)) {
-        recovered_max_gtid = *(info->binlog_max_gtid);
-      }
+    if (hton->recover_binlog_pos) {
+      hton->recover_binlog_pos(hton, info->binlog_max_gtid, info->binlog_file,
+                               info->binlog_pos);
+    }
+
+    while (
+        (got = hton->recover(
+             hton, info->list, info->len,
+             Recovered_xa_transactions::instance().get_allocated_memroot())) >
+        0) {
 
       LogErr(INFORMATION_LEVEL, ER_XA_RECOVER_FOUND_TRX_IN_SE, got,
              ha_resolve_storage_engine_name(hton));
