@@ -1290,7 +1290,7 @@ static void binlog_dummy_recover_binlog_pos(handlerton *, Gtid *, char *,
                                             my_off_t *) {}
 
 static int binlog_dummy_recover(handlerton *, XA_recover_txn *, uint,
-                                MEM_ROOT *, Gtid *, char *, my_off_t *) {
+                                MEM_ROOT *) {
   return 0;
 }
 

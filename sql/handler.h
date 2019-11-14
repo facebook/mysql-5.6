@@ -1304,8 +1304,7 @@ typedef void (*recover_binlog_pos_t)(handlerton *hton, Gtid *binlog_max_gtid,
                                      char *binlog_file, my_off_t *binlog_pos);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
-                         MEM_ROOT *mem_root, Gtid *binlog_max_gtid,
-                         char *binlog_file, my_off_t *binlog_pos);
+                         MEM_ROOT *mem_root);
 
 /** X/Open XA distributed transaction status codes */
 enum xa_status_code {

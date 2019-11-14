@@ -4397,10 +4397,7 @@ static void rocksdb_recover_binlog_pos(
 */
 static int rocksdb_recover(handlerton *const hton [[maybe_unused]],
                            XA_recover_txn *const xid_list, uint len,
-                           MEM_ROOT *mem_root [[maybe_unused]],
-                           Gtid *const binlog_max_gtid [[maybe_unused]],
-                           char *const binlog_file [[maybe_unused]],
-                           my_off_t *const binlog_pos [[maybe_unused]]) {
+                           MEM_ROOT *mem_root [[maybe_unused]]) {
   if (len == 0 || xid_list == nullptr) {
     return HA_EXIT_SUCCESS;
   }
