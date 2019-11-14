@@ -7433,12 +7433,6 @@ int handler::compare_key_in_buffer(const uchar *buf) const {
   DBUG_ASSERT(end_range != nullptr && (m_record_buffer == nullptr ||
                                        !m_record_buffer->is_out_of_range()));
 
-  /*
-    End range on descending scans is only checked with ICP for now, and then we
-    check it with compare_key_icp() instead of this function.
-  */
-  DBUG_ASSERT(range_scan_direction == RANGE_SCAN_ASC);
-
   // Make the fields in the key point into the buffer instead of record[0].
   const ptrdiff_t diff = buf - table->record[0];
   if (diff != 0) move_key_field_offsets(end_range, range_key_part, diff);
@@ -7449,6 +7443,8 @@ int handler::compare_key_in_buffer(const uchar *buf) const {
 
   // Reset the field offsets.
   if (diff != 0) move_key_field_offsets(end_range, range_key_part, -diff);
+
+  if (range_scan_direction == RANGE_SCAN_DESC) cmp = -cmp;
 
   return cmp;
 }
