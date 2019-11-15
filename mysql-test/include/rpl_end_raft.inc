@@ -5,16 +5,16 @@ while ($_rpl_server)
   source include/rpl_connection.inc;
 
   let $_is_slave= `SELECT SUBSTRING('$rpl_master_list', 1 + ($_rpl_server - 1) * $rpl_server_count_length, $rpl_server_count_length) != ''`;
-  let $plugin_was_early_installed = `SELECT COUNT(*) = 0 FROM mysql.plugin WHERE NAME = 'MYSQL_RAFT_PLUGIN'`;
+  let $plugin_was_early_installed = `SELECT COUNT(*) = 0 FROM mysql.plugin WHERE NAME = 'RPL_RAFT'`;
 
   disable_query_log;
   SET GLOBAL ENABLE_RAFT_PLUGIN= default;
-  SET GLOBAL MYSQL_RAFT_PLUGIN_ON= default;
-  SET GLOBAL MYSQL_RAFT_PLUGIN_CONFIG_JSON= default;
-  SET GLOBAL MYSQL_RAFT_PLUGIN_NEW_LEADER_UUID= default;
+  SET GLOBAL RPL_RAFT_ON= default;
+  SET GLOBAL RPL_RAFT_CONFIG_JSON= default;
+  SET GLOBAL RPL_RAFT_NEW_LEADER_UUID= default;
   if (!$plugin_was_early_installed)
   {
-    UNINSTALL PLUGIN MYSQL_RAFT_PLUGIN;
+    UNINSTALL PLUGIN RPL_RAFT;
   }
   SET GLOBAL READ_ONLY= 1;
   enable_query_log;

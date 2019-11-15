@@ -55,16 +55,16 @@ while ($_rpl_server)
     --echo raft config json: '$config_json'
   }
 
-  --let $raft_plugin_early_installed= `SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'MYSQL_RAFT_PLUGIN'`
+  --let $raft_plugin_early_installed= `SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`
 
   # Install plugin
   if (!$raft_plugin_early_installed)
   {
-    INSTALL PLUGIN MYSQL_RAFT_PLUGIN SONAME 'mysql_raft_repl.so';
+    INSTALL PLUGIN RPL_RAFT SONAME 'mysql_raft_repl.so';
   }
 
   # Set config
-  eval SET GLOBAL MYSQL_RAFT_PLUGIN_CONFIG_JSON= '$config_json';
+  eval SET GLOBAL RPL_RAFT_CONFIG_JSON= '$config_json';
 
   if ($_is_slave)
   {
@@ -74,7 +74,7 @@ while ($_rpl_server)
   SET GLOBAL ENABLE_RAFT_PLUGIN= ON;
 
   # Enable raft plugin
-  send SET GLOBAL MYSQL_RAFT_PLUGIN_ON= ON;
+  send SET GLOBAL RPL_RAFT_ON= ON;
 
   --dec $_rpl_server
 }
@@ -116,7 +116,7 @@ while ($master_raft_role != 'LEADER')
     let $_is_raft_leader= `SELECT VARIABLE_VALUE = "LEADER" FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
     if ($_is_raft_leader)
     {
-      eval set @@global.mysql_raft_plugin_new_leader_uuid= '$master_raft_uuid';
+      eval set @@global.rpl_raft_new_leader_uuid= '$master_raft_uuid';
     }
     dec $_rpl_server;
   }
