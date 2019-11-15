@@ -3495,6 +3495,7 @@ Log_event::handle_terminal_dep_event(Relay_log_info *rli,
        DBUG_ASSERT(opt_debug_sync_timeout > 0);
        DBUG_ASSERT(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
     };);
+    free_root(thd->mem_root,MYF(MY_KEEP_PREALLOC));
   }
 }
 
@@ -12242,7 +12243,13 @@ bool Rows_log_event::get_keys(Relay_log_info *rli,
 
   /* Cleanup any state associated with the table definition. */
   close_table_ref(thd, table_list);
-  table_list->m_tabledef.table_def::~table_def();
+  if (table_list && table_list->m_tabledef_valid)
+  {
+    table_list->m_tabledef.table_def::~table_def();
+    table_list->m_tabledef_valid= FALSE;
+  }
+  if (table_list && table_list->m_conv_table)
+    free_blobs(table_list->m_conv_table);
   my_free(memory);
 
   /* Cleanup local state used to parse out keys. */
@@ -12272,8 +12279,9 @@ bool Rows_log_event::get_table_ref(Relay_log_info *rli, void **memory,
 
   auto table_map= rli->table_map_events.at(get_table_id());
 
-  *memory= table_map->setup_table_rli(table_list);
-  DBUG_ASSERT(*memory != NULL);
+  if (!(*memory= table_map->setup_table_rli(table_list)))
+    DBUG_RETURN(1);
+
   (*table_list)->mdl_request.duration= MDL_STATEMENT;
   (*table_list)->mdl_request.type= MDL_SHARED;
 

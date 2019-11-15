@@ -2653,6 +2653,9 @@ void return_table_to_cache(THD *thd, TABLE_LIST *table_list)
 
   DBUG_ENTER("return_table_to_cache");
 
+  if (!table_list)
+    DBUG_VOID_RETURN;
+
   if (table_list->table != NULL)
   {
     DBUG_ASSERT(thd->open_tables == table_list-> table);
