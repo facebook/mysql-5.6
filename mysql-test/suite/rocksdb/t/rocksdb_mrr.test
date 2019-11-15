@@ -25,12 +25,10 @@ explain
 select * from t2,t0 where t2.pk=t0.a;
 select * from t2,t0 where t2.pk=t0.a;
 
-analyze table t0; # Run ANALYZE just to flush out stats on the async bg thread
-set global rocksdb_pause_background_work = on;
 --echo # Check the counters
 create temporary table t10 as 
 select * from information_schema.global_status
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 
 flush status; # for Handler_mrr_init
 
@@ -40,8 +38,7 @@ show status like 'Handler_mrr_init';
 
 create temporary table t11 as 
 select * from information_schema.global_status
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
-set global rocksdb_pause_background_work = DEFAULT;
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 
 select 
   variable_name, 
@@ -158,19 +155,16 @@ select * from t3,t0 where t3.col1=t0.a;
 
 select * from t3,t0 where t3.col1=t0.a;
 
-analyze table t0; # Run ANALYZE just to flush out stats on the async bg thread
-set global rocksdb_pause_background_work = on;
 --echo # Now, run the query and check the counters
 create temporary table t11 as
 select * from information_schema.global_status 
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 
 select * from t3,t0 where t3.col1=t0.a;
 
 create temporary table t12 as
 select * from information_schema.global_status 
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
-set global rocksdb_pause_background_work = DEFAULT;
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 
 select 
   variable_name, 
@@ -250,19 +244,16 @@ set global rocksdb_force_flush_memtable_now=1;
 explain
 select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
 
-analyze table t0; # Run ANALYZE just to flush out stats on the async bg thread
-set global rocksdb_pause_background_work = on;
 create temporary table t10 as 
 select * from information_schema.global_status
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 flush statistics;
 
 select a, a+20 in (select t2.filler from t2,t0 where t2.pk=t0.a+20) from t20;
 
 create temporary table t11 as 
 select * from information_schema.global_status
-where variable_name like 'rocksdb_num%' or variable_name='rocksdb_rows_read';
-set global rocksdb_pause_background_work = DEFAULT;
+where variable_name in ('ROCKSDB_ROWS_READ', 'ROCKSDB_NUMBER_DB_NEXT', 'ROCKSDB_NUMBER_DB_NEXT_FOUND', 'ROCKSDB_NUMBER_DB_SEEK', 'ROCKSDB_NUMBER_DB_SEEK_FOUND', 'ROCKSDB_NUMBER_MULTIGET_BYTES_READ', 'ROCKSDB_NUMBER_MULTIGET_GET', 'ROCKSDB_NUMBER_MULTIGET_KEYS_READ');
 
 --echo # The below shows ROCKSDB_ROWS_READ=13. 
 --echo #  1 is from table t20
