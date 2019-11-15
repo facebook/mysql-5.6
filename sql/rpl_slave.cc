@@ -562,6 +562,8 @@ int init_slave() {
             mysql_bin_log.engine_binlog_pos);
 
     if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED) {
+      global_sid_lock->unlock();
+      mysql_mutex_unlock(log_lock);
       my_free(binlog_gtid_set_buffer);
       sql_print_error("Fail to read binlog");
       error = 1;
