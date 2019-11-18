@@ -22,9 +22,9 @@ INSERT INTO t2 (a,b) VALUES (1,'bar');
 
 set global rocksdb_force_flush_memtable_now = true;
 
-CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=rocksdb CHARACTER SET utf8;
+CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=rocksdb CHARACTER SET UTF8MB4;
 
---replace_column 6 # 7 #
+--replace_column 12 NULL 6 # 7 #
 SHOW TABLE STATUS WHERE name IN ( 't1', 't2', 't3' );
 
 # Some statistics don't get updated as quickly.  The Data_length and
@@ -48,7 +48,7 @@ set global rocksdb_force_flush_memtable_now = true;
 
 # We expect the number of rows to be 10000. Data_len and Avg_row_len
 # may vary, depending on built-in compression library.
---replace_column 6 # 7 #
+--replace_column 12 NULL 6 # 7 #
 SHOW TABLE STATUS WHERE name LIKE 't2';
 DROP TABLE t1, t2, t3;
 
@@ -60,5 +60,8 @@ CREATE DATABASE `db_new..............................................end`;
 USE `db_new..............................................end`;
 CREATE TABLE `t1_new..............................................end`(a int) engine=rocksdb;
 INSERT INTO `t1_new..............................................end` VALUES (1);
---query_vertical SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.table_statistics WHERE TABLE_NAME = 't1_new..............................................end'
+# 8.0 sys.format_bytes function in schema_table_statistics is triggering warnings
+--disable_warnings
+--query_vertical SELECT TABLE_SCHEMA, TABLE_NAME FROM sys.schema_table_statistics WHERE TABLE_NAME = 't1_new..............................................end'
+--enable_warnings
 DROP DATABASE `db_new..............................................end`;

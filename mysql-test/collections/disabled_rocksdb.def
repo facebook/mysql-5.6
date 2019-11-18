@@ -66,7 +66,6 @@ rocksdb.blind_delete_rc : BUG#0000 missing af531c246d35 Added a new variable to 
 rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 
 # i_s.table_statistics
-rocksdb.show_table_status : BUG#0000 table_statistics missing
 rocksdb.rocksdb_icp : BUG#0000 table_statistics missing
 rocksdb.rocksdb_icp_rev : BUG#0000 table_statistics missing
 rocksdb.optimizer_loose_index_scans : BUG#0000 table_statistics missing
