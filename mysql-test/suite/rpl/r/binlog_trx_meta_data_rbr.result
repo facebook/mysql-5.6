@@ -17,6 +17,8 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 [connection master]
 flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
 purge binary logs to 'master-bin.000002';
 [connection slave]
 flush logs;
@@ -43,6 +45,8 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 [connection master]
 flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
 purge binary logs to 'master-bin.000003';
 [connection slave]
 flush logs;
@@ -75,6 +79,8 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 [connection master]
 flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
 purge binary logs to 'master-bin.000004';
 [connection slave]
 flush logs;
