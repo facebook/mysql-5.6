@@ -407,7 +407,7 @@ struct mysql_event_general {
   long long query_id;
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
-  unsigned int port;
+  unsigned int port;  
 };
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,
