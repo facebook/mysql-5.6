@@ -277,10 +277,10 @@ MACRO (MYSQL_CHECK_SSL)
     ENDIF()
 
     FIND_LIBRARY(OPENSSL_LIBRARY
-                 NAMES ssl_pic ssl libssl ssleay32 ssleay32MD
+                 NAMES ssl libssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
-                 NAMES crypto_pic crypto libcrypto libeay32
+                 NAMES crypto libcrypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
 
     IF(OPENSSL_INCLUDE_DIR)
