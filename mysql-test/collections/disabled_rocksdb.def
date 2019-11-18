@@ -25,7 +25,6 @@ rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing i
 
 # Missing features
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
-rocksdb.create_no_primary_key_table : BUG#0000 missing patch
 rocksdb.rocksdb_qcache : BUG#0000 missing patch
 rocksdb.skip_core_dump_on_error : BUG#0000 missing patch
 rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : BUG#0000 missing patch
@@ -36,7 +35,6 @@ rocksdb_rpl.rpl_gtid_rocksdb_sys_header: BUG#0000 missing 00861dd66bf make gtid 
 rocksdb_rpl.rocksdb_slave_check_before_image_consistency : BUG#0000 missing d8c69f9f5a9 [replication] Check before image...
 rocksdb_rpl.rpl_no_unique_check_on_lag : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
 rocksdb_rpl.rpl_no_unique_check_on_lag_mts : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
-rocksdb.percona_nonflushing_analyze_debug : BUG#0000 missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE...
 rocksdb.2pc_group_commit : BUG#0000 missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
 rocksdb.group_min_max : BUG#0000 missing infinite loop fix
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
@@ -66,7 +64,6 @@ rocksdb.blind_delete_rc : BUG#0000 missing af531c246d35 Added a new variable to 
 rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 
 # i_s.table_statistics
-rocksdb.show_table_status : BUG#0000 table_statistics missing
 rocksdb.rocksdb_icp : BUG#0000 table_statistics missing
 rocksdb.rocksdb_icp_rev : BUG#0000 table_statistics missing
 rocksdb.lock_wait_timeout_stats : BUG#0000 table_statistics missing
