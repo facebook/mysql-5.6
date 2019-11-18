@@ -129,7 +129,7 @@ set rocksdb_bulk_load=0;
 --remove_file $file
 
 # Make sure row count index stats are correct
---replace_column 6 # 7 # 8 # 9 # 12 #
+--replace_column 6 # 7 # 8 # 9 # 12 # 13 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
 
 ANALYZE TABLE t1, t2;
@@ -139,7 +139,7 @@ ANALYZE TABLE t1, t2;
 ANALYZE TABLE t3;
 --enable_testcase
 
---replace_column 6 # 7 # 8 # 9 # 12 #
+--replace_column 6 # 7 # 8 # 9 # 12 # 13 #
 SHOW TABLE STATUS WHERE name LIKE 't%';
 
 # Make sure all the data is there.
