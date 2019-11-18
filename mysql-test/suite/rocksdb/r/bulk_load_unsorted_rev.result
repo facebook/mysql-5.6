@@ -67,16 +67,16 @@ LOAD DATA INFILE <input_file> INTO TABLE t2;
 set rocksdb_bulk_load=0;
 SHOW TABLE STATUS WHERE name LIKE 't%';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	NULL	NULL	latin1_swedish_ci	NULL		
-t2	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	NULL	NULL	latin1_swedish_ci	NULL		
+t1	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	#	NULL	latin1_swedish_ci	NULL		
+t2	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	#	NULL	latin1_swedish_ci	NULL		
 ANALYZE TABLE t1, t2;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 test.t2	analyze	status	OK
 SHOW TABLE STATUS WHERE name LIKE 't%';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
-t1	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	NULL	NULL	latin1_swedish_ci	NULL		
-t2	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	NULL	NULL	latin1_swedish_ci	NULL		
+t1	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	#	NULL	latin1_swedish_ci	NULL		
+t2	ROCKSDB	10	Fixed	5000000	#	#	#	#	0	NULL	#	#	NULL	latin1_swedish_ci	NULL		
 select count(a) from t1;
 count(a)
 5000000
