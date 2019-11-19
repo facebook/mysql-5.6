@@ -272,6 +272,7 @@ our @DEFAULT_SUITES = qw(
   rocksdb_rpl
   rocksdb_stress
   rocksdb_sys_vars
+  rpl_mts
   rpl
   rpl_gtid
   rpl_nogtid

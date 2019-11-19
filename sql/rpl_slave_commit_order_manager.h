@@ -228,7 +228,7 @@ class Commit_order_manager {
 
     @return false if the worker is ready to commit, true if not.
    */
-  bool wait_on_graph(Slave_worker *worker);
+  bool wait_on_graph(Slave_worker *worker, std::string db);
   /**
     Wait for its turn to commit or unregister.
 
@@ -239,7 +239,7 @@ class Commit_order_manager {
     @retval true   One or more previous transactions rollback, so this
                    transaction should rollback.
   */
-  bool wait(Slave_worker *worker);
+  bool wait(Slave_worker *worker, std::string db);
 
   /**
     Unregister the thread from the commit order queue and signal
@@ -247,7 +247,7 @@ class Commit_order_manager {
 
     @param[in] worker     The worker which is executing the transaction.
   */
-  void finish_one(Slave_worker *worker);
+  void finish_one(Slave_worker *worker, std::string db);
 
   /**
     Unregister the transaction from the commit order queue and signal the next
@@ -255,7 +255,7 @@ class Commit_order_manager {
 
     @param[in] worker     The worker which is executing the transaction.
   */
-  void finish(Slave_worker *worker);
+  void finish(Slave_worker *worker, std::string db);
 
   /**
     Reset server_status value of the commit group.
@@ -283,12 +283,17 @@ class Commit_order_manager {
   */
   void unset_rollback_status();
 
-  void report_deadlock(Slave_worker *worker);
+  void report_deadlock(Slave_worker *worker, std::string db);
 
   std::atomic<bool> m_rollback_trx;
 
   /* It stores order commit order information of all workers. */
-  cs::apply::Commit_order_queue m_workers;
+  mysql_rwlock_t m_lock;
+  std::unordered_map<std::string, cs::apply::Commit_order_queue *> m_workers;
+  uint32 m_worker_numbers;
+
+  cs::apply::Commit_order_queue &get_workers(Slave_worker *worker,
+                                             std::string db);
 
   /**
     Flush record of transactions for all the waiting threads and then

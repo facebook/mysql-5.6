@@ -23,8 +23,6 @@
 # ========
 #
 # Commit order deadlock occurs only when MTS + LOGICAL CLOCK are enabled.
---source include/only_mts_slave_parallel_type_logical_clock.inc
---source include/only_mts_slave_parallel_workers.inc
 --source include/have_binlog_format_statement.inc
 --source include/have_debug.inc
 --source include/master-slave.inc
@@ -35,6 +33,8 @@
 CREATE TABLE t1(c1 INT PRIMARY KEY, c2 INT, INDEX(c2)) ENGINE = InnoDB;
 CREATE TABLE t2(c1 INT PRIMARY KEY) ENGINE = InnoDB;
 --source include/sync_slave_sql_with_master.inc
+--source include/only_mts_slave_parallel_type_logical_clock.inc
+--source include/only_mts_slave_parallel_workers.inc
 
 --echo #
 --echo # 2. Initial setup on Slave.
