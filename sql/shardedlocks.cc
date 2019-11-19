@@ -115,6 +115,7 @@ void mutex_assert_owner_all_shards(mysql_mutex_t *mtx,
   if (gl_lock_sharding) {
     for (auto& mtx : *mtx_array) {
       mysql_mutex_assert_owner(&mtx);
+      (void)mtx;
     }
   } else
     mysql_mutex_assert_owner(mtx);
@@ -127,6 +128,7 @@ void mutex_assert_not_owner_all_shards(mysql_mutex_t *mtx,
   if (gl_lock_sharding) {
     for (auto& mtx : *mtx_array) {
       mysql_mutex_assert_not_owner(&mtx);
+      (void)mtx;
     }
   } else
     mysql_mutex_assert_not_owner(mtx);

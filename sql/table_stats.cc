@@ -1380,7 +1380,7 @@ bool lock_global_table_stats() {
   In release builds pthread_mutex_t is used, which respects the
   PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP property.
 */
-#ifndef DBUG_OFF
+#if defined(SAFE_MUTEX) && !defined(DBUG_OFF)
   if (!pthread_equal(pthread_self(),
                      (&(&LOCK_global_table_stats)->m_mutex)->thread))
   {

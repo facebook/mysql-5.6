@@ -51,7 +51,7 @@ static bool lock_sql_plans()
   In release builds pthread_mutex_t is used, which respects the
   PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP property.
 */
-#ifndef DBUG_OFF
+#if defined(SAFE_MUTEX) && !defined(DBUG_OFF)
   if (!pthread_equal(pthread_self(),
                      (&(&LOCK_global_sql_plans)->m_mutex)->thread))
   {
