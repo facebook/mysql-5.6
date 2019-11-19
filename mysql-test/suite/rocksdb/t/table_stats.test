@@ -21,7 +21,8 @@ while ($i <= $max) {
 SELECT COUNT(*) FROM t1;
 
 # Verify the table stats are returned
-SELECT * FROM INFORMATION_SCHEMA.TABLE_STATISTICS WHERE TABLE_NAME = "t1";
+--replace_column 3 # 5 # 7 # 9 # 11 #
+select * from sys.schema_table_statistics where table_name = "t1";
 
 #cleanup
 DROP TABLE t1;
