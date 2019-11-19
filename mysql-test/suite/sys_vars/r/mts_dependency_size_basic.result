@@ -1,0 +1,130 @@
+SET @start_mts_dependency_size = @@global.mts_dependency_size;
+SELECT @start_mts_dependency_size;
+@start_mts_dependency_size
+1000
+'#--------------------FN_DYNVARS_072_01------------------------#'
+SET @@global.mts_dependency_size = 5000;
+SET @@global.mts_dependency_size = DEFAULT;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+1000
+'#---------------------FN_DYNVARS_072_02-------------------------#'
+SET @@global.mts_dependency_size = @start_mts_dependency_size;
+SELECT @@global.mts_dependency_size = 4294967295;
+@@global.mts_dependency_size = 4294967295
+0
+'#--------------------FN_DYNVARS_072_03------------------------#'
+SET @@global.mts_dependency_size = 4096;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4096
+SET @@global.mts_dependency_size = 4294967295;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4294967295
+SET @@global.mts_dependency_size = 4294967294;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4294967294
+SET @@global.mts_dependency_size = 4097;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4097
+SET @@global.mts_dependency_size = 65535;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+65535
+'#--------------------FN_DYNVARS_072_04-------------------------#'
+SET @@global.mts_dependency_size = -1;
+Warnings:
+Warning	1292	Truncated incorrect mts_dependency_size value: '-1'
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+0
+SET @@global.mts_dependency_size = 100000000000;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+100000000000
+SET @@global.mts_dependency_size = 10000.01;
+ERROR 42000: Incorrect argument type to variable 'mts_dependency_size'
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+100000000000
+SET @@global.mts_dependency_size = -1024;
+Warnings:
+Warning	1292	Truncated incorrect mts_dependency_size value: '-1024'
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+0
+SET @@global.mts_dependency_size = 1024;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+1024
+SET @@global.mts_dependency_size = 4294967296;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4294967296
+SET @@global.mts_dependency_size = 4095;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4095
+SET @@global.mts_dependency_size = ON;
+ERROR 42000: Incorrect argument type to variable 'mts_dependency_size'
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4095
+SET @@global.mts_dependency_size = 'test';
+ERROR 42000: Incorrect argument type to variable 'mts_dependency_size'
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+4095
+'#-------------------FN_DYNVARS_072_05----------------------------#'
+SET @@session.mts_dependency_size = 4096;
+ERROR HY000: Variable 'mts_dependency_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.mts_dependency_size;
+ERROR HY000: Variable 'mts_dependency_size' is a GLOBAL variable
+'#----------------------FN_DYNVARS_072_06------------------------#'
+SELECT @@global.mts_dependency_size = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='mts_dependency_size';
+@@global.mts_dependency_size = VARIABLE_VALUE
+1
+SELECT @@mts_dependency_size = VARIABLE_VALUE 
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='mts_dependency_size';
+@@mts_dependency_size = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_072_07----------------------#'
+SET @@global.mts_dependency_size = TRUE;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+1
+SET @@global.mts_dependency_size = FALSE;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+0
+'#---------------------FN_DYNVARS_072_08----------------------#'
+SET @@global.mts_dependency_size = 5000;
+SELECT @@mts_dependency_size = @@global.mts_dependency_size;
+@@mts_dependency_size = @@global.mts_dependency_size
+1
+'#---------------------FN_DYNVARS_072_09----------------------#'
+SET mts_dependency_size = 6000;
+ERROR HY000: Variable 'mts_dependency_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@mts_dependency_size;
+@@mts_dependency_size
+5000
+SET local.mts_dependency_size = 7000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.mts_dependency_size = 7000' at line 1
+SELECT local.mts_dependency_size;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.mts_dependency_size = 8000;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.mts_dependency_size = 8000' at line 1
+SELECT global.mts_dependency_size;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT mts_dependency_size = @@session.mts_dependency_size;
+ERROR HY000: Variable 'mts_dependency_size' is a GLOBAL variable
+SET @@global.mts_dependency_size = @start_mts_dependency_size;
+SELECT @@global.mts_dependency_size;
+@@global.mts_dependency_size
+1000

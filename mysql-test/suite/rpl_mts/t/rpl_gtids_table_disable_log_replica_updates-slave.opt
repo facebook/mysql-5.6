@@ -1,0 +1,2 @@
+--log-replica-updates=false --replica-parallel-workers=2
+--gtid-mode=ON --enforce-gtid-consistency=ON

@@ -1,0 +1,24 @@
+set @save.mts_dependency_replication= @@global.mts_dependency_replication;
+select @@session.mts_dependency_replication;
+ERROR HY000: Variable 'mts_dependency_replication' is a GLOBAL variable
+select variable_name from performance_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from performance_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.mts_dependency_replication= tbl;
+select @@global.mts_dependency_replication;
+@@global.mts_dependency_replication
+TBL
+set @@global.mts_dependency_replication= stmt;
+select @@global.mts_dependency_replication;
+@@global.mts_dependency_replication
+STMT
+set @@global.mts_dependency_replication= none;
+select @@global.mts_dependency_replication;
+@@global.mts_dependency_replication
+NONE
+set @@global.mts_dependency_replication= 1.1;
+ERROR 42000: Incorrect argument type to variable 'mts_dependency_replication'
+set @@global.mts_dependency_replication= "foo";
+ERROR 42000: Variable 'mts_dependency_replication' can't be set to the value of 'foo'
+set @@global.mts_dependency_replication= @save.mts_dependency_replication;

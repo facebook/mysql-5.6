@@ -1,0 +1,5 @@
+--gtid-mode=ON --enforce-gtid-consistency=ON
+--replicate-same-server-id
+--log-replica-updates=off
+--replica-parallel-workers=2
+--replica-transaction-retries=0

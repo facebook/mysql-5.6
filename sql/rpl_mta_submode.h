@@ -26,6 +26,8 @@
 #include <sys/types.h>
 #include <atomic>
 #include <set>
+#include <stack>
+#include <unordered_map>
 #include <utility>
 
 #include "libbinlogevents/include/binlog_event.h"  // SEQ_UNINIT
@@ -34,10 +36,13 @@
 #include "my_thread_local.h"   // my_thread_id
 #include "prealloced_array.h"  // Prealloced_array
 
+#include "log_event_wrapper.h"
+
 class Log_event;
 class Query_log_event;
 class Relay_log_info;
 class Slave_worker;
+class Commit_order_manager;
 class THD;
 struct TABLE;
 
@@ -47,7 +52,9 @@ enum enum_mts_parallel_type {
   /* Parallel slave based on Database name */
   MTS_PARALLEL_TYPE_DB_NAME = 0,
   /* Parallel slave based on group information from Binlog group commit */
-  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1
+  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1,
+  /* Parallel slave based on dependencies between RBR events */
+  MTS_PARALLEL_TYPE_DEPENDENCY = 2
 };
 
 // Extend the following class as per requirement for each sub mode
@@ -92,6 +99,181 @@ class Mts_submode {
   }
 
   virtual ~Mts_submode() = default;
+};
+
+/**
+  Facebook implementation of MTS using table or row level dependencies
+*/
+class Mts_submode_dependency : public Mts_submode {
+  friend class Dependency_slave_worker;
+
+  std::deque<std::shared_ptr<Log_event_wrapper>> dep_queue;
+  mysql_mutex_t dep_lock;
+
+  /* Mapping from key to penultimate (for multi event trx)/end event of the
+     last trx that updated that table */
+  std::unordered_map<Dependency_key, std::shared_ptr<Log_event_wrapper>>
+      dep_key_lookup;
+  mysql_mutex_t dep_key_lookup_mutex;
+
+  /* Set of all DBs accessed by the current group */
+  std::unordered_set<std::string> dbs_accessed_by_group;
+
+  // Mutex-condition pair to notify when queue is/is not full
+  mysql_cond_t dep_full_cond;
+  bool dep_full = false;
+
+  // Mutex-condition pair to notify when queue is/is not empty
+  mysql_cond_t dep_empty_cond;
+  ulonglong num_workers_waiting = 0;
+
+  bool trx_queued = false;
+
+  mysql_cond_t dep_trx_all_done_cond;
+
+  // Used to signal when a dependency worker dies
+  std::atomic<bool> dependency_worker_error{false};
+
+ public:
+  /* Set of keys accessed by the group */
+  std::unordered_set<Dependency_key> keys_accessed_by_group;
+
+  bool dep_sync_group = false;
+
+  std::shared_ptr<Log_event_wrapper> prev_event;
+  std::shared_ptr<Log_event_wrapper> current_begin_event;
+  std::unordered_map<ulonglong, Table_map_log_event *> table_map_events;
+
+  // Statistics
+  std::atomic<ulonglong> begin_event_waits{0};
+  std::atomic<ulonglong> next_event_waits{0};
+  std::atomic<ulonglong> num_in_flight_trx{0};
+
+  Mts_submode_dependency() {
+    type = MTS_PARALLEL_TYPE_DEPENDENCY;
+    mysql_mutex_init(0, &dep_lock, MY_MUTEX_INIT_FAST);
+    mysql_mutex_init(0, &dep_key_lookup_mutex, MY_MUTEX_INIT_FAST);
+    mysql_cond_init(0, &dep_full_cond);
+    mysql_cond_init(0, &dep_empty_cond);
+    mysql_cond_init(0, &dep_trx_all_done_cond);
+  }
+
+  virtual ~Mts_submode_dependency() override {
+    clear_dep();
+    assert(num_workers_waiting == 0 && num_in_flight_trx == 0);
+    mysql_mutex_destroy(&dep_lock);
+    mysql_mutex_destroy(&dep_key_lookup_mutex);
+    mysql_cond_destroy(&dep_full_cond);
+    mysql_cond_destroy(&dep_empty_cond);
+    mysql_cond_destroy(&dep_trx_all_done_cond);
+  }
+
+  void attach_temp_tables(THD *, const Relay_log_info *,
+                          Query_log_event *) override {}
+  void detach_temp_tables(THD *, const Relay_log_info *,
+                          Query_log_event *) override {}
+  int schedule_next_event(Relay_log_info *, Log_event *) override {
+    assert(false);
+    return 0;
+  }
+
+  Slave_worker *get_least_occupied_worker(Relay_log_info *,
+                                          Slave_worker_array *,
+                                          Log_event *) override {
+    assert(false);
+    return nullptr;
+  }
+
+  int wait_for_workers_to_finish(Relay_log_info *rli,
+                                 MY_ATTRIBUTE((unused))
+                                     Slave_worker *ignore = nullptr) override {
+    assert(ignore == nullptr);
+    if (!wait_for_dep_workers_to_finish(rli, false)) return -1;
+    return 0;
+  }
+
+  ulonglong get_dep_queue_size() {
+    ulonglong dep_queue_size;
+    mysql_mutex_lock(&dep_lock);
+    dep_queue_size = dep_queue.size();
+    mysql_mutex_unlock(&dep_lock);
+    return dep_queue_size;
+  }
+
+  void cleanup_group(std::shared_ptr<Log_event_wrapper> begin_event) {
+    // Delete all events manually in bottom-up manner to avoid stack overflow
+    // from cascading shared_ptr deletions
+    std::stack<std::weak_ptr<Log_event_wrapper>> events;
+    auto &event = begin_event;
+    while (event) {
+      events.push(event);
+      event = event->next_ev;
+    }
+
+    while (!events.empty()) {
+      const auto sptr = events.top().lock();
+      if (sptr) sptr->next_ev.reset();
+      events.pop();
+    }
+  }
+
+  void clear_dep(bool need_dep_lock = true) {
+    if (need_dep_lock) mysql_mutex_lock(&dep_lock);
+
+    assert(num_in_flight_trx >= dep_queue.size());
+    num_in_flight_trx -= dep_queue.size();
+    for (const auto &begin_event : dep_queue) cleanup_group(begin_event);
+    dep_queue.clear();
+
+    prev_event.reset();
+    current_begin_event.reset();
+    table_map_events.clear();
+
+    keys_accessed_by_group.clear();
+    dbs_accessed_by_group.clear();
+
+    mysql_cond_broadcast(&dep_empty_cond);
+    mysql_cond_broadcast(&dep_full_cond);
+    mysql_cond_broadcast(&dep_trx_all_done_cond);
+
+    dep_full = false;
+
+    mysql_mutex_lock(&dep_key_lookup_mutex);
+    dep_key_lookup.clear();
+    mysql_mutex_unlock(&dep_key_lookup_mutex);
+
+    trx_queued = false;
+
+    if (need_dep_lock) mysql_mutex_unlock(&dep_lock);
+  }
+
+  void add_row_event(Relay_log_info *rli, Rows_log_event *rle,
+                     std::shared_ptr<Log_event_wrapper> ev,
+                     std::deque<Dependency_key> &keylist);
+  void register_keys(std::shared_ptr<Log_event_wrapper> &ev);
+  void unregister_keys(std::shared_ptr<Log_event_wrapper> &ev);
+  std::shared_ptr<Log_event_wrapper> dequeue(Relay_log_info *rli,
+                                             Slave_worker *worker,
+                                             Commit_order_manager *co_mngr);
+  void enqueue(Relay_log_info *rli,
+               const std::shared_ptr<Log_event_wrapper> &begin_event);
+  /**
+     Encapsulation for things to be done to terminal dependency events
+     @see Log_event::schedule_dep
+  */
+  bool schedule_dep(Relay_log_info *rli, Log_event *ev);
+  /**
+     Encapsulation for things to be done to terminal dependency events
+     @see Log_event::schedule_dep
+  */
+  void handle_terminal_event(THD *thd, Relay_log_info *rli,
+                             std::shared_ptr<Log_event_wrapper> &ev);
+  void signal_trx_done(std::shared_ptr<Log_event_wrapper> begin_event);
+  bool is_partially_enqueued_trx(Relay_log_info *rli);
+
+  bool wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                      const bool partial_trx);
+  void stop_dependency_workers(Relay_log_info *rli);
 };
 
 /**

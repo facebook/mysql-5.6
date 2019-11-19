@@ -555,6 +555,10 @@ class Slave_worker : public Relay_log_info {
 #endif
   ulong id;  // numeric identifier of the Worker
 
+  // DB of the current trx begin executed by the worker, empty string for trxs
+  // changing multiple DBs and for trxs that need to be executed in isolation
+  std::string current_db;
+
   /*
     Worker runtime statistics
   */
@@ -644,7 +648,7 @@ class Slave_worker : public Relay_log_info {
     The running status is guarded by jobs_lock mutex that a writer
     Coordinator or Worker itself needs to hold when write a new value.
   */
-  en_running_state volatile running_status;
+  std::atomic<en_running_state> volatile running_status;
   /*
     exit_incremented indicates whether worker has contributed to max updated
     index. By default it is set to false. When the worker contributes for the
@@ -916,6 +920,8 @@ class Slave_worker : public Relay_log_info {
       *get_rbr_column_type_mismatch_whitelist() const override {
     return c_rli ? c_rli->get_rbr_column_type_mismatch_whitelist() : nullptr;
   }
+  void set_current_db(const std::string &db) { current_db = db; }
+  std::string get_current_db() const { return current_db; }
 
   /**
      Return true if replica-preserve-commit-order is enabled and an

@@ -1,0 +1,38 @@
+let $var= mts_dependency_replication;
+eval set @save.$var= @@global.$var;
+
+#
+# exists as global only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+eval select @@session.$var;
+
+select variable_name from performance_schema.global_variables where variable_name='$var';
+select variable_name from performance_schema.session_variables where variable_name='$var';
+
+#
+# show that it's writable
+#
+let $value= tbl;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+let $value= stmt;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+let $value= none;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+#
+# incorrect value
+#
+--error ER_WRONG_TYPE_FOR_VAR
+eval set @@global.$var= 1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+eval set @@global.$var= "foo";
+
+# cleanup
+
+eval set @@global.$var= @save.$var;

@@ -493,10 +493,10 @@ void get_server_startup_prerequirements(Trans_context_info &requirements) {
       global_system_variables.transaction_write_set_extraction;
   requirements.mi_repository_type = opt_mi_repository_id;
   requirements.rli_repository_type = opt_rli_repository_id;
-  requirements.parallel_applier_type = mts_parallel_option;
+  requirements.parallel_applier_type = get_mts_parallel_option();
   requirements.parallel_applier_workers = opt_mts_replica_parallel_workers;
   requirements.parallel_applier_preserve_commit_order =
-      opt_replica_preserve_commit_order;
+      get_slave_preserve_commit_order();
   requirements.lower_case_table_names = lower_case_table_names;
   requirements.default_table_encryption =
       global_system_variables.default_table_encryption;

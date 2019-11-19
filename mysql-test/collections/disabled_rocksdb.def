@@ -15,7 +15,6 @@ rocksdb_hotbackup.xbstream_socket : BUG#0000 hotbackup feature is missing in 8.0
 # Missing features
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
 rocksdb.skip_core_dump_on_error : BUG#0000 missing patch
-rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : BUG#0000 missing patch
 rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb.force_shutdown: BUG#0000 missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave

@@ -14,8 +14,6 @@
 # and verify that the SQL thread was properly stopped and left no gaps.
 
 --source include/have_binlog_format_statement.inc
---source include/only_mts_replica_parallel_workers.inc
---source include/only_mts_replica_parallel_type_database.inc
 --source include/master-slave.inc
 
 --let $slave_stop_wait=5
@@ -23,6 +21,8 @@
 --echo #### I. Initialize ####
 
 --source include/rpl_connection_slave.inc
+--source include/only_mts_replica_parallel_workers.inc
+--source include/only_mts_replica_parallel_type_database.inc
 --source include/stop_slave.inc
 SET @save.innodb_lock_wait_timeout= @@global.innodb_lock_wait_timeout;
 --eval set @@global.innodb_lock_wait_timeout=$slave_stop_wait + 1000

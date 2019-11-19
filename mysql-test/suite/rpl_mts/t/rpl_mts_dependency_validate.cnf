@@ -1,0 +1,25 @@
+!include ../my.cnf
+
+[mysqld.1]
+gtid_mode=ON
+enforce_gtid_consistency=ON
+log_slave_updates=ON
+innodb-checksum-algorithm=crc32
+
+[mysqld.2]
+gtid_mode=ON
+enforce_gtid_consistency=ON
+log_slave_updates=ON
+replica_parallel_workers=8
+innodb-checksum-algorithm=crc32
+
+[mysqld.3]
+gtid_mode=ON
+enforce_gtid_consistency=ON
+log_slave_updates=ON
+replica_parallel_workers=0
+innodb-checksum-algorithm=crc32
+
+[ENV]
+SERVER_MYPORT_3=                @mysqld.3.port
+SERVER_MYSOCK_3=                @mysqld.3.socket

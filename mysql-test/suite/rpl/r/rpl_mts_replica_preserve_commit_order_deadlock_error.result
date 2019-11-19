@@ -1,4 +1,3 @@
-include/only_with_option.inc [GLOBAL.replica_parallel_workers > 1]
 include/master-slave.inc
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
@@ -10,6 +9,7 @@ Note	####	Storing MySQL user name or password information in the master info rep
 CREATE TABLE t1(c1 INT PRIMARY KEY, c2 INT, INDEX(c2)) ENGINE = InnoDB;
 CREATE TABLE t2(c1 INT PRIMARY KEY) ENGINE = InnoDB;
 include/sync_slave_sql_with_master.inc
+include/only_with_option.inc [GLOBAL.replica_parallel_workers > 1]
 #
 # 2. Initial setup on Slave.
 #

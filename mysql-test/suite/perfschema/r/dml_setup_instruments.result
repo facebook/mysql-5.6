@@ -28,9 +28,9 @@ wait/synch/rwlock/sql/Binlog_transmit_delegate::lock	YES	YES	singleton	NULL	0	NU
 wait/synch/rwlock/sql/channel_lock	YES	YES		NULL	0	NULL
 wait/synch/rwlock/sql/channel_map_lock	YES	YES		NULL	0	NULL
 wait/synch/rwlock/sql/channel_to_filter_lock	YES	YES		NULL	0	NULL
+wait/synch/rwlock/sql/Commit_order_manager::rwlock	YES	YES		NULL	0	NULL
 wait/synch/rwlock/sql/gtid_commit_rollback	YES	YES	singleton	NULL	0	NULL
 wait/synch/rwlock/sql/gtid_mode_lock	YES	YES	singleton	NULL	0	NULL
-wait/synch/rwlock/sql/gtid_retrieved	YES	YES	singleton	NULL	0	NULL
 select * from performance_schema.setup_instruments
 where name like 'Wait/Synch/Cond/sql/%'
   and name not in (

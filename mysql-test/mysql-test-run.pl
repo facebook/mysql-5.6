@@ -302,6 +302,7 @@ our @DEFAULT_SUITES = qw(
   engines/funcs
   funcs_1
   jp
+  rpl_mts
   rpl_recovery
   stress
 );

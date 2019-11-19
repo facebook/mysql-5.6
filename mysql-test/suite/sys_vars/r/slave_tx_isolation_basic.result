@@ -1,0 +1,92 @@
+SET @global_start_value = @@global.slave_tx_isolation;
+SELECT @global_start_value;
+@global_start_value
+REPEATABLE-READ
+'#--------------------FN_DYNVARS_183_01------------------------#'
+SET @@global.slave_tx_isolation = 'READ-UNCOMMITTED';
+SET @@global.slave_tx_isolation = DEFAULT;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+REPEATABLE-READ
+select @@session.slave_tx_isolation;
+ERROR HY000: Variable 'slave_tx_isolation' is a GLOBAL variable
+'#---------------------FN_DYNVARS_183_02-------------------------#'
+SET @@global.slave_tx_isolation = NULL;
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'NULL'
+SET @@global.slave_tx_isolation = '';
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of ''
+'#--------------------FN_DYNVARS_183_03------------------------#'
+SET @@global.slave_tx_isolation = 'READ-UNCOMMITTED';
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-UNCOMMITTED
+SET @@global.slave_tx_isolation = 'read-COMMITTED';
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-COMMITTED
+SET @@global.slave_tx_isolation = 'REPEATABLE-READ';
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+REPEATABLE-READ
+SET @@global.slave_tx_isolation = 'SERIALIZable';
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+SERIALIZABLE
+'#--------------------FN_DYNVARS_183_04-------------------------#'
+SET @@global.slave_tx_isolation = -1;
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of '-1'
+SET @@global.slave_tx_isolation = READUNCOMMITTED;
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'READUNCOMMITTED'
+SET @@global.slave_tx_isolation = 'REPEATABLE';
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'REPEATABLE'
+SET @@global.slave_tx_isolation = OFF;
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'OFF'
+SET @@global.slave_tx_isolation = ON;
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'ON'
+SET @@global.slave_tx_isolation = 'NON-SERIALIZABLE';
+ERROR 42000: Variable 'slave_tx_isolation' can't be set to the value of 'NON-SERIALIZABLE'
+'#----------------------FN_DYNVARS_183_06------------------------#'
+SELECT @@global.slave_tx_isolation = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_tx_isolation';
+@@global.slave_tx_isolation = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_183_07-------------------------#'
+SET @@global.slave_tx_isolation = 0;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-UNCOMMITTED
+SET @@global.slave_tx_isolation = 1;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-COMMITTED
+SET @@global.slave_tx_isolation = 2;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+REPEATABLE-READ
+SET @@global.slave_tx_isolation = 3;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+SERIALIZABLE
+SET @@global.slave_tx_isolation = 0.4;
+ERROR 42000: Incorrect argument type to variable 'slave_tx_isolation'
+'#---------------------FN_DYNVARS_183_08----------------------#'
+SET @@global.slave_tx_isolation = TRUE;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-COMMITTED
+SET @@global.slave_tx_isolation = FALSE;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+READ-UNCOMMITTED
+'#---------------------FN_DYNVARS_183_09----------------------#'
+SET global.slave_tx_isolation = 'REPEATABLE-READ';
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.slave_tx_isolation = 'REPEATABLE-READ'' at line 1
+SET global slave_tx_isolation = 'REPEATABLE-READ';
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+REPEATABLE-READ
+SET @@global.slave_tx_isolation = @global_start_value;
+SELECT @@global.slave_tx_isolation;
+@@global.slave_tx_isolation
+REPEATABLE-READ

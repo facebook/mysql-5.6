@@ -1,0 +1,58 @@
+source include/only_mts_replica_parallel_type_dependency.inc;
+source include/have_debug_sync.inc;
+source include/master-slave.inc;
+
+connection slave;
+source include/stop_slave.inc;
+set @save.replica_parallel_workers= @@global.replica_parallel_workers;
+set @save.replica_preserve_commit_order= @@global.replica_preserve_commit_order;
+set @save.debug= @@global.debug;
+set @@global.replica_parallel_workers= 2;
+set @@global.replica_preserve_commit_order= false;
+set @@global.debug= '+d,dbug.dep_wait_before_update_execution';
+source include/start_slave.inc;
+
+connection master;
+create table t1 (a int primary key, b int unique key);
+insert into t1 values(1, 1);
+source include/sync_slave_sql_with_master.inc;
+source include/stop_slave.inc;
+
+connection master;
+update t1 set b = 2 where a = 1; # this will stall on slave due to dbug_sync
+insert into t1 values(2, 1); # this should wait for the update to finish
+
+connection slave;
+source include/start_slave.inc;
+# wait till one of the workers reach the point just before execution of update
+set debug_sync="now wait_for signal.reached";
+
+# wait till the other worker is waiting for dependencies to be satisfied
+let $wait_condition=
+    select count(*)= 1 from information_schema.processlist
+      where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+--sorted_result
+select * from t1;
+set debug_sync="now signal signal.done";
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+--sorted_result
+select * from t1;
+
+# Cleanup
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+source include/stop_slave.inc;
+set @@global.replica_parallel_workers= @save.replica_parallel_workers;
+set @@global.replica_preserve_commit_order= @save.replica_preserve_commit_order;
+set @@global.debug= @save.debug;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;

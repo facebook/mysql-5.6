@@ -1,0 +1,6 @@
+--binlog-format=row
+--slave_use_idempotent_for_recovery=yes
+--mts_dependency_replication=NONE
+--replica_preserve_commit_order=TRUE
+--slave_tx_isolation=READ-COMMITTED
+--replica_parallel_type=DEPENDENCY

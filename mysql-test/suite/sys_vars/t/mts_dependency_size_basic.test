@@ -1,0 +1,183 @@
+############## mysql-test\t\mts_dependency_size_basic.test ###############
+#                                                                             #
+# Variable Name: mts_dependency_size                                        #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: numeric                                                          #
+# Default Value:4294967295                                                    #
+# Range: 4096-4294967295                                                      #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2008-02-07                                                   #
+# Author:  Salman                                                             #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable mts_dependency_size    #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                          #
+#  server-system-variables.html                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+######################################################################## 
+#              START OF mts_dependency_size TESTS                    #
+######################################################################## 
+
+
+######################################################################## 
+# Saving initial value of mts_dependency_size in a temporary variable#
+######################################################################## 
+
+SET @start_mts_dependency_size = @@global.mts_dependency_size;
+SELECT @start_mts_dependency_size;
+
+
+--echo '#--------------------FN_DYNVARS_072_01------------------------#'
+######################################################################## 
+#           Display the DEFAULT value of mts_dependency_size         #
+######################################################################## 
+
+SET @@global.mts_dependency_size = 5000;
+SET @@global.mts_dependency_size = DEFAULT;
+SELECT @@global.mts_dependency_size;
+
+
+--echo '#---------------------FN_DYNVARS_072_02-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+############################################### 
+
+SET @@global.mts_dependency_size = @start_mts_dependency_size;
+SELECT @@global.mts_dependency_size = 4294967295;
+
+--echo '#--------------------FN_DYNVARS_072_03------------------------#'
+######################################################################## 
+#    Change the value of mts_dependency_size to a valid value        #
+######################################################################## 
+
+SET @@global.mts_dependency_size = 4096;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 4294967295;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 4294967294;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 4097;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 65535;
+SELECT @@global.mts_dependency_size;
+
+
+--echo '#--------------------FN_DYNVARS_072_04-------------------------#'
+########################################################################### 
+#      Change the value of mts_dependency_size to invalid value         #
+########################################################################### 
+
+SET @@global.mts_dependency_size = -1;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 100000000000;
+SELECT @@global.mts_dependency_size;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_size = 10000.01;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = -1024;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 1024;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 4294967296;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = 4095;
+SELECT @@global.mts_dependency_size;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_size = ON;
+SELECT @@global.mts_dependency_size;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_size = 'test';
+SELECT @@global.mts_dependency_size;
+
+
+--echo '#-------------------FN_DYNVARS_072_05----------------------------#'
+########################################################################### 
+#       Test if accessing session mts_dependency_size gives error       #
+########################################################################### 
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.mts_dependency_size = 4096;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.mts_dependency_size;
+
+
+--echo '#----------------------FN_DYNVARS_072_06------------------------#'
+############################################################################## 
+# Check if the value in GLOBAL & SESSION Tables matches values in variable   #
+##############################################################################
+
+SELECT @@global.mts_dependency_size = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='mts_dependency_size';
+
+SELECT @@mts_dependency_size = VARIABLE_VALUE 
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='mts_dependency_size';
+
+
+--echo '#---------------------FN_DYNVARS_072_07----------------------#'
+################################################################### 
+#      Check if TRUE and FALSE values can be used on variable     #
+################################################################### 
+
+SET @@global.mts_dependency_size = TRUE;
+SELECT @@global.mts_dependency_size;
+SET @@global.mts_dependency_size = FALSE;
+SELECT @@global.mts_dependency_size;
+
+
+--echo '#---------------------FN_DYNVARS_072_08----------------------#'
+########################################################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points to same session variable  #
+########################################################################################################
+
+SET @@global.mts_dependency_size = 5000;
+SELECT @@mts_dependency_size = @@global.mts_dependency_size;
+
+
+--echo '#---------------------FN_DYNVARS_072_09----------------------#'
+################################################################################  
+#   Check if mts_dependency_size can be accessed with and without @@ sign    #
+################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET mts_dependency_size = 6000;
+SELECT @@mts_dependency_size;
+--Error ER_PARSE_ERROR
+SET local.mts_dependency_size = 7000;
+--Error ER_UNKNOWN_TABLE
+SELECT local.mts_dependency_size;
+--Error ER_PARSE_ERROR
+SET global.mts_dependency_size = 8000;
+--Error ER_UNKNOWN_TABLE
+SELECT global.mts_dependency_size;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT mts_dependency_size = @@session.mts_dependency_size;
+
+
+##############################  
+#   Restore initial value    #
+##############################
+
+SET @@global.mts_dependency_size = @start_mts_dependency_size;
+SELECT @@global.mts_dependency_size;
+
+
+######################################################################## 
+#              END OF mts_dependency_size TESTS                      #
+######################################################################## 

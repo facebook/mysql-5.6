@@ -1,1 +1,3 @@
 --replica-transaction-retries=0 --sync_source_info=1
+--replica-parallel-workers=2
+--replica_parallel_type='DATABASE' --replica_preserve_commit_order=OFF
