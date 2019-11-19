@@ -6317,14 +6317,15 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       }
 
       if (opt_binlog_index_name)
-      {
         tstr.assign(opt_binlog_index_name);
-        fpos = tstr.find(rep_from);
-        if (fpos != std::string::npos)
-        {
-          tstr.replace(fpos, rep_from.length(), rep_to);
-          opt_binlog_apply_index_name= my_strdup(tstr.c_str(), MYF(0));
-        }
+      else
+        tstr.assign(opt_bin_logname);
+
+      fpos = tstr.find(rep_from);
+      if (fpos != std::string::npos)
+      {
+        tstr.replace(fpos, rep_from.length(), rep_to);
+        opt_binlog_apply_index_name= my_strdup(tstr.c_str(), MYF(0));
       }
     }
 

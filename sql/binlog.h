@@ -975,6 +975,20 @@ public:
   int rotate(bool force_rotate, bool* check_purge);
   void purge();
   int rotate_and_purge(THD* thd, bool force_rotate);
+
+  /*
+   * Reads the current index file and returns a list of all file names found in
+   * the binlog file
+   *
+   * @param need_lock - Should LOCK_index be taken?
+   *
+   * @return A pair containing a list of string and an error status. Error
+   * status is 1 if it fails to read from the index file. Else error status is 0
+   * and the list contains all the filenames present in the index file
+   */
+  std::pair<std::vector<std::string>, int>
+    get_lognames_from_index(bool need_lock);
+
   /**
      Flush binlog cache and synchronize to disk.
 

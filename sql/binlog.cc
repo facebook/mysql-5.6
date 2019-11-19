@@ -6768,10 +6768,39 @@ int binlog_change_to_binlog()
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   mysql_bin_log.lock_index();
 
+  // Get the index file name
+  std::string indexfn= mysql_bin_log.get_index_fname();
+
+  std::pair<std::vector<std::string>, int> result;
+  bool delete_apply_logs= false;
+  if (indexfn.find(opt_binlog_apply_index_name) != std::string::npos)
+  {
+    // This is a apply-binlog index file. Get a list of apply-binlog names from
+    // the index file
+    result= mysql_bin_log.get_lognames_from_index(false);
+    if (result.second)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "Failed to get apply binlog filenames from the index file");
+      error= 1;
+      goto err;
+    }
+    delete_apply_logs= true;
+  }
+
+  if (result.second)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed to get apply binlog filenames from the index file");
+    error= 1;
+    goto err;
+  }
+
   mysql_bin_log.close(LOG_CLOSE_INDEX);
 
-  if (mysql_bin_log.open_index_file(opt_binlog_index_name,
-                                   opt_bin_logname, false/*need_lock_index=false*/))
+  if (mysql_bin_log.open_index_file(
+        opt_binlog_index_name, opt_bin_logname, false/*need_lock_index=false*/))
   {
     error= 1;
     goto err;
@@ -6794,7 +6823,7 @@ int binlog_change_to_binlog()
 
   /*
     Configures what object is used by the current log to store processed
-    gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to
+    gtid(s). This is necessary in the MYSQL_BIN_LOG::rotate to
     correctly compute the set of previous gtids.
   */
   mysql_bin_log.set_previous_gtid_set(
@@ -6811,12 +6840,78 @@ int binlog_change_to_binlog()
     goto err;
   }
 
+  if (!delete_apply_logs)
+    goto err;
+
+  // 1. Now delete all the apply binlogs
+  // 2. Once the apply binlogs are deleted, then proceed to delete the apply
+  // binlog index file
+  // TODO: This needs better safety - if mysqld crashes between 1 and 2, it will
+  // not be able to startup without manual intervention
+  for (const auto& name : result.first)
+  {
+    if (my_delete(name.c_str(), MYF(MY_WME))) // #1
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Could not delete the apply binlog file %s",
+          name.c_str());
+      error= 1;
+      goto err;
+    }
+  }
+
+  // NO_LINT_DEBUG
+  sql_print_information("Deleting the apply index file %s", indexfn.c_str());
+  if (my_delete(indexfn.c_str(), MYF(MY_WME))) // #2
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed to delete apply index file %s", indexfn.c_str());
+    error= 1;
+    goto err;
+  }
+
 err:
 
   mysql_bin_log.unlock_index();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
+}
+
+
+std::pair<std::vector<std::string>, int>
+MYSQL_BIN_LOG::get_lognames_from_index(bool need_lock)
+{
+  LOG_INFO log_info;
+  std::vector<std::string> lognames;
+  int error= 0;
+
+  if (need_lock)
+    mysql_mutex_lock(&LOCK_index);
+
+  if ((error= find_log_pos(&log_info, NullS, false/*need_lock_index=false*/)))
+    goto err;
+
+  while (true)
+  {
+    lognames.emplace_back(log_info.log_file_name);
+
+    int ret= find_next_log(&log_info, false/*need_lock_index=false*/);
+    if (ret == LOG_INFO_EOF) {
+      break;
+    } else if (ret == LOG_INFO_IO) {
+      // NO_LINT_DEBUG
+      sql_print_error("Could not read from log index file ");
+      error= 1;
+      goto err;
+    }
+  }
+
+err:
+  if (need_lock)
+    mysql_mutex_unlock(&LOCK_index);
+
+  return std::make_pair(std::move(lognames), error);
 }
 
 uint MYSQL_BIN_LOG::next_file_id()
