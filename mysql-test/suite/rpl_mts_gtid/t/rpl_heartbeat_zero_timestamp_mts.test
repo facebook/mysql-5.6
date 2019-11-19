@@ -3,5 +3,5 @@
 ################################################################################
 
 # Start a new master-slave
-let $parallel_workers=0;
---source suite/rpl/include/rpl_heartbeat_zero_timestamp.inc
+let $parallel_workers=4;
+--source ../include/rpl_heartbeat_zero_timestamp.inc

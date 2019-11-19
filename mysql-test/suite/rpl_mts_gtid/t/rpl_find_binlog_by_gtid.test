@@ -1,3 +1,4 @@
+-- source include/assert_gtid_mode_on.inc
 -- source include/master-slave.inc
 -- source include/big_test.inc
 
@@ -7,7 +8,9 @@ call mtr.add_suppression("Unsafe statement written to the binary log using state
 
 -- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
 -- let $include_silent = 1
--- source extra/rpl_tests/rpl_parallel_load_innodb.test
+-- let $iter = 10
+-- let $databases = 5
+-- source extra/rpl_tests/rpl_parallel_simple_load.test
 
 -- echo === Check FIND BINLOG GTID works with a multi threaded slave ===
 
