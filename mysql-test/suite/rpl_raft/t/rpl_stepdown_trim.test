@@ -1,0 +1,84 @@
+source ../include/raft_3_node.inc;
+
+--disable_query_log
+call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' failed");
+--enable_query_log
+
+--let $outfile1= $MYSQLTEST_VARDIR/tmp/ps1
+--let $outfile2= $MYSQLTEST_VARDIR/tmp/ps2
+--let $outfile3= $MYSQLTEST_VARDIR/tmp/ps3
+
+--let $cmd1 = ps -Aefl | grep mysqld  | grep 'suffix=.1' | grep -v Saf | awk '{print \$4; }'
+--let $cmd2 = ps -Aefl | grep mysqld  | grep 'suffix=.2' | grep -v Saf | awk '{print \$4; }'
+--let $cmd3 = ps -Aefl | grep mysqld  | grep 'suffix=.3' | grep -v Saf | awk '{print \$4; }'
+
+--exec $cmd1 > $outfile1
+--exec $cmd2 > $outfile2
+--exec $cmd3 > $outfile3
+
+connection server1;
+# InnoDB explicitly so that rollbacks are supported
+create table t1 (a int primary key) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+#--sleep 5
+
+let $sync_slave_connection= server2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server1;
+insert into t1 values (3), (4), (5);
+
+# stop the 2 slaves so that they don't receive the last
+# trxs from the master.
+--exec kill -STOP `cat $outfile2`
+--exec kill -STOP `cat $outfile3`
+
+# This makes sure that the slaves have stopped
+--sleep 5
+
+connection server1;
+SET net_write_timeout = 1;
+send insert into t1 values (6), (7), (8);
+--echo "Now triggering DMP by stopping current MASTER"
+--echo "Now triggering DMP by reenabling current SLAVES"
+
+# Now stop the master and reenable the slaves so that
+# the master stops and the slaves re-enable to start election
+--exec kill -STOP `cat $outfile1`
+--exec kill -CONT `cat $outfile2`
+--exec kill -CONT `cat $outfile3`
+
+--sleep 5
+--echo "Will restart previous master to trigger trimming in 15 seconds"
+--exec kill -CONT `cat $outfile1`
+
+--error 1180
+reap
+
+let $rpl_server_count= 3;
+--source ../include/raft_leadership.inc
+
+connection server1;
+show status like 'rpl_raft_role';
+
+connection server2;
+select * from t1;
+
+connection server3;
+select * from t1;
+
+connection server1;
+select * from t1;
+
+drop table t1;
+
+let $sync_slave_connection= server2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
