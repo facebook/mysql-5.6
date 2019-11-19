@@ -36,16 +36,16 @@ SET GLOBAL slave_parallel_type = "LOGICAL_CLOCK";
 SET GLOBAL slave_parallel_workers = 4;
 
 --let $until_type= MASTER_POS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 --let $until_type= RELAY_POS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 --let $until_type= BEFORE_GTIDS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 #--let $until_type= AFTER_GTIDS
-#--source extra/rpl_tests/rpl_mts_until.inc
+#--source ../include/rpl_mts_until.inc
 
 --source include/stop_slave_sql.inc
 SET GLOBAL slave_parallel_type = "DATABASE";
@@ -55,16 +55,16 @@ SET GLOBAL innodb_lock_wait_timeout = 1000;
 SET GLOBAL relay_log_purge = FALSE;
 
 --let $until_type= MASTER_POS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 --let $until_type= RELAY_POS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 --let $until_type= BEFORE_GTIDS
---source extra/rpl_tests/rpl_mts_until.inc
+--source ../include/rpl_mts_until.inc
 
 #--let $until_type= AFTER_GTIDS
-#--source extra/rpl_tests/rpl_mts_until.inc
+#--source ../include/rpl_mts_until.inc
 
 --source include/rpl_connection_master.inc
 DROP DATABASE db1;

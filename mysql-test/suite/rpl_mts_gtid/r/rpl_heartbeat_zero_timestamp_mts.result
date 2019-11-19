@@ -1,0 +1,33 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_set_gtid_mode.inc [ON on servers 1,2]
+include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@global.slave_parallel_workers= 4;
+CHANGE MASTER TO MASTER_AUTO_POSITION=1;
+include/start_slave.inc
+SET GLOBAL DEBUG="+d, send_zero_hb_event";
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=0.1;
+include/start_slave.inc
+include/assert.inc [Seconds behind master should be bigger than zero after creating the lag for MTS]
+include/sync_slave_sql_with_master.inc
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+SET GLOBAL DEBUG="-d, send_zero_hb_event";
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+CHANGE MASTER TO MASTER_HEARTBEAT_PERIOD=30.000;
+include/start_slave.inc
+include/rpl_end.inc
