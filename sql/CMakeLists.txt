@@ -843,7 +843,8 @@ SET (SLAVE_SOURCE rpl_slave.cc rpl_reporting.cc rpl_mi.cc rpl_rli.cc
                   rpl_rli_pdb.cc rpl_info_dummy.cc rpl_mts_submode.cc
                   rpl_slave_commit_order_manager.cc rpl_msr.cc
                   rpl_trx_boundary_parser.cc rpl_channel_service_interface.cc
-                  rpl_slave_until_options.cc rpl_applier_reader.cc)
+                  rpl_slave_until_options.cc rpl_applier_reader.cc
+                  log_event_wrapper.cc dependency_slave_worker.cc)
 ADD_LIBRARY(slave STATIC ${SLAVE_SOURCE})
 ADD_DEPENDENCIES(slave GenError)
 TARGET_LINK_LIBRARIES(slave binlog sql_main)

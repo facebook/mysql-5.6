@@ -172,6 +172,11 @@ enum enum_slave_use_idempotent_for_recovery {
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES
 };
 
+enum enum_mts_dependency_replication {
+  DEP_RPL_TABLE,
+  DEP_RPL_STATEMENT,
+};
+
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
                                const PSI_stage_info *stage,

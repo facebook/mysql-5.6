@@ -332,6 +332,10 @@ extern uint slave_net_timeout;
 extern ulong opt_mts_slave_parallel_workers;
 extern bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
+extern ulong opt_mts_dependency_replication;
+extern ulonglong opt_mts_dependency_size;
+extern double opt_mts_dependency_refill_threshold;
+extern ulonglong opt_mts_dependency_max_keys;
 extern ulonglong opt_mts_pending_jobs_size_max;
 extern ulong rpl_stop_slave_timeout;
 extern bool log_bin_use_v1_row_events;
@@ -486,6 +490,7 @@ extern char *opt_log_error_services;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
+extern ulong slave_tx_isolation;
 
 /* Enable logging queries to a unix local datagram socket */
 extern bool log_datagram;
@@ -727,6 +732,8 @@ extern PSI_stage_info stage_suspending;
 extern PSI_stage_info stage_starting;
 extern PSI_stage_info stage_waiting_for_no_channel_reference;
 extern PSI_stage_info stage_hook_begin_trans;
+extern PSI_stage_info stage_slave_waiting_for_dependencies;
+extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).

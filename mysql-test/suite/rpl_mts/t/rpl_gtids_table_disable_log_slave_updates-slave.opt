@@ -1,0 +1,2 @@
+--gtid-mode=ON --enforce-gtid-consistency=ON
+--log-slave-updates=false --slave-parallel-workers=2

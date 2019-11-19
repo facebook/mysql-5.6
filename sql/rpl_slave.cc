@@ -67,6 +67,9 @@
 #include <utility>
 #include <vector>
 
+#include <signal.h>
+#include "dependency_slave_worker.h"
+
 #include "binlog_event.h"
 #include "control_events.h"
 #include "debug_vars.h"
@@ -641,8 +644,10 @@ int init_slave() {
         mi->rli->checkpoint_group = opt_mts_checkpoint_group;
         if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-        else
+        else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+        else
+          mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
         if (start_slave_threads(true /*need_lock_slave=true*/,
                                 false /*wait_for_start=false*/, mi,
                                 thread_mask)) {
@@ -1248,9 +1253,12 @@ static inline int fill_mts_gaps_and_recover(Master_info *mi) {
   rli->set_until_option(until_mg);
   rli->until_condition = Relay_log_info::UNTIL_SQL_AFTER_MTS_GAPS;
   until_mg->init();
-  rli->channel_mts_submode = (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
-                                 ? MTS_PARALLEL_TYPE_DB_NAME
-                                 : MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
+  else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+  else
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
   LogErr(INFORMATION_LEVEL, ER_RPL_MTS_RECOVERY_STARTING_COORDINATOR);
   recovery_error = start_slave_thread(
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -4469,7 +4477,14 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
                         DBUG_SET("+d,stop_when_mts_in_group"););
 
     if (!exec_res && (ev->worker != rli)) {
-      if (ev->worker) {
+      if (is_mts_parallel_type_dependency(rli)) {
+        DBUG_ASSERT(ev->worker == nullptr);
+        if (!static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+                 ->schedule_dep(rli, ev)) {
+          *ptr_ev = nullptr;
+          DBUG_RETURN(SLAVE_APPLY_EVENT_AND_UPDATE_POS_APPLY_ERROR);
+        }
+      } else if (ev->worker) {
         Slave_job_item item = {ev, rli->get_event_relay_log_number(),
                                rli->get_event_start_pos()};
         Slave_job_item *job_item = &item;
@@ -5878,6 +5893,9 @@ static void *handle_slave_worker(void *arg) {
   thd_set_psi(w->info_thd, psi);
 #endif
 
+  w->info_thd->variables.transaction_isolation =
+      static_cast<enum_tx_isolation>(slave_tx_isolation);
+
   if (init_slave_thread(thd, SLAVE_THD_WORKER)) {
     // todo make SQL thread killed
     LogErr(ERROR_LEVEL, ER_RPL_SLAVE_CANT_INITIALIZE_SLAVE_WORKER,
@@ -5930,10 +5948,13 @@ static void *handle_slave_worker(void *arg) {
   set_timespec_nsec(&w->ts_exec[1], 0);
   set_timespec_nsec(&w->stats_begin, 0);
 
-  while (!error) {
-    error = slave_worker_exec_job_group(w, rli);
+  if (is_mts_parallel_type_dependency(rli)) {
+    static_cast<Dependency_slave_worker *>(w)->start();
+  } else {
+    while (!error) {
+      error = slave_worker_exec_job_group(w, rli);
+    }
   }
-
   /*
      Cleanup after an error requires clear_error() go first.
      Otherwise assert(!all) in binlog_rollback()
@@ -6320,11 +6341,13 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
                rli->rli_checkpoint_seqno == rli->checkpoint_group));
 
   do {
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_lock(&rli->mts_gaq_LOCK);
+    if (is_mts_parallel_type_logical_clock(rli))
+      mysql_mutex_lock(&rli->mts_gaq_LOCK);
 
     cnt = rli->gaq->move_queue_head(&rli->workers);
 
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_unlock(&rli->mts_gaq_LOCK);
+    if (is_mts_parallel_type_logical_clock(rli))
+      mysql_mutex_unlock(&rli->mts_gaq_LOCK);
 #ifndef DBUG_OFF
     if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0) &&
         cnt != opt_mts_checkpoint_period)
@@ -6345,7 +6368,8 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
      The workers have completed  cnt jobs from the gaq. This means that we
      should increment C->jobs_done by cnt.
    */
-  if (!is_mts_worker(rli->info_thd) && !is_mts_db_partitioned(rli)) {
+  if (!is_mts_worker(rli->info_thd) &&
+      rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_LOGICAL_CLOCK) {
     DBUG_PRINT("info", ("jobs_done this itr=%ld", cnt));
     static_cast<Mts_submode_logical_clock *>(rli->current_mts_submode)
         ->jobs_done += cnt;
@@ -6354,20 +6378,22 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
   // case: rebalance workers should be called only when the current event
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance && !rli->curr_group_seen_begin &&
-      !rli->curr_group_seen_gtid && !rli->sql_thread_kill_accepted) {
+      !is_mts_parallel_type_dependency(rli) && !rli->curr_group_seen_gtid &&
+      !rli->sql_thread_kill_accepted) {
     rebalance_workers(rli);
   }
-
-  /* TODO:
-     to turn the least occupied selection in terms of jobs pieces
-  */
-  for (Slave_worker **it = rli->workers.begin(); it != rli->workers.begin();
-       ++it) {
-    Slave_worker *w_i = *it;
-    rli->least_occupied_workers[w_i->id] = w_i->jobs.len;
-  };
-  std::sort(rli->least_occupied_workers.begin(),
-            rli->least_occupied_workers.end());
+  if (!is_mts_parallel_type_dependency(rli)) {
+    /* TODO:
+       to turn the least occupied selection in terms of jobs pieces
+    */
+    for (Slave_worker **it = rli->workers.begin(); it != rli->workers.begin();
+         ++it) {
+      Slave_worker *w_i = *it;
+      rli->least_occupied_workers[w_i->id] = w_i->jobs.len;
+    };
+    std::sort(rli->least_occupied_workers.begin(),
+              rli->least_occupied_workers.end());
+  }
 
   if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1)) {
     // reset the database load
@@ -6658,48 +6684,54 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
   rli->max_updated_index = (rli->until_condition != Relay_log_info::UNTIL_NONE)
                                ? rli->mts_groups_assigned
                                : 0;
-  if (!rli->workers.empty()) {
-    for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
-      Slave_worker *w = rli->workers[i];
-      struct slave_job_item item = {nullptr, 0, 0};
-      struct slave_job_item *job_item = &item;
-      mysql_mutex_lock(&w->jobs_lock);
 
-      if (w->running_status != Slave_worker::RUNNING) {
+  if (is_mts_parallel_type_dependency(rli)) {
+    static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+        ->stop_dependency_workers(rli);
+  } else {
+    if (!rli->workers.empty()) {
+      for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
+        Slave_worker *w = rli->workers[i];
+        struct slave_job_item item = {nullptr, 0, 0};
+        struct slave_job_item *job_item = &item;
+        mysql_mutex_lock(&w->jobs_lock);
+
+        if (w->running_status != Slave_worker::RUNNING) {
+          mysql_mutex_unlock(&w->jobs_lock);
+          continue;
+        }
+
+        w->running_status = Slave_worker::STOP;
+        (void)set_max_updated_index_on_stop(w, job_item);
+        mysql_cond_signal(&w->jobs_cond);
+
         mysql_mutex_unlock(&w->jobs_lock);
-        continue;
+
+        DBUG_PRINT("info", ("Notifying worker %lu%s to exit, thd %p", w->id,
+                            w->get_for_channel_str(), w->info_thd));
       }
-
-      w->running_status = Slave_worker::STOP;
-      (void)set_max_updated_index_on_stop(w, job_item);
-      mysql_cond_signal(&w->jobs_cond);
-
-      mysql_mutex_unlock(&w->jobs_lock);
-
-      DBUG_PRINT("info", ("Notifying worker %lu%s to exit, thd %p", w->id,
-                          w->get_for_channel_str(), w->info_thd));
     }
-  }
-  thd_proc_info(thd, "Waiting for workers to exit");
+    thd_proc_info(thd, "Waiting for workers to exit");
 
-  for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
-       ++it) {
-    Slave_worker *w = *it;
-    mysql_mutex_lock(&w->jobs_lock);
-    while (w->running_status != Slave_worker::NOT_RUNNING) {
-      PSI_stage_info old_stage;
-      DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
-                  w->running_status == Slave_worker::STOP ||
-                  w->running_status == Slave_worker::STOP_ACCEPTED);
-
-      thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
-                      &stage_slave_waiting_workers_to_exit, &old_stage);
-      mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
-      mysql_mutex_unlock(&w->jobs_lock);
-      thd->EXIT_COND(&old_stage);
+    for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
+         ++it) {
+      Slave_worker *w = *it;
       mysql_mutex_lock(&w->jobs_lock);
+      while (w->running_status != Slave_worker::NOT_RUNNING) {
+        PSI_stage_info old_stage;
+        DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
+                    w->running_status == Slave_worker::STOP ||
+                    w->running_status == Slave_worker::STOP_ACCEPTED);
+
+        thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
+                        &stage_slave_waiting_workers_to_exit, &old_stage);
+        mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
+        mysql_mutex_unlock(&w->jobs_lock);
+        thd->EXIT_COND(&old_stage);
+        mysql_mutex_lock(&w->jobs_lock);
+      }
+      mysql_mutex_unlock(&w->jobs_lock);
     }
-    mysql_mutex_unlock(&w->jobs_lock);
   }
 
   for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
@@ -6889,10 +6921,12 @@ extern "C" void *handle_slave_sql(void *arg) {
   thd_set_psi(rli->info_thd, psi);
 #endif
 
-  if (rli->channel_mts_submode != MTS_PARALLEL_TYPE_DB_NAME)
+  if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
     rli->current_mts_submode = new Mts_submode_logical_clock();
-  else
+  else if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
     rli->current_mts_submode = new Mts_submode_database();
+  else
+    rli->current_mts_submode = new Mts_submode_dependency();
 
   if (opt_slave_preserve_commit_order && rli->opt_slave_parallel_workers > 0 &&
       opt_bin_log && opt_log_slave_updates)
@@ -6912,7 +6946,25 @@ extern "C" void *handle_slave_sql(void *arg) {
     thd->rpl_thd_ctx.set_rpl_channel_type(RPL_STANDARD_CHANNEL);
   }
 
+  rli->info_thd->variables.transaction_isolation =
+      static_cast<enum_tx_isolation>(slave_tx_isolation);
+
   mysql_mutex_unlock(&rli->info_thd_lock);
+
+  rli->mts_dependency_replication = opt_mts_dependency_replication;
+  rli->mts_dependency_size = opt_mts_dependency_size;
+  rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
+  rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
+  rli->slave_preserve_commit_order = opt_slave_preserve_commit_order;
+
+  if (is_mts_parallel_type_dependency(rli) &&
+      !slave_use_idempotent_for_recovery_options) {
+    sql_print_error(
+        "mts_dependency_replication is enabled but "
+        "slave_use_idempotent_for_recovery is disabled. The slave is not crash "
+        "safe! Please enable slave_use_idempotent_for_recovery for crash "
+        "safety.");
+  }
 
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
@@ -8694,8 +8746,10 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
           mi->rli->opt_slave_parallel_workers = opt_mts_slave_parallel_workers;
           if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-          else
+          else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+          else
+            mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
 
 #ifndef DBUG_OFF
           if (!DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))

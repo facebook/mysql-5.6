@@ -1035,6 +1035,7 @@ ulong opt_keyring_migration_port = 0;
 bool migrate_connect_options = 0;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
+ulong slave_tx_isolation;
 bool enable_binlog_hlc = 0;
 
 #if defined(_WIN32)
@@ -1225,6 +1226,10 @@ double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
 bool opt_slave_preserve_commit_order;
+ulong opt_mts_dependency_replication;
+ulonglong opt_mts_dependency_size;
+double opt_mts_dependency_refill_threshold;
+ulonglong opt_mts_dependency_max_keys;
 #ifndef DBUG_OFF
 uint slave_rows_last_search_algorithm_used;
 #endif
@@ -8462,6 +8467,78 @@ static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff) {
 }
 #endif
 
+static int show_slave_dependency_in_queue(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->get_dep_queue_size();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_in_flight(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->num_in_flight_trx.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_begin_waits(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->begin_event_waits.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->next_event_waits.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
 /**
   After Multisource replication, this function only shows the value
   of default channel.
@@ -9065,6 +9142,14 @@ SHOW_VAR status_vars[] = {
     {"Slave_before_image_inconsistencies",
      (char *)&show_slave_before_image_inconsistencies, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_in_queue", (char *)&show_slave_dependency_in_queue,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_in_flight", (char *)&show_slave_dependency_in_flight,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_begin_waits", (char *)&show_slave_dependency_begin_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_next_waits", (char *)&show_slave_dependency_next_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slow_launch_threads",
      (char *)&Per_thread_connection_handler::slow_launch_threads, SHOW_LONG,
      SHOW_SCOPE_ALL},
@@ -11281,6 +11366,8 @@ PSI_stage_info stage_suspending= { 0, "Suspending", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_starting= { 0, "starting", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_waiting_for_no_channel_reference= { 0, "Waiting for no channel reference.", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_hook_begin_trans= { 0, "Executing hook on transaction begin.", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_slave_waiting_for_dependencies= { 0, "Waiting for dependencies to be satisfied", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_slave_waiting_for_dependency_workers= { 0, "Waiting for dependency workers to finish", 0, PSI_DOCUMENT_ME};
 /* clang-format on */
 
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -11375,6 +11462,8 @@ PSI_stage_info *all_server_stages[] = {
     &stage_starting,
     &stage_waiting_for_no_channel_reference,
     &stage_hook_begin_trans,
+    &stage_slave_waiting_for_dependencies,
+    &stage_slave_waiting_for_dependency_workers,
     &stage_waiting_for_disk_space};
 
 PSI_socket_key key_socket_tcpip;

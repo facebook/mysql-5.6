@@ -1,0 +1,1 @@
+--slave-parallel-workers=2 --slave-parallel-type=LOGICAL_CLOCK --no-console --log_error=$MYSQLTEST_VARDIR/tmp/rpl_mts_slave_preserve_commit_order_deadlock_error.2.err

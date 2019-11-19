@@ -38,6 +38,7 @@
 #include "my_thread.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/psi_stage_bits.h"
+#include "mysql/plugin.h"  // thd_proc_info
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysqld_error.h"
@@ -53,6 +54,7 @@
 #include "sql/rpl_slave.h"
 #include "sql/rpl_slave_commit_order_manager.h"  // Commit_order_manager
 #include "sql/sql_class.h"                       // THD
+#include "sql/sql_plugin.h"
 #include "sql/system_variables.h"
 #include "sql/table.h"
 
@@ -957,4 +959,439 @@ Mts_submode_logical_clock::get_server_and_thread_id(TABLE *table) {
       /* next  4 bytes contains the pseudo_thread_id */
       uint4korr(extra_string + extra_string_len - 4));
   DBUG_RETURN(ret_pair);
+}
+
+/**
+ * Wait for all dependency slave workers to finish working on all enqueued trxs
+ *
+ * @param rli           Relay log info of the coordinator thread
+ * @param partial_trx   Have we queued a partial transaction?
+ *                      If true, we can't blindly wait for the trx counter to be
+ *                      zero (since the worker will not be able to complete
+ *                      that transaction)
+ * @return bool         true if all is well, false otherwise
+ */
+bool Mts_submode_dependency::wait_for_dep_workers_to_finish(
+    Relay_log_info *rli, const bool partial_trx) {
+  DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&dep_lock);
+
+  const ulonglong num = partial_trx ? 1 : 0;
+  rli->info_thd->ENTER_COND(&dep_trx_all_done_cond, &dep_lock,
+                            &stage_slave_waiting_for_dependency_workers,
+                            &old_stage);
+  while (num_in_flight_trx > num && !rli->info_thd->killed) {
+    mysql_cond_wait(&dep_trx_all_done_cond, &dep_lock);
+  }
+
+  mysql_mutex_unlock(&dep_lock);
+  rli->info_thd->EXIT_COND(&old_stage);
+
+  return !rli->info_thd->killed;
+}
+
+void Mts_submode_dependency::add_row_event(
+    Relay_log_info *rli, Rows_log_event *rle,
+    std::shared_ptr<Log_event_wrapper> ev,
+    std::deque<Dependency_key> &keylist) {
+  // case: something went wrong while finding keys for this event, switch to
+  // sync mode!
+  if (unlikely(!rle->get_keys(rli, keylist) ||
+               keylist.size() + keys_accessed_by_group.size() >
+                   rli->mts_dependency_max_keys)) {
+    dep_sync_group = true;
+    keylist.clear();
+    keys_accessed_by_group.clear();
+    return;
+  }
+
+  keys_accessed_by_group.insert(keylist.begin(), keylist.end());
+
+  mysql_mutex_lock(&dep_key_lookup_mutex);
+  /* Handle dependencies. */
+  for (const auto &k : keylist) {
+    auto last_key_event = dep_key_lookup.find(k);
+    if (last_key_event != dep_key_lookup.end()) {
+      last_key_event->second->add_dependent(ev);
+    }
+  }
+  mysql_mutex_unlock(&dep_key_lookup_mutex);
+}
+
+void Mts_submode_dependency::register_keys(
+    std::shared_ptr<Log_event_wrapper> &ev) {
+  mysql_mutex_lock(&dep_key_lookup_mutex);
+  if (!ev->finalized()) {
+    for (const auto &key : keys_accessed_by_group) {
+      dep_key_lookup[key] = ev;
+      ev->keys.insert(key);
+    }
+  }
+  mysql_mutex_unlock(&dep_key_lookup_mutex);
+}
+
+void Mts_submode_dependency::unregister_keys(
+    std::shared_ptr<Log_event_wrapper> &ev) {
+  /* Attempt to clean up entries from the key lookup
+   *
+   * There are two cases:
+   * 1) The "value" of the key-value pair is equal to this event. In this case,
+   *    remove the key-value pair from the map.
+   * 2) The "value" of the key-value pair is _not_ equal to this event. In this
+   *    case, leave it be; the event corresponds to a later transaction.
+   */
+  mysql_mutex_lock(&dep_key_lookup_mutex);
+  if (likely(!dep_key_lookup.empty())) {
+    for (const auto &key : ev->keys) {
+      const auto it = dep_key_lookup.find(key);
+      DBUG_ASSERT(it != dep_key_lookup.end());
+
+      /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
+      if (it->second == ev) {
+        dep_key_lookup.erase(it);
+      }
+    }
+  }
+  ev->finalize();
+  mysql_mutex_unlock(&dep_key_lookup_mutex);
+}
+
+std::shared_ptr<Log_event_wrapper> Mts_submode_dependency::dequeue(
+    Relay_log_info *rli, Slave_worker *worker, Commit_order_manager *co_mngr) {
+  std::shared_ptr<Log_event_wrapper> ret;
+
+  mysql_mutex_lock(&dep_lock);
+
+  PSI_stage_info old_stage;
+  worker->info_thd->ENTER_COND(&dep_empty_cond, &dep_lock,
+                               &stage_slave_waiting_event_from_coordinator,
+                               &old_stage);
+
+  while (!worker->info_thd->killed &&
+         worker->running_status == Slave_worker::RUNNING && dep_queue.empty()) {
+    ++begin_event_waits;
+    ++num_workers_waiting;
+    mysql_cond_wait(&dep_empty_cond, &dep_lock);
+    --num_workers_waiting;
+  }
+
+  if (!dep_queue.empty()) {
+    ret = dep_queue.front();
+    dep_queue.pop_front();
+  }
+
+  // case: place ourselves in the commit order queue
+  if (ret && co_mngr != nullptr) {
+    DBUG_ASSERT(rli->slave_preserve_commit_order);
+    worker->set_current_db(ret->get_db());
+    co_mngr->register_trx(worker);
+  }
+
+  // case: signal if queue is now empty
+  if (dep_queue.empty()) mysql_cond_signal(&dep_empty_cond);
+
+  // admission control
+  if (unlikely(dep_full)) {
+    DBUG_ASSERT(dep_queue.size() > 0);
+    // case: signal if dep has space
+    if (dep_queue.size() < (rli->mts_dependency_size *
+                            rli->mts_dependency_refill_threshold / 100)) {
+      dep_full = false;
+      mysql_cond_signal(&dep_full_cond);
+    }
+  }
+
+  mysql_mutex_unlock(&dep_lock);
+  worker->info_thd->EXIT_COND(&old_stage);
+  return ret;
+}
+
+void Mts_submode_dependency::enqueue(
+    Relay_log_info *rli,
+    const std::shared_ptr<Log_event_wrapper> &begin_event) {
+  mysql_mutex_lock(&dep_lock);
+
+  // wait if queue has reached full capacity
+  while (unlikely(dep_full)) {
+    mysql_cond_wait(&dep_full_cond, &dep_lock);
+  }
+
+  dep_queue.push_back(begin_event);
+
+  // case: workers are waiting on empty queue, let's signal
+  if (likely(num_workers_waiting > 0)) {
+    DBUG_ASSERT(num_workers_waiting <= rli->opt_slave_parallel_workers);
+    mysql_cond_signal(&dep_empty_cond);
+  }
+
+  // admission control in dep queue
+  dep_full = dep_queue.size() >= rli->mts_dependency_size;
+
+  ++num_in_flight_trx;
+  trx_queued = true;
+
+  mysql_mutex_unlock(&dep_lock);
+}
+
+/*
+  Adds an event to the dependency queue
+*/
+bool Mts_submode_dependency::schedule_dep(Relay_log_info *rli, Log_event *ev) {
+  DBUG_ENTER("Log_event::schedule_dep");
+
+  auto evw = std::make_shared<Log_event_wrapper>(
+      ev, current_begin_event, rli->get_event_relay_log_number(),
+      rli->get_event_start_pos());
+  ev->prepare_dep(rli, evw);
+
+  if (ev->starts_group()) {
+    rli->curr_group_seen_begin = true;
+    rli->mts_end_group_sets_max_dbs = true;
+  } else if (is_gtid_event(ev)) {
+    rli->curr_group_seen_gtid = true;
+  } else if (ev->contains_partition_info(rli->mts_end_group_sets_max_dbs)) {
+    if (ev->get_type_code() == binary_log::TABLE_MAP_EVENT) {
+      const auto tbe = static_cast<Table_map_log_event *>(ev);
+      const auto id = tbe->get_table_id();
+      table_map_events[id] = tbe;
+    }
+
+    rli->mts_end_group_sets_max_dbs = false;
+
+    // NOTE: we don't update @Relay_log_info::keys_accessed_by_group here
+    // because not all partition events contain table info
+    Mts_db_names mts_dbs;
+    const uint8 num_dbs = ev->get_mts_dbs(&mts_dbs, rli->rpl_filter);
+
+    if (likely(num_dbs != OVER_MAX_DBS_IN_EVENT_MTS)) {
+      for (int i = 0; i < mts_dbs.num; ++i)
+        dbs_accessed_by_group.insert(mts_dbs.name[i]);
+    }
+
+    // we execute the trx in isolation if num_dbs is greater than one and if
+    // OVER_MAX_DBS_IN_EVENT_MTS is set
+    dep_sync_group = dep_sync_group || num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
+                     (dbs_accessed_by_group.size() > 1);
+  }
+
+  if (unlikely(dep_sync_group)) {
+    if (!wait_for_dep_workers_to_finish(rli, trx_queued)) DBUG_RETURN(false);
+  }
+
+  handle_terminal_event(ev->thd, rli, evw);
+
+#ifndef DBUG_OFF
+  if (!evw->is_end_event) {
+    auto be = evw->is_begin_event ? evw : evw->begin_event();
+    DBUG_ASSERT(be == current_begin_event);
+  }
+#endif
+
+  ev->mts_group_idx = rli->gaq->assigned_group_index;
+
+  // case: current trx is to be executed in isolation or the DB has been set, so
+  // let's queue it for execution
+  if (!trx_queued &&
+      (dep_sync_group || !current_begin_event->get_db().empty())) {
+    enqueue(rli, current_begin_event);
+  }
+
+  DBUG_ASSERT(evw->is_begin_event || prev_event);
+  if (prev_event) {
+    prev_event->put_next(evw);
+  }
+
+  if (unlikely(evw->is_end_event)) {
+    prev_event = nullptr;
+    current_begin_event.reset();
+    trx_queued = false;
+  } else {
+    prev_event = evw;
+  }
+
+  // case: this group needs to be executed in isolation
+  if (unlikely(dep_sync_group && evw->is_end_event)) {
+    if (wait_for_workers_to_finish(rli) == -1) DBUG_RETURN(false);
+    dep_sync_group = false;
+  }
+
+  DBUG_RETURN(true);
+}
+
+/**
+  Encapsulation for things to be done for terminal begin and end events
+*/
+void Mts_submode_dependency::handle_terminal_event(
+    THD *thd, Relay_log_info *rli, std::shared_ptr<Log_event_wrapper> &evw) {
+  Log_event *ev = evw->raw_event();
+
+  if (evw->is_begin_event) {
+    DBUG_ASSERT(current_begin_event == NULL);
+    DBUG_ASSERT(table_map_events.empty());
+    DBUG_ASSERT(keys_accessed_by_group.empty());
+    DBUG_ASSERT(!trx_queued);
+
+    // update rli state
+    current_begin_event = evw;
+    rli->mts_groups_assigned++;
+
+    // insert a group representative in the GAQ
+    Slave_job_group group;
+    group.reset(ev->common_header->log_pos, rli->mts_groups_assigned);
+    group.group_master_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_master_log_name(), MYF(MY_WME));
+    rli->gaq->assigned_group_index = rli->gaq->en_queue(&group);
+  }
+
+  DBUG_ASSERT(current_begin_event);
+
+  // case: we have found a DB to set for the current trx
+  if (current_begin_event->get_db().empty() && !dbs_accessed_by_group.empty()) {
+    // NOTE: we can set any accessed DB to this trx, if more than one DB are
+    // accessed then it'll be executed in isolation anyway
+    DBUG_ASSERT(dep_sync_group || dbs_accessed_by_group.size() == 1);
+    current_begin_event->set_db(*dbs_accessed_by_group.begin());
+  }
+
+  if (evw->is_end_event) {
+    // populate key->last trx penultimate event in the key lookup
+    // NOTE: we store the end event for a single event trx
+    auto to_add = prev_event ? prev_event : evw;
+    register_keys(to_add);
+
+    // update rli state
+    table_map_events.clear();
+    dbs_accessed_by_group.clear();
+    keys_accessed_by_group.clear();
+
+    rli->mts_group_status = Relay_log_info::MTS_END_GROUP;
+    rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+
+    // update coordinates in GAQ
+    Slave_job_group *ptr_group =
+        rli->gaq->get_job_group(rli->gaq->assigned_group_index);
+
+    ptr_group->group_relay_log_name = my_strdup(
+        key_memory_log_event, rli->get_event_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_master_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_relay_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_pos = rli->get_group_master_log_pos();
+    ptr_group->checkpoint_relay_log_pos = rli->get_group_relay_log_pos();
+
+    ptr_group->checkpoint_seqno = rli->rli_checkpoint_seqno;
+    rli->rli_checkpoint_seqno++;
+
+    // seconds_behind_master related
+    if (unlikely(ev->is_relay_log_event()))
+      ptr_group->ts = 0;
+    else {
+      ptr_group->ts = ev->common_header->when.tv_sec + (time_t)ev->exec_time;
+
+      ptr_group->ts_millis = (rli->group_timestamp_millis
+                                  ? rli->group_timestamp_millis
+                                  : ev->common_header->when.tv_sec * 1000) +
+                             ev->exec_time * 1000;
+      // reset for next group
+      rli->group_timestamp_millis = 0;
+    }
+    DBUG_EXECUTE_IF("dbug.dep_wait_before_sending_end_event", {
+      const char act[] = "now signal signal.reached wait_for signal.done";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
+    };);
+    free_root(thd->mem_root, MYF(MY_KEEP_PREALLOC));
+  }
+}
+
+void Mts_submode_dependency::signal_trx_done(
+    std::shared_ptr<Log_event_wrapper> begin_event) {
+  mysql_mutex_lock(&dep_lock);
+  if (begin_event) {
+    DBUG_ASSERT(num_in_flight_trx > 0);
+    --num_in_flight_trx;
+  }
+  if (num_in_flight_trx <= 1) mysql_cond_broadcast(&dep_trx_all_done_cond);
+  mysql_mutex_unlock(&dep_lock);
+
+  cleanup_group(begin_event);
+}
+
+bool Mts_submode_dependency::is_partially_enqueued_trx(Relay_log_info *rli) {
+  // this will be used to determine if we need to deal with a worker that is
+  // handling a partially enqueued trx
+  bool partial = false;
+  mysql_mutex_lock(&dep_lock);
+  // case: until condition is specified, so we have to execute all
+  // transactions in the queue
+  if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
+    // we have a partial trx if the coordinator has set the trx_queued flag,
+    // this is because this flag is set to false after coordinator sees an end
+    // event
+    partial = trx_queued;
+  }
+  // case: until condition is not specified
+  else {
+    // the partial check is slightly complicated in this case because we only
+    // care about partial trx that has been pulled by a worker, since the
+    // queue is going to be emptied next anyway, we make this check by
+    // checking of the queue is empty
+    partial = dep_queue.empty() && trx_queued;
+    // let's cleanup, we can clear the queue in this case
+    clear_dep(false);
+  }
+  mysql_mutex_unlock(&dep_lock);
+
+  return partial;
+}
+
+void Mts_submode_dependency::stop_dependency_workers(Relay_log_info *rli) {
+  THD *thd = rli->info_thd;
+
+  wait_for_dep_workers_to_finish(rli, is_partially_enqueued_trx(rli));
+
+  // case: if UNTIL is specified let's clean up after waiting for workers
+  if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
+    clear_dep(true);
+  }
+
+  // set all workers as STOP_ACCEPTED, and signal blocked workers
+  for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
+    Slave_worker *w = rli->workers[i];
+    mysql_mutex_lock(&w->jobs_lock);
+
+    if (w->running_status != Slave_worker::RUNNING) {
+      mysql_mutex_unlock(&w->jobs_lock);
+      continue;
+    }
+
+    w->running_status = Slave_worker::STOP_ACCEPTED;
+
+    // unblock workers waiting for new events or trxs
+    mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
+    w->info_thd->awake(w->info_thd->killed);
+    mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
+
+    mysql_mutex_unlock(&w->jobs_lock);
+  }
+
+  thd_proc_info(thd, "Waiting for workers to exit");
+
+  for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
+    Slave_worker *w = rli->workers[i];
+    mysql_mutex_lock(&w->jobs_lock);
+
+    // wait for workers to stop running
+    while (w->running_status != Slave_worker::NOT_RUNNING) {
+      struct timespec abstime;
+      set_timespec(&abstime, 1);
+      mysql_cond_timedwait(&w->jobs_cond, &w->jobs_lock, &abstime);
+    }
+
+    mysql_mutex_unlock(&w->jobs_lock);
+  }
+  dependency_worker_error = false;
 }

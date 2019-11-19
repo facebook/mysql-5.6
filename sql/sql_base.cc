@@ -2745,6 +2745,201 @@ static bool tdc_wait_for_old_version_nsec(THD *thd, const char *db,
   return res;
 }
 
+void return_table_to_cache(THD *thd, TABLE_LIST *table_list) {
+  TABLE *table = nullptr;
+
+  DBUG_ENTER("return_table_to_cache");
+
+  if (!table_list) DBUG_VOID_RETURN;
+
+  if (table_list->table != nullptr) {
+    DBUG_ASSERT(thd->open_tables == table_list->table);
+    DBUG_ASSERT(thd->open_tables->next == nullptr);
+    DBUG_ASSERT(!table_list->table->s->has_old_version());
+
+    table = table_list->table;
+
+    /* Do this *before* entering the LOCK_open critical section. */
+    if (table->file != nullptr) table->file->unbind_psi();
+
+    release_or_close_table(thd, table);
+    thd->open_tables = nullptr;
+  }
+
+  /* Release the meta data lock */
+  thd->mdl_context.release_transactional_locks();
+
+  table_list->mdl_request.ticket = nullptr;
+
+  DBUG_VOID_RETURN;
+}
+
+/*
+ * This function basically copies functionality from open_table() to
+ * create a table from a share.
+ */
+static TABLE *init_table_from_share(THD *thd, TABLE_SHARE *share,
+                                    TABLE_LIST *table_list) {
+  DBUG_ENTER("init_table_from_share");
+
+  TABLE *table = nullptr;
+  int error = 0;
+  uint flags = 0;
+  const char *alias = table_list->alias;
+
+  {
+    dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+    const dd::Table *table_def = nullptr;
+    if (!(flags & MYSQL_OPEN_NO_NEW_TABLE_IN_SE) &&
+        thd->dd_client()->acquire(share->db.str, share->table_name.str,
+                                  &table_def)) {
+      // Error is reported by the dictionary subsystem.
+      goto err_lock;
+    }
+
+    if (table_def && table_def->hidden() == dd::Abstract_table::HT_HIDDEN_SE) {
+      my_error(ER_NO_SUCH_TABLE, MYF(0), table_list->db,
+               table_list->table_name);
+      goto err_lock;
+    }
+
+    /* make a new table */
+    if (!(table = (TABLE *)my_malloc(key_memory_TABLE, sizeof(*table),
+                                     MYF(MY_WME))))
+      goto err_lock;
+
+    error = open_table_from_share(
+        thd, share, alias,
+        ((flags & MYSQL_OPEN_NO_NEW_TABLE_IN_SE)
+             ? 0
+             : ((uint)(HA_OPEN_KEYFILE | HA_OPEN_RNDFILE | HA_GET_INDEX |
+                       HA_TRY_READ_ONLY))),
+        EXTRA_RECORD, thd->open_options, table, false, table_def);
+
+    if (error) {
+      my_free(table);
+      goto err_lock;
+    } else if (share->crashed) {
+      switch (thd->lex->sql_command) {
+        case SQLCOM_ALTER_TABLE:
+        case SQLCOM_REPAIR:
+        case SQLCOM_CHECK:
+        case SQLCOM_SHOW_CREATE:
+          break;
+        default:
+          closefrm(table, 0);
+          my_free(table);
+          my_error(ER_CRASHED_ON_USAGE, MYF(0), share->table_name.str);
+          goto err_lock;
+      }
+    }
+
+    if (open_table_entry_fini(thd, share, table_def, table)) {
+      closefrm(table, 0);
+      my_free(table);
+      goto err_lock;
+    }
+  }
+  {
+    /* Add new TABLE object to table cache for this connection. */
+    Table_cache *tc = table_cache_manager.get_cache(thd);
+
+    tc->lock();
+
+    if (tc->add_used_table(thd, table)) {
+      tc->unlock();
+      goto err_lock;
+    }
+    tc->unlock();
+  }
+  thd->status_var.table_open_cache_misses++;
+
+  table->mdl_ticket = table_list->mdl_request.ticket;
+
+  table->reginfo.lock_type = TL_READ; /* Assume read */
+
+  table->set_created();
+  /*
+    Check that there is no reference to a condition from an earlier query
+    (cf. Bug#58553).
+  */
+  DBUG_ASSERT(table->file->pushed_cond == nullptr);
+  table_list
+      ->set_updatable();  // It is not derived table nor non-updatable VIEW
+  table_list->set_insertable();
+
+  table_list->table = table;
+
+  DBUG_RETURN(table);
+
+err_lock:
+  mysql_mutex_lock(&LOCK_open);
+  release_table_share(share);
+  mysql_mutex_unlock(&LOCK_open);
+
+  DBUG_RETURN(nullptr);
+}
+
+bool get_table_from_cache(THD *thd, TABLE_LIST *table_list) {
+  DBUG_ENTER("get_table_from_cache");
+
+  const char *key = nullptr;
+  uint flags = 0;
+  MDL_ticket *mdl_ticket = nullptr;
+  Open_table_context ot_ctx(thd, flags);
+  int error = 0;
+  TABLE_SHARE *share = nullptr;
+  TABLE *table = nullptr;
+  uint key_length = get_table_def_key(table_list, &key);
+  Table_cache *tc = table_cache_manager.get_cache(thd);
+
+  /* Get a SHARE lock on the meta-data. Need to acquire this lock at the
+     very least.
+  */
+  if (open_table_get_mdl_lock(thd, &ot_ctx, table_list, flags, &mdl_ticket) ||
+      mdl_ticket == nullptr) {
+    goto done;
+  }
+
+  tc->lock();
+  table = tc->get_table(thd, key, key_length, &share);
+  tc->unlock();
+
+  /* Failed to get table definition from thread cache.
+   * Try using the table share. */
+  if (!table) {
+    mysql_mutex_lock(&LOCK_open);
+
+    /* Try to get a reference to the share */
+    if (share) {
+      share->increment_ref_count();
+    } else {
+      share = get_table_share_with_discover(thd, table_list, key, key_length,
+                                            flags & MYSQL_OPEN_SECONDARY_ENGINE,
+                                            &error);
+    }
+
+    mysql_mutex_unlock(&LOCK_open);
+
+    /* We have a share ref! Try to init the table from the share */
+    if (share) {
+      table = init_table_from_share(thd, share, table_list);
+    }
+  }
+
+  if (table != nullptr) {
+    table->next = thd->open_tables;
+    thd->set_open_tables(table);
+  }
+
+done:
+  mysql_mutex_assert_not_owner(&LOCK_open);
+  table_list->table = table;
+  thd->clear_error();
+  thd->get_stmt_da()->reset_condition_info(thd);
+  DBUG_RETURN(table_list->table == nullptr);
+}
+
 /**
   Open a base table.
 
