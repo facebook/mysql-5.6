@@ -150,6 +150,7 @@ SET PERSIST slave_skip_errors = @@GLOBAL.slave_skip_errors;
 ERROR HY000: Variable 'slave_skip_errors' is a read only variable
 SET PERSIST slave_sql_verify_checksum = @@GLOBAL.slave_sql_verify_checksum;
 SET PERSIST slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
+SET PERSIST slave_tx_isolation = @@GLOBAL.slave_tx_isolation;
 SET PERSIST slave_type_conversions = @@GLOBAL.slave_type_conversions;
 SET PERSIST slave_use_idempotent_for_recovery = @@GLOBAL.slave_use_idempotent_for_recovery;
 SET PERSIST sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
@@ -307,6 +308,7 @@ Warnings:
 Warning	3615	Variable slave_skip_errors does not exist in persisted config file
 RESET PERSIST IF EXISTS slave_sql_verify_checksum;
 RESET PERSIST IF EXISTS slave_transaction_retries;
+RESET PERSIST IF EXISTS slave_tx_isolation;
 RESET PERSIST IF EXISTS slave_type_conversions;
 RESET PERSIST IF EXISTS slave_use_idempotent_for_recovery;
 RESET PERSIST IF EXISTS sql_log_bin_triggers;

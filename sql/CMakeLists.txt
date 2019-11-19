@@ -922,6 +922,8 @@ SET (SLAVE_SOURCE
   rpl_slave_commit_order_manager.cc
   rpl_slave_until_options.cc
   rpl_trx_boundary_parser.cc
+  log_event_wrapper.cc 
+  dependency_slave_worker.cc
   )
 ADD_LIBRARY(slave STATIC ${SLAVE_SOURCE})
 ADD_DEPENDENCIES(slave GenError)

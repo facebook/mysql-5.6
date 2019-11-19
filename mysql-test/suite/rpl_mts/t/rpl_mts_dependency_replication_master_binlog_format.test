@@ -1,0 +1,52 @@
+# Checks if the slave stops executing transactions when master's binlog format
+# is STATEMENT but dependency replication is enabled
+-- source include/only_mts_slave_parallel_type_dependency.inc
+-- source include/master-slave.inc
+
+call mtr.add_suppression("Master's binlog format is not ROW");
+
+--source include/rpl_connection_slave.inc
+set @save.slave_parallel_type= @@global.slave_parallel_type;
+
+--source include/rpl_connection_master.inc
+create table t1(a int) engine=innodb;
+set session binlog_format=STATEMENT;
+insert into t1 values(1);
+
+# Wait till we hit the binlog format mismatch error
+--source include/rpl_connection_slave.inc
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+--source include/wait_for_slave_sql_error.inc
+
+# Print table
+--source include/rpl_connection_slave.inc
+echo "Table after error";
+select * from t1;
+
+--source include/rpl_connection_slave.inc
+# Turn off dependency replication and start the slave again
+set global slave_parallel_type= "DATABASE";
+set global slave_use_idempotent_for_recovery= NO;
+start slave;
+
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+# Print table again
+echo "Table after error fixed";
+select * from t1;
+
+# Cleanup
+--source include/rpl_connection_master.inc
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+stop slave;
+set @@global.slave_parallel_type= @save.slave_parallel_type;
+set global slave_use_idempotent_for_recovery= YES;
+start slave;
+
+-- source include/rpl_end.inc

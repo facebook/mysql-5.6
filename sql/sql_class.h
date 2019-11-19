@@ -173,6 +173,12 @@ enum enum_slave_use_idempotent_for_recovery {
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES
 };
 
+enum enum_mts_dependency_replication {
+  DEP_RPL_NONE,
+  DEP_RPL_TABLE,
+  DEP_RPL_STATEMENT,
+};
+
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
                                const PSI_stage_info *stage,
@@ -2676,7 +2682,7 @@ class THD : public MDL_context_owner,
   */
   bool m_gap_lock_log_written;
 
-  THD(bool enable_plugins = true);
+  THD(bool enable_plugins = true, bool is_slave = false);
 
   /*
     The THD dtor is effectively split in two:
@@ -2699,7 +2705,7 @@ class THD : public MDL_context_owner,
   bool cleanup_done;
   void cleanup(void);
 
-  void init(void);
+  void init(bool is_slave);
 
  public:
   void fix_capability_based_variables();

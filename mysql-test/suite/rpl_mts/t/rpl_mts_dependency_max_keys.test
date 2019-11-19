@@ -1,0 +1,58 @@
+source include/master-slave.inc;
+source include/have_stmt_mts_dependency_replication.inc;
+
+connection slave;
+stop slave;
+set @@global.slave_parallel_workers = 4;
+set @@global.mts_dependency_max_keys = 10;
+start slave;
+
+connection master;
+create table t1 (a bigint primary key, b int, c int, d int) engine = innodb;
+disable_query_log;
+let $itr = 0;
+while ($itr < 100)
+{
+  eval insert into t1 values($itr, $itr, $itr, $itr);
+  inc $itr;
+}
+enable_query_log;
+
+create table t2(a int primary key) engine = innodb;
+insert into t2 values(1);
+
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+stop slave;
+echo "[slave] block updates on t2";
+begin;
+update t2 set a = a + 2;
+
+connection master;
+echo "[master] update t2, this will be blocked on the slave";
+update t2 set a = a + 1;
+echo "[master] update t1, num rows changed > max keys so it should be a executed in isolation";
+update t1 set a = a + 100;
+
+connection slave1;
+start slave;
+echo "[slave] check if the thread working on t1 is waiting for all workers to finish";
+let $wait_condition = select count(*)= 1 from information_schema.processlist where state like '%Waiting for dependency workers to finish%';
+source include/wait_condition.inc;
+
+connection slave;
+rollback; # rollback the blocking transaction
+
+connection master;
+drop table t1;
+drop table t2;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+stop slave;
+set @@global.slave_parallel_workers = DEFAULT;
+set @@global.mts_dependency_max_keys = DEFAULT;
+start slave;
+
+source include/rpl_end.inc;

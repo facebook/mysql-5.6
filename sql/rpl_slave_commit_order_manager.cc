@@ -22,25 +22,12 @@
 
 #include "sql/rpl_slave_commit_order_manager.h"
 
-#include "debug_sync.h"  // debug_sync_set_action
-#include "my_compiler.h"
-#include "my_dbug.h"
-#include "my_sys.h"
-#include "mysql/components/services/psi_stage_bits.h"
-#include "mysql/psi/mysql_cond.h"
-#include "mysql/psi/mysql_mutex.h"
-#include "mysqld_error.h"
-#include "sql/binlog.h"
-#include "sql/handler.h"  // ha_flush_logs
-#include "sql/mdl.h"
 #include "sql/mysqld.h"       // key_commit_order_manager_mutex ..
 #include "sql/rpl_rli_pdb.h"  // Slave_worker
-#include "sql/sql_class.h"
-#include "sql/sql_error.h"
 #include "sql/sql_lex.h"
 
 Commit_order_manager::Commit_order_manager(uint32 worker_numbers)
-    : m_workers(worker_numbers), queue_head(QUEUE_EOF), queue_tail(QUEUE_EOF) {
+    : m_workers(worker_numbers) {
   mysql_mutex_init(key_commit_order_manager_mutex, &m_mutex, nullptr);
   unset_rollback_status();
 
@@ -62,6 +49,8 @@ void Commit_order_manager::register_trx(Slave_worker *worker) {
   DBUG_TRACE;
 
   mysql_mutex_lock(&m_mutex);
+  const auto db = worker->get_current_db();
+
   DBUG_PRINT("info", ("Worker %d added to the commit order queue",
                       (int)worker->info_thd->thread_id()));
 
@@ -69,7 +58,7 @@ void Commit_order_manager::register_trx(Slave_worker *worker) {
   DBUG_ASSERT(m_workers[worker->id].stage == enum_transaction_stage::FINISHED);
 
   m_workers[worker->id].stage = enum_transaction_stage::REGISTERED;
-  queue_push(worker->id);
+  queue_push(db, worker->id);
 
   mysql_mutex_unlock(&m_mutex);
 }
@@ -85,6 +74,7 @@ bool Commit_order_manager::wait(Slave_worker *worker) {
     PSI_stage_info old_stage;
     mysql_cond_t *cond = &m_workers[worker->id].cond;
     THD *thd = worker->info_thd;
+    const auto db = worker->get_current_db();
 
     DBUG_PRINT("info", ("Worker %lu is waiting for commit signal", worker->id));
     CONDITIONAL_SYNC_POINT_FOR_TIMESTAMP("commit_order_manager_before_wait");
@@ -92,7 +82,7 @@ bool Commit_order_manager::wait(Slave_worker *worker) {
     thd->ENTER_COND(cond, &m_mutex,
                     &stage_worker_waiting_for_its_turn_to_commit, &old_stage);
 
-    while (queue_front() != worker->id) {
+    while (queue_front(db) != worker->id) {
       if (unlikely(worker->found_commit_order_deadlock())) {
         mysql_mutex_unlock(&m_mutex);
         thd->EXIT_COND(&old_stage);
@@ -211,16 +201,19 @@ void Commit_order_manager::reset_server_status(THD *first_thd) {
 
 void Commit_order_manager::finish_one(Slave_worker *worker) {
   DBUG_TRACE;
+
+  const auto db = worker->get_current_db();
+
   mysql_mutex_lock(&m_mutex);
 
   if (m_workers[worker->id].stage == enum_transaction_stage::WAITED) {
-    DBUG_ASSERT(queue_front() == worker->id);
-    DBUG_ASSERT(!queue_empty());
+    DBUG_ASSERT(queue_front(db) == worker->id);
+    DBUG_ASSERT(!queue_empty(db));
 
     /* Set next worker in the queue as the head and signal the trx to commit. */
-    queue_pop();
+    queue_pop(db);
 
-    if (!queue_empty()) mysql_cond_signal(&m_workers[queue_front()].cond);
+    if (!queue_empty(db)) mysql_cond_signal(&m_workers[queue_front(db)].cond);
 
     m_workers[worker->id].stage = enum_transaction_stage::FINISHED;
   }

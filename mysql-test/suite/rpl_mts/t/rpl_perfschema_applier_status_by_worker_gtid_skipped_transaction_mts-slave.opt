@@ -1,0 +1,2 @@
+--gtid-mode=ON --enforce-gtid-consistency=ON
+--slave-parallel-workers=1 --slave-transaction-retries=0

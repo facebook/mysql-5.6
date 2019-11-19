@@ -1,0 +1,1 @@
+--log_only_query_comments --binlog_trx_meta_data

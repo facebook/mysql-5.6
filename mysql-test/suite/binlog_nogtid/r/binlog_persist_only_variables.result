@@ -143,6 +143,7 @@ SET PERSIST_ONLY slave_run_triggers_for_rbr = @@GLOBAL.slave_run_triggers_for_rb
 SET PERSIST_ONLY slave_skip_errors = @@GLOBAL.slave_skip_errors;
 SET PERSIST_ONLY slave_sql_verify_checksum = @@GLOBAL.slave_sql_verify_checksum;
 SET PERSIST_ONLY slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
+SET PERSIST_ONLY slave_tx_isolation = @@GLOBAL.slave_tx_isolation;
 SET PERSIST_ONLY slave_type_conversions = @@GLOBAL.slave_type_conversions;
 SET PERSIST_ONLY slave_use_idempotent_for_recovery = @@GLOBAL.slave_use_idempotent_for_recovery;
 SET PERSIST_ONLY sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
@@ -274,6 +275,7 @@ RESET PERSIST slave_run_triggers_for_rbr;
 RESET PERSIST slave_skip_errors;
 RESET PERSIST slave_sql_verify_checksum;
 RESET PERSIST slave_transaction_retries;
+RESET PERSIST slave_tx_isolation;
 RESET PERSIST slave_type_conversions;
 RESET PERSIST slave_use_idempotent_for_recovery;
 RESET PERSIST sql_log_bin_triggers;

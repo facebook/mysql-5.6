@@ -22,6 +22,7 @@
 
 #ifndef RPL_SLAVE_COMMIT_ORDER_MANAGER
 #define RPL_SLAVE_COMMIT_ORDER_MANAGER
+
 #include <stddef.h>
 #include <memory>
 #include <vector>
@@ -31,8 +32,6 @@
 #include "mysql/components/services/mysql_cond_bits.h"
 #include "mysql/components/services/mysql_mutex_bits.h"
 #include "sql/rpl_rli_pdb.h"  // get_thd_worker
-
-class THD;
 
 class Commit_order_manager {
  public:
@@ -119,42 +118,53 @@ class Commit_order_manager {
   std::vector<worker_info> m_workers;
 
   /*
-    They are used to construct a transaction queue with trx_info::next together.
-    both head and tail point to a slot of m_trx_vector, when the queue is not
-    empty, otherwise their value are QUEUE_EOF.
+    They are used to construct a transaction queue per DB with trx_info::next
+    together.  both head and tail point to a slot of m_trx_vector, when the
+    queue is not empty, otherwise their value are QUEUE_EOF.
   */
-  uint32 queue_head;
-  uint32 queue_tail;
+  std::unordered_map<std::string, uint32> queue_heads;
+  std::unordered_map<std::string, uint32> queue_tails;
   static const uint32 QUEUE_EOF = 0xFFFFFFFF;
-  bool queue_empty() {
+
+  uint32 queue_head(const std::string &db) const {
     mysql_mutex_assert_owner(&m_mutex);
-    return queue_head == QUEUE_EOF;
+    const auto elem = queue_heads.find(db);
+    return (elem == queue_heads.end() ? QUEUE_EOF : elem->second);
   }
 
-  void queue_pop() {
+  uint32 queue_tail(const std::string &db) const {
     mysql_mutex_assert_owner(&m_mutex);
-    queue_head = m_workers[queue_head].next;
-    if (queue_head == QUEUE_EOF) queue_tail = QUEUE_EOF;
+    const auto elem = queue_tails.find(db);
+    return (elem == queue_tails.end() ? QUEUE_EOF : elem->second);
   }
 
-  void queue_push(uint32 index) {
+  bool queue_empty(const std::string &db) const {
     mysql_mutex_assert_owner(&m_mutex);
-    if (queue_head == QUEUE_EOF)
-      queue_head = index;
+    return queue_head(db) == QUEUE_EOF;
+  }
+
+  void queue_pop(const std::string &db) {
+    mysql_mutex_assert_owner(&m_mutex);
+    DBUG_ASSERT(!queue_empty(db));
+    queue_heads[db] = m_workers[queue_head(db)].next;
+    if (queue_head(db) == QUEUE_EOF) queue_tails[db] = QUEUE_EOF;
+  }
+
+  void queue_push(const std::string &db, uint32 index) {
+    mysql_mutex_assert_owner(&m_mutex);
+    DBUG_ASSERT(index < m_workers.size());
+    if (queue_head(db) == QUEUE_EOF)
+      queue_heads[db] = index;
     else
-      m_workers[queue_tail].next = index;
-    queue_tail = index;
+      m_workers[queue_tail(db)].next = index;
+    queue_tails[db] = index;
     m_workers[index].next = QUEUE_EOF;
   }
 
-  uint32 queue_front() {
+  uint32 queue_front(const std::string &db) const {
     mysql_mutex_assert_owner(&m_mutex);
-    return queue_head;
+    return queue_head(db);
   }
-
-  // Copy constructor is not implemented
-  Commit_order_manager(const Commit_order_manager &);
-  Commit_order_manager &operator=(const Commit_order_manager &);
 
   /**
     Flush record of transactions for all the waiting threads and then

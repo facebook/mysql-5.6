@@ -1,0 +1,32 @@
+include/rpl_init.inc [topology=1->2,1->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/rpl_default_connections.inc
+include/rpl_connect.inc [creating 1thread_slave]
+*** 1. Generate a big table on the master
+[connection master]
+CREATE TABLE t1(
+id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+value CHAR(32) NOT NULL,
+dummy VARCHAR(1024) NOT NULL
+) ENGINE=InnoDB;
+*** 2. Start replication slaves
+[connection slave]
+include/start_slave.inc
+[connection 1thread_slave]
+include/start_slave.inc
+*** 3. Wait until slaves will catch up the master
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+*** 4. Compare the checksums on tables between the master and the slaves
+include/assert.inc ['Master and slave checksums should be identical']
+include/assert.inc ['Slave 1 and 2 checksums should be identical']
+[connection master]
+drop table t1;
+include/rpl_end.inc

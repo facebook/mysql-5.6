@@ -1,5 +1,4 @@
 --source include/not_group_replication_plugin.inc
---source include/only_mts_slave_parallel_type_logical_clock.inc
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_binlog_format_row.inc
@@ -54,6 +53,7 @@
 # The test verifys that the assertion failure doesn't happen.
 ################################################################################
 --source include/rpl_connection_slave.inc
+--source include/only_mts_slave_parallel_type_logical_clock.inc
 SET @saved_innodb_lock_wait_timeout = @@GLOBAL.innodb_lock_wait_timeout;
 SET GLOBAL innodb_lock_wait_timeout = 1000;
 --source include/restart_slave_sql.inc

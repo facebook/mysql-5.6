@@ -1,0 +1,47 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression('The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state');
+call mtr.add_suppression("Slave SQL for channel '': worker thread retried transaction");
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE = INNODB;
+include/sync_slave_sql_with_master.inc
+"Killing worker waiting for begin event"
+kill id;
+include/wait_for_slave_sql_error.inc [errno=1756]
+Last_SQL_Error = '... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state. A restart should restore consistency automatically, although using non-transactional storage for data or info tables or DDL queries could lead to problems. In such cases you have to examine your data (see documentation for details).'
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+set @@global.debug= "+d,dbug.dep_wait_before_sending_end_event";
+INSERT INTO t1 VALUES(1);
+set debug_sync="now wait_for signal.reached";
+"Killing worker waiting for next event"
+kill id;
+include/wait_for_slave_sql_error.inc [errno=1756]
+Last_SQL_Error = '... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state. A restart should restore consistency automatically, although using non-transactional storage for data or info tables or DDL queries could lead to problems. In such cases you have to examine your data (see documentation for details).'
+set @@global.debug= "-d,dbug.dep_wait_before_sending_end_event";
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+BEGIN;
+UPDATE t1 SET a = 20 WHERE a = 1;
+UPDATE t1 SET a = 2 WHERE a = 1;
+UPDATE t1 SET a = 3 WHERE a = 2;
+INSERT INTO t1 VALUES(4);
+INSERT INTO t1 VALUES(5);
+INSERT INTO t1 VALUES(6);
+"Killing worker waiting for dependency to be satisfied"
+kill id;
+include/wait_for_slave_sql_error.inc [errno=1205]
+ROLLBACK;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+"Killing SQL thread"
+kill id;
+include/wait_for_slave_sql_error.inc [errno=1756]
+Last_SQL_Error = '... The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state. A restart should restore consistency automatically, although using non-transactional storage for data or info tables or DDL queries could lead to problems. In such cases you have to examine your data (see documentation for details).'
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

@@ -224,12 +224,9 @@ enum enum_slave_rows_search_algorithms {
 extern ulonglong slave_rows_search_algorithms_options;
 extern bool opt_require_secure_transport;
 
-extern bool opt_slave_preserve_commit_order;
-
 #ifndef DBUG_OFF
 extern uint slave_rows_last_search_algorithm_used;
 #endif
-extern ulong mts_parallel_option;
 #ifdef _WIN32
 extern bool opt_enable_named_pipe;
 extern char *named_pipe_full_access_group;
@@ -341,6 +338,10 @@ extern uint slave_net_timeout;
 extern ulong opt_mts_slave_parallel_workers;
 extern bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
+extern ulong opt_mts_dependency_replication;
+extern ulonglong opt_mts_dependency_size;
+extern double opt_mts_dependency_refill_threshold;
+extern ulonglong opt_mts_dependency_max_keys;
 extern ulonglong opt_mts_pending_jobs_size_max;
 extern ulong rpl_stop_slave_timeout;
 extern bool log_bin_use_v1_row_events;
@@ -525,6 +526,7 @@ extern char *opt_protocol_compression_algorithms;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
+extern ulong slave_tx_isolation;
 
 /* Enable logging queries to a unix local datagram socket */
 extern bool log_datagram;
@@ -772,6 +774,8 @@ extern PSI_stage_info stage_waiting_for_no_channel_reference;
 extern PSI_stage_info stage_hook_begin_trans;
 extern PSI_stage_info stage_binlog_transaction_compress;
 extern PSI_stage_info stage_binlog_transaction_decompress;
+extern PSI_stage_info stage_slave_waiting_for_dependencies;
+extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).
@@ -1071,4 +1075,15 @@ void prepare_latency_histogram_vars(latency_histogram *current_histogram,
    Frees old histogram bucket display strings before assigning new ones.
 */
 void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data);
+
+/**
+   Get parallel replication config
+*/
+ulong get_mts_parallel_option();
+
+/**
+   Returns whether slave commit order is preserved
+*/
+bool get_slave_preserve_commit_order();
+
 #endif /* MYSQLD_INCLUDED */

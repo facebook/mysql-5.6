@@ -1,0 +1,44 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@GLOBAL.slave_parallel_workers= 4;
+START SLAVE;
+include/diff_tables.inc [master:test15.ti_nk, slave:test15.ti_nk]
+include/diff_tables.inc [master:test14.ti_nk, slave:test14.ti_nk]
+include/diff_tables.inc [master:test13.ti_nk, slave:test13.ti_nk]
+include/diff_tables.inc [master:test12.ti_nk, slave:test12.ti_nk]
+include/diff_tables.inc [master:test11.ti_nk, slave:test11.ti_nk]
+include/diff_tables.inc [master:test10.ti_nk, slave:test10.ti_nk]
+include/diff_tables.inc [master:test9.ti_nk, slave:test9.ti_nk]
+include/diff_tables.inc [master:test8.ti_nk, slave:test8.ti_nk]
+include/diff_tables.inc [master:test7.ti_nk, slave:test7.ti_nk]
+include/diff_tables.inc [master:test6.ti_nk, slave:test6.ti_nk]
+include/diff_tables.inc [master:test5.ti_nk, slave:test5.ti_nk]
+include/diff_tables.inc [master:test4.ti_nk, slave:test4.ti_nk]
+include/diff_tables.inc [master:test3.ti_nk, slave:test3.ti_nk]
+include/diff_tables.inc [master:test2.ti_nk, slave:test2.ti_nk]
+include/diff_tables.inc [master:test1.ti_nk, slave:test1.ti_nk]
+include/diff_tables.inc [master:test0.ti_nk, slave:test0.ti_nk]
+drop database test15;
+drop database test14;
+drop database test13;
+drop database test12;
+drop database test11;
+drop database test10;
+drop database test9;
+drop database test8;
+drop database test7;
+drop database test6;
+drop database test5;
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+drop database test0;
+include/stop_slave.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+include/start_slave.inc
+include/rpl_end.inc

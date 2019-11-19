@@ -1,0 +1,106 @@
+source include/only_mts_slave_parallel_type_dependency.inc;
+source include/have_debug_sync.inc;
+source include/master-slave.inc;
+
+call mtr.add_suppression('The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state');
+call mtr.add_suppression("Slave SQL for channel '': worker thread retried transaction");
+
+connection master;
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE = INNODB;
+--source include/sync_slave_sql_with_master.inc
+
+# Test 1: Kill worker while waiting for a begin event
+
+connection slave;
+let $wait_condition= select count(*) = 2 from information_schema.processlist where state = 'Waiting for an event from Coordinator';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for begin event";
+let $id= `select id from information_schema.processlist where state = 'Waiting for an event from Coordinator'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+source include/start_slave.inc;
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# Test 2: Kill worker while waiting for next event of current transaction
+
+connection slave;
+set @@global.debug= "+d,dbug.dep_wait_before_sending_end_event";
+
+connection master;
+INSERT INTO t1 VALUES(1);
+
+connection slave;
+set debug_sync="now wait_for signal.reached";
+let $wait_condition= select count(*) = 2 from information_schema.processlist where state = 'Waiting for an event from Coordinator';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for next event";
+let $id= `select id from information_schema.processlist where state = 'Waiting for an event from Coordinator'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+set @@global.debug= "-d,dbug.dep_wait_before_sending_end_event";
+source include/start_slave.inc;
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# Test 3: Kill worker while waiting for dependent event
+
+connection slave;
+BEGIN;
+UPDATE t1 SET a = 20 WHERE a = 1; # this will block the update from master
+
+connection master;
+UPDATE t1 SET a = 2 WHERE a = 1;
+UPDATE t1 SET a = 3 WHERE a = 2;
+INSERT INTO t1 VALUES(4);
+INSERT INTO t1 VALUES(5);
+INSERT INTO t1 VALUES(6);
+
+connection slave;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+echo "Killing worker waiting for dependency to be satisfied";
+let $id= `select id from information_schema.processlist where state = 'Waiting for dependencies to be satisfied'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_LOCK_WAIT_TIMEOUT); # 1205
+let $show_slave_sql_error= 0;
+source include/wait_for_slave_sql_error.inc;
+ROLLBACK; # rolling back blocking transaction
+source include/start_slave.inc;
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# Test 4: Kill SQL thread
+connection slave;
+echo "Killing SQL thread";
+let $id= `select id from information_schema.processlist where state like 'Slave has read all relay log; waiting for more updates%'`;
+replace_result $id id;
+eval kill $id;
+
+let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA); # 1756
+let $show_slave_sql_error= 1;
+source include/wait_for_slave_sql_error.inc;
+
+source include/start_slave.inc;
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# Cleanup
+connection master;
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+source include/rpl_end.inc;
