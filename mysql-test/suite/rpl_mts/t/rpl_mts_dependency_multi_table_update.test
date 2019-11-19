@@ -1,0 +1,53 @@
+source include/only_mts_replica_parallel_type_dependency.inc;
+source include/master-slave.inc;
+
+connection slave;
+source include/stop_slave.inc;
+set @save_replica_parallel_workers= @@global.replica_parallel_workers;
+set @@global.replica_parallel_workers= 2;
+source include/start_slave.inc;
+
+connection master;
+CREATE TABLE t1(a INT PRIMARY KEY) engine = InnoDB;
+INSERT INTO t1 VALUES(1);
+INSERT INTO t1 VALUES(2);
+CREATE TABLE t2(b INT PRIMARY KEY, c INT) engine = InnoDB;
+INSERT INTO t2 VALUES(1, 0);
+INSERT INTO t2 VALUES(2, 0);
+sync_slave_with_master;
+
+connection slave;
+BEGIN;
+UPDATE t1 SET a = 1000 WHERE a = 1; # This will block the 1st trx sent by the master
+
+connection master;
+# Multi table update (will get blocked by stmt above)
+UPDATE t1, t2 SET a = a * 10, b = b * 10 WHERE a = b;
+UPDATE t1 set a = a * 10; # This should depend on the prev trx
+
+connection slave;
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST WHERE State = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+ROLLBACK;
+
+connection master;
+sync_slave_with_master;
+
+# Consistency check between master and slave
+connection master;
+let $diff_tables=master:test.t1, slave:test.t1;
+source include/diff_tables.inc;
+let $diff_tables=master:test.t2, slave:test.t2;
+source include/diff_tables.inc;
+
+# Cleanup
+connection master;
+DROP TABLE t1;
+DROP TABLE t2;
+sync_slave_with_master;
+connection slave;
+source include/stop_slave.inc;
+set @@global.replica_parallel_workers= @save_replica_parallel_workers;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;

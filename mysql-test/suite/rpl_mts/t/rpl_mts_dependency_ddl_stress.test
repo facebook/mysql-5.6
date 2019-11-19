@@ -1,0 +1,93 @@
+source include/only_mts_replica_parallel_type_dependency.inc;
+source include/big_test.inc;
+source include/not_valgrind.inc;
+source include/master-slave.inc;
+
+connection slave;
+STOP REPLICA SQL_THREAD;
+
+# generate load
+connection master;
+create table t1(a int auto_increment primary key) engine = innodb;
+
+disable_query_log;
+let $iter = 1000;
+let $col_inc = 0;
+while ($iter > 0)
+{
+  let $rand= `select round(rand() * 100)`;
+  # execute a DDL 20% of the time
+  if ($rand < 20)
+  {
+    let $inner_rand= `select round(rand() * 100)`;
+    if ($inner_rand < 25)
+    {
+      drop table t1;
+      create table t1(a int auto_increment primary key) engine = innodb;
+    }
+    if ($inner_rand >= 25 && $inner_rand < 50)
+    {
+      eval alter table t1 add column b_$col_inc int;
+      inc $col_inc;
+    }
+    if ($inner_rand >= 50 && $inner_rand < 75)
+    {
+      let $c= `select column_name from information_schema.columns where
+      table_name = 't1' and column_name not like 'a%' limit 1`;
+      if ($c != "")
+      {
+        eval alter table t1 drop column $c;
+      }
+    }
+    if ($inner_rand >= 75)
+    {
+      let $c= `select column_name from information_schema.columns where
+      table_name = 't1' and column_name not like 'a%' limit 1`;
+      if ($c != "")
+      {
+        eval alter table t1 modify $c bigint;
+      }
+    }
+  }
+  # Execute DML 80% of the time
+  if ($rand >= 20)
+  {
+    let $inner_rand2= `select round(rand() * 100)`;
+    if ($inner_rand2 < 33)
+    {
+      insert into t1 values();
+    }
+    if ($inner_rand2 >= 33 && $inner_rand2 < 66)
+    {
+      delete from t1 limit 1;
+    }
+    if ($inner_rand2 >= 66)
+    {
+      let $c= `select column_name from information_schema.columns where
+      table_name = 't1' and column_name not like 'a%' limit 1`;
+      if ($c != "")
+      {
+        eval update t1 set $c = a;
+      }
+    }
+  }
+  dec $iter;
+}
+enable_query_log;
+
+connection slave;
+start replica sql_thread;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+# Check if master and slave have the same data
+let $diff_tables=master:test.t1, slave:test.t1;
+source include/diff_tables.inc;
+
+# Cleanup
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

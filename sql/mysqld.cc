@@ -1207,6 +1207,7 @@ bool migrate_connect_options = false;
 uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
+ulong slave_tx_isolation;
 bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 char *default_collation_for_utf8mb4_init = nullptr;
@@ -1421,6 +1422,10 @@ double opt_mts_imbalance_threshold;
 ulonglong opt_mts_pending_jobs_size_max;
 ulonglong slave_rows_search_algorithms_options;
 bool opt_replica_preserve_commit_order;
+ulong opt_mts_dependency_replication;
+ulonglong opt_mts_dependency_size;
+double opt_mts_dependency_refill_threshold;
+ulonglong opt_mts_dependency_max_keys;
 #ifndef NDEBUG
 uint replica_rows_last_search_algorithm_used;
 #endif
@@ -9901,6 +9906,78 @@ static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff) {
 }
 #endif
 
+static int show_slave_dependency_in_queue(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->get_dep_queue_size();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_in_flight(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->num_in_flight_trx.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_begin_waits(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->begin_event_waits.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
+static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->next_event_waits.load();
+  } else
+    var->type = SHOW_UNDEF;
+
+  channel_map.unlock();
+  return 0;
+}
+
 static int show_slave_before_image_inconsistencies(THD *, SHOW_VAR *var,
                                                    char *buff) {
   channel_map.rdlock();
@@ -10420,6 +10497,14 @@ SHOW_VAR status_vars[] = {
     {"Slave_before_image_inconsistencies",
      (char *)&show_slave_before_image_inconsistencies, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_in_queue", (char *)&show_slave_dependency_in_queue,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_in_flight", (char *)&show_slave_dependency_in_flight,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_begin_waits", (char *)&show_slave_dependency_begin_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_dependency_next_waits", (char *)&show_slave_dependency_next_waits,
+     SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_high_priority_ddl_executed",
      (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG, SHOW_SCOPE_ALL},
     {"Slave_high_priority_ddl_killed_connections",
@@ -12533,6 +12618,7 @@ PSI_rwlock_key key_rwlock_Binlog_transmit_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
 PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
 PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
+PSI_rwlock_key key_rwlock_commit_order_manager_lock;
 
 /* clang-format off */
 static PSI_rwlock_info all_server_rwlocks[]=
@@ -12562,6 +12648,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
 #endif // _WIN32
   { &key_rwlock_Raft_replication_delegate_lock,
     "Raft_replication_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_commit_order_manager_lock, "Commit_order_manager::rwlock", 0, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
@@ -12829,6 +12916,8 @@ PSI_stage_info stage_rpl_failover_fetching_source_member_details= { 0, "Fetching
 PSI_stage_info stage_rpl_failover_updating_source_member_details= { 0, "Updating fetched source member details on receiver", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_rpl_failover_wait_before_next_fetch= { 0, "Wait before trying to fetch next membership changes from source", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_communication_delegation= { 0, "Connection delegated to Group Replication", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_slave_waiting_for_dependencies= { 0, "Waiting for dependencies to be satisfied", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_slave_waiting_for_dependency_workers= { 0, "Waiting for dependency workers to finish", 0, PSI_DOCUMENT_ME};
 /* clang-format on */
 
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -12929,9 +13018,11 @@ PSI_stage_info *all_server_stages[] = {
     &stage_starting,
     &stage_waiting_for_no_channel_reference,
     &stage_hook_begin_trans,
-    &stage_waiting_for_disk_space,
     &stage_binlog_transaction_compress,
     &stage_binlog_transaction_decompress,
+    &stage_slave_waiting_for_dependencies,
+    &stage_slave_waiting_for_dependency_workers,
+    &stage_waiting_for_disk_space,
     &stage_rpl_failover_fetching_source_member_details,
     &stage_rpl_failover_updating_source_member_details,
     &stage_rpl_failover_wait_before_next_fetch,
@@ -13251,4 +13342,24 @@ bool setup_datagram_socket(sys_var *self MY_ATTRIBUTE((unused)),
     }
   }
   return false;
+}
+
+ulong get_mts_parallel_option() {
+  /* For compat with 5.6 so that you can turn off DP by setting to None */
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
+      opt_mts_dependency_replication == DEP_RPL_NONE) {
+    return MTS_PARALLEL_TYPE_DB_NAME;
+  }
+
+  return mts_parallel_option;
+}
+
+bool get_slave_preserve_commit_order() {
+  /* For compat with 5.6 so that you can turn off DP by setting to None */
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
+      opt_mts_dependency_replication == DEP_RPL_NONE) {
+    return false;
+  }
+
+  return opt_replica_preserve_commit_order;
 }

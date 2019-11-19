@@ -113,6 +113,7 @@ SET PERSIST max_binlog_cache_size = @@GLOBAL.max_binlog_cache_size;
 SET PERSIST max_binlog_size = @@GLOBAL.max_binlog_size;
 SET PERSIST max_binlog_stmt_cache_size = @@GLOBAL.max_binlog_stmt_cache_size;
 SET PERSIST max_relay_log_size = @@GLOBAL.max_relay_log_size;
+SET PERSIST mts_dependency_replication = @@GLOBAL.mts_dependency_replication;
 SET PERSIST relay_log = @@GLOBAL.relay_log;
 ERROR HY000: Variable 'relay_log' is a read only variable
 SET PERSIST relay_log_basename = @@GLOBAL.relay_log_basename;
@@ -242,6 +243,7 @@ SET PERSIST slave_transaction_retries = @@GLOBAL.slave_transaction_retries;
 Warnings:
 Warning	1287	'@@slave_transaction_retries' is deprecated and will be removed in a future release. Please use replica_transaction_retries instead.
 Warning	1287	'@@slave_transaction_retries' is deprecated and will be removed in a future release. Please use replica_transaction_retries instead.
+SET PERSIST slave_tx_isolation = @@GLOBAL.slave_tx_isolation;
 SET PERSIST slave_type_conversions = @@GLOBAL.slave_type_conversions;
 Warnings:
 Warning	1287	'@@slave_type_conversions' is deprecated and will be removed in a future release. Please use replica_type_conversions instead.
@@ -357,6 +359,7 @@ RESET PERSIST IF EXISTS max_binlog_cache_size;
 RESET PERSIST IF EXISTS max_binlog_size;
 RESET PERSIST IF EXISTS max_binlog_stmt_cache_size;
 RESET PERSIST IF EXISTS max_relay_log_size;
+RESET PERSIST IF EXISTS mts_dependency_replication;
 RESET PERSIST IF EXISTS relay_log;
 Warnings:
 Warning	3615	Variable relay_log does not exist in persisted config file
@@ -478,6 +481,7 @@ Warning	3615	Variable slave_sql_verify_checksum does not exist in persisted conf
 RESET PERSIST IF EXISTS slave_transaction_retries;
 Warnings:
 Warning	3615	Variable slave_transaction_retries does not exist in persisted config file
+RESET PERSIST IF EXISTS slave_tx_isolation;
 RESET PERSIST IF EXISTS slave_type_conversions;
 Warnings:
 Warning	3615	Variable slave_type_conversions does not exist in persisted config file

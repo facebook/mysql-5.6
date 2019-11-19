@@ -1,0 +1,41 @@
+# Tests dependency replication when trxs contain REPLACE INTO statements that
+# convert into a few inserts and a few update events in the binlog. When this
+# happens only one table map event is logged before the insert and update stmts
+
+source include/only_mts_replica_parallel_type_dependency.inc;
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+# create multiple workers on the slave
+connection slave;
+stop replica;
+set @save.replica_parallel_workers= @@global.replica_parallel_workers;
+set @@global.replica_parallel_workers= 4;
+start replica;
+
+# create table
+connection master;
+create table t1 (a int primary key, b int) engine = innodb;
+
+# insert some data into the table
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+
+# now execute a replace into that will update the existing data and insert some
+# new data into the table, this will create one table map event, write rows
+# event and update event in the binlog
+replace into t1 values (1, 10), (2, 20), (3, 30), (4, 40);
+source include/show_binlog_events.inc;
+
+select * from t1; # on master
+source include/sync_slave_sql_with_master.inc;
+# connection slave;
+select * from t1; # on slave
+
+# cleanup
+set @@global.replica_parallel_workers= @save.replica_parallel_workers;
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

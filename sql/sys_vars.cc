@@ -4475,8 +4475,9 @@ static Sys_var_set Slave_rows_search_algorithms(
     NOT_IN_BINLOG, ON_CHECK(check_not_null_not_empty), ON_UPDATE(nullptr),
     DEPRECATED_VAR(""));
 
+extern ulong mts_parallel_option;
 static const char *mts_parallel_type_names[] = {"DATABASE", "LOGICAL_CLOCK",
-                                                nullptr};
+                                                "DEPENDENCY", nullptr};
 static Sys_var_enum Sys_replica_parallel_type(
     "replica_parallel_type",
     "The method used by the replication applier to parallelize "
@@ -4545,6 +4546,7 @@ static Sys_var_ulong Binlog_transaction_dependency_history_size(
     BLOCK_SIZE(1), &PLock_slave_trans_dep_tracker, NOT_IN_BINLOG,
     ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
+extern bool opt_replica_preserve_commit_order;
 static Sys_var_bool Sys_replica_preserve_commit_order(
     "replica_preserve_commit_order",
     "Force replication worker threads to commit in the same order as on the "
@@ -5555,6 +5557,11 @@ static Sys_var_transaction_isolation Sys_transaction_isolation(
     UNTRACKED_DEFAULT SESSION_VAR(transaction_isolation), NO_CMD_LINE,
     tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_transaction_isolation));
+
+static Sys_var_transaction_isolation Sys_slave_tx_isolation(
+    "slave_tx_isolation", "Slave thread transaction isolation level",
+    GLOBAL_VAR(slave_tx_isolation), CMD_LINE(REQUIRED_ARG), tx_isolation_names,
+    DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD, NOT_IN_BINLOG, nullptr);
 
 /**
   Function to check if the state of 'transaction_read_only' can be changed.
@@ -6935,6 +6942,33 @@ static Sys_var_double Sys_mts_imbalance_threshold(
     "denotes the percent load on the most loaded worker.",
     GLOBAL_VAR(opt_mts_imbalance_threshold), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, 100), DEFAULT(90));
+
+static const char *dep_rpl_type_names[] = {"NONE", "TBL", "STMT", NullS};
+
+static Sys_var_enum Sys_mts_dependency_replication(
+    "mts_dependency_replication", "Use dependency based replication",
+    GLOBAL_VAR(opt_mts_dependency_replication), CMD_LINE(OPT_ARG),
+    dep_rpl_type_names, DEFAULT(DEP_RPL_TABLE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(0), ON_UPDATE(0));
+
+static Sys_var_ulonglong Sys_mts_dependency_size(
+    "mts_dependency_size", "Max size of the dependency buffer",
+    GLOBAL_VAR(opt_mts_dependency_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(1000), BLOCK_SIZE(1));
+
+static Sys_var_double Sys_mts_dependency_refill_threshold(
+    "mts_dependency_refill_threshold",
+    "Capacity in percentage at which to start refilling the dependency "
+    "buffer",
+    GLOBAL_VAR(opt_mts_dependency_refill_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(60));
+
+static Sys_var_ulonglong Sys_mts_dependency_max_keys(
+    "mts_dependency_max_keys",
+    "Max number of keys in a transaction after which it will be executed in "
+    "isolation. This limits the amount of metadata we'll need to maintain.",
+    GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
 
 static Sys_var_ulonglong Sys_replica_pending_jobs_size_max(
     "replica_pending_jobs_size_max",

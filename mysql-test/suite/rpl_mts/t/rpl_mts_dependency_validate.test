@@ -1,0 +1,73 @@
+# The test configuration: 
+#   - One master, two slaves, the first with parallel replication enabled, the second with only a single slave thread. 
+# The test procedure:
+#   1. Generate a big table on the master. 
+#   2. Start replication slaves.
+#   3. Wait until slaves will catch up the master.
+#   4. Compare the checksums on tables between the master and the slaves.
+
+--let $rpl_skip_start_slave= 1
+--let $rpl_topology= 1->2,1->3
+--source include/rpl_init.inc
+--source include/rpl_default_connections.inc
+
+--let $rpl_connection_name= 1thread_slave
+--let $rpl_server_number= 3
+--source include/rpl_connect.inc
+
+
+--echo *** 1. Generate a big table on the master
+--source include/rpl_connection_master.inc
+CREATE TABLE t1(
+  id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+  value CHAR(32) NOT NULL,
+  dummy VARCHAR(1024) NOT NULL
+) ENGINE=InnoDB;
+
+--disable_query_log
+# Filling the table with pseudo-random data based on MD5 hashes.
+--let $length_multiplier = 16
+--let $n = 2048
+while($n)
+{
+  --eval INSERT INTO t1 VALUES ($n, MD5($n), REPEAT(MD5($n), $length_multiplier))
+  --dec $n
+}
+--enable_query_log
+--let $checksum_master= query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+
+--echo *** 2. Start replication slaves
+--source include/rpl_connection_slave.inc
+--source include/start_slave.inc
+
+--let $rpl_connection_name= 1thread_slave
+--source include/rpl_connection.inc
+--source include/start_slave.inc
+
+
+--echo *** 3. Wait until slaves will catch up the master
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+--let $checksum_slave1= query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+--source include/rpl_connection_master.inc
+--let $sync_slave_connection=1thread_slave
+--source include/sync_slave_sql_with_master.inc
+--let $checksum_slave2= query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+
+--echo *** 4. Compare the checksums on tables between the master and the slaves
+--let $assert_text= 'Master and slave checksums should be identical'
+--let $assert_cond= $checksum_master = $checksum_slave2
+--source include/assert.inc
+
+--let $assert_text= 'Slave 1 and 2 checksums should be identical'
+--let $assert_cond= $checksum_slave1 = $checksum_slave2
+--source include/assert.inc
+
+
+# Cleanup
+--source include/rpl_connection_master.inc
+drop table t1;
+--source include/rpl_end.inc

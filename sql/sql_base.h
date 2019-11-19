@@ -290,6 +290,8 @@ TABLE *open_n_lock_single_table(THD *thd, TABLE_LIST *table_l,
                                 thr_lock_type lock_type, uint flags,
                                 Prelocking_strategy *prelocking_strategy);
 bool open_tables_for_query(THD *thd, TABLE_LIST *tables, uint flags);
+bool get_table_from_cache(THD *thd, TABLE_LIST *table);
+void return_table_to_cache(THD *thd, TABLE_LIST *table);
 bool lock_tables(THD *thd, TABLE_LIST *tables, uint counter, uint flags);
 bool lock_dictionary_tables(THD *thd, TABLE_LIST *tables, uint count,
                             uint flags);

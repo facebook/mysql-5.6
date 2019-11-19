@@ -1,6 +1,0 @@
-!include ../my.cnf
-
-[mysqld.1]
-
-[mysqld.2]
-

@@ -2529,7 +2529,7 @@ include/assert.inc [Variable slave_net_timeout should exist in performance_schem
 sysvar:
 - name=replica_parallel_type
 - alias=slave_parallel_type
-- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 2]
+- invalid=[1.5, "ON", "'x'", "NULL", "'FOO_BAR'", -1, 3]
 - global=1
 - session=0
 - cmdline=1
@@ -2540,7 +2540,7 @@ sysvar:
 - max=
 - block_size=1
 - default=LOGICAL_CLOCK
-- values=["LOGICAL_CLOCK", "'DATABASE'", "'LOGICAL_CLOCK'", 0, 1]
+- values=["LOGICAL_CLOCK", "'DATABASE'", "'LOGICAL_CLOCK'", "'DEPENDENCY'", 0, 1, 2]
 ==== Testing SET @@global.replica_parallel_type [allowed values, range, invalid values] ====
 # Initial value is default
 include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
@@ -2563,6 +2563,11 @@ include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [replica_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
 include/assert.inc [@@global.slave_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [slave_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
+SET @@global.replica_parallel_type='DEPENDENCY';
+include/assert.inc [@@global.replica_parallel_type should be DEPENDENCY]
+include/assert.inc [replica_parallel_type should be DEPENDENCY in P_S.global_variables]
+include/assert.inc [@@global.slave_parallel_type should be DEPENDENCY]
+include/assert.inc [slave_parallel_type should be DEPENDENCY in P_S.global_variables]
 SET @@global.replica_parallel_type=0;
 include/assert.inc [@@global.replica_parallel_type should be DATABASE]
 include/assert.inc [replica_parallel_type should be DATABASE in P_S.global_variables]
@@ -2573,6 +2578,11 @@ include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [replica_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
 include/assert.inc [@@global.slave_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [slave_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
+SET @@global.replica_parallel_type=2;
+include/assert.inc [@@global.replica_parallel_type should be DEPENDENCY]
+include/assert.inc [replica_parallel_type should be DEPENDENCY in P_S.global_variables]
+include/assert.inc [@@global.slave_parallel_type should be DEPENDENCY]
+include/assert.inc [slave_parallel_type should be DEPENDENCY in P_S.global_variables]
 # Setting default value for variable
 SET @@global.replica_parallel_type = DEFAULT;
 include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
@@ -2592,7 +2602,7 @@ SET @@global.replica_parallel_type = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.replica_parallel_type = -1;
 Got one of the listed errors
-SET @@global.replica_parallel_type = 2;
+SET @@global.replica_parallel_type = 3;
 Got one of the listed errors
 # Restore default
 SET @@global.replica_parallel_type = DEFAULT;
@@ -2617,6 +2627,10 @@ SET @@session.replica_parallel_type = 'LOGICAL_CLOCK';
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_parallel_type = 'LOGICAL_CLOCK';
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_parallel_type = 'DEPENDENCY';
+ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_parallel_type = 'DEPENDENCY';
+ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.replica_parallel_type = 0;
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_parallel_type = 0;
@@ -2624,6 +2638,10 @@ ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be
 SET @@session.replica_parallel_type = 1;
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@replica_parallel_type = 1;
+ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.replica_parallel_type = 2;
+ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@replica_parallel_type = 2;
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.replica_parallel_type;
 ERROR HY000: Variable 'replica_parallel_type' is a GLOBAL variable
@@ -2659,6 +2677,13 @@ include/assert.inc [@@global.slave_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [slave_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
 include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [replica_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
+SET @@global.slave_parallel_type='DEPENDENCY';
+Warnings:
+Warning	1287	'@@slave_parallel_type' is deprecated and will be removed in a future release. Please use replica_parallel_type instead.
+include/assert.inc [@@global.slave_parallel_type should be DEPENDENCY]
+include/assert.inc [slave_parallel_type should be DEPENDENCY in P_S.global_variables]
+include/assert.inc [@@global.replica_parallel_type should be DEPENDENCY]
+include/assert.inc [replica_parallel_type should be DEPENDENCY in P_S.global_variables]
 SET @@global.slave_parallel_type=0;
 Warnings:
 Warning	1287	'@@slave_parallel_type' is deprecated and will be removed in a future release. Please use replica_parallel_type instead.
@@ -2673,6 +2698,13 @@ include/assert.inc [@@global.slave_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [slave_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
 include/assert.inc [@@global.replica_parallel_type should be LOGICAL_CLOCK]
 include/assert.inc [replica_parallel_type should be LOGICAL_CLOCK in P_S.global_variables]
+SET @@global.slave_parallel_type=2;
+Warnings:
+Warning	1287	'@@slave_parallel_type' is deprecated and will be removed in a future release. Please use replica_parallel_type instead.
+include/assert.inc [@@global.slave_parallel_type should be DEPENDENCY]
+include/assert.inc [slave_parallel_type should be DEPENDENCY in P_S.global_variables]
+include/assert.inc [@@global.replica_parallel_type should be DEPENDENCY]
+include/assert.inc [replica_parallel_type should be DEPENDENCY in P_S.global_variables]
 # Setting default value for variable
 SET @@global.slave_parallel_type = DEFAULT;
 Warnings:
@@ -2694,7 +2726,7 @@ SET @@global.slave_parallel_type = 'FOO_BAR';
 Got one of the listed errors
 SET @@global.slave_parallel_type = -1;
 Got one of the listed errors
-SET @@global.slave_parallel_type = 2;
+SET @@global.slave_parallel_type = 3;
 Got one of the listed errors
 # Restore default
 SET @@global.slave_parallel_type = DEFAULT;
@@ -2721,6 +2753,10 @@ SET @@session.slave_parallel_type = 'LOGICAL_CLOCK';
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_parallel_type = 'LOGICAL_CLOCK';
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_parallel_type = 'DEPENDENCY';
+ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_parallel_type = 'DEPENDENCY';
+ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@session.slave_parallel_type = 0;
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_parallel_type = 0;
@@ -2728,6 +2764,10 @@ ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be s
 SET @@session.slave_parallel_type = 1;
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SET @@slave_parallel_type = 1;
+ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@session.slave_parallel_type = 2;
+ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
+SET @@slave_parallel_type = 2;
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT @@session.slave_parallel_type;
 ERROR HY000: Variable 'slave_parallel_type' is a GLOBAL variable

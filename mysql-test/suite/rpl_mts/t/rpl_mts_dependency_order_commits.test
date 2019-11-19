@@ -1,0 +1,79 @@
+# Tests if replica_preserve_commit_order=TRUE master's commit order is honored
+# on the slave (per database)
+
+source include/only_mts_replica_parallel_type_dependency.inc;
+source include/master-slave.inc;
+
+connection slave;
+stop replica;
+set @save.replica_parallel_workers= @@global.replica_parallel_workers;
+set @@global.replica_parallel_workers= 8;
+start replica;
+
+connection master;
+create database d1;
+create database d2;
+create table d1.t1(a int primary key) engine=innodb;
+create table d1.t2(a int primary key) engine=innodb;
+create table d2.t1(a int primary key) engine=innodb;
+insert into d1.t1 values(1);
+
+sync_slave_with_master;
+#connection slave;
+# create a blocking trx on the slave
+begin;
+update d1.t1 set a = 2 where a = 1;
+
+connection master;
+update d1.t1 set a = 3 where a = 1; # this will be blocked due to engine lock
+insert into d1.t2 values(1); # this will be blocked on commit of the prev trx
+insert into d2.t1 values(1); # this will be NOT be blocked because it's affecting a different database
+begin;
+insert into d1.t1 values(10);
+insert into d2.t1 values(10);
+commit; # this will wait for all workers to finish (to execute in isolation)
+
+
+connection slave1;
+--echo # Wait for 2nd trx above to block on commit order
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for preceding transaction to commit%";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+--echo # Wait for 3rd trx to go through
+let $wait_condition= SELECT COUNT(*) = 1 FROM d2.t1;
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+--echo # Wait for 4th trx to wait for workers to finish
+let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
+WHERE STATE LIKE "%Waiting for dependency workers to finish%";
+let $wait_timeout= 120;
+source include/wait_condition.inc;
+
+echo "d1.t1 should contain a single row with value 1";
+select * from d1.t1;
+echo "d1.t2 should be empty";
+select * from d1.t2;
+echo "d2.t1 should contain a single row with value 1";
+select * from d2.t1;
+
+connection slave;
+rollback; # rollback the conflicting trx
+
+connection master;
+sync_slave_with_master;
+echo "Final states";
+select * from d1.t1;
+select * from d1.t2;
+select * from d2.t1;
+
+# cleanup
+set @@global.replica_parallel_workers= @save.replica_parallel_workers;
+connection master;
+drop database d1;
+drop database d2;
+sync_slave_with_master;
+
+source include/rpl_end.inc;

@@ -276,11 +276,12 @@ query_attrs_reset;
 # =============================================================================
 
 connection slave;
-STOP SLAVE;
-SET @@global.slave_parallel_workers = 8;
+STOP REPLICA;
+SET @save.replica_parallel_workers = @@global.replica_parallel_workers;
+SET @@global.replica_parallel_workers = 8;
 SET @@global.slave_use_idempotent_for_recovery= YES;
 SET @@global.mts_dependency_replication = TBL;
-START SLAVE;
+START REPLICA;
 
 # Create a blocking transaction on the slave
 connection slave1;
@@ -376,7 +377,7 @@ connection slave;
 SET @@global.enable_binlog_hlc = default;
 SET @@global.enable_block_stale_hlc_read = default;
 SET @@global.maintain_database_hlc = default;
-SET @@global.slave_parallel_workers = default;
+SET @@global.replica_parallel_workers = @save.replica_parallel_workers;
 SET @@global.slave_use_idempotent_for_recovery = default;
 SET @@global.mts_dependency_replication = default;
 

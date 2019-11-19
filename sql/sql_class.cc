@@ -619,7 +619,7 @@ void Open_tables_state::reset_open_tables_state() {
   reset_reprepare_observers();
 }
 
-THD::THD(bool enable_plugins)
+THD::THD(bool enable_plugins, bool is_slave)
     : Query_arena(&main_mem_root, STMT_REGULAR_EXECUTION),
       mark_used_columns(MARK_COLUMNS_READ),
       want_privilege(0),
@@ -827,7 +827,7 @@ THD::THD(bool enable_plugins)
   protocol_binary->init(this);
   protocol_text->set_client_capabilities(0);  // minimalistic client
 
-  init();
+  init(is_slave);
 
   /*
     Make sure thr_lock_info_init() is called for threads which do not get
@@ -1147,7 +1147,7 @@ void THD::fix_capability_based_variables() {
   Init common variables that has to be reset on start and on cleanup_connection
 */
 
-void THD::init(void) {
+void THD::init(bool is_slave) {
   plugin_thdvar_init(this, m_enable_plugins);
   /*
     variables= global_system_variables above has reset
@@ -1191,6 +1191,12 @@ void THD::init(void) {
   insert_lock_default =
       (variables.low_priority_updates ? TL_WRITE_LOW_PRIORITY
                                       : TL_WRITE_CONCURRENT_INSERT);
+
+  if (is_slave) {
+    variables.transaction_isolation =
+        static_cast<enum_tx_isolation>(slave_tx_isolation);
+  }
+
   tx_isolation = (enum_tx_isolation)variables.transaction_isolation;
   tx_read_only = variables.transaction_read_only;
   tx_priority = 0;
@@ -1267,7 +1273,7 @@ void THD::cleanup_connection(void) {
   killed = NOT_KILLED;
   running_explain_analyze = false;
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::ACTIVE;
-  init();
+  init(/* is_slave = */ false);
   stmt_map.reset();
   user_vars.clear();
   sp_cache_clear(&sp_proc_cache);

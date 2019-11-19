@@ -1,0 +1,1 @@
+--max-relay-log-size=4096 --replica_parallel_workers=0

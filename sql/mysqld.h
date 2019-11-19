@@ -241,12 +241,9 @@ enum enum_slave_rows_search_algorithms {
 extern ulonglong slave_rows_search_algorithms_options;
 extern bool opt_require_secure_transport;
 
-extern bool opt_replica_preserve_commit_order;
-
 #ifndef NDEBUG
 extern uint replica_rows_last_search_algorithm_used;
 #endif
-extern ulong mts_parallel_option;
 #ifdef _WIN32
 extern bool opt_enable_named_pipe;
 extern char *named_pipe_full_access_group;
@@ -360,6 +357,10 @@ extern uint replica_net_timeout;
 extern ulong opt_mts_replica_parallel_workers;
 extern bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
+extern ulong opt_mts_dependency_replication;
+extern ulonglong opt_mts_dependency_size;
+extern double opt_mts_dependency_refill_threshold;
+extern ulonglong opt_mts_dependency_max_keys;
 extern ulonglong opt_mts_pending_jobs_size_max;
 extern ulong rpl_stop_replica_timeout;
 extern bool log_bin_use_v1_row_events;
@@ -548,6 +549,7 @@ extern char *opt_protocol_compression_algorithms;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
+extern ulong slave_tx_isolation;
 
 /* Enable logging queries to a unix local datagram socket */
 extern bool log_datagram;
@@ -641,6 +643,7 @@ extern PSI_rwlock_key key_rwlock_rpl_filter_lock;
 extern PSI_rwlock_key key_rwlock_channel_to_filter_lock;
 extern PSI_rwlock_key key_rwlock_LOCK_gap_lock_exceptions;
 extern PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
+extern PSI_rwlock_key key_rwlock_commit_order_manager_lock;
 
 extern PSI_cond_key key_PAGE_cond;
 extern PSI_cond_key key_COND_active;
@@ -814,6 +817,8 @@ extern PSI_stage_info stage_rpl_failover_fetching_source_member_details;
 extern PSI_stage_info stage_rpl_failover_updating_source_member_details;
 extern PSI_stage_info stage_rpl_failover_wait_before_next_fetch;
 extern PSI_stage_info stage_communication_delegation;
+extern PSI_stage_info stage_slave_waiting_for_dependencies;
+extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).
@@ -1127,4 +1132,15 @@ void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data);
 
 class Deployed_components;
 extern Deployed_components *g_deployed_components;
+
+/**
+   Get parallel replication config
+*/
+ulong get_mts_parallel_option();
+
+/**
+   Returns whether slave commit order is preserved
+*/
+bool get_slave_preserve_commit_order();
+
 #endif /* MYSQLD_INCLUDED */

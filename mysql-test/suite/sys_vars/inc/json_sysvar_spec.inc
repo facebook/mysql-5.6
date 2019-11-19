@@ -325,9 +325,9 @@ let $sysvar_specs =
     "alias": "slave_parallel_type",
     $persist_as_readonly,
     "default": "LOGICAL_CLOCK",
-    "values": ["LOGICAL_CLOCK", "'DATABASE'", "'LOGICAL_CLOCK'", 0, 1],
-    "invalid": [$enum_invalid, -1, 2],
-    "value_map": {"'LOGICAL_CLOCK'": "LOGICAL_CLOCK", "'DATABASE'": "DATABASE", "0": "DATABASE", "1": "LOGICAL_CLOCK"},
+    "values": ["LOGICAL_CLOCK", "'DATABASE'", "'LOGICAL_CLOCK'", "'DEPENDENCY'", 0, 1, 2],
+    "invalid": [$enum_invalid, -1, 3],
+    "value_map": {"'LOGICAL_CLOCK'": "LOGICAL_CLOCK", "'DATABASE'": "DATABASE", "'DEPENDENCY'": "DEPENDENCY", "0": "DATABASE", "1": "LOGICAL_CLOCK", "2": "DEPENDENCY"},
     "skip_set_persist_only_default": 1
   },
   {

@@ -1,0 +1,108 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("cannot be converted from type");
+call mtr.add_suppression("Unable to check type compatibility at pos");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+create table t1(a bigint primary key) engine = innodb;
+insert into t1 values(1);
+include/sync_slave_sql_with_master.inc
+"Changing column type of t1.a from bigint to tinyint on the slave"
+set @@sql_log_bin = 0;
+alter table t1 modify a tinyint;
+set @@sql_log_bin = 1;
+"Case 1: Checking if dependencies are handled correctly when there is no truncation"
+include/stop_slave.inc
+"Applying dependent updates on the master"
+update t1 set a = 2;
+update t1 set a = 3;
+"Blocking the first update on the slave"
+begin;
+update t1 set a = 4;
+include/start_slave.inc
+"The second update must wait for the first update to finish"
+rollback;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+3
+select * from t1;
+a
+3
+"Case 2: Checking if dependencies are handled correctly when there is truncation"
+include/stop_slave.inc
+"Updating all rows on master with value which will be truncated"
+update t1 set a = a + 10000;
+"Setting all values back to tinyint range"
+update t1 set a = a - 10000;
+"Blocking the first update on the slave"
+begin;
+update t1 set a = a + 2;
+include/start_slave.inc
+"The second update must wait for the first update to finish"
+rollback;
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+3
+select * from t1;
+a
+3
+"Case 3: Checking if dependencies are handled correctly in char PK"
+create table t2 (pk char(32) primary key, val int) engine = innodb;
+insert into t2 values('a', 1);
+include/sync_slave_sql_with_master.inc
+"Converting primary key from char(32) to char(64) on the master"
+set @@sql_log_bin = 0;
+alter table t2 modify pk char(64);
+set @@sql_log_bin = 1;
+include/stop_slave.inc
+"Apply dependent updates on the master"
+update t2 set pk = 'b';
+update t2 set pk = 'c';
+"Blocking the first update on the slave"
+begin;
+update t2 set pk = 'd';
+include/start_slave.inc
+"The second update must wait for the first update to finish"
+rollback;
+include/sync_slave_sql_with_master.inc
+select * from t2;
+pk	val
+c	1
+select * from t2;
+pk	val
+c	1
+"Case 4: Checking case where conversion will fail"
+create table t3 (pk varchar(32) primary key, val int) engine = innodb;
+include/sync_slave_sql_with_master.inc
+"Converting primary key from varchar(32) to varchar(16) on the master"
+set @@sql_log_bin = 0;
+alter table t3 modify pk varchar(16);
+set @@sql_log_bin = 1;
+"Inserting some values"
+insert into t3 values ('a', 1);
+insert into t3 values ('b', 2);
+"Slave should fail during conversion"
+include/wait_for_slave_sql_error.inc [errno=13146]
+"Changing primary key type on slave to match with master"
+set @@sql_log_bin = 0;
+alter table t3 modify pk varchar(16);
+set @@sql_log_bin = 1;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+select * from t3;
+pk	val
+a	1
+b	2
+select * from t3;
+pk	val
+a	1
+b	2
+drop table t1;
+drop table t2;
+drop table t3;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

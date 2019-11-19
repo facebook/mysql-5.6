@@ -1,0 +1,10 @@
+!include ../rpl_1slave_base.cnf
+
+[mysqld.1]
+
+[mysqld.2]
+replica_parallel_workers= 2
+slave_use_idempotent_for_recovery= YES
+replica_parallel_type= DEPENDENCY
+mts_dependency_replication= STMT
+replica_preserve_commit_order= false

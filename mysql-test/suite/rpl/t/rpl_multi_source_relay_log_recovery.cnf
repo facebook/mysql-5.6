@@ -1,11 +1,13 @@
 !include ../my.cnf
 
 [mysqld.1]
+replica-parallel-workers=2
 
 [mysqld.2]
 relay-log-recovery=1
 replica-transaction-retries=0
 sync_source_info=1
+replica-parallel-workers=2
 
 [mysqld.3]
 

@@ -1032,6 +1032,8 @@ SET (SLAVE_SOURCE
   rpl_trx_boundary_parser.cc
   udf_service_impl.cc
   udf_service_util.cc
+  log_event_wrapper.cc
+  dependency_slave_worker.cc
   )
 ADD_LIBRARY(slave STATIC ${SLAVE_SOURCE})
 ADD_DEPENDENCIES(slave GenError)

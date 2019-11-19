@@ -1,0 +1,51 @@
+source include/have_binlog_format_mixed_or_row.inc;
+source include/not_valgrind.inc;
+
+--let $rpl_skip_start_slave= 1
+source include/master-slave.inc;
+
+connection master;
+let $skip_cleanup= 1;
+let $sync_with_master= 0;
+let $iter= 50;
+source extra/rpl_tests/rpl_parallel_simple_load.test;
+
+# Test the interaction between dependency replication and rows_query_log
+connection slave;
+SET @save.replica_parallel_workers= @@global.replica_parallel_workers;
+SET @@GLOBAL.replica_parallel_workers= 4;
+START REPLICA;
+
+--disable_query_log
+--disable_result_log
+let $caught_up= 0;
+while ($caught_up == 0)
+{
+  SELECT SLEEP(1);
+  STOP REPLICA; SET @@GLOBAL.replica_parallel_workers=0; START REPLICA;
+
+  SELECT SLEEP(1);
+  STOP REPLICA; SET @@GLOBAL.replica_parallel_workers=0; START REPLICA;
+
+  SELECT SLEEP(1);
+  STOP REPLICA; SET @@GLOBAL.replica_parallel_workers=4; START REPLICA;
+
+  SELECT SLEEP(1);
+  STOP REPLICA; SET @@GLOBAL.replica_parallel_workers=4; START REPLICA;
+
+  let $caught_up= `SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST WHERE State like "Replica has read all relay log%"`;
+}
+--enable_query_log
+--enable_result_log
+
+# Cleanup
+connection master;
+sync_slave_with_master;
+source extra/rpl_tests/rpl_parallel_simple_load_consistency.test;
+source extra/rpl_tests/rpl_parallel_simple_load_cleanup.test;
+connection slave;
+source include/stop_slave.inc;
+set @@global.replica_parallel_workers= @save.replica_parallel_workers;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;

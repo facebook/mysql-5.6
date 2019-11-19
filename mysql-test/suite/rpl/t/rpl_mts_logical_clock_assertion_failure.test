@@ -3,7 +3,6 @@
 --let $option_name = replica_parallel_workers
 --let $option_value = 4
 --source include/only_with_option.inc
---source include/only_mts_replica_parallel_type_logical_clock.inc
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_binlog_format_row.inc
@@ -58,6 +57,7 @@
 # The test verifys that the assertion failure doesn't happen.
 ################################################################################
 --source include/rpl_connection_slave.inc
+--source include/only_mts_replica_parallel_type_logical_clock.inc
 SET @saved_innodb_lock_wait_timeout = @@GLOBAL.innodb_lock_wait_timeout;
 SET GLOBAL innodb_lock_wait_timeout = 1000;
 --source include/restart_slave_sql.inc

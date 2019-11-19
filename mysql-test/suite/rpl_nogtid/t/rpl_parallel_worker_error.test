@@ -2,7 +2,6 @@
 # needs to be generated.
 --source include/force_restart.inc
 --source include/have_binlog_format_statement.inc
---source include/only_mts_replica_parallel_workers.inc
 --source include/master-slave.inc
 
 #
@@ -36,6 +35,7 @@ while ($i < 1024)
 --eval CREATE TABLE t (a TEXT) select "$select_arg" as a
 
 --connection slave
+--source include/only_mts_replica_parallel_workers.inc
 
 # Error is found as expected.
 --let $slave_sql_errno= convert_error(ER_TABLE_EXISTS_ERROR)
