@@ -5,7 +5,7 @@
 # Access Type: Dynamic                                                        #
 # Data Type: int                                                              #
 # Default Value: 3                                                            #
-# Range: 0-22                                                                 #
+# Range: ULONG_MIN - 22                                                       #
 # Description: Level of compression to use for zstd operations                #
 #                                                                             #
 ###############################################################################
@@ -14,6 +14,11 @@ SET @orig = @@global.zstd_net_compression_level;
 SELECT @orig;
 
 SET @@global.zstd_net_compression_level = 2;
+
+SET @new = @@global.zstd_net_compression_level;
+SELECT @new;
+
+SET @@global.zstd_net_compression_level = -200;
 
 SET @new = @@global.zstd_net_compression_level;
 SELECT @new;

@@ -4014,6 +4014,8 @@ static int check_recovery_compression_algorithm(MYSQL_THD thd, SYS_VAR *var,
   if (str) {
     if (strcmp(str, COMPRESSION_ALGORITHM_ZLIB) &&
         strcmp(str, COMPRESSION_ALGORITHM_ZSTD) &&
+        strcmp(str, COMPRESSION_ALGORITHM_ZSTD_STREAM) &&
+        strcmp(str, COMPRESSION_ALGORITHM_LZ4F_STREAM) &&
         strcmp(str, COMPRESSION_ALGORITHM_UNCOMPRESSED)) {
       std::stringstream ss;
       ss << "The value '" << str << "' is invalid for " << var->name

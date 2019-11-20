@@ -8485,11 +8485,27 @@ int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi, bool reconnect,
   }
   mysql_options(mysql, MYSQL_OPT_SSL_MODE, &ssl_mode);
 
-  mysql_options(mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS,
-                opt_replica_compressed_protocol
-                    ? (opt_replica_compression_lib ? COMPRESSION_ALGORITHM_ZSTD
-                                                   : COMPRESSION_ALGORITHM_ZLIB)
-                    : mi->compression_algorithm);
+  {
+    char *algorithm;
+    char buf[64];
+    if (opt_replica_compressed_protocol) {
+#ifndef NDEBUG
+      int ret =
+#endif /* NDEBUG */
+          /*
+            Allow negotiating for uncompressed protocol
+            when using slave_compressed_protocol
+          */
+          snprintf(buf, sizeof(buf), "%s,%s",
+                   mysql_compression_lib_names[opt_replica_compression_lib],
+                   COMPRESSION_ALGORITHM_UNCOMPRESSED);
+      assert(ret >= 0 && static_cast<unsigned int>(ret) < sizeof(buf));
+      algorithm = buf;
+    } else {
+      algorithm = mi->compression_algorithm;
+    }
+    mysql_options(mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS, algorithm);
+  }
   mysql_options(mysql, MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
                 opt_replica_compressed_protocol
                     ? (int *)&zstd_net_compression_level

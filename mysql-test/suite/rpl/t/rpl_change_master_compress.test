@@ -32,7 +32,7 @@
 --source include/rpl_connection_slave.inc
 
 --echo # Success criteria: should produce an error
---error ER_CHANGE_RPL_SRC_WRONG_COMPRESSION_ALGORITHM_SIZE
+--error ER_CHANGE_MASTER_WRONG_COMPRESSION_ALGORITHM_CLIENT
 CHANGE REPLICATION SOURCE TO
 SOURCE_COMPRESSION_ALGORITHMS='aaaaaaaaaabbbbbbbbbbccccccccccddddddddddeeeeeee
 eeeffffffffffgggggggggghhhhhhhhhhhiiiiiiiiiijjjjjjjjjjkkkkkkkkkk';

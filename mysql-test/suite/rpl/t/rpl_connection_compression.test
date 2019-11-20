@@ -401,7 +401,9 @@ while ($master_algorithm_it <= $algorithm_count) {
     while ($replica_compressed_protocol < $replica_compressed_protocol_iterations) {
       --source include/rpl_connection_slave.inc
       if ($replica_compressed_protocol) {
-        --let $slave_algorithm = zlib
+        # If slave_compressed_protocol is used, allow defaulting to uncompressed
+        # if compressed is not supported
+        --let $slave_algorithm = zlib,uncompressed
       }
 
       --source include/rpl_connection_master.inc

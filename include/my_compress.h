@@ -28,6 +28,8 @@ enum enum_compression_algorithm {
   MYSQL_UNCOMPRESSED = 1,
   MYSQL_ZLIB,
   MYSQL_ZSTD,
+  MYSQL_ZSTD_STREAM,
+  MYSQL_LZ4F_STREAM,
   MYSQL_INVALID
 };
 
@@ -41,6 +43,25 @@ typedef struct mysql_zlib_compress_context {
   */
   unsigned int compression_level;
 } mysql_zlib_compress_context;
+
+typedef struct LZ4F_cctx_s LZ4F_compressionContext;
+typedef struct LZ4F_dctx_s LZ4F_decompressionContext;
+
+/**
+  Compress context information. relating to LZ4 compression.
+*/
+
+typedef struct mysql_lz4f_compress_context {
+  /**
+    Compression level to use in lz4 compression.
+  */
+  LZ4F_compressionContext *cctx;
+  LZ4F_decompressionContext *dctx;
+  bool reset_cctx;
+  unsigned char *compress_buf;
+  unsigned long compress_buf_len;
+  unsigned int compression_level;
+} mysql_lz4f_compress_context;
 
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
 typedef struct ZSTD_DCtx_s ZSTD_DCtx;
@@ -61,6 +82,9 @@ typedef struct mysql_zstd_compress_context {
   /**
     Compression level to use in zstd compression.
   */
+  bool reset_cctx;
+  unsigned char *compress_buf;
+  unsigned long compress_buf_len;
   unsigned int compression_level;
 } mysql_zstd_compress_context;
 
@@ -73,6 +97,7 @@ typedef struct mysql_zstd_compress_context {
 typedef struct mysql_compress_context {
   enum enum_compression_algorithm algorithm;  ///< Compression algorithm name.
   union {
+    mysql_lz4f_compress_context lz4f_ctx;  ///< Context information of lz4.
     mysql_zlib_compress_context zlib_ctx;  ///< Context information of zlib.
     mysql_zstd_compress_context zstd_ctx;  ///< Context information of zstd.
   } u;
@@ -110,5 +135,7 @@ void mysql_compress_context_init(mysql_compress_context *cmp_ctx,
 */
 
 void mysql_compress_context_deinit(mysql_compress_context *mysql_compress_ctx);
+
+void reset_compress_status(void);
 
 #endif  // MY_COMPRESS_INCLUDED

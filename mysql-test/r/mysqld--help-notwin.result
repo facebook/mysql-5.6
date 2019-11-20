@@ -770,6 +770,9 @@ The following options may be given as the first argument:
  If set to 1 table names are stored in lowercase on disk
  and table names will be case-insensitive.  Should be set
  to 2 if you are using a case insensitive file system
+ --lz4f-net-compression-level[=#] 
+ Compression level for compressed protocol when lz4f
+ library is selected.
  --maintain-database-hlc 
  Enable maintaining of max HLC applied per database
  --mandatory-roles=name 
@@ -2162,7 +2165,7 @@ The following options may be given as the first argument:
  replica_compressed_protocol instead.
  --slave-compression-lib[=name] 
  Compression library for replication stream. 0 is zlib, 1
- is zstd.
+ is zstd, 2 is zstd_stream, 3 is lz4f_stream.
  --slave-dump-thread-wait-sleep-usec[=#] 
  Time (in microsecs) to sleep on the master's dump thread
  before waiting for new data on the latest binlog.
@@ -2410,7 +2413,7 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
- library is selected. Valid values 0-22.
+ library is selected.
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
@@ -2615,6 +2618,7 @@ log-timestamps UTC
 long-query-time 10
 low-priority-updates FALSE
 lower-case-table-names 1
+lz4f-net-compression-level 0
 maintain-database-hlc FALSE
 mandatory-roles 
 master-info-file master.info
@@ -2761,7 +2765,7 @@ port-open-timeout 0
 preload-buffer-size 32768
 print-identified-with-as-hex FALSE
 profiling-history-size 15
-protocol-compression-algorithms zlib,zstd,uncompressed
+protocol-compression-algorithms zlib,zstd,zstd_stream,lz4f_stream,uncompressed
 protocol-mode 
 query-alloc-block-size 8192
 query-prealloc-size 8192

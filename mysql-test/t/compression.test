@@ -3,6 +3,9 @@
 --echo # WL#12475: Protocol Changes to specify compression configuration for connections
 --echo #
 
+# reset compression status/counters
+FLUSH STATUS;
+
 CREATE USER wl12475@localhost;
 
 SELECT @@global.protocol_compression_algorithms;

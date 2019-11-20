@@ -1,8 +1,12 @@
+FLUSH STATUS;
 SHOW STATUS LIKE 'Compression%';
 Variable_name	Value
 Compression	ON
 Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
 Compression_level	6
+Compression_output_bytes	0
 drop table if exists t1,t2,t3,t4;
 CREATE TABLE t1 (
 Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
@@ -2266,7 +2270,10 @@ SHOW STATUS LIKE 'Compression%';
 Variable_name	Value
 Compression	ON
 Compression_algorithm	zstd
+Compression_context_reset	0
+Compression_input_bytes	0
 Compression_level	10
+Compression_output_bytes	64483
 drop table if exists t1,t2,t3,t4;
 CREATE TABLE t1 (
 Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
