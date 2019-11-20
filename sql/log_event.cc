@@ -16507,9 +16507,12 @@ Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
 
   /*
    * A metadata event not in the context of a transaction
-   * can be skipped as it is for a rotate/no-op event
+   * can be skipped as it is for a rotate/no-op event. Do this only if MTS is
+   * enabled (since single threaded slave does not care about free floating
+   * metadata event and curr_group_seen_gtid is set only for MTS)
    */
-  if (enable_raft_plugin && !rli->curr_group_seen_gtid)
+  if (enable_raft_plugin && (rli->slave_parallel_workers > 0) &&
+      !rli->curr_group_seen_gtid)
     return Log_event::EVENT_SKIP_IGNORE;
 
   return Log_event::EVENT_SKIP_NOT;
