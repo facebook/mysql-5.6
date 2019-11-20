@@ -17,7 +17,7 @@ INSERT INTO t1 (c) VALUES(
 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 );
 include/sync_slave_sql_with_master.inc
-set global slave_compression_lib=zstd;
+set global slave_compression_lib=zstd_stream;
 include/stop_slave_io.inc
 include/start_slave_io.inc
 CREATE TABLE t2(c VARCHAR(1000));

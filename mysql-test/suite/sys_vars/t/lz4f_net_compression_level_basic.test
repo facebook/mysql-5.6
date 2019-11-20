@@ -1,0 +1,29 @@
+############## mysql-test\t\lz4f_net_compression_level_basic.test ########
+#                                                                             #
+# Variable Name: lz4f_net_compression_level                                   #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: int                                                              #
+# Default Value: 0                                                            #
+# Range: ULONG_MIN - 16                                                       #
+# Description: Level of compression to use for lz4 operations                 #
+#                                                                             #
+###############################################################################
+
+SET @orig = @@global.lz4f_net_compression_level;
+SELECT @orig;
+
+SET @@global.lz4f_net_compression_level = 2;
+
+SET @new = @@global.lz4f_net_compression_level;
+SELECT @new;
+
+SET @@global.lz4f_net_compression_level = -200;
+
+SET @new = @@global.lz4f_net_compression_level;
+SELECT @new;
+
+SET @@global.lz4f_net_compression_level = 50;
+SELECT @@global.lz4f_net_compression_level;
+
+SET @@global.lz4f_net_compression_level = @orig;

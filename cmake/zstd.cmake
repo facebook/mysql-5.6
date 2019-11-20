@@ -23,7 +23,7 @@
 # cmake -DWITH_ZSTD=system|bundled|path_to_zstd
 # system is the default
 
-SET(LIBZSTD_VERSION_REQUIRED "1.0.0")  # ZSTD_outBuffer, ZSTD_CStream, ZSTD_inBuffer
+SET(LIBZSTD_VERSION_REQUIRED "1.4.0")  # ZSTD_reset_session_only
 
 MACRO (CHECK_ZSTD_VERSION)
   SET(PATH_TO_ZSTD_H "${ARGV0}/zstd.h")

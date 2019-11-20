@@ -9175,7 +9175,7 @@ ER_WRONG_COMPRESSION_LEVEL_CLIENT
   eng "Invalid zstd compression level for algorithm '%.192s'."
 
 ER_CHANGE_MASTER_WRONG_COMPRESSION_ALGORITHM_LIST_CLIENT
-  eng "Specified compression algorithm list '%.192s' exceeds total count of 3 for channel '%.192s'."
+  eng "Specified compression algorithm list '%.192s' exceeds total count of 5 for channel '%.192s'."
 
 ER_CLIENT_PRIVILEGE_CHECKS_USER_CANNOT_BE_ANONYMOUS
   eng "PRIVILEGE_CHECKS_USER for replication channel '%.192s' was set to ``@`%.255s`, but anonymous users are disallowed for PRIVILEGE_CHECKS_USER."

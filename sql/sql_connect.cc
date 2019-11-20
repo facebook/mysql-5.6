@@ -810,7 +810,11 @@ static void prepare_new_connection_state(THD *thd) {
 
   if (thd->get_protocol()->has_client_capability(CLIENT_COMPRESS) ||
       thd->get_protocol()->has_client_capability(
-          CLIENT_ZSTD_COMPRESSION_ALGORITHM)) {
+          CLIENT_ZSTD_COMPRESSION_ALGORITHM) ||
+      thd->get_protocol()->has_client_capability(
+          CLIENT_ZSTD_STREAM_COMPRESSION_ALGORITHM) ||
+      thd->get_protocol()->has_client_capability(
+          CLIENT_LZ4F_STREAM_COMPRESSION_ALGORITHM)) {
     net->compress = true;  // Use compression
     enum enum_compression_algorithm algorithm = get_compression_algorithm(
         thd->get_protocol()->get_compression_algorithm());

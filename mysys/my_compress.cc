@@ -30,6 +30,7 @@
 */
 #include "my_compress.h"
 
+#include <lz4frame.h>
 #include <string.h>
 #include <sys/types.h>
 #include <zlib.h>
@@ -46,6 +47,28 @@
 #include "mysql/service_mysql_alloc.h"
 #include "mysys/mysys_priv.h"
 
+#ifdef MYSQL_SERVER
+extern uint net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
+#else
+#define net_compression_level 6
+#define zstd_net_compression_level 0
+#define lz4f_net_compression_level 0
+#endif
+
+/* Number of times compression context was reset for streaming compression. */
+ulonglong compress_ctx_reset = 0;
+/* Number of in/out bytes for compression. */
+ulonglong compress_input_bytes = 0;
+ulonglong compress_output_bytes = 0;
+
+void reset_compress_status(void) {
+  compress_ctx_reset = 0;
+  compress_input_bytes = 0;
+  compress_output_bytes = 0;
+}
+
 /**
   Initialize a compress context object to be associated with a NET object.
 
@@ -59,33 +82,78 @@ void mysql_compress_context_init(mysql_compress_context *cmp_ctx,
                                  enum enum_compression_algorithm algorithm,
                                  unsigned int compression_level) {
   cmp_ctx->algorithm = algorithm;
-  if (algorithm == enum_compression_algorithm::MYSQL_ZLIB)
-    cmp_ctx->u.zlib_ctx.compression_level = compression_level;
-  else if (algorithm == enum_compression_algorithm::MYSQL_ZSTD) {
-    cmp_ctx->u.zstd_ctx.compression_level = compression_level;
-    // This is set after connect phase during first network i/o.
-    cmp_ctx->u.zstd_ctx.cctx = nullptr;
-    cmp_ctx->u.zstd_ctx.dctx = nullptr;
+  switch (algorithm) {
+    case enum_compression_algorithm::MYSQL_ZLIB:
+      cmp_ctx->u.zlib_ctx.compression_level = compression_level;
+      break;
+
+    case enum_compression_algorithm::MYSQL_ZSTD:
+    case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
+      cmp_ctx->u.zstd_ctx.compression_level = compression_level;
+      // This is set after connect phase during first network i/o.
+      cmp_ctx->u.zstd_ctx.cctx = nullptr;
+      cmp_ctx->u.zstd_ctx.dctx = nullptr;
+      cmp_ctx->u.zstd_ctx.compress_buf = nullptr;
+      cmp_ctx->u.zstd_ctx.compress_buf_len = 0;
+      break;
+
+    case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
+      cmp_ctx->u.lz4f_ctx.compression_level = compression_level;
+      cmp_ctx->u.lz4f_ctx.cctx = nullptr;
+      cmp_ctx->u.lz4f_ctx.dctx = nullptr;
+      cmp_ctx->u.lz4f_ctx.compress_buf = nullptr;
+      cmp_ctx->u.lz4f_ctx.compress_buf_len = 0;
+
+    default:
+      break;
   }
 }
 
 /**
   Deinitialize the compression context allocated.
 
-  @param mysql_compress_ctx Pointer to Compression context.
+  @param cmp_ctx Pointer to Compression context.
 */
 
-void mysql_compress_context_deinit(mysql_compress_context *mysql_compress_ctx) {
-  if (mysql_compress_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD) {
-    if (mysql_compress_ctx->u.zstd_ctx.cctx != nullptr) {
-      ZSTD_freeCCtx(mysql_compress_ctx->u.zstd_ctx.cctx);
-      mysql_compress_ctx->u.zstd_ctx.cctx = nullptr;
-    }
+void mysql_compress_context_deinit(mysql_compress_context *cmp_ctx) {
+  switch (cmp_ctx->algorithm) {
+    case enum_compression_algorithm::MYSQL_ZSTD:
+    case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
+      if (cmp_ctx->u.zstd_ctx.cctx != nullptr) {
+        ZSTD_freeCCtx(cmp_ctx->u.zstd_ctx.cctx);
+        cmp_ctx->u.zstd_ctx.cctx = nullptr;
+      }
 
-    if (mysql_compress_ctx->u.zstd_ctx.dctx != nullptr) {
-      ZSTD_freeDCtx(mysql_compress_ctx->u.zstd_ctx.dctx);
-      mysql_compress_ctx->u.zstd_ctx.dctx = nullptr;
-    }
+      if (cmp_ctx->u.zstd_ctx.dctx != nullptr) {
+        ZSTD_freeDCtx(cmp_ctx->u.zstd_ctx.dctx);
+        cmp_ctx->u.zstd_ctx.dctx = nullptr;
+      }
+      cmp_ctx->u.zstd_ctx.compress_buf_len = 0;
+      if (cmp_ctx->u.zstd_ctx.compress_buf) {
+        my_free(cmp_ctx->u.zstd_ctx.compress_buf);
+        cmp_ctx->u.zstd_ctx.compress_buf = nullptr;
+      }
+      break;
+
+    case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
+      if (cmp_ctx->u.lz4f_ctx.cctx != nullptr) {
+        LZ4F_freeCompressionContext(cmp_ctx->u.lz4f_ctx.cctx);
+        cmp_ctx->u.lz4f_ctx.cctx = nullptr;
+      }
+
+      if (cmp_ctx->u.lz4f_ctx.dctx != nullptr) {
+        LZ4F_freeDecompressionContext(cmp_ctx->u.lz4f_ctx.dctx);
+        cmp_ctx->u.lz4f_ctx.dctx = nullptr;
+      }
+      cmp_ctx->u.lz4f_ctx.compress_buf_len = 0;
+      if (cmp_ctx->u.lz4f_ctx.compress_buf) {
+        my_free(cmp_ctx->u.lz4f_ctx.compress_buf);
+        cmp_ctx->u.lz4f_ctx.compress_buf = nullptr;
+      }
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -104,7 +172,8 @@ void mysql_compress_context_deinit(mysql_compress_context *mysql_compress_ctx) {
 */
 
 uchar *zstd_compress_alloc(mysql_zstd_compress_context *comp_ctx,
-                           const uchar *packet, size_t *len, size_t *complen) {
+                           const uchar *packet, size_t *len, size_t *complen,
+                           int compression_level) {
   if (comp_ctx->cctx == nullptr) {
     if (!(comp_ctx->cctx = ZSTD_createCCtx())) {
       return nullptr;
@@ -119,9 +188,9 @@ uchar *zstd_compress_alloc(mysql_zstd_compress_context *comp_ctx,
     return nullptr;
   }
 
-  zstd_res =
-      ZSTD_compressCCtx(comp_ctx->cctx, compbuf, zstd_len, (const void *)packet,
-                        *len, comp_ctx->compression_level);
+  zstd_res = ZSTD_compressCCtx(
+      comp_ctx->cctx, compbuf, zstd_len, (const void *)packet, *len,
+      compression_level ? compression_level : comp_ctx->compression_level);
   if (ZSTD_isError(zstd_res)) {
     DBUG_PRINT("error", ("Can't compress zstd packet, error: %zd, %s", zstd_res,
                          ZSTD_getErrorName(zstd_res)));
@@ -184,6 +253,272 @@ static bool zstd_uncompress(mysql_zstd_compress_context *comp_ctx,
   return false;
 }
 
+uchar *zstd_stream_compress_alloc(mysql_zstd_compress_context *zstd_ctx,
+                                  const uchar *packet, size_t *len,
+                                  size_t *complen, int compression_level) {
+  size_t zstd_len = ZSTD_compressBound(*len);
+  uchar *compbuf;
+  size_t zstd_res;
+
+  if (zstd_ctx->compress_buf_len < zstd_len) {
+    my_free(zstd_ctx->compress_buf);
+    if (!(compbuf = (uchar *)my_malloc(key_memory_my_compress_alloc, zstd_len,
+                                       MYF(MY_WME)))) {
+      return NULL;
+    }
+    zstd_ctx->compress_buf = compbuf;
+    zstd_ctx->compress_buf_len = zstd_len;
+  } else {
+    compbuf = zstd_ctx->compress_buf;
+  }
+
+  ZSTD_inBuffer inBuf = {packet, *len, 0};
+  ZSTD_outBuffer outBuf = {compbuf, zstd_len, 0};
+
+  if (!zstd_ctx->cctx) {
+    if (!(zstd_ctx->cctx = ZSTD_createCStream())) {
+      return NULL;
+    }
+    zstd_res = ZSTD_initCStream(
+        zstd_ctx->cctx,
+        compression_level ? compression_level : zstd_ctx->compression_level);
+    if (ZSTD_isError(zstd_res)) {
+      goto error;
+    }
+  }
+
+  zstd_res = ZSTD_compressStream(zstd_ctx->cctx, &outBuf, &inBuf);
+  if (ZSTD_isError(zstd_res)) {
+    DBUG_PRINT("error", ("Can't compress zstd_stream packet, error %zd, %s",
+                         zstd_res, ZSTD_getErrorName(zstd_res)));
+    goto error;
+  }
+
+  if (inBuf.pos != inBuf.size) {
+    goto error;
+  }
+
+  zstd_res = ZSTD_flushStream(zstd_ctx->cctx, &outBuf);
+  if (zstd_res != 0) {
+    DBUG_PRINT("error", ("Can't flush zstd_stream packet, error %zd, %s",
+                         zstd_res, ZSTD_getErrorName(zstd_res)));
+    goto error;
+  }
+
+  if (outBuf.pos > *len) {
+    DBUG_PRINT("note", ("Packet got longer on zstd_stream compression; Not "
+                        "compressed, %zu -> %zu",
+                        *len, outBuf.pos));
+    goto nocompress;
+  }
+
+  *complen = *len;
+  *len = outBuf.pos;
+
+  return compbuf;
+
+nocompress:
+  *complen = 0;
+error:
+  ZSTD_CCtx_reset(zstd_ctx->cctx, ZSTD_reset_session_only);
+  compress_ctx_reset++;
+  return NULL;
+}
+
+bool zstd_stream_uncompress(mysql_zstd_compress_context *zstd_ctx,
+                            uchar *packet, size_t len, size_t *complen) {
+  unsigned long long decom_size = *complen;
+  size_t zstd_res;
+  void *decom_buf;
+  if (!zstd_ctx->dctx) {
+    if (!(zstd_ctx->dctx = ZSTD_createDStream())) {
+      return true;
+    }
+    zstd_res = ZSTD_initDStream(zstd_ctx->dctx);
+    if (ZSTD_isError(zstd_res)) {
+      return true;
+    }
+  }
+
+  DBUG_PRINT("note", ("zstd_stream uncompress %zu -> %zu", len, *complen));
+
+  if (!(decom_buf =
+            my_malloc(key_memory_my_compress_alloc, decom_size, MYF(MY_WME)))) {
+    return true;
+  }
+
+  ZSTD_inBuffer inBuf = {packet, len, 0};
+  ZSTD_outBuffer outBuf = {decom_buf, decom_size, 0};
+
+  zstd_res = ZSTD_decompressStream(zstd_ctx->dctx, &outBuf, &inBuf);
+  if (ZSTD_isError(zstd_res)) {
+    DBUG_PRINT("error", ("Can't uncompress zstd_stream packet, error: %zd, %s",
+                         zstd_res, ZSTD_getErrorName(zstd_res)));
+    my_free(decom_buf);
+    return true;
+  }
+  DBUG_ASSERT(outBuf.pos == outBuf.size);
+
+  if (outBuf.pos != outBuf.size) {
+    my_free(decom_buf);
+    return true;
+  }
+
+  memcpy(packet, decom_buf, outBuf.pos);
+  my_free(decom_buf);
+  *complen = outBuf.pos;
+
+  return false;
+}
+
+uchar *lz4f_stream_compress_alloc(mysql_lz4f_compress_context *lz4f_ctx,
+                                  const uchar *packet, size_t *len,
+                                  size_t *complen, int compression_level) {
+  size_t lz4f_len = LZ4F_compressBound(*len, NULL) + LZ4F_HEADER_SIZE_MAX;
+  uchar *compbuf;
+  size_t lz4f_res;
+  size_t pos = 0;
+
+  if (lz4f_ctx->compress_buf_len < lz4f_len) {
+    my_free(lz4f_ctx->compress_buf);
+    if (!(compbuf = (uchar *)my_malloc(key_memory_my_compress_alloc, lz4f_len,
+                                       MYF(MY_WME)))) {
+      return NULL;
+    }
+    lz4f_ctx->compress_buf = compbuf;
+    lz4f_ctx->compress_buf_len = lz4f_len;
+  } else {
+    compbuf = lz4f_ctx->compress_buf;
+  }
+
+  if (!lz4f_ctx->cctx) {
+    lz4f_res = LZ4F_createCompressionContext(
+        (LZ4F_compressionContext_t *)&lz4f_ctx->cctx, LZ4F_VERSION);
+    if (LZ4F_isError(lz4f_res)) {
+      DBUG_PRINT("error", ("Can't create lz4f_stream context, error %zd, %s",
+                           lz4f_res, LZ4F_getErrorName(lz4f_res)));
+      goto error;
+    }
+    if (!lz4f_ctx->cctx) {
+      goto error;
+    }
+    lz4f_ctx->reset_cctx = true;
+  }
+
+  if (lz4f_ctx->reset_cctx) {
+    DBUG_PRINT("note", ("lz4f_stream cctx reset"));
+    LZ4F_preferences_t prefs;
+    memset(&prefs, 0, sizeof(prefs));
+    prefs.compressionLevel =
+        compression_level ? compression_level : lz4f_ctx->compression_level;
+
+    lz4f_res = LZ4F_compressBegin((LZ4F_compressionContext_t)lz4f_ctx->cctx,
+                                  compbuf, lz4f_len, &prefs);
+    if (LZ4F_isError(lz4f_res)) {
+      DBUG_PRINT("error", ("Can't compress lz4f_stream packet, error %zd, %s",
+                           lz4f_res, LZ4F_getErrorName(lz4f_res)));
+      goto error;
+    }
+
+    lz4f_ctx->reset_cctx = false;
+    pos += lz4f_res;
+  }
+
+  lz4f_res = LZ4F_compressUpdate(lz4f_ctx->cctx, compbuf + pos, lz4f_len - pos,
+                                 packet, *len, NULL);
+  if (LZ4F_isError(lz4f_res)) {
+    DBUG_PRINT("error", ("Can't compress lz4f_stream packet, error %zd, %s",
+                         lz4f_res, LZ4F_getErrorName(lz4f_res)));
+    goto error;
+  }
+  pos += lz4f_res;
+
+  lz4f_res = LZ4F_flush(lz4f_ctx->cctx, compbuf + pos, lz4f_len - pos, NULL);
+  if (LZ4F_isError(lz4f_res)) {
+    DBUG_PRINT("error", ("Can't flush lz4f_stream packet, error %zd, %s",
+                         lz4f_res, LZ4F_getErrorName(lz4f_res)));
+    goto error;
+  }
+  pos += lz4f_res;
+
+  if (pos > *len) {
+    DBUG_PRINT("note", ("Packet got longer on lz4f_stream compression; Not "
+                        "compressed, %zu -> %zu",
+                        *len, pos));
+    goto nocompress;
+  }
+
+  *complen = *len;
+  *len = pos;
+
+  DBUG_PRINT("note", ("lz4f_stream compress %zu -> %zu", *complen, pos));
+  return compbuf;
+
+nocompress:
+  *complen = 0;
+error:
+  compress_ctx_reset++;
+  lz4f_ctx->reset_cctx = true;
+  return NULL;
+}
+
+bool lz4f_stream_uncompress(mysql_lz4f_compress_context *lz4f_ctx,
+                            uchar *packet, size_t len, size_t *complen) {
+  size_t decom_size = *complen;
+  size_t lz4f_res;
+  uchar *decom_buf;
+
+  DBUG_PRINT("note", ("lz4f_stream uncompress %zu -> %zu", len, *complen));
+  if (!lz4f_ctx->dctx) {
+    lz4f_res = LZ4F_createDecompressionContext(&lz4f_ctx->dctx, LZ4F_VERSION);
+    if (LZ4F_isError(lz4f_res)) {
+      DBUG_PRINT("error", ("Can't create lz4f_stream context, error %zd, %s",
+                           lz4f_res, LZ4F_getErrorName(lz4f_res)));
+      return true;
+    }
+    if (!lz4f_ctx->dctx) {
+      return true;
+    }
+  }
+
+  if (!(decom_buf = (uchar *)my_malloc(key_memory_my_compress_alloc, decom_size,
+                                       MYF(MY_WME)))) {
+    return true;
+  }
+
+  uchar *src_pos = packet;
+  size_t src_len = len;
+  uchar *dst_pos = decom_buf;
+  size_t dst_len = decom_size;
+
+  lz4f_res = LZ4F_decompress(lz4f_ctx->dctx, dst_pos, &dst_len, src_pos,
+                             &src_len, NULL);
+  if (LZ4F_isError(lz4f_res)) {
+    DBUG_PRINT("error", ("Can't decompress lz4f_stream packet, error %zd, %s",
+                         lz4f_res, LZ4F_getErrorName(lz4f_res)));
+    my_free(decom_buf);
+    return true;
+  }
+
+  dst_pos += dst_len;
+  src_pos += src_len;
+
+  // Assert that src and dst are consumed.
+  DBUG_ASSERT(dst_pos == decom_buf + decom_size);
+  DBUG_ASSERT(src_pos == packet + len);
+
+  if (dst_pos != decom_buf + decom_size || src_pos != packet + len) {
+    my_free(decom_buf);
+    return true;
+  }
+
+  memcpy(packet, decom_buf, decom_size);
+  my_free(decom_buf);
+  *complen = decom_size;
+
+  return false;
+}
+
 /**
   Allocate zlib compression contexts if necessary and compress using zlib the
   buffer.
@@ -200,8 +535,7 @@ static bool zstd_uncompress(mysql_zstd_compress_context *comp_ctx,
 
 static uchar *zlib_compress_alloc(mysql_zlib_compress_context *comp_ctx,
                                   const uchar *packet, size_t *len,
-                                  size_t *complen,
-                                  uint zlib_net_compression_level) {
+                                  size_t *complen, uint compression_level) {
   uchar *compbuf;
   uLongf tmp_complen;
   int res;
@@ -212,10 +546,10 @@ static uchar *zlib_compress_alloc(mysql_zlib_compress_context *comp_ctx,
     return nullptr; /* Not enough memory */
 
   tmp_complen = (uint)*complen;
-  res = compress2((Bytef *)compbuf, &tmp_complen,
-                  (Bytef *)const_cast<uchar *>(packet), (uLong)*len,
-                  zlib_net_compression_level ? zlib_net_compression_level
-                                             : comp_ctx->compression_level);
+  res = compress2(
+      (Bytef *)compbuf, &tmp_complen, (Bytef *)const_cast<uchar *>(packet),
+      (uLong)*len,
+      compression_level ? compression_level : comp_ctx->compression_level);
   *complen = tmp_complen;
 
   if (res != Z_OK) {
@@ -280,26 +614,54 @@ static bool zlib_uncompress(uchar *packet, size_t len, size_t *complen) {
 */
 
 bool my_compress(mysql_compress_context *comp_ctx, uchar *packet, size_t *len,
-                 size_t *complen, uint zlib_net_compression_level) {
+                 size_t *complen) {
   DBUG_ENTER("my_compress");
-  if (*len < MIN_COMPRESS_LENGTH) {
+  if (*len < MIN_COMPRESS_LENGTH &&
+      comp_ctx->algorithm != enum_compression_algorithm::MYSQL_ZSTD_STREAM &&
+      comp_ctx->algorithm != enum_compression_algorithm::MYSQL_LZ4F_STREAM) {
     *complen = 0;
     DBUG_PRINT("note", ("Packet too short: Not compressed"));
   } else {
-    uchar *compbuf = my_compress_alloc(comp_ctx, packet, len, complen,
-                                       zlib_net_compression_level);
-    if (!compbuf) DBUG_RETURN(*complen ? 0 : 1);
+    uchar *compbuf = my_compress_alloc(comp_ctx, packet, len, complen);
+    if (!compbuf) {
+      if (*complen == 0) {
+        compress_output_bytes += *len;
+        DBUG_RETURN(0);
+      } else {
+        DBUG_RETURN(1);
+      }
+    }
     memcpy(packet, compbuf, *len);
-    my_free(compbuf);
+
+    switch (comp_ctx->algorithm) {
+      case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
+        if (comp_ctx->u.zstd_ctx.compress_buf != compbuf) my_free(compbuf);
+        break;
+      case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
+        if (comp_ctx->u.lz4f_ctx.compress_buf != compbuf) my_free(compbuf);
+        break;
+      default:
+        my_free(compbuf);
+        break;
+    }
   }
+  compress_output_bytes += *len;
   DBUG_RETURN(0);
 }
 
 uchar *my_compress_alloc(mysql_compress_context *comp_ctx, const uchar *packet,
-                         size_t *len, size_t *complen,
-                         uint zlib_net_compression_level) {
+                         size_t *len, size_t *complen) {
+  if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_LZ4F_STREAM)
+    return lz4f_stream_compress_alloc(&comp_ctx->u.lz4f_ctx, packet, len,
+                                      complen, lz4f_net_compression_level);
+
+  if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD_STREAM)
+    return zstd_stream_compress_alloc(&comp_ctx->u.zstd_ctx, packet, len,
+                                      complen, zstd_net_compression_level);
+
   if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD)
-    return zstd_compress_alloc(&comp_ctx->u.zstd_ctx, packet, len, complen);
+    return zstd_compress_alloc(&comp_ctx->u.zstd_ctx, packet, len, complen,
+                               zstd_net_compression_level);
 
   if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_UNCOMPRESSED) {
     // If compression algorithm is set to none do not compress, even if compress
@@ -310,7 +672,7 @@ uchar *my_compress_alloc(mysql_compress_context *comp_ctx, const uchar *packet,
 
   DBUG_ASSERT(comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZLIB);
   return zlib_compress_alloc(&comp_ctx->u.zlib_ctx, packet, len, complen,
-                             zlib_net_compression_level);
+                             net_compression_level);
 }
 
 /*
@@ -335,11 +697,32 @@ bool my_uncompress(mysql_compress_context *comp_ctx, uchar *packet, size_t len,
   {
     if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD)
       DBUG_RETURN(zstd_uncompress(&comp_ctx->u.zstd_ctx, packet, len, complen));
+    if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD_STREAM)
+      DBUG_RETURN(
+          zstd_stream_uncompress(&comp_ctx->u.zstd_ctx, packet, len, complen));
+    if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_LZ4F_STREAM)
+      DBUG_RETURN(
+          lz4f_stream_uncompress(&comp_ctx->u.lz4f_ctx, packet, len, complen));
     else if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZLIB)
       DBUG_RETURN(zlib_uncompress(packet, len, complen));
+  } else {
+    *complen = len;
+    // On the compression side, the compression context is reset when an
+    // uncompressed packet is sent. The same should be done on the
+    // decompression side so that both contexts stay in sync.
+    if (comp_ctx->algorithm == enum_compression_algorithm::MYSQL_ZSTD_STREAM) {
+      if (comp_ctx->u.zstd_ctx.dctx) {
+        ZSTD_DCtx_reset(comp_ctx->u.zstd_ctx.dctx, ZSTD_reset_session_only);
+      }
+    } else if (comp_ctx->algorithm ==
+               enum_compression_algorithm::MYSQL_LZ4F_STREAM) {
+      if (comp_ctx->u.lz4f_ctx.dctx) {
+        DBUG_PRINT("note", ("lz4f_stream dctx reset"));
+        LZ4F_resetDecompressionContext(comp_ctx->u.lz4f_ctx.dctx);
+      }
+    }
   }
 
-  *complen = len;
   DBUG_RETURN(0);
 }
 

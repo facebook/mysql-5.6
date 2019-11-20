@@ -8278,8 +8278,7 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
 
   mysql_options(mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS,
                 opt_slave_compressed_protocol
-                    ? (opt_slave_compression_lib ? COMPRESSION_ALGORITHM_ZSTD
-                                                 : COMPRESSION_ALGORITHM_ZLIB)
+                    ? mysql_compression_lib_names[opt_slave_compression_lib]
                     : mi->compression_algorithm);
   mysql_options(mysql, MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
                 opt_slave_compressed_protocol

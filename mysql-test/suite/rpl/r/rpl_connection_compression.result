@@ -659,7 +659,7 @@ SET @@global.slave_compressed_protocol = 0;
 START SLAVE IO_THREAD
 include/assert.inc [Less than 1000000 bytes should be sent compressed]
 #### Clean up ####
-SET @@global.protocol_compression_algorithms = "zlib,zstd,uncompressed";;
+SET @@global.protocol_compression_algorithms = "zlib,zstd,zstd_stream,lz4f_stream,uncompressed";;
 SET sql_log_bin = 0;
 DROP TABLE algorithms;
 DROP TABLE levels;
