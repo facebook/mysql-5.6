@@ -26,6 +26,11 @@
 #include "my_sys.h"
 #include "mysqld_error.h"
 
+const char *mysql_compression_lib_names[COMPRESSION_ALGORITHM_COUNT_MAX] = {
+    COMPRESSION_ALGORITHM_ZLIB, COMPRESSION_ALGORITHM_ZSTD,
+    COMPRESSION_ALGORITHM_ZSTD_STREAM, COMPRESSION_ALGORITHM_LZ4F_STREAM,
+    nullptr};
+
 /**
   This function is used to validate compression algorithm specified as part
   of change master to statement.
@@ -45,6 +50,12 @@ enum_compression_algorithm get_compression_algorithm(std::string name) {
   else if (!my_strcasecmp(&my_charset_latin1, name.c_str(),
                           COMPRESSION_ALGORITHM_ZSTD))
     return enum_compression_algorithm::MYSQL_ZSTD;
+  else if (!my_strcasecmp(&my_charset_latin1, name.c_str(),
+                          COMPRESSION_ALGORITHM_ZSTD_STREAM))
+    return enum_compression_algorithm::MYSQL_ZSTD_STREAM;
+  else if (!my_strcasecmp(&my_charset_latin1, name.c_str(),
+                          COMPRESSION_ALGORITHM_LZ4F_STREAM))
+    return enum_compression_algorithm::MYSQL_LZ4F_STREAM;
   else if (!my_strcasecmp(&my_charset_latin1, name.c_str(),
                           COMPRESSION_ALGORITHM_UNCOMPRESSED))
     return enum_compression_algorithm::MYSQL_UNCOMPRESSED;

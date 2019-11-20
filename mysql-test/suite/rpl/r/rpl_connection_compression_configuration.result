@@ -108,8 +108,8 @@ COMPRESSION_ALGORITHM	ZSTD_COMPRESSION_LEVEL
 uncompressed	3
 # case 11: ALGORITHM specified to more than 3 values
 # report error as part of change master
-CHANGE REPLICATION SOURCE TO SOURCE_HOST='127.0.0.1', SOURCE_PORT=MASTER_PORT, SOURCE_USER='root', SOURCE_COMPRESSION_ALGORITHMS= 'zlib,zstd,abc,123' FOR CHANNEL 'C11';
-ERROR HY000: Specified compression algorithm list 'zlib,zstd,abc,123' exceeds total count of 3 for channel 'c11'.
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='127.0.0.1', SOURCE_PORT=MASTER_PORT, SOURCE_USER='root', SOURCE_COMPRESSION_ALGORITHMS= 'zlib,zstd,alg3,alg4,alg5,alg6' FOR CHANNEL 'C11';
+ERROR HY000: Specified compression algorithm list 'zlib,zstd,alg3,alg4,alg5,alg6' exceeds total count of 5 for channel 'c11'.
 SELECT MASTER_COMPRESSION_ALGORITHM, MASTER_ZSTD_COMPRESSION_LEVEL FROM mysql.slave_master_info WHERE CHANNEL_NAME = 'C11';
 MASTER_COMPRESSION_ALGORITHM	MASTER_ZSTD_COMPRESSION_LEVEL
 SELECT COMPRESSION_ALGORITHM, ZSTD_COMPRESSION_LEVEL FROM performance_schema.replication_connection_configuration where CHANNEL_NAME = 'C11';

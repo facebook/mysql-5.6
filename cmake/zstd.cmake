@@ -25,7 +25,8 @@
 
 # With earier versions, several compression tests fail.
 # With version < 1.0.0 our source code does not build.
-SET(MIN_ZSTD_VERSION_REQUIRED "1.2.0")
+# ZSTD_reset_session_only requires 1.4.
+SET(MIN_ZSTD_VERSION_REQUIRED "1.4.0")
 
 MACRO (FIND_ZSTD_VERSION)
   FOREACH(version_part

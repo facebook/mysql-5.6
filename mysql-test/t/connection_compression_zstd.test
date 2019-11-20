@@ -15,6 +15,9 @@
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
+# reset compression status/counters
+FLUSH STATUS;
+
 # Create and populate the table to be used
 CREATE TABLE t1 (
  id int,

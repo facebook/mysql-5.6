@@ -5,7 +5,7 @@
 # Global - default
 SELECT @@global.protocol_compression_algorithms;
 @@global.protocol_compression_algorithms
-zlib,zstd,uncompressed
+zlib,zstd,zstd_stream,lz4f_stream,uncompressed
 # verify all possible values
 SET GLOBAL protocol_compression_algorithms= "zstd";
 SELECT @@global.protocol_compression_algorithms;
