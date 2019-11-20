@@ -1617,6 +1617,24 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio, const char *data,
       switch (get_compression_algorithm(value)) {
         case enum_compression_algorithm::MYSQL_ZSTD:
           protocol->add_client_capability(CLIENT_ZSTD_COMPRESSION_ALGORITHM);
+          [[fallthrough]];
+        case enum_compression_algorithm::MYSQL_ZSTD_STREAM:
+        case enum_compression_algorithm::MYSQL_LZ4F_STREAM:
+          // 8.0.20 has changed CLIENT_COMPRESS to mean zlib compression.
+          // However, earlier versions of FB mysql uses CLIENT_COMPRESS to
+          // indicate support for any type of compression.
+          //
+          // To maintain backwards compatibility here, if we are advertising
+          // any type of compression support, we also set the CLIENT_COMPRESS
+          // bit. For clients not using compression_lib connection attribute to
+          // request compression type, this means that zlib is automatically
+          // available, despite not being in the
+          // opt_protocol_compression_algorithms setting.
+          //
+          // Any client connecting to this server (mostly likely secondaries
+          // running 8.0.17 or 5.6.35) will need to see the CLIENT_COMPRESS bit
+          // is set in order to negotiate using compression correctly.
+          protocol->add_client_capability(CLIENT_COMPRESS);
           break;
         case enum_compression_algorithm::MYSQL_ZLIB:
           protocol->add_client_capability(CLIENT_COMPRESS);

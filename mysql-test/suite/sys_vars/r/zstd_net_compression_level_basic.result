@@ -7,6 +7,11 @@ SET @new = @@global.zstd_net_compression_level;
 SELECT @new;
 @new
 2
+SET @@global.zstd_net_compression_level = -200;
+SET @new = @@global.zstd_net_compression_level;
+SELECT @new;
+@new
+-200
 SET @@global.zstd_net_compression_level = 50;
 Warnings:
 Warning	1292	Truncated incorrect zstd_net_compression_level value: '50'

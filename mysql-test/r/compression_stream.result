@@ -1,0 +1,968 @@
+#
+# WL#12475: Protocol Changes to specify compression configuration for connections
+#
+FLUSH STATUS;
+CREATE USER wl12475@localhost;
+SELECT @@global.protocol_compression_algorithms;
+@@global.protocol_compression_algorithms
+zlib,zstd,zstd_stream,lz4f_stream,uncompressed
+# should report empty string and 0 for method and level
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	0
+# should report lz4f_stream and 6 for method and level
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	0
+# should report zstd_stream and 3 for method and level
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# should report zstd_stream and 11 for method and level
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# should report lz4f_stream and 6 for method and level --zstd-compression-level for lz4f_stream compression is ignored
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check all possible client compression-algorithm/level for default server configuration
+SET @@global.protocol_compression_algorithms=default;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# compression-level is ignored without --compression-algorithms
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# client is configured with both algorithms so report error
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# existing --compress option should still work
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# multiple values of zstd_stream,lz4f_stream,uncompressed
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# multiple values of zstd_stream,lz4f_stream,uncompressed without compression level
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# multiple duplicate values
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# compression level with default compression algorithm which is uncompressed
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# invalid algorithm values
+# empty algorithm values 
+# invalid and algorithm values
+# make new connection with lz4f_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection without compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# make new connection with zstd_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check all possible client compression-algorithm/level for server configured with only "zstd_stream"
+SET GLOBAL protocol_compression_algorithms="zstd_stream";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check existing --compress option
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+# make new connection without compression
+connect(localhost,wl12475,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Invalid compression algorithm 'uncompressed'.
+# make new connection with zstd_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check all possible client compression-algorithm/level for server configured with only "zstd_stream,uncompressed"
+SET GLOBAL protocol_compression_algorithms="zstd_stream,uncompressed";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check existing --compress option
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+# make new connection without compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# make new connection with zstd_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check all possible client compression-algorithm/level for server configured with only "lz4f_stream"
+SET GLOBAL protocol_compression_algorithms="lz4f_stream";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check existing --compress option
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection without compression
+connect(localhost,wl12475,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Invalid compression algorithm 'uncompressed'.
+# make new connection with zstd_stream compression
+# check all possible client compression-algorithm/level for server configured with only "lz4f_stream,uncompressed"
+SET GLOBAL protocol_compression_algorithms="lz4f_stream,uncompressed";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# existing --compress option
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection without compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# make new connection with zstd_stream compression
+# check all possible client compression-algorithm/level for server configured with "lz4f_stream,zstd_stream"
+SET GLOBAL protocol_compression_algorithms="lz4f_stream,zstd_stream";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# existing --compress option should still work
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# make new connection without compression
+connect(localhost,wl12475,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Invalid compression algorithm 'uncompressed'.
+# make new connection with zstd_stream compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	ON
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	N_BYTES
+# check all possible client compression-algorithm/level for server not configured with any compression algorithm
+SET GLOBAL protocol_compression_algorithms="uncompressed";
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# existing --compress option
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# make new connection with lz4f_stream compression
+connect(localhost,wl12475,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Connection failed due to wrongly configured compression algorithm
+# make new connection without compression
+select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1;
+VARIABLE_NAME	VARIABLE_VALUE
+Compression	OFF
+Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	0
+Compression_output_bytes	N_BYTES
+# make new connection with zstd_stream compression
+connect(localhost,wl12475,,test,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Connection failed due to wrongly configured compression algorithm
+SET @@global.protocol_compression_algorithms=default;
+# check --compression-algorithms and --zstd-compression-level on all supported clients
+CREATE DATABASE wl12475;
+USE wl12475;
+CREATE TABLE t1(a LONGTEXT);
+INSERT INTO t1 VALUES (REPEAT('1',200));
+INSERT INTO t1 VALUES (REPEAT('2', 1800));
+DROP TABLE t1;
+SELECT COUNT(*) FROM wl12475.t1;
+COUNT(*)
+2
+DROP TABLE wl12475.t1;
+SELECT COUNT(*) FROM wl12475.t1;
+COUNT(*)
+2
+mysqld is alive
+wl12475.t1: Records: 1  Deleted: 0  Skipped: 0  Warnings: 0
+SELECT COUNT(*) FROM wl12475.t1;
+COUNT(*)
+3
+Database: wl12475
++--------+
+| Tables |
++--------+
+| t1     |
++--------+
+CALL mtr.add_suppression("Option --protocol-compression-algorithms is reset to default value.");
+# restart server with invalid value for protocol-compression-algorithms
+# restart: --protocol-compression-algorithms=lz4
+# must be set to default
+SELECT @@global.protocol_compression_algorithms;
+@@global.protocol_compression_algorithms
+zlib,zstd,zstd_stream,lz4f_stream,uncompressed
+DROP USER wl12475@localhost;
+DROP DATABASE wl12475;

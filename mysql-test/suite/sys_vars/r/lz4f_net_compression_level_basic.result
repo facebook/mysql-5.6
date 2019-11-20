@@ -1,0 +1,21 @@
+SET @orig = @@global.lz4f_net_compression_level;
+SELECT @orig;
+@orig
+0
+SET @@global.lz4f_net_compression_level = 2;
+SET @new = @@global.lz4f_net_compression_level;
+SELECT @new;
+@new
+2
+SET @@global.lz4f_net_compression_level = -200;
+SET @new = @@global.lz4f_net_compression_level;
+SELECT @new;
+@new
+-200
+SET @@global.lz4f_net_compression_level = 50;
+Warnings:
+Warning	1292	Truncated incorrect lz4f_net_compression_level value: '50'
+SELECT @@global.lz4f_net_compression_level;
+@@global.lz4f_net_compression_level
+16
+SET @@global.lz4f_net_compression_level = @orig;

@@ -1,2 +1,2 @@
---let $comp_lib=zstd
+--let $comp_lib=lz4f_stream
 --source suite/rpl/include/rpl_compression_lib.inc

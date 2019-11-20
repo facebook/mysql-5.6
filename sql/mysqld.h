@@ -450,7 +450,8 @@ extern bool enable_query_checksum;
 extern bool enable_resultset_checksum;
 
 extern uint net_compression_level;
-extern uint zstd_net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;

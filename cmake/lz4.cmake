@@ -20,8 +20,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
-# cmake -DWITH_LZ4=system|bundled
+# cmake -DWITH_LZ4=system|bundled|3rdparty
 # bundled is the default
+
+SET(LIBLZ4_VERSION_REQUIRED "1.8.0")  # LZ4F_HEADER_SIZE_MAX and LZ4F_freeDecompressionContext
 
 MACRO(FIND_LZ4_VERSION)
   FOREACH(version_part
@@ -40,6 +42,12 @@ MACRO(FIND_LZ4_VERSION)
   MESSAGE(STATUS "LZ4_VERSION (${WITH_LZ4}) is ${LZ4_VERSION}")
   MESSAGE(STATUS "LZ4_INCLUDE_DIR ${LZ4_INCLUDE_DIR}")
   MESSAGE(STATUS "LZ4_LIBRARY ${LZ4_LIBRARY}")
+
+  IF (${LZ4_VERSION} VERSION_LESS ${LIBLZ4_VERSION_REQUIRED})
+    MESSAGE(FATAL_ERROR "Required liblz4 ${LIBLZ4_VERSION_REQUIRED} and installed version is ${LZ4_VERSION}")
+  ELSE()
+    MESSAGE(STATUS "Found liblz4 version ${LZ4_VERSION}")
+  ENDIF()
 ENDMACRO()
 
 MACRO (FIND_SYSTEM_LZ4)

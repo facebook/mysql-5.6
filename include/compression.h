@@ -35,20 +35,24 @@
 
 #define COMPRESSION_ALGORITHM_ZLIB "zlib"
 #define COMPRESSION_ALGORITHM_ZSTD "zstd"
+#define COMPRESSION_ALGORITHM_ZSTD_STREAM "zstd_stream"
+#define COMPRESSION_ALGORITHM_LZ4F_STREAM "lz4f_stream"
 #define COMPRESSION_ALGORITHM_UNCOMPRESSED "uncompressed"
 #define COMPRESSION_ALGORITHM_NAME_LENGTH_MAX 32
-#define COMPRESSION_ALGORITHM_COUNT_MAX 3
+#define COMPRESSION_ALGORITHM_COUNT_MAX 5
 #define COMPRESSION_ALGORITHM_NAME_BUFFER_SIZE                                 \
   ((COMPRESSION_ALGORITHM_NAME_LENGTH_MAX * COMPRESSION_ALGORITHM_COUNT_MAX) + \
    3)
-#define PROTOCOL_COMPRESSION_DEFAULT_VALUE "zlib,zstd,uncompressed"
+#define PROTOCOL_COMPRESSION_DEFAULT_VALUE \
+  "zlib,zstd,zstd_stream,lz4f_stream,uncompressed"
+
+extern const char *mysql_compression_lib_names[COMPRESSION_ALGORITHM_COUNT_MAX];
 
 constexpr int default_zstd_compression_level = 3;
 
 /* Helper functions to validate compression algorithm and level */
 enum_compression_algorithm get_compression_algorithm(
     std::string name = std::string());
-std::string get_compression_algorithm_name(enum_compression_algorithm);
 void parse_compression_algorithms_list(std::string name,
                                        std::vector<std::string> &list);
 bool is_zstd_compression_level_valid(uint level);

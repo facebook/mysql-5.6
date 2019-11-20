@@ -1,3 +1,4 @@
+FLUSH STATUS;
 CREATE TABLE t1 (
 id int,
 c2 int,
@@ -22,7 +23,10 @@ SHOW STATUS LIKE 'Compression%';
 Variable_name	Value
 Compression	OFF
 Compression_algorithm	
+Compression_context_reset	0
+Compression_input_bytes	0
 Compression_level	0
+Compression_output_bytes	0
 FLUSH STATUS;
 SELECT * FROM t1;
 id	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
@@ -231,8 +235,11 @@ SET GLOBAL protocol_compression_algorithms="zstd";
 SHOW STATUS LIKE 'Compression%';
 Variable_name	Value
 Compression	ON
-Compression_algorithm	zstd
-Compression_level	22
+Compression_algorithm	zlib
+Compression_context_reset	0
+Compression_input_bytes	0
+Compression_level	6
+Compression_output_bytes	0
 FLUSH STATUS;
 SELECT * FROM t1;
 id	c2	c3	c4	c5	c6	c7	c8	c9	c10	c11	c12	c13	c14	c15	c16	c17
