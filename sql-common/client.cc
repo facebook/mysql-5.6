@@ -6235,7 +6235,8 @@ static mysql_state_machine_status csm_begin_connect(mysql_async_connect *ctx) {
   DBUG_RETURN(STATE_MACHINE_CONTINUE);
 }
 
-const char *mysql_compression_lib_names[] = {"zlib", "zstd", NullS};
+const char *mysql_compression_lib_names[] = {"zlib", "zstd", "zstd_stream",
+                                             "lz4f_stream", NullS};
 enum mysql_compression_lib get_client_compression_enum(const char *lib) {
   for (unsigned int i = 0; mysql_compression_lib_names[i]; i++) {
     if (strcmp(lib, mysql_compression_lib_names[i]) == 0) {
@@ -7764,6 +7765,14 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
       if (static_cast<mysql_compression_lib>(*static_cast<const uint *>(arg)) ==
           MYSQL_COMPRESSION_ZSTD) {
         lib_name = "zstd";
+      }
+      if (static_cast<mysql_compression_lib>(*static_cast<const uint *>(arg)) ==
+          MYSQL_COMPRESSION_ZSTD_STREAM) {
+        lib_name = "zstd_stream";
+      }
+      if (static_cast<mysql_compression_lib>(*static_cast<const uint *>(arg)) ==
+          MYSQL_COMPRESSION_LZ4F_STREAM) {
+        lib_name = "lz4f_stream";
       }
       mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD, "compression_lib",
                      lib_name);

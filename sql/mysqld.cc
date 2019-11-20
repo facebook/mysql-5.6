@@ -792,6 +792,8 @@ The documentation is based on the source files such as:
 #include "sql/sql_admission_control.h"
 #include "sql/srv_session.h"
 
+#include <zstd.h>
+
 #ifdef HAVE_JEMALLOC
 #include <jemalloc/jemalloc.h>
 
@@ -1095,7 +1097,12 @@ bool opt_myisam_use_mmap = 0;
 std::atomic<bool> offline_mode;
 uint opt_large_page_size = 0;
 uint net_compression_level = 6;
-uint zstd_net_compression_level = 3;
+/* 0 is means default for zstd/lz4. */
+long zstd_net_compression_level = ZSTD_CLEVEL_DEFAULT;
+long lz4f_net_compression_level = 0;
+extern ulonglong compress_ctx_reset;
+extern ulonglong compress_input_bytes;
+extern ulonglong compress_output_bytes;
 uint default_password_lifetime = 0;
 volatile bool password_require_current = false;
 std::atomic<bool> partial_revokes;
@@ -8809,6 +8816,12 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_ALL},
     {"Compression", (char *)&show_net_compression, SHOW_FUNC,
      SHOW_SCOPE_SESSION},
+    {"Compression_context_reset", (char *)&compress_ctx_reset, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Compression_input_bytes", (char *)&compress_input_bytes, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Compression_output_bytes", (char *)&compress_output_bytes, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
     {"Connections", (char *)&show_thread_id_count, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Connection_errors_accept", (char *)&show_connection_errors_accept,
@@ -9051,7 +9064,7 @@ SHOW_VAR status_vars[] = {
     {"Slave_running", (char *)&show_slave_running, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Slave_before_image_inconsistencies",
-     (char*) &show_slave_before_image_inconsistencies, SHOW_FUNC,
+     (char *)&show_slave_before_image_inconsistencies, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Slow_launch_threads",
      (char *)&Per_thread_connection_handler::slow_launch_threads, SHOW_LONG,

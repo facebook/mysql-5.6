@@ -819,7 +819,12 @@ struct Vio;
 #define MAX_CHAR_WIDTH 255      /**< Max length for a CHAR colum */
 #define MAX_BLOB_WIDTH 16777216 /**< Default width for blob */
 
-enum mysql_compression_lib { MYSQL_COMPRESSION_ZLIB, MYSQL_COMPRESSION_ZSTD };
+enum mysql_compression_lib {
+  MYSQL_COMPRESSION_ZLIB,
+  MYSQL_COMPRESSION_ZSTD,
+  MYSQL_COMPRESSION_ZSTD_STREAM,
+  MYSQL_COMPRESSION_LZ4F_STREAM
+};
 
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
 typedef struct ZSTD_DCtx_s ZSTD_DCtx;
@@ -857,6 +862,11 @@ typedef struct NET {
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
   ZSTD_DCtx *dctx;
+  void *lz4f_cctx;
+  void *lz4f_dctx;
+  unsigned char *compress_buf;
+  unsigned long compress_buf_len;
+  bool reset_cctx;
   unsigned int last_errno;
   unsigned char error;
   /** Client library error message buffer. Actually belongs to struct MYSQL. */

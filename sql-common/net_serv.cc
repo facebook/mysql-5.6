@@ -56,6 +56,7 @@
 #include "mysqld_error.h"
 #include "violite.h"
 
+#include <lz4frame.h>
 #include <zstd.h>
 
 using std::max;
@@ -90,8 +91,12 @@ extern void thd_increment_bytes_received(size_t length);
 /* Additional instrumentation hooks for the server */
 #include "mysql_com_server.h"
 extern uint net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
 #else
 #define net_compression_level 6
+#define zstd_net_compression_level 0
+#define lz4f_net_compression_level 0
 #endif
 
 static bool net_write_buff(NET *, const uchar *, size_t);
@@ -142,6 +147,10 @@ bool my_net_init(NET *net, Vio *vio) {
   net->comp_lib = MYSQL_COMPRESSION_ZLIB;
   net->cctx = nullptr;
   net->dctx = nullptr;
+  net->lz4f_cctx = nullptr;
+  net->lz4f_dctx = nullptr;
+  net->compress_buf = nullptr;
+  net->compress_buf_len = 0;
   net->where_b = net->remain_in_buf = 0;
   net->last_errno = 0;
 #ifdef MYSQL_SERVER
@@ -176,6 +185,17 @@ void net_end(NET *net) {
   ZSTD_freeDCtx(net->dctx);
   net->cctx = nullptr;
   net->dctx = nullptr;
+  if (net->lz4f_cctx != nullptr) {
+    LZ4F_freeCompressionContext((LZ4F_compressionContext_t)net->lz4f_cctx);
+    net->lz4f_cctx = nullptr;
+  }
+  if (net->lz4f_dctx != nullptr) {
+    LZ4F_freeDecompressionContext((LZ4F_decompressionContext_t)net->lz4f_dctx);
+    net->lz4f_dctx = nullptr;
+  }
+  net->compress_buf_len = 0;
+  my_free(net->compress_buf);
+  net->compress_buf = nullptr;
   my_free(net->buff);
   net->buff = 0;
   DBUG_VOID_RETURN;
@@ -1234,9 +1254,24 @@ static uchar *compress_packet(NET *net, const uchar *packet, size_t *length) {
 
   memcpy(compr_packet + header_length, packet, *length);
 
+  int level = 0;
+
+  switch (net->comp_lib) {
+    case MYSQL_COMPRESSION_ZLIB:
+      level = net_compression_level;
+      break;
+    case MYSQL_COMPRESSION_ZSTD:
+    case MYSQL_COMPRESSION_ZSTD_STREAM:
+      level = zstd_net_compression_level;
+      break;
+    case MYSQL_COMPRESSION_LZ4F_STREAM:
+      level = lz4f_net_compression_level;
+      break;
+  }
+
   /* Compress the encapsulated packet. */
   if (my_compress(net, compr_packet + header_length, length, &compr_length,
-                  net_compression_level)) {
+                  level)) {
     /*
       If the length of the compressed packet is larger than the
       original packet, the original packet is sent uncompressed.

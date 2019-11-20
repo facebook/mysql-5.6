@@ -120,15 +120,6 @@ IF (WITH_SNAPPY)
   ADD_DEFINITIONS(-DSNAPPY)
 ENDIF()
 
-IF (WITH_LZ4 AND LZ4_PATH)
-  FIND_LIBRARY(LZ4_LIBRARY
-    NAMES liblz4${PIC_EXT}.a lz4
-    HINTS ${LZ4_PATH}/lib)
-  SET(rocksdb_static_libs ${rocksdb_static_libs}
-    ${LZ4_LIBRARY})
-  ADD_DEFINITIONS(-DLZ4)
-ENDIF()
-
 IF (WITH_BZ2)
   FIND_LIBRARY(BZ2_LIBRARY
     NAMES libbz2${PIC_EXT}.a bz2
@@ -142,6 +133,11 @@ IF (WITH_ZSTD)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZSTD_LIBRARY})
   ADD_DEFINITIONS(-DZSTD)
   ADD_DEFINITIONS(-DZSTD_STATIC_LINKING_ONLY)
+ENDIF()
+
+IF (WITH_LZ4)
+  SET(rocksdb_static_libs ${rocksdb_static_libs} ${LZ4_LIBRARY})
+  ADD_DEFINITIONS(-DLZ4)
 ENDIF()
 
 IF (WITH_TBB)

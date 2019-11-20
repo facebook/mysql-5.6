@@ -648,6 +648,9 @@ The following options may be given as the first argument:
  If set to 1 table names are stored in lowercase on disk
  and table names will be case-insensitive.  Should be set
  to 2 if you are using a case insensitive file system
+ --lz4f-net-compression-level[=#] 
+ Compression level for compressed protocol when lz4f
+ library is selected.
  --mandatory-roles=name 
  All the specified roles are always considered granted to
  every user and they can't be revoked. Mandatory roles
@@ -2084,7 +2087,7 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
- library is selected. Valid values 0-22.
+ library is selected.
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
@@ -2248,6 +2251,7 @@ log-timestamps UTC
 long-query-time 10
 low-priority-updates FALSE
 lower-case-table-names 1
+lz4f-net-compression-level 0
 mandatory-roles 
 master-info-file master.info
 master-info-repository TABLE

@@ -152,7 +152,7 @@ enum enum_server_operational_state {
 };
 enum_server_operational_state get_server_state();
 
-extern const char *mysql_compression_lib_names[3];
+extern const char *mysql_compression_lib_names[5];
 extern bool opt_improved_dup_key_error;
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log, opt_trim_binlog;
@@ -385,7 +385,8 @@ extern ulonglong minimum_hlc_ns;
 extern ulonglong maximum_hlc_drift_ns;
 
 extern uint net_compression_level;
-extern uint zstd_net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
