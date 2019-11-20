@@ -138,6 +138,8 @@
 #include "srv_session.h"
 #endif
 
+#include <zstd.h>
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include <jemalloc/jemalloc.h>
@@ -620,7 +622,12 @@ ulonglong
   histogram_binlog_group_commit_values[NUMBER_OF_COUNTER_HISTOGRAM_BINS];
 
 uint net_compression_level = 6;
-uint zstd_net_compression_level = 3;
+/* 0 is means default for zstd/lz4. */
+long zstd_net_compression_level = ZSTD_CLEVEL_DEFAULT;
+long lz4f_net_compression_level = 0;
+extern ulonglong compress_ctx_reset;
+extern ulonglong compress_input_bytes;
+extern ulonglong compress_output_bytes;
 
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint    opt_debug_sync_timeout= 0;
@@ -10574,6 +10581,9 @@ SHOW_VAR status_vars[]= {
   {"Command_seconds",          (char*) offsetof(STATUS_VAR, command_time), SHOW_TIMER_STATUS},
   {"Command_slave_seconds",    (char*) &command_slave_seconds,  SHOW_TIMER},
   {"Compression",              (char*) &show_net_compression, SHOW_FUNC},
+  {"Compression_context_reset", (char*) &compress_ctx_reset, SHOW_LONGLONG},
+  {"Compression_input_bytes",  (char*) &compress_input_bytes, SHOW_LONGLONG},
+  {"Compression_output_bytes", (char*) &compress_output_bytes, SHOW_LONGLONG},
   {"Connections",              (char*) &total_thread_ids,              SHOW_LONG_NOFLUSH},
   {"Connection_errors_accept", (char*) &connection_errors_accept, SHOW_LONG},
   {"Connection_errors_internal", (char*) &connection_errors_internal, SHOW_LONG},

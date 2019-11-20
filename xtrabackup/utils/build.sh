@@ -209,6 +209,9 @@ case "$type" in
         if [ -n "$SSL_PATH" ]; then
                 configure_cmd+=" -DWITH_SSL=$SSL_PATH"
         fi
+        if [ -n "$LZ4_PATH" ]; then
+                configure_cmd+=" -DWITH_LZ4=$LZ4_PATH"
+        fi
         if [ -n "$ZSTD_PATH" ]; then
                 configure_cmd+=" -DWITH_ZSTD=$ZSTD_PATH"
         fi

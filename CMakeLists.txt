@@ -174,6 +174,7 @@ INCLUDE(character_sets)
 INCLUDE(cpu_info)
 INCLUDE(zlib)
 INCLUDE(zstd)
+INCLUDE(lz4)
 INCLUDE(libevent)
 INCLUDE(ssl)
 INCLUDE(readline)
@@ -511,6 +512,8 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 MYSQL_CHECK_ZLIB_WITH_COMPRESS()
 # Add zstd.
 MYSQL_CHECK_ZSTD()
+# Add lz4.
+MYSQL_CHECK_LZ4()
 # Add bundled yassl/taocrypt or system openssl.
 MYSQL_CHECK_SSL()
 # Find system readline.

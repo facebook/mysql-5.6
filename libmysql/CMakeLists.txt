@@ -181,7 +181,7 @@ ELSE()
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 ENDIF()
 
-SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${SSL_LIBRARIES})
+SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${LZ4_LIBRARY} ${SSL_LIBRARIES})
 
 #
 # On Windows platform client library includes the client-side 
@@ -195,7 +195,7 @@ ENDIF()
 
 # Merge several convenience libraries into one big fbmysqlclient
 MERGE_LIBRARIES(fbmysqlclient STATIC ${STATIC_MERGE_LIBS} COMPONENT Development)
-TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${SSL_LIBRARIES})
+TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${LZ4_LIBRARY} ${SSL_LIBRARIES})
 
 # Visual Studio users need debug  static library for debug projects
 IF(MSVC)

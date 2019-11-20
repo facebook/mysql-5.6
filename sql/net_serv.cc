@@ -49,9 +49,8 @@
 
 #include <algorithm>
 
-#ifdef HAVE_ZSTD_COMPRESS
 #include <zstd.h>
-#endif
+#include <lz4frame.h>
 
 using std::min;
 using std::max;
@@ -79,6 +78,8 @@ using std::max;
   live with this for a while.
 */
 extern uint net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
 #ifdef HAVE_QUERY_CACHE
 #define USE_QUERY_CACHE
 extern void query_cache_insert(const char *packet, ulong length,
@@ -87,6 +88,8 @@ extern void query_cache_insert(const char *packet, ulong length,
 #define update_statistics(A) A
 #else /* MYSQL_SERVER */
 #define net_compression_level 6
+#define zstd_net_compression_level 0
+#define lz4f_net_compression_level 0
 #define update_statistics(A)
 #define thd_increment_bytes_sent(N)
 #endif
@@ -120,10 +123,12 @@ my_bool my_net_init(NET *net, Vio* vio)
   net->compress=0; net->reading_or_writing=0;
   net->compress_event= 0;
   net->comp_lib = MYSQL_COMPRESSION_ZLIB;
-#ifdef HAVE_ZSTD_COMPRESS
   net->cctx = NULL;
   net->dctx = NULL;
-#endif
+  net->lz4f_cctx = NULL;
+  net->lz4f_dctx = NULL;
+  net->compress_buf = NULL;
+  net->compress_buf_len = 0;
   net->where_b = net->remain_in_buf=0;
   net->last_errno=0;
   net->unused= 0;
@@ -159,7 +164,6 @@ void net_end(NET *net)
 #ifdef HAVE_COMPRESS
   reset_packet_write_state(net);
 #endif
-#ifdef HAVE_ZSTD_COMPRESS
   // ZSTD_freeCCtx and ZSTD_freeDCtx were updated to check for NULL input
   // in 0.7.0, but Ubuntu ships with 0.5.1-1, so check here.
   if (net->cctx != NULL) {
@@ -170,7 +174,17 @@ void net_end(NET *net)
     ZSTD_freeDCtx(net->dctx);
     net->dctx = NULL;
   }
-#endif
+  if (net->lz4f_cctx != NULL) {
+    LZ4F_freeCompressionContext((LZ4F_compressionContext_t )net->lz4f_cctx);
+    net->lz4f_cctx = NULL;
+  }
+  if (net->lz4f_dctx != NULL) {
+    LZ4F_freeDecompressionContext((LZ4F_decompressionContext_t )net->lz4f_dctx);
+    net->lz4f_dctx = NULL;
+  }
+  net->compress_buf_len = 0;
+  my_free(net->compress_buf);
+  net->compress_buf = NULL;
   my_free(net->buff);
   net->buff=0;
 #ifdef HAVE_OPENSSL
@@ -979,10 +993,28 @@ compress_packet(NET *net, const uchar *packet, size_t *length)
 
   memcpy(compr_packet + header_length, packet, *length);
 
+  int level = 0;
+
+  switch(net->comp_lib) {
+    case MYSQL_COMPRESSION_ZLIB:
+      level = net_compression_level;
+      break;
+    case MYSQL_COMPRESSION_ZSTD:
+    case MYSQL_COMPRESSION_ZSTD_STREAM:
+      level = zstd_net_compression_level;
+      break;
+    case MYSQL_COMPRESSION_LZ4F_STREAM:
+      level = lz4f_net_compression_level;
+      break;
+    case MYSQL_COMPRESSION_NONE:
+      DBUG_ASSERT(0);
+      break;
+  }
+
   /* Compress the encapsulated packet. */
   if (my_compress(net, compr_packet + header_length,
                   length, &compr_length,
-                  net_compression_level))
+                  level))
   {
     /*
       If the length of the compressed packet is larger than the

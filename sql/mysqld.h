@@ -403,7 +403,8 @@ extern my_bool opt_log_slow_extra;
 extern ulonglong binlog_fsync_count;
 
 extern uint net_compression_level;
-extern uint zstd_net_compression_level;
+extern long zstd_net_compression_level;
+extern long lz4f_net_compression_level;
 
 extern ulong relay_io_connected;
 

@@ -73,6 +73,8 @@
 #include "../storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+#include <zstd.h>
+
 TYPELIB bool_typelib={ array_elements(bool_values)-1, "", bool_values, 0 };
 
 /*
@@ -3613,12 +3615,19 @@ static Sys_var_enum slave_compression_lib_enum(
        CMD_LINE(OPT_ARG), mysql_compression_lib_names,
        DEFAULT(MYSQL_COMPRESSION_ZLIB), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
-static Sys_var_uint Sys_zstd_net_compression_level(
+static Sys_var_long Sys_lz4f_net_compression_level(
+      "lz4f_net_compression_level",
+      "Compression level for compressed protocol when lz4f library is"
+      " selected.",
+      GLOBAL_VAR(lz4f_net_compression_level), CMD_LINE(OPT_ARG),
+      VALID_RANGE(LONG_MIN, 16), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_long Sys_zstd_net_compression_level(
       "zstd_net_compression_level",
       "Compression level for compressed protocol when zstd library is"
-      " selected. Valid values 0-22.",
+      " selected.",
       GLOBAL_VAR(zstd_net_compression_level), CMD_LINE(OPT_ARG),
-      VALID_RANGE(0, 22), DEFAULT(3), BLOCK_SIZE(1));
+      VALID_RANGE(LONG_MIN, 22), DEFAULT(ZSTD_CLEVEL_DEFAULT), BLOCK_SIZE(1));
 
 static Sys_var_ulong Sys_sort_buffer(
        "sort_buffer_size",

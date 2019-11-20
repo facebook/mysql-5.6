@@ -450,7 +450,9 @@ typedef struct ssl_st SSL;
 enum mysql_compression_lib {
   MYSQL_COMPRESSION_NONE,
   MYSQL_COMPRESSION_ZLIB,
-  MYSQL_COMPRESSION_ZSTD
+  MYSQL_COMPRESSION_ZSTD,
+  MYSQL_COMPRESSION_ZSTD_STREAM,
+  MYSQL_COMPRESSION_LZ4F_STREAM
 };
 
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
@@ -483,6 +485,11 @@ typedef struct st_net {
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
   ZSTD_DCtx *dctx;
+  void *lz4f_cctx;
+  void *lz4f_dctx;
+  unsigned char* compress_buf;
+  unsigned long compress_buf_len;
+  my_bool reset_cctx;
   void *qsbr_context;
   /*
     Pointer to query object in query cache, do not equal NULL (0) for
