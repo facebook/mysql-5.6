@@ -10,6 +10,8 @@ set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
 create table t (
 i int(5), primary key(i) comment 'cf_primary_key'
 ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 insert into t values (1), (2), (3);
 select * from information_schema.rocksdb_deadlock;
 DEADLOCK_ID	TIMESTAMP	TRANSACTION_ID	CF_NAME	WAITING_KEY	LOCK_TYPE	INDEX_NAME	TABLE_NAME	ROLLED_BACK

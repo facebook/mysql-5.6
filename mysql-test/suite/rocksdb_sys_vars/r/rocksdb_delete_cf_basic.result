@@ -19,6 +19,9 @@ id2 int(10) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (id1) COMMENT 'cf_primary_key',
 KEY `sec_key` (id2) COMMENT 'cf_secondary_key'
 ) ENGINE=ROCKSDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SET @@global.ROCKSDB_DELETE_CF = 'cf_primary_key';
 ERROR HY000: Cannot drop Column family ('cf_primary_key') because it is in use or does not exist.
 SET @@global.ROCKSDB_DELETE_CF = 'cf_secondary_key';
@@ -27,6 +30,8 @@ CREATE TABLE cf_deletion_test_table2 (
 id1 int(10) unsigned NOT NULL DEFAULT '0',
 PRIMARY KEY (id1) COMMENT 'cf_primary_key'
 ) ENGINE=ROCKSDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 DROP TABLE cf_deletion_test_table1;
 SET @@global.ROCKSDB_DELETE_CF = 'cf_primary_key';
 ERROR HY000: Cannot drop Column family ('cf_primary_key') because it is in use or does not exist.

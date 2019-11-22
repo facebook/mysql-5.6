@@ -110,13 +110,13 @@ Warning	1265	Data truncated for column 'v64' at row 1
 Warning	1265	Data truncated for column 'v65000' at row 1
 INSERT INTO t1 (v0,v1,v64,v65000) SELECT v65000, v65000, CONCAT('a',v65000), CONCAT(v65000,v1) FROM t1;
 Warnings:
-Warning	1265	Data truncated for column 'v0' at row 5
-Warning	1265	Data truncated for column 'v1' at row 5
-Warning	1265	Data truncated for column 'v64' at row 5
-Warning	1265	Data truncated for column 'v65000' at row 5
-Warning	1265	Data truncated for column 'v0' at row 6
-Warning	1265	Data truncated for column 'v1' at row 6
-Warning	1265	Data truncated for column 'v64' at row 6
+Warning	1265	Data truncated for column 'v0' at row 2
+Warning	1265	Data truncated for column 'v1' at row 2
+Warning	1265	Data truncated for column 'v64' at row 2
+Warning	1265	Data truncated for column 'v65000' at row 2
+Warning	1265	Data truncated for column 'v0' at row 3
+Warning	1265	Data truncated for column 'v1' at row 3
+Warning	1265	Data truncated for column 'v64' at row 3
 SELECT v0, v1, v64, LENGTH(v65000) FROM t1;
 v0	v1	v64	LENGTH(v65000)
 			0
@@ -194,12 +194,12 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	col1	67	NULL	#	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
-select col1, hex(col1) from t1;
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
+select col1, hex(col1) from t1 force index(col1);
 col1	hex(col1)
 a  		61202009
 a 	6120
@@ -321,12 +321,12 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	NULL	col1	195	NULL	#	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
-select col1, hex(col1) from t1;
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
+select col1, hex(col1) from t1 force index(col1);
 col1	hex(col1)
 a  		61202009
 a 	6120
@@ -442,22 +442,22 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	NULL	index	NULL	col1	131	NULL	#	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
-select col1, hex(col1) from t1;
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
+select col1, hex(col1) from t1 force index(col1);
 col1	hex(col1)
-ab	00610062
+a  		0061002000200009
 a 	00610020
 a	0061
-a  		0061002000200009
+ab	00610062
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	range	col1	col1	131	NULL	#	#	Using where
+1	SIMPLE	t1	#	index	col1	col1	131	NULL	#	#	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
@@ -478,7 +478,7 @@ insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	#	index	NULL	col1	131	NULL	#	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
@@ -487,10 +487,10 @@ pk	col1	hex(col1)	length(col1)
 11	        	00200020002000200020002000200020	16
 12	                	0020002000200020002000200020002000200020002000200020002000200020	32
 13	                        	002000200020002000200020002000200020002000200020002000200020002000200020002000200020002000200020	48
-14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 21	         	002000200020002000200020002000200020	18
 22	                 	00200020002000200020002000200020002000200020002000200020002000200020	34
 23	                  	002000200020002000200020002000200020002000200020002000200020002000200020	36
+14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 drop table t1;
 create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
@@ -563,22 +563,22 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	NULL	index	NULL	col1	259	NULL	#	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
-select col1, hex(col1) from t1;
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
+select col1, hex(col1) from t1 force index(col1);
 col1	hex(col1)
-ab	6162
+a  		61202009
 a 	6120
 a	61
-a  		61202009
+ab	6162
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	range	col1	col1	259	NULL	#	#	Using where
+1	SIMPLE	t1	#	index	col1	col1	259	NULL	#	#	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
@@ -599,7 +599,7 @@ insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	#	index	NULL	col1	259	NULL	#	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
@@ -608,10 +608,10 @@ pk	col1	hex(col1)	length(col1)
 11	        	2020202020202020	8
 12	                	20202020202020202020202020202020	16
 13	                        	202020202020202020202020202020202020202020202020	24
-14	                a	2020202020202020202020202020202061	17
 21	         	202020202020202020	9
 22	                 	2020202020202020202020202020202020	17
 23	                  	202020202020202020202020202020202020	18
+14	                a	2020202020202020202020202020202061	17
 drop table t1;
 create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
@@ -684,22 +684,22 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	NULL	index	NULL	col1	259	NULL	#	#	Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1`
-select col1, hex(col1) from t1;
+Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` FORCE INDEX (`col1`)
+select col1, hex(col1) from t1 force index(col1);
 col1	hex(col1)
-ab	00610062
+a  		0061002000200009
 a 	00610020
 a	0061
-a  		0061002000200009
+ab	00610062
 # Must show 'using index' for latin1_bin and utf8_bin:
 explain
 select col1, hex(col1) from t1 where col1 < 'b';
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	range	col1	col1	259	NULL	#	#	Using where
+1	SIMPLE	t1	#	index	col1	col1	259	NULL	#	#	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)` from `test`.`t1` where (`test`.`t1`.`col1` < 'b')
 select col1, hex(col1) from t1 where col1 < 'b';
@@ -720,7 +720,7 @@ insert into t1 values(23, repeat(' ',18), '18x-space');
 explain
 select pk, col1, hex(col1), length(col1) from t1;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	#	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+1	SIMPLE	t1	#	index	NULL	col1	259	NULL	#	#	Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk`,`test`.`t1`.`col1` AS `col1`,hex(`test`.`t1`.`col1`) AS `hex(col1)`,length(`test`.`t1`.`col1`) AS `length(col1)` from `test`.`t1`
 select pk, col1, hex(col1), length(col1) from t1;
@@ -729,10 +729,10 @@ pk	col1	hex(col1)	length(col1)
 11	        	00200020002000200020002000200020	16
 12	                	0020002000200020002000200020002000200020002000200020002000200020	32
 13	                        	002000200020002000200020002000200020002000200020002000200020002000200020002000200020002000200020	48
-14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 21	         	002000200020002000200020002000200020	18
 22	                 	00200020002000200020002000200020002000200020002000200020002000200020	34
 23	                  	002000200020002000200020002000200020002000200020002000200020002000200020	36
+14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 drop table t1;
 create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
