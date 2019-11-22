@@ -15,6 +15,9 @@ PRIMARY KEY (`col1`,`col2`,`col3`) COMMENT 'cfname=cf1',
 UNIQUE KEY (`col2`, `col4`) COMMENT 'cfname=cf2',
 UNIQUE KEY (`col3`, `col4`) COMMENT 'cfname=cf3'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 USE information_schema;
 SELECT @@global.rocksdb_update_cf_options;
 @@global.rocksdb_update_cf_options

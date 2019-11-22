@@ -17,6 +17,14 @@ PRIMARY KEY (`a`,`b`),
 KEY `key1` (`a`, `e`(1)),
 KEY `key2` (`a`,`h`)
 ) ENGINE=RocksDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set @@sql_log_bin = 1;
 set @@sql_log_bin = 0;
 CREATE TABLE `t1` (
@@ -34,6 +42,16 @@ PRIMARY KEY (`a`,`b`),
 KEY `key1` (`a`, `e`(1)),
 KEY `key2` (`a`,`h`)
 ) ENGINE=RocksDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set @@sql_log_bin = 1;
 INSERT INTO t1 VALUES (1, 1, 1, 1, 'a', 1, 1, 1);
 SELECT * FROM t1;

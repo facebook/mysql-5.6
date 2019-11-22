@@ -15,6 +15,18 @@ n20_4 NUMERIC(20,4) ZEROFILL,
 n65_4 NUMERIC(65,4) ZEROFILL,
 pk NUMERIC ZEROFILL PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 d	decimal(10,0) unsigned zerofill	YES		NULL	
@@ -159,6 +171,9 @@ a DECIMAL ZEROFILL,
 b NUMERIC ZEROFILL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 a	decimal(10,0) unsigned zerofill	NO	PRI	NULL	
@@ -187,6 +202,24 @@ d53 DOUBLE(53,0) ZEROFILL,
 d53_10 DOUBLE(53,10) ZEROFILL,
 pk DOUBLE ZEROFILL PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 f	float unsigned zerofill	YES		NULL	
@@ -505,6 +538,9 @@ a DOUBLE ZEROFILL,
 b FLOAT ZEROFILL,
 PRIMARY KEY (b)
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 a	double unsigned zerofill	YES		NULL	
@@ -541,6 +577,42 @@ b1 BIGINT(1) ZEROFILL,
 b20 BIGINT(20) ZEROFILL,
 pk INT AUTO_INCREMENT PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 i	int(10) unsigned zerofill	YES		NULL	
@@ -648,54 +720,54 @@ Warning	1264	Out of range value for column 'b1' at row 1
 Warning	1264	Out of range value for column 'b20' at row 1
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) SELECT b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b FROM t1 WHERE b IN (-9223372036854775808,9223372036854775807,18446744073709551615);
 Warnings:
-Warning	1264	Out of range value for column 'i' at row 4
-Warning	1264	Out of range value for column 'i0' at row 4
-Warning	1264	Out of range value for column 'i1' at row 4
-Warning	1264	Out of range value for column 'i20' at row 4
-Warning	1264	Out of range value for column 't' at row 4
-Warning	1264	Out of range value for column 't0' at row 4
-Warning	1264	Out of range value for column 't1' at row 4
-Warning	1264	Out of range value for column 't20' at row 4
-Warning	1264	Out of range value for column 's' at row 4
-Warning	1264	Out of range value for column 's0' at row 4
-Warning	1264	Out of range value for column 's1' at row 4
-Warning	1264	Out of range value for column 's20' at row 4
-Warning	1264	Out of range value for column 'm' at row 4
-Warning	1264	Out of range value for column 'm0' at row 4
-Warning	1264	Out of range value for column 'm1' at row 4
-Warning	1264	Out of range value for column 'm20' at row 4
-Warning	1264	Out of range value for column 'i' at row 5
-Warning	1264	Out of range value for column 'i0' at row 5
-Warning	1264	Out of range value for column 'i1' at row 5
-Warning	1264	Out of range value for column 'i20' at row 5
-Warning	1264	Out of range value for column 't' at row 5
-Warning	1264	Out of range value for column 't0' at row 5
-Warning	1264	Out of range value for column 't1' at row 5
-Warning	1264	Out of range value for column 't20' at row 5
-Warning	1264	Out of range value for column 's' at row 5
-Warning	1264	Out of range value for column 's0' at row 5
-Warning	1264	Out of range value for column 's1' at row 5
-Warning	1264	Out of range value for column 's20' at row 5
-Warning	1264	Out of range value for column 'm' at row 5
-Warning	1264	Out of range value for column 'm0' at row 5
-Warning	1264	Out of range value for column 'm1' at row 5
-Warning	1264	Out of range value for column 'm20' at row 5
-Warning	1264	Out of range value for column 'i' at row 6
-Warning	1264	Out of range value for column 'i0' at row 6
-Warning	1264	Out of range value for column 'i1' at row 6
-Warning	1264	Out of range value for column 'i20' at row 6
-Warning	1264	Out of range value for column 't' at row 6
-Warning	1264	Out of range value for column 't0' at row 6
-Warning	1264	Out of range value for column 't1' at row 6
-Warning	1264	Out of range value for column 't20' at row 6
-Warning	1264	Out of range value for column 's' at row 6
-Warning	1264	Out of range value for column 's0' at row 6
-Warning	1264	Out of range value for column 's1' at row 6
-Warning	1264	Out of range value for column 's20' at row 6
-Warning	1264	Out of range value for column 'm' at row 6
-Warning	1264	Out of range value for column 'm0' at row 6
-Warning	1264	Out of range value for column 'm1' at row 6
-Warning	1264	Out of range value for column 'm20' at row 6
+Warning	1264	Out of range value for column 'i' at row 1
+Warning	1264	Out of range value for column 'i0' at row 1
+Warning	1264	Out of range value for column 'i1' at row 1
+Warning	1264	Out of range value for column 'i20' at row 1
+Warning	1264	Out of range value for column 't' at row 1
+Warning	1264	Out of range value for column 't0' at row 1
+Warning	1264	Out of range value for column 't1' at row 1
+Warning	1264	Out of range value for column 't20' at row 1
+Warning	1264	Out of range value for column 's' at row 1
+Warning	1264	Out of range value for column 's0' at row 1
+Warning	1264	Out of range value for column 's1' at row 1
+Warning	1264	Out of range value for column 's20' at row 1
+Warning	1264	Out of range value for column 'm' at row 1
+Warning	1264	Out of range value for column 'm0' at row 1
+Warning	1264	Out of range value for column 'm1' at row 1
+Warning	1264	Out of range value for column 'm20' at row 1
+Warning	1264	Out of range value for column 'i' at row 2
+Warning	1264	Out of range value for column 'i0' at row 2
+Warning	1264	Out of range value for column 'i1' at row 2
+Warning	1264	Out of range value for column 'i20' at row 2
+Warning	1264	Out of range value for column 't' at row 2
+Warning	1264	Out of range value for column 't0' at row 2
+Warning	1264	Out of range value for column 't1' at row 2
+Warning	1264	Out of range value for column 't20' at row 2
+Warning	1264	Out of range value for column 's' at row 2
+Warning	1264	Out of range value for column 's0' at row 2
+Warning	1264	Out of range value for column 's1' at row 2
+Warning	1264	Out of range value for column 's20' at row 2
+Warning	1264	Out of range value for column 'm' at row 2
+Warning	1264	Out of range value for column 'm0' at row 2
+Warning	1264	Out of range value for column 'm1' at row 2
+Warning	1264	Out of range value for column 'm20' at row 2
+Warning	1264	Out of range value for column 'i' at row 3
+Warning	1264	Out of range value for column 'i0' at row 3
+Warning	1264	Out of range value for column 'i1' at row 3
+Warning	1264	Out of range value for column 'i20' at row 3
+Warning	1264	Out of range value for column 't' at row 3
+Warning	1264	Out of range value for column 't0' at row 3
+Warning	1264	Out of range value for column 't1' at row 3
+Warning	1264	Out of range value for column 't20' at row 3
+Warning	1264	Out of range value for column 's' at row 3
+Warning	1264	Out of range value for column 's0' at row 3
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's20' at row 3
+Warning	1264	Out of range value for column 'm' at row 3
+Warning	1264	Out of range value for column 'm0' at row 3
+Warning	1264	Out of range value for column 'm1' at row 3
+Warning	1264	Out of range value for column 'm20' at row 3
 SELECT i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20 FROM t1;
 i	i0	i1	i20	t	t0	t1	t20	s	s0	s1	s20	m	m0	m1	m20	b	b0	b1	b20
 0000000000	0000000000	0	00000000000000000000	000	000	0	00000000000000000000	00000	00000	0	00000000000000000000	00000000	00000000	0	00000000000000000000	00000000000000000000	00000000000000000000	0	00000000000000000000
@@ -719,6 +791,12 @@ i INT ZEROFILL,
 b BIGINT ZEROFILL,
 PRIMARY KEY (b)
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
+Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 t	tinyint(3) unsigned zerofill	YES		NULL	

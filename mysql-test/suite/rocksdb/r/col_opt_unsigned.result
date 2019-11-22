@@ -15,6 +15,18 @@ n20_4 NUMERIC(20,4) UNSIGNED,
 n65_4 NUMERIC(65,4) UNSIGNED,
 pk NUMERIC UNSIGNED PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 d	decimal(10,0) unsigned	YES		NULL	
@@ -159,6 +171,9 @@ a DECIMAL UNSIGNED,
 b NUMERIC UNSIGNED,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 a	decimal(10,0) unsigned	NO	PRI	NULL	
@@ -191,6 +206,24 @@ d53 DOUBLE(53,0) UNSIGNED,
 d53_10 DOUBLE(53,10) UNSIGNED,
 pk DOUBLE UNSIGNED PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 f	float unsigned	YES		NULL	
@@ -509,6 +542,9 @@ a DOUBLE UNSIGNED,
 b FLOAT UNSIGNED,
 PRIMARY KEY (b) 
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
+Warning	1681	UNSIGNED for decimal and floating point data types is deprecated and support for it will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 a	double unsigned	YES		NULL	
@@ -551,6 +587,22 @@ b1 BIGINT(1) UNSIGNED,
 b20 BIGINT(20) UNSIGNED,
 pk INT AUTO_INCREMENT PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 i	int(10) unsigned	YES		NULL	
@@ -658,54 +710,54 @@ Warning	1264	Out of range value for column 'b1' at row 1
 Warning	1264	Out of range value for column 'b20' at row 1
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) SELECT b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b FROM t1 WHERE b IN (-9223372036854775808,9223372036854775807,18446744073709551615);
 Warnings:
-Warning	1264	Out of range value for column 'i' at row 4
-Warning	1264	Out of range value for column 'i0' at row 4
-Warning	1264	Out of range value for column 'i1' at row 4
-Warning	1264	Out of range value for column 'i20' at row 4
-Warning	1264	Out of range value for column 't' at row 4
-Warning	1264	Out of range value for column 't0' at row 4
-Warning	1264	Out of range value for column 't1' at row 4
-Warning	1264	Out of range value for column 't20' at row 4
-Warning	1264	Out of range value for column 's' at row 4
-Warning	1264	Out of range value for column 's0' at row 4
-Warning	1264	Out of range value for column 's1' at row 4
-Warning	1264	Out of range value for column 's20' at row 4
-Warning	1264	Out of range value for column 'm' at row 4
-Warning	1264	Out of range value for column 'm0' at row 4
-Warning	1264	Out of range value for column 'm1' at row 4
-Warning	1264	Out of range value for column 'm20' at row 4
-Warning	1264	Out of range value for column 'i' at row 5
-Warning	1264	Out of range value for column 'i0' at row 5
-Warning	1264	Out of range value for column 'i1' at row 5
-Warning	1264	Out of range value for column 'i20' at row 5
-Warning	1264	Out of range value for column 't' at row 5
-Warning	1264	Out of range value for column 't0' at row 5
-Warning	1264	Out of range value for column 't1' at row 5
-Warning	1264	Out of range value for column 't20' at row 5
-Warning	1264	Out of range value for column 's' at row 5
-Warning	1264	Out of range value for column 's0' at row 5
-Warning	1264	Out of range value for column 's1' at row 5
-Warning	1264	Out of range value for column 's20' at row 5
-Warning	1264	Out of range value for column 'm' at row 5
-Warning	1264	Out of range value for column 'm0' at row 5
-Warning	1264	Out of range value for column 'm1' at row 5
-Warning	1264	Out of range value for column 'm20' at row 5
-Warning	1264	Out of range value for column 'i' at row 6
-Warning	1264	Out of range value for column 'i0' at row 6
-Warning	1264	Out of range value for column 'i1' at row 6
-Warning	1264	Out of range value for column 'i20' at row 6
-Warning	1264	Out of range value for column 't' at row 6
-Warning	1264	Out of range value for column 't0' at row 6
-Warning	1264	Out of range value for column 't1' at row 6
-Warning	1264	Out of range value for column 't20' at row 6
-Warning	1264	Out of range value for column 's' at row 6
-Warning	1264	Out of range value for column 's0' at row 6
-Warning	1264	Out of range value for column 's1' at row 6
-Warning	1264	Out of range value for column 's20' at row 6
-Warning	1264	Out of range value for column 'm' at row 6
-Warning	1264	Out of range value for column 'm0' at row 6
-Warning	1264	Out of range value for column 'm1' at row 6
-Warning	1264	Out of range value for column 'm20' at row 6
+Warning	1264	Out of range value for column 'i' at row 1
+Warning	1264	Out of range value for column 'i0' at row 1
+Warning	1264	Out of range value for column 'i1' at row 1
+Warning	1264	Out of range value for column 'i20' at row 1
+Warning	1264	Out of range value for column 't' at row 1
+Warning	1264	Out of range value for column 't0' at row 1
+Warning	1264	Out of range value for column 't1' at row 1
+Warning	1264	Out of range value for column 't20' at row 1
+Warning	1264	Out of range value for column 's' at row 1
+Warning	1264	Out of range value for column 's0' at row 1
+Warning	1264	Out of range value for column 's1' at row 1
+Warning	1264	Out of range value for column 's20' at row 1
+Warning	1264	Out of range value for column 'm' at row 1
+Warning	1264	Out of range value for column 'm0' at row 1
+Warning	1264	Out of range value for column 'm1' at row 1
+Warning	1264	Out of range value for column 'm20' at row 1
+Warning	1264	Out of range value for column 'i' at row 2
+Warning	1264	Out of range value for column 'i0' at row 2
+Warning	1264	Out of range value for column 'i1' at row 2
+Warning	1264	Out of range value for column 'i20' at row 2
+Warning	1264	Out of range value for column 't' at row 2
+Warning	1264	Out of range value for column 't0' at row 2
+Warning	1264	Out of range value for column 't1' at row 2
+Warning	1264	Out of range value for column 't20' at row 2
+Warning	1264	Out of range value for column 's' at row 2
+Warning	1264	Out of range value for column 's0' at row 2
+Warning	1264	Out of range value for column 's1' at row 2
+Warning	1264	Out of range value for column 's20' at row 2
+Warning	1264	Out of range value for column 'm' at row 2
+Warning	1264	Out of range value for column 'm0' at row 2
+Warning	1264	Out of range value for column 'm1' at row 2
+Warning	1264	Out of range value for column 'm20' at row 2
+Warning	1264	Out of range value for column 'i' at row 3
+Warning	1264	Out of range value for column 'i0' at row 3
+Warning	1264	Out of range value for column 'i1' at row 3
+Warning	1264	Out of range value for column 'i20' at row 3
+Warning	1264	Out of range value for column 't' at row 3
+Warning	1264	Out of range value for column 't0' at row 3
+Warning	1264	Out of range value for column 't1' at row 3
+Warning	1264	Out of range value for column 't20' at row 3
+Warning	1264	Out of range value for column 's' at row 3
+Warning	1264	Out of range value for column 's0' at row 3
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's20' at row 3
+Warning	1264	Out of range value for column 'm' at row 3
+Warning	1264	Out of range value for column 'm0' at row 3
+Warning	1264	Out of range value for column 'm1' at row 3
+Warning	1264	Out of range value for column 'm20' at row 3
 SELECT i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20 FROM t1;
 i	i0	i1	i20	t	t0	t1	t20	s	s0	s1	s20	m	m0	m1	m20	b	b0	b1	b20
 0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0

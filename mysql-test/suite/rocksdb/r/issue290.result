@@ -11,6 +11,15 @@ CREATE TABLE `linktable` (
 PRIMARY KEY (link_type, `id1`,`id2`) COMMENT 'cf_link_pk',
 KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`id2`,`version`,`data`) COMMENT 'rev:cf_link_id1_type'
 ) ENGINE=RocksDB DEFAULT COLLATE=latin1_bin;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_force_flush_memtable_now=1;
 insert into linktable (id1, link_type, id2) values (2, 1, 1);
 insert into linktable (id1, link_type, id2) values (2, 1, 2);

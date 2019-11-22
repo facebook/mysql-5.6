@@ -7,6 +7,9 @@ id1 int(10) unsigned not null default '0',
 id2 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key'
   ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 insert into t1 (id1, id2)
 values(1, 1);
 insert into t1 (id1, id2)
@@ -32,6 +35,9 @@ id1 int(10) unsigned not null default '0',
 id2 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key'
   ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 insert into t1 (id1, id2)
 values(1, 1);
 insert into t1 (id1, id2)
