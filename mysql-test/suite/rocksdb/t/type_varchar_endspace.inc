@@ -47,8 +47,8 @@ analyze table t1;
 --echo # Must show 'using index' for latin1_bin and utf8_bin:
 --replace_column 10 # 11 #
 explain
-select col1, hex(col1) from t1;
-select col1, hex(col1) from t1;
+select col1, hex(col1) from t1 force index(col1);
+select col1, hex(col1) from t1 force index(col1);
 
 --echo # Must show 'using index' for latin1_bin and utf8_bin:
 --replace_column 4 # 10 # 11 #

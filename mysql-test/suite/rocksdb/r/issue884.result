@@ -17,6 +17,12 @@ primary key (a, b, m, c(100), l(100), d, e, f(100), g(100), h(100), n),
 key n (n),
 key d (d, a)
 ) engine = rocksdb default charset = latin1;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Table	Op	Msg_type	Msg_text
 test.test	analyze	status	OK
 explain

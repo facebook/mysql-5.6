@@ -14,6 +14,15 @@ KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`) COMMENT 
 KEY `id1_type2` (`id1`,`link_type`,`time`,`version`,`data`,`visibility`) COMMENT 'rev:cf_link_id1_type2',
 KEY `id1_type3` (`id1`,`visibility`,`time`,`version`,`data`,`link_type`) COMMENT 'rev:cf_link_id1_type3'
 ) ENGINE=RocksDB DEFAULT COLLATE=latin1_bin;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set @tmp_force_index_for_range=@@optimizer_force_index_for_range;
 select variable_value into @c from performance_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select id1, id2, link_type, visibility, data, time, version from linktable FORCE INDEX(`id1_type`)  where id1 = 100 and link_type = 1 and time >= 0 and time <= 9223372036854775807 and visibility = 1 order by time desc;
