@@ -1,91 +1,86 @@
 # Transaction related
-rocksdb.cons_snapshot_serializable : Consistent read does not work on serializable
-rocksdb.level_read_uncommitted : Not supported
-rocksdb.level_serializable: Not supported
+rocksdb.cons_snapshot_serializable : BUG#0000 Consistent read does not work on serializable
+rocksdb.level_read_uncommitted : BUG#0000 Not supported
+rocksdb.level_serializable: BUG#0000 Not supported
 
 # Disable hotbackup tests
-rocksdb_hotbackup.xbstream_direct : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.slocket : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.gtid : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.stream : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.xbstream : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.wdt : hotbackup feature is missing in 8.0
-rocksdb_hotbackup.xbstream_socket : hotbackup feature is missing in 8.0
+rocksdb_hotbackup.xbstream_direct : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.slocket : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.gtid : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.stream : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.xbstream : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.wdt : BUG#0000 hotbackup feature is missing in 8.0
+rocksdb_hotbackup.xbstream_socket : BUG#0000 hotbackup feature is missing in 8.0
 
 # Disable partition tests
-# disable_testcase BUG#888001
-rocksdb.rocksdb_cf_per_partition : partition feature is missing in 8.0
-rocksdb.partition : partition feature is missing in 8.0
-rocksdb.truncate_partition : partition feature is missing in 8.0
-rocksdb.ttl_primary_with_partitions : partition feature is missing in 8.0
-rocksdb.ttl_secondary_with_partitions : partition feature is missing in 8.0
-rocksdb.issue495 : partition feature is missing in 8.0
-rocksdb.rocksdb_parts : partition feature is missing in 8.0
-rocksdb.get_error_message : partition feature is missing in 8.0
-rocksdb.autoinc_crash_safe_partition : partition feature is missing in 8.0
+rocksdb.rocksdb_cf_per_partition : BUG#888001 partition feature is missing in 8.0
+rocksdb.partition : BUG#888001 partition feature is missing in 8.0
+rocksdb.truncate_partition : BUG#888001 partition feature is missing in 8.0
+rocksdb.ttl_primary_with_partitions : BUG#888001 partition feature is missing in 8.0
+rocksdb.ttl_secondary_with_partitions : BUG#888001 partition feature is missing in 8.0
+rocksdb.issue495 : BUG#888001 partition feature is missing in 8.0
+rocksdb.rocksdb_parts : BUG#888001 partition feature is missing in 8.0
+rocksdb.get_error_message : BUG#888001 partition feature is missing in 8.0
+rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing in 8.0
 
 # Missing features
-# disable_testcase BUG#888001
-rocksdb.explicit_snapshot : missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
-rocksdb.create_no_primary_key_table : missing patch
-rocksdb.rocksdb_qcache : missing patch
-rocksdb.skip_core_dump_on_error : missing patch
-rocksdb.gap_lock_issue254 : missing patch
-rocksdb.gap_lock_raise_error : missing patch
-rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : missing patch
-rocksdb.innodb_i_s_tables_disabled : missing patch
-rocksdb.force_shutdown: missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
-rocksdb_rpl.rpl_rocksdb_schema_change : missing 031b5cec711 Use column names while applying row changes on slave
-rocksdb_rpl.rpl_gtid_rocksdb_sys_header: missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
-rocksdb_rpl.rocksdb_slave_check_before_image_consistency : missing d8c69f9f5a9 [replication] Check before image consistency before applying row events
-rocksdb_rpl.rpl_no_unique_check_on_lag : missing d80175902ee Disable unique checks when replica is lagging
-rocksdb_rpl.rpl_no_unique_check_on_lag_mts : missing d80175902ee Disable unique checks when replica is lagging
-rocksdb.percona_nonflushing_analyze_debug : missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE TABLE from flushing table definition cache)
-rocksdb.2pc_group_commit : missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
-rocksdb.group_min_max : missing infinite loop fix
-rocksdb.native_procedure : missing 7292a82ad28 Native procedures in MySQL
+rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
+rocksdb.create_no_primary_key_table : BUG#0000 missing patch
+rocksdb.rocksdb_qcache : BUG#0000 missing patch
+rocksdb.skip_core_dump_on_error : BUG#0000 missing patch
+rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : BUG#0000 missing patch
+rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
+rocksdb.force_shutdown: BUG#0000 missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
+rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
+rocksdb_rpl.rpl_gtid_rocksdb_sys_header: BUG#0000 missing 00861dd66bf make gtid enabled slave with less durable...
+rocksdb_rpl.rocksdb_slave_check_before_image_consistency : BUG#0000 missing d8c69f9f5a9 [replication] Check before image...
+rocksdb_rpl.rpl_no_unique_check_on_lag : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
+rocksdb_rpl.rpl_no_unique_check_on_lag_mts : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
+rocksdb.percona_nonflushing_analyze_debug : BUG#0000 missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE...
+rocksdb.2pc_group_commit : BUG#0000 missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
+rocksdb.group_min_max : BUG#0000 missing infinite loop fix
+rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
 # Blind replace
-rocksdb.optimize_myrocks_replace_into_base : missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.optimize_myrocks_replace_into_lock : missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb_rpl.optimize_myrocks_replace_into : missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.mysqlbinlog_blind_replace : missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb.optimize_myrocks_replace_into_base : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb.optimize_myrocks_replace_into_lock : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb_rpl.optimize_myrocks_replace_into : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
+rocksdb.mysqlbinlog_blind_replace : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
 
 # Recovery
-rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : missing 00861dd66bf make gtid enabled slave with less durable settings crash safe
+rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : BUG#0000 missing 00861dd66bf make gtid enabled slave with less...
 
 # Schema Validation
-rocksdb.validate_datadic : redesign the testcase around schema validation
-rocksdb.skip_validate_tmp_table : redesign the testcase around schema validation
-rocksdb.duplicate_table: redesign the testcase around schema validation
+rocksdb.validate_datadic : BUG#0000 redesign the testcase around schema validation
+rocksdb.skip_validate_tmp_table : BUG#0000 redesign the testcase around schema validation
+rocksdb.duplicate_table: BUG#0000 redesign the testcase around schema validation
 
 # rpl_skip_tx_api
-rocksdb.trx_info_rpl : rpl_skip_tx_api missing
-rocksdb_rpl.rpl_skip_trx_api_binlog_format : rpl_skip_tx_api missing
+rocksdb.trx_info_rpl : BUG#0000 rpl_skip_tx_api missing
+rocksdb_rpl.rpl_skip_trx_api_binlog_format : BUG#0000 rpl_skip_tx_api missing
 
 # rocksdb_read_free_rpl
-rocksdb.rocksdb_read_free_rpl : missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.rocksdb_read_free_rpl_stress : missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.blind_delete_rc : missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.blind_delete_rr : missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.rocksdb_read_free_rpl : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.rocksdb_read_free_rpl_stress : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.blind_delete_rc : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
+rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 
 # i_s.table_statistics
-rocksdb.show_table_status : table_statistics missing
-rocksdb.rocksdb_icp : table_statistics missing
-rocksdb.rocksdb_icp_rev : table_statistics missing
-rocksdb.optimizer_loose_index_scans : table_statistics missing
-rocksdb.lock_wait_timeout_stats : table_statistics missing
-rocksdb.rpl_row_stats : table_statistics missing
-rocksdb.table_stats : table_statistics missing
-rocksdb.bytes_written : table_statistics missing
-rocksdb.deadlock_stats : table_statistics missing
+rocksdb.show_table_status : BUG#0000 table_statistics missing
+rocksdb.rocksdb_icp : BUG#0000 table_statistics missing
+rocksdb.rocksdb_icp_rev : BUG#0000 table_statistics missing
+rocksdb.lock_wait_timeout_stats : BUG#0000 table_statistics missing
+rocksdb.rpl_row_stats : BUG#0000 table_statistics missing
+rocksdb.table_stats : BUG#0000 table_statistics missing
+rocksdb.bytes_written : BUG#0000 table_statistics missing
+rocksdb.deadlock_stats : BUG#0000 table_statistics missing
 
 # Detached session
-rocksdb.com_rpc_tx : detached session is missing in 8.0
+rocksdb.com_rpc_tx : BUG#0000 detached session is missing in 8.0
 
 # Misc bugs
-rocksdb.persistent_cache : only repros with other tests running
-rocksdb.index_merge_rocksdb2 : query plan is different between 8.0 and 5.6
-rocksdb.rqg_runtime: commit without prepare
-rocksdb.rqg_transactions : commit without prepare
+rocksdb.persistent_cache : BUG#0000 only repros with other tests running
+rocksdb.index_merge_rocksdb2 : BUG#0000 query plan is different between 8.0 and 5.6
+rocksdb.rqg_runtime: BUG#0000 commit without prepare
+rocksdb.rqg_transactions : BUG#0000 commit without prepare
 
