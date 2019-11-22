@@ -40,6 +40,8 @@
 #include "sql/field.h"
 #include "sql/key.h"
 #include "sql/sql_table.h"
+#include "myisampack.h"         // mi_int2store
+#include "my_compare.h"         // get_rec_bits
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
