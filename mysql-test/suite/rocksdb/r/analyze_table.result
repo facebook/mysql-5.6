@@ -1,7 +1,11 @@
 DROP TABLE IF EXISTS t1,t2;
 CREATE TABLE t1 (pk INT PRIMARY KEY, a INT(11), b CHAR(8)) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 VALUES (1,1,'a'),(2,2,'b');
 CREATE TABLE t2 (pk INT PRIMARY KEY, a INT(11), b CHAR(8)) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 VALUES (3,3,'c');
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
@@ -18,6 +22,8 @@ test.t1	analyze	status	OK
 test.t2	analyze	status	OK
 DROP TABLE t1, t2;
 CREATE TABLE t1 (pk INT PRIMARY KEY, a INT(11), KEY(a)) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 VALUES (1,1),(2,2),(3,4),(4,7);
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text

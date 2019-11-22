@@ -51,7 +51,7 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 EXPLAIN SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using temporary; Using filesort
+1	SIMPLE	t1	NULL	ALL	a	NULL	NULL	NULL	#	#	Using temporary; Using filesort
 Warnings:
 Note	1003	/* select#1 */ select distinct (`test`.`t1`.`a` + 0) AS `a+0` from `test`.`t1` order by `test`.`t1`.`a`
 SELECT DISTINCT a+0 FROM t1 ORDER BY a;

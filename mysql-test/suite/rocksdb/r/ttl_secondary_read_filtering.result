@@ -307,6 +307,8 @@ PRIMARY KEY (a),
 KEY kb (b)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = 100;
 INSERT INTO t1 VALUES (1, 1, UNIX_TIMESTAMP());
 INSERT INTO t1 VALUES (2, 2, UNIX_TIMESTAMP());

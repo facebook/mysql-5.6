@@ -6,6 +6,8 @@ create table t1 (
 id1 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key'
   ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 drop table t1;
 set debug_sync = "now wait_for ready_to_mark_cf_dropped_before_delete_table";
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
@@ -22,6 +24,8 @@ create table t1 (
 id1 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key'
   ) engine=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 drop table t1;
 set debug_sync = "now wait_for ready_to_mark_cf_dropped_after_delete_table";
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
