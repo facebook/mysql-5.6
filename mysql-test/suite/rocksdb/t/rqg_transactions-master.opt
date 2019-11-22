@@ -1,1 +1,2 @@
+--initialize --default_authentication_plugin=mysql_native_password
 --rocksdb_strict_collation_check=0
