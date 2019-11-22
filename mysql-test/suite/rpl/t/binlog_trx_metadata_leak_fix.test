@@ -2,7 +2,11 @@ source include/master-slave.inc;
 
 # Cleanup old binlog
 connection master;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_master.inc
 flush logs;
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_master.inc
 let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
 replace_result $binlog binlog;
 eval purge binary logs to '$binlog';
