@@ -146,13 +146,13 @@ Warning	1265	Data truncated for column 'v64' at row 1
 Warning	1265	Data truncated for column 'v65000' at row 1
 INSERT INTO t1 (v0,v1,v64,v65000) SELECT v65000, v65000, CONCAT('a',v65000), CONCAT(v65000,v1) FROM t1;
 Warnings:
-Warning	1265	Data truncated for column 'v0' at row 5
-Warning	1265	Data truncated for column 'v1' at row 5
-Warning	1265	Data truncated for column 'v64' at row 5
-Warning	1265	Data truncated for column 'v0' at row 6
-Warning	1265	Data truncated for column 'v1' at row 6
-Warning	1265	Data truncated for column 'v64' at row 6
-Warning	1265	Data truncated for column 'v65000' at row 6
+Warning	1265	Data truncated for column 'v0' at row 2
+Warning	1265	Data truncated for column 'v1' at row 2
+Warning	1265	Data truncated for column 'v64' at row 2
+Warning	1265	Data truncated for column 'v0' at row 3
+Warning	1265	Data truncated for column 'v1' at row 3
+Warning	1265	Data truncated for column 'v64' at row 3
+Warning	1265	Data truncated for column 'v65000' at row 3
 SELECT HEX(v0), HEX(v1), HEX(v64), LENGTH(HEX(v65000)) FROM t1;
 HEX(v0)	HEX(v1)	HEX(v64)	LENGTH(HEX(v65000))
 			0
@@ -303,7 +303,7 @@ SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	int(11)	NO	PRI	NULL	auto_increment
 b	blob	YES		NULL	
-b0	blob	YES		NULL	
+b0	tinyblob	YES		NULL	
 b1	tinyblob	YES		NULL	
 b300	blob	YES		NULL	
 bm	blob	YES		NULL	
@@ -317,12 +317,14 @@ INSERT INTO t1 (b,b0,b1,b300,bm,b70k,b17m,t,m,l) VALUES
 ('a','b','c','d','e','f','g','h','i','j'),
 ('test1','test2','test3','test4','test5','test6','test7','test8','test9','test10'),
 ( REPEAT('a',65535), REPEAT('b',65535), REPEAT('c',255), REPEAT('d',65535), REPEAT('e',65535), REPEAT('f',1048576), HEX(REPEAT('g',1048576)), REPEAT('h',255), REPEAT('i',1048576), HEX(REPEAT('j',1048576)) );
+Warnings:
+Warning	1265	Data truncated for column 'b0' at row 4
 SELECT LENGTH(b), LENGTH(b0), LENGTH(b1), LENGTH(b300), LENGTH(bm), LENGTH(b70k), LENGTH(b17m), LENGTH(t), LENGTH(m), LENGTH(l) FROM t1;
 LENGTH(b)	LENGTH(b0)	LENGTH(b1)	LENGTH(b300)	LENGTH(bm)	LENGTH(b70k)	LENGTH(b17m)	LENGTH(t)	LENGTH(m)	LENGTH(l)
 0	0	0	0	0	0	0	0	0	0
 1	1	1	1	1	1	1	1	1	1
 5	5	5	5	5	5	5	5	5	6
-65535	65535	255	65535	65535	1048576	2097152	255	1048576	2097152
+65535	255	255	65535	65535	1048576	2097152	255	1048576	2097152
 INSERT INTO t1 (b,b0,b1,b300,bm,b70k,b17m,t,m,l) VALUES
 ( REPEAT('a',65536), REPEAT('b',65536), REPEAT('c',256), REPEAT('d',65536), REPEAT('e',65536), REPEAT('f',1048576), REPEAT('g',1048576), REPEAT('h',256), REPEAT('i',1048576), REPEAT('j',1048576) );
 Warnings:
@@ -337,8 +339,8 @@ LENGTH(b)	LENGTH(b0)	LENGTH(b1)	LENGTH(b300)	LENGTH(bm)	LENGTH(b70k)	LENGTH(b17m
 0	0	0	0	0	0	0	0	0	0
 1	1	1	1	1	1	1	1	1	1
 5	5	5	5	5	5	5	5	5	6
-65535	65535	255	65535	65535	1048576	1048576	255	1048576	1048576
-65535	65535	255	65535	65535	1048576	2097152	255	1048576	2097152
+65535	255	255	65535	65535	1048576	1048576	255	1048576	1048576
+65535	255	255	65535	65535	1048576	2097152	255	1048576	2097152
 ALTER TABLE t1 ADD COLUMN bbb BLOB(4294967296);
 ERROR 42000: Display width out of range for column 'bbb' (max = 4294967295)
 DROP TABLE t1;
@@ -595,15 +597,15 @@ Warning	1265	Data truncated for column 'c20' at row 1
 Warning	1265	Data truncated for column 'c255' at row 1
 INSERT INTO t1 (c,c0,c1,c20,c255) SELECT c255, c255, c255, c255, CONCAT('a',c255,c1) FROM t1;
 Warnings:
-Warning	1265	Data truncated for column 'c' at row 5
-Warning	1265	Data truncated for column 'c0' at row 5
-Warning	1265	Data truncated for column 'c1' at row 5
-Warning	1265	Data truncated for column 'c20' at row 5
-Warning	1265	Data truncated for column 'c' at row 6
-Warning	1265	Data truncated for column 'c0' at row 6
-Warning	1265	Data truncated for column 'c1' at row 6
-Warning	1265	Data truncated for column 'c20' at row 6
-Warning	1265	Data truncated for column 'c255' at row 6
+Warning	1265	Data truncated for column 'c' at row 2
+Warning	1265	Data truncated for column 'c0' at row 2
+Warning	1265	Data truncated for column 'c1' at row 2
+Warning	1265	Data truncated for column 'c20' at row 2
+Warning	1265	Data truncated for column 'c' at row 3
+Warning	1265	Data truncated for column 'c0' at row 3
+Warning	1265	Data truncated for column 'c1' at row 3
+Warning	1265	Data truncated for column 'c20' at row 3
+Warning	1265	Data truncated for column 'c255' at row 3
 SELECT c,c0,c1,c20,c255 FROM t1;
 c	c0	c1	c20	c255
 				
@@ -754,13 +756,13 @@ Warning	1265	Data truncated for column 'v64' at row 1
 Warning	1265	Data truncated for column 'v65000' at row 1
 INSERT INTO t1 (v0,v1,v64,v65000) SELECT v65000, v65000, CONCAT('a',v65000), CONCAT(v65000,v1) FROM t1;
 Warnings:
-Warning	1265	Data truncated for column 'v0' at row 5
-Warning	1265	Data truncated for column 'v1' at row 5
-Warning	1265	Data truncated for column 'v64' at row 5
-Warning	1265	Data truncated for column 'v65000' at row 5
-Warning	1265	Data truncated for column 'v0' at row 6
-Warning	1265	Data truncated for column 'v1' at row 6
-Warning	1265	Data truncated for column 'v64' at row 6
+Warning	1265	Data truncated for column 'v0' at row 2
+Warning	1265	Data truncated for column 'v1' at row 2
+Warning	1265	Data truncated for column 'v64' at row 2
+Warning	1265	Data truncated for column 'v65000' at row 2
+Warning	1265	Data truncated for column 'v0' at row 3
+Warning	1265	Data truncated for column 'v1' at row 3
+Warning	1265	Data truncated for column 'v64' at row 3
 SELECT v0, v1, v64, LENGTH(v65000) FROM t1;
 v0	v1	v64	LENGTH(v65000)
 			0
@@ -1281,6 +1283,13 @@ d53 DOUBLE(53,0) NULL,
 d53_10 DOUBLE(53,10) NULL,
 pk DOUBLE  PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
+Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 f	float	YES		NULL	
@@ -1664,6 +1673,22 @@ b1 BIGINT(1) NULL,
 b20 BIGINT(20) NULL,
 pk INT AUTO_INCREMENT PRIMARY KEY
 ) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 i	int(11)	YES		NULL	
@@ -1771,86 +1796,86 @@ Warning	1264	Out of range value for column 'b1' at row 1
 Warning	1264	Out of range value for column 'b20' at row 1
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) SELECT b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b FROM t1 WHERE b IN (-9223372036854775808,9223372036854775807,18446744073709551615);
 Warnings:
-Warning	1264	Out of range value for column 'i' at row 6
-Warning	1264	Out of range value for column 'i0' at row 6
-Warning	1264	Out of range value for column 'i1' at row 6
-Warning	1264	Out of range value for column 'i20' at row 6
-Warning	1264	Out of range value for column 't' at row 6
-Warning	1264	Out of range value for column 't0' at row 6
-Warning	1264	Out of range value for column 't1' at row 6
-Warning	1264	Out of range value for column 't20' at row 6
-Warning	1264	Out of range value for column 's' at row 6
-Warning	1264	Out of range value for column 's0' at row 6
-Warning	1264	Out of range value for column 's1' at row 6
-Warning	1264	Out of range value for column 's20' at row 6
-Warning	1264	Out of range value for column 'm' at row 6
-Warning	1264	Out of range value for column 'm0' at row 6
-Warning	1264	Out of range value for column 'm1' at row 6
-Warning	1264	Out of range value for column 'm20' at row 6
-Warning	1264	Out of range value for column 'i' at row 7
-Warning	1264	Out of range value for column 'i0' at row 7
-Warning	1264	Out of range value for column 'i1' at row 7
-Warning	1264	Out of range value for column 'i20' at row 7
-Warning	1264	Out of range value for column 't' at row 7
-Warning	1264	Out of range value for column 't0' at row 7
-Warning	1264	Out of range value for column 't1' at row 7
-Warning	1264	Out of range value for column 't20' at row 7
-Warning	1264	Out of range value for column 's' at row 7
-Warning	1264	Out of range value for column 's0' at row 7
-Warning	1264	Out of range value for column 's1' at row 7
-Warning	1264	Out of range value for column 's20' at row 7
-Warning	1264	Out of range value for column 'm' at row 7
-Warning	1264	Out of range value for column 'm0' at row 7
-Warning	1264	Out of range value for column 'm1' at row 7
-Warning	1264	Out of range value for column 'm20' at row 7
-Warning	1264	Out of range value for column 'i' at row 8
-Warning	1264	Out of range value for column 'i0' at row 8
-Warning	1264	Out of range value for column 'i1' at row 8
-Warning	1264	Out of range value for column 'i20' at row 8
-Warning	1264	Out of range value for column 't' at row 8
-Warning	1264	Out of range value for column 't0' at row 8
-Warning	1264	Out of range value for column 't1' at row 8
-Warning	1264	Out of range value for column 't20' at row 8
-Warning	1264	Out of range value for column 's' at row 8
-Warning	1264	Out of range value for column 's0' at row 8
-Warning	1264	Out of range value for column 's1' at row 8
-Warning	1264	Out of range value for column 's20' at row 8
-Warning	1264	Out of range value for column 'm' at row 8
-Warning	1264	Out of range value for column 'm0' at row 8
-Warning	1264	Out of range value for column 'm1' at row 8
-Warning	1264	Out of range value for column 'm20' at row 8
-Warning	1264	Out of range value for column 'i' at row 9
-Warning	1264	Out of range value for column 'i0' at row 9
-Warning	1264	Out of range value for column 'i1' at row 9
-Warning	1264	Out of range value for column 'i20' at row 9
-Warning	1264	Out of range value for column 't' at row 9
-Warning	1264	Out of range value for column 't0' at row 9
-Warning	1264	Out of range value for column 't1' at row 9
-Warning	1264	Out of range value for column 't20' at row 9
-Warning	1264	Out of range value for column 's' at row 9
-Warning	1264	Out of range value for column 's0' at row 9
-Warning	1264	Out of range value for column 's1' at row 9
-Warning	1264	Out of range value for column 's20' at row 9
-Warning	1264	Out of range value for column 'm' at row 9
-Warning	1264	Out of range value for column 'm0' at row 9
-Warning	1264	Out of range value for column 'm1' at row 9
-Warning	1264	Out of range value for column 'm20' at row 9
-Warning	1264	Out of range value for column 'i' at row 10
-Warning	1264	Out of range value for column 'i0' at row 10
-Warning	1264	Out of range value for column 'i1' at row 10
-Warning	1264	Out of range value for column 'i20' at row 10
-Warning	1264	Out of range value for column 't' at row 10
-Warning	1264	Out of range value for column 't0' at row 10
-Warning	1264	Out of range value for column 't1' at row 10
-Warning	1264	Out of range value for column 't20' at row 10
-Warning	1264	Out of range value for column 's' at row 10
-Warning	1264	Out of range value for column 's0' at row 10
-Warning	1264	Out of range value for column 's1' at row 10
-Warning	1264	Out of range value for column 's20' at row 10
-Warning	1264	Out of range value for column 'm' at row 10
-Warning	1264	Out of range value for column 'm0' at row 10
-Warning	1264	Out of range value for column 'm1' at row 10
-Warning	1264	Out of range value for column 'm20' at row 10
+Warning	1264	Out of range value for column 'i' at row 1
+Warning	1264	Out of range value for column 'i0' at row 1
+Warning	1264	Out of range value for column 'i1' at row 1
+Warning	1264	Out of range value for column 'i20' at row 1
+Warning	1264	Out of range value for column 't' at row 1
+Warning	1264	Out of range value for column 't0' at row 1
+Warning	1264	Out of range value for column 't1' at row 1
+Warning	1264	Out of range value for column 't20' at row 1
+Warning	1264	Out of range value for column 's' at row 1
+Warning	1264	Out of range value for column 's0' at row 1
+Warning	1264	Out of range value for column 's1' at row 1
+Warning	1264	Out of range value for column 's20' at row 1
+Warning	1264	Out of range value for column 'm' at row 1
+Warning	1264	Out of range value for column 'm0' at row 1
+Warning	1264	Out of range value for column 'm1' at row 1
+Warning	1264	Out of range value for column 'm20' at row 1
+Warning	1264	Out of range value for column 'i' at row 2
+Warning	1264	Out of range value for column 'i0' at row 2
+Warning	1264	Out of range value for column 'i1' at row 2
+Warning	1264	Out of range value for column 'i20' at row 2
+Warning	1264	Out of range value for column 't' at row 2
+Warning	1264	Out of range value for column 't0' at row 2
+Warning	1264	Out of range value for column 't1' at row 2
+Warning	1264	Out of range value for column 't20' at row 2
+Warning	1264	Out of range value for column 's' at row 2
+Warning	1264	Out of range value for column 's0' at row 2
+Warning	1264	Out of range value for column 's1' at row 2
+Warning	1264	Out of range value for column 's20' at row 2
+Warning	1264	Out of range value for column 'm' at row 2
+Warning	1264	Out of range value for column 'm0' at row 2
+Warning	1264	Out of range value for column 'm1' at row 2
+Warning	1264	Out of range value for column 'm20' at row 2
+Warning	1264	Out of range value for column 'i' at row 3
+Warning	1264	Out of range value for column 'i0' at row 3
+Warning	1264	Out of range value for column 'i1' at row 3
+Warning	1264	Out of range value for column 'i20' at row 3
+Warning	1264	Out of range value for column 't' at row 3
+Warning	1264	Out of range value for column 't0' at row 3
+Warning	1264	Out of range value for column 't1' at row 3
+Warning	1264	Out of range value for column 't20' at row 3
+Warning	1264	Out of range value for column 's' at row 3
+Warning	1264	Out of range value for column 's0' at row 3
+Warning	1264	Out of range value for column 's1' at row 3
+Warning	1264	Out of range value for column 's20' at row 3
+Warning	1264	Out of range value for column 'm' at row 3
+Warning	1264	Out of range value for column 'm0' at row 3
+Warning	1264	Out of range value for column 'm1' at row 3
+Warning	1264	Out of range value for column 'm20' at row 3
+Warning	1264	Out of range value for column 'i' at row 4
+Warning	1264	Out of range value for column 'i0' at row 4
+Warning	1264	Out of range value for column 'i1' at row 4
+Warning	1264	Out of range value for column 'i20' at row 4
+Warning	1264	Out of range value for column 't' at row 4
+Warning	1264	Out of range value for column 't0' at row 4
+Warning	1264	Out of range value for column 't1' at row 4
+Warning	1264	Out of range value for column 't20' at row 4
+Warning	1264	Out of range value for column 's' at row 4
+Warning	1264	Out of range value for column 's0' at row 4
+Warning	1264	Out of range value for column 's1' at row 4
+Warning	1264	Out of range value for column 's20' at row 4
+Warning	1264	Out of range value for column 'm' at row 4
+Warning	1264	Out of range value for column 'm0' at row 4
+Warning	1264	Out of range value for column 'm1' at row 4
+Warning	1264	Out of range value for column 'm20' at row 4
+Warning	1264	Out of range value for column 'i' at row 5
+Warning	1264	Out of range value for column 'i0' at row 5
+Warning	1264	Out of range value for column 'i1' at row 5
+Warning	1264	Out of range value for column 'i20' at row 5
+Warning	1264	Out of range value for column 't' at row 5
+Warning	1264	Out of range value for column 't0' at row 5
+Warning	1264	Out of range value for column 't1' at row 5
+Warning	1264	Out of range value for column 't20' at row 5
+Warning	1264	Out of range value for column 's' at row 5
+Warning	1264	Out of range value for column 's0' at row 5
+Warning	1264	Out of range value for column 's1' at row 5
+Warning	1264	Out of range value for column 's20' at row 5
+Warning	1264	Out of range value for column 'm' at row 5
+Warning	1264	Out of range value for column 'm0' at row 5
+Warning	1264	Out of range value for column 'm1' at row 5
+Warning	1264	Out of range value for column 'm20' at row 5
 SELECT i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20 FROM t1;
 i	i0	i1	i20	t	t0	t1	t20	s	s0	s1	s20	m	m0	m1	m20	b	b0	b1	b20
 -2147483648	-2147483648	-2147483648	-2147483648	-128	-128	-128	-128	-32768	-32768	-32768	-32768	-8388608	-8388608	-8388608	-8388608	-9223372036854775808	-9223372036854775808	-9223372036854775808	-9223372036854775808
@@ -2103,7 +2128,7 @@ SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	int(11)	NO	PRI	NULL	auto_increment
 t	text	YES		NULL	
-t0	text	YES		NULL	
+t0	tinytext	YES		NULL	
 t1	tinytext	YES		NULL	
 t300	text	YES		NULL	
 tm	text	YES		NULL	
@@ -2117,12 +2142,14 @@ INSERT INTO t1 (t,t0,t1,t300,tm,t70k,t17m,tt,m,l) VALUES
 ('a','b','c','d','e','f','g','h','i','j'),
 ('test1','test2','test3','test4','test5','test6','test7','test8','test9','test10'),
 ( REPEAT('a',65535), REPEAT('b',65535), REPEAT('c',255), REPEAT('d',65535), REPEAT('e',65535), REPEAT('f',1048576), REPEAT('g',1048576), REPEAT('h',255), REPEAT('i',1048576), REPEAT('j',1048576) );
+Warnings:
+Warning	1265	Data truncated for column 't0' at row 4
 SELECT LENGTH(t), LENGTH(t0), LENGTH(t1), LENGTH(t300), LENGTH(tm), LENGTH(t70k), LENGTH(t17m), LENGTH(tt), LENGTH(m), LENGTH(l) FROM t1;
 LENGTH(t)	LENGTH(t0)	LENGTH(t1)	LENGTH(t300)	LENGTH(tm)	LENGTH(t70k)	LENGTH(t17m)	LENGTH(tt)	LENGTH(m)	LENGTH(l)
 0	0	0	0	0	0	0	0	0	0
 1	1	1	1	1	1	1	1	1	1
 5	5	5	5	5	5	5	5	5	6
-65535	65535	255	65535	65535	1048576	1048576	255	1048576	1048576
+65535	255	255	65535	65535	1048576	1048576	255	1048576	1048576
 INSERT INTO t1 (t,t0,t1,t300,tm,t70k,t17m,tt,m,l) VALUES
 ( REPEAT('a',65536), REPEAT('b',65536), REPEAT('c',256), REPEAT('d',65536), REPEAT('e',65536), REPEAT('f',1048576), REPEAT('g',1048576), REPEAT('h',256), REPEAT('i',1048576), REPEAT('j',1048576) );
 Warnings:
@@ -2137,8 +2164,8 @@ LENGTH(t)	LENGTH(t0)	LENGTH(t1)	LENGTH(t300)	LENGTH(tm)	LENGTH(t70k)	LENGTH(t17m
 0	0	0	0	0	0	0	0	0	0
 1	1	1	1	1	1	1	1	1	1
 5	5	5	5	5	5	5	5	5	6
-65535	65535	255	65535	65535	1048576	1048576	255	1048576	1048576
-65535	65535	255	65535	65535	1048576	1048576	255	1048576	1048576
+65535	255	255	65535	65535	1048576	1048576	255	1048576	1048576
+65535	255	255	65535	65535	1048576	1048576	255	1048576	1048576
 ALTER TABLE t1 ADD COLUMN ttt TEXT(4294967296) NULL;
 ERROR 42000: Display width out of range for column 'ttt' (max = 4294967295)
 DROP TABLE t1;

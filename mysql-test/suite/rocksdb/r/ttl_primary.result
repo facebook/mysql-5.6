@@ -7,6 +7,8 @@ CREATE TABLE t1 (
 PRIMARY KEY (`b`,`a`,`c`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', 'b', 'c', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('d', 'e', 'f', UNIX_TIMESTAMP(), 'g');
@@ -28,6 +30,9 @@ c int NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, UNIX_TIMESTAMP(), 5);
 INSERT INTO t1 values (2, 4, UNIX_TIMESTAMP(), 6);
@@ -49,6 +54,9 @@ ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a,c)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, 4, 6, UNIX_TIMESTAMP());
@@ -70,6 +78,9 @@ ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a,c)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, 4, 6, UNIX_TIMESTAMP());
@@ -91,6 +102,9 @@ ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, NULL, NULL, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, NULL, NULL, UNIX_TIMESTAMP());
@@ -113,6 +127,8 @@ CREATE TABLE t1 (
 PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', NULL, 'bc', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('d', 'efghijk', NULL, UNIX_TIMESTAMP(), 'l');
@@ -133,6 +149,8 @@ c int NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, 5);
 INSERT INTO t1 values (2, 4, 6);
@@ -152,6 +170,8 @@ ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a, ts)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 values (1, UNIX_TIMESTAMP());
 INSERT INTO t1 values (2, UNIX_TIMESTAMP());
 SELECT COUNT(*) FROM t1;
@@ -179,6 +199,9 @@ c int NOT NULL,
 PRIMARY KEY (a, ts)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1, 3, UNIX_TIMESTAMP(), 5);
 INSERT INTO t1 values (2, 4, UNIX_TIMESTAMP(), 6);
@@ -201,6 +224,8 @@ CREATE TABLE t1 (
 PRIMARY KEY (`a`, `ts`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values ('a', NULL, 'bc', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values ('de', 'fghijk', NULL, UNIX_TIMESTAMP(), 'l');
@@ -223,6 +248,8 @@ value mediumblob NOT NULL,
 PRIMARY KEY (b,a,c)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 COMMENT='ttl_duration=10;ttl_col=ts;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1, 'b', 'c', UNIX_TIMESTAMP(), 'd');
 INSERT INTO t1 values (2, 'e', 'f', UNIX_TIMESTAMP(), 'g');
@@ -298,6 +325,8 @@ a bigint(20) NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=500;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 values (1);
 SELECT COUNT(*) FROM t1;
 COUNT(*)
@@ -367,6 +396,8 @@ b int,
 PRIMARY KEY (a,b)
 ) ENGINE=rocksdb
 COMMENT='asdadfasdfsadfadf ;ttl_duration=1; asfasdfasdfadfa';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 values (UNIX_TIMESTAMP(), 1);
 SELECT COUNT(*) FROM t1;
 COUNT(*)
@@ -399,6 +430,8 @@ a bigint(20) NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (3);
@@ -428,6 +461,8 @@ b bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=5;ttl_col=b;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -300;
 INSERT INTO t1 values (1, UNIX_TIMESTAMP());
 INSERT INTO t1 values (3, UNIX_TIMESTAMP());
@@ -454,6 +489,8 @@ a bigint(20) NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=1;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 set global rocksdb_debug_ttl_rec_ts = -100;
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (2);
@@ -477,6 +514,8 @@ a bigint(20) NOT NULL,
 PRIMARY KEY (a)
 ) ENGINE=rocksdb
 COMMENT='ttl_duration=100;';
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO t1 values (1);
 INSERT INTO t1 values (2);
 INSERT INTO t1 values (3);
