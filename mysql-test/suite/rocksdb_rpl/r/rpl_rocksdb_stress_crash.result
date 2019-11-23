@@ -22,7 +22,9 @@ select ts from test0.benchmark where state like 'slave takes on load' into @s_m0
 select ts from test0.benchmark where state like 'slave is supposed to finish with load' into @s_m1;
 select ts from test0.benchmark where state like 'slave ends load' into @s_1;
 select ts from test0.benchmark where state like 'slave is processing load' into @s_0;
-select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta.out';
+select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta_m', 
+time_to_sec(@s_1) - time_to_sec(@s_0) as 'delta_s',
+time_to_sec(@s_m1) - time_to_sec(@s_m0) as 'delta.out';
 include/stop_slave.inc
 change master to master_auto_position=0;
 include/start_slave.inc
