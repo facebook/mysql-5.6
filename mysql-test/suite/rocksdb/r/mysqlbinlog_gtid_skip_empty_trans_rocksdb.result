@@ -52,7 +52,7 @@ SET @@session.character_set_client=255,@@session.collation_connection=255,@@sess
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
 /*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
+/*!80016 SET @@session.default_table_encryption=0*//*!*/;
 create database test2
 /*!*/;
 use `test2`/*!*/;
@@ -61,12 +61,10 @@ SET TIMESTAMP=#/*!*/;
 create table t1(a int primary key, b char(8)) ENGINE = rocksdb
 /*!*/;
 SET TIMESTAMP=#/*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
 SET TIMESTAMP=#/*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
@@ -75,7 +73,6 @@ SET TIMESTAMP=#/*!*/;
 create table t2(a int primary key, b char(8)) ENGINE = rocksdb
 /*!*/;
 SET TIMESTAMP=#/*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 COMMIT/*!*/;
@@ -106,7 +103,6 @@ SET @@session.character_set_client=255,@@session.collation_connection=255,@@sess
 SET @@session.lc_time_names=0/*!*/;
 SET @@session.collation_database=DEFAULT/*!*/;
 /*!80011 SET @@session.default_collation_for_utf8mb4=255*//*!*/;
-/*!80013 SET @@session.sql_require_primary_key=0*//*!*/;
 BEGIN
 /*!*/;
 ROLLBACK /* added by mysqlbinlog */ /*!*/;
