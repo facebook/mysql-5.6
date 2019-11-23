@@ -19,3 +19,4 @@ let SEARCH_PATTERN= RocksDB: Compatibility check against existing database optio
 --exec echo "restart" > $restart_file
 --source include/wait_until_connected_again.inc
 select variable_name, variable_value from performance_schema.global_variables where variable_name="rocksdb_ignore_unknown_options";
+--enable_warnings
