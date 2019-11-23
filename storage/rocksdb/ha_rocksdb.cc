@@ -5161,6 +5161,9 @@ static int rocksdb_init_func(void *const p) {
           "attempts. Remove %s file from data directory and "
           "start mysqld manually.",
           rdb_corruption_marker_file_name().c_str());
+
+      // Flush error log to ensure everything is written before exit
+      flush_error_log_messages();
       exit(0);
     }
   }
