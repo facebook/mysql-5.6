@@ -1,0 +1,14 @@
+Default value of max_db_stats_entries
+SELECT @@global.max_db_stats_entries;
+@@global.max_db_stats_entries
+255
+max_db_stats_entries is a dynamic variable
+set @@global.max_db_stats_entries = 1500;
+SELECT @@global.max_db_stats_entries;
+@@global.max_db_stats_entries
+1500
+restore the default value
+SET @@global.max_db_stats_entries = 255;
+SELECT @@global.max_db_stats_entries;
+@@global.max_db_stats_entries
+255

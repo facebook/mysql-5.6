@@ -1,0 +1,21 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_db_stats_entries
+SELECT @@global.max_db_stats_entries;
+
+####
+## Verify that the variable is dynamic
+####
+--echo max_db_stats_entries is a dynamic variable
+set @@global.max_db_stats_entries = 1500;
+SELECT @@global.max_db_stats_entries;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.max_db_stats_entries = 255;
+SELECT @@global.max_db_stats_entries;

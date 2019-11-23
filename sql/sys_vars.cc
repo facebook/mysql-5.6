@@ -6545,3 +6545,9 @@ static Sys_var_mybool Sys_use_cached_table_stats_ptr(
        "Controls the use of the cached table_stats ptr in the handler object",
        GLOBAL_VAR(use_cached_table_stats_ptr),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_uint Sys_max_db_stats_entries(
+      "max_db_stats_entries",
+      "Maximum number of entries in DB_STATISTICS",
+      GLOBAL_VAR(max_db_stats_entries), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, UINT_MAX), DEFAULT(255), BLOCK_SIZE(1));

@@ -4,7 +4,7 @@
 #include "mysqld.h"
 #include <stdio.h>
 
-#define MAX_DB_STATS_ENTRIES 255
+uint max_db_stats_entries;
 HASH global_db_stats_hash;
 DB_STATS* global_db_stats_array;
 static pthread_mutex_t LOCK_global_db_stats;
@@ -33,7 +33,8 @@ extern "C" uchar *get_key_db_stats(const uchar *ptr, size_t *length,
 void init_global_db_stats()
 {
   pthread_mutex_init(&LOCK_global_db_stats, MY_MUTEX_INIT_FAST);
-  global_db_stats_array = (DB_STATS*)my_malloc((MAX_DB_STATS_ENTRIES + 1) * sizeof(DB_STATS), MYF(MY_WME));
+  global_db_stats_array = (DB_STATS*)my_malloc(
+      (max_db_stats_entries + 1) * sizeof(DB_STATS), MYF(MY_WME));
   if (my_hash_init(&global_db_stats_hash, system_charset_info, max_connections,
                    0, 0, (my_hash_get_key)get_key_db_stats,
                    NULL /* free element */, 0)) {
@@ -61,7 +62,7 @@ static DB_STATS* get_db_stats_locked(const char* db)
                                                  (uchar*)db,
                                                  strlen(db));
   if (!db_stats) {
-    if (num_db_stats_entries == MAX_DB_STATS_ENTRIES) {
+    if (num_db_stats_entries == max_db_stats_entries) {
       return NULL;
     }
 

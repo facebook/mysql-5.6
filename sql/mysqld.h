@@ -966,6 +966,10 @@ extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
 
+/* This field dictates the maximum number of entries in the
+   information_schema.DB_STATISTICS table */
+extern uint max_db_stats_entries;
+
 /*
   Global variable to control the implementation to get statistics per
   user-table pair
