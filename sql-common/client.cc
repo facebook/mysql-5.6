@@ -1152,7 +1152,8 @@ net_async_status cli_safe_read_with_ok_nonblocking(MYSQL *mysql, bool parse_ok,
     In case, packet is too large or connection is lost, net_end() is called to
     free up net->extention. Thus return NET_ASYNC_ERROR.
   */
-  if ((*res == packet_error) && (NET_ASYNC_DATA(net) == nullptr)) {
+  net_async = NET_ASYNC_DATA(net);
+  if ((*res == packet_error) && (net_async == nullptr)) {
     return NET_ASYNC_ERROR;
   }
 
@@ -1584,6 +1585,7 @@ net_async_status cli_advanced_command_nonblocking(
     if (!result || mysql->net.read_pos[0] == 0x00)
       MYSQL_TRACE_STAGE(mysql, READY_FOR_COMMAND);
 #endif
+    if (result) net_async = NET_ASYNC_DATA(net);
   }
 end:
   if (net_async)
@@ -2882,11 +2884,13 @@ net_async_status cli_read_rows_nonblocking(MYSQL *mysql,
 
   mysql->packet_length = pkt_len;
   if (pkt_len == packet_error) {
-    if (net_async->read_rows_is_first_read) {
+    net_async = NET_ASYNC_DATA(net);
+    if (net_async == nullptr || net_async->read_rows_is_first_read) {
       free_rows(async_context->rows_result_buffer);
       async_context->rows_result_buffer = nullptr;
+    } else {
+      net_async->read_rows_is_first_read = true;
     }
-    net_async->read_rows_is_first_read = true;
     return NET_ASYNC_COMPLETE;
   }
 
@@ -2965,7 +2969,8 @@ net_async_status cli_read_rows_nonblocking(MYSQL *mysql,
     if (pkt_len == packet_error) {
       free_rows(async_context->rows_result_buffer);
       async_context->rows_result_buffer = nullptr;
-      net_async->read_rows_is_first_read = true;
+      net_async = NET_ASYNC_DATA(net);
+      if (net_async) net_async->read_rows_is_first_read = true;
       return NET_ASYNC_COMPLETE;
     }
   }
@@ -7267,9 +7272,11 @@ static net_async_status cli_read_query_result_nonblocking(MYSQL *mysql) {
       return NET_ASYNC_NOT_READY;
     }
     if (length == packet_error) {
-      if (NET_ASYNC_DATA(net) != nullptr)
+      net_async = NET_ASYNC_DATA(net);
+      if (net_async) {
         net_async->async_read_query_result_status =
             NET_ASYNC_READ_QUERY_RESULT_IDLE;
+      }
       return NET_ASYNC_ERROR;
     }
     mysql->packet_length = length;
@@ -7311,8 +7318,11 @@ static net_async_status cli_read_query_result_nonblocking(MYSQL *mysql) {
 
       /* TODO: Make LOAD DATA LOCAL INFILE asynchronous. */
       if ((length = cli_safe_read(mysql, nullptr)) == packet_error || error) {
-        net_async->async_read_query_result_status =
-            NET_ASYNC_READ_QUERY_RESULT_IDLE;
+        net_async = NET_ASYNC_DATA(net);
+        if (net_async) {
+          net_async->async_read_query_result_status =
+              NET_ASYNC_READ_QUERY_RESULT_IDLE;
+        }
         return NET_ASYNC_ERROR;
       }
       goto get_info; /* Get info packet */
@@ -7336,8 +7346,11 @@ static net_async_status cli_read_query_result_nonblocking(MYSQL *mysql) {
     }
 
     if (res) {
-      net_async->async_read_query_result_status =
-          NET_ASYNC_READ_QUERY_RESULT_IDLE;
+      net_async = NET_ASYNC_DATA(net);
+      if (net_async) {
+        net_async->async_read_query_result_status =
+            NET_ASYNC_READ_QUERY_RESULT_IDLE;
+      }
       return NET_ASYNC_ERROR;
     }
   }
