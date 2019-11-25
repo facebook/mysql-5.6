@@ -24,6 +24,7 @@
 
 #include "my_loglevel.h"
 #include "mysql/components/services/log_builtins.h"
+#include "sql/binlog.h"  // is_binlog_advanced
 #include "sql/mysqld.h"  // tc_heuristic_recover
 
 namespace {  // Compilation unit local types and functions
@@ -176,6 +177,79 @@ void report_trx_recovery_error(int error, ID const &id, handlerton const &ht,
 enum xa_status_code generate_xa_recovery_error();
 }  // namespace
 
+/*
+ * Recover engine binlog position for plugins that have 2pc enabled.
+ * In order for multiple 2pc engines to recover properly, the binlog
+ * position should be the minimum of what each plugin has.
+ * Warning: if an engine has an empty binlog position, i.e., slave
+ * crashed earlier than the first binlog position update, that slave
+ * would lose those transactions and be inconsistent with master.
+ * Rather than replaying all binlogs from the very beginning, which
+ * may be infeasible, this slave needs to be reconstructed operationally.
+ * Periodically syncing binlog positions from these engines should reduce
+ * the chance of this problem.
+ */
+static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
+                               xarecover_st *info) {
+  char binlog_file[FN_REFLEN + 1] = {0};
+  my_off_t binlog_pos = ULLONG_MAX;
+  Gtid max_gtid{0, 0};
+
+  assert(info->binlog_file && info->binlog_max_gtid);
+
+  hton->recover_binlog_pos(hton, &max_gtid, binlog_file, &binlog_pos);
+
+  if (binlog_file[0] == 0) {
+    assert(max_gtid.is_empty());
+
+    return;
+  }
+
+  char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  if (!max_gtid.is_empty()) {
+    global_sid_lock->rdlock();
+    max_gtid.to_string(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+  }
+
+  sql_print_information("Plugin '%s': binlog position (%s,%llu), max gtid %s",
+                        plugin_name, binlog_file, binlog_pos, gtid_buf);
+
+  if (info->binlog_file[0] == 0) {
+    assert(info->binlog_max_gtid->is_empty());
+
+    *(info->binlog_max_gtid) = max_gtid;
+    memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
+    *info->binlog_pos = binlog_pos;
+
+    return;
+  }
+
+  // Compute the max gtid based on the max of that of each engine
+  // to make sure that idempotent recovery works
+  // Idempotent should be disabled if sidno (uuid) doesn't match
+  // in case of slave recovery after master switches. Also,
+  // different engines could have different sidno. This is
+  // not handled and slave would error out (duplicated key, key
+  // not found, etc) - however, it should be rare if we proactively
+  // keep all engines in sync.
+  if (max_gtid.greater_than(*info->binlog_max_gtid)) {
+    *(info->binlog_max_gtid) = max_gtid;
+
+    // binlog positions should monotonically increase with max gtid
+    assert(is_binlog_advanced(info->binlog_file, *info->binlog_pos, binlog_file,
+                              binlog_pos));
+  }
+
+  // Compute mysql binlog position based on the min of that of
+  // each engine
+  if (is_binlog_advanced(binlog_file, binlog_pos, info->binlog_file,
+                         *info->binlog_pos)) {
+    memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
+    *info->binlog_pos = binlog_pos;
+  }
+}
+
 bool xa::recovery::recover_prepared_in_tc_one_ht(THD *, plugin_ref plugin,
                                                  void *arg) {
   handlerton *ht = plugin_data<handlerton *>(plugin);
@@ -207,9 +281,19 @@ bool xa::recovery::recover_one_ht(THD *, plugin_ref plugin, void *arg) {
   if (ht->state == SHOW_OPTION_YES && ht->recover) {
     ::recovery_statistics external_stats{{0, 0, 0}, {0, 0, 0}};
     ::recovery_statistics internal_stats{{0, 0, 0}, {0, 0, 0}};
-    if (ht->recover_binlog_pos) {
-      ht->recover_binlog_pos(ht, info->binlog_max_gtid, info->binlog_file,
-                             info->binlog_pos);
+    if (info->binlog_file && ht->recover_binlog_pos) {
+      recover_binlog_pos(plugin_name(plugin)->str, ht, info);
+
+      char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+      if (info->binlog_max_gtid && !info->binlog_max_gtid->is_empty()) {
+        global_sid_lock->rdlock();
+        info->binlog_max_gtid->to_string(global_sid_map, gtid_buf);
+        global_sid_lock->unlock();
+      }
+
+      sql_print_information(
+          "Current chosen binlog position (%s,%llu), max gtid %s",
+          info->binlog_file, *info->binlog_pos, gtid_buf);
     }
 
     while (
