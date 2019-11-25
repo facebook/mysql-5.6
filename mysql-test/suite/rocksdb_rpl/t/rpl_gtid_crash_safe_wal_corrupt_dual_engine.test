@@ -1,0 +1,260 @@
+source include/have_rocksdb.inc;
+source include/master-slave.inc;
+-- let $uuid = `select @@server_uuid;`
+-- let $use_gtids = `select @@gtid_mode = "ON";`
+
+--exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+connection master;
+
+select @@binlog_format;
+
+create table innodb_t (id int primary key, value int, value2 int, index(value)) engine=innodb;
+create table rocksdb_t (id int primary key, value int, value2 int, index(value)) engine=rocksdb;
+
+let $counter1 = 1;
+while ($counter1 <= 5)
+{
+  --eval insert into innodb_t values ($counter1,1,1);
+  inc $counter1;
+}
+
+let $counter2 = 1;
+while ($counter2 <= 5)
+{
+  --eval insert into rocksdb_t values ($counter2,2,2);
+  inc $counter2;
+}
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+# Flush everything after syncing with master so we don't
+# lose the first binlog position and its max gtid
+connection slave;
+--disable_query_log
+set global rocksdb_force_flush_memtable_now=1;
+--enable_query_log
+
+connection master;
+
+start transaction;
+
+while ($counter1 <= 16)
+{
+  --eval insert into innodb_t values ($counter1,1,1);
+  inc $counter1;
+}
+
+while ($counter2 <= 16)
+{
+  --eval insert into rocksdb_t values ($counter2,2,2);
+  inc $counter2;
+}
+
+commit;
+
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+
+source include/sync_slave_sql_with_master.inc;
+
+--echo Checksum master innodb_t
+let $master_checksum1=query_get_value(CHECKSUM TABLE innodb_t, Checksum, 1);
+--echo Checksum master rocksdb_t
+let $master_checksum2=query_get_value(CHECKSUM TABLE rocksdb_t, Checksum, 1);
+
+connection slave;
+--let slave_data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
+--let slave_pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+--disable_query_log
+select "--- slave state before crash ---" as "";
+--enable_query_log
+
+--echo Checksum slave innodb_t
+let $slave_checksum1=query_get_value(CHECKSUM TABLE innodb_t, Checksum, 1);
+let $not_same1 = `SELECT $master_checksum1-$slave_checksum1`;
+if ($not_same1)
+{
+  let $msg =
+    The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+
+--echo Checksum slave rocksdb_t
+let $slave_checksum2=query_get_value(CHECKSUM TABLE rocksdb_t, Checksum, 1);
+let $not_same2 = `SELECT $master_checksum2-$slave_checksum2`;
+if ($not_same2)
+{
+  let $msg =
+    The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+
+--write_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+#!/bin/bash
+
+F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
+SIZE=`stat -c %s $F`
+NEW_SIZE=`expr $SIZE - 30`
+truncate -s $NEW_SIZE $F
+rc=$?
+if [[ $rc != 0 ]]; then
+  exit 1
+fi
+
+kill -9 `head -1 $slave_pid_file`
+
+exit 0
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--exec $MYSQL_TMP_DIR/truncate_tail_wal.sh
+
+--let $rpl_skip_start_slave= 1
+--source include/rpl_start_server.inc
+--disable_query_log
+select "--- slave state after crash recovery, slave stop, one transaction recovered---" as "";
+--enable_query_log
+connection slave;
+--exec python suite/rocksdb/t/check_log_for_xa.py $MYSQLTEST_VARDIR/log/mysqld.2.err commit,prepare,rollback
+
+--disable_query_log
+select "--- slave state after restart, slave start ---" as "";
+--enable_query_log
+--source include/start_slave.inc
+connection master;
+source include/sync_slave_sql_with_master.inc;
+connection slave;
+--disable_query_log
+
+--echo Checksum slave innodb_t
+let $slave_checksum1=query_get_value(CHECKSUM TABLE innodb_t, Checksum, 1);
+let $not_same1 = `SELECT $master_checksum1-$slave_checksum1`;
+if ($not_same1)
+{
+  let $msg =
+  The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+
+--echo Checksum slave rocksdb_t
+let $slave_checksum2=query_get_value(CHECKSUM TABLE rocksdb_t, Checksum, 1);
+let $not_same2 = `SELECT $master_checksum2-$slave_checksum2`;
+if ($not_same2)
+{
+  let $msg =
+  The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+
+connection master;
+start transaction;
+
+while ($counter1 <= 32)
+{
+  --eval insert into innodb_t values ($counter1,1,1);
+  inc $counter1;
+}
+
+while ($counter2 <= 32)
+{
+  --eval insert into rocksdb_t values ($counter2,2,2);
+  inc $counter2;
+}
+
+while ($counter1 <= 48)
+{
+  --eval insert into innodb_t values ($counter1,1,1);
+  inc $counter1;
+}
+
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+
+# Corrupting WAL. MyRocks does point in time recovery with wal_recovery_mode=2.
+# It loses some data but can resync after restarting slave.
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+
+--write_file $MYSQL_TMP_DIR/corrupt_wal.sh
+#!/bin/bash
+
+# expected to be around 950 bytes
+F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
+SIZE=`stat -c %s $F`
+OFFSET=$(( $SIZE-500 ))
+dd bs=1 if=/dev/zero of=$F count=100 seek=$OFFSET conv=notrunc
+
+kill -9 `head -1 $slave_pid_file`
+
+exit 0
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/corrupt_wal.sh
+--exec $MYSQL_TMP_DIR/corrupt_wal.sh
+
+connection master;
+commit;
+
+connection slave;
+
+--let $rpl_skip_start_slave= 1
+--source include/rpl_start_server.inc
+--source include/start_slave.inc
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+--echo Checksum master innodb_t
+let $master_checksum1=query_get_value(CHECKSUM TABLE innodb_t, Checksum, 1);
+--echo Checksum master rocksdb_t
+let $master_checksum2=query_get_value(CHECKSUM TABLE rocksdb_t, Checksum, 1);
+
+connection slave;
+--echo Checksum slave innodb_t
+let $slave_checksum1=query_get_value(CHECKSUM TABLE innodb_t, Checksum, 1);
+let $not_same1 = `SELECT $master_checksum1-$slave_checksum1`;
+if ($not_same1)
+{
+  let $msg =
+  The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+
+--echo Checksum slave rocksdb_t
+let $slave_checksum2=query_get_value(CHECKSUM TABLE rocksdb_t, Checksum, 1);
+let $not_same2 = `SELECT $master_checksum2-$slave_checksum2`;
+if ($not_same2)
+{
+  let $msg =
+  The checksums of master and slave do not match.;
+  echo $msg;
+  die;
+}
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+
+connection master;
+drop table innodb_t;
+drop table rocksdb_t;
+
+--remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--remove_file $MYSQL_TMP_DIR/corrupt_wal.sh
+--source include/rpl_end.inc
+
+--disable_query_log
+connection slave;
+call mtr.add_suppression("Recovery from master pos");
+--enable_query_log
