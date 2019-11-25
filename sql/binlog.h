@@ -1174,4 +1174,15 @@ bool normalize_binlog_name(char *to, const char *from, bool is_relay_log);
                             integer.
 */
 uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
+
+/*
+  Compare two binlog files:positions
+  @param b1    binlog file1
+  @param p1    binlog pos2
+  @param b2    binlog file2
+  @param p2    binlog pos2
+  @return true if (b2,p2) is larger than (b1,p1)
+  */
+bool is_binlog_advanced(const char *b1, my_off_t p1, const char *b2,
+                        my_off_t p2);
 #endif /* BINLOG_H_INCLUDED */

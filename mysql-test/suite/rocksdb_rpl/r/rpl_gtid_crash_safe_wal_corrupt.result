@@ -29,9 +29,6 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-7
-select * from mysql.slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:7
 include/rpl_start_server.inc [server_number=2]
 
 --- slave state after crash recovery, slave stop, one transaction recovered---
@@ -44,9 +41,6 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-6
-select * from mysql.slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:6
 
 --- slave state after restart, slave start ---
 include/start_slave.inc
@@ -61,9 +55,6 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-7
-select * from mysql.slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:7
 insert into x values (6,1,1);
 include/sync_slave_sql_with_master.inc
 select * from x;
@@ -77,9 +68,6 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-8
-select * from mysql.slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:8
 insert into x values (7,1,1);
 insert into x values (8,1,1);
 insert into x values (9,1,1);
@@ -117,7 +105,6 @@ id	value	value2
 6	1	1
 7	1	1
 8	1	1
-9	1	1
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 select * from x;
@@ -137,9 +124,5 @@ id	value	value2
 select @@global.gtid_executed;
 @@global.gtid_executed
 uuid:1-14
-select * from mysql.slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:14
 drop table x;
 include/rpl_end.inc
-Binlog Info Found

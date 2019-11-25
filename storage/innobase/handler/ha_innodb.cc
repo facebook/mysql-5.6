@@ -1322,9 +1322,9 @@ static void innobase_commit_concurrency_init_default();
  */
 static void innobase_recover_binlog_pos(
     handlerton *hton,      /*!< in: InnoDB handlerton */
-    Gtid *binlog_max_gtid, /*!< in/out: Max valid binlog gtid*/
-    char *binlog_file,     /*!< in/out: Last valid binlog file */
-    my_off_t *binlog_pos); /*!< in/out: Last valid binlog pos */
+    Gtid *binlog_max_gtid, /*!< out: Max valid binlog gtid*/
+    char *binlog_file,     /*!< out: Last valid binlog file */
+    my_off_t *binlog_pos); /*!< out: Last valid binlog pos */
 /** This function is used to prepare an X/Open XA distributed transaction.
  @return 0 or error number */
 static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
@@ -19466,9 +19466,9 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
  */
 static void innobase_recover_binlog_pos(
     handlerton *hton,      /*!< in: InnoDB handlerton */
-    Gtid *binlog_max_gtid, /*!< in/out: Max valid binlog gtid*/
-    char *binlog_file,     /*!< in/out: Last valid binlog file */
-    my_off_t *binlog_pos)  /*!< in/out: Last valid binlog pos */
+    Gtid *binlog_max_gtid, /*!< out: Max valid binlog gtid*/
+    char *binlog_file,     /*!< out: Last valid binlog file */
+    my_off_t *binlog_pos)  /*!< out: Last valid binlog pos */
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
 

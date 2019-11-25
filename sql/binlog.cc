@@ -5629,6 +5629,27 @@ uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length) {
   return 0;
 }
 
+bool is_binlog_advanced(const char *b1, my_off_t p1, const char *b2,
+                        my_off_t p2) {
+  if (!b1 || !b1[0]) {
+    return (b2 && b2[0] && p2 != ULLONG_MAX);
+  }
+
+  if (!b2 || !b2[0]) {
+    return false;
+  }
+
+  DBUG_ASSERT(p1 != ULLONG_MAX && p2 != ULLONG_MAX);
+
+  int cmp = strlen(b1) - strlen(b2);
+
+  if (cmp) {
+    return (cmp < 0);
+  }
+
+  return (strcmp(b1, b2) < 0 || (strcmp(b1, b2) == 0 && p1 < p2));
+}
+
 /**
   Find the position in the log-index-file for the given log name.
 
