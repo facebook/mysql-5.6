@@ -45,9 +45,6 @@ rocksdb.optimize_myrocks_replace_into_lock : BUG#0000 missing patch f14c64cf950 
 rocksdb_rpl.optimize_myrocks_replace_into : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
 rocksdb.mysqlbinlog_blind_replace : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
 
-# Recovery
-rocksdb_rpl.rpl_gtid_crash_safe_wal_corrupt : BUG#0000 missing 00861dd66bf make gtid enabled slave with less...
-
 # Schema Validation
 rocksdb.validate_datadic : BUG#0000 redesign the testcase around schema validation
 rocksdb.skip_validate_tmp_table : BUG#0000 redesign the testcase around schema validation

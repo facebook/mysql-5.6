@@ -44,10 +44,11 @@
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
 #include <mysys_err.h>
-#include "sql/debug_sync.h"
 #include "my_bit.h"
 #include "my_stacktrace.h"
 #include "my_sys.h"
+#include "sql/binlog.h"
+#include "sql/debug_sync.h"
 #include "sql/sql_audit.h"
 #include "sql/sql_table.h"
 #include "sql/sql_class.h"
@@ -4055,57 +4056,37 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
   dst->set_data(src.c_str() + RDB_XIDHDR_LEN, (dst->get_gtrid_length()) + (dst->get_bqual_length()));
 }
 
-/**
-  Compare two binlog files:positions
-  @param b1    binlog file1, might be null
-  @param p1    binlog pos2
-  @param b2    binlog file2
-  @param p2    binlog pos2
-  @return
-    true if (b2,p2) is larger than (b1,p1)
-*/
-bool is_binlog_advanced(const char *b1, const my_off_t p1,
-                        const char *b2, const my_off_t p2)
-{
-  if(!b1 || !b2 || p1 <= 0 || p2 <= 0)
-    return false;
-  int cmp = strlen(b1) - strlen(b2);
-  if(cmp)
-    return cmp < 0 ? true : false;
-  if(strcmp(b1, b2) == 0 && p1 < p2)
-    return true;
-  return false;
-}
-
 static void rocksdb_recover_binlog_pos(
     handlerton *const hton, /*!< in: rocksdb handler */
-    Gtid *binlog_max_gtid,  /*!< in/out: Max valid binlog gtid*/
-    char *binlog_file,      /*!< in/out: Last valid binlog file */
-    my_off_t *binlog_pos)   /*!< in/out: Last valid binlog pos */
+    Gtid *binlog_max_gtid,  /*!< out: Max valid binlog gtid*/
+    char *binlog_file,      /*!< out: Last valid binlog file */
+    my_off_t *binlog_pos)   /*!< out: Last valid binlog pos */
 {
-  if (binlog_file && binlog_pos) {
-    char file_buf[FN_REFLEN + 1] = {0};
-    my_off_t pos;
-    char gtid_buf[FN_REFLEN + 1] = {0};
-    if (binlog_manager.read(file_buf, &pos, gtid_buf)) {
-      if (is_binlog_advanced(binlog_file, *binlog_pos, file_buf, pos)) {
-        memcpy(binlog_file, file_buf, FN_REFLEN + 1);
-        *binlog_pos = pos;
-        // NO_LINT_DEBUG
-        fprintf(stderr,
-                "RocksDB: Last binlog file position %llu,"
-                " file name %s\n",
-                pos, file_buf);
+  DBUG_ASSERT(binlog_file && binlog_pos);
 
-        if (*gtid_buf) {
-          global_sid_lock->rdlock();
-          binlog_max_gtid->parse(global_sid_map, gtid_buf);
-          global_sid_lock->unlock();
-          // NO_LINT_DEBUG
-          fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
-        }
-      }
-    }
+  char file_buf[FN_REFLEN + 1] = {0};
+  my_off_t pos = ULLONG_MAX;
+  char gtid_buf[FN_REFLEN + 1] = {0};
+
+  if (!binlog_manager.read(file_buf, &pos, gtid_buf)) {
+    return;
+  }
+
+  memcpy(binlog_file, file_buf, FN_REFLEN + 1);
+  *binlog_pos = pos;
+
+  // NO_LINT_DEBUG
+  fprintf(stderr,
+          "RocksDB: Last binlog file position %llu,"
+          " file name %s\n",
+          pos, file_buf);
+
+  if (binlog_max_gtid && *gtid_buf) {
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+    // NO_LINT_DEBUG
+    fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
   }
 }
 
