@@ -1,0 +1,82 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+select @@binlog_format;
+@@binlog_format
+ROW
+create table innodb_t (id int primary key, value int, value2 int, index(value)) engine=innodb;
+create table rocksdb_t (id int primary key, value int, value2 int, index(value)) engine=rocksdb;
+insert into innodb_t values (1,1,1);;
+insert into innodb_t values (2,1,1);;
+insert into innodb_t values (3,1,1);;
+insert into innodb_t values (4,1,1);;
+insert into innodb_t values (5,1,1);;
+insert into rocksdb_t values (1,2,2);;
+insert into rocksdb_t values (2,2,2);;
+insert into rocksdb_t values (3,2,2);;
+insert into rocksdb_t values (4,2,2);;
+insert into rocksdb_t values (5,2,2);;
+include/sync_slave_sql_with_master.inc
+start transaction;
+insert into innodb_t values (6,1,1);;
+insert into innodb_t values (7,1,1);;
+insert into innodb_t values (8,1,1);;
+insert into innodb_t values (9,1,1);;
+insert into innodb_t values (10,1,1);;
+insert into innodb_t values (11,1,1);;
+insert into innodb_t values (12,1,1);;
+insert into innodb_t values (13,1,1);;
+insert into innodb_t values (14,1,1);;
+insert into innodb_t values (15,1,1);;
+insert into innodb_t values (16,1,1);;
+insert into rocksdb_t values (6,2,2);;
+insert into rocksdb_t values (7,2,2);;
+insert into rocksdb_t values (8,2,2);;
+insert into rocksdb_t values (9,2,2);;
+insert into rocksdb_t values (10,2,2);;
+insert into rocksdb_t values (11,2,2);;
+insert into rocksdb_t values (12,2,2);;
+insert into rocksdb_t values (13,2,2);;
+insert into rocksdb_t values (14,2,2);;
+insert into rocksdb_t values (15,2,2);;
+insert into rocksdb_t values (16,2,2);;
+commit;
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-13
+include/sync_slave_sql_with_master.inc
+Checksum master innodb_t
+Checksum master rocksdb_t
+
+--- slave state before crash ---
+Checksum slave innodb_t
+Checksum slave rocksdb_t
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-13
+include/rpl_start_server.inc [server_number=2]
+
+--- slave state after crash recovery, slave stop, one transaction recovered---
+
+--- slave state after restart, slave start ---
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+Checksum slave innodb_t
+Checksum slave rocksdb_t
+@@global.gtid_executed
+uuid:1-13
+@@global.gtid_executed
+uuid:1-13
+include/sync_slave_sql_with_master.inc
+include/rpl_start_server.inc [server_number=2]
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+Checksum master innodb_t
+Checksum master rocksdb_t
+Checksum slave innodb_t
+Checksum slave rocksdb_t
+@@global.gtid_executed
+uuid:1-14
+include/rpl_end.inc
