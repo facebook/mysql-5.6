@@ -2004,8 +2004,20 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
     char buf[FN_REFLEN];
     const char *ln;
     static bool name_warning_sent= 0;
-    ln= relay_log.generate_name(opt_relay_logname, "-relay-bin",
-                                1, buf);
+
+    // In raft mode, relay log always points to the raft log (which is the
+    // binlog)
+    char* relay_log_index_name= opt_relaylog_index_name;
+    if (enable_raft_plugin)
+    {
+      ln= relay_log.generate_name(opt_bin_logname, "-bin",
+                                  1, buf);
+      relay_log_index_name= opt_binlog_index_name;
+    }
+    else
+      ln= relay_log.generate_name(opt_relay_logname, "-relay-bin",
+                                  1, buf);
+
     /* We send the warning only at startup, not after every RESET SLAVE */
     if (!opt_relay_logname && !opt_relaylog_index_name && !name_warning_sent)
     {
@@ -2026,7 +2038,7 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
 
     relay_log.is_relay_log= TRUE;
 
-    if (relay_log.open_index_file(opt_relaylog_index_name, ln, TRUE))
+    if (relay_log.open_index_file(relay_log_index_name, ln, TRUE))
     {
       sql_print_error("Failed in open_index_file() called from Relay_log_info::rli_init_info().");
       DBUG_RETURN(1);
@@ -2076,15 +2088,31 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
       note, that if open() fails, we'll still have index file open
       but a destructor will take care of that
     */
-    if (relay_log.open_binlog(ln, 0, SEQ_READ_APPEND,
-                              (max_relay_log_size ? max_relay_log_size :
-                               max_binlog_size), true,
-                              true/*need_lock_index=true*/,
-                              true/*need_sid_lock=true*/,
-                              mi->get_mi_description_event()))
+    if (enable_raft_plugin)
     {
-      sql_print_error("Failed in open_log() called from Relay_log_info::rli_init_info().");
-      DBUG_RETURN(1);
+      if (relay_log.open_existing_binlog(
+            opt_bin_logname, SEQ_READ_APPEND, max_binlog_size))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to open existing binlog called from "
+                        "Relay_log_info::rli_init_info().");
+        DBUG_RETURN(1);
+      }
+    }
+    else
+    {
+      if (relay_log.open_binlog(ln, 0, SEQ_READ_APPEND,
+                                  (max_relay_log_size ? max_relay_log_size :
+                                    max_binlog_size), true,
+                                    true/*need_lock_index=true*/,
+                                    true/*need_sid_lock=true*/,
+                                    mi->get_mi_description_event()))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed in open_log() called from "
+                        "Relay_log_info::rli_init_info().");
+        DBUG_RETURN(1);
+      }
     }
   }
 

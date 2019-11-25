@@ -370,7 +370,8 @@ static void set_slave_max_allowed_packet(THD *thd, MYSQL *mysql)
 
 void init_thread_mask(int* mask, Master_info* mi, bool inverse)
 {
-  bool set_io = mi->slave_running, set_sql = mi->rli->slave_running;
+  bool set_io = mi->slave_running;
+  bool set_sql = mi->rli->slave_running;
   register int tmp_mask=0;
   DBUG_ENTER("init_thread_mask");
 
@@ -439,9 +440,14 @@ static void init_slave_psi_keys(void)
 int init_slave()
 {
   DBUG_ENTER("init_slave");
+
   int error= 0;
-  int thread_mask= SLAVE_SQL | SLAVE_IO;
+  int thread_mask= SLAVE_SQL;
   Relay_log_info* rli= NULL;
+
+  // No IO thread in raft mode
+  if (!enable_raft_plugin)
+    thread_mask |= SLAVE_IO;
 
 #ifdef HAVE_PSI_INTERFACE
   init_slave_psi_keys();
@@ -513,7 +519,8 @@ int init_slave()
   if (active_mi->host[0] &&
       mysql_bin_log.engine_binlog_pos != ULONGLONG_MAX &&
       mysql_bin_log.engine_binlog_file[0] &&
-      gtid_mode > 0)
+      gtid_mode > 0 &&
+      !enable_raft_plugin)
   {
     /*
       With less durable settins (sync_binlog !=1 and
@@ -536,6 +543,12 @@ int init_slave()
       to an old value which is consistent with innodb, slave doesn't
       miss any transactions.
     */
+
+    /*
+     * This entire block is skipped in raft mode since the executed gtid set is
+     * calculated correctly based on engine position and filename during
+     * transaction log (binlog or apply-log) recovery and gtid initialization
+     */
     mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
     mysql_mutex_lock(log_lock);
     global_sid_lock->wrlock();
@@ -1846,7 +1859,7 @@ int start_slave_threads(bool need_lock_slave, bool wait_for_start,
     lock_cond_sql = &mi->rli->run_lock;
   }
 
-  if (thread_mask & SLAVE_IO)
+  if ((thread_mask & SLAVE_IO) && !enable_raft_plugin)
     error= start_slave_thread(
 #ifdef HAVE_PSI_INTERFACE
                               key_thread_slave_io,

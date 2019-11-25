@@ -1983,9 +1983,6 @@ void MYSQL_LOG::cleanup()
 // after finding the last file, thus returning the current latest file
 int MYSQL_LOG::find_existing_last_file(char *new_name, const char *log_name)
 {
-  // only used by Raft for binlogs
-  DBUG_ASSERT(log_type == LOG_BIN);
-
   fn_format(new_name, log_name, mysql_data_home, "", 4);
   if (fn_ext(log_name)[0])
     return 0;
@@ -1997,6 +1994,7 @@ int MYSQL_LOG::find_existing_last_file(char *new_name, const char *log_name)
 	  sql_print_error(ER(ER_NO_UNIQUE_LOGFILE), log_name);
 	  return 1;
   }
+
   return 0;
 }
 

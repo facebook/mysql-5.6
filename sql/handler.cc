@@ -1942,12 +1942,13 @@ static my_bool xarecover_handlerton(THD *unused, plugin_ref plugin,
         // in the binlog's commit list and we have not been explicitly asked
         // to trim binlog during recovery. If we are asked to trim binlogs
         // during recovery (i.e if opt_trim_binlog is set), then we have to
-        // rollback all prepared txns in the engine.
+        // rollback all prepared txns in the engine. If raft is enabled, then we
+        // rollback all prepared txns
         if ((info->commit_list ?
             (xid_to_gtid= (XID_TO_GTID*)
              my_hash_search(info->commit_list, (uchar *)&x, sizeof(x))) != 0 :
             tc_heuristic_recover == TC_HEURISTIC_RECOVER_COMMIT) &&
-            !opt_trim_binlog)
+            !opt_trim_binlog && !enable_raft_plugin)
         {
           // case: check if this prepared transaction's gtid is greater than
           // what we recovered before

@@ -6329,10 +6329,22 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       }
     }
 
-    if (mysql_bin_log.open_index_file(opt_binlog_index_name, ln, TRUE))
+    if (enable_raft_plugin)
     {
-      unireg_abort(1);
+      // Initialize the right index file when raft is enabled
+      if (mysql_bin_log.init_index_file())
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to initialize index file in raft mode");
+        unireg_abort(1);
+      }
     }
+    else
+    {
+      if (mysql_bin_log.open_index_file(opt_binlog_index_name, ln, TRUE))
+        unireg_abort(1);
+    }
+
     /*
       Remove entries of logs from the index that were deleted from
       the file system but not from the index due to a crash.
@@ -6366,11 +6378,21 @@ a file name for --log-bin-index option", opt_binlog_index_name);
               opt_bin_logname, opt_relay_logname, pidfile_name));
   if (opt_relay_logname)
   {
-    relay_log_basename=
-      rpl_make_log_name(opt_relay_logname, pidfile_name,
-                        opt_relay_logname ? "" : "-relay-bin");
-    relay_log_index=
-      rpl_make_log_name(opt_relaylog_index_name, relay_log_basename, ".index");
+    if (!enable_raft_plugin)
+    {
+      relay_log_basename= rpl_make_log_name(
+          opt_relay_logname, pidfile_name,
+          opt_relay_logname ? "" : "-relay-bin");
+
+      relay_log_index= rpl_make_log_name(
+          opt_relaylog_index_name, relay_log_basename, ".index");
+    }
+    else
+    {
+      relay_log_basename= log_bin_basename;
+      relay_log_index= log_bin_index;
+    }
+
     if (relay_log_basename == NULL || relay_log_index == NULL)
     {
       sql_print_error("Unable to create replication path names:"
@@ -6380,6 +6402,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       unireg_abort(1);
     }
   }
+
 #endif /* !EMBEDDED_LIBRARY */
 
   init_names();
@@ -6589,7 +6612,8 @@ a file name for --log-bin-index option", opt_binlog_index_name);
           NULL/*last_gtid*/,
           opt_master_verify_checksum,
           true/*true=need lock*/,
-          &prev_hlc))
+          &prev_hlc,
+          true /* startup=true */))
       unireg_abort(1);
 
     /*
@@ -6604,12 +6628,46 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     // times of trx's in all previous binlog
     mysql_bin_log.update_hlc(prev_hlc);
 
-    if (mysql_bin_log.open_binlog(opt_bin_logname, 0,
-                                  WRITE_CACHE, max_binlog_size, false,
-                                  true/*need_lock_index=true*/,
-                                  true/*need_sid_lock=true*/,
-                                  NULL))
-      unireg_abort(1);
+    if (enable_raft_plugin)
+    {
+      /* If raft is enabled, we open an existing binlog file if it exists.
+       * Note that in raft mode, the recovery of the transaction log will not
+       * mark the log as 'closed'. This is because raft 'owns' the log and
+       * will use it later when the node rejoins the ring */
+      char* logname=
+        mysql_bin_log.is_apply_log ? opt_bin_logname_apply : opt_bin_logname;
+
+      if (mysql_bin_log.open_binlog_found)
+      {
+        if (mysql_bin_log.open_existing_binlog(
+            logname, WRITE_CACHE, max_binlog_size))
+        {
+          // NO_LINT_DEBUG
+          sql_print_error("Failed to open existing binlog/apply-binlog when "
+                          "raft is enabled");
+          unireg_abort(1);
+        }
+      }
+      else
+      {
+        if (mysql_bin_log.open_binlog(logname, 0,
+                                      WRITE_CACHE, max_binlog_size, false,
+                                      true/*need_lock_index=true*/,
+                                      true/*need_sid_lock=true*/,
+                                      NULL))
+          unireg_abort(1);
+
+      }
+    }
+    else
+    {
+      if (mysql_bin_log.open_binlog(opt_bin_logname, 0,
+                                       WRITE_CACHE, max_binlog_size, false,
+                                       true/*need_lock_index=true*/,
+                                       true/*need_sid_lock=true*/,
+                                       NULL))
+        unireg_abort(1);
+    }
   }
 
   if (opt_bin_log)
