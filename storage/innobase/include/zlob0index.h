@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2018, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2016, 2019, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -272,7 +272,8 @@ struct z_index_entry_t {
     return (flst_read_addr(m_node + OFFSET_PREV, m_mtr));
   }
 
-  /** Get the location of next index entry. */
+  /** Get the location of next index entry.
+  @return the file address of the next index entry. */
   fil_addr_t get_next() const {
     return (flst_read_addr(m_node + OFFSET_NEXT, m_mtr));
   }
@@ -380,6 +381,19 @@ struct z_index_entry_t {
     return (mach_read_from_4(m_node + OFFSET_Z_PAGE_NO));
   }
 
+  /** Set the page number pointed to by this index entry to FIL_NULL.
+   @param[in]   mtr    The mini transaction used for this modification. */
+  void set_z_page_no_null(mtr_t *mtr) {
+    mlog_write_ulint(m_node + OFFSET_Z_PAGE_NO, FIL_NULL, MLOG_4BYTES, mtr);
+  }
+
+  /** Free the data pages pointed to by this index entry.
+  @param[in]   mtr   the mini transaction used to free the pages.
+  @return the number of pages freed. */
+  size_t free_data_pages(mtr_t *mtr);
+
+  /** Set the page number pointed to by this index entry to given value.
+   @param[in]   page_no    Page number to be put in index entry. */
   void set_z_page_no(page_no_t page_no) {
     ut_ad(m_mtr != nullptr);
     mlog_write_ulint(m_node + OFFSET_Z_PAGE_NO, page_no, MLOG_4BYTES, m_mtr);

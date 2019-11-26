@@ -108,8 +108,7 @@ static void rollback(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
       row_log_table_blob_free(index, ref.page_no());
     }
 
-    first.free_all_index_pages();
-    first.dealloc();
+    first.destroy();
 
   } else {
 #ifdef UNIV_DEBUG
@@ -189,14 +188,7 @@ static void z_rollback(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
       row_log_table_blob_free(index, ref.page_no());
     }
 
-    /* Ensure that the btr mtr is not holding any x-latch on the first page of
-     * LOB. */
-    ut_ad(!mtr_is_block_fix(ctx->get_mtr(), first.get_block(),
-                            MTR_MEMO_PAGE_X_FIX, index->table));
-
-    first.free_all_frag_node_pages();
-    first.free_all_index_pages();
-    first.dealloc();
+    first.destroy();
 
   } else {
     ut_ad(first.validate());
@@ -231,11 +223,14 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   }
 
   mtr_t *mtr = ctx->get_mtr();
+  mtr_t lob_mtr;
+  mtr_start(&lob_mtr);
+  lob_mtr.set_log_mode(mtr->get_log_mode());
 
   page_no_t first_page_no = ref.page_no();
   page_id_t page_id(ref.space_id(), first_page_no);
 
-  z_first_page_t first(mtr, index);
+  z_first_page_t first(&lob_mtr, index);
   first.load_x(first_page_no);
 
   ut_ad(first.validate());
@@ -246,21 +241,21 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
 
   flst_base_node_t *flst = first.index_list();
   flst_base_node_t *free_list = first.free_list();
-  fil_addr_t node_loc = flst_get_first(flst, mtr);
+  fil_addr_t node_loc = flst_get_first(flst, &lob_mtr);
 
-  z_index_entry_t cur_entry(mtr, index);
+  z_index_entry_t cur_entry(&lob_mtr, index);
 
   while (!fil_addr_is_null(node_loc)) {
     flst_node_t *node = first.addr2ptr_x(node_loc);
     cur_entry.reset(node);
 
     flst_base_node_t *vers = cur_entry.get_versions_list();
-    fil_addr_t ver_loc = flst_get_first(vers, mtr);
+    fil_addr_t ver_loc = flst_get_first(vers, &lob_mtr);
 
     /* Scan the older versions. */
     while (!fil_addr_is_null(ver_loc)) {
       flst_node_t *ver_node = first.addr2ptr_x(ver_loc);
-      z_index_entry_t vers_entry(ver_node, mtr, index);
+      z_index_entry_t vers_entry(ver_node, &lob_mtr, index);
 
       if (vers_entry.can_be_purged(trxid, undo_no)) {
         ver_loc =
@@ -272,7 +267,16 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
 
     node_loc = cur_entry.get_next();
     cur_entry.reset(nullptr);
+
+    mtr_commit(&lob_mtr);
+    mtr_start(&lob_mtr);
+    lob_mtr.set_log_mode(mtr->get_log_mode());
+    first.load_x(first_page_no);
   }
+
+  mtr_commit(&lob_mtr);
+  first.set_mtr(mtr);
+  first.load_x(first_page_no);
 
   bool ok_to_free_2 = (rec_type == TRX_UNDO_UPD_EXIST_REC) &&
                       !first.can_be_partially_updated() &&
@@ -283,9 +287,7 @@ static void z_purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
       row_log_table_blob_free(index, ref.page_no());
     }
 
-    first.free_all_frag_node_pages();
-    first.free_all_index_pages();
-    first.dealloc();
+    first.destroy();
 
   } else {
     ut_ad(first.validate());
@@ -318,6 +320,7 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
   DBUG_ENTER("lob::purge");
 
   mtr_t *mtr = ctx->get_mtr();
+  const mtr_log_t log_mode = mtr->get_log_mode();
   const bool is_rollback = ctx->m_rollback;
 
   if (ref.is_null()) {
@@ -342,9 +345,6 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
 
   space_id_t space_id = ref.space_id();
 
-  /* The current entry - it is the latest version. */
-  index_entry_t cur_entry(mtr, index);
-
   page_no_t first_page_no = ref.page_no();
   page_id_t page_id(space_id, first_page_no);
   page_size_t page_size(dict_table_page_size(index->table));
@@ -363,9 +363,6 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
     DBUG_VOID_RETURN;
   }
 
-  first_page_t first(mtr, index);
-  first.load_x(page_id, page_size);
-
   ut_a(page_type == FIL_PAGE_TYPE_LOB_FIRST);
 
   if (is_rollback) {
@@ -373,24 +370,33 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
     DBUG_VOID_RETURN;
   }
 
+  mtr_t lob_mtr;
+  mtr_start(&lob_mtr);
+  lob_mtr.set_log_mode(log_mode);
+
+  /* The current entry - it is the latest version. */
+  index_entry_t cur_entry(&lob_mtr, index);
+  first_page_t first(&lob_mtr, index);
+  first.load_x(page_id, page_size);
+
   trx_id_t last_trx_id = first.get_last_trx_id();
   undo_no_t last_undo_no = first.get_last_trx_undo_no();
 
   flst_base_node_t *flst = first.index_list();
   flst_base_node_t *free_list = first.free_list();
-  fil_addr_t node_loc = flst_get_first(flst, mtr);
+  fil_addr_t node_loc = flst_get_first(flst, &lob_mtr);
 
   while (!fil_addr_is_null(node_loc)) {
     flst_node_t *node = first.addr2ptr_x(node_loc);
     cur_entry.reset(node);
 
     flst_base_node_t *vers = cur_entry.get_versions_list();
-    fil_addr_t ver_loc = flst_get_first(vers, mtr);
+    fil_addr_t ver_loc = flst_get_first(vers, &lob_mtr);
 
     /* Scan the older versions. */
     while (!fil_addr_is_null(ver_loc)) {
       flst_node_t *ver_node = first.addr2ptr_x(ver_loc);
-      index_entry_t vers_entry(ver_node, mtr, index);
+      index_entry_t vers_entry(ver_node, &lob_mtr, index);
 
       if (vers_entry.can_be_purged(trxid, undo_no)) {
         ver_loc = vers_entry.purge_version(index, trxid, vers, free_list);
@@ -401,7 +407,16 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
 
     node_loc = cur_entry.get_next();
     cur_entry.reset(nullptr);
+
+    mtr_commit(&lob_mtr);
+    mtr_start(&lob_mtr);
+    lob_mtr.set_log_mode(log_mode);
+    first.load_x(page_id, page_size);
   }
+
+  mtr_commit(&lob_mtr);
+  first.set_mtr(ctx->get_mtr());
+  first.load_x(page_id, page_size);
 
   bool ok_to_free = (rec_type == TRX_UNDO_UPD_EXIST_REC) &&
                     !first.can_be_partially_updated() &&
@@ -413,10 +428,7 @@ void purge(DeleteContext *ctx, dict_index_t *index, trx_id_t trxid,
     if (dict_index_is_online_ddl(index)) {
       row_log_table_blob_free(index, ref.page_no());
     }
-    first.free_all_data_pages();
-
-    first.free_all_index_pages();
-    first.dealloc();
+    first.destroy();
   }
 
   ref.set_page_no(FIL_NULL, mtr);

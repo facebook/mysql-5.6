@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2018, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2016, 2019, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -156,6 +156,18 @@ struct z_first_page_t {
     return (m_block);
   }
 
+  /** Load the first page using given mini transaction. The first page must
+  already be x-latched by the m_mtr.
+  @param[in]	mtr   the mini transaction in which first page is to be loaded.
+  @return the buffer block of first page. */
+  buf_block_t *load_x(mtr_t *mtr) const {
+    ut_ad(mtr_memo_contains(m_mtr, m_block, MTR_MEMO_PAGE_X_FIX));
+    buf_block_t *tmp = buf_page_get(m_block->page.id, m_index->get_page_size(),
+                                    RW_X_LATCH, mtr);
+    ut_ad(tmp == m_block);
+    return (tmp);
+  }
+
   /** Load the first page of the compressed LOB with x-latch.
   @param[in]   page_id   the page identifier of first page
   @param[in]   page_size the page size information of table.
@@ -177,9 +189,26 @@ struct z_first_page_t {
   /** Deallocate the first page of a compressed LOB. */
   void dealloc();
 
-  void set_next_page_null() {
-    ut_ad(m_mtr != nullptr);
-    mlog_write_ulint(frame() + FIL_PAGE_NEXT, FIL_NULL, MLOG_4BYTES, m_mtr);
+  /** Set the FIL_PAGE_NEXT to FIL_NULL. */
+  void set_next_page_null() { set_next_page_no(FIL_NULL, m_mtr); }
+
+  /** Set the FIL_PAGE_PREV to FIL_NULL. */
+  void set_prev_page_null() { set_prev_page_no(FIL_NULL, m_mtr); }
+
+  /** Set the FIL_PAGE_NEXT to the given value.
+  @param[in]    page_no   the page number to set in FIL_PAGE_NEXT.
+  @param[in]    mtr       mini trx to be used for this modification. */
+  void set_next_page_no(page_no_t page_no, mtr_t *mtr) {
+    ut_ad(mtr != nullptr);
+    mlog_write_ulint(frame() + FIL_PAGE_NEXT, page_no, MLOG_4BYTES, mtr);
+  }
+
+  /** Set the FIL_PAGE_PREV to the given value.
+  @param[in]    page_no   the page number to set in FIL_PAGE_PREV.
+  @param[in]    mtr       mini trx to be used for this modification. */
+  void set_prev_page_no(page_no_t page_no, mtr_t *mtr) {
+    ut_ad(mtr != nullptr);
+    mlog_write_ulint(frame() + FIL_PAGE_PREV, page_no, MLOG_4BYTES, mtr);
   }
 
   /** Write the space identifier to the page header, without generating
@@ -197,6 +226,7 @@ struct z_first_page_t {
     set_version_0();
     set_data_len(0);
     set_next_page_null();
+    set_prev_page_null();
     set_trx_id(0);
     flst_base_node_t *flst = free_list();
     flst_init(flst, m_mtr);
@@ -218,9 +248,7 @@ struct z_first_page_t {
   }
 
   /** Get the page number. */
-  page_no_t get_page_no() const {
-    return static_cast<page_no_t>(mach_read_from_4(frame() + FIL_PAGE_OFFSET));
-  }
+  page_no_t get_page_no() const { return (m_block->page.id.page_no()); }
 
   /** Get the page id of the first page of compressed LOB.
   @return page id of the first page of compressed LOB. */
@@ -253,6 +281,45 @@ struct z_first_page_t {
     return (mach_read_from_4(frame() + OFFSET_INDEX_PAGE_NO));
   }
 
+  /** All the fragment pages are doubly linked with each other, and
+  the first page contains the link to one fragment page in FIL_PAGE_PREV. Get
+  that frag page number.
+  @return the frag page number. */
+  page_no_t get_frag_page_no() const { return (m_block->get_prev_page_no()); }
+
+  /** All the fragment pages are doubly linked with each other, and
+  the first page contains the link to one fragment page in FIL_PAGE_PREV. Get
+  that frag page number.
+  @param[in]   mtr   mini transaction to use for this read operation.
+  @return the frag page number. */
+  page_no_t get_frag_page_no(mtr_t *mtr) const {
+    return (mtr_read_ulint(frame() + FIL_PAGE_PREV, MLOG_4BYTES, mtr));
+  }
+
+#ifdef UNIV_DEBUG
+  /** Verify that the page number pointed to by FIL_PAGE_PREV of the first page
+  of LOB is indeed a fragment page.  It uses its own mtr internally.
+  @return true if it is a fragment page, false otherwise. */
+  bool verify_frag_page_no();
+#endif /* UNIV_DEBUG */
+
+  /** All the fragment pages are doubly linked with each other, and
+  the first page contains the link to one fragment page in FIL_PAGE_PREV.
+  @param[in]  mtr      mini transaction for this modification.
+  @param[in]  page_no  the page number of a fragment page. */
+  void set_frag_page_no(mtr_t *mtr, page_no_t page_no) {
+    ut_ad(verify_frag_page_no());
+    set_prev_page_no(page_no, mtr);
+  }
+
+  /** All the fragment pages are doubly linked with each other, and
+  the first page contains the link to one fragment page in FIL_PAGE_PREV.
+  @param[in]  page_no  the page number of a fragment page. */
+  void set_frag_page_no(page_no_t page_no) {
+    ut_ad(verify_frag_page_no());
+    set_prev_page_no(page_no, m_mtr);
+  }
+
   /** All the frag node pages are singled linked with each other, and
   the first page contains the link to one frag node page.
   @param[in]  page_no  the page number of an frag node page. */
@@ -264,11 +331,33 @@ struct z_first_page_t {
 
   /** Free all the z_frag_page_t pages. All the z_frag_page_t pages are
   singly linked to each other.  The head of the list is maintained in the
-  first page. */
-  void free_all_frag_node_pages();
+  first page.
+  @return the number of pages freed. */
+  size_t free_all_frag_node_pages();
 
-  /** Free all the index pages. */
-  void free_all_index_pages();
+  /** Free all the index pages.
+  @return the number of pages freed. */
+  size_t free_all_index_pages();
+
+  /** Free all the fragment pages.
+  @return the number of pages freed. */
+  size_t free_all_frag_pages();
+
+ private:
+  /** Free all the fragment pages when the next page of the first LOB page IS
+   * NOT USED to link the fragment pages.
+  @return the number of pages freed. */
+  size_t free_all_frag_pages_old();
+
+  /** Free all the fragment pages when the next page of the first LOB page IS
+   * USED to link the fragment pages.
+  @return the number of pages freed. */
+  size_t free_all_frag_pages_new();
+
+ public:
+  /** Free all the data pages.
+  @return the number of pages freed. */
+  size_t free_all_data_pages();
 
   /** All the frag node pages are singled linked with each other, and the
   first page contains the link to one frag node page. Get that frag node
@@ -443,9 +532,17 @@ struct z_first_page_t {
   @param[in]	addr	given file address
   @return	the file list node pointer. */
   flst_node_t *addr2ptr_x(fil_addr_t &addr) const {
+    return (addr2ptr_x(addr, m_mtr));
+  }
+
+  /** Load the page, in x-latch mode, containing the given file address.
+  @param[in]	addr	given file address
+  @param[in]	mtr     the mini transaction context to be used.
+  @return	the file list node pointer. */
+  flst_node_t *addr2ptr_x(fil_addr_t &addr, mtr_t *mtr) const {
     space_id_t space = dict_index_get_space(m_index);
     const page_size_t page_size = dict_table_page_size(m_index->table);
-    return (fut_get_ptr(space, page_size, addr, RW_X_LATCH, m_mtr));
+    return (fut_get_ptr(space, page_size, addr, RW_X_LATCH, mtr));
   }
 
   /** Load the page, in s-latch mode, containing the given file address.
@@ -467,19 +564,50 @@ struct z_first_page_t {
   @param[out]	entry	the entry to be loaded.*/
   void load_entry_x(fil_addr_t &addr, z_index_entry_t &entry);
 
-  /** Destroy the given ZLOB.  It frees all the pages of the given LOB,
-  including its first page.
-  @param[in]	index		the clustered index containing LOB.
-  @param[in]	first_page_no	first page number of LOB. */
-  static void destroy(dict_index_t *index, page_no_t first_page_no);
+  /** Free all the pages of the zlob.
+  @return the total number of pages freed. */
+  size_t destroy();
 
 #ifdef UNIV_DEBUG
-  bool validate();
+ private:
+  /** Validate the LOB.  This is a costly function.  We need to avoid using
+  this directly, instead call z_first_page_t::validate().
+  @return true if valid, false otherwise. */
+  bool validate_low();
+
+ public:
+  /** Validate the LOB.
+  @return true if valid, false otherwise. */
+  bool validate() {
+    static const uint32_t FREQ = 50;
+    static std::atomic<uint32_t> n{0};
+
+    bool valid = true;
+    if (++n % FREQ == 0) {
+      valid = validate_low();
+    }
+    return (valid);
+  }
 #endif /* UNIV_DEBUG */
 
   /** Get the buffer block of the first page of LOB.
   @return the buffer block of the first page of LOB. */
   buf_block_t *get_block() const { return (m_block); }
+
+ public:
+  void set_mtr(mtr_t *mtr) { m_mtr = mtr; }
+
+  /** Restart the given mtr. The first page must already be x-latched by the
+  m_mtr.
+  @param[in]   mtr   the mini transaction context which is to be restarted. */
+  void restart_mtr(mtr_t *mtr) {
+    ut_ad(mtr != m_mtr);
+
+    mtr_commit(mtr);
+    mtr_start(mtr);
+    mtr->set_log_mode(m_mtr->get_log_mode());
+    load_x(mtr);
+  }
 
  private:
   /** The buffer block of the first page. */
