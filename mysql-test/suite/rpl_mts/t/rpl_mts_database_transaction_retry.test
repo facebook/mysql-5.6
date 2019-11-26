@@ -7,7 +7,7 @@
 --source include/master-slave.inc
 
 --let $mts_parallel_type= "DATABASE"
---source ../include/rpl_mts_transaction_retry.inc
+--source extra/rpl_tests/rpl_mts_transaction_retry.inc
 
 --source include/rpl_end.inc
 --source include/force_restart.inc
