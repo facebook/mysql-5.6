@@ -8,7 +8,26 @@ call mtr.add_suppression("Unsafe statement written to the binary log using state
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
+STOP SLAVE SQL_THREAD;
+LOCK TABLES test0.ti_nk READ;
+START SLAVE SQL_THREAD;
 include/rpl_restart_server.inc [server_number=2 gtids=on]
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
+drop database test15;
+drop database test14;
+drop database test13;
+drop database test12;
+drop database test11;
+drop database test10;
+drop database test9;
+drop database test8;
+drop database test7;
+drop database test6;
+drop database test5;
+drop database test4;
+drop database test3;
+drop database test2;
+drop database test1;
+drop database test0;
 include/rpl_end.inc

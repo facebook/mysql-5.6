@@ -200,6 +200,12 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery,
   commit_timestamps_status = COMMIT_TS_UNKNOWN;
 
   if (!rli_fake) {
+    mysql_mutex_init(0, &dep_lock, MY_MUTEX_INIT_FAST);
+    mysql_mutex_init(0, &dep_key_lookup_mutex, MY_MUTEX_INIT_FAST);
+    mysql_cond_init(0, &dep_full_cond);
+    mysql_cond_init(0, &dep_empty_cond);
+    mysql_cond_init(0, &dep_trx_all_done_cond);
+
     mysql_mutex_init(key_relay_log_info_log_space_lock, &log_space_lock,
                      MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_relay_log_info_log_space_cond, &log_space_cond);
@@ -262,6 +268,11 @@ Relay_log_info::~Relay_log_info() {
   DBUG_ENTER("Relay_log_info::~Relay_log_info");
 
   if (!rli_fake) {
+    mysql_mutex_destroy(&dep_lock);
+    mysql_mutex_destroy(&dep_key_lookup_mutex);
+    mysql_cond_destroy(&dep_full_cond);
+    mysql_cond_destroy(&dep_empty_cond);
+
     if (recovery_groups_inited) bitmap_free(&recovery_groups);
     delete current_mts_submode;
 

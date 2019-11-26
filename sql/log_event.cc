@@ -3290,7 +3290,8 @@ int Log_event::apply_event(Relay_log_info *rli) {
               */
               (rli->curr_group_seen_begin && rli->curr_group_seen_gtid &&
                ends_group()) ||
-              is_mts_db_partitioned(rli) || rli->last_assigned_worker ||
+              rli->mts_dependency_replication || is_mts_db_partitioned(rli) ||
+              rli->last_assigned_worker ||
               /*
                 Begin_load_query can be logged w/o db info and within
                 Begin/Commit. That's a pattern forcing sequential
@@ -3317,8 +3318,9 @@ int Log_event::apply_event(Relay_log_info *rli) {
     rli->group_timestamp_millis = extract_last_timestamp();
   }
 
-  worker =
-      (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
+  if (!rli->mts_dependency_replication)
+    worker =
+        (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
 
 #ifndef DBUG_OFF
   if (rli->last_assigned_worker)
@@ -4776,6 +4778,32 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         ulonglong last_timer = init_timer;
         mysql_parse(thd, &parser_state, &last_timer);
 
+        if (sqlcom_can_generate_row_events(thd->lex->sql_command) &&
+            thd->get_row_count_func() > 0) {
+          /* At this point we know that the master's binlog_format is NOT ROW
+             because we received a Query_log_event which generated rows.
+             If master's binlog format was ROW all row generating events would
+             be sent as Row_log_events */
+
+          const char *option_name = nullptr;
+          if (thd->is_enabled_idempotent_recovery()) {
+            option_name = "slave_use_idempotent_for_recovery";
+          } else if (rli->mts_dependency_replication) {
+            option_name = "mts_dependency_replication";
+          }
+
+          if (option_name != nullptr) {
+            rli->report(
+                ERROR_LEVEL, ER_MTS_INCONSISTENT_DATA,
+                "Master's binlog format is not ROW but %s is enabled on the "
+                "slave, this should only be used when master's binlog format "
+                "is ROW.",
+                option_name);
+            thd->is_slave_error = 1;
+            goto end;
+          }
+        }
+
         enum_sql_command command = thd->lex->sql_command;
 
         /*
@@ -5636,6 +5664,17 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli) {
         routine is being called here.
       */
       if ((error = mts_checkpoint_routine(rli, false))) goto err;
+
+      /*
+        Fix for Bug #97694 at https://bugs.mysql.com/bug.php?id=97694
+        It should be checked after calling mts_checkpoint_routine(), because
+        that function could be interrupted by kill while 'force' is true.
+      */
+      if (sql_slave_killed(thd, rli)) {
+        LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_ERROR_READING_RELAY_LOG_EVENTS,
+               rli->get_for_channel_str(), "slave SQL thread was killed");
+        goto err;
+      }
     }
 
     mysql_mutex_lock(&rli->data_lock);
@@ -14535,3 +14574,634 @@ size_t my_strmov_quoted_identifier_helper(int q, char *buffer,
   *buffer++ = quote_char;
   return ++written;
 }
+
+#if defined(MYSQL_SERVER)
+
+void Log_event::prepare_dep(Relay_log_info *rli,
+                            std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Log_event::prepare_dep");
+
+  if (!ev->begin_event()) {
+    if (!(get_type_code() == binary_log::INTVAR_EVENT ||
+          get_type_code() == binary_log::RAND_EVENT ||
+          get_type_code() == binary_log::USER_VAR_EVENT ||
+          get_type_code() == binary_log::BEGIN_LOAD_QUERY_EVENT ||
+          get_type_code() == binary_log::APPEND_BLOCK_EVENT ||
+          is_ignorable_event())) {
+      char llbuff[22];
+      llstr(rli->get_event_relay_log_pos(), llbuff);
+      my_error(ER_MTS_CANT_PARALLEL, MYF(0), get_type_str(),
+               rli->get_event_relay_log_name(), llbuff,
+               "the event is a part of a group that is unsupported in "
+               "the parallel execution mode");
+    } else {
+      sql_print_information(
+          "Got independent event %s, master binlog position: %s:%llu",
+          get_type_str(), rli->get_group_master_log_name(),
+          rli->get_group_master_log_pos());
+
+      rli->dep_sync_group = true;
+      ev->is_begin_event = true;
+    }
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+/*
+  Adds an event to the dependency queue
+*/
+bool Log_event::schedule_dep(Relay_log_info *rli) {
+  DBUG_ENTER("Log_event::schedule_dep");
+
+  auto ev = std::make_shared<Log_event_wrapper>(
+      this, rli->current_begin_event, rli->get_event_relay_log_number(),
+      rli->get_event_start_pos());
+  prepare_dep(rli, ev);
+
+  if (starts_group()) {
+    rli->curr_group_seen_begin = true;
+    rli->mts_end_group_sets_max_dbs = true;
+  } else if (is_gtid_event(this)) {
+    rli->curr_group_seen_gtid = true;
+  } else if (contains_partition_info(rli->mts_end_group_sets_max_dbs)) {
+    if (get_type_code() == binary_log::TABLE_MAP_EVENT) {
+      const auto tbe = static_cast<Table_map_log_event *>(this);
+      const auto id = tbe->get_table_id();
+      rli->table_map_events[id] = tbe;
+    }
+
+    rli->mts_end_group_sets_max_dbs = false;
+
+    // NOTE: we don't update @Relay_log_info::keys_accessed_by_group here
+    // because not all partition events contain table info
+    Mts_db_names mts_dbs;
+    const uint8 num_dbs = get_mts_dbs(&mts_dbs, rli->rpl_filter);
+
+    if (likely(num_dbs != OVER_MAX_DBS_IN_EVENT_MTS)) {
+      for (int i = 0; i < mts_dbs.num; ++i)
+        rli->dbs_accessed_by_group.insert(mts_dbs.name[i]);
+    }
+
+    // we execute the trx in isolation if num_dbs is greater than one and if
+    // OVER_MAX_DBS_IN_EVENT_MTS is set
+    rli->dep_sync_group = rli->dep_sync_group ||
+                          num_dbs == OVER_MAX_DBS_IN_EVENT_MTS ||
+                          (rli->dbs_accessed_by_group.size() > 1);
+  }
+
+  if (unlikely(rli->dep_sync_group)) {
+    if (!wait_for_dep_workers_to_finish(rli, rli->trx_queued))
+      DBUG_RETURN(false);
+  }
+
+  handle_terminal_dep_event(rli, ev);
+
+#ifndef DBUG_OFF
+  if (!ev->is_end_event) {
+    auto be = ev->is_begin_event ? ev : ev->begin_event();
+    DBUG_ASSERT(be == rli->current_begin_event);
+  }
+#endif
+
+  mts_group_idx = rli->gaq->assigned_group_index;
+
+  // case: current trx is to be executed in isolation or the DB has been set, so
+  // let's queue it for execution
+  if (!rli->trx_queued &&
+      (rli->dep_sync_group || !rli->current_begin_event->get_db().empty())) {
+    mysql_mutex_lock(&rli->dep_lock);
+
+    // wait if queue has reached full capacity
+    while (unlikely(rli->dep_full)) {
+      mysql_cond_wait(&rli->dep_full_cond, &rli->dep_lock);
+    }
+
+    rli->enqueue_dep(rli->current_begin_event);
+
+    // case: workers are waiting on empty queue, let's signal
+    if (likely(rli->num_workers_waiting > 0)) {
+      DBUG_ASSERT(rli->num_workers_waiting <= rli->opt_slave_parallel_workers);
+      mysql_cond_signal(&rli->dep_empty_cond);
+    }
+
+    // admission control in dep queue
+    rli->dep_full = rli->dep_queue.size() >= rli->mts_dependency_size;
+
+    ++rli->num_in_flight_trx;
+    rli->trx_queued = true;
+
+    mysql_mutex_unlock(&rli->dep_lock);
+  }
+
+  DBUG_ASSERT(ev->is_begin_event || rli->prev_event);
+  if (rli->prev_event) {
+    rli->prev_event->put_next(ev);
+  }
+
+  if (unlikely(ev->is_end_event)) {
+    rli->prev_event = nullptr;
+    rli->current_begin_event.reset();
+    rli->trx_queued = false;
+  } else {
+    rli->prev_event = ev;
+  }
+
+  // case: this group needs to be executed in isolation
+  if (unlikely(rli->dep_sync_group && ev->is_end_event)) {
+    if (rli->current_mts_submode->wait_for_workers_to_finish(rli) == -1)
+      DBUG_RETURN(false);
+    rli->dep_sync_group = false;
+  }
+
+  DBUG_RETURN(true);
+}
+
+/**
+  Encapsulation for things to be done for terminal begin and end events
+*/
+void Log_event::handle_terminal_dep_event(
+    Relay_log_info *rli, std::shared_ptr<Log_event_wrapper> &ev) {
+  if (ev->is_begin_event) {
+    DBUG_ASSERT(rli->current_begin_event == nullptr);
+    DBUG_ASSERT(rli->table_map_events.empty());
+    DBUG_ASSERT(rli->keys_accessed_by_group.empty());
+    DBUG_ASSERT(!rli->trx_queued);
+
+    // update rli state
+    rli->current_begin_event = ev;
+    rli->mts_groups_assigned++;
+
+    // insert a group representative in the GAQ
+    Slave_job_group group;
+    group.reset(common_header->log_pos, rli->mts_groups_assigned);
+    group.group_master_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_master_log_name(), MYF(MY_WME));
+    rli->gaq->assigned_group_index = rli->gaq->en_queue(&group);
+  }
+
+  DBUG_ASSERT(rli->current_begin_event);
+
+  // case: we have found a DB to set for the current trx
+  if (rli->current_begin_event->get_db().empty() &&
+      !rli->dbs_accessed_by_group.empty()) {
+    // NOTE: we can set any accessed DB to this trx, if more than one DB are
+    // accessed then it'll be executed in isolation anyway
+    DBUG_ASSERT(rli->dep_sync_group || rli->dbs_accessed_by_group.size() == 1);
+    rli->current_begin_event->set_db(*rli->dbs_accessed_by_group.begin());
+  }
+
+  if (ev->is_end_event) {
+    // populate key->last trx penultimate event in the key lookup
+    // NOTE: we store the end event for a single event trx
+    auto to_add = rli->prev_event ? rli->prev_event : ev;
+    mysql_mutex_lock(&rli->dep_key_lookup_mutex);
+    if (!to_add->finalized()) {
+      for (const auto &key : rli->keys_accessed_by_group) {
+        rli->dep_key_lookup[key] = to_add;
+        to_add->keys.insert(key);
+      }
+    }
+    mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
+
+    // update rli state
+    rli->table_map_events.clear();
+    rli->dbs_accessed_by_group.clear();
+    rli->keys_accessed_by_group.clear();
+
+    rli->mts_group_status = Relay_log_info::MTS_END_GROUP;
+    rli->curr_group_seen_begin = rli->curr_group_seen_gtid = false;
+
+    // update coordinates in GAQ
+    Slave_job_group *ptr_group =
+        rli->gaq->get_job_group(rli->gaq->assigned_group_index);
+
+    ptr_group->group_relay_log_name = my_strdup(
+        key_memory_log_event, rli->get_event_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_master_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_relay_log_name = my_strdup(
+        key_memory_log_event, rli->get_group_relay_log_name(), MYF(MY_WME));
+    ptr_group->checkpoint_log_pos = rli->get_group_master_log_pos();
+    ptr_group->checkpoint_relay_log_pos = rli->get_group_relay_log_pos();
+
+    ptr_group->checkpoint_seqno = rli->rli_checkpoint_seqno;
+    rli->rli_checkpoint_seqno++;
+
+    // seconds_behind_master related
+    if (unlikely(is_relay_log_event()))
+      ptr_group->ts = 0;
+    else {
+      ptr_group->ts = common_header->when.tv_sec + (time_t)exec_time;
+
+      ptr_group->ts_millis =
+          (rli->group_timestamp_millis ? rli->group_timestamp_millis
+                                       : common_header->when.tv_sec * 1000) +
+          exec_time * 1000;
+      // reset for next group
+      rli->group_timestamp_millis = 0;
+    }
+    DBUG_EXECUTE_IF("dbug.dep_wait_before_sending_end_event", {
+      const char act[] = "now signal signal.reached wait_for signal.done";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(rli->info_thd, STRING_WITH_LEN(act)));
+    };);
+    free_root(thd->mem_root, MYF(MY_KEEP_PREALLOC));
+  }
+}
+
+void Query_log_event::prepare_dep(Relay_log_info *rli,
+                                  std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Query_log_event::prepare_dep");
+
+  if (starts_group()) {
+    if (!rli->current_begin_event) {
+      DBUG_ASSERT(ev->begin_event() == nullptr);
+      ev->is_begin_event = true;
+    }
+  } else if (ends_group()) {
+    DBUG_ASSERT(rli->prev_event != nullptr);
+    DBUG_ASSERT(ev->begin_event() != nullptr);
+    DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
+
+    ev->is_end_event = true;
+    ev->begin_event()->whole_group_scheduled = true;
+  } else {
+    // case: DML, DDL statement which are logged without BEGIN and COMMIT
+    if (!rli->curr_group_seen_begin) {
+      ev->is_end_event = true;
+      if (ev->begin_event()) {
+        DBUG_ASSERT(rli->curr_group_seen_gtid ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::INTVAR_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::RAND_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::USER_VAR_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::BEGIN_LOAD_QUERY_EVENT ||
+                    ev->begin_event()->raw_event()->get_type_code() ==
+                        binary_log::APPEND_BLOCK_EVENT ||
+                    is_ignorable_event());
+        DBUG_ASSERT(rli->prev_event != nullptr);
+        ev->begin_event()->whole_group_scheduled = true;
+      } else {
+        ev->is_begin_event = true;
+        ev->whole_group_scheduled = true;
+      }
+    }
+
+    rli->dep_sync_group = true;
+  }
+
+  DBUG_VOID_RETURN;
+}
+
+void Xid_log_event::prepare_dep(Relay_log_info *rli,
+                                std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Xid_log_event::prepare_dep");
+
+  DBUG_ASSERT(rli->prev_event != nullptr);
+  DBUG_ASSERT(ev->begin_event() != nullptr);
+  DBUG_ASSERT(!ev->begin_event()->whole_group_scheduled);
+
+  ev->is_end_event = true;
+  ev->begin_event()->whole_group_scheduled = true;
+
+  DBUG_VOID_RETURN;
+}
+
+/**
+  Callback to deallocate a given key buffer. This is passed as a parameter
+  while creating shared pointers to the key_buf.
+*/
+void key_dealloc_cb(uchar *key_buf) { my_free(key_buf); }
+
+bool Rows_log_event::parse_keys(Relay_log_info *rli, TABLE *table,
+                                std::deque<Dependency_key> &keys) {
+  DBUG_ENTER("Rows_log_event::parse_keys");
+  std::vector<KEY *> key_infos;
+
+  // Find PK and all unique keys
+  uint key = 0;
+  KEY *keyinfo = table->key_info;
+  bool found_pk = false;
+  for (; key < table->s->keys; key++, keyinfo++) {
+    // Skip non-unique keys
+    if (!(keyinfo->flags & HA_NOSAME)) continue;
+
+    // NOTE: We expect the before image to contain all the unique keys
+    // (including PK), if any key is not present we fail fast and process the
+    // transaction in sync mode (see: @Rows_log_event::prepare_dep)
+    if (!are_all_columns_signaled_for_key(
+            table, keyinfo, &rli->tables_to_lock->m_tabledef, &m_cols))
+      DBUG_RETURN(false);
+
+    if (key == table->s->primary_key) found_pk = true;
+    key_infos.push_back(&table->key_info[key]);
+  }
+
+  // Case: We cannot function without a PK, abort!
+  if (!found_pk) DBUG_RETURN(false);
+
+  // Figure out type conversions
+  TABLE *conv_table = nullptr;
+  if (!rli->tables_to_lock->m_tabledef.compatible_with(
+          thd, rli, rli->tables_to_lock->table, &conv_table)) {
+    sql_print_error(
+        "Unable to check type compatibility at pos %s:%llu, "
+        "syncing group",
+        rli->get_rpl_log_name(), common_header->log_pos);
+    clear_all_errors(rli->info_thd, rli);
+    DBUG_RETURN(false);
+  }
+  rli->tables_to_lock->m_conv_table = conv_table;
+
+  // This is needed only to satisfy some debug asserts, not strictly required
+  // for key parsing because upack_row takes cols as an argument instead of
+  // relying on read and write sets
+  bitmap_set_all(table->read_set);
+  bitmap_set_all(table->write_set);
+
+  uchar *curr_row = nullptr, *key_buf = nullptr, *curr_row_end = nullptr;
+  enum_row_image_type row_image_type;
+  uint i = 0;
+
+  for (i = 0, curr_row = m_rows_buf; curr_row != m_rows_end;
+       curr_row = curr_row_end, i++) {
+    MY_BITMAP *cols = &m_cols;  // init with before image bitmap
+
+    if (get_general_type_code() == binary_log::UPDATE_ROWS_EVENT) {
+      // NOTE: In updates, the after image follows the before image, hence
+      // every odd index will be an after image
+      if (i % 2 == 1) {
+        cols = &m_cols_ai;
+        row_image_type = enum_row_image_type::UPDATE_AI;
+      } else {
+        row_image_type = enum_row_image_type::UPDATE_BI;
+      }
+    } else {
+      row_image_type = get_general_type_code() == binary_log::WRITE_ROWS_EVENT
+                           ? enum_row_image_type::WRITE_AI
+                           : enum_row_image_type::DELETE_BI;
+    }
+
+    bool has_value_options =
+        (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
+
+    // Unpack the row
+    if (::unpack_row(rli, table, m_width, curr_row, cols,
+                     const_cast<const uchar **>(&curr_row_end), m_rows_end,
+                     row_image_type, has_value_options, false,
+                     thd->row_query)) {
+      /* We were unable to unpack the row. This is a serious error. */
+      sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
+                      rli->get_rpl_log_name(), common_header->log_pos);
+      clear_all_errors(rli->info_thd, rli);
+      DBUG_RETURN(false);
+    }
+
+    for (const auto &key_info : key_infos) {
+      // Case: This key is not present in this row image
+      if (!are_all_columns_signaled_for_key(
+              table, key_info, &rli->tables_to_lock->m_tabledef, cols)) {
+        // NOTE: we've already checked if all keys are present in the before
+        // image in the beginning of this method, so this has to be the after
+        // image
+        DBUG_ASSERT(cols == &m_cols_ai);
+        continue;
+      }
+
+      // TODO (abhinav): We should check if a key is null to avoid unnecessary
+      // dependencies between null unique keys (since nulls are treated as
+      // distinct)
+      Dependency_key curr_key;
+
+      for (uint i = 0; i < key_info->user_defined_key_parts; i++) {
+        curr_key.key_length += key_info->key_part[i].field->sort_length();
+      }
+      curr_key.table_id = m_table_name;
+
+      key_buf = (uchar *)my_malloc(key_memory_log_event, curr_key.key_length,
+                                   MYF(MY_WME));
+      if (!key_buf) {
+        sql_print_error(
+            "Unable to allocate memory for dependency key at "
+            "%s:%llu, syncing group",
+            rli->get_rpl_log_name(), common_header->log_pos);
+        clear_all_errors(rli->info_thd, rli);
+        DBUG_RETURN(false);
+      }
+
+      memset(key_buf, 0x0, curr_key.key_length);
+
+      auto buf = key_buf;
+      for (uint i = 0; i < key_info->user_defined_key_parts; i++) {
+        const auto len = key_info->key_part[i].field->sort_length();
+        key_info->key_part[i].field->make_sort_key(buf, len);
+        buf += len;
+      }
+
+      std::shared_ptr<uchar> tmp(key_buf, key_dealloc_cb);
+      curr_key.key_buffer = tmp;
+      keys.push_back(curr_key);
+    }
+  }
+  // dbug case: either all BIs and AIs will have keys, or only all BIs will have
+  // keys
+  DBUG_ASSERT(keys.size() == 2 * i || keys.size() == i);
+  DBUG_RETURN(true);
+}
+
+/**
+  Returns the set of keys written by the statement as a deque.
+*/
+bool Rows_log_event::get_keys(Relay_log_info *rli,
+                              std::deque<Dependency_key> &keys) {
+  DBUG_ENTER("Rows_log_event::get_keys");
+
+  RPL_TABLE_LIST *table_list = nullptr;
+  void *memory = nullptr;
+  bool success = false;
+
+  DBUG_ASSERT(rli->mts_dependency_replication);
+
+  // case: table level dependency, just add the table key and return
+  if (rli->mts_dependency_replication == DEP_RPL_TABLE) {
+    Dependency_key table_key;
+    table_key.table_id = m_table_name;
+    keys.push_back(table_key);
+    DBUG_RETURN(true);
+  }
+
+  DBUG_ASSERT(rli->mts_dependency_replication == DEP_RPL_STATEMENT);
+  DBUG_ASSERT(thd->open_tables == nullptr);
+  DBUG_ASSERT(m_key_info == nullptr);
+  DBUG_ASSERT(m_table == nullptr);
+  DBUG_ASSERT(m_curr_row_end == nullptr);
+  DBUG_ASSERT(m_curr_row == m_rows_buf);
+
+  /* Try to get a reference to the table definition. This may fail if the
+   * corresponding DDL statement hasn't yet been executed.
+   */
+  if (unlikely(!get_table_ref(rli, &memory, &table_list))) {
+    DBUG_ASSERT(rli->tables_to_lock == nullptr);
+    rli->tables_to_lock = table_list;
+    success = parse_keys(rli, table_list->table, keys);
+    rli->tables_to_lock = nullptr;
+  }
+
+  DBUG_ASSERT(memory != nullptr);
+  DBUG_ASSERT(table_list->m_tabledef_valid);
+
+  /* Cleanup any state associated with the table definition. */
+  close_table_ref(table_list);
+  if (table_list && table_list->m_tabledef_valid) {
+    table_list->m_tabledef.table_def::~table_def();
+    table_list->m_tabledef_valid = false;
+  }
+  if (table_list && table_list->m_conv_table)
+    free_blobs(table_list->m_conv_table);
+  my_free(memory);
+
+  /* Cleanup local state used to parse out keys. */
+  m_key_info = nullptr;
+  m_table = nullptr;
+  m_curr_row_end = nullptr;
+  m_curr_row = m_rows_buf;
+
+  DBUG_RETURN(success);
+}
+
+/**
+  Returns a reference to a single TABLE* in the provided table_list. On return,
+  the rli thread has a shared meta-data lock on the TABLE*. This lock is
+  released in close_table_ref. This function might break if we're holding more
+  meta-data locks and assumes that no meta-data locks are held at the time it
+  is called.
+*/
+bool Rows_log_event::get_table_ref(Relay_log_info *rli, void **memory,
+                                   RPL_TABLE_LIST **table_list) {
+  DBUG_ENTER("Rows_log_event::get_table_ref");
+  DBUG_ASSERT(!thd->mdl_context.has_locks());
+  DBUG_ASSERT(rli->table_map_events.count(get_table_id()));
+  DBUG_ASSERT(memory != nullptr);
+
+  auto table_map = rli->table_map_events.at(get_table_id());
+
+  if (!(*memory = table_map->setup_table_rli(table_list))) DBUG_RETURN(1);
+
+  (*table_list)->mdl_request.duration = MDL_STATEMENT;
+  (*table_list)->mdl_request.type = MDL_SHARED;
+
+  bool error = get_table_from_cache(thd, (TABLE_LIST *)(*table_list));
+  DBUG_ASSERT(thd->mdl_context.has_locks());
+  DBUG_RETURN(error);
+}
+
+/**
+  Close the one and only TABLE* in the given table_list.
+*/
+void Rows_log_event::close_table_ref(RPL_TABLE_LIST *table_list) {
+  DBUG_ENTER("Rows_log_event::close_table_ref");
+  DBUG_ASSERT(thd->mdl_context.has_locks());
+
+  return_table_to_cache(thd, (TABLE_LIST *)table_list);
+
+  DBUG_ASSERT(!thd->mdl_context.has_locks());
+  DBUG_ASSERT(thd->open_tables == nullptr);
+  DBUG_VOID_RETURN;
+}
+
+void Rows_log_event::prepare_dep(Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Rows_log_event::prepare_dep");
+
+  DBUG_ASSERT(rli->prev_event != nullptr);
+  DBUG_ASSERT(rli->table_map_events.count(get_table_id()));
+
+  // case: this group will be synced, so we don't need to parse and store keys
+  if (rli->dep_sync_group) {
+    DBUG_VOID_RETURN;
+  }
+
+  const auto tbe = rli->table_map_events.at(get_table_id());
+  DBUG_ASSERT(tbe);
+  std::string db_name(tbe->get_db_name());
+  std::string table_name(tbe->get_table_name());
+
+  auto full_table_name = db_name.append(std::to_string(db_name.length()))
+                             .append(table_name)
+                             .append(std::to_string(table_name.length()));
+
+  m_table_name = full_table_name;
+  DBUG_ASSERT(!m_table_name.empty());
+
+  // case: something went wrong while finding keys for this event, switch to
+  // sync mode!
+  if (unlikely(!get_keys(rli, m_keylist) ||
+               m_keylist.size() + rli->keys_accessed_by_group.size() >
+                   rli->mts_dependency_max_keys)) {
+    rli->dep_sync_group = true;
+    m_keylist.clear();
+    rli->keys_accessed_by_group.clear();
+  } else {
+    rli->keys_accessed_by_group.insert(m_keylist.begin(), m_keylist.end());
+  }
+
+  mysql_mutex_lock(&rli->dep_key_lookup_mutex);
+  /* Handle dependencies. */
+  for (const auto &k : m_keylist) {
+    auto last_key_event = rli->dep_key_lookup.find(k);
+    if (last_key_event != rli->dep_key_lookup.end()) {
+      last_key_event->second->add_dependent(ev);
+    }
+  }
+  mysql_mutex_unlock(&rli->dep_key_lookup_mutex);
+
+  DBUG_VOID_RETURN;
+}
+
+void *Table_map_log_event::setup_table_rli(RPL_TABLE_LIST **table_list) {
+  DBUG_ENTER("Table_map_log_event::setup_table_rli");
+
+  char *db_mem = nullptr, *tname_mem = nullptr;
+  void *memory = nullptr;
+
+  if (!(memory = my_multi_malloc(PSI_NOT_INSTRUMENTED, MYF(MY_WME), table_list,
+                                 (uint)sizeof(RPL_TABLE_LIST), &db_mem,
+                                 (uint)NAME_LEN + 1, &tname_mem,
+                                 (uint)NAME_LEN + 1, NullS)))
+    DBUG_RETURN(nullptr);
+
+  strcpy(db_mem, m_dbnam.c_str());
+  strcpy(tname_mem, m_tblnam.c_str());
+
+  if (lower_case_table_names == 1) {
+    my_casedn_str(system_charset_info, db_mem);
+    my_casedn_str(system_charset_info, tname_mem);
+  }
+
+  (*table_list)
+      ->init_one_table(db_mem, strlen(db_mem), tname_mem, strlen(tname_mem),
+                       tname_mem, TL_WRITE);
+
+  new (&((*table_list)->m_tabledef))
+      table_def(m_coltype, m_colcnt, m_field_metadata, m_field_metadata_size,
+                m_null_bits, m_flags, m_column_names, m_sign_bits);
+  (*table_list)->m_tabledef_valid = true;
+  (*table_list)->m_conv_table = nullptr;
+  (*table_list)->open_type = OT_BASE_ONLY;
+
+  DBUG_RETURN(memory);
+}
+
+void Gtid_log_event::prepare_dep(Relay_log_info *,
+                                 std::shared_ptr<Log_event_wrapper> &ev) {
+  DBUG_ENTER("Gtid_log_event::prepare_dep");
+  DBUG_ASSERT(ev->begin_event() == nullptr);
+  ev->is_begin_event = true;
+  DBUG_VOID_RETURN;
+}
+
+#endif  // defined(MYSQL_SERVER)

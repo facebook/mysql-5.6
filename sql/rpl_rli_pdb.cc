@@ -345,6 +345,7 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   jobs.inited_queue = true;
   curr_group_seen_gtid = false;
   curr_group_seen_metadata = false;
+  DBUG_EXECUTE_IF("slave_worker_queue_size", { jobs.entry = jobs.size = 5; });
 #ifndef DBUG_OFF
   curr_group_seen_sequence_number = false;
 #endif
@@ -365,6 +366,12 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   // workers and coordinator must be of the same type
   DBUG_ASSERT(rli->current_mts_submode->get_type() ==
               current_mts_submode->get_type());
+  // copy these over for easy access
+  mts_dependency_replication = c_rli->mts_dependency_replication;
+  mts_dependency_size = c_rli->mts_dependency_size;
+  mts_dependency_refill_threshold = c_rli->mts_dependency_refill_threshold;
+  mts_dependency_max_keys = c_rli->mts_dependency_max_keys;
+  mts_dependency_order_commits = c_rli->mts_dependency_order_commits;
 
   m_order_commit_deadlock = false;
   DBUG_RETURN(0);
@@ -1746,6 +1753,37 @@ static int64 get_sequence_number(Log_event *ev) {
 #endif
 
 /**
+ * Wait for all dependency slave workers to finish working on all enqueued trxs
+ *
+ * @param rli           Relay log info of the coordinator thread
+ * @param partial_trx   Have we queued a partial transaction?
+ *                      If true, we can't blindly wait for the trx counter to be
+ *                      zero (since the worker will not be able to complete
+ *                      that transaction)
+ * @return bool         true if all is well, false otherwise
+ */
+bool wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                    const bool partial_trx) {
+  DBUG_ASSERT(rli->mts_dependency_replication);
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&rli->dep_lock);
+
+  const ulonglong num = partial_trx ? 1 : 0;
+  rli->info_thd->ENTER_COND(&rli->dep_trx_all_done_cond, &rli->dep_lock,
+                            &stage_slave_waiting_for_dependency_workers,
+                            &old_stage);
+  while (rli->num_in_flight_trx > num && !rli->info_thd->killed) {
+    mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
+  }
+
+  mysql_mutex_unlock(&rli->dep_lock);
+  rli->info_thd->EXIT_COND(&old_stage);
+
+  return !rli->info_thd->killed;
+}
+
+/**
   MTS worker main routine.
   The worker thread loops in waiting for an event, executing it and
   fixing statistics counters.
@@ -1760,6 +1798,14 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
   DBUG_ENTER("slave_worker_exec_event");
 
+  if (rli->mts_dependency_replication) {
+    Slave_job_group *ptr_g = rli->gaq->get_job_group(ev->mts_group_idx);
+    ptr_g->worker = this;
+    ptr_g->worker_id = id;
+    ptr_g->shifted = bitmap_shifted;
+    bitmap_shifted = 0;
+  }
+
   thd->server_id = ev->server_id;
   thd->set_time();
   thd->lex->set_current_select(0);
@@ -1769,8 +1815,8 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   ev->worker = this;
 
 #ifndef DBUG_OFF
-  if (!is_mts_db_partitioned(rli) && may_have_timestamp(ev) &&
-      !curr_group_seen_sequence_number) {
+  if (rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_LOGICAL_CLOCK &&
+      may_have_timestamp(ev) && !curr_group_seen_sequence_number) {
     curr_group_seen_sequence_number = true;
 
     longlong lwm_estimate =
@@ -1804,7 +1850,8 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
   // Address partioning only in database mode
   if (!is_gtid_event(ev) && is_mts_db_partitioned(rli)) {
-    if (ev->contains_partition_info(end_group_sets_max_dbs)) {
+    if (!rli->mts_dependency_replication &&
+        ev->contains_partition_info(end_group_sets_max_dbs)) {
       uint num_dbs = ev->mts_number_dbs();
 
       if (num_dbs == OVER_MAX_DBS_IN_EVENT_MTS) num_dbs = 1;
@@ -2247,7 +2294,7 @@ bool append_item_to_jobs(slave_job_item *job_item, Slave_worker *worker,
   ulonglong new_pend_size;
   PSI_stage_info old_stage;
 
-  DBUG_ASSERT(thd == current_thd);
+  DBUG_ASSERT(rli->mts_dependency_replication || thd == current_thd);
 
   mysql_mutex_lock(&rli->pending_jobs_lock);
   new_pend_size = rli->mts_pending_jobs_size + ev_size;
@@ -2709,7 +2756,7 @@ err:
     DBUG_PRINT("info", ("Worker %lu is exiting: killed %i, error %i, "
                         "running_status %d",
                         worker->id, thd->killed.load(), thd->is_error(),
-                        worker->running_status));
+                        worker->running_status.load()));
     worker->slave_worker_ends_group(ev, error); /* last done sets post exec */
   }
   DBUG_RETURN(error);
@@ -2724,3 +2771,159 @@ const uint *Slave_worker::get_table_pk_field_indexes() {
 }
 
 uint Slave_worker::get_channel_field_index() { return LINE_FOR_CHANNEL; }
+
+/**
+  apply a single job.
+
+  @note the function maintains worker's CGEP and modifies APH, updates
+        the current group item in GAQ via @c slave_worker_ends_group().
+
+  param[in] worker the worker which calls it.
+  param[in] rli    slave's relay log info object.
+
+  return returns 0 if a job is applied successfully, otherwise
+         returns an error code.
+ */
+int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
+                                 std::shared_ptr<Log_event_wrapper> &ev_wrap,
+                                 uint start_relay_number,
+                                 my_off_t start_relay_pos) {
+  THD *thd = worker->info_thd;
+  int error = 0;
+  Log_event *ev = nullptr;
+
+  DBUG_ENTER("slave_worker_exec_single_job");
+
+  /* Current event with Worker associator. */
+  RLI_current_event_raii worker_curr_ev(worker, ev);
+
+  Slave_job_group *ptr_g;
+
+  if (unlikely(thd->killed ||
+               worker->running_status == Slave_worker::STOP_ACCEPTED)) {
+    DBUG_ASSERT(worker->running_status != Slave_worker::ERROR_LEAVING);
+    // de-queueing and decrement counters is in the caller's exit branch
+    error = -1;
+    goto err;
+  }
+
+  ev = ev_wrap->raw_event();
+  DBUG_ASSERT(ev != nullptr);
+  DBUG_PRINT("info",
+             ("W_%lu <- job item: data: %p thd: %p", worker->id, ev, thd));
+  /*
+    Associate the freshly read event with worker.
+    The binding also remains when the loop breaks at the group end event
+    so a DDL Query_log_event as such a breaker would remain pinned to
+    the Worker by the slave info table update and commit time,
+    see slave_worker_ends_group().
+  */
+  worker_curr_ev.set_current_event(ev);
+
+  if (ev->starts_group()) {
+    if (unlikely(worker->trans_retries > 0)) worker->trans_retries = 0;
+    worker->end_group_sets_max_dbs = true;
+  }
+  set_timespec_nsec(&worker->ts_exec[0], 0);  // pre-exec
+  worker->stats_read_time +=
+      diff_timespec(&worker->ts_exec[0], &worker->ts_exec[1]);
+  /* Adapting to possible new Format_description_log_event */
+  ptr_g = rli->gaq->get_job_group(ev->mts_group_idx);
+  if (ptr_g->new_fd_event) {
+    worker->set_rli_description_event(ptr_g->new_fd_event);
+    ptr_g->new_fd_event = nullptr;
+  }
+
+  error = worker->slave_worker_exec_event(ev);
+  ev_wrap->set_slave_worker(worker);
+
+  set_timespec_nsec(&worker->ts_exec[1], 0);  // pre-exec
+  worker->stats_exec_time +=
+      diff_timespec(&worker->ts_exec[1], &worker->ts_exec[0]);
+  if (error || worker->found_order_commit_deadlock()) {
+    error = worker->retry_transaction(start_relay_number, start_relay_pos,
+                                      ev_wrap->get_event_relay_log_number(),
+                                      ev_wrap->get_event_start_pos());
+    if (error) goto err;
+  }
+  /*
+    p-event or any other event of B-free (malformed) group can
+    "commit" with logical clock scheduler. In that case worker id
+    points to the only active "exclusive" Worker that processes such
+    malformed group events one by one.
+    WL#7592 refines the original assert disjunction formula
+    with the final disjunct.
+  */
+  DBUG_ASSERT(ev_wrap->is_begin_event || is_gtid_event(ev) ||
+              ev->get_type_code() == binary_log::QUERY_EVENT ||
+              is_mts_db_partitioned(rli) || worker->id == 0 ||
+              ev_wrap->is_end_event);
+
+  if (!ev_wrap->is_end_event) {
+    /* The event will be used later if worker is NULL, so it is not freed */
+    if (ev->worker != nullptr) {
+      /* cache TABLE_MAP_EVENT events for usage by
+       * Relay_log_info::table_map_events */
+      if (ev->get_type_code() != binary_log::TABLE_MAP_EVENT) {
+        ev_wrap->is_appended_to_queue = true;
+        delete ev;
+      }
+    } else {
+      ev_wrap->is_appended_to_queue = true;
+    }
+
+    DBUG_RETURN(0);
+  }
+
+  DBUG_PRINT("info", (" commits GAQ index %lu, last committed  %lu",
+                      ev->mts_group_idx, worker->last_group_done_index));
+  /* The group is applied successfully, so error should be 0 */
+  worker->slave_worker_ends_group(ev, 0);
+
+  /*
+    Check if the finished group started with a Gtid_log_event to update the
+    monitoring information
+  */
+  if (current_thd->rli_slave->is_processing_trx()) {
+    DBUG_EXECUTE_IF("rpl_ps_tables", {
+      const char act[] =
+          "now SIGNAL signal.rpl_ps_tables_apply_before "
+          "WAIT_FOR signal.rpl_ps_tables_apply_finish";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    };);
+    if (ev->get_type_code() == binary_log::QUERY_EVENT &&
+        ((Query_log_event *)ev)->rollback_injected_by_coord) {
+      /*
+        If this was a rollback event injected by the coordinator because of a
+        partial transaction in the relay log, we must not consider this
+        transaction completed and, instead, clear the monitoring info.
+      */
+      current_thd->rli_slave->clear_processing_trx();
+    } else {
+      current_thd->rli_slave->finished_processing();
+    }
+    DBUG_EXECUTE_IF("rpl_ps_tables", {
+      const char act[] =
+          "now SIGNAL signal.rpl_ps_tables_apply_after_finish "
+          "WAIT_FOR signal.rpl_ps_tables_apply_continue";
+      DBUG_ASSERT(opt_debug_sync_timeout > 0);
+      DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+    };);
+  }
+
+  ev_wrap->is_appended_to_queue = true;
+  delete ev;
+
+  DBUG_RETURN(0);
+err:
+  if (error) {
+    report_error_to_coordinator(worker);
+    DBUG_PRINT("info", ("Worker %lu is exiting: killed %i, error %i, "
+                        "running_status %d",
+                        worker->id, thd->killed.load(), thd->is_error(),
+                        worker->running_status.load()));
+    worker->slave_worker_ends_group(ev, error); /* last done sets post exec */
+  }
+  DBUG_RETURN(error);
+}

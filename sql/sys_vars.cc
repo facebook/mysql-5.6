@@ -4977,6 +4977,11 @@ static Sys_var_transaction_isolation Sys_transaction_isolation(
     tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_transaction_isolation));
 
+static Sys_var_transaction_isolation Sys_slave_tx_isolation(
+    "slave_tx_isolation", "Slave thread transaction isolation level",
+    GLOBAL_VAR(slave_tx_isolation), CMD_LINE(REQUIRED_ARG), tx_isolation_names,
+    DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD, NOT_IN_BINLOG, nullptr);
+
 /**
   Function to check if the state of 'transaction_read_only' can be changed.
   The state cannot be changed if there is already a transaction in progress.
@@ -6224,6 +6229,39 @@ static Sys_var_double Sys_mts_imbalance_threshold(
     "denotes the percent load on the most loaded worker.",
     GLOBAL_VAR(opt_mts_imbalance_threshold), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, 100), DEFAULT(90));
+
+static const char *dep_rpl_type_names[] = {"NONE", "TBL", "STMT", NullS};
+
+static Sys_var_enum Sys_mts_dependency_replication(
+    "mts_dependency_replication", "Use dependency based replication",
+    GLOBAL_VAR(opt_mts_dependency_replication), CMD_LINE(OPT_ARG),
+    dep_rpl_type_names, DEFAULT(DEP_RPL_NONE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(0), ON_UPDATE(0));
+
+static Sys_var_ulonglong Sys_mts_dependency_size(
+    "mts_dependency_size", "Max size of the dependency buffer",
+    GLOBAL_VAR(opt_mts_dependency_size), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(1000), BLOCK_SIZE(1));
+
+static Sys_var_double Sys_mts_dependency_refill_threshold(
+    "mts_dependency_refill_threshold",
+    "Capacity in percentage at which to start refilling the dependency "
+    "buffer",
+    GLOBAL_VAR(opt_mts_dependency_refill_threshold), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(60));
+
+static Sys_var_ulonglong Sys_mts_dependency_max_keys(
+    "mts_dependency_max_keys",
+    "Max number of keys in a transaction after which it will be executed in "
+    "isolation. This limits the amount of metadata we'll need to maintain.",
+    GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_mts_dependency_order_commits(
+    "mts_dependency_order_commits",
+    "Commit trxs in the same order as the master (per database)",
+    GLOBAL_VAR(opt_mts_dependency_order_commits), CMD_LINE(OPT_ARG),
+    DEFAULT(true));
 
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
     "slave_pending_jobs_size_max",

@@ -754,6 +754,21 @@ The following options may be given as the first argument:
  minimum_hlc_ns is successfully updated is guranteed to be
  greater than this value. The maximum allowed drift 
  (forward) is controlled by maximum_hlc_drift_ns
+ --mts-dependency-max-keys[=#] 
+ Max number of keys in a transaction after which it will
+ be executed in isolation. This limits the amount of
+ metadata we'll need to maintain.
+ --mts-dependency-order-commits 
+ Commit trxs in the same order as the master (per
+ database)
+ (Defaults to on; use --skip-mts-dependency-order-commits to disable.)
+ --mts-dependency-refill-threshold[=#] 
+ Capacity in percentage at which to start refilling the
+ dependency buffer
+ --mts-dependency-replication[=name] 
+ Use dependency based replication
+ --mts-dependency-size[=#] 
+ Max size of the dependency buffer
  --mts-dynamic-rebalance 
  Shuffle DB's within workers periodically for load
  balancing
@@ -1919,6 +1934,8 @@ The following options may be given as the first argument:
  Number of times the slave SQL thread will retry a
  transaction in case it failed with a deadlock or elapsed
  lock wait timeout, before giving up and stopping
+ --slave-tx-isolation=name 
+ Slave thread transaction isolation level
  --slave-type-conversions=name 
  Set of slave type conversions that are enabled. Legal
  values are: ALL_LOSSY to enable lossy conversions,
@@ -2283,6 +2300,11 @@ maximum-hlc-drift-ns 300000000000
 memlock FALSE
 min-examined-row-limit 0
 minimum-hlc-ns 0
+mts-dependency-max-keys 100000
+mts-dependency-order-commits TRUE
+mts-dependency-refill-threshold 60
+mts-dependency-replication NONE
+mts-dependency-size 1000
 mts-dynamic-rebalance FALSE
 mts-imbalance-threshold 90
 myisam-block-size 1024
@@ -2630,6 +2652,7 @@ slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
+slave-tx-isolation REPEATABLE-READ
 slave-type-conversions 
 slave-use-idempotent-for-recovery NO
 slow-launch-time 2

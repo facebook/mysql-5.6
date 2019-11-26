@@ -67,6 +67,9 @@
 #include <utility>
 #include <vector>
 
+#include <signal.h>
+#include "dependency_slave_worker.h"
+
 #include "binlog_event.h"
 #include "control_events.h"
 #include "debug_vars.h"
@@ -4488,7 +4491,13 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
                         DBUG_SET("+d,stop_when_mts_in_group"););
 
     if (!exec_res && (ev->worker != rli)) {
-      if (ev->worker) {
+      if (rli->mts_dependency_replication) {
+        DBUG_ASSERT(ev->worker == nullptr);
+        if (!ev->schedule_dep(rli)) {
+          *ptr_ev = nullptr;
+          DBUG_RETURN(SLAVE_APPLY_EVENT_AND_UPDATE_POS_APPLY_ERROR);
+        }
+      } else if (ev->worker) {
         Slave_job_item item = {ev, rli->get_event_relay_log_number(),
                                rli->get_event_start_pos()};
         Slave_job_item *job_item = &item;
@@ -5897,6 +5906,9 @@ static void *handle_slave_worker(void *arg) {
   thd_set_psi(w->info_thd, psi);
 #endif
 
+  w->info_thd->variables.transaction_isolation =
+      static_cast<enum_tx_isolation>(slave_tx_isolation);
+
   if (init_slave_thread(thd, SLAVE_THD_WORKER)) {
     // todo make SQL thread killed
     LogErr(ERROR_LEVEL, ER_RPL_SLAVE_CANT_INITIALIZE_SLAVE_WORKER,
@@ -5949,10 +5961,13 @@ static void *handle_slave_worker(void *arg) {
   set_timespec_nsec(&w->ts_exec[1], 0);
   set_timespec_nsec(&w->stats_begin, 0);
 
-  while (!error) {
-    error = slave_worker_exec_job_group(w, rli);
+  if (rli->mts_dependency_replication) {
+    static_cast<Dependency_slave_worker *>(w)->start();
+  } else {
+    while (!error) {
+      error = slave_worker_exec_job_group(w, rli);
+    }
   }
-
   /*
      Cleanup after an error requires clear_error() go first.
      Otherwise assert(!all) in binlog_rollback()
@@ -6364,7 +6379,8 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
      The workers have completed  cnt jobs from the gaq. This means that we
      should increment C->jobs_done by cnt.
    */
-  if (!is_mts_worker(rli->info_thd) && !is_mts_db_partitioned(rli)) {
+  if (!is_mts_worker(rli->info_thd) &&
+      rli->current_mts_submode->get_type() == MTS_PARALLEL_TYPE_LOGICAL_CLOCK) {
     DBUG_PRINT("info", ("jobs_done this itr=%ld", cnt));
     static_cast<Mts_submode_logical_clock *>(rli->current_mts_submode)
         ->jobs_done += cnt;
@@ -6373,20 +6389,22 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
   // case: rebalance workers should be called only when the current event
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance && !rli->curr_group_seen_begin &&
-      !rli->curr_group_seen_gtid && !rli->sql_thread_kill_accepted) {
+      !rli->mts_dependency_replication && !rli->curr_group_seen_gtid &&
+      !rli->sql_thread_kill_accepted) {
     rebalance_workers(rli);
   }
-
-  /* TODO:
-     to turn the least occupied selection in terms of jobs pieces
-  */
-  for (Slave_worker **it = rli->workers.begin(); it != rli->workers.begin();
-       ++it) {
-    Slave_worker *w_i = *it;
-    rli->least_occupied_workers[w_i->id] = w_i->jobs.len;
-  };
-  std::sort(rli->least_occupied_workers.begin(),
-            rli->least_occupied_workers.end());
+  if (!rli->mts_dependency_replication) {
+    /* TODO:
+       to turn the least occupied selection in terms of jobs pieces
+    */
+    for (Slave_worker **it = rli->workers.begin(); it != rli->workers.begin();
+         ++it) {
+      Slave_worker *w_i = *it;
+      rli->least_occupied_workers[w_i->id] = w_i->jobs.len;
+    };
+    std::sort(rli->least_occupied_workers.begin(),
+              rli->least_occupied_workers.end());
+  }
 
   if (DBUG_EVALUATE_IF("skip_checkpoint_load_reset", 0, 1)) {
     // reset the database load
@@ -6677,11 +6695,42 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
   rli->max_updated_index = (rli->until_condition != Relay_log_info::UNTIL_NONE)
                                ? rli->mts_groups_assigned
                                : 0;
-  if (!rli->workers.empty()) {
+
+  if (rli->mts_dependency_replication) {
+    mysql_mutex_lock(&rli->dep_lock);
+    // this will be used to determine if we need to deal with a worker that is
+    // handling a partially enqueued trx
+    bool partial = false;
+    // case: until condition is specified, so we have to execute all
+    // transactions in the queue
+    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
+      // we have a partial trx if the coordinator has set the trx_queued flag,
+      // this is because this flag is set to false after coordinator sees an end
+      // event
+      partial = rli->trx_queued;
+    }
+    // case: until condition is not specified
+    else {
+      // the partial check is slightly complicated in this case because we only
+      // care about partial trx that has been pulled by a worker, since the
+      // queue is going to be emptied next anyway, we make this check by
+      // checking of the queue is empty
+      partial = rli->dep_queue.empty() && rli->trx_queued;
+      // let's cleanup, we can clear the queue in this case
+      rli->clear_dep(false);
+    }
+    mysql_mutex_unlock(&rli->dep_lock);
+
+    wait_for_dep_workers_to_finish(rli, partial);
+
+    // case: if UNTIL is specified let's clean up after waiting for workers
+    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
+      rli->clear_dep(true);
+    }
+
+    // set all workers as STOP_ACCEPTED, and signal blocked workers
     for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
       Slave_worker *w = rli->workers[i];
-      struct slave_job_item item = {nullptr, 0, 0};
-      struct slave_job_item *job_item = &item;
       mysql_mutex_lock(&w->jobs_lock);
 
       if (w->running_status != Slave_worker::RUNNING) {
@@ -6689,36 +6738,76 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
         continue;
       }
 
-      w->running_status = Slave_worker::STOP;
-      (void)set_max_updated_index_on_stop(w, job_item);
-      mysql_cond_signal(&w->jobs_cond);
+      w->running_status = Slave_worker::STOP_ACCEPTED;
+
+      // unblock workers waiting for new events or trxs
+      mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
+      w->info_thd->awake(w->info_thd->killed);
+      mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
 
       mysql_mutex_unlock(&w->jobs_lock);
-
-      DBUG_PRINT("info", ("Notifying worker %lu%s to exit, thd %p", w->id,
-                          w->get_for_channel_str(), w->info_thd));
     }
-  }
-  thd_proc_info(thd, "Waiting for workers to exit");
 
-  for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
-       ++it) {
-    Slave_worker *w = *it;
-    mysql_mutex_lock(&w->jobs_lock);
-    while (w->running_status != Slave_worker::NOT_RUNNING) {
-      PSI_stage_info old_stage;
-      DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
-                  w->running_status == Slave_worker::STOP ||
-                  w->running_status == Slave_worker::STOP_ACCEPTED);
+    thd_proc_info(thd, "Waiting for workers to exit");
 
-      thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
-                      &stage_slave_waiting_workers_to_exit, &old_stage);
-      mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
-      mysql_mutex_unlock(&w->jobs_lock);
-      thd->EXIT_COND(&old_stage);
+    for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
+      Slave_worker *w = rli->workers[i];
       mysql_mutex_lock(&w->jobs_lock);
+
+      // wait for workers to stop running
+      while (w->running_status != Slave_worker::NOT_RUNNING) {
+        struct timespec abstime;
+        set_timespec(&abstime, 1);
+        mysql_cond_timedwait(&w->jobs_cond, &w->jobs_lock, &abstime);
+      }
+
+      mysql_mutex_unlock(&w->jobs_lock);
     }
-    mysql_mutex_unlock(&w->jobs_lock);
+    rli->dependency_worker_error = false;
+  } else {
+    if (!rli->workers.empty()) {
+      for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
+        Slave_worker *w = rli->workers[i];
+        struct slave_job_item item = {nullptr, 0, 0};
+        struct slave_job_item *job_item = &item;
+        mysql_mutex_lock(&w->jobs_lock);
+
+        if (w->running_status != Slave_worker::RUNNING) {
+          mysql_mutex_unlock(&w->jobs_lock);
+          continue;
+        }
+
+        w->running_status = Slave_worker::STOP;
+        (void)set_max_updated_index_on_stop(w, job_item);
+        mysql_cond_signal(&w->jobs_cond);
+
+        mysql_mutex_unlock(&w->jobs_lock);
+
+        DBUG_PRINT("info", ("Notifying worker %lu%s to exit, thd %p", w->id,
+                            w->get_for_channel_str(), w->info_thd));
+      }
+    }
+    thd_proc_info(thd, "Waiting for workers to exit");
+
+    for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
+         ++it) {
+      Slave_worker *w = *it;
+      mysql_mutex_lock(&w->jobs_lock);
+      while (w->running_status != Slave_worker::NOT_RUNNING) {
+        PSI_stage_info old_stage;
+        DBUG_ASSERT(w->running_status == Slave_worker::ERROR_LEAVING ||
+                    w->running_status == Slave_worker::STOP ||
+                    w->running_status == Slave_worker::STOP_ACCEPTED);
+
+        thd->ENTER_COND(&w->jobs_cond, &w->jobs_lock,
+                        &stage_slave_waiting_workers_to_exit, &old_stage);
+        mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);
+        mysql_mutex_unlock(&w->jobs_lock);
+        thd->EXIT_COND(&old_stage);
+        mysql_mutex_lock(&w->jobs_lock);
+      }
+      mysql_mutex_unlock(&w->jobs_lock);
+    }
   }
 
   for (Slave_worker **it = rli->workers.begin(); it != rli->workers.end();
@@ -6931,7 +7020,33 @@ extern "C" void *handle_slave_sql(void *arg) {
     thd->rpl_thd_ctx.set_rpl_channel_type(RPL_STANDARD_CHANNEL);
   }
 
+  rli->info_thd->variables.transaction_isolation =
+      static_cast<enum_tx_isolation>(slave_tx_isolation);
+
   mysql_mutex_unlock(&rli->info_thd_lock);
+
+  rli->mts_dependency_replication = opt_mts_dependency_replication;
+  rli->mts_dependency_size = opt_mts_dependency_size;
+  rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
+  rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
+  rli->mts_dependency_order_commits = opt_mts_dependency_order_commits;
+
+  if (rli->mts_dependency_replication &&
+      !slave_use_idempotent_for_recovery_options) {
+    sql_print_error(
+        "mts_dependency_replication is enabled but "
+        "slave_use_idempotent_for_recovery is disabled. The slave is not crash "
+        "safe! Please enable slave_use_idempotent_for_recovery for crash "
+        "safety.");
+  }
+
+  if (!commit_order_mngr && rli->mts_dependency_order_commits &&
+      rli->mts_dependency_replication && rli->opt_slave_parallel_workers > 0 &&
+      opt_bin_log && opt_log_slave_updates)
+    commit_order_mngr =
+        new Commit_order_manager(rli->opt_slave_parallel_workers);
+
+  rli->set_commit_order_manager(commit_order_mngr);
 
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
@@ -7186,6 +7301,8 @@ err:
         "WAIT_FOR continue_to_stop_sql_thread";
     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
   };);
+
+  DBUG_ASSERT(rli->num_workers_waiting == 0 && rli->num_in_flight_trx == 0);
 
   THD_STAGE_INFO(thd, stage_waiting_for_slave_mutex_on_exit);
   mysql_mutex_lock(&rli->run_lock);
