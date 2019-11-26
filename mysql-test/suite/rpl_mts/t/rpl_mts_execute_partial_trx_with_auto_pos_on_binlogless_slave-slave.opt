@@ -1,0 +1,2 @@
+--gtid-mode=ON --enforce-gtid-consistency=ON
+--disable-log-bin --log-slave-updates=false

@@ -1,3 +1,4 @@
+--gtid-mode=ON --enforce-gtid-consistency=ON
 --replicate-same-server-id
 --log-slave-updates=off
 --slave-parallel-workers=2
