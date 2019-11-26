@@ -23,4 +23,4 @@ stop slave;
 start slave;
 include/stop_slave.inc
 include/start_slave.inc
-include/stop_slave.inc
+include/rpl_end.inc

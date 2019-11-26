@@ -88,9 +88,6 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_ch
     enable_reconnect;
     # Call script that will poll the server waiting for it to be back online again
     source include/wait_until_connected_again.inc;
-    connection slave;
-    source include/wait_until_connected_again.inc;
-    connection master;
   }
 
   --echo Checksum master
@@ -111,6 +108,14 @@ python $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $slave_pid_file $
 $table 0 $max_rows $MYSQL_TMP_DIR/load_generator_slave 1 $checksum $secondary_index_checks;
     exec $slave_exec;
   }
+
+  if ($do_crash)
+  {
+    enable_reconnect;
+    # Call script that will poll the server waiting for it to be back online again
+    source include/wait_until_connected_again.inc;
+  }
+
   --echo Checksum slave
   let $slave_checksum=query_get_value(CHECKSUM TABLE t1, Checksum, 1);
   let $not_same = `SELECT $master_checksum-$slave_checksum`;
@@ -164,7 +169,6 @@ let $slave_sync_timeout = 7200;
 # mtr's internal check requires that there be no errors in slave status.
 # restarting replication clears the errors.
 --source include/start_slave.inc
---source include/stop_slave.inc
 
 connection master;
 
@@ -181,3 +185,19 @@ connection master;
 --disable_query_log
 #eval SET GLOBAL innodb_prefix_index_cluster_optimization = $innodb_index_cluster_optimization_save_master;
 --enable_query_log
+
+if ($do_crash)
+{
+  # The server_1/server_2/default connections are used by rpl_end for cleanup.
+  # Make sure they are reconnected as well.
+  connection server_1;
+  enable_reconnect;
+  source include/wait_until_connected_again.inc;
+  connection server_2;
+  enable_reconnect;
+  source include/wait_until_connected_again.inc;
+  connection default;
+  enable_reconnect;
+  source include/wait_until_connected_again.inc;
+}
+--source include/rpl_end.inc
