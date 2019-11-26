@@ -1,0 +1,171 @@
+source include/master-slave.inc;
+source include/have_mts_dependency_replication.inc;
+
+call mtr.add_suppression("cannot be converted from type");
+call mtr.add_suppression("Unable to check type compatibility at pos");
+call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+
+connection master;
+create table t1(a bigint primary key) engine = innodb;
+insert into t1 values(1);
+source include/sync_slave_sql_with_master.inc;
+
+echo "Changing column type of t1.a from bigint to tinyint on the slave";
+connection slave;
+set @@sql_log_bin = 0;
+alter table t1 modify a tinyint;
+set @@sql_log_bin = 1;
+
+echo "Case 1: Checking if dependencies are handled correctly when there is no truncation";
+connection slave;
+source include/stop_slave.inc;
+
+connection master;
+echo "Applying dependent updates on the master";
+update t1 set a = 2;
+update t1 set a = 3;
+
+connection slave1;
+echo "Blocking the first update on the slave";
+begin;
+update t1 set a = 4;
+
+connection slave;
+source include/start_slave.inc;
+
+connection slave;
+echo "The second update must wait for the first update to finish";
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+connection slave1;
+rollback;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t1;
+connection slave;
+select * from t1;
+
+echo "Case 2: Checking if dependencies are handled correctly when there is truncation";
+connection slave;
+source include/stop_slave.inc;
+
+connection master;
+echo "Updating all rows on master with value which will be truncated";
+update t1 set a = a + 10000;
+echo "Setting all values back to tinyint range";
+update t1 set a = a - 10000;
+
+connection slave1;
+echo "Blocking the first update on the slave";
+begin;
+update t1 set a = a + 2;
+
+connection slave;
+source include/start_slave.inc;
+
+connection slave;
+echo "The second update must wait for the first update to finish";
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+connection slave1;
+rollback;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t1;
+connection slave;
+select * from t1;
+
+echo "Case 3: Checking if dependencies are handled correctly in char PK";
+connection master;
+create table t2 (pk char(32) primary key, val int) engine = innodb;
+insert into t2 values('a', 1);
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+echo "Converting primary key from char(32) to char(64) on the master";
+set @@sql_log_bin = 0;
+alter table t2 modify pk char(64);
+set @@sql_log_bin = 1;
+
+connection slave;
+source include/stop_slave.inc;
+
+connection master;
+echo "Apply dependent updates on the master";
+update t2 set pk = 'b';
+update t2 set pk = 'c';
+
+connection slave1;
+echo "Blocking the first update on the slave";
+begin;
+update t2 set pk = 'd';
+
+connection slave;
+source include/start_slave.inc;
+
+connection slave;
+echo "The second update must wait for the first update to finish";
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = 'Waiting for dependencies to be satisfied';
+source include/wait_condition.inc;
+
+connection slave1;
+rollback;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t2;
+connection slave;
+select * from t2;
+
+echo "Case 4: Checking case where conversion will fail";
+connection master;
+create table t3 (pk varchar(32) primary key, val int) engine = innodb;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+echo "Converting primary key from varchar(32) to varchar(16) on the master";
+set @@sql_log_bin = 0;
+alter table t3 modify pk varchar(16);
+set @@sql_log_bin = 1;
+
+echo "Inserting some values";
+insert into t3 values ('a', 1);
+insert into t3 values ('b', 2);
+
+connection slave;
+echo "Slave should fail during conversion";
+let $slave_sql_errno= convert_error(ER_SERVER_SLAVE_CONVERSION_FAILED); # 13146
+source include/wait_for_slave_sql_error.inc;
+
+echo "Changing primary key type on slave to match with master";
+set @@sql_log_bin = 0;
+alter table t3 modify pk varchar(16);
+set @@sql_log_bin = 1;
+source include/start_slave.inc;
+
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+connection master;
+select * from t3;
+connection slave;
+select * from t3;
+
+# Cleanup
+connection master;
+drop table t1;
+drop table t2;
+drop table t3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

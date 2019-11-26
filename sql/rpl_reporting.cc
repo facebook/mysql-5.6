@@ -86,8 +86,18 @@ int Slave_reporting_capability::has_temporary_error(THD *thd, uint error_arg,
     wait timeout (innodb_lock_wait_timeout exceeded).
     Notice, the temporary error requires slave_trans_retries != 0)
   */
+#if 1  // TODO (Przemek): check if it works fine
   if (slave_trans_retries &&
       (error == ER_LOCK_DEADLOCK || error == ER_LOCK_WAIT_TIMEOUT))
+#else
+  // Since slave_gtid_info table is not used if
+  // slave_use_idempotent_for_recovery is enabled, we don't consider COMMIT
+  // errors temporary if idempotent recovery is on.
+  if (slave_trans_retries &&
+      (error == ER_LOCK_DEADLOCK || error == ER_LOCK_WAIT_TIMEOUT ||
+       (!thd->is_enabled_idempotent_recovery() &&
+        error == ER_ERROR_DURING_COMMIT)))
+#endif
     DBUG_RETURN(1);
 
   /*

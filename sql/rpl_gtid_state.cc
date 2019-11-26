@@ -28,6 +28,7 @@
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
+#include "my_md5.h"
 #include "my_sys.h"
 #include "my_systime.h"
 #include "mysql/components/services/psi_stage_bits.h"
@@ -477,7 +478,17 @@ enum_return_status Gtid_state::generate_automatic_gtid(
   if (get_gtid_mode(GTID_MODE_LOCK_SID) >= GTID_MODE_ON_PERMISSIVE) {
     Gtid automatic_gtid = {specified_sidno, specified_gno};
 
-    if (automatic_gtid.sidno == 0) automatic_gtid.sidno = get_server_sidno();
+    if (automatic_gtid.sidno == 0) {
+      MDL_DB_Name_List db_names;
+      thd->mdl_context.get_locked_object_db_names(db_names);
+      if (use_db_uuid && db_names.size()) {
+        rpl_sid db_uuid;
+        compute_md5_hash((char *)db_uuid.bytes, (*db_names.begin()).c_str(),
+                         (*db_names.begin()).length());
+        automatic_gtid.sidno = global_sid_map->add_sid(db_uuid);
+      } else
+        automatic_gtid.sidno = get_server_sidno();
+    }
 
     /*
       We need to lock the sidno if locked_sidno wasn't passed as paramenter

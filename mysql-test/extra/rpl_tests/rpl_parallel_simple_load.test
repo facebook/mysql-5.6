@@ -163,3 +163,6 @@ if ($sync_with_master)
   connection master;
   --source include/sync_slave_sql_with_master.inc
 }
+
+--enable_query_log
+--enable_result_log

@@ -129,6 +129,8 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
 Slave_worker *get_least_occupied_worker(Relay_log_info *rli,
                                         Slave_worker_array *workers,
                                         Log_event *ev);
+void wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                    const bool partial_trx);
 
 #define SLAVE_INIT_DBS_IN_GROUP 4  // initial allocation for CGEP dynarray
 
@@ -576,6 +578,10 @@ class Slave_worker : public Relay_log_info {
 #endif
   ulong id;  // numberic identifier of the Worker
 
+  // DB of the current trx begin executed by the worker, empty string for trxs
+  // changing multiple DBs and for trxs that need to be executed in isolation
+  std::string current_db;
+
   /*
     Worker runtime statictics
   */
@@ -664,7 +670,7 @@ class Slave_worker : public Relay_log_info {
     The running status is guarded by jobs_lock mutex that a writer
     Coordinator or Worker itself needs to hold when write a new value.
   */
-  en_running_state volatile running_status;
+  std::atomic<en_running_state> volatile running_status;
   /*
     exit_incremented indicates whether worker has contributed to max updated
     index. By default it is set to false. When the worker contibutes for the
@@ -818,6 +824,8 @@ class Slave_worker : public Relay_log_info {
     Slave_job_group *ptr_g = c_rli->gaq->get_job_group(gaq_index);
     return ptr_g->sequence_number;
   }
+  void set_current_db(const std::string &db) { current_db = db; }
+  std::string get_current_db() const { return current_db; }
 
   bool found_order_commit_deadlock() { return m_order_commit_deadlock; }
   void report_order_commit_deadlock() { m_order_commit_deadlock = true; }

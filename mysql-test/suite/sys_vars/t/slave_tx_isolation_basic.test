@@ -1,0 +1,137 @@
+--source include/load_sysvars.inc
+
+##############################################################################
+#                    START OF slave_tx_isolation TESTS                       #
+##############################################################################
+
+
+###############################################################################
+#     Saving initial value of slave_tx_isolation in a temporary variable      #
+###############################################################################
+
+SET @global_start_value = @@global.slave_tx_isolation;
+SELECT @global_start_value;
+
+--echo '#--------------------FN_DYNVARS_183_01------------------------#'
+##########################################################################
+#                    Display the DEFAULT value of slave_tx_isolation     #
+##########################################################################
+
+SET @@global.slave_tx_isolation = 'READ-UNCOMMITTED';
+SET @@global.slave_tx_isolation = DEFAULT;
+SELECT @@global.slave_tx_isolation;
+
+# Exists as global only
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+eval select @@session.slave_tx_isolation;
+
+--echo '#---------------------FN_DYNVARS_183_02-------------------------#'
+######################################################### 
+#      Check if NULL or empty value is accepeted        #
+######################################################### 
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = NULL;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = '';
+
+--echo '#--------------------FN_DYNVARS_183_03------------------------#'
+###########################################################################
+#              Change the value of slave_tx_isolation to a valid value    #
+###########################################################################
+
+SET @@global.slave_tx_isolation = 'READ-UNCOMMITTED';
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 'read-COMMITTED';
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 'REPEATABLE-READ';
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 'SERIALIZable';
+SELECT @@global.slave_tx_isolation;
+
+--echo '#--------------------FN_DYNVARS_183_04-------------------------#'
+#############################################################################
+#               Change the value of slave_tx_isolation to invalid value     #
+############################################################################
+
+# for global scope
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = READUNCOMMITTED;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = 'REPEATABLE';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = OFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = ON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.slave_tx_isolation = 'NON-SERIALIZABLE';
+
+--echo '#----------------------FN_DYNVARS_183_06------------------------#'
+######################################################################### 
+#     Check if the value in GLOBAL Table matches value in variable      #
+#########################################################################
+
+SELECT @@global.slave_tx_isolation = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='slave_tx_isolation';
+
+
+--echo '#---------------------FN_DYNVARS_183_07-------------------------#'
+################################################################### 
+#        Check if numbers can be used on variable                 #
+################################################################### 
+
+# test if variable accepts 0,1,2
+SET @@global.slave_tx_isolation = 0;
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 1;
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 2;
+SELECT @@global.slave_tx_isolation;
+
+SET @@global.slave_tx_isolation = 3;
+SELECT @@global.slave_tx_isolation;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.slave_tx_isolation = 0.4;
+
+--echo '#---------------------FN_DYNVARS_183_08----------------------#'
+################################################################### 
+#      Check if TRUE and FALSE values can be used on variable     #
+################################################################### 
+
+SET @@global.slave_tx_isolation = TRUE;
+SELECT @@global.slave_tx_isolation;
+SET @@global.slave_tx_isolation = FALSE;
+SELECT @@global.slave_tx_isolation;
+
+--echo '#---------------------FN_DYNVARS_183_09----------------------#'
+######################################################################## 
+# Check if slave_tx_isolation can be accessed with and without @@ sign #
+########################################################################
+--Error ER_PARSE_ERROR
+SET global.slave_tx_isolation = 'REPEATABLE-READ';
+
+#using SET GLOBAL syntax
+SET global slave_tx_isolation = 'REPEATABLE-READ';
+SELECT @@global.slave_tx_isolation;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.slave_tx_isolation = @global_start_value;
+SELECT @@global.slave_tx_isolation;
+
+####################################################################
+#                    END OF slave_tx_isolation TESTS               #
+####################################################################
+

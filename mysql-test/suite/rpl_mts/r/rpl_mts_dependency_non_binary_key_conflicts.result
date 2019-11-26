@@ -1,0 +1,38 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+set @save.mts_dependency_order_commits= @@global.mts_dependency_order_commits;
+set @save.debug= @@global.debug;
+set @@global.slave_parallel_workers= 2;
+set @@global.mts_dependency_order_commits= false;
+set @@global.debug= '+d,dbug.dep_wait_before_update_execution';
+include/start_slave.inc
+create table t1 (a int, b int, c varchar(36) primary key) default charset=latin1 collate=latin1_swedish_ci;
+insert into t1 values(1, 1, 'a');
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+update t1 set c = 'b' where c = 'a';
+insert into t1 values(1, 1, 'A');
+include/start_slave.inc
+set debug_sync="now wait_for signal.reached";
+select * from t1;
+a	b	c
+1	1	a
+set debug_sync="now signal signal.done";
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a	b	c
+1	1	A
+1	1	b
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+set @@global.mts_dependency_order_commits= @save.mts_dependency_order_commits;
+set @@global.debug= @save.debug;
+include/start_slave.inc
+include/rpl_end.inc
