@@ -511,6 +511,8 @@ int STDCALL mysql_session_track_get_first(MYSQL *mysql,
 int STDCALL mysql_session_track_get_next(MYSQL *mysql,
                                          enum enum_session_state_type type,
                                          const char **data, size_t *length);
+int STDCALL mysql_resp_attr_find(MYSQL *mysql, const char *lookup,
+                                 const char **data, size_t *length);
 /* local infile support */
 
 #define LOCAL_INFILE_ERROR_LEN 512
