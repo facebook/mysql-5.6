@@ -5035,13 +5035,30 @@ static Sys_var_charptr Sys_version_compile_zlib(
     READ_ONLY NON_PERSIST GLOBAL_VAR(server_version_compile_zlib_ptr),
     NO_CMD_LINE, IN_SYSTEM_CHARSET, DEFAULT(ZLIB_VERSION));
 
+// If response attributes are being tracked, return the change to the wait
+// timeout back to the client via a response attribute
+static bool update_wait_timeout(sys_var *, THD *thd, enum_var_type) {
+  static LEX_CSTRING key = {STRING_WITH_LEN("wait_timeout")};
+
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (tracker->is_enabled()) {
+    char tmp[21];
+    snprintf(tmp, sizeof(tmp), "%lu", thd->variables.net_wait_timeout);
+    LEX_CSTRING value = {tmp, strlen(tmp)};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+
+  return false;
+}
+
 static Sys_var_ulong Sys_net_wait_timeout(
     "wait_timeout",
     "The number of seconds the server waits for activity on a "
     "connection before closing it",
     SESSION_VAR(net_wait_timeout), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1, IF_WIN(INT_MAX32 / 1000, LONG_TIMEOUT)),
-    DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1));
+    DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(0), ON_UPDATE(update_wait_timeout));
 
 static Sys_var_plugin Sys_default_storage_engine(
     "default_storage_engine", "The default storage engine for new tables",
@@ -6574,6 +6591,19 @@ static Sys_var_bool Sys_session_track_state_change(
     SESSION_VAR(session_track_state_change), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(update_session_track_state_change));
+
+static bool update_session_track_response_attributes(sys_var *, THD *thd,
+                                                     enum_var_type) {
+  DBUG_ENTER("update_session_track_response_attributes");
+  DBUG_RETURN(
+      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->update(thd));
+}
+
+static Sys_var_bool Sys_session_track_resp_attrs(
+    "session_track_response_attributes", "Track response attribute'.",
+    SESSION_VAR(session_track_response_attributes), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(update_session_track_response_attributes));
 
 static bool handle_offline_mode(sys_var *, THD *thd, enum_var_type) {
   DBUG_TRACE;

@@ -1,0 +1,67 @@
+set @save = @@global.session_track_response_attributes;
+set global session_track_response_attributes = on;
+
+--source include/count_sessions.inc
+
+connect(con1,localhost,root,,);
+
+--echo
+--echo # Case 1: Send queries that don't generate any response attributes
+--echo
+
+SELECT 1;
+let $attr = get_response_attribute(wait_timeout);
+if ($attr != "") {
+  echo Fail: Found wait_timeout response attribute ($attr);
+}
+
+--echo
+--echo # Case 2: Send a SET wait_timeout statement
+--echo
+
+# Make sure the wait timeout is returned when we set the wait timeout
+SET wait_timeout = 37;
+let $attr = get_response_attribute(wait_timeout);
+if ($attr != "37") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+# Make sure the wait timeout is not also returned on the next response
+SELECT 1;
+let $attr = get_response_attribute(wait_timeout);
+if ($attr != "") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+# Send another 'SET wait_timeout' message
+SET wait_timeout = 19;
+let $attr = get_response_attribute(wait_timeout);
+if ($attr != "19") {
+  echo Fail: Found incorrect wait_timeout response attribute ($attr);
+}
+
+#
+# Now run some tests that will update the current database
+--enable_session_track_info
+
+--echo # Testing USE <db> returns the change of database in response attributes
+--echo
+USE test;
+--echo # Expect no change info
+--error ER_BAD_DB_ERROR
+USE invalid;
+USE mysql;
+USE test;
+USE test;
+
+--echo # Testing COM_CHANGE_USER does not return the change of database in
+--echo # response attributes
+--echo
+--change_user root,,mysql
+disconnect con1;
+
+connection default;
+--disable_session_track_info
+--source include/wait_until_count_sessions.inc
+
+set global session_track_response_attributes = @save;

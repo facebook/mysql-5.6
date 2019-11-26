@@ -143,6 +143,9 @@
       case SESSION_TRACK_TRANSACTION_STATE:                               \
         dynstr_append(ds, "Tracker : SESSION_TRACK_TRANSACTION_STATE\n"); \
         break;                                                            \
+      case SESSION_TRACK_RESP_ATTR:                                       \
+        dynstr_append(ds, "Tracker : SESSION_TRACK_RESP_ATTR\n");         \
+        break;                                                            \
       default:                                                            \
         dynstr_append(ds, "\n");                                          \
     }                                                                     \
@@ -2641,6 +2644,49 @@ static void var_set_convert_error(struct st_command *command, VAR *var) {
   }
 }
 
+/// Get response attributes from current connection
+///
+/// @code
+/// let $var = get_response_attribute(somekey);
+/// @endcode
+///
+/// The variable '$var' will be populated with value of the response attribute
+//  key if found. Otherwise, it'll contain an empty string.
+///
+/// @param command Pointer to the st_command structure which holds the
+///                arguments and information for the command.
+/// @param var     Pointer to VAR object containing a variable
+///                information.
+static void var_set_get_response_attribute(struct st_command *command,
+                                           VAR *var) {
+  // The command->query contains the statement get_response_attribute(key)
+  char *first = std::strchr(command->query, '(') + 1;
+  char *last = std::strchr(command->query, ')');
+
+  // Denoting an empty string
+  if (last == first) {
+    die("Invalid error in input");
+  }
+
+  std::string key_name(first, int(last - first));
+
+  MYSQL *mysql = &cur_con->mysql;
+  const char *ptr = nullptr;
+  size_t len = 0;
+  (void)mysql_resp_attr_find(mysql, key_name.c_str(), &ptr, &len);
+
+  if (ptr == nullptr) {
+    ptr = "";
+  }
+
+  const char *ptr_end = ptr + len;
+
+  eval_expr(var, ptr, &ptr_end, false, false);
+  if (ptr_end != ptr) {
+    DBUG_PRINT("info", ("%s: %s", key_name.c_str(), var->str_val));
+  }
+}
+
 /*
   Set variable from the result of a field in a query
 
@@ -2840,6 +2886,19 @@ void eval_expr(VAR *v, const char *p, const char **p_end, bool open_end,
       command.first_argument = command.query + len;
       command.end = const_cast<char *>(*p_end);
       var_set_convert_error(&command, v);
+      return;
+    }
+    /* Check if this is a "let $var= get_response_attribute()" */
+    const char *get_value_str2 = "get_response_attribute";
+    const size_t len2 = std::strlen(get_value_str2);
+    if (std::strncmp(p, get_value_str2, len2) == 0) {
+      struct st_command command;
+      memset(&command, 0, sizeof(command));
+      command.query = const_cast<char *>(p);
+      command.first_word_len = len2;
+      command.first_argument = command.query + len2;
+      command.end = const_cast<char *>(*p_end);
+      var_set_get_response_attribute(&command, v);
       return;
     }
   }

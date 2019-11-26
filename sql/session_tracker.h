@@ -26,6 +26,8 @@
 #include <stddef.h>
 #include <sys/types.h>
 
+#include <map>
+
 #include "lex_string.h"
 #include "thr_lock.h"  // thr_lock_type
 
@@ -39,11 +41,12 @@ enum enum_session_tracker {
   SESSION_SYSVARS_TRACKER, /* Session system variables */
   CURRENT_SCHEMA_TRACKER,  /* Current schema */
   SESSION_STATE_CHANGE_TRACKER,
-  SESSION_GTIDS_TRACKER,   /* Tracks GTIDs */
-  TRANSACTION_INFO_TRACKER /* Transaction state */
+  SESSION_GTIDS_TRACKER,    /* Tracks GTIDs */
+  TRANSACTION_INFO_TRACKER, /* Transaction state */
+  SESSION_RESP_ATTR_TRACKER,
 };
 
-#define SESSION_TRACKER_END TRANSACTION_INFO_TRACKER
+#define SESSION_TRACKER_END SESSION_RESP_ATTR_TRACKER
 
 #define TX_TRACKER_GET(a)                                            \
   Transaction_state_tracker *a =                                     \
@@ -103,7 +106,8 @@ class State_tracker {
   virtual bool store(THD *thd, String &buf) = 0;
 
   /** Mark the entity as changed. */
-  virtual void mark_as_changed(THD *thd, LEX_CSTRING *name) = 0;
+  virtual void mark_as_changed(THD *thd, LEX_CSTRING *name,
+                               const LEX_CSTRING *value = nullptr) = 0;
 
   virtual void claim_memory_ownership() {}
 };
@@ -183,7 +187,8 @@ class Session_state_change_tracker : public State_tracker {
   bool check(THD *, set_var *) { return false; }
   bool update(THD *thd);
   bool store(THD *, String &buf);
-  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name);
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,
+                       const LEX_CSTRING *tracked_item_value = nullptr);
   bool is_state_changed();
 };
 
@@ -249,7 +254,8 @@ class Transaction_state_tracker : public State_tracker {
   bool check(THD *, set_var *) { return false; }
   bool update(THD *thd);
   bool store(THD *thd, String &buf);
-  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name);
+  void mark_as_changed(THD *thd, LEX_CSTRING *tracked_item_name,
+                       const LEX_CSTRING *tracked_item_value = nullptr);
 
   /** Change transaction characteristics */
   void set_read_flags(THD *thd, enum enum_tx_read_flags flags);
@@ -297,6 +303,35 @@ class Transaction_state_tracker : public State_tracker {
             : 0;
     if (tx_changed != TX_CHG_NONE) mark_as_changed(thd, nullptr);
   }
+};
+
+/*
+  Session_resp_attr_tracker
+  ----------------------
+  This is a tracker class that will monitor response attributes
+*/
+
+class Session_resp_attr_tracker : public State_tracker {
+ private:
+  void reset();
+  Session_resp_attr_tracker(const Session_resp_attr_tracker &) = delete;
+  Session_resp_attr_tracker &operator=(const Session_resp_attr_tracker &) =
+      delete;
+
+  std::map<std::string, std::string> attrs_;
+
+ public:
+  Session_resp_attr_tracker() {
+    m_changed = false;
+    m_enabled = false;
+  }
+
+  bool enable(THD *thd) override;
+  bool check(THD *, set_var *) override { return false; }
+  bool update(THD *thd) override { return enable(thd); }
+  bool store(THD *thd, String &buf) override;
+  void mark_as_changed(THD *thd, LEX_CSTRING *key,
+                       const LEX_CSTRING *value) override;
 };
 
 #endif /* SESSION_TRACKER_INCLUDED */
