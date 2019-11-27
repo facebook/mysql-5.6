@@ -3191,11 +3191,16 @@ void kill_zombie_dump_threads(THD *thd)
   if (slave_uuid.length() == 0 && thd->server_id == 0)
     return;
 
-  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+  /* take copy of global_thread_list instead of holding LOCK_thread_count */
+  std::set<THD*> global_thread_list_copy;
+
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+  copy_global_thread_list(&global_thread_list_copy);
+
   THD *tmp= NULL;
-  Thread_iterator it= global_thread_list_begin();
-  Thread_iterator end= global_thread_list_end();
   bool is_zombie_thread= false;
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
   for (; it != end; ++it)
   {
     if ((*it) != thd && ((*it)->get_command() == COM_BINLOG_DUMP ||
@@ -3226,7 +3231,8 @@ void kill_zombie_dump_threads(THD *thd)
       }
     }
   }
-  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+
   if (tmp)
   {
     /*
@@ -3264,10 +3270,16 @@ void kill_zombie_dump_threads(THD *thd)
 */
 void kill_all_dump_threads()
 {
-  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
   THD *tmp= NULL;
-  Thread_iterator it= global_thread_list_begin();
-  Thread_iterator end= global_thread_list_end();
+
+  /* take copy of global_thread_list instead of holding LOCK_thread_count */
+  std::set<THD*> global_thread_list_copy;
+
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+  copy_global_thread_list(&global_thread_list_copy);
+
+  std::set<THD*>::iterator it= global_thread_list_copy.begin();
+  std::set<THD*>::iterator end= global_thread_list_copy.end();
   for (; it != end; ++it)
   {
     if ((*it)->get_command() == COM_BINLOG_DUMP ||
@@ -3279,7 +3291,8 @@ void kill_all_dump_threads()
       mysql_mutex_unlock(&tmp->LOCK_thd_data);
     }
   }
-  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
+
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
 }
 
 
