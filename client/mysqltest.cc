@@ -192,7 +192,6 @@ const char *opt_user = 0, *opt_host = 0, *unix_sock = 0, *opt_basedir = "./";
 const char *excluded_string = 0;
 static char *shared_memory_base_name = 0;
 const char *opt_logdir = "";
-const char *opt_default_auth = 0;
 const char *opt_include = 0, *opt_charsets_dir;
 static int opt_port = 0;
 static int opt_max_connect_retries;
@@ -6356,14 +6355,6 @@ static void do_close_connection(struct st_command *command) {
   DBUG_VOID_RETURN;
 }
 
-static void set_default_auth(MYSQL *mysql) {
-  if (opt_default_auth == nullptr) {
-    mysql_options(mysql, MYSQL_DEFAULT_AUTH, "caching_sha2_password");
-  } else {
-    mysql_options(mysql, MYSQL_DEFAULT_AUTH, opt_default_auth);
-  }
-}
-
 /* Append a line to a dynamic string. */
 void dynstr_append_line(DYNAMIC_STRING *ds, const char *msg, int len) {
   dynstr_append_mem(ds, msg, len);
@@ -6524,7 +6515,6 @@ static void safe_connect(MYSQL *mysql, const char *name, const char *host,
                  "mysqltest");
   mysql_options(mysql, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
                 &can_handle_expired_passwords);
-  set_default_auth(mysql);
   while (!mysql_real_connect_wrapper(
       mysql, host, user, pass, db, port, sock,
       CLIENT_MULTI_STATEMENTS | CLIENT_REMEMBER_OPTIONS)) {
@@ -6647,7 +6637,6 @@ static int connect_n_handle_errors(struct st_command *command, MYSQL *con,
       if (i >= 0) goto do_handle_error; /* expected error, handle */
 
       my_sleep(connection_retry_sleep); /* unexpected error, wait */
-      set_default_auth(con);
       continue;                         /* and give it 1 more chance */
     }
 
@@ -6906,9 +6895,6 @@ static void do_connect(struct st_command *command) {
 
   if (ds_default_auth.length)
     mysql_options(&con_slot->mysql, MYSQL_DEFAULT_AUTH, ds_default_auth.str);
-  else {
-    set_default_auth(&con_slot->mysql);
-  }
 
   /* Set server public_key */
   set_server_public_key(&con_slot->mysql);
@@ -7755,9 +7741,6 @@ static struct my_option my_long_options[] = {
     {"debug-info", OPT_DEBUG_INFO, "Print some debug info at exit.",
      &debug_info_flag, &debug_info_flag, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 #endif
-    {"default-auth", OPT_DEFAULT_AUTH,
-     "Default authentication client-side plugin to use.", &opt_default_auth,
-     &opt_default_auth, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
     {"default-character-set", OPT_DEFAULT_CHARSET,
      "Set the default character set.", &default_charset, &default_charset, 0,
      GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
