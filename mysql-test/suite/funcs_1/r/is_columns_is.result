@@ -306,27 +306,25 @@ def	information_schema	SESSION_VARIABLES	VARIABLE_VALUE	2	NULL	YES	varchar	1024	
 def	information_schema	SLAVE_DB_LOAD	DB	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	SLAVE_DB_LOAD	DB_LOAD	3	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SLAVE_DB_LOAD	WORKER	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	HOST	16		NO	varchar	20	60	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select	
+def	information_schema	SOCKET_DIAG_SLAVES	HOST	14		NO	varchar	20	60	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(20)			select	
 def	information_schema	SOCKET_DIAG_SLAVES	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	INODE	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	IS_SEMI_SYNC	20	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(7) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	LOCAL_ADDR	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	SOCKET_DIAG_SLAVES	INODE	7	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	IS_SEMI_SYNC	18	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(7) unsigned			select	
 def	information_schema	SOCKET_DIAG_SLAVES	LOCAL_IP	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	LOST	13	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	MASTER_ID	18	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(10) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	PORT	17	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(7) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	REMOTE_ADDR	7		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	REMOTE_IP	6		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	REPLICATION STATUS	21		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	RETRANS	12	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	RQUEUE	10	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	SERVER_ID	15	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(10) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	SLAVE_UUID	19		NO	varchar	36	108	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(36)			select	
+def	information_schema	SOCKET_DIAG_SLAVES	LOST	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	MASTER_ID	16	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(10) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	PORT	15	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(7) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	REMOTE_IP	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	SOCKET_DIAG_SLAVES	REPLICATION STATUS	19		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	SOCKET_DIAG_SLAVES	RETRANS	10	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	RQUEUE	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	SERVER_ID	13	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(10) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	SLAVE_UUID	17		NO	varchar	36	108	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(36)			select	
 def	information_schema	SOCKET_DIAG_SLAVES	STATE	3	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	TOTAL_RETRANS	14	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SOCKET_DIAG_SLAVES	UID	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	TOTAL_RETRANS	12	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	UID	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SOCKET_DIAG_SLAVES	USER	2		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
-def	information_schema	SOCKET_DIAG_SLAVES	WQUEUE	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SOCKET_DIAG_SLAVES	WQUEUE	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	CLIENT_ID	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	EXECUTION_COUNT	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	PLAN_ID	2		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
@@ -997,9 +995,7 @@ NULL	information_schema	SOCKET_DIAG_SLAVES	ID	bigint	NULL	NULL	NULL	NULL	bigint(
 3.0000	information_schema	SOCKET_DIAG_SLAVES	USER	varchar	80	240	utf8	utf8_general_ci	varchar(80)
 3.0000	information_schema	SOCKET_DIAG_SLAVES	STATE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	SOCKET_DIAG_SLAVES	LOCAL_IP	varchar	64	192	utf8	utf8_general_ci	varchar(64)
-3.0000	information_schema	SOCKET_DIAG_SLAVES	LOCAL_ADDR	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	SOCKET_DIAG_SLAVES	REMOTE_IP	varchar	64	192	utf8	utf8_general_ci	varchar(64)
-3.0000	information_schema	SOCKET_DIAG_SLAVES	REMOTE_ADDR	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 NULL	information_schema	SOCKET_DIAG_SLAVES	UID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SOCKET_DIAG_SLAVES	INODE	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SOCKET_DIAG_SLAVES	RQUEUE	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned

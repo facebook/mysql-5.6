@@ -3375,7 +3375,6 @@ bool store_socket_diag_record(TABLE *table, THD *thd, THD *tmp,
 
   /* LOCAL IP */
   char ip_addr[INET6_ADDRSTRLEN + 6];
-  char name_addr[NI_MAXHOST];
   char host_addr[NI_MAXHOST + NI_MAXSERV];
   if (inet_ntop(sdi->diag.idiag_family, sdi->diag.id.idiag_src, ip_addr,
                 sizeof(ip_addr)))
@@ -3386,39 +3385,11 @@ bool store_socket_diag_record(TABLE *table, THD *thd, THD *tmp,
   }
   i++;
 
-  /* LOCAL ADDR */
-  sockaddr_storage local_addr;
-  sockid_to_sockaddr(sdi->diag.idiag_family, sdi->diag.id.idiag_sport,
-                     (char *)sdi->diag.id.idiag_src, &local_addr);
-  if (!vio_getnameinfo(reinterpret_cast<const sockaddr *>(&local_addr),
-                       name_addr, sizeof(name_addr), NULL, 0,
-                       NI_NUMERICSERV))
-  {
-    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", name_addr,
-                ntohs(sdi->diag.id.idiag_sport));
-    table->field[i]->store(host_addr, strlen(host_addr), cs);
-  }
-  i++;
-
   /* REMOTE IP */
   if (inet_ntop(sdi->diag.idiag_family, sdi->diag.id.idiag_dst, ip_addr,
                 sizeof(ip_addr)))
   {
     my_snprintf(host_addr, sizeof(host_addr), "%s:%u", ip_addr,
-                ntohs(sdi->diag.id.idiag_dport));
-    table->field[i]->store(host_addr, strlen(host_addr), cs);
-  }
-  i++;
-
-  /* REMOTE ADDR */
-  sockaddr_storage remote_addr;
-  sockid_to_sockaddr(sdi->diag.idiag_family, sdi->diag.id.idiag_dport,
-                     (char *)sdi->diag.id.idiag_dst, &remote_addr);
-  if (!vio_getnameinfo(reinterpret_cast<const sockaddr *>(&remote_addr),
-                       name_addr, sizeof(name_addr), NULL, 0,
-                       NI_NUMERICSERV))
-  {
-    my_snprintf(host_addr, sizeof(host_addr), "%s:%u", name_addr,
                 ntohs(sdi->diag.id.idiag_dport));
     table->field[i]->store(host_addr, strlen(host_addr), cs);
   }
@@ -10134,11 +10105,7 @@ ST_FIELD_INFO socket_diag_slaves_fields_info[]=
     SKIP_OPEN_TABLE},
   {"LOCAL_IP", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
     SKIP_OPEN_TABLE},
-  {"LOCAL_ADDR", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
-    SKIP_OPEN_TABLE},
   {"REMOTE_IP", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
-    SKIP_OPEN_TABLE},
-  {"REMOTE_ADDR", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, 0,
     SKIP_OPEN_TABLE},
   {"UID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
   {"INODE", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
