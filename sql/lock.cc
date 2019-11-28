@@ -319,7 +319,7 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, size_t count,
   MYSQL_LOCK *sql_lock;
   THR_LOCK_DATA *error_pos = nullptr;
   ulonglong timeout_nsec = (flags & MYSQL_LOCK_IGNORE_TIMEOUT)
-                               ? LONG_TIMEOUT
+                               ? LONG_TIMEOUT_NSEC
                                : thd->variables.lock_wait_timeout_nsec;
 
   DBUG_ENTER("mysql_lock_tables");
