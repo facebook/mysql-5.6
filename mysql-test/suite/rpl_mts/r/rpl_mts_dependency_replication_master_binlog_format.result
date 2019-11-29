@@ -5,20 +5,20 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 call mtr.add_suppression("Master's binlog format is not ROW");
 [connection slave]
-set @save.mts_dependency_replication= @@global.mts_dependency_replication;
+set @save.slave_parallel_type= @@global.slave_parallel_type;
 [connection master]
 create table t1(a int) engine=innodb;
 set session binlog_format=STATEMENT;
 insert into t1 values(1);
 [connection slave]
 include/wait_for_slave_sql_error.inc [errno=1756]
-Last_SQL_Error = 'Master's binlog format is not ROW but mts_dependency_replication is enabled on the slave, this should only be used when master's binlog format is ROW.'
+Last_SQL_Error = 'Master's binlog format is not ROW but slave_parallel_type=DEPENDENCY is enabled on the slave, this should only be used when master's binlog format is ROW.'
 [connection slave]
 "Table after error"
 select * from t1;
 a
 [connection slave]
-set global mts_dependency_replication= NONE;
+set global slave_parallel_type= "DATABASE";
 set global slave_use_idempotent_for_recovery= NO;
 start slave;
 [connection master]
@@ -33,7 +33,7 @@ drop table t1;
 include/sync_slave_sql_with_master.inc
 [connection slave]
 stop slave;
-set @@global.mts_dependency_replication= @save.mts_dependency_replication;
+set @@global.slave_parallel_type= @save.slave_parallel_type;
 set global slave_use_idempotent_for_recovery= YES;
 start slave;
 include/rpl_end.inc

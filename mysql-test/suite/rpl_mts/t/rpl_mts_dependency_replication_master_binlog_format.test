@@ -1,12 +1,12 @@
 # Checks if the slave stops executing transactions when master's binlog format
 # is STATEMENT but dependency replication is enabled
+-- source include/only_mts_slave_parallel_type_dependency.inc
 -- source include/master-slave.inc
--- source include/have_mts_dependency_replication.inc
 
 call mtr.add_suppression("Master's binlog format is not ROW");
 
 --source include/rpl_connection_slave.inc
-set @save.mts_dependency_replication= @@global.mts_dependency_replication;
+set @save.slave_parallel_type= @@global.slave_parallel_type;
 
 --source include/rpl_connection_master.inc
 create table t1(a int) engine=innodb;
@@ -26,7 +26,7 @@ select * from t1;
 
 --source include/rpl_connection_slave.inc
 # Turn off dependency replication and start the slave again
-set global mts_dependency_replication= NONE;
+set global slave_parallel_type= "DATABASE";
 set global slave_use_idempotent_for_recovery= NO;
 start slave;
 
@@ -45,7 +45,7 @@ drop table t1;
 
 --source include/rpl_connection_slave.inc
 stop slave;
-set @@global.mts_dependency_replication= @save.mts_dependency_replication;
+set @@global.slave_parallel_type= @save.slave_parallel_type;
 set global slave_use_idempotent_for_recovery= YES;
 start slave;
 

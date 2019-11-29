@@ -8085,7 +8085,8 @@ static int show_slave_dependency_in_queue(THD *, SHOW_VAR *var, char *buff) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (mi && mi->rli->mts_dependency_replication) {
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
     mysql_mutex_lock(&mi->rli->dep_lock);
@@ -8102,7 +8103,8 @@ static int show_slave_dependency_in_flight(THD *, SHOW_VAR *var, char *buff) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (mi && mi->rli->mts_dependency_replication) {
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
     mysql_mutex_lock(&mi->rli->dep_lock);
@@ -8119,7 +8121,8 @@ static int show_slave_dependency_begin_waits(THD *, SHOW_VAR *var, char *buff) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (mi && mi->rli->mts_dependency_replication) {
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
     *((ulonglong *)buff) = (ulonglong)mi->rli->begin_event_waits.load();
@@ -8134,7 +8137,8 @@ static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
   channel_map.rdlock();
   Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (mi && mi->rli->mts_dependency_replication) {
+  if (mi && mi->rli && mi->rli->current_mts_submode &&
+      is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
     *((ulonglong *)buff) = (ulonglong)mi->rli->next_event_waits.load();

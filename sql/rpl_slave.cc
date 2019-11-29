@@ -637,8 +637,10 @@ int init_slave() {
         mi->rli->checkpoint_group = opt_mts_checkpoint_group;
         if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-        else
+        else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+        else
+          mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
         if (start_slave_threads(true /*need_lock_slave=true*/,
                                 false /*wait_for_start=false*/, mi,
                                 thread_mask)) {
@@ -1246,9 +1248,12 @@ static inline int fill_mts_gaps_and_recover(Master_info *mi) {
   rli->set_until_option(until_mg);
   rli->until_condition = Relay_log_info::UNTIL_SQL_AFTER_MTS_GAPS;
   until_mg->init();
-  rli->channel_mts_submode = (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
-                                 ? MTS_PARALLEL_TYPE_DB_NAME
-                                 : MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
+  else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+  else
+    rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
   LogErr(INFORMATION_LEVEL, ER_RPL_MTS_RECOVERY_STARTING_COORDINATOR);
   recovery_error = start_slave_thread(
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -4454,7 +4459,7 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
                         DBUG_SET("+d,stop_when_mts_in_group"););
 
     if (!exec_res && (ev->worker != rli)) {
-      if (rli->mts_dependency_replication) {
+      if (is_mts_parallel_type_dependency(rli)) {
         DBUG_ASSERT(ev->worker == NULL);
         ev->schedule_dep(rli);
       } else if (ev->worker) {
@@ -5881,7 +5886,7 @@ static void *handle_slave_worker(void *arg) {
   set_timespec_nsec(&w->ts_exec[1], 0);
   set_timespec_nsec(&w->stats_begin, 0);
 
-  if (rli->mts_dependency_replication) {
+  if (is_mts_parallel_type_dependency(rli)) {
     static_cast<Dependency_slave_worker *>(w)->start();
   } else {
     while (!error) {
@@ -6271,11 +6276,13 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
                rli->checkpoint_seqno == rli->checkpoint_group));
 
   do {
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_lock(&rli->mts_gaq_LOCK);
+    if (is_mts_parallel_type_logical_clock(rli))
+      mysql_mutex_lock(&rli->mts_gaq_LOCK);
 
     cnt = rli->gaq->move_queue_head(&rli->workers);
 
-    if (!is_mts_db_partitioned(rli)) mysql_mutex_unlock(&rli->mts_gaq_LOCK);
+    if (is_mts_parallel_type_logical_clock(rli))
+      mysql_mutex_unlock(&rli->mts_gaq_LOCK);
 #ifndef DBUG_OFF
     if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0) &&
         cnt != opt_mts_checkpoint_period)
@@ -6306,11 +6313,11 @@ bool mts_checkpoint_routine(Relay_log_info *rli, bool force) {
   // case: rebalance workers should be called only when the current event
   // in the coordinator is a begin or gtid event
   if (!force && opt_mts_dynamic_rebalance && !rli->curr_group_seen_begin &&
-      !rli->mts_dependency_replication && !rli->curr_group_seen_gtid &&
+      !is_mts_parallel_type_dependency(rli) && !rli->curr_group_seen_gtid &&
       !rli->sql_thread_kill_accepted) {
     rebalance_workers(rli);
   }
-  if (!rli->mts_dependency_replication) {
+  if (!is_mts_parallel_type_dependency(rli)) {
     /* TODO:
        to turn the least occupied selection in terms of jobs pieces
     */
@@ -6613,7 +6620,7 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
                                ? rli->mts_groups_assigned
                                : 0;
 
-  if (rli->mts_dependency_replication) {
+  if (is_mts_parallel_type_dependency(rli)) {
     mysql_mutex_lock(&rli->dep_lock);
     // this will be used to determine if we need to deal with a worker that is
     // handling a partially enqueued trx
@@ -6638,7 +6645,8 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
     }
     mysql_mutex_unlock(&rli->dep_lock);
 
-    wait_for_dep_workers_to_finish(rli, partial);
+    static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+        ->wait_for_dep_workers_to_finish(rli, partial);
 
     // case: if UNTIL is specified let's clean up after waiting for workers
     if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
@@ -6853,10 +6861,12 @@ extern "C" void *handle_slave_sql(void *arg) {
   thd_set_psi(rli->info_thd, psi);
 #endif
 
-  if (rli->channel_mts_submode != MTS_PARALLEL_TYPE_DB_NAME)
+  if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
     rli->current_mts_submode = new Mts_submode_logical_clock();
-  else
+  else if (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
     rli->current_mts_submode = new Mts_submode_database();
+  else
+    rli->current_mts_submode = new Mts_submode_dependency();
 
   if (opt_slave_preserve_commit_order && rli->opt_slave_parallel_workers > 0 &&
       opt_bin_log && opt_log_slave_updates)
@@ -6873,7 +6883,7 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
   rli->mts_dependency_order_commits = opt_mts_dependency_order_commits;
 
-  if (rli->mts_dependency_replication &&
+  if (is_mts_parallel_type_dependency(rli) &&
       !slave_use_idempotent_for_recovery_options) {
     sql_print_error(
         "mts_dependency_replication is enabled but "
@@ -6885,7 +6895,8 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->info_thd->variables.transaction_isolation =
       static_cast<enum_tx_isolation>(slave_tx_isolation);
 
-  if (rli->mts_dependency_order_commits && rli->mts_dependency_replication &&
+  if (rli->mts_dependency_order_commits &&
+      is_mts_parallel_type_dependency(rli) &&
       rli->opt_slave_parallel_workers > 0 && opt_bin_log &&
       opt_log_slave_updates)
     commit_order_mngr =
@@ -8638,8 +8649,10 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
           mi->rli->opt_slave_parallel_workers = opt_mts_slave_parallel_workers;
           if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-          else
+          else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
+          else
+            mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
 
 #ifndef DBUG_OFF
           if (!DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))
