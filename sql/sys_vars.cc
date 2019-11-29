@@ -3992,7 +3992,8 @@ static Sys_var_set Slave_rows_search_algorithms(
     DEFAULT(SLAVE_ROWS_INDEX_SCAN | SLAVE_ROWS_HASH_SCAN), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(check_not_null_not_empty), ON_UPDATE(NULL));
 
-static const char *mts_parallel_type_names[] = {"DATABASE", "LOGICAL_CLOCK", 0};
+static const char *mts_parallel_type_names[] = {"DATABASE", "LOGICAL_CLOCK",
+                                                "DEPENDENCY", 0};
 static Sys_var_enum Mts_parallel_type(
     "slave_parallel_type",
     "Specifies if the slave will use database partitioning "
@@ -6230,12 +6231,12 @@ static Sys_var_double Sys_mts_imbalance_threshold(
     GLOBAL_VAR(opt_mts_imbalance_threshold), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, 100), DEFAULT(90));
 
-static const char *dep_rpl_type_names[] = {"NONE", "TBL", "STMT", NullS};
+static const char *dep_rpl_type_names[] = {"TBL", "STMT", NullS};
 
 static Sys_var_enum Sys_mts_dependency_replication(
     "mts_dependency_replication", "Use dependency based replication",
     GLOBAL_VAR(opt_mts_dependency_replication), CMD_LINE(OPT_ARG),
-    dep_rpl_type_names, DEFAULT(DEP_RPL_NONE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    dep_rpl_type_names, DEFAULT(DEP_RPL_TABLE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(0), ON_UPDATE(0));
 
 static Sys_var_ulonglong Sys_mts_dependency_size(

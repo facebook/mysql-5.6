@@ -2298,7 +2298,7 @@ min-examined-row-limit 0
 minimum-hlc-ns 0
 mts-dependency-max-keys 100000
 mts-dependency-refill-threshold 60
-mts-dependency-replication NONE
+mts-dependency-replication TBL
 mts-dependency-size 1000
 mts-dynamic-rebalance FALSE
 mts-imbalance-threshold 90

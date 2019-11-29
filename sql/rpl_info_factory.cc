@@ -421,7 +421,7 @@ Slave_worker *Rpl_info_factory::create_worker(uint rli_option, uint worker_id,
   char *pos = my_stpcpy(worker_file_data.name, worker_file_data.pattern);
   sprintf(pos, "%u", worker_id + 1);
 
-  if (rli->mts_dependency_replication)
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY)
     worker = new Dependency_slave_worker(
         rli,
 #ifdef HAVE_PSI_INTERFACE

@@ -1688,7 +1688,7 @@ class Relay_log_info : public Rpl_info {
   /* Related to dependency tracking */
 
   /* Cached global variables */
-  ulong mts_dependency_replication = 0;
+  ulong mts_dependency_replication = DEP_RPL_TABLE;
   ulonglong mts_dependency_size = 0;
   double mts_dependency_refill_threshold = 0;
   ulonglong mts_dependency_max_keys = 0;
@@ -1811,6 +1811,8 @@ inline bool is_mts_worker(const THD *thd) {
  Auxiliary function to check if we have a db partitioned MTS
  */
 bool is_mts_db_partitioned(Relay_log_info *rli);
+bool is_mts_parallel_type_logical_clock(const Relay_log_info *rli);
+bool is_mts_parallel_type_dependency(const Relay_log_info *rli);
 
 /**
   Checks whether the supplied event encodes a (2pc-aware) DDL

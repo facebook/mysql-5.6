@@ -2674,7 +2674,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
       DBUG_ASSERT(gaq->get_job_group(rli->gaq->assigned_group_index)
                       ->group_relay_log_name == nullptr);
       DBUG_ASSERT(rli->last_assigned_worker == nullptr ||
-                  !is_mts_db_partitioned(rli));
+                  is_mts_parallel_type_logical_clock(rli));
 
       if (is_s_event || is_gtid_event(this)) {
         Slave_job_item job_item = {this, rli->get_event_relay_log_number(),
@@ -2757,7 +2757,7 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
   }
 
   ptr_group = gaq->get_job_group(rli->gaq->assigned_group_index);
-  if (!is_mts_db_partitioned(rli)) {
+  if (is_mts_parallel_type_logical_clock(rli)) {
     /* Get least occupied worker */
     ret_worker = rli->current_mts_submode->get_least_occupied_worker(
         rli, &rli->workers, this);
@@ -3290,8 +3290,8 @@ int Log_event::apply_event(Relay_log_info *rli) {
               */
               (rli->curr_group_seen_begin && rli->curr_group_seen_gtid &&
                ends_group()) ||
-              rli->mts_dependency_replication || is_mts_db_partitioned(rli) ||
-              rli->last_assigned_worker ||
+              is_mts_parallel_type_dependency(rli) ||
+              is_mts_db_partitioned(rli) || rli->last_assigned_worker ||
               /*
                 Begin_load_query can be logged w/o db info and within
                 Begin/Commit. That's a pattern forcing sequential
@@ -3318,7 +3318,7 @@ int Log_event::apply_event(Relay_log_info *rli) {
     rli->group_timestamp_millis = extract_last_timestamp();
   }
 
-  if (!rli->mts_dependency_replication)
+  if (!is_mts_parallel_type_dependency(rli))
     worker =
         (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
 
@@ -4788,8 +4788,8 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
           const char *option_name = nullptr;
           if (thd->is_enabled_idempotent_recovery()) {
             option_name = "slave_use_idempotent_for_recovery";
-          } else if (rli->mts_dependency_replication) {
-            option_name = "mts_dependency_replication";
+          } else if (is_mts_parallel_type_dependency(rli)) {
+            option_name = "slave_parallel_type=DEPENDENCY";
           }
 
           if (option_name != nullptr) {
@@ -5652,7 +5652,7 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli) {
 
   if ((server_id != ::server_id || rli->replicate_same_server_id) &&
       !is_relay_log_event() && !in_group) {
-    if (!is_mts_db_partitioned(rli) && server_id != ::server_id) {
+    if (is_mts_parallel_type_logical_clock(rli) && server_id != ::server_id) {
       // force the coordinator to start a new binlog segment.
       static_cast<Mts_submode_logical_clock *>(rli->current_mts_submode)
           ->start_new_group();
@@ -14651,7 +14651,8 @@ bool Log_event::schedule_dep(Relay_log_info *rli) {
   }
 
   if (unlikely(rli->dep_sync_group)) {
-    if (!wait_for_dep_workers_to_finish(rli, rli->trx_queued))
+    if (!static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+             ->wait_for_dep_workers_to_finish(rli, rli->trx_queued))
       DBUG_RETURN(false);
   }
 
@@ -15024,7 +15025,7 @@ bool Rows_log_event::get_keys(Relay_log_info *rli,
   void *memory = nullptr;
   bool success = false;
 
-  DBUG_ASSERT(rli->mts_dependency_replication);
+  DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
 
   // case: table level dependency, just add the table key and return
   if (rli->mts_dependency_replication == DEP_RPL_TABLE) {

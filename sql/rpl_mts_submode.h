@@ -45,7 +45,9 @@ enum enum_mts_parallel_type {
   /* Parallel slave based on Database name */
   MTS_PARALLEL_TYPE_DB_NAME = 0,
   /* Parallel slave based on group information from Binlog group commit */
-  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1
+  MTS_PARALLEL_TYPE_LOGICAL_CLOCK = 1,
+  /* Parallel slave based on dependencies between RBR events */
+  MTS_PARALLEL_TYPE_DEPENDENCY = 2
 };
 
 // Extend the following class as per requirement for each sub mode
@@ -82,6 +84,41 @@ class Mts_submode {
                                          Slave_worker *ignore = nullptr) = 0;
 
   virtual ~Mts_submode() {}
+};
+
+/**
+  Facebook implementation of MTS using table or row level dependencies
+*/
+class Mts_submode_dependency : public Mts_submode {
+ public:
+  Mts_submode_dependency() { type = MTS_PARALLEL_TYPE_DEPENDENCY; }
+  ~Mts_submode_dependency() {}
+  int schedule_next_event(Relay_log_info *, Log_event *) { return 0; }
+  void attach_temp_tables(THD *, const Relay_log_info *, Query_log_event *) {}
+  void detach_temp_tables(THD *, const Relay_log_info *, Query_log_event *) {}
+  Slave_worker *get_least_occupied_worker(Relay_log_info *,
+                                          Slave_worker_array *, Log_event *) {
+    DBUG_ASSERT(false);
+    return nullptr;
+  }
+  /**
+   * Wait for all dependency slave workers to finish working on all enqueued
+   * trxs
+   *
+   * @param rli           Relay log info of the coordinator thread
+   * @param partial_trx   Have we queued a partial transaction?
+   *                      If true, we can't blindly wait for the trx counter to
+   * be zero (since the worker will not be able to complete that transaction)
+   * @return void
+   */
+  bool wait_for_dep_workers_to_finish(Relay_log_info *rli,
+                                      const bool partial_trx);
+  int wait_for_workers_to_finish(Relay_log_info *rli,
+                                 Slave_worker *ignore = nullptr) {
+    DBUG_ASSERT(ignore == nullptr);
+    if (!wait_for_dep_workers_to_finish(rli, false)) return -1;
+    return 0;
+  }
 };
 
 /**

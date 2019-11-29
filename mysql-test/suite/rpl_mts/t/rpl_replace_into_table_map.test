@@ -2,9 +2,9 @@
 # convert into a few inserts and a few update events in the binlog. When this
 # happens only one table map event is logged before the insert and update stmts
 
+source include/only_mts_slave_parallel_type_dependency.inc;
 source include/have_binlog_format_row.inc;
 source include/master-slave.inc;
-source include/have_mts_dependency_replication.inc;
 
 # create multiple workers on the slave
 connection slave;

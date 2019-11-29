@@ -173,7 +173,6 @@ enum enum_slave_use_idempotent_for_recovery {
 };
 
 enum enum_mts_dependency_replication {
-  DEP_RPL_NONE,
   DEP_RPL_TABLE,
   DEP_RPL_STATEMENT,
 };

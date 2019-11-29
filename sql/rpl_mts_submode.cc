@@ -73,8 +73,7 @@ void Mts_submode_database::attach_temp_tables(THD *thd, const Relay_log_info *,
                                               Query_log_event *ev) {
   int i, parts;
   DBUG_ENTER("Mts_submode_database::attach_temp_tables");
-  if (thd->rli_slave->mts_dependency_replication || !is_mts_worker(thd) ||
-      (ev->ends_group() || ev->starts_group()))
+  if (!is_mts_worker(thd) || (ev->ends_group() || ev->starts_group()))
     DBUG_VOID_RETURN;
   DBUG_ASSERT(!thd->temporary_tables);
   // in over max-db:s case just one special partition is locked
@@ -129,55 +128,49 @@ int Mts_submode_database::wait_for_workers_to_finish(Relay_log_info *rli,
                       "pos: %s",
                       rli->get_event_relay_log_name(), llbuf));
 
-  if (rli->mts_dependency_replication) {
-    DBUG_ASSERT(ignore == nullptr);
-    if (!wait_for_dep_workers_to_finish(rli, false)) DBUG_RETURN(-1);
-  } else {
-    mysql_mutex_lock(&rli->slave_worker_hash_lock);
+  mysql_mutex_lock(&rli->slave_worker_hash_lock);
 
-    for (const auto &key_and_value : rli->mapping_db_to_worker) {
-      db_worker_hash_entry *entry = key_and_value.second.get();
-      DBUG_ASSERT(entry);
+  for (const auto &key_and_value : rli->mapping_db_to_worker) {
+    db_worker_hash_entry *entry = key_and_value.second.get();
+    DBUG_ASSERT(entry);
 
-      // the ignore Worker retains its active resources
-      if (ignore && entry->worker == ignore && entry->usage > 0) {
-        continue;
-      }
-
-      if (entry->usage > 0 && !thd->killed) {
-        PSI_stage_info old_stage;
-        Slave_worker *w_entry = entry->worker;
-
-        entry->worker =
-            nullptr;  // mark Worker to signal when  usage drops to 0
-        thd->ENTER_COND(
-            &rli->slave_worker_hash_cond, &rli->slave_worker_hash_lock,
-            &stage_slave_waiting_worker_to_release_partition, &old_stage);
-        do {
-          mysql_cond_wait(&rli->slave_worker_hash_cond,
-                          &rli->slave_worker_hash_lock);
-          DBUG_PRINT("info", ("Either got awakened of notified: "
-                              "entry %p, usage %lu, worker %lu",
-                              entry, entry->usage, w_entry->id));
-        } while (entry->usage != 0 && !thd->killed);
-        entry->worker =
-            w_entry;  // restoring last association, needed only for assert
-        mysql_mutex_unlock(&rli->slave_worker_hash_lock);
-        thd->EXIT_COND(&old_stage);
-        ret++;
-      } else {
-        mysql_mutex_unlock(&rli->slave_worker_hash_lock);
-      }
-      // resources relocation
-      mts_move_temp_tables_to_thd(thd, entry->temporary_tables);
-      entry->temporary_tables = nullptr;
-      if (entry->worker->running_status != Slave_worker::RUNNING)
-        cant_sync = true;
-      mysql_mutex_lock(&rli->slave_worker_hash_lock);
+    // the ignore Worker retains its active resources
+    if (ignore && entry->worker == ignore && entry->usage > 0) {
+      continue;
     }
 
-    mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    if (entry->usage > 0 && !thd->killed) {
+      PSI_stage_info old_stage;
+      Slave_worker *w_entry = entry->worker;
+
+      entry->worker = nullptr;  // mark Worker to signal when  usage drops to 0
+      thd->ENTER_COND(
+          &rli->slave_worker_hash_cond, &rli->slave_worker_hash_lock,
+          &stage_slave_waiting_worker_to_release_partition, &old_stage);
+      do {
+        mysql_cond_wait(&rli->slave_worker_hash_cond,
+                        &rli->slave_worker_hash_lock);
+        DBUG_PRINT("info", ("Either got awakened of notified: "
+                            "entry %p, usage %lu, worker %lu",
+                            entry, entry->usage, w_entry->id));
+      } while (entry->usage != 0 && !thd->killed);
+      entry->worker =
+          w_entry;  // restoring last association, needed only for assert
+      mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+      thd->EXIT_COND(&old_stage);
+      ret++;
+    } else {
+      mysql_mutex_unlock(&rli->slave_worker_hash_lock);
+    }
+    // resources relocation
+    mts_move_temp_tables_to_thd(thd, entry->temporary_tables);
+    entry->temporary_tables = nullptr;
+    if (entry->worker->running_status != Slave_worker::RUNNING)
+      cant_sync = true;
+    mysql_mutex_lock(&rli->slave_worker_hash_lock);
   }
+
+  mysql_mutex_unlock(&rli->slave_worker_hash_lock);
 
   if (!ignore) {
     DBUG_PRINT("info", ("Coordinator synchronized with workers, "
@@ -202,8 +195,7 @@ void Mts_submode_database::detach_temp_tables(THD *thd,
                                               Query_log_event *ev) {
   int i, parts;
   DBUG_ENTER("Mts_submode_database::detach_temp_tables");
-  if (thd->rli_slave->mts_dependency_replication || !is_mts_worker(thd))
-    DBUG_VOID_RETURN;
+  if (!is_mts_worker(thd)) DBUG_VOID_RETURN;
   parts = ((ev->mts_accessed_dbs == OVER_MAX_DBS_IN_EVENT_MTS)
                ? 1
                : ev->mts_accessed_dbs);
@@ -707,8 +699,7 @@ void Mts_submode_logical_clock::attach_temp_tables(THD *thd,
   bool shifted = false;
   TABLE *table, *cur_table;
   DBUG_ENTER("Mts_submode_logical_clock::attach_temp_tables");
-  if (thd->rli_slave->mts_dependency_replication || !is_mts_worker(thd) ||
-      (ev->ends_group() || ev->starts_group()))
+  if (!is_mts_worker(thd) || (ev->ends_group() || ev->starts_group()))
     DBUG_VOID_RETURN;
   /* fetch coordinator's rli */
   Relay_log_info *c_rli = static_cast<const Slave_worker *>(rli)->c_rli;
@@ -761,8 +752,7 @@ void Mts_submode_logical_clock::detach_temp_tables(THD *thd,
                                                    const Relay_log_info *rli,
                                                    Query_log_event *) {
   DBUG_ENTER("Mts_submode_logical_clock::detach_temp_tables");
-  if (thd->rli_slave->mts_dependency_replication || !is_mts_worker(thd))
-    DBUG_VOID_RETURN;
+  if (!is_mts_worker(thd)) DBUG_VOID_RETURN;
   /*
     Here in detach section we will move the tables from the worker to the
     coordinaor thread. Since coordinator is shared we need to make sure that
@@ -967,4 +957,35 @@ Mts_submode_logical_clock::get_server_and_thread_id(TABLE *table) {
       /* next  4 bytes contains the pseudo_thread_id */
       uint4korr(extra_string + extra_string_len - 4));
   DBUG_RETURN(ret_pair);
+}
+
+/**
+ * Wait for all dependency slave workers to finish working on all enqueued trxs
+ *
+ * @param rli           Relay log info of the coordinator thread
+ * @param partial_trx   Have we queued a partial transaction?
+ *                      If true, we can't blindly wait for the trx counter to be
+ *                      zero (since the worker will not be able to complete
+ *                      that transaction)
+ * @return bool         true if all is well, false otherwise
+ */
+bool Mts_submode_dependency::wait_for_dep_workers_to_finish(
+    Relay_log_info *rli, const bool partial_trx) {
+  DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
+  PSI_stage_info old_stage;
+
+  mysql_mutex_lock(&rli->dep_lock);
+
+  const ulonglong num = partial_trx ? 1 : 0;
+  rli->info_thd->ENTER_COND(&rli->dep_trx_all_done_cond, &rli->dep_lock,
+                            &stage_slave_waiting_for_dependency_workers,
+                            &old_stage);
+  while (rli->num_in_flight_trx > num && !rli->info_thd->killed) {
+    mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
+  }
+
+  mysql_mutex_unlock(&rli->dep_lock);
+  rli->info_thd->EXIT_COND(&old_stage);
+
+  return !rli->info_thd->killed;
 }

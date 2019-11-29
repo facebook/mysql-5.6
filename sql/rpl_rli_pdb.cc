@@ -359,9 +359,19 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   overrun_level = jobs.size - underrun_level;
 
   /* create mts submode for each of the the workers. */
-  current_mts_submode = (rli->channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME)
-                            ? (Mts_submode *)new Mts_submode_database()
-                            : (Mts_submode *)new Mts_submode_logical_clock();
+  switch (rli->channel_mts_submode) {
+    case MTS_PARALLEL_TYPE_DB_NAME:
+      current_mts_submode = (Mts_submode *)new Mts_submode_database();
+      break;
+    case MTS_PARALLEL_TYPE_LOGICAL_CLOCK:
+      current_mts_submode = (Mts_submode *)new Mts_submode_logical_clock();
+      break;
+    case MTS_PARALLEL_TYPE_DEPENDENCY:
+      current_mts_submode = (Mts_submode *)new Mts_submode_dependency();
+      break;
+    default:
+      DBUG_RETURN(1);
+  }
 
   // workers and coordinator must be of the same type
   DBUG_ASSERT(rli->current_mts_submode->get_type() ==
@@ -1317,8 +1327,8 @@ void Slave_worker::slave_worker_ends_group(Log_event *ev, int error) {
       mysql_cond_signal(&c_rli->slave_worker_hash_cond);
       mysql_mutex_unlock(&c_rli->slave_worker_hash_lock);
     }
-  } else  // not DB-type scheduler
-  {
+  } else if (current_mts_submode->get_type() ==
+             MTS_PARALLEL_TYPE_LOGICAL_CLOCK) {
     DBUG_ASSERT(current_mts_submode->get_type() ==
                 MTS_PARALLEL_TYPE_LOGICAL_CLOCK);
     /*
@@ -1753,37 +1763,6 @@ static int64 get_sequence_number(Log_event *ev) {
 #endif
 
 /**
- * Wait for all dependency slave workers to finish working on all enqueued trxs
- *
- * @param rli           Relay log info of the coordinator thread
- * @param partial_trx   Have we queued a partial transaction?
- *                      If true, we can't blindly wait for the trx counter to be
- *                      zero (since the worker will not be able to complete
- *                      that transaction)
- * @return bool         true if all is well, false otherwise
- */
-bool wait_for_dep_workers_to_finish(Relay_log_info *rli,
-                                    const bool partial_trx) {
-  DBUG_ASSERT(rli->mts_dependency_replication);
-  PSI_stage_info old_stage;
-
-  mysql_mutex_lock(&rli->dep_lock);
-
-  const ulonglong num = partial_trx ? 1 : 0;
-  rli->info_thd->ENTER_COND(&rli->dep_trx_all_done_cond, &rli->dep_lock,
-                            &stage_slave_waiting_for_dependency_workers,
-                            &old_stage);
-  while (rli->num_in_flight_trx > num && !rli->info_thd->killed) {
-    mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
-  }
-
-  mysql_mutex_unlock(&rli->dep_lock);
-  rli->info_thd->EXIT_COND(&old_stage);
-
-  return !rli->info_thd->killed;
-}
-
-/**
   MTS worker main routine.
   The worker thread loops in waiting for an event, executing it and
   fixing statistics counters.
@@ -1798,7 +1777,7 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
   DBUG_ENTER("slave_worker_exec_event");
 
-  if (rli->mts_dependency_replication) {
+  if (is_mts_parallel_type_dependency(rli)) {
     Slave_job_group *ptr_g = rli->gaq->get_job_group(ev->mts_group_idx);
     ptr_g->worker = this;
     ptr_g->worker_id = id;
@@ -1850,8 +1829,7 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
 
   // Address partioning only in database mode
   if (!is_gtid_event(ev) && is_mts_db_partitioned(rli)) {
-    if (!rli->mts_dependency_replication &&
-        ev->contains_partition_info(end_group_sets_max_dbs)) {
+    if (ev->contains_partition_info(end_group_sets_max_dbs)) {
       uint num_dbs = ev->mts_number_dbs();
 
       if (num_dbs == OVER_MAX_DBS_IN_EVENT_MTS) num_dbs = 1;
@@ -2294,7 +2272,7 @@ bool append_item_to_jobs(slave_job_item *job_item, Slave_worker *worker,
   ulonglong new_pend_size;
   PSI_stage_info old_stage;
 
-  DBUG_ASSERT(rli->mts_dependency_replication || thd == current_thd);
+  DBUG_ASSERT(is_mts_parallel_type_dependency(rli) || thd == current_thd);
 
   mysql_mutex_lock(&rli->pending_jobs_lock);
   new_pend_size = rli->mts_pending_jobs_size + ev_size;
@@ -2683,10 +2661,11 @@ int slave_worker_exec_job_group(Slave_worker *worker, Relay_log_info *rli) {
                 ev->get_type_code() == binary_log::QUERY_EVENT ||
                 is_mts_db_partitioned(rli) || worker->id == 0 || seen_gtid);
 
-    if (ev->ends_group() || (!seen_begin && !is_gtid_event(ev) &&
-                             (ev->get_type_code() == binary_log::QUERY_EVENT ||
-                              /* break through by LC only in GTID off */
-                              (!seen_gtid && !is_mts_db_partitioned(rli)))))
+    if (ev->ends_group() ||
+        (!seen_begin && !is_gtid_event(ev) &&
+         (ev->get_type_code() == binary_log::QUERY_EVENT ||
+          /* break through by LC only in GTID off */
+          (!seen_gtid && is_mts_parallel_type_logical_clock(rli)))))
       break;
 
     remove_item_from_jobs(job_item, worker, rli);
@@ -2846,18 +2825,6 @@ int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
                                       ev_wrap->get_event_start_pos());
     if (error) goto err;
   }
-  /*
-    p-event or any other event of B-free (malformed) group can
-    "commit" with logical clock scheduler. In that case worker id
-    points to the only active "exclusive" Worker that processes such
-    malformed group events one by one.
-    WL#7592 refines the original assert disjunction formula
-    with the final disjunct.
-  */
-  DBUG_ASSERT(ev_wrap->is_begin_event || is_gtid_event(ev) ||
-              ev->get_type_code() == binary_log::QUERY_EVENT ||
-              is_mts_db_partitioned(rli) || worker->id == 0 ||
-              ev_wrap->is_end_event);
 
   if (!ev_wrap->is_end_event) {
     /* The event will be used later if worker is NULL, so it is not freed */
