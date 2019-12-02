@@ -2739,28 +2739,28 @@ static bool tdc_wait_for_old_version_nsec(THD *thd, const char *db,
 }
 
 void return_table_to_cache(THD *thd, TABLE_LIST *table_list) {
-  TABLE *table = NULL;
+  TABLE *table = nullptr;
 
   DBUG_ENTER("return_table_to_cache");
 
-  if (table_list->table != NULL) {
+  if (table_list->table != nullptr) {
     DBUG_ASSERT(thd->open_tables == table_list->table);
-    DBUG_ASSERT(thd->open_tables->next == NULL);
+    DBUG_ASSERT(thd->open_tables->next == nullptr);
     DBUG_ASSERT(!table_list->table->s->has_old_version());
 
     table = table_list->table;
 
     /* Do this *before* entering the LOCK_open critical section. */
-    if (table->file != NULL) table->file->unbind_psi();
+    if (table->file != nullptr) table->file->unbind_psi();
 
     release_or_close_table(thd, table);
-    thd->open_tables = NULL;
+    thd->open_tables = nullptr;
   }
 
   /* Release the meta data lock */
   thd->mdl_context.release_transactional_locks();
 
-  table_list->mdl_request.ticket = NULL;
+  table_list->mdl_request.ticket = nullptr;
 
   DBUG_VOID_RETURN;
 }
@@ -2773,7 +2773,7 @@ static TABLE *init_table_from_share(THD *thd, TABLE_SHARE *share,
                                     TABLE_LIST *table_list) {
   DBUG_ENTER("init_table_from_share");
 
-  TABLE *table = NULL;
+  TABLE *table = nullptr;
   int error = 0;
   uint flags = 0;
   const char *alias = table_list->alias;
@@ -2854,7 +2854,7 @@ static TABLE *init_table_from_share(THD *thd, TABLE_SHARE *share,
     Check that there is no reference to a condition from an earlier query
     (cf. Bug#58553).
   */
-  DBUG_ASSERT(table->file->pushed_cond == NULL);
+  DBUG_ASSERT(table->file->pushed_cond == nullptr);
   table_list
       ->set_updatable();  // It is not derived table nor non-updatable VIEW
   table_list->set_insertable();
@@ -2868,19 +2868,19 @@ err_lock:
   release_table_share(share);
   mysql_mutex_unlock(&LOCK_open);
 
-  DBUG_RETURN(NULL);
+  DBUG_RETURN(nullptr);
 }
 
 bool get_table_from_cache(THD *thd, TABLE_LIST *table_list) {
   DBUG_ENTER("get_table_from_cache");
 
-  const char *key = NULL;
+  const char *key = nullptr;
   uint flags = 0;
-  MDL_ticket *mdl_ticket = NULL;
+  MDL_ticket *mdl_ticket = nullptr;
   Open_table_context ot_ctx(thd, flags);
   int error = 0;
-  TABLE_SHARE *share = NULL;
-  TABLE *table = NULL;
+  TABLE_SHARE *share = nullptr;
+  TABLE *table = nullptr;
   uint key_length = get_table_def_key(table_list, &key);
   Table_cache *tc = table_cache_manager.get_cache(thd);
 
@@ -2888,7 +2888,7 @@ bool get_table_from_cache(THD *thd, TABLE_LIST *table_list) {
      very least.
   */
   if (open_table_get_mdl_lock(thd, &ot_ctx, table_list, flags, &mdl_ticket) ||
-      mdl_ticket == NULL) {
+      mdl_ticket == nullptr) {
     goto done;
   }
 
@@ -2918,7 +2918,7 @@ bool get_table_from_cache(THD *thd, TABLE_LIST *table_list) {
     }
   }
 
-  if (table != NULL) {
+  if (table != nullptr) {
     table->next = thd->open_tables;
     thd->set_open_tables(table);
   }
@@ -2928,7 +2928,7 @@ done:
   table_list->table = table;
   thd->clear_error();
   thd->get_stmt_da()->reset_condition_info(thd);
-  DBUG_RETURN(table_list->table == NULL);
+  DBUG_RETURN(table_list->table == nullptr);
 }
 
 /**

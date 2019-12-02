@@ -4784,7 +4784,7 @@ static Sys_var_transaction_isolation Sys_transaction_isolation(
 static Sys_var_transaction_isolation Sys_slave_tx_isolation(
     "slave_tx_isolation", "Slave thread transaction isolation level",
     GLOBAL_VAR(slave_tx_isolation), CMD_LINE(REQUIRED_ARG), tx_isolation_names,
-    DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD, NOT_IN_BINLOG, NULL);
+    DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD, NOT_IN_BINLOG, nullptr);
 
 /**
   Function to check if the state of 'transaction_read_only' can be changed.

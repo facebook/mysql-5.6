@@ -43,7 +43,8 @@ std::shared_ptr<Log_event_wrapper> Log_event_wrapper::next() {
                        &stage_slave_waiting_event_from_coordinator, &old_stage);
   while (!info_thd->killed && worker->running_status == Slave_worker::RUNNING &&
          !next_ev) {
-    ++worker->c_rli->next_event_waits;
+    ++static_cast<Mts_submode_dependency *>(worker->c_rli->current_mts_submode)
+          ->next_event_waits;
     mysql_cond_wait(&next_event_cond, &mutex);
   }
   mysql_mutex_unlock(&mutex);

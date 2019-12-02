@@ -1094,21 +1094,10 @@ class Log_event {
 
  public:
   /**
-     Encapsulation for things to be done to terminal dependency events
-     @see Log_event::schedule_dep
-  */
-  void handle_terminal_dep_event(Relay_log_info *rli,
-                                 std::shared_ptr<Log_event_wrapper> &ev);
-  /**
      Called by @schedule_dep to prepare a dependency event
   */
   virtual void prepare_dep(Relay_log_info *rli,
                            std::shared_ptr<Log_event_wrapper> &ev);
-  /**
-     Adds events to a dep queue according to write-write dependencies
-     see @mts_dependency_replication
-  */
-  void schedule_dep(Relay_log_info *rli);
 
   /**
      @return true  if events carries partitioning data (database names).
@@ -1452,7 +1441,7 @@ class Query_log_event : public virtual binary_log::Query_event,
 #if defined(MYSQL_SERVER)
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
   virtual void prepare_dep(Relay_log_info *rli,
-                           std::shared_ptr<Log_event_wrapper> &ev);
+                           std::shared_ptr<Log_event_wrapper> &ev) override;
   virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
 
@@ -1789,7 +1778,7 @@ class Xid_log_event : public binary_log::Xid_event, public Xid_apply_log_event {
  private:
 #if defined(MYSQL_SERVER)
   virtual void prepare_dep(Relay_log_info *rli,
-                           std::shared_ptr<Log_event_wrapper> &ev);
+                           std::shared_ptr<Log_event_wrapper> &ev) override;
   bool do_commit(THD *thd_arg) override;
 #endif
 };
@@ -2904,7 +2893,7 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
                      RPL_TABLE_LIST **table_list);
   void close_table_ref(THD *thd, RPL_TABLE_LIST *table_list);
   virtual void prepare_dep(Relay_log_info *rli,
-                           std::shared_ptr<Log_event_wrapper> &ev);
+                           std::shared_ptr<Log_event_wrapper> &ev) override;
   virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
@@ -3959,7 +3948,8 @@ class Gtid_log_event : public binary_log::Gtid_event, public Log_event {
 #endif
 
 #if defined(MYSQL_SERVER)
-  void prepare_dep(Relay_log_info *rli, std::shared_ptr<Log_event_wrapper> &ev);
+  virtual void prepare_dep(Relay_log_info *rli,
+                           std::shared_ptr<Log_event_wrapper> &ev) override;
   int do_apply_event(Relay_log_info const *rli) override;
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;

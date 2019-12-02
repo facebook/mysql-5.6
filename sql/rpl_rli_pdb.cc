@@ -2768,7 +2768,7 @@ int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
                                  my_off_t start_relay_pos) {
   THD *thd = worker->info_thd;
   int error = 0;
-  Log_event *ev = NULL;
+  Log_event *ev = nullptr;
 
   DBUG_ENTER("slave_worker_exec_single_job");
 
@@ -2786,7 +2786,7 @@ int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
   }
 
   ev = ev_wrap->raw_event();
-  DBUG_ASSERT(ev != NULL);
+  DBUG_ASSERT(ev != nullptr);
   DBUG_PRINT("info",
              ("W_%lu <- job item: data: %p thd: %p", worker->id, ev, thd));
   /*
