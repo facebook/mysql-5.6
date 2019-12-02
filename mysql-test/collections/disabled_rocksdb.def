@@ -63,6 +63,9 @@ rocksdb.rocksdb_read_free_rpl_stress : BUG#0000 missing af531c246d35 Added a new
 rocksdb.blind_delete_rc : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 
+# loose index scan
+rocksdb.optimizer_loose_index_scans : BUG#0000 missing fa016209fdf Support loose index range scans for low cardinality column
+
 # i_s.table_statistics
 rocksdb.rocksdb_icp : BUG#0000 table_statistics missing
 rocksdb.rocksdb_icp_rev : BUG#0000 table_statistics missing
