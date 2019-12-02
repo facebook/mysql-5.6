@@ -56,7 +56,7 @@ int get_user_var_int(const char *name,
                      long long int *value, int *null_value)
 {
   my_bool null_val;
-  user_var_entry *entry= 
+  user_var_entry *entry=
     (user_var_entry*) my_hash_search(&current_thd->user_vars,
                                   (uchar*) name, strlen(name));
   if (!entry)
@@ -71,7 +71,7 @@ int get_user_var_real(const char *name,
                       double *value, int *null_value)
 {
   my_bool null_val;
-  user_var_entry *entry= 
+  user_var_entry *entry=
     (user_var_entry*) my_hash_search(&current_thd->user_vars,
                                   (uchar*) name, strlen(name));
   if (!entry)
@@ -87,7 +87,7 @@ int get_user_var_str(const char *name, char *value,
 {
   String str;
   my_bool null_val;
-  user_var_entry *entry= 
+  user_var_entry *entry=
     (user_var_entry*) my_hash_search(&current_thd->user_vars,
                                   (uchar*) name, strlen(name));
   if (!entry)
@@ -191,7 +191,7 @@ void delegates_destroy()
   This macro is used by almost all the Delegate methods to iterate
   over all the observers running given callback function of the
   delegate .
-  
+
   Add observer plugins to the thd->lex list, after each statement, all
   plugins add to thd->lex will be automatically unlocked.
  */
@@ -237,7 +237,7 @@ void delegates_destroy()
     }                                                                   \
   }                                                                     \
   unlock();                                                             \
-  /* 
+  /*
      Unlock plugins should be done after we released the Delegate lock
      to avoid possible deadlock when this is the last user of the
      plugin, and when we unlock the plugin, it will try to
@@ -609,7 +609,7 @@ int Raft_replication_delegate::setup_flush(
   int ret= 0;
 
   FOREACH_OBSERVER(ret, setup_flush, thd,
-      (is_relay_log, log_file_cache, log_prefix, log_name,
+      (&raft_listener_queue, is_relay_log, log_file_cache, log_prefix, log_name,
        lock_log, lock_index, update_cond, cur_log_ext, context)
   );
 
@@ -851,6 +851,11 @@ int start_raft_listener_thread()
   }
 
   return 0;
+}
+
+RaftListenerQueue::~RaftListenerQueue()
+{
+  // TODO : Need to fix the destruction construct.
 }
 
 int RaftListenerQueue::add(QueueElement element)

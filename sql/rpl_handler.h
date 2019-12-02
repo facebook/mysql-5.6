@@ -22,6 +22,7 @@
 #include "rpl_rli.h"
 #include "sql_plugin.h"
 #include "replication.h"
+#include "raft_listener_queue_if.h"
 
 class Observer_info {
 public:
@@ -40,7 +41,7 @@ class Delegate {
 public:
   typedef List<Observer_info> Observer_info_list;
   typedef List_iterator<Observer_info> Observer_info_iterator;
-  
+
   int add_observer(void *observer, st_plugin_int *plugin)
   {
     int ret= FALSE;
@@ -62,7 +63,7 @@ public:
     unlock();
     return ret;
   }
-  
+
   int remove_observer(void *observer, st_plugin_int *plugin)
   {
     int ret= FALSE;
@@ -310,3 +311,48 @@ extern Raft_replication_delegate *raft_replication_delegate;
    0 : group ##_delegate->hook args)
 
 #endif /* RPL_HANDLER_H */
+
+class RaftListenerQueue : public RaftListenerQueueIf
+{
+ public:
+  explicit RaftListenerQueue()
+  {
+    inited_.store(false);
+  }
+
+  ~RaftListenerQueue();
+
+  /* Init the queue, this will create a listening thread for this queue
+   *
+   * @return 0 on success, 1 on error
+   */
+  int init();
+
+  /* Deinit the queue. This will add an exit event into the queue which will
+   * be picked up by any listening thread and it will stop listening */
+  void deinit();
+
+  /* Add an element to the queue. This will signal any listening threads
+   * after adding the element to the queue
+   *
+   * @param element QueueElement to add to queue
+   *
+   * @return 0 on success, 1 on error
+   */
+  int add(QueueElement element);
+
+  /* Get an element from the queue. This will block if there are no elements
+   * in the queue to be processed
+   *
+   * @return QueueElement to be processed next
+   */
+  QueueElement get();
+
+ private:
+  std::mutex queue_mutex_; // Lock guarding the queue
+  std::condition_variable queue_cv_; // CV to wait and signal
+  std::queue<QueueElement> queue_; // The queue of events to be processed
+
+  std::mutex init_mutex_; // Mutex to guard against init and deinit races
+  std::atomic_bool inited_; // Has this been inited?
+};

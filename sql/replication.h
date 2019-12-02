@@ -25,6 +25,7 @@ typedef struct st_mysql MYSQL;
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER
 extern bool enable_raft_plugin;
 #endif
+class RaftListenerQueueIf;
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,7 +84,7 @@ typedef struct Trans_observer {
 
   /**
      This callback is called after transaction commit
-     
+
      This callback is called right after commit to storage engines for
      transactional tables.
 
@@ -205,7 +206,7 @@ typedef struct Binlog_transmit_param {
 */
 typedef struct Binlog_transmit_observer {
   uint32 len;
-  
+
   /**
      This callback is called when binlog dumping starts
 
@@ -224,7 +225,7 @@ typedef struct Binlog_transmit_observer {
      This callback is called when binlog dumping stops
 
      @param param Observer common parameter
-     
+
      @retval 0 Sucess
      @retval 1 Failure
   */
@@ -403,7 +404,7 @@ typedef struct Binlog_relay_IO_observer {
 
   /**
      This callback is called after reset slave relay log IO status
-     
+
      @param param Observer common parameter
 
      @retval 0 Sucess
@@ -449,6 +450,7 @@ typedef struct Raft_replication_observer {
      This callback is called once upfront to setup the appropriate
      binlog file, io_cache and its mutexes
 
+     @param raft_listener_queue Event listener to execute plugin operations
      @param is_relay_log whether the file being registered is relay or binlog
      @param log_file_cache  the IO_CACHE pointer
      @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
@@ -462,7 +464,8 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*setup_flush)(bool is_relay_log, IO_CACHE* log_file_cache,
+  int (*setup_flush)(RaftListenerQueueIf* raft_listener_queue,
+                     bool is_relay_log, IO_CACHE* log_file_cache,
                      const char *log_prefix, const char *log_name,
                      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
                      mysql_cond_t *update_cond, ulong *cur_log_ext,
@@ -697,133 +700,6 @@ int get_user_var_real(const char *name,
 int get_user_var_str(const char *name,
                      char *value, unsigned long len,
                      unsigned int precision, int *null_value);
-
-/* Type of callback that raft plugin wants to invoke in the server */
-enum class RaftListenerCallbackType
-{
-  SET_READ_ONLY= 1,
-  UNSET_READ_ONLY= 2,
-  TRIM_LOGGED_GTIDS= 3,
-  ROTATE_BINLOG= 4,
-  ROTATE_RELAYLOG= 5,
-  RAFT_LISTENER_THREADS_EXIT= 6,
-  RLI_RELAY_LOG_RESET = 7,
-  RESET_SLAVE = 8,
-  BINLOG_CHANGE_TO_APPLY = 9,
-  BINLOG_CHANGE_TO_BINLOG= 10,
-  STOP_SQL_THREAD = 11,
-  START_SQL_THREAD = 12,
-  STOP_IO_THREAD = 13,
-};
-
-/* Callback argument, each type would just populate the fields needed for its
- * callback */
-class RaftListenerCallbackArg
-{
-  public:
-    explicit RaftListenerCallbackArg() {}
-    ~RaftListenerCallbackArg() {}
-
-    std::vector<std::string> trim_gtids= {};
-    std::pair<std::string, ulonglong> log_file_pos= {};
-    bool val_bool;
-    uint32 val_uint;
-};
-
-/* Result of the callback execution in the server. This will be set in the
- * future's promise (in the QueueElement) and the invoker can get()/wait() for
- * the result. Add more fields as needed */
-class RaftListenerCallbackResult
-{
-  public:
-    explicit RaftListenerCallbackResult() {}
-    ~RaftListenerCallbackResult() {}
-
-    // Indicates if the callback was able to execute successfully
-    int error= 0;
-};
-
-class RaftListenerQueue
-{
-  public:
-    static const int RAFT_FLAGS_POSTAPPEND = 1;
-    static const int RAFT_FLAGS_NOOP = 2;
-
-    explicit RaftListenerQueue()
-    {
-      inited_.store(false);
-    }
-
-    /* Init the queue, this will create a listening thread for this queue
-     *
-     * @return 0 on success, 1 on error
-     */
-    int init();
-
-    /* Deinit the queue. This will add an exit event into the queue which will
-     * be picked up by any listening thread and it will stop listening */
-    void deinit();
-
-    /* Defines the element of the queue. It consists of the callback type to be
-     * invoked and the argument (optional) for the callback */
-    struct QueueElement
-    {
-      // Type of the callback to invoke in the server
-      RaftListenerCallbackType type;
-
-      // Argument to the callback
-      RaftListenerCallbackArg arg;
-
-      /* result of the callback will be fulfilled through this promise. If this
-       * is set, then the invoker should ensure tht he eventually calls
-       * get()/wait() to retrieve the result. Example:
-       *
-       * std::promise<RaftListenerCallbackResult> promise;
-       * std::future<RaftListenerCallbackResult> fut = promise.get_future();
-       *
-       * QueueElement e;
-       * e.type = RaftListenerCallbackType::SET_READ_ONLY;
-       * e.result = &promise;
-       * listener_queue.add(std::move(e));
-       * ....
-       * ....
-       * ....
-       * // Get the result when we want it. This wll block until the promise is
-       * // fullfilled by the raft listener thread after executing the callback
-       * RaftListenerCallbackResult result = fut.get();
-       */
-      std::promise<RaftListenerCallbackResult>* result= nullptr;
-    };
-
-    /* Add an element to the queue. This will signal any listening threads
-     * after adding the element to the queue
-     *
-     * @param element QueueElement to add to queue
-     *
-     * @return 0 on success, 1 on error
-     */
-    int add(QueueElement element);
-
-    /* Get an element from the queue. This will block if there are no elements
-     * in the queue to be processed
-     *
-     * @return QueueElement to be processed next
-     */
-    QueueElement get();
-
-  private:
-    std::mutex queue_mutex_; // Lock guarding the queue
-    std::condition_variable queue_cv_; // CV to wait and signal
-    std::queue<QueueElement> queue_; // The queue of events to be processed
-
-    std::mutex init_mutex_; // Mutex to guard against init and deinit races
-    std::atomic_bool inited_; // Has this been inited?
-};
-
-#ifdef INCL_DEFINED_IN_MYSQL_SERVER
-extern RaftListenerQueue raft_listener_queue;
-#endif
-
 
 #ifdef __cplusplus
 }
