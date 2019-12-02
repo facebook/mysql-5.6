@@ -4498,7 +4498,8 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
     if (!exec_res && (ev->worker != rli)) {
       if (is_mts_parallel_type_dependency(rli)) {
         DBUG_ASSERT(ev->worker == nullptr);
-        if (!ev->schedule_dep(rli)) {
+        if (!static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+                 ->schedule_dep(rli, ev)) {
           *ptr_ev = nullptr;
           DBUG_RETURN(SLAVE_APPLY_EVENT_AND_UPDATE_POS_APPLY_ERROR);
         }
@@ -6704,74 +6705,8 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited) {
                                : 0;
 
   if (is_mts_parallel_type_dependency(rli)) {
-    mysql_mutex_lock(&rli->dep_lock);
-    // this will be used to determine if we need to deal with a worker that is
-    // handling a partially enqueued trx
-    bool partial = false;
-    // case: until condition is specified, so we have to execute all
-    // transactions in the queue
-    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
-      // we have a partial trx if the coordinator has set the trx_queued flag,
-      // this is because this flag is set to false after coordinator sees an end
-      // event
-      partial = rli->trx_queued;
-    }
-    // case: until condition is not specified
-    else {
-      // the partial check is slightly complicated in this case because we only
-      // care about partial trx that has been pulled by a worker, since the
-      // queue is going to be emptied next anyway, we make this check by
-      // checking of the queue is empty
-      partial = rli->dep_queue.empty() && rli->trx_queued;
-      // let's cleanup, we can clear the queue in this case
-      rli->clear_dep(false);
-    }
-    mysql_mutex_unlock(&rli->dep_lock);
-
     static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
-        ->wait_for_dep_workers_to_finish(rli, partial);
-
-    // case: if UNTIL is specified let's clean up after waiting for workers
-    if (unlikely(rli->until_condition != Relay_log_info::UNTIL_NONE)) {
-      rli->clear_dep(true);
-    }
-
-    // set all workers as STOP_ACCEPTED, and signal blocked workers
-    for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
-      Slave_worker *w = rli->workers[i];
-      mysql_mutex_lock(&w->jobs_lock);
-
-      if (w->running_status != Slave_worker::RUNNING) {
-        mysql_mutex_unlock(&w->jobs_lock);
-        continue;
-      }
-
-      w->running_status = Slave_worker::STOP_ACCEPTED;
-
-      // unblock workers waiting for new events or trxs
-      mysql_mutex_lock(&w->info_thd->LOCK_thd_data);
-      w->info_thd->awake(w->info_thd->killed);
-      mysql_mutex_unlock(&w->info_thd->LOCK_thd_data);
-
-      mysql_mutex_unlock(&w->jobs_lock);
-    }
-
-    thd_proc_info(thd, "Waiting for workers to exit");
-
-    for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
-      Slave_worker *w = rli->workers[i];
-      mysql_mutex_lock(&w->jobs_lock);
-
-      // wait for workers to stop running
-      while (w->running_status != Slave_worker::NOT_RUNNING) {
-        struct timespec abstime;
-        set_timespec(&abstime, 1);
-        mysql_cond_timedwait(&w->jobs_cond, &w->jobs_lock, &abstime);
-      }
-
-      mysql_mutex_unlock(&w->jobs_lock);
-    }
-    rli->dependency_worker_error = false;
+        ->stop_dependency_workers(rli);
   } else {
     if (!rli->workers.empty()) {
       for (int i = static_cast<int>(rli->workers.size()) - 1; i >= 0; i--) {
@@ -7303,8 +7238,6 @@ err:
         "WAIT_FOR continue_to_stop_sql_thread";
     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
   };);
-
-  DBUG_ASSERT(rli->num_workers_waiting == 0 && rli->num_in_flight_trx == 0);
 
   THD_STAGE_INFO(thd, stage_waiting_for_slave_mutex_on_exit);
   mysql_mutex_lock(&rli->run_lock);
@@ -10235,8 +10168,7 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
   }
 
   if (opt_slave_preserve_commit_order && slave_parallel_workers > 0) {
-    if (!rli->mts_dependency_replication &&
-        channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
+    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
       my_error(ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER, MYF(0),
                "when slave_parallel_type is DATABASE");
       return ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER;

@@ -13,49 +13,7 @@ int slave_worker_exec_single_job(Slave_worker *worker, Relay_log_info *rli,
 
 std::shared_ptr<Log_event_wrapper> Dependency_slave_worker::get_begin_event(
     Commit_order_manager *co_mngr) {
-  std::shared_ptr<Log_event_wrapper> ret;
-
-  mysql_mutex_lock(&c_rli->dep_lock);
-
-  PSI_stage_info old_stage;
-  info_thd->ENTER_COND(&c_rli->dep_empty_cond, &c_rli->dep_lock,
-                       &stage_slave_waiting_event_from_coordinator, &old_stage);
-
-  while (!info_thd->killed && running_status == RUNNING &&
-         c_rli->dep_queue.empty()) {
-    ++c_rli->begin_event_waits;
-    ++c_rli->num_workers_waiting;
-    mysql_cond_wait(&c_rli->dep_empty_cond, &c_rli->dep_lock);
-    --c_rli->num_workers_waiting;
-  }
-
-  ret = c_rli->dequeue_dep();
-
-  // case: place ourselves in the commit order queue
-  if (ret && co_mngr != nullptr) {
-    DBUG_ASSERT(c_rli->slave_preserve_commit_order);
-    set_current_db(ret->get_db());
-    co_mngr->register_trx(this);
-  }
-
-  // case: signal if queue is now empty
-  if (c_rli->dep_queue.empty()) mysql_cond_signal(&c_rli->dep_empty_cond);
-
-  // admission control
-  if (unlikely(c_rli->dep_full)) {
-    DBUG_ASSERT(c_rli->dep_queue.size() > 0);
-    // case: signal if dep has space
-    if (c_rli->dep_queue.size() <
-        (c_rli->mts_dependency_size * c_rli->mts_dependency_refill_threshold /
-         100)) {
-      c_rli->dep_full = false;
-      mysql_cond_signal(&c_rli->dep_full_cond);
-    }
-  }
-
-  mysql_mutex_unlock(&c_rli->dep_lock);
-  info_thd->EXIT_COND(&old_stage);
-  return ret;
+  return scheduler->dequeue(c_rli, this, co_mngr);
 }
 
 // Pulls and executes events single group
@@ -76,7 +34,7 @@ bool Dependency_slave_worker::execute_group() {
 
   while (ev) {
     if ((err = execute_event(ev, start_relay_number, start_relay_pos))) {
-      c_rli->dependency_worker_error = true;
+      scheduler->dependency_worker_error = true;
       break;
     }
     finalize_event(ev);
@@ -88,16 +46,7 @@ bool Dependency_slave_worker::execute_group() {
     commit_order_mngr->report_rollback(this);
   }
 
-  mysql_mutex_lock(&c_rli->dep_lock);
-  if (begin_event) {
-    DBUG_ASSERT(c_rli->num_in_flight_trx > 0);
-    --c_rli->num_in_flight_trx;
-  }
-  if (c_rli->num_in_flight_trx <= 1)
-    mysql_cond_broadcast(&c_rli->dep_trx_all_done_cond);
-  mysql_mutex_unlock(&c_rli->dep_lock);
-
-  c_rli->cleanup_group(begin_event);
+  scheduler->signal_trx_done(begin_event);
 
   return err == 0 && !info_thd->killed && running_status == RUNNING;
 }
@@ -118,7 +67,7 @@ int Dependency_slave_worker::execute_event(
 
   // case: there was an error in one of the workers, so let's skip execution of
   // events immediately
-  if (unlikely(c_rli->dependency_worker_error)) return 1;
+  if (unlikely(scheduler->dependency_worker_error)) return 1;
 
   return slave_worker_exec_single_job(this, c_rli, ev, start_relay_number,
                                       start_relay_pos) == 0
@@ -128,28 +77,7 @@ int Dependency_slave_worker::execute_event(
 
 void Dependency_slave_worker::finalize_event(
     std::shared_ptr<Log_event_wrapper> &ev) {
-  /* Attempt to clean up entries from the key lookup
-   *
-   * There are two cases:
-   * 1) The "value" of the key-value pair is equal to this event. In this case,
-   *    remove the key-value pair from the map.
-   * 2) The "value" of the key-value pair is _not_ equal to this event. In this
-   *    case, leave it be; the event corresponds to a later transaction.
-   */
-  mysql_mutex_lock(&c_rli->dep_key_lookup_mutex);
-  if (likely(!c_rli->dep_key_lookup.empty())) {
-    for (const auto &key : ev->keys) {
-      const auto it = c_rli->dep_key_lookup.find(key);
-      DBUG_ASSERT(it != c_rli->dep_key_lookup.end());
-
-      /* Case 1. (Case 2 is implicitly handled by doing nothing.) */
-      if (it->second == ev) {
-        c_rli->dep_key_lookup.erase(it);
-      }
-    }
-  }
-  ev->finalize();
-  mysql_mutex_unlock(&c_rli->dep_key_lookup_mutex);
+  scheduler->unregister_keys(ev);
 }
 
 Dependency_slave_worker::Dependency_slave_worker(
@@ -177,11 +105,14 @@ Dependency_slave_worker::Dependency_slave_worker(
 #endif
                    ,
                    param_id, param_channel) {
+  scheduler = static_cast<Mts_submode_dependency *>(c_rli->current_mts_submode);
 }
 
 void Dependency_slave_worker::start() {
-  DBUG_ASSERT(c_rli->dep_queue.empty() && dep_key_lookup.empty() &&
-              keys_accessed_by_group.empty() && dbs_accessed_by_group.empty());
+  DBUG_ASSERT(scheduler->dep_queue.empty() &&
+              scheduler->dep_key_lookup.empty() &&
+              scheduler->keys_accessed_by_group.empty() &&
+              scheduler->dbs_accessed_by_group.empty());
 
   while (execute_group())
     ;

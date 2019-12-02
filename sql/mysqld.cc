@@ -8464,9 +8464,9 @@ static int show_slave_dependency_in_queue(THD *, SHOW_VAR *var, char *buff) {
       is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
-    mysql_mutex_lock(&mi->rli->dep_lock);
-    *((ulonglong *)buff) = mi->rli->dep_queue.size();
-    mysql_mutex_unlock(&mi->rli->dep_lock);
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->get_dep_queue_size();
   } else
     var->type = SHOW_UNDEF;
 
@@ -8482,9 +8482,9 @@ static int show_slave_dependency_in_flight(THD *, SHOW_VAR *var, char *buff) {
       is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
-    mysql_mutex_lock(&mi->rli->dep_lock);
-    *((ulonglong *)buff) = (ulonglong)mi->rli->num_in_flight_trx;
-    mysql_mutex_unlock(&mi->rli->dep_lock);
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->num_in_flight_trx.load();
   } else
     var->type = SHOW_UNDEF;
 
@@ -8500,7 +8500,9 @@ static int show_slave_dependency_begin_waits(THD *, SHOW_VAR *var, char *buff) {
       is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
-    *((ulonglong *)buff) = (ulonglong)mi->rli->begin_event_waits.load();
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->begin_event_waits.load();
   } else
     var->type = SHOW_UNDEF;
 
@@ -8516,7 +8518,9 @@ static int show_slave_dependency_next_waits(THD *, SHOW_VAR *var, char *buff) {
       is_mts_parallel_type_dependency(mi->rli)) {
     var->type = SHOW_LONGLONG;
     var->value = buff;
-    *((ulonglong *)buff) = (ulonglong)mi->rli->next_event_waits.load();
+    *((ulonglong *)buff) = (ulonglong) static_cast<Mts_submode_dependency *>(
+                               mi->rli->current_mts_submode)
+                               ->next_event_waits.load();
   } else
     var->type = SHOW_UNDEF;
 

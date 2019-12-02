@@ -6,6 +6,8 @@
 class Commit_order_manager;
 
 class Dependency_slave_worker : public Slave_worker {
+  Mts_submode_dependency *scheduler;
+
   std::shared_ptr<Log_event_wrapper> get_begin_event(
       Commit_order_manager *co_mngr);
   bool execute_group();
