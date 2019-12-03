@@ -20,8 +20,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include <sql/auth/sql_security_ctx.h>
 #include <include/my_sqlcommand.h>
+#include <sql/auth/sql_security_ctx.h>
+#include "sql/sql_class.h"
 
 /**
   We need it for merge_test_small.cc
@@ -31,3 +32,7 @@ ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 
 bool support_high_priority(enum enum_sql_command) noexcept { return false; };
 bool Security_context::check_access(ulong, bool) { return false; };
+
+void THD::enter_stage(const PSI_stage_info *, PSI_stage_info *, const char *,
+                      const char *, const unsigned int){};
+Vio *Protocol_classic::get_vio() { return nullptr; };
