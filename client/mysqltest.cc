@@ -727,24 +727,15 @@ static int socket_event_listen(net_async_block_state async_blocking_state,
   return result;
 }
 #else
-static int socket_event_listen(net_async_block_state async_blocking_state,
-                               my_socket fd) {
+static int socket_event_listen(net_async_block_state, my_socket fd) {
   int result;
   pollfd pfd;
   pfd.fd = fd;
-  switch (async_blocking_state) {
-    case NET_NONBLOCKING_READ:
-      pfd.events = POLLIN;
-      break;
-    case NET_NONBLOCKING_WRITE:
-      pfd.events = POLLOUT;
-      break;
-    case NET_NONBLOCKING_CONNECT:
-      pfd.events = POLLIN | POLLOUT;
-      break;
-    default:
-      DBUG_ASSERT(false);
-  }
+  /*
+    Listen to both in/out because SSL can perform reads during writes (and
+    vice versa).
+  */
+  pfd.events = POLLIN | POLLOUT;
   result = poll(&pfd, 1, -1);
   if (result < 0) {
     perror("poll");
