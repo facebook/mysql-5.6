@@ -9561,10 +9561,34 @@ static int binlog_recover(Binlog_file_reader *binlog_file_reader,
       does 2PC, otherwise in DBUG builds calling ha_recover directly
       will result in an assert. (Production builds would be safe since
       ha_recover returns right away if total_ha_2pc <= opt_log_bin.)
-     */
-    if (total_ha_2pc > 1 && ha_recover(&xids, binlog_max_gtid,
-                                       engine_binlog_file, engine_binlog_pos))
-      goto err1;
+    */
+    if (total_ha_2pc > 1) {
+      if (ha_recover(&xids, binlog_max_gtid, engine_binlog_file,
+                     engine_binlog_pos))
+        goto err1;
+
+      /*
+        If trim binlog on recover option is set, then we essentially trim
+        binlog to the position that the engine thinks it has committed. Note
+        that if opt_trim_binlog option is set, then engine recovery (called
+        through ha_recover() above) ensures that all prepared txns are rolled
+        back. There are a few things which need to be kept in mind:
+        1. txns never span across two binlogs, hence it is safe to recover only
+           the latest binlog file.
+        2. A binlog rotation ensures that the previous binlogs and engine's
+           transaction logs are flushed and made durable. Hence all previous
+           transactions are made durable.
+      */
+      if (opt_trim_binlog) {
+        if (*valid_pos > *engine_binlog_pos)
+          *valid_pos = *engine_binlog_pos;
+        else if (*valid_pos < *engine_binlog_pos)
+          // NO_LINT_DEBUG
+          sql_print_information(
+              "Engine is ahead of binlog. Binlog will not be "
+              "truncated to match engine position.");
+      }
+    }
   }
 
   return 0;

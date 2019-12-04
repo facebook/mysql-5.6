@@ -155,7 +155,7 @@ enum_server_operational_state get_server_state();
 extern const char *mysql_compression_lib_names[3];
 extern bool opt_improved_dup_key_error;
 extern bool opt_large_files, server_id_supplied;
-extern bool opt_bin_log;
+extern bool opt_bin_log, opt_trim_binlog;
 extern bool opt_binlog_trx_meta_data;
 extern bool opt_log_slave_updates;
 extern bool opt_log_unsafe_statements;
