@@ -184,6 +184,7 @@ SET(TESTS
   unhex
   val_int_compare
   varlen_sort
+  fast_int2str
   )
 
 SET(ALL_SMALL_TESTS)

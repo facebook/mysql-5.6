@@ -97,7 +97,7 @@ char *ll2str(int64_t val, char *dst, int radix, bool upcase) {
 
   @return pointer to the ending NUL character
 */
-char *longlong10_to_str(int64_t val, char *dst, int radix) {
+static char *longlong10_to_str_imp(int64_t val, char *dst, int radix) {
   assert(radix == 10 || radix == -10);
 
   uint64_t uval = static_cast<uint64_t>(val);
@@ -114,4 +114,21 @@ char *longlong10_to_str(int64_t val, char *dst, int radix) {
   char *end = write_digits(uval, count_digits(uval), dst);
   *end = '\0';
   return end;
+}
+
+bool fast_integer_to_string = false;
+
+char *longlong10_to_str(int64_t val, char *dst, int radix) {
+  if (fast_integer_to_string) {
+    static_assert(sizeof(int64_t) == sizeof(long long),
+                  "int64_t should be 64 bit");
+    extern char *u64toa_jeaiii(uint64_t n, char *b);
+    extern char *i64toa_jeaiii(int64_t i, char *b);
+    if (radix < 0)
+      return i64toa_jeaiii((int64_t)val, dst);
+    else
+      return u64toa_jeaiii((uint64_t)val, dst);
+  } else {
+    return longlong10_to_str_imp(val, dst, radix);
+  }
 }
