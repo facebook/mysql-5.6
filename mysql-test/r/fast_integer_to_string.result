@@ -1,0 +1,32 @@
+SHOW GLOBAL VARIABLES LIKE 'fast_integer_to_string';
+Variable_name	Value
+fast_integer_to_string	OFF
+SET @@GLOBAL.fast_integer_to_string=1;
+SELECT concat(1,1);
+concat(1,1)
+11
+SET GLOBAL fast_integer_to_string='ON';
+SET @@GLOBAL.fast_integer_to_string=0;
+SELECT concat(1,1);
+concat(1,1)
+11
+SET GLOBAL fast_integer_to_string='ON';
+SHOW VARIABLES LIKE 'fast_integer_to_string';
+Variable_name	Value
+fast_integer_to_string	ON
+SHOW GLOBAL VARIABLES LIKE 'fast_integer_to_string';
+Variable_name	Value
+fast_integer_to_string	ON
+SELECT concat(1,11,111,1111);
+concat(1,11,111,1111)
+1111111111
+SET @@GLOBAL.fast_integer_to_string=0;
+SHOW VARIABLES LIKE 'fast_integer_to_string';
+Variable_name	Value
+fast_integer_to_string	OFF
+SHOW GLOBAL VARIABLES LIKE 'fast_integer_to_string';
+Variable_name	Value
+fast_integer_to_string	OFF
+SELECT concat(11111, 11111);
+concat(11111, 11111)
+1111111111

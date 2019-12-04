@@ -192,6 +192,7 @@ SET(TESTS
   my_rcu_lock
   unhex
   dns_srv_data
+  fast_int2str
   )
 
 SET(ALL_SMALL_TESTS)
