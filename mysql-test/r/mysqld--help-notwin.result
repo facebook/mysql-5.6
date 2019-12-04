@@ -374,6 +374,8 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --fast-integer-to-string 
+ Optimized implementation of integer to string conversion
  --filesort-max-file-size=# 
  The max size of a file to use for filesort. Raise an
  error when this is exceeded. 0 means no limit.
@@ -1696,6 +1698,7 @@ event-scheduler ON
 expire-logs-days 0
 explicit-defaults-for-timestamp TRUE
 external-locking FALSE
+fast-integer-to-string FALSE
 filesort-max-file-size 0
 flush FALSE
 flush-only-old-table-cache-entries FALSE

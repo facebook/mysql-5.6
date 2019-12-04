@@ -7528,3 +7528,8 @@ static Sys_var_bool Sys_maintain_database_hlc(
     "Enable maintaining of max HLC applied per database",
     GLOBAL_VAR(maintain_database_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_maintain_database_hlc));
+
+static Sys_var_bool Sys_fast_integer_to_string(
+    "fast_integer_to_string",
+    "Optimized implementation of integer to string conversion",
+    GLOBAL_VAR(fast_integer_to_string), CMD_LINE(OPT_ARG), DEFAULT(false));
