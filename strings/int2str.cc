@@ -25,6 +25,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
@@ -125,7 +126,7 @@ char *int2str(long int val, char *dst, int radix, int upcase) {
     Pointer to ending NUL character.
 */
 
-char *int10_to_str(long int val, char *dst, int radix) {
+static char *int10_to_str_imp(long int val, char *dst, int radix) {
   char buffer[65];
   char *p;
   long int new_val;
@@ -154,4 +155,21 @@ char *int10_to_str(long int val, char *dst, int radix) {
   while ((*dst++ = *p++) != 0)
     ;
   return dst - 1;
+}
+
+bool fast_integer_to_string = false;
+
+char *int10_to_str(long int val, char *dst, int radix) {
+  if (fast_integer_to_string) {
+    static_assert(sizeof(long int) == sizeof(long long),
+                  "long int should be 64 bit");
+    extern char *u64toa_jeaiii(uint64_t n, char *b);
+    extern char *i64toa_jeaiii(int64_t i, char *b);
+    if (radix < 0)
+      return i64toa_jeaiii((int64_t)val, dst);
+    else
+      return u64toa_jeaiii((uint64_t)val, dst);
+  } else {
+    return int10_to_str_imp(val, dst, radix);
+  }
 }

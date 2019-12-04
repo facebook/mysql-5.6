@@ -7267,3 +7267,8 @@ static Sys_var_bool Sys_enable_binlog_hlc(
     "Enable logging HLC timestamp as part of Metadata log event",
     GLOBAL_VAR(enable_binlog_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_binlog_hlc));
+
+static Sys_var_bool Sys_fast_integer_to_string(
+    "fast_integer_to_string",
+    "Optimized implementation of integer to string conversion",
+    GLOBAL_VAR(fast_integer_to_string), CMD_LINE(OPT_ARG), DEFAULT(false));
