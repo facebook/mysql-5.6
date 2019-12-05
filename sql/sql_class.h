@@ -2859,6 +2859,20 @@ class THD : public MDL_context_owner,
   */
   void update_slow_query_status();
 
+  /**
+   Check for any session state changes that warrant setting the
+   SESSION_STATE_CHANGE_TRACKER
+  */
+  void finalize_session_trackers() {
+    if (((locked_tables_mode != LTM_NONE) ||
+         mdl_context.has_locks(MDL_key::USER_LEVEL_LOCK)) &&
+        session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
+            ->is_enabled()) {
+      session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
+          ->mark_as_changed(this, NULL);
+    }
+  }
+
   ulonglong found_rows() const { return previous_found_rows; }
 
   /*

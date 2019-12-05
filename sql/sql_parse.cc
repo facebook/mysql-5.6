@@ -1933,6 +1933,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         const char *beginning_of_next_stmt = parser_state.m_lip.found_semicolon;
 
         /* Finalize server status flags after executing a statement. */
+        thd->finalize_session_trackers();
         thd->update_slow_query_status();
         thd->send_statement_status();
 
@@ -2299,6 +2300,7 @@ done:
               (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
   /* Finalize server status flags after executing a command. */
+  thd->finalize_session_trackers();
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
   thd->send_statement_status();
