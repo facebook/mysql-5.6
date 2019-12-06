@@ -145,48 +145,53 @@
   - replication_applier_configuration, added column
   REQUIRE_TABLE_PRIMARY_KEY_CHECK
 
-  80020-001:
 
-  performance_schema tables changed:
-  - session_query_attrs added.
-  - The last three digits reprents Facebook specific MySQL Schema changes.
+  80020-001 (The last three digits reprents Facebook specific MySQL Schema
+  changes in MySQL 8.0.20):
+    - session_query_attrs added
 
-  80020-002:
+  80020-002 (The last three digits reprents Facebook specific MySQL Schema
+  changes in MySQL 8.0.20):
+    - Schema of the following PFS tables are changed to have username of 80
+  chars length (Upstream has username of 32 chars length).
+      table_accounts
+      table_ees_by_account_by_error
+      table_ees_by_user_by_error
+      table_esgs_by_account_by_event_name
+      table_esgs_by_user_by_event_name
+      table_esms_by_account_by_event_name
+      table_esms_by_user_by_event_name
+      table_ets_by_account_by_event_name
+      table_ets_by_user_by_event_name
+      table_ews_by_account_by_event_name
+      table_ews_by_user_by_event_name
+      table_replication_connection_configuration
+      table_setup_actors
+      table_status_by_account
+      table_status_by_user
+      table_threads
+      table_users
+      table_variables_info
 
-  performance_schema tables changed:
-  - Schema of the following PFS tables are changed to have username of 80 chars
-  length (Upstream has username of 32 chars length).
-  table_accounts
-  table_ees_by_account_by_error
-  table_ees_by_user_by_error
-  table_esgs_by_account_by_event_name
-  table_esgs_by_user_by_event_name
-  table_esms_by_account_by_event_name
-  table_esms_by_user_by_event_name
-  table_ets_by_account_by_event_name
-  table_ets_by_user_by_event_name
-  table_ews_by_account_by_event_name
-  table_ews_by_user_by_event_name
-  table_replication_connection_configuration
-  table_setup_actors
-  table_status_by_account
-  table_status_by_user
-  table_threads
-  table_users
-  table_variables_info
+  80020-003 (The last three digits reprents Facebook specific MySQL Schema
+  changes in MySQL 8.0.20):
+    - table_statistics_per_table added.
 
-  80020-003:
+  80020-004 (The last three digits reprents Facebook specific MySQL Schema
+  changes in MySQL 8.0.20):
+    - add cpu time to statement statistics
 
-  performance_schema tables changed:
-  - table_statistics_per_table added.
-  - The last three digits reprents Facebook specific MySQL Schema changes.
-
-  80020-004:
-  -add cpu time to statement statistics
-
-  Version published is now 80020-004. i.e. 8.0.20 Facebook schema change no. 4.
+  80020-005 (The last three digits reprents Facebook specific MySQL Schema
+  changes in MySQL 8.0.20):
+    - add new columns below into table_statistics_per_table.
+      IO_WRITE_BYTES
+      IO_WRITE_REQUESTS
+      IO_READ_BYTES
+      IO_READ_REQUESTS
 */
 
-static const uint PFS_DD_VERSION = 80020004;
+/* Version published now is 80020-005. i.e. 8.0.20 Facebook schema change no. 5.
+ */
+static const uint PFS_DD_VERSION = 80020005;
 
 #endif /* PFS_DD_VERSION_H */

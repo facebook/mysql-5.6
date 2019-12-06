@@ -70,6 +70,7 @@ VIEW schema_table_statistics (
   queries_used,
   queries_empty
 ) AS
+
 SELECT pst.object_schema AS table_schema,
        pst.object_name AS table_name,
        format_pico_time(pst.sum_timer_wait) AS total_latency,
@@ -81,11 +82,11 @@ SELECT pst.object_schema AS table_schema,
        format_pico_time(pst.sum_timer_update) AS update_latency,
        pst.count_delete AS rows_deleted,
        format_pico_time(pst.sum_timer_delete) AS delete_latency,
-       fsbi.count_read AS io_read_requests,
-       format_bytes(fsbi.sum_number_of_bytes_read) AS io_read,
+       IFNULL(fsbi.count_read, psts.io_read_requests) AS io_read_requests,
+       format_bytes(IFNULL(fsbi.sum_number_of_bytes_read, psts.io_read_bytes)) AS io_read,
        format_pico_time(fsbi.sum_timer_read) AS io_read_latency,
-       fsbi.count_write AS io_write_requests,
-       format_bytes(fsbi.sum_number_of_bytes_write) AS io_write,
+       IFNULL(fsbi.count_write, psts.io_write_requests) AS io_write_requests,
+       format_bytes(IFNULL(fsbi.sum_number_of_bytes_write, psts.io_write_bytes)) AS io_write,
        format_pico_time(fsbi.sum_timer_write) AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
        format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency,

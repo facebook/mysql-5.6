@@ -43,4 +43,6 @@ io_write	decimal(41,0)	YES		NULL
 io_write_latency	decimal(42,0)	YES		NULL	
 io_misc_requests	decimal(42,0)	YES		NULL	
 io_misc_latency	decimal(42,0)	YES		NULL	
+queries_used	bigint unsigned	YES		NULL	
+queries_empty	bigint unsigned	YES		NULL	
 SELECT * FROM sys.x$schema_table_statistics;
