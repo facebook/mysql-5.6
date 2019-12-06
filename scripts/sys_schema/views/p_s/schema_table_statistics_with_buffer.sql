@@ -73,6 +73,8 @@ VIEW schema_table_statistics_with_buffer (
   io_write_latency,
   io_misc_requests,
   io_misc_latency,
+  queries_used,
+  queries_empty,
   innodb_buffer_allocated,
   innodb_buffer_data,
   innodb_buffer_free,
@@ -99,6 +101,8 @@ SELECT pst.object_schema AS table_schema,
        format_pico_time(fsbi.sum_timer_write) AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
        format_pico_time(fsbi.sum_timer_misc) AS io_misc_latency,
+       psts.QUERIES_USED AS queries_used,
+       psts.EMPTY_QUERIES AS queries_empty,
        format_bytes(ibp.allocated) AS innodb_buffer_allocated,
        format_bytes(ibp.data) AS innodb_buffer_data,
        format_bytes(ibp.allocated - ibp.data) AS innodb_buffer_free,
@@ -110,6 +114,10 @@ SELECT pst.object_schema AS table_schema,
   LEFT JOIN x$ps_schema_table_statistics_io AS fsbi
     ON pst.object_schema = fsbi.table_schema
    AND pst.object_name = fsbi.table_name
+  LEFT JOIN performance_schema.table_statistics_by_table AS psts
+    ON pst.object_schema = psts.object_schema
+   AND pst.object_name = psts.object_name
+   AND pst.object_type = psts.object_type
   LEFT JOIN sys.x$innodb_buffer_stats_by_table AS ibp
     ON pst.object_schema = ibp.object_schema
    AND pst.object_name = ibp.object_name

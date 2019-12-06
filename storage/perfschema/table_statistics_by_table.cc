@@ -55,6 +55,10 @@ Plugin_table table_statistics_by_table::m_table_def(
     "  OBJECT_NAME VARCHAR(64),\n"
     "  QUERIES_USED BIGINT unsigned not null,\n"
     "  EMPTY_QUERIES BIGINT unsigned not null,\n"
+    "  IO_WRITE_BYTES BIGINT unsigned not null, \n"
+    "  IO_WRITE_REQUESTS BIGINT unsigned not null, \n"
+    "  IO_READ_BYTES BIGINT unsigned not null, \n"
+    "  IO_READ_REQUESTS BIGINT unsigned not null, \n"
     "  UNIQUE KEY `OBJECT` (OBJECT_TYPE, OBJECT_SCHEMA,\n"
     "                       OBJECT_NAME) USING HASH\n",
     /* Options */
@@ -225,6 +229,18 @@ int table_statistics_by_table::read_row_values(TABLE *table, unsigned char *buf,
           break;
         case 4: /* EMPTY_QUERIES */
           set_field_ulonglong(f, m_row.m_stat.empty_queries);
+          break;
+        case 5:
+          set_field_ulonglong(f, m_row.m_stat.io_write_bytes);
+          break;
+        case 6:
+          set_field_ulonglong(f, m_row.m_stat.io_write_requests);
+          break;
+        case 7:
+          set_field_ulonglong(f, m_row.m_stat.io_read_bytes);
+          break;
+        case 8:
+          set_field_ulonglong(f, m_row.m_stat.io_read_requests);
           break;
         default:
           assert(false);

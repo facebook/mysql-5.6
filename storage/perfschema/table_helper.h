@@ -770,10 +770,18 @@ struct PFS_table_io_stat_row {
 struct PFS_query_stat_row {
   ulonglong queries_used;
   ulonglong empty_queries;
+  ulonglong io_write_bytes;
+  ulonglong io_write_requests;
+  ulonglong io_read_bytes;
+  ulonglong io_read_requests;
 
   inline void set(const PFS_table_query_stat *stat) {
     queries_used = stat->m_queries_used.m_count;
     empty_queries = stat->m_empty_queries.m_count;
+    io_write_bytes = stat->m_io_write_bytes.m_count;
+    io_write_requests = stat->m_io_write_requests.m_count;
+    io_read_bytes = stat->m_io_read_bytes.m_count;
+    io_read_requests = stat->m_io_read_requests.m_count;
   }
 };
 
