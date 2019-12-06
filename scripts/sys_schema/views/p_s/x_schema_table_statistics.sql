@@ -66,7 +66,9 @@ VIEW x$schema_table_statistics (
   io_write,
   io_write_latency,
   io_misc_requests,
-  io_misc_latency
+  io_misc_latency,
+  queries_used,
+  queries_empty
 ) AS
 SELECT pst.object_schema AS table_schema,
        pst.object_name AS table_name,
@@ -79,16 +81,22 @@ SELECT pst.object_schema AS table_schema,
        pst.sum_timer_update AS update_latency,
        pst.count_delete AS rows_deleted,
        pst.sum_timer_delete AS delete_latency,
-       fsbi.count_read AS io_read_requests,
-       fsbi.sum_number_of_bytes_read AS io_read,
+       IFNULL(fsbi.count_read, psts.io_read_requests) AS io_read_requests,
+       IFNULL(fsbi.sum_number_of_bytes_read, psts.io_read_bytes) AS io_read,
        fsbi.sum_timer_read AS io_read_latency,
-       fsbi.count_write AS io_write_requests,
-       fsbi.sum_number_of_bytes_write AS io_write,
+       IFNULL(fsbi.count_write, psts.io_write_requests) AS io_write_requests,
+       IFNULL(fsbi.sum_number_of_bytes_write, psts.io_write_bytes) AS io_write,
        fsbi.sum_timer_write AS io_write_latency,
        fsbi.count_misc AS io_misc_requests,
-       fsbi.sum_timer_misc AS io_misc_latency
+       fsbi.sum_timer_misc AS io_misc_latency,
+       psts.QUERIES_USED AS queries_used,
+       psts.EMPTY_QUERIES AS queries_empty
   FROM performance_schema.table_io_waits_summary_by_table AS pst
   LEFT JOIN x$ps_schema_table_statistics_io AS fsbi
     ON pst.object_schema = fsbi.table_schema
    AND pst.object_name = fsbi.table_name
+  LEFT JOIN performance_schema.table_statistics_by_table AS psts
+    ON pst.object_schema = psts.object_schema
+   AND pst.object_name = psts.object_name
+   AND pst.object_type = psts.object_type
  ORDER BY pst.sum_timer_wait DESC;

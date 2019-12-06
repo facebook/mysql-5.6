@@ -40,7 +40,6 @@ rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to 
 
 # i_s.table_statistics
 rocksdb.lock_wait_timeout_stats : BUG#0000 table_statistics missing
-rocksdb.bytes_written : BUG#0000 table_statistics missing
 rocksdb.deadlock_stats : BUG#0000 table_statistics missing
 
 # Detached session
