@@ -3982,6 +3982,14 @@ public:
   */
   void update_server_status()
   {
+    if (((ull != NULL) ||                     // user lock set
+         (locked_tables_mode != LTM_NONE)) && // LOCK table active
+        session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
+            ->is_enabled()) {
+      session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
+          ->mark_as_changed(this, NULL);
+    }
+
     ulonglong end_utime_of_query= current_utime();
     if (end_utime_of_query > start_utime + variables.long_query_time)
       server_status|= SERVER_QUERY_WAS_SLOW;

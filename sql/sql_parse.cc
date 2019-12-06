@@ -2441,14 +2441,6 @@ done:
     state_changed = srv_session->session_state_changed();
   }
 
-  if (((thd->ull != NULL) ||                     // user lock set
-       (thd->locked_tables_mode != LTM_NONE)) && // LOCK table active
-      thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
-          ->is_enabled()) {
-    thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
-        ->mark_as_changed(thd, NULL);
-  }
-
   // if it's a COM RPC, set session id in message to be appended in OK
   if (srv_session) {
     srv_session_end_statement(*srv_session);

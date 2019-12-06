@@ -279,10 +279,64 @@ SELECT RELEASE_LOCK("session_state_change_user_lock");
 RELEASE_LOCK("session_state_change_user_lock")
 1
 # reset the session.
+SET @@session.session_track_state_change=ON;
+# Test multiquery as well, first statement needs to have the changes
+# expect 1
+SELECT GET_LOCK("session_state_change_user_lock", 3);select syntaxerror|
+GET_LOCK("session_state_change_user_lock", 3)
+1
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+ERROR 42S22: Unknown column 'syntaxerror' in 'field list'
+# reset the session.
+SET @@session.session_track_state_change=ON;
+# Test multiquery as well, first statement needs to have the changes
+# expect 1 for both, currently we report changes if previous statements
+# changed state, this may change in future to be only if current query
+# changes state. This may change when upstream implements this in
+# https://bugs.mysql.com/bug.php?id=97885
+SELECT GET_LOCK("session_state_change_user_lock", 3);select 2|
+GET_LOCK("session_state_change_user_lock", 3)
+1
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+2
+2
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+# reset the session.
 # CASE7: lock table statements
 SET @@session.session_track_state_change=ON;
 # expect 1
 LOCK TABLES test.t READ;
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+# reset the session.
+SET @@session.session_track_state_change=ON;
+# Test multiquery as well, first statement needs to have the changes
+# expect 1
+LOCK TABLES test.t READ;select syntaxerror|
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+ERROR 42S22: Unknown column 'syntaxerror' in 'field list'
+# reset the session.
+SET @@session.session_track_state_change=ON;
+# Test multiquery as well, first statement needs to have the changes
+# expect 1 for both, currently we report changes if previous statements
+# changed state, this may change in future to be only if current query
+# changes state. This may change when upstream implements this in
+# https://bugs.mysql.com/bug.php?id=97885
+LOCK TABLES test.t READ;select 2|
+-- Tracker : SESSION_TRACK_STATE_CHANGE
+-- 1
+
+2
+2
 -- Tracker : SESSION_TRACK_STATE_CHANGE
 -- 1
 
