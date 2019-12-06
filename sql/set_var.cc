@@ -1711,7 +1711,6 @@ bool Per_user_session_variables::init_do(User_session_vars_sp &per_user_vars,
    Set per user session variables for a THD
 */
 bool Per_user_session_variables::set_thd(THD *thd) {
-  thd->get_stmt_da()->reset_diagnostics_area();
   bool ret = true;
   std::string err_msg;
   const char *user = thd->m_main_security_ctx.user().str;
