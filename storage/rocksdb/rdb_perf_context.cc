@@ -258,9 +258,8 @@ void Rdb_io_perf::end_and_record(THD *thd) {
         rocksdb::get_perf_context()->block_read_time;
 
     m_shared_io_perf_read->sum(io_perf_read);
-    /* TODO(yzha) - bcebc1ebf02 Port v5.1 Extra Stats: Per-Table
-    m_stats->table_io_perf_read.sum(io_perf_read);
-    */
+    m_stats->io_read_bytes += io_perf_read.bytes;
+    m_stats->io_read_requests += io_perf_read.requests;
   }
 
   if (m_shared_io_perf_write &&
@@ -270,9 +269,8 @@ void Rdb_io_perf::end_and_record(THD *thd) {
     io_perf_write.bytes = io_write_bytes;
     io_perf_write.requests = io_write_requests;
     m_shared_io_perf_write->sum(io_perf_write);
-    /* TODO(yzha) - bcebc1ebf02 Port v5.1 Extra Stats: Per-Table
-    m_stats->table_io_perf_write.sum(io_perf_write);
-    */
+    m_stats->io_write_bytes += io_write_bytes;
+    m_stats->io_write_requests += io_write_requests;
     io_write_bytes = 0;
     io_write_requests = 0;
   }

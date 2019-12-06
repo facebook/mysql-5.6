@@ -208,13 +208,24 @@
 
   performance_schema tables changed:
   - added table for queries_used and queries_empty
-   80023-005:
-   performance_schema tables changed:
-  - added cpu time to statement statistics 
+
+  80023-005:
+
+  performance_schema tables changed:
+  - added cpu time to statement statistics
+
+  80023-006:
+
+  - add new columns below into table_statistics_per_table:
+    IO_WRITE_BYTES
+    IO_WRITE_REQUESTS
+    IO_READ_BYTES
+    IO_READ_REQUESTS
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-005. i.e. 8.0.23 Facebook schema change no. 5.
+  Version published is now 80023-006. i.e. 8.0.23 Facebook schema change no. 6.
 */
 
-static const uint PFS_DD_VERSION = 80023005;
+static const uint PFS_DD_VERSION = 80023006;
 
 #endif /* PFS_DD_VERSION_H */

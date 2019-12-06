@@ -3172,6 +3172,7 @@ retry_share : {
 
     /* Call rebind_psi outside of the critical section. */
     DBUG_ASSERT(table->file != nullptr);
+    table->file->stats.reset_io_counters();
     table->file->rebind_psi();
     table->file->ha_extra(HA_EXTRA_RESET_STATE);
 
