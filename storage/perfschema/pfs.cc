@@ -2653,6 +2653,16 @@ void pfs_unbind_table_v1(PSI_table *table) {
         query_stat->m_empty_queries.aggregate_counted();
       }
       pfs->m_has_query_stats = true;
+      if (pfs->m_identity != nullptr) {
+        DBUG_ASSERT(pfs->m_identity);
+        const handler* h = reinterpret_cast<const handler *>(pfs->m_identity);
+        if(h != nullptr) {
+          query_stat->m_io_write_bytes.aggregate_counted(h->stats.io_write_bytes);
+          query_stat->m_io_write_requests.aggregate_counted(h->stats.io_write_requests); 
+          query_stat->m_io_read_bytes.aggregate_counted(h->stats.io_read_bytes);
+          query_stat->m_io_read_requests.aggregate_counted(h->stats.io_read_requests); 
+        }
+      }
     }
     pfs->m_thread_owner = NULL;
     pfs->m_owner_event_id = 0;

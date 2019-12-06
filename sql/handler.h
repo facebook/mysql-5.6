@@ -3491,6 +3491,22 @@ class ha_statistics {
   */
   uint mrr_length_per_rec;
 
+  
+  /*
+   Per table io bytes counter
+   */
+  ulonglong io_write_bytes; // only  rocksdb
+  ulonglong io_write_requests; // only rocksdb
+  ulonglong io_read_bytes; // only  rocksdb
+  ulonglong io_read_requests; // only rocksdb
+
+  void reset_io_counters() {
+    io_write_bytes = 0;
+    io_write_requests = 0;
+    io_read_bytes = 0;
+    io_read_requests = 0;
+  }
+
   /**
     Estimate for how much of the table that is availabe in a memory
     buffer. Valid range is [0..1]. If it has the special value
@@ -3512,6 +3528,10 @@ class ha_statistics {
         check_time(0),
         update_time(0),
         block_size(0),
+        io_write_bytes(0),
+        io_write_requests(0),
+        io_read_bytes(0),
+        io_read_requests(0),
         table_in_mem_estimate(IN_MEMORY_ESTIMATE_UNKNOWN) {}
 };
 

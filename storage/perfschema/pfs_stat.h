@@ -752,14 +752,28 @@ struct PFS_table_query_stat {
   PFS_single_stat m_queries_used;
   PFS_single_stat m_empty_queries;
 
+  /**IO WRITE statistics */
+  PFS_single_stat m_io_write_bytes;
+  PFS_single_stat m_io_write_requests;
+  PFS_single_stat m_io_read_bytes;
+  PFS_single_stat m_io_read_requests;
+
   inline void reset(void) {
     m_empty_queries.reset();
     m_queries_used.reset();
+    m_io_write_bytes.reset();
+    m_io_write_requests.reset();
+    m_io_read_bytes.reset();
+    m_io_read_requests.reset();
   }
 
   inline void aggregate(const PFS_table_query_stat *stat) {
     m_empty_queries.aggregate(&stat->m_empty_queries);
     m_queries_used.aggregate(&stat->m_queries_used);
+    m_io_write_bytes.aggregate(&stat->m_io_write_bytes);
+    m_io_write_requests.aggregate(&stat->m_io_write_requests);
+    m_io_read_bytes.aggregate(&stat->m_io_read_bytes);
+    m_io_read_requests.aggregate(&stat->m_io_read_requests);
   }
 };
 
