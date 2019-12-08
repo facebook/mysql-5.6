@@ -6171,7 +6171,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     if (rotate_via_raft) {
       r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
     }
-    DBUG_ASSERT(!is_relay_log || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
+    DBUG_ASSERT(!is_relay_log || rotate_via_raft || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
     if(DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error=close_on_error=TRUE), FALSE) ||
        (error= r.write((rotate_via_raft) ? &(raft_io_cache) : &log_file)))
     {
