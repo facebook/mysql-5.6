@@ -2587,6 +2587,7 @@ done:
 
 */
 #ifndef EMBEDDED_LIBRARY
+extern my_bool opt_core_file; // from sys_vars.cc
 bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
               enum enum_server_command command, uchar exit_code,
               bool ro_instance_only)
@@ -2621,6 +2622,11 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
     goto error;
   }
 
+  // It is possible to hit errors like assertions before completing exit.
+  // In that case, generating core files should be skipped.
+  if (skip_core_dump_on_error) {
+    opt_core_file = FALSE;
+  }
   DBUG_PRINT("quit",("Got shutdown command for level %u, exit code %u",
              level, exit_code));
   general_log_write(thd, command, NullS, 0);
