@@ -1065,14 +1065,12 @@ int binlog_cache_data::write_event(THD *thd,
       if (gtid_ev.write(&cache_log) != 0)
         DBUG_RETURN(1);
 
-      if (enable_binlog_hlc)
+      /* will be used later (in master) during ordered commit to check if HLC
+       * time needs to be updated */
+      thd->should_update_hlc= enable_binlog_hlc;
+      if (thd->should_update_hlc)
       {
         uint64_t hlc_time_ns= 0;
-
-        /* will be used later (in master) during ordered commit to check if
-         * HLC time needs to be updated */
-        thd->should_update_hlc= true;
-
 
         /* If this is a master, then just add a placeholder (with 0 as HLC
          * timestamp). The actual commit time HLC timestamp will be updated
@@ -3948,13 +3946,13 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
    * function (open_binlog()) should be called during server restart only after
    * initializing the local instance's HLC clock (by reading the previous binlog
    * file) */
-  if (enable_binlog_hlc)
+  if (enable_binlog_hlc && !is_relay_log)
   {
     uint64_t current_hlc= mysql_bin_log.get_current_hlc();
     Metadata_log_event metadata_ev(current_hlc);
     if (metadata_ev.write(&log_file))
       goto err;
-    bytes_written+= metadata_ev.get_total_size();
+    bytes_written+= metadata_ev.data_written;
   }
 
   if (need_sid_lock)
