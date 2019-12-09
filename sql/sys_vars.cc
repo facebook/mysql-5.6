@@ -5444,6 +5444,29 @@ static Sys_var_uint Sys_checkpoint_mts_group(
 #endif /* DBUG_OFF */
 #endif /* HAVE_REPLICATION */
 
+static bool log_enable_raft_change(sys_var *self, THD *thd, enum_var_type type)
+{
+  const char *user = "unknown";  const char *host = "unknown";
+
+  if (thd)
+  {
+    if (thd->get_user_connect())
+    {
+      user = (const_cast<USER_CONN*>(thd->get_user_connect()))->user;
+      host = (const_cast<USER_CONN*>(thd->get_user_connect()))->host;
+    }
+  }
+
+  sql_print_information(
+    "Setting global variable: "
+    "enable_raft_plugin = %d (user '%s' from '%s')",
+    enable_raft_plugin,
+    user,
+    host
+    );
+  return false;
+}
+
 static bool log_sync_binlog_change(sys_var *self, THD *thd, enum_var_type type)
 {
   const char *user = "unknown";  const char *host = "unknown";
@@ -7264,7 +7287,9 @@ static Sys_var_mybool Sys_enable_raft_plugin(
        "Enables RAFT based consensus plugin. Replication will run through this "
        "plugin when it is enabled",
        GLOBAL_VAR(enable_raft_plugin),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0), ON_UPDATE(log_enable_raft_change));
 
 static const char *commit_consensus_error_actions[]=
 {
