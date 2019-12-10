@@ -8207,6 +8207,7 @@ bool handler::is_using_prohibited_gap_locks(TABLE *table,
       && !thd->rli_slave
       && (thd->variables.gap_lock_raise_error
           || thd->variables.gap_lock_write_log)
+      && !is_acl_ddl_query(thd->lex->sql_command)
       && (thd->lex->table_count >= 2 || thd->in_multi_stmt_transaction_mode())
       && can_hold_locks_on_trans(thd, lock_type)
       && !is_table_in_list(table_name, gap_lock_exception_list,

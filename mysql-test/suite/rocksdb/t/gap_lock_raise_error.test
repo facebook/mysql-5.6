@@ -3,6 +3,10 @@
 let $engine=rocksdb;
 --source include/gap_lock_raise_error_all.inc
 
+create user 'abcd'@'%' identified by 'pw';
+grant all on t.* to 'abcd'@'%';
+drop user 'abcd'@'%';
+
 SET @save_gap_lock_exceptions = @@global.gap_lock_exceptions;
  
 SET GLOBAL gap_lock_exceptions="t.*";
