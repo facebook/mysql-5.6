@@ -11,7 +11,7 @@ while(my $l = readline($f)) {
 for(my $i= 0; $i < $#sst; $i++) {
   printf("checking sst file reduction on optimize table from %d to %d..\n", $i, $i+1);
 
-  if($sst[$i] - 1000 < $sst[$i+1]) {
+  if($sst[$i] - 200 < $sst[$i+1]) {
     printf("sst file reduction was not enough. %d->%d (minimum 1000kb)\n", $sst[$i], $sst[$i+1]);
     die;
   }else {
