@@ -1169,6 +1169,19 @@ bool is_update_query(enum enum_sql_command command) {
   return (sql_command_flags[command] & CF_CHANGES_DATA) != 0;
 }
 
+bool is_acl_ddl_query(enum enum_sql_command command) {
+  assert(command >= 0 && command <= SQLCOM_END);
+  return (command == SQLCOM_SET_ROLE ||
+          command == SQLCOM_ALTER_USER_DEFAULT_ROLE ||
+          command == SQLCOM_CREATE_ROLE || command == SQLCOM_DROP_ROLE ||
+          command == SQLCOM_GRANT_ROLE || command == SQLCOM_ALTER_USER ||
+          command == SQLCOM_GRANT || command == SQLCOM_REVOKE ||
+          command == SQLCOM_REVOKE_ALL || command == SQLCOM_REVOKE_ROLE ||
+          command == SQLCOM_CREATE_USER || command == SQLCOM_DROP_USER ||
+          command == SQLCOM_RENAME_USER || command == SQLCOM_SHOW_GRANTS ||
+          command == SQLCOM_SET_PASSWORD);
+}
+
 bool is_explainable_query(enum enum_sql_command command) {
   assert(command >= 0 && command <= SQLCOM_END);
   return (sql_command_flags[command] & CF_CAN_BE_EXPLAINED) != 0;

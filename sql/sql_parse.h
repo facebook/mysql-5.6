@@ -97,6 +97,7 @@ bool merge_sp_var_charset_and_collation(const CHARSET_INFO *charset,
 bool check_host_name(const LEX_CSTRING &str);
 bool mysql_test_parse_for_slave(THD *thd);
 bool is_update_query(enum enum_sql_command command);
+bool is_acl_ddl_query(enum enum_sql_command command);
 bool is_explainable_query(enum enum_sql_command command);
 bool is_log_table_write_query(enum enum_sql_command command);
 bool alloc_query(THD *thd, const char *packet, size_t packet_length);
