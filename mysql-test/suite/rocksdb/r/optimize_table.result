@@ -7,28 +7,28 @@ create table t5 (id int, value int, value2 varchar(200), primary key (id) commen
 create table t6 (id int, value int, value2 varchar(200), primary key (id) comment 'rev:cf_i', index(value) comment 'rev:cf_i') engine=rocksdb;
 select count(*) from t1;
 count(*)
-10000
+2000
 select count(*) from t2;
 count(*)
-10000
+2000
 select count(*) from t3;
 count(*)
-10000
+2000
 select count(*) from t4;
 count(*)
-10000
+2000
 select count(*) from t5;
 count(*)
-10000
+2000
 select count(*) from t6;
 count(*)
-10000
-delete from t1 where id <= 9900;
-delete from t2 where id <= 9900;
-delete from t3 where id <= 9900;
-delete from t4 where id <= 9900;
-delete from t5 where id <= 9900;
-delete from t6 where id <= 9900;
+2000
+delete from t1 where id <= 1900;
+delete from t2 where id <= 1900;
+delete from t3 where id <= 1900;
+delete from t4 where id <= 1900;
+delete from t5 where id <= 1900;
+delete from t6 where id <= 1900;
 optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK

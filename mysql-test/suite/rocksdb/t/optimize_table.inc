@@ -14,7 +14,7 @@ create table t6 (id int, value int, value2 varchar(200), primary key (id) commen
 let $t = 1;
 while ($t <= 6) {
   let $i = 1;
-  while ($i <= 10000) {
+  while ($i <= 2000) {
     let $insert = INSERT INTO t$t VALUES($i, $i, REPEAT('x', 150));
     inc $i;
     eval $insert;
@@ -38,12 +38,12 @@ select count(*) from t3;
 select count(*) from t4;
 select count(*) from t5;
 select count(*) from t6;
-delete from t1 where id <= 9900;
-delete from t2 where id <= 9900;
-delete from t3 where id <= 9900;
-delete from t4 where id <= 9900;
-delete from t5 where id <= 9900;
-delete from t6 where id <= 9900;
+delete from t1 where id <= 1900;
+delete from t2 where id <= 1900;
+delete from t3 where id <= 1900;
+delete from t4 where id <= 1900;
+delete from t5 where id <= 1900;
+delete from t6 where id <= 1900;
 
 --let $size_cmd = du -ks $datadir/.rocksdb/*.sst | awk '{t=t+\$1} END{print t}' >> $MYSQL_TMP_DIR/sst_size.dat
 --exec $size_cmd
