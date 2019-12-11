@@ -3415,7 +3415,10 @@ bool meb_scan_log_recs(
     ++recv_scan_print_counter;
 
     if (finished || (recv_scan_print_counter % 80) == 0) {
-      ib::warn(ER_IB_MSG_725, ulonglong{scanned_lsn});
+      ib::info(ER_IB_MSG_725, ulonglong{scanned_lsn});
+      fprintf(stderr,
+              "Doing recovery: scanned up to log sequence number %llu\n",
+              ulonglong{scanned_lsn});
     }
   }
 

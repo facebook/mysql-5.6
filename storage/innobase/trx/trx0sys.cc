@@ -363,7 +363,9 @@ void trx_sys_print_mysql_binlog_offset(void) {
                  TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID,
              TRX_SYS_MYSQL_GTID_LEN);
 
-  ib::warn() << "InnoDB: Last MySQL Gtid " << trx_sys_mysql_bin_log_max_gtid;
+  ib::info() << "Last MySQL Gtid " << trx_sys_mysql_bin_log_max_gtid;
+  fprintf(stderr, "InnoDB: Last MySQL Gtid %s\n",
+          trx_sys_mysql_bin_log_max_gtid);
 
   mtr_commit(&mtr);
 }
