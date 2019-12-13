@@ -632,6 +632,8 @@ int mysql_session_track_get_first(MYSQL *mysql,
 int mysql_session_track_get_next(MYSQL *mysql,
                                          enum enum_session_state_type type,
                                          const char **data, size_t *length);
+int mysql_resp_attr_find(MYSQL *mysql, const char *lookup,
+                                 const char **data, size_t *length);
 void mysql_set_local_infile_handler(
     MYSQL *mysql, int (*local_infile_init)(void **, const char *, void *),
     int (*local_infile_read)(void *, char *, unsigned int),
@@ -694,8 +696,8 @@ bool mysql_read_query_result(MYSQL *mysql);
 int mysql_reset_connection(MYSQL *mysql);
 unsigned long cli_safe_read(MYSQL *mysql, bool *is_data_packet);
 enum net_async_status cli_safe_read_nonblocking(MYSQL *mysql,
-                                                bool *is_data_packet,
-                                                ulong *res);
+                                                        bool *is_data_packet,
+                                                        ulong *res);
 int mysql_binlog_open(MYSQL *mysql, MYSQL_RPL *rpl);
 int mysql_binlog_fetch(MYSQL *mysql, MYSQL_RPL *rpl);
 void mysql_binlog_close(MYSQL *mysql, MYSQL_RPL *rpl);
