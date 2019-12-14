@@ -174,7 +174,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
       clear_compressed_event_cache();
 #endif
     }
-    if (options & REFRESH_RELAY_LOG)
+    if (!enable_raft_plugin && (options & REFRESH_RELAY_LOG))
     {
 #ifdef HAVE_REPLICATION
       mysql_mutex_lock(&LOCK_active_mi);

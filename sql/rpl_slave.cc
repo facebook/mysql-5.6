@@ -8947,7 +8947,7 @@ static Log_event* next_event(Relay_log_info* rli)
       mysql_file_close(rli->cur_log_fd, MYF(MY_WME));
       rli->cur_log_fd = -1;
 
-      if (relay_log_purge)
+      if (!enable_raft_plugin && relay_log_purge)
       {
         /*
           purge_first_log will properly set up relay log coordinates in rli.
