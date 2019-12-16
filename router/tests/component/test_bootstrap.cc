@@ -687,8 +687,8 @@ TEST_F(RouterBootstrapTest, BootstrapFailWhenServerResponseExceedsReadTimeout) {
       "-d", bootstrap_dir.name(), "--connect-timeout=1", "--read-timeout=1"};
 
   bootstrap_failover(mock_servers, router_options, EXIT_FAILURE,
-                     {"Error: Error executing MySQL query: Lost connection to "
-                      "MySQL server during query \\(2013\\)"});
+                     {"Error: Error executing MySQL query: Read timeout is "
+                      "reached \\(2066\\)"});
 }
 
 class RouterAccountHostTest : public CommonBootstrapTest {};

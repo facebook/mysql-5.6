@@ -152,7 +152,7 @@ TEST(Mysys, CreateTempFile) {
   File fileno = create_temp_file(dst, "/tmp", prefix, 42, UNLINK_FILE, 0);
   EXPECT_GE(fileno, 0);
   my_close(fileno, 0);
-  EXPECT_THAT(dst, MatchesRegex("/tmp/[a]+fd=[0-9]+"));
+  EXPECT_THAT(dst, MatchesRegex("/tmp/[a]+[a-z0-9=]+"));
   aset(dst, 0xaa);
 
   char *env_tmpdir = getenv("TMPDIR");

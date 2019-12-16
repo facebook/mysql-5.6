@@ -1657,6 +1657,14 @@ class MDL_context {
   */
   uint m_rand_state;
 
+  /**
+    MDL_lock::object_lock_notify_conflicting_locks() checks THD of
+    conflicting lock on nullptr value and doesn't call the virtual
+    method MDL_context_owner::notify_shared_lock() in case condition
+    satisfied. This field allows unit tests to work with THD set to nullptr.
+  */
+  bool m_ignore_owner_thd;
+
  private:
   MDL_ticket *find_ticket(MDL_request *mdl_req, enum_mdl_duration *duration);
   void release_locks_stored_before(enum_mdl_duration duration,
@@ -1698,6 +1706,10 @@ class MDL_context {
   }
   void lock_deadlock_victim() { mysql_prlock_rdlock(&m_LOCK_waiting_for); }
   void unlock_deadlock_victim() { mysql_prlock_unlock(&m_LOCK_waiting_for); }
+  void set_ignore_owner_thd(bool ignore_owner_thd) {
+    m_ignore_owner_thd = ignore_owner_thd;
+  }
+  bool get_ignore_owner_thd() { return m_ignore_owner_thd; }
 
  private:
   MDL_context(const MDL_context &rhs);      /* not implemented */
