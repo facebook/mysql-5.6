@@ -499,6 +499,14 @@ IF (MERGE_UNITTESTS)
     TARGET_LINK_LIBRARIES(merge_small_tests-t perfschema)
   ENDIF()
 
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS merge_large_tests-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(merge_large_tests-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
   SET(ADD_MERGE_LARGE_TESTS 1)
   IF(CMAKE_C_COMPILER_ID MATCHES "SunPro")
     MESSAGE(WARNING
@@ -556,6 +564,14 @@ FOREACH(test ${SERVER_TESTS})
   IF(WITH_PERFSCHEMA_STORAGE_ENGINE)
     TARGET_LINK_LIBRARIES(${test}-t perfschema)
   ENDIF()
+
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS ${test}-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(${test}-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 
   IF(NOT MERGE_UNITTESTS)
     ADD_TEST(${test} ${CMAKE_BINARY_DIR}/runtime_output_directory/${test}-t)

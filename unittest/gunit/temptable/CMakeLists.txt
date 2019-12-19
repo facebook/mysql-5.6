@@ -60,6 +60,14 @@ IF (MERGE_UNITTESTS)
     TARGET_LINK_LIBRARIES(merge_temptable_tests-t perfschema)
   ENDIF()
 
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS merge_temptable_tests-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(merge_temptable_tests-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
   ADD_DEPENDENCIES(merge_temptable_tests-t GenError)
 
   # See ../CMakeLists.txt
@@ -91,6 +99,14 @@ FOREACH(test ${TESTS})
   IF(WITH_PERFSCHEMA_STORAGE_ENGINE)
     TARGET_LINK_LIBRARIES(${test}-t perfschema)
   ENDIF()
+
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS ${test}-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(${test}-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 
   ADD_DEPENDENCIES(${test}-t GenError)
 

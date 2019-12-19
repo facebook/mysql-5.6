@@ -90,6 +90,14 @@ IF (MERGE_UNITTESTS)
     TARGET_LINK_LIBRARIES(merge_keyring_file_tests-t perfschema)
   ENDIF()
 
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS merge_keyring_file_tests-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(merge_keyring_file_tests-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
   ADD_DEPENDENCIES(merge_keyring_file_tests-t GenError)
 
   # See ../CMakeLists.txt
@@ -120,6 +128,14 @@ FOREACH(test ${TESTS})
     TARGET_LINK_LIBRARIES(${test}-t perfschema)
     TARGET_LINK_LIBRARIES(${test}-t perfschema)
   ENDIF()
+
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS ${test}-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(${test}-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 
   IF(NOT MERGE_UNITTESTS)
     ADD_TEST(${test} ${CMAKE_BINARY_DIR}/runtime_output_directory/${test}-t)
