@@ -112,6 +112,7 @@ class MDLTest : public ::testing::Test, public Test_MDL_context_owner {
     max_write_lock_count = ULONG_MAX;
     mdl_init();
     m_mdl_context.init(this);
+    m_mdl_context.set_ignore_owner_thd(true);
     EXPECT_FALSE(m_mdl_context.has_locks());
     m_charset = system_charset_info;
     system_charset_info = &my_charset_utf8_bin;
@@ -2181,6 +2182,7 @@ TEST_F(MDLTest, NotifyScenarios) {
   /* Acquire S lock which will be granted using "fast path". */
   mdl_thread1.enable_release_on_notify();
   mdl_thread1.start();
+  mdl_thread1.get_mdl_context().set_ignore_owner_thd(true);
   first_shared_grabbed.wait_for_notification();
 
   /*
@@ -2195,6 +2197,7 @@ TEST_F(MDLTest, NotifyScenarios) {
     should be successfully granted after that.
   */
   mdl_thread2.start();
+  mdl_thread2.get_mdl_context().set_ignore_owner_thd(true);
   first_shared_released.wait_for_notification();
   first_exclusive_grabbed.wait_for_notification();
 
@@ -2222,6 +2225,7 @@ TEST_F(MDLTest, NotifyScenarios) {
   mdl_thread3.enable_release_on_notify();
   /* Acquire S lock which will be granted using "fast path". */
   mdl_thread3.start();
+  mdl_thread3.get_mdl_context().set_ignore_owner_thd(true);
   second_shared_grabbed.wait_for_notification();
 
   /*
@@ -2230,6 +2234,7 @@ TEST_F(MDLTest, NotifyScenarios) {
     should be successfully granted after that.
   */
   mdl_thread4.start();
+  mdl_thread4.get_mdl_context().set_ignore_owner_thd(true);
   second_shared_released.wait_for_notification();
   second_exclusive_grabbed.wait_for_notification();
 

@@ -37,15 +37,7 @@ class Test_MDL_context_owner : public MDL_context_owner {
 
   virtual int is_killed() const final { return 0; }
   virtual bool is_connected() { return true; }
-  virtual THD *get_thd() {
-    /*
-      MDL_lock::object_lock_notify_conflicting_locks() checks THD of
-      conflicting lock on nullptr value and doesn't call the virtual
-      method MDL_context_owner::notify_shared_lock() in case condition
-      satisfied. To workaround it return the value 1 casted to THD*.
-    */
-    return (THD *)1;
-  }
+  virtual THD *get_thd() { return nullptr; }
 
   virtual bool notify_hton_pre_acquire_exclusive(const MDL_key *, bool *) {
     return false;

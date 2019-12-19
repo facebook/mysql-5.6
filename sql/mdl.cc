@@ -1468,7 +1468,8 @@ MDL_context::MDL_context()
       m_force_dml_deadlock_weight(false),
       m_waiting_for(NULL),
       m_pins(NULL),
-      m_rand_state(UINT_MAX32) {
+      m_rand_state(UINT_MAX32),
+      m_ignore_owner_thd(false) {
   mysql_prlock_init(key_MDL_context_LOCK_waiting_for, &m_LOCK_waiting_for);
 }
 
@@ -3350,7 +3351,8 @@ void MDL_lock::object_lock_notify_conflicting_locks(MDL_context *ctx,
     if (conflicting_ticket->get_ctx() != ctx &&
         (conflicting_ticket->get_type() == MDL_SHARED ||
          conflicting_ticket->get_type() == MDL_SHARED_HIGH_PRIO) &&
-        conflicting_ticket->get_ctx()->get_owner()->get_thd() != nullptr) {
+        (conflicting_ticket->get_ctx()->get_owner()->get_thd() != nullptr ||
+         ctx->get_ignore_owner_thd())) {
       MDL_context *conflicting_ctx = conflicting_ticket->get_ctx();
 
       /*
@@ -3524,16 +3526,18 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   */
   enum_mdl_type kill_conflicting_locks_lower_than = MDL_INTENTION_EXCLUSIVE;
   bool kill_conflicting_connections_after_timeout_and_retry = false;
-  if ((thd->variables.high_priority_ddl ||
-       (thd->slave_thread && slave_high_priority_ddl)) &&
-      ticket->get_type() >= MDL_SHARED_NO_WRITE) {
-    kill_conflicting_connections_after_timeout_and_retry = true;
-    /* Use MDL_SHARED_NO_WRITE to kill "lock tables read" connection */
-    kill_conflicting_locks_lower_than = MDL_SHARED_NO_WRITE;
-  }
-  if (thd->variables.kill_conflicting_connections) {
-    kill_conflicting_connections_after_timeout_and_retry = true;
-    kill_conflicting_locks_lower_than = MDL_TYPE_END;
+  if (thd != nullptr) {
+    if ((thd->variables.high_priority_ddl ||
+         (thd->slave_thread && slave_high_priority_ddl)) &&
+        ticket->get_type() >= MDL_SHARED_NO_WRITE) {
+      kill_conflicting_connections_after_timeout_and_retry = true;
+      /* Use MDL_SHARED_NO_WRITE to kill "lock tables read" connection */
+      kill_conflicting_locks_lower_than = MDL_SHARED_NO_WRITE;
+    }
+    if (thd->variables.kill_conflicting_connections) {
+      kill_conflicting_connections_after_timeout_and_retry = true;
+      kill_conflicting_locks_lower_than = MDL_TYPE_END;
+    }
   }
   /* do not set status on timeout if we are going to retry */
   bool set_status_on_timeout =

@@ -75,7 +75,7 @@ class ParserTest : public ::testing::Test {
           static_cast<char *>(my_malloc(PSI_NOT_INSTRUMENTED, 3, MYF(0)));
       sprintf(db, "db");
       LEX_CSTRING db_lex_cstr = {db, strlen(db)};
-      thd()->reset_db(db_lex_cstr);
+      thd()->reset_db(db_lex_cstr, /* lock_held_skip_metadata */ true);
     }
 
     lex_start(thd());
