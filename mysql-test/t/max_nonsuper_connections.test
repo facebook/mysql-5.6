@@ -99,6 +99,17 @@ while ($i)
   dec $i;
 }
 
+# Verify counter leak is fixed when permission to a database is denied
+--echo Verifying nonsuper_connections is decremented when db is denied
+--disable_query_log
+--let $i = 20
+--while ($i) {
+  --error ER_DBACCESS_DENIED_ERROR
+  --connect (con_denied_$i, localhost, test_user,,bogus_db)
+  --dec $i
+--}
+--enable_query_log
+
 # able to refill up max_nonsuper_connections
 connection default;
 let $i = 10;
