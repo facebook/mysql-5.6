@@ -8970,6 +8970,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Max_used_connections_time", (char *)&show_max_used_connections_time,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Non_super_connections", (char *)&nonsuper_connections, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Not_flushed_delayed_rows", (char *)&delayed_rows_in_use,
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},
     {"Open_files", (char *)&my_file_opened, SHOW_LONG_NOFLUSH,
