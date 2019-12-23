@@ -1205,8 +1205,8 @@ char *master_info_file;
 char *relay_log_info_file, *report_user, *report_password, *report_host;
 char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
 char *opt_logname, *opt_slow_logname, *opt_bin_logname;
-char *opt_bin_logname_apply;
-char *opt_binlog_apply_index_name;
+char *opt_apply_logname = 0;
+char *opt_applylog_index_name = 0;
 char *opt_gap_lock_logname;
 /* Static variables */
 
@@ -1239,6 +1239,8 @@ static char **defaults_argv;
 static int remaining_argc;
 /** Remaining command line arguments (arguments), filtered by handle_options().*/
 static char **remaining_argv;
+
+static int generate_apply_file_gvars();
 
 int orig_argc;
 char **orig_argv;
@@ -6304,29 +6306,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       opt_bin_logname=my_strdup(buf, MYF(0));
     }
 
+    if (generate_apply_file_gvars())
     {
-      /* create the apply binlog name for Raft */
-      std::string tstr(opt_bin_logname);
-      std::string rep_from("binary");
-      std::string rep_to("apply");
-      size_t fpos = tstr.find(rep_from);
-      if (fpos != std::string::npos)
-      {
-        tstr.replace(fpos, rep_from.length(), rep_to);
-        opt_bin_logname_apply= my_strdup(tstr.c_str(), MYF(0));
-      }
-
-      if (opt_binlog_index_name)
-        tstr.assign(opt_binlog_index_name);
-      else
-        tstr.assign(opt_bin_logname);
-
-      fpos = tstr.find(rep_from);
-      if (fpos != std::string::npos)
-      {
-        tstr.replace(fpos, rep_from.length(), rep_to);
-        opt_binlog_apply_index_name= my_strdup(tstr.c_str(), MYF(0));
-      }
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to initialize apply log file in raft mode");
+      unireg_abort(1);
     }
 
     if (enable_raft_plugin)
@@ -6635,7 +6619,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
        * mark the log as 'closed'. This is because raft 'owns' the log and
        * will use it later when the node rejoins the ring */
       char* logname=
-        mysql_bin_log.is_apply_log ? opt_bin_logname_apply : opt_bin_logname;
+        mysql_bin_log.is_apply_log ? opt_apply_logname : opt_bin_logname;
 
       if (mysql_bin_log.open_binlog_found)
       {
@@ -11412,7 +11396,7 @@ static int mysql_init_variables(void)
   opt_skip_name_resolve= 0;
   opt_ignore_builtin_innodb= 0;
   opt_logname= opt_update_logname= opt_binlog_index_name= opt_slow_logname= 0;
-  opt_binlog_apply_index_name= 0;
+  opt_applylog_index_name= 0;
   opt_gap_lock_logname= 0;
   opt_tc_log_file= (char *)"tc.log";      // no hostname in tc_log file name !
   opt_secure_auth= 0;
@@ -11446,7 +11430,7 @@ static int mysql_init_variables(void)
   relay_log_bytes_written= 0;
   max_used_connections= slow_launch_threads = 0;
   mysqld_user= mysqld_chroot= opt_init_file= opt_bin_logname = 0;
-  opt_bin_logname_apply= 0;
+  opt_apply_logname= 0;
   prepared_stmt_count= 0;
   mysqld_unix_port= opt_mysql_tmpdir= my_bind_addr_str= NullS;
   memset(&mysql_tmpdir_list, 0, sizeof(mysql_tmpdir_list));
@@ -12091,6 +12075,78 @@ static void option_error_reporter(enum loglevel level, const char *format, ...)
 }
 
 C_MODE_END
+
+static int generate_apply_file_gvars()
+{
+  DBUG_ENTER("generate_apply_file_gvars");
+
+  /* Reports an error and aborts, if the --apply-log's path
+     is a directory.*/
+  if (opt_apply_logname &&
+      opt_apply_logname[strlen(opt_apply_logname) - 1] == FN_LIBCHAR)
+  {
+    sql_print_error("Path '%s' is a directory name, please specify \
+a file name for --apply-log option", opt_apply_logname);
+    unireg_abort(1);
+  }
+
+  /* Reports an error and aborts, if the --apply-log-index's path
+     is a directory.*/
+  if (opt_applylog_index_name &&
+      opt_applylog_index_name[strlen(opt_applylog_index_name) - 1]
+      == FN_LIBCHAR)
+  {
+    sql_print_error("Path '%s' is a directory name, please specify \
+a file name for --apply-log-index option", opt_applylog_index_name);
+    unireg_abort(1);
+  }
+
+  if (opt_apply_logname && opt_applylog_index_name)
+  {
+    DBUG_RETURN(0);
+  }
+
+  if (!opt_apply_logname)
+  {
+    /* create the apply binlog name for Raft using some common
+     * rules. Replace binary with apply or -bin with -apply
+     * This handles the 2 common cases of naming convention without
+     * having to add these variables in all config files.
+     * PROD - binary-logs-3301
+     * mtr - master-bin, slave-bin
+     */
+    std::string tstr(opt_bin_logname);
+    std::string rep_from1("binary");
+    std::string rep_to1("apply");
+    std::string rep_from2("-bin");
+
+    size_t fpos = tstr.find(rep_from1);
+    if (fpos != std::string::npos)
+    {
+      tstr.replace(fpos, rep_from1.length(), rep_to1);
+      opt_apply_logname= my_strdup(tstr.c_str(), MYF(0));
+    }
+    else if ((fpos = tstr.find(rep_from2)) != std::string::npos)
+    {
+      std::string rep_to2("-apply");
+      tstr.replace(fpos, rep_from2.length(), rep_to2);
+      opt_apply_logname= my_strdup(tstr.c_str(), MYF(0));
+    }
+    else if (enable_raft_plugin)
+    {
+      sql_print_error("apply log needs to be set or follow a pattern");
+      unireg_abort(1);
+    }
+  }
+
+  if (!opt_applylog_index_name && opt_apply_logname)
+  {
+    opt_applylog_index_name= my_strdup(rpl_make_log_name(NULL,
+        opt_apply_logname, ".index"), MYF(0));
+  }
+
+  DBUG_RETURN(0);
+}
 
 /**
   Get server options from the command line,

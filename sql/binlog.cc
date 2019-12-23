@@ -54,6 +54,8 @@ using std::list;
 extern Master_info *active_mi;
 extern char *opt_binlog_index_name;
 extern char *opt_relaylog_index_name;
+extern char *opt_applylog_index_name;
+extern char *opt_apply_logname;
 static bool enable_raft_plugin_save= false;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
@@ -3312,11 +3314,11 @@ int MYSQL_BIN_LOG::init_index_file()
   DBUG_ASSERT(enable_raft_plugin);
 
   myf opt= MY_UNPACK_FILENAME;
-  char* apply_index_file_name_base= opt_binlog_apply_index_name;
+  char* apply_index_file_name_base= opt_applylog_index_name;
   if (!apply_index_file_name_base)
   {
     // Use the same base as the apply binlog file name
-    apply_index_file_name_base= opt_bin_logname_apply;
+    apply_index_file_name_base= opt_apply_logname;
     opt= MY_UNPACK_FILENAME | MY_REPLACE_EXT;
   }
 
@@ -3335,8 +3337,8 @@ int MYSQL_BIN_LOG::init_index_file()
     // NO_LINT_DEBUG
     sql_print_information("Binlog apply index file exists. Recovering mysqld "
                           "based on binlog apply index file");
-    index_file_name= opt_binlog_apply_index_name;
-    log_file_name= opt_bin_logname_apply;
+    index_file_name= opt_applylog_index_name;
+    log_file_name= opt_apply_logname;
     is_apply_log= true;
   }
   else
@@ -6855,8 +6857,8 @@ int binlog_change_to_apply()
 
   mysql_bin_log.close(LOG_CLOSE_INDEX);
 
-  if (mysql_bin_log.open_index_file(opt_binlog_apply_index_name,
-                                   opt_bin_logname_apply, false/*need_lock_index=false*/))
+  if (mysql_bin_log.open_index_file(opt_applylog_index_name,
+                                    opt_apply_logname, false/*need_lock_index=false*/))
   {
     error= 1;
     goto err;
@@ -6871,11 +6873,11 @@ int binlog_change_to_apply()
     const_cast<Gtid_set*>(gtid_state->get_logged_gtids()));
 
   // HLC is TBD
-  if (mysql_bin_log.open_binlog(opt_bin_logname_apply, 0,
-                                  WRITE_CACHE, max_binlog_size, false,
-                                  false/*need_lock_index=false*/,
-                                  true/*need_sid_lock=true*/,
-                                  NULL))
+  if (mysql_bin_log.open_binlog(opt_apply_logname, 0,
+                                WRITE_CACHE, max_binlog_size, false,
+                                false/*need_lock_index=false*/,
+                                true/*need_sid_lock=true*/,
+                                NULL))
   {
     error= 1;
     goto err;
@@ -6903,7 +6905,7 @@ int binlog_change_to_binlog()
 
   std::pair<std::vector<std::string>, int> result;
   bool delete_apply_logs= false;
-  if (indexfn.find(opt_binlog_apply_index_name) != std::string::npos)
+  if (indexfn.find(opt_applylog_index_name) != std::string::npos)
   {
     // This is a apply-binlog index file. Get a list of apply-binlog names from
     // the index file

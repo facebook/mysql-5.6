@@ -2038,6 +2038,8 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
 
     relay_log.is_relay_log= TRUE;
 
+    // if opt_relay_logname and opt_relaylog_index_name are both unset,
+    // the server should crash at this point
     if (relay_log.open_index_file(relay_log_index_name, ln, TRUE))
     {
       sql_print_error("Failed in open_index_file() called from Relay_log_info::rli_init_info().");

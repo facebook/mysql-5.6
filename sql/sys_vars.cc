@@ -5205,6 +5205,17 @@ static Sys_var_charptr Sys_relay_log_index(
        READ_ONLY GLOBAL_VAR(relay_log_index), NO_CMD_LINE,
        IN_FS_CHARSET, DEFAULT(0));
 
+static Sys_var_charptr Sys_apply_log(
+       "apply_log", "The location and name to use for apply logs for raft",
+       READ_ONLY GLOBAL_VAR(opt_apply_logname), CMD_LINE(REQUIRED_ARG),
+       IN_FS_CHARSET, DEFAULT(0));
+
+static Sys_var_charptr Sys_apply_log_index(
+       "apply_log_index", "The location and name to use for the file "
+       "that keeps a list of the last apply logs for raft",
+       READ_ONLY GLOBAL_VAR(opt_applylog_index_name), CMD_LINE(REQUIRED_ARG),
+       IN_FS_CHARSET, DEFAULT(0));
+
 /*
   Uses NO_CMD_LINE since the --log-bin-index option set
   opt_binlog_index_name variable and computes a value for the
