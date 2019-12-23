@@ -610,7 +610,7 @@ int Raft_replication_delegate::setup_flush(
   int ret= 0;
 
   FOREACH_OBSERVER(ret, setup_flush, thd,
-      (&raft_listener_queue, is_relay_log, log_file_cache, log_prefix, log_name,
+      (is_relay_log, log_file_cache, log_prefix, log_name,
        lock_log, lock_index, update_cond, cur_log_ext, context)
   );
 
@@ -624,6 +624,22 @@ int Raft_replication_delegate::before_shutdown(THD *thd)
   int ret= 0;
 
   FOREACH_OBSERVER(ret, before_shutdown, thd, ());
+
+  DBUG_RETURN(ret);
+}
+
+int Raft_replication_delegate::register_paths(
+    THD *thd, const std::string& wal_dir_parent,
+    const std::string& log_dir_parent,
+    const std::string& raft_log_path_prefix, uint64_t port)
+{
+  DBUG_ENTER("Raft_replication_delegate::register_paths");
+  Binlog_storage_param param;
+  int ret= 0;
+
+  FOREACH_OBSERVER(ret, register_paths, thd,
+                  (&raft_listener_queue, wal_dir_parent,
+                   log_dir_parent, raft_log_path_prefix, port));
 
   DBUG_RETURN(ret);
 }

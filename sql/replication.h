@@ -450,7 +450,6 @@ typedef struct Raft_replication_observer {
      This callback is called once upfront to setup the appropriate
      binlog file, io_cache and its mutexes
 
-     @param raft_listener_queue Event listener to execute plugin operations
      @param is_relay_log whether the file being registered is relay or binlog
      @param log_file_cache  the IO_CACHE pointer
      @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
@@ -464,8 +463,7 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*setup_flush)(RaftListenerQueueIf* raft_listener_queue,
-                     bool is_relay_log, IO_CACHE* log_file_cache,
+  int (*setup_flush)(bool is_relay_log, IO_CACHE* log_file_cache,
                      const char *log_prefix, const char *log_name,
                      mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
                      mysql_cond_t *update_cond, ulong *cur_log_ext,
@@ -476,6 +474,21 @@ typedef struct Raft_replication_observer {
    * Raft threads
    */
   int (*before_shutdown)();
+
+   /**
+   * @param raft_listener_queue - the listener queue in which to add requests
+   * @param wal_dir_parent - the parent directory under which raft will create
+   * config metadata
+   * @param log_dir_parent - the parent directory under which raft will create
+   * metric logs
+   * @param raft_log_path_prefix - the prefix with the dirname path which tells
+   * raft where to find raft binlogs.
+   */
+  int (*register_paths)(RaftListenerQueueIf* raft_listener_queue,
+                        const std::string& wal_dir_parent,
+                        const std::string& log_dir_parent,
+                        const std::string & raft_log_path_prefix,
+                        uint64_t port);
 } Raft_replication_observer;
 
 /**
@@ -535,14 +548,28 @@ int register_raft_replication_observer(
 int unregister_raft_replication_observer(
     Raft_replication_observer *observer, void *p);
 
+/*
+ * An enum to control what kind of registrations the
+ * plugin needs from server.
+ * Currently only 2 exist.
+ * RAFT_REGISTER_LOCKS - BinlogWrapper related
+ * RAFT_REGISTER_PATHS - paths and ports for initial raft setup
+ */
+enum Raft_Registration_Item {
+  RAFT_REGISTER_LOCKS = 0,
+  RAFT_REGISTER_PATHS = 1
+};
+
 /**
     Ask the mysqld server to immediately register the binlog and relay
     log files.
 
     Eventually instead of setup_flush in both these observers we will have
     a Raft specific delegate and observer
+    @param item whether to register locks and io_caches for binlog wrapper
+           or register paths for initial setup
 */
-int ask_server_to_register_with_raft();
+int ask_server_to_register_with_raft(Raft_Registration_Item item);
 
 /**
    Unregister a binlog storage observer

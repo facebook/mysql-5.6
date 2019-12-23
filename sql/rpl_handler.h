@@ -289,6 +289,10 @@ public:
                   mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
 
   int before_shutdown(THD *thd);
+  int register_paths(THD *thd, const std::string& wal_dir_parent,
+                     const std::string& log_dir_parent,
+                     const std::string& raft_log_path_prefix,
+                     uint64_t port);
 };
 
 int delegates_init();

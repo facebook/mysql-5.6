@@ -6155,7 +6155,13 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     close_on_error= TRUE;
     goto end;
   }
-  else if (!skip_re_append)
+
+  // we have moved the cur log ext and in raft
+  // this will mess with the index
+  if (rotate_via_raft)
+    cur_log_ext--;
+
+  if (!skip_re_append)
   {
     /*
       We log the whole file name for log file as the user may decide
@@ -6193,6 +6199,9 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   if (rotate_via_raft) {
     error= RUN_HOOK(raft_replication, before_flush,
                     (current_thd, &raft_io_cache, no_op));
+
+    // time to safely readjust the cur_log_ext back to expected value
+    cur_log_ext++;
     if (!error) {
       error= RUN_HOOK(raft_replication, before_commit, (current_thd, false));
     }
@@ -9183,10 +9192,7 @@ void MYSQL_BIN_LOG::check_and_register_log_entities(THD *thd)
   setup_flush_done= false;
 }
 
-// This function is called by plugin after BinlogWrapper creation.
-// It asks the server to register the binlog & relaylog file
-// immediately
-int ask_server_to_register_with_raft()
+static int register_entities_with_raft()
 {
   THD *thd= current_thd;
   // First register the binlog for all servers
@@ -9194,7 +9200,8 @@ int ask_server_to_register_with_raft()
   // a Slave's mysql_bin_log will point to apply log
   // however when the slave becomes the master, its registered binlog
   // entities will be used by binlog wrapper
-  int err= mysql_bin_log.register_log_entities(thd, 0, true, false);
+  int err= mysql_bin_log.register_log_entities(thd, 0, true,
+      false /* binlog */);
   if (err)
   {
     sql_print_error("Failed to register binlog file entities with storage observer");
@@ -9211,12 +9218,55 @@ int ask_server_to_register_with_raft()
   // On a slave server, also register the relaylogs
   // Plugin will make that the default file to write to
   err= active_mi->rli->relay_log.register_log_entities(
-      thd, 0, true /* take locks */, true /* relay log observer */);
+      thd, 0, true /* take locks */, true /* relay log */);
   if (err)
   {
     sql_print_error("Failed to register relaylog file entities");
   }
 #endif
+  return err;
+}
+
+// This function is called by plugin after BinlogWrapper creation.
+// It asks the server to register the binlog & relaylog file
+// immediately
+int ask_server_to_register_with_raft(Raft_Registration_Item item)
+{
+  int err= 0;
+  switch(item) {
+    case RAFT_REGISTER_LOCKS:
+      return register_entities_with_raft();
+    case RAFT_REGISTER_PATHS:
+    {
+      size_t llen;
+
+      std::string s_wal_dir;
+      char wal_dir[FN_REFLEN];
+      if (!dirname_part(wal_dir, log_bin_basename, &llen))
+      {
+        sql_print_information("dirname_part for log_file_basename fails. Falling back to datadir");
+        s_wal_dir.assign(mysql_real_data_home_ptr);
+      } else
+        s_wal_dir.assign(wal_dir);
+
+      std::string s_log_dir;
+      char log_dir[FN_REFLEN];
+      if (!dirname_part(log_dir, log_error_file_ptr, &llen))
+      {
+        sql_print_information("dirname_part for log_error_file_ptr fails. Falling back to datadir");
+        s_log_dir.assign(mysql_real_data_home_ptr);
+      } else
+        s_log_dir.assign(log_dir);
+
+      THD *thd= current_thd;
+      err= RUN_HOOK(raft_replication, register_paths,
+                    (thd, s_wal_dir, s_log_dir, log_bin_basename,
+                     (uint64_t)mysqld_port));
+      break;
+    }
+    default:
+      return -1;
+  };
   return err;
 }
 
