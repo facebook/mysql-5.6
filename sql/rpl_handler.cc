@@ -839,6 +839,11 @@ pthread_handler_t process_raft_queue(void *arg)
 #endif
         break;
       }
+      case RaftListenerCallbackType::GET_COMMITTED_GTIDS:
+      {
+        result.error= get_committed_gtids(element.arg.trim_gtids,
+            &result.gtids);
+      }
       default:
         break;
     }

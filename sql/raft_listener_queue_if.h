@@ -22,6 +22,7 @@ enum class RaftListenerCallbackType
   START_SQL_THREAD = 12,
   STOP_IO_THREAD = 13,
   CHANGE_MASTER = 14,
+  GET_COMMITTED_GTIDS = 15,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -50,6 +51,7 @@ class RaftListenerCallbackResult
 
     // Indicates if the callback was able to execute successfully
     int error= 0;
+    std::vector<std::string> gtids;
 };
 
 class RaftListenerQueueIf {
