@@ -33,9 +33,9 @@
 class Logfile {
  public:
   Logfile();
-  Logfile(const Logfile &) = default;
+  Logfile(const Logfile &) = delete;
 
-  virtual ~Logfile() {}
+  virtual ~Logfile() { close(); }
 
   /// Return file name.
   ///
