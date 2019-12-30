@@ -1,0 +1,33 @@
+SET @start_value= @@global.log_throttle_ddl;
+
+SET @@global.log_throttle_ddl= DEFAULT;
+SELECT @@global.log_throttle_ddl;
+
+SET @@global.log_throttle_ddl= 1000;
+SELECT @@global.log_throttle_ddl;
+
+# should throw a clipping warning
+SET @@global.log_throttle_ddl= -1;
+SELECT @@global.log_throttle_ddl;
+
+SET @@global.log_throttle_ddl= 5;
+SELECT @@global.log_throttle_ddl;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_throttle_ddl= OFF;
+SELECT @@global.log_throttle_ddl;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_throttle_ddl= ON;
+SELECT @@global.log_throttle_ddl;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL log_throttle_ddl= 0.01;
+
+--error ER_GLOBAL_VARIABLE
+SET SESSION log_throttle_ddl= 0;
+
+--error ER_GLOBAL_VARIABLE
+SET LOCAL log_throttle_ddl= 0;
+
+SET @@global.log_throttle_ddl= @start_value;

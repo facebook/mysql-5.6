@@ -2348,6 +2348,13 @@ Slow_log_throttle log_throttle_qni(&opt_log_throttle_queries_not_using_indexes,
                                    "throttle: %10lu 'index "
                                    "not used' warning(s) suppressed.");
 
+Slow_log_throttle log_throttle_ddl(&opt_log_throttle_ddl,
+                                   &LOCK_log_throttle_ddl,
+                                   Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
+                                   slow_log_write,
+                                   "throttle: %10lu 'ddl' "
+                                   "warning(s) suppressed.");
+
 ////////////////////////////////////////////////////////////
 //
 // Error Log

@@ -777,6 +777,7 @@ class Error_log_throttle : public Log_throttle {
 };
 
 extern Slow_log_throttle log_throttle_qni;
+extern Slow_log_throttle log_throttle_ddl;
 
 ////////////////////////////////////////////////////////////
 //

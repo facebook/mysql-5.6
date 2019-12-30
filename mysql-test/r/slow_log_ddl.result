@@ -1,0 +1,43 @@
+set global log_output = 'TABLE';
+truncate mysql.slow_log;
+set @my_log_ddl = @@global.log_ddl;
+set global log_ddl = true;
+create table t1 (
+id1 int unsigned not null default '0',
+primary key (id1));
+alter table t1 add id2 int unsigned;
+create index sec_key on t1(id2);
+drop index sec_key on t1;
+truncate table t1;
+rename table t1 to t2;
+drop table t2;
+select @@global.log_throttle_ddl;
+@@global.log_throttle_ddl
+0
+set @my_log_throttle_ddl = @@global.log_throttle_ddl;
+set global log_throttle_ddl = 1;
+create table t2 (
+id1 int unsigned not null default '0',
+primary key (id1));
+create table t3 (
+id1 int unsigned not null default '0',
+primary key (id1));
+create table t4 (
+id1 int unsigned not null default '0',
+primary key (id1));
+include/assert.inc [There is one slow log entry for create table t1]
+include/assert.inc [There is one slow log entry for alter table t1]
+include/assert.inc [There is one slow log entry for create index for t1]
+include/assert.inc [There is one slow log entry for drop index from t1]
+include/assert.inc [There is one slow log entry for truncate table t1]
+include/assert.inc [There is one slow log entry for rename table t1 to t2]
+include/assert.inc [There is one slow log entry for drop table t2]
+include/assert.inc [There is one slow log entry for create table t2]
+include/assert.inc [There is no slow log entry for create table t3]
+include/assert.inc [There is one slow log entry for create table t4]
+drop table t2, t3, t4;
+truncate mysql.slow_log;
+set global log_output = default;
+set @@global.log_ddl = @my_log_ddl;
+set @@global.log_throttle_ddl = @my_log_throttle_ddl;
+truncate mysql.general_log;
