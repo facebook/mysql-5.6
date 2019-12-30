@@ -906,6 +906,7 @@ static PSI_mutex_key key_LOCK_password_history;
 static PSI_mutex_key key_LOCK_password_reuse_interval;
 static PSI_mutex_key key_LOCK_sql_rand;
 static PSI_mutex_key key_LOCK_log_throttle_qni;
+static PSI_mutex_key key_LOCK_log_throttle_ddl;
 static PSI_mutex_key key_LOCK_reset_gtid_table;
 static PSI_mutex_key key_LOCK_compress_gtid_table;
 static PSI_mutex_key key_LOCK_collect_instance_log;
@@ -1006,6 +1007,8 @@ bool opt_general_log, opt_slow_log, opt_general_log_raw;
 ulonglong log_output_options;
 bool opt_log_queries_not_using_indexes = 0;
 ulong opt_log_throttle_queries_not_using_indexes = 0;
+bool opt_log_ddl = false;
+ulong opt_log_throttle_ddl = 0;
 bool opt_log_slow_extra = false;
 bool opt_improved_dup_key_error = false;
 bool opt_disable_networking = 0, opt_skip_show_db = 0;
@@ -1458,6 +1461,7 @@ mysql_mutex_t LOCK_sql_slave_skip_counter;
 mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_slave_trans_dep_tracker;
 mysql_mutex_t LOCK_log_throttle_qni;
+mysql_mutex_t LOCK_log_throttle_ddl;
 mysql_rwlock_t LOCK_sys_init_connect, LOCK_sys_init_slave;
 mysql_rwlock_t LOCK_system_variables_hash;
 mysql_rwlock_t LOCK_gap_lock_exceptions;
@@ -2462,6 +2466,7 @@ static void clean_up(bool print_message) {
 
 static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_log_throttle_qni);
+  mysql_mutex_destroy(&LOCK_log_throttle_ddl);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_manager);
   mysql_mutex_destroy(&LOCK_crypt);
@@ -4921,6 +4926,8 @@ static int init_thread_environment() {
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_sql_rand, &LOCK_sql_rand, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_qni, &LOCK_log_throttle_qni,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_log_throttle_ddl, &LOCK_log_throttle_ddl,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_default_password_lifetime,
                    &LOCK_default_password_lifetime, MY_MUTEX_INIT_FAST);
@@ -10973,6 +10980,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_TABLE_SHARE_LOCK_ha_data, "TABLE_SHARE::LOCK_ha_data", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_error_messages, "LOCK_error_messages", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_log_throttle_qni, "LOCK_log_throttle_qni", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_log_throttle_ddl, "LOCK_log_throttle_ddl", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_query_plan, "THD::LOCK_query_plan", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
   { &key_LOCK_cost_const, "Cost_constant_cache::LOCK_cost_const", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

@@ -7308,6 +7308,27 @@ static Sys_var_bool Sys_improved_dup_key_error(
     "key error and log the query into a new duplicate key query log file.",
     GLOBAL_VAR(opt_improved_dup_key_error), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_log_ddl("log_ddl", "Log ddls in slow query log.",
+                                GLOBAL_VAR(opt_log_ddl), CMD_LINE(OPT_ARG),
+                                DEFAULT(false));
+
+static bool update_log_throttle_ddl(sys_var *, THD *thd, enum_var_type) {
+  // Check if we should print a summary of any suppressed lines to the slow log
+  // now since opt_log_throttle_ddl was changed.
+  log_throttle_ddl.flush(thd);
+  return false;
+}
+
+static Sys_var_ulong Sys_log_throttle_ddl(
+    "log_throttle_ddl",
+    "Log at most this many DDL entries per minute to the "
+    "slow log. Any further warnings will be condensed into a single "
+    "summary line. A value of 0 disables throttling. "
+    "Option has no effect unless --log_ddl is set.",
+    GLOBAL_VAR(opt_log_throttle_ddl), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(update_log_throttle_ddl));
+
 static Sys_var_bool Sys_high_priority_ddl(
     "high_priority_ddl",
     "Setting this flag will allow DDL commands to kill conflicting "

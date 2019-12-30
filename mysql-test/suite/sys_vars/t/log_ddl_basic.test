@@ -1,0 +1,32 @@
+SET @start_log_ddl = @@global.log_ddl;
+SELECT @start_log_ddl;
+
+SET @@global.log_ddl = DEFAULT;
+SELECT @@global.log_ddl;
+
+SET @@global.log_ddl = false;
+SELECT @@global.log_ddl;
+
+SET @@global.log_ddl = true;
+SELECT @@global.log_ddl;
+
+SET @@global.log_ddl = 1;
+SELECT @@global.log_ddl;
+
+SET @@global.log_ddl = 0;
+SELECT @@global.log_ddl;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_ddl = -1;
+SELECT @@global.log_ddl;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_ddl = 100;
+SELECT @@global.log_ddl;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.log_ddl = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_ddl;
+
+SET @@global.log_ddl = @start_log_ddl;
+SELECT @@global.log_ddl;

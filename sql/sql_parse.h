@@ -55,6 +55,15 @@ struct Parse_context;
 struct TABLE_LIST;
 union COM_DATA;
 
+const std::unordered_map<int, std::string> slow_log_ddls = {
+    {SQLCOM_CREATE_TABLE, "CREATE_TABLE"},
+    {SQLCOM_ALTER_TABLE, "ALTER_TABLE"},
+    {SQLCOM_DROP_TABLE, "DROP_TABLE"},
+    {SQLCOM_CREATE_INDEX, "CREATE_INDEX"},
+    {SQLCOM_DROP_INDEX, "DROP_INDEX"},
+    {SQLCOM_RENAME_TABLE, "RENAME_TABLE"},
+    {SQLCOM_TRUNCATE, "TRUNCATE_TABLE"}};
+
 extern "C" int test_if_data_home_dir(const char *dir);
 
 bool stmt_causes_implicit_commit(const THD *thd, uint mask);
@@ -315,4 +324,5 @@ bool set_db_read_only(HA_CREATE_INFO *create_info, int super_read_only, int on);
   @} (end of group GROUP_PARSER)
 */
 
+std::string get_user_query_info_from_thd(THD *thd);
 #endif /* SQL_PARSE_INCLUDED */

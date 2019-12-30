@@ -165,6 +165,7 @@ extern char* opt_gap_lock_logname;
 extern ulonglong log_output_options;
 extern bool opt_log_queries_not_using_indexes;
 extern ulong opt_log_throttle_queries_not_using_indexes;
+extern ulong opt_log_throttle_ddl;
 extern bool opt_log_slow_extra;
 extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
@@ -367,6 +368,7 @@ enum enum_binlog_error_action {
 };
 extern const char *binlog_error_action_list[];
 
+extern bool opt_log_ddl;
 extern bool slave_high_priority_ddl;
 extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
 extern double slave_high_priority_lock_wait_timeout_double;
@@ -790,6 +792,7 @@ extern mysql_mutex_t LOCK_manager;
 extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
+extern mysql_mutex_t LOCK_log_throttle_ddl;
 extern mysql_mutex_t LOCK_prepared_stmt_count;
 extern mysql_mutex_t LOCK_error_messages;
 extern mysql_mutex_t LOCK_sql_slave_skip_counter;
