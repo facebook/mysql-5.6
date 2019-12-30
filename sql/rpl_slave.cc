@@ -1119,6 +1119,9 @@ int rli_relay_log_raft_reset(bool do_global_init)
   }
 
   global_sid_lock->wrlock();
+  // At this point the gtid set in the RLI and the last retrieved
+  // GTID are up to date with all the gtids in the last raft log
+  // file
   mi->rli->relay_log.init_gtid_sets(mi->rli->get_gtid_set_nc(), NULL,
                                     mi->rli->get_last_retrieved_gtid(),
                                     opt_slave_sql_verify_checksum,
@@ -7685,6 +7688,51 @@ static int queue_old_event(Master_info *mi, const char *buf,
                        mi->get_mi_description_event()->binlog_version));
     DBUG_RETURN(1);
   }
+}
+
+Format_description_log_event s_fdle(4);
+
+/**
+ *  * Mark this GTID as logged in the rli
+ *   * @retval 0 Success
+ *    * @retval 1 Some failure
+ *
+ */
+int add_gtid_to_rli(const std::string& gtid_s)
+{
+  Master_info* mi= active_mi;
+  Relay_log_info *rli= mi->rli;
+  DBUG_ASSERT(mi != NULL && mi->rli != NULL);
+  mysql_mutex_lock(&mi->data_lock);
+
+  global_sid_lock->rdlock();
+  const char *buf = gtid_s.c_str();
+  size_t event_len = gtid_s.length();
+
+  Gtid_log_event gtid_ev(buf, event_len, &s_fdle);
+  Gtid gtid = {0, 0};
+  gtid.sidno= gtid_ev.get_sidno(false);
+  if (gtid.sidno < 0)
+  {
+    global_sid_lock->unlock();
+    mysql_mutex_unlock(&mi->data_lock);
+    sql_print_information("could not get proper sid: %s", buf);
+    return 1;
+  }
+
+  gtid.gno= gtid_ev.get_gno();
+  sql_print_information("proper gtid found: %u\n", gtid.sidno);
+  sql_print_information("proper gtid found: %lld\n", gtid.gno);
+
+  // old_retrieved_gtid= *(mi->rli->get_last_retrieved_gtid());
+  int ret= rli->add_logged_gtid(gtid.sidno, gtid.gno);
+  if (!ret)
+    rli->set_last_retrieved_gtid(gtid);
+
+  global_sid_lock->unlock();
+  mysql_mutex_unlock(&mi->data_lock);
+
+  return ret;
 }
 
 /*

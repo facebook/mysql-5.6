@@ -548,6 +548,13 @@ int register_raft_replication_observer(
 int unregister_raft_replication_observer(
     Raft_replication_observer *observer, void *p);
 
+/**
+ * Mark this GTID as logged in the rli
+ * @retval 0 Success
+ * @retval 1 Some failure
+ */
+int add_gtid_to_rli(const std::string& gtid_s);
+
 /*
  * An enum to control what kind of registrations the
  * plugin needs from server.
