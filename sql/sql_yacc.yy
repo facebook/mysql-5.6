@@ -2171,6 +2171,7 @@ void warn_about_deprecated_binary(THD *thd)
 %type <query_id> opt_for_query
 
 %type <num> read_only_opt boolean_val
+%type <num> opt_compressed_clause
 %%
 
 /*
@@ -12844,17 +12845,22 @@ into_clause:
         ;
 
 into_destination:
-          OUTFILE TEXT_STRING_filesystem
+          OUTFILE TEXT_STRING_filesystem opt_compressed_clause
           opt_load_data_charset
           opt_field_term opt_line_term
           {
-            $$= NEW_PTN PT_into_destination_outfile(@$, $2, $3, $4, $5);
+            $$= NEW_PTN PT_into_destination_outfile(@$, $2, $3, $4, $5, $6);
           }
         | DUMPFILE TEXT_STRING_filesystem
           {
             $$= NEW_PTN PT_into_destination_dumpfile(@$, $2);
           }
         | select_var_list { $$= $1; }
+        ;
+
+opt_compressed_clause:
+          /*empty*/ { $$ = 0; }
+        | COMPRESSED_SYM { $$ = 1; }
         ;
 
 /*
