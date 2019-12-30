@@ -125,7 +125,7 @@ static const String my_empty_string("", default_charset_info);
 
 sql_exchange::sql_exchange(const char *name, bool flag,
                            enum enum_filetype filetype_arg)
-    : file_name(name), dumpfile(flag), skip_lines(0) {
+    : file_name(name), dumpfile(flag), compressed(false), skip_lines(0) {
   field.opt_enclosed = false;
   filetype = filetype_arg;
   field.field_term = &default_field_term;
@@ -234,8 +234,9 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
 #else
   (void)chmod(path, S_IRUSR | S_IWUSR | S_IRGRP);
 #endif
-  if (init_io_cache(cache, file, thd->variables.select_into_buffer_size,
-                    WRITE_CACHE, 0L, true, MYF(MY_WME))) {
+  if (init_io_cache_with_opt_compression(
+          cache, file, thd->variables.select_into_buffer_size, WRITE_CACHE, 0L,
+          true, MYF(MY_WME), exchange->compressed)) {
     mysql_file_close(file, MYF(0));
     /* Delete file on error, it was just created */
     mysql_file_delete(key_select_to_file, path, MYF(0));

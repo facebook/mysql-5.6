@@ -473,6 +473,7 @@ struct IO_CACHE /* Used when caching files */
   // Delay in milliseconds after disk synchronization of the flushed buffer.
   // Requires disk_sync = true.
   uint disk_sync_delay{0};
+  class compressor *compressor{nullptr};
 };
 #if defined(disk_writes)
 #pragma pop_macro("disk_writes")
@@ -750,6 +751,11 @@ extern int init_io_cache_ext(IO_CACHE *info, File file, size_t cachesize,
 extern int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
                          enum cache_type type, my_off_t seek_offset,
                          bool use_async_io, myf cache_myflags);
+extern int init_io_cache_with_opt_compression(
+    IO_CACHE *info, File file, size_t cachesize, enum cache_type type,
+    my_off_t seek_offset, bool use_async_io, myf cache_myflags,
+    bool compressed);
+extern int end_io_cache_compressor(IO_CACHE *info);
 extern bool reinit_io_cache(IO_CACHE *info, enum cache_type type,
                             my_off_t seek_offset, bool use_async_io,
                             bool clear_cache);

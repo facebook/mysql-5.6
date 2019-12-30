@@ -194,6 +194,7 @@ int init_io_cache_ext(IO_CACHE *info, File file, size_t cachesize,
   info->alloced_buffer = false;
   info->buffer = nullptr;
   info->seek_not_done = false;
+  info->compressor = nullptr;
 
   if (file >= 0) {
     pos = mysql_file_tell(file, MYF(0));
@@ -1537,6 +1538,10 @@ int end_io_cache(IO_CACHE *info) {
       error = my_b_flush_io_cache(info, 1);
     my_free(info->buffer);
     info->buffer = info->read_pos = (uchar *)nullptr;
+  }
+  if (info->compressor) {
+    int rc = end_io_cache_compressor(info);
+    if (!error) error = rc;
   }
   if (info->m_encryptor != nullptr) delete info->m_encryptor;
   if (info->m_decryptor != nullptr) delete info->m_decryptor;

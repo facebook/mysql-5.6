@@ -1168,13 +1168,14 @@ class PT_into_destination_outfile final : public PT_into_destination {
 
  public:
   PT_into_destination_outfile(const POS &pos, const LEX_STRING &file_name_arg,
-                              const CHARSET_INFO *charset_arg,
+                              int compressed, const CHARSET_INFO *charset_arg,
                               const Field_separators &field_term_arg,
                               const Line_separators &line_term_arg)
       : PT_into_destination(pos), m_exchange(file_name_arg.str, false) {
     m_exchange.cs = charset_arg;
     m_exchange.field.merge_field_separators(field_term_arg);
     m_exchange.line.merge_line_separators(line_term_arg);
+    m_exchange.compressed = compressed;
   }
 
   bool contextualize(Parse_context *pc) override;
