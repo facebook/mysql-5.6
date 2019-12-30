@@ -1,0 +1,106 @@
+--source include/have_util_zstd.inc
+
+
+--let $tmp_dir=`SELECT @@GLOBAL.secure_file_priv`
+
+
+#
+# create table with highly repeating data
+# and dump it compressed
+# the result file should be small
+#
+
+CREATE TABLE t1(x VARCHAR(1000));
+INSERT INTO t1 VALUES (REPEAT("xyz", 100));
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+
+# dump data into file
+--let $output_file=$tmp_dir/t1.txt
+--replace_result $output_file OUTPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file';
+# dump data into file, compressed
+--let $output_file_zstd=$tmp_dir/t1.txt.zstd
+--replace_result $output_file_zstd OUTPUT_FILE_ZSTD
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file_zstd' COMPRESSED;
+# validate compressed output
+--exec zstd -dcq $output_file_zstd | diff $output_file -
+
+#
+# create table with 100000 rows of random data with 80 byte rows
+# and dump it compressed
+# the result should be low compressed
+#
+
+TRUNCATE TABLE t1;
+# generate random input data for low compression
+--exec dd bs=10000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
+--let $input_file=$tmp_dir/t2.txt
+--exec head -n 100000  $tmp_dir/t1.tmp > $input_file
+--remove_file $tmp_dir/t1.tmp
+# load input data
+--replace_result $input_file INPUT_FILE
+--eval LOAD DATA INFILE '$input_file' INTO TABLE t1;
+# dump random data into file, compressed
+--let $output_file_zstd2=$tmp_dir/t2.txt.zstd
+--replace_result $output_file_zstd2 OUTPUT_FILE_ZSTD2
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file_zstd2' COMPRESSED;
+# validate
+--exec zstd -dcq $output_file_zstd2 | diff $input_file -
+
+
+#
+# check how compression works for empty table
+#
+
+TRUNCATE TABLE t1;
+# dump empty table
+--let $output_file_zstd3=$tmp_dir/t3.txt.zstd
+--replace_result $output_file_zstd3 OUTPUT_FILE_ZSTD3
+--eval SELECT * FROM t1 INTO OUTFILE '$output_file_zstd3' COMPRESSED;
+# validate
+--exec zstd -dcq $output_file_zstd3 | wc -l
+
+
+#
+# test how compression works for big rows (5000 bytes)
+# which do not fit into internal cache buffer
+# and require more than one write operation for a single row
+#
+
+CREATE TABLE t10(x varchar(5001));
+# generate rows bigger 4K, so they cannot be flushed in one step
+--exec dd bs=10000000 count=1 if=/dev/urandom | base64 -w 5000 > $tmp_dir/t1.tmp
+--let $input_file_big_row=$tmp_dir/t10.txt
+--exec head -n 1000  $tmp_dir/t1.tmp > $input_file_big_row
+--remove_file $tmp_dir/t1.tmp
+# load input data
+--replace_result $input_file_big_row INPUT_FILE_BIG_ROW
+--eval LOAD DATA INFILE '$input_file_big_row' INTO TABLE t10;
+# dump data into file, compressed
+--let $output_file_zstd_big_row=$tmp_dir/t10.txt.zstd
+--replace_result $output_file_zstd_big_row OUTPUT_FILE_ZSTD_BIG_ROW
+--eval SELECT * FROM t10 INTO OUTFILE '$output_file_zstd_big_row' COMPRESSED;
+# validate
+--exec zstd -dcq $output_file_zstd_big_row | diff $input_file_big_row -
+
+#
+# check error that compression does not work outside secure_file_priv path
+#
+
+--let $error_output_file=$tmp_dir/../error.txt.zstd
+--replace_result $error_output_file ERROR_OUTPUT_FILE
+--error ER_OPTION_PREVENTS_STATEMENT
+--eval SELECT * FROM t10 INTO OUTFILE '$error_output_file' COMPRESSED;
+
+# cleanup
+--remove_file $output_file
+--remove_file $output_file_zstd
+--remove_file $input_file
+--remove_file $output_file_zstd2
+--remove_file $output_file_zstd3
+--remove_file $input_file_big_row
+--remove_file $output_file_zstd_big_row
+
+DROP TABLE t1, t10;
