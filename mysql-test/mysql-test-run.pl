@@ -142,6 +142,8 @@ my $opt_testcase_timeout   = $ENV{MTR_TESTCASE_TIMEOUT} || 15;         # minutes
 my $opt_valgrind_clients   = 0;
 my $opt_valgrind_mysqld    = 0;
 my $opt_valgrind_mysqltest = 0;
+my $opt_mtr_term_args = env_or_val(MTR_TERM => "xterm -title %title% -e");
+my $opt_lldb_cmd = env_or_val(MTR_LLDB => "lldb");
 
 # Options used when connecting to an already running server
 my %opts_extern;
@@ -296,6 +298,24 @@ our @share_locations;
 our %gprof_dirs;
 our %logs;
 our %mysqld_variables;
+
+# set_term_args(user_specified_string, term_exe_variable, term_args_arr, title)
+sub set_term_args {
+  my $term_cmd = $_[0];
+  if ($term_cmd =~ /^ *$/) {
+    mtr_error("MTR_TERM is defined, but empty");
+  }
+  my @term_args = split / /, $term_cmd;
+  $_[1] = shift @term_args;
+  foreach my $t_arg (@term_args) {
+    if ($t_arg eq "%title%") {
+      mtr_add_arg($_[2], "$_[3]");
+    } else {
+      mtr_add_arg($_[2], $t_arg);
+    }
+  }
+
+}
 
 sub check_timeout ($) { return testcase_timeout($_[0]) / 10; }
 
@@ -6869,9 +6889,8 @@ sub gdb_arguments {
   }
 
   $$args = [];
-  mtr_add_arg($$args, "-title");
-  mtr_add_arg($$args, "$type");
-  mtr_add_arg($$args, "-e");
+  my $term_exe;
+  set_term_args($opt_mtr_term_args, $term_exe, $$args, $type);
 
   if ($exe_libtool) {
     mtr_add_arg($$args, $exe_libtool);
@@ -6883,7 +6902,7 @@ sub gdb_arguments {
   mtr_add_arg($$args, "$gdb_init_file");
   mtr_add_arg($$args, "$$exe");
 
-  $$exe = "xterm";
+  $$exe= $term_exe;
 }
 
 # Modify the exe and args so that program is run in lldb
@@ -6911,16 +6930,15 @@ sub lldb_arguments {
   }
 
   $$args = [];
-  mtr_add_arg($$args, "-title");
-  mtr_add_arg($$args, "$type");
-  mtr_add_arg($$args, "-e");
+  my $term_exe;
+  set_term_args($opt_mtr_term_args, $term_exe, $$args, $type);
 
-  mtr_add_arg($$args, "lldb");
+  mtr_add_arg($$args, $opt_lldb_cmd);
   mtr_add_arg($$args, "-s");
   mtr_add_arg($$args, "$lldb_init_file");
   mtr_add_arg($$args, "$$exe");
 
-  $$exe = "xterm";
+  $$exe= $term_exe;
 }
 
 # Modify the exe and args so that program is run in ddd
@@ -7489,6 +7507,20 @@ Options for debugging the product
                         0 for no limit. Set it's default with MTR_MAX_TEST_FAIL.
   strace-client         Create strace output for mysqltest client.
   strace-server         Create strace output for mysqltest server.
+
+Environment variables controlling debugging parameters
+  MTR_TERM              Configures the terminal command to run the debugger.
+                        Defaults to xterm, but most other visual terminals
+                        can also be specified. Examples:
+                        MTR_TERM="gnome-terminal --title %title% --wait -x"
+                        MTR_TERM="urxwt -title %title% -e"
+                        Note: older version of gnome-terminal did not support
+                        --wait - those versions aren't compatible.
+  MTR_LLDB              Configures the lldb executable when debugging with
+                        lldb, the default is "lldb". This is useful for
+                        using lldb on a non default path, or on distributions
+                        with versioned lldb binaries. Example:
+                        MTR_LLDB=lldb-8.0
 
 Options for lock_order
 
