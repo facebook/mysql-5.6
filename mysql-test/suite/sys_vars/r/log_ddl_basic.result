@@ -1,0 +1,42 @@
+SET @start_log_ddl = @@global.log_ddl;
+SELECT @start_log_ddl;
+@start_log_ddl
+0
+SET @@global.log_ddl = DEFAULT;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
+SET @@global.log_ddl = false;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
+SET @@global.log_ddl = true;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+1
+SET @@global.log_ddl = 1;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+1
+SET @@global.log_ddl = 0;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
+SET @@global.log_ddl = -1;
+ERROR 42000: Variable 'log_ddl' can't be set to the value of '-1'
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
+SET @@global.log_ddl = 100;
+ERROR 42000: Variable 'log_ddl' can't be set to the value of '100'
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
+SET @@session.log_ddl = 10;
+ERROR HY000: Variable 'log_ddl' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.log_ddl;
+ERROR HY000: Variable 'log_ddl' is a GLOBAL variable
+SET @@global.log_ddl = @start_log_ddl;
+SELECT @@global.log_ddl;
+@@global.log_ddl
+0
