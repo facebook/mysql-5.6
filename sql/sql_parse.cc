@@ -2493,6 +2493,20 @@ done:
     mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_RESULT), 0, nullptr,
                        0);
 
+  if (opt_log_ddl) {
+    // log to slow log here for a pre-defined set of ddls
+    auto it = slow_log_ddls.find(thd->lex->sql_command);
+    if (it != slow_log_ddls.end() && !log_throttle_ddl.log(thd, true)) {
+      /* log the ddl */
+      bool old_enable_slow_log = thd->enable_slow_log;
+      thd->enable_slow_log = true;
+      auto output = it->second + ": " + get_user_query_info_from_thd(thd);
+      query_logger.slow_log_write(thd, output.c_str(), output.size(),
+                                  &(thd->status_var), false, 0, 0);
+      thd->enable_slow_log = old_enable_slow_log;
+    }
+  }
+
   const std::string &cn = Command_names::str_global(command);
   mysql_audit_notify(
       thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_STATUS),
@@ -7364,4 +7378,28 @@ bool merge_sp_var_charset_and_collation(const CHARSET_INFO *charset,
     return true;
   }
   return merge_charset_and_collation(charset, collation, to);
+}
+
+std::string get_user_query_info_from_thd(THD *thd) {
+  assert(thd);
+
+  std::string user_info;
+  if (thd->security_context()->user().length) {
+    // log the user
+    user_info += thd->security_context()->user().str;
+  }
+  if (thd->security_context()->host_or_ip().length) {
+    // log the hostname or ip
+    user_info += std::string("@") + thd->security_context()->host_or_ip().str;
+  }
+  if (thd->db().length) {
+    /* log the session DB */
+    user_info += std::string(" on ") + thd->db().str;
+  }
+  if (thd->query().length) {
+    /* log the query */
+    user_info += std::string(", query: ") + thd->query().str;
+  }
+
+  return user_info;
 }

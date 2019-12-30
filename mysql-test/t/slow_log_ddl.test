@@ -1,0 +1,106 @@
+#
+# Test log_ddl
+#
+
+set global log_output = 'TABLE';
+truncate mysql.slow_log;
+
+set @my_log_ddl = @@global.log_ddl;
+set global log_ddl = true;
+
+# Create table t1
+create table t1 (
+id1 int unsigned not null default '0',
+primary key (id1));
+
+# Alter table t1
+alter table t1 add id2 int unsigned;
+
+# Create index for table t1
+create index sec_key on t1(id2);
+
+# Drop index from table t1
+drop index sec_key on t1;
+
+# Truncate table t1
+truncate table t1;
+
+# Rename table t1 to t2
+rename table t1 to t2;
+
+# Drop table t2
+drop table t2;
+
+select @@global.log_throttle_ddl;
+set @my_log_throttle_ddl = @@global.log_throttle_ddl;
+
+# Throttle the logging to 1 per minute
+set global log_throttle_ddl = 1;
+
+# Create table t2
+create table t2 (
+id1 int unsigned not null default '0',
+primary key (id1));
+
+# Create table t3. It should not be logged
+create table t3 (
+id1 int unsigned not null default '0',
+primary key (id1));
+
+# Wait for 60 seconds for the next throttle window
+sleep 60;
+
+# Create table t4. It should be logged
+create table t4 (
+id1 int unsigned not null default '0',
+primary key (id1));
+
+# Verify the slow log has correct content
+--let $assert_text = There is one slow log entry for create table t1
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_TABLE%create table t1%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for alter table t1
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%ALTER_TABLE%alter table t1%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for create index for t1
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_INDEX%create index%t1%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for drop index from t1
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%DROP_INDEX%drop index%t1%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for truncate table t1
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%TRUNCATE_TABLE%truncate table t1%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for rename table t1 to t2
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%RENAME_TABLE%rename table t1 to t2%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for drop table t2
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%DROP_TABLE%drop table t2%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for create table t2
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_TABLE%create table t2%"] = 1
+--source include/assert.inc
+
+--let $assert_text = There is no slow log entry for create table t3
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_TABLE%create table t3%"] = 0
+--source include/assert.inc
+
+--let $assert_text = There is one slow log entry for create table t4
+--let $assert_cond= [SELECT count(*) FROM mysql.slow_log WHERE sql_text LIKE "%CREATE_TABLE%create table t4%"] = 1
+--source include/assert.inc
+
+drop table t2, t3, t4;
+
+truncate mysql.slow_log;
+set global log_output = default;
+set @@global.log_ddl = @my_log_ddl;
+set @@global.log_throttle_ddl = @my_log_throttle_ddl;
+
+truncate mysql.general_log;
