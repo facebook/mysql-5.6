@@ -126,6 +126,7 @@ SET(MYSYS_SOURCES
   my_sha2.cc
   my_md5.cc
   my_rnd.cc
+  mf_io_cache_compressor.cc
 )
 IF(WITH_SSL STREQUAL "wolfssl")
   LIST(APPEND MYSYS_SOURCES my_aes_wolfssl.cc)

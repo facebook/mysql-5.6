@@ -477,6 +477,7 @@ struct IO_CACHE /* Used when cacheing files */
   Stream_cipher *m_encryptor = nullptr;
   // This is a decryptor for decrypting the temporary file of the IO cache.
   Stream_cipher *m_decryptor = nullptr;
+  class compressor *compressor{nullptr};
 };
 
 typedef int (*qsort2_cmp)(const void *, const void *, const void *);
@@ -744,6 +745,11 @@ extern int init_io_cache_ext(IO_CACHE *info, File file, size_t cachesize,
 extern int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
                          enum cache_type type, my_off_t seek_offset,
                          bool use_async_io, myf cache_myflags);
+extern int init_io_cache_with_opt_compression(
+    IO_CACHE *info, File file, size_t cachesize, enum cache_type type,
+    my_off_t seek_offset, bool use_async_io, myf cache_myflags,
+    bool compressed);
+extern int end_io_cache_compressor(IO_CACHE *info);
 extern bool reinit_io_cache(IO_CACHE *info, enum cache_type type,
                             my_off_t seek_offset, bool use_async_io,
                             bool clear_cache);
