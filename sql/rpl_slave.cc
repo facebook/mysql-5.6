@@ -7029,7 +7029,7 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->mts_dependency_size = opt_mts_dependency_size;
   rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
   rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
-  rli->mts_dependency_order_commits = opt_mts_dependency_order_commits;
+  rli->slave_preserve_commit_order = opt_slave_preserve_commit_order;
 
   if (rli->mts_dependency_replication &&
       !slave_use_idempotent_for_recovery_options) {
@@ -7039,14 +7039,6 @@ extern "C" void *handle_slave_sql(void *arg) {
         "safe! Please enable slave_use_idempotent_for_recovery for crash "
         "safety.");
   }
-
-  if (!commit_order_mngr && rli->mts_dependency_order_commits &&
-      rli->mts_dependency_replication && rli->opt_slave_parallel_workers > 0 &&
-      opt_bin_log && opt_log_slave_updates)
-    commit_order_mngr =
-        new Commit_order_manager(rli->opt_slave_parallel_workers);
-
-  rli->set_commit_order_manager(commit_order_mngr);
 
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
@@ -10231,7 +10223,8 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
   }
 
   if (opt_slave_preserve_commit_order && slave_parallel_workers > 0) {
-    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
+    if (!rli->mts_dependency_replication &&
+        channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
       my_error(ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER, MYF(0),
                "when slave_parallel_type is DATABASE");
       return ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER;

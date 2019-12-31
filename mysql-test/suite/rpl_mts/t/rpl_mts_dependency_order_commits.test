@@ -1,4 +1,4 @@
-# Tests if mts_dependency_order_commits= TRUE master's commit order is honored
+# Tests if slave_preserve_commit_order=TRUE master's commit order is honored
 # on the slave (per database)
 
 source include/have_mts_dependency_replication.inc;

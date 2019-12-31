@@ -758,10 +758,6 @@ The following options may be given as the first argument:
  Max number of keys in a transaction after which it will
  be executed in isolation. This limits the amount of
  metadata we'll need to maintain.
- --mts-dependency-order-commits 
- Commit trxs in the same order as the master (per
- database)
- (Defaults to on; use --skip-mts-dependency-order-commits to disable.)
  --mts-dependency-refill-threshold[=#] 
  Capacity in percentage at which to start refilling the
  dependency buffer
@@ -2301,7 +2297,6 @@ memlock FALSE
 min-examined-row-limit 0
 minimum-hlc-ns 0
 mts-dependency-max-keys 100000
-mts-dependency-order-commits TRUE
 mts-dependency-refill-threshold 60
 mts-dependency-replication NONE
 mts-dependency-size 1000

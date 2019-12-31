@@ -6257,12 +6257,6 @@ static Sys_var_ulonglong Sys_mts_dependency_max_keys(
     GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
 
-static Sys_var_bool Sys_mts_dependency_order_commits(
-    "mts_dependency_order_commits",
-    "Commit trxs in the same order as the master (per database)",
-    GLOBAL_VAR(opt_mts_dependency_order_commits), CMD_LINE(OPT_ARG),
-    DEFAULT(true));
-
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
     "slave_pending_jobs_size_max",
     "Max size of Slave Worker queues holding not yet applied events. "

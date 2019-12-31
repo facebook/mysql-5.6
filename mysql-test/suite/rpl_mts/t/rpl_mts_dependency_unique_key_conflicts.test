@@ -5,10 +5,10 @@ source include/have_mts_dependency_replication.inc;
 connection slave;
 source include/stop_slave.inc;
 set @save.slave_parallel_workers= @@global.slave_parallel_workers;
-set @save.mts_dependency_order_commits= @@global.mts_dependency_order_commits;
+set @save.slave_preserve_commit_order= @@global.slave_preserve_commit_order;
 set @save.debug= @@global.debug;
 set @@global.slave_parallel_workers= 2;
-set @@global.mts_dependency_order_commits= false;
+set @@global.slave_preserve_commit_order= false;
 set @@global.debug= '+d,dbug.dep_wait_before_update_execution';
 source include/start_slave.inc;
 
@@ -49,7 +49,7 @@ source include/sync_slave_sql_with_master.inc;
 connection slave;
 source include/stop_slave.inc;
 set @@global.slave_parallel_workers= @save.slave_parallel_workers;
-set @@global.mts_dependency_order_commits= @save.mts_dependency_order_commits;
+set @@global.slave_preserve_commit_order= @save.slave_preserve_commit_order;
 set @@global.debug= @save.debug;
 source include/start_slave.inc;
 

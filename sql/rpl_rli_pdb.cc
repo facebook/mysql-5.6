@@ -371,7 +371,7 @@ int Slave_worker::init_worker(Relay_log_info *rli, ulong i) {
   mts_dependency_size = c_rli->mts_dependency_size;
   mts_dependency_refill_threshold = c_rli->mts_dependency_refill_threshold;
   mts_dependency_max_keys = c_rli->mts_dependency_max_keys;
-  mts_dependency_order_commits = c_rli->mts_dependency_order_commits;
+  slave_preserve_commit_order = c_rli->slave_preserve_commit_order;
 
   m_order_commit_deadlock = false;
   DBUG_RETURN(0);

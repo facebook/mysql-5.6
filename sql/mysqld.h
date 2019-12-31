@@ -335,7 +335,6 @@ extern ulong opt_mts_dependency_replication;
 extern ulonglong opt_mts_dependency_size;
 extern double opt_mts_dependency_refill_threshold;
 extern ulonglong opt_mts_dependency_max_keys;
-extern bool opt_mts_dependency_order_commits;
 extern ulonglong opt_mts_pending_jobs_size_max;
 extern ulong rpl_stop_slave_timeout;
 extern bool log_bin_use_v1_row_events;

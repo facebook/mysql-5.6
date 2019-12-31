@@ -33,7 +33,7 @@ std::shared_ptr<Log_event_wrapper> Dependency_slave_worker::get_begin_event(
 
   // case: place ourselves in the commit order queue
   if (ret && co_mngr != nullptr) {
-    DBUG_ASSERT(c_rli->mts_dependency_order_commits);
+    DBUG_ASSERT(c_rli->slave_preserve_commit_order);
     set_current_db(ret->get_db());
     co_mngr->register_trx(this);
   }
