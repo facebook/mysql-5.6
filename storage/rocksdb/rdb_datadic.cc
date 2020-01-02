@@ -1322,7 +1322,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
       // Insert TTL timestamp
       if (has_ttl() && ttl_bytes) {
         write_index_flag_field(unpack_info,
-                               reinterpret_cast<const uchar *const>(ttl_bytes),
+                               reinterpret_cast<const uchar *>(ttl_bytes),
                                Rdb_key_def::TTL_FLAG);
       }
     }
@@ -4282,7 +4282,8 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner {
 
   int add_table(Rdb_tbl_def *tdef) override;
 
-  bool compare_to_actual_tables(const std::string &datadir, bool *has_errors);
+  bool compare_to_actual_tables(const std::string &datadir, bool *has_errors)
+      MY_ATTRIBUTE((unused));
 
   // bool scan_for_frms(const std::string &datadir, const std::string &dbname,
   //                    bool *has_errors);

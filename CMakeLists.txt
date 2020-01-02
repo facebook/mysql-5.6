@@ -483,6 +483,7 @@ INCLUDE(mysql_add_executable)
 INCLUDE(mysqlgcs)
 INCLUDE(curl)
 INCLUDE(rapidjson)
+INCLUDE(prepend_append_cflags_if_supported)
 
 OPTION(DISABLE_SHARED 
  "Don't build shared libraries, compile code as position-dependent" OFF)
