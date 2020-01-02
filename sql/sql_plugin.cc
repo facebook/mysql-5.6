@@ -1311,6 +1311,36 @@ static void init_plugin_psi_keys(void)
 }
 #endif /* HAVE_PSI_INTERFACE */
 
+int raft_plugin_init()
+{
+  int err= 0;
+  struct st_plugin_int *plugin_ptr;
+  mysql_mutex_lock(&LOCK_plugin);
+  for (uint i= 0; i < plugin_array.elements; i++)
+  {
+    plugin_ptr= *dynamic_element(&plugin_array, i, struct st_plugin_int **);
+    if (strcmp(plugin_ptr->name.str, "RPL_RAFT") != 0)
+      continue;
+
+    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED)
+    {
+      if (plugin_initialize(plugin_ptr))
+      {
+        mysql_mutex_unlock(&LOCK_plugin);
+        plugin_ptr->state= PLUGIN_IS_DYING;
+        plugin_deinitialize(plugin_ptr, true);
+        mysql_mutex_lock(&LOCK_plugin_delete);
+        mysql_mutex_lock(&LOCK_plugin);
+        plugin_del(plugin_ptr);
+        mysql_mutex_unlock(&LOCK_plugin_delete);
+        err= 1;
+      }
+    }
+  }
+  mysql_mutex_unlock(&LOCK_plugin);
+  return err;
+}
+
 /*
   The logic is that we first load and initialize all compiled in plugins.
   From there we load up the dynamic types (assuming we have not been told to
@@ -1472,6 +1502,11 @@ int plugin_init(int *argc, char **argv, int flags)
   for (i= 0; i < plugin_array.elements; i++)
   {
     plugin_ptr= *dynamic_element(&plugin_array, i, struct st_plugin_int **);
+    // Its too early to initialize raft because
+    // open_binlog and binlog recovery hasn't finished yet
+    if (strcmp(plugin_ptr->name.str, "RPL_RAFT") == 0) {
+      continue;
+    }
     if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED)
     {
       if (plugin_initialize(plugin_ptr))

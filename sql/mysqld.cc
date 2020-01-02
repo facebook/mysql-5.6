@@ -7999,6 +7999,13 @@ int mysqld_main(int argc, char **argv)
       unireg_abort(1);
   }
 
+  if (!opt_bootstrap && enable_raft_plugin)
+  {
+    // do the postponed init of raft, now that
+    // binlog recovery has finished.
+    raft_plugin_init();
+  }
+
   create_shutdown_thread();
   start_handle_manager();
 
