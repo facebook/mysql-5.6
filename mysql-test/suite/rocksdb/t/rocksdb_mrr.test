@@ -49,6 +49,19 @@ having
   DIFF>0;
 drop table t10, t11;
 
+--echo # Check ROCKSDB_NUMBER_MULTIGET_GET counter
+set @save_read_rnd_buffer_size=@@read_rnd_buffer_size;
+set read_rnd_buffer_size=512;
+select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+
+explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+# 7 refills * 3 rowids per pass = 21
+select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+set read_rnd_buffer_size=@save_read_rnd_buffer_size;
+
 --echo # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);
 
@@ -410,6 +423,7 @@ explain
 select * from t1 where kp1=1 order by kp2 limit 10;
 # This shouldn't fail an assert:
 select * from t1 where kp1=1 order by kp2 limit 10;
+
 
 drop table t0, t1;
 set optimizer_switch=@save_optimizer_switch;

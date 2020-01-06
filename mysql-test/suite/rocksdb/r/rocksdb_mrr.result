@@ -68,6 +68,40 @@ ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
 ROCKSDB_NUMBER_MULTIGET_GET	1
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
 drop table t10, t11;
+# Check ROCKSDB_NUMBER_MULTIGET_GET counter
+set @save_read_rnd_buffer_size=@@read_rnd_buffer_size;
+set read_rnd_buffer_size=512;
+select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	PRIMARY	PRIMARY	4	NULL	21	Using where; Using MRR
+select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+pk	col1	filler
+0	0	0
+1	1	1
+2	2	2
+3	3	3
+4	4	4
+5	5	5
+6	6	6
+7	7	7
+8	8	8
+9	9	9
+10	10	10
+11	11	11
+12	12	12
+13	13	13
+14	14	14
+15	15	15
+16	16	16
+17	17	17
+18	18	18
+19	19	19
+20	20	20
+select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+variable_value-@val1
+7
+set read_rnd_buffer_size=@save_read_rnd_buffer_size;
 # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra

@@ -15176,7 +15176,8 @@ void rdb_tx_multi_get(Rdb_transaction *tx,
   Check if MultiGet-MRR can be used to scan given list of ranges.
 
   @param  seq            List of ranges to scan
-  @param  bufsz     OUT  How much buffer space will be required
+  @param  bufsz   INOUT  IN:  Size of the buffer available for use
+                        OUT:  How much buffer space will be required
   @param  flags   INOUT  Properties of the scan to be done
 
   @return
@@ -15198,11 +15199,11 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   bool mrr_enabled =
       thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
       !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
-
+  uint def_bufsz = *bufsz;
   res = handler::multi_range_read_info_const(keyno, seq, seq_init_param,
-                                             n_ranges, bufsz, flags, cost);
+                                             n_ranges, &def_bufsz, flags, cost);
 
-  if (res == HA_POS_ERROR) return res; // Not possible to do the scan
+  if (res == HA_POS_ERROR) return res;  // Not possible to do the scan
 
   // Use the default MRR implementation if @@optimizer_switch value tells us
   // to, or if the query needs to do a locking read.
@@ -15229,16 +15230,24 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       // Indicate that we will use MultiGet MRR
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_SUPPORT_SORTED;
-      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+      uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+      // The passed in bufsz contains maximum available buff size --- by
+      // default, its value is specify by session variable read_rnd_buff_size,
+      // final bufsz shouldn't bigger than its limit
+      *bufsz = std::min(*bufsz, calculated_buf);
     }
   } else {
     // For scans on secondary keys, we use MultiGet when we read the PK values.
     // We only need PK values when the scan is non-index-only.
     if (!(*flags & HA_MRR_INDEX_ONLY)) {
-      *flags &= ~HA_MRR_SUPPORT_SORTED; //  Non-sorted mode
+      *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
-      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+      uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+      // The passed in bufsz contains maximum available buff size --- by
+      // default, its value is specify by session variable read_rnd_buff_size,
+      // final bufsz shouldn't bigger than its limit
+      *bufsz = std::min(*bufsz, calculated_buf);
     }
   }
 
