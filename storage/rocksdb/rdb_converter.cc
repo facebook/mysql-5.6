@@ -71,7 +71,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, uint *offset,
   uint field_offset = field->field_ptr() - table->record[0];
   *offset = field_offset;
   uint null_offset = field->null_offset();
-  bool maybe_null = field->real_maybe_null();
+  bool maybe_null = field->is_nullable();
   field->move_field(buf + field_offset,
                     maybe_null ? buf + null_offset : nullptr, field->null_bit);
 
@@ -463,7 +463,7 @@ void Rdb_converter::setup_field_encoders() {
     m_encoder_arr[i].m_field_index = i;
     m_encoder_arr[i].m_pack_length_in_rec = field->pack_length_in_rec();
 
-    if (field->real_maybe_null()) {
+    if (field->is_nullable()) {
       m_encoder_arr[i].m_null_mask = cur_null_mask;
       m_encoder_arr[i].m_null_offset = null_bytes_length;
       if (cur_null_mask == 0x80) {

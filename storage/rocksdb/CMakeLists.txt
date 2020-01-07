@@ -1,8 +1,4 @@
-RETURN() # MyRocks is disabled
-
 # TODO: Copyrights
-
-RETURN() # MyRocks is disabled
 
 CHECK_FUNCTION_EXISTS(sched_getcpu  HAVE_SCHED_GETCPU)
 IF(HAVE_SCHED_GETCPU)

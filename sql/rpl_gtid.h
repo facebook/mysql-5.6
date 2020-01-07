@@ -29,6 +29,7 @@
 #include <mutex>  // std::adopt_lock_t
 #include <string>
 
+#undef ZSTD  // defined in storage/rocksdb/CMakeLists.txt
 #include "libbinlogevents/include/compression/base.h"
 #include "libbinlogevents/include/uuid.h"
 #include "map_helpers.h"

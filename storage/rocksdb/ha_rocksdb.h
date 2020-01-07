@@ -474,7 +474,7 @@ class ha_rocksdb : public my_core::handler {
                 HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE);
   }
 
-  bool init_with_fields() /* override */;
+  bool init_with_fields() override;
 
   static ulong index_flags(bool &pk_can_be_decoded,
                            const TABLE_SHARE *table_share, uint inx, uint part,
