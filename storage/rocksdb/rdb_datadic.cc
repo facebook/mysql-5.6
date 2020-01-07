@@ -125,7 +125,7 @@ int Rdb_convert_to_record_key_decoder::decode(
   uint field_offset = field->field_ptr() - table->record[0];
   *offset = field_offset;
   uint null_offset = field->null_offset();
-  bool maybe_null = field->real_maybe_null();
+  bool maybe_null = field->is_nullable();
 
   field->move_field(buf + field_offset,
                     maybe_null ? buf + null_offset : nullptr, field->null_bit);
@@ -363,9 +363,8 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
                   m_total_index_flags_length == 0);
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
-    m_pack_info = reinterpret_cast<Rdb_field_packing *>(
-        my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0)));
-    memcpy(m_pack_info, k.m_pack_info, size);
+    void *buf = my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0));
+    m_pack_info = new (buf) Rdb_field_packing(*k.m_pack_info);
   }
 
   if (k.m_pk_part_no) {
@@ -504,7 +503,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
           }
         }
 
-        if (field && field->real_maybe_null()) max_len += 1;  // NULL-byte
+        if (field && field->is_nullable()) max_len += 1;  // NULL-byte
 
         m_pack_info[dst_i].setup(this, field, keyno_to_set, keypart_to_set,
                                  key_part ? key_part->length : 0);
@@ -551,7 +550,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
                            m_ttl_column.c_str())) {
           DBUG_ASSERT(field->real_type() == MYSQL_TYPE_LONGLONG);
           DBUG_ASSERT(field->key_type() == HA_KEYTYPE_ULONGLONG);
-          DBUG_ASSERT(!field->real_maybe_null());
+          DBUG_ASSERT(!field->is_nullable());
           m_ttl_pk_key_part_offset = dst_i;
         }
 
@@ -682,8 +681,7 @@ uint Rdb_key_def::extract_ttl_col(const TABLE *const table_arg,
       if (!my_strcasecmp(system_charset_info, field->field_name,
                          ttl_col_str.c_str()) &&
           field->real_type() == MYSQL_TYPE_LONGLONG &&
-          field->key_type() == HA_KEYTYPE_ULONGLONG &&
-          !field->real_maybe_null()) {
+          field->key_type() == HA_KEYTYPE_ULONGLONG && !field->is_nullable()) {
         *ttl_column = ttl_col_str;
         *ttl_field_index = i;
         found = true;
@@ -1082,12 +1080,12 @@ size_t Rdb_key_def::get_unpack_header_size(char tag) {
  */
 void Rdb_key_def::get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const {
   DBUG_ASSERT(map->bitmap == nullptr);
-  bitmap_init(map, nullptr, MAX_REF_PARTS, false);
+  bitmap_init(map, nullptr, MAX_REF_PARTS);
   uint curr_bitmap_pos = 0;
 
   // Indicates which columns in the read set might be covered.
   MY_BITMAP maybe_covered_bitmap;
-  bitmap_init(&maybe_covered_bitmap, nullptr, table->read_set->n_bits, false);
+  bitmap_init(&maybe_covered_bitmap, nullptr, table->read_set->n_bits);
 
   for (uint i = 0; i < m_key_parts; i++) {
     if (table_has_hidden_pk(table) && i + 1 == m_key_parts) {
@@ -1171,7 +1169,7 @@ bool Rdb_key_def::covers_lookup(const rocksdb::Slice *const unpack_info,
 
   MY_BITMAP covered_bitmap;
   my_bitmap_map covered_bits;
-  bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
+  bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS);
   covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
                                       sizeof(RDB_UNPACK_COVERED_DATA_TAG));
 
@@ -1191,7 +1189,7 @@ uchar *Rdb_key_def::pack_field(
     uchar *const packed_tuple MY_ATTRIBUTE((__unused__)),
     uchar *const pack_buffer, Rdb_string_writer *const unpack_info,
     uint *const n_null_fields) const {
-  if (field->real_maybe_null()) {
+  if (field->is_nullable()) {
     DBUG_ASSERT(is_storage_available(tuple - packed_tuple, 1));
     if (field->is_real_null()) {
       /* NULL value. store '\0' so that it sorts before non-NULL values */
@@ -1307,7 +1305,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
       // Insert TTL timestamp
       if (has_ttl() && ttl_bytes) {
         write_index_flag_field(unpack_info,
-                               reinterpret_cast<const uchar *const>(ttl_bytes),
+                               reinterpret_cast<const uchar *>(ttl_bytes),
                                Rdb_key_def::TTL_FLAG);
       }
     }
@@ -1333,7 +1331,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   MY_BITMAP covered_bitmap;
   my_bitmap_map covered_bits;
   uint curr_bitmap_pos = 0;
-  bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
+  bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS);
 
   for (uint i = 0; i < n_key_parts; i++) {
     // Fill hidden pk id into the last key part for secondary keys for tables
@@ -1348,7 +1346,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
     uint field_offset = field->field_ptr() - tbl->record[0];
     uint null_offset = field->null_offset(tbl->record[0]);
-    bool maybe_null = field->real_maybe_null();
+    bool maybe_null = field->is_nullable();
 
     field->move_field(
         const_cast<uchar *>(record) + field_offset,
@@ -1617,7 +1615,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   bool has_covered_bitmap =
       has_unpack_info && (unpack_header[0] == RDB_UNPACK_COVERED_DATA_TAG);
   if (has_covered_bitmap) {
-    bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
+    bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS);
     covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
                                         sizeof(RDB_UNPACK_COVERED_DATA_TAG));
   }
@@ -2130,7 +2128,7 @@ void Rdb_key_def::pack_double(
     float8get(&nr, ptr);
   } else {
 #endif
-    doubleget(&nr, ptr);
+    nr = doubleget(ptr);
 #ifdef WORDS_BIGENDIAN
   }
 #endif
@@ -2870,7 +2868,7 @@ void Rdb_key_def::store_field(const uchar *data, const size_t length,
     auto field_blob = (Field_blob *)field;
     auto length_bytes = field_blob->pack_length_no_ptr();
     field_blob->store_length(length);
-    auto blob_data = (char *const)(data);
+    auto blob_data = (char *)(data);
     memset(field_blob->field_ptr() + length_bytes, 0, 8);
     memcpy(field_blob->field_ptr() + length_bytes, &blob_data,
            sizeof(uchar **));
@@ -3714,7 +3712,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_keynr = keynr_arg;
   m_key_part = key_part_arg;
 
-  m_maybe_null = field ? field->real_maybe_null() : false;
+  m_maybe_null = field ? field->is_nullable() : false;
   m_unpack_func = nullptr;
   m_make_unpack_info_func = nullptr;
   m_unpack_data_len = 0;

@@ -470,9 +470,7 @@ class ha_rocksdb : public my_core::handler {
                 HA_PARTIAL_COLUMN_READ | HA_ONLINE_ANALYZE);
   }
 
-  /* TODO(yzha) - 070a257a1c3 Issue #108: Index-only scans do not work for
-   * partitioned tables and extended keys  */
-  bool init_with_fields() /* override */;
+  bool init_with_fields() override;
 
   /** @brief
     This is a bitmap of flags that indicates how the storage engine
