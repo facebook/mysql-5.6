@@ -92,6 +92,8 @@
 #include "./rdb_psi.h"
 #include "./rdb_threads.h"
 
+#include "my_rapidjson_size_t.h"
+
 #include <rapidjson/document.h>
 
 #ifdef FB_HAVE_WSENV
@@ -2825,8 +2827,7 @@ class Rdb_transaction {
       return true;
     } else {
       my_core::thd_binlog_pos(m_thd, &m_mysql_log_file_name,
-                              &m_mysql_log_offset, &m_mysql_gtid,
-                              &m_mysql_max_gtid);
+                              &m_mysql_log_offset);
       binlog_manager.update(m_mysql_log_file_name, m_mysql_log_offset,
                             m_mysql_max_gtid, get_write_batch());
       return commit_no_binlog();
@@ -8548,7 +8549,7 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
   DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx",
-                  { assert(table_arg->primary_key == MAX_INDEXES); };);
+                  { assert(table_share->primary_key == MAX_INDEXES); };);
 
   if (check_keyread_allowed(inx, part, all_parts)) {
     base_flags |= HA_KEYREAD_ONLY;

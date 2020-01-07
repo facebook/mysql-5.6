@@ -38,14 +38,14 @@ my_core::PSI_thread_key rdb_background_psi_thread_key,
     rdb_drop_idx_psi_thread_key, rdb_is_psi_thread_key, rdb_mc_psi_thread_key;
 
 my_core::PSI_thread_info all_rocksdb_threads[] = {
-    {&rdb_background_psi_thread_key, "background", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME},
-    {&rdb_drop_idx_psi_thread_key, "drop index", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME},
-    {&rdb_is_psi_thread_key, "index stats calculation", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME},
-    {&rdb_mc_psi_thread_key, "manual compaction", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME},
+    {&rdb_background_psi_thread_key, "background", "background",
+     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&rdb_drop_idx_psi_thread_key, "drop index", "drop_idx", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
+    {&rdb_is_psi_thread_key, "index stats calculation", "is_psi",
+     PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+    {&rdb_mc_psi_thread_key, "manual compaction", "mc_psi", PSI_FLAG_SINGLETON,
+     0, PSI_DOCUMENT_ME},
 };
 
 my_core::PSI_mutex_key rdb_psi_open_tbls_mutex_key, rdb_signal_bg_psi_mutex_key,

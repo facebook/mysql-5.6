@@ -1621,8 +1621,9 @@ struct TABLE {
   */
   bool nullable{false};
 
-  uint8 m_status{0}; /* What's in record[0] */
  public:
+  /* TODO(yzha) - temporarily made public */
+  uint8 m_status{0}; /* What's in record[0] */
   /*
     If true, the current table row is considered to have all columns set to
     NULL, including columns declared as "not null" (see nullable).

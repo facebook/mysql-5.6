@@ -67,6 +67,7 @@
 #include "sql/dd/types/object_table.h"  // dd::Object_table
 #include "sql/discrete_interval.h"      // Discrete_interval
 #include "sql/key.h"
+#include "sql/rpl_gtid.h"        // GTID
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -939,7 +940,12 @@ enum enum_schema_tables : int {
   SCH_LAST = SCH_TMP_TABLE_KEYS
 };
 
-enum ha_stat_type { HA_ENGINE_STATUS, HA_ENGINE_LOGS, HA_ENGINE_MUTEX };
+enum ha_stat_type {
+  HA_ENGINE_STATUS,
+  HA_ENGINE_LOGS,
+  HA_ENGINE_MUTEX,
+  HA_ENGINE_TRX
+};
 enum ha_notification_type : int { HA_NOTIFY_PRE_EVENT, HA_NOTIFY_POST_EVENT };
 
 /** Clone start operation mode */
@@ -1283,6 +1289,9 @@ typedef int (*commit_t)(handlerton *hton, THD *thd, bool all);
 typedef int (*rollback_t)(handlerton *hton, THD *thd, bool all);
 
 typedef int (*prepare_t)(handlerton *hton, THD *thd, bool all);
+
+typedef void (*recover_binlog_pos_t)(handlerton *hton, Gtid *binlog_max_gtid,
+                                     char *binlog_file, my_off_t *binlog_pos);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
                          MEM_ROOT *mem_root);
@@ -2450,6 +2459,7 @@ struct handlerton {
   commit_t commit;
   rollback_t rollback;
   prepare_t prepare;
+  recover_binlog_pos_t recover_binlog_pos;
   recover_t recover;
   commit_by_xid_t commit_by_xid;
   rollback_by_xid_t rollback_by_xid;
@@ -4283,7 +4293,8 @@ class handler {
   std::mt19937 *m_random_number_engine;
   double m_sampling_percentage;
 
- private:
+  /* TODO(yzha) - we needed these to be public for MYSQL_TABLE_IO_WAIT */
+ public:
   /** Internal state of the batch instrumentation. */
   enum batch_mode_t {
     /** Batch mode not used. */
@@ -4469,6 +4480,8 @@ class handler {
   bool ha_is_record_buffer_wanted(ha_rows *const max_rows) const {
     return is_record_buffer_wanted(max_rows);
   }
+
+  virtual bool init_with_fields() { return false; }
 
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked,
               const dd::Table *table_def);
@@ -7148,5 +7161,68 @@ class Regex_list_handler {
 
 void warn_about_bad_patterns(const Regex_list_handler *regex_list_handler,
                              const char *name);
+
+std::unordered_set<std::string> split_into_set(const std::string &input,
+                                               char delimiter);
+std::vector<std::string> split_into_vector(const std::string &input,
+                                           char delimiter);
+
+/**
+  @def MYSQL_TABLE_IO_WAIT
+  Instrumentation helper for table io_waits.
+  Note that this helper is intended to be used from
+  within the handler class only, as it uses members
+  from @c handler
+  Performance schema events are instrumented as follows:
+  - in non batch mode, one event is generated per call
+  - in batch mode, the number of rows affected is saved
+  in @c m_psi_numrows, so that @c end_psi_batch_mode()
+  generates a single event for the batch.
+  @param OP the table operation to be performed
+  @param INDEX the table index used if any, or MAX_KEY.
+  @param RESULT the result of the table operation performed
+  @param PAYLOAD instrumented code to execute
+  @sa handler::end_psi_batch_mode.
+*/
+#ifdef HAVE_PSI_TABLE_INTERFACE
+#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD)                     \
+  {                                                                         \
+    if (m_psi != NULL) {                                                    \
+      switch (m_psi_batch_mode) {                                           \
+        case PSI_BATCH_MODE_NONE: {                                         \
+          PSI_table_locker *sub_locker = NULL;                              \
+          PSI_table_locker_state reentrant_safe_state;                      \
+          reentrant_safe_state.m_thread = nullptr;                          \
+          reentrant_safe_state.m_wait = nullptr;                            \
+          sub_locker = PSI_TABLE_CALL(start_table_io_wait)(                 \
+              &reentrant_safe_state, m_psi, OP, INDEX, __FILE__, __LINE__); \
+          PAYLOAD                                                           \
+          if (sub_locker != NULL) PSI_TABLE_CALL(end_table_io_wait)         \
+          (sub_locker, 1);                                                  \
+          break;                                                            \
+        }                                                                   \
+        case PSI_BATCH_MODE_STARTING: {                                     \
+          m_psi_locker = PSI_TABLE_CALL(start_table_io_wait)(               \
+              &m_psi_locker_state, m_psi, OP, INDEX, __FILE__, __LINE__);   \
+          PAYLOAD                                                           \
+          if (!RESULT) m_psi_numrows++;                                     \
+          m_psi_batch_mode = PSI_BATCH_MODE_STARTED;                        \
+          break;                                                            \
+        }                                                                   \
+        case PSI_BATCH_MODE_STARTED:                                        \
+        default: {                                                          \
+          assert(m_psi_batch_mode == PSI_BATCH_MODE_STARTED);               \
+          PAYLOAD                                                           \
+          if (!RESULT) m_psi_numrows++;                                     \
+          break;                                                            \
+        }                                                                   \
+      }                                                                     \
+    } else {                                                                \
+      PAYLOAD                                                               \
+    }                                                                       \
+  }
+#else
+#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD) PAYLOAD
+#endif
 
 #endif /* HANDLER_INCLUDED */

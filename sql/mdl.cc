@@ -4900,3 +4900,19 @@ void MDL_ticket_store::set_materialized() {
 MDL_ticket *MDL_ticket_store::materialized_front(int di) {
   return m_durations[di].m_mat_front;
 }
+
+String timeout_message(const char *command, const char *name1,
+                       const char *name2) {
+  String msg;
+  msg.append("Timeout on ");
+  msg.append(command);
+  if ((name1 && name1[0]) || (name2 && name2[0])) {
+    msg.append(": ");
+    msg.append(name1);
+  }
+  if (name2 && name2[0]) {
+    msg.append(".");
+    msg.append(name2);
+  }
+  return msg;
+}

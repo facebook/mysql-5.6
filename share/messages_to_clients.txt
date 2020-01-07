@@ -9729,3 +9729,256 @@ reserved-error-section 5000 5999
 # same directory as this file for more
 # information.
 ################################################################################
+
+
+#
+# FB MySQL error codes begin from 50000
+#
+
+start-error-number 50000
+
+ER_PLACEHOLDER_50000
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50001
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50002
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50003
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50004
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50005
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50006
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50007
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50008
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50009
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50010
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50011
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50012
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50013
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50014
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50015
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50016
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50017
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50018
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50019
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50020
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50021
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50022
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50023
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50024
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50025
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50026
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50027
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50028
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50029
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50030
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50031
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50032
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50033
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50034
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50035
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50036
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50037
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50038
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50039
+  eng "Placeholder"
+
+ER_KEYS_OUT_OF_ORDER
+  eng "Keys are out order during bulk load"
+
+ER_OVERLAPPING_KEYS
+  eng "Bulk load rows overlap existing rows"
+
+ER_REQUIRE_ROW_BINLOG_FORMAT
+  eng "Can't execute updates on master with binlog_format != ROW."
+
+ER_ISOLATION_MODE_NOT_SUPPORTED
+  eng "MyRocks supports only READ COMMITTED and REPEATABLE READ isolation levels. Please change from current isolation level %s"
+
+ER_ON_DUPLICATE_DISABLED
+  eng "When unique checking is disabled in MyRocks, INSERT,UPDATE,LOAD statements with clauses that update or replace the key (i.e. INSERT ON DUPLICATE KEY UPDATE, REPLACE) are not allowed. Query: %s"
+
+ER_UPDATES_WITH_CONSISTENT_SNAPSHOT
+  eng "Can't execute updates when you started a transaction with START TRANSACTION WITH CONSISTENT|SHARED|EXISTING [ROCKSDB] SNAPSHOT."
+
+ER_ROLLBACK_ONLY
+  eng "This transaction was rolled back and cannot be committed. Only supported operation is to roll it back, so all pending changes will be discarded. Please restart another transaction."
+
+ER_ROLLBACK_TO_SAVEPOINT
+  eng "MyRocks currently does not support ROLLBACK TO SAVEPOINT if modifying rows."
+
+ER_ISOLATION_LEVEL_WITH_CONSISTENT_SNAPSHOT
+  eng "Only REPEATABLE READ isolation level is supported for START TRANSACTION WITH CONSISTENT|SHARED|EXISTING SNAPSHOT in RocksDB Storage Engine."
+
+ER_UNSUPPORTED_COLLATION
+  eng "Unsupported collation on string indexed column %s.%s Use binary collation (%s)."
+
+ER_METADATA_INCONSISTENCY
+  eng "Table '%s' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency."
+
+ER_KEY_CREATE_DURING_ALTER
+  eng "MyRocks failed creating new key definitions during alter."
+
+ER_SK_POPULATE_DURING_ALTER
+  eng "MyRocks failed populating secondary key during alter."
+
+ER_CF_DIFFERENT
+  eng "Column family ('%s') flag (%d) is different from an existing flag (%d). Assign a new CF flag, or do not change existing CF flag."
+
+ER_RDB_TTL_UNSUPPORTED
+  eng "TTL support is currently disabled when table has a hidden PK."
+
+ER_RDB_TTL_COL_FORMAT
+  eng "TTL column (%s) in MyRocks must be an unsigned non-null 64-bit integer or non-null timestamp, exist inside the table, and have an accompanying ttl duration."
+
+ER_RDB_TTL_DURATION_FORMAT
+  eng "TTL duration (%s) in MyRocks must be an unsigned non-null 64-bit integer."
+
+ER_PER_INDEX_CF_DEPRECATED
+  eng "The per-index column family option has been deprecated"
+
+ER_PLACEHOLDER_50058
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50059
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50060
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50061
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50062
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50063
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50064
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50065
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50066
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50067
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50068
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50069
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50070
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50071
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50072
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50073
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50074
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50075
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50076
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50077
+  eng "Placeholder"
+
+ER_CF_DROPPED
+  eng "Column family ('%s') is being dropped."
+
+ER_CANT_DROP_CF
+  eng "Cannot drop Column family ('%s') because it is in use or does not exist."
+
+#
+# End of 8.0 FB MySQL error messages.
+# (Please read comments from the header of this section before adding error
+#  message here)
+#

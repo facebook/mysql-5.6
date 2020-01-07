@@ -45,6 +45,7 @@
 #include "mysql/psi/mysql_rwlock.h"
 #include "mysql_com.h"
 #include "sql/sql_plist.h"
+#include "sql_string.h"
 #include "template_utils.h"
 
 class MDL_context;
@@ -1771,5 +1772,8 @@ class MDL_lock_is_owned_visitor : public MDL_context_visitor {
   /* holds information about MDL being owned by any thread */
   bool m_exists;
 };
+
+String timeout_message(const char *command, const char *name1,
+                       const char *name2);
 
 #endif

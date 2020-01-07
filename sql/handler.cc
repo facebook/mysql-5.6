@@ -131,64 +131,6 @@
 #include "varlen_sort.h"
 
 /**
-  @def MYSQL_TABLE_IO_WAIT
-  Instrumentation helper for table io_waits.
-  Note that this helper is intended to be used from
-  within the handler class only, as it uses members
-  from @c handler
-  Performance schema events are instrumented as follows:
-  - in non batch mode, one event is generated per call
-  - in batch mode, the number of rows affected is saved
-  in @c m_psi_numrows, so that @c end_psi_batch_mode()
-  generates a single event for the batch.
-  @param OP the table operation to be performed
-  @param INDEX the table index used if any, or MAX_KEY.
-  @param RESULT the result of the table operation performed
-  @param PAYLOAD instrumented code to execute
-  @sa handler::end_psi_batch_mode.
-*/
-#ifdef HAVE_PSI_TABLE_INTERFACE
-#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD)                     \
-  {                                                                         \
-    if (m_psi != NULL) {                                                    \
-      switch (m_psi_batch_mode) {                                           \
-        case PSI_BATCH_MODE_NONE: {                                         \
-          PSI_table_locker *sub_locker = NULL;                              \
-          PSI_table_locker_state reentrant_safe_state;                      \
-          reentrant_safe_state.m_thread = nullptr;                          \
-          reentrant_safe_state.m_wait = nullptr;                            \
-          sub_locker = PSI_TABLE_CALL(start_table_io_wait)(                 \
-              &reentrant_safe_state, m_psi, OP, INDEX, __FILE__, __LINE__); \
-          PAYLOAD                                                           \
-          if (sub_locker != NULL) PSI_TABLE_CALL(end_table_io_wait)         \
-          (sub_locker, 1);                                                  \
-          break;                                                            \
-        }                                                                   \
-        case PSI_BATCH_MODE_STARTING: {                                     \
-          m_psi_locker = PSI_TABLE_CALL(start_table_io_wait)(               \
-              &m_psi_locker_state, m_psi, OP, INDEX, __FILE__, __LINE__);   \
-          PAYLOAD                                                           \
-          if (!RESULT) m_psi_numrows++;                                     \
-          m_psi_batch_mode = PSI_BATCH_MODE_STARTED;                        \
-          break;                                                            \
-        }                                                                   \
-        case PSI_BATCH_MODE_STARTED:                                        \
-        default: {                                                          \
-          assert(m_psi_batch_mode == PSI_BATCH_MODE_STARTED);               \
-          PAYLOAD                                                           \
-          if (!RESULT) m_psi_numrows++;                                     \
-          break;                                                            \
-        }                                                                   \
-      }                                                                     \
-    } else {                                                                \
-      PAYLOAD                                                               \
-    }                                                                       \
-  }
-#else
-#define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD) PAYLOAD
-#endif
-
-/**
   @def MYSQL_TABLE_LOCK_WAIT
   Instrumentation helper for table io_waits.
   @param OP the table operation to be performed
@@ -8143,6 +8085,54 @@ void handler::unlock_shared_ha_data() {
   assert(table_share);
   if (table_share->tmp_table == NO_TMP_TABLE)
     mysql_mutex_unlock(&table_share->LOCK_ha_data);
+}
+
+// Split a string based on a delimiter.  Two delimiters in a row will not add
+// an empty string in the set.
+std::unordered_set<std::string> split_into_set(const std::string &input,
+                                               char delimiter) {
+  size_t pos;
+  size_t start = 0;
+  std::unordered_set<std::string> elems;
+
+  // Find next delimiter
+  while ((pos = input.find(delimiter, start)) != std::string::npos) {
+    // If there is any data since the last delimiter add it to the list
+    if (pos > start) elems.insert(input.substr(start, pos - start));
+
+    // Set our start position to the character after the delimiter
+    start = pos + 1;
+  }
+
+  // Add a possible string since the last delimiter
+  if (input.length() > start) elems.insert(input.substr(start));
+
+  // Return the resulting list back to the caller
+  return elems;
+}
+
+// Split a string based on a delimiter.  Two delimiters in a row will not add
+// an empty string in the set.
+std::vector<std::string> split_into_vector(const std::string &input,
+                                           char delimiter) {
+  size_t pos;
+  size_t start = 0;
+  std::vector<std::string> elems;
+
+  // Find next delimiter
+  while ((pos = input.find(delimiter, start)) != std::string::npos) {
+    // If there is any data since the last delimiter add it to the list
+    if (pos > start) elems.push_back(input.substr(start, pos - start));
+
+    // Set our start position to the character after the delimiter
+    start = pos + 1;
+  }
+
+  // Add a possible string since the last delimiter
+  if (input.length() > start) elems.push_back(input.substr(start));
+
+  // Return the resulting list back to the caller
+  return elems;
 }
 
 /**

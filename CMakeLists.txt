@@ -777,6 +777,7 @@ INCLUDE(mysql_add_executable)
 INCLUDE(curl)
 INCLUDE(rapidjson)
 INCLUDE(fprofile)
+INCLUDE(prepend_append_cflags_if_supported)
 INCLUDE(gloves)
 INCLUDE(fido2)
 
