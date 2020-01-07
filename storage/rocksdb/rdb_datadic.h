@@ -1015,7 +1015,7 @@ extern std::array<const Rdb_collation_codec *, MY_ALL_CHARSETS_SIZE>
 
 class Rdb_field_packing {
  public:
-  Rdb_field_packing(const Rdb_field_packing &) = delete;
+  Rdb_field_packing(const Rdb_field_packing &o) = default;
   Rdb_field_packing &operator=(const Rdb_field_packing &) = delete;
   Rdb_field_packing() = default;
 
