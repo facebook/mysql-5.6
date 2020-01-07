@@ -3813,8 +3813,10 @@ void my_message_sql(uint error, const char *str, myf MyFlags) {
       is currently allowed to set any error-code (regardless of
       range). SIGNALing an error-code from the error-log range
       will not result in writing to that log to prevent abuse.
+
+      FB - Allow errors from the FB range.
     */
-    assert(error < ER_SERVER_RANGE_START);
+    assert(error < ER_SERVER_RANGE_START || error >= ER_PLACEHOLDER_50000);
   }
 
   /* When simulating OOM, skip writing to error log to avoid mtr errors */

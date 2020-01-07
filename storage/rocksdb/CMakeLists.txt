@@ -1,5 +1,3 @@
-RETURN() # MyRocks is disabled
-
 # TODO: Copyrights
 
 # This is a strong requirement coming from RocksDB. No conditional checks here.

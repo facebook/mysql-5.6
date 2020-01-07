@@ -921,7 +921,7 @@ SELECT 1 FROM t1 GROUP BY (SELECT SLEEP(0) FROM t1 ORDER BY AVG(DISTINCT a) );
 DROP TABLE t1;
 
 #
-# Bug #30715: Assertion failed: item_field->field->real_maybe_null(), file
+# Bug #30715: Assertion failed: item_field->field->is_nullable(), file
 # .\opt_sum.cc, line
 #
 

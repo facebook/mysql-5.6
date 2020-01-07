@@ -152,6 +152,8 @@ LEX_CSTRING thd_query_unsafe(THD *thd);
 */
 size_t thd_query_safe(THD *thd, char *buf, size_t buflen);
 
+void thd_query_safe(THD *thd, std::string *query);
+
 /**
   Check if a user thread is a replication slave thread
   @param thd user thread

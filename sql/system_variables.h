@@ -538,6 +538,8 @@ struct System_status_var {
   ulonglong ha_savepoint_count;
   ulonglong ha_savepoint_rollback_count;
   ulonglong ha_external_lock_count;
+  ulonglong ha_key_skipped_count;
+  ulonglong ha_delete_skipped_count;
   ulonglong opened_tables;
   ulonglong opened_shares;
   ulonglong table_open_cache_hits;
