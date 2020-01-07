@@ -28,16 +28,43 @@ INCLUDE_DIRECTORIES(
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-conditional-uninitialized")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-undefined-reinterpret-cast")
-# TODO(yzha): Fix warnings in RocksDB
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-extra-semi")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow-field")
-# platform007 (tbb, etc) has throw() which is deprecated
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-dynamic-exception-spec")
+
+# Suppress warnings for all compilers
+append_cflags_if_supported(-Wno-unused-parameter)
+
+MY_CHECK_CXX_COMPILER_FLAG("-Wno-shadow-field" HAVE_NO_SHADOW_FIELD)
+IF(HAVE_NO_SHADOW_FIELD)
+  # TODO(yzha): Fix warnings in MyRocks
+  ADD_COMPILE_FLAGS(ha_rocksdb.cc ../../rocksdb/memtable/hash_skiplist_rep.cc COMPILE_FLAGS "-Wno-shadow-field")
+ENDIF()
+
+
+# Suppress warnings clang
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  remove_compile_flags(-Winconsistent-missing-destructor-override -Wdeprecated -Wextra-semi)
+
+  MY_CHECK_CXX_COMPILER_FLAG("-Wno-conditional-uninitialized" HAVE_NO_CONDITIONAL_UNINITIALIZED)
+  IF(HAVE_NO_CONDITIONAL_UNINITIALIZED)
+    # TODO(yzha): Fix warnings in MyRocks
+    ADD_COMPILE_FLAGS(ha_rocksdb.cc ../../rocksdb/db/db_impl/db_impl.cc ../../rocksdb/env/env_posix.cc ../../rocksdb/db/write_thread.cc COMPILE_FLAGS "-Wno-conditional-uninitialized")
+  ENDIF()
+
+  # platform007 (tbb, etc) has throw() which is deprecated
+  append_cflags_if_supported(-Wno-deprecated-dynamic-exception-spec)
+ENDIF()
+
+
+# Suppress warnings for gcc
+IF(CMAKE_COMPILER_IS_GNUCXX)
+  append_cflags_if_supported(-Wno-suggest-attribute=format)
+
+  MY_CHECK_CXX_COMPILER_FLAG("-Wno-class-memaccess" HAVE_NO_CLASS_MEMACCESS)
+  IF(HAVE_NO_CLASS_MEMACCESS)
+    # TODO(yzha): Fix warnings in MyRocks
+    ADD_COMPILE_FLAGS(rdb_datadic.cc COMPILE_FLAGS "-Wno-class-memaccess")
+  ENDIF()
+ENDIF()
+
 
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")

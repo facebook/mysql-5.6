@@ -98,7 +98,8 @@ bool Schema_impl::validate() const {
 ///////////////////////////////////////////////////////////////////////////
 
 Schema_impl::Schema_impl(const Schema_impl &src)
-    : Entity_object_impl(src),
+    : Weak_object(src),
+      Entity_object_impl(src),
       m_created(src.m_created),
       m_last_altered(src.m_last_altered),
       m_default_encryption(src.m_default_encryption),
