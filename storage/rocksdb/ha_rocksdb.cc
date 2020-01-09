@@ -682,7 +682,6 @@ static my_bool rocksdb_select_bypass_log_failed = FALSE;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
-static uint32_t rocksdb_mrr_batch_size = 10;
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -990,6 +989,7 @@ const int64 RDB_DEFAULT_BLOCK_CACHE_SIZE = 512 * 1024 * 1024;
 const int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
 const int RDB_MAX_CHECKSUMS_PCT = 100;
 const ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
+const ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -2143,11 +2143,12 @@ static MYSQL_SYSVAR_ULONGLONG(
     "MultiGet",
     nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
 
-static MYSQL_SYSVAR_UINT(
-    mrr_batch_size, rocksdb_mrr_batch_size,
+static MYSQL_THDVAR_LONG(
+    mrr_batch_size,
     PLUGIN_VAR_RQCMDARG,
     "maximum number of keys to fetch during each MRR",
-    nullptr, nullptr, rocksdb_mrr_batch_size, /* min */ 0, /* max */ INT_MAX, 0);
+    nullptr, nullptr, /* default */ 100, /* min */ 0, 
+    /* max */ ROCKSDB_MAX_MRR_BATCH_SIZE, 0);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
@@ -15508,16 +15509,18 @@ int ha_rocksdb::mrr_fill_buffer() {
                          m_pk_descr->max_storage_fmt_length();
 
   // The buffer has space for this many elements:
-  ssize_t max_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
+  ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
 
-  if (max_elements < 1) {
+  if (n_elements < 1) {
     // We shouldn't get here as multi_range_read_init() has logic to fall back
     // to the default MRR implementation in this case.
     DBUG_ASSERT(0);
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  ssize_t n_elements = std::min(max_elements, (ssize_t)rocksdb_mrr_batch_size);
+  THD *thd = table->in_use;
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  n_elements = std::min(n_elements, elements_limit);
   char *buf = (char *)mrr_buf.buffer;
 
   align_ptr<rocksdb::Slice>(&buf);
