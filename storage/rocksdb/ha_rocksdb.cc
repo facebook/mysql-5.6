@@ -682,7 +682,7 @@ static my_bool rocksdb_select_bypass_log_failed = FALSE;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
-
+static uint32_t rocksdb_mrr_batch_size = 10;
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -2143,6 +2143,12 @@ static MYSQL_SYSVAR_ULONGLONG(
     "MultiGet",
     nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
 
+static MYSQL_SYSVAR_UINT(
+    mrr_batch_size, rocksdb_mrr_batch_size,
+    PLUGIN_VAR_RQCMDARG,
+    "maximum number of keys to fetch during each MRR",
+    nullptr, nullptr, rocksdb_mrr_batch_size, /* min */ 0, /* max */ INT_MAX, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct st_mysql_sys_var *rocksdb_system_variables[] = {
@@ -2317,6 +2323,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_log_rejected),
     MYSQL_SYSVAR(select_bypass_debug_row_delay),
     MYSQL_SYSVAR(select_bypass_multiget_min),
+    MYSQL_SYSVAR(mrr_batch_size),
     nullptr};
 
 static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
@@ -15501,15 +15508,16 @@ int ha_rocksdb::mrr_fill_buffer() {
                          m_pk_descr->max_storage_fmt_length();
 
   // The buffer has space for this many elements:
-  ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
+  ssize_t max_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
 
-  if (n_elements < 1) {
+  if (max_elements < 1) {
     // We shouldn't get here as multi_range_read_init() has logic to fall back
     // to the default MRR implementation in this case.
     DBUG_ASSERT(0);
     return HA_ERR_INTERNAL_ERROR;
   }
 
+  ssize_t n_elements = std::min(max_elements, (ssize_t)rocksdb_mrr_batch_size);
   char *buf = (char *)mrr_buf.buffer;
 
   align_ptr<rocksdb::Slice>(&buf);
