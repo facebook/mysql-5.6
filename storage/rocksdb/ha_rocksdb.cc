@@ -3234,6 +3234,10 @@ class Rdb_transaction_impl : public Rdb_transaction {
                     const std::string &rowkey) override {
     if (!THDVAR(m_thd, lock_scanned_rows)) {
       m_rocksdb_tx->UndoGetForUpdate(column_family, rocksdb::Slice(rowkey));
+      DBUG_ASSERT(m_lock_count > 0);
+      if (m_lock_count > 0) {
+        m_lock_count--;
+      }
     }
   }
 
