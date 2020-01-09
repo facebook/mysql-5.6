@@ -15215,8 +15215,21 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
 
   // Use the default MRR implementation if @@optimizer_switch value tells us
   // to, or if the query needs to do a locking read.
-  if (!mrr_enabled || m_lock_rows != RDB_LOCK_NONE)
-    return res;
+  if (!mrr_enabled || m_lock_rows != RDB_LOCK_NONE) return res;
+
+  // How many buffer required to store all requried keys
+  uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+  // How many buffer required to store maximum number of keys per MRR
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  uint mrr_batch_size_buff = mrr_get_length_per_rec() * elements_limit;
+  // The final bufsz value should be minimum among these three values:
+  // 1. The passed in bufsz: contains maximum available buff size --- by
+  // default, its value is specify by session variable read_rnd_buff_size,
+  // 2. calculated_buf, specify buffer required to store all required keys
+  // 3. mrr_batch_size_buffer, specify the maximun number of keys to fetch
+  // during each MRR
+  uint mrr_bufsz =
+      std::min(std::min(*bufsz, calculated_buf), mrr_batch_size_buff);
 
   if (keyno == table->s->primary_key) {
     // We need all ranges to be single-point lookups using full PK values.
@@ -15238,11 +15251,7 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       // Indicate that we will use MultiGet MRR
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_SUPPORT_SORTED;
-      uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
-      // The passed in bufsz contains maximum available buff size --- by
-      // default, its value is specify by session variable read_rnd_buff_size,
-      // final bufsz shouldn't bigger than its limit
-      *bufsz = std::min(*bufsz, calculated_buf);
+      *bufsz = mrr_bufsz;
     }
   } else {
     // For scans on secondary keys, we use MultiGet when we read the PK values.
@@ -15251,11 +15260,7 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
-      uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
-      // The passed in bufsz contains maximum available buff size --- by
-      // default, its value is specify by session variable read_rnd_buff_size,
-      // final bufsz shouldn't bigger than its limit
-      *bufsz = std::min(*bufsz, calculated_buf);
+      *bufsz = mrr_bufsz;
     }
   }
 
@@ -15511,6 +15516,10 @@ int ha_rocksdb::mrr_fill_buffer() {
   // The buffer has space for this many elements:
   ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
 
+  THD *thd = table->in_use;
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  n_elements = std::min(n_elements, elements_limit);
+
   if (n_elements < 1) {
     // We shouldn't get here as multi_range_read_init() has logic to fall back
     // to the default MRR implementation in this case.
@@ -15518,9 +15527,6 @@ int ha_rocksdb::mrr_fill_buffer() {
     return HA_ERR_INTERNAL_ERROR;
   }
 
-  THD *thd = table->in_use;
-  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
-  n_elements = std::min(n_elements, elements_limit);
   char *buf = (char *)mrr_buf.buffer;
 
   align_ptr<rocksdb::Slice>(&buf);

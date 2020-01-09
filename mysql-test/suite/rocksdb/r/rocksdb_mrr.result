@@ -100,7 +100,7 @@ pk	col1	filler
 20	20	20
 select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 variable_value-@val1
-5
+6
 # Check rocksdb_mrr_batch_size use BKA 
 create table hundred(a int primary key);
 insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
