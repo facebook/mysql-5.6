@@ -49,7 +49,8 @@ having
   DIFF>0;
 drop table t10, t11;
 
---echo # Check ROCKSDB_NUMBER_MULTIGET_GET counter
+--echo # Check rocksdb_mrr_batch_size
+set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
 set rocksdb_mrr_batch_size=5;
 select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 
@@ -59,6 +60,7 @@ select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12
 
 # 5 refills * 5 rowids per pass >= 21
 select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+set rocksdb_mrr_batch_size=@saved_rocksdb_mrr_batch_size;
 
 --echo # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);

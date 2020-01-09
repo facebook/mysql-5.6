@@ -68,7 +68,8 @@ ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
 ROCKSDB_NUMBER_MULTIGET_GET	1
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
 drop table t10, t11;
-# Check ROCKSDB_NUMBER_MULTIGET_GET counter
+# Check rocksdb_mrr_batch_size
+set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
 set rocksdb_mrr_batch_size=5;
 select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
@@ -100,6 +101,7 @@ pk	col1	filler
 select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 variable_value-@val1
 5
+set rocksdb_mrr_batch_size=@saved_rocksdb_mrr_batch_size;
 # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -281,7 +283,7 @@ ROCKSDB_NUMBER_DB_NEXT_FOUND	9
 ROCKSDB_NUMBER_DB_SEEK	11
 ROCKSDB_NUMBER_DB_SEEK_FOUND	11
 ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
-ROCKSDB_NUMBER_MULTIGET_GET	2
+ROCKSDB_NUMBER_MULTIGET_GET	1
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
 drop table t11,t12;
 #
@@ -439,16 +441,16 @@ ROCKSDB_NUMBER_DB_NEXT	11
 ROCKSDB_NUMBER_DB_NEXT_FOUND	9
 ROCKSDB_NUMBER_DB_SEEK	2
 ROCKSDB_NUMBER_DB_SEEK_FOUND	2
-ROCKSDB_NUMBER_MULTIGET_BYTES_READ	185
+ROCKSDB_NUMBER_MULTIGET_BYTES_READ	370
 ROCKSDB_NUMBER_MULTIGET_GET	1
-ROCKSDB_NUMBER_MULTIGET_KEYS_READ	5
+ROCKSDB_NUMBER_MULTIGET_KEYS_READ	10
 drop table t10, t11;
 # COUNTERS FOR: mrr=ON, primary index lookups
 select rows_read, rows_requested
 from information_schema.table_statistics
 where table_name = 't2';
-rows_read	5
-rows_requested	5
+rows_read	10
+rows_requested	10
 drop table t20;
 #
 # Check how MRR works without BKA
