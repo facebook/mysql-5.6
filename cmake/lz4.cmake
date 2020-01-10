@@ -32,6 +32,10 @@ MACRO (FIND_SYSTEM_LZ4)
   ENDIF()
 ENDMACRO()
 
+IF (NOT WITH_LZ4)
+  SET(WITH_LZ4 "system" CACHE STRING "By default use system lz4 library")
+ENDIF()
+
 MACRO (MYSQL_CHECK_LZ4)
   # See if WITH_LZ4 is of the form </path/to/custom/installation>
   FILE(GLOB WITH_LZ4_HEADER ${WITH_LZ4}/include/lz4frame.h)
