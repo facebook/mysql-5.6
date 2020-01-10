@@ -79,6 +79,7 @@
 #include "mysql/client_authentication.h"
 #include "mysql/plugin_auth_common.h"
 #include "mysql/psi/mysql_memory.h"
+#include "mysql/psi/mysql_socket.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysql_version.h"
 #include "mysqld_error.h"
@@ -6260,6 +6261,44 @@ static mysql_state_machine_status csm_complete_connect(
     DBUG_PRINT("error", ("Unknow protocol %d ", mysql->options.protocol));
     set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
     DBUG_RETURN(STATE_MACHINE_FAILED);
+  }
+
+  // This vio_io_wait is needed because the calls to vio_socket_connect in
+  // csm_begin_connect are not being waited on. The correct thing to do would
+  // be to move this code up to where vio_socket_connect is being called.
+  int res =
+      vio_io_wait(net->vio, VIO_IO_EVENT_CONNECT, timeout_from_seconds(0));
+  if (res == -1) {
+    DBUG_PRINT("error", ("Got error %d on connect to '%s'", errno, ctx->host));
+    set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
+                             ER_CLIENT(CR_CONN_HOST_ERROR), ctx->host, errno);
+    DBUG_RETURN(STATE_MACHINE_FAILED);
+  }
+
+  if (res == 0) {
+    DBUG_RETURN(STATE_MACHINE_WOULD_BLOCK);
+  }
+  DBUG_ASSERT(res == 1);
+
+  // The following section is just running some checks that vio_socket_connect
+  // does in blocking mode, but skips in nonblocking mode. The correct thing
+  // to do here would be to fix vio_socket_connect to be reentrant, and have
+  // csm_begin_connect call vio_socket_connect until it completes, so that we
+  // don't have to duplicate code.
+  {
+    int error;
+    IF_WIN(int, socklen_t) optlen = sizeof(error);
+    IF_WIN(char, void) *optval = (IF_WIN(char, void) *)&error;
+
+    res = mysql_socket_getsockopt(net->vio->mysql_socket, SOL_SOCKET, SO_ERROR,
+                                  optval, &optlen);
+    if (res != 0 || error != 0) {
+      DBUG_PRINT("error",
+                 ("Got error %d on connect result to '%s'", error, ctx->host));
+      set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
+                               ER_CLIENT(CR_CONN_HOST_ERROR), ctx->host, error);
+      DBUG_RETURN(STATE_MACHINE_FAILED);
+    }
   }
 
   if (my_net_init(net, net->vio)) {
