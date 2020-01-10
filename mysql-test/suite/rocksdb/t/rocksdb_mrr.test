@@ -65,7 +65,8 @@ select variable_value-@val1 from information_schema.global_status where variable
 create table hundred(a int primary key);
 insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
 analyze table hundred, t2;
-explain select * from hundred, t2 where t2.pk=hundred.a;
+--replace_column 9 #
+eval explain select * from hundred, t2 where t2.pk=hundred.a;
 select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
 select * from hundred, t2 where t2.pk=hundred.a;
 select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
