@@ -682,7 +682,6 @@ static my_bool rocksdb_select_bypass_log_failed = FALSE;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
-
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -990,6 +989,7 @@ const int64 RDB_DEFAULT_BLOCK_CACHE_SIZE = 512 * 1024 * 1024;
 const int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
 const int RDB_MAX_CHECKSUMS_PCT = 100;
 const ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
+const ulong ROCKSDB_MAX_MRR_BATCH_SIZE = 1000;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -2143,6 +2143,13 @@ static MYSQL_SYSVAR_ULONGLONG(
     "MultiGet",
     nullptr, nullptr, SIZE_T_MAX, /* min */ 0, /* max */ SIZE_T_MAX, 0);
 
+static MYSQL_THDVAR_LONG(
+    mrr_batch_size,
+    PLUGIN_VAR_RQCMDARG,
+    "maximum number of keys to fetch during each MRR",
+    nullptr, nullptr, /* default */ 100, /* min */ 0,
+    /* max */ ROCKSDB_MAX_MRR_BATCH_SIZE, 0);
+
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
 static struct st_mysql_sys_var *rocksdb_system_variables[] = {
@@ -2317,6 +2324,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_log_rejected),
     MYSQL_SYSVAR(select_bypass_debug_row_delay),
     MYSQL_SYSVAR(select_bypass_multiget_min),
+    MYSQL_SYSVAR(mrr_batch_size),
     nullptr};
 
 static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
@@ -15180,7 +15188,8 @@ void rdb_tx_multi_get(Rdb_transaction *tx,
   Check if MultiGet-MRR can be used to scan given list of ranges.
 
   @param  seq            List of ranges to scan
-  @param  bufsz     OUT  How much buffer space will be required
+  @param  bufsz   INOUT  IN:  Size of the buffer available for use
+                        OUT:  How much buffer space will be required
   @param  flags   INOUT  Properties of the scan to be done
 
   @return
@@ -15202,16 +15211,30 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   bool mrr_enabled =
       thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) &&
       !thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR_COST_BASED);
-
+  uint def_bufsz = *bufsz;
   res = handler::multi_range_read_info_const(keyno, seq, seq_init_param,
-                                             n_ranges, bufsz, flags, cost);
+                                             n_ranges, &def_bufsz, flags, cost);
 
-  if (res == HA_POS_ERROR) return res; // Not possible to do the scan
+  if (res == HA_POS_ERROR) return res;  // Not possible to do the scan
 
   // Use the default MRR implementation if @@optimizer_switch value tells us
   // to, or if the query needs to do a locking read.
-  if (!mrr_enabled || m_lock_rows != RDB_LOCK_NONE)
-    return res;
+  if (!mrr_enabled || m_lock_rows != RDB_LOCK_NONE) return res;
+
+  // How many buffer required to store all requried keys
+  uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
+  // How many buffer required to store maximum number of keys per MRR
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  uint mrr_batch_size_buff =
+      mrr_get_length_per_rec() * elements_limit * 1.1 + 1;
+  // The final bufsz value should be minimum among these three values:
+  // 1. The passed in bufsz: contains maximum available buff size --- by
+  // default, its value is specify by session variable read_rnd_buff_size,
+  // 2. calculated_buf, specify buffer required to store all required keys
+  // 3. mrr_batch_size_buffer, specify the maximun number of keys to fetch
+  // during each MRR
+  uint mrr_bufsz =
+      std::min(std::min(*bufsz, calculated_buf), mrr_batch_size_buff);
 
   if (keyno == table->s->primary_key) {
     // We need all ranges to be single-point lookups using full PK values.
@@ -15233,16 +15256,16 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       // Indicate that we will use MultiGet MRR
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_SUPPORT_SORTED;
-      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+      *bufsz = mrr_bufsz;
     }
   } else {
     // For scans on secondary keys, we use MultiGet when we read the PK values.
     // We only need PK values when the scan is non-index-only.
     if (!(*flags & HA_MRR_INDEX_ONLY)) {
-      *flags &= ~HA_MRR_SUPPORT_SORTED; //  Non-sorted mode
+      *flags &= ~HA_MRR_SUPPORT_SORTED;  //  Non-sorted mode
       *flags &= ~HA_MRR_USE_DEFAULT_IMPL;
       *flags |= HA_MRR_CONVERT_REF_TO_RANGE;
-      *bufsz = mrr_get_length_per_rec() * res * 1.1 + 1;
+      *bufsz = mrr_bufsz;
     }
   }
 
@@ -15390,7 +15413,8 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
       (mode & HA_MRR_USE_DEFAULT_IMPL) ||
       (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()) ||
-      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED))) {
+      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED)) ||
+      (THDVAR(current_thd, mrr_batch_size) == 0)) {
     mrr_uses_default_impl = true;
     res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
                                          buf);
@@ -15497,6 +15521,10 @@ int ha_rocksdb::mrr_fill_buffer() {
 
   // The buffer has space for this many elements:
   ssize_t n_elements = (mrr_buf.buffer_end - mrr_buf.buffer) / element_size;
+
+  THD *thd = table->in_use;
+  ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
+  n_elements = std::min(n_elements, elements_limit);
 
   if (n_elements < 1) {
     // We shouldn't get here as multi_range_read_init() has logic to fall back

@@ -49,6 +49,30 @@ having
   DIFF>0;
 drop table t10, t11;
 
+--echo # Check rocksdb_mrr_batch_size use MRR
+set @saved_rocksdb_mrr_batch_size=@@rocksdb_mrr_batch_size;
+set rocksdb_mrr_batch_size=5;
+select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+
+explain select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+select * from t2 force index (primary) where pk in (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
+
+# 5 refills * 5 rowids per pass >= 21
+select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+
+--echo # Check rocksdb_mrr_batch_size use BKA
+create table hundred(a int primary key);
+insert into hundred select A.a + B.a* 10 from t0 A, t0 B;
+analyze table hundred, t2;
+--replace_column 9 #
+eval explain select * from hundred, t2 where t2.pk=hundred.a;
+select variable_value into @val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+select * from hundred, t2 where t2.pk=hundred.a;
+select variable_value-@val1 from information_schema.global_status where variable_name='ROCKSDB_NUMBER_MULTIGET_GET';
+drop table hundred;
+set rocksdb_mrr_batch_size=@saved_rocksdb_mrr_batch_size;
+
 --echo # This will use MRR:
 explain select * from t2 where pk in (1,2,3,4,5);
 
@@ -410,6 +434,7 @@ explain
 select * from t1 where kp1=1 order by kp2 limit 10;
 # This shouldn't fail an assert:
 select * from t1 where kp1=1 order by kp2 limit 10;
+
 
 drop table t0, t1;
 set optimizer_switch=@save_optimizer_switch;
