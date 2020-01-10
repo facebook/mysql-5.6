@@ -6114,7 +6114,11 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   IO_CACHE raft_io_cache;
   bool no_op= raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
 
-  bool rotate_via_raft= enable_raft_plugin && (no_op || !is_relay_log);
+  // if we are rotating a is_apply_log = true, then we are a slave
+  // trying to do FLUSH BINARY LOGS, which should not have to go
+  // through consensus
+  bool rotate_via_raft= enable_raft_plugin && (no_op || !is_relay_log)
+                        && (!is_apply_log);
 
   // skip rotate event append
   // We explicitly pass this flag today for keeping the control in Raft.
@@ -6883,6 +6887,8 @@ int binlog_change_to_apply()
     goto err;
   }
 
+  mysql_bin_log.is_apply_log = true;
+
 err:
 
   mysql_bin_log.unlock_index();
@@ -7001,6 +7007,10 @@ int binlog_change_to_binlog()
     error= 1;
     goto err;
   }
+
+  // unset apply log, so that masters
+  // ordered_commit understands this
+  mysql_bin_log.is_apply_log = false;
 
 err:
 

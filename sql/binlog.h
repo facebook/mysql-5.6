@@ -606,12 +606,22 @@ public:
   // The starting position of the first gtid event in the trx log file
   my_off_t first_gtid_start_pos= 0;
 
-  // True if this binlog is an apply-log (in raft mode apply logs are the binlog
-  // used as trx log on follower instances)
+  /* True if this binlog is an apply-log (in raft mode apply logs are the binlog
+   * used as trx log on follower instances)
+   *
+   * This is set to true, at the end of converting a Raft FOLLOWER to a
+   * MySQL Slave. It is set to false, when the Raft Candidate transitions
+   * to LEADER, and converts the MySQL Slave to a MySQL Master as a part
+   * of Election Decision Callback.
+   *
+   * @ref - rpl_handler.cc / point_binlog_to_binlog
+   *        rpl_handler.cc / point_binlog_to_apply
+   */
   bool is_apply_log= false;
 
   /* This is relay log */
   bool is_relay_log;
+
   ulong signal_cnt;  // update of the counter is checked by heartbeat
   uint8 checksum_alg_reset; // to contain a new value when binlog is rotated
   /*
