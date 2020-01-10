@@ -104,7 +104,12 @@ enum SERVER_STATUS_flags_enum {
   SERVER_SESSION_STATE_CHANGED = (1UL << 14)
 };
 struct Vio;
-enum mysql_compression_lib { MYSQL_COMPRESSION_ZLIB, MYSQL_COMPRESSION_ZSTD };
+enum mysql_compression_lib {
+  MYSQL_COMPRESSION_ZLIB,
+  MYSQL_COMPRESSION_ZSTD,
+  MYSQL_COMPRESSION_ZSTD_STREAM,
+  MYSQL_COMPRESSION_LZ4F_STREAM
+};
 typedef struct ZSTD_CCtx_s ZSTD_CCtx;
 typedef struct ZSTD_DCtx_s ZSTD_DCtx;
 typedef struct {
@@ -127,6 +132,11 @@ typedef struct NET {
   enum mysql_compression_lib comp_lib;
   ZSTD_CCtx *cctx;
   ZSTD_DCtx *dctx;
+  void *lz4f_cctx;
+  void *lz4f_dctx;
+  unsigned char *compress_buf;
+  unsigned long compress_buf_len;
+  bool reset_cctx;
   unsigned int last_errno;
   unsigned char error;
   char last_error[512];
