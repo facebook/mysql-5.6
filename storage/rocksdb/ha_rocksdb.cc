@@ -15221,7 +15221,8 @@ ha_rows ha_rocksdb::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   uint calculated_buf = mrr_get_length_per_rec() * res * 1.1 + 1;
   // How many buffer required to store maximum number of keys per MRR
   ssize_t elements_limit = THDVAR(thd, mrr_batch_size);
-  uint mrr_batch_size_buff = mrr_get_length_per_rec() * elements_limit;
+  uint mrr_batch_size_buff =
+      mrr_get_length_per_rec() * elements_limit * 1.1 + 1;
   // The final bufsz value should be minimum among these three values:
   // 1. The passed in bufsz: contains maximum available buff size --- by
   // default, its value is specify by session variable read_rnd_buff_size,
