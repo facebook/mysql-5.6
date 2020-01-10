@@ -2147,7 +2147,7 @@ static MYSQL_THDVAR_LONG(
     mrr_batch_size,
     PLUGIN_VAR_RQCMDARG,
     "maximum number of keys to fetch during each MRR",
-    nullptr, nullptr, /* default */ 100, /* min */ 0, 
+    nullptr, nullptr, /* default */ 100, /* min */ 0,
     /* max */ ROCKSDB_MAX_MRR_BATCH_SIZE, 0);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
@@ -15409,7 +15409,8 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   if (!current_thd->optimizer_switch_flag(OPTIMIZER_SWITCH_MRR) ||
       (mode & HA_MRR_USE_DEFAULT_IMPL) ||
       (buf->buffer_end - buf->buffer < mrr_get_length_per_rec()) ||
-      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED))) {
+      (active_index != table->s->primary_key && (mode & HA_MRR_SORTED)) ||
+      (THDVAR(current_thd, mrr_batch_size) == 0)) {
     mrr_uses_default_impl = true;
     res = handler::multi_range_read_init(seq, seq_init_param, n_ranges, mode,
                                          buf);
