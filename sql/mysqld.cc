@@ -1304,6 +1304,7 @@ uint sync_binlog_period = 0, sync_relaylog_period = 0,
      opt_mts_checkpoint_period, opt_mts_checkpoint_group;
 ulong expire_logs_days = 0;
 ulong binlog_expire_logs_seconds = 0;
+ulonglong sync_binlog_pos_threshold = 0;
 /**
   Soft upper limit for number of sp_head objects that can be stored
   in the sp_cache for one connection.

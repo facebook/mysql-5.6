@@ -57,7 +57,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 trx_sys_t *trx_sys = NULL;
 
 /** Binlog max gitd */
-char trx_sys_mysql_bin_log_max_gtid[TRX_SYS_MYSQL_GTID_LEN];
+char trx_sys_mysql_bin_log_max_gtid[TRX_SYS_MYSQL_GTID_LEN] = {0};
 
 /** Check whether transaction id is valid.
 @param[in]	id	transaction id to check
@@ -325,6 +325,49 @@ void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
     return;
   }
   write_binlog_position(file_name, offset, binlog_pos, mtr, max_gtid);
+}
+
+void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
+                                        const char *max_gtid) {
+  mtr_t mtr;
+  mtr_start(&mtr);
+
+  byte *binlog_pos = trx_sysf_get(&mtr) + TRX_SYS_MYSQL_LOG_INFO;
+
+  /* Don't write blank name in binary log file position. */
+  if (file != nullptr && file[0] != '\0') {
+    write_binlog_position(file, offset, binlog_pos, &mtr, max_gtid);
+  }
+
+  mtr_commit(&mtr);
+  DBUG_EXECUTE_IF("sync_binlog_pos", {
+    log_write_up_to(*log_sys, mtr.commit_lsn(), true /* sync */);
+  };);
+}
+
+bool trx_sys_get_mysql_bin_log_max_gtid(char *gtid_buf) {
+  DBUG_ASSERT(gtid_buf);
+  trx_sysf_t *sys_header;
+  mtr_t mtr;
+
+  mtr_start(&mtr);
+
+  sys_header = trx_sysf_get(&mtr);
+
+  if (mach_read_from_4(sys_header + TRX_SYS_MYSQL_LOG_INFO +
+                       TRX_SYS_MYSQL_LOG_MAGIC_N_FLD) !=
+      TRX_SYS_MYSQL_LOG_MAGIC_N) {
+    mtr_commit(&mtr);
+    return true;
+  }
+
+  ut_strlcpy(gtid_buf,
+             reinterpret_cast<const char *>(sys_header) +
+                 TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_GTID,
+             TRX_SYS_MYSQL_GTID_LEN);
+
+  mtr_commit(&mtr);
+  return false;
 }
 
 /** Stores the MySQL binlog offset info in the trx system header if

@@ -258,6 +258,7 @@ extern ulonglong slowlog_space_limit;
 extern ulong binlog_expire_logs_seconds;
 extern uint sync_binlog_period, sync_relaylog_period, sync_relayloginfo_period,
     sync_masterinfo_period, opt_mts_checkpoint_period, opt_mts_checkpoint_group;
+extern ulonglong sync_binlog_pos_threshold;
 extern ulong opt_tc_log_size, tc_log_max_pages_used, tc_log_page_size;
 extern ulong tc_log_page_waits;
 extern bool relay_log_purge;

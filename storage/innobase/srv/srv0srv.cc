@@ -1298,6 +1298,45 @@ void srv_printf_innodb_transaction(FILE *file) /*!< in: output stream */
   fflush(file);
 }
 
+/** Output for SHOW INNODB BINLOG POSITION STATUS */
+void srv_printf_innodb_binlog_position(
+    handlerton *hton, /*!< in: innodb handlerton */
+    FILE *file)       /*!< in: output stream */
+{
+  /* Get binlog position in SE */
+  char binlog_file[FN_REFLEN + 1] = {0};
+  my_off_t binlog_pos = ULLONG_MAX;
+  Gtid max_gtid{0, 0};
+  hton->recover_binlog_pos(hton, &max_gtid, binlog_file, &binlog_pos);
+
+  char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  if (!max_gtid.is_empty()) {
+    global_sid_lock->rdlock();
+    max_gtid.to_string(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+  }
+
+  mutex_enter(&srv_innodb_monitor_mutex);
+
+  fputs("\n=================================================\n", file);
+  ut_print_timestamp(file);
+
+  fprintf(file,
+          " INNODB BINLOG POSITION OUTPUT\n"
+          "=================================================\n"
+          "BINLOG FILE %s\n"
+          "BINLOG OFFSET %llu\n"
+          "MAX GTID %s\n"
+          "----------------------------------------\n"
+          "END OF INNODB BINLOG POSITION OUTPUT\n"
+          "========================================\n",
+          binlog_file, binlog_pos, gtid_buf);
+
+  mutex_exit(&srv_innodb_monitor_mutex);
+
+  fflush(file);
+}
+
 /** Outputs to a file the output of the InnoDB Monitor.
  @return false if not all information printed
  due to failure to obtain necessary mutex */

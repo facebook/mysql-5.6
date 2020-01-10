@@ -4305,6 +4305,26 @@ static void rocksdb_recover_binlog_pos(
   }
 }
 
+/** This function is used to sync binlog positions and Gtid.
+ * @return false on success. true on failure
+ */
+static bool rocksdb_sync_binlog_pos(
+    handlerton *,           /*!< in: RocksDB handlerton */
+    const char *file,       /*!< in: Valid binlog file */
+    const my_off_t *offset, /*!< in: Valid binlog offset */
+    const char *max_gtid_buf) /*!< in: Max valid binlog gtid in str format */
+{
+  DBUG_ASSERT(file && offset && max_gtid_buf);
+
+  bool sync = false;
+  DBUG_EXECUTE_IF("sync_binlog_pos", sync = true;);
+
+  if (binlog_manager.persist_pos(file, *offset, max_gtid_buf, sync))
+    return true;
+
+  return false;
+}
+
 /**
   Reading last committed binary log info from RocksDB system row.
   The info is needed for crash safe slave/master to work.
@@ -4751,6 +4771,32 @@ static bool rocksdb_show_snapshot_status(
   return print_stats(thd, "rocksdb", "", showStatus.getResult(), stat_print);
 }
 
+/* Generate the binlog position status table */
+static bool rocksdb_show_binlog_position(handlerton *const hton, THD *const thd,
+                                         stat_print_fn *const stat_print) {
+  std::ostringstream oss;
+
+  /* Get binlog position in SE */
+  char binlog_file[FN_REFLEN + 1] = {0};
+  my_off_t binlog_pos = ULLONG_MAX;
+  Gtid max_gtid{0, 0};
+  hton->recover_binlog_pos(hton, &max_gtid, binlog_file, &binlog_pos);
+
+  char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  if (!max_gtid.is_empty()) {
+    global_sid_lock->rdlock();
+    max_gtid.to_string(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+  }
+
+  oss << "\n"
+      << "BINLOG FILE " << binlog_file << "\n"
+      << "BINLOG OFFSET " << binlog_pos << "\n"
+      << "MAX GTID " << gtid_buf << "\n";
+
+  return print_stats(thd, "BINLOG POSITION", "rocksdb", oss.str(), stat_print);
+}
+
 /*
   This is called for SHOW ENGINE ROCKSDB STATUS | LOGS | etc.
 
@@ -4937,6 +4983,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     if (!str.empty()) {
       res |= print_stats(thd, "EXPLICIT_SNAPSHOTS", "rocksdb", str, stat_print);
     }
+    /* Binlog position information */
+    res |= rocksdb_show_binlog_position(hton, thd, stat_print);
   } else if (stat_type == HA_ENGINE_TRX) {
     /* Handle the SHOW ENGINE ROCKSDB TRANSACTION STATUS command */
     res |= rocksdb_show_snapshot_status(hton, thd, stat_print);
@@ -5467,6 +5515,7 @@ static int rocksdb_init_func(void *const p) {
   rocksdb_hton->commit_by_xid = rocksdb_commit_by_xid;
   rocksdb_hton->rollback_by_xid = rocksdb_rollback_by_xid;
   rocksdb_hton->recover_binlog_pos = rocksdb_recover_binlog_pos;
+  rocksdb_hton->sync_binlog_pos = rocksdb_sync_binlog_pos;
   rocksdb_hton->recover = rocksdb_recover;
   rocksdb_hton->commit = rocksdb_commit;
   rocksdb_hton->rollback = rocksdb_rollback;

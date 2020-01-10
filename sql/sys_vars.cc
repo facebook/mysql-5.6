@@ -6255,6 +6255,13 @@ static Sys_var_uint Sys_sync_binlog_period(
     GLOBAL_VAR(sync_binlog_period), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(1), BLOCK_SIZE(1));
 
+static Sys_var_ulonglong Sys_sync_binlog_pos_threshold(
+    "sync_binlog_pos_threshold",
+    "Storage engine updates its binlog positions when its "
+    "current position falls behind by # bytes",
+    GLOBAL_VAR(sync_binlog_pos_threshold), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, ULLONG_MAX), DEFAULT(5ULL * 1024 * 1024), BLOCK_SIZE(1));
+
 static Sys_var_uint Sys_sync_masterinfo_period(
     "sync_master_info",
     "Synchronously flush master info to disk "

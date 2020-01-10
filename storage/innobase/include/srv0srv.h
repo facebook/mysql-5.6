@@ -991,6 +991,11 @@ ibool srv_printf_innodb_monitor(
 
 /** Output for SHOW INNODB TRANSACTION STATUS */
 void srv_printf_innodb_transaction(FILE *file); /*!< in: output stream */
+/** Output for SHOW INNODB BINLOG POSITION STATUS */
+struct handlerton;
+void srv_printf_innodb_binlog_position(
+    handlerton *hton, /*!< in: innodb handlerton */
+    FILE *file);      /*!< in: output stream */
 
 /** Function to pass InnoDB status variables to MySQL */
 void srv_export_innodb_status(void);

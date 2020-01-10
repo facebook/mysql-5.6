@@ -2058,6 +2058,9 @@ The following options may be given as the first argument:
  removed in a future release).
  --sync-binlog=#     Synchronously flush binary log to disk after every #th
  write to the file. Use 0 to disable synchronous flushing
+ --sync-binlog-pos-threshold=# 
+ Storage engine updates its binlog positions when its
+ current position falls behind by # bytes
  --sync-master-info=# 
  Synchronously flush master info to disk after every #th
  event. Use 0 to disable synchronous flushing
@@ -2741,6 +2744,7 @@ stored-program-definition-cache 256
 super-read-only FALSE
 symbolic-links FALSE
 sync-binlog 1
+sync-binlog-pos-threshold 5242880
 sync-master-info 10000
 sync-relay-log 10000
 sync-relay-log-info 10000

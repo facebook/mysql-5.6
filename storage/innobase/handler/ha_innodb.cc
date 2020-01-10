@@ -1326,6 +1326,13 @@ static void innobase_recover_binlog_pos(
     Gtid *binlog_max_gtid, /*!< out: Max valid binlog gtid*/
     char *binlog_file,     /*!< out: Last valid binlog file */
     my_off_t *binlog_pos); /*!< out: Last valid binlog pos */
+/** This function is used to sync binlog positions and Gtid.
+ */
+static bool innobase_sync_binlog_pos(
+    handlerton *hton,       /*!< in: InnoDB handlerton */
+    const char *file,       /*!< in: Valid binlog file */
+    const my_off_t *offset, /*!< in: Valid binlog offset */
+    const char *max_gtid_buf); /*!< in: Max valid binlog gtid in string format */
 /** This function is used to prepare an X/Open XA distributed transaction.
  @return 0 or error number */
 static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
@@ -4742,6 +4749,7 @@ static int innodb_init(void *p) {
   innobase_hton->rollback = innobase_rollback;
   innobase_hton->prepare = innobase_xa_prepare;
   innobase_hton->recover_binlog_pos = innobase_recover_binlog_pos;
+  innobase_hton->sync_binlog_pos = innobase_sync_binlog_pos;
   innobase_hton->recover = innobase_xa_recover;
   innobase_hton->commit_by_xid = innobase_commit_by_xid;
   innobase_hton->rollback_by_xid = innobase_rollback_by_xid;
@@ -18347,6 +18355,8 @@ static int innodb_show_status(handlerton *hton, THD *thd,
     srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
   }
 
+  srv_printf_innodb_binlog_position(hton, srv_monitor_file);
+
   os_file_set_eof(srv_monitor_file);
 
   if ((flen = ftell(srv_monitor_file)) < 0) {
@@ -19446,17 +19456,47 @@ static void innobase_recover_binlog_pos(
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
 
-  if (binlog_max_gtid != nullptr) {
-    global_sid_lock->rdlock();
-    binlog_max_gtid->parse(global_sid_map, trx_sys_mysql_bin_log_max_gtid);
-    global_sid_lock->unlock();
-  }
-
-  if (binlog_file != nullptr && binlog_pos != nullptr) {
+  if (binlog_file && binlog_pos) {
     uint64_t offset = 0;
     trx_sys_read_binlog_position(binlog_file, offset);
     *binlog_pos = offset;
   }
+
+  char gtid_buf[TRX_SYS_MYSQL_GTID_LEN] = {0};
+  if (!binlog_max_gtid ||
+      trx_sys_get_mysql_bin_log_max_gtid(gtid_buf)) {
+    return;
+  }
+
+  if (*gtid_buf) {
+    global_sid_lock->rdlock();
+    binlog_max_gtid->parse(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+  }
+}
+
+/** This function is used to sync binlog positions and Gtid.
+ * @return false on success.
+ */
+static bool innobase_sync_binlog_pos(
+    handlerton *hton,       /*!< in: InnoDB handlerton */
+    const char *file,       /*!< in: Valid binlog file */
+    const my_off_t *offset, /*!< in: Valid binlog offset */
+    const char *max_gtid_buf) /*!< in: Max valid binlog gtid in string format */
+{
+  DBUG_ASSERT(hton == innodb_hton_ptr);
+  DBUG_ASSERT(file && offset && max_gtid_buf);
+
+  if (srv_read_only_mode) {
+    return false;
+  }
+
+  /* Update SE with the new position
+   A failure here means its already been updated so we can
+   safely skip */
+  trx_sys_update_mysql_binlog_offset(file, *offset, max_gtid_buf);
+
+  return false;
 }
 
 /** This function is used to recover X/Open XA distributed transactions.
