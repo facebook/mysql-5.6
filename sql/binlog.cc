@@ -8477,6 +8477,12 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
   */
   bool in_transaction= FALSE;
 
+  /*
+   * Flag to indicate if we have seen a gtid which is pending i.e the trx
+   * represented by this gtid has not yet ended
+   */
+  bool pending_gtid= FALSE;
+
   my_off_t first_gtid_start= 0;
 
   if (! fdle->is_valid() ||
@@ -8504,6 +8510,7 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
       xid_to_gtid.gtid.set(((Gtid_log_event*) ev)->get_sidno(true),
                            ((Gtid_log_event*) ev)->get_gno());
 
+      pending_gtid= true;
       if (first_gtid_start == 0)
         first_gtid_start= ev->log_pos - ev->data_written;
     }
@@ -8554,9 +8561,14 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
         <---> HERE IS VALID <--->
         ...
     */
-    if (!log->error && !in_transaction &&
-        !is_gtid_event(ev))
-      *valid_pos= my_b_tell(log);
+    if (!(ev->get_type_code() == METADATA_EVENT && pending_gtid))
+    {
+      if (!log->error && !in_transaction && !is_gtid_event(ev))
+      {
+        *valid_pos= my_b_tell(log);
+        pending_gtid= false;
+      }
+    }
 
     delete ev;
   }
