@@ -1085,6 +1085,7 @@ uint opt_server_id_bits = 0;
 ulong opt_server_id_mask = 0;
 bool read_only = 0, opt_readonly = 0;
 bool super_read_only = 0, opt_super_readonly = 0;
+bool skip_master_info_check_for_read_only_error_msg_extra;
 bool send_error_before_closing_timed_out_connection = 0;
 char *opt_read_only_error_msg_extra;
 bool opt_require_secure_transport = 0;
