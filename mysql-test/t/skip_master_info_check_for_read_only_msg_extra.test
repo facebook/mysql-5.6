@@ -1,0 +1,68 @@
+--source include/count_sessions.inc
+
+set @save.read_only = @@global.read_only;
+set @save.skip_master_info_check_for_read_only_error_msg_extra = @@global.skip_master_info_check_for_read_only_error_msg_extra;
+set @save.read_only_error_msg_extra = @@global.read_only_error_msg_extra;
+
+set global read_only = 1;
+
+select @@global.read_only;
+select @@global.skip_master_info_check_for_read_only_error_msg_extra;
+
+create table tbl (id int primary key);
+
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+--echo # create normal user
+create user normal_user;
+--connect (conn,localhost,normal_user,,)
+
+--echo # test empty error msg when skip_master_info_check_for_read_only_error_msg_extra turned on
+--Error ER_OPTION_PREVENTS_STATEMENT
+insert into tbl values(1);
+
+--connection default
+set global skip_master_info_check_for_read_only_error_msg_extra = 0;
+set global read_only_error_msg_extra='{"new_master": "new_master:1234", "timestamp": 1567019679.2644575}';
+change replication source to source_host='127.0.0.1', source_user='root';
+
+--echo # connecting conn with 'normal_user', master info should be displayed
+--connection conn
+--Error ER_OPTION_PREVENTS_STATEMENT
+insert into tbl values(1);
+
+--connection default
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+
+--connection conn
+--echo # now skip_master_info_check_for_read_only_error_msg_extra is on, we should display the same read_only_error_msg_extra as previous
+--Error ER_OPTION_PREVENTS_STATEMENT
+insert into tbl values(1);
+
+
+--connection default
+--echo # reset master_info
+reset replica all;
+set global skip_master_info_check_for_read_only_error_msg_extra = 0;
+
+--connection conn
+--echo # master_info is empty, we shouldn't display any read_only_error_msg_extra
+--Error ER_OPTION_PREVENTS_STATEMENT
+insert into tbl values(1);
+
+--connection default
+set global skip_master_info_check_for_read_only_error_msg_extra = 1;
+
+--connection conn
+--echo # now skip_master_info_check_for_read_only_error_msg_extra is on, we should display any read_only_error_msg_extra
+--Error ER_OPTION_PREVENTS_STATEMENT
+insert into tbl values(1);
+
+--connection default
+--disconnect conn
+drop user normal_user;
+drop table tbl;
+set global read_only = @save.read_only;
+set global skip_master_info_check_for_read_only_error_msg_extra = @save.skip_master_info_check_for_read_only_error_msg_extra;
+set global read_only_error_msg_extra = @save.read_only_error_msg_extra;
+
+--source include/wait_until_count_sessions.inc
