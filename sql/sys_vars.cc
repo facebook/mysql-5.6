@@ -7344,6 +7344,12 @@ static Sys_var_bool Sys_var_require_row_format(
     SESSION_ONLY(require_row_format), NO_CMD_LINE, DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_set_require_row_format));
 
+static Sys_var_bool Sys_skip_master_info_check_for_read_only_error_msg_extra(
+    "skip_master_info_check_for_read_only_error_msg_extra",
+    "Skip master info validaton check for read only error messages",
+    GLOBAL_VAR(skip_master_info_check_for_read_only_error_msg_extra),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
 #ifdef HAVE_JEMALLOC
 ulong enable_jemalloc_hpp;
 

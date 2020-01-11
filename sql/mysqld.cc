@@ -1088,6 +1088,7 @@ char *opt_read_only_error_msg_extra;
 char *opt_disabled_storage_engines;
 uint opt_server_id_bits = 0;
 ulong opt_server_id_mask = 0;
+bool skip_master_info_check_for_read_only_error_msg_extra = false;
 bool read_only = false, opt_readonly = false;
 bool super_read_only = false, opt_super_readonly = false;
 bool opt_require_secure_transport = false;
