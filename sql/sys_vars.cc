@@ -8043,6 +8043,12 @@ static Sys_var_enum Sys_terminology_use_previous(
 Debug_shutdown_actions Debug_shutdown_actions::instance;
 #endif
 
+static Sys_var_bool Sys_skip_master_info_check_for_read_only_error_msg_extra(
+    "skip_master_info_check_for_read_only_error_msg_extra",
+    "Skip master info validaton check for read only error messages",
+    GLOBAL_VAR(skip_master_info_check_for_read_only_error_msg_extra),
+    CMD_LINE(OPT_ARG), DEFAULT(false));
+
 #ifdef HAVE_JEMALLOC
 ulong enable_jemalloc_hpp;
 

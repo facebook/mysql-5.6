@@ -182,6 +182,7 @@ Warning	1287	'@@rpl_stop_slave_timeout' is deprecated and will be removed in a f
 Warning	1287	'@@rpl_stop_slave_timeout' is deprecated and will be removed in a future release. Please use rpl_stop_replica_timeout instead.
 SET PERSIST_ONLY rpl_wait_for_semi_sync_ack = @@GLOBAL.rpl_wait_for_semi_sync_ack;
 SET PERSIST_ONLY session_track_gtids = @@GLOBAL.session_track_gtids;
+SET PERSIST_ONLY skip_master_info_check_for_read_only_error_msg_extra = @@GLOBAL.skip_master_info_check_for_read_only_error_msg_extra;
 SET PERSIST_ONLY skip_replica_start = @@GLOBAL.skip_replica_start;
 SET PERSIST_ONLY skip_slave_start = @@GLOBAL.skip_slave_start;
 Warnings:
@@ -389,6 +390,7 @@ RESET PERSIST rpl_send_buffer_size;
 RESET PERSIST rpl_stop_replica_timeout;
 RESET PERSIST rpl_wait_for_semi_sync_ack;
 RESET PERSIST session_track_gtids;
+RESET PERSIST skip_master_info_check_for_read_only_error_msg_extra;
 RESET PERSIST skip_replica_start;
 RESET PERSIST slave_check_before_image_consistency;
 RESET PERSIST slave_compression_lib;

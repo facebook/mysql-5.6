@@ -1,0 +1,14 @@
+-- source include/load_sysvars.inc
+
+--echo Default value of skip_master_info_check_for_read_only_error_msg_extra is 0
+SELECT @@global.skip_master_info_check_for_read_only_error_msg_extra;
+
+--echo skip_master_info_check_for_read_only_error_msg_extra is global varialbe
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.skip_master_info_check_for_read_only_error_msg_extra;
+
+set @@global.skip_master_info_check_for_read_only_error_msg_extra = 1;
+SELECT @@global.skip_master_info_check_for_read_only_error_msg_extra;
+
+SET @@global.skip_master_info_check_for_read_only_error_msg_extra = 0;
+SELECT @@global.skip_master_info_check_for_read_only_error_msg_extra;
