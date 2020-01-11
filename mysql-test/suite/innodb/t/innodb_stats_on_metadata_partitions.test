@@ -1,0 +1,34 @@
+CREATE TABLE t (a INT NOT NULL AUTO_INCREMENT,
+                b INT NOT NULL,
+                c INT DEFAULT NULL,
+                PRIMARY KEY (a, b),
+                KEY b (b, c)) ENGINE=InnoDB
+PARTITION BY RANGE (b)
+  (PARTITION p0 VALUES LESS THAN (100),
+   PARTITION p1 VALUES LESS THAN (200),
+   PARTITION p2 VALUES LESS THAN (300),
+   PARTITION p3 VALUES LESS THAN (MAXVALUE));
+
+INSERT INTO t VALUES (NULL, 0, 0);
+INSERT INTO t SELECT NULL, 0, 0 FROM t;
+INSERT INTO t SELECT NULL, 0, 0 FROM t a, t b, t c, t d, t e, t f, t g;
+
+ANALYZE TABLE t;
+
+SET innodb_stats_on_metadata = OFF;
+
+--let $cardinality = query_get_value(SELECT GROUP_CONCAT(Cardinality) AS c FROM information_schema.statistics WHERE Table_name='t' and Index_name='b', c, 1)
+--let $assert_cond = "$cardinality" = "1,1"
+--let $assert_text="Index 'b' cardinality is expected be 1 (when innodb_stats_on_metadata = OFF)"
+--source include/assert.inc
+
+SET innodb_stats_on_metadata = ON;
+
+--let $cardinality = query_get_value(SELECT GROUP_CONCAT(Cardinality) AS c FROM information_schema.statistics WHERE Table_name='t' and Index_name='b', c, 1)
+--let $assert_cond = "$cardinality" = "1,1"
+--let $assert_text="Index 'b' cardinality is expected be 1 (when innodb_stats_on_metadata = ON)"
+--source include/assert.inc
+
+SET innodb_stats_on_metadata = DEFAULT;
+
+DROP TABLE t;
