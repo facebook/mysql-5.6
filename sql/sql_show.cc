@@ -3896,6 +3896,33 @@ int fill_slave_db_load(THD* thd, TABLE_LIST* tables, Item* cond)
 
   DBUG_RETURN(error);
 }
+
+int fill_rbr_bi_inconsistencies(THD* thd, TABLE_LIST* tables, Item* cond)
+{
+  DBUG_ENTER("fill_rbr_bi_inconsistencies");
+  int error= 0;
+  TABLE *table= tables->table;
+  CHARSET_INFO *cs= system_charset_info;
+
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  for (const auto& entry : bi_inconsistencies)
+  {
+    restore_record(table, s->default_values);
+
+    /* Table name */
+    table->field[0]->store(entry.first.c_str(), entry.first.size(), cs);
+    /* Last inconsistent GTID */
+    table->field[1]->store(entry.second.c_str(), entry.second.size(), cs);
+
+    if (schema_table_store_record(thd, table))
+    {
+      error= 1;
+      break;
+    }
+  }
+
+  DBUG_RETURN(error);
+}
 #endif
 
 /*****************************************************************************
@@ -9943,6 +9970,15 @@ ST_FIELD_INFO slave_db_load_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO rbr_bi_inconsistencies_fields_info[]=
+{
+  {"TABLE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Table",
+   SKIP_OPEN_TABLE},
+  {"LAST_GTID", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Last GTID",
+   SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 ST_FIELD_INFO plugin_fields_info[]=
 {
   {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name",
@@ -10274,6 +10310,8 @@ ST_SCHEMA_TABLE schema_tables[]=
 #ifdef HAVE_REPLICATION
   {"SLAVE_DB_LOAD", slave_db_load_fields_info, create_schema_table,
    fill_slave_db_load, 0, 0, -1, -1, 0, 0},
+  {"RBR_BI_INCONSISTENCIES", rbr_bi_inconsistencies_fields_info,
+    create_schema_table, fill_rbr_bi_inconsistencies, 0, 0, -1, -1, 0, 0},
 #endif
   {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
    fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},

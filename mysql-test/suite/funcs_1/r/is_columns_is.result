@@ -244,6 +244,8 @@ def	information_schema	QUERY_ATTRIBUTES	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NUL
 def	information_schema	QUERY_PERF_COUNTER	CPU	2	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	1		NO	varchar	254	762	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(254)			select	
+def	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	2		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	RBR_BI_INCONSISTENCIES	TABLE	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	1		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
@@ -929,6 +931,8 @@ NULL	information_schema	QUERY_ATTRIBUTES	ID	bigint	NULL	NULL	NULL	NULL	bigint(21
 3.0000	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	varchar	254	762	utf8	utf8_general_ci	varchar(254)
 NULL	information_schema	QUERY_PERF_COUNTER	CPU	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	TABLE	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	varchar	192	576	utf8	utf8_general_ci	varchar(192)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)

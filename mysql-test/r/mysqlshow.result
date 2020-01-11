@@ -132,6 +132,7 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | QUERY_ATTRIBUTES                      |
 | QUERY_PERF_COUNTER                    |
+| RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
@@ -227,6 +228,7 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | QUERY_ATTRIBUTES                      |
 | QUERY_PERF_COUNTER                    |
+| RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |

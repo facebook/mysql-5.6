@@ -11524,7 +11524,7 @@ int Rows_log_event::do_index_scan_and_update(Relay_log_info const *rli,
     */
 
     // Save the before image in record[1]
-    if (rli->check_before_image_consistency)
+    if (opt_slave_check_before_image_consistency)
       store_record(m_table, record[1]);
 
     DBUG_PRINT("info",("locating record using primary key (position)"));
@@ -11639,18 +11639,25 @@ end:
   DBUG_ASSERT(error != HA_ERR_RECORD_DELETED);
 
   // Compare with BI of the relay log (which we stored in record[1])
-  if (!error && rli->check_before_image_consistency &&
+  if (!error && opt_slave_check_before_image_consistency &&
+      slave_exec_mode != SLAVE_EXEC_MODE_IDEMPOTENT &&
       !(m_table->file->ha_table_flags() & HA_READ_BEFORE_WRITE_REMOVAL) &&
       record_compare(m_table, tabledef, &m_cols))
   {
-    const_cast<Relay_log_info*>(rli)->inc_before_image_inconsistencies();
+    char gtid[Gtid_specification::MAX_TEXT_LENGTH];
+    global_sid_lock->rdlock();
+    thd->variables.gtid_next.to_string(global_sid_map, gtid);
+    global_sid_lock->unlock();
+
+    update_before_image_inconsistencies(
+        m_table->s->db.str, m_table->s->table_name.str, gtid);
     if (log_warnings > 1)
     {
       sql_print_warning("Slave before-image consistency check failed at "
                         "position: %s:%llu (gtid: %s)", rli->get_rpl_log_name(),
-                        log_pos, rli->last_gtid);
+                        log_pos, gtid);
     }
-    if (rli->check_before_image_consistency ==
+    if (opt_slave_check_before_image_consistency ==
         Log_event::enum_check_before_image_consistency::BI_CHECK_ON)
     {
       error= HA_ERR_END_OF_FILE;

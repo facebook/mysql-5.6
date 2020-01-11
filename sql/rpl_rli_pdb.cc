@@ -320,7 +320,6 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   mts_dependency_refill_threshold= c_rli->mts_dependency_refill_threshold;
   mts_dependency_max_keys= c_rli->mts_dependency_max_keys;
   mts_dependency_order_commits= c_rli->mts_dependency_order_commits;
-  check_before_image_consistency= c_rli->check_before_image_consistency;
 
   DBUG_RETURN(0);
 }

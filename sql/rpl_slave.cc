@@ -6674,8 +6674,6 @@ pthread_handler_t handle_slave_sql(void *arg)
   if (opt_rbr_idempotent_tables)
     rli->rbr_idempotent_tables = split_into_set(opt_rbr_idempotent_tables, ',');
 
-  rli->check_before_image_consistency= opt_slave_check_before_image_consistency;
-
   if (opt_rbr_column_type_mismatch_whitelist)
   {
     const auto& list=
@@ -9930,6 +9928,30 @@ err:
   }
   DBUG_RETURN(ret);
 }
+
+/* counter for the number of BI inconsistencies found */
+ulong before_image_inconsistencies= 0;
+/* table_name -> last gtid for BI inconsistencies */
+std::unordered_map<std::string, std::string> bi_inconsistencies;
+/* mutex for counter and map */
+std::mutex bi_inconsistency_lock;
+
+void update_before_image_inconsistencies(
+    const char* db, const char* table, const char* gtid)
+{
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  ++before_image_inconsistencies;
+  std::string fqtn= std::string(db) + "." + std::string(table);
+  bi_inconsistencies[fqtn]= gtid;
+}
+
+ulong get_num_before_image_inconsistencies()
+{
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  return before_image_inconsistencies;
+}
+
+
 /**
   @} (end of group Replication)
 */

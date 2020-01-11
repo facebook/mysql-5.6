@@ -1,1 +1,5 @@
+--gtid_mode=ON
+--enforce_gtid_consistency
+--log_slave_updates
 --slave_check_before_image_consistency=ON
+--slave_parallel_workers=8

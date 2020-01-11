@@ -512,16 +512,6 @@ public:
   {
     return current_db;
   }
-  virtual void inc_before_image_inconsistencies() override
-  {
-    DBUG_ASSERT(c_rli);
-    if (likely(c_rli)) c_rli->inc_before_image_inconsistencies();
-  }
-  virtual ulong get_before_image_inconsistencies() const override
-  {
-    DBUG_ASSERT(c_rli);
-    return c_rli ? c_rli->get_before_image_inconsistencies() : 0;
-  }
   virtual const std::unordered_set<std::string>*
         get_rbr_column_type_mismatch_whitelist() const override
   {

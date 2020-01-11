@@ -26,6 +26,9 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -37,6 +40,10 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -48,6 +55,10 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -58,6 +69,10 @@ update t4 set b = 2;
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:11
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -117,6 +132,10 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	3
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -128,6 +147,10 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	3
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -139,6 +162,10 @@ include/wait_for_slave_sql_error.inc [errno=1032]
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	3
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -149,6 +176,10 @@ update t4 set b = 2;
 show status like 'Slave_before_image_inconsistencies';
 Variable_name	Value
 Slave_before_image_inconsistencies	3
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t2	uuid:12
+test.t1	uuid:27
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;

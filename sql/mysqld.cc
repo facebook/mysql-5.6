@@ -9976,13 +9976,11 @@ static int show_slave_dependency_next_waits(THD *thd, SHOW_VAR *var, char *buff)
 static int show_slave_before_image_inconsistencies(THD *thd, SHOW_VAR *var,
                                                    char *buff)
 {
-  if (active_mi && active_mi->rli &&
-      active_mi->rli->check_before_image_consistency)
+  if (opt_slave_check_before_image_consistency)
   {
     var->type= SHOW_LONGLONG;
     var->value= buff;
-    *((ulonglong *)buff)=
-      (ulonglong) active_mi->rli->get_before_image_inconsistencies();
+    *((ulonglong *)buff)= (ulonglong) get_num_before_image_inconsistencies();
   }
   else
     var->type= SHOW_UNDEF;

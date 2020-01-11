@@ -352,7 +352,14 @@ extern char *report_host, *report_password;
 extern my_bool master_ssl;
 extern char *master_ssl_ca, *master_ssl_capath, *master_ssl_cert;
 extern char *master_ssl_cipher, *master_ssl_key;
-       
+
+extern ulong before_image_inconsistencies;
+extern std::unordered_map<std::string, std::string> bi_inconsistencies;
+extern std::mutex bi_inconsistency_lock;
+extern void update_before_image_inconsistencies(
+    const char* db, const char* table, const char* gtid);
+extern ulong get_num_before_image_inconsistencies();
+
 int mts_recovery_groups(Relay_log_info *rli);
 bool mts_checkpoint_routine(Relay_log_info *rli, ulonglong period,
                             bool force, bool need_data_lock);

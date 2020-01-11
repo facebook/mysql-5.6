@@ -98,6 +98,7 @@ USER_STATISTICS
 VIEWS
 AUTHINFO
 SLAVE_DB_LOAD
+RBR_BI_INCONSISTENCIES
 SCHEMATA_EXT
 SOCKET_DIAG_SLAVES
 USER_TABLE_STATISTICS
@@ -947,7 +948,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	52
+information_schema	53
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1414,6 +1415,7 @@ PROCESSLIST	information_schema.PROCESSLIST	1
 PROFILING	information_schema.PROFILING	1
 QUERY_ATTRIBUTES	information_schema.QUERY_ATTRIBUTES	1
 QUERY_PERF_COUNTER	information_schema.QUERY_PERF_COUNTER	1
+RBR_BI_INCONSISTENCIES	information_schema.RBR_BI_INCONSISTENCIES	1
 REFERENTIAL_CONSTRAINTS	information_schema.REFERENTIAL_CONSTRAINTS	1
 ROUTINES	information_schema.ROUTINES	1
 SCHEMATA	information_schema.SCHEMATA	1
