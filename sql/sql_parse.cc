@@ -1933,6 +1933,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         const char *beginning_of_next_stmt = parser_state.m_lip.found_semicolon;
 
         /* Finalize server status flags after executing a statement. */
+        thd->finalize_session_trackers();
         thd->update_slow_query_status();
         thd->send_statement_status();
 
@@ -2295,15 +2296,8 @@ done:
   DBUG_ASSERT(thd->open_tables == NULL ||
               (thd->locked_tables_mode == LTM_LOCK_TABLES));
 
-  if (((thd->locked_tables_mode != LTM_NONE) ||
-       thd->mdl_context.has_locks(MDL_key::USER_LEVEL_LOCK)) &&
-      thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
-          ->is_enabled()) {
-    thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)
-        ->mark_as_changed(thd, NULL);
-  }
-
   /* Finalize server status flags after executing a command. */
+  thd->finalize_session_trackers();
   thd->update_slow_query_status();
   if (thd->killed) thd->send_kill_message();
   thd->send_statement_status();

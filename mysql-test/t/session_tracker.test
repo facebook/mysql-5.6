@@ -452,10 +452,58 @@ SELECT RELEASE_LOCK("session_state_change_user_lock");
 --echo # reset the session.
 --reset_connection
 
+SET @@session.session_track_state_change=ON;
+--echo # Test multiquery as well, first statement needs to have the changes
+delimiter |;
+--echo # expect 1
+--error ER_BAD_FIELD_ERROR
+SELECT GET_LOCK("session_state_change_user_lock", 3);select syntaxerror|
+delimiter ;|
+
+--echo # reset the session.
+--reset_connection
+
+SET @@session.session_track_state_change=ON;
+--echo # Test multiquery as well, first statement needs to have the changes
+delimiter |;
+--echo # expect 1 for both, currently we report changes if previous statements
+--echo # changed state, this may change in future to be only if current query
+--echo # changes state. This may change when upstream implements this in
+--echo # https://bugs.mysql.com/bug.php?id=97885
+SELECT GET_LOCK("session_state_change_user_lock", 3);select 2|
+delimiter ;|
+
+--echo # reset the session.
+--reset_connection
+
 --echo # CASE7: lock table statements
 SET @@session.session_track_state_change=ON;
 --echo # expect 1
 LOCK TABLES test.t READ;
+
+--echo # reset the session.
+--reset_connection
+
+SET @@session.session_track_state_change=ON;
+--echo # Test multiquery as well, first statement needs to have the changes
+delimiter |;
+--echo # expect 1
+--error ER_BAD_FIELD_ERROR
+LOCK TABLES test.t READ;select syntaxerror|
+delimiter ;|
+
+--echo # reset the session.
+--reset_connection
+
+SET @@session.session_track_state_change=ON;
+--echo # Test multiquery as well, first statement needs to have the changes
+delimiter |;
+--echo # expect 1 for both, currently we report changes if previous statements
+--echo # changed state, this may change in future to be only if current query
+--echo # changes state. This may change when upstream implements this in
+--echo # https://bugs.mysql.com/bug.php?id=97885
+LOCK TABLES test.t READ;select 2|
+delimiter ;|
 
 --echo # reset the session.
 --reset_connection
