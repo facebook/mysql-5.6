@@ -1322,10 +1322,16 @@ int raft_plugin_init()
     if (strcmp(plugin_ptr->name.str, "RPL_RAFT") != 0)
       continue;
 
+    sql_print_information("Found raft plugin");
+
     if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED)
     {
+      sql_print_information("Initializing raft plugin");
+
       if (plugin_initialize(plugin_ptr))
       {
+        sql_print_error("Can't initialize the raft plugin. "
+                        "It will leave RPL_RAFT in inactive state.");
         mysql_mutex_unlock(&LOCK_plugin);
         plugin_ptr->state= PLUGIN_IS_DYING;
         plugin_deinitialize(plugin_ptr, true);

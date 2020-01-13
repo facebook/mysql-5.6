@@ -491,6 +491,12 @@ typedef struct Raft_replication_observer {
                         uint64_t port);
 } Raft_replication_observer;
 
+// Finer grained error code during deregister of observer
+// Observer was not present in delegate (i.e. not
+// previously added to delegate ), and should be safe
+// to ignore.
+#define MYSQL_REPLICATION_OBSERVER_NOT_FOUND 2
+
 /**
    Register a transaction observer
 

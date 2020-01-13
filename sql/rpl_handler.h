@@ -64,6 +64,10 @@ public:
     return ret;
   }
 
+  // In some observers like raft, it might be that deinit
+  // will be called when observers have not been added
+  // In that case remove_observer will return OBSERVER_NOT_FOUND
+  // instead of TRUE
   int remove_observer(void *observer, st_plugin_int *plugin)
   {
     int ret= FALSE;
@@ -80,7 +84,7 @@ public:
       delete info;
     }
     else
-      ret= TRUE;
+      ret= MYSQL_REPLICATION_OBSERVER_NOT_FOUND;
     unlock();
     return ret;
   }
