@@ -19738,14 +19738,14 @@ ER_PLACEHOLDER_50028
 ER_PLACEHOLDER_50029
   eng "Placeholder"
 
-ER_INVALID_UUID
-  eng "Invalid UUID '%s'"
+ER_PLACEHOLDER_50030
+  eng "Placeholder"
 
-ER_CANNOT_PURGE_SERVER_UUID
-  eng "Cannot purge uuid of this server or uuid of master server"
+ER_PLACEHOLDER_50031
+  eng "Placeholder"
 
-ER_UUID_NOT_IN_EXECUTED_GTID_SET
-  eng "%s is not present in executed gtid set"
+ER_PLACEHOLDER_50032
+  eng "Placeholder"
 
 ER_PLACEHOLDER_50033
   eng "Placeholder"

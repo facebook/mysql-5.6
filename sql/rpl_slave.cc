@@ -786,25 +786,6 @@ int stop_slave(THD *thd) {
   DBUG_RETURN(error);
 }
 
-void get_master_sidno(THD *thd, rpl_sidno &master_sidno) {
-  // We should not purge gtids received from current active master.
-  channel_map.wrlock();
-  const auto lex = thd->lex;
-
-  const auto active_mi = channel_map.get_mi(
-      lex->mi.channel ? lex->mi.channel : channel_map.get_default_channel());
-  if (active_mi && active_mi->master_uuid[0]) {
-    global_sid_lock->rdlock();
-    rpl_sid master_sid;
-    if (master_sid.parse(active_mi->master_uuid,
-                         strlen(active_mi->master_uuid)))
-      DBUG_ASSERT(false);
-    master_sidno = global_sid_map->sid_to_sidno(master_sid);
-    global_sid_lock->unlock();
-  }
-  channel_map.unlock();
-}
-
 /**
   Entry point to the START SLAVE command. The function
   decides to start replication threads on several channels

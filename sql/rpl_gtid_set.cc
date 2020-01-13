@@ -306,22 +306,6 @@ void Gtid_set::clear_set_and_sid_map() {
   DBUG_VOID_RETURN;
 }
 
-void Gtid_set::remove(const rpl_sidno_container &sidnos) {
-  if (sid_lock != nullptr) sid_lock->assert_some_wrlock();
-  cached_string_length = -1;
-  has_cached_string_length = false;
-  rpl_sidno max_sidno = get_max_sidno();
-  if (max_sidno == 0) return;
-  Free_intervals_lock lock(this);
-  lock.lock_if_not_locked();
-  for (auto sidno : sidnos) {
-    if (sidno >= 1 && sidno <= max_sidno) {
-      Interval_iterator ivit(this, sidno);
-      if (ivit.get()) ivit.remove(this);
-    }
-  }
-}
-
 void Gtid_set::add_gno_interval(Interval_iterator *ivitp, rpl_gno start,
                                 rpl_gno end, Free_intervals_lock *lock) {
   DBUG_ENTER(

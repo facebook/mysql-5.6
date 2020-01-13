@@ -27,7 +27,6 @@
 #include <list>
 #include <map>
 #include <string>
-#include <vector>
 
 #include "libbinlogevents/include/uuid.h"
 #include "map_helpers.h"
@@ -1285,8 +1284,6 @@ class Gtid_monitoring_info {
                              ulong trans_retries_arg);
 };
 
-using rpl_sidno_container = std::vector<rpl_sidno>;
-
 /**
   Represents a set of GTIDs.
 
@@ -1354,14 +1351,6 @@ class Gtid_set {
     existing allocated memory will be re-used.
   */
   void clear();
-
-  /**
-    Removes the sidnos (and their intervals) from the logged state.
-
-    @params sidnos List of rpl_sidno to remove.
-  */
-  void remove(const rpl_sidno_container &sidnos);
-
   /**
     Removes all gtids from this Gtid_set and clear all the sidnos
     used by the Gtid_set and it's SID map.
@@ -3069,7 +3058,6 @@ class Gtid_state {
   const Gtid_set *get_previous_gtids_logged() const {
     return &previous_gtids_logged;
   }
-  Gtid_set *get_previous_gtids_logged() { return &previous_gtids_logged; }
   /// Return a pointer to the Owned_gtids that contains the owned gtids.
   const Owned_gtids *get_owned_gtids() const { return &owned_gtids; }
   /// Return the server's SID's SIDNO

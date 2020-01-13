@@ -13403,11 +13403,6 @@ purge:
 
 purge_options:
           master_or_binary LOGS_SYM purge_option
-          | GTID_SYM TEXT_STRING_sys_nonewline
-          {
-            Lex->sql_command = SQLCOM_PURGE_UUID;
-            Lex->gtid_string = $2.str;
-          }
         ;
 
 purge_option:
