@@ -1,55 +1,55 @@
 CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
-INSERT INTO valid_values VALUES(0);
-INSERT INTO valid_values VALUES(1);
-INSERT INTO valid_values VALUES(2);
-INSERT INTO valid_values VALUES(3);
+INSERT INTO valid_values VALUES('always_on');
+INSERT INTO valid_values VALUES('opt_in');
+INSERT INTO valid_values VALUES('opt_out');
+INSERT INTO valid_values VALUES('always_off');
 CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
 INSERT INTO invalid_values VALUES('\'aaa\'');
 SET @start_global_value = @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 SELECT @start_global_value;
 @start_global_value
-0
+always_off
 '# Setting to valid values in global scope#'
-"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to 0"
-SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = 0;
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to always_on"
+SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = always_on;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
+always_on
 "Setting the global scope variable back to default"
 SET @@global.ROCKSDB_SELECT_BYPASS_POLICY = DEFAULT;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
-"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to 1"
-SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = 1;
+always_off
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to opt_in"
+SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = opt_in;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-1
+opt_in
 "Setting the global scope variable back to default"
 SET @@global.ROCKSDB_SELECT_BYPASS_POLICY = DEFAULT;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
-"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to 2"
-SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = 2;
+always_off
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to opt_out"
+SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = opt_out;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-2
+opt_out
 "Setting the global scope variable back to default"
 SET @@global.ROCKSDB_SELECT_BYPASS_POLICY = DEFAULT;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
-"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to 3"
-SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = 3;
+always_off
+"Trying to set variable @@global.ROCKSDB_SELECT_BYPASS_POLICY to always_off"
+SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = always_off;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-3
+always_off
 "Setting the global scope variable back to default"
 SET @@global.ROCKSDB_SELECT_BYPASS_POLICY = DEFAULT;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
+always_off
 "Trying to set variable @@session.ROCKSDB_SELECT_BYPASS_POLICY to 444. It should fail because it is not session."
 SET @@session.ROCKSDB_SELECT_BYPASS_POLICY   = 444;
 ERROR HY000: Variable 'rocksdb_select_bypass_policy' is a GLOBAL variable and should be set with SET GLOBAL
@@ -59,10 +59,10 @@ SET @@global.ROCKSDB_SELECT_BYPASS_POLICY   = 'aaa';
 Got one of the listed errors
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
+always_off
 SET @@global.ROCKSDB_SELECT_BYPASS_POLICY = @start_global_value;
 SELECT @@global.ROCKSDB_SELECT_BYPASS_POLICY;
 @@global.ROCKSDB_SELECT_BYPASS_POLICY
-0
+always_off
 DROP TABLE valid_values;
 DROP TABLE invalid_values;

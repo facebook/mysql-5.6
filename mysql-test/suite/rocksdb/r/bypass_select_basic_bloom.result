@@ -332,16 +332,16 @@ insert into link_table4 values ('b1', "rk7", 3, 2, 1, 1, 'data32', 1, 1);
 # Default
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SELECT @@rocksdb_select_bypass_policy INTO @save_rocksdb_select_bypass_policy;
 # Always off
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SET GLOBAL rocksdb_select_bypass_policy=0;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
@@ -365,11 +365,11 @@ SELECT @b-@a;
 # Always on
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SET GLOBAL rocksdb_select_bypass_policy=1;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-1
+always_on
 SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
@@ -403,11 +403,11 @@ SELECT @b-@a;
 # Opt-in
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-1
+always_on
 SET GLOBAL rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 SELECT variable_value into @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
@@ -495,11 +495,11 @@ SELECT @b-@a;
 # Opt-out
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 set global rocksdb_select_bypass_policy=3;
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-3
+opt_out
 SELECT variable_value INTO @a FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
@@ -1064,8 +1064,8 @@ DROP TABLE link_table6;
 DROP TABLE link_table4;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-3
+opt_out
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
