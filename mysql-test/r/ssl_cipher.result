@@ -3,7 +3,7 @@
 #
 # must return DHE-RSA-AES256-SHA
 Variable_name	Value
-Ssl_cipher	DHE-RSA-AES256-SHA
+Ssl_cipher	ECDHE-RSA-AES256-SHA
 Variable_name	Value
-Ssl_cipher_list	TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:DHE-RSA-AES256-SHA
+Ssl_cipher_list	ECDHE-RSA-AES256-SHA
 # must fail since the default SSL cipher is not compatible

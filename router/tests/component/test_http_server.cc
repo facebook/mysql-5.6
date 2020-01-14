@@ -77,6 +77,12 @@ const std::string kHttpBasedir(kPlaceholderHttpBaseDir);
 
 uint16_t kHttpDefaultPort{8081};
 
+// Static linking BoringSSL causes test failures because you would have
+// multiple copies of BoringSSL code and passing around SSL/SSL_CTX between
+// modules with their own copies means undefined behavior. This disables
+// those scenarios and related code. Same for other #ifndef
+// OPENSSL_IS_BORINGSSL below
+#ifndef OPENSSL_IS_BORINGSSL
 static constexpr const char kSslSupportIsDisabled[]{
     "SSL support disabled at compile-time"};
 
@@ -89,6 +95,7 @@ static constexpr bool is_with_ssl_support() {
 #endif
       ;
 }
+#endif
 
 static void ParamPrinter(
     const std::vector<std::pair<std::string, std::string>> &fields,
@@ -800,13 +807,18 @@ INSTANTIATE_TEST_CASE_P(
 const char kServerCertFile[]{"server-cert.pem"};  // 2048 bit
 const char kServerKeyFile[]{"server-key.pem"};
 const char kServerCertCaFile[]{"cacert.pem"};
+#ifndef OPENSSL_IS_BORINGSSL
 static const char kServerCertRsa1024File[]{"crl-server-cert.pem"};  // 1024 bit
+#endif
 
 #ifdef EVENT__HAVE_OPENSSL
 static const char kWrongServerCertCaFile[]{"ca-sha512.pem"};
 #endif
 const char kDhParams4File[]{"dhparams-4.pem"};
+
+#ifndef OPENSSL_IS_BORINGSSL
 const char kDhParams2048File[]{"dhparams-2048.pem"};
+#endif
 
 /**
  * params of HTTPS server tests.
@@ -997,16 +1009,20 @@ TEST_P(HttpClientSecureTest, ensure) {
 #ifdef EVENT__HAVE_OPENSSL
 static const HttpClientSecureParams http_client_secure_params[]{
     //
+#ifndef OPENSSL_IS_BORINGSSL
     {"default-client-cipher", "WL12524::TS_CR_06", kServerCertCaFile,
      TlsVersion::TLS_1_2, TlsVersion::AUTO, true, "", ""},
+#endif
     {"SSL3", "WL12524::TS_SR1_01", kServerCertCaFile, TlsVersion::SSL_3,
      TlsVersion::SSL_3, false, "", "invalid cipher"},
     {"TLSv1.0", "WL12524::TS_SR1_01", kServerCertCaFile, TlsVersion::TLS_1_0,
      TlsVersion::TLS_1_0, false, "", "invalid cipher"},
     {"TLSv1.1", "WL12524::TS_SR1_01", kServerCertCaFile, TlsVersion::TLS_1_1,
      TlsVersion::TLS_1_1, false, "", "invalid cipher"},
+#ifndef OPENSSL_IS_BORINGSSL
     {"TLSv1.2", "", kServerCertCaFile, TlsVersion::TLS_1_2, TlsVersion::TLS_1_2,
      true, "", ""},
+#endif
     {"TLSv1.2+ with TLS1.1 cipher", "WL12524::TS_SR2_01", kServerCertCaFile,
      TlsVersion::TLS_1_2, TlsVersion::AUTO, false, "AES128-SHA",
      "invalid cipher"},
@@ -1200,6 +1216,7 @@ const HttpServerSecureParams http_server_secure_params[] {
        },
        false,
        "using SSL certificate file 'does-not-exist' failed"},
+#ifndef OPENSSL_IS_BORINGSSL
 // This fails with OpenSSL 1.1.1 that added TLS1.3 default ciphers that we can't
 // disable
 #if (OPENSSL_VERSION_NUMBER < 0x10101000L)
@@ -1249,6 +1266,7 @@ const HttpServerSecureParams http_server_secure_params[] {
        // success otherwise
        is_with_ssl_support(),
        is_with_ssl_support() ? "" : kSslSupportIsDisabled},
+#endif
       {"dh_param file does not exist",
        "",
        {
@@ -1277,6 +1295,7 @@ const HttpServerSecureParams http_server_secure_params[] {
        },
        false,
        "failed to parse dh-param file"},
+#ifndef OPENSSL_IS_BORINGSSL
       {"dh ciphers, default dh-params",
        "WL12524::TS_CR_09",
        {
@@ -1328,6 +1347,7 @@ const HttpServerSecureParams http_server_secure_params[] {
        // success otherwise
        is_with_ssl_support(),
        is_with_ssl_support() ? "" : kSslSupportIsDisabled},
+#endif
       {"dh ciphers, weak dh-params",
        "WL12524::TS_SR7_01",
        {
@@ -1354,7 +1374,7 @@ INSTANTIATE_TEST_CASE_P(
           (info.param.expected_success ? "_works" : "_fails"));
     });
 
-#if (OPENSSL_VERSION_NUMBER >= 0x1000200fL)
+#if (OPENSSL_VERSION_NUMBER >= 0x1000200fL) and !defined(OPENSSL_IS_BORINGSSL)
 // the bitsize of the public key can only be determined with
 // openssl 1.0.2 and later
 const HttpServerSecureParams http_server_secure_openssl102_plus_params[]{

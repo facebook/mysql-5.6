@@ -4,4 +4,4 @@ Ssl_sessions_reused	0
 Variable_name	Value
 Ssl_sessions_reused	1
 Variable_name	Value
-Ssl_session_cache_hits	2
+Ssl_session_cache_hits	0

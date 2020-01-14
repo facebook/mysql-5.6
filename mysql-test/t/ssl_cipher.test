@@ -13,7 +13,7 @@
 
 --echo # must return DHE-RSA-AES256-SHA
 # need to use mysql since mysqltest doesn't support --ssl-cipher
---exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher'; SHOW STATUS LIKE 'Ssl_cipher_list'" --ssl-mode=REQUIRED --tls-version=TLSv1.2 --ssl-cipher=DHE-RSA-AES256-SHA
+--exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher'; SHOW STATUS LIKE 'Ssl_cipher_list'" --ssl-mode=REQUIRED --tls-version=TLSv1.2 --ssl-cipher=ECDHE-RSA-AES256-SHA
 
 --echo # must fail since the default SSL cipher is not compatible
 --error 1

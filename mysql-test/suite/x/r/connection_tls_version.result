@@ -164,7 +164,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: protocol version mismatch (code 2026)
+Application terminated with expected error: error:100000f0:SSL routines:OPENSSL_internal:UNSUPPORTED_PROTOCOL (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -179,7 +179,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: protocol version mismatch (code 2026)
+Application terminated with expected error: error:100000f0:SSL routines:OPENSSL_internal:UNSUPPORTED_PROTOCOL (code 2026)
 ok
 Application terminated with expected error: TLS version is invalid (code 2026)
 ok
@@ -223,7 +223,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: socket layer receive error (code 2026)
+Application terminated with expected error: error:1000042e:SSL routines:OPENSSL_internal:TLSV1_ALERT_PROTOCOL_VERSION (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -238,7 +238,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: socket layer receive error (code 2026)
+Application terminated with expected error: error:1000042e:SSL routines:OPENSSL_internal:TLSV1_ALERT_PROTOCOL_VERSION (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -422,7 +422,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: protocol version mismatch (code 2026)
+Application terminated with expected error: error:100000f0:SSL routines:OPENSSL_internal:UNSUPPORTED_PROTOCOL (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -437,7 +437,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: protocol version mismatch (code 2026)
+Application terminated with expected error: error:100000f0:SSL routines:OPENSSL_internal:UNSUPPORTED_PROTOCOL (code 2026)
 ok
 Application terminated with expected error: TLS version is invalid (code 2026)
 ok
@@ -481,7 +481,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: socket layer receive error (code 2026)
+Application terminated with expected error: error:1000042e:SSL routines:OPENSSL_internal:TLSV1_ALERT_PROTOCOL_VERSION (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
@@ -496,7 +496,7 @@ Mysqlx.Ok {
   msg: "bye!"
 }
 ok
-Application terminated with expected error: socket layer receive error (code 2026)
+Application terminated with expected error: error:1000042e:SSL routines:OPENSSL_internal:TLSV1_ALERT_PROTOCOL_VERSION (code 2026)
 ok
 CONNECTION_TYPE
 SSL/TLS
