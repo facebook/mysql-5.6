@@ -331,12 +331,12 @@ insert into link_table4 values ('b1', "rk6", 2, 2, 1, 1, 'data22', 1, 1);
 insert into link_table4 values ('b1', "rk7", 3, 2, 1, 1, 'data32', 1, 1);
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 select @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=2;
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 SELECT variable_value into @executed_start
 FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
@@ -2397,11 +2397,11 @@ Rows_sent	2
 # Switch back to default connection
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 select @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SELECT variable_value into @executed_end
 FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
