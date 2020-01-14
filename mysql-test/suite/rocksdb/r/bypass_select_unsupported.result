@@ -1,12 +1,12 @@
 # restart
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
 c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
@@ -251,11 +251,11 @@ SELECT /*+ bypass */ a FROM t4 WHERE a=1;
 ERROR 42000: SELECT statement pattern not supported: NULL fields not supported
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-2
+opt_in
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 SELECT @@rocksdb_select_bypass_policy;
 @@rocksdb_select_bypass_policy
-0
+always_off
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 @@rocksdb_select_bypass_fail_unsupported
 1

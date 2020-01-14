@@ -1100,7 +1100,7 @@ class Rdb_compaction_stats {
 extern Rdb_compaction_stats compaction_stats;
 
 /* Whether ROCKSDB_ENABLE_SELECT_BYPASS is enabled */
-uint32_t get_select_bypass_policy();
+select_bypass_policy_type get_select_bypass_policy();
 
 /* Whether we should log unsupported SELECT bypass */
 bool should_fail_unsupported_select_bypass();

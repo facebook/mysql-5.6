@@ -225,21 +225,21 @@ const char *const RDB_TTL_COL_QUALIFIER = "ttl_col";
   0x2 = FORCED/DEFAULT MASK, whether the ON/OFF bit is being FORCED (0x0)
   or simply inteneded as DEFAULT (0x1).
 
-  This effectively means:
-
-  ALWAYS_OFF = 0x0, always off regardless of hint. This is the default
-  ALWAYS_ON  = 0x1, always on regardless of hint
-  OPT_IN     = 0x2, default off, turn on with +bypass hint
-  OPT_OUT    = 0x3, default on, turn off with +no_bypass hint
+  always_off = 0x0, always off regardless of hint. This is the default
+  always_on  = 0x1, always on regardless of hint
+  opt_in     = 0x2, default off, turn on with +bypass hint
+  opt_out    = 0x3, default on, turn off with +no_bypass hint
  */
 #define SELECT_BYPASS_POLICY_ON_MASK 0x1
 #define SELECT_BYPASS_POLICY_DEFAULT_MASK 0x2
-#define SELECT_BYPASS_POLICY_ALWAYS_OFF 0x0
-#define SELECT_BYPASS_POLICY_OPT_IN SELECT_BYPASS_POLICY_DEFAULT_MASK
-#define SELECT_BYPASS_POLICY_OPT_OUT \
-  (SELECT_BYPASS_POLICY_DEFAULT_MASK | SELECT_BYPASS_POLICY_ON_MASK)
-#define SELECT_BYPASS_POLICY_ALWAYS_ON SELECT_BYPASS_POLICY_ON_MASK
-#define SELECT_BYPASS_POLICY_DEFAULT SELECT_BYPASS_POLICY_ALWAYS_OFF
+
+enum select_bypass_policy_type {
+  always_off = 0,
+  always_on = SELECT_BYPASS_POLICY_ON_MASK,
+  opt_in = SELECT_BYPASS_POLICY_DEFAULT_MASK,
+  opt_out = (SELECT_BYPASS_POLICY_DEFAULT_MASK | SELECT_BYPASS_POLICY_ON_MASK),
+  default_value = 0
+};
 
 /*
   Defines the field sizes for serializing XID object to a string representation.

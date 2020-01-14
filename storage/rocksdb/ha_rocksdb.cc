@@ -783,7 +783,8 @@ static bool rocksdb_enable_insert_with_update_caching = true;
 /* Use unsigned long long instead of uint64_t because of MySQL compatibility */
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_max_compaction_history = 0;
-static uint32_t rocksdb_select_bypass_policy = SELECT_BYPASS_POLICY_DEFAULT;
+static ulong rocksdb_select_bypass_policy =
+    select_bypass_policy_type::default_value;
 static bool rocksdb_select_bypass_fail_unsupported = true;
 static bool rocksdb_select_bypass_log_rejected = true;
 static bool rocksdb_select_bypass_log_failed = false;
@@ -985,6 +986,15 @@ static const char *read_free_rpl_names[] = {"OFF", "PK_ONLY", "PK_SK", NullS};
 static TYPELIB read_free_rpl_typelib = {array_elements(read_free_rpl_names) - 1,
                                         "read_free_rpl_typelib",
                                         read_free_rpl_names, nullptr};
+
+/* This enum needs to be kept up to date with myrocks::select_bypass_policy_type
+ */
+static const char *select_bypass_policy_names[] = {"always_off", "always_on",
+                                                   "opt_in", "opt_out", NullS};
+
+static TYPELIB select_bypass_policy_typelib = {
+    array_elements(select_bypass_policy_names) - 1,
+    "select_bypass_policy_typelib", select_bypass_policy_names, nullptr};
 
 /* This enum needs to be kept up to date with rocksdb::InfoLogLevel */
 static const char *info_log_level_names[] = {"debug_level", "info_level",
@@ -2323,13 +2333,12 @@ static MYSQL_THDVAR_BOOL(disable_file_deletions,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_RQCMDARG,
                          "Prevent file deletions", nullptr,
                          rocksdb_disable_file_deletions_update, false);
-static MYSQL_SYSVAR_UINT(
+static MYSQL_SYSVAR_ENUM(
     select_bypass_policy, rocksdb_select_bypass_policy, PLUGIN_VAR_RQCMDARG,
-    "Change bypass SELECT related policy and allow directly talk to RocksDB",
-    nullptr, nullptr,
-    /* default */ SELECT_BYPASS_POLICY_DEFAULT,
-    /* min */ SELECT_BYPASS_POLICY_ALWAYS_OFF,
-    /* max */ SELECT_BYPASS_POLICY_OPT_OUT, 0);
+    "Change bypass SELECT related policy and allow directly talk to RocksDB. "
+    "Valid values include 'always_off', 'always_on', 'opt_in', 'opt_out'. ",
+    nullptr, nullptr, select_bypass_policy_type::default_value,
+    &select_bypass_policy_typelib);
 
 static MYSQL_SYSVAR_BOOL(
     select_bypass_fail_unsupported, rocksdb_select_bypass_fail_unsupported,
@@ -16034,7 +16043,10 @@ static bool parse_fault_injection_params(
   return false;
 }
 
-uint32_t get_select_bypass_policy() { return rocksdb_select_bypass_policy; }
+select_bypass_policy_type get_select_bypass_policy() {
+  return static_cast<select_bypass_policy_type>(rocksdb_select_bypass_policy);
+}
+
 
 bool should_fail_unsupported_select_bypass() {
   return rocksdb_select_bypass_fail_unsupported;

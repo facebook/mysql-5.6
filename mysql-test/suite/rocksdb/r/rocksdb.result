@@ -1007,7 +1007,7 @@ rocksdb_select_bypass_fail_unsupported	ON
 rocksdb_select_bypass_log_failed	OFF
 rocksdb_select_bypass_log_rejected	ON
 rocksdb_select_bypass_multiget_min	18446744073709551615
-rocksdb_select_bypass_policy	0
+rocksdb_select_bypass_policy	always_off
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_sim_cache_size	0
 rocksdb_skip_bloom_filter_on_read	OFF
