@@ -646,7 +646,7 @@ class ha_rocksdb : public my_core::handler {
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
- 
+
 
   // Multi-Range-Read implmentation
   ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
@@ -1090,7 +1090,7 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
 std::string rdb_corruption_marker_file_name();
 
 /* Whether ROCKSDB_ENABLE_SELECT_BYPASS is enabled */
-uint32_t get_select_bypass_policy();
+select_bypass_policy_type get_select_bypass_policy();
 
 /* Whether we should log unsupported SELECT bypass */
 bool should_fail_unsupported_select_bypass();

@@ -2095,7 +2095,7 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
 }  // namespace
 
 bool inline is_bypass_on(st_select_lex *select_lex) {
-  uint32_t policy = get_select_bypass_policy();
+  auto policy = get_select_bypass_policy();
 
   if ((policy & SELECT_BYPASS_POLICY_DEFAULT_MASK) == 0) {
     // Force on/off ignoring statement level hint

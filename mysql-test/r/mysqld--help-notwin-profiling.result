@@ -1562,9 +1562,10 @@ The following options may be given as the first argument:
  Minimum number of items to use RocksDB MultiGet API.
  Default is SIZE_T_MAX meaning it is turned off. Set to 0
  to enable always using MultiGet
- --rocksdb-select-bypass-policy=# 
+ --rocksdb-select-bypass-policy=name 
  Change bypass SELECT related policy and allow directly
- talk to RocksDB
+ talk to RocksDB. Valid values include 'always_off',
+ 'always_on', 'opt_in', 'opt_out'. 
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
  --rocksdb-sim-cache-size=# 
@@ -2514,7 +2515,7 @@ rocksdb-select-bypass-fail-unsupported TRUE
 rocksdb-select-bypass-log-failed FALSE
 rocksdb-select-bypass-log-rejected TRUE
 rocksdb-select-bypass-multiget-min 18446744073709551615
-rocksdb-select-bypass-policy 0
+rocksdb-select-bypass-policy always_off
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE

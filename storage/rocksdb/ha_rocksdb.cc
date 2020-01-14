@@ -675,7 +675,8 @@ static uint32_t rocksdb_debug_manual_compaction_delay = 0;
 static uint32_t rocksdb_max_manual_compactions = 0;
 static my_bool rocksdb_rollback_on_timeout = FALSE;
 static my_bool rocksdb_enable_insert_with_update_caching = TRUE;
-static uint32_t rocksdb_select_bypass_policy = SELECT_BYPASS_POLICY_DEFAULT;
+static uint64_t rocksdb_select_bypass_policy =
+    select_bypass_policy_type::default_value;
 static my_bool rocksdb_select_bypass_fail_unsupported = TRUE;
 static my_bool rocksdb_select_bypass_log_rejected = TRUE;
 static my_bool rocksdb_select_bypass_log_failed = FALSE;
@@ -850,6 +851,15 @@ static const char *read_free_rpl_names[] = {"OFF", "PK_ONLY", "PK_SK", NullS};
 static TYPELIB read_free_rpl_typelib = {array_elements(read_free_rpl_names) - 1,
                                         "read_free_rpl_typelib",
                                         read_free_rpl_names, nullptr};
+
+/* This enum needs to be kept up to date with myrocks::select_bypass_policy_type
+ */
+static const char *select_bypass_policy_names[] = {"always_off", "always_on",
+                                                   "opt_in", "opt_out", NullS};
+
+static TYPELIB select_bypass_policy_typelib = {
+    array_elements(select_bypass_policy_names) - 1,
+    "select_bypass_policy_typelib", select_bypass_policy_names, nullptr};
 
 /* This enum needs to be kept up to date with rocksdb::InfoLogLevel */
 static const char *info_log_level_names[] = {"debug_level", "info_level",
@@ -2103,13 +2113,12 @@ static MYSQL_SYSVAR_STR(
     rocksdb_trace_block_cache_access, rocksdb_trace_block_cache_access_stub,
     "");
 
-static MYSQL_SYSVAR_UINT(
+static MYSQL_SYSVAR_ENUM(
     select_bypass_policy, rocksdb_select_bypass_policy, PLUGIN_VAR_RQCMDARG,
-    "Change bypass SELECT related policy and allow directly talk to RocksDB",
-    nullptr, nullptr,
-    /* default */ SELECT_BYPASS_POLICY_DEFAULT,
-    /* min */ SELECT_BYPASS_POLICY_ALWAYS_OFF,
-    /* max */ SELECT_BYPASS_POLICY_OPT_OUT, 0);
+    "Change bypass SELECT related policy and allow directly talk to RocksDB. "
+    "Valid values include 'always_off', 'always_on', 'opt_in', 'opt_out'. ",
+    nullptr, nullptr, select_bypass_policy_type::default_value,
+    &select_bypass_policy_typelib);
 
 static MYSQL_SYSVAR_BOOL(
     select_bypass_fail_unsupported, rocksdb_select_bypass_fail_unsupported,
@@ -15127,7 +15136,9 @@ std::string rdb_corruption_marker_file_name() {
   return ret;
 }
 
-uint32_t get_select_bypass_policy() { return rocksdb_select_bypass_policy; }
+select_bypass_policy_type get_select_bypass_policy() {
+  return static_cast<select_bypass_policy_type>(rocksdb_select_bypass_policy);
+}
 
 bool should_fail_unsupported_select_bypass() {
   return rocksdb_select_bypass_fail_unsupported;
