@@ -9,6 +9,10 @@ SET SESSION block_encryption_mode='aes-128-ofb';
 --enable_query_log
 --enable_result_log
 
+if (`SELECT @@SESSION.block_encryption_mode <> 'aes-128-ofb'`) {
+  skip No ofb support;
+}
+
 let $block_mode=ofb;
 source include/func_aes_block.inc;
 
