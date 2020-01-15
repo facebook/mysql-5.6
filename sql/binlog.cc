@@ -9554,6 +9554,11 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
     is partially written to the binlog.
   */
   bool in_transaction = false;
+  /*
+    Flag to indicate if we have seen a gtid which is pending i.e the trx
+    represented by this gtid has not yet ended
+  */
+  bool pending_gtid = false;
   int memory_page_size = my_getpagesize();
   {
     MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
@@ -9599,6 +9604,7 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
         }
         case binary_log::ANONYMOUS_GTID_LOG_EVENT:
         case binary_log::GTID_LOG_EVENT: {
+          pending_gtid = true;
           auto gev = static_cast<Gtid_log_event *>(ev);
           if (gev->get_type() != ANONYMOUS_GTID)
             current_gtid.set(gev->get_sidno(true), gev->get_gno());
@@ -9645,8 +9651,13 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
           <---> HERE IS VALID <--->
           ...
       */
-      if (!in_transaction && !is_gtid_event(ev))
-        *valid_pos = binlog_file_reader->position();
+      if (!(ev->get_type_code() == binary_log::METADATA_EVENT &&
+            pending_gtid)) {
+        if (!in_transaction && !is_gtid_event(ev)) {
+          *valid_pos = binlog_file_reader->position();
+          pending_gtid = false;
+        }
+      }
 
       delete ev;
       ev = nullptr;
