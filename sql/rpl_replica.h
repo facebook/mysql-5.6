@@ -26,6 +26,8 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <atomic>
+#include <mutex>
+#include <unordered_map>
 
 #include "m_string.h"
 #include "my_bitmap.h"
@@ -629,6 +631,14 @@ bool sql_slave_killed(THD *thd, Relay_log_info *rli);
   false        not network error
 */
 bool is_network_error(uint errorno);
+
+extern ulong before_image_inconsistencies;
+extern std::unordered_map<std::string, std::string> bi_inconsistencies;
+extern std::mutex bi_inconsistency_lock;
+extern void update_before_image_inconsistencies(const char *db,
+                                                const char *table,
+                                                const char *gtid);
+extern ulong get_num_before_image_inconsistencies();
 
 int init_replica_thread(THD *thd, SLAVE_THD_TYPE thd_type);
 
