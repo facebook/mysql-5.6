@@ -115,6 +115,8 @@ jobs:
         -DWITH_BOOST=../deps
         -DMYSQL_MAINTAINER_MODE=ON
         -DWITH_SYSTEM_LIBS=ON
+        -DWITH_LZ4=bundled
+        -DWITH_ZSTD=bundled
         -DWITH_MECAB=system
         -DWITH_NUMA=ON
         $SANITIZER_DEFINES
