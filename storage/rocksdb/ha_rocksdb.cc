@@ -15428,6 +15428,7 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   mrr_enabled_keyread = false;
   mrr_rowid_reader = nullptr;
 
+  mrr_iter = seq->init(seq_init_param, n_ranges, mode);
   mrr_funcs = *seq;
   mrr_buf = *buf;
 

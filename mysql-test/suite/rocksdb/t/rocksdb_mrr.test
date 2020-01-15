@@ -352,6 +352,11 @@ delete from t3 where col1 in (3,5);
 explain
 select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
 select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
+
+explain 
+select * from t0 left join t4 using (a) where t4.a is null;
+select * from t0 left join t4 using (a) where t4.a is null;
+
 set optimizer_switch='mrr=off';
 select * from t0 left join t3 on t3.col1=t0.a where t3.pk1 is null;
 set optimizer_switch='mrr=on';
