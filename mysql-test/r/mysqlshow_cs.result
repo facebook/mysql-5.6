@@ -136,6 +136,7 @@ Database: information_schema
 | PROCESSLIST                           |
 | PROFILING                             |
 | QUERY_PERF_COUNTER                    |
+| RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
@@ -242,6 +243,7 @@ Database: INFORMATION_SCHEMA
 | PROCESSLIST                           |
 | PROFILING                             |
 | QUERY_PERF_COUNTER                    |
+| RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |

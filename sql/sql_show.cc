@@ -3900,6 +3900,30 @@ int fill_socket_diag_slaves(THD *thd, Table_ref *tables, Item *) {
 
 #endif  // __linux__
 
+int fill_rbr_bi_inconsistencies(THD *thd, Table_ref *tables, Item *) {
+  DBUG_ENTER("fill_rbr_bi_inconsistencies");
+  int error = 0;
+  TABLE *table = tables->table;
+  CHARSET_INFO *cs = system_charset_info;
+
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  for (const auto &entry : bi_inconsistencies) {
+    restore_record(table, s->default_values);
+
+    /* Table name */
+    table->field[0]->store(entry.first.c_str(), entry.first.size(), cs);
+    /* Last inconsistent GTID */
+    table->field[1]->store(entry.second.c_str(), entry.second.size(), cs);
+
+    if (schema_table_store_record(thd, table)) {
+      error = 1;
+      break;
+    }
+  }
+
+  DBUG_RETURN(error);
+}
+
 /*****************************************************************************
   Status functions
 *****************************************************************************/
@@ -5763,6 +5787,11 @@ ST_FIELD_INFO slave_db_load_fields_info[] = {
     {"DB_LOAD", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "DB Load", 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO rbr_bi_inconsistencies_fields_info[] = {
+    {"TABLE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Table", 0},
+    {"LAST_GTID", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Last GTID", 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 ST_FIELD_INFO plugin_fields_info[] = {
     {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name", 0},
     {"PLUGIN_VERSION", 20, MYSQL_TYPE_STRING, 0, 0, nullptr, 0},
@@ -5897,6 +5926,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      make_old_format, get_schema_tmp_table_keys_record, true},
     {"AUTHINFO", authinfo_fields_info, fill_schema_authinfo, make_old_format,
      nullptr, false},
+    {"RBR_BI_INCONSISTENCIES", rbr_bi_inconsistencies_fields_info,
+     fill_rbr_bi_inconsistencies, nullptr, nullptr, false},
     {"SLAVE_DB_LOAD", slave_db_load_fields_info, fill_slave_db_load, nullptr,
      nullptr, false},
 #ifdef __linux__
