@@ -3,7 +3,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Error_code: MY-001032");
+call mtr.add_suppression("Error_code: MY-001756");
 create table t1 (a int primary key, b int, c int) engine = rocksdb;
 create table t2 (a int unique, b int, c int) engine = rocksdb;
 create table t3 (a int, b int, c int, key(a)) engine = rocksdb;
@@ -21,6 +22,12 @@ update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -29,6 +36,12 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t2 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -37,6 +50,12 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t3 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:11
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -44,6 +63,12 @@ include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t4 set b = 2;
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	1
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:11
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;
@@ -100,6 +125,12 @@ update t4 set c = 2;
 set @@sql_log_bin = 1;
 update t1 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t1 set c = 1;
 set @@sql_log_bin = 1;
@@ -108,6 +139,12 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t2 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t2 set c = 1;
 set @@sql_log_bin = 1;
@@ -116,6 +153,12 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t3 set b = 2;
 include/wait_for_slave_sql_error.inc [errno=1032]
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:27
 set @@sql_log_bin = 0;
 update t3 set c = 1;
 set @@sql_log_bin = 1;
@@ -123,6 +166,12 @@ include/stop_slave.inc
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 update t4 set b = 2;
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	2
+select * from information_schema.RBR_BI_INCONSISTENCIES;
+TABLE	LAST_GTID
+test.t1	uuid:27
 include/wait_for_slave_sql_error.inc [errno=1032]
 set @@sql_log_bin = 0;
 update t4 set c = 1;

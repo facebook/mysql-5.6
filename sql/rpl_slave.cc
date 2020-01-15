@@ -6936,7 +6936,6 @@ extern "C" void *handle_slave_sql(void *arg) {
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
   rli->slave_running = 1;
-  rli->check_before_image_consistency= opt_slave_check_before_image_consistency;
   rli->reported_unsafe_warning = false;
   rli->sql_thread_kill_accepted = false;
 
@@ -10168,6 +10167,26 @@ std::string get_active_master_info() {
 
   channel_map.unlock();
   return str_ptr;
+}
+
+/* counter for the number of BI inconsistencies found */
+ulong before_image_inconsistencies = 0;
+/* table_name -> last gtid for BI inconsistencies */
+std::unordered_map<std::string, std::string> bi_inconsistencies;
+/* mutex for counter and map */
+std::mutex bi_inconsistency_lock;
+
+void update_before_image_inconsistencies(const char *db, const char *table,
+                                         const char *gtid) {
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  ++before_image_inconsistencies;
+  std::string fqtn = std::string(db) + "." + std::string(table);
+  bi_inconsistencies[fqtn] = gtid;
+}
+
+ulong get_num_before_image_inconsistencies() {
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  return before_image_inconsistencies;
 }
 
 /**

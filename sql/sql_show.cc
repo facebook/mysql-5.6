@@ -2324,6 +2324,30 @@ static int fill_slave_db_load(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_RETURN(error);
 }
 
+int fill_rbr_bi_inconsistencies(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_rbr_bi_inconsistencies");
+  int error = 0;
+  TABLE *table = tables->table;
+  CHARSET_INFO *cs = system_charset_info;
+
+  const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+  for (const auto &entry : bi_inconsistencies) {
+    restore_record(table, s->default_values);
+
+    /* Table name */
+    table->field[0]->store(entry.first.c_str(), entry.first.size(), cs);
+    /* Last inconsistent GTID */
+    table->field[1]->store(entry.second.c_str(), entry.second.size(), cs);
+
+    if (schema_table_store_record(thd, table)) {
+      error = 1;
+      break;
+    }
+  }
+
+  DBUG_RETURN(error);
+}
+
 /*****************************************************************************
   Status functions
 *****************************************************************************/
@@ -4135,6 +4159,11 @@ ST_FIELD_INFO slave_db_load_fields_info[] = {
     {"DB_LOAD", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "DB Load", 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO rbr_bi_inconsistencies_fields_info[] = {
+    {"TABLE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Table", 0},
+    {"LAST_GTID", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, "Last GTID", 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 ST_FIELD_INFO plugin_fields_info[] = {
     {"PLUGIN_NAME", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 0, "Name", 0},
     {"PLUGIN_VERSION", 20, MYSQL_TYPE_STRING, 0, 0, 0, 0},
@@ -4231,6 +4260,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      fill_schema_authinfo, make_old_format, 0, -1, -1, 0, 0},
     {"SLAVE_DB_LOAD", slave_db_load_fields_info, create_schema_table,
      fill_slave_db_load, 0, 0, -1, -1, 0, 0},
+    {"RBR_BI_INCONSISTENCIES", rbr_bi_inconsistencies_fields_info,
+     create_schema_table, fill_rbr_bi_inconsistencies, 0, 0, -1, -1, 0, 0},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 0, 0, false, 0}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

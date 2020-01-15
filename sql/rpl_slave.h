@@ -26,6 +26,8 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <atomic>
+#include <mutex>
+#include <unordered_map>
 
 #include "m_string.h"
 #include "my_bitmap.h"
@@ -545,6 +547,14 @@ bool mts_recovery_groups(Relay_log_info *rli);
 */
 bool mts_checkpoint_routine(Relay_log_info *rli, bool force);
 bool sql_slave_killed(THD *thd, Relay_log_info *rli);
+
+extern ulong before_image_inconsistencies;
+extern std::unordered_map<std::string, std::string> bi_inconsistencies;
+extern std::mutex bi_inconsistency_lock;
+extern void update_before_image_inconsistencies(const char *db,
+                                                const char *table,
+                                                const char *gtid);
+extern ulong get_num_before_image_inconsistencies();
 
 /* masks for start/stop operations on io and sql slave threads */
 #define SLAVE_IO 1

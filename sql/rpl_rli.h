@@ -1542,12 +1542,6 @@ class Relay_log_info : public Rpl_info {
     rbr_column_type_mismatch_whitelist = cols;
   }
 
-  /* @see opt_slave_check_before_image_consistency */
-  ulong check_before_image_consistency= 0;
-
-  /* counter for the number of inconsistencies found */
-  std::atomic<ulong> before_image_inconsistencies{0};
-
   /*
     The boolean is set to true when the binlog (rli_fake) or slave
     (rli_slave) applier thread detaches any engine ha_data

@@ -3928,9 +3928,18 @@ static Sys_var_bool Sys_slave_sql_verify_checksum(
     GLOBAL_VAR(opt_slave_sql_verify_checksum), CMD_LINE(OPT_ARG),
     DEFAULT(true));
 
-static const char *slave_check_before_image_consistency_names[]= {"OFF",
-                                                                  "COUNT",
-                                                                  "ON", 0};
+static const char *slave_check_before_image_consistency_names[] = {
+    "OFF", "COUNT", "ON", 0};
+static bool slave_check_before_image_consistency_update(sys_var *, THD *,
+                                                        enum_var_type) {
+  // case: if the variable was turned off we clear the info
+  if (opt_slave_check_before_image_consistency == OFF) {
+    const std::lock_guard<std::mutex> lock(bi_inconsistency_lock);
+    before_image_inconsistencies = 0;
+    bi_inconsistencies.clear();
+  }
+  return false;
+}
 static Sys_var_enum Sys_slave_check_before_image_consistency(
     "slave_check_before_image_consistency",
     "On the slave, when using row based replication, check if the before "
@@ -3940,7 +3949,9 @@ static Sys_var_enum Sys_slave_check_before_image_consistency(
     "stop the slave (ON). Default OFF.",
     GLOBAL_VAR(opt_slave_check_before_image_consistency), CMD_LINE(OPT_ARG),
     slave_check_before_image_consistency_names,
-    DEFAULT(Log_event::enum_check_before_image_consistency::BI_CHECK_OFF));
+    DEFAULT(Log_event::enum_check_before_image_consistency::BI_CHECK_OFF),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(slave_check_before_image_consistency_update));
 
 static bool check_not_null_not_empty(sys_var *self, THD *thd, set_var *var) {
   String str, *res;

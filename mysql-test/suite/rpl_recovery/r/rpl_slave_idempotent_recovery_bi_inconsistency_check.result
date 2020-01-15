@@ -1,0 +1,50 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Recovery from master pos");
+include/stop_slave.inc
+change master to master_auto_position=1;
+include/start_slave.inc
+create table t1(a int primary key, b int) engine = innodb;
+include/sync_slave_sql_with_master.inc
+flush logs;
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+insert into t1 values(4, 4);
+insert into t1 values(5, 5);
+insert into t1 values(6, 6);
+update t1 set b = b + 10;
+include/sync_slave_sql_with_master.inc
+"Table contents on the slave before crash:"
+select * from t1;
+a	b
+1	11
+2	12
+3	13
+4	14
+5	15
+6	16
+flush engine logs;
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+"Table contents on the slave after crash recovery:"
+select * from t1;
+a	b
+1	11
+2	12
+3	13
+4	14
+5	15
+6	16
+"Inconsistency counter after slave start (should be 0):"
+show status like 'Slave_before_image_inconsistencies';
+Variable_name	Value
+Slave_before_image_inconsistencies	0
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

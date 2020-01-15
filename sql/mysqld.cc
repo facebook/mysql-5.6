@@ -8494,21 +8494,16 @@ static int show_slave_running(THD *, SHOW_VAR *var, char *buff) {
 }
 
 static int show_slave_before_image_inconsistencies(THD *, SHOW_VAR *var,
-                                                   char *buff)
-{
+                                                   char *buff) {
   channel_map.rdlock();
-  Master_info *mi = channel_map.get_default_channel_mi();
 
-  if (mi && mi->rli &&
-      mi->rli->check_before_image_consistency)
-  {
-    var->type= SHOW_LONGLONG;
-    var->value= buff;
-    *((ulonglong *)buff)=
-      (ulonglong) mi->rli->before_image_inconsistencies.load();
+  if (opt_slave_check_before_image_consistency) {
+    var->type = SHOW_LONGLONG;
+    var->value = buff;
+    *((ulonglong *)buff) = (ulonglong)get_num_before_image_inconsistencies();
+  } else {
+    var->type = SHOW_UNDEF;
   }
-  else
-    var->type= SHOW_UNDEF;
 
   channel_map.unlock();
   return 0;
