@@ -6326,9 +6326,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
       if (digest_storage != nullptr) {
         /* Populate PFS_statements_digest_stat with computed digest
          * information.*/
-        digest_stat =
-            find_or_create_digest(thread, digest_storage, state->m_schema_name,
-                                  state->m_schema_name_length);
+        digest_stat = find_or_create_digest(
+            thread, digest_storage, state->m_schema_name,
+            state->m_schema_name_length, nullptr, nullptr);
       }
     }
 
@@ -6394,9 +6394,9 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         if (digest_storage != nullptr) {
           /* Populate statements_digest_stat with computed digest information.
            */
-          digest_stat = find_or_create_digest(thread, digest_storage,
-                                              state->m_schema_name,
-                                              state->m_schema_name_length);
+          digest_stat = find_or_create_digest(
+              thread, digest_storage, state->m_schema_name,
+              state->m_schema_name_length, nullptr, nullptr);
         }
       }
     }
