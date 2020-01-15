@@ -979,6 +979,9 @@ The following options may be given as the first argument:
  automated sizing.
  --performance-schema-error-size=# 
  Number of server errors instrumented.
+ --performance-schema-esms-by-all 
+ Enables the events_statements_summary_by_all and disables
+ events_statements_summary_by_digest.
  --performance-schema-events-stages-history-long-size=# 
  Number of rows in EVENTS_STAGES_HISTORY_LONG. Use 0 to
  disable, -1 for automated sizing.
@@ -2396,6 +2399,7 @@ performance-schema-consumer-statements-digest TRUE
 performance-schema-consumer-thread-instrumentation TRUE
 performance-schema-digests-size -1
 performance-schema-error-size ####
+performance-schema-esms-by-all FALSE
 performance-schema-events-stages-history-long-size -1
 performance-schema-events-stages-history-size -1
 performance-schema-events-statements-history-long-size -1

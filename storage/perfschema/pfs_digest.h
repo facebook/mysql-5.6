@@ -33,6 +33,7 @@
 
 #include "lf.h"
 #include "my_inttypes.h"
+#include "my_md5_size.h"
 #include "mysql_com.h"
 #include "sql/sql_digest.h"
 #include "storage/perfschema/pfs_column_types.h"
@@ -52,6 +53,10 @@ struct PFS_digest_key {
   unsigned char m_hash[DIGEST_HASH_SIZE];
   char m_schema_name[NAME_LEN];
   uint m_schema_name_length;
+  char m_user_name[NAME_LEN];
+  uint m_user_name_length;
+  unsigned char client_id[MD5_HASH_SIZE];
+  unsigned char plan_id[MD5_HASH_SIZE];
 };
 
 /** A statement digest stat record. */
@@ -130,7 +135,8 @@ int init_digest_hash(const PFS_global_param *param);
 void cleanup_digest_hash(void);
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
-    const char *schema_name, uint schema_name_length);
+    const char *schema_name, uint schema_name_length, const uchar *client_id,
+    const uchar *plan_id);
 
 void reset_esms_by_digest();
 void reset_histogram_by_digest();

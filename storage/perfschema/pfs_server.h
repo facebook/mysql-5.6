@@ -123,6 +123,9 @@ struct PFS_global_param {
   bool m_consumer_thread_instrumentation_enabled;
   bool m_consumer_statement_digest_enabled;
 
+  /** True if esms_by_all table is enabled. */
+  bool m_esms_by_all_enabled;
+
   /** Default instrument configuration option. */
   char *m_pfs_instrument;
 

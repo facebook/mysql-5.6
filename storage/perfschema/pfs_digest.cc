@@ -197,7 +197,9 @@ static LF_PINS *get_digest_hash_pins(PFS_thread *thread) {
 
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
-    const char *schema_name, uint schema_name_length) {
+    const char *schema_name, uint schema_name_length,
+    const uchar *client_id MY_ATTRIBUTE((unused)),
+    const uchar *plan_id MY_ATTRIBUTE((unused))) {
   DBUG_ASSERT(digest_storage != NULL);
 
   if (statements_digest_stat_array == NULL) {
@@ -226,6 +228,15 @@ PFS_statements_digest_stat *find_or_create_digest(
   hash_key.m_schema_name_length = schema_name_length;
   if (schema_name_length > 0) {
     memcpy(hash_key.m_schema_name, schema_name, schema_name_length);
+  }
+
+  if (pfs_param.m_esms_by_all_enabled) {
+    /* Add the current username to the key */
+    hash_key.m_user_name_length = thread->m_username_length;
+    if (thread->m_username_length > 0) {
+      memcpy(hash_key.m_user_name, thread->m_username,
+             thread->m_username_length);
+    }
   }
 
   int res;

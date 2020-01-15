@@ -26,6 +26,7 @@ select test_name as `MISSING DDL/DML TESTS` from t2;
 MISSING DDL/DML TESTS
 ddl_table_statistics_by_table.test
 dml_table_statistics_by_table.test
+idx_esms_by_all.test
 idx_log_status.test
 idx_replication_applier_filters.test
 idx_replication_applier_global_filters.test

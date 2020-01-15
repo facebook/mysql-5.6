@@ -22,15 +22,16 @@
   */
 
 /**
-  @file storage/perfschema/table_esms_by_digest.cc
-  Table EVENTS_STATEMENTS_SUMMARY_GLOBAL_BY_DIGEST (implementation).
+  @file storage/perfschema/table_esms_by_all.cc
+  Table EVENTS_STATEMENTS_SUMMARY_GLOBAL_BY_ALL (implementation).
 */
 
-#include "storage/perfschema/table_esms_by_digest.h"
+#include "storage/perfschema/table_esms_by_all.h"
 
 #include <stddef.h>
 
 #include "my_dbug.h"
+#include "my_md5.h"
 #include "my_thread.h"
 #include "sql/field.h"
 #include "sql/plugin_table.h"
@@ -43,18 +44,22 @@
 #include "storage/perfschema/pfs_instr_class.h"
 #include "storage/perfschema/pfs_timer.h"
 #include "storage/perfschema/pfs_visitor.h"
+#include "storage/perfschema/table_helper.h"
 
-THR_LOCK table_esms_by_digest::m_table_lock;
+THR_LOCK table_esms_by_all::m_table_lock;
 
-Plugin_table table_esms_by_digest::m_table_def(
+Plugin_table table_esms_by_all::m_table_def(
     /* Schema name */
     "performance_schema",
     /* Name */
-    "events_statements_summary_by_digest",
+    "events_statements_summary_by_all",
     /* Definition */
     "  SCHEMA_NAME VARCHAR(64),\n"
     "  DIGEST VARCHAR(64),\n"
     "  DIGEST_TEXT LONGTEXT,\n"
+    "  USER VARCHAR(80),\n"
+    "  CLIENT_ID VARCHAR(64),\n"
+    "  PLAN_ID VARCHAR(64),\n"
     "  COUNT_STAR BIGINT unsigned not null,\n"
     "  SUM_TIMER_WAIT BIGINT unsigned not null,\n"
     "  MIN_TIMER_WAIT BIGINT unsigned not null,\n"
@@ -91,18 +96,18 @@ Plugin_table table_esms_by_digest::m_table_def(
     "  QUERY_SAMPLE_TEXT LONGTEXT,\n"
     "  QUERY_SAMPLE_SEEN TIMESTAMP(6) NOT NULL default 0,\n"
     "  QUERY_SAMPLE_TIMER_WAIT BIGINT unsigned NOT NULL,\n"
-    "  UNIQUE KEY (SCHEMA_NAME, DIGEST) USING HASH\n",
+    "  UNIQUE KEY (SCHEMA_NAME, DIGEST, USER, CLIENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
     nullptr);
 
-PFS_engine_table_share table_esms_by_digest::m_share = {
+PFS_engine_table_share table_esms_by_all::m_share = {
     &pfs_truncatable_acl,
-    table_esms_by_digest::create,
+    table_esms_by_all::create,
     NULL, /* write_row */
-    table_esms_by_digest::delete_all_rows,
-    table_esms_by_digest::get_row_count,
+    table_esms_by_all::delete_all_rows,
+    table_esms_by_all::get_row_count,
     sizeof(PFS_simple_index),
     &m_table_lock,
     &m_table_def,
@@ -112,7 +117,7 @@ PFS_engine_table_share table_esms_by_digest::m_share = {
     false /* m_in_purgatory */
 };
 
-bool PFS_index_esms_by_digest::match(PFS_statements_digest_stat *pfs) {
+bool PFS_index_esms_by_all::match(PFS_statements_digest_stat *pfs) {
   if (m_fields >= 1) {
     if (!m_key_1.match(pfs)) {
       return false;
@@ -125,31 +130,32 @@ bool PFS_index_esms_by_digest::match(PFS_statements_digest_stat *pfs) {
   return true;
 }
 
-PFS_engine_table *table_esms_by_digest::create(PFS_engine_table_share *) {
-  return new table_esms_by_digest();
+PFS_engine_table *table_esms_by_all::create(PFS_engine_table_share *) {
+  return new table_esms_by_all();
 }
 
-int table_esms_by_digest::delete_all_rows(void) {
+int table_esms_by_all::delete_all_rows(void) {
   reset_esms_by_digest();
   return 0;
 }
 
-ha_rows table_esms_by_digest::get_row_count(void) { return digest_max; }
+ha_rows table_esms_by_all::get_row_count(void) { return digest_max; }
 
-table_esms_by_digest::table_esms_by_digest()
+table_esms_by_all::table_esms_by_all()
     : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {
   m_normalizer = time_normalizer::get_statement();
 }
 
-void table_esms_by_digest::reset_position(void) {
+void table_esms_by_all::reset_position(void) {
   m_pos = 0;
   m_next_pos = 0;
 }
 
-int table_esms_by_digest::rnd_next(void) {
+int table_esms_by_all::rnd_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
+  if (statements_digest_stat_array == NULL ||
+      !pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -166,10 +172,11 @@ int table_esms_by_digest::rnd_next(void) {
   return HA_ERR_END_OF_FILE;
 }
 
-int table_esms_by_digest::rnd_pos(const void *pos) {
+int table_esms_by_all::rnd_pos(const void *pos) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
+  if (statements_digest_stat_array == NULL ||
+      !pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -185,19 +192,20 @@ int table_esms_by_digest::rnd_pos(const void *pos) {
   return HA_ERR_RECORD_DELETED;
 }
 
-int table_esms_by_digest::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
-  PFS_index_esms_by_digest *result = NULL;
+int table_esms_by_all::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
+  PFS_index_esms_by_all *result = NULL;
   DBUG_ASSERT(idx == 0);
-  result = PFS_NEW(PFS_index_esms_by_digest);
+  result = PFS_NEW(PFS_index_esms_by_all);
   m_opened_index = result;
   m_index = result;
   return 0;
 }
 
-int table_esms_by_digest::index_next(void) {
+int table_esms_by_all::index_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
+  if (statements_digest_stat_array == NULL ||
+      !pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -216,10 +224,20 @@ int table_esms_by_digest::index_next(void) {
   return HA_ERR_END_OF_FILE;
 }
 
-int table_esms_by_digest::make_row(PFS_statements_digest_stat *digest_stat) {
+int table_esms_by_all::make_row(PFS_statements_digest_stat *digest_stat) {
   m_row.m_first_seen = digest_stat->m_first_seen;
   m_row.m_last_seen = digest_stat->m_last_seen;
   m_row.m_digest.make_row(digest_stat);
+
+  m_row.m_user_name_length = digest_stat->m_digest_key.m_user_name_length;
+  if (m_row.m_user_name_length > 0)
+    memcpy(m_row.m_user_name, digest_stat->m_digest_key.m_user_name,
+           m_row.m_user_name_length);
+  array_to_hex(m_row.client_id, digest_stat->m_digest_key.client_id,
+               MD5_HASH_SIZE);
+  m_row.client_id[MD5_HASH_SIZE * 2] = '\0';
+  array_to_hex(m_row.plan_id, digest_stat->m_digest_key.plan_id, MD5_HASH_SIZE);
+  m_row.plan_id[MD5_HASH_SIZE * 2] = '\0';
 
   /*
     Get statements stats.
@@ -295,8 +313,8 @@ int table_esms_by_digest::make_row(PFS_statements_digest_stat *digest_stat) {
   return 0;
 }
 
-int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
-                                          Field **fields, bool read_all) {
+int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
+                                       Field **fields, bool read_all) {
   Field *f;
 
   /*
@@ -314,22 +332,44 @@ int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
         case 2: /* DIGEST_TEXT */
           m_row.m_digest.set_field(f->field_index, f);
           break;
-        case 31: /* FIRST_SEEN */
+        case 3: /* USER */
+          if (m_row.m_user_name_length > 0) {
+            set_field_varchar_utf8(f, m_row.m_user_name,
+                                   m_row.m_user_name_length);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 4: /* CLIENT_ID */
+          if (strlen(m_row.client_id) > 0) {
+            set_field_varchar_utf8(f, m_row.client_id, strlen(m_row.client_id));
+          } else {
+            f->set_null();
+          }
+          break;
+        case 5: /* PLAN_ID */
+          if (strlen(m_row.plan_id) > 0) {
+            set_field_varchar_utf8(f, m_row.plan_id, strlen(m_row.plan_id));
+          } else {
+            f->set_null();
+          }
+          break;
+        case 34: /* FIRST_SEEN */
           set_field_timestamp(f, m_row.m_first_seen);
           break;
-        case 32: /* LAST_SEEN */
+        case 35: /* LAST_SEEN */
           set_field_timestamp(f, m_row.m_last_seen);
           break;
-        case 33: /* QUANTILE_95 */
+        case 36: /* QUANTILE_95 */
           set_field_ulonglong(f, m_row.m_p95);
           break;
-        case 34: /* QUANTILE_99 */
+        case 37: /* QUANTILE_99 */
           set_field_ulonglong(f, m_row.m_p99);
           break;
-        case 35: /* QUANTILE_999 */
+        case 38: /* QUANTILE_999 */
           set_field_ulonglong(f, m_row.m_p999);
           break;
-        case 36: /* QUERY_SAMPLE_TEXT */
+        case 39: /* QUERY_SAMPLE_TEXT */
           if (m_row.m_query_sample.length())
             set_field_text(f, m_row.m_query_sample.ptr(),
                            m_row.m_query_sample.length(),
@@ -338,14 +378,14 @@ int table_esms_by_digest::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 37: /* QUERY_SAMPLE_SEEN */
+        case 40: /* QUERY_SAMPLE_SEEN */
           set_field_timestamp(f, m_row.m_query_sample_seen);
           break;
-        case 38: /* QUERY_SAMPLE_TIMER_WAIT */
+        case 41: /* QUERY_SAMPLE_TIMER_WAIT */
           set_field_ulonglong(f, m_row.m_query_sample_timer_wait);
           break;
         default: /* 3, ... COUNT/SUM/MIN/AVG/MAX */
-          m_row.m_stat.set_field(f->field_index - 3, f);
+          m_row.m_stat.set_field(f->field_index - 6, f);
           break;
       }
     }

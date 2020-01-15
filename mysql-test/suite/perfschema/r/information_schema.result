@@ -25,6 +25,7 @@ performance_schema	events_statements_histogram_global	def
 performance_schema	events_statements_history	def
 performance_schema	events_statements_history_long	def
 performance_schema	events_statements_summary_by_account_by_event_name	def
+performance_schema	events_statements_summary_by_all	def
 performance_schema	events_statements_summary_by_digest	def
 performance_schema	events_statements_summary_by_host_by_event_name	def
 performance_schema	events_statements_summary_by_program	def
@@ -134,6 +135,7 @@ events_statements_histogram_global	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_history	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_history_long	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_summary_by_account_by_event_name	BASE TABLE	PERFORMANCE_SCHEMA
+events_statements_summary_by_all	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_summary_by_digest	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_summary_by_host_by_event_name	BASE TABLE	PERFORMANCE_SCHEMA
 events_statements_summary_by_program	BASE TABLE	PERFORMANCE_SCHEMA
@@ -243,6 +245,7 @@ events_statements_histogram_global	10	Fixed
 events_statements_history	10	Dynamic
 events_statements_history_long	10	Dynamic
 events_statements_summary_by_account_by_event_name	10	Dynamic
+events_statements_summary_by_all	10	Dynamic
 events_statements_summary_by_digest	10	Dynamic
 events_statements_summary_by_host_by_event_name	10	Dynamic
 events_statements_summary_by_program	10	Dynamic
@@ -353,6 +356,7 @@ events_statements_histogram_global	0
 events_statements_history	0
 events_statements_history_long	0
 events_statements_summary_by_account_by_event_name	0
+events_statements_summary_by_all	0
 events_statements_summary_by_digest	0
 events_statements_summary_by_host_by_event_name	0
 events_statements_summary_by_program	0
@@ -467,6 +471,7 @@ events_statements_histogram_global	0	0
 events_statements_history	0	0
 events_statements_history_long	0	0
 events_statements_summary_by_account_by_event_name	0	0
+events_statements_summary_by_all	0	0
 events_statements_summary_by_digest	0	0
 events_statements_summary_by_host_by_event_name	0	0
 events_statements_summary_by_program	0	0
@@ -576,6 +581,7 @@ events_statements_histogram_global	0	0	NULL
 events_statements_history	0	0	NULL
 events_statements_history_long	0	0	NULL
 events_statements_summary_by_account_by_event_name	0	0	NULL
+events_statements_summary_by_all	0	0	NULL
 events_statements_summary_by_digest	0	0	NULL
 events_statements_summary_by_host_by_event_name	0	0	NULL
 events_statements_summary_by_program	0	0	NULL
@@ -685,6 +691,7 @@ events_statements_histogram_global	NULL	NULL	NULL
 events_statements_history	NULL	NULL	NULL
 events_statements_history_long	NULL	NULL	NULL
 events_statements_summary_by_account_by_event_name	NULL	NULL	NULL
+events_statements_summary_by_all	NULL	NULL	NULL
 events_statements_summary_by_digest	NULL	NULL	NULL
 events_statements_summary_by_host_by_event_name	NULL	NULL	NULL
 events_statements_summary_by_program	NULL	NULL	NULL
@@ -794,6 +801,7 @@ events_statements_histogram_global	utf8mb4_0900_ai_ci	NULL
 events_statements_history	utf8mb4_0900_ai_ci	NULL
 events_statements_history_long	utf8mb4_0900_ai_ci	NULL
 events_statements_summary_by_account_by_event_name	utf8mb4_0900_ai_ci	NULL
+events_statements_summary_by_all	utf8mb4_0900_ai_ci	NULL
 events_statements_summary_by_digest	utf8mb4_0900_ai_ci	NULL
 events_statements_summary_by_host_by_event_name	utf8mb4_0900_ai_ci	NULL
 events_statements_summary_by_program	utf8mb4_0900_ai_ci	NULL
@@ -903,6 +911,7 @@ events_statements_histogram_global
 events_statements_history	
 events_statements_history_long	
 events_statements_summary_by_account_by_event_name	
+events_statements_summary_by_all	
 events_statements_summary_by_digest	
 events_statements_summary_by_host_by_event_name	
 events_statements_summary_by_program	
@@ -1012,6 +1021,7 @@ events_statements_histogram_global
 events_statements_history	
 events_statements_history_long	
 events_statements_summary_by_account_by_event_name	
+events_statements_summary_by_all	
 events_statements_summary_by_digest	
 events_statements_summary_by_host_by_event_name	
 events_statements_summary_by_program	

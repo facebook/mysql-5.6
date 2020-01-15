@@ -148,6 +148,7 @@
 #endif
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
+#include "storage/perfschema/pfs_digest.h"
 #include "storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
@@ -814,6 +815,18 @@ static Sys_var_long Sys_pfs_error_size(
     VALID_RANGE(0, 1024 * 1024), DEFAULT(PFS_MAX_SERVER_ERRORS), BLOCK_SIZE(1),
     PFS_TRAILING_PROPERTIES);
 
+static bool clear_digest_stats(sys_var *, THD *, enum_var_type) {
+  reset_esms_by_digest();
+  return false;
+}
+
+static Sys_var_bool Sys_pfs_esms_by_all(
+    "performance_schema_esms_by_all",
+    "Enables the events_statements_summary_by_all and disables "
+    "events_statements_summary_by_digest.",
+    GLOBAL_VAR(pfs_param.m_esms_by_all_enabled), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(clear_digest_stats), NULL, sys_var::PARSE_EARLY);
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 static Sys_var_ulong Sys_auto_increment_increment(

@@ -125,7 +125,7 @@ void table_esmh_by_digest::reset_position(void) {
 int table_esmh_by_digest::rnd_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL) {
+  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -149,7 +149,7 @@ int table_esmh_by_digest::rnd_next(void) {
 int table_esmh_by_digest::rnd_pos(const void *pos) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL) {
+  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -177,7 +177,7 @@ int table_esmh_by_digest::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
 int table_esmh_by_digest::index_next(void) {
   PFS_statements_digest_stat *digest_stat;
 
-  if (statements_digest_stat_array == NULL) {
+  if (statements_digest_stat_array == NULL || pfs_param.m_esms_by_all_enabled) {
     return HA_ERR_END_OF_FILE;
   }
 

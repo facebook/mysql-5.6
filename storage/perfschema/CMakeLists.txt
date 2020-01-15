@@ -78,6 +78,7 @@ table_esgs_by_user_by_event_name.h
 table_esgs_global_by_event_name.h
 table_esmh_global.h
 table_esmh_by_digest.h
+table_esms_by_all.h
 table_esms_by_account_by_event_name.h
 table_esms_by_host_by_event_name.h
 table_esms_by_digest.h
@@ -218,6 +219,7 @@ table_esgs_by_user_by_event_name.cc
 table_esgs_global_by_event_name.cc
 table_esmh_global.cc
 table_esmh_by_digest.cc
+table_esms_by_all.cc
 table_esms_by_account_by_event_name.cc
 table_esms_by_host_by_event_name.cc
 table_esms_by_digest.cc

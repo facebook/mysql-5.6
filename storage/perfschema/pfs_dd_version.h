@@ -170,6 +170,7 @@
 
    800171005:
    add cpu time to statement statistics
+   add events_statements_summary_by_all table.
 */
 static const uint PFS_DD_VERSION = 800171005;
 
