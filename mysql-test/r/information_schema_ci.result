@@ -57,6 +57,7 @@ create view v1 (c) as
 SELECT table_name FROM information_schema.TABLES
 WHERE table_schema IN ('mysql', 'information_schema', 'test', 'mysqltest') AND
 table_name COLLATE utf8_general_ci not like 'ndb_%' AND
+table_name COLLATE utf8_general_ci not like 'rocksdb_%' AND
 table_name COLLATE utf8_general_ci not like 'innodb_%';
 select * from v1;
 c
@@ -85,6 +86,7 @@ PLUGINS
 PROCESSLIST
 PROFILING
 QUERY_PERF_COUNTER
+RBR_BI_INCONSISTENCIES
 REFERENTIAL_CONSTRAINTS
 RESOURCE_GROUPS
 ROLE_COLUMN_GRANTS
@@ -804,7 +806,9 @@ information_schema	VIEWS	VIEW_DEFINITION
 select table_name, column_name, data_type from information_schema.columns
 where table_schema not in ('performance_schema', 'sys')
 and data_type = 'datetime'
-  and table_name COLLATE utf8_general_ci not like 'innodb_%' order by table_name, column_name;
+  and table_name COLLATE utf8_general_ci not like 'innodb_%'
+  and table_name COLLATE utf8_general_ci not like 'rocksdb_%'
+  order by table_name, column_name;
 TABLE_NAME	COLUMN_NAME	DATA_TYPE
 EVENTS	ENDS	datetime
 EVENTS	EXECUTE_AT	datetime
@@ -859,6 +863,9 @@ INNODB_CMP_PER_INDEX_RESET	table_name	select
 KEY_COLUMN_USAGE	TABLE_NAME	select
 PARTITIONS	TABLE_NAME	select
 REFERENTIAL_CONSTRAINTS	TABLE_NAME	select
+ROCKSDB_DDL	TABLE_NAME	select
+ROCKSDB_DEADLOCK	TABLE_NAME	select
+ROCKSDB_PERF_CONTEXT	TABLE_NAME	select
 ROLE_COLUMN_GRANTS	TABLE_NAME	select
 ROLE_TABLE_GRANTS	TABLE_NAME	select
 STATISTICS	TABLE_NAME	select
@@ -874,10 +881,12 @@ delete from mysql.db where user='mysqltest_4';
 flush privileges;
 SELECT table_schema, count(*) FROM information_schema.TABLES WHERE
 table_schema IN ('mysql', 'information_schema', 'test', 'mysqltest')
-AND table_name not like 'ndb%' AND table_name COLLATE utf8_general_ci not like 'innodb_%'
+AND table_name not like 'ndb%'
+AND table_name COLLATE utf8_general_ci not like 'innodb_%'
+AND table_name COLLATE utf8_general_ci not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
-information_schema	49
+information_schema	50
 mysql	31
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1326,6 +1335,7 @@ c2.table_schema='information_schema' and
 (c2.column_type = 'varchar(7)' or c2.column_type = 'varchar(20)')
 group by c2.column_type order by num limit 1)
 and t.table_name not like 'INNODB_%'
+        and t.table_name not like 'ROCKSDB_%'
 group by t.table_name order by num1, t.table_name COLLATE utf8_general_ci;
 TABLE_NAME	group_concat(t.table_schema, '.', t.table_name)	num1
 ADMINISTRABLE_ROLE_AUTHORIZATIONS	information_schema.ADMINISTRABLE_ROLE_AUTHORIZATIONS	1
@@ -2452,6 +2462,7 @@ c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
         )
 AND t.table_name NOT LIKE 'ndb%'
+  AND t.table_name NOT LIKE 'ROCKSDB%'
   AND t.table_name NOT LIKE 'INNODB%'
   ORDER BY t.table_name COLLATE utf8_general_ci,
 c1.column_name COLLATE utf8_general_ci;
@@ -2481,6 +2492,7 @@ PLUGINS	PLUGIN_NAME
 PROCESSLIST	ID
 PROFILING	QUERY_ID
 QUERY_PERF_COUNTER	QUERY_TYPE
+RBR_BI_INCONSISTENCIES	TABLE
 REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA
 RESOURCE_GROUPS	RESOURCE_GROUP_NAME
 ROLE_COLUMN_GRANTS	TABLE_SCHEMA
@@ -2520,6 +2532,7 @@ c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
         )
 AND t.table_name NOT LIKE 'ndb%'
+  AND t.table_name NOT LIKE 'ROCKSDB%'
   AND t.table_name NOT LIKE 'INNODB%'
   ORDER BY t.table_name COLLATE utf8_general_ci,
 c1.column_name COLLATE utf8_general_ci;
@@ -2549,6 +2562,7 @@ PLUGINS	PLUGIN_NAME
 PROCESSLIST	ID
 PROFILING	QUERY_ID
 QUERY_PERF_COUNTER	QUERY_TYPE
+RBR_BI_INCONSISTENCIES	TABLE
 REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA
 RESOURCE_GROUPS	RESOURCE_GROUP_NAME
 ROLE_COLUMN_GRANTS	TABLE_SCHEMA
