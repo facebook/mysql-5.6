@@ -13438,33 +13438,60 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next() {
           if (have_min) {
             if (!(min_res = next_min()))
               update_min_result(&reset_min_value);
-            else
+            else if (min_res != HA_ERR_KEY_NOT_FOUND && min_res != HA_ERR_END_OF_FILE) {
+              result = min_res;
+              break;
+            } else {
               continue;  // Record is not found, no reason to call next_max()
+            }
           }
-          if (have_max && !(max_res = next_max()))
-            update_max_result(&reset_max_value);
+
+          if (have_max) {
+            if (!(max_res = next_max()))
+              update_max_result(&reset_max_value);
+            else if (max_res != HA_ERR_KEY_NOT_FOUND && max_res != HA_ERR_END_OF_FILE) {
+              result = max_res;
+              break;
+            }
+          }
+
         } else {
           // Call next_max() first and then next_min() if
           // MIN/MAX key part is descending.
           if (have_max) {
             if (!(max_res = next_max()))
               update_max_result(&reset_max_value);
-            else
+            else if (max_res != HA_ERR_KEY_NOT_FOUND && max_res != HA_ERR_END_OF_FILE) {
+              result = max_res;
+              break;
+            } else {
               continue;  // Record is not found, no reason to call next_min()
+            }
           }
-          if (have_min && !(min_res = next_min()))
-            update_min_result(&reset_min_value);
+
+          if (have_min) {
+            if (!(min_res = next_min()))
+              update_min_result(&reset_min_value);
+            else if (min_res != HA_ERR_KEY_NOT_FOUND && min_res != HA_ERR_END_OF_FILE) {
+              result = min_res;
+              break;
+            }
+          }
         }
       }
+
       /*
         If this is just a GROUP BY or DISTINCT without MIN or MAX and there
         are equality predicates for the key parts after the group, find the
         first sub-group with the extended prefix.
       */
-      if (!have_min && !have_max && key_infix_len > 0)
+      if (!have_min && !have_max && key_infix_len > 0) {
         result = head->file->ha_index_read_map(
             record, group_prefix, make_prev_keypart_map(real_key_parts),
             HA_READ_KEY_EXACT);
+        if (result != HA_ERR_KEY_NOT_FOUND && result != HA_ERR_END_OF_FILE)
+          break;
+      }
 
       result = have_min ? min_res : have_max ? max_res : result;
       if (!result) found_result = true;
