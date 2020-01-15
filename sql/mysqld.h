@@ -1024,6 +1024,8 @@ enum enum_sql_stats_control
   SQL_STATS_CONTROL_INVALID
 };
 extern ulong sql_stats_control;
+extern ulonglong max_sql_stats_count;
+extern ulonglong max_sql_stats_size;
 
 enum enum_gtid_mode
 {

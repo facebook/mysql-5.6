@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_sql_stats_count is 100000
+SELECT @@global.max_sql_stats_count;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.max_sql_stats_count;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo max_sql_stats_count is a dynamic variable
+set @@global.max_sql_stats_count = 17;
+SELECT @@global.max_sql_stats_count;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.max_sql_stats_count = 100000;
+SELECT @@global.max_sql_stats_count;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (103)
+--let $_mysqld_option=--max_sql_stats_count=103
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.max_sql_stats_count;
+
+--echo restart the server with the default value (100000)
+--source include/restart_mysqld.inc
+
+# check value is default (100000)
+SELECT @@global.max_sql_stats_count;

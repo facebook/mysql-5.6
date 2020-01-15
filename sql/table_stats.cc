@@ -17,6 +17,7 @@ std::array<NAME_ID_MAP, MAX_MAP_NAME> my_names;
 ** - DB:    1024
 ** - Table:  32K
 ** - Index: 128K
+** - User:  1024
 ** These are absolute maximum and when reached will lead to
 ** no more objects added to their respective maps. Function
 ** check_name_maps_valid() will return FALSE if any of the
@@ -28,7 +29,7 @@ std::array<NAME_ID_MAP, MAX_MAP_NAME> my_names;
 ** and not just the shard (names are shared across shards).
 */
 const std::array<uint, MAX_MAP_NAME> my_names_max_size =
-   {(1024), (32*1024), (128*1024)};
+   {(1024), (32*1024), (128*1024), (1024)};
 
 /*
 ** init_names

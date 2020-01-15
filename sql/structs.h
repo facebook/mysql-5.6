@@ -541,8 +541,8 @@ typedef struct st_sql_stats {
   unsigned char sql_id[MD5_HASH_SIZE];
   unsigned char plan_id[MD5_HASH_SIZE];
   unsigned char client_id[MD5_HASH_SIZE];
-  char schema[NAME_LEN + 1];      /* [schema] + '\0' */
-  char user[NAME_LEN + 1];        /* [user] + '\0' */
+  uint32_t db_id;
+  uint32_t user_id;
 
   ulonglong count;   /* execution count of the normalized SQL */
                                   /* statement */
@@ -577,6 +577,7 @@ enum enum_map_name
   DB_MAP_NAME   =0,
   TABLE_MAP_NAME=1,
   INDEX_MAP_NAME=2,
+  USER_MAP_NAME =3,
   MAX_MAP_NAME
 };
 

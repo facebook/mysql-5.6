@@ -6542,7 +6542,7 @@ static const char *sql_stats_control_values[] =
 static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
 {
   if (sql_stats_control == SQL_STATS_CONTROL_OFF_HARD) {
-    free_global_sql_stats();
+    free_global_sql_stats(false /*limits_updated*/);
   }
 
   return false; // success
@@ -6563,6 +6563,33 @@ static Sys_var_enum Sys_sql_stats_control(
        sql_stats_control_values, DEFAULT(SQL_STATS_CONTROL_OFF_HARD),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_stats_control));
+
+static bool update_max_sql_stats_limits(sys_var *, THD *, enum_var_type type)
+{
+  // This will clear out all the stats collected so far if the limits are
+  // decreased.
+  if (sql_stats_control != SQL_STATS_CONTROL_OFF_HARD) {
+    free_global_sql_stats(true /*limits_updated*/);
+  }
+
+  return false; // success
+}
+
+static Sys_var_ulonglong Sys_max_sql_stats_count(
+       "max_sql_stats_count",
+       "Maximum allowed number of SQL statistics",
+       GLOBAL_VAR(max_sql_stats_count), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+       ON_UPDATE(update_max_sql_stats_limits));
+
+static Sys_var_ulonglong Sys_max_sql_stats_size(
+       "max_sql_stats_size",
+       "Maximum allowed memory for SQL statistics (in bytes)",
+       GLOBAL_VAR(max_sql_stats_size), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(100*1024*1024), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+       ON_UPDATE(update_max_sql_stats_limits));
 
 static Sys_var_mybool Sys_use_cached_table_stats_ptr(
        "use_cached_table_stats_ptr",

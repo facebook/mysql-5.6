@@ -99,6 +99,26 @@ ST_FIELD_INFO client_attrs_fields_info[]=
 std::unordered_map<md5_key, std::string> global_client_attrs_map;
 
 /*
+  These limits control the maximum accumulation of all sql statistics.
+  They are controlled by setting the respective system variables.
+*/
+ulonglong max_sql_stats_count;
+ulonglong max_sql_stats_size;
+
+/*
+  The current utilization of the sql statistics.
+*/
+ulonglong sql_stats_count= 0;
+ulonglong sql_stats_size= 0;
+
+/*
+  These are used to determine if existing stats need to be flushed on changing
+  the limits.
+*/
+ulonglong current_max_sql_stats_count= 0;
+ulonglong current_max_sql_stats_size= 0;
+
+/*
   sql_cmd_type
     Categorizes the sql command into buckets like ALTER, CREATE, DELETE, etc.
     The list of commands checked is exhaustive. So any new command type added
@@ -377,32 +397,13 @@ static bool set_sql_stats_cache_key(
     const unsigned char *sql_id,
     const unsigned char *plan_id,
     const unsigned char *client_id,
-    const char *schema,
-    const char *user,
+    const uint32_t db_id,
+    const uint32_t user_id,
     unsigned char *cache_key)
 {
-  DBUG_ASSERT(sql_id && plan_id && client_id && schema && user);
+  DBUG_ASSERT(sql_id && plan_id && client_id);
 
-  if (!schema || !user)
-  {
-    // NO_LINT_DEBUG
-    sql_print_error("No key for sql stats.");
-    return false;
-  }
-
-  char sql_stats_cache_key[(MD5_HASH_SIZE * 3) + (NAME_LEN * 2) + 2];
-  size_t schema_len= strlen(schema);
-  size_t user_len= strlen(user);
-
-  if (schema_len > NAME_LEN || user_len > NAME_LEN)
-  {
-    // NO_LINT_DEBUG
-    sql_print_error("Schema or user name too long for sql stats :%s:%s:\n",
-                    schema, user);
-    DBUG_ABORT();
-    return false;
-  }
-
+  char sql_stats_cache_key[(MD5_HASH_SIZE * 3) + sizeof(db_id) + sizeof(user_id)];
   int offset = 0;
   memcpy(sql_stats_cache_key + offset, sql_id, MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
@@ -410,10 +411,10 @@ static bool set_sql_stats_cache_key(
   offset += MD5_HASH_SIZE;
   memcpy(sql_stats_cache_key + offset, client_id, MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
-  memcpy(sql_stats_cache_key + offset, schema, schema_len + 1);
-  offset += (schema_len + 1);
-  memcpy(sql_stats_cache_key + offset, user, user_len + 1);
-  offset += (user_len + 1);
+  memcpy(sql_stats_cache_key + offset, &db_id, sizeof(db_id));
+  offset += sizeof(db_id);
+  memcpy(sql_stats_cache_key + offset, &user_id, sizeof(user_id));
+  offset += sizeof(user_id);
 
   compute_md5_hash((char *)cache_key, sql_stats_cache_key, offset);
 
@@ -425,14 +426,14 @@ static void set_sql_stats_attributes(
     const unsigned char *sql_id,
     const unsigned char *plan_id,
     const unsigned char *client_id,
-    const char *schema,
-    const char *user)
+    const uint32_t db_id,
+    const uint32_t user_id)
 {
   memcpy(stats->sql_id, sql_id, MD5_HASH_SIZE);
   memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
   memcpy(stats->client_id, client_id, MD5_HASH_SIZE);
-  memcpy(stats->schema, schema, strlen(schema) + 1);
-  memcpy(stats->user, user, strlen(user) + 1);
+  stats->db_id= db_id;
+  stats->user_id= user_id;
 }
 
 static void set_sql_text_attributes(
@@ -497,11 +498,26 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
 
 /*
   free_global_sql_stats
-    Frees both global_sql_stats_map and global_sql_text_map.
+    Frees global_sql_stats_map, global_sql_text_map & global_client_attrs_map.
+    Also resets the usage counters to 0.
+    If limits_updated is set to true, the memory is freed only if the new
+    limits are lower than the old limits. This avoids freeing up the stats
+    unnecessarily when limits are increased. 
 */
-void free_global_sql_stats(void)
+void free_global_sql_stats(bool limits_updated)
 {
   bool lock_acquired = lock_sql_stats();
+
+  if (limits_updated) {
+    if ((current_max_sql_stats_count <= max_sql_stats_count) &&
+        (current_max_sql_stats_size <= max_sql_stats_size)) {
+      current_max_sql_stats_count = max_sql_stats_count;
+      current_max_sql_stats_size = max_sql_stats_size;
+      unlock_sql_stats(lock_acquired);
+      return;
+    }
+  }
+
   for (auto it= global_sql_stats_map.begin(); it != global_sql_stats_map.end(); ++it)
   {
     my_free((char*)(it->second));
@@ -516,6 +532,12 @@ void free_global_sql_stats(void)
 
   global_client_attrs_map.clear();
 
+  sql_stats_count = 0;
+  sql_stats_size = 0;
+
+  current_max_sql_stats_count = max_sql_stats_count;
+  current_max_sql_stats_size = max_sql_stats_size;
+
   unlock_sql_stats(lock_acquired);
 }
 
@@ -526,7 +548,7 @@ void free_global_sql_stats(void)
 
     This is only calculated once per command (as opposed to per statement),
     and cleared at the end of the command. This is because attributes are
-    attached comamnds, not statements.
+    attached commands, not statements.
 */
 static void serialize_client_attrs(THD *thd) {
   if (thd->client_attrs_string.is_empty()) {
@@ -590,6 +612,11 @@ static void serialize_client_attrs(THD *thd) {
   }
 }
 
+static bool is_sql_stats_collection_above_limit() {
+  return (sql_stats_count >= max_sql_stats_count ||
+          sql_stats_size >= max_sql_stats_size);
+}
+
 /*
   update_sql_stats_after_statement
     Updates the SQL stats after every SQL statement.
@@ -601,10 +628,19 @@ static void serialize_client_attrs(THD *thd) {
 */
 void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
 {
+  // Do a light weight limit check without acquiring the lock.
+  // There will be another check later while holding the lock.
+  if (is_sql_stats_collection_above_limit()) return;
+
   /* Get the schema and the user name */
   const char *schema= thd->db ? thd->db : "NULL";
   const USER_CONN* uc= thd->get_user_connect();
   const char *user= uc->user ? uc->user : "NULL";
+
+  uint32_t db_id= get_id(DB_MAP_NAME, schema, strlen(schema));
+  uint32_t user_id= get_id(USER_MAP_NAME, user, strlen(user));
+  if (db_id == INVALID_NAME_ID || user_id == INVALID_NAME_ID)
+    return;
 
   /*
     m_digest is just a defensive check and should never be null.
@@ -628,10 +664,16 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
 
   md5_key sql_stats_cache_key;
   if (!set_sql_stats_cache_key(sql_id.data(), sql_id.data(), client_id.data(),
-                               schema, user, sql_stats_cache_key.data()))
+                               db_id, user_id, sql_stats_cache_key.data()))
     return;
 
   bool lock_acquired = lock_sql_stats();
+
+  // Check again inside the lock
+  if (is_sql_stats_collection_above_limit()) return;
+
+  current_max_sql_stats_count = max_sql_stats_count;
+  current_max_sql_stats_size = max_sql_stats_size;
 
   /* Get or create client attributes for this statement. */
   auto client_id_iter = global_client_attrs_map.find(client_id);
@@ -639,6 +681,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
     global_client_attrs_map.emplace(client_id,
                                     std::string(thd->client_attrs_string.ptr(),
                                                 thd->client_attrs_string.length()));
+    sql_stats_size += (MD5_HASH_SIZE + thd->client_attrs_string.length());
   }
 
   /* Get or create the SQL_TEXT object for this sql statement. */
@@ -664,6 +707,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
       unlock_sql_stats(lock_acquired);
       return;
     }
+    sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_TEXT));
   }
 
   /* Get or create the SQL_STATS object for this sql statement. */
@@ -681,7 +725,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
     /* For now pass in sql_id as plan_id */
     /* TODO (svemuri): Change to the correct plan_id later */
     set_sql_stats_attributes(sql_stats, sql_id.data(), sql_id.data(),
-                             client_id.data(), schema, user);
+                             client_id.data(), db_id, user_id);
     sql_stats->reset();
 
     auto ret= global_sql_stats_map.emplace(sql_stats_cache_key, sql_stats);
@@ -692,6 +736,8 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
       unlock_sql_stats(lock_acquired);
       return;
     }
+    sql_stats_count++;
+    sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_STATS));
   } else {
     sql_stats= sql_stats_iter->second;
   }
@@ -716,6 +762,11 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   TABLE* table= tables->table;
 
   bool lock_acquired = lock_sql_stats();
+
+  ID_NAME_MAP db_map;
+  ID_NAME_MAP user_map;
+  fill_invert_map(DB_MAP_NAME, &db_map);
+  fill_invert_map(USER_MAP_NAME, &user_map);
 
   for (auto iter= global_sql_stats_map.cbegin();
       iter != global_sql_stats_map.cend(); ++iter)
@@ -744,12 +795,17 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     /* CLIENT ID */
     table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
+
+    const char *a_name;
     /* Table Schema */
-    table->field[f++]->store(sql_stats->schema, strlen(sql_stats->schema),
-                             system_charset_info);
+    if (!(a_name= get_name(&db_map, sql_stats->db_id)))
+      a_name= "UNKNOWN";
+    table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
     /* User Name */
-    table->field[f++]->store(sql_stats->user, strlen(sql_stats->user),
-                             system_charset_info);
+    if (!(a_name= get_name(&user_map, sql_stats->user_id)))
+      a_name= "UNKNOWN";
+    table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
 
     /* Execution Count */
     table->field[f++]->store(sql_stats->count, TRUE);

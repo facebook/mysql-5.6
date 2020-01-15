@@ -1,0 +1,25 @@
+Default value of max_sql_stats_count is 100000
+SELECT @@global.max_sql_stats_count;
+@@global.max_sql_stats_count
+100000
+SELECT @@session.max_sql_stats_count;
+ERROR HY000: Variable 'max_sql_stats_count' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+max_sql_stats_count is a dynamic variable
+set @@global.max_sql_stats_count = 17;
+SELECT @@global.max_sql_stats_count;
+@@global.max_sql_stats_count
+17
+restore the default value
+SET @@global.max_sql_stats_count = 100000;
+SELECT @@global.max_sql_stats_count;
+@@global.max_sql_stats_count
+100000
+restart the server with non default value (103)
+SELECT @@global.max_sql_stats_count;
+@@global.max_sql_stats_count
+103
+restart the server with the default value (100000)
+SELECT @@global.max_sql_stats_count;
+@@global.max_sql_stats_count
+100000

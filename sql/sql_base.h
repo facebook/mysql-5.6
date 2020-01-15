@@ -312,6 +312,8 @@ bool fill_invert_map(enum_map_name map_name, ID_NAME_MAP *id_map);
 #define INVALID_NAME_ID UINT_MAX
 uint get_id(enum_map_name map_name, const char *name, uint length);
 
+const char *get_name(ID_NAME_MAP *id_map, uint id);
+
 /* ########### end of name encoding service ########### */
 
 /* for SHOW GLOBAL TABLE STATUS */
@@ -367,7 +369,7 @@ void reset_user_conn_admin_flag();
 /* For information_schema.sql_statistics */
 extern ST_FIELD_INFO sql_stats_fields_info[];
 extern mysql_mutex_t LOCK_global_sql_stats;
-void free_global_sql_stats(void);
+void free_global_sql_stats(bool limits_updated);
 int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats);
 void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats);
