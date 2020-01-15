@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table esms_by_all.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.events_statements_summary_by_all
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.events_statements_summary_by_all
+  SET USER="abc";
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.events_statements_summary_by_all
+  SET USER="abc" WHERE USER=root;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.events_statements_summary_by_all
+  WHERE USER=root;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.events_statements_summary_by_all;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.events_statements_summary_by_all READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.events_statements_summary_by_all WRITE;
+UNLOCK TABLES;
