@@ -20,11 +20,37 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
+# cmake -DWITH_LZ4=system|bundled|3rdparty
+# bundled is the default
+
+SET(LIBLZ4_VERSION_REQUIRED "1.8.0")  # LZ4F_HEADER_SIZE_MAX and LZ4F_freeDecompressionContext
+
+MACRO (CHECK_LZ4_VERSION)
+  SET(PATH_TO_LZ4_H "${ARGV0}/lz4.h")
+  IF (NOT EXISTS ${PATH_TO_LZ4_H})
+    MESSAGE(FATAL_ERROR "File ${PATH_TO_LZ4_H} not found")
+  ENDIF()
+
+  FILE(STRINGS "${PATH_TO_LZ4_H}" LIBLZ4_HEADER_CONTENT REGEX "#define LZ4_VERSION_[A-Z]+ +[0-9]+")
+  STRING(REGEX REPLACE ".*#define LZ4_VERSION_MAJOR +([0-9]+).*" "\\1" LIBLZ4_VERSION_MAJOR "${LIBLZ4_HEADER_CONTENT}")
+  STRING(REGEX REPLACE ".*#define LZ4_VERSION_MINOR +([0-9]+).*" "\\1" LIBLZ4_VERSION_MINOR "${LIBLZ4_HEADER_CONTENT}")
+  STRING(REGEX REPLACE ".*#define LZ4_VERSION_RELEASE +([0-9]+).*" "\\1" LIBLZ4_VERSION_RELEASE "${LIBLZ4_HEADER_CONTENT}")
+  SET(LIBLZ4_VERSION_STRING "${LIBLZ4_VERSION_MAJOR}.${LIBLZ4_VERSION_MINOR}.${LIBLZ4_VERSION_RELEASE}")
+  UNSET(LIBLZ4_HEADER_CONTENT)
+
+  IF (${LIBLZ4_VERSION_STRING} VERSION_LESS ${LIBLZ4_VERSION_REQUIRED})
+    MESSAGE(FATAL_ERROR "Required liblz4 ${LIBLZ4_VERSION_REQUIRED} and installed version is ${LIBLZ4_VERSION_STRING}")
+  ELSE()
+    MESSAGE(STATUS "Found liblz4 version ${LIBLZ4_VERSION_STRING}")
+  ENDIF()
+ENDMACRO()
+
 MACRO (FIND_SYSTEM_LZ4)
   FIND_PATH(PATH_TO_LZ4 NAMES lz4frame.h)
   FIND_LIBRARY(LZ4_SYSTEM_LIBRARY NAMES lz4)
   IF (PATH_TO_LZ4 AND LZ4_SYSTEM_LIBRARY)
     SET(SYSTEM_LZ4_FOUND 1)
+    CHECK_LZ4_VERSION(${PATH_TO_LZ4})
     INCLUDE_DIRECTORIES(SYSTEM ${PATH_TO_LZ4})
     SET(LZ4_LIBRARY ${LZ4_SYSTEM_LIBRARY})
     MESSAGE(STATUS "PATH_TO_LZ4 ${PATH_TO_LZ4}")
@@ -32,51 +58,38 @@ MACRO (FIND_SYSTEM_LZ4)
   ENDIF()
 ENDMACRO()
 
+MACRO (MYSQL_USE_BUNDLED_LZ4)
+  SET(WITH_LZ4 "bundled" CACHE STRING "By default use bundled lz4 library")
+  SET(BUILD_BUNDLED_LZ4 1)
+  CHECK_LZ4_VERSION(${CMAKE_SOURCE_DIR}/extra/lz4)
+  INCLUDE_DIRECTORIES(BEFORE SYSTEM ${CMAKE_SOURCE_DIR}/extra/lz4)
+  SET(LZ4_LIBRARY lz4_lib)
+ENDMACRO()
+
 IF (NOT WITH_LZ4)
-  SET(WITH_LZ4 "system" CACHE STRING "By default use system lz4 library")
+  SET(WITH_LZ4 "bundled" CACHE STRING "By default use bundled lz4 library")
+ENDIF()
+
+IF(NOT DISABLE_SHARED)
+  SET(PIC_EXT "_pic")
+ELSE()
+  SET(PIC_EXT "")
 ENDIF()
 
 MACRO (MYSQL_CHECK_LZ4)
-  # See if WITH_LZ4 is of the form </path/to/custom/installation>
-  FILE(GLOB WITH_LZ4_HEADER ${WITH_LZ4}/include/lz4frame.h)
-  IF (WITH_LZ4_HEADER)
-    SET(WITH_LZ4_PATH ${WITH_LZ4}
-      CACHE PATH "Path to custom LZ4 installation")
-  ENDIF()
-
-  IF(WITH_LZ4 STREQUAL "system")
+  IF (WITH_LZ4 STREQUAL "bundled")
+    MYSQL_USE_BUNDLED_LZ4()
+  ELSEIF(WITH_LZ4 STREQUAL "system")
     FIND_SYSTEM_LZ4()
     IF (NOT SYSTEM_LZ4_FOUND)
-      MESSAGE(FATAL_ERROR "Cannot find system lz4 libraries.")
+      MESSAGE(FATAL_ERROR "Cannot find system lz4 libraries.") 
     ENDIF()
-  ELSEIF(WITH_LZ4_PATH)
-    # First search in WITH_LZ4_PATH.
-    FIND_PATH(LZ4_ROOT_DIR
-      NAMES include/lz4frame.h
-      NO_CMAKE_PATH
-      NO_CMAKE_ENVIRONMENT_PATH
-      HINTS ${WITH_LZ4_PATH}
-    )
-
-    # Then search in standard places (if not found above).
-    FIND_PATH(LZ4_ROOT_DIR
-      NAMES include/lz4frame.h
-    )
-
-    FIND_PATH(LZ4_INCLUDE_DIR
-      NAMES lz4frame.h
-      HINTS ${LZ4_ROOT_DIR}/include
-    )
-
-    FIND_LIBRARY(LZ4_LIBRARY
-      NAMES lz4_pic lz4
-      HINTS ${LZ4_ROOT_DIR}/lib)
-
-    IF(LZ4_INCLUDE_DIR AND LZ4_LIBRARY)
-      MESSAGE(STATUS "LZ4_INCLUDE_DIR = ${LZ4_INCLUDE_DIR}")
-      MESSAGE(STATUS "LZ4_LIBRARY = ${LZ4_LIBRARY}")
-    ENDIF()
+  ELSEIF(WITH_LZ4 STREQUAL "3rdparty")
+    # Support using 3rd party version of lz4 pointed by LZ4_PATH
+    CHECK_LZ4_VERSION(${LZ4_PATH}/include)
+    INCLUDE_DIRECTORIES(SYSTEM ${LZ4_PATH}/include)
+    SET(LZ4_LIBRARY ${LZ4_PATH}/lib/liblz4${PIC_EXT}.a)
   ELSE()
-    MESSAGE(FATAL_ERROR "WITH_LZ4 must be system or path to library")
+    MESSAGE(FATAL_ERROR "WITH_LZ4 must be bundled, system, or 3rdparty")
   ENDIF()
 ENDMACRO()

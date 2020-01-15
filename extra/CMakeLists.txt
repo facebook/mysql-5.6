@@ -32,6 +32,14 @@ IF(NOT CMAKE_CROSSCOMPILING)
  SET_TARGET_PROPERTIES(comp_err PROPERTIES LINKER_LANGUAGE CXX)
 ENDIF()
 
+IF (BUILD_BUNDLED_LZ4)
+  ADD_LIBRARY(lz4_lib STATIC
+    ../extra/lz4/lz4.c
+    ../extra/lz4/lz4frame.c
+    ../extra/lz4/lz4hc.c
+    ../extra/lz4/xxhash.c
+  )
+ENDIF()
 
 ADD_CUSTOM_COMMAND(OUTPUT ${PROJECT_BINARY_DIR}/include/mysqld_error.h 
                    ${PROJECT_BINARY_DIR}/sql/share/english/errmsg.sys

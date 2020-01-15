@@ -181,7 +181,16 @@ ELSE()
   SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 ENDIF()
 
-SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${LZ4_LIBRARY} ${SSL_LIBRARIES})
+IF(WITH_ZLIB STREQUAL "bundled")
+  LIST(APPEND LIBS_TO_MERGE ${ZSTD_LIBRARY})
+ELSE()
+  LIST(APPEND LIBS_TO_LINK ${ZSTD_LIBRARY})
+ENDIF()
+
+LIST(APPEND LIBS_TO_LINK ${LZ4_LIBRARY})
+
+
+SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${SSL_LIBRARIES})
 
 #
 # On Windows platform client library includes the client-side 
@@ -194,8 +203,8 @@ IF(WIN32)
 ENDIF()
 
 # Merge several convenience libraries into one big fbmysqlclient
-MERGE_LIBRARIES(fbmysqlclient STATIC ${STATIC_MERGE_LIBS} COMPONENT Development)
-TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${LZ4_LIBRARY} ${SSL_LIBRARIES})
+MERGE_LIBRARIES(fbmysqlclient STATIC ${STATIC_MERGE_LIBS} ${LIBS_TO_MERGE} COMPONENT Development)
+TARGET_LINK_LIBRARIES(fbmysqlclient ${ZLIB_LIBRARY} ${LIBS_TO_LINK} ${SSL_LIBRARIES})
 
 # Visual Studio users need debug  static library for debug projects
 IF(MSVC)
@@ -236,9 +245,10 @@ IF(NOT DISABLE_SHARED AND
    NOT (WITH_FB_TSAN AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
   # Merge several convenience libraries into one big fbmysqlclient
   # and link them together into shared library.
-  MERGE_LIBRARIES(libmysql SHARED ${LIBS}
+  MERGE_LIBRARIES(libmysql SHARED ${LIBS} ${LIBS_TO_MERGE}
     EXPORTS ${CLIENT_API_FUNCTIONS}
     COMPONENT SharedLibraries)
+  TARGET_LINK_LIBRARIES(libmysql PRIVATE ${LIBS_TO_LINK})
   IF(UNIX)
     # libtool compatability
     IF(CMAKE_SYSTEM_NAME MATCHES "FreeBSD" OR APPLE)
