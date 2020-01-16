@@ -298,7 +298,16 @@ int ha_recover(xid_to_gtid_container *commit_list, Xa_state_list *xa_list,
 
   if (info.commit_list) LogErr(SYSTEM_LEVEL, ER_XA_STARTING_RECOVERY);
 
-  if (total_ha_2pc > (ulong)opt_bin_log + 1) {
+  /*
+    FB - we can always rollback prepared transactions safely because of
+    idempotent recovery and RBR. In the case where the binlog is not involved,
+    the two storage engines could be inconsistent, but it is up to the
+    application to resolve these problems.
+
+    There is never a case where we want to roll-forward prepared transactions
+    based on tc_heuristic_recovery, so there is no need to allow that behavior.
+  */
+  if (false && (total_ha_2pc > (ulong)opt_bin_log + 1)) {
     if (tc_heuristic_recover == TC_HEURISTIC_RECOVER_ROLLBACK) {
       LogErr(ERROR_LEVEL, ER_XA_NO_MULTI_2PC_HEURISTIC_RECOVER);
       return 1;
