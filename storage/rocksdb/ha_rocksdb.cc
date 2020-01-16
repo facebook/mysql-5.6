@@ -15319,14 +15319,13 @@ class Mrr_rowid_source {
 // Rowid source that produces rowids by enumerating a sequence of ranges
 //
 class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
-  range_seq_t mrr_seq_it;
   bool mrr_ranges_eof;  // true means we've got eof when enumerating the ranges.
   ha_rocksdb *self;
  public:
   Mrr_pk_scan_rowid_source(ha_rocksdb *self_arg, void *seq_init_param,
                            uint n_ranges, uint mode) :
     mrr_ranges_eof(false), self(self_arg) {
-    mrr_seq_it = self->mrr_funcs.init(seq_init_param, n_ranges, mode);
+    self->mrr_iter= self->mrr_funcs.init(seq_init_param, n_ranges, mode);
   }
 
   int get_next_rowid(uchar *buf, int *size, char **range_ptr) override {
@@ -15335,7 +15334,7 @@ class Mrr_pk_scan_rowid_source : public Mrr_rowid_source {
       return HA_ERR_END_OF_FILE; //  At eof already
 
     KEY_MULTI_RANGE range;
-    if ((mrr_ranges_eof = self->mrr_funcs.next(mrr_seq_it, &range)))
+    if ((mrr_ranges_eof = self->mrr_funcs.next(self->mrr_iter, &range)))
       return HA_ERR_END_OF_FILE; //  Got eof now
 
     key_part_map all_parts_map =
@@ -15428,7 +15427,6 @@ int ha_rocksdb::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
   mrr_enabled_keyread = false;
   mrr_rowid_reader = nullptr;
 
-  mrr_iter = seq->init(seq_init_param, n_ranges, mode);
   mrr_funcs = *seq;
   mrr_buf = *buf;
 
