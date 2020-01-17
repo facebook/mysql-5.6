@@ -47,3 +47,5 @@ while ($cnt <= 32)
   eval DROP UNDO TABLESPACE $undo_space_name; 
   inc $cnt;
 }
+
+--source suite/innodb_undo/include/i_s_files_cleanup.inc
