@@ -9,3 +9,4 @@
 --echo # --bootstrap --innodb_page_size=64k
 
 --source suite/innodb_undo/include/i_s_files.inc
+--source suite/innodb_undo/include/i_s_files_cleanup.inc
