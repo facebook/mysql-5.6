@@ -48,3 +48,5 @@ DROP UNDO TABLESPACE undo_005;
 DROP UNDO TABLESPACE undo_006;
 DROP UNDO TABLESPACE undo_007;
 DROP UNDO TABLESPACE undo_008;
+
+--source suite/innodb_undo/include/i_s_files_cleanup.inc
