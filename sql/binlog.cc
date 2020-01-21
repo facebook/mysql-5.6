@@ -6279,6 +6279,12 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   }
   my_free(old_name);
 
+  if (!error && rotate_via_raft) {
+    // not trapping return code, because this is the existing
+    // pattern in most places of after_commit hook (TODO)
+    (void)RUN_HOOK(transaction, after_commit, (current_thd, false));
+  }
+
 end:
 
   if (error && close_on_error /* rotate or reopen failed */)
