@@ -918,6 +918,7 @@ rocksdb_compaction_sequential_deletes_window	0
 rocksdb_create_checkpoint	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
+rocksdb_create_temporary_checkpoint	
 rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
 rocksdb_deadlock_detect	OFF
@@ -932,6 +933,7 @@ rocksdb_default_cf_options
 rocksdb_delayed_write_rate	0
 rocksdb_delete_cf	
 rocksdb_delete_obsolete_files_period_micros	21600000000
+rocksdb_disable_file_deletions	OFF
 rocksdb_enable_2pc	ON
 rocksdb_enable_bulk_load_api	ON
 rocksdb_enable_insert_with_update_caching	ON
