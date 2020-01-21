@@ -1,0 +1,9 @@
+CREATE TABLE t (a INT, b TEXT) ENGINE=ROCKSDB;
+SET SESSION rocksdb_disable_file_deletions=1;
+INSERT INTO t VALUES (1, REPEAT(UUID(), 100));
+verify that rocksdb info has been added to p_s.log_status
+SELECT storage_engines->>"$.RocksDB.wal_files[x]" FROM performance_schema.log_status;
+storage_engines->>"$.RocksDB.wal_files[x]"
+{"path_name": "/x.log", "log_number": x, "size_file_bytes": x}
+SET SESSION rocksdb_disable_file_deletions=0;
+DROP TABLE t;
