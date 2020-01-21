@@ -9697,6 +9697,14 @@ void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
   unlock_binlog_end_pos();
 }
 
+void MYSQL_BIN_LOG::print_last_acked_pos() {
+  const char *file_name = mysql_bin_log.engine_binlog_file +
+                          dirname_length(mysql_bin_log.engine_binlog_file);
+  sql_print_information(
+      "[rpl_wait_for_semi_sync_ack] Last ACKed pos initialized to: %s:%llu",
+      file_name, mysql_bin_log.engine_binlog_pos);
+}
+
 void MYSQL_BIN_LOG::reset_semi_sync_last_acked() {
   lock_binlog_end_pos();
   /* binary log is rotated and all trxs in previous binlog are already committed

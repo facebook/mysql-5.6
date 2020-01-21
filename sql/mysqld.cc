@@ -6108,6 +6108,7 @@ static int init_server_components() {
 #endif
     locked_in_memory = 0;
 
+  mysql_bin_log.print_last_acked_pos();
   mysql_bin_log.reset_semi_sync_last_acked();
 
   /* Initialize the optimizer cost module */

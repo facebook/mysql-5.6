@@ -1048,6 +1048,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   my_off_t get_last_acked_pos(bool &wait_for_ack, bool need_lock,
                               const char *sender_log_name);
   void signal_semi_sync_ack(const char *const log_file, const my_off_t log_pos);
+  void print_last_acked_pos();
   void reset_semi_sync_last_acked();
   void get_semi_sync_last_acked(std::string &log_file, my_off_t &log_pos);
 
