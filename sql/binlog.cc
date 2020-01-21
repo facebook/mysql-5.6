@@ -3108,7 +3108,8 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
     }
     else
     {
-      if (my_delete(crash_safe_index_file_name, MYF(MY_WME)))
+      if (close_crash_safe_index_file() ||
+          my_delete(crash_safe_index_file_name, MYF(MY_WME)))
       {
         sql_print_error("MYSQL_BIN_LOG::open_index_file failed to "
             "delete crash_safe_index_file.");
@@ -3292,6 +3293,8 @@ static void adjust_linfo_offsets(my_off_t purge_offset)
 int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO* log_info,
                                           bool need_update_threads)
 {
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+      { DBUG_SET("+d,simulate_no_free_space_error"); });
   if (open_crash_safe_index_file())
   {
     sql_print_error("MYSQL_BIN_LOG::remove_logs_from_index failed to "
@@ -3322,12 +3325,18 @@ int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO* log_info,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+      { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   // now update offsets in index file for running threads
   if (need_update_threads)
     adjust_linfo_offsets(log_info->index_file_start_offset);
   return 0;
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index", {
+      DBUG_SET("-d,simulate_no_free_space_error");
+      DBUG_SET("-d,simulate_file_write_error");});
   return LOG_INFO_IO;
 }
 
@@ -4186,6 +4195,9 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
   uint gtid_set_length = 0;
   DBUG_ENTER("MYSQL_BIN_LOG::add_log_to_index");
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+      { DBUG_SET("+d,simulate_no_free_space_error"); });
+
   if (open_crash_safe_index_file())
   {
     sql_print_error("MYSQL_BIN_LOG::add_log_to_index failed to "
@@ -4274,10 +4286,16 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+      { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   my_free(previous_gtid_set_buffer);
   DBUG_RETURN(0);
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index", {
+      DBUG_SET("-d,simulate_no_free_space_error");
+      DBUG_SET("-d,simulate_file_write_error");});
   my_free(previous_gtid_set_buffer);
   DBUG_RETURN(-1);
 }
@@ -5105,6 +5123,12 @@ err:
     mysql_mutex_unlock(&LOCK_index);
 
   error = error ? error : error_index;
+  if (error && binlog_error_action == ABORT_SERVER)
+  {
+    exec_binlog_error_action_abort("Either disk is full or file system is read "
+                                   "only while opening the binlog. Aborting the"
+                                   " server.");
+  }
   DBUG_RETURN(error);
 }
 

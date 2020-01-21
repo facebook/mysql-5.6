@@ -1,0 +1,44 @@
+call mtr.add_suppression("Binary logging not possible");
+call mtr.add_suppression("MYSQL_BIN_LOG::remove_logs_from_index");
+call mtr.add_suppression("MYSQL_BIN_LOG::purge_logs");
+call mtr.add_suppression("MYSQL_BIN_LOG::add_log_to_index");
+call mtr.add_suppression("Attempting backtrace");
+create table t1 (a int) engine = innodb;
+flush logs;
+purge binary logs to 'binlog';
+insert into t1 values(1);
+insert into t1 values(2);
+flush logs;
+flush logs;
+flush logs;
+flush logs;
+show binary logs;
+Log_name	File_size
+master-bin.000002	667
+master-bin.000003	231
+master-bin.000004	231
+master-bin.000005	231
+master-bin.000006	187
+set session debug="+d,simulate_disk_full_remove_logs_from_index";
+purge binary logs to 'binlog';
+ERROR HY000: Binary logging not possible. Message: Either disk is full or file system is read only while opening the binlog. Aborting the server.
+show binary logs;
+Log_name	File_size
+master-bin.000004	231
+master-bin.000005	231
+master-bin.000006	187
+master-bin.000007	187
+set session debug="+d,simulate_disk_full_add_log_to_index";
+flush logs;
+ERROR HY000: Binary logging not possible. Message: Either disk is full or file system is read only while opening the binlog. Aborting the server.
+show binary logs;
+Log_name	File_size
+master-bin.000004	231
+master-bin.000005	231
+master-bin.000006	187
+master-bin.000007	231
+master-bin.000008	187
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-8
+drop table t1;
