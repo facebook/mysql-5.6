@@ -1,0 +1,10 @@
+SET SESSION rocksdb_disable_file_deletions = 0;
+SET SESSION rocksdb_disable_file_deletions = 1;
+SET SESSION rocksdb_disable_file_deletions = TRUE;
+SET SESSION rocksdb_disable_file_deletions = ON;
+SET SESSION rocksdb_disable_file_deletions = OFF;
+SET SESSION rocksdb_disable_file_deletions = FALSE;
+SET SESSION rocksdb_disable_file_deletions = "abc";
+ERROR 42000: Variable 'rocksdb_disable_file_deletions' can't be set to the value of 'abc'
+SET SESSION rocksdb_disable_file_deletions = 12;
+ERROR 42000: Variable 'rocksdb_disable_file_deletions' can't be set to the value of '12'

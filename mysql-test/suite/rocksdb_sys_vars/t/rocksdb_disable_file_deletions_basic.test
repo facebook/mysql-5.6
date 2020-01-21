@@ -1,0 +1,14 @@
+--source include/have_rocksdb.inc
+
+SET SESSION rocksdb_disable_file_deletions = 0;
+SET SESSION rocksdb_disable_file_deletions = 1;
+
+SET SESSION rocksdb_disable_file_deletions = TRUE;
+SET SESSION rocksdb_disable_file_deletions = ON;
+SET SESSION rocksdb_disable_file_deletions = OFF;
+SET SESSION rocksdb_disable_file_deletions = FALSE;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET SESSION rocksdb_disable_file_deletions = "abc";
+--error ER_WRONG_VALUE_FOR_VAR
+SET SESSION rocksdb_disable_file_deletions = 12;
