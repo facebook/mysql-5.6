@@ -1,0 +1,53 @@
+--source include/have_rocksdb.inc
+
+--replace_result $MYSQL_TMP_DIR TMP
+eval SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = '$MYSQL_TMP_DIR/abc';
+--replace_result $MYSQL_TMP_DIR TMP
+SELECT @@ROCKSDB_CREATE_TEMPORARY_CHECKPOINT;
+file_exists $MYSQL_TMP_DIR/abc/CURRENT;
+
+# fails, need to remove an existing one first by setting to NULL
+--replace_result $MYSQL_TMP_DIR TMP
+--error ER_GET_ERRMSG
+eval SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = '$MYSQL_TMP_DIR/def';
+file_exists $MYSQL_TMP_DIR/abc/CURRENT;
+--error 1
+file_exists $MYSQL_TMP_DIR/def/CURRENT;
+
+SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = NULL;
+
+# success, now it is ok to create new checkpoint
+--replace_result $MYSQL_TMP_DIR TMP
+eval SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = '$MYSQL_TMP_DIR/def/';
+--replace_result $MYSQL_TMP_DIR TMP
+SELECT @@ROCKSDB_CREATE_TEMPORARY_CHECKPOINT;
+file_exists $MYSQL_TMP_DIR/def/CURRENT;
+
+--source include/count_sessions.inc
+
+connect(con1,localhost,root,,test,,);
+connection con1;
+
+# error, directory exists
+--replace_result $MYSQL_TMP_DIR TMP
+--error ER_GET_ERRMSG
+eval SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = '$MYSQL_TMP_DIR/def';
+--replace_result $MYSQL_TMP_DIR TMP
+SELECT @@ROCKSDB_CREATE_TEMPORARY_CHECKPOINT;
+file_exists $MYSQL_TMP_DIR/def/CURRENT;
+
+# success
+--replace_result $MYSQL_TMP_DIR TMP
+eval SET SESSION ROCKSDB_CREATE_TEMPORARY_CHECKPOINT = '$MYSQL_TMP_DIR/ghj';
+--replace_result $MYSQL_TMP_DIR TMP
+SELECT @@ROCKSDB_CREATE_TEMPORARY_CHECKPOINT;
+file_exists $MYSQL_TMP_DIR/ghj/CURRENT;
+
+disconnect con1;
+--source include/wait_until_disconnected.inc
+
+connection default;
+
+# error, checkpoint removed upon disconnect
+--error 1
+file_exists $MYSQL_TMP_DIR/ghj/CURRENT;

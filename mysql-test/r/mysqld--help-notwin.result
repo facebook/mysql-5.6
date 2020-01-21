@@ -1443,6 +1443,8 @@ The following options may be given as the first argument:
  --rocksdb-delete-obsolete-files-period-micros=# 
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
+ --rocksdb-disable-file-deletions 
+ Prevent file deletions
  --rocksdb-enable-2pc 
  Enable two phase commit for MyRocks
  (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
@@ -2508,6 +2510,7 @@ rocksdb-default-cf-options
 rocksdb-delayed-write-rate 0
 rocksdb-delete-cf 
 rocksdb-delete-obsolete-files-period-micros 21600000000
+rocksdb-disable-file-deletions FALSE
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
 rocksdb-enable-insert-with-update-caching TRUE
