@@ -3388,6 +3388,7 @@ bool MDL_lock::object_lock_kill_conflicting_locks(
   Ticket_iterator it(lock->m_granted);
   MDL_ticket *conflicting_ticket;
 
+  THD *thd = ctx->get_thd();
   while ((conflicting_ticket = it++)) {
     if (conflicting_ticket->get_ctx() != ctx &&
         conflicting_ticket->get_type() < kill_lower_than) {
@@ -3395,6 +3396,8 @@ bool MDL_lock::object_lock_kill_conflicting_locks(
       // if any conflicting thread is not killed, stop and just return false
       if (!ctx->get_owner()->kill_shared_lock(conflicting_ctx->get_owner()))
         return false;
+      if (thd->slave_thread)
+        slave_high_priority_ddl_killed_connections++;
     }
   }
   return true;
@@ -3602,6 +3605,9 @@ bool MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
       m_wait.reset_status();
     }
 
+    if (thd->slave_thread) {
+      slave_high_priority_ddl_executed++;
+    }
     mysql_prlock_wrlock(&lock->m_rwlock);
     lock->kill_conflicting_locks(this, kill_conflicting_locks_lower_than);
     mysql_prlock_unlock(&lock->m_rwlock);

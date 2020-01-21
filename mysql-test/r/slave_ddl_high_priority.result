@@ -65,6 +65,7 @@ connection: slave
 alter table t1 modify i bigint;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 alter table t1 modify i bigint;;
@@ -81,6 +82,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -179,6 +182,7 @@ connection: slave
 alter table t1 rename t1_new;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 alter table t1 rename t1_new;;
@@ -195,6 +199,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1_new;
 Table	Create Table
@@ -293,6 +299,7 @@ connection: slave
 drop table t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 drop table t1;;
@@ -384,6 +391,7 @@ connection: slave
 drop table t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 drop table t1;;
@@ -400,6 +408,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 ERROR 42S02: Table 'test.t1' doesn't exist
@@ -486,6 +496,7 @@ connection: slave
 create index idx1 on t1 (i);;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 create index idx1 on t1 (i);;
@@ -502,6 +513,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -587,6 +600,7 @@ connection: slave
 drop index idx1 on t1;;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 drop index idx1 on t1;;
@@ -603,6 +617,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -695,6 +711,7 @@ connection: slave
 truncate t1;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 truncate t1;
@@ -711,6 +728,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -802,6 +821,7 @@ create trigger ins_sum before insert on t1
 for each row set @sum = @sum + new.i;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 create trigger ins_sum before insert on t1
@@ -819,6 +839,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -903,6 +925,7 @@ connection: slave
 drop trigger ins_sum;
 ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 drop trigger ins_sum;
@@ -919,6 +942,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table
@@ -1016,6 +1041,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	optimize	Error	Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
 test.t1	optimize	status	Operation failed
 set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
 # execute DDL command on master
 connection master
 optimize table t1;
@@ -1035,6 +1061,8 @@ Id	User	Host	db	Command	Time	State	Info
 #	root	#	test	#	#	#	#
 #	system user	#	NULL	#	#	#	#
 #	system user	#	NULL	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
 connection: slave
 show create table t1;
 Table	Create Table

@@ -1264,6 +1264,8 @@ bool skip_core_dump_on_error = false;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
+std::atomic<ulonglong> slave_high_priority_ddl_executed(0);
+std::atomic<ulonglong> slave_high_priority_ddl_killed_connections(0);
 bool log_datagram = 0;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
@@ -9147,6 +9149,11 @@ SHOW_VAR status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Slave_dependency_next_waits", (char *)&show_slave_dependency_next_waits,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Slave_high_priority_ddl_executed", (char *)&slave_high_priority_ddl_executed,
+     SHOW_LONGLONG, SHOW_SCOPE_ALL},
+    {"Slave_high_priority_ddl_killed_connections",
+     (char *)&slave_high_priority_ddl_killed_connections, SHOW_LONGLONG,
+     SHOW_SCOPE_ALL},
     {"Slow_launch_threads",
      (char *)&Per_thread_connection_handler::slow_launch_threads, SHOW_LONG,
      SHOW_SCOPE_ALL},
