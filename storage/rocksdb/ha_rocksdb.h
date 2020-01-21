@@ -27,9 +27,9 @@
 #include <vector>
 
 /* MySQL header files */
-#include "my_icp.h"          /* icp_result */
-#include "sql/handler.h"   /* handler */
-#include "sql_string.h"
+#include <mysql/components/services/log_builtins.h>
+#include "my_dbug.h"
+#include "my_icp.h" /* icp_result */
 #include "mysql/psi/mysql_rwlock.h"
 #include "sql/handler.h"
 #include "sql/sql_bitmap.h"      /* Key_map */
