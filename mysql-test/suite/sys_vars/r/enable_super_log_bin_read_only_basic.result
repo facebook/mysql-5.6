@@ -1,0 +1,38 @@
+SELECT @@session.enable_super_log_bin_read_only;
+ERROR HY000: Variable 'enable_super_log_bin_read_only' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+CREATE TABLE t1 (pk INT, val INT, PRIMARY KEY(pk)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1,10);
+INSERT INTO t1 VALUES (2,20);
+SET @@session.sql_log_bin = 1;
+SET @@global.read_only = 1;
+SET @@global.enable_super_log_bin_read_only = 1;
+INSERT INTO t1 values (3,30);
+ERROR HY000: The MySQL server is running with the --sql_log_bin, --read-only and --enable_super_log_bin_read_only option so it cannot execute this statement
+CREATE TABLE t2 (pk INT, PRIMARY KEY(pk)) ENGINE=INNODB;
+ERROR HY000: The MySQL server is running with the --sql_log_bin, --read-only and --enable_super_log_bin_read_only option so it cannot execute this statement
+SET @@global.super_read_only = 1;
+INSERT INTO t1 values (4,40);
+ERROR HY000: The MySQL server is running with the --super-read-only option so it cannot execute this statement
+SET @@global.super_read_only = 0;
+SET @@global.enable_super_log_bin_read_only = 0;
+INSERT INTO t1 VALUES (5,50);
+SET @@global.enable_super_log_bin_read_only = 1;
+SET @@session.sql_log_bin = 0;
+INSERT INTO t1 VALUES (6,60);
+BEGIN;
+INSERT INTO t1 VALUES (7,70);
+SET @@session.sql_log_bin = 1;
+ERROR HY000: Cannot modify @@session.sql_log_bin inside a transaction
+COMMIT;
+SELECT * FROM t1;
+pk	val
+1	10
+2	20
+5	50
+6	60
+7	70
+SET @@global.super_read_only = default;
+SET @@global.read_only = default;
+SET @@global.enable_super_log_bin_read_only = default;
+DROP TABLE t1;

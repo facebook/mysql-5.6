@@ -317,51 +317,51 @@ FLUSH BINARY LOGS;
 --source include/gtid_step_assert.inc
 
 FLUSH TABLES;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH TABLES t1;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH ENGINE LOGS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH ERROR LOGS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH GENERAL LOGS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH HOSTS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH PRIVILEGES;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH OPTIMIZER_COSTS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH RELAY LOGS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH SLOW LOGS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH STATUS;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 FLUSH USER_RESOURCES;
---let $gtid_step_count = 1
+--let $gtid_step_count = 0
 --source include/gtid_step_assert.inc
 
 --let $gtid_step_count = 0

@@ -119,31 +119,31 @@ include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH BINARY LOGS;
 include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH TABLES;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH TABLES t1;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH ENGINE LOGS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH ERROR LOGS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH GENERAL LOGS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH HOSTS;
 Warnings:
 Warning	1287	'FLUSH HOSTS' is deprecated and will be removed in a future release. Please use TRUNCATE TABLE performance_schema.host_cache instead
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH PRIVILEGES;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH OPTIMIZER_COSTS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH RELAY LOGS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH SLOW LOGS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH STATUS;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 FLUSH USER_RESOURCES;
-include/gtid_step_assert.inc [count=1, only_count=0]
+include/gtid_step_assert.inc [count=0, only_count=0]
 #### 6(b) FLUSH STATEMENTS UNDER NO_WRITE_TO_BINLOG AND CHECK GTID EXCECUTED
 [connection slave]
 include/gtid_step_reset.inc

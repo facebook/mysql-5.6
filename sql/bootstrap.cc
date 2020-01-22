@@ -322,6 +322,12 @@ static void *handle_bootstrap(void *arg) {
         create_scope_guard([&]() { error_handler_hook = existing_hook; });
     if (opt_initialize) error_handler_hook = my_message_sql;
 
+    // Disable binlogging since super needs to initialize the server
+    if (enable_super_log_bin_read_only) {
+      thd->variables.sql_log_bin = false;
+      thd->variables.option_bits &= ~OPTION_BIN_LOG;
+    }
+
     bootstrap_functor handler = args->m_bootstrap_handler;
     if (handler) {
       args->m_bootstrap_error = (*handler)(thd);
