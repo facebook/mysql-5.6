@@ -97,7 +97,7 @@ echo
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME>
+--replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
@@ -174,7 +174,7 @@ let $wait_condition= SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.PROCESSLIST
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME>
+--replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
@@ -223,7 +223,7 @@ connection con1;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME>
+--replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
@@ -261,7 +261,7 @@ connection con2;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME>
+--replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
@@ -325,7 +325,7 @@ WHERE ID = @test_user_con2_id AND Command IN('Query','Execute')
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME>
+--replace_column 1 <ID> 3 <HOST_NAME> 6 <TIME> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
@@ -461,11 +461,11 @@ echo
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM INFORMATION_SCHEMA.PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 5 <COMMAND> 6 <TIME> 7 <STATE>
+--replace_column 1 <ID> 3 <HOST_NAME> 5 <COMMAND> 6 <TIME> 7 <STATE> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW FULL PROCESSLIST;
---replace_column 1 <ID> 3 <HOST_NAME> 5 <COMMAND> 6 <TIME> 7 <STATE>
+--replace_column 1 <ID> 3 <HOST_NAME> 5 <COMMAND> 6 <TIME> 7 <STATE> 9 <TID>
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW PROCESSLIST;

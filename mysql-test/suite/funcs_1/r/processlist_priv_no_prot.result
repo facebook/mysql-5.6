@@ -29,15 +29,15 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
   `HOST` varchar(261) NOT NULL DEFAULT '',
   `DB` varchar(64) DEFAULT NULL,
   `COMMAND` varchar(16) NOT NULL DEFAULT '',
-  `TIME` int NOT NULL DEFAULT '0',
+  `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext
 ) ENGINE=TMP_TABLE_ENGINE DEFAULT CHARSET=utf8mb3
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	865912
-ID	root	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	865917
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	TID
+ID	root	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
 SELECT * FROM processlist  ORDER BY id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL
@@ -102,13 +102,13 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
   `HOST` varchar(261) NOT NULL DEFAULT '',
   `DB` varchar(64) DEFAULT NULL,
   `COMMAND` varchar(16) NOT NULL DEFAULT '',
-  `TIME` int NOT NULL DEFAULT '0',
+  `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext
 ) ENGINE=TMP_TABLE_ENGINE DEFAULT CHARSET=utf8mb3
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	866764
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
 SELECT * FROM processlist  ORDER BY id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM processlist  ORDER BY id
@@ -171,7 +171,7 @@ Grants for ddicttestuser1@localhost
 GRANT PROCESS ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	866764
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -184,10 +184,10 @@ Grants for ddicttestuser1@localhost
 GRANT PROCESS ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	865912
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	865917
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -210,11 +210,11 @@ Grants for @localhost
 GRANT PROCESS ON *.* TO ``@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID		HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867005
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	865912
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	865917
+ID		HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID		HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -237,9 +237,9 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867006
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -278,10 +278,10 @@ Grants for ddicttestuser1@localhost
 GRANT SUPER ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867017
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867006
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -305,11 +305,11 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867020
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867006
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867017
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -357,18 +357,18 @@ Grants for ddicttestuser2@localhost
 GRANT PROCESS ON *.* TO `ddicttestuser2`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID		HOST_NAME	information_schema	Sleep	TIME		NULL	867005
-ID		HOST_NAME	information_schema	Sleep	TIME		NULL	867014
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867006
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867017
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867020
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867021
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867026
-ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867030
-ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	865912
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	865917
+ID		HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID		HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	event_scheduler	HOST_NAME	NULL	Daemon	TIME	Waiting on empty queue	NULL	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID		HOST_NAME	information_schema	Sleep	TIME		NULL
@@ -397,8 +397,8 @@ Grants for ddicttestuser2@localhost
 GRANT USAGE ON *.* TO `ddicttestuser2`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867064
-ID	ddicttestuser2	HOST_NAME	information_schema	Sleep	TIME		NULL	867030
+ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser2	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -422,14 +422,14 @@ GRANT PROCESS ON *.* TO 'ddicttestuser2'@'localhost';
 ERROR 28000: Access denied for user 'ddicttestuser1'@'localhost' (using password: YES)
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867065
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867006
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867017
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867020
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867021
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867026
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -457,15 +457,15 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO `ddicttestuser1`@`localhost`
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	867066
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	866764
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867004
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867006
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867017
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867020
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867021
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867026
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	867065
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
