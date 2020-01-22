@@ -1676,6 +1676,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
   */
   if (thd->killed == THD::KILL_QUERY) thd->killed = THD::NOT_KILLED;
   thd->set_time();
+  thd->set_start_cputime();
   if (is_time_t_valid_for_timestamp(thd->query_start_in_secs()) == false) {
     /*
       If the time has gone past 2038 we need to shutdown the server. But
@@ -2020,6 +2021,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         }
 
         /* PSI end */
+        thd->get_cpu_time();
         MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
         thd->m_statement_psi = nullptr;
         thd->m_digest = nullptr;
@@ -2051,6 +2053,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         */
         thd->status_var.questions++;
         thd->set_time(); /* Reset the query start time. */
+        thd->set_start_cputime();
         parser_state.reset(beginning_of_next_stmt, length);
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
@@ -2421,6 +2424,7 @@ done:
   thd->lex->sql_command = SQLCOM_END;
 
   /* Performance Schema Interface instrumentation, end */
+  thd->get_cpu_time();
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi = nullptr;
   thd->m_digest = nullptr;
