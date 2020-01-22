@@ -1964,7 +1964,7 @@ class thread_info {
  public:
   thread_info()
       : thread_id(0),
-        start_time_in_secs(0),
+        start_time_in_micro(0),
         command(0),
         user(nullptr),
         host(nullptr),
@@ -1973,7 +1973,7 @@ class thread_info {
         state_info(nullptr) {}
 
   my_thread_id thread_id;
-  time_t start_time_in_secs;
+  unsigned long long start_time_in_micro;
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
   CSET_STRING query_string;
@@ -2237,7 +2237,8 @@ class List_process_list : public Do_THD_Impl {
     mysql_mutex_unlock(&inspect_thd->LOCK_thd_query);
 
     /* MYSQL_TIME */
-    thd_info->start_time_in_secs = inspect_thd->query_start_in_secs();
+    thd_info->start_time_in_micro = my_timeval_to_micro_time(
+        inspect_thd->query_start_timeval_trunc(DATETIME_MAX_DECIMALS));
 
     m_thread_infos->push_back(thd_info);
   }
@@ -2259,8 +2260,13 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   field_list.push_back(field = new Item_empty_string("db", NAME_CHAR_LEN));
   field->maybe_null = true;
   field_list.push_back(new Item_empty_string("Command", 16));
-  field_list.push_back(field = new Item_return_int("Time", 7, MYSQL_TYPE_LONG));
-  field->unsigned_flag = false;
+  if (thd->variables.high_precision_processlist)
+    field_list.push_back(new Item_return_int("Time", 6, MYSQL_TYPE_DOUBLE));
+  else {
+    field_list.push_back(field =
+                             new Item_return_int("Time", 7, MYSQL_TYPE_LONG));
+    field->unsigned_flag = false;
+  }
   field_list.push_back(field = new Item_empty_string("State", 30));
   field->maybe_null = true;
   field_list.push_back(field = new Item_empty_string("Info", max_query_length));
@@ -2279,7 +2285,8 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
   // Return list sorted by thread_id.
   std::sort(thread_infos.begin(), thread_infos.end(), thread_info_compare());
 
-  time_t now = my_time(0);
+  unsigned long long time_now = my_micro_time();
+  long long time_delta;
   for (size_t ix = 0; ix < thread_infos.size(); ++ix) {
     thread_info *thd_info = thread_infos.at(ix);
     protocol->start_row();
@@ -2291,9 +2298,14 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose) {
       protocol->store(thd_info->proc_info, system_charset_info);
     else
       protocol->store(command_name[thd_info->command].str, system_charset_info);
-    if (thd_info->start_time_in_secs)
-      protocol->store_long((longlong)(now - thd_info->start_time_in_secs));
-    else
+
+    time_delta = time_now - thd_info->start_time_in_micro;
+    if (thd->variables.high_precision_processlist &&
+        thd_info->start_time_in_micro) {
+      protocol->store_double((double)time_delta / 1000000, 6, 0);
+    } else if (thd_info->start_time_in_micro) {
+      protocol->store_long((long)(time_delta / 1000000));
+    } else
       protocol->store_null();
     protocol->store(thd_info->state_info, system_charset_info);
     protocol->store(thd_info->query_string.str(),
@@ -2442,12 +2454,16 @@ class Fill_process_list : public Do_THD_Impl {
     mysql_mutex_unlock(&inspect_thd->LOCK_thd_query);
 
     /* MYSQL_TIME */
-    if (inspect_thd->query_start_in_secs())
-      table->field[5]->store((longlong)(my_micro_time() / 1000000 -
-                                        inspect_thd->query_start_in_secs()),
-                             false);
+    long long time_delta =
+        my_micro_time() -
+        my_timeval_to_micro_time(
+            inspect_thd->query_start_timeval_trunc(DATETIME_MAX_DECIMALS));
+    if (inspect_thd->variables.high_precision_processlist)
+      table->field[5]->store((double)time_delta /
+                             1000000);  // precision in microseconds
     else
-      table->field[5]->store(0, false);
+      table->field[5]->store(
+          (double)(time_delta / 1000000));  // precision in seconds
 
     schema_table_store_record(m_client_thd, table);
   }
@@ -4321,7 +4337,7 @@ ST_FIELD_INFO processlist_fields_info[] = {
     {"HOST", HOST_AND_PORT_LENGTH - 1, MYSQL_TYPE_STRING, 0, 0, "Host", 0},
     {"DB", NAME_CHAR_LEN, MYSQL_TYPE_STRING, 0, 1, "Db", 0},
     {"COMMAND", 16, MYSQL_TYPE_STRING, 0, 0, "Command", 0},
-    {"TIME", 7, MYSQL_TYPE_LONG, 0, 0, "Time", 0},
+    {"TIME", MAX_DOUBLE_STR_LENGTH, MYSQL_TYPE_DOUBLE, 0, 0, "Time", 0},
     {"STATE", 64, MYSQL_TYPE_STRING, 0, 1, "State", 0},
     {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info", 0},
     {nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0}};
