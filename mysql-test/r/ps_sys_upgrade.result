@@ -52,7 +52,9 @@ table_exists
 SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = 'sys' AND ROUTINE_TYPE = 'FUNCTION';
 ROUTINE_NAME
 extract_schema_from_file_name
+extract_schema_from_file_name_linux
 extract_table_from_file_name
+extract_table_from_file_name_linux
 format_bytes
 format_path
 format_statement
@@ -79,6 +81,7 @@ DROP VIEW sys.processlist;
 # restart:--upgrade=FORCE
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -194,6 +197,7 @@ CREATE OR REPLACE ALGORITHM = TEMPTABLE DEFINER = 'mysql.sys'@'localhost' SQL SE
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
 fake_processlist
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -297,6 +301,7 @@ x$waits_global_by_latency
 DROP VIEW sys.fake_processlist;
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -518,7 +523,9 @@ ERROR HY000: Lost connection to MySQL server during query
 SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = 'sys' AND ROUTINE_TYPE = 'FUNCTION';
 ROUTINE_NAME
 extract_schema_from_file_name
+extract_schema_from_file_name_linux
 extract_table_from_file_name
+extract_table_from_file_name_linux
 format_bytes
 format_path
 format_statement
@@ -549,6 +556,7 @@ ERROR HY000: Lost connection to MySQL server during query
 # restart
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -668,6 +676,7 @@ CREATE OR REPLACE ALGORITHM = TEMPTABLE DEFINER = 'mysql.sys'@'localhost' SQL SE
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
 fake_processlist
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -775,6 +784,7 @@ ERROR HY000: Lost connection to MySQL server during query
 DROP VIEW sys.fake_processlist;
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type

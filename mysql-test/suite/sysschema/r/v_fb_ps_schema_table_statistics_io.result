@@ -1,0 +1,28 @@
+DESC sys.fb_ps_schema_table_statistics_io;
+Field	Type	Null	Key	Default	Extra
+table_schema	varchar(64)	YES		NULL	
+table_name	varchar(64)	YES		NULL	
+io_read_requests	decimal(20,0)	NO		0	
+io_read	decimal(20,0)	NO		0	
+io_write_requests	decimal(20,0)	NO		0	
+io_write	decimal(20,0)	NO		0	
+SELECT * FROM sys.fb_ps_schema_table_statistics_io;
+DESC sys.fb_ps_schema_table_statistics_io;
+Field	Type	Null	Key	Default	Extra
+table_schema	varchar(64)	YES		NULL	
+table_name	varchar(64)	YES		NULL	
+io_read_requests	decimal(20,0)	NO		0	
+io_read	decimal(20,0)	NO		0	
+io_write_requests	decimal(20,0)	NO		0	
+io_write	decimal(20,0)	NO		0	
+SELECT * FROM sys.fb_ps_schema_table_statistics_io;
+explain SELECT * FROM sys.fb_ps_schema_table_statistics_io;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	PRIMARY	<derived2>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+2	DERIVED	psts	NULL	ALL	NULL	NULL	NULL	NULL	#	#	NULL
+2	DERIVED	<derived3>	NULL	ref	<auto_key1>	<auto_key1>	518	performance_schema.psts.OBJECT_SCHEMA,performance_schema.psts.OBJECT_NAME	#	#	NULL
+3	DERIVED	file_summary_by_instance	NULL	ref	EVENT_NAME	EVENT_NAME	514	const	#	#	NULL
+4	UNION	NULL	NULL	NULL	NULL	NULL	NULL	NULL	#	#	Zero limit
+5	UNION RESULT	<union3,4>	NULL	ALL	NULL	NULL	NULL	NULL	#	#	Using temporary
+Warnings:
+Note	1003	/* select#1 */ select `sys`.`fb_ps_schema_table_statistics_io`.`table_schema` AS `table_schema`,`sys`.`fb_ps_schema_table_statistics_io`.`table_name` AS `table_name`,`sys`.`fb_ps_schema_table_statistics_io`.`io_read_requests` AS `io_read_requests`,`sys`.`fb_ps_schema_table_statistics_io`.`io_read` AS `io_read`,`sys`.`fb_ps_schema_table_statistics_io`.`io_write_requests` AS `io_write_requests`,`sys`.`fb_ps_schema_table_statistics_io`.`io_write` AS `io_write` from `sys`.`fb_ps_schema_table_statistics_io`

@@ -36,7 +36,9 @@ SET(SYS_SCHEMA_SOURCES
   triggers/sys_config_update_set_user.sql
 
   functions/extract_schema_from_file_name.sql
+  functions/extract_schema_from_file_name_linux.sql
   functions/extract_table_from_file_name.sql
+  functions/extract_table_from_file_name_linux.sql
   functions/format_bytes.sql
   functions/format_path.sql
   functions/format_statement.sql
@@ -91,6 +93,7 @@ SET(SYS_SCHEMA_SOURCES
   views/p_s/x_memory_global_by_current_bytes.sql
   views/p_s/memory_global_total.sql
   views/p_s/x_memory_global_total.sql
+  views/p_s/fb_ps_schema_table_statistics_io.sql
   views/p_s/schema_index_statistics.sql
   views/p_s/x_schema_index_statistics.sql
   views/p_s/x_ps_schema_table_statistics_io.sql
