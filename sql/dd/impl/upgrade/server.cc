@@ -184,7 +184,7 @@ namespace {
 const int SYS_TABLE_COUNT = 1;
 const int SYS_VIEW_COUNT = 100;
 const int SYS_TRIGGER_COUNT = 2;
-const int SYS_FUNCTION_COUNT = 22;
+const int SYS_FUNCTION_COUNT = 24;
 const int SYS_PROCEDURE_COUNT = 26;
 
 static std::vector<uint> ignored_errors{

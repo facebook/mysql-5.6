@@ -55,7 +55,9 @@ DROP FUNCTION sys.format_time;
 SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = 'sys' AND ROUTINE_TYPE = 'FUNCTION';
 ROUTINE_NAME
 extract_schema_from_file_name
+extract_schema_from_file_name_linux
 extract_table_from_file_name
+extract_table_from_file_name_linux
 format_bytes
 format_path
 format_statement
@@ -82,6 +84,7 @@ DROP VIEW sys.processlist;
 # restart:--upgrade=FORCE
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' AND TABLE_TYPE = 'VIEW' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type

@@ -1,6 +1,7 @@
 USE sys;
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'sys' ORDER BY TABLE_NAME;
 TABLE_NAME
+fb_ps_schema_table_statistics_io
 host_summary
 host_summary_by_file_io
 host_summary_by_file_io_type
@@ -105,7 +106,9 @@ x$waits_global_by_latency
 SELECT ROUTINE_NAME, ROUTINE_TYPE FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = 'sys' ORDER BY ROUTINE_TYPE, ROUTINE_NAME;
 ROUTINE_NAME	ROUTINE_TYPE
 extract_schema_from_file_name	FUNCTION
+extract_schema_from_file_name_linux	FUNCTION
 extract_table_from_file_name	FUNCTION
+extract_table_from_file_name_linux	FUNCTION
 format_bytes	FUNCTION
 format_path	FUNCTION
 format_statement	FUNCTION
