@@ -24,7 +24,9 @@ SOURCE ./triggers/sys_config_insert_set_user.sql
 SOURCE ./triggers/sys_config_update_set_user.sql
 
 SOURCE ./functions/extract_schema_from_file_name.sql
+SOURCE ./functions/extract_schema_from_file_name_linux.sql
 SOURCE ./functions/extract_table_from_file_name.sql
+SOURCE ./functions/extract_table_from_file_name_linux.sql
 SOURCE ./functions/format_bytes.sql
 SOURCE ./functions/format_path.sql
 SOURCE ./functions/format_statement.sql
@@ -83,6 +85,7 @@ SOURCE ./views/p_s/x_memory_global_by_current_bytes.sql
 SOURCE ./views/p_s/memory_global_total.sql
 SOURCE ./views/p_s/x_memory_global_total.sql
 
+SOURCE ./views/p_s/fb_ps_schema_table_statistics_io.sql
 SOURCE ./views/p_s/schema_index_statistics.sql
 SOURCE ./views/p_s/x_schema_index_statistics.sql
 SOURCE ./views/p_s/x_ps_schema_table_statistics_io.sql
