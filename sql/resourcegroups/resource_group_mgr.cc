@@ -304,6 +304,12 @@ bool Resource_group_mgr::post_init() {
   thd->variables.transaction_read_only = false;
   thd->tx_read_only = false;
 
+  // Disable binlogging since super needs to initialize the server
+  if (enable_super_log_bin_read_only) {
+    thd->variables.sql_log_bin = false;
+    thd->variables.option_bits &= ~OPTION_BIN_LOG;
+  }
+
   bool res = deserialize_resource_groups(thd.get());
 
   return res;

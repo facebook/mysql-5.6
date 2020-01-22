@@ -86,6 +86,7 @@ SET PERSIST_ONLY binlog_transaction_dependency_history_size = @@GLOBAL.binlog_tr
 SET PERSIST_ONLY binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
 SET PERSIST_ONLY binlog_trx_meta_data = @@GLOBAL.binlog_trx_meta_data;
 SET PERSIST_ONLY enable_binlog_hlc = @@GLOBAL.enable_binlog_hlc;
+SET PERSIST_ONLY enable_super_log_bin_read_only = @@GLOBAL.enable_super_log_bin_read_only;
 SET PERSIST_ONLY enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
 SET PERSIST_ONLY group_replication_consistency = @@GLOBAL.group_replication_consistency;
 SET PERSIST_ONLY gtid_committed = @@GLOBAL.gtid_committed;
@@ -327,6 +328,7 @@ RESET PERSIST binlog_transaction_dependency_history_size;
 RESET PERSIST binlog_transaction_dependency_tracking;
 RESET PERSIST binlog_trx_meta_data;
 RESET PERSIST enable_binlog_hlc;
+RESET PERSIST enable_super_log_bin_read_only;
 RESET PERSIST enforce_gtid_consistency;
 RESET PERSIST group_replication_consistency;
 RESET PERSIST gtid_committed;

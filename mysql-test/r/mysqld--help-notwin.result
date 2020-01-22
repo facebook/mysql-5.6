@@ -416,6 +416,9 @@ The following options may be given as the first argument:
  Enable CRC32 resultset checksums if requested by the
  client sending the checksum query attribute, set to the
  query checksum
+ --enable-super-log-bin-read-only 
+ If set, prevents super from writing to a read_only
+ instance when sql_log_bin is also enabled
  --enable-user-tables-engine-check 
  Enable checking storage engine compatibilty of user table
  creation DDL.
@@ -2612,6 +2615,7 @@ enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
+enable-super-log-bin-read-only FALSE
 enable-user-tables-engine-check FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE

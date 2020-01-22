@@ -4393,7 +4393,11 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
 
         if (write_to_binlog > 0)  // we should write
         {
-          if (!lex->no_write_to_binlog)
+          /*
+            If the instance is read_only mode, skip writing to the binlog to
+            prevent generating GTIDs on secondary instances
+          */
+          if (!lex->no_write_to_binlog && !check_readonly(thd, false))
             res = write_bin_log(thd, false, thd->query().str,
                                 thd->query().length);
         } else if (write_to_binlog < 0) {

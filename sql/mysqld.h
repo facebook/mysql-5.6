@@ -290,6 +290,7 @@ extern bool maintain_database_hlc;
 extern char *default_collation_for_utf8mb4_init;
 extern bool enable_acl_fast_lookup;
 extern bool enable_acl_db_cache;
+extern bool enable_super_log_bin_read_only;
 
 enum enum_delay_key_write {
   DELAY_KEY_WRITE_NONE,
