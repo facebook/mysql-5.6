@@ -1044,6 +1044,7 @@ char *default_collation_for_utf8mb4_init = nullptr;
 bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;
 bool enable_acl_db_cache = true;
+bool enable_super_log_bin_read_only = false;
 
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;

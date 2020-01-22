@@ -61,6 +61,7 @@ SET PERSIST binlog_transaction_dependency_history_size = @@GLOBAL.binlog_transac
 SET PERSIST binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
 SET PERSIST binlog_trx_meta_data = @@GLOBAL.binlog_trx_meta_data;
 SET PERSIST enable_binlog_hlc = @@GLOBAL.enable_binlog_hlc;
+SET PERSIST enable_super_log_bin_read_only = @@GLOBAL.enable_super_log_bin_read_only;
 SET PERSIST enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
 SET PERSIST gtid_committed = @@GLOBAL.gtid_committed;
 ERROR HY000: Variable 'gtid_committed' is a read only variable
@@ -208,6 +209,7 @@ RESET PERSIST IF EXISTS binlog_transaction_dependency_history_size;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_tracking;
 RESET PERSIST IF EXISTS binlog_trx_meta_data;
 RESET PERSIST IF EXISTS enable_binlog_hlc;
+RESET PERSIST IF EXISTS enable_super_log_bin_read_only;
 RESET PERSIST IF EXISTS enforce_gtid_consistency;
 RESET PERSIST IF EXISTS gtid_committed;
 Warnings:

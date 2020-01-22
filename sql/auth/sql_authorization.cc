@@ -1893,8 +1893,16 @@ bool check_readonly(THD *thd, bool err_if_readonly) {
 
   /* super_read_only=OFF and user has SUPER privilege,
   do not prohibit operation:
+  However, if sql_log_bin is enabled for super, prevent the write to avoid
+  local binlog transactions on non-system threads. System threads,
+  like InnoDB background threads that truncate the undo log, can commit
+  changes to the data dictionary as needed. These changes are not binlogged.
   */
-  if (is_super && !opt_super_readonly) return false;
+  if (is_super && !opt_super_readonly &&
+      !(enable_super_log_bin_read_only &&
+        (thd->variables.option_bits & OPTION_BIN_LOG) &&
+        !thd->is_system_thread()))
+    return false;
 
   /* throw error in standardized way if requested: */
   if (err_if_readonly) err_readonly(thd);
@@ -1917,7 +1925,8 @@ void err_readonly(THD *thd) {
                    thd->security_context()
                        ->has_global_grant(STRING_WITH_LEN("CONNECTION_ADMIN"))
                        .first
-               ? "--super-read-only"
+               ? (opt_super_readonly ? "--super-read-only"
+                                     : "--sql_log_bin and --read-only")
                : "--read-only",
            extra_info.c_str());
 }

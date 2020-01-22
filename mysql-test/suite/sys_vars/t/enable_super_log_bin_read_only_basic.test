@@ -1,0 +1,55 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_super_log_bin_read_only;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+CREATE TABLE t1 (pk INT, val INT, PRIMARY KEY(pk)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1,10);
+INSERT INTO t1 VALUES (2,20);
+
+# Verify super cannot generate transactions that write to the binlog
+SET @@session.sql_log_bin = 1;
+SET @@global.read_only = 1;
+SET @@global.enable_super_log_bin_read_only = 1;
+
+--Error ER_OPTION_PREVENTS_STATEMENT
+INSERT INTO t1 values (3,30);
+
+--Error ER_OPTION_PREVENTS_STATEMENT
+CREATE TABLE t2 (pk INT, PRIMARY KEY(pk)) ENGINE=INNODB;
+
+# If super_read_only is set, the error message should reflect it
+SET @@global.super_read_only = 1;
+--Error ER_OPTION_PREVENTS_STATEMENT
+INSERT INTO t1 values (4,40);
+
+# Validate command is allowed if this option is disabled
+SET @@global.super_read_only = 0;
+SET @@global.enable_super_log_bin_read_only = 0;
+
+INSERT INTO t1 VALUES (5,50);
+
+# Validate command is allowed if sql_log_bin is disabled
+SET @@global.enable_super_log_bin_read_only = 1;
+SET @@session.sql_log_bin = 0;
+
+INSERT INTO t1 VALUES (6,60);
+
+# Validate sql_log_bin cannot be changed in the middle of a transaction
+BEGIN;
+INSERT INTO t1 VALUES (7,70);
+--Error ER_INSIDE_TRANSACTION_PREVENTS_SWITCH_SQL_LOG_BIN
+SET @@session.sql_log_bin = 1;
+COMMIT;
+
+SELECT * FROM t1;
+
+# Cleanup
+SET @@global.super_read_only = default;
+SET @@global.read_only = default;
+SET @@global.enable_super_log_bin_read_only = default;
+DROP TABLE t1;
