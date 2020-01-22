@@ -238,6 +238,7 @@ struct System_variables {
   ulonglong long_query_time;
   bool end_markers_in_json;
   bool windowing_use_high_precision;
+  bool high_precision_processlist;
   /* A bitmap for switching optimizations on/off */
   ulonglong optimizer_switch;
   ulonglong optimizer_trace;           ///< bitmap to tune optimizer tracing

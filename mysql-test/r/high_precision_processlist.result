@@ -1,0 +1,14 @@
+SET @save.high_precision_processlist=@@session.high_precision_processlist;
+Test #1: variable is off (low precision)
+SET @@session.high_precision_processlist=OFF;
+SELECT case when time=round(time) then 'success' else 'failure' end status
+FROM information_schema.processlist WHERE user="root";
+status
+success
+Test #2: variable is on (high precision)
+SET @@session.high_precision_processlist=ON;
+SELECT case when time!=round(time) then 'success' else 'failure' end status
+FROM information_schema.processlist WHERE user="root";
+status
+success
+SET @@session.high_precision_processlist=@save.high_precision_processlist;

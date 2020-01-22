@@ -127,7 +127,7 @@ t1	CREATE TABLE `t1` (
   `HOST` varchar(261) NOT NULL DEFAULT '',
   `DB` varchar(64) DEFAULT NULL,
   `COMMAND` varchar(16) NOT NULL DEFAULT '',
-  `TIME` int NOT NULL DEFAULT '0',
+  `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3

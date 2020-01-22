@@ -234,7 +234,7 @@ def	information_schema	PROCESSLIST	USER	2		NO	varchar	26	80	NULL	NULL	NULL	utf8m
 def	information_schema	PROCESSLIST	HOST	3		NO	varchar	87	261	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(261)			select			NULL
 def	information_schema	PROCESSLIST	DB	4		YES	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	COMMAND	5		NO	varchar	5	16	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(16)			select			NULL
-def	information_schema	PROCESSLIST	TIME	6		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int			select			NULL
+def	information_schema	PROCESSLIST	TIME	6		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL
 def	information_schema	PROCESSLIST	STATE	7		YES	varchar	21	64	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	INFO	8		YES	varchar	21845	65535	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(65535)			select			NULL
 def	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	1		NO	varchar	84	254	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(254)			select			NULL
@@ -910,7 +910,7 @@ NULL	information_schema	PROCESSLIST	ID	bigint	NULL	NULL	NULL	NULL	bigint unsigne
 3.0000	information_schema	PROCESSLIST	HOST	varchar	87	261	utf8mb3	utf8mb3_general_ci	varchar(261)
 3.0476	information_schema	PROCESSLIST	DB	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.2000	information_schema	PROCESSLIST	COMMAND	varchar	5	16	utf8mb3	utf8mb3_general_ci	varchar(16)
-NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int
+NULL	information_schema	PROCESSLIST	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
 3.0476	information_schema	PROCESSLIST	STATE	varchar	21	64	utf8mb3	utf8mb3_general_ci	varchar(64)
 3.0000	information_schema	PROCESSLIST	INFO	varchar	21845	65535	utf8mb3	utf8mb3_general_ci	varchar(65535)
 3.0238	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	varchar	84	254	utf8mb3	utf8mb3_general_ci	varchar(254)
