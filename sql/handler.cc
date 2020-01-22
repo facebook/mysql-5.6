@@ -7405,6 +7405,7 @@ int handler::read_range_next() {
 
   int result;
   if (eq_range) {
+    assert(end_range != nullptr);
     /* We trust that index_next_same always gives a row in range */
     result =
         ha_index_next_same(table->record[0], end_range->key, end_range->length);
