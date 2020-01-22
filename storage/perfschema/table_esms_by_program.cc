@@ -86,6 +86,7 @@ Plugin_table table_esms_by_program::m_table_def(
     "  SUM_ROWS_DELETED BIGINT unsigned not null,\n"
     "  SUM_ROWS_INSERTED BIGINT unsigned not null,\n"
     "  SUM_ROWS_UPDATED BIGINT unsigned not null,\n"
+    "  SUM_CPU_TIME BIGINT unsigned not null,\n"
     "  PRIMARY KEY (OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",

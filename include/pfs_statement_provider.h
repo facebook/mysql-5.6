@@ -70,6 +70,9 @@ void pfs_set_statement_query_id_v2(PSI_statement_locker *locker,
 void pfs_set_statement_lock_time_v2(PSI_statement_locker *locker,
                                     ulonglong count);
 
+void pfs_set_statement_cpu_time_v2(PSI_statement_locker *locker,
+                                   ulonglong count);
+
 void pfs_set_statement_rows_sent_v2(PSI_statement_locker *locker,
                                     ulonglong count);
 

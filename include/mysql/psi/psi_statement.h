@@ -83,6 +83,8 @@ struct PSI_statement_service_v2 {
   set_statement_query_id_t set_statement_query_id;
   /** @sa set_statement_lock_time_t. */
   set_statement_lock_time_t set_statement_lock_time;
+  /** @sa set_statement_cpu_time_t. */
+  set_statement_cpu_time_t set_statement_cpu_time;
   /** @sa set_statement_rows_sent_t. */
   set_statement_rows_sent_t set_statement_rows_sent;
   /** @sa set_statement_rows_examined_t. */

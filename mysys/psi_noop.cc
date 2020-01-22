@@ -638,6 +638,10 @@ static void set_statement_lock_time_noop(PSI_statement_locker *, ulonglong) {
   return;
 }
 
+static void set_statement_cpu_time_noop(PSI_statement_locker *, ulonglong) {
+  return;
+}
+
 static void set_statement_rows_sent_noop(PSI_statement_locker *, ulonglong) {
   return;
 }
@@ -772,6 +776,7 @@ static PSI_statement_service_t psi_statement_noop = {
     set_statement_text_noop,
     set_statement_query_id_noop,
     set_statement_lock_time_noop,
+    set_statement_cpu_time_noop,
     set_statement_rows_sent_noop,
     set_statement_rows_examined_noop,
     inc_statement_rows_deleted_noop,

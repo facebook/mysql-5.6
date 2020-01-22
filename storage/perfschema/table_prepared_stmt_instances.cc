@@ -89,6 +89,7 @@ Plugin_table table_prepared_stmt_instances::m_table_def(
     "  SUM_ROWS_DELETED bigint(20) null,\n"
     "  SUM_ROWS_INSERTED bigint(20) null,\n"
     "  SUM_ROWS_UPDATED bigint(20) null,\n"
+    "  SUM_CPU_TIME BIGINT unsigned not null,\n"
     "  PRIMARY KEY (OBJECT_INSTANCE_BEGIN) USING HASH,\n"
     "  UNIQUE KEY (OWNER_THREAD_ID, OWNER_EVENT_ID) USING HASH,\n"
     "  KEY (STATEMENT_ID) USING HASH,\n"

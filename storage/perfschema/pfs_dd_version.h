@@ -181,9 +181,12 @@
   - table_statistics_per_table added.
   - The last three digits reprents Facebook specific MySQL Schema changes.
 
-  Version published is now 80020-003. i.e. 8.0.20 Facebook schema change no. 3.
+  80020-004:
+  -add cpu time to statement statistics
+
+  Version published is now 80020-004. i.e. 8.0.20 Facebook schema change no. 4.
 */
 
-static const uint PFS_DD_VERSION = 80020003;
+static const uint PFS_DD_VERSION = 80020004;
 
 #endif /* PFS_DD_VERSION_H */

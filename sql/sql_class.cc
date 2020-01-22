@@ -489,6 +489,7 @@ THD::THD(bool enable_plugins)
   lex->thd = nullptr;
   lex->set_current_select(nullptr);
   utime_after_lock = 0L;
+  set_timespec(&start_cputime, 0);
   current_linfo = nullptr;
   slave_thread = false;
   memset(&variables, 0, sizeof(variables));
@@ -3165,9 +3166,29 @@ void THD::set_time() {
   else
     my_micro_time_to_timeval(start_utime, &start_time);
 
+  if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cputime) != 0) {
+    set_timespec(&start_cputime, 0);
+  }
 #ifdef HAVE_PSI_THREAD_INTERFACE
   PSI_THREAD_CALL(set_thread_start_time)(query_start_in_secs());
 #endif
+}
+
+/*
+  Records the CPU time spent since start_cputime, and records this into
+  perfschema via MYSQL_SET_STATEMENT_CPU_TIME.
+*/
+void THD::set_cpu_time() {
+  struct timespec end_cputime;
+  set_timespec(&end_cputime, 0);
+  if (diff_timespec(&end_cputime, &start_cputime) != 0) {
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_cputime) == 0) {
+      MYSQL_SET_STATEMENT_CPU_TIME(
+          m_statement_psi, diff_timespec(&end_cputime, &start_cputime) / 1000);
+    } else {
+      MYSQL_SET_STATEMENT_CPU_TIME(m_statement_psi, 0);
+    }
+  }
 }
 
 void THD::set_time_after_lock() {

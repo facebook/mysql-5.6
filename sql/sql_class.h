@@ -61,6 +61,7 @@
 #include "my_psi_config.h"
 #include "my_sqlcommand.h"
 #include "my_sys.h"
+#include "my_systime.h"
 #include "my_table_map.h"
 #include "my_thread_local.h"
 #include "mysql/components/services/my_thread_bits.h"
@@ -1347,6 +1348,7 @@ class THD : public MDL_context_owner,
   struct timeval start_time;
   struct timeval user_time;
   ulonglong start_utime, utime_after_lock, pre_exec_time;
+  struct timespec start_cputime;
   /* record the semisync ack time */
   ulonglong semisync_ack_time = 0;
   /* record the engine commit time */
@@ -2844,6 +2846,7 @@ class THD : public MDL_context_owner,
   time_t query_start_in_secs() const { return start_time.tv_sec; }
   timeval query_start_timeval_trunc(uint decimals);
   void set_time();
+  void set_cpu_time();
   void set_time(const struct timeval *t) {
     user_time = *t;
     set_time();

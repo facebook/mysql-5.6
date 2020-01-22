@@ -95,6 +95,8 @@ struct row_events_statements {
   ulonglong m_timer_wait;
   /** Column LOCK_TIME. */
   ulonglong m_lock_time;
+  /** Column CPU_TIME. */
+  ulonglong m_cpu_time;
   /** Column SOURCE. */
   char m_source[COL_SOURCE_SIZE];
   /** Length in bytes of @c m_source. */
