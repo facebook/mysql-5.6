@@ -167,7 +167,10 @@
     IO_READ_BYTES
     IO_READ_REQUESTS
     Version published is now 800171004. i.e. 8.0.17 facebook schema change no. 4.
+
+   800171005:
+   add cpu time to statement statistics
 */
-static const uint PFS_DD_VERSION = 800171004;
+static const uint PFS_DD_VERSION = 800171005;
 
 #endif /* PFS_DD_VERSION_H */

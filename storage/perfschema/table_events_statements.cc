@@ -92,6 +92,7 @@ Plugin_table table_events_statements_current::m_table_def(
     "  NESTING_EVENT_TYPE ENUM('TRANSACTION', 'STATEMENT', 'STAGE', 'WAIT'),\n"
     "  NESTING_EVENT_LEVEL INTEGER,\n"
     "  STATEMENT_ID BIGINT unsigned,\n"
+    "  CPU_TIME BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -315,6 +316,7 @@ int table_events_statements_common::make_row_part_1(
                         &m_row.m_timer_start, &m_row.m_timer_end,
                         &m_row.m_timer_wait);
   m_row.m_lock_time = statement->m_lock_time * MICROSEC_TO_PICOSEC;
+  m_row.m_cpu_time = statement->m_cpu_time * MICROSEC_TO_PICOSEC;
 
   m_row.m_name = klass->m_name;
   m_row.m_name_length = klass->m_name_length;
@@ -621,6 +623,13 @@ int table_events_statements_common::read_row_values(TABLE *table,
         case 41: /* STATEMENT_ID */
           if (m_row.m_statement_id != 0) {
             set_field_ulonglong(f, m_row.m_statement_id);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 42: /* CPU_TIME */
+          if (m_row.m_cpu_time != 0) {
+            set_field_ulonglong(f, m_row.m_cpu_time);
           } else {
             f->set_null();
           }

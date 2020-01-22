@@ -156,6 +156,8 @@ struct PSI_statement_locker_state_v1 {
   void *m_statement;
   /** Locked time. */
   unsigned long long m_lock_time;
+  /** CPU time. */
+  unsigned long long m_cpu_time;
   /** Rows sent. */
   unsigned long long m_rows_sent;
   /** Rows examined. */
@@ -294,6 +296,14 @@ typedef void (*set_statement_query_id_t)(struct PSI_statement_locker *locker,
 */
 typedef void (*set_statement_lock_time_t)(struct PSI_statement_locker *locker,
                                           unsigned long long lock_time);
+
+/**
+  Set a statement event cpu time.
+  @param locker the statement locker
+  @param cpu_time the cpu time, in microseconds
+*/
+typedef void (*set_statement_cpu_time_t)(struct PSI_statement_locker *locker,
+                                         unsigned long long cpu_time);
 
 /**
   Set a statement event rows sent metric.

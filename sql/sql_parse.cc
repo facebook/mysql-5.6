@@ -1960,6 +1960,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         }
 
         /* PSI end */
+        thd->set_cpu_time();
         MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
         thd->m_statement_psi = NULL;
         thd->m_digest = NULL;
@@ -2354,6 +2355,7 @@ done:
   thd->lex->sql_command = SQLCOM_END;
 
   /* Performance Schema Interface instrumentation, end */
+  thd->set_cpu_time();
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi = NULL;
   thd->m_digest = NULL;

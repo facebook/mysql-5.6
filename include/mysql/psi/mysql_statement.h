@@ -120,6 +120,15 @@ struct CHARSET_INFO;
 #endif
 
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_SET_STATEMENT_CPU_TIME(LOCKER, P1) \
+  inline_mysql_set_statement_cpu_time(LOCKER, P1)
+#else
+#define MYSQL_SET_STATEMENT_CPU_TIME(LOCKER, P1) \
+  do {                                           \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
 #define MYSQL_SET_STATEMENT_ROWS_SENT(LOCKER, P1) \
   inline_mysql_set_statement_rows_sent(LOCKER, P1)
 #else
@@ -247,6 +256,13 @@ static inline void inline_mysql_set_statement_lock_time(
     PSI_statement_locker *locker, ulonglong count) {
   if (likely(locker != NULL)) {
     PSI_STATEMENT_CALL(set_statement_lock_time)(locker, count);
+  }
+}
+
+static inline void inline_mysql_set_statement_cpu_time(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(set_statement_cpu_time)(locker, count);
   }
 }
 

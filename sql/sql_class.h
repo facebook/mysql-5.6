@@ -76,6 +76,7 @@
 #include "my_psi_config.h"
 #include "my_sqlcommand.h"
 #include "my_sys.h"
+#include "my_systime.h"
 #include "my_table_map.h"
 #include "my_thread_local.h"
 #include "mysql/psi/mysql_mutex.h"
@@ -1329,6 +1330,7 @@ class THD : public MDL_context_owner,
   struct timeval start_time;
   struct timeval user_time;
   ulonglong start_utime, utime_after_lock, pre_exec_time;
+  struct timespec start_cputime;
   /* record the semisync ack time */
   ulonglong semisync_ack_time = 0;
   /* record the engine commit time */
@@ -2763,6 +2765,9 @@ class THD : public MDL_context_owner,
     else
       my_micro_time_to_timeval(start_utime, &start_time);
 
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cputime) != 0) {
+      set_timespec(&start_cputime, 0);
+    }
 #ifdef HAVE_PSI_THREAD_INTERFACE
     PSI_THREAD_CALL(set_thread_start_time)(query_start_in_secs());
 #endif
@@ -2784,6 +2789,25 @@ class THD : public MDL_context_owner,
     MYSQL_SET_STATEMENT_LOCK_TIME(m_statement_psi,
                                   (utime_after_lock - start_utime));
   }
+
+  /*
+    Records the CPU time spent since start_cputime, and records this into
+    perfschema via MYSQL_SET_STATEMENT_CPU_TIME.
+  */
+  void set_cpu_time() {
+    struct timespec end_cputime;
+    set_timespec(&end_cputime, 0);
+    if (diff_timespec(&end_cputime, &start_cputime) != 0) {
+      if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end_cputime) == 0) {
+        MYSQL_SET_STATEMENT_CPU_TIME(
+            m_statement_psi,
+            diff_timespec(&end_cputime, &start_cputime) / 1000);
+      } else {
+        MYSQL_SET_STATEMENT_CPU_TIME(m_statement_psi, 0);
+      }
+    }
+  }
+
   inline bool is_fsp_truncate_mode() const {
     return (variables.sql_mode & MODE_TIME_TRUNCATE_FRACTIONAL);
   }

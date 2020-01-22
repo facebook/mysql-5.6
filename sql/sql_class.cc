@@ -477,6 +477,7 @@ THD::THD(bool enable_plugins)
   lex->thd = NULL;
   lex->set_current_select(0);
   utime_after_lock = 0L;
+  set_timespec(&start_cputime, 0);
   current_linfo = 0;
   slave_thread = 0;
   memset(&variables, 0, sizeof(variables));

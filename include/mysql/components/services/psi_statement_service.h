@@ -48,6 +48,8 @@ start_statement_v1_t start_statement;
 set_statement_text_v1_t set_statement_text;
 /** @sa set_statement_lock_time_t. */
 set_statement_lock_time_t set_statement_lock_time;
+/** @sa set_statement_cpu_time_t. */
+set_statement_cpu_time_t set_statement_cpu_time;
 /** @sa set_statement_rows_sent_t. */
 set_statement_rows_sent_t set_statement_rows_sent;
 /** @sa set_statement_rows_examined_t. */
@@ -135,6 +137,8 @@ set_statement_text_v1_t set_statement_text;
 set_statement_query_id_t set_statement_query_id;
 /** @sa set_statement_lock_time_t. */
 set_statement_lock_time_t set_statement_lock_time;
+/** @sa set_statement_cpu_time_t. */
+set_statement_cpu_time_t set_statement_cpu_time;
 /** @sa set_statement_rows_sent_t. */
 set_statement_rows_sent_t set_statement_rows_sent;
 /** @sa set_statement_rows_examined_t. */

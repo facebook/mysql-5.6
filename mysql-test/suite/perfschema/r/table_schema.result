@@ -186,6 +186,7 @@ def	performance_schema	events_statements_current	NESTING_EVENT_ID	39	NULL	YES	bi
 def	performance_schema	events_statements_current	NESTING_EVENT_TYPE	40	NULL	YES	enum	11	44	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	enum('TRANSACTION','STATEMENT','STAGE','WAIT')			select,insert,update,references			NULL
 def	performance_schema	events_statements_current	NESTING_EVENT_LEVEL	41	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select,insert,update,references			NULL
 def	performance_schema	events_statements_current	STATEMENT_ID	42	NULL	YES	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_current	CPU_TIME	43	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_histogram_by_digest	SCHEMA_NAME	1	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	MUL		select,insert,update,references			NULL
 def	performance_schema	events_statements_histogram_by_digest	DIGEST	2	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
 def	performance_schema	events_statements_histogram_by_digest	BUCKET_NUMBER	3	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(10) unsigned			select,insert,update,references			NULL
@@ -314,6 +315,7 @@ def	performance_schema	events_statements_summary_by_account_by_event_name	SUM_NO
 def	performance_schema	events_statements_summary_by_account_by_event_name	SUM_ROWS_DELETED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_account_by_event_name	SUM_ROWS_INSERTED	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_account_by_event_name	SUM_ROWS_UPDATED	30	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_account_by_event_name	SUM_CPU_TIME	31	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_digest	SCHEMA_NAME	1	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	MUL		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_digest	DIGEST	2	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_digest	DIGEST_TEXT	3	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL
@@ -344,14 +346,15 @@ def	performance_schema	events_statements_summary_by_digest	SUM_NO_GOOD_INDEX_USE
 def	performance_schema	events_statements_summary_by_digest	SUM_ROWS_DELETED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_digest	SUM_ROWS_INSERTED	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_digest	SUM_ROWS_UPDATED	30	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	FIRST_SEEN	31	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	LAST_SEEN	32	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUANTILE_95	33	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUANTILE_99	34	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUANTILE_999	35	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_TEXT	36	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_SEEN	37	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
-def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_TIMER_WAIT	38	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	SUM_CPU_TIME	31	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	FIRST_SEEN	32	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	LAST_SEEN	33	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUANTILE_95	34	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUANTILE_99	35	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUANTILE_999	36	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_TEXT	37	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_SEEN	38	0000-00-00 00:00:00.000000	NO	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_digest	QUERY_SAMPLE_TIMER_WAIT	39	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_host_by_event_name	HOST	1	NULL	YES	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)	MUL		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_host_by_event_name	EVENT_NAME	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_host_by_event_name	COUNT_STAR	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
@@ -381,6 +384,7 @@ def	performance_schema	events_statements_summary_by_host_by_event_name	SUM_NO_GO
 def	performance_schema	events_statements_summary_by_host_by_event_name	SUM_ROWS_DELETED	27	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_host_by_event_name	SUM_ROWS_INSERTED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_host_by_event_name	SUM_ROWS_UPDATED	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_host_by_event_name	SUM_CPU_TIME	30	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_program	OBJECT_TYPE	1	NULL	NO	enum	9	36	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	enum('EVENT','FUNCTION','PROCEDURE','TABLE','TRIGGER')	PRI		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_program	OBJECT_SCHEMA	2	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_program	OBJECT_NAME	3	NULL	NO	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)	PRI		select,insert,update,references			NULL
@@ -416,6 +420,7 @@ def	performance_schema	events_statements_summary_by_program	SUM_NO_GOOD_INDEX_US
 def	performance_schema	events_statements_summary_by_program	SUM_ROWS_DELETED	33	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_program	SUM_ROWS_INSERTED	34	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_program	SUM_ROWS_UPDATED	35	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_program	SUM_CPU_TIME	36	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_thread_by_event_name	THREAD_ID	1	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned	PRI		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_thread_by_event_name	EVENT_NAME	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)	PRI		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_thread_by_event_name	COUNT_STAR	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
@@ -445,6 +450,7 @@ def	performance_schema	events_statements_summary_by_thread_by_event_name	SUM_NO_
 def	performance_schema	events_statements_summary_by_thread_by_event_name	SUM_ROWS_DELETED	27	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_thread_by_event_name	SUM_ROWS_INSERTED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_thread_by_event_name	SUM_ROWS_UPDATED	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_thread_by_event_name	SUM_CPU_TIME	30	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_user_by_event_name	USER	1	NULL	YES	char	80	320	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	char(80)	MUL		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_user_by_event_name	EVENT_NAME	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_user_by_event_name	COUNT_STAR	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
@@ -474,6 +480,7 @@ def	performance_schema	events_statements_summary_by_user_by_event_name	SUM_NO_GO
 def	performance_schema	events_statements_summary_by_user_by_event_name	SUM_ROWS_DELETED	27	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_user_by_event_name	SUM_ROWS_INSERTED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_by_user_by_event_name	SUM_ROWS_UPDATED	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_by_user_by_event_name	SUM_CPU_TIME	30	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_global_by_event_name	EVENT_NAME	1	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)	PRI		select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_global_by_event_name	COUNT_STAR	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_global_by_event_name	SUM_TIMER_WAIT	3	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
@@ -502,6 +509,7 @@ def	performance_schema	events_statements_summary_global_by_event_name	SUM_NO_GOO
 def	performance_schema	events_statements_summary_global_by_event_name	SUM_ROWS_DELETED	26	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_global_by_event_name	SUM_ROWS_INSERTED	27	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_statements_summary_global_by_event_name	SUM_ROWS_UPDATED	28	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
+def	performance_schema	events_statements_summary_global_by_event_name	SUM_CPU_TIME	29	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	events_transactions_current	THREAD_ID	1	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned	PRI		select,insert,update,references			NULL
 def	performance_schema	events_transactions_current	EVENT_ID	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned	PRI		select,insert,update,references			NULL
 def	performance_schema	events_transactions_current	END_EVENT_ID	3	NULL	YES	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
@@ -978,6 +986,7 @@ def	performance_schema	prepared_statements_instances	SUM_NO_GOOD_INDEX_USED	35	N
 def	performance_schema	prepared_statements_instances	SUM_ROWS_DELETED	36	NULL	YES	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(20)			select,insert,update,references			NULL
 def	performance_schema	prepared_statements_instances	SUM_ROWS_INSERTED	37	NULL	YES	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(20)			select,insert,update,references			NULL
 def	performance_schema	prepared_statements_instances	SUM_ROWS_UPDATED	38	NULL	YES	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(20)			select,insert,update,references			NULL
+def	performance_schema	prepared_statements_instances	SUM_CPU_TIME	39	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(20) unsigned			select,insert,update,references			NULL
 def	performance_schema	replication_applier_configuration	CHANNEL_NAME	1	NULL	NO	char	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	char(64)	PRI		select,insert,update,references			NULL
 def	performance_schema	replication_applier_configuration	DESIRED_DELAY	2	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select,insert,update,references			NULL
 def	performance_schema	replication_applier_filters	CHANNEL_NAME	1	NULL	NO	char	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	char(64)			select,insert,update,references			NULL

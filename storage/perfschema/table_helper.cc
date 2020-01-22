@@ -1049,6 +1049,9 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 26: /* SUM_ROWS_UPDATED */
       set_field_ulonglong(f, m_rows_updated);
       break;
+    case 27: /* SUM_CPU_TIME */
+      set_field_ulonglong(f, m_cpu_time);
+      break;
     default:
       DBUG_ASSERT(false);
       break;

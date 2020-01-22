@@ -5764,6 +5764,7 @@ PSI_statement_locker *pfs_get_thread_statement_locker_v2(
       pfs->m_timer_start = 0;
       pfs->m_timer_end = 0;
       pfs->m_lock_time = 0;
+      pfs->m_cpu_time = 0;
       pfs->m_current_schema_name_length = 0;
       pfs->m_sqltext_length = 0;
       pfs->m_sqltext_truncated = false;
@@ -5874,6 +5875,7 @@ PSI_statement_locker *pfs_get_thread_statement_locker_v2(
   state->m_flags = flags;
 
   state->m_lock_time = 0;
+  state->m_cpu_time = 0;
   state->m_rows_sent = 0;
   state->m_rows_examined = 0;
   state->m_rows_deleted = 0;
@@ -6090,6 +6092,11 @@ void pfs_set_statement_query_id_v2(PSI_statement_locker *locker,
 void pfs_set_statement_lock_time_v2(PSI_statement_locker *locker,
                                     ulonglong count) {
   SET_STATEMENT_ATTR_BODY(locker, m_lock_time, count);
+}
+
+void pfs_set_statement_cpu_time_v2(PSI_statement_locker *locker,
+                                   ulonglong count) {
+  SET_STATEMENT_ATTR_BODY(locker, m_cpu_time, count);
 }
 
 void pfs_set_statement_rows_sent_v2(PSI_statement_locker *locker,
@@ -6318,6 +6325,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
   }
 
   stat->m_lock_time += state->m_lock_time;
+  stat->m_cpu_time += state->m_cpu_time;
   stat->m_rows_sent += state->m_rows_sent;
   stat->m_rows_examined += state->m_rows_examined;
   stat->m_rows_deleted += state->m_rows_deleted;
@@ -6401,6 +6409,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
     }
 
     digest_stat->m_stat.m_lock_time += state->m_lock_time;
+    digest_stat->m_stat.m_cpu_time += state->m_cpu_time;
     digest_stat->m_stat.m_rows_sent += state->m_rows_sent;
     digest_stat->m_stat.m_rows_examined += state->m_rows_examined;
     digest_stat->m_stat.m_rows_deleted += state->m_rows_deleted;
@@ -6444,6 +6453,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
       }
 
       sub_stmt_stat->m_lock_time += state->m_lock_time;
+      sub_stmt_stat->m_cpu_time += state->m_cpu_time;
       sub_stmt_stat->m_rows_sent += state->m_rows_sent;
       sub_stmt_stat->m_rows_examined += state->m_rows_examined;
       sub_stmt_stat->m_rows_deleted += state->m_rows_deleted;
@@ -6489,6 +6499,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         }
 
         prepared_stmt_stat->m_lock_time += state->m_lock_time;
+        prepared_stmt_stat->m_cpu_time += state->m_cpu_time;
         prepared_stmt_stat->m_rows_sent += state->m_rows_sent;
         prepared_stmt_stat->m_rows_examined += state->m_rows_examined;
         prepared_stmt_stat->m_rows_deleted += state->m_rows_deleted;
@@ -8184,6 +8195,7 @@ PSI_statement_service_v2 pfs_statement_service_v2 = {
     pfs_set_statement_text_v2,
     pfs_set_statement_query_id_v2,
     pfs_set_statement_lock_time_v2,
+    pfs_set_statement_cpu_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
     pfs_inc_statement_rows_deleted_v2,
@@ -8225,6 +8237,7 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_statement_v1) = {
     pfs_start_statement_v2,
     pfs_set_statement_text_v2,
     pfs_set_statement_lock_time_v2,
+    pfs_set_statement_cpu_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
     pfs_inc_statement_rows_deleted_v2,
@@ -8267,6 +8280,7 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_statement_v2) = {
     pfs_set_statement_text_v2,
     pfs_set_statement_query_id_v2,
     pfs_set_statement_lock_time_v2,
+    pfs_set_statement_cpu_time_v2,
     pfs_set_statement_rows_sent_v2,
     pfs_set_statement_rows_examined_v2,
     pfs_inc_statement_rows_deleted_v2,

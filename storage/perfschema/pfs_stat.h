@@ -380,6 +380,7 @@ struct PFS_statement_stat {
   ulonglong m_warning_count;
   ulonglong m_rows_affected;
   ulonglong m_lock_time;
+  ulonglong m_cpu_time;
   ulonglong m_rows_sent;
   ulonglong m_rows_examined;
   ulonglong m_rows_deleted;
@@ -413,6 +414,7 @@ struct PFS_statement_stat {
       m_warning_count = 0;
       m_rows_affected = 0;
       m_lock_time = 0;
+      m_cpu_time = 0;
       m_rows_sent = 0;
       m_rows_examined = 0;
       m_rows_deleted = 0;
@@ -454,6 +456,7 @@ struct PFS_statement_stat {
       m_warning_count += stat->m_warning_count;
       m_rows_affected += stat->m_rows_affected;
       m_lock_time += stat->m_lock_time;
+      m_cpu_time += stat->m_cpu_time;
       m_rows_sent += stat->m_rows_sent;
       m_rows_examined += stat->m_rows_examined;
       m_rows_deleted += stat->m_rows_deleted;
