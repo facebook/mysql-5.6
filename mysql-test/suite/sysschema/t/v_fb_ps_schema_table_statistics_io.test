@@ -1,0 +1,21 @@
+-- source ../include/ps_truncate_all_tables.inc
+# Ensure structure changes don't slip in
+DESC sys.fb_ps_schema_table_statistics_io;
+
+# Make sure view select does not error, but ignore results
+--disable_result_log
+SELECT * FROM sys.fb_ps_schema_table_statistics_io;
+--enable_result_log
+
+# Ensure structure changes don't slip in
+DESC sys.fb_ps_schema_table_statistics_io;
+
+# Make sure view select does not error, but ignore results
+--disable_result_log
+SELECT * FROM sys.fb_ps_schema_table_statistics_io;
+--enable_result_log
+
+# remove "rows" and "filtered" columns in explain
+--replace_column 10 # 11 #
+# Make sure we use auto key to read file_summary_by_instance
+explain SELECT * FROM sys.fb_ps_schema_table_statistics_io;

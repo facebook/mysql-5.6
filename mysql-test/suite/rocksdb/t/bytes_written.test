@@ -17,6 +17,8 @@ INSERT INTO stats_test_table VALUES (2,2);
 # Verify the bytes written are updated in the table stats
 SELECT io_write > 0, io_write_requests FROM sys.x$schema_table_statistics WHERE TABLE_NAME = "stats_test_table";
 
+# Verify the bytes written are updated in the table stats
+SELECT io_write > 0, io_write_requests FROM sys.fb_ps_schema_table_statistics_io WHERE TABLE_NAME = "stats_test_table";
 # Cleanup
 DROP TABLE stats_test_table;
 SET GLOBAL rocksdb_perf_context_level=DEFAULT;
