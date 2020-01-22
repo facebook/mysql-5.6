@@ -1,0 +1,20 @@
+Default value of high_precision_processlist is OFF
+SELECT @@session.high_precision_processlist;
+@@session.high_precision_processlist
+0
+Can set session value and is different from global
+set @@session.high_precision_processlist=on;
+SELECT @@session.high_precision_processlist;
+@@session.high_precision_processlist
+1
+SELECT @@global.high_precision_processlist;
+@@global.high_precision_processlist
+0
+Setting it globally does not affects the session value
+set @@global.high_precision_processlist = off;
+SELECT @@session.high_precision_processlist;
+@@session.high_precision_processlist
+1
+SELECT @@global.high_precision_processlist;
+@@global.high_precision_processlist
+0
