@@ -7675,6 +7675,13 @@ static Sys_var_bool Sys_fast_integer_to_string(
     "Optimized implementation of integer to string conversion",
     GLOBAL_VAR(fast_integer_to_string), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_enable_super_log_bin_read_only(
+    "enable_super_log_bin_read_only",
+    "Enable super to write to read_only instances when log-bin is enabled",
+    GLOBAL_VAR(enable_super_log_bin_read_only), CMD_LINE(OPT_ARG),
+    DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
 static Sys_var_bool Sys_high_precision_processlist(
     "high_precision_processlist",
     "If set, MySQL will display the time in 1/1000000 of a second precision",
