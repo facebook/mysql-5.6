@@ -1,0 +1,3 @@
+# Test is mainly to confirm server can be setup when both enable_super_log_bin_read_only and read-only are enabled
+
+SELECT 1;

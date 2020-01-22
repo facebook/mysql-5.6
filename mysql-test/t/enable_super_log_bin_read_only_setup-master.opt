@@ -1,0 +1,1 @@
+--read-only=1 --enable_super_log_bin_read_only=1

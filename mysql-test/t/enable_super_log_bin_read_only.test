@@ -1,0 +1,51 @@
+CREATE TABLE t1 (a int) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1);
+
+set global enable_super_log_bin_read_only=1;
+set global read_only=1;
+
+SET @gtid_executed_saved = @@GLOBAL.GTID_EXECUTED;
+
+# Test analyze table
+--error ER_OPTION_PREVENTS_STATEMENT
+ANALYZE TABLE t1;
+ANALYZE NO_WRITE_TO_BINLOG TABLE t1;
+
+# Test optimize table
+--error ER_OPTION_PREVENTS_STATEMENT
+OPTIMIZE TABLE t1;
+OPTIMIZE NO_WRITE_TO_BINLOG TABLE t1;
+
+# Verify GTID hasn't changed
+--let $assert_text = GTID executed should not have changed
+--let $assert_cond = "[SELECT @gtid_executed_saved = @@GLOBAL.GTID_EXECUTED]" = "1"
+--source include/assert.inc
+
+# Test flush tables
+FLUSH TABLES;
+FLUSH NO_WRITE_TO_BINLOG TABLES;
+
+# Verify GTID hasn't changed
+--let $assert_text = GTID executed should not have changed
+--let $assert_cond = "[SELECT @gtid_executed_saved = @@GLOBAL.GTID_EXECUTED]" = "1"
+--source include/assert.inc
+
+set global enable_super_log_bin_read_only=0;
+
+# Test all commands
+FLUSH TABLES;
+ANALYZE TABLE t1;
+OPTIMIZE TABLE t1;
+
+# Verify GTID has changed
+--let $assert_text = GTID executed should have changed
+--let $assert_cond = "[SELECT @gtid_executed_saved = @@GLOBAL.GTID_EXECUTED]" = "0"
+--source include/assert.inc
+
+set global enable_super_log_bin_read_only=DEFAULT;
+set global read_only=DEFAULT;
+
+DROP TABLE t1;
+
+# Clears out GTID executed for other tests
+RESET MASTER;
