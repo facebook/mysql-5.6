@@ -64,6 +64,12 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 )`;
 let $total_persistent_vars= `SELECT $total_persistent_vars - $total_excluded_vars`;
 
+# Add Variables names that need to be included here
+let $total_included_vars=`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
+'core_file',
+'_list_end_'
+)`;
+let $total_persistent_vars= `SELECT $total_persistent_vars + $total_included_vars`;
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global

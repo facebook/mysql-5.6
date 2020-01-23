@@ -2131,6 +2131,10 @@ The following options may be given as the first argument:
  --show-slave-auth-info 
  This option is deprecated and will be removed in a future
  version. Use show-replica-auth-info instead.
+ --skip-core-dump-on-error 
+ If set, MySQL skips dumping the core if it hits an error
+ (e.g,IO)
+ (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
  --skip-flush-master-info 
  Increase performance by not flushing the master info on
  each replica event
@@ -3030,6 +3034,7 @@ show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-replica-auth-info FALSE
 show-slave-auth-info FALSE
+skip-core-dump-on-error TRUE
 skip-flush-master-info FALSE
 skip-flush-relay-worker-info FALSE
 skip-grant-tables TRUE

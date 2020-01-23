@@ -1901,7 +1901,7 @@ large memory segments with MADV_DONTDUMP
 @return true iff @@global.core_file AND
 NOT @@global.innodb_buffer_pool_in_core_file */
 bool innobase_should_madvise_buf_pool() {
-  return (test_flags & TEST_CORE_ON_SIGNAL) && !srv_buffer_pool_in_core_file;
+  return (opt_core_file) && !srv_buffer_pool_in_core_file;
 }
 
 /** Make sure that core file will not be generated, as generating a core file
@@ -1921,7 +1921,7 @@ void innobase_disable_core_dump() {
   same bit. So this happens to work.
   */
 
-  test_flags &= ~TEST_CORE_ON_SIGNAL;
+  opt_core_file = false;
 }
 
 std::chrono::seconds thd_lock_wait_timeout(THD *thd) {
