@@ -220,4 +220,24 @@ SELECT 2;
 SHOW PROFILES;
 
 --echo
+--echo MYSQL_RESET_CONNECTION DOES NOT SET WAIT_TIMEOUT = INTERACTIVE_TIMEOUT
+--echo
+
+--let $start_value= `SELECT @@global.interactive_timeout`
+
+--echo ## Setting initial value of variable to 1 ##
+SET @@global.interactive_timeout = 1;
+--enable_client_interactive
+connect(new, localhost, root,,,,,);
+--echo connection new
+--connection new
+SELECT @@session.wait_timeout;
+--reset_connection
+--echo reset connection
+
+SELECT @@session.wait_timeout;
+
+--eval SET @@global.interactive_timeout = $start_value
+
+--echo
 --echo End of tests
