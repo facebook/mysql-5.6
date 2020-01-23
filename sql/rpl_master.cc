@@ -232,6 +232,9 @@ bool show_slave_hosts(THD *thd) {
   field_list.push_back(new Item_return_int("Port", 7, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_return_int("Source_Id", 10, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Replica_UUID", UUID_LENGTH));
+  field_list.push_back(
+      new Item_return_int("Is_semi_sync_slave", 7, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string("Replication_status", 20));
 
   // TODO: once the old syntax is removed, remove this as well.
   if (thd->lex->is_replication_deprecated_syntax_used())
@@ -259,6 +262,14 @@ bool show_slave_hosts(THD *thd) {
     String slave_uuid;
     if (get_slave_uuid(si->thd, &slave_uuid))
       protocol->store(slave_uuid.c_ptr_safe(), &my_charset_bin);
+    protocol->store(is_semi_sync_slave(si->thd, /*need_lock*/ true));
+    mysql_mutex_lock(&si->thd->LOCK_thd_query);
+    LEX_CSTRING replication_status = si->thd->query();
+    if (replication_status.length)
+      protocol->store(replication_status.str, &my_charset_bin);
+    else
+      protocol->store("", &my_charset_bin);
+    mysql_mutex_unlock(&si->thd->LOCK_thd_query);
     if (protocol->end_row()) {
       mysql_mutex_unlock(&LOCK_slave_list);
       return true;
