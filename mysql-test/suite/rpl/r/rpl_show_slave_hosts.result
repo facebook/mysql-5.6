@@ -3,6 +3,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+[connection slave2]
 RESET SLAVE;
 CHANGE MASTER TO master_host='127.0.0.1',master_port=MASTER_PORT,master_user='root';
 Warnings:
@@ -10,14 +12,20 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 START SLAVE IO_THREAD;
 include/wait_for_slave_io_to_start.inc
+[connection master]
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
+DROP TABLE t1;
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
-2		SLAVE_PORT	1	SLAVE_UUID
-3	slave2	SLAVE_PORT	1	SLAVE_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2		SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_SEMISYNC
+3	slave2	SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
+[connection slave2]
 include/stop_slave_io.inc
+[connection master]
 CREATE TABLE t1(a int);
 DROP TABLE t1;
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
-2		SLAVE_PORT	1	SLAVE_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2		SLAVE_PORT	1	SLAVE_UUID	0	REPL_STATUS_SEMISYNC
 include/rpl_end.inc

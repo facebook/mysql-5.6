@@ -6,9 +6,11 @@
 # instances when MTR runs rpl tests with parallel 4 or more.
 
 [mysqld.1]
+rpl_semi_sync_master_enabled=1
 server_id=1
 
 [mysqld.2]
+rpl_semi_sync_slave_enabled=1
 server_id=2
 report-host=
 report-user=

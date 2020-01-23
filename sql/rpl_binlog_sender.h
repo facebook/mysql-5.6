@@ -41,6 +41,7 @@ class String;
 class THD;
 
 extern uint rpl_send_buffer_size;
+bool is_semi_sync_slave();
 
 /**
   The major logic of dump thread is implemented in this class. It sends
