@@ -111,8 +111,6 @@ int thd_binlog_format(const MYSQL_THD thd);
  */
 bool thd_binlog_filter_ok(const MYSQL_THD thd);
 
-extern bool opt_core_file;
-
 namespace myrocks {
 
 static st_global_stats global_stats;
@@ -14574,10 +14572,9 @@ void rdb_handle_io_error(const rocksdb::Status status,
                          const RDB_IO_ERROR_TYPE err_type) {
   if (status.IsIOError()) {
     /* skip dumping core if write failed and we are allowed to do so */
-    /* TODO(yzha) - 736a451c418 removed hack to set opt_core_file in mysqld.cc
     if (skip_core_dump_on_error) {
       opt_core_file = false;
-    } */
+    }
 
     switch (err_type) {
       case RDB_IO_ERROR_TX_COMMIT:

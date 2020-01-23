@@ -35,6 +35,9 @@
 #include <time.h>
 #include <algorithm>
 #include <atomic>
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
 #include <thread>
 #include <utility>
 
@@ -2429,8 +2432,17 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level) {
          thd->security_context()->user().str, server_version,
          MYSQL_COMPILATION_COMMENT_SERVER);
 
+  // It is possible to hit errors like assertions before completing exit.
+  // In that case, generating core files should be skipped.
+  if (skip_core_dump_on_error) opt_core_file = false;
   DBUG_PRINT("quit", ("Got shutdown command for level %u", level));
   query_logger.general_log_print(thd, COM_QUERY, NullS);
+#ifdef HAVE_SYS_PRCTL_H
+  if (!opt_core_file) {
+    /* inform kernel that process is not dumpable */
+    (void)prctl(PR_SET_DUMPABLE, 0);
+  }
+#endif
   kill_mysql();
   res = true;
 

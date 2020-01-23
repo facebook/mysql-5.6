@@ -96,7 +96,6 @@ typedef Bitmap<((MAX_INDEXES + 7) / 8 * 8)> Key_map; /* Used for finding keys */
 #define TEST_KEEP_TMP_TABLES 16
 #define TEST_READCHECK 64 /**< Force use of readcheck */
 #define TEST_NO_EXTRA 128
-#define TEST_CORE_ON_SIGNAL 256 /**< Give core if signal */
 #define TEST_NO_STACKTRACE 512
 #define TEST_SIGINT 1024 /**< Allow sigint on threads */
 #define TEST_SYNCHRONIZATION          \
@@ -365,6 +364,8 @@ extern uint32 gtid_executed_compression_period;
 extern bool binlog_gtid_simple_recovery;
 extern ulong binlog_error_action;
 extern ulong locked_account_connection_count;
+extern bool opt_core_file;
+extern bool skip_core_dump_on_error;
 enum enum_binlog_error_action {
   /// Ignore the error and let server continue without binlogging
   IGNORE_ERROR = 0,

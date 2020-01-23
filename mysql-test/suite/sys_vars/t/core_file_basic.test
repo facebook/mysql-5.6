@@ -1,5 +1,15 @@
---disable_warnings
-SELECT * FROM performance_schema.global_variables
-WHERE VARIABLE_NAME = 'core_file';
---enable_warnings
+SET @old_val = @@global.core_file;
+
+SET GLOBAL core_file = FALSE;
+
+SELECT @@core_file;
 SHOW GLOBAL VARIABLES LIKE 'core_file';
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+
+SET GLOBAL core_file = TRUE;
+
+SELECT @@core_file;
+SHOW GLOBAL VARIABLES LIKE 'core_file';
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+
+SET @@global.core_file = @old_val;

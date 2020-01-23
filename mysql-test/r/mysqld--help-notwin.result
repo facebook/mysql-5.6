@@ -1838,6 +1838,10 @@ The following options may be given as the first argument:
  --show-slave-auth-info 
  Show user and password in SHOW SLAVE HOSTS on this
  master.
+ --skip-core-dump-on-error 
+ If set, MySQL skips dumping the core if it hits an error
+ (e.g,IO)
+ (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
  --skip-flush-master-info 
  Increase performance by not flushing the master info on
  each slave transaction
@@ -2643,6 +2647,7 @@ sha256-password-proxy-users FALSE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-slave-auth-info FALSE
+skip-core-dump-on-error TRUE
 skip-flush-master-info FALSE
 skip-grant-tables TRUE
 skip-master-info-check-for-read-only-error-msg-extra FALSE

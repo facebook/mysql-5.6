@@ -1258,7 +1258,9 @@ bool thread_cache_size_specified = false;
 bool host_cache_size_specified = false;
 bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
-bool slave_high_priority_ddl = 0;
+bool opt_core_file = false;
+bool skip_core_dump_on_error = false;
+bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 bool log_datagram = 0;
@@ -2623,7 +2625,7 @@ static void set_user(const char *user, const PasswdValue &user_info_arg) {
   }
 
 #ifdef HAVE_SYS_PRCTL_H
-  if (test_flags & TEST_CORE_ON_SIGNAL) {
+  if (opt_core_file) {
     /* inform kernel that process is dumpable */
     (void)prctl(PR_SET_DUMPABLE, 1);
   }
@@ -3230,13 +3232,12 @@ void my_init_signals() {
   struct sigaction sa;
   (void)sigemptyset(&sa.sa_mask);
 
-  if (!(test_flags & TEST_NO_STACKTRACE) ||
-      (test_flags & TEST_CORE_ON_SIGNAL)) {
+  if (!(test_flags & TEST_NO_STACKTRACE) || opt_core_file) {
 #ifdef HAVE_STACKTRACE
     my_init_stacktrace();
 #endif
 
-    if (test_flags & TEST_CORE_ON_SIGNAL) {
+    if (opt_core_file) {
       // Change limits so that we will get a core file.
       struct rlimit rl;
       rl.rlim_cur = rl.rlim_max = RLIM_INFINITY;
@@ -7785,7 +7786,7 @@ struct my_option my_long_early_options[] = {
 
 /**
   System variables are automatically command-line options (few
-  exceptions are documented in sys_var.h), so don't need
+  exceptions are documented in sys_vars.h), so don't need
   to be listed here.
 */
 
@@ -9932,7 +9933,7 @@ bool mysqld_get_one_option(int optid,
       }
       break;
     case (int)OPT_WANT_CORE:
-      test_flags |= TEST_CORE_ON_SIGNAL;
+      opt_core_file = true;
       break;
     case (int)OPT_SKIP_STACK_TRACE:
       test_flags |= TEST_NO_STACKTRACE;
@@ -10351,7 +10352,7 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   if (opt_debugging) {
     /* Allow break with SIGINT, no core or stack trace */
     test_flags |= TEST_SIGINT | TEST_NO_STACKTRACE;
-    test_flags &= ~TEST_CORE_ON_SIGNAL;
+    opt_core_file = false;
   }
   /* Set global MyISAM variables from delay_key_write_options */
   fix_delay_key_write(0, 0, OPT_GLOBAL);

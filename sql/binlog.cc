@@ -9294,6 +9294,14 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
 
+  /* simulate a write failure during commit - needed for unit test */
+  DBUG_EXECUTE_IF("abort_with_io_write_error",
+                  flush_error = ER_ERROR_ON_WRITE;);
+
+  /* skip dumping core if write failed and we are allowed to do so */
+  if (flush_error == ER_ERROR_ON_WRITE && skip_core_dump_on_error)
+    opt_core_file = false;
+
   if (flush_error) {
     /*
       Handle flush error (if any) after leader finishes it's flush stage.

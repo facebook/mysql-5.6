@@ -1260,9 +1260,14 @@ static bool prevent_global_rbr_exec_mode_idempotent(sys_var *self, THD *thd,
   return check_session_admin(self, thd, var);
 }
 
-static Sys_var_test_flag Sys_core_file("core_file",
-                                       "write a core-file on crashes",
-                                       TEST_CORE_ON_SIGNAL);
+static Sys_var_bool Sys_core_file("core_file", "write a core-file on crashes",
+                                  GLOBAL_VAR(opt_core_file), NO_CMD_LINE,
+                                  DEFAULT(false));
+
+static Sys_var_bool Sys_skip_core_dump_on_error(
+    "skip_core_dump_on_error",
+    "If set, MySQL skips dumping the core if it hits an error (e.g,IO)",
+    GLOBAL_VAR(skip_core_dump_on_error), CMD_LINE(OPT_ARG), DEFAULT(true));
 
 static Sys_var_enum Sys_binlog_format(
     "binlog_format",
