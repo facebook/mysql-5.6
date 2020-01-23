@@ -19,11 +19,11 @@ include/start_slave.inc
 include/assert_error_log.inc [server: 1, pattern: NONE]
 * R2.1, R2.2: Have columns
 SHOW REPLICAS;
-Server_Id	Host	User	Password	Port	Source_Id	Replica_UUID
-2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID
+Server_Id	Host	User	Password	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000002 157
 SHOW SLAVE HOSTS;
-Server_id	Host	User	Password	Port	Master_id	Slave_UUID
-2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID
+Server_id	Host	User	Password	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000002 157
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 ==== R3: show-slave-auth-info ====
@@ -38,11 +38,11 @@ include/start_slave.inc
 include/assert_error_log.inc [server: 1, pattern: The syntax 'show-slave-auth-info' is deprecated and will be removed in a future release. Please use show-replica-auth-info instead.]
 * R3.2, R3.3: Have columns
 SHOW REPLICAS;
-Server_Id	Host	User	Password	Port	Source_Id	Replica_UUID
-2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID
+Server_Id	Host	User	Password	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000003 157
 SHOW SLAVE HOSTS;
-Server_id	Host	User	Password	Port	Master_id	Slave_UUID
-2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID
+Server_id	Host	User	Password	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	USER	PASS	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000003 157
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 ==== R1: no command-line options ====
@@ -56,11 +56,11 @@ include/start_slave.inc
 include/assert_error_log.inc [server: 1, pattern: NONE]
 * R1.2, R1.3: No columns
 SHOW REPLICAS;
-Server_Id	Host	Port	Source_Id	Replica_UUID
-2	127.0.0.1	REPLICA_PORT	1	REPLICA_UUID
+Server_Id	Host	Port	Source_Id	Replica_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000004 157
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
-2	127.0.0.1	REPLICA_PORT	1	REPLICA_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+2	127.0.0.1	REPLICA_PORT	1	REPLICA_UUID	0	Async slave offset: master-bin.000004 157
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 ==== Clean up ====

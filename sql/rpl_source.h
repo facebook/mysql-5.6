@@ -51,7 +51,7 @@ struct REPLICA_INFO {
   char user[USERNAME_LENGTH + 1];
   char password[MAX_PASSWORD_LENGTH + 1];
   uint16 port;
-  my_thread_id thd_id;
+  THD *thd;
   binary_log::Uuid replica_uuid;
   bool valid_replica_uuid;
 };

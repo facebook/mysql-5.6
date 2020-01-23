@@ -151,7 +151,7 @@ int register_replica(THD *thd, uchar *packet, size_t packet_length) {
   */
   p += 4;
   if (!(si->master_id = uint4korr(p))) si->master_id = server_id;
-  si->thd_id = thd->thread_id();
+  si->thd = thd;
   si->valid_replica_uuid = false;
   if (get_replica_uuid(thd, &replica_uuid)) {
     si->valid_replica_uuid =
@@ -177,12 +177,32 @@ void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list) {
       mysql_mutex_assert_owner(&LOCK_replica_list);
 
     auto it = slave_list.find(thd->server_id);
-    if (it != slave_list.end() &&
-        (!only_mine || it->second->thd_id == thd->thread_id()))
+    if (it != slave_list.end() && (!only_mine || it->second->thd == thd))
       slave_list.erase(it);
 
     if (need_lock_slave_list) mysql_mutex_unlock(&LOCK_replica_list);
   }
+}
+
+bool is_semi_sync_slave(THD *thd, bool need_lock) {
+  constexpr auto name = "rpl_semi_sync_slave";
+
+  if (need_lock)
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+  else
+    mysql_mutex_assert_owner(&thd->LOCK_thd_data);
+
+  longlong integral_result = 0;
+  const auto it = thd->user_vars.find(name);
+
+  if (it != thd->user_vars.end()) {
+    auto null_value = false;
+    auto tmp = it->second->val_int(&null_value);
+    if (!null_value) integral_result = tmp;
+  }
+
+  if (need_lock) mysql_mutex_unlock(&thd->LOCK_thd_data);
+  return integral_result != 0;
 }
 
 /**
@@ -208,6 +228,9 @@ bool show_replicas(THD *thd) {
   field_list.push_back(new Item_return_int("Port", 7, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_return_int("Source_Id", 10, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_empty_string("Replica_UUID", UUID_LENGTH));
+  field_list.push_back(
+      new Item_return_int("Is_semi_sync_slave", 7, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_empty_string("Replication_status", 20));
 
   // TODO: once the old syntax is removed, remove this as well.
   if (thd->lex->is_replication_deprecated_syntax_used())
@@ -238,6 +261,15 @@ bool show_replicas(THD *thd) {
     } else {
       protocol->store("", &my_charset_bin);
     }
+    protocol->store(is_semi_sync_slave(si->thd, /*need_lock*/ true));
+
+    mysql_mutex_lock(&si->thd->LOCK_thd_query);
+    LEX_CSTRING replication_status = si->thd->query();
+    if (replication_status.length)
+      protocol->store(replication_status.str, &my_charset_bin);
+    else
+      protocol->store("", &my_charset_bin);
+    mysql_mutex_unlock(&si->thd->LOCK_thd_query);
 
     if (protocol->end_row()) {
       mysql_mutex_unlock(&LOCK_replica_list);
