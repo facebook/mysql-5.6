@@ -1,0 +1,81 @@
+source include/assert_gtid_mode_on.inc;
+
+# Replay an 8.0.X mysqlbinlog stream
+write_file $MYSQLTEST_VARDIR/tmp/binlog_output;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+# at 4
+#191029 14:39:57 server id 1  end_log_pos 120   Start: binlog v 4, server v 5.6.35-fb-debug-log created 191029 14:39:57 at startup
+# Warning: this binlog is either in use or was not closed properly.
+ROLLBACK/*!*/;
+BINLOG '
+rbG4XQ8BAAAAdAAAAHgAAAABAAQANS42LjM1LWZiLWRlYnVnLWxvZwAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAACtsbhdEzgNAAgAEgAEBAQEEgAAXAAEGggAAAAICAgCAAAACgoKGRkAANOj
+IFM=
+'/*!*/;
+/*!50616 SET @@SESSION.GTID_NEXT='AUTOMATIC'*//*!*/;
+# at 120
+# at 147
+# at 191
+#191029 14:40:59 server id 1  end_log_pos 297   Query   thread_id=3     exec_time=0     error_code=0
+use `test`/*!*/;
+SET TIMESTAMP=1572385259/*!*/;
+SET @@session.pseudo_thread_id=3/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+create table tbl (a int primary key)
+/*!*/;
+# at 297
+# at 341
+#191029 14:42:37 server id 1  end_log_pos 416   Query   thread_id=3     exec_time=0     error_code=0
+SET TIMESTAMP=1572385357/*!*/;
+BEGIN
+/*!*/;
+# at 416
+#191029 14:42:37 server id 1  end_log_pos 511   Query   thread_id=3     exec_time=0     error_code=0
+SET TIMESTAMP=1572385357/*!*/;
+insert into tbl values(1)
+/*!*/;
+# at 511
+#191029 14:42:37 server id 1  end_log_pos 538   Xid = 17
+COMMIT/*!*/;
+DELIMITER ;
+# End of log file
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+EOF
+
+create user 'olm'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'olm'@'localhost';
+revoke super on *.* from 'olm'@'localhost';
+
+create user 'normal'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'normal'@'localhost';
+revoke super on *.* from 'normal'@'localhost';
+revoke BINLOG_ADMIN on *.* from 'normal'@'localhost';
+
+alter database test read_only=True;
+
+--echo # Without BINLOG_ADMIN, non-super user can't execute set gtid_next when replaying binlog
+--disable_abort_on_error
+--exec $MYSQL --binary-mode -P $MASTER_MYPORT -u normal -h 127.0.0.1 -D test --password='password'  < $MYSQLTEST_VARDIR/tmp/binlog_output
+--enable_abort_on_error
+--error ER_NO_SUCH_TABLE
+select * from test.tbl; 
+
+--echo # With BINLOG_ADMIN, non-super user can execute set gtid_next when replaying binlog
+--exec $MYSQL --binary-mode -P $MASTER_MYPORT -u olm -h 127.0.0.1 -D test --password='password'  < $MYSQLTEST_VARDIR/tmp/binlog_output
+--let $assert_text = tbl should have 1 row
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 1
+--source include/assert.inc
+
+--remove_file $MYSQLTEST_VARDIR/tmp/binlog_output
+DROP user 'olm'@'localhost';
+DROP user 'normal'@'localhost';
+DROP table tbl;

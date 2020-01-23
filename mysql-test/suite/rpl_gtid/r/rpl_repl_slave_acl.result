@@ -1,0 +1,64 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+CREATE TABLE tbl (id INT PRIMARY KEY, value INT);
+INSERT INTO tbl VALUES (1, 1);
+UPDATE tbl SET value=value+1 WHERE id=1;
+INSERT INTO tbl VALUES (2, 10);
+FLUSH LOGS;
+include/assert.inc [tbl should have 2 rows]
+DROP TABLE tbl;
+include/sync_slave_sql_with_master.inc
+[connection master]
+CREATE USER 'olm'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'olm'@'localhost';
+REVOKE SUPER, CONNECTION_ADMIN ON *.* FROM 'olm'@'localhost';
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+CREATE USER 'normal'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'normal'@'localhost';
+REVOKE SUPER, CONNECTION_ADMIN, BINLOG_ADMIN ON *.* FROM 'normal'@'localhost';
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+---------------------------------
+1. Tests with read/write database
+---------------------------------
+# User without BINLOG_ADMIN privilege can't replay binlog
+SELECT * FROM tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+# User with BINLOG_ADMIN privilege can replay binlog
+include/assert.inc [tbl should have 2 rows]
+DROP TABLE tbl;
+--------------------------------------------------
+2. Tests with "ALTER DATABASE test read_only=True"
+--------------------------------------------------
+ALTER DATABASE test read_only=True;
+# User without BINLOG_ADMIN privilege can't replay binlog for a read only database instance
+SELECT * FROM tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+# User with BINLOG_ADMIN privilege can replay binlog for a read only database instance
+include/assert.inc [tbl should have 2 rows]
+DROP TABLE tbl;
+ALTER DATABASE test read_only=False;
+--------------------------------------
+3. Tests with "SET GLOBAL read_only=1"
+--------------------------------------
+SET GLOBAL read_only=1;
+# User with BINLOG_ADMIN but without CONNECTION_ADMIN privilege can't replay binlog when the server uses a "read-only" mode
+SELECT * FROM tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+GRANT CONNECTION_ADMIN ON *.* TO 'olm'@'localhost';
+# User who has BINLOG_ADMIN and CONNECTION_ADMIN privilege can replay binlog when the server uses a "read-only" mode
+include/assert.inc [tbl should have 2 rows]
+SET GLOBAL read_only=0;
+# With BINLOG_ADMIN privilege, reply binlog should generate gtid for read_only database
+include/sync_slave_sql_with_master.inc
+[connection slave]
+include/assert.inc [tbl should have 2 rows]
+[connection master]
+DROP user 'normal'@'localhost';
+DROP user 'olm'@'localhost';
+DROP TABLE tbl;
+include/rpl_end.inc
