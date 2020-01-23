@@ -2278,7 +2278,9 @@ WHERE t.thread_id = r.thread_id
                     "some_funky_host",                             // host
                     std::to_string(replica_server.server_port()),  // port
                     "1",                                           // source-id
-                    Not(IsEmpty())  // server-uuid
+                    Not(IsEmpty()),  // server-uuid
+                    "0",
+                    Not(IsEmpty())  // Async slave offset
                     )));
   }
 

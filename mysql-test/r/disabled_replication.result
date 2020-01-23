@@ -46,7 +46,7 @@ ERROR HY000: You are not using binary logging
 SHOW MASTER STATUS;
 File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 SHOW SLAVE HOSTS;
-Server_id	Host	Port	Master_id	Slave_UUID
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
 Warnings:
 Warning	1287	'SHOW SLAVE HOSTS' is deprecated and will be removed in a future release. Please use SHOW REPLICAS instead
 RESET MASTER;
