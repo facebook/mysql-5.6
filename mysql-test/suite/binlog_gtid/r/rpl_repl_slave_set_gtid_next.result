@@ -1,0 +1,20 @@
+create user 'olm'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'olm'@'localhost';
+revoke super on *.* from 'olm'@'localhost';
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+create user 'normal'@'localhost' IDENTIFIED BY 'password';
+grant all privileges on *.* to 'normal'@'localhost';
+revoke super on *.* from 'normal'@'localhost';
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+revoke BINLOG_ADMIN on *.* from 'normal'@'localhost';
+alter database test read_only=True;
+# Without BINLOG_ADMIN, non-super user can't execute set gtid_next when replaying binlog
+select * from test.tbl;
+ERROR 42S02: Table 'test.tbl' doesn't exist
+# With BINLOG_ADMIN, non-super user can execute set gtid_next when replaying binlog
+include/assert.inc [tbl should have 1 row]
+DROP user 'olm'@'localhost';
+DROP user 'normal'@'localhost';
+DROP table tbl;

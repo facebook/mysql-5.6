@@ -1,0 +1,103 @@
+--source include/assert_gtid_mode_on.inc
+--source include/master-slave.inc
+
+CREATE TABLE tbl (id INT PRIMARY KEY, value INT);
+INSERT INTO tbl VALUES (1, 1);
+UPDATE tbl SET value=value+1 WHERE id=1;
+INSERT INTO tbl VALUES (2, 10);
+
+let $MYSQLD_DATADIR= `SELECT @@datadir;`;
+let $BINLOG_NAME = query_get_value(show master status, File, 1);
+--copy_file $MYSQLD_DATADIR/$BINLOG_NAME $MYSQLD_DATADIR/master-bin.saved
+
+FLUSH LOGS;
+--let $assert_text = tbl should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 2
+--source include/assert.inc
+DROP TABLE tbl;
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_master.inc
+CREATE USER 'olm'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'olm'@'localhost';
+REVOKE SUPER, CONNECTION_ADMIN, REPLICATION_APPLIER ON *.* FROM 'olm'@'localhost';
+
+CREATE USER 'normal'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'normal'@'localhost';
+REVOKE SUPER, CONNECTION_ADMIN, REPLICATION_APPLIER, BINLOG_ADMIN ON *.* FROM 'normal'@'localhost';
+
+
+--echo ---------------------------------
+--echo 1. Tests with read/write database
+--echo ---------------------------------
+--echo # User without BINLOG_ADMIN privilege can't replay binlog
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='normal' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+# Table 'test.tbl' doesn't exist
+--error ER_NO_SUCH_TABLE
+SELECT * FROM tbl;
+
+--echo # User with BINLOG_ADMIN privilege can replay binlog
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--let $assert_text = tbl should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 2
+--source include/assert.inc
+DROP TABLE tbl;
+
+
+--echo --------------------------------------------------
+--echo 2. Tests with "ALTER DATABASE test read_only=True"
+--echo --------------------------------------------------
+ALTER DATABASE test read_only=True;
+--echo # User without BINLOG_ADMIN privilege can't replay binlog for a read only database instance
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='normal' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+# Table 'test.tbl' doesn't exist
+--error ER_NO_SUCH_TABLE
+SELECT * FROM tbl;
+
+--echo # User with BINLOG_ADMIN privilege can replay binlog for a read only database instance
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--let $assert_text = tbl should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 2
+--source include/assert.inc
+DROP TABLE tbl;
+ALTER DATABASE test read_only=False;
+
+
+--echo --------------------------------------
+--echo 3. Tests with "SET GLOBAL read_only=1"
+--echo --------------------------------------
+SET GLOBAL read_only=1;
+--echo # User with BINLOG_ADMIN but without CONNECTION_ADMIN privilege can't replay binlog when the server uses a "read-only" mode
+--disable_abort_on_error
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--enable_abort_on_error
+# Table 'test.tbl' doesn't exist
+--error ER_NO_SUCH_TABLE
+SELECT * FROM tbl;
+
+GRANT CONNECTION_ADMIN ON *.* TO 'olm'@'localhost';
+--echo # User who has BINLOG_ADMIN and CONNECTION_ADMIN privilege can replay binlog when the server uses a "read-only" mode
+--exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved --skip-gtids --skip-empty-trans --database test | $MYSQL --user='olm' --password='password' --port=$MASTER_MYPORT --host=127.0.0.1
+--let $assert_text = tbl should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 2
+--source include/assert.inc
+SET GLOBAL read_only=0;
+
+
+--echo # With BINLOG_ADMIN privilege, reply binlog should generate gtid for read_only database
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_slave.inc
+--let $assert_text = tbl should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from tbl] = 2
+--source include/assert.inc
+
+--source include/rpl_connection_master.inc
+DROP user 'normal'@'localhost';
+DROP user 'olm'@'localhost';
+DROP TABLE tbl;
+--remove_file $MYSQLD_DATADIR/master-bin.saved
+--source include/rpl_end.inc
