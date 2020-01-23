@@ -286,7 +286,7 @@ void Binlog_sender::cleanup() {
     my_eof(thd);
 }
 
-static bool is_semi_sync_slave() {
+bool is_semi_sync_slave() {
   long long val = 0;
   get_user_var_int("rpl_semi_sync_slave", &val, nullptr);
   return val;
