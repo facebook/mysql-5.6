@@ -2681,6 +2681,7 @@ class THD : public MDL_context_owner,
   void init(void);
 
  public:
+  void fix_capability_based_variables();
   /**
     Initialize memory roots necessary for query processing and (!)
     pre-allocate memory for it. We can't do that in THD constructor because

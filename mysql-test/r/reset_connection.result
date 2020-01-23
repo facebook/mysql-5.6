@@ -248,4 +248,18 @@ Query_ID	Duration	Query
 Warnings:
 Warning	#	'SHOW PROFILES' is deprecated and will be removed in a future release. Please use Performance Schema instead
 
+MYSQL_RESET_CONNECTION DOES NOT SET WAIT_TIMEOUT = INTERACTIVE_TIMEOUT
+
+## Setting initial value of variable to 1 ##
+SET @@global.interactive_timeout = 1;
+connection new
+SELECT @@session.wait_timeout;
+@@session.wait_timeout
+1
+reset connection
+SELECT @@session.wait_timeout;
+@@session.wait_timeout
+1
+SET @@global.interactive_timeout = 28800;
+
 End of tests
