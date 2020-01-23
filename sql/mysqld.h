@@ -102,7 +102,6 @@ typedef Bitmap<((MAX_INDEXES + 7) / 8 * 8)> Key_map; /* Used for finding keys */
 #define TEST_KEEP_TMP_TABLES 16
 #define TEST_READCHECK 64 /**< Force use of readcheck */
 #define TEST_NO_EXTRA 128
-#define TEST_CORE_ON_SIGNAL 256 /**< Give core if signal */
 #define TEST_NO_STACKTRACE 512
 #define TEST_SIGINT 1024 /**< Allow sigint on threads */
 #define TEST_SYNCHRONIZATION          \
@@ -394,6 +393,8 @@ extern bool binlog_gtid_simple_recovery;
 extern ulong binlog_error_action;
 extern ulong locked_account_connection_count;
 extern bool opt_group_replication_plugin_hooks;
+extern bool opt_core_file;
+extern bool skip_core_dump_on_error;
 extern std::atomic<ulonglong> json_contains_key_count;
 extern std::atomic<ulonglong> json_array_length_count;
 extern std::atomic<ulonglong> json_extract_legacy_count;

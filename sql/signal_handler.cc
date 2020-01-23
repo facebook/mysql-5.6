@@ -225,7 +225,7 @@ extern "C" void handle_fatal_signal(int sig) {
     print_fatal_signal(sig);
   }
 
-  if ((test_flags & TEST_CORE_ON_SIGNAL) != 0) {
+  if (opt_core_file) {
     my_safe_printf_stderr("%s", "Writing a core file\n");
     my_write_core(sig);
   }

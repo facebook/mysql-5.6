@@ -333,8 +333,6 @@ SET @@persist_only.socket= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.default_authentication_plugin= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SET @@persist_only.core_file= "";
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.innodb_read_only= "";
 --error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SET @@persist_only.persisted_globals_load= "";

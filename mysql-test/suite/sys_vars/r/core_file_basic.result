@@ -1,7 +1,22 @@
-SELECT * FROM performance_schema.global_variables
-WHERE VARIABLE_NAME = 'core_file';
+SET @old_val = @@global.core_file;
+SET GLOBAL core_file = FALSE;
+SELECT @@core_file;
+@@core_file
+0
+SHOW GLOBAL VARIABLES LIKE 'core_file';
+Variable_name	Value
+core_file	OFF
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
 VARIABLE_NAME	VARIABLE_VALUE
-core_file	ON
+core_file	OFF
+SET GLOBAL core_file = TRUE;
+SELECT @@core_file;
+@@core_file
+1
 SHOW GLOBAL VARIABLES LIKE 'core_file';
 Variable_name	Value
 core_file	ON
+SELECT * FROM performance_schema.global_variables WHERE VARIABLE_NAME = 'core_file';
+VARIABLE_NAME	VARIABLE_VALUE
+core_file	ON
+SET @@global.core_file = @old_val;

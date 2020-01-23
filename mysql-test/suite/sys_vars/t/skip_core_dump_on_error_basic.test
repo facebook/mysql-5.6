@@ -1,0 +1,80 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.skip_core_dump_on_error;
+SELECT @start_value;
+
+
+SET @@global.skip_core_dump_on_error = DEFAULT;
+SELECT @@global.skip_core_dump_on_error = TRUE;
+
+
+SET @@global.skip_core_dump_on_error = ON;
+SELECT @@global.skip_core_dump_on_error;
+SET @@global.skip_core_dump_on_error = OFF;
+SELECT @@global.skip_core_dump_on_error;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.skip_core_dump_on_error = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.skip_core_dump_on_error = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.skip_core_dump_on_error;
+
+
+SELECT IF(@@global.skip_core_dump_on_error, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='skip_core_dump_on_error';
+
+
+SET @@global.skip_core_dump_on_error = 0;
+SELECT @@global.skip_core_dump_on_error;
+SET @@global.skip_core_dump_on_error = 1;
+SELECT @@global.skip_core_dump_on_error;
+
+SET @@global.skip_core_dump_on_error = TRUE;
+SELECT @@global.skip_core_dump_on_error;
+SET @@global.skip_core_dump_on_error = FALSE;
+SELECT @@global.skip_core_dump_on_error;
+
+SET @@global.skip_core_dump_on_error = ON;
+SELECT @@skip_core_dump_on_error = @@global.skip_core_dump_on_error;
+
+--Error ER_GLOBAL_VARIABLE
+SET skip_core_dump_on_error = ON;
+--Error ER_PARSE_ERROR
+SET local.skip_core_dump_on_error = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.skip_core_dump_on_error;
+--Error ER_PARSE_ERROR
+SET global.skip_core_dump_on_error = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.skip_core_dump_on_error;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT skip_core_dump_on_error = @@session.skip_core_dump_on_error;
+
+SET @@global.skip_core_dump_on_error = @start_value;
+SELECT @@global.skip_core_dump_on_error;

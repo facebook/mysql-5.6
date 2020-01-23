@@ -1,0 +1,85 @@
+SET @start_value = @@global.skip_core_dump_on_error;
+SELECT @start_value;
+@start_value
+1
+SET @@global.skip_core_dump_on_error = DEFAULT;
+SELECT @@global.skip_core_dump_on_error = TRUE;
+@@global.skip_core_dump_on_error = TRUE
+1
+SET @@global.skip_core_dump_on_error = ON;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1
+SET @@global.skip_core_dump_on_error = OFF;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+0
+SET @@global.skip_core_dump_on_error = 2;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of '2'
+SET @@global.skip_core_dump_on_error = -1;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of '-1'
+SET @@global.skip_core_dump_on_error = TRUEF;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'TRUEF'
+SET @@global.skip_core_dump_on_error = TRUE_F;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'TRUE_F'
+SET @@global.skip_core_dump_on_error = FALSE0;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'FALSE0'
+SET @@global.skip_core_dump_on_error = OON;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'OON'
+SET @@global.skip_core_dump_on_error = ONN;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'ONN'
+SET @@global.skip_core_dump_on_error = OOFF;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of 'OOFF'
+SET @@global.skip_core_dump_on_error = 0FF;
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of '0FF'
+SET @@global.skip_core_dump_on_error = ' ';
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of ' '
+SET @@global.skip_core_dump_on_error = " ";
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of ' '
+SET @@global.skip_core_dump_on_error = '';
+ERROR 42000: Variable 'skip_core_dump_on_error' can't be set to the value of ''
+SET @@session.skip_core_dump_on_error = OFF;
+ERROR HY000: Variable 'skip_core_dump_on_error' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.skip_core_dump_on_error;
+ERROR HY000: Variable 'skip_core_dump_on_error' is a GLOBAL variable
+SELECT IF(@@global.skip_core_dump_on_error, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='skip_core_dump_on_error';
+IF(@@global.skip_core_dump_on_error, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.skip_core_dump_on_error = 0;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+0
+SET @@global.skip_core_dump_on_error = 1;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1
+SET @@global.skip_core_dump_on_error = TRUE;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1
+SET @@global.skip_core_dump_on_error = FALSE;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+0
+SET @@global.skip_core_dump_on_error = ON;
+SELECT @@skip_core_dump_on_error = @@global.skip_core_dump_on_error;
+@@skip_core_dump_on_error = @@global.skip_core_dump_on_error
+1
+SET skip_core_dump_on_error = ON;
+ERROR HY000: Variable 'skip_core_dump_on_error' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.skip_core_dump_on_error = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.skip_core_dump_on_error = OFF' at line 1
+SELECT local.skip_core_dump_on_error;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.skip_core_dump_on_error = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.skip_core_dump_on_error = ON' at line 1
+SELECT global.skip_core_dump_on_error;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT skip_core_dump_on_error = @@session.skip_core_dump_on_error;
+ERROR HY000: Variable 'skip_core_dump_on_error' is a GLOBAL variable
+SET @@global.skip_core_dump_on_error = @start_value;
+SELECT @@global.skip_core_dump_on_error;
+@@global.skip_core_dump_on_error
+1

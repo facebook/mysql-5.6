@@ -60,8 +60,6 @@ SET PERSIST_ONLY persisted_globals_load = DEFAULT;
 ERROR HY000: Variable 'persisted_globals_load' is a non persistent read only variable
 SET PERSIST_ONLY character_set_system = DEFAULT;
 ERROR HY000: Variable 'character_set_system' is a non persistent read only variable
-SET PERSIST_ONLY core_file = DEFAULT;
-ERROR HY000: Variable 'core_file' is a non persistent read only variable
 SET PERSIST_ONLY have_statement_timeout = DEFAULT;
 ERROR HY000: Variable 'have_statement_timeout' is a non persistent read only variable
 SET PERSIST_ONLY have_symlink = DEFAULT;

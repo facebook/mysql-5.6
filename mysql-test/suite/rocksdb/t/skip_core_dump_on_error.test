@@ -2,9 +2,6 @@
 --source include/have_debug.inc
 --source include/not_valgrind.inc
 
---enable_connect_log
---enable_info
-
 # setup search pattern and file (new log error file)
 --let SEARCH_FILE=$MYSQLTEST_VARDIR/tmp/skip_core_dump_on_error.err
 
@@ -22,16 +19,16 @@ commit;
 SET debug= '+d,abort_with_io_write_error';
 
 # we want to abort server if we fail to write (ABORT_SERVER)
-set global binlog_error_action=1;
+set global binlog_error_action=ABORT_SERVER;
 
-# diplay the values of the key parameters
-show session variables like 'debug';
-show global variables like 'binlog_error_action';
-show global variables like 'skip_core_dump_on_error';
+# check if skip_core_dump_on_error is turned on
+--let $assert_text = skip_core_dump_on_error is turned on
+--let $assert_cond = [SELECT @@global.skip_core_dump_on_error] = 1
+--source include/assert.inc
 
 --echo # crash_during_update
 # tell client that crash is expected
---error 1598
+--error ER_BINLOG_LOGGING_IMPOSSIBLE
 # run an update to trigger a write error
 update mz set c=13;
 

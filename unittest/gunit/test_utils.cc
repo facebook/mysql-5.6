@@ -98,7 +98,7 @@ void setup_server_for_unit_tests() {
   init_common_variables();
   test_flags |= TEST_SIGINT;
   test_flags |= TEST_NO_TEMP_TABLES;
-  test_flags &= ~TEST_CORE_ON_SIGNAL;
+  opt_core_file = false;
   my_init_signals();
   // Install server's abort handler to better represent server environment.
   set_my_abort(my_server_abort);
