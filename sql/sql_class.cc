@@ -819,7 +819,6 @@ THD::THD(bool enable_plugins)
   /* Call to init() below requires fully initialized Open_tables_state. */
   reset_open_tables_state();
 
-  init();
 #if defined(ENABLED_PROFILING)
   profiling->set_thd(this);
 #endif
@@ -834,6 +833,8 @@ THD::THD(bool enable_plugins)
   protocol_text->init(this);
   protocol_binary->init(this);
   protocol_text->set_client_capabilities(0);  // minimalistic client
+
+  init();
 
   /*
     Make sure thr_lock_info_init() is called for threads which do not get
@@ -1111,6 +1112,13 @@ Sql_condition *THD::raise_condition(uint sql_errno, const char *sqlstate,
   return cond;
 }
 
+void THD::fix_capability_based_variables() {
+  if (m_protocol->has_client_capability(CLIENT_INTERACTIVE))
+    variables.net_wait_timeout = variables.net_interactive_timeout;
+  if (m_protocol->has_client_capability(CLIENT_IGNORE_SPACE))
+    variables.sql_mode |= MODE_IGNORE_SPACE;
+}
+
 /*
   Init common variables that has to be reset on start and on cleanup_connection
 */
@@ -1123,6 +1131,11 @@ void THD::init(void) {
     avoid temporary tables replication failure.
   */
   variables.pseudo_thread_id = m_thread_id;
+  /*
+   variables= global_system_variables also clobbers several variables set
+   based on per-connection capabilities
+   */
+  fix_capability_based_variables();
 
   /*
     NOTE: reset_connection command will reset the THD to its default state.
