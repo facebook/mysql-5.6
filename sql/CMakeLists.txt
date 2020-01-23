@@ -1069,7 +1069,9 @@ IF(DEFINED MYSQL_GITHASH)
   # the perl script
   SET(GITHASH_PERL_OPTS ${GITHASH_PERL_OPTS}
                         --mysql_githash=${MYSQL_GITHASH}
-                        --mysql_gitdate=${MYSQL_GITDATE})
+                        --mysql_gitdate=${MYSQL_GITDATE}
+                        --rocksdb_githash=${ROCKSDB_GITHASH}
+                        --rocksdb_gitdate=${ROCKSDB_GITDATE})
 ELSE()
   # Otherwise we want to add the .git/logs/HEAD file to the list of
   # dependencies
