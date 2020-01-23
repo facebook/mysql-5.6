@@ -208,6 +208,9 @@ end:
 bool is_thd_db_read_only_by_name(THD *thd, const char *db) {
   DBUG_ENTER("is_thd_db_read_only_by_name");
   bool super = thd->m_main_security_ctx.check_access(SUPER_ACL);
+  bool binlog_admin =
+      thd->m_main_security_ctx.has_global_grant(STRING_WITH_LEN("BINLOG_ADMIN"))
+          .first;
   enum enum_db_read_only flag = DB_READ_ONLY_NULL;
 
   // Check cached info in THD first.
@@ -228,7 +231,8 @@ bool is_thd_db_read_only_by_name(THD *thd, const char *db) {
 
   assert(flag >= DB_READ_ONLY_NO && flag <= DB_READ_ONLY_SUPER);
 
-  if (flag == DB_READ_ONLY_SUPER || (flag == DB_READ_ONLY_YES && !super)) {
+  if (flag == DB_READ_ONLY_SUPER ||
+      (flag == DB_READ_ONLY_YES && !super && !binlog_admin)) {
     DBUG_RETURN(true);
   }
 
