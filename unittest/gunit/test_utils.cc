@@ -89,7 +89,7 @@ void setup_server_for_unit_tests() {
   sys_var_init();
   init_common_variables();
   test_flags |= TEST_SIGINT;
-  test_flags &= ~TEST_CORE_ON_SIGNAL;
+  opt_core_file = false;
   my_init_signals();
   randominit(&sql_rand, 0, 0);
   transaction_cache_init();
