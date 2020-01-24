@@ -203,6 +203,9 @@ static bool is_in_col_whitelist(const Field *field, const Relay_log_info *rli) {
   bool ret = false;
   const auto whitelist_ptr = rli->get_rbr_column_type_mismatch_whitelist();
   if (whitelist_ptr && !whitelist_ptr->empty()) {
+    // case: all tables are in the whitelist if '.*' regex is present in the
+    // list
+    if (whitelist_ptr->count(".*")) return true;
     char fqcn[2 * MAX_ALIAS_NAME + MAX_FIELD_NAME + 2 + 1];
     int cnt = snprintf(fqcn, sizeof(fqcn), "%s.%s.%s", field->table->s->db.str,
                        field->table->s->table_name.str, field->field_name);
