@@ -14,6 +14,9 @@ SELECT @start_global_value;
 SET @start_session_value = @@session.transaction_read_only;
 SELECT @start_session_value;
 
+SELECT @@global.tx_read_only;
+SELECT @@session.tx_read_only;
+
 
 --echo ########################################################################
 --echo #     Display the DEFAULT value of transaction_read_only               #
@@ -22,10 +25,12 @@ SELECT @start_session_value;
 SET @@global.transaction_read_only = ON;
 SET @@global.transaction_read_only = DEFAULT;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 
 SET @@session.transaction_read_only = ON;
 SET @@session.transaction_read_only = DEFAULT;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 
 
 --echo ##############################################################################
@@ -34,16 +39,22 @@ SELECT @@session.transaction_read_only;
 
 SET @@global.transaction_read_only = ON;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 SET @@global.transaction_read_only = OFF;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 SET @@global.transaction_read_only = 0;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 SET @@global.transaction_read_only = 1;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 SET @@global.transaction_read_only = TRUE;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 SET @@global.transaction_read_only = FALSE;
 SELECT @@global.transaction_read_only;
+SELECT @@global.tx_read_only;
 
 
 
@@ -53,16 +64,22 @@ SELECT @@global.transaction_read_only;
  
 SET @@session.transaction_read_only = ON;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 SET @@session.transaction_read_only = OFF;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 SET @@session.transaction_read_only = 0;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 SET @@session.transaction_read_only = 1;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 SET @@session.transaction_read_only = TRUE;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 SET @@session.transaction_read_only = FALSE;
 SELECT @@session.transaction_read_only;
+SELECT @@session.tx_read_only;
 
 
 --echo ################################################################
@@ -135,6 +152,7 @@ WHERE VARIABLE_NAME='transaction_read_only';
 SET @@transaction_read_only = OFF;
 SET @@global.transaction_read_only = ON;
 SELECT @@transaction_read_only = @@global.transaction_read_only;
+SELECT @@tx_read_only = @@global.transaction_read_only;
 
 
 --echo ##############################################################################
@@ -145,6 +163,7 @@ SELECT @@transaction_read_only = @@global.transaction_read_only;
 SET @@transaction_read_only = ON;
 SELECT @@transaction_read_only = @@local.transaction_read_only;
 SELECT @@local.transaction_read_only = @@session.transaction_read_only;
+SELECT @@local.tx_read_only = @@session.transaction_read_only;
 
 
 --echo ###############################################################################
@@ -157,10 +176,13 @@ SET @@session.transaction_read_only= 0;
 --echo # Without modifier, SET changes session variable
 SET transaction_read_only = 1;
 SELECT @@transaction_read_only;
+SELECT @@tx_read_only;
 
 --echo # name1.name2 refers to database_name.table_name
 --Error ER_UNKNOWN_TABLE
 SELECT session.transaction_read_only;
+--Error ER_UNKNOWN_TABLE
+SELECT session.tx_read_only;
 
 --echo ####################################
 --echo #     Restore initial value        #

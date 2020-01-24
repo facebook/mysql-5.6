@@ -54,6 +54,10 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'have_boringssl',
 'innodb_buffer_pool_populate',
 'per_user_session_var_user_name_delimiter',
+'query_cache_size',
+'query_cache_type',
+'tx_isolation',
+'tx_read_only',
 '_list_end_'
 )`;
 let $total_persistent_vars= `SELECT $total_persistent_vars - $total_excluded_vars`;
