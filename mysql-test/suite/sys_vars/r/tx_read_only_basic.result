@@ -1,0 +1,4 @@
+SET @@session.tx_read_only = 0;
+ERROR HY000: Variable 'tx_read_only' is a read only variable
+SET @@global.tx_read_only = 0;
+ERROR HY000: Variable 'tx_read_only' is a read only variable

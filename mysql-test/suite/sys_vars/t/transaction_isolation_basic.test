@@ -26,9 +26,11 @@ SELECT @session_start_value;
 SET @@global.transaction_isolation = 'READ-UNCOMMITTED';
 SET @@global.transaction_isolation = DEFAULT;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@session.transaction_isolation = DEFAULT;
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 --echo #########################################################
 --echo #      Check if NULL or empty value is accepeted        #
@@ -52,27 +54,35 @@ SET @@session.transaction_isolation = '';
 
 SET @@global.transaction_isolation = 'READ-UNCOMMITTED';
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@global.transaction_isolation = 'read-COMMITTED';
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@global.transaction_isolation = 'REPEATABLE-READ';
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@global.transaction_isolation = 'SERIALIZable';
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@session.transaction_isolation = 'READ-UNCOMMITTED';
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 SET @@session.transaction_isolation = 'READ-COMMITTED';
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 SET @@session.transaction_isolation = 'REPEATABLE-READ';
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 SET @@session.transaction_isolation = 'serializable';
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 
 --echo #######################################################################
@@ -114,6 +124,10 @@ SET @@transaction_isolation = 'ALL';
 SELECT @@session.transaction_isolation = VARIABLE_VALUE
 FROM performance_schema.session_variables
 WHERE VARIABLE_NAME='transaction_isolation';
+SELECT @@session.tx_isolation = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='tx_isolation';
+
 --enable_warnings
 
 --echo #########################################################################
@@ -124,6 +138,9 @@ WHERE VARIABLE_NAME='transaction_isolation';
 SELECT @@global.transaction_isolation = VARIABLE_VALUE
 FROM performance_schema.global_variables
 WHERE VARIABLE_NAME='transaction_isolation';
+SELECT @@global.tx_isolation = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='tx_isolation';
 --enable_warnings
 
 
@@ -134,15 +151,18 @@ WHERE VARIABLE_NAME='transaction_isolation';
 # test if variable accepts 0,1,2
 SET @@global.transaction_isolation = 0;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@global.transaction_isolation = 1;
-SELECT @@global.transaction_isolation;
-
+SELECT @@global.transaction_isolation; 
+SELECT @@global.tx_isolation;
 SET @@global.transaction_isolation = 2;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@global.transaction_isolation = 3;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 --Error ER_WRONG_TYPE_FOR_VAR
 SET @@global.transaction_isolation = 0.4;
@@ -153,8 +173,10 @@ SET @@global.transaction_isolation = 0.4;
 
 SET @@global.transaction_isolation = TRUE;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 SET @@global.transaction_isolation = FALSE;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 --echo ###########################################################################
 --echo # Check if transaction_isolation can be accessed with and without @@ sign #
@@ -169,9 +191,11 @@ SET global.transaction_isolation = 'REPEATABLE-READ';
 #using SET SESSION|GLOBAL syntax
 SET session transaction_isolation = 'REPEATABLE-READ';
 SELECT @@transaction_isolation;
+SELECT @@tx_isolation;
 
 SET global transaction_isolation = 'REPEATABLE-READ';
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 --echo ##############################
 --echo #   Restore initial value    #
@@ -179,9 +203,11 @@ SELECT @@global.transaction_isolation;
 
 SET @@global.transaction_isolation = @global_start_value;
 SELECT @@global.transaction_isolation;
+SELECT @@global.tx_isolation;
 
 SET @@session.transaction_isolation = @session_start_value;
 SELECT @@session.transaction_isolation;
+SELECT @@session.tx_isolation;
 
 --echo ####################################################################
 --echo #                    END OF transaction_isolation TESTS            #
