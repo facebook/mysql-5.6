@@ -72,5 +72,3 @@ rocksdb.bypass_select_scenarios_bloom : BUG#0000 Rebase: not-yet-implemented
 rocksdb.verify_tbl_share_primary_idx : BUG#0000 Rebase: not-yet-implemented
 rocksdb.bypass_select_range_sk_bloom : BUG#0000 Rebase: not-yet-implemented
 rocksdb.bypass_select_basic_bloom : BUG#0000 Rebase: not-yet-implemented
-rocksdb.rocksdb_deadlock_detect_rc : BUG#0000 Rebase: not-yet-implemented
-rocksdb.rocksdb_deadlock_detect_rr : BUG#0000 Rebase: not-yet-implemented

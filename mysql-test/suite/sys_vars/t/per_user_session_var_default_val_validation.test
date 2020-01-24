@@ -154,10 +154,6 @@ SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=index_merge=o
 --error ER_WRONG_VALUE_FOR_VAR
 SET GLOBAL per_user_session_var_default_val = "u1:optimizer_switch=xyz";
 
---echo ## Read-Only
---error ER_WRONG_VALUE_FOR_VAR
-SET GLOBAL per_user_session_var_default_val = "usr1:tx_isolation=READ-COMMITTED";
-
 --echo ##
 --echo ## root privilege is required to set session variable binglog_format
 --echo ## root privilege will be granted to usr1 temporarily to get this done

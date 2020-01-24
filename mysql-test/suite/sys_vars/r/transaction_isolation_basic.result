@@ -23,9 +23,15 @@ SET @@global.transaction_isolation = DEFAULT;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 REPEATABLE-READ
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+REPEATABLE-READ
 SET @@session.transaction_isolation = DEFAULT;
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
+REPEATABLE-READ
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
 REPEATABLE-READ
 #########################################################
 #      Check if NULL or empty value is accepeted        #
@@ -45,33 +51,57 @@ SET @@global.transaction_isolation = 'READ-UNCOMMITTED';
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 READ-UNCOMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+READ-UNCOMMITTED
 SET @@global.transaction_isolation = 'read-COMMITTED';
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+READ-COMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 READ-COMMITTED
 SET @@global.transaction_isolation = 'REPEATABLE-READ';
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 REPEATABLE-READ
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+REPEATABLE-READ
 SET @@global.transaction_isolation = 'SERIALIZable';
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+SERIALIZABLE
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 SERIALIZABLE
 SET @@session.transaction_isolation = 'READ-UNCOMMITTED';
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
 READ-UNCOMMITTED
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
+READ-UNCOMMITTED
 SET @@session.transaction_isolation = 'READ-COMMITTED';
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
+READ-COMMITTED
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
 READ-COMMITTED
 SET @@session.transaction_isolation = 'REPEATABLE-READ';
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
 REPEATABLE-READ
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
+REPEATABLE-READ
 SET @@session.transaction_isolation = 'serializable';
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
+SERIALIZABLE
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
 SERIALIZABLE
 #######################################################################
 #      Change the value of transaction_isolation to invalid value     #
@@ -107,6 +137,11 @@ FROM performance_schema.session_variables
 WHERE VARIABLE_NAME='transaction_isolation';
 @@session.transaction_isolation = VARIABLE_VALUE
 1
+SELECT @@session.tx_isolation = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='tx_isolation';
+@@session.tx_isolation = VARIABLE_VALUE
+1
 #########################################################################
 #     Check if the value in GLOBAL Table matches value in variable      #
 #########################################################################
@@ -115,6 +150,11 @@ FROM performance_schema.global_variables
 WHERE VARIABLE_NAME='transaction_isolation';
 @@global.transaction_isolation = VARIABLE_VALUE
 1
+SELECT @@global.tx_isolation = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='tx_isolation';
+@@global.tx_isolation = VARIABLE_VALUE
+1
 ###################################################################
 #        Check if numbers can be used on variable                 #
 ###################################################################
@@ -122,17 +162,29 @@ SET @@global.transaction_isolation = 0;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 READ-UNCOMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+READ-UNCOMMITTED
 SET @@global.transaction_isolation = 1;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+READ-COMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 READ-COMMITTED
 SET @@global.transaction_isolation = 2;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 REPEATABLE-READ
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+REPEATABLE-READ
 SET @@global.transaction_isolation = 3;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+SERIALIZABLE
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 SERIALIZABLE
 SET @@global.transaction_isolation = 0.4;
 ERROR 42000: Incorrect argument type to variable 'transaction_isolation'
@@ -143,9 +195,15 @@ SET @@global.transaction_isolation = TRUE;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 READ-COMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+READ-COMMITTED
 SET @@global.transaction_isolation = FALSE;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+READ-UNCOMMITTED
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 READ-UNCOMMITTED
 ###########################################################################
 # Check if transaction_isolation can be accessed with and without @@ sign #
@@ -159,9 +217,15 @@ SET session transaction_isolation = 'REPEATABLE-READ';
 SELECT @@transaction_isolation;
 @@transaction_isolation
 REPEATABLE-READ
+SELECT @@tx_isolation;
+@@tx_isolation
+REPEATABLE-READ
 SET global transaction_isolation = 'REPEATABLE-READ';
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
+REPEATABLE-READ
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
 REPEATABLE-READ
 ##############################
 #   Restore initial value    #
@@ -170,9 +234,15 @@ SET @@global.transaction_isolation = @global_start_value;
 SELECT @@global.transaction_isolation;
 @@global.transaction_isolation
 REPEATABLE-READ
+SELECT @@global.tx_isolation;
+@@global.tx_isolation
+REPEATABLE-READ
 SET @@session.transaction_isolation = @session_start_value;
 SELECT @@session.transaction_isolation;
 @@session.transaction_isolation
+REPEATABLE-READ
+SELECT @@session.tx_isolation;
+@@session.tx_isolation
 REPEATABLE-READ
 ####################################################################
 #                    END OF transaction_isolation TESTS            #
