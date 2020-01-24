@@ -2619,6 +2619,12 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
   if (skip_core_dump_on_error) {
     opt_core_file = FALSE;
   }
+#ifdef PR_SET_DUMPABLE
+  if (!opt_core_file) {
+    /* inform kernel that process is not dumpable */
+    (void) prctl(PR_SET_DUMPABLE, 0);
+  }
+#endif
   DBUG_PRINT("quit",("Got shutdown command for level %u, exit code %u",
              level, exit_code));
   general_log_write(thd, command, NullS, 0);
