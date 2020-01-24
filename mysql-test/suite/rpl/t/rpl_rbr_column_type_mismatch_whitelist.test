@@ -163,13 +163,13 @@ while ($i <= $end)
       let $assert_cond= COUNT(*) = 1 FROM t1;
       let $assert_text= Count of elements in t1 should be 1;
       source include/assert.inc;
-      let $mv= `SELECT a FROM t1`;
+      let $mv= `SELECT b FROM t1`;
 
       connection slave;
       let $assert_cond= COUNT(*) = 1 FROM t1;
       let $assert_text= Count of elements in t1 should be 1;
       source include/assert.inc;
-      let $sv= `SELECT a FROM t1`;
+      let $sv= `SELECT b FROM t1`;
       if ($mv != $sv)
       {
         die "Tables don't match";
@@ -189,12 +189,66 @@ while ($i <= $end)
 
 # Cleanup
 connection master;
-drop table types;
+DROP TABLE types;
 source include/sync_slave_sql_with_master.inc;
 connection slave;
 source include/stop_slave.inc;
 SET @@GLOBAL.rbr_column_type_mismatch_whitelist= default;
 source include/start_slave.inc;
 
+# Check if conversion goes through when var is set to '.*' (i.e. all cols)
+
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= '.*';
+source include/start_slave.inc;
+
+disable_query_log;
+
+connection master;
+SET @@sql_log_bin= 0;
+eval CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE = InnoDB;
+SET @@sql_log_bin= 1;
+
+connection slave;
+SET @@sql_log_bin= 0;
+eval CREATE TABLE t1 (a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+SET @@sql_log_bin= 1;
+
+connection master;
+eval INSERT INTO t1 VALUES(1, 1);
+source include/save_master_pos.inc;
+
+connection slave;
+eval SET @wait_res= (SELECT MASTER_POS_WAIT('$_saved_file', $_saved_pos));
+let $worked= `SELECT (@wait_res is not NULL and @wait_res >= 0)`;
+
+if (!$worked)
+{
+  die "Conversion did not work with default value for rbr_column_type_mismatch_whitelist";
+}
+if ($worked)
+{
+  connection master;
+  let $assert_cond= COUNT(*) = 1 FROM t1;
+  let $assert_text= Count of elements in t1 should be 1;
+  source include/assert.inc;
+  let $mv= `SELECT b FROM t1`;
+
+  connection slave;
+  let $assert_cond= COUNT(*) = 1 FROM t1;
+  let $assert_text= Count of elements in t1 should be 1;
+  source include/assert.inc;
+  let $sv= `SELECT b FROM t1`;
+  if ($mv != $sv)
+  {
+    die "Tables don't match when rbr_column_type_mismatch_whitelist is set to default";
+  }
+}
+connection master;
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+
+enable_query_log;
 
 source include/rpl_end.inc;
