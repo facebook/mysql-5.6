@@ -3982,7 +3982,8 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
         goto end;
       }
     } else {
-      if (my_delete(crash_safe_index_file_name, MYF(MY_WME))) {
+      if (close_crash_safe_index_file() ||
+          my_delete(crash_safe_index_file_name, MYF(MY_WME))) {
         LogErr(ERROR_LEVEL, ER_BINLOG_CANT_DELETE_TMP_INDEX,
                "MYSQL_BIN_LOG::open_index_file");
         error = true;
@@ -5469,6 +5470,9 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
   char gtid_set_length_buffer[11];
   DBUG_ENTER("MYSQL_BIN_LOG::add_log_to_index");
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+                  { DBUG_SET("+d,simulate_no_free_space_error"); });
+
   if (open_crash_safe_index_file()) {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_TMP_INDEX,
            "MYSQL_BIN_LOG::add_log_to_index");
@@ -5534,9 +5538,16 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+                  { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   DBUG_RETURN(0);
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index", {
+    DBUG_SET("-d,simulate_no_free_space_error");
+    DBUG_SET("-d,simulate_file_write_error");
+  });
   DBUG_RETURN(-1);
 }
 
@@ -6137,6 +6148,8 @@ int MYSQL_BIN_LOG::close_crash_safe_index_file() {
 */
 int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO *log_info,
                                           bool need_update_threads) {
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+                  { DBUG_SET("+d,simulate_no_free_space_error"); });
   if (open_crash_safe_index_file()) {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_TMP_INDEX,
            "MYSQL_BIN_LOG::remove_logs_from_index");
@@ -6164,12 +6177,19 @@ int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO *log_info,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+                  { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   // now update offsets in index file for running threads
   if (need_update_threads)
     adjust_linfo_offsets(log_info->index_file_start_offset);
   return 0;
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index", {
+    DBUG_SET("-d,simulate_no_free_space_error");
+    DBUG_SET("-d,simulate_file_write_error");
+  });
   return LOG_INFO_IO;
 }
 
@@ -6295,6 +6315,12 @@ err:
     Then error codes from purging the index entry.
   */
   error = error ? error : error_index;
+  if (error && binlog_error_action == ABORT_SERVER) {
+    exec_binlog_error_action_abort(
+        "Either disk is full, file system is read only or "
+        "there was an encryption error while opening the binlog. "
+        "Aborting the server.");
+  }
   DBUG_RETURN(error);
 }
 
