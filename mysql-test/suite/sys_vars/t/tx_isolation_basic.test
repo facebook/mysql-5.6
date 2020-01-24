@@ -1,0 +1,9 @@
+# tx_isolation is read-only and mapped to transaction_isolation
+# Majority of tx_isolation testing is done in transaction_isolation_basic_test
+# This test is mostly here to make all_vars test happy
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@session.tx_isolation ='READ-COMMITTED';
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.tx_isolation ='READ-COMMITTED';
+

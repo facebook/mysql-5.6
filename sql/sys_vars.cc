@@ -7472,3 +7472,35 @@ static Sys_var_bool Sys_high_precision_processlist(
     "high_precision_processlist",
     "If set, MySQL will display the time in 1/1000000 of a second precision",
     SESSION_VAR(high_precision_processlist), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static const char *query_cache_type_names[]= { "OFF", "ON", "DEMAND", 0 };
+
+/* Following variables are kept for compat of existing Java 5.6 clients */
+ulong query_cache_type=0;
+static Sys_var_enum Sys_query_cache_type(
+       "query_cache_type",
+       "OFF = Don't cache or retrieve results. ON = Cache all results "
+       "except SELECT SQL_NO_CACHE ... queries. DEMAND = Cache only "
+       "SELECT SQL_CACHE ... queries",
+       READ_ONLY GLOBAL_VAR(query_cache_type), NO_CMD_LINE,
+       query_cache_type_names, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+ulong query_cache_size=0;
+static Sys_var_ulong Sys_query_cache_size(
+       "query_cache_size",
+       "The memory allocated to store results from old queries",
+       READ_ONLY GLOBAL_VAR(query_cache_size), NO_CMD_LINE,
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_enum Sys_tx_isolation(
+       "tx_isolation", "Default transaction isolation level",
+       READ_ONLY SESSION_VAR(transaction_isolation), NO_CMD_LINE,
+       tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_tx_read_only(
+    "tx_read_only",
+    "Set default transaction access mode to read only.",
+    READ_ONLY SESSION_VAR(transaction_read_only), NO_CMD_LINE,
+    DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);

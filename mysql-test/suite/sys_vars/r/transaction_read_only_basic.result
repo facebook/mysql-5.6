@@ -12,6 +12,12 @@ SET @start_session_value = @@session.transaction_read_only;
 SELECT @start_session_value;
 @start_session_value
 0
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
+0
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
+0
 ########################################################################
 #     Display the DEFAULT value of transaction_read_only               #
 ########################################################################
@@ -20,10 +26,16 @@ SET @@global.transaction_read_only = DEFAULT;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
 0
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
+0
 SET @@session.transaction_read_only = ON;
 SET @@session.transaction_read_only = DEFAULT;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
+0
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
 0
 ##############################################################################
 # Change the value of transaction_read_only to a valid value for GLOBAL Scope#
@@ -32,25 +44,43 @@ SET @@global.transaction_read_only = ON;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
 1
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
+1
 SET @@global.transaction_read_only = OFF;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
+0
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
 0
 SET @@global.transaction_read_only = 0;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
 0
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
+0
 SET @@global.transaction_read_only = 1;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
+1
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
 1
 SET @@global.transaction_read_only = TRUE;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
 1
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
+1
 SET @@global.transaction_read_only = FALSE;
 SELECT @@global.transaction_read_only;
 @@global.transaction_read_only
+0
+SELECT @@global.tx_read_only;
+@@global.tx_read_only
 0
 ###############################################################################
 # Change the value of transaction_read_only to a valid value for SESSION Scope#
@@ -59,25 +89,43 @@ SET @@session.transaction_read_only = ON;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
 1
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
+1
 SET @@session.transaction_read_only = OFF;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
+0
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
 0
 SET @@session.transaction_read_only = 0;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
 0
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
+0
 SET @@session.transaction_read_only = 1;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
+1
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
 1
 SET @@session.transaction_read_only = TRUE;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
 1
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
+1
 SET @@session.transaction_read_only = FALSE;
 SELECT @@session.transaction_read_only;
 @@session.transaction_read_only
+0
+SELECT @@session.tx_read_only;
+@@session.tx_read_only
 0
 ################################################################
 # Change the value of transaction_read_only to an invalid value#
@@ -141,6 +189,9 @@ SET @@global.transaction_read_only = ON;
 SELECT @@transaction_read_only = @@global.transaction_read_only;
 @@transaction_read_only = @@global.transaction_read_only
 0
+SELECT @@tx_read_only = @@global.transaction_read_only;
+@@tx_read_only = @@global.transaction_read_only
+0
 ##############################################################################
 #    Check if accessing variable with SESSION,LOCAL and without SCOPE points #
 #    to same session variable                                                #
@@ -152,6 +203,9 @@ SELECT @@transaction_read_only = @@local.transaction_read_only;
 SELECT @@local.transaction_read_only = @@session.transaction_read_only;
 @@local.transaction_read_only = @@session.transaction_read_only
 1
+SELECT @@local.tx_read_only = @@session.transaction_read_only;
+@@local.tx_read_only = @@session.transaction_read_only
+1
 ###############################################################################
 #   Check if transaction_read_only can be accessed with and without @@ sign   #
 ###############################################################################
@@ -162,8 +216,13 @@ SET transaction_read_only = 1;
 SELECT @@transaction_read_only;
 @@transaction_read_only
 1
+SELECT @@tx_read_only;
+@@tx_read_only
+1
 # name1.name2 refers to database_name.table_name
 SELECT session.transaction_read_only;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT session.tx_read_only;
 ERROR 42S02: Unknown table 'session' in field list
 ####################################
 #     Restore initial value        #

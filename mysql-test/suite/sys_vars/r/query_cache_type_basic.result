@@ -1,0 +1,5 @@
+SELECT @@global.query_cache_type;
+@@global.query_cache_type
+OFF
+SET @@global.query_cache_type='ON';
+ERROR HY000: Variable 'query_cache_type' is a read only variable

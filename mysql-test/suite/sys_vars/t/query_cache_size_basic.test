@@ -1,0 +1,4 @@
+SELECT @@global.query_cache_size;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@global.query_cache_size=10*1024;
