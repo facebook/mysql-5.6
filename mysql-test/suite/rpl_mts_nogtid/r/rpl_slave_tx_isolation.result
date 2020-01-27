@@ -4,12 +4,12 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 set @save_slave_tx_isolation=@@global.slave_tx_isolation;
-Variable_name	Value
-slave_tx_isolation	REPEATABLE-READ
+variable_name	variable_value
+variable_name	variable_value
 set @@global.slave_tx_isolation='READ-COMMITTED';
 stop slave;
 start slave;
-Variable_name	Value
-slave_tx_isolation	READ-COMMITTED
+variable_name	variable_value
+variable_name	variable_value
 set @@global.slave_tx_isolation=@save_slave_tx_isolation;
 include/rpl_end.inc

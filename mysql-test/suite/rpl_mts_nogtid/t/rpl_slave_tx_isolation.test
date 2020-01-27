@@ -7,46 +7,44 @@ source include/master-slave.inc;
 connection slave;
 set @save_slave_tx_isolation=@@global.slave_tx_isolation;
 
-let $wait_condition=select count(*)=1 from information_schema.processlist where
- state like 'Slave has read all relay log; waiting for more updates';
+let $wait_condition=select count(*)=1 from performance_schema.threads where
+ processlist_state like 'Slave has read all relay log; waiting for more updates';
 source include/wait_condition.inc;
-let $sql_thread=`select id from information_schema.processlist where state
- like 'Slave has read all relay log; waiting for more updates'`;
+let $sql_thread=`select thread_id from performance_schema.threads where
+ processlist_state like 'Slave has read all relay log; waiting for more updates'`;
 
-let $wait_condition=select count(*)=1 from information_schema.processlist where
- state like 'Waiting for an event from Coordinator';
+let $wait_condition=select count(*)=1 from performance_schema.threads where
+ processlist_state like 'Waiting for an event from Coordinator';
 source include/wait_condition.inc;
-let $worker_thread=`select id from information_schema.processlist where state
- like 'Waiting for an event from Coordinator'`;
+let $worker_thread=`select thread_id from performance_schema.threads where
+ processlist_state like 'Waiting for an event from Coordinator'`;
 
 disable_query_log;
-# uncomment after porting https://github.com/facebook/mysql-5.6/commit/5ccfdd5ab150c
-# eval show session $sql_thread variables like '%tx_isolation%';
-# eval show session $worker_thread variables like '%tx_isolation%';
-eval show global variables like '%tx_isolation%';
+# NOTE: This doesn't actually work today as variables_by_thread doesn't have sql / io threads
+eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $sql_thread;
+eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $worker_thread;
 enable_query_log;
 
 set @@global.slave_tx_isolation='READ-COMMITTED';
 stop slave;
 start slave;
 
-let $wait_condition=select count(*)=1 from information_schema.processlist where
- state like 'Slave has read all relay log; waiting for more updates';
+let $wait_condition=select count(*)=1 from performance_schema.threads where
+ processlist_state like 'Slave has read all relay log; waiting for more updates';
 source include/wait_condition.inc;
-let $sql_thread=`select id from information_schema.processlist where state
- like 'Slave has read all relay log; waiting for more updates'`;
+let $sql_thread=`select thread_id from performance_schema.threads where
+ processlist_state like 'Slave has read all relay log; waiting for more updates'`;
 
-let $wait_condition=select count(*)=1 from information_schema.processlist where
- state like 'Waiting for an event from Coordinator';
+let $wait_condition=select count(*)=1 from performance_schema.threads where
+ processlist_state like 'Waiting for an event from Coordinator';
 source include/wait_condition.inc;
-let $worker_thread=`select id from information_schema.processlist where state
- like 'Waiting for an event from Coordinator'`;
+let $worker_thread=`select thread_id from performance_schema.threads where
+ processlist_state like 'Waiting for an event from Coordinator'`;
 
 disable_query_log;
-# uncomment after porting https://github.com/facebook/mysql-5.6/commit/5ccfdd5ab150c
-# eval show session $sql_thread variables like '%tx_isolation%';
-# eval show session $worker_thread variables like '%tx_isolation%';
-eval show global variables like '%tx_isolation%';
+# NOTE: This doesn't actually work today as variables_by_thread doesn't have sql / io threads
+eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $sql_thread;
+eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $worker_thread;
 enable_query_log;
 
 # cleanup
