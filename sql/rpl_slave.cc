@@ -9472,6 +9472,11 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
   */
   if (thd->lex->slave_thd_opt)
     thread_mask&= thd->lex->slave_thd_opt;
+
+  // case: no IO thread in raft mode
+  if (enable_raft_plugin)
+    thread_mask&= ~SLAVE_IO;
+
   if (thread_mask) //some threads are stopped, start them
   {
     if (global_init_info(mi, false, thread_mask))
@@ -9484,18 +9489,7 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
       */
       if (thread_mask & SLAVE_IO)
       {
-        if (enable_raft_plugin)
-        {
-          // If Raft is enabled IO_THREAD cannot be started
-          slave_errno= ER_SLAVE_IO_RAFT_CONFLICT;
-
-          // skip to end as the slave threads wont be started
-          // anyway. If this becomes cumbersome for automation
-          // to change, we can silently change the thread mask
-          // in raft mode and not allow the slave thread to be
-          // restarted
-          goto end;
-        }
+        DBUG_ASSERT(!enable_raft_plugin);
         if (thd->lex->slave_connection.user)
         {
           mi->set_start_user_configured(true);
@@ -9652,8 +9646,6 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
     push_warning(thd, Sql_condition::WARN_LEVEL_NOTE, ER_SLAVE_WAS_RUNNING,
                  ER(ER_SLAVE_WAS_RUNNING));
   }
-
-end:
 
   /*
     Clean up start information if there was an attempt to start

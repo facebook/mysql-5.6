@@ -5,7 +5,6 @@ Note	####	Storing MySQL user name or password information in the master info rep
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-"Raft leadership transferred to true master"
 [connection master]
 create table t1 (a int primary key) engine=innodb;
 insert into t1 values(1);
@@ -20,7 +19,6 @@ insert into t1 values (6), (7), (8);
 "Will restart previous master to trigger trimming in 15 seconds"
 ERROR HY000: Got error 1 during COMMIT
 include/raft_leadership.inc
-"Raft leadership transferred to true master"
 show status like 'rpl_raft_role';
 Variable_name	Value
 Rpl_raft_role	LEADER

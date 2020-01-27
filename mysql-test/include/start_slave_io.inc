@@ -31,8 +31,11 @@ if (!$rpl_debug)
 }
 
 
-START SLAVE IO_THREAD;
---source include/wait_for_slave_io_to_start.inc
+if (!$rpl_enable_raft)
+{
+  START SLAVE IO_THREAD;
+  --source include/wait_for_slave_io_to_start.inc
+}
 
 
 --let $include_filename= start_slave_io.inc

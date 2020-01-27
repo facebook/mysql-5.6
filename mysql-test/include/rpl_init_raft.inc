@@ -43,6 +43,7 @@ while ($_rpl_server)
 
   let $fs_wal_path = `SELECT CONCAT((SELECT @@GLOBAL.TMPDIR), '/mysqlraft')`;
   exec rm -fr $fs_wal_path;
+  exec mkdir $fs_wal_path;
 
   --let $fs_wal_dir= `SELECT CONCAT('"fs_wal_dir": "', '$fs_wal_path', '"')`
   --let $rpc_port= `SELECT (SELECT @@GLOBAL.PORT) + 2000`
@@ -65,6 +66,8 @@ while ($_rpl_server)
 
   # Set config
   eval SET GLOBAL RPL_RAFT_CONFIG_JSON= '$config_json';
+  eval SET GLOBAL RPL_RAFT_WAL_DIR= '$fs_wal_path';
+  eval SET GLOBAL RPL_RAFT_LOG_DIR= '$fs_wal_path';
 
   if ($_is_slave)
   {
@@ -125,4 +128,7 @@ while ($master_raft_role != 'LEADER')
   let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
 }
 
---echo "Raft leadership transferred to true master"
+if ($rpl_debug)
+{
+  --echo "Raft leadership transferred to true master"
+}

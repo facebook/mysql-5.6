@@ -273,6 +273,11 @@ if (!$rpl_skip_start_slave)
   --source include/rpl_start_slaves.inc
 }
 
+if (!$rpl_enable_raft)
+{
+  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
+}
+
 if ($rpl_enable_raft)
 {
   --source include/rpl_init_raft.inc

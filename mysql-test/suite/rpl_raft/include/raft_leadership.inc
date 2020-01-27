@@ -32,5 +32,8 @@ while ($master_raft_role != 'LEADER')
   let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
 }
 
---echo "Raft leadership transferred to true master"
+if ($rpl_debug)
+{
+  --echo "Raft leadership transferred to true master"
+}
 --source include/end_include_file.inc
