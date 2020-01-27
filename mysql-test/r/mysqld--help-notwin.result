@@ -1147,7 +1147,8 @@ The following options may be given as the first argument:
  List of db.table.col (comma separated) where type
  mismatches are expected. The slave will not fail it the
  conversion is lossless.This variable is overridden by
- slave_type_conversions.
+ slave_type_conversions. Default: '.*', which means all
+ tables are in the whitelist.
  --read-buffer-size=# 
  Each thread that does a sequential scan allocates a
  buffer of this size for each table it scans. If you do
@@ -2427,7 +2428,7 @@ query-alloc-block-size 8192
 query-prealloc-size 8192
 range-alloc-block-size 4096
 range-optimizer-max-mem-size 8388608
-rbr-column-type-mismatch-whitelist 
+rbr-column-type-mismatch-whitelist .*
 read-buffer-size 131072
 read-only FALSE
 read-only-error-msg-extra 
