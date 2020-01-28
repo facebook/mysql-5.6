@@ -1,6 +1,7 @@
 source include/master-slave.inc;
 source include/have_binlog_format_row.inc;
 source include/not_valgrind.inc;
+source include/big_test.inc;
 
 connection master;
 call mtr.add_suppression("Column 1 of table 'test.t1' cannot be converted from type");
@@ -254,6 +255,12 @@ if ($worked)
 connection master;
 DROP TABLE t1;
 source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+connection slave;
+source include/stop_slave.inc;
+SET @@GLOBAL.rbr_column_type_mismatch_whitelist= default;
+source include/start_slave.inc;
 
 enable_query_log;
 
