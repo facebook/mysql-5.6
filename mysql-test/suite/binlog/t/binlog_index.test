@@ -78,7 +78,11 @@ source include/show_binary_logs.inc;
 #
 # testing a fatal error
 # Turning a binlog file into a directory must be a portable setup
-# 
+# The command goes through only when binlog_error_action is NOT ABORT_SERVER,
+# otherwise the server crashes.
+#
+
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 
 reset master;
 
@@ -97,6 +101,7 @@ rmdir $MYSQLD_DATADIR/binlog.000001;
 --disable_warnings
 reset master;
 --enable_warnings
+eval SET GLOBAL binlog_error_action= $saved_binlog_error_action;
 
 --echo # crash_purge_before_update_index
 flush logs;
