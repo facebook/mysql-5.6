@@ -11545,4 +11545,6 @@ include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+include/start_slave.inc
 include/rpl_end.inc

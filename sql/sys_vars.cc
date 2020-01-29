@@ -3466,10 +3466,10 @@ static Sys_var_charptr Sys_rbr_column_type_mismatch_whitelist(
        "rbr_column_type_mismatch_whitelist",
        "List of db.table.col (comma separated) where type mismatches are "
        "expected. The slave will not fail it the conversion is lossless. "
-       "This variable is overridden by slave_type_conversions. Default: '.*', "
+       "This variable is overridden by slave_type_conversions. Default: '', "
        "which means all tables are in the whitelist.",
        GLOBAL_VAR(opt_rbr_column_type_mismatch_whitelist),
-       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(".*"), NO_MUTEX_GUARD,
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(""), NO_MUTEX_GUARD,
        NOT_IN_BINLOG);
 
 /*
