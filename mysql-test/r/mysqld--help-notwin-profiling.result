@@ -1043,8 +1043,8 @@ The following options may be given as the first argument:
  List of db.table.col (comma separated) where type
  mismatches are expected. The slave will not fail it the
  conversion is lossless. This variable is overridden by
- slave_type_conversions. Default: '', which means all
- tables are in the whitelist.
+ slave_type_conversions. Default: ''. A value of '.*'
+ means all cols are in the whitelist.
  --rbr-idempotent-tables=name 
  slave_exec_mode is set to IDEMPOTENT for these list of
  tables. The table names are assumed to be separated by
