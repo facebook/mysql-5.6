@@ -5,11 +5,15 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 set @save_slave_tx_isolation=@@global.slave_tx_isolation;
 variable_name	variable_value
+transaction_isolation	REPEATABLE-READ
 variable_name	variable_value
+transaction_isolation	REPEATABLE-READ
 set @@global.slave_tx_isolation='READ-COMMITTED';
 stop slave;
 start slave;
 variable_name	variable_value
+transaction_isolation	READ-COMMITTED
 variable_name	variable_value
+transaction_isolation	READ-COMMITTED
 set @@global.slave_tx_isolation=@save_slave_tx_isolation;
 include/rpl_end.inc

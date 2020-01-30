@@ -20,7 +20,6 @@ let $worker_thread=`select thread_id from performance_schema.threads where
  processlist_state like 'Waiting for an event from Coordinator'`;
 
 disable_query_log;
-# NOTE: This doesn't actually work today as variables_by_thread doesn't have sql / io threads
 eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $sql_thread;
 eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $worker_thread;
 enable_query_log;
@@ -42,7 +41,6 @@ let $worker_thread=`select thread_id from performance_schema.threads where
  processlist_state like 'Waiting for an event from Coordinator'`;
 
 disable_query_log;
-# NOTE: This doesn't actually work today as variables_by_thread doesn't have sql / io threads
 eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $sql_thread;
 eval select variable_name, variable_value from performance_schema.variables_by_thread where variable_name like '%transaction_isolation%' and thread_id = $worker_thread;
 enable_query_log;
