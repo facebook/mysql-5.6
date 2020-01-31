@@ -64,11 +64,11 @@ Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
 /*
   This function is called by RocksDB for every key in the SST file
 */
-rocksdb::Status Rdb_tbl_prop_coll::AddUserKey(const rocksdb::Slice &key,
-                                              const rocksdb::Slice &value,
-                                              rocksdb::EntryType type,
-                                              rocksdb::SequenceNumber seq,
-                                              uint64_t file_size) {
+rocksdb::Status Rdb_tbl_prop_coll::AddUserKey(
+    const rocksdb::Slice &key, const rocksdb::Slice &value,
+    rocksdb::EntryType type,
+    rocksdb::SequenceNumber seq MY_ATTRIBUTE((__unused__)),
+    uint64_t file_size) {
   if (key.size() >= 4) {
     AdjustDeletedRows(type);
 

@@ -433,18 +433,23 @@ static int rocksdb_create_checkpoint(
 
 /* This method is needed to indicate that the
    ROCKSDB_CREATE_CHECKPOINT command is not read-only */
-static void rocksdb_create_checkpoint_stub(THD *const thd,
-                                           struct SYS_VAR *const var,
-                                           void *const var_ptr,
-                                           const void *const save) {}
+static void rocksdb_create_checkpoint_stub(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static void rocksdb_force_flush_memtable_now_stub(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    const void *const save) {}
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_force_flush_memtable_now(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    struct st_mysql_value *const value) {
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
   // NO_LINT_DEBUG
   sql_print_information("RocksDB: Manual memtable flush.");
   rocksdb_flush_all_memtables();
@@ -452,12 +457,16 @@ static int rocksdb_force_flush_memtable_now(
 }
 
 static void rocksdb_force_flush_memtable_and_lzero_now_stub(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    const void *const save) {}
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_force_flush_memtable_and_lzero_now(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    struct st_mysql_value *const value) {
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value MY_ATTRIBUTE((__unused__))) {
   // NO_LINT_DEBUG
   sql_print_information("RocksDB: Manual memtable and L0 flush.");
   rocksdb_flush_all_memtables();
@@ -719,7 +728,7 @@ std::atomic<uint64_t> rocksdb_num_get_for_update_calls(0);
 
 static int rocksdb_trace_block_cache_access(
     THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var, void *const save,
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const save,
     struct st_mysql_value *const value) {
   int len = 0;
   const char *const trace_opt_str_raw = value->val_str(value, nullptr, &len);
@@ -827,7 +836,8 @@ static int rocksdb_trace_block_cache_access(
 /* This method is needed to indicate that the
   ROCKSDB_TRACE_BLOCK_CACHE_ACCESS command is not read-only */
 static void rocksdb_trace_block_cache_access_stub(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const var_ptr,
     const void *const save) {
   const auto trace_opt_str_raw = *static_cast<const char *const *>(save);
   DBUG_ASSERT(trace_opt_str_raw != nullptr);
@@ -882,8 +892,9 @@ static TYPELIB info_log_level_typelib = {
     info_log_level_names, nullptr};
 
 static void rocksdb_set_rocksdb_info_log_level(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    const void *const save) {
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   DBUG_ASSERT(save != nullptr);
 
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
@@ -893,10 +904,10 @@ static void rocksdb_set_rocksdb_info_log_level(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-static void rocksdb_set_rocksdb_stats_level(THD *const thd,
-                                            struct SYS_VAR *const var,
-                                            void *const var_ptr,
-                                            const void *const save) {
+static void rocksdb_set_rocksdb_stats_level(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   DBUG_ASSERT(save != nullptr);
 
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
@@ -962,10 +973,13 @@ enum rocksdb_flush_log_at_trx_commit_type : unsigned int {
 };
 
 static int rocksdb_validate_flush_log_at_trx_commit(
-    THD *const thd,
-    struct SYS_VAR *const var, /* in: pointer to system variable */
-    void *var_ptr, /* out: immediate result for update function */
-    struct st_mysql_value *const value /* in: incoming value */) {
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    /* in: pointer to system variable */
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    /* out: immediate result for update function */
+    void *var_ptr,
+    /* in: incoming value */
+    struct st_mysql_value *const value) {
   long long new_value;
 
   /* value is NULL */
@@ -981,8 +995,10 @@ static int rocksdb_validate_flush_log_at_trx_commit(
   return HA_EXIT_SUCCESS;
 }
 static void rocksdb_compact_column_family_stub(
-    THD *const thd, struct SYS_VAR *const var, void *const var_ptr,
-    const void *const save) {}
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    const void *const save MY_ATTRIBUTE((__unused__))) {}
 
 static int rocksdb_compact_column_family(THD *const thd,
                                          struct SYS_VAR *const var,
@@ -2296,10 +2312,10 @@ static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
   return opt;
 }
 
-static int rocksdb_compact_column_family(THD *const thd,
-                                         struct SYS_VAR *const var,
-                                         void *const var_ptr,
-                                         struct st_mysql_value *const value) {
+static int rocksdb_compact_column_family(
+    THD *const thd, struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+    void *const var_ptr MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_value *const value) {
   char buff[STRING_BUFFER_USUAL_SIZE];
   int len = sizeof(buff);
 
@@ -3171,7 +3187,7 @@ class Rdb_transaction {
     return true;
   }
 
-  int rollback_to_savepoint(void *const savepoint) {
+  int rollback_to_savepoint(void *const savepoint MY_ATTRIBUTE((__unused__))) {
     if (has_modifications()) {
       my_error(ER_ROLLBACK_TO_SAVEPOINT, MYF(0));
       m_rollback_only = true;
@@ -3220,7 +3236,7 @@ class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::Transaction *m_rocksdb_reuse_tx = nullptr;
 
  public:
-  void set_lock_timeout(int timeout_sec_arg) override {
+  void set_lock_timeout(int timeout_sec_arg MY_ATTRIBUTE((unused))) override {
     if (m_rocksdb_tx) {
       m_rocksdb_tx->SetLockTimeout(rdb_convert_sec_to_ms(m_timeout_sec));
     }
@@ -3601,7 +3617,10 @@ class Rdb_writebatch_impl : public Rdb_transaction {
   }
 
  private:
-  bool prepare(const rocksdb::TransactionName &name) override { return true; }
+  bool prepare(
+      const rocksdb::TransactionName &name MY_ATTRIBUTE((unused))) override {
+    return true;
+  }
 
   bool commit_no_binlog() override {
     bool res = false;
@@ -3644,14 +3663,15 @@ class Rdb_writebatch_impl : public Rdb_transaction {
  public:
   bool is_writebatch_trx() const override { return true; }
 
-  void set_lock_timeout(int timeout_sec_arg) override {
+  void set_lock_timeout(int timeout_sec_arg MY_ATTRIBUTE((unused))) override {
     // Nothing to do here.
   }
 
   void set_sync(bool sync) override { write_opts.sync = sync; }
 
-  void release_lock(rocksdb::ColumnFamilyHandle *const column_family,
-                    const std::string &rowkey) override {
+  void release_lock(rocksdb::ColumnFamilyHandle *const column_family
+                        MY_ATTRIBUTE((unused)),
+                    const std::string &rowkey MY_ATTRIBUTE((unused))) override {
     // Nothing to do here since we don't hold any row locks.
   }
 
@@ -3668,7 +3688,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     m_rollback_only = false;
   }
 
-  void acquire_snapshot(bool acquire_now) override {
+  void acquire_snapshot(bool acquire_now MY_ATTRIBUTE((unused))) override {
     if (m_read_opts.snapshot == nullptr) snapshot_created(rdb->GetSnapshot());
   }
 
@@ -3681,7 +3701,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key, const rocksdb::Slice &value,
-                      const bool assume_tracked) override {
+                      const bool assume_tracked
+                          MY_ATTRIBUTE((unused))) override {
     ++m_write_count;
     m_batch->Put(column_family, key, value);
     // Note Put/Delete in write batch doesn't return any error code. We simply
@@ -3691,7 +3712,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
                              const rocksdb::Slice &key,
-                             const bool assume_tracked) override {
+                             const bool assume_tracked
+                                 MY_ATTRIBUTE((unused))) override {
     ++m_write_count;
     m_batch->Delete(column_family, key);
     return rocksdb::Status::OK();
@@ -3853,7 +3875,8 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
   return tx;
 }
 
-static int rocksdb_close_connection(handlerton *const hton, THD *const thd) {
+static int rocksdb_close_connection(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *const thd) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   if (tx != nullptr) {
     bool is_critical_error;
@@ -3931,7 +3954,8 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
-static int rocksdb_prepare(handlerton *const hton, THD *const thd,
+static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
+                           THD *const thd,
                            bool prepare_tx) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   if (!tx->can_prepare()) {
@@ -3974,8 +3998,10 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
  do nothing for prepare/commit by xid
  this is needed to avoid crashes in XA scenarios
 */
-/* TODO(yzha) - Review failures code as return type as changed to xa_status_code */
-static xa_status_code rocksdb_commit_by_xid(handlerton *const hton, XID *const xid) {
+/* TODO(yzha) - Review failures code as return type as changed to xa_status_code
+ */
+static xa_status_code rocksdb_commit_by_xid(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), XID *const xid) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(hton != nullptr);
@@ -4061,11 +4087,14 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
 }
 
 static void rocksdb_recover_binlog_pos(
-    handlerton *const hton, /*!< in: rocksdb handler */
-    Gtid *binlog_max_gtid,  /*!< out: Max valid binlog gtid*/
-    char *binlog_file,      /*!< out: Last valid binlog file */
-    my_off_t *binlog_pos)   /*!< out: Last valid binlog pos */
-{
+    /*!< in: rocksdb handler */
+    handlerton *const hton MY_ATTRIBUTE((__unused__)),
+    /*!< out: Max valid binlog gtid*/
+    Gtid *binlog_max_gtid,
+    /*!< out: Last valid binlog file */
+    char *binlog_file,
+    /*!< out: Last valid binlog pos */
+    my_off_t *binlog_pos) {
   DBUG_ASSERT(binlog_file && binlog_pos);
 
   char file_buf[FN_REFLEN + 1] = {0};
@@ -4098,9 +4127,9 @@ static void rocksdb_recover_binlog_pos(
   Reading last committed binary log info from RocksDB system row.
   The info is needed for crash safe slave/master to work.
 */
-static int rocksdb_recover(handlerton *const hton,
+static int rocksdb_recover(handlerton *const hton MY_ATTRIBUTE((__unused__)),
                            XA_recover_txn *const xid_list, uint len,
-                           MEM_ROOT *mem_root) {
+                           MEM_ROOT *mem_root MY_ATTRIBUTE((__unused__))) {
   if (len == 0 || xid_list == nullptr) {
     return HA_EXIT_SUCCESS;
   }
@@ -4120,8 +4149,8 @@ static int rocksdb_recover(handlerton *const hton,
   return count;
 }
 
-static int rocksdb_commit(handlerton *const hton, THD *const thd,
-                          bool all) {
+static int rocksdb_commit(handlerton *const hton MY_ATTRIBUTE((__unused__)),
+                          THD *const thd, bool all) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(hton != nullptr);
@@ -4168,8 +4197,8 @@ static int rocksdb_commit(handlerton *const hton, THD *const thd,
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-static int rocksdb_rollback(handlerton *const hton, THD *const thd,
-                            bool rollback_tx) {
+static int rocksdb_rollback(handlerton *const hton MY_ATTRIBUTE((__unused__)),
+                            THD *const thd, bool rollback_tx) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   Rdb_perf_context_guard guard(tx, thd);
 
@@ -4528,8 +4557,9 @@ std::vector<Rdb_deadlock_info> rdb_get_deadlock_info() {
 }
 
 /* Generate the snapshot status table */
-static bool rocksdb_show_snapshot_status(handlerton *const hton, THD *const thd,
-                                         stat_print_fn *const stat_print) {
+static bool rocksdb_show_snapshot_status(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *const thd,
+    stat_print_fn *const stat_print) {
   Rdb_snapshot_status showStatus;
 
   Rdb_transaction::walk_tx_list(&showStatus);
@@ -4733,8 +4763,9 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
   return res;
 }
 
-static inline void rocksdb_register_tx(handlerton *const hton, THD *const thd,
-                                       Rdb_transaction *const tx) {
+static inline void rocksdb_register_tx(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *const thd,
+    Rdb_transaction *const tx) {
   DBUG_ASSERT(tx != nullptr);
 
   trans_register_ha(thd, false, rocksdb_hton, NULL);
@@ -4814,11 +4845,11 @@ static int rocksdb_start_tx_and_assign_read_view(
                                be committed */
     /* TODO(yzha) - the following 4 are refactored into snapshot_info_st in
        0b671a35cc7 SQL to create and manage explicit snapshots */
-    char *binlog_file,
-    ulonglong *binlog_pos,
-    char **gtid_executed,
-    int *gtid_executed_length,
-    ulonglong *snapshot_hlc
+    char *binlog_file MY_ATTRIBUTE((__unused__)),
+    ulonglong *binlog_pos MY_ATTRIBUTE((__unused__)),
+    char **gtid_executed MY_ATTRIBUTE((__unused__)),
+    int *gtid_executed_length MY_ATTRIBUTE((__unused__)),
+    ulonglong *snapshot_hlc MY_ATTRIBUTE((__unused__))
     /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots */
     // snapshot_info_st *ss_info !< in/out: Snapshot info like binlog file, pos,
     //                           gtid executed and snapshot ID
@@ -4949,13 +4980,15 @@ static int rocksdb_start_tx_and_assign_read_view(
  * Current SAVEPOINT does not correctly handle ROLLBACK and does not return
  * errors. This needs to be addressed in future versions (Issue#96).
  */
-static int rocksdb_savepoint(handlerton *const hton, THD *const thd,
-                             void *const savepoint) {
+static int rocksdb_savepoint(handlerton *const hton MY_ATTRIBUTE((__unused__)),
+                             THD *const thd MY_ATTRIBUTE((__unused__)),
+                             void *const savepoint MY_ATTRIBUTE((__unused__))) {
   return HA_EXIT_SUCCESS;
 }
 
-static int rocksdb_rollback_to_savepoint(handlerton *const hton, THD *const thd,
-                                         void *const savepoint) {
+static int rocksdb_rollback_to_savepoint(
+    handlerton *const hton MY_ATTRIBUTE((__unused__)), THD *const thd,
+    void *const savepoint) {
   Rdb_transaction *&tx = get_tx_from_thd(thd);
   return tx->rollback_to_savepoint(savepoint);
 }
@@ -5676,7 +5709,7 @@ static int rocksdb_init_func(void *const p) {
   Storage Engine deinitialization function, invoked when plugin is unloaded.
 */
 
-static int rocksdb_done_func(void *const p) {
+static int rocksdb_done_func(void *const p MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   int error = 0;
@@ -6146,10 +6179,10 @@ void Rdb_open_tables_map::release_table_handler(
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 }
 
-static handler *rocksdb_create_handler(my_core::handlerton *const hton,
-                                       my_core::TABLE_SHARE *const table_arg,
-                                       bool partitioned,
-                                       my_core::MEM_ROOT *const mem_root) {
+static handler *rocksdb_create_handler(
+    my_core::handlerton *const hton, my_core::TABLE_SHARE *const table_arg,
+    bool partitioned MY_ATTRIBUTE((__unused__)),
+    my_core::MEM_ROOT *const mem_root) {
   return new (mem_root) ha_rocksdb(hton, table_arg);
 }
 
@@ -6534,8 +6567,10 @@ void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-int ha_rocksdb::open(const char *const name, int mode, uint test_if_locked,
-                     const dd::Table *table_def) {
+int ha_rocksdb::open(const char *const name,
+                     int mode MY_ATTRIBUTE((__unused__)),
+                     uint test_if_locked MY_ATTRIBUTE((__unused__)),
+                     const dd::Table *table_def MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   int err = close();
@@ -7609,7 +7644,7 @@ error:
 
 int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
                        HA_CREATE_INFO *const create_info,
-                       dd::Table *table_def) {
+                       dd::Table *table_def MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(table_arg != nullptr);
@@ -8130,7 +8165,8 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
 */
 int ha_rocksdb::read_range_first(const key_range *const start_key,
                                  const key_range *const end_key,
-                                 bool eq_range_arg, bool sorted) {
+                                 bool eq_range_arg,
+                                 bool sorted MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   int result;
@@ -8482,7 +8518,9 @@ int ha_rocksdb::index_read_last_map(uchar *const buf, const uchar *const key,
     HA_ADMIN_OK      OK
     other            HA_ADMIN error code
 */
-int ha_rocksdb::check(THD *const thd, HA_CHECK_OPT *const check_opt) {
+int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
+                      HA_CHECK_OPT *const check_opt
+                          MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(thd != nullptr);
@@ -9378,7 +9416,8 @@ void ha_rocksdb::dec_table_n_rows() {
   called without setting m_last_rowkey. This function sets m_last_rowkey
   for Read Free Replication.
 */
-void ha_rocksdb::set_last_rowkey(const uchar *const old_data) {
+void ha_rocksdb::set_last_rowkey(
+    const uchar *const old_data MY_ATTRIBUTE((__unused__))) {
   /* TODO(yzha) - af531c246d35 (New variable to control read free replication)
   if (old_data && use_read_free_rpl()) {
     const int old_pk_size = m_pk_descr->pack_record(
@@ -10499,7 +10538,7 @@ int ha_rocksdb::rnd_end() {
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
-int ha_rocksdb::index_init(uint idx, bool sorted) {
+int ha_rocksdb::index_init(uint idx, bool sorted MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   THD *thd = ha_thd();
@@ -11174,7 +11213,8 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
     HA_EXIT_SUCCESS  OK
 */
 
-int ha_rocksdb::start_stmt(THD *const thd, thr_lock_type lock_type) {
+int ha_rocksdb::start_stmt(THD *const thd,
+                           thr_lock_type lock_type MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(thd != nullptr);
@@ -11480,7 +11520,9 @@ int ha_rocksdb::delete_table(Rdb_tbl_def *const tbl) {
     other            HA_ERR error code (can be SE-specific)
 */
 
-int ha_rocksdb::delete_table(const char *const tablename, const dd::Table *table_def) {
+int ha_rocksdb::delete_table(const char *const tablename,
+                             const dd::Table *table_def
+                                 MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(tablename != nullptr);
@@ -11562,8 +11604,10 @@ int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (cannot be SE-specific)
 */
-int ha_rocksdb::rename_table(const char *const from, const char *const to,
-                             const dd::Table *from_table_def, dd::Table *to_table_def) {
+int ha_rocksdb::rename_table(
+    const char *const from, const char *const to,
+    const dd::Table *from_table_def MY_ATTRIBUTE((__unused__)),
+    dd::Table *to_table_def MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   std::string from_str;
@@ -11630,8 +11674,9 @@ int ha_rocksdb::rename_table(const char *const from, const char *const to,
 
 */
 
-bool ha_rocksdb::check_if_incompatible_data(HA_CREATE_INFO *const info,
-                                            uint table_changes) {
+bool ha_rocksdb::check_if_incompatible_data(
+    HA_CREATE_INFO *const info MY_ATTRIBUTE((__unused__)),
+    uint table_changes MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(info != nullptr);
@@ -11812,7 +11857,9 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *const create_info) {
     HA_ADMIN_OK      OK
     other            HA_ADMIN error code
 */
-int ha_rocksdb::optimize(THD *const thd, HA_CHECK_OPT *const check_opt) {
+int ha_rocksdb::optimize(THD *const thd MY_ATTRIBUTE((__unused__)),
+                         HA_CHECK_OPT *const check_opt
+                             MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(thd != nullptr);
@@ -11989,7 +12036,8 @@ static void merge_stats(
 
 static void adjust_cardinality(
     std::unordered_map<GL_INDEX_ID, Rdb_index_stats> *stats,
-    table_cardinality_scan_type scan_type, uint64_t max_num_rows_scanned) {
+    table_cardinality_scan_type scan_type MY_ATTRIBUTE((__unused__)),
+    uint64_t max_num_rows_scanned) {
   DBUG_ASSERT(scan_type == SCAN_TYPE_FULL_TABLE);
   DBUG_ASSERT(max_num_rows_scanned > 0);
 
@@ -12175,7 +12223,8 @@ static int calculate_stats_for_table(
     HA_ADMIN_OK      OK
     other            HA_ADMIN error code
 */
-int ha_rocksdb::analyze(THD *const thd, HA_CHECK_OPT *const check_opt) {
+int ha_rocksdb::analyze(
+    THD *const thd, HA_CHECK_OPT *const check_opt MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
   if (table) {
@@ -12275,10 +12324,10 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable() {
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-void ha_rocksdb::get_auto_increment(ulonglong off, ulonglong inc,
-                                    ulonglong nb_desired_values,
-                                    ulonglong *const first_value,
-                                    ulonglong *const nb_reserved_values) {
+void ha_rocksdb::get_auto_increment(
+    ulonglong off, ulonglong inc,
+    ulonglong nb_desired_values MY_ATTRIBUTE((__unused__)),
+    ulonglong *const first_value, ulonglong *const nb_reserved_values) {
   /*
     MySQL has a somewhat complicated way of handling the auto-increment value.
     The first time get_auto_increment is called for a statement,
@@ -13234,13 +13283,15 @@ bool ha_rocksdb::commit_inplace_alter_table(
 
 #define SHOW_FNAME(name) rocksdb_show_##name
 
-#define DEF_SHOW_FUNC(name, key)                                           \
-  static int SHOW_FNAME(name)(MYSQL_THD thd, SHOW_VAR * var, char *buff) { \
-    rocksdb_status_counters.name =                                         \
-        rocksdb_stats->getTickerCount(rocksdb::key);                       \
-    var->type = SHOW_LONGLONG;                                             \
-    var->value = reinterpret_cast<char *>(&rocksdb_status_counters.name);  \
-    return HA_EXIT_SUCCESS;                                                \
+#define DEF_SHOW_FUNC(name, key)                                          \
+  static int SHOW_FNAME(name)(MYSQL_THD thd MY_ATTRIBUTE((unused)),       \
+                              SHOW_VAR * var,                             \
+                              char *buff MY_ATTRIBUTE((unused))) {        \
+    rocksdb_status_counters.name =                                        \
+        rocksdb_stats->getTickerCount(rocksdb::key);                      \
+    var->type = SHOW_LONGLONG;                                            \
+    var->value = reinterpret_cast<char *>(&rocksdb_status_counters.name); \
+    return HA_EXIT_SUCCESS;                                               \
   }
 
 #define DEF_STATUS_VAR(name) \
@@ -13486,7 +13537,8 @@ static SHOW_VAR myrocks_status_variables[] = {
 
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
-static int show_myrocks_vars(THD *thd, SHOW_VAR *var, char *buff) {
+static int show_myrocks_vars(THD *thd MY_ATTRIBUTE((unused)), SHOW_VAR *var,
+                             char *buff MY_ATTRIBUTE((unused))) {
   myrocks_update_status();
   myrocks_update_memory_status();
   var->type = SHOW_ARRAY;
@@ -13575,7 +13627,9 @@ static SHOW_VAR rocksdb_stall_status_variables[] = {
     // end of the array marker
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
-static int show_rocksdb_stall_vars(THD *thd, SHOW_VAR *var, char *buff) {
+static int show_rocksdb_stall_vars(THD *thd MY_ATTRIBUTE((unused)),
+                                   SHOW_VAR *var,
+                                   char *buff MY_ATTRIBUTE((unused))) {
   update_rocksdb_stall_status();
   var->type = SHOW_ARRAY;
   var->value = reinterpret_cast<char *>(&rocksdb_stall_status_variables);
@@ -14520,7 +14574,7 @@ void rocksdb_set_rate_limiter_bytes_per_sec(
 }
 
 void rocksdb_set_sst_mgr_rate_bytes_per_sec(
-    my_core::THD *const thd,
+    my_core::THD *const thd MY_ATTRIBUTE((unused)),
     my_core::SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)), const void *const save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
@@ -14537,8 +14591,10 @@ void rocksdb_set_sst_mgr_rate_bytes_per_sec(
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_set_delayed_write_rate(THD *thd, struct SYS_VAR *var,
-                                    void *var_ptr, const void *save) {
+void rocksdb_set_delayed_write_rate(THD *thd MY_ATTRIBUTE((unused)),
+                                    struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+                                    void *var_ptr MY_ATTRIBUTE((unused)),
+                                    const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint64_t new_val = *static_cast<const uint64_t *>(save);
   if (rocksdb_delayed_write_rate != new_val) {
@@ -14557,8 +14613,9 @@ void rocksdb_set_delayed_write_rate(THD *thd, struct SYS_VAR *var,
   RDB_MUTEX_UNLOCK_CHECK(rdb_sysvars_mutex);
 }
 
-void rocksdb_set_max_latest_deadlocks(THD *thd, struct SYS_VAR *var,
-                                      void *var_ptr, const void *save) {
+void rocksdb_set_max_latest_deadlocks(
+    THD *thd MY_ATTRIBUTE((unused)), struct SYS_VAR *var MY_ATTRIBUTE((unused)),
+    void *var_ptr MY_ATTRIBUTE((unused)), const void *save) {
   RDB_MUTEX_LOCK_CHECK(rdb_sysvars_mutex);
   const uint32_t new_val = *static_cast<const uint32_t *>(save);
   if (rocksdb_max_latest_deadlocks != new_val) {
@@ -14577,10 +14634,10 @@ void rdb_set_collation_exception_list(const char *const exception_list) {
   }
 }
 
-void rocksdb_set_collation_exception_list(THD *const thd,
-                                          struct SYS_VAR *const var,
-                                          void *const var_ptr,
-                                          const void *const save) {
+void rocksdb_set_collation_exception_list(
+    THD *const thd MY_ATTRIBUTE((unused)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((unused)), void *const var_ptr,
+    const void *const save) {
   const char *const val = *static_cast<const char *const *>(save);
 
   rdb_set_collation_exception_list(val == nullptr ? "" : val);
@@ -14661,10 +14718,10 @@ int rocksdb_check_bulk_load_allow_unsorted(
   return 0;
 }
 
-static void rocksdb_set_max_background_jobs(THD *thd,
-                                            struct SYS_VAR *const var,
-                                            void *const var_ptr,
-                                            const void *const save) {
+static void rocksdb_set_max_background_jobs(
+    THD *thd MY_ATTRIBUTE((unused)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((unused)),
+    void *const var_ptr MY_ATTRIBUTE((unused)), const void *const save) {
   DBUG_ASSERT(save != nullptr);
   DBUG_ASSERT(rocksdb_db_options != nullptr);
   DBUG_ASSERT(rocksdb_db_options->env != nullptr);
