@@ -5781,6 +5781,7 @@ err:
     Therefore thd must only be deleted after info_thd is set
     to NULL.
   */
+  mysql_thread_set_psi_THD(nullptr);
   delete thd;
 
   /*
@@ -6036,6 +6037,7 @@ err:
 
     THD_CHECK_SENTRY(thd);
     if (thd_added) thd_manager->remove_thd(thd);
+    mysql_thread_set_psi_THD(nullptr);
     delete thd;
   }
 
@@ -7284,6 +7286,7 @@ err:
     Therefore thd must only be deleted after info_thd is set
     to NULL.
   */
+  mysql_thread_set_psi_THD(nullptr);
   delete thd;
 
   /*
