@@ -30,8 +30,6 @@ ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
 
 # Suppress warnings for all compilers
-append_cflags_if_supported(-Wno-unused-parameter)
-
 MY_CHECK_CXX_COMPILER_FLAG("-Wno-shadow-field" HAVE_NO_SHADOW_FIELD)
 IF(HAVE_NO_SHADOW_FIELD)
   # TODO(yzha): Fix warnings in MyRocks

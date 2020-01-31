@@ -74,7 +74,8 @@ void Rdb_event_listener::update_index_stats(
 }
 
 void Rdb_event_listener::OnCompactionCompleted(
-    rocksdb::DB *db, const rocksdb::CompactionJobInfo &ci) {
+    rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
+    const rocksdb::CompactionJobInfo &ci) {
   DBUG_ASSERT(db != nullptr);
   DBUG_ASSERT(m_ddl_manager != nullptr);
 
@@ -90,13 +91,15 @@ void Rdb_event_listener::OnCompactionCompleted(
 }
 
 void Rdb_event_listener::OnFlushCompleted(
-    rocksdb::DB *db, const rocksdb::FlushJobInfo &flush_job_info) {
+    rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
+    const rocksdb::FlushJobInfo &flush_job_info) {
   DBUG_ASSERT(db != nullptr);
   update_index_stats(flush_job_info.table_properties);
 }
 
 void Rdb_event_listener::OnExternalFileIngested(
-    rocksdb::DB *db, const rocksdb::ExternalFileIngestionInfo &info) {
+    rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
+    const rocksdb::ExternalFileIngestionInfo &info) {
   DBUG_ASSERT(db != nullptr);
   update_index_stats(info.table_properties);
 }
