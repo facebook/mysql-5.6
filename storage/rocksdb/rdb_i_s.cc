@@ -1015,9 +1015,9 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
   return HA_EXIT_SUCCESS;
 }
 
-static int rdb_i_s_ddl_fill_table(my_core::THD *const thd,
-                                  my_core::TABLE_LIST *const tables,
-                                  my_core::Item *const cond) {
+static int rdb_i_s_ddl_fill_table(
+    my_core::THD *const thd, my_core::TABLE_LIST *const tables,
+    my_core::Item *const cond MY_ATTRIBUTE((unused))) {
   DBUG_ENTER_FUNC();
 
   DBUG_ASSERT(thd != nullptr);

@@ -1657,7 +1657,7 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
   */
   bool Merge(const rocksdb::Slice &key, const rocksdb::Slice *existing_value,
              const rocksdb::Slice &value, std::string *new_value,
-             rocksdb::Logger *logger) const override {
+             rocksdb::Logger *) const override {
     DBUG_ASSERT(new_value != nullptr);
 
     if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3 ||

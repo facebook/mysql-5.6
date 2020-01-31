@@ -48,10 +48,11 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
   // V1 Filter is thread safe on our usage (creating from Factory).
   // Make sure to protect instance variables when switching to thread
   // unsafe in the future.
-  virtual bool Filter(int level, const rocksdb::Slice &key,
-                      const rocksdb::Slice &existing_value,
-                      std::string *new_value,
-                      bool *value_changed) const override {
+  virtual bool Filter(
+      int level MY_ATTRIBUTE((unused)), const rocksdb::Slice &key,
+      const rocksdb::Slice &existing_value,
+      std::string *new_value MY_ATTRIBUTE((unused)),
+      bool *value_changed MY_ATTRIBUTE((unused))) const override {
     DBUG_ASSERT(key.size() >= sizeof(uint32));
 
     GL_INDEX_ID gl_index_id;
@@ -155,7 +156,8 @@ class Rdb_compact_filter : public rocksdb::CompactionFilter {
     }
   }
 
-  bool should_filter_ttl_rec(const rocksdb::Slice &key,
+  bool should_filter_ttl_rec(const rocksdb::Slice &key
+                                 MY_ATTRIBUTE((__unused__)),
                              const rocksdb::Slice &existing_value) const {
     uint64 ttl_timestamp;
     Rdb_string_reader reader(&existing_value);
