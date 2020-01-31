@@ -25,7 +25,7 @@ while ($_rpl_server)
   --let $rpl_connection_name= server_$_rpl_server
   --source include/rpl_connection.inc
 
-  --let $ipv6_host_port= `SELECT CONCAT('::1', ':', (SELECT @@GLOBAL.PORT), ',')`
+  --let $ipv6_host_port= `SELECT CONCAT('[::1]', ':', (SELECT @@GLOBAL.PORT), ',')`
   --let $instances= `SELECT CONCAT('$instances', '$ipv6_host_port')`
 
   --dec $_rpl_server
@@ -45,11 +45,7 @@ while ($_rpl_server)
   exec rm -fr $fs_wal_path;
   exec mkdir $fs_wal_path;
 
-  --let $fs_wal_dir= `SELECT CONCAT('"fs_wal_dir": "', '$fs_wal_path', '"')`
-  --let $rpc_port= `SELECT (SELECT @@GLOBAL.PORT) + 2000`
-  --let $rpc_bind_addresses= `SELECT CONCAT('"rpc_bind_addresses": "[::]:', '$rpc_port', '"')`
-
-  --let $config_json= `SELECT CONCAT('{', '$instances', ',', '$fs_wal_dir', ',', '$rpc_bind_addresses', '}')`
+  --let $config_json= `SELECT CONCAT('{', '$instances', '}')`
 
   if ($rpl_debug)
   {
