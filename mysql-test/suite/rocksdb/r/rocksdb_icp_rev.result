@@ -17,8 +17,10 @@ insert into t2 select a,a,a,a from t1;
 # Try a basic case:
 explain 
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` between 1 and 10) and ((`test`.`t2`.`kp2` % 2) = 0))
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0;
 pk	kp1	kp2	col1
 2	2	2	2
@@ -31,7 +33,7 @@ pk	kp1	kp2	col1
 create table t3 (
 pk int primary key,
 kp1 int,
-kp2 varchar(10) collate utf8_general_ci,
+kp2 varchar(10) collate utf8mb4_unicode_ci,
 col1 int,
 key (kp1,kp2) comment 'rev:cf1'
 ) engine=rocksdb;
@@ -39,53 +41,41 @@ insert into t3 select a,a/10,a,a from t1;
 # This must not use ICP:
 explain
 select * from t3 where kp1=3 and kp2 like '%foo%';
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t3	ref	kp1	kp1	5	const	#	Using where
-explain format=json
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	ref	kp1	kp1	5	const	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t3`.`pk` AS `pk`,`test`.`t3`.`kp1` AS `kp1`,`test`.`t3`.`kp2` AS `kp2`,`test`.`t3`.`col1` AS `col1` from `test`.`t3` where ((`test`.`t3`.`kp1` = 3) and (`test`.`t3`.`kp2` like '%foo%'))
+explain
 select * from t3 where kp1 between 2 and 4 and mod(kp1,3)=0 and kp2 like '%foo%';
-EXPLAIN
-{
-  "query_block": {
-    "select_id": 1,
-    "table": {
-      "table_name": "t3",
-      "access_type": "range",
-      "possible_keys": [
-        "kp1"
-      ],
-      "key": "kp1",
-      "used_key_parts": [
-        "kp1"
-      ],
-      "key_length": "5",
-      "rows": 1000,
-      "filtered": 100,
-      "index_condition": "((`test`.`t3`.`kp1` between 2 and 4) and ((`test`.`t3`.`kp1` % 3) = 0))",
-      "attached_condition": "(`test`.`t3`.`kp2` like '%foo%')"
-    }
-  }
-}
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t3	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t3`.`pk` AS `pk`,`test`.`t3`.`kp1` AS `kp1`,`test`.`t3`.`kp2` AS `kp2`,`test`.`t3`.`col1` AS `col1` from `test`.`t3` where ((`test`.`t3`.`kp1` between 2 and 4) and ((`test`.`t3`.`kp1` % 3) = 0) and (`test`.`t3`.`kp2` like '%foo%'))
 # Check that we handle the case where out-of-range is encountered sooner
 # than matched index condition
 explain 
 select * from t2 where kp1< 3 and kp2+1>50000;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` < 3) and ((`test`.`t2`.`kp2` + 1) > 50000))
 select * from t2 where kp1< 3 and kp2+1>50000;
 pk	kp1	kp2	col1
 explain
 select * from t2 where kp1< 3 and kp2+1>50000;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` < 3) and ((`test`.`t2`.`kp2` + 1) > 50000))
 select * from t2 where kp1< 3 and kp2+1>50000;
 pk	kp1	kp2	col1
 # Try doing backwards scans
 explain 
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0 order by kp1 desc;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` between 1 and 10) and ((`test`.`t2`.`kp2` % 2) = 0)) order by `test`.`t2`.`kp1` desc
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0 order by kp1 desc;
 pk	kp1	kp2	col1
 10	10	10	10
@@ -95,8 +85,10 @@ pk	kp1	kp2	col1
 2	2	2	2
 explain 
 select * from t2 where kp1 >990 and mod(kp2,2)=0 order by kp1 desc;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` > 990) and ((`test`.`t2`.`kp2` % 2) = 0)) order by `test`.`t2`.`kp1` desc
 select * from t2 where kp1 >990 and mod(kp2,2)=0 order by kp1 desc;
 pk	kp1	kp2	col1
 998	998	998	998
@@ -105,8 +97,10 @@ pk	kp1	kp2	col1
 992	992	992	992
 explain 
 select * from t2 where kp1< 3 and kp2+1>50000 order by kp1 desc;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	kp1	kp1	5	NULL	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t2	NULL	range	kp1	kp1	5	NULL	#	#	Using index condition; Backward index scan
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t2`.`pk` AS `pk`,`test`.`t2`.`kp1` AS `kp1`,`test`.`t2`.`kp2` AS `kp2`,`test`.`t2`.`col1` AS `col1` from `test`.`t2` where ((`test`.`t2`.`kp1` < 3) and ((`test`.`t2`.`kp2` + 1) > 50000)) order by `test`.`t2`.`kp1` desc
 select * from t2 where kp1< 3 and kp2+1>50000 order by kp1 desc;
 pk	kp1	kp2	col1
 drop table t0,t1,t2,t3;
@@ -116,15 +110,14 @@ drop table t0,t1,t2,t3;
 # First, some preparations
 #
 create procedure save_read_stats()
-select ROWS_READ, ROWS_REQUESTED, ROWS_INDEX_FIRST, ROWS_INDEX_NEXT 
-into @rr, @rq, @rif, @rin
-from information_schema.table_statistics 
-where table_name='t4' and table_schema=database();
+select rows_fetched
+into @rf
+from sys.schema_table_statistics
+where table_name="t4";
 create procedure get_read_stats()
-select 
-ROWS_READ-@rr, ROWS_REQUESTED-@rq, ROWS_INDEX_FIRST-@rif, ROWS_INDEX_NEXT-@rin
-from information_schema.table_statistics 
-where table_name='t4' and table_schema=database();
+select rows_fetched - @rf
+from sys.schema_table_statistics
+where table_name="t4";
 create table t4 (
 id int, 
 id1 int, 
@@ -141,53 +134,52 @@ insert into t4 values
 # Now, the test itself
 #
 call save_read_stats();
+Warnings:
+Note	1585	This function 'format_bytes' has the same name as a native function
 call get_read_stats();
-ROWS_READ-@rr	ROWS_REQUESTED-@rq	ROWS_INDEX_FIRST-@rif	ROWS_INDEX_NEXT-@rin
-0	0	0	0
+rows_fetched - @rf
+0
 # ============== index-only query ==============
 explain
 select id1,id2 from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	ref	id1_id2	id1_id2	5	const	#	Using where; Using index
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ref	id1_id2	id1_id2	5	const	#	#	Using where; Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t4`.`id1` AS `id1`,`test`.`t4`.`id2` AS `id2` from `test`.`t4` FORCE INDEX (`id1_id2`) where ((`test`.`t4`.`id1` = 1) and ((`test`.`t4`.`id2` % 10) = 1))
 call save_read_stats();
 select id1,id2 from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 id1	id2
 1	1
 call get_read_stats();
-ROWS_READ-@rr	10
-ROWS_REQUESTED-@rq	11
-ROWS_INDEX_FIRST-@rif	1
-ROWS_INDEX_NEXT-@rin	9
+rows_fetched - @rf	10
 # ============== Query without ICP ==============
 set optimizer_switch='index_condition_pushdown=off';
 explain
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	ref	id1_id2	id1_id2	5	const	#	Using where
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ref	id1_id2	id1_id2	5	const	#	#	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t4`.`id` AS `id`,`test`.`t4`.`id1` AS `id1`,`test`.`t4`.`id2` AS `id2`,`test`.`t4`.`value` AS `value`,`test`.`t4`.`value2` AS `value2` from `test`.`t4` FORCE INDEX (`id1_id2`) where ((`test`.`t4`.`id1` = 1) and ((`test`.`t4`.`id2` % 10) = 1))
 call save_read_stats();
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 id	id1	id2	value	value2
 1	1	1	1	1
 call get_read_stats();
-ROWS_READ-@rr	10
-ROWS_REQUESTED-@rq	11
-ROWS_INDEX_FIRST-@rif	1
-ROWS_INDEX_NEXT-@rin	9
+rows_fetched - @rf	10
 # ============== Query with ICP ==============
 set optimizer_switch='index_condition_pushdown=on';
 explain
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
-id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	ref	id1_id2	id1_id2	5	const	#	Using index condition
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t4	NULL	ref	id1_id2	id1_id2	5	const	#	#	Using index condition
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t4`.`id` AS `id`,`test`.`t4`.`id1` AS `id1`,`test`.`t4`.`id2` AS `id2`,`test`.`t4`.`value` AS `value`,`test`.`t4`.`value2` AS `value2` from `test`.`t4` FORCE INDEX (`id1_id2`) where ((`test`.`t4`.`id1` = 1) and ((`test`.`t4`.`id2` % 10) = 1))
 call save_read_stats();
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 id	id1	id2	value	value2
 1	1	1	1	1
 call get_read_stats();
-ROWS_READ-@rr	1
-ROWS_REQUESTED-@rq	1
-ROWS_INDEX_FIRST-@rif	1
-ROWS_INDEX_NEXT-@rin	0
+rows_fetched - @rf	1
 drop table t4;
 drop procedure save_read_stats;
 drop procedure get_read_stats;
