@@ -196,6 +196,14 @@ The following options may be given as the first argument:
  -r, --chroot=name   Chroot mysqld daemon during startup.
  --collation-server=name 
  Set the default collation.
+ --column-stats-control=name 
+ Control the collection of column statistics from parse
+ tree. The data is exposed via the COLUMN_STATISTICS
+ table. Takes the following values: OFF_HARD: Default
+ value. Stop collecting the statistics and flush all
+ column statistics data from memory. OFF_SOFT: Stop
+ collecting column statistics, but retain any data
+ collected so far. ON: Collect the statistics.
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
@@ -2111,6 +2119,7 @@ character-set-server latin1
 character-sets-dir MYSQL_CHARSETSDIR/
 chroot (No default value)
 collation-server latin1_swedish_ci
+column-stats-control OFF_HARD
 completion-type NO_CHAIN
 compressed-event-cache-evict-threshold 60
 concurrent-insert AUTO

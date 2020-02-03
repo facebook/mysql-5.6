@@ -1027,6 +1027,27 @@ extern ulong sql_stats_control;
 extern ulonglong max_sql_stats_count;
 extern ulonglong max_sql_stats_size;
 
+/*
+  Global variable to control collecting column statistics.
+
+  - Setting the control to "OFF_HARD" will stop the stats collection and all
+    data from column statistics related in-memory structures is evicted.
+  - Setting the control to a "OFF_SOFT" will stop collecting the stats, but
+    any existing stats will continue to be in memory. The stats are not flushed.
+  - Setting the control to "ON" will (re-)start collecting column stats.
+
+  Keep the enum in the sync with column_stats_control_values[] (sys_vars.cc)
+*/
+enum enum_column_stats_control
+{
+  COLUMN_STATS_CONTROL_OFF_HARD   = 0,
+  COLUMN_STATS_CONTROL_OFF_SOFT   = 1,
+  COLUMN_STATS_CONTROL_ON         = 2,
+  /* Add new control before the following line */
+  COLUMN_STATS_CONTROL_INVALID
+};
+extern ulong column_stats_control;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
@@ -1242,11 +1263,11 @@ extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_LOCK_thread_created;
 extern PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
 
-extern PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
-  key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
-  key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
-  key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
-  key_rwlock_LOCK_legacy_user_name_pattern,
+extern PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
+  key_rwlock_LOCK_logger, key_rwlock_LOCK_sys_init_connect,
+  key_rwlock_LOCK_sys_init_slave, key_rwlock_LOCK_system_variables_hash,
+  key_rwlock_query_cache_query_lock, key_rwlock_global_sid_lock,
+  key_rwlock_LOCK_gap_lock_exceptions, key_rwlock_LOCK_legacy_user_name_pattern,
   key_rwlock_LOCK_admin_users_list_regex,
   key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
   key_rwlock_hash_filo;
@@ -1507,6 +1528,7 @@ extern mysql_rwlock_t LOCK_use_ssl;
 #endif
 extern mysql_mutex_t LOCK_server_started;
 extern mysql_cond_t COND_server_started;
+extern mysql_rwlock_t LOCK_column_statistics;
 extern mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
 extern mysql_rwlock_t LOCK_system_variables_hash;
 extern mysql_cond_t COND_manager;

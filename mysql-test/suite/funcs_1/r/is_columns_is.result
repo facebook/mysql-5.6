@@ -49,6 +49,12 @@ def	information_schema	COLUMN_PRIVILEGES	PRIVILEGE_TYPE	6		NO	varchar	64	192	NUL
 def	information_schema	COLUMN_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	COLUMN_PRIVILEGES	TABLE_NAME	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	COLUMN_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	COLUMN_STATISTICS	COLUMN_NAME	4		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	COLUMN_STATISTICS	OPERATOR_TYPE	6		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	COLUMN_STATISTICS	SQL_ID	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	COLUMN_STATISTICS	SQL_OPERATION	5		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	COLUMN_STATISTICS	TABLE_NAME	3		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	COLUMN_STATISTICS	TABLE_SCHEMA	2		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME	2	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
 def	information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE	3	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
 def	information_schema	CONNECTION_ATTRIBUTES	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
@@ -736,6 +742,12 @@ NULL	information_schema	COLUMNS	DATETIME_PRECISION	bigint	NULL	NULL	NULL	NULL	bi
 3.0000	information_schema	COLUMN_PRIVILEGES	COLUMN_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	COLUMN_PRIVILEGES	PRIVILEGE_TYPE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	COLUMN_PRIVILEGES	IS_GRANTABLE	varchar	3	9	utf8	utf8_general_ci	varchar(3)
+3.0000	information_schema	COLUMN_STATISTICS	SQL_ID	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	COLUMN_STATISTICS	TABLE_SCHEMA	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	COLUMN_STATISTICS	TABLE_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	COLUMN_STATISTICS	COLUMN_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	COLUMN_STATISTICS	SQL_OPERATION	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	COLUMN_STATISTICS	OPERATOR_TYPE	varchar	192	576	utf8	utf8_general_ci	varchar(192)
 NULL	information_schema	CONNECTION_ATTRIBUTES	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 1.0000	information_schema	CONNECTION_ATTRIBUTES	ATTR_NAME	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext
 1.0000	information_schema	CONNECTION_ATTRIBUTES	ATTR_VALUE	longtext	4294967295	4294967295	utf8	utf8_general_ci	longtext

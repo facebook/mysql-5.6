@@ -670,6 +670,8 @@ char *admin_users_list;
 Regex_list_handler *admin_users_list_regex;
 /* Controls collecting statistics for every SQL statement */
 ulong sql_stats_control;
+/* Controls collecting column statistics for every SQL statement */
+ulong column_stats_control;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1075,6 +1077,7 @@ mysql_mutex_t LOCK_log_throttle_sbr_unsafe;
 mysql_mutex_t LOCK_des_key_file;
 mysql_rwlock_t LOCK_use_ssl;
 #endif
+mysql_rwlock_t LOCK_column_statistics;
 mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
 mysql_rwlock_t LOCK_system_variables_hash;
 mysql_cond_t COND_thread_count;
@@ -2548,6 +2551,7 @@ static void clean_up_mutexes()
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
   mysql_rwlock_destroy(&LOCK_sys_init_slave);
   mysql_mutex_destroy(&LOCK_global_system_variables);
+  mysql_rwlock_destroy(&LOCK_column_statistics);
   mysql_rwlock_destroy(&LOCK_system_variables_hash);
   mysql_mutex_destroy(&LOCK_uuid_generator);
   mysql_mutex_destroy(&LOCK_sql_rand);
@@ -5450,6 +5454,7 @@ static int init_thread_environment()
   mysql_mutex_init(key_LOCK_active_mi, &LOCK_active_mi, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_system_variables,
                    &LOCK_global_system_variables, MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_LOCK_column_statistics, &LOCK_column_statistics);
   mysql_rwlock_init(key_rwlock_LOCK_system_variables_hash,
                     &LOCK_system_variables_hash);
   mysql_mutex_init(key_LOCK_prepared_stmt_count,
@@ -12749,10 +12754,11 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats",0}
 };
 
-PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
-  key_rwlock_LOCK_sys_init_connect, key_rwlock_LOCK_sys_init_slave,
-  key_rwlock_LOCK_system_variables_hash, key_rwlock_query_cache_query_lock,
-  key_rwlock_global_sid_lock, key_rwlock_LOCK_gap_lock_exceptions,
+PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
+  key_rwlock_LOCK_logger, key_rwlock_LOCK_sys_init_connect,
+  key_rwlock_LOCK_sys_init_slave, key_rwlock_LOCK_system_variables_hash,
+  key_rwlock_query_cache_query_lock, key_rwlock_global_sid_lock,
+  key_rwlock_LOCK_gap_lock_exceptions,
   key_rwlock_LOCK_legacy_user_name_pattern,
   key_rwlock_LOCK_admin_users_list_regex,
   key_rwlock_NAME_ID_MAP_LOCK_name_id_map;
@@ -12775,6 +12781,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
 #ifdef HAVE_OPENSSL
   { &key_rwlock_LOCK_use_ssl, "LOCK_use_ssl", PSI_FLAG_GLOBAL},
 #endif /* HAVE_OPENSSL */
+  { &key_rwlock_LOCK_column_statistics, "LOCK_column_statistics", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_grant, "LOCK_grant", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_logger, "LOGGER::LOCK_logger", 0},
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_GLOBAL},

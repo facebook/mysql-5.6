@@ -1,30 +1,8 @@
+#include "column_statistics_dt.h"
 #include "sql_base.h"
 #include "sql_show.h"
 #include "sql_string.h"
-#include "sql_digest.h"
-#include "my_murmur3.h"
-
-#define MD5_BUFF_LENGTH 32
-
-/*
-  md5_key is used as the hash key into the SQL_STATISTICS and related tables.
-
-  It needs a hash function for usage in std::unordered_map since the standard
-  library doesn't provide a specialization for std::array<>. Just use murmur3
-  from mysql.
-*/
-using md5_key = std::array<unsigned char, MD5_HASH_SIZE>;
-
-namespace std {
-  template <>
-  struct hash<md5_key>
-  {
-    std::size_t operator()(const md5_key& k) const
-    {
-      return murmur3_32(k.data(), k.size(), 0);
-    }
-  };
-}
+#include "md5_dt.h"
 
 /*
   SQL_STATISTICS
@@ -123,7 +101,7 @@ ulonglong current_max_sql_stats_size= 0;
     Categorizes the sql command into buckets like ALTER, CREATE, DELETE, etc.
     The list of commands checked is exhaustive. So any new command type added
     to enum_sql_command should be added here too; build will fail otherwise.
-  Input: 
+  Input:
     sql_command    in: sql command type
   Returns: A higher level categorization of the command, as a string.
 */

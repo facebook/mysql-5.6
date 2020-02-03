@@ -105,6 +105,7 @@ USER_TABLE_STATISTICS
 SQL_STATISTICS
 SQL_TEXT
 CLIENT_ATTRIBUTES
+COLUMN_STATISTICS
 DATABASE_APPLIED_HLC
 columns_priv
 db
@@ -922,6 +923,7 @@ where COLUMN_NAME='TABLE_NAME' ORDER BY TABLE_NAME;
 TABLE_NAME	COLUMN_NAME	PRIVILEGES
 COLUMNS	TABLE_NAME	select
 COLUMN_PRIVILEGES	TABLE_NAME	select
+COLUMN_STATISTICS	TABLE_NAME	select
 FILES	TABLE_NAME	select
 INDEX_STATISTICS	TABLE_NAME	select
 INNODB_BUFFER_PAGE	TABLE_NAME	select
@@ -949,7 +951,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	53
+information_schema	54
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1396,6 +1398,7 @@ COLLATIONS	information_schema.COLLATIONS	1
 COLLATION_CHARACTER_SET_APPLICABILITY	information_schema.COLLATION_CHARACTER_SET_APPLICABILITY	1
 COLUMNS	information_schema.COLUMNS	1
 COLUMN_PRIVILEGES	information_schema.COLUMN_PRIVILEGES	1
+COLUMN_STATISTICS	information_schema.COLUMN_STATISTICS	1
 CONNECTION_ATTRIBUTES	information_schema.CONNECTION_ATTRIBUTES	1
 DATABASE_APPLIED_HLC	information_schema.DATABASE_APPLIED_HLC	1
 DB_STATISTICS	information_schema.DB_STATISTICS	1

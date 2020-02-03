@@ -68,6 +68,7 @@
 #include "global_threads.h"
 #include "sql_parse.h"                          // check_global_access
 #include "sql_reload.h"                         // reload_acl_and_cache
+#include "column_statistics.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "../storage/perfschema/pfs_server.h"
@@ -6582,6 +6583,21 @@ static bool update_max_sql_stats_limits(sys_var *, THD *, enum_var_type type)
   return false; // success
 }
 
+static const char *column_stats_control_values[] =
+{ "OFF_HARD", "OFF_SOFT", "ON",
+ /* Add new control before the following line */
+ 0
+};
+
+static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
+{
+  if (column_stats_control == COLUMN_STATS_CONTROL_OFF_HARD) {
+    free_column_stats();
+  }
+
+  return false; // success
+}
+
 static Sys_var_ulonglong Sys_max_sql_stats_count(
        "max_sql_stats_count",
        "Maximum allowed number of SQL statistics",
@@ -6597,6 +6613,22 @@ static Sys_var_ulonglong Sys_max_sql_stats_size(
        VALID_RANGE(0, ULONG_MAX), DEFAULT(100*1024*1024), BLOCK_SIZE(1),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(update_max_sql_stats_limits));
+
+static Sys_var_enum Sys_column_stats_control(
+       "column_stats_control",
+       "Control the collection of column statistics from parse tree. "
+       "The data is exposed via the COLUMN_STATISTICS table. "
+       "Takes the following values: "
+       "OFF_HARD: Default value. Stop collecting the statistics and flush "
+       "all column statistics data from memory. "
+       "OFF_SOFT: Stop collecting column statistics, but retain any data "
+       "collected so far. "
+       "ON: Collect the statistics.",
+        GLOBAL_VAR(column_stats_control),
+        CMD_LINE(REQUIRED_ARG),
+        column_stats_control_values, DEFAULT(COLUMN_STATS_CONTROL_OFF_HARD),
+        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+        ON_UPDATE(set_column_stats_control));
 
 static Sys_var_mybool Sys_use_cached_table_stats_ptr(
        "use_cached_table_stats_ptr",

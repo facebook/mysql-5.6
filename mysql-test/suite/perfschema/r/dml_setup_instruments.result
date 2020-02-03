@@ -17,7 +17,7 @@ wait/synch/mutex/sql/LOCK_active_mi	YES	YES
 select * from performance_schema.setup_instruments
 where name like 'Wait/Synch/Rwlock/sql/%'
   and name not in ('wait/synch/rwlock/sql/CRYPTO_dynlock_value::lock')
-order by name limit 10;
+order by name limit 11;
 NAME	ENABLED	TIMED
 wait/synch/rwlock/sql/AC::rwlock	YES	YES
 wait/synch/rwlock/sql/Binlog_relay_IO_delegate::lock	YES	YES
@@ -25,6 +25,7 @@ wait/synch/rwlock/sql/Binlog_storage_delegate::lock	YES	YES
 wait/synch/rwlock/sql/Binlog_transmit_delegate::lock	YES	YES
 wait/synch/rwlock/sql/gtid_commit_rollback	YES	YES
 wait/synch/rwlock/sql/LOCK_admin_users_list_regex	YES	YES
+wait/synch/rwlock/sql/LOCK_column_statistics	YES	YES
 wait/synch/rwlock/sql/LOCK_dboptions	YES	YES
 wait/synch/rwlock/sql/LOCK_gap_lock_exceptions	YES	YES
 wait/synch/rwlock/sql/LOCK_grant	YES	YES

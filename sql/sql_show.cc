@@ -10328,6 +10328,8 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"CLIENT_ATTRIBUTES", client_attrs_fields_info, create_schema_table,
    fill_client_attrs, NULL, NULL, -1, -1, false, 0},
 #endif
+  {"COLUMN_STATISTICS", column_statistics_fields_info, create_schema_table,
+   fill_column_statistics, NULL, NULL, -1, -1, false, 0},
   {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
    fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
