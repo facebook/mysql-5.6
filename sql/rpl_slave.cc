@@ -1053,6 +1053,7 @@ int raft_reset_slave(THD *thd)
   strmake(active_mi->host, "\0", sizeof(active_mi->host)-1);
   active_mi->port = 0;
   active_mi->inited= false;
+  active_mi->rli->inited= false;
 
   mysql_mutex_unlock(&LOCK_active_mi);
   DBUG_RETURN(error);
