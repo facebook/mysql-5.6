@@ -530,7 +530,7 @@ extern "C" void free_table_stats(TABLE_STATS* table_stats)
 
 void init_global_table_stats(void)
 {
-  if (my_hash_init(&global_table_stats, system_charset_info, max_connections,
+  if (my_hash_init(&global_table_stats, &my_charset_bin, max_connections,
                 0, 0, (my_hash_get_key)get_key_table_stats,
                 (my_hash_free_key)free_table_stats, 0)) {
     sql_print_error("Initializing global_table_stats failed.");
@@ -1502,7 +1502,7 @@ void free_table_stats_for_user(USER_CONN *user_conn)
 void init_table_stats_for_user(
     USER_CONN *uc)
 {
-  if (my_hash_init(&(uc->user_table_stats), system_charset_info, 4,
+  if (my_hash_init(&(uc->user_table_stats), &my_charset_bin, 4,
                    0, 0, (my_hash_get_key)get_key_user_table_stats,
                    (my_hash_free_key)free_key_user_table_stats, 0))
   {
