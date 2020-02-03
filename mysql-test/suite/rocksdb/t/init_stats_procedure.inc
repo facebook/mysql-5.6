@@ -6,7 +6,7 @@
 delimiter //;
 create procedure save_read_stats()
 begin
-  select rows_requested into @rq from information_schema.table_statistics
+  select rows_fetched into @rf from sys.schema_table_statistics
     where table_schema=database() and table_name='t1';
   select variable_value into @rr from performance_schema.global_status
     where variable_name='rocksdb_rows_read';
@@ -18,8 +18,7 @@ end//
 
 create procedure get_read_stats()
 begin
-  select rows_requested - @rq as rows_requested from
-    information_schema.table_statistics
+  select rows_fetched - @rf from sys.schema_table_statistics
     where table_schema=database() and table_name='t1';
   select variable_value - @rr as rows_read from
     performance_schema.global_status
