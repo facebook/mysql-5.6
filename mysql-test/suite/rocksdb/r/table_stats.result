@@ -3,7 +3,7 @@ CREATE TABLE t1 (i INT, PRIMARY KEY (i) COMMENT 'cf_t1') ENGINE = ROCKSDB;
 SELECT COUNT(*) FROM t1;
 COUNT(*)
 1000
-select * from sys.schema_table_statistics where table_name = "t1";
+select * from sys.x$schema_table_statistics where table_name = "t1";
 table_schema	table_name	total_latency	rows_fetched	fetch_latency	rows_inserted	insert_latency	rows_updated	update_latency	rows_deleted	delete_latency	io_read_requests	io_read	io_read_latency	io_write_requests	io_write	io_write_latency	io_misc_requests	io_misc_latency	queries_used	queries_empty
-test	t1	#	1000	#	1000	#	0	#	0	#	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	1001	0
+test	t1	#	1000	#	1000	#	0	#	0	#	0	0	NULL	0	0	NULL	NULL	NULL	1001	0
 DROP TABLE t1;
