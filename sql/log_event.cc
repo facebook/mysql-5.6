@@ -7406,7 +7406,7 @@ Load_query_generator::Load_query_generator(THD *thd_arg, const sql_exchange *ex,
                                            const char *db_arg,
                                            const char *table_name_arg,
                                            bool is_concurrent_arg, bool replace,
-                                           bool ignore)
+                                           bool ignore, bool compressed_arg)
     : str((char *)buf, BUF_SIZE, &my_charset_bin),
       thd(thd_arg),
       sql_ex(ex),
@@ -7414,6 +7414,7 @@ Load_query_generator::Load_query_generator(THD *thd_arg, const sql_exchange *ex,
       table_name(table_name_arg ? table_name_arg : ""),
       fname(ex->file_name),
       is_concurrent(is_concurrent_arg),
+      compressed(compressed_arg),
       has_replace(replace),
       has_ignore(ignore) {
   str.length(0);
@@ -7444,6 +7445,8 @@ const String *Load_query_generator::generate(size_t *fn_start, size_t *fn_end) {
 
   str.append(" TABLE ");
   str.append(table_name);
+
+  if (compressed) str.append(" COMPRESSED ");
 
   if (sql_ex->cs != nullptr) {
     str.append(" CHARACTER SET ");
