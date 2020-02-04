@@ -9991,6 +9991,13 @@ std::string THD::gen_trx_metadata() {
   std::string json = buf.GetString();
   boost::trim(json);
 
+  // verify doc json document
+  if (!doc.IsObject()) {
+    // NO_LINT_DEBUG
+    sql_print_error("Bad JSON format after adding meta data: %s", json.c_str());
+    DBUG_RETURN("");
+  }
+
   std::string comment_str =
       std::string("/*").append(TRX_META_DATA_HEADER).append(json).append("*/");
 
@@ -10038,7 +10045,11 @@ bool THD::add_db_metadata(rapidjson::Document &meta_data_root) {
 
   if (!local_db_metadata.empty()) {
     rapidjson::Document db_metadata_root;
-    if (db_metadata_root.Parse(local_db_metadata.c_str()).HasParseError()) {
+    // rapidjson doesn't like calling GetObject() on json non-object value
+    // The local_db_metadata format should similar to the following example:
+    // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
+    if (db_metadata_root.Parse(local_db_metadata.c_str()).HasParseError() ||
+        !db_metadata_root.IsObject()) {
       // NO_LINT_DEBUG
       sql_print_error("Exception while reading meta data: %s",
                       local_db_metadata.c_str());
