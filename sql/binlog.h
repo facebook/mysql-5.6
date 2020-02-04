@@ -427,10 +427,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
   PSI_mutex_key m_key_LOCK_sync;
   /** The instrumentation key to use for @ LOCK_xids. */
   PSI_mutex_key m_key_LOCK_xids;
+  PSI_mutex_key m_key_LOCK_non_xid_trxs;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
   PSI_cond_key m_key_prep_xids_cond;
+  /** The instrumentation key to use for @ non_xid_trxs_cond. */
+  PSI_cond_key m_key_non_xid_trxs_cond;
   /** The instrumentation key to use for opening the log file. */
   PSI_file_key m_key_file_log;
   /** The instrumentation key to use for opening the log index file. */
@@ -446,6 +449,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_mutex_t LOCK_sync;
   mysql_mutex_t LOCK_binlog_end_pos;
   mysql_mutex_t LOCK_xids;
+  mysql_mutex_t LOCK_non_xid_trxs;
   mysql_cond_t update_cond;
 
   std::atomic<my_off_t> atomic_binlog_end_pos;
@@ -532,6 +536,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   int32 get_prep_xids() { return m_atomic_prep_xids; }
 
+  uint32_t non_xid_trxs;
+  mysql_cond_t non_xid_trxs_cond;
+
+  void inc_non_xid_trxs(THD *thd);
+  void dec_non_xid_trxs(THD *thd);
+
+  int32 get_non_xid_trxs() {
+    mysql_mutex_assert_owner(&LOCK_non_xid_trxs);
+    return non_xid_trxs;
+  }
+
   inline uint get_sync_period() { return *sync_period_ptr; }
 
  public:
@@ -617,8 +632,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
       PSI_mutex_key key_LOCK_flush_queue, PSI_mutex_key key_LOCK_log,
       PSI_mutex_key key_LOCK_binlog_end_pos, PSI_mutex_key key_LOCK_sync,
       PSI_mutex_key key_LOCK_sync_queue, PSI_mutex_key key_LOCK_xids,
-      PSI_cond_key key_COND_done, PSI_cond_key key_update_cond,
-      PSI_cond_key key_prep_xids_cond, PSI_file_key key_file_log,
+      PSI_mutex_key key_LOCK_non_xid_trxs, PSI_cond_key key_COND_done,
+      PSI_cond_key key_update_cond, PSI_cond_key key_prep_xids_cond,
+      PSI_cond_key key_non_xid_trxs_cond, PSI_file_key key_file_log,
       PSI_file_key key_file_log_index, PSI_file_key key_file_log_cache,
       PSI_file_key key_file_log_index_cache) {
     m_key_COND_done = key_COND_done;
@@ -634,8 +650,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
     m_key_LOCK_commit = key_LOCK_commit;
     m_key_LOCK_sync = key_LOCK_sync;
     m_key_LOCK_xids = key_LOCK_xids;
+    m_key_LOCK_non_xid_trxs = key_LOCK_non_xid_trxs;
     m_key_update_cond = key_update_cond;
     m_key_prep_xids_cond = key_prep_xids_cond;
+    m_key_non_xid_trxs_cond = key_non_xid_trxs_cond;
     m_key_file_log = key_file_log;
     m_key_file_log_index = key_file_log_index;
     m_key_file_log_cache = key_file_log_cache;

@@ -1,3 +1,4 @@
+CALL mtr.add_suppression("Taking backup from .*");
 CREATE TABLE t1(c1 INT);
 INSERT INTO t1 VALUES(100);
 COMMIT;

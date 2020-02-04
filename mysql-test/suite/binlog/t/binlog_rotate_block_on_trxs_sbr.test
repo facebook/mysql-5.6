@@ -1,0 +1,9 @@
+# Verifies that trxs that do not generate xid (such ad trxs on blackhole
+# engines) block rotation of binlog files until the trx finished commiting (when
+# node fenbce is enabled through rpl_semisync_timeout)
+--source include/not_valgrind.inc
+--source include/have_log_bin.inc
+--source include/have_debug.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+
+--source binlog_rotate_block_on_trxs.inc
