@@ -1,0 +1,81 @@
+--let $tmp_dir= `SELECT @@GLOBAL.secure_file_priv`
+--let $input_file=$tmp_dir/t1.txt
+--let $input_file_zstd=$tmp_dir/t1.txt.zstd
+
+
+CREATE TABLE t1(x VARCHAR(1000));
+
+# fill table with repeating data for the highest compression
+INSERT INTO t1 VALUES (REPEAT("xyz", 100));
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
+
+--let $checksum1= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
+
+# dump data into file, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+
+TRUNCATE TABLE t1;
+
+# load data into t1, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+
+--let $checksum2= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
+
+# validate
+--let $assert_text= table t1 checksums match.
+--let $assert_cond= $checksum1 = $checksum2
+--source include/assert.inc
+
+TRUNCATE TABLE t1;
+
+# generate random input data for low compression
+--exec dd bs=10000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
+--exec head -n 100000  $tmp_dir/t1.tmp > $input_file
+--remove_file $tmp_dir/t1.tmp
+
+# load input data
+--replace_result $input_file INPUT_FILE
+--eval LOAD DATA INFILE '$input_file' INTO TABLE t1;
+
+--remove_file $input_file_zstd
+
+# dump data into file, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+
+--let $checksum1= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
+
+TRUNCATE TABLE t1;
+
+# load data into t1, compressed
+--replace_result $input_file_zstd INPUT_FILE_ZSTD
+--eval LOAD DATA INFILE '$input_file_zstd' INTO TABLE t1 COMPRESSED;
+
+--let $checksum2= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
+
+# validate
+--let $assert_text= table t1 checksums match.
+--let $assert_cond= $checksum1 = $checksum2
+--source include/assert.inc
+
+TRUNCATE TABLE t1;
+
+#
+# check error that compression does not work outside secure_file_priv path
+#
+
+--let $error_output_file=$tmp_dir/../error.txt.zstd
+--copy_file $input_file_zstd $error_output_file
+--replace_result $error_output_file ERROR_OUTPUT_FILE
+--error ER_OPTION_PREVENTS_STATEMENT
+--eval LOAD DATA INFILE '$error_output_file' INTO TABLE t1 COMPRESSED;
+
+# cleanup
+--remove_file $input_file
+--remove_file $input_file_zstd
+--remove_file $error_output_file
+DROP TABLE t1;

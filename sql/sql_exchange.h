@@ -83,6 +83,7 @@ class sql_exchange final {
   const char *file_name;
   bool dumpfile;
   bool compressed;
+  bool load_compressed;
   unsigned long skip_lines;
   const CHARSET_INFO *cs;
   sql_exchange(const char *name, bool dumpfile_flag,

@@ -125,7 +125,11 @@ static const String my_empty_string("", default_charset_info);
 
 sql_exchange::sql_exchange(const char *name, bool flag,
                            enum enum_filetype filetype_arg)
-    : file_name(name), dumpfile(flag), compressed(false), skip_lines(0) {
+    : file_name(name),
+      dumpfile(flag),
+      compressed(false),
+      load_compressed(false),
+      skip_lines(0) {
   field.opt_enclosed = false;
   filetype = filetype_arg;
   field.field_term = &default_field_term;

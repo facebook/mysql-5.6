@@ -320,6 +320,7 @@ struct DYNAMIC_STRING {
 
 struct IO_CACHE;
 typedef int (*IO_CACHE_CALLBACK)(IO_CACHE *);
+typedef int (*read_function_type)(IO_CACHE *, uchar *, size_t);
 
 struct IO_CACHE_SHARE {
   mysql_mutex_t mutex;      /* To sync on reads into buffer. */
@@ -409,7 +410,7 @@ struct IO_CACHE /* Used when caching files */
     my_b_read() will call read_function to fetch the data. read_function
     must never be invoked directly.
   */
-  int (*read_function)(IO_CACHE *, uchar *, size_t){nullptr};
+  read_function_type read_function{nullptr};
   /*
     Same idea as in the case of read_function, except my_b_write() needs to
     be replaced with my_b_append() for a SEQ_READ_APPEND cache
@@ -474,6 +475,7 @@ struct IO_CACHE /* Used when caching files */
   // Requires disk_sync = true.
   uint disk_sync_delay{0};
   class compressor *compressor{nullptr};
+  class decompressor *decompressor{nullptr};
 };
 #if defined(disk_writes)
 #pragma pop_macro("disk_writes")
@@ -790,6 +792,15 @@ extern bool open_cached_file(IO_CACHE *cache, const char *dir,
                              myf cache_myflags);
 extern bool real_open_cached_file(IO_CACHE *cache);
 extern void close_cached_file(IO_CACHE *cache);
+
+extern void io_cache_set_arg(IO_CACHE *cache, void *arg);
+extern void io_cache_set_read_function(IO_CACHE *cache,
+                                       read_function_type read_function);
+extern void io_cache_set_preread_callback(IO_CACHE *cache,
+                                          IO_CACHE_CALLBACK preread);
+extern void io_cache_set_preclose_callback(IO_CACHE *cache,
+                                           IO_CACHE_CALLBACK preclose);
+extern int end_io_cache_decompressor(IO_CACHE *info);
 
 enum UnlinkOrKeepFile { UNLINK_FILE, KEEP_FILE };
 #ifdef WIN32
