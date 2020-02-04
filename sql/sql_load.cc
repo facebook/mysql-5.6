@@ -149,7 +149,7 @@ class READ_INFO {
   READ_INFO(File file, size_t tot_length, const CHARSET_INFO *cs,
             const String &field_term, const String &line_start,
             const String &line_term, const String &enclosed, int escape,
-            bool get_it_from_net, bool is_fifo);
+            bool get_it_from_net, bool is_fifo, bool load_compressed);
   ~READ_INFO();
   bool read_field();
   bool read_fixed_length();
@@ -178,7 +178,7 @@ class READ_INFO {
     Arg must be set from Sql_cmd_load_table::execute_inner()
     since constructor does not see either the table or THD value
   */
-  void set_io_cache_arg(void *arg) { cache.arg = arg; }
+  void set_io_cache_arg(void *arg) { io_cache_set_arg(&cache, arg); }
 
   /**
     skip all data till the eof.
@@ -525,7 +525,8 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
       file, tot_length,
       m_exchange.cs ? m_exchange.cs : thd->variables.collation_database,
       *field_term, *m_exchange.line.line_start, *m_exchange.line.line_term,
-      *enclosed, info.escape_char, m_is_local_file, is_fifo);
+      *enclosed, info.escape_char, m_is_local_file, is_fifo,
+      m_exchange.load_compressed);
   if (read_info.error) {
     if (file >= 0) mysql_file_close(file, MYF(0));  // no files in net reading
     return true;                                    // Can't allocate buffers
@@ -631,7 +632,8 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
                   Transaction_ctx::STMT))
             (void)write_execute_load_query_log_event(
                 thd, table_list->db, table_list->table_name, is_concurrent,
-                handle_duplicates, transactional_table, errcode);
+                handle_duplicates, transactional_table, errcode,
+                m_exchange.load_compressed);
           else {
             Delete_file_log_event d(thd, db, transactional_table);
             (void)mysql_bin_log.write_event(&d);
@@ -670,7 +672,8 @@ bool Sql_cmd_load_table::execute_inner(THD *thd,
         int errcode = query_error_code(thd, killed_status == THD::NOT_KILLED);
         error = write_execute_load_query_log_event(
             thd, table_list->db, table_list->table_name, is_concurrent,
-            handle_duplicates, transactional_table, errcode);
+            handle_duplicates, transactional_table, errcode,
+            m_exchange.load_compressed);
       }
     }
     if (error) goto err;
@@ -694,7 +697,7 @@ err:
 bool Sql_cmd_load_table::write_execute_load_query_log_event(
     THD *thd, const char *db_arg, const char *table_name_arg,
     bool is_concurrent, enum enum_duplicates duplicates,
-    bool transactional_table, int errcode) {
+    bool transactional_table, int errcode, bool compressed) {
   const char *tbl = table_name_arg;
   const char *tdb = (thd->db().str != nullptr ? thd->db().str : db_arg);
   const String *query = nullptr;
@@ -715,7 +718,8 @@ bool Sql_cmd_load_table::write_execute_load_query_log_event(
   append_identifier(thd, &string_buf, table_name_arg, strlen(table_name_arg));
   tbl = string_buf.c_ptr_safe();
   Load_query_generator gen(thd, &m_exchange, tdb, tbl, is_concurrent,
-                           duplicates == DUP_REPLACE, thd->lex->is_ignore());
+                           duplicates == DUP_REPLACE, thd->lex->is_ignore(),
+                           compressed);
   query = gen.generate(&fname_start, &fname_end);
 
   Execute_load_query_log_event e(
@@ -1333,7 +1337,8 @@ char READ_INFO::unescape(char chr) {
 READ_INFO::READ_INFO(File file_par, size_t tot_length, const CHARSET_INFO *cs,
                      const String &field_term, const String &line_start,
                      const String &line_term, const String &enclosed_par,
-                     int escape, bool get_it_from_net, bool is_fifo)
+                     int escape, bool get_it_from_net, bool is_fifo,
+                     bool load_compressed)
     : file(file_par),
       buff_length(tot_length),
       escape_char(escape),
@@ -1389,10 +1394,10 @@ READ_INFO::READ_INFO(File file_par, size_t tot_length, const CHARSET_INFO *cs,
     error = true; /* purecov: inspected */
   } else {
     end_of_buff = buffer + buff_length;
-    if (init_io_cache(
+    if (init_io_cache_with_opt_compression(
             &cache, (get_it_from_net) ? -1 : file, 0,
             (get_it_from_net) ? READ_NET : (is_fifo ? READ_FIFO : READ_CACHE),
-            0L, true, MYF(MY_WME))) {
+            0L, true, MYF(MY_WME), load_compressed)) {
       my_free(buffer); /* purecov: inspected */
       buffer = nullptr;
       error = true;
@@ -1404,10 +1409,12 @@ READ_INFO::READ_INFO(File file_par, size_t tot_length, const CHARSET_INFO *cs,
       */
       need_end_io_cache = true;
 
-      if (get_it_from_net) cache.read_function = _my_b_net_read;
+      if (get_it_from_net) io_cache_set_read_function(&cache, _my_b_net_read);
 
-      if (mysql_bin_log.is_open())
-        cache.pre_read = cache.pre_close = (IO_CACHE_CALLBACK)log_loaded_block;
+      if (mysql_bin_log.is_open()) {
+        io_cache_set_preread_callback(&cache, log_loaded_block);
+        io_cache_set_preclose_callback(&cache, log_loaded_block);
+      }
     }
   }
 }
