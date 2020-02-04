@@ -1872,12 +1872,12 @@ class Fill_authinfo_list : public Do_THD_Impl {
                    ? nullptr
                    : thd->security_context()->priv_user().str) {}
 
-  virtual void operator()(THD *current_thd) override {
-    const auto current_sctx = current_thd->security_context();
+  virtual void operator()(THD *iteration_thd) override {
+    const auto current_sctx = iteration_thd->security_context();
     const auto current_sctx_user = current_sctx->user();
 
-    if (!current_thd->has_net_vio() &&
-        current_thd->system_thread == NON_SYSTEM_THREAD)
+    if (!iteration_thd->has_net_vio() &&
+        iteration_thd->system_thread == NON_SYSTEM_THREAD)
       return;
     if (m_user != nullptr && (current_sctx_user.str == nullptr ||
                               strcmp(current_sctx_user.str, m_user) != 0))
@@ -1886,13 +1886,13 @@ class Fill_authinfo_list : public Do_THD_Impl {
     restore_record(m_table, s->default_values);
 
     /* ID */
-    m_table->field[0]->store(static_cast<ulonglong>(current_thd->thread_id()),
+    m_table->field[0]->store(static_cast<ulonglong>(iteration_thd->thread_id()),
                              /*unsigned=*/true);
 
     /* USER */
     const char *val = current_sctx_user.str
                           ? current_sctx_user.str
-                          : (current_thd->system_thread != NON_SYSTEM_THREAD
+                          : (iteration_thd->system_thread != NON_SYSTEM_THREAD
                                  ? "system user"
                                  : "unauthenticated user");
     m_table->field[1]->store(val, strlen(val), system_charset_info);
@@ -1913,20 +1913,20 @@ class Fill_authinfo_list : public Do_THD_Impl {
       host_and_port.assign(current_sctx_host_or_ip.str,
                            current_sctx_host_or_ip.length);
     }
-    if (!host_and_port.empty() && current_thd->peer_port != 0) {
+    if (!host_and_port.empty() && iteration_thd->peer_port != 0) {
       host_and_port += ':';
-      host_and_port += std::to_string(current_thd->peer_port);
+      host_and_port += std::to_string(iteration_thd->peer_port);
     }
     m_table->field[2]->store(host_and_port.c_str(), host_and_port.size(),
                              system_charset_info);
 
     /* SSL */
-    const auto ssl = current_thd->has_net_vio_ssl_arg();
+    const auto ssl = iteration_thd->has_net_vio_ssl_arg();
     m_table->field[3]->store(ssl, /*unsigned=*/true);
 
     /* Info */
     const auto cert = THD::extract_peer_certificate_info(
-        current_thd, true /* printable format */);
+        iteration_thd, true /* printable format */);
     if (!cert.empty()) {
       const auto width = std::min(
           static_cast<std::size_t>(PROCESS_LIST_INFO_WIDTH), cert.size());
