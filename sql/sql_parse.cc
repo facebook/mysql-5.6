@@ -119,6 +119,9 @@
 
 #include "sql_parse_com_rpc.h" // handle_com_rpc, srv_session_end_statement
 #include "srv_session.h"
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
 
 #ifndef EMBEDDED_LIBRARY
 #include "perf_counters.h"
@@ -2619,7 +2622,7 @@ bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
   if (skip_core_dump_on_error) {
     opt_core_file = FALSE;
   }
-#ifdef PR_SET_DUMPABLE
+#ifdef HAVE_SYS_PRCTL_H
   if (!opt_core_file) {
     /* inform kernel that process is not dumpable */
     (void) prctl(PR_SET_DUMPABLE, 0);
