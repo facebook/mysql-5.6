@@ -50,6 +50,8 @@ reset master;
 SET @@debug="";
 reset master;
 
+let $saved_binlog_error_action=`SELECT @@GLOBAL.binlog_error_action`;
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 SET @@debug="d,simulate_find_log_pos_error";
 --error ER_UNKNOWN_TARGET_BINLOG
 purge binary logs to 'master-bin.000001';
@@ -57,6 +59,7 @@ purge binary logs to 'master-bin.000001';
 SET @@debug="";
 purge binary logs to 'master-bin.000001';
 
+--eval SET GLOBAL binlog_error_action = $saved_binlog_error_action;
 --echo ==== clean up ====
 --connection slave
 CHANGE MASTER TO MASTER_HOST = '127.0.0.1';
