@@ -84,6 +84,8 @@ void arch_remove_file(const char *file_path, const char *file_name) {
 #endif /* UNIV_DEBUG */
 
   os_file_delete(innodb_arch_file_key, path);
+
+  return;
 }
 
 void arch_remove_dir(const char *dir_path, const char *dir_name) {
@@ -109,7 +111,7 @@ void arch_remove_dir(const char *dir_path, const char *dir_name) {
   ut_ad(type == OS_FILE_TYPE_DIR);
 #endif /* UNIV_DEBUG */
 
-  os_file_scan_directory(path, arch_remove_file, true);
+  os_file_scan_directory(path, arch_remove_file, true, true);
 }
 
 /** Initialize Page and Log archiver system
@@ -307,7 +309,7 @@ void Arch_File_Ctx::delete_files(lsn_t begin_lsn) {
 
   if (exists) {
     ut_ad(type == OS_FILE_TYPE_DIR);
-    os_file_scan_directory(dir_name, arch_remove_file, true);
+    os_file_scan_directory(dir_name, arch_remove_file, true, true);
   }
 }
 

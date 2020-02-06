@@ -830,7 +830,7 @@ static dberr_t log_list_existing_files_low(const Log_files_context &ctx,
           ret.push_back(file_id);
         }
       },
-      false);
+      false, false);
 
   std::sort(ret.begin(), ret.end());
 

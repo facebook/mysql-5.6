@@ -1,0 +1,68 @@
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/big_test.inc
+
+#
+# This test drops big innodb table
+# which store in big file
+# which SSD usually very slow deletes
+#
+
+# no need to save/restore the var as the server is restarted
+SET GLOBAL local_infile = ON;
+
+--let $MYSQLD_DATADIR = `SELECT @@datadir`
+--let $tmp_dir = `SELECT @@global.secure_file_priv`
+--let $input_file = $tmp_dir/t1.txt
+--let $slowrmdir = $MYSQLD_DATADIR/.slowrm
+
+# set removal speed 100 Mbps
+# no need to save/restore the var as the server is restarted
+SET GLOBAL innodb_big_file_slow_removal_speed = 100;
+
+# activate debug synchronization point in the special background
+# thread intended for slow removal
+SET GLOBAL debug = '+d,ib_os_big_file_slow_removal';
+
+# create second big table 100MB
+CREATE TABLE t1 (x VARCHAR(100)) ENGINE=InnoDB;
+--exec dd bs=102400 count=1024 if=/dev/urandom | base64 -w 80 > $input_file
+--replace_result $input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$input_file' INTO TABLE t1
+
+# check that file exists
+--list_files $MYSQLD_DATADIR/test
+
+# delete table file
+DROP TABLE t1;
+
+# check that file was deleted
+--list_files $MYSQLD_DATADIR/test
+
+# if $slowrmdir exists then slowrm create hardlink
+--file_exists $slowrmdir
+
+# file is slowly removed with speed 100 Mbps
+# wait till file get removed
+SET debug_sync = 'now WAIT_FOR big_file_removed';
+
+# $slowrmdir should be empty
+--rmdir $slowrmdir
+
+# deactivate debug synchronization point
+SET GLOBAL debug = '-d,ib_os_big_file_slow_removal';
+
+# test small table size
+CREATE TABLE t1 (x VARCHAR(100)) ENGINE=InnoDB;
+DROP TABLE t1;
+
+# $slowrmdir should not be created
+--error 1
+--file_exists $slowrmdir
+
+# Check that bg thread does not prevent server shutdown
+# Restart the server
+--source include/restart_mysqld.inc
+
+# cleanup
+--remove_file $input_file
