@@ -23,7 +23,8 @@ VARIABLE_NAME LIKE '%slave%') AND
 'binlog_file_basedir', 'binlog_index_basedir',
 'read_only_slave', 'rpl_semi_sync_master_crash_if_active_trxs',
 'reset_seconds_behind_master', 'skip_flush_master_info',
-'skip_flush_relay_worker_info')) AND
+'skip_flush_relay_worker_info',
+'rpl_skip_tx_api')) AND
 (VARIABLE_NAME NOT LIKE 'rocksdb%')
 ORDER BY VARIABLE_NAME;
 

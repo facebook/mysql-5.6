@@ -1,0 +1,4 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_slave_updates
+--sync_binlog=1000 --relay_log_recovery=1
+--slave_use_idempotent_for_recovery=YES --default-storage-engine=innodb
+--slave_parallel_workers=0
