@@ -736,6 +736,7 @@ static PSI_thread_info all_innodb_threads[] = {
     PSI_KEY(log_write_notifier_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(log_flush_notifier_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(recv_writer_thread, 0, 0, PSI_DOCUMENT_ME),
+    PSI_KEY(srv_slowrm_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(srv_error_monitor_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(srv_lock_timeout_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(srv_master_thread, 0, 0, PSI_DOCUMENT_ME),
@@ -22550,6 +22551,12 @@ static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
                           "this is reached.",
                           NULL, NULL, 256, 0, 1024, 0);
 
+static MYSQL_SYSVAR_ULONG(big_file_slow_removal_speed, srv_slowrm_speed_mbps,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Big files slow removal speed in megabytes per "
+                          "second.",
+                          NULL, NULL, 100, 0, 100000, 0);
+
 #ifdef UNIV_DEBUG
 /** Use this variable innodb_interpreter to execute debug code within InnoDB.
 The output is stored in the innodb_interpreter_output variable. */
@@ -22800,6 +22807,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(lra_pages_before_sleep),
     MYSQL_SYSVAR(lra_sleep),
     MYSQL_SYSVAR(lra_n_spaces),
+    MYSQL_SYSVAR(big_file_slow_removal_speed),
     nullptr};
 
 mysql_declare_plugin(innobase){

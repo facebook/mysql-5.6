@@ -1,0 +1,32 @@
+SET @old_val = @@global.innodb_big_file_slow_removal_speed;
+SELECT @old_val;
+@old_val
+100
+SET @@global.innodb_big_file_slow_removal_speed = 10;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+10
+SET @@global.innodb_big_file_slow_removal_speed = 100000;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+100000
+SET @@global.innodb_big_file_slow_removal_speed = DEFAULT;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+100
+SET @@global.innodb_big_file_slow_removal_speed = -1;
+Warnings:
+Warning	1292	Truncated incorrect innodb_big_file_slow_removal_speed value: '-1'
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+0
+SET @@global.innodb_big_file_slow_removal_speed = 1000000;
+Warnings:
+Warning	1292	Truncated incorrect innodb_big_file_slow_removal_speed value: '1000000'
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+100000
+SET @@global.innodb_big_file_slow_removal_speed = @old_val;
+SELECT @@global.innodb_big_file_slow_removal_speed;
+@@global.innodb_big_file_slow_removal_speed
+100
