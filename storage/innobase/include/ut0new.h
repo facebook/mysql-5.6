@@ -133,6 +133,7 @@ InnoDB:
 #include <cstring>
 #include <limits>
 #include <map>
+#include <string>      /* std::basic_string */
 #include <type_traits> /* std::is_trivially_default_constructible */
 
 #include "my_basename.h"
@@ -1297,6 +1298,11 @@ class aligned_array_pointer : public aligned_memory<T_Type, T_Align_to> {
 
 namespace ut {
 
+/** Defining a string type from the string of std::, but with custom
+allocator. */
+using string =
+    std::basic_string<char, std::char_traits<char>, ut_allocator<char>>;
+
 /** Specialization of basic_ostringstream which uses ut_allocator. Please note
 that it's .str() method returns std::basic_string which is not std::string, so
 it has similar API (in particular .c_str()), but you can't assign it to regular,
@@ -1307,6 +1313,6 @@ using ostringstream =
 /** Specialization of vector which uses ut_allocator. */
 template <typename T>
 using vector = std::vector<T, ut_allocator<T>>;
-
 }  // namespace ut
+
 #endif /* ut0new_h */
