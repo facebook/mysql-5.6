@@ -2338,8 +2338,12 @@ bool append_item_to_jobs(slave_job_item *job_item, Slave_worker *worker,
        the precision of wake-up through @c select() may be greater or
        equal 1 ms. So don't expect the nap last a prescribed fraction of 1 ms
        in such case.
+       Sleep only if this flow control is enabled through system variable
+       rpl_slave_flow_control
     */
-    my_sleep(min<ulong>(1000, nap_weight * rli->mts_coordinator_basic_nap));
+    if (rpl_slave_flow_control) {
+      my_sleep(min<ulong>(1000, nap_weight * rli->mts_coordinator_basic_nap));
+    }
     rli->mts_wq_no_underrun_cnt++;
   }
 

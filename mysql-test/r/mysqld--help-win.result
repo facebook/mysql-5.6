@@ -1113,6 +1113,11 @@ The following options may be given as the first argument:
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
  not in the OS buffer cache
+ --rpl-slave-flow-control 
+ If this is set then underrun and overrun based flow
+ control between coordinator and worker threads in slave
+ instance will be enabled. Does not affect master instance
+ (Defaults to on; use --skip-rpl-slave-flow-control to disable.)
  --rpl-stop-slave-timeout=# 
  Timeout in seconds to wait for slave to stop before
  returning a warning.
@@ -1690,6 +1695,7 @@ report-port 0
 report-user (No default value)
 require-secure-transport FALSE
 rpl-read-size 8192
+rpl-slave-flow-control TRUE
 rpl-stop-slave-timeout 31536000
 safe-user-create FALSE
 schema-definition-cache 256

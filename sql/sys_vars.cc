@@ -7479,6 +7479,13 @@ static Sys_var_bool Sys_high_precision_processlist(
     "If set, MySQL will display the time in 1/1000000 of a second precision",
     SESSION_VAR(high_precision_processlist), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_bool Sys_rpl_slave_flow_control(
+    "rpl_slave_flow_control",
+    "If this is set then underrun and "
+    "overrun based flow control between coordinator and worker threads in "
+    "slave instance will be enabled. Does not affect master instance",
+    GLOBAL_VAR(rpl_slave_flow_control), CMD_LINE(OPT_ARG), DEFAULT(true));
+
 static const char *query_cache_type_names[] = {"OFF", "ON", "DEMAND", 0};
 
 /* Following variables are kept for compat of existing Java 5.6 clients */

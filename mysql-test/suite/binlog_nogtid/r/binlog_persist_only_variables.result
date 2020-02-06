@@ -108,6 +108,7 @@ SET PERSIST_ONLY rpl_semi_sync_master_whitelist = @@GLOBAL.rpl_semi_sync_master_
 SET PERSIST_ONLY rpl_semi_sync_slave_enabled = @@GLOBAL.rpl_semi_sync_slave_enabled;
 SET PERSIST_ONLY rpl_semi_sync_slave_trace_level = @@GLOBAL.rpl_semi_sync_slave_trace_level;
 SET PERSIST_ONLY rpl_send_buffer_size = @@GLOBAL.rpl_send_buffer_size;
+SET PERSIST_ONLY rpl_slave_flow_control = @@GLOBAL.rpl_slave_flow_control;
 SET PERSIST_ONLY rpl_stop_slave_timeout = @@GLOBAL.rpl_stop_slave_timeout;
 SET PERSIST_ONLY rpl_wait_for_semi_sync_ack = @@GLOBAL.rpl_wait_for_semi_sync_ack;
 SET PERSIST_ONLY session_track_gtids = @@GLOBAL.session_track_gtids;
@@ -233,6 +234,7 @@ RESET PERSIST rpl_semi_sync_master_whitelist;
 RESET PERSIST rpl_semi_sync_slave_enabled;
 RESET PERSIST rpl_semi_sync_slave_trace_level;
 RESET PERSIST rpl_send_buffer_size;
+RESET PERSIST rpl_slave_flow_control;
 RESET PERSIST rpl_stop_slave_timeout;
 RESET PERSIST rpl_wait_for_semi_sync_ack;
 RESET PERSIST session_track_gtids;
