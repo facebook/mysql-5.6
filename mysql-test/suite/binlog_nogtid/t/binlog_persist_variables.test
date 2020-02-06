@@ -62,9 +62,9 @@ INSERT INTO rplvars (varname, varvalue)
 # If this count differs, it means a variable has been added or removed.
 # In that case, this testcase needs to be updated accordingly.
 --echo
---let $expected = 114
---let $assert_text = Expect $expected variables in the table.
---let $assert_cond = [SELECT COUNT(*) as count FROM rplvars, count, 1] = $expected
+--let $expected=$countvars
+--let $assert_text= 'Expect \$expected variables in the table.'
+--let $assert_cond= [SELECT COUNT(*) as count FROM rplvars, count, 1] = $expected
 --source include/assert.inc
 
 --echo
@@ -85,9 +85,12 @@ while ( $varid <= $countvars )
 }
 
 --echo
---let $expected = 90
---let $assert_text = Expect $expected persisted variables in persisted_variables table.
---let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
+# Add variables that need to be excluded
+let $expected=`SELECT $countvars - 24 - (SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
+'_list_end_'
+))`;
+--let $assert_text= 'Expect \$expected persisted variables in persisted_variables table.'
+--let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
 --source include/assert.inc
 
 --echo
@@ -98,16 +101,16 @@ while ( $varid <= $countvars )
 --source include/wait_until_connected_again.inc
 
 --echo
---let $assert_text = Expect $expected persisted variables in persisted_variables table.'
---let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
+--let $assert_text= 'Expect \$expected persisted variables in persisted_variables table.'
+--let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
 --source include/assert.inc
 
---let $assert_text = Expect $expected persisted variables shown as PERSISTED in variables_info table.'
---let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source = "PERSISTED", count, 1] = $expected
+--let $assert_text= 'Expect \$expected persisted variables shown as PERSISTED in variables_info table.'
+--let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED", count, 1] = $expected
 --source include/assert.inc
 
---let $assert_text = Expect $expected persisted variables with matching persisted and global values.
---let $assert_cond = [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $expected
+--let $assert_text= 'Expect \$expected persisted variables with matching persisted and global values.'
+--let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $expected
 --source include/assert.inc
 
 

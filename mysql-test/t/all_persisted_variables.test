@@ -41,7 +41,23 @@ call mtr.add_suppression("\\[Warning\\] .*MY-\\d+.* Changing innodb_extend_and_i
 call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
-let $total_persistent_vars=449;
+let $total_persistent_vars= `SELECT $total_global_vars - 212`;
+
+# Add variable names that need to be excluded here
+let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
+'innodb_log_flush_events',
+'innodb_log_recent_closed_size',
+'innodb_log_recent_written_size',
+'innodb_log_write_events',
+'_list_end_'
+)`;
+let $total_persistent_vars= `SELECT $total_persistent_vars - $total_excluded_vars`;
+
+# Add Variables names that need to be included here
+let $total_included_vars=`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
+'_list_end_'
+)`;
+let $total_persistent_vars= `SELECT $total_persistent_vars + $total_included_vars`;
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
@@ -126,7 +142,7 @@ ORDER BY variable_name;
 
 --let $count_vars= `SELECT COUNT(*) FROM all_vars;`
 --echo
---let $assert_text= Expect 500+ variables in the table. Due to open Bugs, we are checking for fewer 
+--let $assert_text= Expect \$expected_var_count variables in the table. Due to open Bugs, we are checking for fewer
 --let $assert_cond= [SELECT COUNT(*) as count FROM all_vars, count, 1] = $expected_var_count
 --source include/assert.inc
 
@@ -152,7 +168,7 @@ SET PERSIST innodb_monitor_reset_all="latch";
 --enable_warnings
 --enable_query_log
 --echo
---let $assert_text= Expect $total_persistent_vars persisted variables in the table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables in the table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $total_persistent_vars
 --source include/assert.inc
 
@@ -166,15 +182,15 @@ SET PERSIST innodb_monitor_reset_all="latch";
 --source include/wait_until_connected_again.inc
 
 --echo
---let $assert_text= Expect $total_persistent_vars persisted variables in persisted_variables table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables in persisted_variables table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $total_persistent_vars
 --source include/assert.inc
 
---let $assert_text= Expect $total_persistent_vars persisted variables shown as PERSISTED in variables_info table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables shown as PERSISTED in variables_info table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED", count, 1] = $total_persistent_vars
 --source include/assert.inc
 
- --let $assert_text= Expect $total_persistent_vars persisted variables with matching peristed and global values.
+ --let $assert_text= Expect \$total_persistent_vars persisted variables with matching persisted and global values.
  --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $total_persistent_vars
 --source include/assert.inc
 
