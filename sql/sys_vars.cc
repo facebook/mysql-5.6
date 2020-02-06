@@ -5781,41 +5781,37 @@ static Sys_var_charptr Sys_gap_lock_log_path(
     "gap_lock_log_file",
     "Log file path where queries using Gap Lock are written. "
     "gap_lock_write_log needs to be turned on to write logs",
-    GLOBAL_VAR(opt_gap_lock_logname), CMD_LINE(REQUIRED_ARG),
-    IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD,
-    NOT_IN_BINLOG, ON_CHECK(check_log_path),
+    GLOBAL_VAR(opt_gap_lock_logname), CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET,
+    DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_log_path),
     ON_UPDATE(fix_gap_lock_log_file));
 
 static Sys_var_bool Sys_gap_lock_raise_error(
     "gap_lock_raise_error",
     "Raising an error when executing queries "
     "relying on Gap Lock. Default is false.",
-    SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG),
-    DEFAULT(false));
+    SESSION_VAR(gap_lock_raise_error), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_bool Sys_gap_lock_write_log(
     "gap_lock_write_log",
     "Writing to gap_lock_log_file when executing queries "
     "relying on Gap Lock. Default is false.",
-    SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG),
-    DEFAULT(false));
+    SESSION_VAR(gap_lock_write_log), CMD_LINE(OPT_ARG), DEFAULT(false));
 
-bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type)
-{
+bool set_gap_lock_exception_list(sys_var *, THD *, enum_var_type) {
   if (!opt_gap_lock_exception_list)
     gap_lock_exception_list.clear();
   else
-    gap_lock_exception_list = split(std::string(opt_gap_lock_exception_list),
-        ',');
+    gap_lock_exception_list =
+        split(std::string(opt_gap_lock_exception_list), ',');
   return false;
 }
 static PolyLock_rwlock PLock_gap_lock_exceptions(&LOCK_gap_lock_exceptions);
 static Sys_var_charptr Sys_gap_lock_exceptions(
     "gap_lock_exceptions",
     "List of tables (using regex) that are excluded from gap lock "
-    "detection.", GLOBAL_VAR(opt_gap_lock_exception_list), CMD_LINE(OPT_ARG),
-    IN_FS_CHARSET, DEFAULT(0), &PLock_gap_lock_exceptions,
-    NOT_IN_BINLOG, ON_CHECK(nullptr),
+    "detection.",
+    GLOBAL_VAR(opt_gap_lock_exception_list), CMD_LINE(OPT_ARG), IN_FS_CHARSET,
+    DEFAULT(0), &PLock_gap_lock_exceptions, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(set_gap_lock_exception_list));
 
 static Sys_var_have Sys_have_compress(
@@ -7270,7 +7266,6 @@ static Sys_var_charptr Sys_per_user_session_var_default_val(
     IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_per_user_session_var));
 
-
 static Sys_var_bool Sys_send_error_before_closing_timed_out_connection(
     "send_error_before_closing_timed_out_connection",
     "Send error before closing connections due to timeout.",
@@ -7479,34 +7474,33 @@ static Sys_var_bool Sys_high_precision_processlist(
     "If set, MySQL will display the time in 1/1000000 of a second precision",
     SESSION_VAR(high_precision_processlist), CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static const char *query_cache_type_names[]= { "OFF", "ON", "DEMAND", 0 };
+static const char *query_cache_type_names[] = {"OFF", "ON", "DEMAND", 0};
 
 /* Following variables are kept for compat of existing Java 5.6 clients */
-ulong query_cache_type=0;
+ulong query_cache_type = 0;
 static Sys_var_enum Sys_query_cache_type(
-       "query_cache_type",
-       "OFF = Don't cache or retrieve results. ON = Cache all results "
-       "except SELECT SQL_NO_CACHE ... queries. DEMAND = Cache only "
-       "SELECT SQL_CACHE ... queries",
-       READ_ONLY GLOBAL_VAR(query_cache_type), NO_CMD_LINE,
-       query_cache_type_names, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "query_cache_type",
+    "OFF = Don't cache or retrieve results. ON = Cache all results "
+    "except SELECT SQL_NO_CACHE ... queries. DEMAND = Cache only "
+    "SELECT SQL_CACHE ... queries",
+    READ_ONLY GLOBAL_VAR(query_cache_type), NO_CMD_LINE, query_cache_type_names,
+    DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
-ulong query_cache_size=0;
+ulong query_cache_size = 0;
 static Sys_var_ulong Sys_query_cache_size(
-       "query_cache_size",
-       "The memory allocated to store results from old queries",
-       READ_ONLY GLOBAL_VAR(query_cache_size), NO_CMD_LINE,
-       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "query_cache_size",
+    "The memory allocated to store results from old queries",
+    READ_ONLY GLOBAL_VAR(query_cache_size), NO_CMD_LINE,
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
 
 static Sys_var_enum Sys_tx_isolation(
-       "tx_isolation", "Default transaction isolation level",
-       READ_ONLY SESSION_VAR(transaction_isolation), NO_CMD_LINE,
-       tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "tx_isolation", "Default transaction isolation level",
+    READ_ONLY SESSION_VAR(transaction_isolation), NO_CMD_LINE,
+    tx_isolation_names, DEFAULT(ISO_REPEATABLE_READ), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_tx_read_only(
-    "tx_read_only",
-    "Set default transaction access mode to read only.",
-    READ_ONLY SESSION_VAR(transaction_read_only), NO_CMD_LINE,
-    DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "tx_read_only", "Set default transaction access mode to read only.",
+    READ_ONLY SESSION_VAR(transaction_read_only), NO_CMD_LINE, DEFAULT(0),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
