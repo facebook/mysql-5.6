@@ -917,10 +917,11 @@ typedef void (*os_dir_cbk_t)(const char *path, const char *name);
 for each entry.
 @param[in]	path		directory name as null-terminated string
 @param[in]	scan_cbk	use callback to be called for each entry
+@param[in]	handle_nodir	handle ENOENT error for the directory
 @param[in]	is_drop		attempt to drop the directory after scan
 @return true if call succeeds, false on error */
 bool os_file_scan_directory(const char *path, os_dir_cbk_t scan_cbk,
-                            bool is_delete);
+                            bool handle_nodir, bool is_delete);
 
 /** NOTE! Use the corresponding macro os_file_create_simple(), not directly
 this function!
@@ -953,6 +954,14 @@ null-terminated string
 pfs_os_file_t os_file_create_simple_no_error_handling_func(
     const char *name, ulint create_mode, ulint access_type, bool read_only,
     bool *success) MY_ATTRIBUTE((warn_unused_result));
+
+/** Does error handling when a file operation fails.
+@param[in]	name		name of a file or NULL
+@param[in]	operation	operation name that failed
+@param[in]	on_error_silent	if true then don't print any message to the log.
+@return true if we should retry the operation */
+bool os_file_handle_error_no_exit(const char *name, const char *operation,
+                                  bool on_error_silent);
 
 /** Tries to disable OS caching on an opened file descriptor.
 @param[in]	fd		file descriptor to alter
@@ -1879,6 +1888,13 @@ dberr_t os_get_free_space(const char *path, uint64_t &free_space);
 /** Submit buffered AIO requests on the given segment to the kernel. */
 void os_aio_linux_dispatch_read_array_submit();
 #endif /* LINUX_NATIVE_AIO */
+
+/** Move big file into special directory for subsequent slow removing
+@param[in]	filename	name of the file to move */
+int slowfileremove(const char *filename);
+
+/** A thread which slowly removes big files. */
+void srv_slowrm_thread();
 
 /** This function returns information about the specified file
 @param[in]	path		pathname of the file

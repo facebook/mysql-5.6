@@ -849,16 +849,6 @@ static bool os_file_handle_error(const char *name, const char *operation);
 @return DB_SUCCESS or error code */
 dberr_t os_file_punch_hole(os_file_t fh, os_offset_t off, os_offset_t len);
 
-/**
-Does error handling when a file operation fails.
-@param[in]	name		File name or NULL
-@param[in]	operation	Name of operation e.g., "read", "write"
-@param[in]	on_error_silent	if true then don't print any message to the log.
-@return true if we should retry the operation */
-static bool os_file_handle_error_no_exit(const char *name,
-                                         const char *operation,
-                                         bool on_error_silent);
-
 /** Decompress after a read and punch a hole in the file if it was a write
 @param[in]	type		IO context
 @param[in]	fh		Open file handle
@@ -3216,17 +3206,19 @@ bool os_file_create_directory(const char *pathname, bool fail_if_exists) {
 for each entry.
 @param[in]	path		directory name as null-terminated string
 @param[in]	scan_cbk	use callback to be called for each entry
+@param[in]	handle_nodir	handle ENOENT error for the directory
 @param[in]	is_drop		attempt to drop the directory after scan
 @return true if call succeeds, false on error */
 bool os_file_scan_directory(const char *path, os_dir_cbk_t scan_cbk,
-                            bool is_drop) {
+                            bool handle_nodir, bool is_drop) {
   DIR *directory;
   dirent *entry;
 
   directory = opendir(path);
 
   if (directory == nullptr) {
-    os_file_handle_error_no_exit(path, "opendir", false);
+    if (errno != ENOENT || handle_nodir)
+      os_file_handle_error_no_exit(path, "opendir", false);
     return (false);
   }
 
@@ -3495,7 +3487,7 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
     *exist = true;
   }
 
-  int ret = unlink(name);
+  int ret = slowfileremove(name);
 
   if (ret != 0 && errno == ENOENT) {
     if (exist != nullptr) {
@@ -3515,7 +3507,7 @@ bool os_file_delete_if_exists_func(const char *name, bool *exist) {
 @param[in]	name		file path as a null-terminated string
 @return true if success */
 bool os_file_delete_func(const char *name) {
-  int ret = unlink(name);
+  int ret = slowfileremove(name);
 
   if (ret != 0) {
     os_file_handle_error_no_exit(name, "delete", false);
@@ -5479,9 +5471,8 @@ static bool os_file_handle_error(const char *name, const char *operation) {
 @param[in]	operation	operation name that failed
 @param[in]	on_error_silent	if true then don't print any message to the log.
 @return true if we should retry the operation */
-static bool os_file_handle_error_no_exit(const char *name,
-                                         const char *operation,
-                                         bool on_error_silent) {
+bool os_file_handle_error_no_exit(const char *name, const char *operation,
+                                  bool on_error_silent) {
   /* Don't exit in case of unknown error */
   return (
       os_file_handle_error_cond_exit(name, operation, false, on_error_silent));
