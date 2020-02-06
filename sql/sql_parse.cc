@@ -3284,10 +3284,8 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       thd->initial_status_var = &old_status_var;
 
 #ifdef HAVE_JEMALLOC
-#ifndef EMBEDDED_LIBRARY
       extern std::atomic_bool need_update_malloc_status;
       need_update_malloc_status = true;
-#endif
 #endif
 
       if (!(res = show_precheck(thd, lex, true)))

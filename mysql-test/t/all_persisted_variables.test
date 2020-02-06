@@ -40,7 +40,15 @@
 call mtr.add_suppression("Failed to set up SSL because of the following SSL library error");
 
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%'`;
-let $total_persistent_vars=455;
+let $total_persistent_vars= `SELECT $total_global_vars - 205`;
+
+# 'enable_jemalloc_hpp' global system variable is only available when HAVE_JEMALLOC preprocessor
+# macro is defined (-DWITH_JEMALLOC cmake option is specified), so $total_persistent_vars should be
+# conditionally incremented here
+if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name = 'enable_jemalloc_hpp'`)
+{
+  --inc $total_persistent_vars
+}
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
@@ -124,7 +132,7 @@ ORDER BY variable_name;
 
 --let $count_vars= `SELECT COUNT(*) FROM all_vars;`
 --echo
---let $assert_text= Expect 500+ variables in the table. Due to open Bugs, we are checking for fewer 
+--let $assert_text= Expect \$expected_var_count variables in the table. Due to open Bugs, we are checking for fewer
 --let $assert_cond= [SELECT COUNT(*) as count FROM all_vars, count, 1] = $expected_var_count
 --source include/assert.inc
 
@@ -141,7 +149,7 @@ while($var_id <= $count_vars)
   --inc $var_id
 }
 # Below 4 tests have default value as "" and these variables can't be set to
-# empty value. Hence, setting them seperately.
+# empty value. Hence, setting them separately.
 SET PERSIST innodb_monitor_enable="latch";
 SET PERSIST innodb_monitor_disable="latch";
 SET PERSIST innodb_monitor_reset="latch";
@@ -150,7 +158,7 @@ SET PERSIST innodb_monitor_reset_all="latch";
 --enable_warnings
 --enable_query_log
 --echo
---let $assert_text= Expect $total_persistent_vars persisted variables in the table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables in the table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $total_persistent_vars
 --source include/assert.inc
 
@@ -164,15 +172,15 @@ SET PERSIST innodb_monitor_reset_all="latch";
 --source include/wait_until_connected_again.inc
 
 --echo
---let $assert_text= Expect $total_persistent_vars persisted variables in persisted_variables table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables in persisted_variables table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $total_persistent_vars
 --source include/assert.inc
 
---let $assert_text= Expect $total_persistent_vars persisted variables shown as PERSISTED in variables_info table.
+--let $assert_text= Expect \$total_persistent_vars persisted variables shown as PERSISTED in variables_info table.
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info WHERE variable_source="PERSISTED", count, 1] = $total_persistent_vars
 --source include/assert.inc
 
- --let $assert_text= Expect $total_persistent_vars persisted variables with matching peristed and global values.
+ --let $assert_text= Expect \$total_persistent_vars persisted variables with matching persisted and global values.
  --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.variables_info vi JOIN performance_schema.persisted_variables pv JOIN performance_schema.global_variables gv ON vi.variable_name=pv.variable_name AND vi.variable_name=gv.variable_name AND pv.variable_value=gv.variable_value WHERE vi.variable_source="PERSISTED", count, 1] = $total_persistent_vars
 --source include/assert.inc
 

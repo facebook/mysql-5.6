@@ -119,9 +119,6 @@ ENDIF()
 SET(rocksdb_static_libs )
 
 IF (WITH_JEMALLOC)
-  FIND_LIBRARY(JEMALLOC_LIBRARY
-    NAMES libjemalloc${PIC_EXT}.a jemalloc
-    HINTS ${WITH_JEMALLOC}/lib)
   SET(rocksdb_static_libs ${rocksdb_static_libs}
     ${JEMALLOC_LIBRARY})
   ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
