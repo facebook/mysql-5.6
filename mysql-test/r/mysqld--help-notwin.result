@@ -1284,6 +1284,10 @@ The following options may be given as the first argument:
  OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-access-hint-on-compaction-start=# 
  DBOptions::access_hint_on_compaction_start for RocksDB
+ --rocksdb-active-compaction-stats[=name] 
+ Enable or disable ROCKSDB_ACTIVE_COMPACTION_STATS plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
  --rocksdb-advise-random-on-open 
  DBOptions::advise_random_on_open for RocksDB
  (Defaults to on; use --skip-rocksdb-advise-random-on-open to disable.)
@@ -2466,6 +2470,7 @@ require-secure-transport FALSE
 reset-seconds-behind-master TRUE
 rocksdb ON
 rocksdb-access-hint-on-compaction-start 1
+rocksdb-active-compaction-stats ON
 rocksdb-advise-random-on-open TRUE
 rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
