@@ -121,6 +121,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <limits>
 #include <map>
 #include <memory>
+#include <string>      /* std::basic_string */
 #include <type_traits> /* std::is_trivially_default_constructible */
 #include <unordered_set>
 
@@ -2821,6 +2822,11 @@ make_shared_aligned(PSI_memory_key_t key, size_t alignment) {
           key, alignment, ut::Count{detail::bounded_array_size_v<T>}),
       Deleter{});
 }
+
+/** Defining a string type from the string of std::, but with custom
+allocator. */
+using string =
+    std::basic_string<char, std::char_traits<char>, ut::allocator<char>>;
 
 /** Specialization of basic_ostringstream which uses ut::allocator. Please note
     that it's .str() method returns std::basic_string which is not std::string,

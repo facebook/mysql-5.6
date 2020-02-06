@@ -794,6 +794,8 @@ static PSI_rwlock_info all_innodb_rwlocks[] = {
 performance schema instrumented if "UNIV_PFS_THREAD"
 is defined */
 static PSI_thread_info all_innodb_threads[] = {
+    PSI_THREAD_KEY(srv_slowrm_thread, "ib_srv_slowrm",
+                   PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME),
     PSI_THREAD_KEY(log_archiver_thread, "ib_log_arch", PSI_FLAG_SINGLETON, 0,
                    PSI_DOCUMENT_ME),
     PSI_THREAD_KEY(page_archiver_thread, "ib_page_arch", PSI_FLAG_SINGLETON, 0,
@@ -23008,6 +23010,12 @@ static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
                           "this is reached.",
                           NULL, NULL, 256, 0, 1024, 0);
 
+static MYSQL_SYSVAR_ULONG(big_file_slow_removal_speed, srv_slowrm_speed_mbps,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Big files slow removal speed in megabytes per "
+                          "second.",
+                          NULL, NULL, 100, 0, 100000, 0);
+
 #ifdef UNIV_DEBUG
 /** Use this variable innodb_interpreter to execute debug code within InnoDB.
 The output is stored in the innodb_interpreter_output variable. */
@@ -23262,6 +23270,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(lra_pages_before_sleep),
     MYSQL_SYSVAR(lra_sleep),
     MYSQL_SYSVAR(lra_n_spaces),
+    MYSQL_SYSVAR(big_file_slow_removal_speed),
     nullptr};
 
 mysql_declare_plugin(innobase){

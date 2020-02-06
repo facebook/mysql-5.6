@@ -26,4 +26,5 @@ thread/innodb/srv_lock_timeout_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	N
 thread/innodb/srv_master_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_monitor_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_purge_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
+thread/innodb/srv_slowrm_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
 thread/innodb/srv_worker_thread	BACKGROUND	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	YES
