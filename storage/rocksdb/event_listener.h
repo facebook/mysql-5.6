@@ -29,6 +29,9 @@ class Rdb_event_listener : public rocksdb::EventListener {
   explicit Rdb_event_listener(Rdb_ddl_manager *const ddl_manager)
       : m_ddl_manager(ddl_manager) {}
 
+  void OnCompactionBegin(rocksdb::DB *db,
+                         const rocksdb::CompactionJobInfo &ci) override;
+
   void OnCompactionCompleted(rocksdb::DB *db,
                              const rocksdb::CompactionJobInfo &ci) override;
   void OnFlushCompleted(rocksdb::DB *db,
