@@ -1,0 +1,157 @@
+############## mysql-test\t\rpl_skip_tx_api_basic.test ########
+#                                                                             #
+# Variable Name: rpl_skip_tx_api                              #
+# Scope: GLOBAL | SESSION                                                     #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value: False                                                        #
+# Range:                                                                      #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable                          #
+#              rpl_skip_tx_api that checks the behavior of    #
+#              this variable in the following ways                            #
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+####################################################################
+#   START OF rpl_skip_tx_api TESTS                 #
+####################################################################
+
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.rpl_skip_tx_api;
+SELECT @start_global_value;
+
+--echo '#--------------------FN_DYNVARS_063_01-------------------------#'
+########################################################################
+#     Display the DEFAULT value of rpl_skip_tx_api     #
+########################################################################
+
+SET @@global.rpl_skip_tx_api = TRUE;
+SET @@global.rpl_skip_tx_api = DEFAULT;
+SELECT @@global.rpl_skip_tx_api;
+
+
+--echo '#--------------------FN_DYNVARS_063_02-------------------------#'
+###############################################################################
+#     Check the DEFAULT value of rpl_skip_tx_api              #
+###############################################################################
+
+SET @@global.rpl_skip_tx_api = DEFAULT;
+SELECT @@global.rpl_skip_tx_api = 'FALSE';
+
+
+--echo '#--------------------FN_DYNVARS_063_03-------------------------#'
+##################################################################
+# Change the value of variable to a valid value for GLOBAL Scope #
+##################################################################
+
+SET @@global.rpl_skip_tx_api = ON;
+SELECT @@global.rpl_skip_tx_api;
+SET @@global.rpl_skip_tx_api = OFF;
+SELECT @@global.rpl_skip_tx_api;
+SET @@global.rpl_skip_tx_api = 0;
+SELECT @@global.rpl_skip_tx_api;
+SET @@global.rpl_skip_tx_api = 1;
+SELECT @@global.rpl_skip_tx_api;
+SET @@global.rpl_skip_tx_api = TRUE;
+SELECT @@global.rpl_skip_tx_api;
+SET @@global.rpl_skip_tx_api = FALSE;
+SELECT @@global.rpl_skip_tx_api;
+
+
+--echo '#-------------------FN_DYNVARS_063_04----------------------------#'
+###############################################################################
+#     Test if accessing session rpl_skip_tx_api gives error   #
+###############################################################################
+
+--error ER_GLOBAL_VARIABLE
+SET @@session.rpl_skip_tx_api = 0;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.rpl_skip_tx_api;
+
+--echo '#------------------FN_DYNVARS_063_05-----------------------#'
+###########################################################################
+# Change the value of rpl_skip_tx_api to an invalid value #
+###########################################################################
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = 'ONN';
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = "OFFF";
+--error ER_PARSE_ERROR
+SET @@global.rpl_skip_tx_api = OF;
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = TTRUE;
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = FELSE;
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = -1024;
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = 65536;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.rpl_skip_tx_api = 65530.34;
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@global.rpl_skip_tx_api = test;
+
+--echo '#------------------FN_DYNVARS_063_06-----------------------#'
+###############################################################################
+#   Check if the value in GLOBAL & SESSION Tables matches value in variable   #
+###############################################################################
+
+
+SELECT IF(@@global.rpl_skip_tx_api, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='rpl_skip_tx_api';
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT IF(@@session.rpl_skip_tx_api, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='rpl_skip_tx_api';
+
+--echo '#---------------------FN_DYNVARS_063_07----------------------#'
+###############################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable #
+###############################################################################
+
+
+SET @@global.rpl_skip_tx_api = TRUE;
+SELECT @@rpl_skip_tx_api = @@global.rpl_skip_tx_api;
+
+
+--echo '#---------------------FN_DYNVARS_063_08----------------------#'
+###################################################################
+#   Check if variable can be accessed with and without @@ sign    #
+###################################################################
+
+SET @@global.rpl_skip_tx_api = TRUE;
+SELECT @@rpl_skip_tx_api;
+--Error ER_UNKNOWN_TABLE
+SELECT local.rpl_skip_tx_api;
+--Error ER_UNKNOWN_TABLE
+SELECT session.rpl_skip_tx_api;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT rpl_skip_tx_api = @@session.rpl_skip_tx_api;
+
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.rpl_skip_tx_api = @start_global_value;
+SELECT @@global.rpl_skip_tx_api;
+
+
+#########################################################
+#      END OF rpl_skip_tx_api TESTS     #
+#########################################################
+

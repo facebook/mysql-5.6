@@ -1,23 +1,21 @@
 # Checks if the slave stops executing transactions when master's binlog format
-# is STATEMENT but rpl_skip_tx_api is enabled
---source include/have_rocksdb.inc
+# is STATEMENT but idempotent recovery is enabled
+--source include/assert_gtid_mode_on.inc
 --source include/master-slave.inc
 
-call mtr.add_suppression("Master's binlog format is not ROW but rpl_skip_tx_api is enabled on the slave");
+call mtr.add_suppression("Master's binlog format is not ROW but slave_use_idempotent_for_recovery is enabled on the slave");
 
 --source include/rpl_connection_slave.inc
-set @save.rpl_skip_tx_api = @@global.rpl_skip_tx_api;
-set global rpl_skip_tx_api=ON;
+--source include/have_slave_use_idempotent_for_recovery.inc
 
 --source include/rpl_connection_master.inc
-set local rocksdb_unsafe_for_binlog=1;
 create table t1(a int);
 set session binlog_format=STATEMENT;
 insert into t1 values(1);
 
 # Wait till we hit the binlog format mismatch error
 --source include/rpl_connection_slave.inc
---let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA) # 1756
+--let $slave_sql_errno= convert_error(ER_MTS_INCONSISTENT_DATA)  # 1756
 --let $show_slave_sql_error= 1
 --source include/wait_for_slave_sql_error.inc
 
@@ -27,8 +25,9 @@ insert into t1 values(1);
 select * from t1;
 
 --source include/rpl_connection_slave.inc
-# Turn off rpl_skip_tx_api and start the slave again
-set global rpl_skip_tx_api=OFF;
+# Turn off idempotent recovery and start the slave again
+set @save.slave_use_idempotent_for_recovery = @@global.slave_use_idempotent_for_recovery;
+set global slave_use_idempotent_for_recovery=no;
 --source include/start_slave.inc
 
 --source include/rpl_connection_master.inc
@@ -36,11 +35,11 @@ set global rpl_skip_tx_api=OFF;
 
 --source include/rpl_connection_slave.inc
 # Print table again
---echo "Table after error fixed"
+echo "Table after error fixed";
 select * from t1;
 
 # Cleanup
-set @@global.rpl_skip_tx_api = @save.rpl_skip_tx_api;
+set @@global.slave_use_idempotent_for_recovery = @save.slave_use_idempotent_for_recovery;
 
 --source include/rpl_connection_master.inc
 drop table t1;
