@@ -73,6 +73,13 @@ void Rdb_event_listener::update_index_stats(
   m_ddl_manager->adjust_stats(stats);
 }
 
+void Rdb_event_listener::OnCompactionBegin(
+    rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
+    const rocksdb::CompactionJobInfo &ci) {
+  // pull the compaction stats of ongoing compaction job
+  active_compaction_stats.put(ci.thread_id, ci);
+}
+
 void Rdb_event_listener::OnCompactionCompleted(
     rocksdb::DB *db MY_ATTRIBUTE((__unused__)),
     const rocksdb::CompactionJobInfo &ci) {
@@ -88,6 +95,8 @@ void Rdb_event_listener::OnCompactionCompleted(
         extract_index_stats(ci.output_files, ci.table_properties),
         extract_index_stats(ci.input_files, ci.table_properties));
   }
+  // remove compaction stats after the compaction job is finished
+  active_compaction_stats.remove(ci.thread_id);
 }
 
 void Rdb_event_listener::OnFlushCompleted(

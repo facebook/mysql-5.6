@@ -900,11 +900,69 @@ static int rdb_i_s_compact_stats_fill_table(
   DBUG_RETURN(ret);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_ACTIVE_COMPACTION_STATS dynamic table
+ */
+static int rdb_i_s_active_compact_stats_fill_table(
+    my_core::THD *thd, my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
+  DBUG_ENTER_FUNC();
+  auto ongoing_compaction = active_compaction_stats.get_current_stats();
+
+  for (const auto &it : ongoing_compaction) {
+    Field **field = tables->table->field;
+    DBUG_ASSERT(field != nullptr);
+    std::ostringstream oss;
+    std::copy(it.second.input_files.begin(), it.second.input_files.end(),
+              std::ostream_iterator<std::string>(oss, ","));
+    std::string input_files(oss.str());
+    oss.clear();
+    std::copy(it.second.output_files.begin(), it.second.output_files.end(),
+              std::ostream_iterator<std::string>(oss, ","));
+    std::string output_files(oss.str());
+    std::string compression_type;
+    GetStringFromCompressionType(&compression_type, it.second.compression);
+    field[0]->store(it.first, true);
+    field[1]->store(it.second.cf_name.c_str(), it.second.cf_name.length(),
+                    system_charset_info);
+    auto input_files_length =
+        input_files.length() > 0 ? input_files.length() - 1 : 0;
+    field[2]->store(input_files.c_str(), input_files_length,
+                    system_charset_info);
+    auto output_files_length =
+        output_files.length() > 0 ? output_files.length() - 1 : 0;
+    field[3]->store(output_files.c_str(), input_files_length,
+                    system_charset_info);
+    field[4]->store(compression_type.c_str(), output_files_length,
+                    system_charset_info);
+
+    int ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+
+    if (ret != 0) {
+      DBUG_RETURN(ret);
+    }
+  }
+  DBUG_RETURN(0);
+}
+
 static ST_FIELD_INFO rdb_i_s_compact_stats_fields_info[] = {
     ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("LEVEL", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("TYPE", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("VALUE", sizeof(double), MYSQL_TYPE_DOUBLE, 0),
+    ROCKSDB_FIELD_INFO_END};
+
+static ST_FIELD_INFO rdb_i_s_active_compact_stats_fields_info[] = {
+    ROCKSDB_FIELD_INFO("THREAD_ID", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("CF_NAME", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INPUT_FILES", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_FILES", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("COMPACTION_REASON", FN_REFLEN + 1, MYSQL_TYPE_STRING,
+                       0),
     ROCKSDB_FIELD_INFO_END};
 
 namespace  // anonymous namespace = not visible outside this source file
@@ -1099,6 +1157,20 @@ static int rdb_i_s_compact_stats_init(void *p) {
 
   schema->fields_info = rdb_i_s_compact_stats_fields_info;
   schema->fill_table = rdb_i_s_compact_stats_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int rdb_i_s_active_compact_stats_init(void *p) {
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER_FUNC();
+  DBUG_ASSERT(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_active_compact_stats_fields_info;
+  schema->fill_table = rdb_i_s_active_compact_stats_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -1905,6 +1977,23 @@ struct st_mysql_plugin rdb_i_s_compact_stats = {
     "RocksDB compaction stats",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_compact_stats_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_active_compact_stats = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_ACTIVE_COMPACTION_STATS",
+    "Facebook",
+    "RocksDB active compaction stats",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_active_compact_stats_init,
     nullptr, /* uninstall */
     rdb_i_s_deinit,
     0x0001,  /* version number (0.1) */
