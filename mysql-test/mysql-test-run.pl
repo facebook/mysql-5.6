@@ -5410,6 +5410,7 @@ sub mysqld_arguments ($$$) {
 sub mysqld_start ($$) {
   my $mysqld=            shift;
   my $extra_opts=        shift;
+  $ENV{SASL_PATH} = '/usr/local/fbprojects/packages/mysql_raft.sasl_plain/latest/sasl2';
 
   mtr_verbose(My::Options::toStr("mysqld_start", @$extra_opts));
 

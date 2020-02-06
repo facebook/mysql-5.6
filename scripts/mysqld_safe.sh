@@ -980,8 +980,8 @@ do
   # compiled sasl plugins in the directory.
   # This is temporary till we figure out why some plugins
   # although present in installed paths are not discovered
-  if [ -d "/root/sasl2" ]; then
-    export SASL_PATH=/root/sasl2
+  if [ -d "/usr/local/fbprojects/packages/mysql_raft.sasl_plain/latest/sasl2" ]; then
+    export SASL_PATH=/usr/local/fbprojects/packages/mysql_raft.sasl_plain/latest/sasl2
   fi
   eval_log_error "$cmd"
 

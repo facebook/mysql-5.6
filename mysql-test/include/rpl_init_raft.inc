@@ -1,11 +1,6 @@
 
 # TODO: check if the topology is supported in raft
 
-# Check if SASL path is set in env
-perl;
-  my $sasl_path= $ENV{'SASL_PATH'} or die "[ERROR] SASL_PATH not set, set it using export SASL_PATH=/path/to/sasl/libs";
-EOF
-
 --let $instances= "instances": "
 
 --let $_rpl_server= $rpl_server_count
