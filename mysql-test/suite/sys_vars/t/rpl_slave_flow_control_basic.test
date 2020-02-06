@@ -1,0 +1,125 @@
+###############################################################################
+# Variable Name: rpl_slave_flow_control
+# Scope: global
+# Access Type: dynamic
+# Data Type: boolean
+#
+# Description: Test case for checking the behavior of dynamic system variable
+#              "fast_integer_to_string", specifically regarding:
+#              - Scope & access type
+#              - Valid & default value
+#              - Invalid values
+#              - Required privileges
+#
+###############################################################################
+
+--source include/count_sessions.inc
+
+# Save initial value
+--let $saved_rpl_slave_flow_control= `SELECT @@global.rpl_slave_flow_control`
+
+#
+# Scope: Global only
+#
+SELECT COUNT(@@GLOBAL.rpl_slave_flow_control);
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.rpl_slave_flow_control);
+
+--disable_warnings
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_slave_flow_control';
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE VARIABLE_NAME='rpl_slave_flow_control';
+--enable_warnings
+
+#
+# Access Type: Dynamic
+#
+SET GLOBAL rpl_slave_flow_control= ON;
+--let $assert_text= 'rpl_slave_flow_control is a dynamic variable'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "1"
+--source include/assert.inc
+
+#
+# Valid values and Default value
+#
+SET GLOBAL rpl_slave_flow_control= OFF;
+--let $assert_text= 'rpl_slave_flow_control should be OFF'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "0"
+--source include/assert.inc
+
+SET GLOBAL rpl_slave_flow_control= ON;
+--let $assert_text= 'rpl_slave_flow_control should be ON'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "1"
+--source include/assert.inc
+
+SET GLOBAL rpl_slave_flow_control= 0;
+--let $assert_text= 'rpl_slave_flow_control should be OFF'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "0"
+--source include/assert.inc
+
+SET GLOBAL rpl_slave_flow_control= 1;
+--let $assert_text= 'rpl_slave_flow_control should be ON'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "1"
+--source include/assert.inc
+
+SET GLOBAL rpl_slave_flow_control= DEFAULT;
+--let $assert_text= 'rpl_slave_flow_control should be ON'
+--let $assert_cond= "[SELECT @@GLOBAL.rpl_slave_flow_control]" = "1"
+--source include/assert.inc
+
+#
+# Invalid values
+#
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= NULL;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= '';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= -1;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= 1.0;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= 'GARBAGE';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL rpl_slave_flow_control= 2;
+
+--echo Expect value still set to "ON"
+SELECT @@global.rpl_slave_flow_control;
+
+#
+# Privileges
+#
+
+CREATE USER user1;
+--connect(conn_user1,localhost,user1,,)
+
+--Error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL rpl_slave_flow_control=ON;
+
+--connection default
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
+--connection conn_user1
+SET GLOBAL rpl_slave_flow_control=ON;
+
+--connection default
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM user1@'%';
+--connection conn_user1
+# FAST_INTEGER_TO_STRING_ADMIN is not enough
+--Error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL rpl_slave_flow_control=OFF;
+
+--connection default
+--disconnect conn_user1
+DROP USER user1;
+
+# Clean up
+--disable_query_log
+--eval SET GLOBAL rpl_slave_flow_control= $saved_rpl_slave_flow_control
+--enable_query_log
+
+--source include/wait_until_count_sessions.inc

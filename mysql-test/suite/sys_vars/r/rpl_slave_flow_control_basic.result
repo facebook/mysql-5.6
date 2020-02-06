@@ -1,0 +1,48 @@
+SELECT COUNT(@@GLOBAL.rpl_slave_flow_control);
+COUNT(@@GLOBAL.rpl_slave_flow_control)
+1
+SELECT COUNT(@@SESSION.rpl_slave_flow_control);
+ERROR HY000: Variable 'rpl_slave_flow_control' is a GLOBAL variable
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME='rpl_slave_flow_control';
+VARIABLE_NAME
+rpl_slave_flow_control
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE VARIABLE_NAME='rpl_slave_flow_control';
+VARIABLE_NAME
+rpl_slave_flow_control
+SET GLOBAL rpl_slave_flow_control= ON;
+include/assert.inc ['rpl_slave_flow_control is a dynamic variable']
+SET GLOBAL rpl_slave_flow_control= OFF;
+include/assert.inc ['rpl_slave_flow_control should be OFF']
+SET GLOBAL rpl_slave_flow_control= ON;
+include/assert.inc ['rpl_slave_flow_control should be ON']
+SET GLOBAL rpl_slave_flow_control= 0;
+include/assert.inc ['rpl_slave_flow_control should be OFF']
+SET GLOBAL rpl_slave_flow_control= 1;
+include/assert.inc ['rpl_slave_flow_control should be ON']
+SET GLOBAL rpl_slave_flow_control= DEFAULT;
+include/assert.inc ['rpl_slave_flow_control should be ON']
+SET GLOBAL rpl_slave_flow_control= NULL;
+ERROR 42000: Variable 'rpl_slave_flow_control' can't be set to the value of 'NULL'
+SET GLOBAL rpl_slave_flow_control= '';
+ERROR 42000: Variable 'rpl_slave_flow_control' can't be set to the value of ''
+SET GLOBAL rpl_slave_flow_control= -1;
+ERROR 42000: Variable 'rpl_slave_flow_control' can't be set to the value of '-1'
+SET GLOBAL rpl_slave_flow_control= 1.0;
+ERROR 42000: Incorrect argument type to variable 'rpl_slave_flow_control'
+SET GLOBAL rpl_slave_flow_control= 'GARBAGE';
+ERROR 42000: Variable 'rpl_slave_flow_control' can't be set to the value of 'GARBAGE'
+SET GLOBAL rpl_slave_flow_control= 2;
+ERROR 42000: Variable 'rpl_slave_flow_control' can't be set to the value of '2'
+Expect value still set to "ON"
+SELECT @@global.rpl_slave_flow_control;
+@@global.rpl_slave_flow_control
+1
+CREATE USER user1;
+SET GLOBAL rpl_slave_flow_control=ON;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
+SET GLOBAL rpl_slave_flow_control=ON;
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM user1@'%';
+SET GLOBAL rpl_slave_flow_control=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+DROP USER user1;
