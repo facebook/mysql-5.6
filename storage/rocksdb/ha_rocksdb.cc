@@ -2338,18 +2338,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(trace_block_cache_access),
     nullptr};
 
-static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
-    my_core::THD *const thd) {
-  rocksdb::WriteOptions opt;
-
-  opt.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
-  opt.disableWAL = THDVAR(thd, write_disable_wal);
-  opt.ignore_missing_column_families =
-      THDVAR(thd, write_ignore_missing_column_families);
-
-  return opt;
-}
-
 static int rocksdb_compact_column_family(
     THD *const thd, struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
     void *const var_ptr MY_ATTRIBUTE((__unused__)),
@@ -11774,69 +11762,6 @@ int ha_rocksdb::delete_table(const char *const tablename,
   }
 
   DBUG_RETURN(delete_table(tbl));
-}
-
-int ha_rocksdb::remove_rows(Rdb_tbl_def *const tbl) {
-  const rocksdb::WriteOptions wo =
-      rdb_get_rocksdb_write_options(handler::ha_thd());
-
-  rocksdb::ReadOptions opts;
-  opts.total_order_seek = true;
-  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-
-  char key_buf[MAX_KEY_LENGTH];
-  uint key_len;
-  ulonglong bytes_written = 0;
-
-  uchar lower_bound_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  uchar upper_bound_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  rocksdb::Slice lower_bound_slice;
-  rocksdb::Slice upper_bound_slice;
-
-  /*
-    Remove all records in each index.
-    (This is is not crash-safe, but it doesn't matter, because bulk row
-    deletion will be handled on rocksdb side)
-  */
-  for (uint i = 0; i < tbl->m_key_count; i++) {
-    const Rdb_key_def &kd = *tbl->m_key_descr_arr[i];
-    kd.get_infimum_key(reinterpret_cast<uchar *>(key_buf), &key_len);
-    rocksdb::ColumnFamilyHandle *cf = kd.get_cf();
-    const rocksdb::Slice table_key(key_buf, key_len);
-    setup_iterator_bounds(kd, table_key, Rdb_key_def::INDEX_NUMBER_SIZE,
-                          lower_bound_buf, upper_bound_buf, &lower_bound_slice,
-                          &upper_bound_slice);
-    DBUG_ASSERT(key_len == Rdb_key_def::INDEX_NUMBER_SIZE);
-    opts.iterate_lower_bound = &lower_bound_slice;
-    opts.iterate_upper_bound = &upper_bound_slice;
-    std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(opts, cf));
-
-    it->Seek(table_key);
-    while (it->Valid()) {
-      const rocksdb::Slice key = it->key();
-      if (!kd.covers_key(key)) {
-        break;
-      }
-
-      rocksdb::Status s;
-      if (can_use_single_delete(i)) {
-        s = rdb->SingleDelete(wo, cf, key);
-      } else {
-        s = rdb->Delete(wo, cf, key);
-      }
-
-      if (!s.ok()) {
-        return tx->set_status_error(table->in_use, s, *m_pk_descr, m_tbl_def,
-                                    m_table_handler);
-      }
-      bytes_written += key.size();
-      it->Next();
-    }
-  }
-
-  tx->update_bytes_written(bytes_written);
-
-  return HA_EXIT_SUCCESS;
 }
 
 /**
