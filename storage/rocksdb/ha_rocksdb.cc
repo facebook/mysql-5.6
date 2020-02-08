@@ -3840,13 +3840,14 @@ class Rdb_ha_data {
   Rdb_ha_data()
       : checkpoint_dir(nullptr), trx(nullptr), disable_file_deletions(false) {}
 
+  ~Rdb_ha_data() {
+    clear_checkpoint_dir();
+  }
+
   const char *get_checkpoint_dir() const { return checkpoint_dir; }
 
   void set_checkpoint_dir(const char *checkpoint_dir_) {
-    if (checkpoint_dir != nullptr) {
-      free(checkpoint_dir);
-      checkpoint_dir = nullptr;
-    }
+    clear_checkpoint_dir();
     if (checkpoint_dir_ != nullptr) {
       checkpoint_dir = strdup(checkpoint_dir_);
     }
@@ -3859,6 +3860,14 @@ class Rdb_ha_data {
   bool get_disable_file_deletions() const { return disable_file_deletions; }
 
   void set_disable_file_deletions(bool d) { disable_file_deletions = d; }
+
+ private:
+  void clear_checkpoint_dir() {
+    if (checkpoint_dir) {
+      free(checkpoint_dir);
+      checkpoint_dir = nullptr;
+    }
+  }
 
  private:
   char *checkpoint_dir;
