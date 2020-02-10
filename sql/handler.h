@@ -7004,9 +7004,7 @@ class ha_tablespace_statistics {
 class Regex_list_handler
 {
  private:
-#if defined(HAVE_PSI_INTERFACE)
   const PSI_rwlock_key& m_key;
-#endif
 
   char m_delimiter;
   std::string m_bad_pattern_str;
@@ -7018,19 +7016,16 @@ class Regex_list_handler
   Regex_list_handler& operator=(const Regex_list_handler& other)= delete;
 
  public:
-#if defined(HAVE_PSI_INTERFACE)
   Regex_list_handler(const PSI_rwlock_key& key,
                      char delimiter= ',') :
     m_key(key),
-#else
-  Regex_list_handler(char delimiter= ',') :
-#endif
     m_delimiter(delimiter),
     m_bad_pattern_str(""),
     m_pattern(nullptr)
   {
     mysql_rwlock_init(key, &m_rwlock);
   }
+
 
   ~Regex_list_handler()
   {
