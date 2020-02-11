@@ -236,6 +236,9 @@ static bool can_handle_expired_passwords = true;
 static bool use_async_client = false;
 static bool enable_async_client = false;
 
+// To enable sending CLIENT_INTERACTIVE in client flags
+static bool enable_client_interactive = false;
+
 // Secondary engine options
 static const char *opt_load_pool = 0;
 static const char *opt_offload_count_file;
@@ -623,6 +626,7 @@ enum enum_commands {
   Q_QUERY_ATTRS_ADD,
   Q_QUERY_ATTRS_DELETE,
   Q_QUERY_ATTRS_RESET,
+  Q_ENABLE_CLIENT_INTERACTIVE,
   Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER,
   Q_UNKNOWN, /* Unknown command.   */
   Q_COMMENT, /* Comments, ignored. */
@@ -660,7 +664,8 @@ const char *command_names[] = {
     "send_shutdown", "shutdown_server", "result_format", "move_file",
     "remove_files_wildcard", "copy_files_wildcard", "send_eval", "output",
     "reset_connection", "query_attrs_add", "query_attrs_delete",
-    "query_attrs_reset", "dump_timed_out_connection_socket_buffer",
+    "query_attrs_reset", "enable_client_interactive",
+    "dump_timed_out_connection_socket_buffer",
 
     0};
 
@@ -1091,6 +1096,7 @@ static MYSQL *mysql_real_connect_wrapper(MYSQL *mysql, const char *host,
                                          const char *db, uint port,
                                          const char *unix_socket,
                                          ulong client_flag) {
+  client_flag |= (enable_client_interactive ? CLIENT_INTERACTIVE : 0);
   if (enable_async_client)
     return async_mysql_real_connect_wrapper(mysql, host, user, passwd, db, port,
                                             unix_socket, client_flag);
@@ -10240,6 +10246,9 @@ int main(int argc, char **argv) {
           mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_RESET, 0);
           break;
 
+        case Q_ENABLE_CLIENT_INTERACTIVE:
+          enable_client_interactive = true;
+          /* fallthrough */
         default:
           processed = 0;
           break;
