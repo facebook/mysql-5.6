@@ -1,0 +1,39 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection master]
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (REPEAT('a', 1024 * 1024));
+DROP TABLE t1;
+include/sync_slave_sql_with_master.inc
+=============================================================
+Show the slave
+=============================================================
+[connection master]
+SELECT * FROM information_schema.socket_diag_slaves;
+ID	USER	STATE	LOCAL_IP	REMOTE_IP	UID	INODE	RQUEUE	WQUEUE	RETRANS	LOST	TOTAL_RETRANS	SERVER_ID	HOST	PORT	MASTER_ID	SLAVE_UUID	IS_SEMI_SYNC	REPLICATION STATUS
+<id>	root	<state>	<local_ip>	<remote_ip>	<uid>	<inode>	<rqueue>	<wqueue>	<retrans>	<lost>	<total_retrans>	2	127.0.0.1	<host>	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
+=============================================================
+Verify stopped slave are removed from socket_diag
+=============================================================
+[connection slave]
+include/stop_slave.inc
+[connection master]
+CREATE TABLE t_dummy(a int);
+DROP TABLE t_dummy;
+SELECT * FROM information_schema.socket_diag_slaves;
+ID	USER	STATE	LOCAL_IP	REMOTE_IP	UID	INODE	RQUEUE	WQUEUE	RETRANS	LOST	TOTAL_RETRANS	SERVER_ID	HOST	PORT	MASTER_ID	SLAVE_UUID	IS_SEMI_SYNC	REPLICATION STATUS
+=============================================================
+Verify started slave are showing up again from socket_diag
+=============================================================
+[connection slave]
+include/start_slave.inc
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+SELECT * FROM information_schema.socket_diag_slaves;
+ID	USER	STATE	LOCAL_IP	REMOTE_IP	UID	INODE	RQUEUE	WQUEUE	RETRANS	LOST	TOTAL_RETRANS	SERVER_ID	HOST	PORT	MASTER_ID	SLAVE_UUID	IS_SEMI_SYNC	REPLICATION STATUS
+<id>	root	<state>	<local_ip>	<remote_ip>	<uid>	<inode>	<rqueue>	<wqueue>	<retrans>	<lost>	<total_retrans>	2	127.0.0.1	<host>	1	SLAVE_UUID	0	REPL_STATUS_ASYNC
+include/rpl_end.inc

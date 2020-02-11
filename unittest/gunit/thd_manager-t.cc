@@ -33,6 +33,7 @@
 #include "my_inttypes.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
+#include "sql/rpl_master.h"
 #include "sql/sql_class.h"
 #include "unittest/gunit/thread_utils.h"
 
@@ -49,9 +50,10 @@ class ThreadManagerTest : public ::testing::Test {
     Global_THD_manager::create_instance();
     thd_manager = Global_THD_manager::get_instance();
     thd_manager->set_unit_test();
+    init_slave_list();
   }
 
-  void TearDown() {}
+  void TearDown() { end_slave_list(); }
 
   Global_THD_manager *thd_manager;
 
