@@ -3490,7 +3490,6 @@ class ha_statistics {
   */
   uint mrr_length_per_rec;
 
-  
   /*
    Per table io bytes counter
    */
@@ -4351,6 +4350,8 @@ class handler {
   bool ha_is_record_buffer_wanted(ha_rows *const max_rows) const {
     return is_record_buffer_wanted(max_rows);
   }
+
+  virtual bool init_with_fields() { return false; }
 
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked,
               const dd::Table *table_def);
