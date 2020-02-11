@@ -4101,9 +4101,7 @@ static bool rocksdb_flush_wal(
 */
 static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
                            THD *const thd,
-                           bool prepare_tx
-  /* TODO(yzha) - abd65926f63 Port ASYNC_COMMIT to 5.6
-                         bool async */) {
+                           bool prepare_tx) {
   Rdb_transaction *tx = get_tx_from_thd(thd);
   if (!tx->can_prepare()) {
     return HA_EXIT_FAILURE;
@@ -4116,7 +4114,7 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
     if (tx->is_two_phase()) {
-      if (thd->durability_property == HA_IGNORE_DURABILITY /* || async */) {
+      if (thd->durability_property == HA_IGNORE_DURABILITY) {
         tx->set_sync(false);
       }
       XID xid;
