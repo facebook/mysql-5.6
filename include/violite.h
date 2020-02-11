@@ -205,6 +205,9 @@ bool vio_socket_connect(MYSQL_VIO vio, struct sockaddr *addr, socklen_t len,
                         bool nonblocking, timeout_t timeout,
                         bool *connect_done = nullptr);
 
+void vio_get_normalized_ip(const struct sockaddr *src, size_t src_length,
+                           struct sockaddr *dst, size_t *dst_length);
+
 bool vio_get_normalized_ip_string(const struct sockaddr *addr,
                                   size_t addr_length, char *ip_string,
                                   size_t ip_string_size);

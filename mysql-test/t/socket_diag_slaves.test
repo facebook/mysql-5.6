@@ -1,0 +1,41 @@
+--source include/linux.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_master.inc
+
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (REPEAT('a', 1024 * 1024));
+DROP TABLE t1;
+
+--source include/sync_slave_sql_with_master.inc
+
+--echo =============================================================
+--echo Show the slave
+--echo =============================================================
+--source include/rpl_connection_master.inc
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Verify stopped slave are removed from socket_diag
+--echo =============================================================
+--source include/rpl_connection_slave.inc
+--source include/stop_slave.inc
+
+--source include/rpl_connection_master.inc
+# Run dummy DDL to wake up dump thread and detect the disconnected slave
+CREATE TABLE t_dummy(a int);
+DROP TABLE t_dummy;
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Verify started slave are showing up again from socket_diag
+--echo =============================================================
+--source include/rpl_connection_slave.inc
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_master.inc
+--source show_socket_diag_slaves.inc
+
+--source include/rpl_end.inc

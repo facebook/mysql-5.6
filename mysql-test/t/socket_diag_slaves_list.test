@@ -1,0 +1,49 @@
+--source include/linux.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_master.inc
+
+CREATE TABLE t1 (data LONGBLOB);
+INSERT INTO t1 (data) VALUES (REPEAT('a', 1024 * 1024));
+DROP TABLE t1;
+
+--source include/sync_slave_sql_with_master.inc
+
+--echo =============================================================
+--echo Show the slave
+--echo =============================================================
+--source include/rpl_connection_master.inc
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Fail the slave connection and disconnect
+--echo =============================================================
+
+--source include/rpl_connection_slave.inc
+--source include/stop_slave.inc
+
+# Repeat multiple iterations to increase the chance of having a dangling THD
+# This won't result in a flaky test - there is just a chance that it won't
+# catch the issue. But in my testing it every time without the fix, even
+# without the loop
+SET GLOBAL debug = '+d,simulate_register_replica_killed';
+--let $slave_counter = 5
+while ($slave_counter)
+{
+  --echo Iteration = $slave_counter
+  START REPLICA IO_THREAD;
+  --source include/wait_for_slave_io_to_stop.inc
+
+  --dec $slave_counter
+}
+
+--source include/rpl_connection_master.inc
+--source include/show_slave_hosts.inc
+--source show_socket_diag_slaves.inc
+
+--source include/rpl_connection_slave.inc
+SET GLOBAL debug = '-d,simulate_register_replica_killed';
+--source include/start_slave.inc
+
+--source include/rpl_end.inc

@@ -1,3 +1,4 @@
+--source include/not_mac_os.inc
 # Result differences depending on FS case sensitivity.
 if (!$require_case_insensitive_file_system)
 {

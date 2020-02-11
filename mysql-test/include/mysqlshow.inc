@@ -1,6 +1,7 @@
 # Test lists tables in Information_schema, and InnoDB adds some
 # Don't test when thread_pool active
 --source include/not_threadpool.inc
+--source include/not_mac_os.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1,t2,test1,test2;

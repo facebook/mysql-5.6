@@ -753,7 +753,9 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     change type, set sd to the fd used when connecting
     and set pointer to the SSL structure
   */
+  struct sockaddr_storage remote = vio->remote;
   if (vio_reset(vio, VIO_TYPE_SSL, SSL_get_fd(ssl), ssl, 0)) return 1;
+  vio->remote = remote;
   if (sslptr != &ssl) {
     *sslptr = nullptr;
   }

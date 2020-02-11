@@ -1,0 +1,72 @@
+--source include/linux.inc
+--source include/master-slave.inc
+
+# create a user for replication that requires ssl encryption
+--source include/rpl_connection_master.inc
+CREATE USER 'replssl'@'localhost' REQUIRE SSL;
+GRANT REPLICATION SLAVE ON *.* TO 'replssl'@'localhost';
+CREATE TABLE t1 (t INT AUTO_INCREMENT, KEY(t));
+
+--source include/sync_slave_sql_with_master.inc
+
+# Set slave to use SSL for connection to master
+--source include/stop_slave.inc
+--replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+--replace_column 2 ####
+eval CHANGE REPLICATION SOURCE TO
+  SOURCE_USER = 'replssl',
+  SOURCE_PASSWORD = '',
+  SOURCE_SSL = 1,
+  SOURCE_SSL_CA = '$MYSQL_TEST_DIR/std_data/cacert.pem',
+  SOURCE_SSL_CERT = '$MYSQL_TEST_DIR/std_data/client-cert.pem',
+  SOURCE_SSL_KEY = '$MYSQL_TEST_DIR/std_data/client-key.pem';
+--source include/start_slave.inc
+
+# Switch to master and insert one record, then sync it to slave
+--source include/rpl_connection_master.inc
+INSERT INTO t1 VALUES(1);
+--source include/sync_slave_sql_with_master.inc
+
+--echo =============================================================
+--echo Show the slave
+--echo =============================================================
+--source include/rpl_connection_master.inc
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Verify stopped slave are removed from socket_diag
+--echo =============================================================
+--source include/rpl_connection_slave.inc
+--source include/stop_slave.inc
+
+--source include/rpl_connection_master.inc
+# Run dummy DDL to wake up dump thread and detect the disconnected slave
+CREATE TABLE t_dummy(a int);
+DROP TABLE t_dummy;
+--source show_socket_diag_slaves.inc
+
+--echo =============================================================
+--echo Verify restarted non-SSL slaves are showing up again
+--echo =============================================================
+--source include/rpl_connection_slave.inc
+CHANGE REPLICATION SOURCE TO
+ SOURCE_USER = 'root',
+ SOURCE_SSL = 0,
+ SOURCE_SSL_CA = '',
+ SOURCE_SSL_CERT = '',
+ SOURCE_SSL_KEY = '',
+ SOURCE_SSL_CRL = '',
+ SOURCE_SSL_CRLPATH = '';
+--source include/start_slave.inc
+
+--source include/rpl_connection_master.inc
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_master.inc
+--source show_socket_diag_slaves.inc
+
+DROP USER 'replssl'@'localhost';
+DROP TABLE t1;
+
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

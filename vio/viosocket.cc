@@ -570,8 +570,8 @@ my_socket vio_fd(Vio *vio) { return mysql_socket_getfd(vio->mysql_socket); }
                           (sockaddr_storage).
   @param [out] dst_length actual length of the normalized IP address.
 */
-static void vio_get_normalized_ip(const struct sockaddr *src, size_t src_length,
-                                  struct sockaddr *dst, size_t *dst_length) {
+void vio_get_normalized_ip(const struct sockaddr *src, size_t src_length,
+                           struct sockaddr *dst, size_t *dst_length) {
   switch (src->sa_family) {
     case AF_INET:
       memcpy(dst, src, src_length);
