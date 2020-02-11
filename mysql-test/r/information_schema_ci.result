@@ -87,6 +87,7 @@ SCHEMATA
 SCHEMATA_EXT
 SCHEMA_PRIVILEGES
 SLAVE_DB_LOAD
+SOCKET_DIAG_SLAVES
 STATISTICS
 ST_GEOMETRY_COLUMNS
 ST_SPATIAL_REFERENCE_SYSTEMS
@@ -865,7 +866,7 @@ table_schema IN ('mysql', 'information_schema', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name COLLATE utf8_general_ci not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 TABLE_SCHEMA	count(*)
-information_schema	40
+information_schema	41
 mysql	31
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1169,7 +1170,7 @@ GROUP BY column_type ORDER BY num, column_type;
 COLUMN_TYPE	GROUP_CONCAT(table_schema, '.', table_name ORDER BY table_name)	num
 varchar(30)	information_schema.PROFILING,information_schema.PROFILING	2
 varchar(7)	information_schema.INNODB_TABLESPACES_BRIEF,information_schema.ST_UNITS_OF_MEASURE,information_schema.VIEWS	3
-varchar(20)	information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING	4
+varchar(20)	information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PLUGINS,information_schema.PROFILING,information_schema.SOCKET_DIAG_SLAVES	5
 create table t1(f1 char(1) not null, f2 char(9) not null)
 default character set utf8;
 Warnings:
@@ -1340,6 +1341,7 @@ SCHEMATA	information_schema.SCHEMATA	1
 SCHEMATA_EXT	information_schema.SCHEMATA_EXT	1
 SCHEMA_PRIVILEGES	information_schema.SCHEMA_PRIVILEGES	1
 SLAVE_DB_LOAD	information_schema.SLAVE_DB_LOAD	1
+SOCKET_DIAG_SLAVES	information_schema.SOCKET_DIAG_SLAVES	1
 STATISTICS	information_schema.STATISTICS	1
 ST_GEOMETRY_COLUMNS	information_schema.ST_GEOMETRY_COLUMNS	1
 ST_SPATIAL_REFERENCE_SYSTEMS	information_schema.ST_SPATIAL_REFERENCE_SYSTEMS	1
@@ -2456,6 +2458,7 @@ SCHEMATA	SCHEMA_NAME
 SCHEMATA_EXT	SCHEMA_NAME
 SCHEMA_PRIVILEGES	TABLE_SCHEMA
 SLAVE_DB_LOAD	DB
+SOCKET_DIAG_SLAVES	ID
 STATISTICS	TABLE_SCHEMA
 ST_GEOMETRY_COLUMNS	TABLE_SCHEMA
 ST_SPATIAL_REFERENCE_SYSTEMS	SRS_NAME
@@ -2515,6 +2518,7 @@ SCHEMATA	SCHEMA_NAME
 SCHEMATA_EXT	SCHEMA_NAME
 SCHEMA_PRIVILEGES	TABLE_SCHEMA
 SLAVE_DB_LOAD	DB
+SOCKET_DIAG_SLAVES	ID
 STATISTICS	TABLE_SCHEMA
 ST_GEOMETRY_COLUMNS	TABLE_SCHEMA
 ST_SPATIAL_REFERENCE_SYSTEMS	SRS_NAME
