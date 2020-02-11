@@ -3405,3 +3405,4 @@ Trigger	sql_mode	SQL Original Statement	character_set_client	collation_connectio
 DROP TRIGGER очень_очень_очень_очень_очень_очень_очень_очень_длинная_строка_é;
 DROP TABLE t1;
 SET NAMES default;
+# restart

@@ -4104,3 +4104,7 @@ DROP TRIGGER очень_очень_очень_очень_очень_очень_�
 
 DROP TABLE t1;
 SET NAMES default;
+
+# Because of https://bugs.mysql.com/bug.php?id=98545, we need to restart the
+# server to clean up leaked entries in the performance_schema.
+--source include/restart_mysqld.inc
