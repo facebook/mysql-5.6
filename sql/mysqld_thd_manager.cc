@@ -46,6 +46,7 @@
 #include "my_sys.h"
 #include "mysql/components/services/bits/psi_bits.h"
 #include "mysql/thread_pool_priv.h"  // inc_thread_created
+#include "sql/rpl_source.h"          // unregister_replica
 #include "sql/sql_class.h"           // THD
 #include "thr_mutex.h"
 
@@ -230,6 +231,18 @@ void Global_THD_manager::add_thd(THD *thd) {
 
 void Global_THD_manager::remove_thd(THD *thd) {
   DBUG_PRINT("info", ("Global_THD_manager::remove_thd %p", thd));
+
+  /*
+    It is possible when a slave connection dies after register_slave,
+    it may end up leaking SLAVE_INFO structure with a dangling THD pointer
+    In most cases it may be freed by the same slave with the same server_id
+    when it register itself again with the same server_id, but if the
+    server_id ends up being different the entry could be leaked forever and
+    with an invalid THD pointer
+    To address this issue, we let the THD remove itself from the slave list
+  */
+  unregister_replica(thd, true, true);
+
   const int partition = thd_partition(thd->thread_id());
   MUTEX_LOCK(lock_remove, &LOCK_thd_remove[partition]);
   MUTEX_LOCK(lock_list, &LOCK_thd_list[partition]);

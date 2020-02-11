@@ -58,7 +58,7 @@
 #include "mysql/service_mysql_alloc.h"
 #include "mysys_err.h"  // EE_OUTOFMEMORY
 #include "pfs_statement_provider.h"
-#include "rpl_source.h"  // unregister_slave
+#include "rpl_source.h"  // unregister_replica
 #include "sql/auth/auth_acls.h"
 #include "sql/auth/sql_security_ctx.h"
 #include "sql/binlog.h"

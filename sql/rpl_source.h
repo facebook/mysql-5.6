@@ -27,7 +27,8 @@
 #include <string>  // std::string
 
 #include "libbinlogevents/include/uuid.h"  // UUID
-#include "my_hostname.h"                   // HOSTNAME_LENGTH
+#include "map_helpers.h"
+#include "my_hostname.h"  // HOSTNAME_LENGTH
 #include "my_inttypes.h"
 #include "my_thread_local.h"  // my_thread_id
 #include "mysql_com.h"        // USERNAME_LENGTH
@@ -56,10 +57,14 @@ struct REPLICA_INFO {
   bool valid_replica_uuid;
 };
 
+using thd_to_slave_info_container = malloc_unordered_map<THD *, REPLICA_INFO>;
+thd_to_slave_info_container copy_slaves();
+
+bool is_semi_sync_slave(THD *thd, bool need_lock = true);
 int register_replica(THD *thd, uchar *packet, size_t packet_length);
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
 bool show_replicas(THD *thd);
-String *get_replica_uuid(THD *thd, String *value);
+String *get_replica_uuid(THD *thd, String *value, bool need_lock = true);
 bool show_master_offset(THD *thd, const char *file, ulonglong pos,
                         const char *gtid_executed, int gtid_executed_length,
                         ulonglong snapshot_hlc, bool *need_ok);

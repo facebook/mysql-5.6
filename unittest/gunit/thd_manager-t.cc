@@ -33,6 +33,7 @@
 #include "my_inttypes.h"
 #include "sql/mysqld.h"
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
+#include "sql/rpl_source.h"
 #include "sql/sql_class.h"
 #include "unittest/gunit/thread_utils.h"
 

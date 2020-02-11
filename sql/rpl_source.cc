@@ -281,6 +281,22 @@ bool show_replicas(THD *thd) {
   return false;
 }
 
+/**
+  Copy all slave hosts into a std::map for later access without a lock
+
+  @param slaves Pointer to std::map object for receiving all slaves
+*/
+thd_to_slave_info_container copy_slaves() {
+  thd_to_slave_info_container result{PSI_NOT_INSTRUMENTED};
+
+  MUTEX_LOCK(slave_list_guard, &LOCK_replica_list);
+
+  for (const auto &item : slave_list)
+    result.emplace(item.second->thd, *item.second);
+
+  return result;
+}
+
 /* clang-format off */
 /**
   @page page_protocol_replication Replication Protocol
@@ -1067,17 +1083,21 @@ const user_var_entry *get_user_var_from_alternatives(const THD *thd,
 
   @param[in]    thd  THD to access a user variable
   @param[out]   value String to return UUID value.
+  @param[in]    need_lock Whether to acquire LOCK_thd_data
 
   @return       if success value is returned else NULL is returned.
 
   NOTE: Please make sure this method is in sync with
         ReplSemiSyncMaster::get_slave_uuid
 */
-String *get_replica_uuid(THD *thd, String *value) {
+String *get_replica_uuid(THD *thd, String *value, bool need_lock) {
   if (value == nullptr) return nullptr;
 
   /* Protects thd->user_vars. */
-  MUTEX_LOCK(lock_guard, &thd->LOCK_thd_data);
+  if (need_lock)
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+  else
+    mysql_mutex_assert_owner(&thd->LOCK_thd_data);
 
   // Get user_var.
   const auto &uv =
@@ -1086,8 +1106,11 @@ String *get_replica_uuid(THD *thd, String *value) {
   // Get value of user_var.
   if (uv && uv->length() > 0) {
     value->copy(uv->ptr(), uv->length(), nullptr);
+    if (need_lock) mysql_mutex_unlock(&thd->LOCK_thd_data);
     return value;
   }
+
+  if (need_lock) mysql_mutex_unlock(&thd->LOCK_thd_data);
   return nullptr;
 }
 
