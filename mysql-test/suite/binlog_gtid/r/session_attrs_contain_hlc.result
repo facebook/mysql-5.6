@@ -1,0 +1,161 @@
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@session.session_track_response_attributes = on;
+SET @@global.enable_binlog_hlc = true;
+SET @@session.response_attrs_contain_hlc = true;
+Case 1: Single statement txn. Commit ts needs to be updated at commit time
+USE test;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- test
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8));
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000001
+
+INSERT INTO t1 VALUES(1, 'a');
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000002
+
+INSERT INTO t1 VALUES(2, 'b');
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000003
+
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+binlog.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8))
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+Case 2: Multi statement txn. Commit ts needs to be updated at commit time
+BEGIN;
+-- Tracker : SESSION_TRACK_TRANSACTION_STATE
+-- T_______
+
+INSERT INTO t1 VALUES(3, 'c');
+INSERT INTO t1 VALUES(4, 'd');
+COMMIT;
+-- Tracker : SESSION_TRACK_TRANSACTION_STATE
+-- ________
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- hlc_ts
+-- 2538630000000000004
+
+SELECT * FROM t1;
+a	b
+1	a
+2	b
+3	c
+4	d
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+binlog.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8))
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+Case 3: Turning off binlog_hlc should stop sending hlc in ok packets
+SET @@global.enable_binlog_hlc = false;
+SET @@session.response_attrs_contain_hlc = true;
+INSERT INTO t1 VALUES(5, 'e');
+COMMIT;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+binlog.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8))
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+Case 4: Turning off response_attrs_contain_hlc should stop sending hlc in ok packets
+SET @@global.enable_binlog_hlc = true;
+SET @@session.response_attrs_contain_hlc = false;
+INSERT INTO t1 VALUES(6, 'f');
+COMMIT;
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+binlog.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8))
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000004
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+binlog.000002	#	Metadata	#	#	HLC time: 2538630000000000005
+binlog.000002	#	Query	#	#	BEGIN
+binlog.000002	#	Table_map	#	#	table_id: # (test.t1)
+binlog.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+binlog.000002	#	Xid	#	#	COMMIT /* XID */
+USE test;
+-- Tracker : SESSION_TRACK_SCHEMA
+-- test
+
+-- Tracker : SESSION_TRACK_RESP_ATTR
+-- change_db
+-- test
+
+DROP TABLE t1;
