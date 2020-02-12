@@ -262,12 +262,6 @@ class ha_rocksdb : public my_core::handler {
   bool m_rnd_scan_is_new_snapshot;
 
   /*
-    true means we should skip unique key checks for this table if the
-    replication lag gets too large
-   */
-  bool m_skip_unique_check;
-
-  /*
     true means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
     remember the failed attempt (if there is one that violates uniqueness check)
     in write_row and in the following index_read to skip the lock check and read
@@ -362,9 +356,7 @@ class ha_rocksdb : public my_core::handler {
   bool can_use_single_delete(const uint index) const
       MY_ATTRIBUTE((__warn_unused_result__));
   bool is_blind_delete_enabled();
-  bool skip_unique_check() const MY_ATTRIBUTE((__warn_unused_result__));
-  /* TODO(yzha) - c0e6859bffd Add skip unique check whitelist and new debug_skip_unique_check */
-  void set_force_skip_unique_check(bool skip);
+  bool skip_unique_check() const;
   bool commit_in_the_middle() MY_ATTRIBUTE((__warn_unused_result__));
   bool do_bulk_commit(Rdb_transaction *const tx)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -949,7 +941,6 @@ class ha_rocksdb : public my_core::handler {
       const dd::Table *old_table_def MY_ATTRIBUTE((unused)),
       dd::Table *new_table_def MY_ATTRIBUTE((unused))) override;
 
-  void set_skip_unique_check_tables(const char *const whitelist);
   bool is_read_free_rpl_table() const;
   int adjust_handler_stats_sst_and_memtable();
   int adjust_handler_stats_table_scan();
@@ -972,8 +963,6 @@ class ha_rocksdb : public my_core::handler {
   /* Flags tracking if we are inside different replication operation */
   bool m_in_rpl_delete_rows;
   bool m_in_rpl_update_rows;
-
-  bool m_force_skip_unique_check;
 };
 
 /*
