@@ -20160,9 +20160,11 @@ static void test_wl11381() {
     myerror("mysql_client_init() failed");
     exit(1);
   }
-  status = mysql_real_connect_nonblocking(
-      mysql_local, opt_host, opt_user, opt_password, current_db, opt_port,
-      opt_unix_socket, CLIENT_MULTI_STATEMENTS);
+  do {
+    status = mysql_real_connect_nonblocking(
+        mysql_local, opt_host, opt_user, opt_password, current_db, opt_port,
+        opt_unix_socket, CLIENT_MULTI_STATEMENTS);
+  } while (status == NET_ASYNC_NOT_READY);
   if (status == NET_ASYNC_ERROR) {
     fprintf(stdout, "\n mysql_real_connect_nonblocking() failed");
     exit(1);
@@ -20339,8 +20341,8 @@ static void test_wl11381() {
 static void test_wl11381_qa() {
   MYSQL *mysql_con1;
   MYSQL *mysql_con2;
-  net_async_status mysql_con1_status;
-  net_async_status mysql_con2_status;
+  net_async_status mysql_con1_status = NET_ASYNC_NOT_READY;
+  net_async_status mysql_con2_status = NET_ASYNC_NOT_READY;
   const char *stmt_text;
   int counter = 0;
 
@@ -20356,13 +20358,20 @@ static void test_wl11381_qa() {
     exit(1);
   }
 
-  mysql_con1_status = (mysql_real_connect_nonblocking(
-      mysql_con1, opt_host, opt_user, opt_password, current_db, opt_port,
-      opt_unix_socket, CLIENT_MULTI_STATEMENTS));
+  do {
+    if (mysql_con1_status == NET_ASYNC_NOT_READY) {
+      mysql_con1_status = (mysql_real_connect_nonblocking(
+          mysql_con1, opt_host, opt_user, opt_password, current_db, opt_port,
+          opt_unix_socket, CLIENT_MULTI_STATEMENTS));
+    }
 
-  mysql_con2_status = (mysql_real_connect_nonblocking(
-      mysql_con2, opt_host, opt_user, opt_password, current_db, opt_port,
-      opt_unix_socket, CLIENT_MULTI_STATEMENTS));
+    if (mysql_con2_status == NET_ASYNC_NOT_READY) {
+      mysql_con2_status = (mysql_real_connect_nonblocking(
+          mysql_con2, opt_host, opt_user, opt_password, current_db, opt_port,
+          opt_unix_socket, CLIENT_MULTI_STATEMENTS));
+    }
+  } while (mysql_con1_status == NET_ASYNC_NOT_READY ||
+           mysql_con2_status == NET_ASYNC_NOT_READY);
 
   if (mysql_con1_status == NET_ASYNC_ERROR) {
     fprintf(stdout, "\n mysql_real_connect_nonblocking() failed");

@@ -994,8 +994,10 @@ static MYSQL *async_mysql_real_connect_wrapper(
          NET_ASYNC_NOT_READY) {
     t.check();
     NET_ASYNC *net_async = NET_ASYNC_DATA(&(mysql->net));
-    socket_event_listen(net_async->async_blocking_state,
-                        mysql_get_socket_descriptor(mysql));
+    if (net_async) {
+      socket_event_listen(net_async->async_blocking_state,
+                          mysql_get_socket_descriptor(mysql));
+    }
   }
   if (status == NET_ASYNC_ERROR)
     return nullptr;

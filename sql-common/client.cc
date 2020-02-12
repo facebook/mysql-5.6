@@ -5786,6 +5786,8 @@ MYSQL *STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
 
   @retval       NET_ASYNC_COMPLETE               Success.
   @retval       NET_ASYNC_ERROR                  Error.
+  @retval       NET_ASYNC_NOT_READY              Connection not yet complete
+                                                 Keep retrying
 */
 net_async_status STDCALL mysql_real_connect_nonblocking(
     MYSQL *mysql, const char *host, const char *user, const char *passwd,
@@ -5795,11 +5797,12 @@ net_async_status STDCALL mysql_real_connect_nonblocking(
   mysql_state_machine_status status;
   mysql_async_connect *ctx = ASYNC_DATA(mysql)->connect_context;
 
-  if (client_flag & MYSQL_OPT_COMPRESS) {
-    set_mysql_error(mysql, CR_COMPRESSION_NOT_SUPPORTED, unknown_sqlstate);
-    DBUG_RETURN(NET_ASYNC_ERROR);
-  }
   if (!ctx) {
+    if (client_flag & MYSQL_OPT_COMPRESS) {
+      set_mysql_error(mysql, CR_COMPRESSION_NOT_SUPPORTED, unknown_sqlstate);
+      DBUG_RETURN(NET_ASYNC_ERROR);
+    }
+
     ctx = static_cast<mysql_async_connect *>(
         my_malloc(key_memory_MYSQL, sizeof(*ctx), MYF(MY_WME | MY_ZEROFILL)));
     if (!ctx) DBUG_RETURN(NET_ASYNC_ERROR);
@@ -5821,7 +5824,11 @@ net_async_status STDCALL mysql_real_connect_nonblocking(
 
   do {
     status = ctx->state_function(ctx);
-  } while (status != STATE_MACHINE_FAILED && status != STATE_MACHINE_DONE);
+  } while (status == STATE_MACHINE_CONTINUE);
+
+  if (status == STATE_MACHINE_WOULD_BLOCK) {
+    DBUG_RETURN(NET_ASYNC_NOT_READY);
+  }
 
   if (status == STATE_MACHINE_DONE) {
     my_free(ASYNC_DATA(mysql)->connect_context);
