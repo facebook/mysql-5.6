@@ -734,7 +734,7 @@ drop table t1;
 #             returns impossible range
 #
 
-CREATE TABLE t1 (a varchar(5), b int(11), PRIMARY KEY (a,b)) charset utf8mb4;
+CREATE TABLE t1 (a varchar(5), b int, PRIMARY KEY (a,b)) charset utf8mb4;
 INSERT INTO t1 VALUES ('AA',1), ('AA',2), ('AA',3), ('BB',1), ('AA',4);
 OPTIMIZE TABLE t1;
 
@@ -757,7 +757,7 @@ DROP TABLE t1;
 #
 
 CREATE TABLE t1 (
-   a int(11) NOT NULL DEFAULT '0',
+   a int NOT NULL DEFAULT '0',
    b varchar(16) COLLATE latin1_general_ci NOT NULL DEFAULT '',
    PRIMARY KEY  (a,b)
  ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_general_ci;
@@ -1341,7 +1341,7 @@ DROP TABLE t1,t2;
 --echo #            function with distinct
 --echo #
 CREATE TABLE t1 (
-  f1 int(11) NOT NULL DEFAULT '0',
+  f1 int NOT NULL DEFAULT '0',
   f2 char(1) NOT NULL DEFAULT '',
   PRIMARY KEY (f1,f2)
 )  charset utf8mb4;
