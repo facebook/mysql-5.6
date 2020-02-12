@@ -50,6 +50,7 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long (*m_timer)(void);
   void *m_statement;
   unsigned long long m_lock_time;
+  unsigned long long m_cpu_time;
   unsigned long long m_rows_sent;
   unsigned long long m_rows_examined;
   unsigned long long m_rows_deleted;
@@ -104,6 +105,8 @@ typedef void (*set_statement_query_id_t)(struct PSI_statement_locker *locker,
                                          unsigned long long query_id);
 typedef void (*set_statement_lock_time_t)(struct PSI_statement_locker *locker,
                                           unsigned long long lock_time);
+typedef void (*set_statement_cpu_time_t)(struct PSI_statement_locker *locker,
+                                         unsigned long long cpu_time);
 typedef void (*set_statement_rows_sent_t)(struct PSI_statement_locker *locker,
                                           unsigned long long count);
 typedef void (*set_statement_rows_examined_t)(
@@ -192,6 +195,7 @@ struct PSI_statement_service_v2 {
   set_statement_text_v1_t set_statement_text;
   set_statement_query_id_t set_statement_query_id;
   set_statement_lock_time_t set_statement_lock_time;
+  set_statement_cpu_time_t set_statement_cpu_time;
   set_statement_rows_sent_t set_statement_rows_sent;
   set_statement_rows_examined_t set_statement_rows_examined;
   inc_statement_rows_deleted_t inc_statement_rows_deleted;
