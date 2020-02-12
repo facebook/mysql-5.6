@@ -372,6 +372,12 @@ struct System_variables {
   Gtid_set_or_null gtid_next_list;
   ulong session_track_gtids;  // see enum_session_track_gtids
 
+  /*
+    Should we set the HLC timestamp of a read write transaction in response
+    attribute?
+   */
+  bool response_attrs_contain_hlc;
+
   ulong max_execution_time;
 
   char *track_sysvars_ptr;
