@@ -25,12 +25,9 @@ rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing i
 
 # Missing features
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
-rocksdb.rocksdb_qcache : BUG#0000 missing patch
 rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb.force_shutdown: BUG#0000 missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
-rocksdb_rpl.rpl_gtid_rocksdb_sys_header: BUG#0000 missing 00861dd66bf make gtid enabled slave with less durable...
-rocksdb_rpl.rocksdb_slave_check_before_image_consistency : BUG#0000 missing d8c69f9f5a9 [replication] Check before image...
 rocksdb_rpl.rpl_no_unique_check_on_lag : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
 rocksdb_rpl.rpl_no_unique_check_on_lag_mts : BUG#0000 missing d80175902ee Disable unique checks when replica is lagging
 rocksdb.percona_nonflushing_analyze_debug : BUG#0000 missing dbc7c09e252 Fix bug 1704195 / 87065 / TDB-83 (Stop ANALYZE...
