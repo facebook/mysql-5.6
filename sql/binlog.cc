@@ -1480,7 +1480,19 @@ bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
 
   Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache(),
                                  thd->hlc_time_ns_next);
-  return metadata_ev.write(writer);
+  bool result = metadata_ev.write(writer);
+
+  /* Update session tracker with hlc timestamp of this trx */
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (!result && thd->variables.response_attrs_contain_hlc &&
+      tracker->is_enabled()) {
+    LEX_CSTRING key = {STRING_WITH_LEN("hlc_ts")};
+    std::string value_str = std::to_string(thd->hlc_time_ns_next);
+    const LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+
+  return result;
 }
 
 bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {

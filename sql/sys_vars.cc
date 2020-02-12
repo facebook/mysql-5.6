@@ -5088,6 +5088,26 @@ static Sys_var_transaction_read_only Sys_transaction_read_only(
     DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_transaction_read_only));
 
+static bool check_outside_transaction(sys_var *, THD *thd, set_var *var) {
+  if (thd->in_active_multi_stmt_transaction()) {
+    my_error(ER_VARIABLE_NOT_SETTABLE_IN_TRANSACTION, MYF(0),
+             var->var->name.str);
+    return true;
+  }
+  return false;
+}
+
+static Sys_var_bool Sys_response_attrs_contain_hlc(
+    "response_attrs_contain_hlc",
+    "If this is enabled, then the HLC timestamp of a RW transaction is sent "
+    "back to clients as part of OK packet in session response attribute. HLC "
+    "is sent as a key-value pair - 'hlc_ts' is the key and the value is the "
+    "stringified HLC timestamp. Note that HLC should be enabled by setting "
+    "enable_binlog_hlc",
+    SESSION_VAR(response_attrs_contain_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_outside_transaction),
+    ON_UPDATE(nullptr));
+
 static Sys_var_ulonglong Sys_tmp_table_size(
     "tmp_table_size",
     "If an internal in-memory temporary table in the MEMORY storage engine "
