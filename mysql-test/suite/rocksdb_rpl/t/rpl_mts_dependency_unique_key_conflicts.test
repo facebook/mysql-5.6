@@ -30,6 +30,7 @@ let $wait_condition=
       where state = 'Waiting for dependencies to be satisfied';
 source include/wait_condition.inc;
 
+--sorted_result
 select * from t1;
 set debug_sync="now signal signal.done";
 
@@ -37,6 +38,7 @@ connection master;
 source include/sync_slave_sql_with_master.inc;
 
 connection slave;
+--sorted_result
 select * from t1;
 
 # Cleanup

@@ -26,8 +26,8 @@ set debug_sync="now signal signal.done";
 include/sync_slave_sql_with_master.inc
 select * from t1;
 a	b
-2	1
 1	2
+2	1
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
