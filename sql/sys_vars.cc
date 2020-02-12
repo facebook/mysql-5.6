@@ -7336,6 +7336,11 @@ static Sys_var_mybool Sys_enable_raft_plugin(
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
 
+static Sys_var_mybool Sys_disable_raft_log_repointing(
+       "disable_raft_log_repointing", "Enable/Disable repointing for raft logs",
+       READ_ONLY GLOBAL_VAR(disable_raft_log_repointing), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
+
 static const char *commit_consensus_error_actions[]=
 {
   "ROLLBACK_TRXS_IN_GROUP",

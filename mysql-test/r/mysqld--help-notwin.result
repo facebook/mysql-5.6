@@ -280,6 +280,8 @@ The following options may be given as the first argument:
  client that does INSERT DELAYED will wait until there is
  room in the queue again.This variable is deprecated along
  with INSERT DELAYED.
+ --disable-raft-log-repointing 
+ Enable/Disable repointing for raft logs
  --disable-trigger   Disable triggers for the session.
  --disable-working-set-size 
  Do not maintain working set size if on
@@ -2344,6 +2346,7 @@ delay-key-write ON
 delayed-insert-limit 100
 delayed-insert-timeout 300
 delayed-queue-size 1000
+disable-raft-log-repointing FALSE
 disable-trigger FALSE
 disable-working-set-size FALSE
 disconnect-on-expired-password TRUE

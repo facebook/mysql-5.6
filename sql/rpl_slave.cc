@@ -1090,6 +1090,9 @@ int rli_relay_log_raft_reset(bool do_global_init)
   DBUG_ENTER("rli_relay_log_raft_reset");
   int error= 0;
 
+  if (disable_raft_log_repointing)
+    DBUG_RETURN(0);
+
   mysql_mutex_lock(&LOCK_active_mi);
   Master_info* mi= active_mi;
   DBUG_ASSERT(mi != NULL && mi->rli != NULL);
@@ -9770,8 +9773,13 @@ int stop_slave(THD* thd, Master_info* mi, bool net_report )
   {
     //no error if both threads are already stopped, only a warning
     slave_errno= 0;
-    push_warning(thd, Sql_condition::WARN_LEVEL_NOTE, ER_SLAVE_WAS_NOT_RUNNING,
-                 ER(ER_SLAVE_WAS_NOT_RUNNING));
+    // case: don't push a warning when raft is enabled and IO thread is stopped
+    // (because IO thread is always stopped in raft mode)
+    if (!(thd->lex->slave_thd_opt == 1 && enable_raft_plugin))
+    {
+      push_warning(thd, Sql_condition::WARN_LEVEL_NOTE,
+                   ER_SLAVE_WAS_NOT_RUNNING, ER(ER_SLAVE_WAS_NOT_RUNNING));
+    }
   }
   unlock_slave_threads(mi);
 

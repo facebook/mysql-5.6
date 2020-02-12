@@ -62,7 +62,9 @@ while ($_rpl_server)
 
   if ($_is_slave)
   {
-    source include/stop_slave_io.inc;
+    STOP SLAVE IO_THREAD;
+    # Disable failure detection on the slaves so that master becomes the leader
+    SET GLOBAL RPL_RAFT_LEADER_FAILURE_DETECTION= OFF;
   }
 
   SET GLOBAL ENABLE_RAFT_PLUGIN= ON;
@@ -83,40 +85,39 @@ while ($_rpl_server)
 
   let $_is_mysql_slave= `SELECT SUBSTRING('$rpl_master_list', 1 + ($_rpl_server - 1) * $rpl_server_count_length, $rpl_server_count_length) != ''`;
 
-  # Stash master's connection and raft uuid
+  # Stash master's connection
   if (!$_is_mysql_slave)
   {
-    let $master_raft_uuid= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_PEER_UUID"`;
     let $master_server_num= $_rpl_server;
   }
 
   --dec $_rpl_server
 }
 
-# Promote the mysql master to leader in the raft world
-let $rpl_connection_name= server_$master_server_num;
-source include/rpl_connection.inc;
+# Wait for the master to become the leader
+--let $rpl_connection_name= server_$master_server_num
+--source include/rpl_connection.inc
+--let $status_var= RPL_RAFT_ROLE
+--let $status_var_value= LEADER
+--source include/wait_for_status_var.inc
 
-let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
+# The master should be the leader in term 1
+--let $assert_cond= VARIABLE_VALUE = 1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_TERM"
+--let $assert_text= Term should be 1
+--source include/assert.inc
 
-while ($master_raft_role != 'LEADER')
+# Enable failure detection
+let $_rpl_server= $rpl_server_count;
+while ($_rpl_server)
 {
-  # Find the current raft leader
-  let $_rpl_server= $rpl_server_count;
-  while ($_rpl_server)
-  {
-    let $rpl_connection_name= server_$_rpl_server;
-    source include/rpl_connection.inc;
-    let $_is_raft_leader= `SELECT VARIABLE_VALUE = "LEADER" FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
-    if ($_is_raft_leader)
-    {
-      eval set @@global.rpl_raft_new_leader_uuid= '$master_raft_uuid';
-    }
-    dec $_rpl_server;
-  }
-  let $rpl_connection_name= server_$master_server_num;
+  let $rpl_connection_name= server_$_rpl_server;
   source include/rpl_connection.inc;
-  let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
+  SET GLOBAL RPL_RAFT_LEADER_FAILURE_DETECTION= ON;
+  if ($_rpl_server != $master_server_num)
+  {
+    source include/wait_for_slave_sql_to_start.inc;
+  }
+  dec $_rpl_server;
 }
 
 if ($rpl_debug)

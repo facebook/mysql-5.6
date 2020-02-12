@@ -507,6 +507,7 @@ my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;
 ulonglong max_tmp_disk_usage;
 bool enable_raft_plugin= 0;
+bool disable_raft_log_repointing= 0;
 
 /* write_control_level:
  * Global variable to control write throttling for short running queries and
@@ -6313,7 +6314,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       unireg_abort(1);
     }
 
-    if (enable_raft_plugin)
+    if (enable_raft_plugin && !disable_raft_log_repointing)
     {
       // Initialize the right index file when raft is enabled
       if (mysql_bin_log.init_index_file())
@@ -6362,7 +6363,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
               opt_bin_logname, opt_relay_logname, pidfile_name));
   if (opt_relay_logname)
   {
-    if (!enable_raft_plugin)
+    if (!enable_raft_plugin || disable_raft_log_repointing)
     {
       relay_log_basename= rpl_make_log_name(
           opt_relay_logname, pidfile_name,
@@ -6612,7 +6613,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     // times of trx's in all previous binlog
     mysql_bin_log.update_hlc(prev_hlc);
 
-    if (enable_raft_plugin)
+    if (enable_raft_plugin && !disable_raft_log_repointing)
     {
       /* If raft is enabled, we open an existing binlog file if it exists.
        * Note that in raft mode, the recovery of the transaction log will not
@@ -12106,7 +12107,7 @@ a file name for --apply-log-index option", opt_applylog_index_name);
     DBUG_RETURN(0);
   }
 
-  if (!opt_apply_logname)
+  if (!opt_apply_logname && !disable_raft_log_repointing)
   {
     /* create the apply binlog name for Raft using some common
      * rules. Replace binary with apply or -bin with -apply
@@ -12137,6 +12138,11 @@ a file name for --apply-log-index option", opt_applylog_index_name);
       sql_print_error("apply log needs to be set or follow a pattern");
       unireg_abort(1);
     }
+  }
+  else
+  {
+    // Just point apply logs to binlogs
+    opt_apply_logname= opt_bin_logname;
   }
 
   if (!opt_applylog_index_name && opt_apply_logname)

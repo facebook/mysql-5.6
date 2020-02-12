@@ -90,6 +90,11 @@ if ($keep_gtid_events)
 --let $input_file= $output_file
 --source include/filter_file.inc
 
+if (!$show_metadata_event)
+{
+  exec eval sed '/Metadata/d' -i $output_file;
+}
+
 # Write to result file
 --cat_file $output_file
 

@@ -69,6 +69,10 @@ if ($rpl_server_count)
 --let $rpl_server_number= 3
 --source include/rpl_connect.inc
 
+# Set this variable to include metadata event in show_binlog_events.inc
+# See: show_events.inc
+let $show_metadata_event= 1;
+
 
 --let $include_filename= raft_3_node.inc
 --source include/end_include_file.inc

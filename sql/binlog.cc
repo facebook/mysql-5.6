@@ -6861,6 +6861,13 @@ int rotate_binlog_file(THD *thd)
 int binlog_change_to_apply()
 {
   DBUG_ENTER("binlog_change_to_apply");
+
+  if (disable_raft_log_repointing)
+  {
+    mysql_bin_log.is_apply_log = true;
+    DBUG_RETURN(0);
+  }
+
   int error= 0;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
@@ -6907,6 +6914,13 @@ err:
 int binlog_change_to_binlog()
 {
   DBUG_ENTER("binlog_change_to_binlog");
+
+  if (disable_raft_log_repointing)
+  {
+    mysql_bin_log.is_apply_log = false;
+    DBUG_RETURN(0);
+  }
+
   int error= 0;
   uint64_t prev_hlc= 0;
 
@@ -6932,14 +6946,6 @@ int binlog_change_to_binlog()
       goto err;
     }
     delete_apply_logs= true;
-  }
-
-  if (result.second)
-  {
-    // NO_LINT_DEBUG
-    sql_print_error("Failed to get apply binlog filenames from the index file");
-    error= 1;
-    goto err;
   }
 
   mysql_bin_log.close(LOG_CLOSE_INDEX);
