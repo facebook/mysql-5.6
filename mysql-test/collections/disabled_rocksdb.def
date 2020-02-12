@@ -16,7 +16,6 @@ rocksdb_hotbackup.xbstream_socket : BUG#0000 hotbackup feature is missing in 8.0
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
 rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
-rocksdb.group_min_max : BUG#0000 missing infinite loop fix
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
 # Blind replace

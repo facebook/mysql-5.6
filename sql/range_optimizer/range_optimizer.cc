@@ -535,6 +535,7 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
                       Query_block *query_block, AccessPath **path) {
   DBUG_TRACE;
 
+  bool force_group_by = false;
   *path = nullptr;
   needed_reg->clear_all();
 
@@ -579,6 +580,7 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
     TODO During the optimization phase we should evaluate only inexpensive
          single-lookup subqueries.
   */
+  DBUG_EXECUTE_IF("force_group_by", force_group_by = true;);
   uchar buff[STACK_BUFF_ALLOC];
   if (check_stack_overrun(thd, 3 * STACK_MIN_SIZE + sizeof(RANGE_OPT_PARAM),
                           buff)) {
@@ -680,6 +682,7 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
   */
   AccessPath *group_path = get_best_group_min_max(
       thd, &param, tree, interesting_order, skip_records_in_range, best_cost);
+  bool force_skip_scan;
   if (group_path) {
     DBUG_EXECUTE_IF("force_lis_for_group_by", group_path->cost = 0.0;);
     param.table->quick_condition_rows =
@@ -688,16 +691,19 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
                                  Opt_trace_context::RANGE_OPTIMIZER);
     if (unlikely(trace->is_started()))
       trace_basic_info(thd, group_path, &param, &grp_summary);
-    if (group_path->cost < best_cost) {
+    if (group_path->cost < best_cost || force_group_by) {
       grp_summary.add("chosen", true);
       best_path = group_path;
       best_cost = best_path->cost;
+      if (force_group_by) {
+        goto force_plan;
+      }
     } else
       grp_summary.add("chosen", false).add_alnum("cause", "cost");
   }
 
-  bool force_skip_scan = hint_table_state(thd, param.table->pos_in_table_list,
-                                          SKIP_SCAN_HINT_ENUM, 0);
+  force_skip_scan = hint_table_state(thd, param.table->pos_in_table_list,
+                                     SKIP_SCAN_HINT_ENUM, 0);
 
   if (thd->optimizer_switch_flag(OPTIMIZER_SKIP_SCAN) || force_skip_scan) {
     AccessPath *skip_scan_path =
@@ -808,6 +814,7 @@ int test_quick_select(THD *thd, MEM_ROOT *return_mem_root,
     }
   }
 
+force_plan:
   /*
     If we got a read plan, return it, but only if the storage engine supports
     using indexes for access.

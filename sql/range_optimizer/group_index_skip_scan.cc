@@ -544,12 +544,27 @@ int GroupIndexSkipScanIterator::get_next_prefix(uint prefix_length,
       assert(cur_prefix != nullptr);
       int result = table()->file->ha_index_read_map(
           table()->record[0], cur_prefix, keypart_map, HA_READ_AFTER_KEY);
-      if (result || last_prefix_range->max_keypart_map == 0) return result;
-
-      key_range previous_endpoint;
-      last_prefix_range->make_max_endpoint(&previous_endpoint, prefix_length,
-                                           keypart_map);
-      if (table()->file->compare_key(&previous_endpoint) <= 0) return 0;
+      if (result || last_prefix_range->max_keypart_map == 0) {
+        /*
+          Only return if actual failure occurred. For HA_ERR_KEY_NOT_FOUND
+          or HA_ERR_END_OF_FILE, we just want to continue to reach the next
+          set of ranges. It is possible for the storage engine to return
+          HA_ERR_KEY_NOT_FOUND/HA_ERR_END_OF_FILE even when there are more
+          keys if it respects the end range set by the read_range_first call
+          below.
+        */
+        if (result != HA_ERR_KEY_NOT_FOUND && result != HA_ERR_END_OF_FILE)
+          return result;
+      } else {
+        /*
+          For storage engines that don't respect end range, check if we've
+          moved past the current range.
+        */
+        key_range previous_endpoint;
+        last_prefix_range->make_max_endpoint(&previous_endpoint, prefix_length,
+                                             keypart_map);
+        if (table()->file->compare_key(&previous_endpoint) <= 0) return 0;
+      }
     }
 
     if (cur_prefix_range_idx == prefix_ranges->size()) {

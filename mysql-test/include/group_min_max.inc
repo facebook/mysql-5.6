@@ -16,7 +16,7 @@ drop table if exists t1;
 
 eval create table t1 (
   a1 char(64), a2 char(64), b char(16), c char(16) not null, d char(16), dummy char(248) default ' '
-) engine=$engine;
+) engine=$engine charset=latin1;
 
 insert into t1 (a1, a2, b, c, d) values
 ('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
@@ -66,7 +66,7 @@ drop table if exists t2;
 
 eval create table t2 (
   a1 char(64), a2 char(64) not null, b char(16), c char(16), d char(16), dummy char(248) default ' '
-) engine=$engine;
+) engine=$engine charset=latin1;
 insert into t2 select * from t1;
 # add few rows with NULL's in the MIN/MAX column
 insert into t2 (a1, a2, b, c, d) values
@@ -103,7 +103,7 @@ drop table if exists t3;
 
 eval create table t3 (
   a1 char(1), a2 char(1), b char(1), c char(4) not null, d char(3), dummy char(1) default ' '
-) engine=$engine;
+) engine=$engine charset=latin1;
 
 insert into t3 (a1, a2, b, c, d) values
 ('a','a','a','a111','xy1'),('a','a','a','b111','xy2'),('a','a','a','c111','xy3'),('a','a','a','d111','xy4'),
@@ -174,7 +174,7 @@ explain select a1, max(a2) from t1 group by a1;
 explain select a1, min(a2), max(a2) from t1 group by a1;
 explain select a1, a2, b, min(c), max(c) from t1 group by a1,a2,b;
 explain select a1,a2,b,max(c),min(c) from t1 group by a1,a2,b;
---replace_column 7 # 9 #
+--replace_column 8 # 10 #
 explain select a1,a2,b,max(c),min(c) from t2 group by a1,a2,b;
 # Select fields in different order
 explain select min(a2), a1, max(a2), min(a2), a1 from t1 group by a1;
@@ -213,29 +213,29 @@ explain select a1,a2,b,min(c),max(c) from t1 where (a1 = 'b' or a1 = 'd' or a1 =
 explain select a1,min(c),max(c)      from t1 where a1 >= 'b' group by a1,a2,b;
 explain select a1,  max(c)           from t1 where a1 in ('a','b','d') group by a1,a2,b;
 
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where a1 < 'd' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where a1 < 'd' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where a1 >= 'b' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where a1 >= 'c' or a1 < 'b' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1, max(c)            from t2 where a1 >= 'c' or a1 < 'b' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where a1 >= 'c' or a2 < 'b' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where a1 = 'z' or a1 = 'b' or a1 = 'd' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where a1 = 'z' or a1 = 'b' or a1 = 'd' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (a1 = 'b' or a1 = 'd' or a1 = 'a' or a1 = 'c') and (a2 > 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,min(c),max(c)      from t2 where a1 >= 'b' group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,  max(c)           from t2 where a1 in ('a','b','d') group by a1,a2,b;
 
 # queries
@@ -380,7 +380,7 @@ select a1,a2,b,min(c),max(c) from t2 where b is NULL group by a1,a2;
 
 # C) Range predicates for the MIN/MAX attribute
 # plans
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t1 where (c > 'b1') group by a1,a2,b;
 explain select a1,a2,b,min(c),max(c) from t1 where (c > 'b1') group by a1,a2,b;
 explain select a1,a2,b,       max(c) from t1 where (c > 'f123') group by a1,a2,b;
@@ -398,35 +398,35 @@ explain select a1,a2,b,min(c),max(c) from t1 where (c < 'c5') or (c = 'g412') or
 explain select a1,a2,b,min(c),max(c) from t1 where ((c > 'b111') and (c <= 'g112')) or ((c > 'd000') and (c <= 'i110')) group by a1,a2,b;
 explain select a1,a2,b,min(c),max(c) from t1 where (c between 'b111' and 'g112') or (c between 'd000' and 'i110') group by a1,a2,b;
 
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c > 'b1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c > 'b1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c > 'f123') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c > 'f123') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c < 'a0') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c < 'a0') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c < 'k321') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c < 'k321') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c < 'a0') or (c > 'b1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c < 'a0') or (c > 'b1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,       max(c) from t2 where (c > 'b1') or (c <= 'g1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c > 'b1') or (c <= 'g1') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c > 'b111') and (c <= 'g112') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (c < 'c5') or (c = 'g412') or (c = 'k421') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where ((c > 'b111') and (c <= 'g112')) or ((c > 'd000') and (c <= 'i110')) group by a1,a2,b;
 
 # queries
@@ -484,17 +484,17 @@ explain select a1,a2,b,min(c) from t1 where ((a1 > 'a') or (a1 < '9'))  and ((a2
 explain select a1,a2,b,min(c) from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 explain select a1,a2,b,min(c) from t1 where (ord(a1) > 97) and (ord(a2) + ord(a1) > 194) and (b = 'c') group by a1,a2,b;
 
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (a1 >= 'c' or a2 < 'b') and (c > 'b111') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c),max(c) from t2 where (a2 >= 'b') and (b = 'a') and (c > 'b111') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c) from t2 where ((a1 > 'a') or (a1 < '9'))  and ((a2 >= 'b') and (a2 < 'z')) and (b = 'a') and ((c < 'h112') or (c = 'j121') or (c > 'k121' and c < 'm122') or (c > 'o122')) group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c) from t2 where ((a1 > 'a') or (a1 < '9'))  and ((a2 >= 'b') and (a2 < 'z')) and (b = 'a') and ((c = 'j121') or (c > 'k121' and c < 'm122') or (c > 'o122') or (c < 'h112') or (c = 'c111')) group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,min(c) from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 # queries
@@ -525,15 +525,15 @@ explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121'
 explain select a1,a2,b,c from t1 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
 explain select a1,a2,b from t1 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b from t2 where (a1 >= 'c' or a2 < 'b') and (b > 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121' or c = 'i121') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
 
 # queries
@@ -562,12 +562,12 @@ explain select distinct b from t1 where (a2 >= 'b') and (b = 'a');
 explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'b';
 explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'e';
 
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2 where (a2 >= 'b') and (b = 'a');
 explain select distinct a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121');
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c');
 explain select distinct b from t2 where (a2 >= 'b') and (b = 'a');
 explain select distinct a1 from t2 where a1 in ('a', 'd') and a2 = 'b';
@@ -614,19 +614,19 @@ explain select distinct b from t1 where (a2 >= 'b') and (b = 'a') group by a1,a2
 explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'b' group by a1;
 explain select distinct a1 from t1 where a1 in ('a', 'd') and a2 = 'e' group by a1;
 
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b,c from t2 where (a2 >= 'b') and (b = 'a') and (c = 'i121') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1,a2,b from t2 where (a1 > 'a') and (a2 > 'a') and (b = 'c') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct b from t2 where (a2 >= 'b') and (b = 'a') group by a1,a2,b;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1 from t2 where a1 in ('a', 'd') and a2 = 'b' group by a1;
---replace_column 9 #
+--replace_column 10 #
 explain select distinct a1 from t2 where a1 in ('a', 'd') and a2 = 'e' group by a1;
 
 # queries
@@ -729,12 +729,6 @@ explain select a1,a2,count(a2) from t1 group by a1,a2,b;
 explain select a1,a2,count(a2) from t1 where (a1 > 'a') group by a1,a2,b;
 explain select sum(ord(a1)) from t1 where (a1 > 'a') group by a1,a2,b;
 
-# test multi_range_groupby flag
-set optimizer_switch = 'multi_range_groupby=off';
-explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
-set optimizer_switch = 'default';
-explain select a1,a2,b,max(c),min(c) from t2 where (a2 = 'a') and (b = 'a' or b = 'b') group by a1;
-
 
 #
 # Bug #16710: select distinct doesn't return all it should
@@ -783,7 +777,7 @@ drop table t1,t2,t3;
 # Bug #14920 Ordering aggregated result sets with composite primary keys
 # corrupts resultset
 #
-eval create table t1 (c1 int not null,c2 int not null, primary key(c1,c2)) engine=$engine;
+eval create table t1 (c1 int not null,c2 int not null, primary key(c1,c2)) engine=$engine charset=latin1;
 insert into t1 (c1,c2) values
 (10,1),(10,2),(10,3),(20,4),(20,5),(20,6),(30,7),(30,8),(30,9);
 select distinct c1, c2 from t1 order by c2;
@@ -796,7 +790,7 @@ drop table t1;
 #             returns impossible range
 #
 
-eval CREATE TABLE t1 (a varchar(5), b int(11), PRIMARY KEY (a,b)) engine=$engine;
+eval CREATE TABLE t1 (a varchar(5), b int(11), PRIMARY KEY (a,b)) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES ('AA',1), ('AA',2), ('AA',3), ('BB',1), ('AA',4);
 OPTIMIZE TABLE t1;
 
@@ -854,7 +848,7 @@ DROP PROCEDURE a;
 # Bug #18068: SELECT DISTINCT
 #
 
-eval CREATE TABLE t1 (a varchar(64) NOT NULL default '', PRIMARY KEY(a)) engine=$engine;
+eval CREATE TABLE t1 (a varchar(64) NOT NULL default '', PRIMARY KEY(a)) engine=$engine charset=latin1;
 
 INSERT INTO t1 (a) VALUES 
   (''), ('CENTRAL'), ('EASTERN'), ('GREATER LONDON'),
@@ -870,12 +864,12 @@ DROP TABLE t1;
 # Bug #21007: NATURAL JOIN (any JOIN (2 x NATURAL JOIN)) crashes the server
 #
 
-eval CREATE TABLE t1 (id1 INT, id2 INT) engine=$engine;
-eval CREATE TABLE t2 (id2 INT, id3 INT, id5 INT) engine=$engine;
-eval CREATE TABLE t3 (id3 INT, id4 INT) engine=$engine;
-eval CREATE TABLE t4 (id4 INT) engine=$engine;
-eval CREATE TABLE t5 (id5 INT, id6 INT) engine=$engine;
-eval CREATE TABLE t6 (id6 INT) engine=$engine;
+eval CREATE TABLE t1 (id1 INT, id2 INT) engine=$engine charset=latin1;
+eval CREATE TABLE t2 (id2 INT, id3 INT, id5 INT) engine=$engine charset=latin1;
+eval CREATE TABLE t3 (id3 INT, id4 INT) engine=$engine charset=latin1;
+eval CREATE TABLE t4 (id4 INT) engine=$engine charset=latin1;
+eval CREATE TABLE t5 (id5 INT, id6 INT) engine=$engine charset=latin1;
+eval CREATE TABLE t6 (id6 INT) engine=$engine charset=latin1;
 
 INSERT INTO t1 VALUES(1,1);
 INSERT INTO t2 VALUES(1,1,1);
@@ -917,14 +911,14 @@ DROP TABLE t1,t2,t3,t4,t5,t6;
 #
 # Bug#22342: No results returned for query using max and group by
 #
-eval CREATE TABLE t1 (a int, b int, PRIMARY KEY (a,b), KEY b (b)) engine=$engine;
+eval CREATE TABLE t1 (a int, b int, PRIMARY KEY (a,b), KEY b (b)) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES (1,1),(1,2),(1,0),(1,3);
 ANALYZE TABLE t1;
 
 explain SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a;
 SELECT MAX(b), a FROM t1 WHERE b < 2 AND a = 1 GROUP BY a;
 SELECT MIN(b), a FROM t1 WHERE b > 1 AND a = 1 GROUP BY a;
-eval CREATE TABLE t2 (a int, b int, c int, PRIMARY KEY (a,b,c)) engine=$engine;
+eval CREATE TABLE t2 (a int, b int, c int, PRIMARY KEY (a,b,c)) engine=$engine charset=latin1;
 INSERT INTO t2 SELECT a,b,b FROM t1;
 ANALYZE TABLE t2;
 explain SELECT MIN(c) FROM t2 WHERE b = 2 and a = 1 and c > 1 GROUP BY a;
@@ -936,7 +930,7 @@ DROP TABLE t1,t2;
 # Bug#24156: Loose index scan not used with CREATE TABLE ...SELECT and similar statements
 #
 
-eval CREATE TABLE t1 (a INT, b INT, INDEX (a,b)) engine=$engine;
+eval CREATE TABLE t1 (a INT, b INT, INDEX (a,b)) engine=$engine charset=latin1;
 INSERT INTO t1 (a, b) VALUES (1,1), (1,2), (1,3), (1,4), (1,5),
        (2,2), (2,3), (2,1), (3,1), (4,1), (4,2), (4,3), (4,4), (4,5), (4,6);
 ANALYZE TABLE t1;
@@ -946,7 +940,7 @@ SELECT max(b), a FROM t1 GROUP BY a;
 SHOW STATUS LIKE 'handler_read__e%';
 EXPLAIN SELECT max(b), a FROM t1 GROUP BY a;
 FLUSH STATUS;
-eval CREATE TABLE t2 engine=$engine SELECT max(b), a FROM t1 GROUP BY a;
+eval CREATE TABLE t2 engine=$engine charset=latin1 SELECT max(b), a FROM t1 GROUP BY a;
 SHOW STATUS LIKE 'handler_read__e%';
 FLUSH STATUS;
 SELECT * FROM (SELECT max(b), a FROM t1 GROUP BY a) b;
@@ -999,7 +993,7 @@ DROP TABLE t1,t2,t3;
 #            for which loose scan optimization is applied
 #
 
-eval CREATE TABLE t1 (a int, INDEX idx(a)) engine=$engine;
+eval CREATE TABLE t1 (a int, INDEX idx(a)) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES
   (4), (2), (1), (2), (4), (2), (1), (4),
   (4), (2), (1), (2), (2), (4), (1), (4);
@@ -1016,7 +1010,7 @@ DROP TABLE t1;
 # Bug #32268: Indexed queries give bogus MIN and MAX results
 #
 
-eval CREATE TABLE t1 (a INT, b INT) engine=$engine;
+eval CREATE TABLE t1 (a INT, b INT) engine=$engine charset=latin1;
 INSERT INTO t1 (a, b) VALUES (1,1), (1,2), (1,3);
 INSERT INTO t1 SELECT a + 1, b FROM t1;
 INSERT INTO t1 SELECT a + 2, b FROM t1;
@@ -1069,7 +1063,7 @@ drop table t1;
 #
 
 eval CREATE TABLE t1 (a int, b int, c int, d int,
-  KEY foo (c,d,a,b), KEY bar (c,a,b,d)) engine=$engine;
+  KEY foo (c,d,a,b), KEY bar (c,a,b,d)) engine=$engine charset=latin1;
 
 INSERT INTO t1 VALUES (1, 1, 1, 1), (1, 1, 1, 2), (1, 1, 1, 3), (1, 1, 1, 4);
 INSERT INTO t1 SELECT * FROM t1;
@@ -1088,7 +1082,7 @@ DROP TABLE t1;
 --echo #  WHERE and GROUP BY clause
 --echo #
 
-eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine;
+eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine charset=latin1;
 INSERT INTO t VALUES (2,0), (2,0), (2,1), (2,1);
 INSERT INTO t SELECT * FROM t;
 INSERT INTO t SELECT * FROM t;
@@ -1124,7 +1118,7 @@ DROP TABLE t;
 --echo #             conditions
 --echo # 
 
-eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine;
+eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine charset=latin1;
 INSERT INTO t VALUES (2,0), (2,0), (2,1), (2,1);
 INSERT INTO t SELECT * FROM t;                                   
 ANALYZE TABLE t;
@@ -1140,7 +1134,7 @@ DROP TABLE t;
 --echo #              server crash
 --echo #
 
-eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine;
+eval CREATE TABLE t (a INT, b INT, INDEX (a,b)) engine=$engine charset=latin1;
 INSERT INTO t VALUES (2,0), (2,0), (2,1), (2,1);
 INSERT INTO t SELECT * FROM t;
 
@@ -1151,7 +1145,7 @@ DROP TABLE t;
 #
 # BUG#49902 - SELECT returns incorrect results
 #
-eval CREATE TABLE t1(a INT NOT NULL, b INT NOT NULL, KEY (b)) engine=$engine;
+eval CREATE TABLE t1(a INT NOT NULL, b INT NOT NULL, KEY (b)) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES(1,1),(2,1);
 ANALYZE TABLE t1;
 SELECT 1 AS c, b FROM t1 WHERE b IN (1,2) GROUP BY c, b;
@@ -1164,7 +1158,7 @@ DROP TABLE t1;
 --echo #
 
 --echo ## Test for NULLs allowed
-eval CREATE TABLE t1 ( a INT, KEY (a) ) engine=$engine;
+eval CREATE TABLE t1 ( a INT, KEY (a) ) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES (1), (2), (3);
 ANALYZE TABLE t1;
 --source include/min_null_cond.inc
@@ -1174,7 +1168,7 @@ ANALYZE TABLE t1;
 DROP TABLE t1;
 
 --echo ## Test for NOT NULLs
-eval CREATE TABLE t1 ( a INT NOT NULL PRIMARY KEY) engine=$engine;
+eval CREATE TABLE t1 ( a INT NOT NULL PRIMARY KEY) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES (1), (2), (3);
 ANALYZE TABLE t1;
 --echo #
@@ -1196,7 +1190,7 @@ DROP TABLE t1;
 --echo # Bug#53859: Valgrind: opt_sum_query(TABLE_LIST*, List<Item>&, Item*) at
 --echo # opt_sum.cc:305
 --echo #
-eval CREATE TABLE t1 ( a INT, KEY (a) ) engine=$engine;
+eval CREATE TABLE t1 ( a INT, KEY (a) ) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES (1), (2), (3); 
 
 SELECT MIN( a ) AS min_a
@@ -1214,12 +1208,12 @@ DROP TABLE t1;
 --echo # WL#3220 (Loose index scan for COUNT DISTINCT)
 --echo #
 
-eval CREATE TABLE t1 (a INT, b INT, c INT, KEY (a,b)) engine=$engine;
+eval CREATE TABLE t1 (a INT, b INT, c INT, KEY (a,b)) engine=$engine charset=latin1;
 INSERT INTO t1 VALUES (1,1,1), (1,2,1), (1,3,1), (1,4,1);
 INSERT INTO t1 SELECT a, b + 4, 1 FROM t1;
 INSERT INTO t1 SELECT a + 1, b, 1 FROM t1;
 ANALYZE TABLE t1;
-eval CREATE TABLE t2 (a INT, b INT, c INT, d INT, e INT, f INT, KEY (a,b,c)) engine=$engine;
+eval CREATE TABLE t2 (a INT, b INT, c INT, d INT, e INT, f INT, KEY (a,b,c)) engine=$engine charset=latin1;
 INSERT INTO t2 VALUES (1,1,1,1,1,1), (1,2,1,1,1,1), (1,3,1,1,1,1), 
        (1,4,1,1,1,1);
 INSERT INTO t2 SELECT a, b + 4, c,d,e,f FROM t2;
@@ -1342,7 +1336,7 @@ eval CREATE TABLE t1 (
   f1 int(11) NOT NULL DEFAULT '0',
   f2 char(1) NOT NULL DEFAULT '',
   PRIMARY KEY (f1,f2)
-)  engine=$engine;
+)  engine=$engine charset=latin1;
 insert into t1 values(1,'A'),(1 , 'B'), (1, 'C'), (2, 'A'), 
 (3, 'A'), (3, 'B'), (3, 'C'), (3, 'D');
 ANALYZE TABLE t1;
@@ -1358,7 +1352,7 @@ drop table t1;
 --echo #                 "HAVING SUM(DISTINCT)": WRONG RESULTS.
 --echo #
 
-eval CREATE TABLE t (a INT, b INT, KEY(a,b)) engine=$engine;
+eval CREATE TABLE t (a INT, b INT, KEY(a,b)) engine=$engine charset=latin1;
 INSERT INTO t VALUES (1,1), (2,2), (3,3), (4,4), (1,0), (3,2), (4,5);
 ANALYZE TABLE t;
 let $DEFAULT_TRACE_MEM_SIZE=1048576; # 1MB
@@ -1407,7 +1401,7 @@ eval CREATE TABLE t1 (
 id INT AUTO_INCREMENT PRIMARY KEY,
 c1 INT,
 c2 INT,
-KEY(c1,c2)) engine=$engine;
+KEY(c1,c2)) engine=$engine charset=latin1;
 
 INSERT INTO t1(c1,c2) VALUES
 (1, 1), (1,2), (2,1), (2,2), (3,1), (3,2), (3,3), (4,1), (4,2), (4,3),
