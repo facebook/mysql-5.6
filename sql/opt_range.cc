@@ -3176,6 +3176,7 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
     KEY_PART *key_parts;
     KEY *key_info;
     PARAM param;
+    bool force_group_by = false;
 
     /*
       Use the 3 multiplier as range optimizer allocates big PARAM structure
@@ -3183,6 +3184,7 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
       TODO During the optimization phase we should evaluate only inexpensive
            single-lookup subqueries.
     */
+    DBUG_EXECUTE_IF("force_group_by", force_group_by = true; );
     uchar buff[STACK_BUFF_ALLOC];
     if (check_stack_overrun(thd, 3 * STACK_MIN_SIZE + sizeof(PARAM), buff))
       DBUG_RETURN(0);  // Fatal error flag is set
@@ -3371,10 +3373,14 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
                                    Opt_trace_context::RANGE_OPTIMIZER);
       if (unlikely(trace->is_started()))
         group_trp->trace_basic_info(&param, &grp_summary);
-      if (group_trp->cost_est < best_cost) {
+      if (group_trp->cost_est < best_cost || force_group_by) {
         grp_summary.add("chosen", true);
         best_trp = group_trp;
         best_cost = best_trp->cost_est;
+        if (force_group_by)
+        {
+          goto force_plan;
+        }
       } else
         grp_summary.add("chosen", false).add_alnum("cause", "cost");
     }
@@ -3478,6 +3484,7 @@ int test_quick_select(THD *thd, Key_map keys_to_use, table_map prev_tables,
       }
     }
 
+force_plan:
     thd->mem_root = param.old_root;
 
     /*
@@ -10995,12 +11002,27 @@ int QUICK_RANGE_SELECT::get_next_prefix(uint prefix_length,
       DBUG_ASSERT(cur_prefix != NULL);
       result = file->ha_index_read_map(record, cur_prefix, keypart_map,
                                        HA_READ_AFTER_KEY);
-      if (result || last_range->max_keypart_map == 0) DBUG_RETURN(result);
-
-      key_range previous_endpoint;
-      last_range->make_max_endpoint(&previous_endpoint, prefix_length,
-                                    keypart_map);
-      if (file->compare_key(&previous_endpoint) <= 0) DBUG_RETURN(0);
+      if (result || last_range->max_keypart_map == 0) {
+        /*
+          Only return if actual failure occurred. For HA_ERR_KEY_NOT_FOUND
+          or HA_ERR_END_OF_FILE, we just want to continue to reach the next
+          set of ranges. It is possible for the storage engine to return
+          HA_ERR_KEY_NOT_FOUND/HA_ERR_END_OF_FILE even when there are more
+          keys if it respects the end range set by the read_range_first call
+          below.
+        */
+        if (result != HA_ERR_KEY_NOT_FOUND && result != HA_ERR_END_OF_FILE)
+          DBUG_RETURN(result);
+      } else {
+        /*
+          For storage engines that don't respect end range, check if we've
+          moved past the current range.
+        */
+        key_range previous_endpoint;
+        last_range->make_max_endpoint(&previous_endpoint, prefix_length,
+                                      keypart_map);
+        if (file->compare_key(&previous_endpoint) <= 0) DBUG_RETURN(0);
+      }
     }
 
     const size_t count = ranges.size() - (cur_range - ranges.begin());
