@@ -1,1 +1,1 @@
---block_create_no_primary_key=TRUE
+--sql_require_primary_key=TRUE
