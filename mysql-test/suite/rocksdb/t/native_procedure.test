@@ -1,2 +1,0 @@
-let $engine=rocksdb;
---source include/native_procedure.inc
