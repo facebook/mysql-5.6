@@ -1117,12 +1117,6 @@ static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Directory for temporary files during DDL operations.",
                         nullptr, nullptr, "");
 
-#define DEFAULT_SKIP_UNIQUE_CHECK_TABLES ".*"
-static MYSQL_THDVAR_STR(
-    skip_unique_check_tables, PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
-    "Skip unique constraint checking for the specified tables", nullptr,
-    nullptr, DEFAULT_SKIP_UNIQUE_CHECK_TABLES);
-
 static MYSQL_THDVAR_BOOL(
     commit_in_the_middle, PLUGIN_VAR_RQCMDARG,
     "Commit rows implicitly every rocksdb_bulk_load_size, on bulk load/insert, "
@@ -2189,7 +2183,6 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(bulk_load),
     MYSQL_SYSVAR(bulk_load_allow_sk),
     MYSQL_SYSVAR(bulk_load_allow_unsorted),
-    MYSQL_SYSVAR(skip_unique_check_tables),
     MYSQL_SYSVAR(trace_sst_api),
     MYSQL_SYSVAR(commit_in_the_middle),
     MYSQL_SYSVAR(blind_delete_primary_key),
@@ -6500,8 +6493,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_insert_with_update(false),
       m_dup_pk_found(false),
       m_in_rpl_delete_rows(false),
-      m_in_rpl_update_rows(false),
-      m_force_skip_unique_check(false) {}
+      m_in_rpl_update_rows(false) {}
 
 ha_rocksdb::~ha_rocksdb() {
   int err MY_ATTRIBUTE((__unused__));
@@ -6831,23 +6823,6 @@ void ha_rocksdb::free_key_buffers() {
   m_scan_it_upper_bound = nullptr;
 }
 
-void ha_rocksdb::set_skip_unique_check_tables(const char *const whitelist) {
-  const char *const wl =
-      whitelist ? whitelist : DEFAULT_SKIP_UNIQUE_CHECK_TABLES;
-
-#if defined(HAVE_PSI_INTERFACE)
-  Regex_list_handler regex_handler(key_rwlock_skip_unique_check_tables);
-#else
-  Regex_list_handler regex_handler;
-#endif
-
-  if (!regex_handler.set_patterns(wl)) {
-    warn_about_bad_patterns(&regex_handler, "skip_unique_check_tables");
-  }
-
-  m_skip_unique_check = regex_handler.matches(m_tbl_def->base_tablename());
-}
-
 /**
   @return
     HA_EXIT_SUCCESS  OK
@@ -6955,9 +6930,6 @@ int ha_rocksdb::open(const char *const name,
 
   /* Index block size in MyRocks: used by MySQL in query optimization */
   stats.block_size = rocksdb_tbl_options->block_size;
-
-  /* Determine at open whether we should skip unique checks for this table */
-  set_skip_unique_check_tables(THDVAR(ha_thd(), skip_unique_check_tables));
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
@@ -9458,29 +9430,17 @@ bool ha_rocksdb::skip_unique_check() const {
   /*
     We want to skip unique checks if:
       1) bulk_load is on
-      2) this table is in the whitelist of tables to skip and the replication
-         lag has reached a large enough value (see unique_check_lag_threshold
-         and unique_check_lage_reset_threshold)
-      3) the user set unique_checks option to 0, and the table does not have
+      2) the user set unique_checks option to 0, and the table does not have
          any indexes. If the table has secondary keys, then those might becomes
          inconsisted/corrupted
-      4) We're using read-free replication
+      3) We're using read-free replication
   */
   return THDVAR(table->in_use, bulk_load) ||
-         (m_force_skip_unique_check && m_skip_unique_check) ||
          (my_core::thd_test_options(table->in_use,
                                     OPTION_RELAXED_UNIQUE_CHECKS) &&
           m_tbl_def->m_key_count == 1)
           /* TODO(yzha) - af531c246d35 (New variable to control read free replication)
           || use_read_free_rpl() */;
-}
-
-void ha_rocksdb::set_force_skip_unique_check(bool skip) {
-  DBUG_ENTER_FUNC();
-
-  m_force_skip_unique_check = skip;
-
-  DBUG_VOID_RETURN;
 }
 
 bool ha_rocksdb::commit_in_the_middle() {
