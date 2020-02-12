@@ -629,7 +629,8 @@ int Raft_replication_delegate::before_shutdown(THD *thd)
 }
 
 int Raft_replication_delegate::register_paths(
-    THD *thd, const std::string& wal_dir_parent,
+    THD *thd, const std::string& s_uuid,
+    const std::string& wal_dir_parent,
     const std::string& log_dir_parent,
     const std::string& raft_log_path_prefix, uint64_t port)
 {
@@ -638,7 +639,7 @@ int Raft_replication_delegate::register_paths(
   int ret= 0;
 
   FOREACH_OBSERVER(ret, register_paths, thd,
-                  (&raft_listener_queue, wal_dir_parent,
+                  (&raft_listener_queue, s_uuid, wal_dir_parent,
                    log_dir_parent, raft_log_path_prefix, port));
 
   DBUG_RETURN(ret);

@@ -57,6 +57,7 @@ extern char *opt_relaylog_index_name;
 extern char *opt_applylog_index_name;
 extern char *opt_apply_logname;
 static bool enable_raft_plugin_save= false;
+extern char server_uuid[UUID_LENGTH+1];
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -9278,8 +9279,8 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item)
 
       THD *thd= current_thd;
       err= RUN_HOOK(raft_replication, register_paths,
-                    (thd, s_wal_dir, s_log_dir, log_bin_basename,
-                     (uint64_t)mysqld_port));
+                    (thd, server_uuid, s_wal_dir, s_log_dir,
+                     log_bin_basename, (uint64_t)mysqld_port));
       break;
     }
     default:
