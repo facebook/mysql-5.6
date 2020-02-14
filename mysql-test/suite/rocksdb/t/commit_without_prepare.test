@@ -1,0 +1,35 @@
+--source include/have_rocksdb.inc
+
+# Scenario #1
+# ALTER TABLE implicit commit
+create table t1 (pk int primary key, a int);
+create table t2 (pk int primary key, a int);
+insert into t1 values (1, 1), (2, 2);
+start transaction;
+insert into t2 values (1, 1);
+
+# Bug: triggers commit without prepare error in RocksDB
+alter table t1 add column b int;
+--sorted_result
+select * from t1;
+
+drop table t1;
+drop table t2;
+
+# Scenario #2
+# Incorrect write count in statement rollback in transaction
+create table t1 (pk int primary key);
+insert into t1 values (1);
+
+start transaction;
+
+--error ER_DUP_ENTRY
+insert into t1 values (2), (3), (1);
+
+savepoint a;
+
+# Bug: triggers commit without prepare error in RocksDB
+commit;
+
+drop table t1;
+
