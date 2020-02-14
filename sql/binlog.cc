@@ -7642,6 +7642,15 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all, bool async)
   }
   else
   {
+    /*
+      We only set engine binlog position in ordered_commit path flush phase
+      and not all transactions go through them (such as table copy in DDL).
+      So in cases where a DDL statement implicitly commits earlier transaction
+      and starting a new one, the new transaction could be "leaking" the
+      engine binlog pos. In order to avoid that and accidentally overwrite
+      binlog position with previous location, we reset it here.
+    */
+    thd->set_trans_pos(NULL, 0, NULL);
     if (ha_commit_low(thd, all, async))
       DBUG_RETURN(RESULT_INCONSISTENT);
   }
