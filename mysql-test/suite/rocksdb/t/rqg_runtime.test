@@ -10,6 +10,9 @@ call mtr.add_suppression("Attempt to delete the trigger file");
 
 SET @ORIG_EVENT_SCHEDULER = @@EVENT_SCHEDULER;
 
+# Following tests may update INNODB_FILE_PER_TABLE
+SET @ORIG_INNODB_FILE_PER_TABLE = @@INNODB_FILE_PER_TABLE;
+
 # mysql.user and mysql.tables_priv are modified by the
 # tests, so they need to be restored to the original
 # state.
@@ -62,4 +65,5 @@ DROP DATABASE IF EXISTS testdb_N;
 DROP DATABASE IF EXISTS testdb_S;
 --enable_warnings
 
+SET GLOBAL INNODB_FILE_PER_TABLE = @ORIG_INNODB_FILE_PER_TABLE;
 SET GLOBAL EVENT_SCHEDULER = @ORIG_EVENT_SCHEDULER;
