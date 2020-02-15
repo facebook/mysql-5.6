@@ -74,7 +74,8 @@ class Rdb_cf_options {
                           MY_ATTRIBUTE((__nonnull__)));
 
   static bool parse_cf_options(const std::string &cf_options,
-                               Name_to_config_t *option_map);
+                               Name_to_config_t *option_map,
+                               std::stringstream *output = nullptr);
 
  private:
   bool set_default(const std::string &default_config);
