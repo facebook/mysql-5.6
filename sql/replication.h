@@ -483,6 +483,8 @@ typedef struct Raft_replication_observer {
    * @param log_dir_parent - the parent directory under which raft will create
    * metric logs
    * @param raft_log_path_prefix - the prefix with the dirname path which tells
+   * @param s_hostname - the proper hostname of server which can be used in SMC and logging
+   * @param port - the port of the server
    * raft where to find raft binlogs.
    */
   int (*register_paths)(RaftListenerQueueIf* raft_listener_queue,
@@ -490,6 +492,7 @@ typedef struct Raft_replication_observer {
                         const std::string& wal_dir_parent,
                         const std::string& log_dir_parent,
                         const std::string & raft_log_path_prefix,
+                        const std::string& s_hostname,
                         uint64_t port);
 } Raft_replication_observer;
 

@@ -632,7 +632,8 @@ int Raft_replication_delegate::register_paths(
     THD *thd, const std::string& s_uuid,
     const std::string& wal_dir_parent,
     const std::string& log_dir_parent,
-    const std::string& raft_log_path_prefix, uint64_t port)
+    const std::string& raft_log_path_prefix,
+    const std::string& s_hostname, uint64_t port)
 {
   DBUG_ENTER("Raft_replication_delegate::register_paths");
   Binlog_storage_param param;
@@ -640,7 +641,8 @@ int Raft_replication_delegate::register_paths(
 
   FOREACH_OBSERVER(ret, register_paths, thd,
                   (&raft_listener_queue, s_uuid, wal_dir_parent,
-                   log_dir_parent, raft_log_path_prefix, port));
+                   log_dir_parent, raft_log_path_prefix,
+                   s_hostname, port));
 
   DBUG_RETURN(ret);
 }
