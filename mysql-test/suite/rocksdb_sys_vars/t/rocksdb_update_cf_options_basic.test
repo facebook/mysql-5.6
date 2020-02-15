@@ -2,8 +2,9 @@
 
 call mtr.add_suppression("MyRocks: NULL is not a valid option for updates to column family settings.");
 call mtr.add_suppression("Invalid cf options, '=' expected *");
+call mtr.add_suppression("Failed to find options pair in override options *");
 call mtr.add_suppression("MyRocks: failed to parse the updated column family options = *");
-call mtr.add_suppression("Invalid cf config for default in override options *");
+call mtr.add_suppression("Invalid cf config for 'default' in override options: *");
 
 DROP TABLE IF EXISTS t1;
 

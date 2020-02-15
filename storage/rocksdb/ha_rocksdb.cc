@@ -15042,12 +15042,13 @@ static int rocksdb_validate_update_cf_options(
     return HA_EXIT_SUCCESS;
   }
 
+  std::stringstream output;
   Rdb_cf_options::Name_to_config_t option_map;
 
   // Basic sanity checking and parsing the options into a map. If this fails
   // then there's no point to proceed.
-  if (!Rdb_cf_options::parse_cf_options(str, &option_map)) {
-    my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "rocksdb_update_cf_options", str);
+  if (!Rdb_cf_options::parse_cf_options(str, &option_map, &output)) {
+    my_printf_error(ER_WRONG_VALUE_FOR_VAR, "%s", MYF(0), output.str().c_str());
     return HA_EXIT_FAILURE;
   }
 
