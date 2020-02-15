@@ -254,10 +254,18 @@ bool Rdb_cf_options::find_cf_options_pair(const std::string &input,
 }
 
 bool Rdb_cf_options::parse_cf_options(const std::string &cf_options,
-                                      Name_to_config_t *option_map) {
+                                      Name_to_config_t *option_map,
+                                      std::stringstream *output) {
   std::string cf;
   std::string opt_str;
+  std::stringstream ss;
   rocksdb::ColumnFamilyOptions options;
+
+  // Only print warnings if the caller didn't pass an output stream
+  bool print_warnings = (output == nullptr);
+  if (output == nullptr) {
+    output = &ss;
+  }
 
   DBUG_ASSERT(option_map != nullptr);
   DBUG_ASSERT(option_map->empty());
@@ -268,15 +276,24 @@ bool Rdb_cf_options::parse_cf_options(const std::string &cf_options,
   while (pos < cf_options.size()) {
     // Attempt to find <cf>={<opt_str>}.
     if (!find_cf_options_pair(cf_options, &pos, &cf, &opt_str)) {
+      (*output) << "Failed to find options pair in override options (options: "
+                << cf_options.c_str() << ")";
+      if (print_warnings) {
+        // NO_LINT_DEBUG
+        sql_print_warning(output->str().c_str());
+      }
       return false;
     }
 
     // Generate an error if we have already seen this column family.
     if (option_map->find(cf) != option_map->end()) {
-      // NO_LINT_DEBUG
-      sql_print_warning(
-          "Duplicate entry for %s in override options (options: %s)",
-          cf.c_str(), cf_options.c_str());
+      (*output) << "Duplicate entry for '" << cf.c_str()
+                << "' in override options (options: " << cf_options.c_str()
+                << ")";
+      if (print_warnings) {
+        // NO_LINT_DEBUG
+        sql_print_warning(output->str().c_str());
+      }
       return false;
     }
 
@@ -284,10 +301,13 @@ bool Rdb_cf_options::parse_cf_options(const std::string &cf_options,
     rocksdb::Status s =
         rocksdb::GetColumnFamilyOptionsFromString(options, opt_str, &options);
     if (!s.ok()) {
-      // NO_LINT_DEBUG
-      sql_print_warning(
-          "Invalid cf config for %s in override options: %s (options: %s)",
-          cf.c_str(), s.getState(), cf_options.c_str());
+      (*output) << "Invalid cf config for '" << cf.c_str()
+                << "' in override options: " << s.getState()
+                << " (options: " << cf_options.c_str() << ")";
+      if (print_warnings) {
+        // NO_LINT_DEBUG
+        sql_print_warning(output->str().c_str());
+      }
       return false;
     }
 
