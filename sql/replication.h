@@ -20,6 +20,8 @@
 #include <future>
 #include <mysql.h>
 #include <queue>
+// For RaftReplicateMsgOpType
+#include "raft_listener_queue_if.h"
 
 typedef struct st_mysql MYSQL;
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER
@@ -441,13 +443,13 @@ typedef struct Raft_replication_observer {
 
      @param param Observer common parameter
      @param cache IO_CACHE containing binlog events for the txn
-     @param noop  Is this a Raft NOOP event being faked as a Rotate Event
+     @param op_type The type of operation for which before_flush is called
 
      @retval 0 Sucess
      @retval 1 Failure
   */
   int (*before_flush)(Raft_replication_param *param, IO_CACHE* cache,
-                      bool no_op);
+                      RaftReplicateMsgOpType op_type);
 
   /**
      This callback is called once upfront to setup the appropriate
@@ -480,13 +482,14 @@ typedef struct Raft_replication_observer {
 
    /**
    * @param raft_listener_queue - the listener queue in which to add requests
-   * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID in Raft
+   * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID
+   *                 in Raft
    * @param wal_dir_parent - the parent directory under which raft will create
    * config metadata
    * @param log_dir_parent - the parent directory under which raft will create
    * metric logs
    * @param raft_log_path_prefix - the prefix with the dirname path which tells
-   * @param s_hostname - the proper hostname of server which can be used in SMC and logging
+   * @param s_hostname - the proper hostname of server which can be used in plugin
    * @param port - the port of the server
    * raft where to find raft binlogs.
    */

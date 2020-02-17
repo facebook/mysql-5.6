@@ -547,8 +547,6 @@ public:
     LOCK_log.
   */
   int new_file_without_locking(Format_description_log_event *extra_description_event);
-  int new_file_impl(bool need_lock, Format_description_log_event *extra_description_event,
-                    myf raft_flags= MYF(0));
 
   /** Manage the stages in ordered_commit. */
   Stage_manager stage_manager;
@@ -807,6 +805,20 @@ public:
     return hlc.clear_database_hlc();
   }
 
+  /*
+   * @param raft_flags - In non-raft world, these flags can default to 0.
+   *   Raft listener queue handlers pass in various flags e.g.
+   *   NO_OP|POSTAPPEND
+   * @param config_change - This has the payload of the configuration change
+   *  operation (e.g. adding or removing an instance). The payload includes
+   *  the current config and the proposed new config. If this rotation is
+   *  not part of a config change, this should not be passed in.
+   */
+  int new_file_impl(bool need_lock,
+      Format_description_log_event *extra_description_event,
+      myf raft_flags= MYF(0),
+      const std::string *config_change= nullptr);
+
 private:
   Gtid_set* previous_gtid_set;
 
@@ -1006,6 +1018,18 @@ public:
   int rotate(bool force_rotate, bool* check_purge);
   void purge();
   int rotate_and_purge(THD* thd, bool force_rotate);
+
+  /**
+   * Take the config change payload and create a before_flush call into the
+   * plugin after taking LOCK_log.
+   * We do a rotation immediately after config change, because it enables
+   * us to keep the invariant that we don't have free floating metadata
+   * events due to Raft, except the rotate event at the end of a file.
+   * @param thd - MySQL THD doing the config change rotation
+   * @config_change - a description of the config change understood by Raft
+   *                  (move semantics)
+   */
+  int config_change_rotate(THD* thd, std::string config_change);
 
   /*
    * Reads the current index file and returns a list of all file names found in
@@ -1310,6 +1334,14 @@ int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 int get_committed_gtids(const std::vector<std::string>& gtids,
                         std::vector<std::string> *committed_gtids);
 int get_executed_gtids(std::string* const gtids);
+/**
+ * Start a raft configuration change on the binlog with the provided
+ * config change payload
+ * @param thd - MySQL THD doing the config change rotation
+ * @param config_change - Has the committed Config and New Config
+ */
+int raft_config_change(THD *thd, std::string config_change);
+
 int rotate_binlog_file(THD *thd);
 /* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
    to point to the apply binlog/reopen new one. Apply binlogs are binlog

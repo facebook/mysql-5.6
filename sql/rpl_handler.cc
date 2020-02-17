@@ -552,14 +552,14 @@ int Binlog_relay_IO_delegate::after_reset_slave(THD *thd, Master_info *mi)
 #endif /* HAVE_REPLICATION */
 
 int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
-                                            bool no_op)
+    RaftReplicateMsgOpType op_type)
 {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
   Raft_replication_param param;
 
   int ret= 0;
 
-  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache, no_op));
+  FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache, op_type));
 
   DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
 
@@ -920,6 +920,12 @@ pthread_handler_t process_raft_queue(void *arg)
       case RaftListenerCallbackType::SET_BINLOG_DURABILITY:
       {
         result.error= set_durability(element.arg.val_sys_var_uint);
+        break;
+      }
+      case RaftListenerCallbackType::RAFT_CONFIG_CHANGE:
+      {
+        result.error= raft_config_change(current_thd,
+                                         std::move(element.arg.val_str));
         break;
       }
       default:

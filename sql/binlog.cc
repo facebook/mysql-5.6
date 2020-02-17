@@ -1507,7 +1507,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
 
     if (!error && enable_raft_plugin_save && !mysql_bin_log.is_apply_log) {
       error= RUN_HOOK(raft_replication, before_flush,
-                      (thd, &cache_log, false /* not a noop event */));
+                      (thd, &cache_log));
 
       DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
 
@@ -6062,14 +6062,19 @@ int MYSQL_BIN_LOG::new_file_without_locking(Format_description_log_event *extra_
                been appended via raft and hence needs to be skipped.
   NOOP - in this option, this rotate event also acts as a Raft NOOP
          and hence needs to call a separate hook.
+  @param config_change - the string payload for optional config
+         change operation. This string is passed into a Metadata event
+         before the RotateEvent. For non-config change rotates
+         e.g. No-Op rotates and regular rotates, this should be nullptr.
 
   @retval 0 success
   @retval nonzero - error
 
   @note The new file name is stored last in the index file
 */
-int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_event *extra_description_event,
-                                 myf raft_flags)
+int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
+    Format_description_log_event *extra_description_event,
+    myf raft_flags, const std::string *config_change)
 {
   int error= 0, close_on_error= FALSE;
   char new_name[FN_REFLEN], *new_name_ptr, *old_name, *file_to_open;
@@ -6134,7 +6139,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   }
 
   if (rotate_via_raft) {
-    init_io_cache(&raft_io_cache, -1, 400, WRITE_CACHE, 0, 0, MYF(MY_WME));
+    init_io_cache(&raft_io_cache, -1, 4000, WRITE_CACHE, 0, 0, MYF(MY_WME));
   }
 
   mysql_mutex_lock(&LOCK_index);
@@ -6145,7 +6150,6 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
 
   mysql_mutex_assert_owner(&LOCK_log);
   mysql_mutex_assert_owner(&LOCK_index);
-
 
   /*
     If user hasn't specified an extension, generate a new log name
@@ -6185,8 +6189,27 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
       r.checksum_alg= relay_log_checksum_alg;
 
     // in raft mode checks are calculated in plugin
-    if (rotate_via_raft) {
+    if (rotate_via_raft)
+    {
       r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
+      if (config_change)
+      {
+        // write the metadata log event to the cache first
+        Metadata_log_event me(*config_change);
+        // checksum has to be turned off, because the raft plugin
+        // will patch the events and generate the final checksum.
+        me.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
+        if ((error= me.write(&raft_io_cache)))
+        {
+          char errbuf[MYSYS_STRERROR_SIZE];
+          close_on_error= TRUE;
+          my_printf_error(ER_ERROR_ON_WRITE, ER(ER_CANT_OPEN_FILE),
+                      MYF(ME_FATALERROR), name,
+                      errno, my_strerror(errbuf, sizeof(errbuf), errno));
+          goto end;
+        }
+        bytes_written += me.data_written;
+      }
     }
     DBUG_ASSERT(!is_relay_log || rotate_via_raft || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
     if(DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error=close_on_error=TRUE), FALSE) ||
@@ -6205,8 +6228,15 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
 
   // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
   if (rotate_via_raft) {
+    RaftReplicateMsgOpType op_type=
+        RaftReplicateMsgOpType::OP_TYPE_ROTATE;
+    if (no_op)
+      op_type= RaftReplicateMsgOpType::OP_TYPE_NOOP;
+    else if (config_change)
+      op_type= RaftReplicateMsgOpType::OP_TYPE_CHANGE_CONFIG;
+
     error= RUN_HOOK(raft_replication, before_flush,
-                    (current_thd, &raft_io_cache, no_op));
+                    (current_thd, &raft_io_cache, op_type));
 
     // time to safely readjust the cur_log_ext back to expected value
     cur_log_ext++;
@@ -6337,7 +6367,6 @@ end:
 
   DBUG_RETURN(error);
 }
-
 
 #ifdef HAVE_REPLICATION
 /**
@@ -6866,6 +6895,35 @@ int rotate_binlog_file(THD *thd)
   if (mysql_bin_log.is_open())
   {
     error= mysql_bin_log.rotate_and_purge(thd, true);
+  }
+  DBUG_RETURN(error);
+}
+
+int MYSQL_BIN_LOG::config_change_rotate(THD* thd,
+                                        std::string config_change)
+{
+  int error= 0;
+  DBUG_ENTER("MYSQL_BIN_LOG::config_change_rotate");
+
+  // config change can only be initiated on master/mysql_bin_log
+  DBUG_ASSERT(!is_relay_log);
+  error= new_file_impl(true /*need lock log*/, nullptr, MYF(0), &config_change);
+
+  DBUG_RETURN(error);
+}
+
+int raft_config_change(THD *thd, std::string config_change)
+{
+  int error= 0;
+  DBUG_ENTER("raft_config_change");
+  if (mysql_bin_log.is_open())
+  {
+    error= mysql_bin_log.config_change_rotate(thd, std::move(config_change));
+  }
+  else
+  {
+    // TODO - add throttled messaging here if present in 8.0
+    error= 1;
   }
   DBUG_RETURN(error);
 }

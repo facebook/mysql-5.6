@@ -16131,6 +16131,20 @@ Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
 {
   set_prev_hlc_time(prev_hlc_time_ns);
 }
+
+Metadata_log_event::Metadata_log_event(const std::string& raft_str)
+   : Log_event(Log_event::EVENT_NO_CACHE,
+               Log_event::EVENT_IMMEDIATE_LOGGING)
+{
+  set_raft_str(raft_str);
+}
+
+Metadata_log_event::Metadata_log_event(int64_t term, int64_t index)
+    : Log_event(Log_event::EVENT_NO_CACHE,
+               Log_event::EVENT_IMMEDIATE_LOGGING)
+{
+  set_raft_term_and_index(term, index);
+}
 #endif
 
 Metadata_log_event::Metadata_log_event(
@@ -16224,6 +16238,16 @@ void Metadata_log_event::set_raft_term_and_index(int64_t term, int64_t index)
     (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_TERM_INDEX_SIZE);
 }
 
+void Metadata_log_event::set_raft_str(const std::string& raft_str)
+{
+  raft_str_ = raft_str;
+  set_exist(Metadata_log_event_types::RAFT_GENERIC_STR_TYPE);
+
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+    (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + raft_str_.size());
+}
+
 int64_t Metadata_log_event::get_raft_term() const
 {
   return raft_term_;
@@ -16232,6 +16256,11 @@ int64_t Metadata_log_event::get_raft_term() const
 int64_t Metadata_log_event::get_raft_index() const
 {
   return raft_index_;
+}
+
+const std::string& Metadata_log_event::get_raft_str() const
+{
+  return raft_str_;
 }
 
 uint Metadata_log_event::read_type(
@@ -16243,6 +16272,7 @@ uint Metadata_log_event::read_type(
   // Read the 'length' of the field's value
   uint value_length= uint2korr(buffer);
   int64_t term= -1, index= -1;
+  std::string generic_str;
 
   switch (type)
   {
@@ -16261,6 +16291,10 @@ uint Metadata_log_event::read_type(
       term= uint8korr(buffer + ENCODED_LENGTH_SIZE);
       index= uint8korr(buffer + ENCODED_LENGTH_SIZE + sizeof(raft_term_));
       set_raft_term_and_index(term, index);
+      break;
+    case MLET::RAFT_GENERIC_STR_TYPE:
+      generic_str.assign(buffer + ENCODED_LENGTH_SIZE, value_length);
+      set_raft_str(generic_str);
       break;
     default:
       // This is a event which we do not know about. Just skip this
@@ -16289,6 +16323,9 @@ bool Metadata_log_event::write_data_body(IO_CACHE *file)
     DBUG_RETURN(1);
 
   if (write_raft_term_and_index(file))
+    DBUG_RETURN(1);
+
+  if (write_raft_str(file))
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
@@ -16350,7 +16387,7 @@ bool Metadata_log_event::write_prev_hlc_time(IO_CACHE* file)
 
 bool Metadata_log_event::write_raft_term_and_index(IO_CACHE* file)
 {
-  DBUG_ENTER("Metadata_log_event::write_term_and_index");
+  DBUG_ENTER("Metadata_log_event::write_raft_term_and_index");
 
   if (!does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
     DBUG_RETURN(0); /* No need to write term and index */
@@ -16377,6 +16414,27 @@ bool Metadata_log_event::write_raft_term_and_index(IO_CACHE* file)
   bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
   DBUG_RETURN(ret);
 }
+
+bool Metadata_log_event::write_raft_str(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_raft_str");
+
+  if (!does_exist(Metadata_log_event_types::RAFT_GENERIC_STR_TYPE))
+    DBUG_RETURN(0); /* No need to write raft string */
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::RAFT_GENERIC_STR_TYPE,
+        raft_str_.size()))
+  {
+    DBUG_RETURN(1);
+  }
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) raft_str_.c_str(),
+                                    raft_str_.size());
+  DBUG_RETURN(ret);
+}
+
 bool Metadata_log_event::write_type_and_length(
     IO_CACHE* file, Metadata_log_event_types type, uint32_t length)
 {
@@ -16464,6 +16522,8 @@ Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
       buffer.append(
           "\tRaft term: " + std::to_string(raft_term_) +
           ", Raft Index: " + std::to_string(raft_index_));
+    if (does_exist(Metadata_log_event_types::RAFT_GENERIC_STR_TYPE))
+      buffer.append("\t Raft string: '" + raft_str_ + "'");
 
 
     print_header(head, print_event_info, FALSE);
