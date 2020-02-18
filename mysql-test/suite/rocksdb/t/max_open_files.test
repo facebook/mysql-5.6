@@ -11,21 +11,22 @@ CALL mtr.add_suppression("RocksDB: rocksdb_max_open_files should not be greater 
 --let SEARCH_PATTERN=RocksDB: rocksdb_max_open_files should not be greater than the open_files_limit
 
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR $over_rocksdb_max_open_files over_rocksdb_max_open_files
---let $_mysqld_option=--log-error=$SEARCH_FILE --rocksdb_max_open_files=$over_rocksdb_max_open_files
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$SEARCH_FILE --rocksdb_max_open_files=$over_rocksdb_max_open_files"
+--source include/restart_mysqld.inc
 --source include/search_pattern_in_file.inc
 
 SELECT FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files;
 
 # test for within limit
---let $_mysqld_option=--rocksdb_max_open_files=$under_rocksdb_max_open_files
---source include/restart_mysqld_with_option.inc
+--replace_result $under_rocksdb_max_open_files under_rocksdb_max_open_files
+--let restart_parameters="restart: --rocksdb_max_open_files=$under_rocksdb_max_open_files"
+--source include/restart_mysqld.inc
 
 SELECT @@global.open_files_limit - 1 = @@global.rocksdb_max_open_files;
 
 # test for minimal value
---let $_mysqld_option=--rocksdb_max_open_files=0
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --rocksdb_max_open_files=0"
+--source include/restart_mysqld.inc
 
 SELECT @@global.rocksdb_max_open_files;
 
@@ -36,18 +37,18 @@ SET GLOBAL rocksdb_force_flush_memtable_and_lzero_now=1;
 DROP TABLE t1;
 
 # test for unlimited
---let $_mysqld_option=--rocksdb_max_open_files=-1
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --rocksdb_max_open_files=-1"
+--source include/restart_mysqld.inc
 
 SELECT @@global.rocksdb_max_open_files;
 
 # test for auto-tune
---let $_mysqld_option=--rocksdb_max_open_files=-2
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --rocksdb_max_open_files=-2"
+--source include/restart_mysqld.inc
 
 SELECT FLOOR(@@global.open_files_limit / 2) = @@global.rocksdb_max_open_files;
 
 # cleanup
---let _$mysqld_option=
+--let restart_parameters=
 --source include/restart_mysqld.inc
 --remove_file $SEARCH_FILE

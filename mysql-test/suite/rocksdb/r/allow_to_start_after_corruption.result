@@ -1,6 +1,7 @@
 #
 #  Test how MyRocks behaves when RocksDB reports corrupted data.
 #
+# restart: --log-error=LOG --rocksdb_allow_to_start_after_corruption=1
 #
 #  Test server crashes on corrupted data and restarts
 #
@@ -18,6 +19,7 @@ ERROR HY000: Lost connection to MySQL server during query
 #
 #  The same for scan queries
 #
+# restart: --log-error=LOG --rocksdb_allow_to_start_after_corruption=1
 select * from t1;
 pk	col1
 1	1
@@ -32,5 +34,6 @@ ERROR HY000: Lost connection to MySQL server during query
 #
 #  Remove corruption file and restart cleanly
 #
+# restart: --log-error=LOG --rocksdb_allow_to_start_after_corruption=1
 drop table t1;
 # restart

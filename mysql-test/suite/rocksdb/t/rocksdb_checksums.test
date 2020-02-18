@@ -6,9 +6,9 @@
 --source include/have_debug.inc
 
 --let LOG=$MYSQLTEST_VARDIR/tmp/rocksdb_checksum.err
---let $_mysqld_option=--log-error=$LOG
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$LOG"
+--source include/restart_mysqld.inc
 
 set @save_rocksdb_store_row_debug_checksums=@@global.rocksdb_store_row_debug_checksums;
 set @save_rocksdb_verify_row_debug_checksums=@@global.rocksdb_verify_row_debug_checksums;
@@ -125,6 +125,7 @@ set @@global.rocksdb_store_row_debug_checksums=@save_rocksdb_store_row_debug_che
 set @@global.rocksdb_verify_row_debug_checksums=@save_rocksdb_verify_row_debug_checksums;
 set @@global.rocksdb_checksums_pct=@save_rocksdb_checksums_pct;
 
+--let restart_parameters=
 --source include/restart_mysqld.inc
 --remove_file $LOG
 
