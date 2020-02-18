@@ -1,3 +1,4 @@
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb_checksum.err
 set @save_rocksdb_store_row_debug_checksums=@@global.rocksdb_store_row_debug_checksums;
 set @save_rocksdb_verify_row_debug_checksums=@@global.rocksdb_verify_row_debug_checksums;
 set @save_rocksdb_checksums_pct=@@global.rocksdb_checksums_pct;

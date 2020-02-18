@@ -6,8 +6,8 @@
 --source include/have_direct_io.inc
 
 --echo Checking direct reads
---let $_mysqld_option=$io_option
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: $io_option"
+--source include/restart_mysqld.inc
 
 CREATE TABLE t1 (pk INT PRIMARY KEY DEFAULT '0', a INT(11), b CHAR(8)) ENGINE=rocksdb;
 SHOW CREATE TABLE t1;
@@ -19,5 +19,5 @@ SELECT a,b FROM t1;
 DROP TABLE t1;
 
 # cleanup
---let _$mysqld_option=
+--let restart_parameters=
 --source include/restart_mysqld.inc
