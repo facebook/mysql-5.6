@@ -43,8 +43,8 @@
 
 # Verify rocksdb_flush_log_at_trx_commit cannot be changed if direct writes are used
 --echo Validate flush_log settings when direct writes is enabled
---let $_mysqld_option=--rocksdb_flush_log_at_trx_commit=0 --rocksdb_allow_mmap_writes=1
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --rocksdb_flush_log_at_trx_commit=0 --rocksdb_allow_mmap_writes=1"
+--source include/restart_mysqld.inc
 
 set global rocksdb_flush_log_at_trx_commit=0;
 --error ER_WRONG_VALUE_FOR_VAR

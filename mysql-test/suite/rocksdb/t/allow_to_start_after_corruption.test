@@ -12,8 +12,9 @@
 --let SEARCH_FILE=$LOG
 
 # restart server to change error log and ignore corruptopn on startup
---let $_mysqld_option=--log-error=$LOG --rocksdb_allow_to_start_after_corruption=1
---source include/restart_mysqld_with_option.inc
+--replace_result $LOG LOG
+--let restart_parameters="restart: --log-error=$LOG --rocksdb_allow_to_start_after_corruption=1"
+--source include/restart_mysqld.inc
 
 --echo #
 --echo #  Test server crashes on corrupted data and restarts
@@ -39,7 +40,8 @@ select * from t1 where pk=1;
 --echo #  The same for scan queries
 --echo #
 
---source include/start_mysqld_with_option.inc
+--replace_result $LOG LOG
+--source include/start_mysqld.inc
 select * from t1;
 set session debug= "+d,rocksdb_return_status_corrupted";
 --exec echo "wait" > $_expect_file_name
@@ -67,10 +69,12 @@ select * from t1;
 --echo #
 
 --exec rm $MYSQLTEST_VARDIR/mysqld.$_server_id/data/.rocksdb/ROCKSDB_CORRUPTED
---source include/start_mysqld_with_option.inc
+--replace_result $LOG LOG
+--source include/start_mysqld.inc
 --remove_file $LOG
 
 drop table t1;
 
 # Restart mysqld with default options
+--let restart_parameters=
 --source include/restart_mysqld.inc

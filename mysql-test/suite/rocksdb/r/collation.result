@@ -186,6 +186,7 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 CREATE TABLE abcd (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
 ERROR HY000: Unsupported collation on string indexed column test.abcd.value Use binary collation (binary, latin1_bin, utf8_bin).
 DROP TABLE abc;
+# restart: --rocksdb_error_on_suboptimal_collation=0
 SET GLOBAL rocksdb_strict_collation_check=1;
 CREATE TABLE t1 (id INT primary key, value varchar(50), value2 varbinary(50), value3 text, index(value)) engine=rocksdb charset utf8;
 Warnings:

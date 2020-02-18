@@ -1,5 +1,8 @@
 Checking direct reads
+# restart: --rocksdb_use_direct_reads=1
 CREATE TABLE t1 (pk INT PRIMARY KEY DEFAULT '0', a INT(11), b CHAR(8)) ENGINE=rocksdb;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -16,3 +19,4 @@ a	b
 1	a
 2	b
 DROP TABLE t1;
+# restart
