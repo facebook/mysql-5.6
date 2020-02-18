@@ -1,9 +1,14 @@
 Checking direct reads
+# restart
 Checking direct writes
+# restart
 Checking rocksdb_flush_log_at_trx_commit
+# restart
 Validate flush_log settings when direct writes is enabled
+# restart: --rocksdb_flush_log_at_trx_commit=0 --rocksdb_allow_mmap_writes=1
 set global rocksdb_flush_log_at_trx_commit=0;
 set global rocksdb_flush_log_at_trx_commit=1;
 ERROR 42000: Variable 'rocksdb_flush_log_at_trx_commit' can't be set to the value of '1'
 set global rocksdb_flush_log_at_trx_commit=2;
 ERROR 42000: Variable 'rocksdb_flush_log_at_trx_commit' can't be set to the value of '2'
+# restart: --rocksdb_flush_log_at_trx_commit=0 --rocksdb_allow_mmap_writes=1

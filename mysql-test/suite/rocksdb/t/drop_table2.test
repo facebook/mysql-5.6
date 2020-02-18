@@ -15,6 +15,7 @@ call mtr.add_suppression("Column family 'rev:cf2' not found");
 set global rocksdb_compact_cf = 'cf1';
 set global rocksdb_compact_cf = 'rev:cf2';
 set global rocksdb_signal_drop_index_thread = 1;
+--let $shutdown_server_timeout = 300
 --source include/restart_mysqld.inc
 
 CREATE TABLE t1 (

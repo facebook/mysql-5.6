@@ -1,3 +1,4 @@
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.1.err
 CREATE TABLE t1(pk INT, PRIMARY KEY(pk)) ENGINE=ROCKSDB;
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES(10);
@@ -23,6 +24,7 @@ SELECT * FROM t1;
 pk
 10
 11
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.2.err
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES(1);
 INSERT INTO t1 VALUES(2);
@@ -32,6 +34,7 @@ SELECT * FROM t1;
 pk
 10
 11
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.3.err
 TRUNCATE TABLE t1;
 SET rocksdb_bulk_load_allow_unsorted=1;
 SET rocksdb_bulk_load=1;

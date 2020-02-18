@@ -179,9 +179,8 @@ DROP TABLE abc;
 SET GLOBAL rocksdb_strict_collation_exceptions=null;
 
 # test for warnings instead of errors
---let $_mysqld_option=--rocksdb_error_on_suboptimal_collation=0
---replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --rocksdb_error_on_suboptimal_collation=0"
+--source include/restart_mysqld.inc
 
 SET GLOBAL rocksdb_strict_collation_check=1;
 
@@ -202,4 +201,5 @@ ALTER TABLE t1 collate=latin1_general_ci;
 DROP TABLE t1;
 
 # cleanup
+--let restart_parameters=
 --source include/restart_mysqld.inc

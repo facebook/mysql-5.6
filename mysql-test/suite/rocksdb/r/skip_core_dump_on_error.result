@@ -1,3 +1,4 @@
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/skip_core_dump_on_error.err --default-storage-engine=rocksdb
 create table mz(c int);
 affected rows: 0
 insert into mz values(1);

@@ -2,9 +2,9 @@
 --source include/count_sessions.inc
 
 --let LOG1=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.1.err
---let $_mysqld_option=--log-error=$LOG1
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$LOG1"
+--source include/restart_mysqld.inc
 
 ### Bulk load ###
 CREATE TABLE t1(pk INT, PRIMARY KEY(pk)) ENGINE=ROCKSDB;
@@ -39,9 +39,9 @@ SELECT * FROM t1;
 --source include/search_pattern_in_file.inc
 
 --let LOG2=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.2.err
---let $_mysqld_option=--log-error=$LOG2
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$LOG2"
+--source include/restart_mysqld.inc
 --remove_file $LOG1
 
 
@@ -79,9 +79,9 @@ SELECT * FROM t1;
 --source include/search_pattern_in_file.inc
 
 --let LOG3=$MYSQLTEST_VARDIR/tmp/rocksdb.bulk_load_errors.3.err
---let $_mysqld_option=--log-error=$LOG3
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$LOG3"
+--source include/restart_mysqld.inc
 --remove_file $LOG2
 
 TRUNCATE TABLE t1;
@@ -135,6 +135,7 @@ SET @@global.table_open_cache=@orig_table_open_cache;
 --let SEARCH_PATTERN=RocksDB: Error 504 finalizing bulk load while closing handler
 --source include/search_pattern_in_file.inc
 
+--let restart_parameters=
 --source include/restart_mysqld.inc
 
 --remove_file $LOG3

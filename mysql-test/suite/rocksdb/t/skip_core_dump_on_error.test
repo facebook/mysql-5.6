@@ -9,9 +9,9 @@
 --let SEARCH_FILE=$MYSQLTEST_VARDIR/tmp/skip_core_dump_on_error.err
 
 # restart the server with the custom error log file
---let $_mysqld_option=--log-error=$SEARCH_FILE --default-storage-engine=rocksdb
 --replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
---source include/restart_mysqld_with_option.inc
+--let restart_parameters="restart: --log-error=$SEARCH_FILE --default-storage-engine=rocksdb"
+--source include/restart_mysqld.inc
 
 # setup
 create table mz(c int);
@@ -45,7 +45,7 @@ update mz set c=13;
 --let SEARCH_PATTERN=Writing a core file
 --source include/search_pattern.inc
 
---let _$mysqld_option=
+--let restart_parameters=
 --source include/start_mysqld.inc
 --remove_file $SEARCH_FILE
 
