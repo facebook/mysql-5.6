@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2007, 2019, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2007, 2020, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -70,6 +70,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 
 #include "my_dbug.h"
+
+extern mysql_mutex_t LOCK_global_system_variables;
 
 /** structure associates a name string with a file page type and/or buffer
 page state. */
@@ -2238,15 +2240,19 @@ static int i_s_fts_deleted_generic_fill(
     DBUG_RETURN(0);
   }
 
-  /* Prevent DDL to drop fts aux tables. */
-  rw_lock_s_lock(dict_operation_lock);
+  mysql_mutex_lock(&LOCK_global_system_variables);
 
   if (!fts_internal_tbl_name) {
-    rw_lock_s_unlock(dict_operation_lock);
+    mysql_mutex_unlock(&LOCK_global_system_variables);
     DBUG_RETURN(0);
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
+
+  mysql_mutex_unlock(&LOCK_global_system_variables);
+
+  /* Prevent DDL to drop fts aux tables. */
+  rw_lock_s_lock(dict_operation_lock);
 
   user_table =
       dd_table_open_on_name(thd, &mdl, local_name, false, DICT_ERR_IGNORE_NONE);
@@ -2622,11 +2628,15 @@ static int i_s_fts_index_cache_fill(
     DBUG_RETURN(0);
   }
 
+  mysql_mutex_lock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
+    mysql_mutex_unlock(&LOCK_global_system_variables);
     DBUG_RETURN(0);
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
+
+  mysql_mutex_unlock(&LOCK_global_system_variables);
 
   user_table =
       dd_table_open_on_name(thd, &mdl, local_name, false, DICT_ERR_IGNORE_NONE);
@@ -3035,15 +3045,18 @@ static int i_s_fts_index_table_fill(
     DBUG_RETURN(0);
   }
 
-  /* Prevent DDL to drop fts aux tables. */
-  rw_lock_s_lock(dict_operation_lock);
-
+  mysql_mutex_lock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
-    rw_lock_s_unlock(dict_operation_lock);
+    mysql_mutex_unlock(&LOCK_global_system_variables);
     DBUG_RETURN(0);
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
+
+  mysql_mutex_unlock(&LOCK_global_system_variables);
+
+  /* Prevent DDL to drop fts aux tables. */
+  rw_lock_s_lock(dict_operation_lock);
 
   user_table =
       dd_table_open_on_name(thd, &mdl, local_name, false, DICT_ERR_IGNORE_NONE);
@@ -3184,11 +3197,14 @@ static int i_s_fts_config_fill(
     DBUG_RETURN(0);
   }
 
+  mysql_mutex_lock(&LOCK_global_system_variables);
   if (!fts_internal_tbl_name) {
+    mysql_mutex_unlock(&LOCK_global_system_variables);
     DBUG_RETURN(0);
   }
 
   ut_strcpy(local_name, fts_internal_tbl_name);
+  mysql_mutex_unlock(&LOCK_global_system_variables);
 
   DEBUG_SYNC_C("i_s_fts_config_fille_check");
 
