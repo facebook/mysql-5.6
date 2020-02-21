@@ -1332,9 +1332,7 @@ typedef void (*drop_database_t)(handlerton *hton, char *path);
 
 typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
-typedef int (*start_consistent_snapshot_t)(
-    handlerton *hton, THD *thd, char *binlog_file, ulonglong *binlog_pos,
-    char **gtid_executed, int *gtid_executed_length, ulonglong *snapshot_hlc);
+typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
 
 /**
   Flush the log(s) of storage engine(s).

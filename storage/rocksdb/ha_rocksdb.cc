@@ -5100,19 +5100,9 @@ static inline void rocksdb_register_tx(
 */
 static int rocksdb_start_tx_and_assign_read_view(
     handlerton *const hton, /*!< in: RocksDB handlerton */
-    THD *const thd,         /*!< in: MySQL thread handle of the
+    THD *const thd          /*!< in: MySQL thread handle of the
                             user for whom the transaction should
                             be committed */
-    /* TODO(yzha) - the following 4 are refactored into snapshot_info_st in
-       0b671a35cc7 SQL to create and manage explicit snapshots */
-    char *binlog_file MY_ATTRIBUTE((__unused__)),
-    ulonglong *binlog_pos MY_ATTRIBUTE((__unused__)),
-    char **gtid_executed MY_ATTRIBUTE((__unused__)),
-    int *gtid_executed_length MY_ATTRIBUTE((__unused__)),
-    ulonglong *snapshot_hlc MY_ATTRIBUTE((__unused__))
-    /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots */
-    // snapshot_info_st *ss_info !< in/out: Snapshot info like binlog file, pos,
-    //                           gtid executed and snapshot ID
 ) {
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
@@ -5120,16 +5110,6 @@ static int rocksdb_start_tx_and_assign_read_view(
     my_error(ER_ISOLATION_LEVEL_WITH_CONSISTENT_SNAPSHOT, MYF(0));
     return HA_EXIT_FAILURE;
   }
-
-  /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
-  if (ss_info) {
-    if (mysql_bin_log_is_open()) {
-      mysql_bin_log_lock_commits(ss_info);
-    } else {
-      return HA_EXIT_FAILURE;
-    }
-  }
-  */
 
   Rdb_transaction *const tx = get_or_create_tx(thd);
   Rdb_perf_context_guard guard(tx, thd);
@@ -5139,11 +5119,6 @@ static int rocksdb_start_tx_and_assign_read_view(
   rocksdb_register_tx(hton, thd, tx);
   tx->acquire_snapshot(true);
 
-  /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
-  if (ss_info) {
-    mysql_bin_log_unlock_commits(ss_info);
-  }
-  */
 
   return HA_EXIT_SUCCESS;
 }

@@ -2293,27 +2293,15 @@ int ha_release_savepoint(THD *thd, SAVEPOINT *sv) {
   DBUG_RETURN(error);
 }
 
-struct snapshot_handlerton_st {
-  bool error;
-  char *binlog_file;
-  ulonglong *binlog_pos;
-  char **gtid_executed;
-  int *gtid_executed_length;
-  ulonglong *snapshot_hlc = NULL;
-};
-
 static bool snapshot_handlerton(THD *thd, plugin_ref plugin, void *arg) {
-  snapshot_handlerton_st *info = (snapshot_handlerton_st *)(arg);
+  bool *error = (bool *)(arg);
 
   handlerton *hton = plugin_data<handlerton *>(plugin);
   if (hton->state == SHOW_OPTION_YES && hton->start_consistent_snapshot) {
-    info->error = false;
+    *error = false;
 
-    if (hton->start_consistent_snapshot(
-            hton, thd, info->binlog_file, info->binlog_pos, info->gtid_executed,
-            info->gtid_executed_length, info->snapshot_hlc)) {
-      my_printf_error(ER_UNKNOWN_ERROR,
-                      "Cannot start InnoDB transaction or binlog disabled",
+    if (hton->start_consistent_snapshot(hton, thd)) {
+      my_printf_error(ER_UNKNOWN_ERROR, "Cannot start InnoDB transaction",
                       MYF(0));
       return true;
     }
@@ -2325,25 +2313,38 @@ int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                                  ulonglong *binlog_pos, char **gtid_executed,
                                  int *gtid_executed_length,
                                  ulonglong *snapshot_hlc) {
-  snapshot_handlerton_st info;
-  info.binlog_file = binlog_file;
-  info.binlog_pos = binlog_pos;
-  info.gtid_executed = gtid_executed;
-  info.gtid_executed_length = gtid_executed_length;
-  info.snapshot_hlc = snapshot_hlc;
-  info.error = true;
+  bool error = true;
+  bool binlog_locked = false;
+
+  if (binlog_file) {
+    if (mysql_bin_log_is_open()) {
+      mysql_bin_log_lock_commits();
+      binlog_locked = true;
+    } else {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Cannot start transaction because binlog disabled",
+                      MYF(0));
+      return true;
+    }
+  }
 
   if (plugin_foreach(thd, snapshot_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN,
-                     &info)) {
+                     &error)) {
+    if (binlog_locked)
+      mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                                   gtid_executed_length, snapshot_hlc);
     return true;
   }
 
+  if (binlog_locked)
+    mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                                 gtid_executed_length, snapshot_hlc);
   /*
     Same idea as when one wants to CREATE TABLE in one engine which does not
     exist:
   */
-  if (info.error) my_printf_error(ER_UNKNOWN_ERROR, "InnoDB disabled", MYF(0));
-  return info.error;
+  if (error) my_printf_error(ER_UNKNOWN_ERROR, "InnoDB disabled", MYF(0));
+  return error;
 }
 
 static bool flush_handlerton(THD *, plugin_ref plugin, void *arg) {
