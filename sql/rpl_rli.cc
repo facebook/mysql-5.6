@@ -472,8 +472,10 @@ bool Relay_log_info::cannot_safely_rollback() const {
 
   for (const auto &worker : workers) {
     mysql_mutex_lock(&worker->jobs_lock);
-    ret = worker->info_thd->get_transaction()->cannot_safely_rollback(
-        Transaction_ctx::SESSION);
+    if (worker->running_status != Slave_worker::NOT_RUNNING) {
+      ret = worker->info_thd->get_transaction()->cannot_safely_rollback(
+          Transaction_ctx::SESSION);
+    }
     mysql_mutex_unlock(&worker->jobs_lock);
     if (ret) break;
   }
