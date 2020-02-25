@@ -6668,3 +6668,15 @@ static Sys_var_mybool Sys_enable_resultset_checksum(
        "on queries which have the checksum query attribute key set to any value. "
        "Uses a CRC32 checksum of the resultset rows and field metadata",
        GLOBAL_VAR(enable_resultset_checksum), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_long Sys_max_digest_sample_age(
+      "max_digest_sample_age",
+			"The time in seconds after which a previous query sample is considered "
+			"old. When the value is 0, queries are sampled once."
+			"When the value is -1, queries are not sampled."
+	    "When the value is greater than zero, queries are re sampled if the "
+	    "last sample is more than performance_schema_max_digest_sample_age "
+	    "seconds old.",
+      GLOBAL_VAR(max_digest_sample_age),
+      CMD_LINE(REQUIRED_ARG), VALID_RANGE(-1, 1024 * 1024),
+      DEFAULT(-1), BLOCK_SIZE(1));

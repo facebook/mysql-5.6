@@ -199,6 +199,8 @@ struct PFS_global_param
 
   long m_max_digest_length;
 
+	ulonglong m_max_digest_sample_age;
+
   /** Sizing hints, for auto tuning. */
   PFS_sizing_hints m_hints;
 };

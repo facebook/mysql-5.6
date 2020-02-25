@@ -3,6 +3,7 @@
 #include "sql_show.h"
 #include "sql_string.h"
 #include "md5_dt.h"
+#include "tztime.h"                             // struct Time_zone
 
 /*
   SQL_STATISTICS
@@ -19,6 +20,9 @@ ST_FIELD_INFO sql_stats_fields_info[]=
       0, 0, 0, SKIP_OPEN_TABLE},
   {"USER_NAME", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING,
       0, 0, 0, SKIP_OPEN_TABLE},
+  {"QUERY_SAMPLE_TEXT", 4096, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"QUERY_SAMPLE_SEEN", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME,
+      0, MY_I_S_MAYBE_NULL, 0, SKIP_OPEN_TABLE},
 
   {"EXECUTION_COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
@@ -412,6 +416,9 @@ static void set_sql_stats_attributes(
   memcpy(stats->client_id, client_id, MD5_HASH_SIZE);
   stats->db_id= db_id;
   stats->user_id= user_id;
+	stats->query_sample_text = (char *)my_malloc(strlen("") + 1, MYF(MY_WME));
+	memcpy(stats->query_sample_text, "", 1);
+	stats->query_sample_seen = 0;
 }
 
 static void set_sql_text_attributes(
@@ -480,7 +487,7 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
     Also resets the usage counters to 0.
     If limits_updated is set to true, the memory is freed only if the new
     limits are lower than the old limits. This avoids freeing up the stats
-    unnecessarily when limits are increased. 
+    unnecessarily when limits are increased.
 */
 void free_global_sql_stats(bool limits_updated)
 {
@@ -604,7 +611,7 @@ static bool is_sql_stats_collection_above_limit() {
     thd    in: - THD
     stats  in: - stats for the current SQL statement execution
 */
-void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
+void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* sub_query)
 {
   // Do a light weight limit check without acquiring the lock.
   // There will be another check later while holding the lock.
@@ -688,6 +695,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
     sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_TEXT));
   }
 
+  bool get_sample_query = false;
   /* Get or create the SQL_STATS object for this sql statement. */
   SQL_STATS *sql_stats;
   auto sql_stats_iter= global_sql_stats_map.find(sql_stats_cache_key);
@@ -716,10 +724,26 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats)
     }
     sql_stats_count++;
     sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_STATS));
+		// Do not sample if max_digest_sample_age set to -1
+    get_sample_query = max_digest_sample_age >= 0;
   } else {
     sql_stats= sql_stats_iter->second;
   }
 
+  /* Re-sample if last sample is too old */
+	uint time_now = my_time(true);
+  if (!get_sample_query && max_digest_sample_age > 0) {
+			uint sample_age = time_now - sql_stats->query_sample_seen;
+			/* Comparison in micro seconds. */
+      get_sample_query = sample_age > max_digest_sample_age ? true : false;
+  }
+  if (get_sample_query) {
+		my_free((char *)sql_stats->query_sample_text);
+    sql_stats->query_sample_text =
+        (char *)my_malloc(strlen(sub_query) + 1, MYF(MY_WME));
+    memcpy(sql_stats->query_sample_text, sub_query, strlen(sub_query) + 1);
+    sql_stats->query_sample_seen = time_now;
+  }
   /* Update stats */
   sql_stats->count++;
   // Update Row counts
@@ -740,6 +764,7 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   TABLE* table= tables->table;
 
   bool lock_acquired = lock_sql_stats();
+	MYSQL_TIME time;
 
   ID_NAME_MAP db_map;
   ID_NAME_MAP user_map;
@@ -784,6 +809,20 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     if (!(a_name= get_name(&user_map, sql_stats->user_id)))
       a_name= "UNKNOWN";
     table->field[f++]->store(a_name, strlen(a_name), system_charset_info);
+
+    /* Query Sample Text */
+    table->field[f++]->store(sql_stats->query_sample_text,
+                             strlen(sql_stats->query_sample_text),
+                             system_charset_info);
+    /* Query Last Sample Timestamp */
+		if (sql_stats->query_sample_seen == 0) {
+			table->field[f++]->set_null();
+		} else {
+			thd->variables.time_zone->gmt_sec_to_TIME(
+	        &time, (my_time_t)sql_stats->query_sample_seen);
+			table->field[f]->set_notnull();
+	    table->field[f++]->store_time(&time);
+		}
 
     /* Execution Count */
     table->field[f++]->store(sql_stats->count, TRUE);

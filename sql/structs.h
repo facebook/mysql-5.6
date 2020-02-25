@@ -543,9 +543,12 @@ typedef struct st_sql_stats {
   unsigned char client_id[MD5_HASH_SIZE];
   uint32_t db_id;
   uint32_t user_id;
+	char * query_sample_text;  /* sample query, max length = [1024 + '\0'] */
+  uint query_sample_seen;  /* timestamp for last sampled */
 
   ulonglong count;   /* execution count of the normalized SQL */
                                   /* statement */
+
   SHARED_SQL_STATS shared_stats;
 
   void reset() {

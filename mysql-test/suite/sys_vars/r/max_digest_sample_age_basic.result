@@ -1,0 +1,14 @@
+Default value of max_digest_sample_age
+SELECT @@global.max_digest_sample_age;
+@@global.max_digest_sample_age
+-1
+max_digest_sample_age is a dynamic variable
+set @@global.max_digest_sample_age = 30;
+SELECT @@global.max_digest_sample_age;
+@@global.max_digest_sample_age
+30
+restore the default value
+SET @@global.max_digest_sample_age = -1;
+SELECT @@global.max_digest_sample_age;
+@@global.max_digest_sample_age
+-1

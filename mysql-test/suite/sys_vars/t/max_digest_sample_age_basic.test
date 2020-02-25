@@ -1,0 +1,21 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_digest_sample_age
+SELECT @@global.max_digest_sample_age;
+
+####
+## Verify that the variable is dynamic
+####
+--echo max_digest_sample_age is a dynamic variable
+set @@global.max_digest_sample_age = 30;
+SELECT @@global.max_digest_sample_age;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.max_digest_sample_age = -1;
+SELECT @@global.max_digest_sample_age;

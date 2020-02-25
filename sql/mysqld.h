@@ -423,6 +423,7 @@ extern bool maintain_database_hlc;
 extern my_bool async_query_counter_enabled;
 extern my_bool enable_acl_fast_lookup;
 extern my_bool use_cached_table_stats_ptr;
+extern longlong max_digest_sample_age;
 
 /* Minimum HLC value for this instance. It is ensured that the next 'event' will
  * get a HLC timestamp greater than this value */

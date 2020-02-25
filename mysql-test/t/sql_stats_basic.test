@@ -27,8 +27,7 @@ select 2;
 select 100;
 
 select sql_id, plan_id, table_schema, user_name, execution_count
-from information_schema.sql_statistics
-order by sql_id;
+from information_schema.sql_statistics order by sql_id;
 
 create table t1(c int);
 insert into t1 values(1);
@@ -43,12 +42,13 @@ delete from t1 where c=905;
 delete from t1 where c=903;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-       rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read
 from information_schema.sql_statistics
 order by sql_id;
 
 # Join sql_statistics and sql_text tables
-select information_schema.sql_statistics.sql_id, table_schema, user_name, execution_count, sql_text
+select information_schema.sql_statistics.sql_id, table_schema, user_name,
+  execution_count, sql_text
 from information_schema.sql_statistics, information_schema.sql_text
 where information_schema.sql_statistics.sql_id=information_schema.sql_text.sql_id
 order by sql_id;
@@ -63,7 +63,7 @@ select @@sql_stats_control;
 select 1 union select 2;
 select 1 union select 2 union select 3;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-       rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -74,7 +74,7 @@ order by sql_id;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-       rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -86,7 +86,7 @@ set @@GLOBAL.sql_stats_control="ON";
 select @@sql_stats_control;
 select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-       rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -111,12 +111,72 @@ drop table t2;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-       rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read
 from information_schema.sql_statistics
 order by sql_id||||
 
 # reset delimiter
 delimiter ;||||
+
+####################################################
+### Case 7: Query no sampling by default
+####################################################
+--echo Case 7: Query no sampling by default
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+
+select 1;
+select 3;
+select 4;
+
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+  query_sample_seen, execution_count, rows_inserted, rows_updated,
+	rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+####################################################
+### Case 8: Query Only Once Sampling support
+####################################################
+--echo Case 8: Query Only Once Sampling support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=0;
+select @@sql_stats_control;
+select @@max_digest_sample_age;
+
+select 1;
+select 3;
+select 4;
+
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+  (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
+
+####################################################
+### Case 9: Query Re-sampling support
+####################################################
+--echo Case 9: Query Re-sampling support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.max_digest_sample_age=1;
+select @@sql_stats_control;
+select @@max_digest_sample_age;
+
+select 1;
+select sleep(2);
+select 3;
+select 4;
+
+select sql_id, plan_id, table_schema, user_name, query_sample_text,
+  (query_sample_seen > 0 && CURRENT_TIMESTAMP - query_sample_seen < 10)
+	as is_query_sample_seen_valid, execution_count, rows_inserted,
+	rows_updated, rows_deleted, rows_read
+from information_schema.sql_statistics
+order by sql_id;
 
 ###########
 ### Cleanup
@@ -124,6 +184,7 @@ delimiter ;||||
 --echo Cleanup
 connection default;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.max_digest_sample_age=-1;
 drop table t1;
 drop user user_super@localhost;
 disconnect con13;

@@ -1560,7 +1560,7 @@ static inline bool is_query(enum enum_server_command command) {
     A helper/wrapper around update_sql_stats_after_statement to keep track of
     some internal state.
 */
-static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats)
+static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, char* sub_query)
 {
   if (sql_stats_control == SQL_STATS_CONTROL_ON)
   {
@@ -1574,7 +1574,7 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats)
     */
     reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
 
-    update_sql_stats_after_statement(thd, &sql_stats);
+    update_sql_stats_after_statement(thd, &sql_stats, sub_query);
 
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
@@ -1969,6 +1969,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                 &last_timer, &async_commit);
 
+		char *beginning_of_current_stmt= (char*) thd->query();
+		char sub_query[1025]; // 1024 bytes + '\0'
+		int sub_query_byte_length;
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
     {
@@ -1976,6 +1979,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         Multiple queries exits, execute them individually
       */
       char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
+			sub_query_byte_length=
+				(int)(beginning_of_next_stmt - beginning_of_current_stmt);
+			sub_query_byte_length = min(sub_query_byte_length, 1024);
+			memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+			sub_query[sub_query_byte_length] = '\0';
 
       /*
         Update SQL stats.
@@ -1986,7 +1994,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         The stats updated here will be for the first statement of the
         multi-query set.
       */
-      update_sql_stats(thd, &cumulative_sql_stats);
+
+      update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
       /* Check to see if any state changed */
       if (!state_changed && srv_session) {
@@ -2067,6 +2076,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       thd->set_time(); /* Reset the query start time. */
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
+			beginning_of_current_stmt = beginning_of_next_stmt;
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
                   &last_timer, &async_commit);
     }
@@ -2078,7 +2088,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       If not multi-query: The stats updated here will be fore the entire
         statement.
     */
-    update_sql_stats(thd, &cumulative_sql_stats);
+		sub_query_byte_length = (int)(packet_end - beginning_of_current_stmt);
+		sub_query_byte_length = min(sub_query_byte_length, 1024);
+		memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+		sub_query[sub_query_byte_length] = '\0';
+    update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {

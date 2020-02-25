@@ -8,53 +8,53 @@ The following options may be given as the first argument:
  Also read groups with concat(group, suffix)
 --login-path=# Read this path from the login file.
 
- --abort-slave-event-count=# 
+ --abort-slave-event-count=#
  Option used by mysql-test for debugging and testing of
  replication.
  --admin-port=#      Port number to use for connections from admin.
- --admin-users-list[=name] 
+ --admin-users-list[=name]
  A comma separated list of users with admin role
- --admission-control-by-trx 
+ --admission-control-by-trx
  Allow open transactions to go through admission control
- --admission-control-filter=name 
+ --admission-control-filter=name
  Commands that are skipped in admission control checks.
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
  ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
- --admission-control-queue-timeout[=#] 
+ --admission-control-queue-timeout[=#]
  Number of milliseconds to wait on admission control
  queue. 0 means immediate timeout. -1 means infinite
  timeout.
- --allow-document-type 
+ --allow-document-type
  Allows document type when parsing queries, creating and
  altering tables.
- --allow-multiple-engines 
+ --allow-multiple-engines
  Allow multiple storage engines with transaction support
  (such as innodb and rocksdb) to be enabled.
- --allow-noncurrent-db-rw=name 
+ --allow-noncurrent-db-rw=name
  Switch to allow/deny reads and writes to a table not in
  the current database.
- --allow-suspicious-udfs 
+ --allow-suspicious-udfs
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
  also means that one can load any function from any
  library, for example exit() from libc.so
  -a, --ansi          Use ANSI SQL syntax instead of MySQL syntax. This mode
  will also set transaction isolation level 'serializable'.
- --async-query-counter 
+ --async-query-counter
  Parsing async query info and collection of async query
  statistics
- --auto-increment-increment[=#] 
+ --auto-increment-increment[=#]
  Auto-increment columns are incremented by this
- --auto-increment-offset[=#] 
+ --auto-increment-offset[=#]
  Offset added to Auto-increment columns. Used when
  auto-increment-increment != 1
  --autocommit        Set default value for autocommit (0 or 1)
  (Defaults to on; use --skip-autocommit to disable.)
- --automatic-sp-privileges 
+ --automatic-sp-privileges
  Creating and dropping stored procedures alters ACLs
  (Defaults to on; use --skip-automatic-sp-privileges to disable.)
- --avoid-temporal-upgrade 
+ --avoid-temporal-upgrade
  When this option is enabled, the pre-5.6.4 temporal types
  are not upgraded to the new format for ALTER TABLE
  requests ADD/CHANGE/MODIFY COLUMN, ADD INDEX or FORCE
@@ -68,16 +68,16 @@ The following options may be given as the first argument:
  --big-tables        Allow big result sets by saving all temporary sets on
  file (Solves most 'table full' errors)
  --bind-address=name IP address to bind to.
- --binlog-cache-size=# 
+ --binlog-cache-size=#
  The size of the transactional cache for updates to
  transactional engines for the binary log. If you often
  use transactions containing many statements, you can
  increase this to get more performance
- --binlog-checksum=name 
+ --binlog-checksum=name
  Type of BINLOG_CHECKSUM_ALG. Include checksum for log
  events in the binary log. Possible values are NONE and
  CRC32; default is NONE.
- --binlog-direct-non-transactional-updates 
+ --binlog-direct-non-transactional-updates
  Causes updates to non-transactional engines using
  statement format to be written directly to binary log.
  Before using this option make sure that there are no
@@ -88,16 +88,16 @@ The following options may be given as the first argument:
  --binlog-do-db=name Tells the master it should log updates for the specified
  database, and exclude all others not explicitly
  mentioned.
- --binlog-error-action=name 
+ --binlog-error-action=name
  When statements cannot be written to the binary log due
  to a fatal error, the server can either ignore the error
  and let the master continue, or abort.
- --binlog-expire-logs-seconds=# 
+ --binlog-expire-logs-seconds=#
  If non-zero, binary logs will be purged after
  (binlog_expire_logs_seconds + 24 * 60 * 60 *
  expire_logs_days) seconds; possible purges happen at
  startup and at binary log rotation
- --binlog-format=name 
+ --binlog-format=name
  What form of binary logging the master will use: either
  ROW for row-based binary logging, STATEMENT for
  statement-based binary logging, or MIXED. MIXED is
@@ -109,7 +109,7 @@ The following options may be given as the first argument:
  binlog-format is MIXED, the format switches to row-based
  and back implicitly per each query accessing an
  NDBCLUSTER table
- --binlog-gtid-simple-recovery 
+ --binlog-gtid-simple-recovery
  If this option is enabled, the server does not open more
  than two binary logs when initializing GTID_PURGED and
  GTID_EXECUTED, either during server restart or when
@@ -124,19 +124,19 @@ The following options may be given as the first argument:
  wrong set is computed in one of case (1) or case (2), it
  will remain wrong even if the server is later restarted
  with this option disabled.
- --binlog-ignore-db=name 
+ --binlog-ignore-db=name
  Tells the master that updates to the given database
  should not be logged to the binary log.
- --binlog-order-commits 
+ --binlog-order-commits
  Issue internal commit calls in the same order as
  transactions are written to the binary log. Default is to
  order commits.
  (Defaults to on; use --skip-binlog-order-commits to disable.)
- --binlog-row-event-max-size=# 
+ --binlog-row-event-max-size=#
  The maximum size of a row-based binary log event in
  bytes. Rows will be grouped into events smaller than this
  size if possible. The value has to be a multiple of 256.
- --binlog-row-image=name 
+ --binlog-row-image=name
  Controls whether rows should be logged in 'FULL',
  'COMPLETE','NOBLOB' or 'MINIMAL' formats. 'FULL', means
  that all columns in the before and after image are
@@ -149,54 +149,54 @@ The following options may be given as the first argument:
  no PK in the table) is logged in the before image, and
  only changed columns are logged in the after image.
  (Default: FULL).
- --binlog-rows-event-max-rows[=#] 
+ --binlog-rows-event-max-rows[=#]
  Max number of rows in a single rows event
- --binlog-rows-query-log-events 
+ --binlog-rows-query-log-events
  Allow writing of Rows_query_log events into binary log.
- --binlog-stmt-cache-size=# 
+ --binlog-stmt-cache-size=#
  The size of the statement cache for updates to
  non-transactional engines for the binary log. If you
  often use statements updating a great number of rows, you
  can increase this to get more performance
- --binlog-trx-meta-data 
+ --binlog-trx-meta-data
  Log meta data about every trx in the binary log. This
  information is logged as a comment in a Rows_query_log
  event in JSON format.
- --binlogging-impossible-mode=name 
+ --binlogging-impossible-mode=name
  On a fatal error when statements cannot be binlogged the
  behaviour can be ignore the error and let the master
  continue or abort the server. This variable is deprecated
  and will be removed in a future release. Please use
  binlog_error_action instead.
- --block-create-memory 
+ --block-create-memory
  Blocks creation of non-temporary Memory tables outside of
  mysql schema.
- --block-create-myisam 
+ --block-create-myisam
  Blocks creation of non-temporary MyISAM tables outside of
  mysql schema.
- --block-create-no-primary-key 
+ --block-create-no-primary-key
  Block creation of non-temp tables without primary key
  outside of mysqlschema.
- --block-encryption-mode=name 
+ --block-encryption-mode=name
  mode for AES_ENCRYPT/AES_DECRYPT
  --bootstrap         Used by mysql installation scripts.
- --bulk-insert-buffer-size=# 
+ --bulk-insert-buffer-size=#
  Size of tree cache used in bulk insert optimisation. Note
  that this is a limit per thread!
- --character-set-client-handshake 
+ --character-set-client-handshake
  Don't ignore client side character set value sent during
  handshake.
  (Defaults to on; use --skip-character-set-client-handshake to disable.)
- --character-set-filesystem=name 
+ --character-set-filesystem=name
  Set the filesystem character set.
- -C, --character-set-server=name 
+ -C, --character-set-server=name
  Set the default character set.
- --character-sets-dir=name 
+ --character-sets-dir=name
  Directory where character sets are
  -r, --chroot=name   Chroot mysqld daemon during startup.
- --collation-server=name 
+ --collation-server=name
  Set the default collation.
- --column-stats-control=name 
+ --column-stats-control=name
  Control the collection of column statistics from parse
  tree. The data is exposed via the COLUMN_STATISTICS
  table. Takes the following values: OFF_HARD: Default
@@ -204,12 +204,12 @@ The following options may be given as the first argument:
  column statistics data from memory. OFF_SOFT: Stop
  collecting column statistics, but retain any data
  collected so far. ON: Collect the statistics.
- --completion-type=name 
+ --completion-type=name
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
- --compressed-event-cache-evict-threshold[=#] 
+ --compressed-event-cache-evict-threshold[=#]
  Percentage of cache to keep after every FIFO eviction
- --concurrent-insert[=name] 
+ --concurrent-insert[=name]
  Use concurrent insert with MyISAM. Possible values are
  NEVER, AUTO, ALWAYS
  --connect-timeout=# The number of seconds the mysqld server is waiting for a
@@ -219,132 +219,132 @@ The following options may be given as the first argument:
  --core-file         Write core on errors.
  -h, --datadir=name  Path to the database root directory
  --date-format=name  The DATE format (ignored)
- --datetime-format=name 
+ --datetime-format=name
  The DATETIME format (ignored)
- --default-authentication-plugin=name 
+ --default-authentication-plugin=name
  Defines what password- and authentication algorithm to
  use per default
- --default-storage-engine=name 
+ --default-storage-engine=name
  The default storage engine for new tables
- --default-time-zone=name 
+ --default-time-zone=name
  Set the default time zone.
- --default-tmp-storage-engine=name 
+ --default-tmp-storage-engine=name
  The default storage engine for new explict temporary
  tables
- --default-week-format=# 
+ --default-week-format=#
  The default week format used by WEEK() functions
- --delay-key-write[=name] 
+ --delay-key-write[=name]
  Type of DELAY_KEY_WRITE
- --delayed-insert-limit=# 
+ --delayed-insert-limit=#
  After inserting delayed_insert_limit rows, the INSERT
  DELAYED handler will check if there are any SELECT
  statements pending. If so, it allows these to execute
  before continuing. This variable is deprecated along with
  INSERT DELAYED.
- --delayed-insert-timeout=# 
+ --delayed-insert-timeout=#
  How long a INSERT DELAYED thread should wait for INSERT
  statements before terminating.This variable is deprecated
  along with INSERT DELAYED.
- --delayed-queue-size=# 
+ --delayed-queue-size=#
  What size queue (in rows) should be allocated for
  handling INSERT DELAYED. If the queue becomes full, any
  client that does INSERT DELAYED will wait until there is
  room in the queue again.This variable is deprecated along
  with INSERT DELAYED.
  --disable-trigger   Disable triggers for the session.
- --disable-working-set-size 
+ --disable-working-set-size
  Do not maintain working set size if on
- --disconnect-on-expired-password 
+ --disconnect-on-expired-password
  Give clients that don't signal password expiration
  support execution time error(s) instead of connection
  error
  (Defaults to on; use --skip-disconnect-on-expired-password to disable.)
- --disconnect-slave-event-count=# 
+ --disconnect-slave-event-count=#
  Option used by mysql-test for debugging and testing of
  replication.
- --div-precision-increment=# 
+ --div-precision-increment=#
  Precision of the result of '/' operator will be increased
  on that value
- --enable-acl-fast-lookup 
+ --enable-acl-fast-lookup
  Enable ACL fast lookup on exact user/db pairs. Please
  issue FLUSH PRIVILEGES for the changes to take effect.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
- --enable-blind-replace 
+ --enable-blind-replace
  Optimize 'replace into' statement by doing a blind
  insert. Engine ignores primary key violations. This will
  avoid a delete and an insert. This is supported in
  MyRocks
- --enable-gtid-mode-on-new-slave-with-old-master 
+ --enable-gtid-mode-on-new-slave-with-old-master
  This should be used only for testing purposes. This
  option allows enabling gtid_mode on new slave replicating
  from a old master which is not gtid compatible
- --enable-jemalloc-hpp[=name] 
+ --enable-jemalloc-hpp[=name]
  This will provide options for Jemalloc heap profiling.On:
  Activates profilingOff: Deactivate profilingDump: Dump a
  profile
- --enable-query-checksum 
+ --enable-query-checksum
  Enable query checksums for queries that have the
  query_checksum query attribute set. Uses a CRC32 checksum
  of the query contents, but not the attributes
- --enable-resultset-checksum 
+ --enable-resultset-checksum
  Enable resultset checksums for results on queries which
  have the checksum query attribute key set to any value.
  Uses a CRC32 checksum of the resultset rows and field
  metadata
- --end-markers-in-json 
+ --end-markers-in-json
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
  key (if it has one) near the closing bracket
- --enforce-gtid-consistency 
+ --enforce-gtid-consistency
  Prevents execution of statements that would be impossible
  to log in a transactionally safe manner. Currently, the
  disallowed statements include CREATE TEMPORARY TABLE
  inside transactions, all updates to non-transactional
  tables, and CREATE TABLE ... SELECT.
- --eq-range-index-dive-limit=# 
+ --eq-range-index-dive-limit=#
  The optimizer will use existing index statistics instead
  of doing index dives for equality ranges if the number of
  equality ranges for the index is larger than or equal to
  this number. If set to 0, index dives are always used.
- --event-scheduler[=name] 
+ --event-scheduler[=name]
  Enable the event scheduler. Possible values are ON, OFF,
  and DISABLED (keep the event scheduler completely
  deactivated, it cannot be activated run-time)
  -T, --exit-info[=#] Used for debugging. Use at your own risk.
- --expand-fast-index-creation 
+ --expand-fast-index-creation
  Enable/disable improvements to the InnoDB fast index
  creation functionality.
- --expire-logs-days=# 
+ --expire-logs-days=#
  If non-zero, binary logs will be purged after
  expire_logs_days days; or (binlog_expire_logs_seconds +
  24 * 60 * 60 * expire_logs_days) seconds if
  binlog_expire_logs_seconds has a non zero value; possible
  purges happen at startup and at binary log rotation
- --explicit-defaults-for-timestamp 
+ --explicit-defaults-for-timestamp
  This option causes CREATE TABLE to create all TIMESTAMP
  columns as NULL with DEFAULT NULL attribute, Without this
  option, TIMESTAMP columns are NOT NULL and have implicit
  DEFAULT clauses. The old behavior is deprecated.
- --external-locking  Use system (external) locking (disabled by default). 
+ --external-locking  Use system (external) locking (disabled by default).
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
- --fast-integer-to-string 
+ --fast-integer-to-string
  Optimized implementation of integer to string conversion
- --fatal-semaphore-timeout=# 
+ --fatal-semaphore-timeout=#
  Maximum number of seconds that semaphore times out in
  innodb.
- --filesort-max-file-size=# 
+ --filesort-max-file-size=#
  The max size of a file to use for filesort. Raise an
  error when this is exceeded. 0 means no limit.
  --flush             Flush MyISAM tables to disk between SQL commands
- --flush-only-old-table-cache-entries 
+ --flush-only-old-table-cache-entries
  Enable/disable flushing table and definition cache
  entries policy based on TTL specified by flush_time.
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
- --ft-boolean-syntax=name 
+ --ft-boolean-syntax=name
  List of operators for MATCH ... AGAINST ( ... IN BOOLEAN
  MODE)
  --ft-max-word-len=# The maximum length of the word to be included in a
@@ -353,32 +353,32 @@ The following options may be given as the first argument:
  --ft-min-word-len=# The minimum length of the word to be included in a
  FULLTEXT index. Note: FULLTEXT indexes must be rebuilt
  after changing this variable
- --ft-query-expansion-limit=# 
+ --ft-query-expansion-limit=#
  Number of best matches to use for query expansion
- --ft-stopword-file=name 
+ --ft-stopword-file=name
  Use stopwords from this file instead of built-in list
- --gap-lock-exceptions[=name] 
+ --gap-lock-exceptions[=name]
  List of tables (using regex) that are excluded from gap
  lock detection.
- --gap-lock-log-file=name 
+ --gap-lock-log-file=name
  Log file path where queries using Gap Lock are written.
  gap_lock_write_log needs to be turned on to write logs
- --gap-lock-raise-error 
+ --gap-lock-raise-error
  Raising an error when executing queries relying on Gap
  Lock. Default is false.
- --gap-lock-write-log 
+ --gap-lock-write-log
  Writing to gap_lock_log_file when executing queries
  relying on Gap Lock. Default is false.
  --gdb               Set up signals usable for debugging.
  --general-log       Log connections and queries to a table or log file.
  Defaults logging to a file hostname.log or a table
  mysql.general_logif --log-output=TABLE is used
- --general-log-file=name 
+ --general-log-file=name
  Log connections and queries to given file
- --general-query-throttling-limit[=#] 
+ --general-query-throttling-limit[=#]
  Start throttling queries if running threads high.
- --group-concat-max-len=# 
- The maximum length of the result of function 
+ --group-concat-max-len=#
+ The maximum length of the result of function
  GROUP_CONCAT()
  --gtid-mode=name    Whether Global Transaction Identifiers (GTIDs) are
  enabled. Can be ON or OFF.
@@ -386,66 +386,66 @@ The following options may be given as the first argument:
  gtid_executed set before flushing binlog from cache to
  file.
  -?, --help          Display this help and exit.
- --high-precision-processlist 
+ --high-precision-processlist
  If set, MySQL will display the time in 1/1000000 of a
  second precision
  --high-priority-ddl Setting this flag will allow DDL commands to kill
  conflicting connections (effective for admin user only).
- --high-priority-lock-wait-timeout=# 
+ --high-priority-lock-wait-timeout=#
  Timeout in seconds to wait for a lock before returning an
  error. This timeout is specifically for high_priority
  commands (DDLs), when a high_priority keyword is
  specified, or the high_priority_ddl variable is turned
  on. The argument will be treated as a decimal value with
  nanosecond precision.
- --histogram-step-size-binlog-fsync=name 
+ --histogram-step-size-binlog-fsync=name
  Step size of the Histogram which is used to track binlog
  fsync latencies.
- --histogram-step-size-binlog-group-commit=# 
+ --histogram-step-size-binlog-group-commit=#
  Step size of the histogram used in tracking number of
  threads involved in the binlog group commit
- --histogram-step-size-connection-create=name 
+ --histogram-step-size-connection-create=name
  Step size of the Histogram which is used to track
  connection create latencies.
- --histogram-step-size-ddl-command=name 
+ --histogram-step-size-ddl-command=name
  Step size of the Histogram which is used to track DDL
  command latencies.
- --histogram-step-size-delete-command=name 
+ --histogram-step-size-delete-command=name
  Step size of the Histogram which is used to track delete
  command latencies.
- --histogram-step-size-handler-command=name 
+ --histogram-step-size-handler-command=name
  Step size of the Histogram which is used to track handler
  command latencies.
- --histogram-step-size-insert-command=name 
+ --histogram-step-size-insert-command=name
  Step size of the Histogram which is used to track insert
  command latencies.
- --histogram-step-size-other-command=name 
+ --histogram-step-size-other-command=name
  Step size of the Histogram which is used to track other
  command latencies.
- --histogram-step-size-select-command=name 
+ --histogram-step-size-select-command=name
  Step size of the Histogram which is used to track select
  command latencies.
- --histogram-step-size-transaction-command=name 
+ --histogram-step-size-transaction-command=name
  Step size of the Histogram which is used to track
  transaction command latencies.
- --histogram-step-size-update-command=name 
+ --histogram-step-size-update-command=name
  Step size of the Histogram which is used to track update
  command latencies.
- --hll-data-size-log2=# 
+ --hll-data-size-log2=#
  This argument is used to generate the hashtable.
  Increasing the data_size will increase the accuracy while
  consuming more memory. A value of k will imply a standard
  error of roughly (104/sqrt(2^k)) percent, and use O(2^k)
  memory.
  --host-cache-size=# How many host names should be cached to avoid resolving.
- --ignore-builtin-innodb 
+ --ignore-builtin-innodb
  IGNORED. This option will be removed in future releases.
  Disable initialization of builtin InnoDB plugin
- --ignore-db-dir=name 
+ --ignore-db-dir=name
  Specifies a directory to add to the ignore list when
  collecting database names from the datadir. Put a blank
  argument to reset the list accumulated so far.
- --improved-dup-key-error 
+ --improved-dup-key-error
  Include the table name in the error text when receiving a
  duplicate key error and log the query into a new
  duplicate key query log file.
@@ -453,29 +453,29 @@ The following options may be given as the first argument:
  --init-file=name    Read SQL commands from this file at startup
  --init-slave=name   Command(s) that are executed by a slave server each time
  the SQL thread starts
- --interactive-timeout=# 
+ --interactive-timeout=#
  The number of seconds the server waits for activity on an
  interactive connection before closing it
- --join-buffer-size=# 
+ --join-buffer-size=#
  The size of the buffer that is used for full joins
- --keep-files-on-create 
+ --keep-files-on-create
  Don't overwrite stale .MYD and .MYI even if no directory
  is specified
  --key-buffer-size=# The size of the buffer used for index blocks for MyISAM
  tables. Increase this to get better index handling (for
  all reads and multiple writes) to as much as you can
  afford
- --key-cache-age-threshold=# 
+ --key-cache-age-threshold=#
  This characterizes the number of hits a hot block has to
  be untouched until it is considered aged enough to be
  downgraded to a warm block. This specifies the percentage
  ratio of that number of hits to the total number of
  blocks in key cache
- --key-cache-block-size=# 
+ --key-cache-block-size=#
  The default size of key cache blocks
- --key-cache-division-limit=# 
+ --key-cache-division-limit=#
  The minimum percentage of warm blocks in key cache
- --kill-conflicting-connections 
+ --kill-conflicting-connections
  Setting this session only flag will instruct the the
  session to kill all conflicting connections (effective
  for admin user only) for any command executed by the
@@ -486,28 +486,28 @@ The following options may be given as the first argument:
  the current session and the current session will wait for
  1 more second before aborting if the lock won't be
  granted.
- --kill-conflicting-connections-timeout[=#] 
+ --kill-conflicting-connections-timeout[=#]
  Timeout in seconds of holding lock after issuing killing
  conflicting connections.
  -L, --language=name Client error messages in given language. May be given as
  a full path. Deprecated. Use --lc-messages-dir instead.
  --large-pages       Enable support for large pages
  --lc-messages=name  Set the language used for the error messages.
- --lc-messages-dir=name 
+ --lc-messages-dir=name
  Directory where error messages are
- --lc-time-names=name 
+ --lc-time-names=name
  Set the language used for the month names and the days of
  the week.
- --legacy-global-read-lock-mode 
+ --legacy-global-read-lock-mode
  Uses the legacy global read lock mode which will block
  setting global read lock when a long transaction is
  running
  (Defaults to on; use --skip-legacy-global-read-lock-mode to disable.)
- --legacy-user-name-pattern[=name] 
+ --legacy-user-name-pattern[=name]
  Regex pattern string of a legacy user name
  --local-infile      Enable LOAD DATA LOCAL INFILE
  (Defaults to on; use --skip-local-infile to disable.)
- --lock-wait-timeout=# 
+ --lock-wait-timeout=#
  Timeout in seconds to wait for a lock before returning an
  error. The argument will be treated as a decimal value
  with nanosecond precision.
@@ -515,9 +515,9 @@ The following options may be given as the first argument:
  strongly recommended to avoid replication problems if
  server's hostname changes) argument should be the chosen
  location for the binary log files.
- --log-bin-index=name 
+ --log-bin-index=name
  File that holds the names for binary log files.
- --log-bin-trust-function-creators 
+ --log-bin-trust-function-creators
  If set to FALSE (the default), then when --log-bin is
  used, creation of a stored function (or trigger) is
  allowed only to users having the SUPER privilege and only
@@ -526,316 +526,322 @@ The following options may be given as the first argument:
  ALWAYS use row-based binary logging, the security issues
  do not exist and the binary logging cannot break, so you
  can safely set this to TRUE
- --log-bin-use-v1-row-events 
+ --log-bin-use-v1-row-events
  If equal to 1 then version 1 row events are written to a
  row based binary log.  If equal to 0, then the latest
  version of events are written.  This option is useful
  during some upgrades.
  --log-column-names  Writes column name information in table map log events.
  --log-datagram      Enable logging queries to a unix local datagram socket
- --log-datagram-usecs=# 
+ --log-datagram-usecs=#
  Log queries longer than log-datagram-usecs to a unix
  local datagram socket
  --log-ddl           Log ddls in slow query log.
  --log-error[=name]  Error log file
- --log-global-var-changes 
+ --log-global-var-changes
  All the value changes of global variables will be logged
  into server log when this is set to TRUE.
- --log-gtid-unsafe-statements 
+ --log-gtid-unsafe-statements
  When turned on, logs the gtid unsafe statements in the
  error log
  (Defaults to on; use --skip-log-gtid-unsafe-statements to disable.)
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-legacy-user   Log legacy user names in slow query log.
- --log-only-query-comments 
+ --log-only-query-comments
  Writes only the comments part at the beginning of the
  query in Rows_query_log_events.
  (Defaults to on; use --skip-log-only-query-comments to disable.)
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
- --log-queries-not-using-indexes 
+ --log-queries-not-using-indexes
  Log queries that are executed without benefit of any
  index to the slow log if it is open
  --log-raw           Log to general log before any rewriting of the query. For
  use in debugging, not production as sensitive information
  may be logged.
- --log-sbr-unsafe-query 
+ --log-sbr-unsafe-query
  Log SBR unsafe query in slow query log.
  --log-short-format  Don't log extra information to update and slow-query
  logs.
  --log-slave-updates Tells the slave to log the updates from the slave thread
  to the binary log. You will need to turn it on if you
  plan to daisy-chain the slaves
- --log-slow-admin-statements 
+ --log-slow-admin-statements
  Log slow OPTIMIZE, ANALYZE, ALTER and other
  administrative statements to the slow log if it is open.
  --log-slow-extra    Print more attributes to the slow query log
- --log-slow-slave-statements 
+ --log-slow-slave-statements
  Log slow statements executed by slave thread to the slow
  log if it is open.
  --log-tc=name       Path to transaction coordinator log (used for
  transactions that affect more than one storage engine,
  when binary log is disabled).
  --log-tc-size=#     Size of transaction coordinator log.
- --log-throttle-ddl[=#] 
+ --log-throttle-ddl[=#]
  Log at most this many DDL entries per minute to the slow
  log. Any further warnings will be condensed into a single
  summary line. A value of 0 disables throttling. Option
  has no effect unless --log_ddl is set.
- --log-throttle-legacy-user[=#] 
+ --log-throttle-legacy-user[=#]
  Log at most this many 'LEGACY_USER' entries per minute to
  the slow log. Any further warnings will be condensed into
  a single summary line. A value of 0 disables throttling.
  Option has no effect unless --log_legacy_user and
  --legacy_user_name_pattern are both set.
- --log-throttle-queries-not-using-indexes[=#] 
+ --log-throttle-queries-not-using-indexes[=#]
  Log at most this many 'not using index' warnings per
  minute to the slow log. Any further warnings will be
  condensed into a single summary line. A value of 0
  disables throttling. Option has no effect unless
  --log_queries_not_using_indexes is set.
- --log-throttle-sbr-unsafe-query[=#] 
+ --log-throttle-sbr-unsafe-query[=#]
  Log at most this many SBR unsafe queries per minute to
  the slow log. This is useful only when
  log_sbr_unsafe_query is true
- -W, --log-warnings[=#] 
+ -W, --log-warnings[=#]
  Log some not critical warnings to the log file
  --long-query-time=# Log all queries that have taken more than long_query_time
  seconds to execute to file. This also includes lock wait
  time. The argument will be treated as a decimal value
  with microsecond precision
- --low-priority-updates 
+ --low-priority-updates
  INSERT/DELETE/UPDATE has lower priority than selects
- --lower-case-table-names[=#] 
+ --lower-case-table-names[=#]
  If set to 1 table names are stored in lowercase on disk
  and table names will be case-insensitive.  Should be set
  to 2 if you are using a case insensitive file system
- --lz4f-net-compression-level[=#] 
+ --lz4f-net-compression-level[=#]
  Compression level for compressed protocol when lz4f
  library is selected.
- --maintain-database-hlc 
+ --maintain-database-hlc
  Enable maintaining of max HLC applied per database
- --master-info-file=name 
+ --master-info-file=name
  The location and name of the file that remembers the
  master and where the I/O replication thread is in the
  master's binlogs.
- --master-info-repository=name 
+ --master-info-repository=name
  Defines the type of the repository for the master
  information.
- --master-retry-count=# 
+ --master-retry-count=#
  The number of tries the slave will make to connect to the
  master before giving up. Deprecated option, use 'CHANGE
  MASTER TO master_retry_count = <num>' instead.
- --master-verify-checksum 
+ --master-verify-checksum
  Force checksum verification of logged events in binary
  log before sending them to slaves or printing them in
  output of SHOW BINLOG EVENTS. Disabled by default.
- --max-allowed-packet=# 
+ --max-allowed-packet=#
  Max packet length to send to or receive from the server
- --max-binlog-cache-size=# 
+ --max-binlog-cache-size=#
  Sets the total size of the transactional cache
- --max-binlog-dump-events=# 
+ --max-binlog-dump-events=#
  Option used by mysql-test for debugging and testing of
  replication.
  --max-binlog-size=# Binary log will be rotated automatically when the size
  exceeds this value. Will also apply to relay logs if
  max_relay_log_size is 0
- --max-binlog-stmt-cache-size=# 
+ --max-binlog-stmt-cache-size=#
  Sets the total size of the statement cache
- --max-compressed-event-cache-size[=#] 
+ --max-compressed-event-cache-size[=#]
  Max size of the compressed event cache in MB, this makes
  sense only when some connected slaves are using
  compressed event protocol.
- --max-connect-errors=# 
+ --max-connect-errors=#
  If there is more than this number of interrupted
  connections from a host this host will be blocked from
  further connections
  --max-connections=# The number of simultaneous clients allowed
- --max-db-stats-entries[=#] 
+ --max-db-stats-entries[=#]
  Maximum number of entries in DB_STATISTICS
- --max-delayed-threads=# 
+ --max_digest_sample_age[=#]
+ The time in seconds after which a previous query sample is considered old.
+ When the value is 0, queries are sampled once.
+ When the value is -1, queries are not sampled.
+ When the value is greater than zero, queries are re sampled if the
+ last sample is more than max_digest_sample_age seconds old.
+ --max-delayed-threads=#
  Don't start more than this number of threads to handle
  INSERT DELAYED statements. If set to zero INSERT DELAYED
  will be not used.This variable is deprecated along with
  INSERT DELAYED.
- --max-digest-length=# 
+ --max-digest-length=#
  Maximum length considered for digest text.
  --max-error-count=# Max number of errors/warnings to store for a statement
- --max-heap-table-size=# 
+ --max-heap-table-size=#
  Don't allow creation of heap tables bigger than this
  --max-join-size=#   Joins that are probably going to read more than
  max_join_size records return an error
- --max-length-for-sort-data=# 
+ --max-length-for-sort-data=#
  Max number of bytes in sorted records
- --max-nonsuper-connections=# 
+ --max-nonsuper-connections=#
  The maximum number of total active connections for
  non-super user (0 = no limit)
- --max-prepared-stmt-count=# 
+ --max-prepared-stmt-count=#
  Maximum number of prepared statements in the server
- --max-relay-log-size=# 
+ --max-relay-log-size=#
  If non-zero: relay log will be rotated automatically when
  the size exceeds this value; if zero: when the size
  exceeds max_binlog_size
- --max-running-queries=# 
+ --max-running-queries=#
  The maximum number of running queries allowed for a
  database. If this value is 0, no such limits are applied.
- --max-seeks-for-key=# 
+ --max-seeks-for-key=#
  Limit assumed max number of seeks when looking up rows
  based on a key
- --max-slowlog-files=# 
+ --max-slowlog-files=#
  Maximum number of slow query log files. Used with
  --max-slowlog-size this can be used to limit the total
  amount of disk space used for the slow query log. Default
  is 0, don't limit.
- --max-slowlog-size=# 
+ --max-slowlog-size=#
  Slow query log will be rotated automatically when the
  size exceeds this value. The default is 0, don't limit
  the size.
  --max-sort-length=# The number of bytes to use when sorting BLOB or TEXT
  values (only the first max_sort_length bytes of each
  value are used; the rest are ignored)
- --max-sp-recursion-depth[=#] 
+ --max-sp-recursion-depth[=#]
  Maximum stored procedure recursion depth
- --max-sql-stats-count[=#] 
+ --max-sql-stats-count[=#]
  Maximum allowed number of SQL statistics
- --max-sql-stats-size[=#] 
+ --max-sql-stats-size[=#]
  Maximum allowed memory for SQL statistics (in bytes)
  --max-tmp-tables=#  Maximum number of temporary tables a client can keep open
  at a time
- --max-user-connections=# 
+ --max-user-connections=#
  The maximum number of active connections for a single
  user (0 = no limit)
- --max-waiting-queries=# 
+ --max-waiting-queries=#
  The maximum number of waiting queries allowed for a
  database.If this value is 0, no such limits are applied.
- --max-write-lock-count=# 
+ --max-write-lock-count=#
  After this many write locks, allow some read locks to run
  in between
- --maximum-hlc-drift-ns[=#] 
+ --maximum-hlc-drift-ns[=#]
  Maximum value that the local HLC can be allowed to drift
  forward from the wall clock (in nanoseconds). This limit
  is only used when setting a lower/minimum bound on HLC
  using minimum_hlc_ns system variable. The default value
  is 300 secs
  --memlock           Lock mysqld in memory.
- --metadata-locks-cache-size=# 
+ --metadata-locks-cache-size=#
  Size of unused metadata locks cache
- --metadata-locks-hash-instances=# 
+ --metadata-locks-hash-instances=#
  Number of metadata locks hash instances
- --min-examined-row-limit=# 
+ --min-examined-row-limit=#
  Don't write queries to slow log that examine fewer rows
  than that
- --minimum-hlc-ns[=#] 
+ --minimum-hlc-ns[=#]
  Sets the minimum HLC value for the instance (in
  nanoseconds). Any HLC timestamp doled out after
  minimum_hlc_ns is successfully updated is guranteed to be
- greater than this value. The maximum allowed drift 
+ greater than this value. The maximum allowed drift
  (forward) is controlled by maximum_hlc_drift_ns
- --mts-dependency-max-keys[=#] 
+ --mts-dependency-max-keys[=#]
  Max number of keys in a transaction after which it will
  be executed in isolation. This limits the amount of
  metadata we'll need to maintain.
- --mts-dependency-order-commits 
+ --mts-dependency-order-commits
  Commit trxs in the same order as the master (per
  database)
  (Defaults to on; use --skip-mts-dependency-order-commits to disable.)
- --mts-dependency-refill-threshold[=#] 
+ --mts-dependency-refill-threshold[=#]
  Capacity in percentage at which to start refilling the
  dependency buffer
- --mts-dependency-replication[=name] 
+ --mts-dependency-replication[=name]
  Use dependency based replication
- --mts-dependency-size[=#] 
+ --mts-dependency-size[=#]
  Max size of the dependency buffer
- --mts-dynamic-rebalance 
+ --mts-dynamic-rebalance
  Shuffle DB's within workers periodically for load
  balancing
- --mts-imbalance-threshold[=#] 
+ --mts-imbalance-threshold[=#]
  Threshold to trigger worker thread rebalancing. This
  parameter denotes the percent load on the most loaded
  worker.
- --multi-range-count=# 
+ --multi-range-count=#
  Number of key ranges to request at once. This variable
  has no effect, and is deprecated. It will be removed in a
  future release.
- --myisam-block-size=# 
+ --myisam-block-size=#
  Block size to be used for MyISAM index pages
- --myisam-data-pointer-size=# 
+ --myisam-data-pointer-size=#
  Default pointer size to be used for MyISAM tables
- --myisam-max-sort-file-size=# 
+ --myisam-max-sort-file-size=#
  Don't use the fast sort index method to created index if
  the temporary file would get bigger than this
- --myisam-mmap-size=# 
+ --myisam-mmap-size=#
  Restricts the total memory used for memory mapping of
  MySQL tables
- --myisam-recover-options[=name] 
+ --myisam-recover-options[=name]
  Syntax: myisam-recover-options[=option[,option...]],
  where option can be DEFAULT, BACKUP, FORCE, QUICK, or OFF
- --myisam-repair-threads=# 
+ --myisam-repair-threads=#
  If larger than 1, when repairing a MyISAM table all
  indexes will be created in parallel, with one thread per
  index. The value of 1 disables parallel repair
- --myisam-sort-buffer-size=# 
+ --myisam-sort-buffer-size=#
  The buffer that is allocated when sorting the index when
  doing a REPAIR or when creating indexes with CREATE INDEX
  or ALTER TABLE
- --myisam-stats-method=name 
+ --myisam-stats-method=name
  Specifies how MyISAM index statistics collection code
  should treat NULLs. Possible values of name are
  NULLS_UNEQUAL (default behavior for 4.1 and later),
  NULLS_EQUAL (emulate 4.0 behavior), and NULLS_IGNORED
  --myisam-use-mmap   Use memory mapping for reading and writing MyISAM tables
- --net-buffer-length=# 
+ --net-buffer-length=#
  Buffer length for TCP/IP and socket communication
- --net-compression-level=# 
+ --net-compression-level=#
  Compression level for compressed master/slave protocol
  (when enabled) and client connections (when requested). 0
  is no compression (for testing), 1 is fastest, 9 is
  slowest, 6 is default.
- --net-read-timeout=# 
+ --net-read-timeout=#
  Number of seconds to wait for more data from a connection
  before aborting the read
  --net-retry-count=# If a read on a communication port is interrupted, retry
  this many times before giving up
- --net-write-timeout=# 
+ --net-write-timeout=#
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
- --num-conn-handling-threads[=#] 
+ --num-conn-handling-threads[=#]
  Use these many threads to offload accept threads
- --num-sharded-listen-sockets[=#] 
+ --num-sharded-listen-sockets[=#]
  Use more than 1 socket to listen on the same mysqld port
- --num-sharded-locks[=#] 
+ --num-sharded-locks[=#]
  How many shards to use to reduce lock-contention
  --old               Use compatible behavior
  --old-alter-table   Use old, non-optimized alter table
  --old-passwords=#   Determine which hash algorithm to use when generating
  passwords using the PASSWORD() function
- --old-style-user-limits 
+ --old-style-user-limits
  Enable old-style user limits (before 5.0.3, user
  resources were counted per each user+host vs. per
  account).
- --open-files-limit=# 
+ --open-files-limit=#
  If this is not 0, then mysqld will use this value to
  reserve file descriptors to use with setrlimit(). If this
  value is 0 then mysqld will reserve max_connections*5 or
  max_connections + table_open_cache*2 (whichever is
  larger) number of file descriptors
- --optimizer-force-index-for-range 
+ --optimizer-force-index-for-range
  If enabled, FORCE INDEX will also try to force a range
  plan.
- --optimizer-full-scan 
+ --optimizer-full-scan
  Enable full table and index scans.
  (Defaults to on; use --skip-optimizer-full-scan to disable.)
- --optimizer-low-limit-heuristic 
+ --optimizer-low-limit-heuristic
  Enable low limit heuristic.
  (Defaults to on; use --skip-optimizer-low-limit-heuristic to disable.)
- --optimizer-prune-level=# 
+ --optimizer-prune-level=#
  Controls the heuristic(s) applied during query
  optimization to prune less-promising partial plans from
  the optimizer search space. Meaning: 0 - do not apply any
  heuristic, thus perform exhaustive search; 1 - prune
  plans based on number of retrieved rows
- --optimizer-search-depth=# 
+ --optimizer-search-depth=#
  Maximum depth of search performed by the query optimizer.
  Values larger than the number of relations in a query
  result in better query plans, but take longer to compile
@@ -843,7 +849,7 @@ The following options may be given as the first argument:
  relation result in faster optimization, but may produce
  very bad query plans. If set to 0, the system will
  automatically pick a reasonable value
- --optimizer-switch=name 
+ --optimizer-switch=name
  optimizer_switch=option=val[,option=val...], where option
  is one of {index_merge, index_merge_union,
  index_merge_sort_union, index_merge_intersection,
@@ -853,161 +859,161 @@ The following options may be given as the first argument:
  block_nested_loop, batched_key_access,
  use_index_extensions, skip_scan, skip_scan_cost_based,
  multi_range_groupby} and val is one of {on, off, default}
- --optimizer-trace=name 
+ --optimizer-trace=name
  Controls tracing of the Optimizer:
  optimizer_trace=option=val[,option=val...], where option
  is one of {enabled, one_line} and val is one of {on,
  default}
- --optimizer-trace-features=name 
+ --optimizer-trace-features=name
  Enables/disables tracing of selected features of the
  Optimizer:
  optimizer_trace_features=option=val[,option=val...],
  where option is one of {greedy_search, range_optimizer,
  dynamic_range, repeated_subselect} and val is one of {on,
  off, default}
- --optimizer-trace-limit=# 
+ --optimizer-trace-limit=#
  Maximum number of shown optimizer traces
- --optimizer-trace-max-mem-size=# 
+ --optimizer-trace-max-mem-size=#
  Maximum allowed cumulated size of stored optimizer traces
- --optimizer-trace-offset=# 
+ --optimizer-trace-offset=#
  Offset of first optimizer trace to show; see manual
  --part-scan-max=#   The optimizer will scan up to this many partitions for
  data to estimate rows before resorting to a rough
  approximation based on the data gathered up to that
  point.
- --peak-lag-sample-rate=# 
+ --peak-lag-sample-rate=#
  The rate of sampling replayed events on slave to
  determine the peak replication lag over some period.
  --peak-lag-time=#   The time frame peak lag is measured within, in seconds.
- --per-user-session-var-default-val[=name] 
+ --per-user-session-var-default-val[=name]
  Per user session variable default value
- --per-user-session-var-user-name-delimiter[=name] 
+ --per-user-session-var-user-name-delimiter[=name]
  Per user session variable user name delimiter
- --performance-schema 
+ --performance-schema
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
- --performance-schema-accounts-size=# 
+ --performance-schema-accounts-size=#
  Maximum number of instrumented user@host accounts. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-consumer-events-stages-current 
+ --performance-schema-consumer-events-stages-current
  Default startup value for the events_stages_current
  consumer.
- --performance-schema-consumer-events-stages-history 
+ --performance-schema-consumer-events-stages-history
  Default startup value for the events_stages_history
  consumer.
- --performance-schema-consumer-events-stages-history-long 
+ --performance-schema-consumer-events-stages-history-long
  Default startup value for the events_stages_history_long
  consumer.
- --performance-schema-consumer-events-statements-current 
+ --performance-schema-consumer-events-statements-current
  Default startup value for the events_statements_current
  consumer.
  (Defaults to on; use --skip-performance-schema-consumer-events-statements-current to disable.)
- --performance-schema-consumer-events-statements-history 
+ --performance-schema-consumer-events-statements-history
  Default startup value for the events_statements_history
  consumer.
- --performance-schema-consumer-events-statements-history-long 
+ --performance-schema-consumer-events-statements-history-long
  Default startup value for the
  events_statements_history_long consumer.
- --performance-schema-consumer-events-waits-current 
+ --performance-schema-consumer-events-waits-current
  Default startup value for the events_waits_current
  consumer.
- --performance-schema-consumer-events-waits-history 
+ --performance-schema-consumer-events-waits-history
  Default startup value for the events_waits_history
  consumer.
- --performance-schema-consumer-events-waits-history-long 
+ --performance-schema-consumer-events-waits-history-long
  Default startup value for the events_waits_history_long
  consumer.
- --performance-schema-consumer-global-instrumentation 
+ --performance-schema-consumer-global-instrumentation
  Default startup value for the global_instrumentation
  consumer.
  (Defaults to on; use --skip-performance-schema-consumer-global-instrumentation to disable.)
- --performance-schema-consumer-statements-digest 
+ --performance-schema-consumer-statements-digest
  Default startup value for the statements_digest consumer.
  (Defaults to on; use --skip-performance-schema-consumer-statements-digest to disable.)
- --performance-schema-consumer-thread-instrumentation 
+ --performance-schema-consumer-thread-instrumentation
  Default startup value for the thread_instrumentation
  consumer.
  (Defaults to on; use --skip-performance-schema-consumer-thread-instrumentation to disable.)
- --performance-schema-digests-size=# 
+ --performance-schema-digests-size=#
  Size of the statement digest. Use 0 to disable, -1 for
  automated sizing.
- --performance-schema-events-stages-history-long-size=# 
+ --performance-schema-events-stages-history-long-size=#
  Number of rows in EVENTS_STAGES_HISTORY_LONG. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-events-stages-history-size=# 
+ --performance-schema-events-stages-history-size=#
  Number of rows per thread in EVENTS_STAGES_HISTORY. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-events-statements-history-long-size=# 
+ --performance-schema-events-statements-history-long-size=#
  Number of rows in EVENTS_STATEMENTS_HISTORY_LONG. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-events-statements-history-size=# 
+ --performance-schema-events-statements-history-size=#
  Number of rows per thread in EVENTS_STATEMENTS_HISTORY.
  Use 0 to disable, -1 for automated sizing.
- --performance-schema-events-waits-history-long-size=# 
+ --performance-schema-events-waits-history-long-size=#
  Number of rows in EVENTS_WAITS_HISTORY_LONG. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-events-waits-history-size=# 
+ --performance-schema-events-waits-history-size=#
  Number of rows per thread in EVENTS_WAITS_HISTORY. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-hosts-size=# 
+ --performance-schema-hosts-size=#
  Maximum number of instrumented hosts. Use 0 to disable,
  -1 for automated sizing.
- --performance-schema-instrument[=name] 
+ --performance-schema-instrument[=name]
  Default startup value for a performance schema
  instrument.
- --performance-schema-max-cond-classes=# 
+ --performance-schema-max-cond-classes=#
  Maximum number of condition instruments.
- --performance-schema-max-cond-instances=# 
+ --performance-schema-max-cond-instances=#
  Maximum number of instrumented condition objects. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-max-digest-length=# 
+ --performance-schema-max-digest-length=#
  Maximum length considered for digest text, when stored in
  performance_schema tables.
- --performance-schema-max-file-classes=# 
+ --performance-schema-max-file-classes=#
  Maximum number of file instruments.
- --performance-schema-max-file-handles=# 
+ --performance-schema-max-file-handles=#
  Maximum number of opened instrumented files.
- --performance-schema-max-file-instances=# 
+ --performance-schema-max-file-instances=#
  Maximum number of instrumented files. Use 0 to disable,
  -1 for automated sizing.
- --performance-schema-max-mutex-classes=# 
+ --performance-schema-max-mutex-classes=#
  Maximum number of mutex instruments.
- --performance-schema-max-mutex-instances=# 
+ --performance-schema-max-mutex-instances=#
  Maximum number of instrumented MUTEX objects. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-max-rwlock-classes=# 
+ --performance-schema-max-rwlock-classes=#
  Maximum number of rwlock instruments.
- --performance-schema-max-rwlock-instances=# 
+ --performance-schema-max-rwlock-instances=#
  Maximum number of instrumented RWLOCK objects. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-max-socket-classes=# 
+ --performance-schema-max-socket-classes=#
  Maximum number of socket instruments.
- --performance-schema-max-socket-instances=# 
+ --performance-schema-max-socket-instances=#
  Maximum number of opened instrumented sockets. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-max-stage-classes=# 
+ --performance-schema-max-stage-classes=#
  Maximum number of stage instruments.
- --performance-schema-max-statement-classes=# 
+ --performance-schema-max-statement-classes=#
  Maximum number of statement instruments.
- --performance-schema-max-table-handles=# 
+ --performance-schema-max-table-handles=#
  Maximum number of opened instrumented tables. Use 0 to
  disable, -1 for automated sizing.
- --performance-schema-max-table-instances=# 
+ --performance-schema-max-table-instances=#
  Maximum number of instrumented tables. Use 0 to disable,
  -1 for automated sizing.
- --performance-schema-max-thread-classes=# 
+ --performance-schema-max-thread-classes=#
  Maximum number of thread instruments.
- --performance-schema-max-thread-instances=# 
+ --performance-schema-max-thread-instances=#
  Maximum number of instrumented threads. Use 0 to disable,
  -1 for automated sizing.
- --performance-schema-session-connect-attrs-size=# 
+ --performance-schema-session-connect-attrs-size=#
  Size of session attribute string buffer per thread. Use 0
  to disable, -1 for automated sizing.
- --performance-schema-setup-actors-size=# 
+ --performance-schema-setup-actors-size=#
  Maximum number of rows in SETUP_ACTORS.
- --performance-schema-setup-objects-size=# 
+ --performance-schema-setup-objects-size=#
  Maximum number of rows in SETUP_OBJECTS.
- --performance-schema-users-size=# 
+ --performance-schema-users-size=#
  Maximum number of instrumented users. Use 0 to disable,
  -1 for automated sizing.
  --pid-file=name     Pid file used by safe_mysqld
@@ -1016,7 +1022,7 @@ The following options may be given as the first argument:
  where each plugin is identified as name=library, where
  name is the plugin name and library is the plugin library
  in plugin_dir.
- --plugin-load-add=name 
+ --plugin-load-add=name
  Optional semicolon-separated list of plugins to load,
  where each plugin is identified as name=library, where
  name is the plugin name and library is the plugin library
@@ -1026,57 +1032,57 @@ The following options may be given as the first argument:
  -P, --port=#        Port number to use for connection or 0 to default to,
  my.cnf, $MYSQL_TCP_PORT, /etc/services, built-in default
  (3306), whatever comes first
- --port-open-timeout=# 
+ --port-open-timeout=#
  Maximum time in seconds to wait for the port to become
  free. (Default: No wait).
- --preload-buffer-size=# 
+ --preload-buffer-size=#
  The size of the buffer that is allocated when preloading
  indexes
- --process-can-disable-bin-log 
+ --process-can-disable-bin-log
  Allow PROCESS to disable bin log, not just SUPER
  (Defaults to on; use --skip-process-can-disable-bin-log to disable.)
- --protocol-mode=name 
+ --protocol-mode=name
  Syntax: protocol-mode=mode. See the manual for the
  complete list of valid protocol modes
- --query-alloc-block-size=# 
+ --query-alloc-block-size=#
  Allocation block size for query parsing and execution
- --query-cache-limit=# 
+ --query-cache-limit=#
  Don't cache results that are bigger than this
- --query-cache-min-res-unit=# 
+ --query-cache-min-res-unit=#
  The minimum size for blocks allocated by the query cache
- --query-cache-size=# 
+ --query-cache-size=#
  The memory allocated to store results from old queries
- --query-cache-type=name 
+ --query-cache-type=name
  OFF = Don't cache or retrieve results. ON = Cache all
  results except SELECT SQL_NO_CACHE ... queries. DEMAND =
  Cache only SELECT SQL_CACHE ... queries
- --query-cache-wlock-invalidate 
+ --query-cache-wlock-invalidate
  Invalidate queries in query cache on LOCK for write
- --query-prealloc-size=# 
+ --query-prealloc-size=#
  Persistent buffer for query parsing and execution
- --range-alloc-block-size=# 
+ --range-alloc-block-size=#
  Allocation block size for storing ranges during
  optimization
- --range-optimizer-max-mem-size=# 
+ --range-optimizer-max-mem-size=#
  Maximum amount of memory used by the range optimizer to
  allocate predicates during range analysis. The larger the
  number, more memory may be consumed during range
  analysis. If the value is too low to completed range
  optimization of a query, index range scan will not be
  considered for this query. A value of 0 means range
- optimizer does not have any cap on memory. 
- --rbr-column-type-mismatch-whitelist[=name] 
+ optimizer does not have any cap on memory.
+ --rbr-column-type-mismatch-whitelist[=name]
  List of db.table.col (comma separated) where type
  mismatches are expected. The slave will not fail it the
  conversion is lossless. This variable is overridden by
  slave_type_conversions. Default: ''. A value of '.*'
  means all cols are in the whitelist.
- --rbr-idempotent-tables=name 
+ --rbr-idempotent-tables=name
  slave_exec_mode is set to IDEMPOTENT for these list of
  tables. The table names are assumed to be separated by
  commas. Note this will take effect only after restarting
  slave sql thread.
- --read-buffer-size=# 
+ --read-buffer-size=#
  Each thread that does a sequential scan allocates a
  buffer of this size for each table it scans. If you do
  many sequential scans, you may want to increase this
@@ -1084,38 +1090,38 @@ The following options may be given as the first argument:
  --read-only         Make all non-temporary tables read-only, with the
  exception for replication (slave) threads and users with
  the SUPER privilege
- --read-only-error-msg-extra[=name] 
+ --read-only-error-msg-extra[=name]
  Set this variable to print out extra error information,
  which will be appended to read_only error messages.
  --read-only-slave   Blocks disabling read_only if the server is a slave. This
  is helpful in asserting that read_only is never disabled
  on a slave. Slave with read_only=0 may generate new GTID
  on its own breaking replication or may cause a split
- brain. 
+ brain.
  (Defaults to on; use --skip-read-only-slave to disable.)
- --read-rnd-buffer-size=# 
+ --read-rnd-buffer-size=#
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
  --relay-log=name    The location and name to use for relay logs
- --relay-log-index=name 
+ --relay-log-index=name
  File that holds the names for relay log files.
- --relay-log-info-file=name 
+ --relay-log-info-file=name
  The location and name of the file that remembers where
  the SQL replication thread is in the relay logs
- --relay-log-info-repository=name 
+ --relay-log-info-repository=name
  Defines the type of the repository for the relay log
  information and associated workers.
  --relay-log-purge   if disabled - do not purge relay logs. if enabled - purge
  them as soon as they are no more needed
  (Defaults to on; use --skip-relay-log-purge to disable.)
- --relay-log-recovery 
+ --relay-log-recovery
  Enables automatic relay log recovery right after the
  database startup, which means that the IO Thread starts
  re-fetching from the master right after the last
  transaction processed
- --relay-log-space-limit=# 
+ --relay-log-space-limit=#
  Maximum space to use for all relay logs
- --replicate-do-db=name 
+ --replicate-do-db=name
  Tells the slave thread to restrict replication to the
  specified database. To specify more than one database,
  use the directive multiple times, once for each database.
@@ -1125,36 +1131,36 @@ The following options may be given as the first argument:
  database. If you need cross database updates to work,
  make sure you have 3.23.28 or later, and use
  replicate-wild-do-table=db_name.%.
- --replicate-do-table=name 
+ --replicate-do-table=name
  Tells the slave thread to restrict replication to the
  specified table. To specify more than one table, use the
  directive multiple times, once for each table. This will
  work for cross-database updates, in contrast to
  replicate-do-db.
- --replicate-ignore-db=name 
+ --replicate-ignore-db=name
  Tells the slave thread to not replicate to the specified
  database. To specify more than one database to ignore,
  use the directive multiple times, once for each database.
  This option will not work if you use cross database
  updates. If you need cross database updates to work, make
  sure you have 3.23.28 or later, and use
- replicate-wild-ignore-table=db_name.%. 
- --replicate-ignore-table=name 
+ replicate-wild-ignore-table=db_name.%.
+ --replicate-ignore-table=name
  Tells the slave thread to not replicate to the specified
  table. To specify more than one table to ignore, use the
  directive multiple times, once for each table. This will
  work for cross-database updates, in contrast to
  replicate-ignore-db.
- --replicate-rewrite-db=name 
+ --replicate-rewrite-db=name
  Updates to a database with a different name than the
  original. Example:
  replicate-rewrite-db=master_db_name->slave_db_name.
- --replicate-same-server-id 
+ --replicate-same-server-id
  In replication, if set to 1, do not skip events having
  our server id. Default value is 0 (to break infinite
  loops in circular replication). Can't be set to 1 if
  --log-slave-updates is used.
- --replicate-wild-do-table=name 
+ --replicate-wild-do-table=name
  Tells the slave thread to restrict replication to the
  tables that match the specified wildcard pattern. To
  specify more than one table, use the directive multiple
@@ -1163,7 +1169,7 @@ The following options may be given as the first argument:
  replicate-wild-do-table=foo%.bar% will replicate only
  updates to tables in all databases that start with foo
  and whose table names start with bar.
- --replicate-wild-ignore-table=name 
+ --replicate-wild-ignore-table=name
  Tells the slave thread to not replicate to the tables
  that match the given wildcard pattern. To specify more
  than one table to ignore, use the directive multiple
@@ -1181,7 +1187,7 @@ The following options may be given as the first argument:
  NAT and other routing issues, that IP may not be valid
  for connecting to the slave from the master or other
  hosts
- --report-password=name 
+ --report-password=name
  The account password of the slave to be reported to the
  master during slave registration
  --report-port=#     Port for connecting to slave reported to the master
@@ -1191,14 +1197,14 @@ The following options may be given as the first argument:
  not sure, leave this option unset
  --report-user=name  The account user name of the slave to be reported to the
  master during slave registration
- --reset-seconds-behind-master 
+ --reset-seconds-behind-master
  When TRUE reset Seconds_Behind_Master to 0 when SQL
  thread catches up to the IO thread. This is the original
  behavior but also causes reported lag to flip-flop
  between 0 and the real lag when the IO thread is the
  bottleneck.
  (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
- --response-attrs-contain-hlc 
+ --response-attrs-contain-hlc
  If this is enabled, then the HLC timestamp of a RW
  transaction is sent back to clients as part of OK packet
  in session response attribute. HLC is sent as a key-value
@@ -1207,315 +1213,315 @@ The following options may be given as the first argument:
  enabled by setting enable_binlog_hlc
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
- --rocksdb-access-hint-on-compaction-start=# 
+ --rocksdb-access-hint-on-compaction-start=#
  DBOptions::access_hint_on_compaction_start for RocksDB
- --rocksdb-advise-random-on-open 
+ --rocksdb-advise-random-on-open
  DBOptions::advise_random_on_open for RocksDB
  (Defaults to on; use --skip-rocksdb-advise-random-on-open to disable.)
- --rocksdb-allow-concurrent-memtable-write 
+ --rocksdb-allow-concurrent-memtable-write
  DBOptions::allow_concurrent_memtable_write for RocksDB
- --rocksdb-allow-mmap-reads 
+ --rocksdb-allow-mmap-reads
  DBOptions::allow_mmap_reads for RocksDB
- --rocksdb-allow-mmap-writes 
+ --rocksdb-allow-mmap-writes
  DBOptions::allow_mmap_writes for RocksDB
- --rocksdb-allow-to-start-after-corruption 
+ --rocksdb-allow-to-start-after-corruption
  Allow server still to start successfully even if RocksDB
  corruption is detected.
- --rocksdb-blind-delete-primary-key 
+ --rocksdb-blind-delete-primary-key
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
  has secondary key
- --rocksdb-block-cache-size=# 
+ --rocksdb-block-cache-size=#
  block_cache size for RocksDB
- --rocksdb-block-restart-interval=# 
+ --rocksdb-block-restart-interval=#
  BlockBasedTableOptions::block_restart_interval for
  RocksDB
- --rocksdb-block-size=# 
+ --rocksdb-block-size=#
  BlockBasedTableOptions::block_size for RocksDB
- --rocksdb-block-size-deviation=# 
+ --rocksdb-block-size-deviation=#
  BlockBasedTableOptions::block_size_deviation for RocksDB
  --rocksdb-bulk-load Use bulk-load mode for inserts. This disables
  unique_checks and enables rocksdb_commit_in_the_middle.
- --rocksdb-bulk-load-allow-sk 
+ --rocksdb-bulk-load-allow-sk
  Allow bulk loading of sk keys during bulk-load. Can be
  changed only when bulk load is disabled.
- --rocksdb-bulk-load-allow-unsorted 
+ --rocksdb-bulk-load-allow-unsorted
  Allow unsorted input during bulk-load. Can be changed
  only when bulk load is disabled.
- --rocksdb-bulk-load-size=# 
+ --rocksdb-bulk-load-size=#
  Max #records in a batch for bulk-load mode
- --rocksdb-bytes-per-sync=# 
+ --rocksdb-bytes-per-sync=#
  DBOptions::bytes_per_sync for RocksDB
- --rocksdb-cache-dump 
+ --rocksdb-cache-dump
  Include RocksDB block cache content in core dump.
  (Defaults to on; use --skip-rocksdb-cache-dump to disable.)
- --rocksdb-cache-high-pri-pool-ratio=# 
+ --rocksdb-cache-high-pri-pool-ratio=#
  Specify the size of block cache high-pri pool
- --rocksdb-cache-index-and-filter-blocks 
+ --rocksdb-cache-index-and-filter-blocks
  BlockBasedTableOptions::cache_index_and_filter_blocks for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-blocks to disable.)
- --rocksdb-cache-index-and-filter-with-high-priority 
+ --rocksdb-cache-index-and-filter-with-high-priority
  cache_index_and_filter_blocks_with_high_priority for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-with-high-priority to disable.)
- --rocksdb-cf-options[=name] 
+ --rocksdb-cf-options[=name]
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-cfstats[=name] 
+ --rocksdb-cfstats[=name]
  Enable or disable ROCKSDB_CFSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
- --rocksdb-checksums-pct=# 
+ --rocksdb-checksums-pct=#
  How many percentages of rows to be checksummed
- --rocksdb-collect-sst-properties 
+ --rocksdb-collect-sst-properties
  Enables collecting SST file properties on each flush
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
- --rocksdb-commit-in-the-middle 
+ --rocksdb-commit-in-the-middle
  Commit rows implicitly every rocksdb_bulk_load_size, on
  bulk load/insert, update and delete
- --rocksdb-commit-time-batch-for-recovery 
+ --rocksdb-commit-time-batch-for-recovery
  TransactionOptions::commit_time_batch_for_recovery for
  RocksDB
  (Defaults to on; use --skip-rocksdb-commit-time-batch-for-recovery to disable.)
- --rocksdb-compact-cf=name 
+ --rocksdb-compact-cf=name
  Compact column family
- --rocksdb-compaction-readahead-size=# 
+ --rocksdb-compaction-readahead-size=#
  DBOptions::compaction_readahead_size for RocksDB
- --rocksdb-compaction-sequential-deletes=# 
+ --rocksdb-compaction-sequential-deletes=#
  RocksDB will trigger compaction for the file if it has
  more than this number sequential deletes per window
- --rocksdb-compaction-sequential-deletes-count-sd 
+ --rocksdb-compaction-sequential-deletes-count-sd
  Counting SingleDelete as
  rocksdb_compaction_sequential_deletes
- --rocksdb-compaction-sequential-deletes-file-size=# 
+ --rocksdb-compaction-sequential-deletes-file-size=#
  Minimum file size required for
  compaction_sequential_deletes
- --rocksdb-compaction-sequential-deletes-window=# 
+ --rocksdb-compaction-sequential-deletes-window=#
  Size of the window for counting
  rocksdb_compaction_sequential_deletes
- --rocksdb-compaction-stats[=name] 
+ --rocksdb-compaction-stats[=name]
  Enable or disable ROCKSDB_COMPACTION_STATS plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
- --rocksdb-create-checkpoint=name 
+ --rocksdb-create-checkpoint=name
  Checkpoint directory
- --rocksdb-create-if-missing 
+ --rocksdb-create-if-missing
  DBOptions::create_if_missing for RocksDB
  (Defaults to on; use --skip-rocksdb-create-if-missing to disable.)
- --rocksdb-create-missing-column-families 
+ --rocksdb-create-missing-column-families
  DBOptions::create_missing_column_families for RocksDB
- --rocksdb-datadir[=name] 
+ --rocksdb-datadir[=name]
  RocksDB data directory
- --rocksdb-db-write-buffer-size=# 
+ --rocksdb-db-write-buffer-size=#
  DBOptions::db_write_buffer_size for RocksDB
- --rocksdb-dbstats[=name] 
+ --rocksdb-dbstats[=name]
  Enable or disable ROCKSDB_DBSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
- --rocksdb-ddl[=name] 
+ --rocksdb-ddl[=name]
  Enable or disable ROCKSDB_DDL plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
- --rocksdb-deadlock[=name] 
+ --rocksdb-deadlock[=name]
  Enable or disable ROCKSDB_DEADLOCK plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-deadlock-detect 
+ --rocksdb-deadlock-detect
  Enables deadlock detection
- --rocksdb-deadlock-detect-depth=# 
+ --rocksdb-deadlock-detect-depth=#
  Number of transactions deadlock detection will traverse
  through before assuming deadlock
- --rocksdb-debug-manual-compaction-delay=# 
+ --rocksdb-debug-manual-compaction-delay=#
  For debugging purposes only. Sleeping specified seconds
  for simulating long running compactions.
- --rocksdb-debug-optimizer-n-rows=# 
+ --rocksdb-debug-optimizer-n-rows=#
  Test only to override rocksdb estimates of table size in
  a memtable
- --rocksdb-debug-optimizer-no-zero-cardinality 
+ --rocksdb-debug-optimizer-no-zero-cardinality
  In case if cardinality is zero, overrides it with some
  value
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
- --rocksdb-debug-ttl-ignore-pk 
+ --rocksdb-debug-ttl-ignore-pk
  For debugging purposes only. If true, compaction
  filtering will not occur on PK TTL data. This variable is
  a no-op in non-debug builds.
- --rocksdb-debug-ttl-read-filter-ts=# 
+ --rocksdb-debug-ttl-read-filter-ts=#
  For debugging purposes only.  Overrides the TTL read
  filtering time to time + debug_ttl_read_filter_ts. A
  value of 0 denotes that the variable is not set. This
  variable is a no-op in non-debug builds.
- --rocksdb-debug-ttl-rec-ts=# 
+ --rocksdb-debug-ttl-rec-ts=#
  For debugging purposes only.  Overrides the TTL of
  records to now() + debug_ttl_rec_ts.  The value can be
  +/- to simulate a record inserted in the past vs a record
  inserted in the 'future'. A value of 0 denotes that the
  variable is not set. This variable is a no-op in
  non-debug builds.
- --rocksdb-debug-ttl-snapshot-ts=# 
+ --rocksdb-debug-ttl-snapshot-ts=#
  For debugging purposes only.  Sets the snapshot during
  compaction to now() + debug_set_ttl_snapshot_ts.  The
  value can be +/- to simulate a snapshot in the past vs a
  snapshot created in the 'future'. A value of 0 denotes
  that the variable is not set. This variable is a no-op in
  non-debug builds.
- --rocksdb-default-cf-options=name 
+ --rocksdb-default-cf-options=name
  default cf options for RocksDB
- --rocksdb-delayed-write-rate=# 
+ --rocksdb-delayed-write-rate=#
  DBOptions::delayed_write_rate
- --rocksdb-delete-cf=name 
+ --rocksdb-delete-cf=name
  Delete column family
- --rocksdb-delete-obsolete-files-period-micros=# 
+ --rocksdb-delete-obsolete-files-period-micros=#
  DBOptions::delete_obsolete_files_period_micros for
  RocksDB
- --rocksdb-enable-2pc 
+ --rocksdb-enable-2pc
  Enable two phase commit for MyRocks
  (Defaults to on; use --skip-rocksdb-enable-2pc to disable.)
- --rocksdb-enable-bulk-load-api 
+ --rocksdb-enable-bulk-load-api
  Enables using SstFileWriter for bulk loading
  (Defaults to on; use --skip-rocksdb-enable-bulk-load-api to disable.)
- --rocksdb-enable-insert-with-update-caching 
+ --rocksdb-enable-insert-with-update-caching
  Whether to enable optimization where we cache the read
  from a failed insertion attempt in INSERT ON DUPLICATE
  KEY UPDATE
  (Defaults to on; use --skip-rocksdb-enable-insert-with-update-caching to disable.)
- --rocksdb-enable-iterate-bounds 
+ --rocksdb-enable-iterate-bounds
  Enable rocksdb iterator upper/lower bounds in read
  options.
  (Defaults to on; use --skip-rocksdb-enable-iterate-bounds to disable.)
- --rocksdb-enable-remove-orphaned-dropped-cfs 
+ --rocksdb-enable-remove-orphaned-dropped-cfs
  Enables removing dropped cfs from metadata if it doesn't
  exist in cf manager
  (Defaults to on; use --skip-rocksdb-enable-remove-orphaned-dropped-cfs to disable.)
- --rocksdb-enable-thread-tracking 
+ --rocksdb-enable-thread-tracking
  DBOptions::enable_thread_tracking for RocksDB
  (Defaults to on; use --skip-rocksdb-enable-thread-tracking to disable.)
- --rocksdb-enable-ttl 
+ --rocksdb-enable-ttl
  Enable expired TTL records to be dropped during
  compaction.
  (Defaults to on; use --skip-rocksdb-enable-ttl to disable.)
- --rocksdb-enable-ttl-read-filtering 
+ --rocksdb-enable-ttl-read-filtering
  For tables with TTL, expired records are skipped/filtered
  out during processing and in query results. Disabling
  this will allow these records to be seen, but as a result
  rows may disappear in the middle of transactions as they
  are dropped during compaction. Use with caution.
  (Defaults to on; use --skip-rocksdb-enable-ttl-read-filtering to disable.)
- --rocksdb-enable-write-thread-adaptive-yield 
+ --rocksdb-enable-write-thread-adaptive-yield
  DBOptions::enable_write_thread_adaptive_yield for RocksDB
- --rocksdb-error-if-exists 
+ --rocksdb-error-if-exists
  DBOptions::error_if_exists for RocksDB
- --rocksdb-error-on-suboptimal-collation 
+ --rocksdb-error-on-suboptimal-collation
  Raise an error instead of warning if a sub-optimal
  collation is used
  (Defaults to on; use --skip-rocksdb-error-on-suboptimal-collation to disable.)
- --rocksdb-flush-log-at-trx-commit=# 
+ --rocksdb-flush-log-at-trx-commit=#
  Sync on transaction commit. Similar to
  innodb_flush_log_at_trx_commit. 1: sync on commit, 0,2:
  not sync on commit
- --rocksdb-force-compute-memtable-stats 
+ --rocksdb-force-compute-memtable-stats
  Force to always compute memtable stats
  (Defaults to on; use --skip-rocksdb-force-compute-memtable-stats to disable.)
- --rocksdb-force-compute-memtable-stats-cachetime=# 
+ --rocksdb-force-compute-memtable-stats-cachetime=#
  Time in usecs to cache memtable estimates
- --rocksdb-force-flush-memtable-and-lzero-now 
+ --rocksdb-force-flush-memtable-and-lzero-now
  Acts similar to force_flush_memtable_now, but also
  compacts all L0 files.
- --rocksdb-force-flush-memtable-now 
+ --rocksdb-force-flush-memtable-now
  Forces memstore flush which may block all write requests
  so be careful
- --rocksdb-force-index-records-in-range=# 
+ --rocksdb-force-index-records-in-range=#
  Used to override the result of records_in_range() when
  FORCE INDEX is used.
- --rocksdb-global-info[=name] 
+ --rocksdb-global-info[=name]
  Enable or disable ROCKSDB_GLOBAL_INFO plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-hash-index-allow-collision 
+ --rocksdb-hash-index-allow-collision
  BlockBasedTableOptions::hash_index_allow_collision for
  RocksDB
  (Defaults to on; use --skip-rocksdb-hash-index-allow-collision to disable.)
- --rocksdb-ignore-unknown-options 
+ --rocksdb-ignore-unknown-options
  Enable ignoring unknown options passed to RocksDB
  (Defaults to on; use --skip-rocksdb-ignore-unknown-options to disable.)
- --rocksdb-index-file-map[=name] 
+ --rocksdb-index-file-map[=name]
  Enable or disable ROCKSDB_INDEX_FILE_MAP plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-index-type=name 
+ --rocksdb-index-type=name
  BlockBasedTableOptions::index_type for RocksDB
- --rocksdb-info-log-level=name 
+ --rocksdb-info-log-level=name
  Filter level for info logs to be written mysqld error
  log. Valid values include 'debug_level', 'info_level',
  'warn_level''error_level' and 'fatal_level'.
- --rocksdb-io-write-timeout=# 
+ --rocksdb-io-write-timeout=#
  Timeout for experimental I/O watchdog.
- --rocksdb-is-fd-close-on-exec 
+ --rocksdb-is-fd-close-on-exec
  DBOptions::is_fd_close_on_exec for RocksDB
  (Defaults to on; use --skip-rocksdb-is-fd-close-on-exec to disable.)
- --rocksdb-keep-log-file-num=# 
+ --rocksdb-keep-log-file-num=#
  DBOptions::keep_log_file_num for RocksDB
- --rocksdb-large-prefix 
+ --rocksdb-large-prefix
  Support large index prefix length of 3072 bytes. If off,
  the maximum index prefix length is 767.
- --rocksdb-lock-scanned-rows 
+ --rocksdb-lock-scanned-rows
  Take and hold locks on rows that are scanned but not
  updated
- --rocksdb-lock-wait-timeout=# 
+ --rocksdb-lock-wait-timeout=#
  Number of seconds to wait for lock
- --rocksdb-locks[=name] 
+ --rocksdb-locks[=name]
  Enable or disable ROCKSDB_LOCKS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
- --rocksdb-log-file-time-to-roll=# 
+ --rocksdb-log-file-time-to-roll=#
  DBOptions::log_file_time_to_roll for RocksDB
- --rocksdb-manifest-preallocation-size=# 
+ --rocksdb-manifest-preallocation-size=#
  DBOptions::manifest_preallocation_size for RocksDB
- --rocksdb-manual-compaction-threads=# 
+ --rocksdb-manual-compaction-threads=#
  How many rocksdb threads to run for manual compactions
- --rocksdb-manual-wal-flush 
+ --rocksdb-manual-wal-flush
  DBOptions::manual_wal_flush for RocksDB
  (Defaults to on; use --skip-rocksdb-manual-wal-flush to disable.)
- --rocksdb-master-skip-tx-api 
+ --rocksdb-master-skip-tx-api
  Skipping holding any lock on row access. Not effective on
  slave.
- --rocksdb-max-background-compactions=# 
+ --rocksdb-max-background-compactions=#
  DBOptions::max_background_compactions for RocksDB
- --rocksdb-max-background-flushes=# 
+ --rocksdb-max-background-flushes=#
  DBOptions::max_background_flushes for RocksDB
- --rocksdb-max-background-jobs=# 
+ --rocksdb-max-background-jobs=#
  DBOptions::max_background_jobs for RocksDB
- --rocksdb-max-bottom-pri-background-compactions=# 
+ --rocksdb-max-bottom-pri-background-compactions=#
  Creating specified number of threads, setting lower CPU
  priority, and letting compactions use them. Maximum
  compaction concurrency is capped by
  rocksdb_max_background_compactions or
  rocksdb_max_background_jobs.
- --rocksdb-max-latest-deadlocks=# 
+ --rocksdb-max-latest-deadlocks=#
  Maximum number of recent deadlocks to store
- --rocksdb-max-log-file-size=# 
+ --rocksdb-max-log-file-size=#
  DBOptions::max_log_file_size for RocksDB
- --rocksdb-max-manifest-file-size=# 
+ --rocksdb-max-manifest-file-size=#
  DBOptions::max_manifest_file_size for RocksDB
- --rocksdb-max-manual-compactions=# 
+ --rocksdb-max-manual-compactions=#
  Maximum number of pending + ongoing number of manual
  compactions.
- --rocksdb-max-open-files=# 
+ --rocksdb-max-open-files=#
  DBOptions::max_open_files for RocksDB
- --rocksdb-max-row-locks=# 
+ --rocksdb-max-row-locks=#
  Maximum number of locks a transaction can have
- --rocksdb-max-subcompactions=# 
+ --rocksdb-max-subcompactions=#
  DBOptions::max_subcompactions for RocksDB
- --rocksdb-max-total-wal-size=# 
+ --rocksdb-max-total-wal-size=#
  DBOptions::max_total_wal_size for RocksDB
- --rocksdb-merge-buf-size=# 
+ --rocksdb-merge-buf-size=#
  Size to allocate for merge sort buffers written out to
  disk during inplace index creation.
- --rocksdb-merge-combine-read-size=# 
+ --rocksdb-merge-combine-read-size=#
  Size that we have to work with during combine (reading
  from disk) phase of external sort during fast index
  creation.
- --rocksdb-merge-tmp-file-removal-delay-ms=# 
+ --rocksdb-merge-tmp-file-removal-delay-ms=#
  Fast index creation creates a large tmp file on disk
  during index creation.  Removing this large file all at
  once when index creation is complete can cause trim
@@ -1523,224 +1529,224 @@ The following options may be given as the first argument:
  sleep (in milliseconds) between calling chsize() to
  truncate the file in chunks.  The chunk size is  the same
  as merge_buf_size.
- --rocksdb-mrr-batch-size=# 
+ --rocksdb-mrr-batch-size=#
  maximum number of keys to fetch during each MRR
- --rocksdb-new-table-reader-for-compaction-inputs 
+ --rocksdb-new-table-reader-for-compaction-inputs
  DBOptions::new_table_reader_for_compaction_inputs for
  RocksDB
- --rocksdb-no-block-cache 
+ --rocksdb-no-block-cache
  BlockBasedTableOptions::no_block_cache for RocksDB
- --rocksdb-override-cf-options=name 
+ --rocksdb-override-cf-options=name
  option overrides per cf for RocksDB
- --rocksdb-paranoid-checks 
+ --rocksdb-paranoid-checks
  DBOptions::paranoid_checks for RocksDB
  (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
- --rocksdb-pause-background-work 
+ --rocksdb-pause-background-work
  Disable all rocksdb background operations
- --rocksdb-perf-context[=name] 
+ --rocksdb-perf-context[=name]
  Enable or disable ROCKSDB_PERF_CONTEXT plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-perf-context-global[=name] 
+ --rocksdb-perf-context-global[=name]
  Enable or disable ROCKSDB_PERF_CONTEXT_GLOBAL plugin.
  Possible values are ON, OFF, FORCE (don't start if the
  plugin fails to load).
- --rocksdb-perf-context-level=# 
+ --rocksdb-perf-context-level=#
  Perf Context Level for rocksdb internal timer stat
  collection
- --rocksdb-persistent-cache-path=name 
+ --rocksdb-persistent-cache-path=name
  Path for BlockBasedTableOptions::persistent_cache for
  RocksDB
- --rocksdb-persistent-cache-size-mb=# 
+ --rocksdb-persistent-cache-size-mb=#
  Size of cache in MB for
  BlockBasedTableOptions::persistent_cache for RocksDB
- --rocksdb-pin-l0-filter-and-index-blocks-in-cache 
+ --rocksdb-pin-l0-filter-and-index-blocks-in-cache
  pin_l0_filter_and_index_blocks_in_cache for RocksDB
  (Defaults to on; use --skip-rocksdb-pin-l0-filter-and-index-blocks-in-cache to disable.)
- --rocksdb-print-snapshot-conflict-queries 
+ --rocksdb-print-snapshot-conflict-queries
  Logging queries that got snapshot conflict errors into
  *.err log
- --rocksdb-rate-limiter-bytes-per-sec=# 
+ --rocksdb-rate-limiter-bytes-per-sec=#
  DBOptions::rate_limiter bytes_per_sec for RocksDB
- --rocksdb-read-free-rpl=name 
+ --rocksdb-read-free-rpl=name
  Use read-free replication on the slave (i.e. no row
  lookup during replication). Default is OFF, PK_SK will
  enable it on all tables with primary key. PK_ONLY will
  enable it on tables where the only key is the primary key
  (i.e. no secondary keys).
- --rocksdb-read-free-rpl-tables=name 
+ --rocksdb-read-free-rpl-tables=name
  List of tables that will use read-free replication on the
  slave (i.e. not lookup a row during replication)
- --rocksdb-records-in-range=# 
+ --rocksdb-records-in-range=#
  Used to override the result of records_in_range(). Set to
  a positive number to override
- --rocksdb-reset-stats 
+ --rocksdb-reset-stats
  Reset the RocksDB internal statistics without restarting
  the DB.
- --rocksdb-rollback-on-timeout 
+ --rocksdb-rollback-on-timeout
  Whether to roll back the complete transaction or a single
  statement on lock wait timeout (a single statement by
  default)
- --rocksdb-seconds-between-stat-computes=# 
+ --rocksdb-seconds-between-stat-computes=#
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
- --rocksdb-select-bypass-debug-row-delay=# 
+ --rocksdb-select-bypass-debug-row-delay=#
  Test only to inject delays in bypass select to simulate
  long queries for each row sent
- --rocksdb-select-bypass-fail-unsupported 
+ --rocksdb-select-bypass-fail-unsupported
  Select bypass would fail for unsupported SELECT commands
  (Defaults to on; use --skip-rocksdb-select-bypass-fail-unsupported to disable.)
- --rocksdb-select-bypass-log-failed 
+ --rocksdb-select-bypass-log-failed
  Log failed SELECT bypass queries
- --rocksdb-select-bypass-log-rejected 
+ --rocksdb-select-bypass-log-rejected
  Log rejected SELECT bypass queries
  (Defaults to on; use --skip-rocksdb-select-bypass-log-rejected to disable.)
- --rocksdb-select-bypass-multiget-min=# 
+ --rocksdb-select-bypass-multiget-min=#
  Minimum number of items to use RocksDB MultiGet API.
  Default is SIZE_T_MAX meaning it is turned off. Set to 0
  to enable always using MultiGet
- --rocksdb-select-bypass-policy=name 
+ --rocksdb-select-bypass-policy=name
  Change bypass SELECT related policy and allow directly
  talk to RocksDB. Valid values include 'always_off',
- 'always_on', 'opt_in', 'opt_out'. 
- --rocksdb-signal-drop-index-thread 
+ 'always_on', 'opt_in', 'opt_out'.
+ --rocksdb-signal-drop-index-thread
  Wake up drop index thread
- --rocksdb-sim-cache-size=# 
+ --rocksdb-sim-cache-size=#
  Simulated cache size for RocksDB
- --rocksdb-skip-bloom-filter-on-read 
+ --rocksdb-skip-bloom-filter-on-read
  Skip using bloom filter for reads
- --rocksdb-skip-fill-cache 
+ --rocksdb-skip-fill-cache
  Skip filling block cache on read requests
- --rocksdb-skip-unique-check-tables=name 
+ --rocksdb-skip-unique-check-tables=name
  Skip unique constraint checking for the specified tables
- --rocksdb-sst-mgr-rate-bytes-per-sec=# 
+ --rocksdb-sst-mgr-rate-bytes-per-sec=#
  DBOptions::sst_file_manager rate_bytes_per_sec for
  RocksDB
- --rocksdb-sst-props[=name] 
+ --rocksdb-sst-props[=name]
  Enable or disable ROCKSDB_SST_PROPS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-stats-dump-period-sec=# 
+ --rocksdb-stats-dump-period-sec=#
  DBOptions::stats_dump_period_sec for RocksDB
- --rocksdb-stats-level=# 
+ --rocksdb-stats-level=#
  Statistics Level for RocksDB. Default is 0
  (kExceptHistogramOrTimers)
- --rocksdb-stats-recalc-rate=# 
+ --rocksdb-stats-recalc-rate=#
  The number of indexes per second to recalculate
  statistics for. 0 to disable background recalculation.
- --rocksdb-store-row-debug-checksums 
+ --rocksdb-store-row-debug-checksums
  Include checksums when writing index/table records
- --rocksdb-strict-collation-check 
+ --rocksdb-strict-collation-check
  Enforce case sensitive collation for MyRocks indexes
  (Defaults to on; use --skip-rocksdb-strict-collation-check to disable.)
- --rocksdb-strict-collation-exceptions=name 
+ --rocksdb-strict-collation-exceptions=name
  List of tables (using regex) that are excluded from the
  case sensitive collation enforcement
- --rocksdb-table-cache-numshardbits=# 
+ --rocksdb-table-cache-numshardbits=#
  DBOptions::table_cache_numshardbits for RocksDB
- --rocksdb-table-stats-background-thread-nice-value=# 
+ --rocksdb-table-stats-background-thread-nice-value=#
  nice value for index stats
- --rocksdb-table-stats-max-num-rows-scanned=# 
+ --rocksdb-table-stats-max-num-rows-scanned=#
  The maximum number of rows to scan in table scan based
  cardinality calculation
- --rocksdb-table-stats-recalc-threshold-count=# 
+ --rocksdb-table-stats-recalc-threshold-count=#
  Number of modified rows to trigger stats recalculation
- --rocksdb-table-stats-recalc-threshold-pct=# 
+ --rocksdb-table-stats-recalc-threshold-pct=#
  Percentage of number of modified rows over total number
  of rows to trigger stats recalculation
- --rocksdb-table-stats-sampling-pct=# 
+ --rocksdb-table-stats-sampling-pct=#
  Percentage of entries to sample when collecting
  statistics about table properties. Specify either 0 to
  sample everything or percentage [1..100]. By default 10%
  of entries are sampled.
- --rocksdb-table-stats-use-table-scan 
+ --rocksdb-table-stats-use-table-scan
  Enable table scan based index calculation.
- --rocksdb-tmpdir[=name] 
+ --rocksdb-tmpdir[=name]
  Directory for temporary files during DDL operations.
- --rocksdb-trace-block-cache-access=name 
+ --rocksdb-trace-block-cache-access=name
  Block cache trace option string. The format is
  sampling_frequency:max_trace_file_size:trace_file_name.
  sampling_frequency and max_trace_file_size are positive
  integers. The block accesses are saved to the
  rocksdb_datadir/block_cache_traces/trace_file_name.
- --rocksdb-trace-sst-api 
+ --rocksdb-trace-sst-api
  Generate trace output in the log for each call to the
  SstFileWriter
- --rocksdb-trx[=name] 
+ --rocksdb-trx[=name]
  Enable or disable ROCKSDB_TRX plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
- --rocksdb-two-write-queues 
+ --rocksdb-two-write-queues
  DBOptions::two_write_queues for RocksDB
  (Defaults to on; use --skip-rocksdb-two-write-queues to disable.)
- --rocksdb-unsafe-for-binlog 
+ --rocksdb-unsafe-for-binlog
  Allowing statement based binary logging which may break
  consistency
- --rocksdb-update-cf-options=name 
+ --rocksdb-update-cf-options=name
  Option updates per column family for RocksDB
- --rocksdb-use-adaptive-mutex 
+ --rocksdb-use-adaptive-mutex
  DBOptions::use_adaptive_mutex for RocksDB
- --rocksdb-use-clock-cache 
+ --rocksdb-use-clock-cache
  Use ClockCache instead of default LRUCache for RocksDB
- --rocksdb-use-direct-io-for-flush-and-compaction 
+ --rocksdb-use-direct-io-for-flush-and-compaction
  DBOptions::use_direct_io_for_flush_and_compaction for
  RocksDB
- --rocksdb-use-direct-reads 
+ --rocksdb-use-direct-reads
  DBOptions::use_direct_reads for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
- --rocksdb-validate-tables=# 
+ --rocksdb-validate-tables=#
  Verify all .frm files match all RocksDB tables (0 means
  no verification, 1 means verify and fail on error, and 2
  means verify but continue
- --rocksdb-verify-row-debug-checksums 
+ --rocksdb-verify-row-debug-checksums
  Verify checksums when reading index/table records
- --rocksdb-wal-bytes-per-sync=# 
+ --rocksdb-wal-bytes-per-sync=#
  DBOptions::wal_bytes_per_sync for RocksDB
- --rocksdb-wal-dir=name 
+ --rocksdb-wal-dir=name
  DBOptions::wal_dir for RocksDB
- --rocksdb-wal-recovery-mode=# 
+ --rocksdb-wal-recovery-mode=#
  DBOptions::wal_recovery_mode for RocksDB. Default is
  kAbsoluteConsistency
- --rocksdb-wal-size-limit-mb=# 
+ --rocksdb-wal-size-limit-mb=#
  DBOptions::WAL_size_limit_MB for RocksDB
- --rocksdb-wal-ttl-seconds=# 
+ --rocksdb-wal-ttl-seconds=#
  DBOptions::WAL_ttl_seconds for RocksDB
- --rocksdb-whole-key-filtering 
+ --rocksdb-whole-key-filtering
  BlockBasedTableOptions::whole_key_filtering for RocksDB
  (Defaults to on; use --skip-rocksdb-whole-key-filtering to disable.)
- --rocksdb-write-batch-flush-threshold=# 
+ --rocksdb-write-batch-flush-threshold=#
  Maximum size of write batch in bytes before flushing.
  Only valid if rocksdb_write_policy is WRITE_UNPREPARED. 0
  means no limit.
- --rocksdb-write-batch-max-bytes=# 
+ --rocksdb-write-batch-max-bytes=#
  Maximum size of write batch in bytes. 0 means no limit.
- --rocksdb-write-disable-wal 
+ --rocksdb-write-disable-wal
  WriteOptions::disableWAL for RocksDB
- --rocksdb-write-ignore-missing-column-families 
+ --rocksdb-write-ignore-missing-column-families
  WriteOptions::ignore_missing_column_families for RocksDB
- --rocksdb-write-policy=name 
+ --rocksdb-write-policy=name
  DBOptions::write_policy for RocksDB
- --rpl-event-buffer-size=# 
+ --rpl-event-buffer-size=#
  The size of the preallocated event buffer for slave
  connections that avoids calls to malloc & free for events
  smaller than this.
  --rpl-read-size=#   The size for reads done from the binlog and relay log.
- --rpl-receive-buffer-size=# 
+ --rpl-receive-buffer-size=#
  The size of input buffer for the socket used during
  receving events from a master.
- --rpl-send-buffer-size=# 
+ --rpl-send-buffer-size=#
  The size of output buffer for the socket used during
  sending events to a slave.
  --rpl-skip-tx-api   Use write batches for replication thread instead of tx
  api
- --rpl-slave-flow-control 
+ --rpl-slave-flow-control
  If this is set then underrun and overrun based flow
  control between coordinator and worker threads in slave
  instance will be enabled. Does not affect master instance
  (Defaults to on; use --skip-rpl-slave-flow-control to disable.)
- --rpl-stop-slave-timeout=# 
+ --rpl-stop-slave-timeout=#
  Timeout in seconds to wait for slave to stop before
  returning a warning.
- --rpl-wait-for-semi-sync-ack 
+ --rpl-wait-for-semi-sync-ack
  Wait for events to be acked by a semi-sync slave before
  sending them to the async slaves
  --safe-user-create  Don't allow new user creation by the user who has no
@@ -1748,131 +1754,131 @@ The following options may be given as the first argument:
  --secure-auth       Disallow authentication for accounts that have old
  (pre-4.1) passwords
  (Defaults to on; use --skip-secure-auth to disable.)
- --secure-file-priv=name 
+ --secure-file-priv=name
  Limit LOAD DATA, SELECT ... OUTFILE, and LOAD_FILE() to
  files within specified directory
- --select-into-file-fsync-size[=#] 
+ --select-into-file-fsync-size[=#]
  Do an fsync to disk when the buffer grows by these many
  bytes for SELECT INTO OUTFILE
- --select-into-file-fsync-timeout[=#] 
+ --select-into-file-fsync-timeout[=#]
  The timeout/sleep in milliseconds after each fsync with
  SELECT INTO OUTFILE
- --send-error-before-closing-timed-out-connection 
+ --send-error-before-closing-timed-out-connection
  Send error before closing connections due to timeout.
  (Defaults to on; use --skip-send-error-before-closing-timed-out-connection to disable.)
- --separate-conn-handling-thread 
+ --separate-conn-handling-thread
  Use a separate thread from the accept thread to offload
  connection handling
  --server-id=#       Uniquely identifies the server instance in the community
  of replication partners
  --server-id-bits=#  Set number of significant bits in server-id
- --session-track-gtids=name 
+ --session-track-gtids=name
  Controls the amount of global transaction ids to be
  included in the response packet sent by the
  server.(Default: OFF).
- --session-track-response-attributes 
+ --session-track-response-attributes
  Track response attribute'.
  (Defaults to on; use --skip-session-track-response-attributes to disable.)
- --session-track-state-change 
+ --session-track-state-change
  Track changes to the 'session state'.
- --show-old-temporals 
+ --show-old-temporals
  When this option is enabled, the pre-5.6.4 temporal types
  will be marked in the 'SHOW CREATE TABLE' and
  'INFORMATION_SCHEMA.COLUMNS' table as a comment in
  COLUMN_TYPE field. This variable is deprecated and will
  be removed in a future release.
- --show-slave-auth-info 
+ --show-slave-auth-info
  Show user and password in SHOW SLAVE HOSTS on this
  master.
- --simplified-binlog-gtid-recovery 
+ --simplified-binlog-gtid-recovery
  Alias for @@binlog_gtid_simple_recovery. Deprecated
- --skip-core-dump-on-error 
+ --skip-core-dump-on-error
  If set, MySQL skips dumping the core if it hits an error
  (e.g,IO)
  (Defaults to on; use --skip-skip-core-dump-on-error to disable.)
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
- --skip-master-info-check-for-read-only-error-msg-extra 
+ --skip-master-info-check-for-read-only-error-msg-extra
  Skip master info validaton check for read only error
  messages
  --skip-name-resolve Don't resolve hostnames. All hostnames are IP's or
  'localhost'.
  --skip-networking   Don't allow connection with TCP/IP
  --skip-new          Don't use new, possibly wrong routines.
- --skip-show-database 
+ --skip-show-database
  Don't allow 'SHOW DATABASE' commands
  --skip-slave-start  If set, slave is not autostarted.
  --skip-stack-trace  Don't print a stack trace on failure.
- --slave-allow-batching 
+ --slave-allow-batching
  Allow slave to batch requests
- --slave-check-before-image-consistency[=name] 
+ --slave-check-before-image-consistency[=name]
  On the slave, when using row based replication, check if
  the before images of relay logs match the database state
  before applying row changes. After the check either just
  count the inconsistencies (COUNT) in a status var
  (Slave_before_image_inconsistencies) or in addition to
  that stop the slave (ON). Default OFF.
- --slave-checkpoint-group=# 
+ --slave-checkpoint-group=#
  Maximum number of processed transactions by
  Multi-threaded slave before a checkpoint operation is
  called to update progress status.
- --slave-checkpoint-period=# 
+ --slave-checkpoint-period=#
  Gather workers' activities to Update progress status of
  Multi-threaded slave and flush the relay log info to disk
  after every #th milli-seconds.
- --slave-compressed-event-protocol 
+ --slave-compressed-event-protocol
  Use event compression on master/slave protocol
- --slave-compressed-protocol 
+ --slave-compressed-protocol
  Use compression on master/slave protocol
- --slave-compression-lib[=name] 
+ --slave-compression-lib[=name]
  Compression library for replication stream
- --slave-dump-thread-wait-sleep-usec[=#] 
+ --slave-dump-thread-wait-sleep-usec[=#]
  Time (in microsecs) to sleep on the master's dump thread
  before waiting for new data on the latest binlog.
- --slave-exec-mode=name 
+ --slave-exec-mode=name
  Modes for how replication events should be executed.
  Legal values are STRICT (default) and IDEMPOTENT. In
  IDEMPOTENT mode, replication will not stop for operations
  that are idempotent. In STRICT mode, replication will
  stop on any unexpected difference between the master and
  the slave
- --slave-gtid-info=name 
+ --slave-gtid-info=name
  Whether SQL threads update mysql.slave_gtid_info table.
  If this value is OPTIMIZED, updating the table is done
  inside storage engines to avoid MySQL layer's performance
  overhead
- --slave-high-priority-ddl 
+ --slave-high-priority-ddl
  Setting this flag will allow DDL commands to kill
  conflictingconnections during replication (effective for
  admin user only).
- --slave-high-priority-lock-wait-timeout=# 
+ --slave-high-priority-lock-wait-timeout=#
  Timeout in seconds to wait for a lock before returning an
  error. This timeout is specifically for high_priority
  commands (DDLs), when the slave_high_priority_ddl
  variable is turned on. The argument will be treated as a
  decimal value with nanosecond precision.
- --slave-lag-sla-seconds[=#] 
+ --slave-lag-sla-seconds[=#]
  SLA for slave lag in seconds, any tansaction that
  violated the SLA increments the slave_lag_sla_misses
  status variable. NOTE: This is only available when GTIDs
  are enabled.
- --slave-load-tmpdir=name 
+ --slave-load-tmpdir=name
  The location where the slave should put its temporary
  files when replicating a LOAD DATA INFILE command
- --slave-max-allowed-packet=# 
+ --slave-max-allowed-packet=#
  The maximum packet length to sent successfully from the
  master to slave.
- --slave-net-timeout=# 
+ --slave-net-timeout=#
  Number of seconds to wait for more data from a
  master/slave connection before aborting the read
- --slave-parallel-workers=# 
+ --slave-parallel-workers=#
  Number of worker threads for executing events in parallel
- --slave-pending-jobs-size-max=# 
+ --slave-pending-jobs-size-max=#
  Max size of Slave Worker queues holding yet not applied
  events.The least possible value must be not less than the
  master side max_allowed_packet.
- --slave-rows-search-algorithms=name 
+ --slave-rows-search-algorithms=name
  Set of searching algorithms that the slave will use while
  searching for records from the storage engine to either
  updated or deleted them. Possible values are: INDEX_SCAN,
@@ -1880,7 +1886,7 @@ The following options may be given as the first argument:
  the slave will always pick the most suitable algorithm
  for any given scenario. (Default: INDEX_SCAN,
  TABLE_SCAN).
- --slave-run-triggers-for-rbr=name 
+ --slave-run-triggers-for-rbr=name
  Modes for how triggers in row-base replication on slave
  side will be executed. Legal values are NO (default), YES
  and LOGGING. NO means that trigger for RBR will not be
@@ -1889,23 +1895,23 @@ The following options may be given as the first argument:
  running on the master for the statement. LOGGING also
  means results of that the executed triggers work will be
  written to the binlog.
- --slave-skip-errors=name 
+ --slave-skip-errors=name
  Tells the slave thread to continue replication when a
  query event returns an error from the provided list
- --slave-sql-verify-checksum 
+ --slave-sql-verify-checksum
  Force checksum verification of replication events after
  reading them from relay log. Note: Events are always
  checksum-verified by slave on receiving them from the
  network before writing them to the relay log. Enabled by
  default.
  (Defaults to on; use --skip-slave-sql-verify-checksum to disable.)
- --slave-transaction-retries=# 
+ --slave-transaction-retries=#
  Number of times the slave SQL thread will retry a
  transaction in case it failed with a deadlock or elapsed
  lock wait timeout, before giving up and stopping
- --slave-tx-isolation=name 
+ --slave-tx-isolation=name
  Slave thread transaction isolation level
- --slave-type-conversions=name 
+ --slave-type-conversions=name
  Set of slave type conversions that are enabled. Legal
  values are: ALL_LOSSY to enable lossy conversions,
  ALL_NON_LOSSY to enable non-lossy conversions,
@@ -1917,44 +1923,44 @@ The following options may be given as the first argument:
  ALL_UNSIGNED. If the variable is assigned the empty set,
  no conversions are allowed and it is expected that the
  types match exactly.
- --slave-use-idempotent-for-recovery=name 
+ --slave-use-idempotent-for-recovery=name
  Modes for how replication events should be executed
  during recovery. Legal values are NO (default) and YES.
  YES means replication will not stop for operations that
  are idempotent. Note that binlog format must be ROW and
  GTIDs should be enabled for this option to have effect.
- --slow-launch-time=# 
+ --slow-launch-time=#
  If creating the thread takes longer than this value (in
  seconds), the Slow_launch_threads counter will be
  incremented
- --slow-log-if-rows-examined-exceed[=#] 
+ --slow-log-if-rows-examined-exceed[=#]
  Log queries that examine more than
  slow_log_if_rows_examined_exceed rows to file.
  --slow-query-log    Log slow queries to a table or log file. Defaults logging
  to a file hostname-slow.log or a table mysql.slow_log if
  --log-output=TABLE is used. Must be enabled to activate
  other slow log options
- --slow-query-log-file=name 
+ --slow-query-log-file=name
  Log slow queries to given log file. Defaults logging to
  hostname-slow.log. Must be enabled to activate other slow
  log options
  --socket=name       Socket file to use for connection
- --socket-umask[=name] 
+ --socket-umask[=name]
  Socket umask
- --sort-buffer-size=# 
+ --sort-buffer-size=#
  Each thread that needs to do a sort allocates a buffer of
  this size
- --sporadic-binlog-dump-fail 
+ --sporadic-binlog-dump-fail
  Option used by mysql-test for debugging and testing of
  replication.
- --sql-log-bin-triggers 
+ --sql-log-bin-triggers
  The row changes generated by execution of triggers are
  not logged inbinlog if this option is FALSE. Default is
  TRUE.
  (Defaults to on; use --skip-sql-log-bin-triggers to disable.)
  --sql-mode=name     Syntax: sql-mode=mode[,mode[,mode...]]. See the manual
  for the complete list of valid sql modes
- --sql-stats-control=name 
+ --sql-stats-control=name
  Provides a control to collect normalized SQL text and
  statistics for every SQL statement. This data is exposed
  via SQL_TEXT and SQL_STATISTICS tables. Takes the
@@ -1963,56 +1969,56 @@ The following options may be given as the first argument:
  related data from memory. OFF_SOFT: Stop collecting the
  statistics, but retain any data collected so far. ON:
  Collect the statistics.
- --stored-program-cache=# 
+ --stored-program-cache=#
  The soft upper limit for number of cached stored routines
  for one connection.
  --super-read-only   Enable read_only, and also block writes by users with the
  SUPER privilege
- -s, --symbolic-links 
+ -s, --symbolic-links
  Enable symbolic link support.
  --sync-binlog=#     Synchronously flush binary log to disk after every #th
  write to the file. Use 0 (default) to disable synchronous
  flushing
  --sync-frm          Sync .frm files to disk on creation
  (Defaults to on; use --skip-sync-frm to disable.)
- --sync-master-info=# 
+ --sync-master-info=#
  Synchronously flush master info to disk after every #th
  event. Use 0 to disable synchronous flushing
  --sync-relay-log=#  Synchronously flush relay log to disk after every #th
  event. Use 0 to disable synchronous flushing
- --sync-relay-log-info=# 
+ --sync-relay-log-info=#
  Synchronously flush relay log info to disk after every
  #th transaction. Use 0 to disable synchronous flushing
  --sysdate-is-now    Non-default option to alias SYSDATE() to NOW() to make it
  safe-replicable. Since 5.0, SYSDATE() returns a `dynamic'
  value different for different invocations, even within
  the same statement.
- --table-definition-cache=# 
+ --table-definition-cache=#
  The number of cached table definitions
- --table-open-cache=# 
+ --table-open-cache=#
  The number of cached open tables (total for all table
  cache instances)
- --table-open-cache-instances=# 
+ --table-open-cache-instances=#
  The number of table cache instances
- --tc-heuristic-recover=name 
+ --tc-heuristic-recover=name
  Decision to use in heuristic recover process. Possible
  values are COMMIT or ROLLBACK.
- --thread-cache-size=# 
+ --thread-cache-size=#
  How many threads we should keep in a cache for reuse
- --thread-handling=name 
+ --thread-handling=name
  Define threads usage for handling queries, one of
  one-thread-per-connection, no-threads, loaded-dynamically
- --thread-nice-value[=name] 
+ --thread-nice-value[=name]
  Input format is threadId:niceValue nice value range is
  -20 to 19
  --thread-stack=#    The stack size for each thread
  --time-format=name  The TIME format (ignored)
  --timed-mutexes     Specify whether to time mutexes. Deprecated, has no
  effect.
- --tmp-table-max-file-size=# 
+ --tmp-table-max-file-size=#
  The max size of a file to use for a temporary table.
  Raise an error when this is exceeded. 0 means no limit.
- --tmp-table-rpl-max-file-size=# 
+ --tmp-table-rpl-max-file-size=#
  The max size of a file to use for a temporary table for
  replication threads. Raise an error when this is
  exceeded. 0 means no limit.
@@ -2022,36 +2028,36 @@ The following options may be given as the first argument:
  -t, --tmpdir=name   Path for temporary files. Several paths may be specified,
  separated by a colon (:), in this case they are used in a
  round-robin fashion
- --transaction-alloc-block-size=# 
+ --transaction-alloc-block-size=#
  Allocation block size for transactions to be stored in
  binary log
- --transaction-isolation=name 
+ --transaction-isolation=name
  Default transaction isolation level.
- --transaction-prealloc-size=# 
+ --transaction-prealloc-size=#
  Persistent buffer for transactions to be stored in binary
  log
- --transaction-read-only 
+ --transaction-read-only
  Default transaction access mode. True if transactions are
  read-only.
- --trim-binlog-to-recover 
+ --trim-binlog-to-recover
  Trim the last binlog (if required) to the position until
  which the engine has successfully committed all
  transactions.
- --unique-check-lag-reset-threshold=# 
+ --unique-check-lag-reset-threshold=#
  Stop enabling skip_unique_check when lag drops below this
  threshold.
- --unique-check-lag-threshold=# 
+ --unique-check-lag-threshold=#
  Automatically enable skip_unique_check when lag exceeds
  this threshold (0 [default] to disable, only affects
  RocksDB).
- --updatable-views-with-limit=name 
+ --updatable-views-with-limit=name
  YES = Don't issue an error message (warning only) if a
  VIEW without presence of a key of the underlying table is
  used in queries with a LIMIT clause for updating. NO =
  Prohibit update of a VIEW, which does not contain a key
  of the underlying table and the query uses a LIMIT clause
  (usually get from GUI tools)
- --use-cached-table-stats-ptr 
+ --use-cached-table-stats-ptr
  Controls the use of the cached table_stats ptr in the
  handler object
  --use-db-uuid       If set, MySQL uses database UUID while generating the
@@ -2059,44 +2065,44 @@ The following options may be given as the first argument:
  database must be set either while creating the database
  or using an alter command. If no UUID is associated with
  a database, server_uuid is used.
- --use-fbson-input-format 
+ --use-fbson-input-format
  Uses FBSON format as document type input. This session
  value is set to true for SQL threads when inserting
  document fields received through row based replication.
- --use-fbson-output-format 
+ --use-fbson-output-format
  Uses FBSON format as document type output.
  --use-lock-sharding Use sharding to reduce contention on certain
  high-contention locks
- --use-socket-sharding 
+ --use-socket-sharding
  Use multiple listen sockets on the same mysqld port
  -u, --user=name     Run mysqld daemon as user.
- --user-table-stats-control=name 
+ --user-table-stats-control=name
  Provides control to fill data in columns LAST_ADMIN and
  LAST_NON_ADMIN of table TABLE_STATISTICS and whether to
  produce data for USER_TABLE_STATISTICS
- --validate-user-plugins 
+ --validate-user-plugins
  Turns on additional validation of authentication plugins
- assigned to user accounts. 
+ assigned to user accounts.
  (Defaults to on; use --skip-validate-user-plugins to disable.)
  -v, --verbose       Used with --help option for detailed help.
  -V, --version       Output version information and exit.
  --wait-timeout=#    The number of seconds the server waits for activity on a
  connection before closing it
- --working-duration=# 
+ --working-duration=#
  The period of time for which we want working set size
  statistics
- --write-query-throttling-limit[=#] 
+ --write-query-throttling-limit[=#]
  Start throttling writes if running mutation queries high.
- --zstd-net-compression-level[=#] 
+ --zstd-net-compression-level[=#]
  Compression level for compressed protocol when zstd
  library is selected.
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
 admin-port 0
-admin-users-list 
+admin-users-list
 admission-control-by-trx FALSE
-admission-control-filter 
+admission-control-filter
 admission-control-queue-timeout -1
 allow-document-type FALSE
 allow-multiple-engines FALSE
@@ -2213,9 +2219,9 @@ hll-data-size-log2 14
 host-cache-size 279
 ignore-builtin-innodb FALSE
 improved-dup-key-error FALSE
-init-connect 
+init-connect
 init-file (No default value)
-init-slave 
+init-slave
 interactive-timeout 28800
 join-buffer-size 262144
 keep-files-on-create FALSE
@@ -2242,7 +2248,7 @@ log-column-names FALSE
 log-datagram FALSE
 log-datagram-usecs 0
 log-ddl FALSE
-log-error 
+log-error
 log-global-var-changes FALSE
 log-gtid-unsafe-statements TRUE
 log-isam myisam.log
@@ -2282,6 +2288,7 @@ max-compressed-event-cache-size 1
 max-connect-errors 100
 max-connections 151
 max-db-stats-entries 255
+max_digest_sample_age -1
 max-delayed-threads 20
 max-digest-length 1024
 max-error-count 64
@@ -2345,7 +2352,7 @@ optimizer-low-limit-heuristic TRUE
 optimizer-prune-level 1
 optimizer-search-depth 62
 optimizer-switch index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=on,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,subquery_materialization_cost_based=on,use_index_extensions=on,skip_scan=off,skip_scan_cost_based=on,multi_range_groupby=on
-optimizer-trace 
+optimizer-trace
 optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,repeated_subselect=on
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 16384
@@ -2377,7 +2384,7 @@ performance-schema-events-statements-history-size -1
 performance-schema-events-waits-history-long-size -1
 performance-schema-events-waits-history-size -1
 performance-schema-hosts-size -1
-performance-schema-instrument 
+performance-schema-instrument
 performance-schema-max-cond-classes 80
 performance-schema-max-cond-instances -1
 performance-schema-max-digest-length 1024
@@ -2404,7 +2411,7 @@ port ####
 port-open-timeout 0
 preload-buffer-size 32768
 process-can-disable-bin-log TRUE
-protocol-mode 
+protocol-mode
 query-alloc-block-size 8192
 query-cache-limit 1048576
 query-cache-min-res-unit 4096
@@ -2414,11 +2421,11 @@ query-cache-wlock-invalidate FALSE
 query-prealloc-size 8192
 range-alloc-block-size 4096
 range-optimizer-max-mem-size 1536000
-rbr-column-type-mismatch-whitelist 
+rbr-column-type-mismatch-whitelist
 rbr-idempotent-tables (No default value)
 read-buffer-size 131072
 read-only FALSE
-read-only-error-msg-extra 
+read-only-error-msg-extra
 read-only-slave TRUE
 read-rnd-buffer-size 262144
 relay-log (No default value)
@@ -2462,14 +2469,14 @@ rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-commit-time-batch-for-recovery TRUE
-rocksdb-compact-cf 
+rocksdb-compact-cf
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
 rocksdb-compaction-sequential-deletes-count-sd FALSE
 rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 0
 rocksdb-compaction-stats ON
-rocksdb-create-checkpoint 
+rocksdb-create-checkpoint
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
 rocksdb-datadir ./.rocksdb
@@ -2486,9 +2493,9 @@ rocksdb-debug-ttl-ignore-pk FALSE
 rocksdb-debug-ttl-read-filter-ts 0
 rocksdb-debug-ttl-rec-ts 0
 rocksdb-debug-ttl-snapshot-ts 0
-rocksdb-default-cf-options 
+rocksdb-default-cf-options
 rocksdb-delayed-write-rate 0
-rocksdb-delete-cf 
+rocksdb-delete-cf
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-enable-2pc TRUE
 rocksdb-enable-bulk-load-api TRUE
@@ -2543,13 +2550,13 @@ rocksdb-merge-tmp-file-removal-delay-ms 0
 rocksdb-mrr-batch-size 100
 rocksdb-new-table-reader-for-compaction-inputs FALSE
 rocksdb-no-block-cache FALSE
-rocksdb-override-cf-options 
+rocksdb-override-cf-options
 rocksdb-paranoid-checks TRUE
 rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 0
-rocksdb-persistent-cache-path 
+rocksdb-persistent-cache-path
 rocksdb-persistent-cache-size-mb 0
 rocksdb-pin-l0-filter-and-index-blocks-in-cache TRUE
 rocksdb-print-snapshot-conflict-queries FALSE
@@ -2601,7 +2608,7 @@ rocksdb-use-fsync FALSE
 rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
-rocksdb-wal-dir 
+rocksdb-wal-dir
 rocksdb-wal-recovery-mode 1
 rocksdb-wal-size-limit-mb 0
 rocksdb-wal-ttl-seconds 0
@@ -2663,7 +2670,7 @@ slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10
 slave-tx-isolation REPEATABLE-READ
-slave-type-conversions 
+slave-type-conversions
 slave-use-idempotent-for-recovery NO
 slow-launch-time 2
 slow-log-if-rows-examined-exceed 0
@@ -2687,7 +2694,7 @@ table-open-cache-instances 8
 tc-heuristic-recover COMMIT
 thread-cache-size 9
 thread-handling one-thread-per-connection
-thread-nice-value 
+thread-nice-value
 thread-stack 327680
 time-format %H:%i:%s
 timed-mutexes FALSE
