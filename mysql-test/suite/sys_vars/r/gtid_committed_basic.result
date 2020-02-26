@@ -1,0 +1,11 @@
+RESET MASTER;
+SET @start_global_value = @@global.gtid_committed;
+include/assert.inc ["gtid_committed is empty initially"]
+include/assert.inc ["@@global.gtid_committed is readable"]
+SELECT @@session.gtid_committed;
+ERROR HY000: Variable 'gtid_committed' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+include/assert.inc ["gtid_committed in global variables"]
+include/assert.inc ["gtid_committed in session variables"]
+include/assert.inc ["gtid_committed in performance_schema.global_variables"]
+include/assert.inc ["gtid_committed in performance_schema.session_variables"]
