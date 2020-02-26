@@ -1,0 +1,46 @@
+--source include/have_debug_sync.inc
+--source include/have_semisync_plugin.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_master.inc
+--let $master_uuid = `SELECT @@server_uuid;`
+
+--source include/rpl_connection_slave.inc
+SET @@global.debug = '+d,before_semi_sync_reply';
+
+--source include/rpl_connection_master.inc
+--send CREATE TABLE t1 (a INT)
+
+--source include/rpl_connection_slave.inc
+SET DEBUG_SYNC = 'now WAIT_FOR semi_sync_reply_reached';
+SET @@global.debug = '-d,before_semi_sync_reply';
+
+--source include/rpl_connection_master1.inc
+--let $assert_text = "gtid_executed should be empty"
+--let $assert_cond = "[SELECT @@global.gtid_executed]" = ""
+--source include/assert.inc
+
+# gtid_committed is an alias of gtid_executed.
+--let $assert_text = "gtid_committed should be empty"
+--let $assert_cond = "[SELECT @@global.gtid_committed]" = ""
+--source include/assert.inc
+
+--source include/rpl_connection_slave.inc
+SET DEBUG_SYNC = 'now SIGNAL semi_sync_reply_continue';
+
+--source include/rpl_connection_master.inc
+--reap
+--let $assert_text = "gtid_executed should be \$master_uuid:1"
+--let $assert_cond = "[SELECT @@global.gtid_executed]" = "$master_uuid:1"
+--source include/assert.inc
+
+# gtid_committed is an alias of gtid_executed.
+--let $assert_text = "gtid_committed should be \$master_uuid:1"
+--let $assert_cond = "[SELECT @@global.gtid_committed]" = "$master_uuid:1"
+--source include/assert.inc
+
+DROP TABLE t1;
+
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+
+--source include/rpl_end.inc

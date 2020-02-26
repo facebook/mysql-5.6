@@ -75,7 +75,7 @@ while ( $varid <= $countvars )
   --let $varnames= `SELECT varname FROM rplvars WHERE id=$varid`
 
   # Following variables are non persistent read only variables.
-  if (`SELECT '$varnames' IN ('gtid_executed', 'gtid_owned', 'log_bin', 'log_bin_basename', 'log_bin_index', 'relay_log', 'relay_log_basename', 'relay_log_index', 'relay_log_info_file', 'slave_load_tmpdir', 'log_bin_use_v1_row_events')`)
+  if (`SELECT '$varnames' IN ('gtid_committed', 'gtid_executed', 'gtid_owned', 'log_bin', 'log_bin_basename', 'log_bin_index', 'relay_log', 'relay_log_basename', 'relay_log_index', 'relay_log_info_file', 'slave_load_tmpdir', 'log_bin_use_v1_row_events')`)
   {
     --error ER_INCORRECT_GLOBAL_LOCAL_VAR
   }
@@ -95,6 +95,11 @@ while ( $varid <= $countvars )
 
 --echo
 --let $expected= `SELECT $countvars - 11`
+# gtid_committed needs to be excluded
+if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name = 'gtid_committed'`)
+{
+  --dec $expected
+}
 --let $assert_text= 'Expect \$expected persisted variables in persisted_variables table.'
 --let $assert_cond= [SELECT COUNT(*) as count FROM performance_schema.persisted_variables, count, 1] = $expected
 --source include/assert.inc
@@ -134,7 +139,7 @@ while ( $varid <= $countvars )
 {
   --let $varnames= `SELECT varname FROM rplvars WHERE id=$varid`
 
-  if (`SELECT '$varnames' IN ('gtid_executed', 'gtid_owned', 'log_bin', 'log_bin_basename', 'log_bin_index', 'relay_log', 'relay_log_basename', 'relay_log_index', 'relay_log_info_file', 'slave_load_tmpdir', 'log_bin_use_v1_row_events')`)
+  if (`SELECT '$varnames' IN ('gtid_committed', 'gtid_executed', 'gtid_owned', 'log_bin', 'log_bin_basename', 'log_bin_index', 'relay_log', 'relay_log_basename', 'relay_log_index', 'relay_log_info_file', 'slave_load_tmpdir', 'log_bin_use_v1_row_events')`)
   {
     --error ER_VAR_DOES_NOT_EXIST
   }

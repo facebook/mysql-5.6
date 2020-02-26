@@ -56,6 +56,12 @@ if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_nam
   --inc $total_persistent_vars
 }
 
+# gtid_committed was added, but it cannot be persisted
+if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name = 'gtid_committed'`)
+{
+  --dec $total_persistent_vars
+}
+
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
 --echo * variables are actually global variables and can be set using

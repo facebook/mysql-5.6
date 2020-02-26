@@ -58,6 +58,8 @@ SET PERSIST_ONLY binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transa
 SET PERSIST_ONLY binlog_trx_meta_data = @@GLOBAL.binlog_trx_meta_data;
 SET PERSIST_ONLY enable_binlog_hlc = @@GLOBAL.enable_binlog_hlc;
 SET PERSIST_ONLY enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
+SET PERSIST_ONLY gtid_committed = @@GLOBAL.gtid_committed;
+ERROR HY000: Variable 'gtid_committed' is a non persistent read only variable
 SET PERSIST_ONLY gtid_executed = @@GLOBAL.gtid_executed;
 ERROR HY000: Variable 'gtid_executed' is a non persistent read only variable
 SET PERSIST_ONLY gtid_executed_compression_period = @@GLOBAL.gtid_executed_compression_period;
@@ -184,6 +186,8 @@ RESET PERSIST binlog_transaction_dependency_tracking;
 RESET PERSIST binlog_trx_meta_data;
 RESET PERSIST enable_binlog_hlc;
 RESET PERSIST enforce_gtid_consistency;
+RESET PERSIST gtid_committed;
+ERROR HY000: Variable gtid_committed does not exist in persisted config file
 RESET PERSIST gtid_executed;
 ERROR HY000: Variable gtid_executed does not exist in persisted config file
 RESET PERSIST gtid_executed_compression_period;
