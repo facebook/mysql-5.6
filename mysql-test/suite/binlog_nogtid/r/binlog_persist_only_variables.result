@@ -31,6 +31,7 @@ VARIABLE_NAME LIKE '%source%') AND
 ORDER BY VARIABLE_NAME;
 CREATE TABLE non_persisted (name VARCHAR(100) PRIMARY KEY);
 INSERT INTO non_persisted VALUES
+('gtid_committed'),
 ('gtid_executed'), ('gtid_owned'), ('log_bin'), ('log_bin_basename'),
 ('log_bin_index'), ('relay_log'), ('relay_log_basename'),
 ('relay_log_index'), ('relay_log_info_file'), ('replica_load_tmpdir'),
@@ -85,6 +86,8 @@ SET PERSIST_ONLY binlog_trx_meta_data = @@GLOBAL.binlog_trx_meta_data;
 SET PERSIST_ONLY enable_binlog_hlc = @@GLOBAL.enable_binlog_hlc;
 SET PERSIST_ONLY enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
 SET PERSIST_ONLY group_replication_consistency = @@GLOBAL.group_replication_consistency;
+SET PERSIST_ONLY gtid_committed = @@GLOBAL.gtid_committed;
+ERROR HY000: Variable 'gtid_committed' is a non persistent read only variable
 SET PERSIST_ONLY gtid_executed = @@GLOBAL.gtid_executed;
 ERROR HY000: Variable 'gtid_executed' is a non persistent read only variable
 SET PERSIST_ONLY gtid_executed_compression_period = @@GLOBAL.gtid_executed_compression_period;
@@ -320,6 +323,8 @@ RESET PERSIST binlog_trx_meta_data;
 RESET PERSIST enable_binlog_hlc;
 RESET PERSIST enforce_gtid_consistency;
 RESET PERSIST group_replication_consistency;
+RESET PERSIST gtid_committed;
+ERROR HY000: Variable gtid_committed does not exist in persisted config file
 RESET PERSIST gtid_executed;
 ERROR HY000: Variable gtid_executed does not exist in persisted config file
 RESET PERSIST gtid_executed_compression_period;

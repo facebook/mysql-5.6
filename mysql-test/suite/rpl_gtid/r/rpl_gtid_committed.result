@@ -1,0 +1,24 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection master]
+[connection slave]
+SET @@global.debug = '+d,before_semi_sync_reply';
+[connection master]
+CREATE TABLE t1 (a INT);
+[connection slave]
+SET DEBUG_SYNC = 'now WAIT_FOR semi_sync_reply_reached';
+SET @@global.debug = '-d,before_semi_sync_reply';
+[connection master1]
+include/assert.inc ["gtid_executed should be empty"]
+include/assert.inc ["gtid_committed should be empty"]
+[connection slave]
+SET DEBUG_SYNC = 'now SIGNAL semi_sync_reply_continue';
+[connection master]
+include/assert.inc ["gtid_executed should be $master_uuid:1"]
+include/assert.inc ["gtid_committed should be $master_uuid:1"]
+DROP TABLE t1;
+call mtr.add_suppression("A message intended for a client cannot be sent there as no client-session is attached");
+include/rpl_end.inc
