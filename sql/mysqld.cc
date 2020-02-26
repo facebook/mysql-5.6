@@ -1154,6 +1154,9 @@ ulonglong minimum_hlc_ns= 0;
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 ulonglong maximum_hlc_drift_ns= 0;
 
+/* Enable query checksum validation for queries with a checksum sent */
+my_bool enable_query_checksum= FALSE;
+
 std::unique_ptr<HHWheelTimer> hhWheelTimer;
 
 /*

@@ -6575,3 +6575,9 @@ static Sys_var_uint Sys_max_db_stats_entries(
       "Maximum number of entries in DB_STATISTICS",
       GLOBAL_VAR(max_db_stats_entries), CMD_LINE(OPT_ARG),
       VALID_RANGE(0, UINT_MAX), DEFAULT(255), BLOCK_SIZE(1));
+
+static Sys_var_mybool Sys_enable_query_checksum(
+       "enable_query_checksum", "Enable query checksums for queries that have "
+       "the query_checksum query attribute set. Uses a CRC32 checksum of the "
+       "query contents, but not the attributes",
+       GLOBAL_VAR(enable_query_checksum), CMD_LINE(OPT_ARG), DEFAULT(FALSE));

@@ -1902,6 +1902,20 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
     char* query_ptr= packet;
     size_t query_len= packet_length;
+
+    // Check checksum if enabled
+    if (enable_query_checksum) {
+      auto it = thd->query_attrs_map.find("query_checksum");
+      if (it != thd->query_attrs_map.end()) {
+        unsigned long checksum = crc32(0, (const uchar *)packet, packet_length);
+        unsigned long expected = std::stoul(it->second);
+        if (expected != checksum) {
+          my_error(ER_QUERY_CHECKSUM_FAILED, MYF(0), expected, checksum);
+          break;
+        }
+      }
+    }
+
     if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
 

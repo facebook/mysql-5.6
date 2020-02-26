@@ -271,6 +271,10 @@ The following options may be given as the first argument:
  This will provide options for Jemalloc heap profiling.On:
  Activates profilingOff: Deactivate profilingDump: Dump a
  profile
+ --enable-query-checksum 
+ Enable query checksums for queries that have the
+ query_checksum query attribute set. Uses a CRC32 checksum
+ of the query contents, but not the attributes
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -2124,6 +2128,7 @@ enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE
 enable-jemalloc-hpp OFF
+enable-query-checksum FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 10

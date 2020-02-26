@@ -431,6 +431,9 @@ extern ulonglong minimum_hlc_ns;
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 extern ulonglong maximum_hlc_drift_ns;
 
+/* Enable query checksum validation for queries with a checksum sent */
+extern my_bool enable_query_checksum;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */
