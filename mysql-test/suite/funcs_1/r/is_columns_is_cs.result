@@ -204,12 +204,14 @@ def	information_schema	PROCESSLIST	USER	2		NO	varchar	26	80	NULL	NULL	NULL	utf8	
 def	information_schema	PROCESSLIST	HOST	3		NO	varchar	87	261	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(261)			select			NULL
 def	information_schema	PROCESSLIST	DB	4		YES	varchar	21	64	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	COMMAND	5		NO	varchar	5	16	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select			NULL
-def	information_schema	PROCESSLIST	TIME	6		NO	int	NULL	NULL	NULL	NULL	NULL	NULL	NULL	int(7)			select			NULL
+def	information_schema	PROCESSLIST	TIME	6		NO	double	NULL	NULL	NULL	NULL	NULL	NULL	NULL	double(22,0)			select			NULL
 def	information_schema	PROCESSLIST	STATE	7		YES	varchar	21	64	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select			NULL
 def	information_schema	PROCESSLIST	INFO	8		YES	varchar	21845	65535	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(65535)			select			NULL
 def	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	1		NO	varchar	84	254	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(254)			select			NULL
 def	information_schema	QUERY_PERF_COUNTER	CPU	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(21)			select			NULL
 def	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(21)			select			NULL
+def	information_schema	RBR_BI_INCONSISTENCIES	TABLE	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
+def	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	1	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL
 def	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	3	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL
@@ -226,6 +228,11 @@ def	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_TYPE	2	NULL	NO	enum	6	18	N
 def	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_ENABLED	3	NULL	NO	tinyint	NULL	NULL	3	0	NULL	NULL	NULL	tinyint(1)			select			NULL
 def	information_schema	RESOURCE_GROUPS	VCPU_IDS	4	NULL	YES	blob	65535	65535	NULL	NULL	NULL	NULL	NULL	blob			select			NULL
 def	information_schema	RESOURCE_GROUPS	THREAD_PRIORITY	5	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	1		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(8)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	CF_NAME	2		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	3		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	4		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
+def	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	5		NO	varchar	171	513	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(513)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	64	193	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select			NULL
 def	information_schema	ROCKSDB_CFSTATS	VALUE	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(8)			select			NULL
@@ -526,6 +533,7 @@ COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
 3.0000	varchar	utf8	utf8_general_ci
 3.0029	varchar	utf8	utf8_general_ci
 3.0075	varchar	utf8	utf8_general_ci
+3.0088	varchar	utf8	utf8_general_ci
 3.0118	varchar	utf8	utf8_general_ci
 3.0156	varchar	utf8	utf8_general_ci
 3.0238	varchar	utf8	utf8_general_ci
@@ -771,12 +779,14 @@ NULL	information_schema	PROCESSLIST	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) uns
 3.0000	information_schema	PROCESSLIST	HOST	varchar	87	261	utf8	utf8_general_ci	varchar(261)
 3.0476	information_schema	PROCESSLIST	DB	varchar	21	64	utf8	utf8_general_ci	varchar(64)
 3.2000	information_schema	PROCESSLIST	COMMAND	varchar	5	16	utf8	utf8_general_ci	varchar(16)
-NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int(7)
+NULL	information_schema	PROCESSLIST	TIME	double	NULL	NULL	NULL	NULL	double(22,0)
 3.0476	information_schema	PROCESSLIST	STATE	varchar	21	64	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	PROCESSLIST	INFO	varchar	21845	65535	utf8	utf8_general_ci	varchar(65535)
 3.0238	information_schema	QUERY_PERF_COUNTER	QUERY_TYPE	varchar	84	254	utf8	utf8_general_ci	varchar(254)
 NULL	information_schema	QUERY_PERF_COUNTER	CPU	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	TABLE	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	RBR_BI_INCONSISTENCIES	LAST_GTID	varchar	64	192	utf8	utf8_general_ci	varchar(192)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_CATALOG	varchar	64	192	utf8	utf8_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_SCHEMA	varchar	64	192	utf8	utf8_bin	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	CONSTRAINT_NAME	varchar	64	192	utf8	utf8_bin	varchar(64)
@@ -793,6 +803,11 @@ NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NUL
 NULL	information_schema	RESOURCE_GROUPS	RESOURCE_GROUP_ENABLED	tinyint	NULL	NULL	NULL	NULL	tinyint(1)
 1.0000	information_schema	RESOURCE_GROUPS	VCPU_IDS	blob	65535	65535	NULL	NULL	blob
 NULL	information_schema	RESOURCE_GROUPS	THREAD_PRIORITY	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint(8)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	CF_NAME	varchar	171	513	utf8	utf8_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	INPUT_FILES	varchar	171	513	utf8	utf8_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	OUTPUT_FILES	varchar	171	513	utf8	utf8_general_ci	varchar(513)
+3.0000	information_schema	ROCKSDB_ACTIVE_COMPACTION_STATS	COMPACTION_REASON	varchar	171	513	utf8	utf8_general_ci	varchar(513)
 3.0156	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	64	193	utf8	utf8_general_ci	varchar(193)
 3.0156	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	64	193	utf8	utf8_general_ci	varchar(193)
 NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
