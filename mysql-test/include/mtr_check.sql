@@ -113,6 +113,7 @@ BEGIN
   SELECT /*+SET_VAR(use_secondary_engine=OFF)*/ * FROM performance_schema.global_variables
     WHERE variable_name NOT IN ('timestamp', 'server_uuid',
                                 'gtid_executed', 'gtid_purged',
+                                'gtid_committed',
                                 'group_replication_group_name',
                                 'keyring_file_data',
                                 'innodb_thread_sleep_delay')
