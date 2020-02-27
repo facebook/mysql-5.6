@@ -1,0 +1,123 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+FLUSH LOGS;
+PURGE BINARY LOGS TO 'binlog';
+[connection slave]
+FLUSH LOGS;
+PURGE BINARY LOGS TO 'binlog';
+[connection master]
+SET @@session.debug = "+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@global.enable_binlog_hlc = true;
+[connection slave]
+SET @@global.enable_binlog_hlc = true;
+Commit some trxs to move HLC forward
+[connection master]
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1, 'a');
+INSERT INTO t1 VALUES (2, 'b');
+include/sync_slave_sql_with_master.inc
+Now start a trx and roll it back
+[connection master]
+BEGIN;
+INSERT INTO t1 VALUES (3, 'c');
+INSERT INTO t1 VALUES (4, 'd');
+ROLLBACK;
+SELECT * FROM t1;
+a	b
+1	a
+2	b
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+Now disable binlog HLC and start a new trx. The new trx should not
+generate HLC and should not corrupt binlog
+[connection master]
+SET @@global.enable_binlog_hlc = false;
+INSERT INTO t1 VALUES (5, 'e');
+INSERT INTO t1 VALUES (6, 'f');
+SELECT * FROM t1;
+a	b
+1	a
+2	b
+5	e
+6	f
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+master-bin.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (1, 'a')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (2, 'b')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (5, 'e')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (6, 'f')
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+SELECT * FROM t1;
+a	b
+1	a
+2	b
+5	e
+6	f
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000001
+slave-bin.000002	#	Query	#	#	use `test`; CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000002
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (1, 'a')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000003
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (2, 'b')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (5, 'e')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000002	#	Metadata	#	#	HLC time: 0
+slave-bin.000002	#	Query	#	#	BEGIN
+slave-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (6, 'f')
+slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+[connection master]
+DROP TABLE IF EXISTS t1;
+SET @@session.debug = "-d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 0;
+SET @@global.enable_binlog_hlc = 0;
+include/sync_slave_sql_with_master.inc
+SET @@global.minimum_hlc_ns = 0;
+SET @@global.enable_binlog_hlc = 0;
+include/rpl_end.inc
