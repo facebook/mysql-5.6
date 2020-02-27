@@ -1,0 +1,18 @@
+--source include/have_binlog_format_mixed_or_statement.inc
+--source include/have_debug.inc
+--source include/master-slave.inc
+
+# Cleanup old binlog
+--source include/rpl_connection_master.inc
+FLUSH LOGS;
+--let $binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval purge binary logs to '$binlog'
+
+--source include/rpl_connection_slave.inc
+FLUSH LOGS;
+--let $binlog= query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $binlog binlog
+--eval purge binary logs to '$binlog'
+
+--source suite/rpl_gtid/t/rpl_maintain_database_hlc.inc
