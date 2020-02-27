@@ -8227,7 +8227,9 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
           // NO_LINT_DEBUG
           sql_print_error("Taking backup from %s to %s\n", log_name,
                           backup_file);
-          if (my_copy(log_name, backup_file, MYF(MY_WME))) {
+          /* MY_HOLD_ORIGINAL_MODES prevents attempts to chown the file */
+          if (my_copy(log_name, backup_file,
+                      MYF(MY_WME | MY_HOLD_ORIGINAL_MODES))) {
             // NO_LINT_DEBUG
             sql_print_error(
                 "Could not take backup of the truncated binlog file %s",
