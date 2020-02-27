@@ -7,4 +7,7 @@ include/sync_slave_sql_with_master.inc
 # Build connections to master server
 # Stress test that execute massive queries on every connection
 include/sync_slave_sql_with_master.inc
+[connection master]
+[connection slave]
+include/assert.inc [Master and Slave should have the same applied hlc on the test database]
 include/rpl_end.inc

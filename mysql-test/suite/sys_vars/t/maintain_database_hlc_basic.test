@@ -1,0 +1,134 @@
+###############################################################################
+# Variable Name: maintain_database_hlc
+# Scope: global
+# Access Type: dynamic
+# Data Type: boolean
+#
+# Description: Test case for checking the behavior of dynamic system variable
+#              "maintain_database_hlc", specifically regarding:
+#              - Scope & access type
+#              - Valid & default value
+#              - Invalid values
+#              - Required privileges
+#
+###############################################################################
+
+--source include/count_sessions.inc
+
+# Save initial value
+--let $saved_maintain_database_hlc= `SELECT @@global.maintain_database_hlc`
+--let $saved_enable_binlog_hlc= `SELECT @@global.enable_binlog_hlc`
+
+# Cannot be set unless enable_binlog_hlc is also set
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.maintain_database_hlc = true;
+SELECT @@global.maintain_database_hlc;
+
+SET @@global.enable_binlog_hlc = true;
+
+#
+# Scope: Global only
+#
+SELECT COUNT(@@GLOBAL.maintain_database_hlc);
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.maintain_database_hlc);
+
+--disable_warnings
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME='maintain_database_hlc';
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE VARIABLE_NAME='maintain_database_hlc';
+--enable_warnings
+
+#
+# Access Type: Dynamic
+#
+SET GLOBAL maintain_database_hlc= ON;
+--let $assert_text= 'maintain_database_hlc is a dynamic variable'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "1"
+--source include/assert.inc
+
+#
+# Valid values and Default value
+#
+SET GLOBAL maintain_database_hlc= OFF;
+--let $assert_text= 'maintain_database_hlc should be OFF'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "0"
+--source include/assert.inc
+
+SET GLOBAL maintain_database_hlc= ON;
+--let $assert_text= 'maintain_database_hlc should be ON'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "1"
+--source include/assert.inc
+
+SET GLOBAL maintain_database_hlc= 0;
+--let $assert_text= 'maintain_database_hlc should be OFF'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "0"
+--source include/assert.inc
+
+SET GLOBAL maintain_database_hlc= 1;
+--let $assert_text= 'maintain_database_hlc should be ON'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "1"
+--source include/assert.inc
+
+SET GLOBAL maintain_database_hlc= DEFAULT;
+--let $assert_text= 'maintain_database_hlc should be OFF'
+--let $assert_cond= "[SELECT @@GLOBAL.maintain_database_hlc]" = "0"
+--source include/assert.inc
+
+#
+# Invalid values
+#
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL maintain_database_hlc= NULL;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL maintain_database_hlc= '';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL maintain_database_hlc= -1;
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET GLOBAL maintain_database_hlc= 1.0;
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL maintain_database_hlc= 'GARBAGE';
+
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL maintain_database_hlc= 2;
+
+--echo Expect value still set to "OFF"
+SELECT @@global.maintain_database_hlc;
+
+#
+# Privileges
+#
+
+CREATE USER user1;
+--connect(conn_user1,localhost,user1,,)
+
+--Error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL maintain_database_hlc=ON;
+
+--connection default
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
+--connection conn_user1
+SET GLOBAL maintain_database_hlc=ON;
+
+--connection default
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM user1@'%';
+--connection conn_user1
+# FAST_INTEGER_TO_STRING_ADMIN is not enough
+--Error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL maintain_database_hlc=OFF;
+
+--connection default
+--disconnect conn_user1
+DROP USER user1;
+
+# Clean up
+--disable_query_log
+--eval SET GLOBAL enable_binlog_hlc = $saved_enable_binlog_hlc
+--eval SET GLOBAL maintain_database_hlc= $saved_maintain_database_hlc
+--enable_query_log
+
+--source include/wait_until_count_sessions.inc

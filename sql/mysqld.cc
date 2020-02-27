@@ -1206,6 +1206,7 @@ uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool enable_binlog_hlc = 0;
+bool maintain_database_hlc = false;
 
 #if defined(_WIN32)
 /*
