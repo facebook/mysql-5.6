@@ -165,6 +165,7 @@ typedef struct user_conn USER_CONN;
 struct MYSQL_LOCK;
 struct st_ac_node;
 using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
+using database_container = std::unordered_set<std::string>;
 
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
@@ -919,6 +920,7 @@ class THD : public MDL_context_owner,
   /* Next HLC value */
   uint64_t hlc_time_ns_next = 0;
   bool should_write_hlc = false;
+  database_container databases;
 
   /**
     The function checks whether the thread is processing queries from binlog,

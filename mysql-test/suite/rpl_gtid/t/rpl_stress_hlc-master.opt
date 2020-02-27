@@ -1,1 +1,1 @@
---enable_binlog_hlc=ON
+--enable_binlog_hlc=ON --maintain_database_hlc=ON

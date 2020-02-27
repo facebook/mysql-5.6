@@ -4223,6 +4223,19 @@ static int hton_fill_schema_table(THD *thd, TABLE_LIST *tables, Item *cond) {
   return 0;
 }
 
+int fill_db_applied_hlc(THD *thd, TABLE_LIST *tables, Item *) {
+  auto table = tables->table;
+
+  for (const auto &hlc : mysql_bin_log.get_database_hlc()) {
+    table->field[0]->store(hlc.first.c_str(), hlc.first.length(),
+                           system_charset_info);
+    table->field[1]->store(static_cast<ulonglong>(hlc.second), true);
+    schema_table_store_record(thd, table);
+  }
+
+  return 0;
+}
+
 ST_FIELD_INFO engines_fields_info[] = {
     {"ENGINE", 64, MYSQL_TYPE_STRING, 0, 0, "Engine", 0},
     {"SUPPORT", 8, MYSQL_TYPE_STRING, 0, 0, "Support", 0},
@@ -4377,6 +4390,11 @@ ST_FIELD_INFO tmp_table_columns_fields_info[] = {
      MYSQL_TYPE_STRING, 0, 0, "Generation expression", 0},
     {nullptr, 0, MYSQL_TYPE_STRING, 0, 0, nullptr, 0}};
 
+ST_FIELD_INFO db_applied_hlc_fields_info[] = {
+    {"DATABASE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"APPLIED_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -4421,6 +4439,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      false},
     {"SLAVE_DB_LOAD", slave_db_load_fields_info, fill_slave_db_load, 0, 0,
      false},
+    {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, fill_db_applied_hlc,
+     nullptr, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {
