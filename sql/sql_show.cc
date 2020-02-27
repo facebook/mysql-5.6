@@ -4536,6 +4536,19 @@ static int hton_fill_schema_table(THD *thd, TABLE_LIST *tables, Item *cond) {
   DBUG_RETURN(0);
 }
 
+int fill_db_applied_hlc(THD *thd, TABLE_LIST *tables, Item *) {
+  auto table = tables->table;
+
+  for (const auto &hlc : mysql_bin_log.get_database_hlc()) {
+    table->field[0]->store(hlc.first.c_str(), hlc.first.length(),
+                           system_charset_info);
+    table->field[1]->store(static_cast<ulonglong>(hlc.second), true);
+    schema_table_store_record(thd, table);
+  }
+
+  return 0;
+}
+
 ST_FIELD_INFO engines_fields_info[] = {
     {"ENGINE", 64, MYSQL_TYPE_STRING, 0, 0, "Engine", 0},
     {"SUPPORT", 8, MYSQL_TYPE_STRING, 0, 0, "Support", 0},
@@ -4718,6 +4731,11 @@ ST_FIELD_INFO socket_diag_slaves_fields_info[] = {
     {"REPLICATION STATUS", 64, MYSQL_TYPE_STRING, 0, 0, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO db_applied_hlc_fields_info[] = {
+    {"DATABASE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"APPLIED_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -4769,6 +4787,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      create_schema_table, fill_rbr_bi_inconsistencies, 0, 0, -1, -1, 0, 0},
     {"SOCKET_DIAG_SLAVES", socket_diag_slaves_fields_info, create_schema_table,
      fill_socket_diag_slaves, make_old_format, 0, 0, -1, 0, 0},
+    {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
+     fill_db_applied_hlc, nullptr, nullptr, -1, -1, false, 0},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 0, 0, false, 0}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

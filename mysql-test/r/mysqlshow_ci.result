@@ -87,6 +87,7 @@ Database: information_schema
 | COLUMN_PRIVILEGES                     |
 | COLUMN_STATISTICS                     |
 | COLUMNS                               |
+| DATABASE_APPLIED_HLC                  |
 | ENGINES                               |
 | EVENTS                                |
 | FILES                                 |
@@ -164,6 +165,7 @@ Database: INFORMATION_SCHEMA
 | COLUMN_PRIVILEGES                     |
 | COLUMN_STATISTICS                     |
 | COLUMNS                               |
+| DATABASE_APPLIED_HLC                  |
 | ENGINES                               |
 | EVENTS                                |
 | FILES                                 |

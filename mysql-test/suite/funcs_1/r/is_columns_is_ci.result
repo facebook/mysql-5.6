@@ -61,6 +61,8 @@ def	information_schema	COLUMN_STATISTICS	SCHEMA_NAME	1	NULL	NO	varchar	64	192	NU
 def	information_schema	COLUMN_STATISTICS	TABLE_NAME	2	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL
 def	information_schema	COLUMN_STATISTICS	COLUMN_NAME	3	NULL	NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_bin	varchar(64)			select			NULL
 def	information_schema	COLUMN_STATISTICS	HISTOGRAM	4	NULL	NO	json	NULL	NULL	NULL	NULL	NULL	NULL	NULL	json			select			NULL
+def	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select			NULL
+def	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint(21) unsigned			select			NULL
 def	information_schema	ENGINES	ENGINE	1		NO	varchar	21	64	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select			NULL
 def	information_schema	ENGINES	SUPPORT	2		NO	varchar	2	8	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select			NULL
 def	information_schema	ENGINES	COMMENT	3		NO	varchar	26	80	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select			NULL
@@ -556,6 +558,8 @@ NULL	information_schema	COLUMNS	SRS_ID	int	NULL	NULL	NULL	NULL	int(10) unsigned
 3.0000	information_schema	COLUMN_STATISTICS	TABLE_NAME	varchar	64	192	utf8	utf8_bin	varchar(64)
 3.0000	information_schema	COLUMN_STATISTICS	COLUMN_NAME	varchar	64	192	utf8	utf8_bin	varchar(64)
 NULL	information_schema	COLUMN_STATISTICS	HISTOGRAM	json	NULL	NULL	NULL	NULL	json
+3.0000	information_schema	DATABASE_APPLIED_HLC	DATABASE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	DATABASE_APPLIED_HLC	APPLIED_HLC	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0476	information_schema	ENGINES	ENGINE	varchar	21	64	utf8	utf8_general_ci	varchar(64)
 4.0000	information_schema	ENGINES	SUPPORT	varchar	2	8	utf8	utf8_general_ci	varchar(8)
 3.0769	information_schema	ENGINES	COMMENT	varchar	26	80	utf8	utf8_general_ci	varchar(80)

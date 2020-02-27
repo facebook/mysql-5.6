@@ -1034,6 +1034,7 @@ uint host_cache_size;
 ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 ulong slave_tx_isolation;
 bool enable_binlog_hlc = 0;
+bool maintain_database_hlc = false;
 
 #if defined(_WIN32)
 /*

@@ -3615,8 +3615,11 @@ bool Query_log_event::write(Basic_ostream *ostream) {
       if (dbs == 1 && !strcmp(db_name, "")) dbs = OVER_MAX_DBS_IN_EVENT_MTS;
       *start++ = dbs;
       if (dbs != OVER_MAX_DBS_IN_EVENT_MTS) do {
+          size_t db_name_len = strlen(db_name);
           strcpy((char *)start, db_name);
-          start += strlen(db_name) + 1;
+          start += db_name_len + 1;
+          if (enable_binlog_hlc && maintain_database_hlc)
+            thd->databases.emplace(db_name, db_name_len);
         } while ((db_name = it++));
     } else {
       *start++ = dbs;
@@ -10808,6 +10811,9 @@ Table_map_log_event::Table_map_log_event(THD *thd_arg, TABLE *tbl,
   } else {
     m_data_size += m_metadata_buf.length();
   }
+
+  if (enable_binlog_hlc && maintain_database_hlc && !m_dbnam.empty())
+    thd->databases.insert(m_dbnam);
 }
 #endif /* defined(MYSQL_SERVER) */
 
