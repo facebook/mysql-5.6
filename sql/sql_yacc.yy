@@ -46,8 +46,9 @@ Note: YYTHD is passed as an argument to yyparse(), and subsequently to yylex().
 #include <limits>
 #include <type_traits>                       // for std::remove_reference
 #include <sstream>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
+#include "my_rapidjson_size_t.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
 
 #include "my_dbug.h"
 #include "myisam.h"
@@ -6203,14 +6204,9 @@ db_metadata_str:
             /* Verify that a valid JSON is provided */
             if ($3.length > 0)
             {
-              boost::property_tree::ptree db_metadata_root;
-              std::istringstream is($3.str);
-              try
-              {
-                boost::property_tree::json_parser::read_json(is,
-                                                             db_metadata_root);
-              }
-              catch (const std::exception&)
+              rapidjson::Document db_metadata_root;
+              if (db_metadata_root.Parse($3.str).HasParseError() ||
+                  !db_metadata_root.IsObject())
               {
                 my_error(ER_DB_METADATA_INVALID_JSON, MYF(0), $3.str);
                 MYSQL_YYABORT;
