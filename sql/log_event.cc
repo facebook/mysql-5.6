@@ -9745,6 +9745,20 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
           /* remove trigger's tables */
           goto err;
         }
+      } else if (thd->is_killed()) {
+        rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                    "Error executing row event: "
+                    "the slave sql worker thread is killed");
+        thd->is_slave_error = 1;
+        error = ER_SLAVE_FATAL_ERROR;
+        goto err;
+      } else {
+        rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                    "Error executing row event: "
+                    "unexpected slave fatal error");
+        thd->is_slave_error = 1;
+        error = ER_SLAVE_FATAL_ERROR;
+        goto err;
       }
       DBUG_RETURN(1);
     }

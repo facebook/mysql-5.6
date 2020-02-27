@@ -19,7 +19,7 @@ INSERT INTO t VALUES(1);
 INSERT INTO t VALUES(2);
 INSERT INTO t VALUES(3);
 [connection slave]
-call mtr.add_suppression("Slave SQL.*Error executing row event: the slave sql worker thread is killed, Error_code: 1593");
+call mtr.add_suppression("Slave SQL.*Error executing row event: the slave sql worker thread is killed, Error_code: MY-013117");
 SET debug_sync = "now WAIT_FOR opening";
 SET SESSION high_priority_ddl = ON;
 ALTER TABLE t ADD b INT;
