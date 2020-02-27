@@ -943,7 +943,8 @@ enum enum_schema_tables : int {
   SCH_TMP_TABLE_KEYS,
   SCH_AUTHINFO,
   SCH_SLAVE_DB_LOAD,
-  SCH_LAST = SCH_SLAVE_DB_LOAD
+  SCH_DATABASE_APPLIED_HLC,
+  SCH_LAST = SCH_DATABASE_APPLIED_HLC
 };
 
 enum ha_stat_type {

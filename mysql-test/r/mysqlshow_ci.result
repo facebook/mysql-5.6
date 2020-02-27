@@ -90,6 +90,7 @@ Database: information_schema
 | COLUMN_STATISTICS                     |
 | COLUMNS                               |
 | COLUMNS_EXTENSIONS                    |
+| DATABASE_APPLIED_HLC                  |
 | ENABLED_ROLES                         |
 | ENGINES                               |
 | EVENTS                                |
@@ -192,6 +193,7 @@ Database: INFORMATION_SCHEMA
 | COLUMN_STATISTICS                     |
 | COLUMNS                               |
 | COLUMNS_EXTENSIONS                    |
+| DATABASE_APPLIED_HLC                  |
 | ENABLED_ROLES                         |
 | ENGINES                               |
 | EVENTS                                |

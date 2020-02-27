@@ -285,6 +285,7 @@ extern std::atomic<bool> offline_mode;
 extern uint test_flags, select_errors, ha_open_options;
 extern uint protocol_version, mysqld_port;
 extern bool enable_binlog_hlc;
+extern bool maintain_database_hlc;
 
 enum enum_delay_key_write {
   DELAY_KEY_WRITE_NONE,

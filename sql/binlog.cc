@@ -123,7 +123,6 @@
 #include "sql/sql_backup_lock.h"  // is_instance_backup_locked
 #include "sql/sql_base.h"         // find_temporary_table
 #include "sql/sql_bitmap.h"
-#include "sql/sql_class.h"  // THD
 #include "sql/sql_const.h"
 #include "sql/sql_data_change.h"
 #include "sql/sql_error.h"
@@ -2604,6 +2603,27 @@ uint64_t HybridLogicalClock::update(uint64_t minimum_hlc) {
   }
 
   return new_min_hlc;
+}
+
+void HybridLogicalClock::update_database_hlc(
+    const database_container &databases, uint64_t applied_hlc) {
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+
+  for (const auto &database : databases) {
+    auto database_hlc = database_applied_hlc_.find(database);
+    if (database_hlc == database_applied_hlc_.end()) {
+      // Seeing this database for the first time. Create a new entry
+      database_applied_hlc_.emplace(database, applied_hlc);
+    } else if (database_hlc->second < applied_hlc) {
+      database_hlc->second = applied_hlc;
+    }
+  }
+}
+
+database_hlc_container HybridLogicalClock::get_database_hlc() const {
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+
+  return database_applied_hlc_;
 }
 
 /**
@@ -9050,6 +9070,20 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
 
 void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
   for (THD *head = first; head; head = head->next_to_commit) {
+    if (enable_binlog_hlc && maintain_database_hlc && head->hlc_time_ns_next) {
+      if (likely(!head->databases.empty())) {
+        // Successfully committed the trx to engine. Update applied hlc for
+        // all databases that this trx touches
+        hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
+      } else {
+        // Log a error line if databases are empty. This could happen in SBR
+        // NO_LINT_DEBUG
+        sql_print_error("Databases were empty for this trx. HLC= %lu",
+                        head->hlc_time_ns_next);
+      }
+    }
+    head->databases.clear();
+
     if (head->get_transaction()->m_flags.run_hooks &&
         head->commit_error != THD::CE_COMMIT_ERROR) {
       /*

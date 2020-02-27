@@ -48,4 +48,14 @@ exec rm $MYSQLTEST_VARDIR/tmp/unique-sorted-hlc.dat;
 exec rm $MYSQLTEST_VARDIR/tmp/master-unsorted-hlc.dat;
 exec rm $MYSQLTEST_VARDIR/tmp/slave-sorted-hlc.dat;
 
+--source include/rpl_connection_master.inc
+--let $master_applied_hlc = `SELECT applied_hlc FROM information_schema.database_applied_hlc WHERE database_name LIKE 'test'`
+
+--source include/rpl_connection_slave.inc
+--let $slave_applied_hlc = `SELECT applied_hlc FROM information_schema.database_applied_hlc WHERE database_name LIKE 'test'`
+
+--let $assert_cond= $master_applied_hlc = $slave_applied_hlc
+--let $assert_text= Master and Slave should have the same applied hlc on the test database
+--source include/assert.inc
+
 --source include/rpl_end.inc

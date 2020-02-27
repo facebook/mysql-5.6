@@ -1,0 +1,54 @@
+SET @@global.maintain_database_hlc = true;
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of '1'
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0
+SET @@global.enable_binlog_hlc = true;
+SELECT COUNT(@@GLOBAL.maintain_database_hlc);
+COUNT(@@GLOBAL.maintain_database_hlc)
+1
+SELECT COUNT(@@SESSION.maintain_database_hlc);
+ERROR HY000: Variable 'maintain_database_hlc' is a GLOBAL variable
+SELECT VARIABLE_NAME FROM performance_schema.global_variables WHERE VARIABLE_NAME='maintain_database_hlc';
+VARIABLE_NAME
+maintain_database_hlc
+SELECT VARIABLE_NAME FROM performance_schema.session_variables WHERE VARIABLE_NAME='maintain_database_hlc';
+VARIABLE_NAME
+maintain_database_hlc
+SET GLOBAL maintain_database_hlc= ON;
+include/assert.inc ['maintain_database_hlc is a dynamic variable']
+SET GLOBAL maintain_database_hlc= OFF;
+include/assert.inc ['maintain_database_hlc should be OFF']
+SET GLOBAL maintain_database_hlc= ON;
+include/assert.inc ['maintain_database_hlc should be ON']
+SET GLOBAL maintain_database_hlc= 0;
+include/assert.inc ['maintain_database_hlc should be OFF']
+SET GLOBAL maintain_database_hlc= 1;
+include/assert.inc ['maintain_database_hlc should be ON']
+SET GLOBAL maintain_database_hlc= DEFAULT;
+include/assert.inc ['maintain_database_hlc should be OFF']
+SET GLOBAL maintain_database_hlc= NULL;
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of 'NULL'
+SET GLOBAL maintain_database_hlc= '';
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of ''
+SET GLOBAL maintain_database_hlc= -1;
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of '-1'
+SET GLOBAL maintain_database_hlc= 1.0;
+ERROR 42000: Incorrect argument type to variable 'maintain_database_hlc'
+SET GLOBAL maintain_database_hlc= 'GARBAGE';
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of 'GARBAGE'
+SET GLOBAL maintain_database_hlc= 2;
+ERROR 42000: Variable 'maintain_database_hlc' can't be set to the value of '2'
+Expect value still set to "OFF"
+SELECT @@global.maintain_database_hlc;
+@@global.maintain_database_hlc
+0
+CREATE USER user1;
+SET GLOBAL maintain_database_hlc=ON;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO user1@'%';
+SET GLOBAL maintain_database_hlc=ON;
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM user1@'%';
+SET GLOBAL maintain_database_hlc=OFF;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+DROP USER user1;
