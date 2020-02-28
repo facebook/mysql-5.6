@@ -155,6 +155,14 @@ if ($use_sys_var) {
   }
 
   if ($slave_ddl) {
+    # on slave
+    --echo connection : $con_status([slave] : show status)
+    connection $con_status;
+    let $before_slave_high_priority_ddl_executed = query_get_value(
+        SHOW STATUS LIKE 'slave_high_priority_ddl_executed', Value, 1);
+    let $before_slave_high_priority_ddl_killed_connections = query_get_value(
+        SHOW STATUS LIKE 'slave_high_priority_ddl_killed_connections', Value, 1);
+
     --echo # execute DDL command on master
     echo connection $con_init;
     connection $con_init;
@@ -170,6 +178,18 @@ if ($use_sys_var) {
       --sorted_result
       --replace_column 1 # 3 # 5 # 6 # 7 # 8 # 9 # 10 # 11 #
       show processlist;
+
+      let $after_slave_high_priority_ddl_executed = query_get_value(
+        SHOW STATUS LIKE 'slave_high_priority_ddl_executed', Value, 1);
+      let $assert_text = high priority DDL should issue one kill;
+      let $assert_cond = $after_slave_high_priority_ddl_executed - $before_slave_high_priority_ddl_executed = 1;
+      source include/assert.inc;
+
+      let $after_slave_high_priority_ddl_killed_connections = query_get_value(
+        SHOW STATUS LIKE 'slave_high_priority_ddl_killed_connections', Value, 1);
+      let $assert_text = high priority DDL should be kill at least one connection;
+      let $assert_cond = ($after_slave_high_priority_ddl_killed_connections >= $before_slave_high_priority_ddl_killed_connections + 1);
+      source include/assert.inc;
     }
     if (!$should_kill) {
       --echo connection: $con_kill

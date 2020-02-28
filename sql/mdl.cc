@@ -2171,6 +2171,7 @@ bool MDL_lock::kill_conflicting_locks(MDL_context *ctx,
                                     enum_mdl_type kill_lower_than) {
   Ticket_iterator it(m_granted);
   MDL_ticket *conflicting_ticket;
+  THD *thd = ctx->get_owner()->get_thd();
 
   while ((conflicting_ticket= it++))
   {
@@ -2181,6 +2182,8 @@ bool MDL_lock::kill_conflicting_locks(MDL_context *ctx,
       // if any conflicting thread is not killed, stop and just return false
       if (!ctx->get_owner()->kill_shared_locks(conflicting_ctx->get_owner()))
         return false;
+      if (thd->slave_thread)
+        slave_high_priority_ddl_killed_connections++;
     }
   }
   return true;
@@ -2374,6 +2377,9 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
   if (wait_status == MDL_wait::EMPTY
       && kill_conflicting_connections_after_timeout_and_retry)
   {
+    if (thd->slave_thread) {
+      slave_high_priority_ddl_executed++;
+    }
     /*
      * If an upgradable shared metadata lock request (potentially from DDL) is
      * blocked and timed out, we may be able to kill the blocking connections
