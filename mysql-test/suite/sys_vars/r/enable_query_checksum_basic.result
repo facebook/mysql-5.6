@@ -1,0 +1,7 @@
+set @save_enable_query_checksum= @@global.enable_query_checksum;
+set @@global.enable_query_checksum = default;
+set @@global.enable_query_checksum = TRUE;
+select @@global.enable_query_checksum;
+@@global.enable_query_checksum
+1
+set @@global.enable_query_checksum = @save_enable_query_checksum;
