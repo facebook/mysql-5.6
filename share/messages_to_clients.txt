@@ -9977,6 +9977,12 @@ ER_CF_DROPPED
 ER_CANT_DROP_CF
   eng "Cannot drop Column family ('%s') because it is in use or does not exist."
 
+ER_QUERY_CHECKSUM_FAILED
+  eng "Expected query checksum %u but found %u"
+
+ER_PLACEHOLDER_50082
+  eng "Placeholder"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #
