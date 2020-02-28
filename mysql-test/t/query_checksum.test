@@ -1,0 +1,39 @@
+set @@global.enable_query_checksum = TRUE;
+
+# Add a checksum that fails
+query_attrs_add query_checksum 0;
+delimiter ||||;
+--error ER_QUERY_CHECKSUM_FAILED
+SELECT 1;SELECT 2;||||
+delimiter ;||||
+
+# Add a checksum that succeeds
+query_attrs_reset;
+query_attrs_add query_checksum 2629868284;
+delimiter ||||;
+SELECT 1;SELECT 2;||||
+delimiter ;||||
+
+# Add a checksum that succeeds, on a single query
+query_attrs_reset;
+query_attrs_add query_checksum 0078787420;
+delimiter ||||;
+SELECT 1;||||
+delimiter ;||||
+
+# Add a checksum that passes, with leading comment and trailing ;
+query_attrs_reset;
+query_attrs_add query_checksum 3498200060;
+delimiter ||||;
+/* */ SELECT 1;;||||
+delimiter ;||||
+
+# Add a checksum that fails, but the global variable is off
+query_attrs_reset;
+set @@global.enable_query_checksum = FALSE;
+query_attrs_add query_checksum 0;
+delimiter ||||;
+SELECT 1;SELECT 2;||||
+delimiter ;||||
+
+set @@global.enable_query_checksum = default;

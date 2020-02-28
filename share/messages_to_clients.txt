@@ -9587,6 +9587,12 @@ ER_PLACEHOLDER_50079
 ER_PLACEHOLDER_50080
   eng "Placeholder"
 
+ER_QUERY_CHECKSUM_FAILED
+  eng "Expected query checksum %u but found %u"
+
+ER_PLACEHOLDER_50082
+  eng "Placeholder"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #
