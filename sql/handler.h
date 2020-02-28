@@ -2701,6 +2701,12 @@ struct HA_CREATE_INFO {
   bool m_hidden{false};
 
   /**
+    Contains the actual user table which is being altered. If the system tables
+    are being altered, then this will be empty.
+  */
+  std::string actual_user_table_name{};
+
+  /**
     Fill HA_CREATE_INFO to be used by ALTER as well as upgrade code.
     This function separates code from mysql_prepare_alter_table() to be
     used by upgrade code as well to reduce code duplication.
