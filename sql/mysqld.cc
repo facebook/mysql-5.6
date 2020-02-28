@@ -1142,6 +1142,9 @@ ulonglong minimum_hlc_ns = 0;
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 ulonglong maximum_hlc_drift_ns = 0;
 
+/* Enable query checksum validation for queries with a checksum sent */
+bool enable_query_checksum = false;
+
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */

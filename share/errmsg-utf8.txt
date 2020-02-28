@@ -19924,6 +19924,9 @@ ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE
 ER_DB_ADMISSION_CONTROL
   eng "Maximum waiting queries %lu reached for database `%s`"
 
+ER_QUERY_CHECKSUM_FAILED
+  eng "Expected query checksum %u but found %u"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

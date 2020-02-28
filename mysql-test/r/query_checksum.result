@@ -1,0 +1,21 @@
+set @@global.enable_query_checksum = TRUE;
+SELECT 1;SELECT 2;||||
+ERROR HY000: Expected query checksum 0 but found 2629868284
+SELECT 1;SELECT 2;||||
+1
+1
+2
+2
+SELECT 1;||||
+1
+1
+/* */ SELECT 1;;||||
+1
+1
+set @@global.enable_query_checksum = FALSE;
+SELECT 1;SELECT 2;||||
+1
+1
+2
+2
+set @@global.enable_query_checksum = default;

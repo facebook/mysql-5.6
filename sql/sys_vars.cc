@@ -7499,6 +7499,12 @@ static Sys_var_bool Sys_rpl_slave_flow_control(
     "slave instance will be enabled. Does not affect master instance",
     GLOBAL_VAR(rpl_slave_flow_control), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_enable_query_checksum(
+    "enable_query_checksum", "Enable query checksums for queries that have "
+    "the query_checksum query attribute set. Uses a CRC32 checksum of the "
+    "query contents, but not the attributes",
+    GLOBAL_VAR(enable_query_checksum), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static const char *query_cache_type_names[] = {"OFF", "ON", "DEMAND", 0};
 
 /* Following variables are kept for compat of existing Java 5.6 clients */

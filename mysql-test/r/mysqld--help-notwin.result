@@ -328,6 +328,10 @@ The following options may be given as the first argument:
  name and library is the plugin library in plugin_dir.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
+ --enable-query-checksum 
+ Enable query checksums for queries that have the
+ query_checksum query attribute set. Uses a CRC32 checksum
+ of the query contents, but not the attributes
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -2209,6 +2213,7 @@ disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
 enable-binlog-hlc FALSE
+enable-query-checksum FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 200
