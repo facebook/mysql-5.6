@@ -324,6 +324,7 @@ class ha_rocksdb : public my_core::handler {
 
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
+                      const std::string &actual_user_table_name,
                       const TABLE *const old_table_arg = nullptr,
                       const Rdb_tbl_def *const old_tbl_def_arg = nullptr) const
       MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
@@ -714,6 +715,7 @@ class ha_rocksdb : public my_core::handler {
   };
 
   int create_cfs(const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
+                 const std::string &actual_user_table_name,
                  std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs)
       const MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -916,8 +918,9 @@ class ha_rocksdb : public my_core::handler {
   int create(const char *const name, TABLE *const form,
              HA_CREATE_INFO *const create_info, dd::Table *table_def) override
       MY_ATTRIBUTE((__warn_unused_result__));
-  int create_table(const std::string &table_name, const TABLE *table_arg,
-                   ulonglong auto_increment_value);
+  int create_table(const std::string &table_name,
+                   const std::string &actual_user_table_name,
+                   const TABLE *table_arg, ulonglong auto_increment_value);
   bool check_if_incompatible_data(HA_CREATE_INFO *const info,
                                   uint table_changes) override
       MY_ATTRIBUTE((__warn_unused_result__));

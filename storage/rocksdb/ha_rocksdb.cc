@@ -7770,6 +7770,8 @@ static bool rdb_is_index_collation_supported(
     table_arg        Table with definition
     db_table         "dbname.tablename"
     len              strlen of the above
+    actual_user_table_name actual table name in case of alter
+                     table copy algorithm
     tbl_def_arg      tbl_def whose key_descr is being created/populated
     old_tbl_def_arg  tbl_def from which keys are being copied over from
                      (for use during inplace alter)
@@ -7780,6 +7782,7 @@ static bool rdb_is_index_collation_supported(
 */
 int ha_rocksdb::create_key_defs(
     const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
+    const std::string &actual_user_table_name,
     const TABLE *const old_table_arg /* = nullptr */,
     const Rdb_tbl_def *const old_tbl_def_arg
     /* = nullptr */) const {
@@ -7799,7 +7802,7 @@ int ha_rocksdb::create_key_defs(
     allocated to each key definition. See below for more details.
     http://github.com/MySQLOnRocksDB/mysql-5.6/issues/86#issuecomment-138515501
   */
-  if (create_cfs(table_arg, tbl_def_arg, &cfs)) {
+  if (create_cfs(table_arg, tbl_def_arg, actual_user_table_name, &cfs)) {
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
@@ -7871,7 +7874,8 @@ int ha_rocksdb::create_key_defs(
     table_arg     Table with definition
     db_table      Table name
     tbl_def_arg   Table def structure being populated
-
+    actual_user_table_name actual table name in case
+                   of alter table copy algorithm
   @param out
     cfs           CF info for each key definition in 'key_info' order
 
@@ -7881,16 +7885,18 @@ int ha_rocksdb::create_key_defs(
 */
 int ha_rocksdb::create_cfs(
     const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
+    const std::string &actual_user_table_name,
     std::array<struct key_def_cf_info, MAX_INDEXES + 1> *const cfs) const {
   DBUG_ENTER_FUNC();
 
   assert(table_arg->s != nullptr);
 
   char tablename_sys[NAME_LEN + 1];
-
   my_core::filename_to_tablename(tbl_def_arg->base_tablename().c_str(),
                                  tablename_sys, sizeof(tablename_sys));
 
+  std::string table_with_enforced_collation =
+      actual_user_table_name.empty() ? tablename_sys : actual_user_table_name;
   uint primary_key_index = pk_index(table_arg, tbl_def_arg);
 
   /*
@@ -7899,15 +7905,25 @@ int ha_rocksdb::create_cfs(
   */
   for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
-
+    /*
+     Few key points -
+      1) Functionality supported below is the collation check on user_tables
+      coming from create and alter table code path. Any tmp_tables which are
+     created outside of alter table code path shouldn't have collation check. 2)
+     actual_user_table_name field is only set in the alter table code which
+      contains the name of actual table being altered. This is required because
+      alter table copy algorithm passes tmp table as table name and due to which
+      we miss some collation checks.
+    */
     if (rocksdb_strict_collation_check &&
         !is_hidden_pk(i, table_arg, tbl_def_arg) &&
-        tbl_def_arg->base_tablename().find(tmp_file_prefix) != 0) {
+        (tbl_def_arg->base_tablename().find(tmp_file_prefix) != 0 ||
+         !actual_user_table_name.empty())) {
       for (uint part = 0; part < table_arg->key_info[i].actual_key_parts;
            part++) {
         if (!rdb_is_index_collation_supported(
                 table_arg->key_info[i].key_part[part].field) &&
-            !rdb_collation_exceptions->matches(tablename_sys)) {
+            !rdb_collation_exceptions->matches(table_with_enforced_collation)) {
           std::string collation_err;
           for (const auto &coll : RDB_INDEX_COLLATIONS) {
             if (collation_err != "") {
@@ -7915,7 +7931,6 @@ int ha_rocksdb::create_cfs(
             }
             collation_err += coll->m_coll_name;
           }
-
           if (rocksdb_error_on_suboptimal_collation) {
             my_error(ER_UNSUPPORTED_COLLATION, MYF(0),
                      tbl_def_arg->full_tablename().c_str(),
@@ -8438,16 +8453,19 @@ int rdb_split_normalized_tablename(const std::string &fullname,
  into MyRocks Data Dictionary
  The method is called during create table/partition, truncate table/partition
 
- @param table_name            IN      table's name formated as
+ @param table_name             IN      table's name formated as
  'dbname.tablename'
- @param table_arg             IN      sql table
- @param auto_increment_value  IN      specified table's auto increment value
+ @param actual_user_table_name IN      actual table name in case
+ of alter table copy algorithm
+ @param table_arg              IN      sql table
+ @param auto_increment_value   IN      specified table's auto increment value
 
   @return
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
 */
 int ha_rocksdb::create_table(const std::string &table_name,
+                             const std::string &actual_user_table_name,
                              const TABLE *table_arg,
                              ulonglong auto_increment_value) {
   DBUG_ENTER_FUNC();
@@ -8477,7 +8495,7 @@ int ha_rocksdb::create_table(const std::string &table_name,
   m_tbl_def->m_key_count = n_keys;
   m_tbl_def->m_key_descr_arr = m_key_descr_arr;
 
-  err = create_key_defs(table_arg, m_tbl_def);
+  err = create_key_defs(table_arg, m_tbl_def, actual_user_table_name);
   if (err != HA_EXIT_SUCCESS) {
     goto error;
   }
@@ -8604,8 +8622,8 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
       DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
     }
   }
-
-  DBUG_RETURN(create_table(str, table_arg, create_info->auto_increment_value));
+  DBUG_RETURN(create_table(str, create_info->actual_user_table_name, table_arg,
+                           create_info->auto_increment_value));
 }
 
 /**
@@ -11531,7 +11549,7 @@ int ha_rocksdb::truncate(dd::Table *table_def MY_ATTRIBUTE((unused))) {
   // Reset auto_increment_value to 1 if auto-increment feature is enabled
   // By default, the starting valid value for auto_increment_value is 1
   DBUG_RETURN(create_table(
-      table_name, table,
+      table_name, "" /*actual_user_table_name*/, table,
       table->found_next_number_field ? 1 : 0 /* auto_increment_value */));
 }
 
@@ -13580,7 +13598,8 @@ bool ha_rocksdb::prepare_inplace_alter_table(
     new_tdef->m_hidden_pk_val =
         m_tbl_def->m_hidden_pk_val.load(std::memory_order_relaxed);
 
-    if (create_key_defs(altered_table, new_tdef, table, m_tbl_def)) {
+    if (create_key_defs(altered_table, new_tdef, "" /*actual_user_table_name*/,
+                        table, m_tbl_def)) {
       /* Delete the new key descriptors */
       delete[] new_key_descr;
 
