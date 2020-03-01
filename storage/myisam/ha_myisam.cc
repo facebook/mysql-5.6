@@ -183,6 +183,7 @@ static void mi_check_print_msg(MI_CHECK *param,	const char* msg_type,
   protocol->store(param->op_name, system_charset_info);
   protocol->store(msg_type, system_charset_info);
   protocol->store(msgbuf, msg_length, system_charset_info);
+  protocol->update_checksum();
   if (protocol->write())
     sql_print_error("Failed on my_net_write, writing to stderr instead: %s\n",
 		    msgbuf);

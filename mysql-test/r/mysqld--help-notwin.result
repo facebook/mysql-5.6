@@ -287,6 +287,11 @@ The following options may be given as the first argument:
  Enable query checksums for queries that have the
  query_checksum query attribute set. Uses a CRC32 checksum
  of the query contents, but not the attributes
+ --enable-resultset-checksum 
+ Enable resultset checksums for results on queries which
+ have the checksum query attribute key set to any value.
+ Uses a CRC32 checksum of the resultset rows and field
+ metadata
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -2147,6 +2152,7 @@ enable-blind-replace FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE
 enable-jemalloc-hpp OFF
 enable-query-checksum FALSE
+enable-resultset-checksum FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 10

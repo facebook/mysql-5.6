@@ -2099,6 +2099,7 @@ bool mysql_xa_recover(THD *thd)
       protocol->store_longlong((longlong)xs->xid.bqual_length, FALSE);
       protocol->store(xs->xid.data, xs->xid.gtrid_length+xs->xid.bqual_length,
                       &my_charset_bin);
+      protocol->update_checksum();
       if (protocol->write())
       {
         mysql_mutex_unlock(&LOCK_xid_cache);
@@ -7669,6 +7670,7 @@ static bool stat_print(THD *thd, const char *type, uint type_len,
   protocol->store(type, type_len, system_charset_info);
   protocol->store(file, file_len, system_charset_info);
   protocol->store(status, status_len, system_charset_info);
+  protocol->update_checksum();
   if (protocol->write())
     return TRUE;
   return FALSE;

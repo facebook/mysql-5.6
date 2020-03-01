@@ -463,6 +463,7 @@ int send_answer_1(Protocol *protocol, String *s1, String *s2, String *s3)
   protocol->store(s1);
   protocol->store(s2);
   protocol->store(s3);
+  protocol->update_checksum();
   if (protocol->write())
     DBUG_RETURN(-1);
   DBUG_RETURN(0);
@@ -561,6 +562,7 @@ int send_variant_2_list(MEM_ROOT *mem_root, Protocol *protocol,
       protocol->store(source_name);
     protocol->store(*pos);
     protocol->store(cat,1,&my_charset_latin1);
+    protocol->update_checksum();
     if (protocol->write())
       DBUG_RETURN(-1);
   }
@@ -824,4 +826,3 @@ error:
 error2:
   DBUG_RETURN(TRUE);
 }
-

@@ -6647,3 +6647,9 @@ static Sys_var_mybool Sys_enable_query_checksum(
        "the query_checksum query attribute set. Uses a CRC32 checksum of the "
        "query contents, but not the attributes",
        GLOBAL_VAR(enable_query_checksum), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_enable_resultset_checksum(
+       "enable_resultset_checksum", "Enable resultset checksums for results "
+       "on queries which have the checksum query attribute key set to any value. "
+       "Uses a CRC32 checksum of the resultset rows and field metadata",
+       GLOBAL_VAR(enable_resultset_checksum), CMD_LINE(OPT_ARG), DEFAULT(FALSE));

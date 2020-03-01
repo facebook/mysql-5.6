@@ -7387,7 +7387,10 @@ ER_DB_ADMISSION_CONTROL_TIMEOUT
   eng "Got timeout while waiting on admission control queue for database `%s`"
 
 ER_QUERY_CHECKSUM_FAILED
-  eng "Expected query checksum %u but found %u"
+  eng "Expected query checksum %lu but found %lu"
+
+ER_RESULTSET_CHECKSUM_FAILED
+  eng "Expected resultset checksum %lu but found %lu"
 
 #
 #  End of 5.6 error messages.

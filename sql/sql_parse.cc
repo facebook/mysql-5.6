@@ -1911,7 +1911,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
     // Check checksum if enabled
     if (enable_query_checksum) {
-      auto it = thd->query_attrs_map.find("query_checksum");
+      auto it = thd->query_attrs_map.find("checksum");
       if (it != thd->query_attrs_map.end()) {
         unsigned long checksum = crc32(0, (const uchar *)packet, packet_length);
         unsigned long expected = std::stoul(it->second);
@@ -3315,6 +3315,7 @@ static int show_memory_status(THD* thd)
 #endif
 
   protocol->store(buf, mstat.cur - buf, system_charset_info);
+  protocol->update_checksum();
   if (protocol->write())
   {
     my_free((void*)buf);

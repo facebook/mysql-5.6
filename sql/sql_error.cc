@@ -904,6 +904,7 @@ bool mysqld_show_warnings(THD *thd, ulong levels_to_show)
     protocol->store(err->get_message_text(),
                     err->get_message_octet_length(),
                     system_charset_info);
+    protocol->update_checksum();
     if (protocol->write())
       DBUG_RETURN(TRUE);
   }

@@ -828,6 +828,7 @@ retry:
       if (protocol->send_result_set_row(&list))
         goto err;
 
+      protocol->update_checksum();
       protocol->write();
     }
     num_rows++;
@@ -1099,4 +1100,3 @@ void mysql_ha_set_explicit_lock_duration(THD *thd)
   }
   DBUG_VOID_RETURN;
 }
-

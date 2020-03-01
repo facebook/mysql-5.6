@@ -1,0 +1,93 @@
+Disabling async client mode due to missing deprecate EOF support
+SET @@global.enable_resultset_checksum = ON;
+SET @@session.session_track_response_attributes = ON;
+Creating a table for later tests
+CREATE TABLE data (`a` VARCHAR(1024), `b` TEXT, `c` INT);
+No Checksum: ;
+Check charset, which impacts encoding and thus checksums
+SET NAMES 'latin1';
+No Checksum: ;
+SELECT @@session.character_set_client;
+@@session.character_set_client
+latin1
+Verify SELECTS of variables
+SELECT @@session.character_set_connection;
+@@session.character_set_connection
+latin1
+Checksum: 4050038247;
+Add some dummy data
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 0);
+No Checksum: ;
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 1);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 2);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 3);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 4);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 5);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 6);
+Verify multiple fields in a single row
+SELECT * FROM data WHERE c = 1;
+a	b	c
+testing	result checksums	1
+Checksum: 1134867259;
+Verify multiple fields in multiple rows
+SELECT * FROM data ORDER BY c;
+a	b	c
+testing	result checksums	0
+testing	result checksums	1
+testing	result checksums	2
+testing	result checksums	3
+testing	result checksums	4
+testing	result checksums	5
+testing	result checksums	6
+Checksum: 4204762635;
+Verify single massive result row
+Checksum: 2814945955;
+Verify multiple massive rows
+Checksum: 176055520;
+Test around 16MB packet boundaries
+Checksum: 3202030106;
+Checksum: 2179054481;
+Checksum: 2748156630;
+Checksum: 640993816;
+Checksum: 2922407091;
+Checksum: 734602365;
+Checksum: 643007977;
+Several random row sizes
+SELECT REPEAT('a', 255);
+REPEAT('a', 255)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 4191591457;
+SELECT REPEAT('a', 256);
+REPEAT('a', 256)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 3392328935;
+SELECT REPEAT('a', 257);
+REPEAT('a', 257)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 1145043731;
+verify SHOW SLAVE HOSTS output
+SHOW SLAVE HOSTS;
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+Checksum: 632412535;
+Verify SHOW TABLES output
+SHOW TABLES;
+Tables_in_test
+data
+Checksum: 3773333103;
+Verify SHOW MASTER STATUS output
+SHOW MASTER STATUS;
+File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
+Checksum: 861427861;
+Verify SHOW GRANTS output
+SHOW GRANTS;
+Grants for root@localhost
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+Checksum: 2862822845;
+Verify CHECK TABLE output
+CHECK TABLE data;
+Table	Op	Msg_type	Msg_text
+test.data	check	status	OK
+Checksum: 2020821564;
+SET @@global.enable_resultset_checksum = default;
+DROP TABLE data;

@@ -403,6 +403,7 @@ bool show_slave_hosts(THD* thd)
     else
       protocol->store("", &my_charset_bin);
 
+    protocol->update_checksum();
     if (protocol->write())
     {
       mysql_mutex_unlock(&LOCK_slave_list);
@@ -3381,6 +3382,7 @@ bool show_master_offset(THD* thd, snapshot_info_st &ss_info, bool *need_ok)
     protocol->store(ss_info.snapshot_hlc);
   }
 
+  protocol->update_checksum();
   if (protocol->write())
     DBUG_RETURN(TRUE);
 
@@ -3448,6 +3450,7 @@ bool show_master_status(THD* thd)
     protocol->store(binlog_filter->get_do_db());
     protocol->store(binlog_filter->get_ignore_db());
     protocol->store(gtid_set_buffer, &my_charset_bin);
+    protocol->update_checksum();
     if (protocol->write())
     {
       my_free(gtid_set_buffer);
@@ -3565,6 +3568,7 @@ bool show_binlogs(THD* thd, bool with_gtid)
       }
     }
 
+    protocol->update_checksum();
     if (protocol->write())
     {
       DBUG_PRINT("info", ("stopping dump thread because protocol->write failed at line %d", __LINE__));
@@ -3687,7 +3691,7 @@ bool find_gtid_position(THD *thd)
   protocol->prepare_for_resend();
   protocol->store(log_name, strlen(log_name), &my_charset_bin);
   protocol->store(gtid_pos);
-
+  protocol->update_checksum();
   if (protocol->write())
   {
     DBUG_PRINT("info", ("protocol->write failed inf find_gtid_position()"));

@@ -30,6 +30,8 @@ using std::min;
 using std::max;
 
 static const unsigned int PACKET_BUFFER_EXTRA_ALLOC= 1024;
+static const char* CHECKSUM = "checksum";
+
 /* Declared non-static only because of the embedded library. */
 bool net_send_error_packet(THD *, THD *, uint, const char *, const char *);
 /* Declared non-static only because of the embedded library. */
@@ -624,6 +626,21 @@ void Protocol::end_statement(const THD* status_thd)
   if (thd->get_stmt_da()->is_sent())
     DBUG_VOID_RETURN;
 
+  auto* tracker = sess_thd->get_tracker();
+  auto* sess_tracker = tracker->get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (should_record_checksum && sess_tracker->is_enabled()) {
+    /* Record the resultset checksum */
+    char chksum[32];
+    snprintf(chksum, 32, "%lu", checksum);
+    LEX_CSTRING key = {CHECKSUM, strlen(CHECKSUM)};
+    LEX_CSTRING value = {chksum, strlen(chksum)};
+    sess_tracker->mark_as_changed(thd, &key, &value);
+  }
+
+  /* Reset checksum for next resultset */
+  checksum = 0;
+  should_record_checksum = false;
+
   switch (thd->get_stmt_da()->status()) {
   case Diagnostics_area::DA_ERROR:
     /* The query failed, send error to log and abort bootstrap. */
@@ -799,6 +816,7 @@ void Protocol::init(THD *thd_arg)
 
 void Protocol::reset()
 {
+  should_record_checksum = false;
   packet= &thd->packet;
   convert= &thd->convert_buffer;
 #ifndef DBUG_OFF
@@ -928,6 +946,11 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
   const CHARSET_INFO *thd_charset= sess_thd->variables.character_set_results;
   DBUG_ENTER("send_result_set_metadata");
 
+  const auto &query_attrs = thd->query_attrs_map;
+  should_record_checksum = enable_resultset_checksum &&
+                           query_attrs.find("checksum") != query_attrs.end();
+  checksum = 0;
+
   if (flags & SEND_NUM_ROWS)
   {				// Packet with number of elements
     uchar *pos= net_store_length(buff, list->elements);
@@ -1030,6 +1053,9 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
       item->send(&prot, &tmp);			// Send default value
     if (prot.write())
       DBUG_RETURN(1);
+
+    // Update the checksum with the field metadata row
+    checksum = crc32(checksum, (uchar*)local_packet->ptr(), local_packet->length());
 #ifndef DBUG_OFF
     field_types[count++]= field.type;
 #endif
@@ -1065,8 +1091,15 @@ bool Protocol::write()
   DBUG_RETURN(my_net_write(thd->get_net(), (uchar*) packet->ptr(),
                            packet->length()));
 }
+
 #endif /* EMBEDDED_LIBRARY */
 
+void Protocol::update_checksum() {
+  DBUG_ENTER("Protocol::update_checksum");
+  if (should_record_checksum)
+    checksum = crc32(checksum, (uchar*) packet->ptr(), packet->length());
+  DBUG_VOID_RETURN;
+}
 
 /**
   Send one result set row.

@@ -1602,6 +1602,7 @@ bool sp_head::show_create_routine(THD *thd, enum_sp_type type)
   protocol->store(m_creation_ctx->get_connection_cl()->name, system_charset_info);
   protocol->store(m_creation_ctx->get_db_cl()->name, system_charset_info);
 
+  protocol->update_checksum();
   err_status= protocol->write();
 
   if (!err_status)
@@ -1779,6 +1780,7 @@ bool sp_head::show_routine_code(THD *thd)
     buffer.set("", 0, system_charset_info);
     i->print(&buffer);
     protocol->store(buffer.ptr(), buffer.length(), system_charset_info);
+    protocol->update_checksum();
     if ((res= protocol->write()))
       break;
   }

@@ -3559,15 +3559,14 @@ bool show_slave_status(THD* thd, Master_info* mi)
     protocol->store(mi->ssl_actual_cipher, &my_charset_bin);
     protocol->store(mi->ssl_master_issuer, &my_charset_bin);
     protocol->store(mi->ssl_master_subject, &my_charset_bin);
+    protocol->update_checksum();
 
     mysql_mutex_unlock(&mi->rli->err_lock);
     mysql_mutex_unlock(&mi->err_lock);
     mysql_mutex_unlock(&mi->rli->data_lock);
     mysql_mutex_unlock(&mi->data_lock);
 
-    String* packet = protocol->storage_packet();
-    if (my_net_write(protocol->get_thd()->get_net(), (uchar*) packet->ptr(),
-                     packet->length()))
+    if (protocol->write())
     {
       my_free(sql_gtid_set_buffer);
       my_free(io_gtid_set_buffer);

@@ -434,6 +434,9 @@ extern ulonglong maximum_hlc_drift_ns;
 /* Enable query checksum validation for queries with a checksum sent */
 extern my_bool enable_query_checksum;
 
+/* Enable resultset checksum validation when enabled by query attr */
+extern my_bool enable_resultset_checksum;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */

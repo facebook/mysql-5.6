@@ -489,6 +489,7 @@ bool PROFILING::show_profiles()
     else
       protocol->store_null();
 
+    protocol->update_checksum();
     if (protocol->write())
       DBUG_RETURN(TRUE);
   }

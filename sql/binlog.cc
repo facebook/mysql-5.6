@@ -2971,6 +2971,7 @@ bool show_gtid_executed(THD *thd)
     DBUG_RETURN(TRUE);
   protocol->prepare_for_resend();
   protocol->store(gtid_executed_string, &my_charset_bin);
+  protocol->update_checksum();
   if (protocol->write())
     DBUG_RETURN(TRUE);
 

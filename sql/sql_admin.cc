@@ -39,6 +39,7 @@ static int send_check_errmsg(THD *thd, TABLE_LIST* table,
   protocol->store(STRING_WITH_LEN("error"), system_charset_info);
   protocol->store(errmsg, system_charset_info);
   thd->clear_error();
+  protocol->update_checksum();
   if (protocol->write())
     return -1;
   return 1;
@@ -546,6 +547,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       */
       lex->sql_command= save_sql_command;
       table->table=0;				// For query cache
+      protocol->update_checksum();
       if (protocol->write())
 	goto err;
       thd->get_stmt_da()->reset_diagnostics_area();
@@ -591,6 +593,7 @@ static bool mysql_admin_table(THD* thd, TABLE_LIST* tables,
       protocol->store(STRING_WITH_LEN("warning"), system_charset_info);
       protocol->store(STRING_WITH_LEN("Table is marked as crashed"),
                       system_charset_info);
+      protocol->update_checksum();
       if (protocol->write())
         goto err;
       /* purecov: end */
@@ -665,6 +668,7 @@ send_result:
                         warning_level_names[err->get_level()].length,
                         system_charset_info);
         protocol->store(err->get_message_text(), system_charset_info);
+        protocol->update_checksum();
         if (protocol->write())
           goto err;
       }
@@ -780,6 +784,7 @@ send_result_message:
         "Table does not support optimize, doing recreate + analyze instead"),
         system_charset_info);
       }
+      protocol->update_checksum();
       if (protocol->write())
         goto err;
       DBUG_PRINT("info", ("HA_ADMIN_TRY_ALTER, trying analyze..."));
@@ -848,6 +853,7 @@ send_result_message:
             /* Hijack the row already in-progress. */
             protocol->store(STRING_WITH_LEN("error"), system_charset_info);
             protocol->store(err_msg, system_charset_info);
+            protocol->update_checksum();
             if (protocol->write())
               goto err;
             /* Start off another row for HA_ADMIN_FAILED */
@@ -964,6 +970,7 @@ send_result_message:
          rt; rt= rt->next)
       rt->mdl_request.ticket= NULL;
 
+    protocol->update_checksum();
     if (protocol->write())
       goto err;
   }

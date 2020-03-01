@@ -39,6 +39,8 @@ protected:
   enum enum_field_types *field_types;
 #endif
   uint field_count;
+  unsigned long checksum;
+  bool should_record_checksum;
 #ifndef EMBEDDED_LIBRARY
   bool net_store_data(const uchar *from, size_t length);
 #else
@@ -82,6 +84,10 @@ public:
   String *storage_packet() { return packet; }
   inline void free() { packet->free(); }
   virtual bool write();
+  /*
+   * Must be called before sending each row or piece of metadata
+   */
+  void update_checksum();
   inline  bool store(int from)
   { return store_long((longlong) from); }
   inline  bool store(uint32 from)

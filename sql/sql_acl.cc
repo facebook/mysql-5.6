@@ -6816,6 +6816,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
     }
     protocol->prepare_for_resend();
     protocol->store(global.ptr(),global.length(),global.charset());
+    protocol->update_checksum();
     if (protocol->write())
     {
       error= -1;
@@ -6883,6 +6884,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
 	  db.append(STRING_WITH_LEN(" WITH GRANT OPTION"));
 	protocol->prepare_for_resend();
 	protocol->store(db.ptr(),db.length(),db.charset());
+  protocol->update_checksum();
 	if (protocol->write())
 	{
 	  error= -1;
@@ -6998,6 +7000,7 @@ bool mysql_show_grants(THD *thd,LEX_USER *lex_user)
 	  global.append(STRING_WITH_LEN(" WITH GRANT OPTION"));
 	protocol->prepare_for_resend();
 	protocol->store(global.ptr(),global.length(),global.charset());
+  protocol->update_checksum();
 	if (protocol->write())
 	{
 	  error= -1;
@@ -7110,6 +7113,7 @@ static int show_routine_grants(THD* thd, LEX_USER *lex_user, HASH *hash,
 	  global.append(STRING_WITH_LEN(" WITH GRANT OPTION"));
 	protocol->prepare_for_resend();
 	protocol->store(global.ptr(),global.length(),global.charset());
+  protocol->update_checksum();
 	if (protocol->write())
 	{
 	  error= -1;
@@ -9111,6 +9115,7 @@ show_proxy_grants(THD *thd, LEX_USER *user, char *buff, size_t buffsize)
       proxy->print_grant(&global);
       protocol->prepare_for_resend();
       protocol->store(global.ptr(), global.length(), global.charset());
+      protocol->update_checksum();
       if (protocol->write())
       {
         error= -1;
@@ -12818,4 +12823,3 @@ validate_user_plugin_records()
 }
 
 #endif // NO_EMBEDDED_ACCESS_CHECKS
-

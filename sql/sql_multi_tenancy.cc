@@ -499,6 +499,7 @@ static void store_counter(Protocol *protocol,
     protocol->store(type_str, system_charset_info);
     protocol->store_long((longlong) limit);
     protocol->store_long((longlong) count);
+    protocol->update_checksum();
     protocol->write();
   }
 }

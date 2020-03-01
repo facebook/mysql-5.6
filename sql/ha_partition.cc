@@ -1453,6 +1453,7 @@ static bool print_admin_msg(THD* thd, uint len,
   protocol->store(op_name, system_charset_info);
   protocol->store(msg_type, system_charset_info);
   protocol->store(msgbuf, msg_length, system_charset_info);
+  protocol->update_checksum();
   if (protocol->write())
   {
     sql_print_error("Failed on my_net_write, writing to stderr instead: %s\n",

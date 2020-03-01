@@ -334,6 +334,7 @@ bool mysqld_show_privileges(THD *thd)
     protocol->store(privilege->privilege, system_charset_info);
     protocol->store(privilege->context, system_charset_info);
     protocol->store(privilege->comment, system_charset_info);
+    protocol->update_checksum();
     if (protocol->write())
       DBUG_RETURN(TRUE);
   }
@@ -965,7 +966,7 @@ mysqld_show_create(THD *thd, TABLE_LIST *table_list)
   }
   else
     protocol->store(buffer.ptr(), buffer.length(), buffer.charset());
-
+  protocol->update_checksum();
   if (protocol->write())
     goto exit;
 
@@ -1087,7 +1088,7 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     buffer.append(STRING_WITH_LEN(" */"));
 
   protocol->store(buffer.ptr(), buffer.length(), buffer.charset());
-
+  protocol->update_checksum();
   if (protocol->write())
     DBUG_RETURN(TRUE);
   my_eof(thd);
@@ -2570,6 +2571,7 @@ static void store_result_field_srv_sessions(Protocol *protocol,
   protocol->store_long((longlong) thd_info->rows_sent);
   protocol->store((ulonglong) thd_info->system_thread_id);
   protocol->store((ulonglong) thd_info->attached_thd_id);
+  protocol->update_checksum();
 }
 
 static void store_result_field_transaction_list(Protocol *protocol,
@@ -2585,6 +2587,7 @@ static void store_result_field_transaction_list(Protocol *protocol,
   protocol->store((longlong) (!thd_info->rw_trans)); /* Read_only */
   protocol->store((longlong) thd_info->sql_log_bin);
   protocol->store((ulonglong) thd_info->attached_thd_id);
+  protocol->update_checksum();
 }
 
 static void store_result_field_connection_attrs(Protocol *protocol,
@@ -2606,7 +2609,7 @@ static void store_result_field_connection_attrs(Protocol *protocol,
       protocol->store(attribute->key_string.str(), system_charset_info);
       // ATTR_VALUE
       protocol->store(attribute->val_string.str(), system_charset_info);
-
+      protocol->update_checksum();
       if (protocol->write())
         break;
     }
@@ -3066,6 +3069,7 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
         DBUG_ASSERT(0);
     }
 
+    protocol->update_checksum();
     if (protocol->write())
       break; /* purecov: inspected */
   }
@@ -10511,6 +10515,8 @@ static bool show_create_trigger_impl(THD *thd,
   p->store(trg_db_cl_name.str,
            trg_db_cl_name.length,
            system_charset_info);
+
+  p->update_checksum();
 
   ret_code= p->write();
 

@@ -2538,8 +2538,8 @@ cli_read_rows_nonblocking(MYSQL *mysql,
   *mysql->prev_row_ptr=0;			/* last pointer is null */
   if (pkt_len > 1)				/* MySQL 4.1 protocol */
   {
-    mysql->warning_count= uint2korr(cp+1);
-    mysql->server_status= uint2korr(cp+3);
+    mysql->warning_count= uint2korr(cp + 1);
+    mysql->server_status= uint2korr(cp + 3);
     DBUG_PRINT("info",("status: %u  warning_count:  %u",
 		       mysql->server_status, mysql->warning_count));
   }

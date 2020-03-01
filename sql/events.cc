@@ -705,6 +705,7 @@ send_show_create_event(THD *thd, Event_timed *et, Protocol *protocol)
                   strlen(et->creation_ctx->get_db_cl()->name),
                   system_charset_info);
 
+  protocol->update_checksum();
   if (protocol->write())
     DBUG_RETURN(TRUE);
 

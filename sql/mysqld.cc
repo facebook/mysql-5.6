@@ -1160,6 +1160,9 @@ ulonglong maximum_hlc_drift_ns= 0;
 /* Enable query checksum validation for queries with a checksum sent */
 my_bool enable_query_checksum= FALSE;
 
+/* Enable resultset checksum validation when enabled by query attr */
+my_bool enable_resultset_checksum= FALSE;
+
 std::unique_ptr<HHWheelTimer> hhWheelTimer;
 
 /*

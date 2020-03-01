@@ -1330,6 +1330,7 @@ bool inline select_exec::send_row() {
   m_rows_sent++;
 
   if (m_thd->vio_ok()) {
+    m_protocol->update_checksum();
     return m_protocol->write();
   }
 

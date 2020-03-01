@@ -9869,7 +9869,7 @@ bool mysql_checksum_table(THD *thd, TABLE_LIST *tables,
 
     /* Hide errors from client. Return NULL for problematic tables instead. */
     thd->clear_error();
-
+    protocol->update_checksum();
     if (protocol->write())
       goto err;
   }

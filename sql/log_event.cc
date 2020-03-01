@@ -1011,6 +1011,7 @@ int Log_event::net_send(Protocol *protocol, const char* log_name, my_off_t pos)
   protocol->store((ulonglong) log_pos);
   if (pack_info(protocol))
     return 1;
+  protocol->update_checksum();
   return protocol->write();
 }
 
@@ -1027,6 +1028,7 @@ int Log_event::net_send(Protocol *protocol)
   protocol->store((uint32) server_id);
   if (pack_info(protocol))
     return 1;
+  protocol->update_checksum();
   return protocol->write();
 }
 #endif /* HAVE_REPLICATION */

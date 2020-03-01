@@ -592,6 +592,7 @@ int ExecutionContextImpl::send_metadata() {
           system_charset_info, thd->variables.character_set_results);
     }
 
+    thd->protocol->update_checksum();
     if (res || thd->protocol->write()) {
       m_fatal = true;
       return EC_NET_ERR;
@@ -631,6 +632,7 @@ int ExecutionContextImpl::send_row() {
     }
   }
 
+  thd->protocol->update_checksum();
   if (thd->protocol->write()) {
     m_fatal = true;
     return EC_NET_ERR;
