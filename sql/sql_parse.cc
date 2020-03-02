@@ -1880,14 +1880,16 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         }
         thd->query_perf->start();
       }
-	
+
       // Check checksum if enabled
       if (enable_query_checksum) {
         bool error = false;
         for (const auto p : thd->query_attrs_list) {
-          if (p.first == "query_checksum") {
-            unsigned long checksum = crc32(0, (const uchar *)com_data->com_query.query, com_data->com_query.length);
-            unsigned long expected = std::stoul(p.second);
+          if (p.first == "checksum") {
+            unsigned long checksum = crc32(0,
+              (const uchar *)com_data->com_query.query,
+              com_data->com_query.length);
+            unsigned long expected = strtoul(p.second.c_str(), nullptr, 10);
             if (expected != checksum) {
               my_error(ER_QUERY_CHECKSUM_FAILED, MYF(0), expected, checksum);
               error = true;

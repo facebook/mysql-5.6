@@ -395,8 +395,12 @@ extern ulonglong minimum_hlc_ns;
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 extern ulonglong maximum_hlc_drift_ns;
 
+
 /* Enable query checksum validation for queries with a checksum sent */
 extern bool enable_query_checksum;
+
+/* Enable resultset checksums */
+extern bool enable_resultset_checksum;
 
 extern uint net_compression_level;
 extern long zstd_net_compression_level;

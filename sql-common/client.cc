@@ -779,6 +779,33 @@ static int read_resp_attrs(MYSQL *mysql, STATE_INFO *info, uchar **pos) {
   return 0;
 }
 
+int validate_checksum(MYSQL* mysql) {
+  const char* checksumStr;
+  size_t checksumLen;
+  if (!mysql_resp_attr_find(mysql, "checksum", &checksumStr, &checksumLen)) {
+    // checksumStr is not null-terminated, unfortunately
+    char buff[32];
+    if (checksumLen >= sizeof(buff))
+      return 1;
+    memcpy(buff, checksumStr, checksumLen);
+    buff[checksumLen] = 0;
+    unsigned long checksum = strtoul(buff, NULL, 10);
+    if (checksum != mysql->checksum) {
+      set_mysql_extended_error(mysql, ER_RESULTSET_CHECKSUM_FAILED,
+                              unknown_sqlstate,
+                              "Expected resultset checksum %lu but found %lu",
+                              checksum, mysql->checksum);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+void update_checksum(MYSQL* mysql, uchar* pkt, size_t pkt_len) {
+  if (mysql->should_record_checksum)
+    mysql->checksum = crc32(mysql->checksum, pkt, pkt_len);
+}
+
 /**
  Read Ok packet along with the server state change information.
 */
@@ -1272,6 +1299,8 @@ ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
     if (net->read_pos[0] == 0) {
       if (parse_ok) {
         read_ok_ex(mysql, len);
+        if (validate_checksum(mysql))
+          DBUG_RETURN(packet_error);
         DBUG_RETURN(len);
       }
     }
@@ -1293,6 +1322,9 @@ ulong cli_safe_read_with_ok_complete(MYSQL *mysql, bool parse_ok,
       if (is_data_packet) *is_data_packet = false;
       /* parse it if requested */
       if (parse_ok) read_ok_ex(mysql, len);
+      // Validate resultset checksum (if sent from server)
+      if (parse_ok && validate_checksum(mysql))
+        DBUG_RETURN(packet_error);
       DBUG_RETURN(len);
     }
     /* for old client detect EOF packet */
@@ -1634,6 +1666,8 @@ static net_async_status flush_one_result_nonblocking(MYSQL *mysql, bool *res) {
         if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF &&
             !is_data_packet) {
           read_ok_ex(mysql, packet_length);
+          if (validate_checksum(mysql))
+            DBUG_RETURN(NET_ASYNC_ERROR);
         } else {
           mysql->warning_count = uint2korr(pos);
           pos += 2;
@@ -1643,6 +1677,8 @@ static net_async_status flush_one_result_nonblocking(MYSQL *mysql, bool *res) {
       }
       break;
     }
+    /* Update the checksum as we flush results */
+    update_checksum(mysql, mysql->net.read_pos, packet_length);
   }
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
@@ -1674,6 +1710,8 @@ static bool flush_one_result(MYSQL *mysql) {
       cli_safe_read() has set an error for us, just return.
     */
     if (packet_length == packet_error) return true;
+    if (is_data_packet)
+      update_checksum(mysql, mysql->net.read_pos, packet_length);
   } while (mysql->net.read_pos[0] == 0 || is_data_packet);
 
   /* Analyse final OK packet (EOF packet if it is old client) */
@@ -1682,6 +1720,8 @@ static bool flush_one_result(MYSQL *mysql) {
     uchar *pos = mysql->net.read_pos + 1;
     if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet)
       read_ok_ex(mysql, packet_length);
+      if (validate_checksum(mysql))
+        return true;
     else {
       mysql->warning_count = uint2korr(pos);
       pos += 2;
@@ -1721,6 +1761,8 @@ static bool opt_flush_ok_packet(MYSQL *mysql, bool *is_ok_packet) {
         mysql->net.read_pos[0] == 254 && packet_length < MAX_PACKET_LENGTH));
   if (*is_ok_packet) {
     read_ok_ex(mysql, packet_length);
+    if (validate_checksum(mysql))
+      return true;
 #if defined(CLIENT_PROTOCOL_TRACING)
     if (mysql->server_status & SERVER_MORE_RESULTS_EXISTS)
       MYSQL_TRACE_STAGE(mysql, WAIT_FOR_RESULT);
@@ -2932,6 +2974,8 @@ net_async_status cli_read_rows_nonblocking(MYSQL *mysql,
     async_context->prev_row_ptr = &cur->next;
     to = (char *)(cur->data + fields + 1);
     end_to = to + pkt_len - 1;
+    /* Calculate checksum if requested */
+    update_checksum(mysql, cp, pkt_len);
     for (field = 0; field < fields; field++) {
       if ((len = (ulong)net_field_length(&cp)) ==
           NULL_LENGTH) { /* null field */
@@ -2973,9 +3017,11 @@ net_async_status cli_read_rows_nonblocking(MYSQL *mysql,
   *async_context->prev_row_ptr = 0; /* last pointer is null */
   /* read EOF packet or OK packet if it is new client */
   if (pkt_len > 1) {
-    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet)
+    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet) {
       read_ok_ex(mysql, pkt_len);
-    else {
+      if (validate_checksum(mysql))
+        DBUG_RETURN(NET_ASYNC_ERROR);
+    } else {
       mysql->warning_count = uint2korr(cp + 1);
       mysql->server_status = uint2korr(cp + 3);
     }
@@ -3051,6 +3097,8 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql, MYSQL_FIELD *mysql_fields,
     prev_ptr = &cur->next;
     to = (char *)(cur->data + fields + 1);
     end_to = to + pkt_len - 1;
+    /* Calculate checksum if requested */
+    update_checksum(mysql, cp, pkt_len);
     for (field = 0; field < fields; field++) {
       if ((len = (ulong)net_field_length(&cp)) ==
           NULL_LENGTH) { /* null field */
@@ -3081,9 +3129,11 @@ MYSQL_DATA *cli_read_rows(MYSQL *mysql, MYSQL_FIELD *mysql_fields,
   *prev_ptr = 0; /* last pointer is null */
   /* read EOF packet or OK packet if it is new client */
   if (pkt_len > 1) {
-    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet)
+    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet) {
       read_ok_ex(mysql, pkt_len);
-    else {
+      if (validate_checksum(mysql))
+        DBUG_RETURN(0);
+    } else {
       mysql->warning_count = uint2korr(cp + 1);
       mysql->server_status = uint2korr(cp + 3);
     }
@@ -3113,8 +3163,11 @@ static int read_one_row_complete(MYSQL *mysql, ulong pkt_len,
   if (net->read_pos[0] != 0x00 && !is_data_packet) {
     if (pkt_len > 1) /* MySQL 4.1 protocol */
     {
-      if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF)
+      if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF) {
         read_ok_ex(mysql, pkt_len);
+        if (validate_checksum(mysql))
+          return -1;
+      }
       else {
         mysql->warning_count = uint2korr(net->read_pos + 1);
         mysql->server_status = uint2korr(net->read_pos + 3);
@@ -3131,6 +3184,8 @@ static int read_one_row_complete(MYSQL *mysql, ulong pkt_len,
   prev_pos = 0; /* allowed to write at packet[-1] */
   pos = net->read_pos;
   end_pos = pos + pkt_len;
+  /* Calculate checksum if requested */
+  update_checksum(mysql, (uchar*)pos, pkt_len);
   for (field = 0; field < fields; field++) {
     len = (ulong)net_field_length_checked(&pos, (ulong)(end_pos - pos));
     if (pos > end_pos) {
@@ -7122,6 +7177,8 @@ get_info:
   pos = (uchar *)mysql->net.read_pos;
   if ((field_count = net_field_length(&pos)) == 0) {
     read_ok_ex(mysql, length);
+    if (validate_checksum(mysql))
+      DBUG_RETURN(1);
 #if defined(CLIENT_PROTOCOL_TRACING)
     if (mysql->server_status & SERVER_MORE_RESULTS_EXISTS)
       MYSQL_TRACE_STAGE(mysql, WAIT_FOR_RESULT);
@@ -7202,6 +7259,8 @@ static net_async_status cli_read_query_result_nonblocking(MYSQL *mysql) {
     pos = (uchar *)mysql->net.read_pos;
     if ((field_count = net_field_length(&pos)) == 0) {
       read_ok_ex(mysql, length);
+      if (validate_checksum(mysql))
+        DBUG_RETURN(NET_ASYNC_ERROR);
 #if defined(CLIENT_PROTOCOL_TRACING)
       if (mysql->server_status & SERVER_MORE_RESULTS_EXISTS)
         MYSQL_TRACE_STAGE(mysql, WAIT_FOR_RESULT);
@@ -7274,6 +7333,36 @@ static net_async_status cli_read_query_result_nonblocking(MYSQL *mysql) {
   DBUG_RETURN(NET_ASYNC_COMPLETE);
 }
 
+int STDCALL handle_checksums(MYSQL *mysql, const char *query, ulong length) {
+  mysql->should_record_checksum = false;
+  auto extension = mysql->options.extension;
+  if (extension && extension->query_attributes) {
+    /*
+     * checksum being set here indicates we should also checksum the resultset
+     * client can optionally set the value of the checksum with a precomputed
+     * query checksum for testing purposes
+     */
+    auto& query_attrs = extension->query_attributes->hash;
+    auto it = query_attrs.find("checksum");
+    auto exists = it != query_attrs.end();
+    mysql->should_record_checksum = exists;
+    mysql->checksum = 0;
+
+    /* If checksum = ON then also perform the crc32 in libmysql */
+    if (mysql->should_record_checksum && it->second == "ON") {
+      unsigned long checksum = crc32(0, (uchar*)query, length);
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%lu", checksum);
+      // Remove and re-add the attribute
+      if (mysql_options(mysql, MYSQL_OPT_QUERY_ATTR_DELETE, "checksum"))
+        return 1;
+      if (mysql_options4(mysql, MYSQL_OPT_QUERY_ATTR_ADD, "checksum", buf))
+        return 1;
+    }
+  }
+  return 0;
+}
+
 /*
   Send the query and return so we can do something else.
   Needs to be followed by mysql_read_query_result() when we want to
@@ -7287,7 +7376,8 @@ int STDCALL mysql_send_query(MYSQL *mysql, const char *query, ulong length) {
 
   if ((info = STATE_DATA(mysql)))
     free_state_change_info(static_cast<MYSQL_EXTENSION *>(mysql->extension));
-
+  if (handle_checksums(mysql, query, length))
+    DBUG_RETURN(1);
   size_t query_attrs_len =
       mysql->options.extension
           ? mysql->options.extension->query_attributes_length
@@ -7332,7 +7422,8 @@ net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
 
   if ((info = STATE_DATA(mysql)))
     free_state_change_info(static_cast<MYSQL_EXTENSION *>(mysql->extension));
-
+  if (handle_checksums(mysql, query, length))
+    DBUG_RETURN(NET_ASYNC_ERROR);
   bool error_bool;
   size_t query_attrs_len =
       mysql->options.extension
@@ -7343,7 +7434,7 @@ net_async_status STDCALL mysql_send_query_nonblocking(MYSQL *mysql,
     uchar *buf = (uchar *)my_malloc(
         PSI_NOT_INSTRUMENTED, query_attrs_len + MAX_VARIABLE_STRING_LENGTH,
         MYF(MY_WME | MY_ZEROFILL));
-
+    
     uchar *end = send_client_query_attrs(mysql, buf);
     query_attrs_len = end - buf;
 
@@ -7636,6 +7727,7 @@ static MYSQL_RES *cli_use_result(MYSQL *mysql) {
   result->current_field = 0;
   result->handle = mysql;
   result->current_row = 0;
+  mysql->checksum = 0;
   mysql->fields = 0; /* fields is now in result */
   mysql->status = MYSQL_STATUS_USE_RESULT;
   mysql->unbuffered_fetch_owner = &result->unbuffered_fetch_cancelled;

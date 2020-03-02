@@ -1372,7 +1372,7 @@ void Session_resp_attr_tracker::mark_as_changed(THD *thd MY_ATTRIBUTE((unused)),
                                                 const LEX_CSTRING *value) {
   DBUG_ASSERT(key->length > 0);
   std::string k(key->str, key->length);
-
+  
   attrs_[k] = std::string(value->str, value->length);
   m_changed = true;
 }

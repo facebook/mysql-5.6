@@ -1,0 +1,89 @@
+SET @@global.enable_resultset_checksum = ON;
+SET @@session.session_track_response_attributes = ON;
+Creating a table for later tests
+CREATE TABLE data (a VARCHAR(1024), b TEXT, c INT);
+No Checksum: ;
+Check charset, which impacts encoding and thus checksums
+SET NAMES 'latin1';
+No Checksum: ;
+SELECT @@session.character_set_client;
+@@session.character_set_client
+latin1
+Verify SELECTS of variables
+SELECT @@session.character_set_connection;
+@@session.character_set_connection
+latin1
+Checksum: 4050038247;
+Add some dummy data
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 0);
+No Checksum: ;
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 1);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 2);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 3);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 4);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 5);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 6);
+Verify multiple fields in a single row
+SELECT * FROM data WHERE c = 1;
+a	b	c
+testing	result checksums	1
+Checksum: 1134867259;
+Verify multiple fields in multiple rows
+SELECT * FROM data ORDER BY c;
+a	b	c
+testing	result checksums	0
+testing	result checksums	1
+testing	result checksums	2
+testing	result checksums	3
+testing	result checksums	4
+testing	result checksums	5
+testing	result checksums	6
+Checksum: 4204762635;
+Verify single massive result row
+Checksum: 2267222966;
+Verify multiple massive rows
+Checksum: 2166497371;
+Test around 16MB packet boundaries
+Checksum: 2512256286;
+Checksum: 982468368;
+Checksum: 1437851346;
+Checksum: 2699967101;
+Checksum: 261522601;
+Checksum: 1879284586;
+Checksum: 2282180928;
+Several random row sizes
+SELECT REPEAT('a', 255);
+REPEAT('a', 255)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 2275529303;
+SELECT REPEAT('a', 256);
+REPEAT('a', 256)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 1932162976;
+SELECT REPEAT('a', 257);
+REPEAT('a', 257)
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Checksum: 2889758595;
+verify SHOW SLAVE HOSTS output
+SHOW SLAVE HOSTS;
+Server_id	Host	Port	Master_id	Slave_UUID	Is_semi_sync_slave	Replication_status
+Checksum: 1370484237;
+Verify SHOW TABLES output
+SHOW TABLES;
+Tables_in_test
+data
+Checksum: 536973365;
+Verify SHOW GRANTS output
+SHOW GRANTS;
+Grants for root@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT APPLICATION_PASSWORD_ADMIN,AUDIT_ADMIN,BACKUP_ADMIN,BINLOG_ADMIN,BINLOG_ENCRYPTION_ADMIN,CLONE_ADMIN,CONNECTION_ADMIN,ENCRYPTION_KEY_ADMIN,GROUP_REPLICATION_ADMIN,INNODB_REDO_LOG_ARCHIVE,PERSIST_RO_VARIABLES_ADMIN,REPLICATION_SLAVE_ADMIN,RESOURCE_GROUP_ADMIN,RESOURCE_GROUP_USER,ROLE_ADMIN,SERVICE_CONNECTION_ADMIN,SESSION_VARIABLES_ADMIN,SET_USER_ID,SYSTEM_USER,SYSTEM_VARIABLES_ADMIN,TABLE_ENCRYPTION_ADMIN,XA_RECOVER_ADMIN ON *.* TO `root`@`localhost` WITH GRANT OPTION
+GRANT PROXY ON ''@'' TO 'root'@'localhost' WITH GRANT OPTION
+Checksum: 2281243899;
+Verify CHECK TABLE output
+CHECK TABLE data;
+Table	Op	Msg_type	Msg_text
+test.data	check	status	OK
+Checksum: 2020821564;
+SET @@global.enable_resultset_checksum = default;
+DROP TABLE data;

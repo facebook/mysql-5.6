@@ -19893,7 +19893,10 @@ ER_PLACEHOLDER_50080
   eng "Placeholder"
 
 ER_QUERY_CHECKSUM_FAILED
-  eng "Expected query checksum %u but found %u"
+  eng "Expected query checksum %lu but found %lu"
+
+ER_RESULTSET_CHECKSUM_FAILED
+  eng "Expected resultset checksum %lu but found %lu"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.

@@ -12,6 +12,9 @@ SELECT 1;||||
 /* */ SELECT 1;;||||
 1
 1
+/* */ SELECT 1;;||||
+1
+1
 set @@global.enable_query_checksum = FALSE;
 SELECT 1;SELECT 2;||||
 1

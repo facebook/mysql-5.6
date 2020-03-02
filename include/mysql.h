@@ -312,6 +312,10 @@ typedef struct MYSQL {
   my_ulonglong affected_rows;
   my_ulonglong insert_id;  /* id if insert on table with NEXTNR */
   my_ulonglong extra_info; /* Not used */
+  /* Should the resultset checksum be calculated */
+  bool should_record_checksum;
+  /* Store the computed checksum from the resultset */
+  unsigned long checksum;
   unsigned long thread_id; /* Id for connection in server */
   unsigned long packet_length;
   unsigned int port;

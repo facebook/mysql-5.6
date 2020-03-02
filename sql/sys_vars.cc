@@ -7506,9 +7506,16 @@ static Sys_var_bool Sys_rpl_slave_flow_control(
 
 static Sys_var_bool Sys_enable_query_checksum(
     "enable_query_checksum", "Enable query checksums for queries that have "
-    "the query_checksum query attribute set. Uses a CRC32 checksum of the "
+    "the checksum query attribute set. Uses a CRC32 checksum of the "
     "query contents, but not the attributes",
     GLOBAL_VAR(enable_query_checksum), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_bool Sys_enable_resultset_checksum(
+    "enable_resultset_checksum",
+    "Enable CRC32 resultset checksums if requested by the client sending the "
+    "checksum query attribute, set to the query checksum",
+    GLOBAL_VAR(enable_resultset_checksum), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 
 static const char *query_cache_type_names[] = {"OFF", "ON", "DEMAND", 0};
 

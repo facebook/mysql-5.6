@@ -1,0 +1,23 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_resultset_checksum is false
+SELECT @@global.enable_resultset_checksum;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_resultset_checksum;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Actual tests which enables this are in different file which test this feature
+####
+SET @@global.enable_resultset_checksum = true;
+SELECT @@global.enable_resultset_checksum;
+
+SET @@global.enable_resultset_checksum = default;
+SELECT @@global.enable_resultset_checksum;
