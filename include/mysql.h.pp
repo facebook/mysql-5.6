@@ -557,6 +557,8 @@ typedef struct MYSQL {
   uint64_t affected_rows;
   uint64_t insert_id;
   uint64_t extra_info;
+  bool should_record_checksum;
+  unsigned long checksum;
   unsigned long thread_id;
   unsigned long packet_length;
   unsigned int port;

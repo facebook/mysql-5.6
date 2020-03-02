@@ -424,6 +424,9 @@ extern ulonglong maximum_hlc_drift_ns;
 /* Enable query checksum validation for queries with a checksum sent */
 extern bool enable_query_checksum;
 
+/* Enable resultset checksums */
+extern bool enable_resultset_checksum;
+
 extern uint net_compression_level;
 extern uint zstd_net_compression_level;
 

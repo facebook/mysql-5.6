@@ -202,6 +202,7 @@ enum options_client {
   OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
   OPT_PRINT_GTIDS,
   OPT_MINIMUM_HLC,
+  OPT_CHECKSUM,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };

@@ -430,6 +430,7 @@
 #include <openssl/ssl.h>
 
 #include <string.h>
+#include <zlib.h>  // crc32
 #include <algorithm>
 #include <limits>
 
@@ -467,6 +468,7 @@
 using std::max;
 using std::min;
 
+static const char *CHECKSUM = "checksum";
 static const unsigned int PACKET_BUFFER_EXTRA_ALLOC = 1024;
 static bool net_send_error_packet(THD *, uint, const char *, const char *);
 static bool net_send_error_packet(NET *, uint, const char *, const char *, bool,
@@ -1299,11 +1301,14 @@ bool Protocol_classic::send_ok(uint server_status, uint statement_warn_count,
                                ulonglong affected_rows,
                                ulonglong last_insert_id, const char *message) {
   DBUG_TRACE;
+  record_checksum();
   const bool retval =
       net_send_ok(m_thd, server_status, statement_warn_count, affected_rows,
                   last_insert_id, message, false);
   // Reclaim some memory
   convert.shrink(m_thd->variables.net_buffer_length);
+  checksum = 0;
+  should_record_checksum = false;
   return retval;
 }
 
@@ -1323,13 +1328,16 @@ bool Protocol_classic::send_eof(uint server_status, uint statement_warn_count) {
   */
   if (has_client_capability(CLIENT_DEPRECATE_EOF) &&
       (m_thd->get_command() != COM_BINLOG_DUMP &&
-       m_thd->get_command() != COM_BINLOG_DUMP_GTID))
+       m_thd->get_command() != COM_BINLOG_DUMP_GTID)) {
+    record_checksum();
     retval = net_send_ok(m_thd, server_status, statement_warn_count, 0, 0,
                          nullptr, true);
-  else
+  } else
     retval = net_send_eof(m_thd, server_status, statement_warn_count);
   // Reclaim some memory
   convert.shrink(m_thd->variables.net_buffer_length);
+  checksum = 0;
+  should_record_checksum = false;
   return retval;
 }
 
@@ -1346,6 +1354,8 @@ bool Protocol_classic::send_error(uint sql_errno, const char *err_msg,
       net_send_error_packet(m_thd, sql_errno, err_msg, sql_state);
   // Reclaim some memory
   convert.shrink(m_thd->variables.net_buffer_length);
+  checksum = 0;
+  should_record_checksum = false;
   return retval;
 }
 
@@ -3109,6 +3119,15 @@ bool Protocol_classic::start_result_metadata(uint num_cols_arg, uint flags,
   field_count = num_cols;
   sending_flags = flags;
 
+  should_record_checksum = false;
+  for (const auto &p : m_thd->query_attrs_list) {
+    if (enable_resultset_checksum && p.first == CHECKSUM) {
+      should_record_checksum = true;
+      checksum = 0;
+      break;
+    }
+  }
+
   DBUG_EXECUTE_IF("send_large_column_count_in_metadata", num_cols = 50397184;);
   /*
     We don't send number of column for PS, as it's sent in a preceding packet.
@@ -3384,6 +3403,10 @@ bool Protocol_classic::send_field_metadata(Send_field *field,
 
 bool Protocol_classic::end_row() {
   DBUG_TRACE;
+  // Only checksum the data rows
+  if (should_record_checksum)
+    checksum = crc32(checksum, (uchar *)packet->ptr(), packet->length());
+
   return my_net_write(&m_thd->net, pointer_cast<uchar *>(packet->ptr()),
                       packet->length());
 }
@@ -3418,6 +3441,20 @@ bool store(Protocol *prot, I_List<i_string> *str_list) {
 
 bool Protocol_classic::connection_alive() const {
   return m_thd->net.vio != nullptr;
+}
+
+void Protocol_classic::record_checksum() {
+  if (should_record_checksum) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%lu", checksum);
+    auto &tracker = m_thd->session_tracker;
+    auto sess_tracker = tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+    if (sess_tracker->is_enabled()) {
+      LEX_CSTRING key = {CHECKSUM, strlen(CHECKSUM)};
+      LEX_CSTRING value = {buf, strlen(buf)};
+      sess_tracker->mark_as_changed(m_thd, key, &value);
+    }
+  }
 }
 
 void Protocol_text::start_row() {

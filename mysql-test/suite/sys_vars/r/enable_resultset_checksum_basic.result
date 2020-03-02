@@ -1,0 +1,15 @@
+Default value of enable_resultset_checksum is false
+SELECT @@global.enable_resultset_checksum;
+@@global.enable_resultset_checksum
+0
+SELECT @@session.enable_resultset_checksum;
+ERROR HY000: Variable 'enable_resultset_checksum' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.enable_resultset_checksum = true;
+SELECT @@global.enable_resultset_checksum;
+@@global.enable_resultset_checksum
+1
+SET @@global.enable_resultset_checksum = default;
+SELECT @@global.enable_resultset_checksum;
+@@global.enable_resultset_checksum
+0

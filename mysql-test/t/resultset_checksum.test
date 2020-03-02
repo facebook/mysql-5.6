@@ -1,0 +1,168 @@
+SET @@global.enable_resultset_checksum = ON;
+SET @@session.session_track_response_attributes = ON;
+
+--echo Creating a table for later tests
+query_attrs_reset;
+query_attrs_add checksum ON;
+CREATE TABLE data (a VARCHAR(1024), b TEXT, c INT);
+let $checksum = get_response_attribute(checksum);
+--echo No Checksum: $checksum;
+
+--echo Check charset, which impacts encoding and thus checksums
+query_attrs_reset;
+query_attrs_add checksum ON;
+SET NAMES 'latin1';
+let $checksum = get_response_attribute(checksum);
+--echo No Checksum: $checksum;
+
+SELECT @@session.character_set_client;
+
+--echo Verify SELECTS of variables
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT @@session.character_set_connection;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Add some dummy data
+query_attrs_reset;
+query_attrs_add checksum ON;
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 0);
+let $checksum = get_response_attribute(checksum);
+--echo No Checksum: $checksum;
+
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 1);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 2);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 3);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 4);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 5);
+INSERT INTO data (a, b, c) VALUES ('testing', 'result checksums', 6);
+
+--echo Verify multiple fields in a single row
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT * FROM data WHERE c = 1;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Verify multiple fields in multiple rows
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT * FROM data ORDER BY c;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+# The following results are massive and we should avoid logging them
+--disable_result_log
+--disable_query_log
+
+--echo Verify single massive result row
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT REPEAT('a', 33554432);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Verify multiple massive rows
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT a, REPEAT('a', 33554432) FROM data ORDER BY c;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Test around 16MB packet boundaries
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777190);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777195);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777200);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777205);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777210);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777215);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+eval SELECT REPEAT('a', 16777220);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+
+--enable_query_log
+--enable_result_log
+
+--echo Several random row sizes
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT REPEAT('a', 255);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT REPEAT('a', 256);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+query_attrs_reset;
+query_attrs_add checksum ON;
+SELECT REPEAT('a', 257);
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo verify SHOW SLAVE HOSTS output
+query_attrs_reset;
+query_attrs_add checksum ON;
+SHOW REPLICAS;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Verify SHOW TABLES output
+query_attrs_reset;
+query_attrs_add checksum ON;
+SHOW TABLES;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Verify SHOW GRANTS output
+query_attrs_reset;
+query_attrs_add checksum ON;
+SHOW GRANTS;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+--echo Verify CHECK TABLE output
+query_attrs_reset;
+query_attrs_add checksum ON;
+CHECK TABLE data;
+let $checksum = get_response_attribute(checksum);
+--echo Checksum: $checksum;
+
+SET @@global.enable_resultset_checksum = default;
+DROP TABLE data;
