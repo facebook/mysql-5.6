@@ -163,6 +163,7 @@ static bool ignore_errors = false, wait_flag = false, quick = false,
             show_warnings = false, executing_query = false,
             interrupted_query = false, ignore_spaces = false,
             sigint_received = false, opt_syslog = false, opt_binhex = false;
+static bool opt_checksum = false;
 static bool opt_binary_as_hex_set_explicitly = false;
 static bool debug_info_flag, debug_check_flag;
 static bool column_types_flag;
@@ -316,7 +317,8 @@ static int com_quit(String *str, char *), com_go(String *str, char *),
     com_notee(String *str, char *), com_charset(String *str, char *),
     com_prompt(String *str, char *), com_delimiter(String *str, char *),
     com_warnings(String *str, char *), com_nowarnings(String *str, char *),
-    com_resetconnection(String *str, char *), com_attr(String *str, char *);
+    com_resetconnection(String *str, char *), com_attr(String *str, char *),
+    com_resp_attr(String *str, char *);
 static int com_shell(String *str, char *);
 
 #ifdef USE_POPEN
@@ -393,6 +395,7 @@ static COMMANDS commands[] = {
     {"quit", 'q', com_quit, false, "Quit mysql."},
     {"rehash", '#', com_rehash, false, "Rebuild completion hash."},
     {"setattr", 'z', com_attr, true, "Set query attribute."},
+    {"getattr", 'z', com_resp_attr, true, "Get response attribute."},
     {"source", '.', com_source, true,
      "Execute an SQL script file. Takes a file name as an argument."},
     {"status", 's', com_status, false,
@@ -1805,6 +1808,11 @@ static struct my_option my_long_options[] = {
      "with --disable-reconnect. This option is enabled by default.",
      &opt_reconnect, &opt_reconnect, nullptr, GET_BOOL, NO_ARG, 1, 0, 0,
      nullptr, 0, nullptr},
+    {"checksum", OPT_CHECKSUM,
+     "Use query and resultset checksums to verify the integrity of the query "
+     "and resultset in transit. This is disabled by default.",
+     &opt_checksum, &opt_checksum, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr, 0,
+     nullptr},
     {"silent", 's',
      "Be more silent. Print results with a tab as separator, "
      "each row on new line.",
@@ -3047,6 +3055,8 @@ static void get_current_db() {
 static int mysql_real_query_for_lazy(const char *buf, size_t length) {
   for (uint retry = 0;; retry++) {
     int error;
+    if (opt_checksum)
+      mysql_options4(&mysql, MYSQL_OPT_QUERY_ATTR_ADD, "checksum", "ON");
     if (!mysql_real_query(&mysql, buf, (ulong)length)) return 0;
     error = put_error(&mysql);
     if (mysql_errno(&mysql) != CR_SERVER_GONE_ERROR || retry > 1 ||
@@ -4157,6 +4167,27 @@ static int com_attr(String *buffer MY_ATTRIBUTE((unused)), char *line) {
   mysql_options4(&mysql, MYSQL_OPT_QUERY_ATTR_ADD, key, val);
 
   free(buf);
+  return 0;
+}
+
+static int com_resp_attr(String *buffer MY_ATTRIBUTE((unused)), char *line) {
+  static const char *delim = " \t";
+  char *ptr = nullptr;
+  char *buf = strdup(line);
+  const char *cmd __attribute__((unused)) = strtok_r(buf, delim, &ptr);
+  const char *key = strtok_r(nullptr, delim, &ptr);
+
+  if (!key) {
+    put_info("Usage: getattr key", INFO_ERROR);
+    free(buf);
+    return -1;
+  }
+
+  const char *value;
+  size_t len;
+  if (!mysql_resp_attr_find(&mysql, key, &value, &len)) {
+    put_info(value, INFO_INFO);
+  }
   return 0;
 }
 
