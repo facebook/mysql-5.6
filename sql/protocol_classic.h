@@ -70,6 +70,8 @@ class Protocol_classic : public Protocol {
   uint sending_flags;
   ulong input_packet_length;
   uchar *input_raw_packet;
+  unsigned long checksum;
+  bool should_record_checksum;
   const CHARSET_INFO *result_cs;
 
   bool send_ok(uint server_status, uint statement_warn_count,
@@ -86,11 +88,17 @@ class Protocol_classic : public Protocol {
  public:
   bool bad_packet;
   Protocol_classic()
-      : send_metadata(false), input_packet_length(0), bad_packet(true) {}
+      : send_metadata(false),
+        input_packet_length(0),
+        checksum(0),
+        should_record_checksum(false),
+        bad_packet(true) {}
   Protocol_classic(THD *thd)
       : send_metadata(false),
         input_packet_length(0),
         input_raw_packet(nullptr),
+        checksum(0),
+        should_record_checksum(false),
         bad_packet(true) {
     init(thd);
   }
@@ -178,6 +186,8 @@ class Protocol_classic : public Protocol {
   bool has_client_capability(unsigned long client_capability) override {
     return (bool)(m_client_capabilities & client_capability);
   }
+  /* Set the checksum response attribute */
+  void record_checksum();
   // TODO: temporary functions. Will be removed.
   // DON'T USE IN ANY NEW FEATURES.
   /* Return NET */
