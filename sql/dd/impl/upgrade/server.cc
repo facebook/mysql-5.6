@@ -432,6 +432,11 @@ bool check_and_fix_sys_schema(THD *thd) {
   if (mdl_handler.ensure_locked("sys") ||
       thd->dd_client()->acquire("sys", &sch))
     return true;
+
+  if (opt_upgrade_mode == UPGRADE_FORCE) {
+    return fix_sys_schema(thd);
+  }
+
   if (sch == nullptr) {
     return fix_sys_schema(thd);
   }
