@@ -311,8 +311,12 @@ typedef struct MYSQL {
   MYSQL_FIELD *fields;
   struct MEM_ROOT *field_alloc;
   uint64_t affected_rows;
-  uint64_t insert_id;      /* id if insert on table with NEXTNR */
-  uint64_t extra_info;     /* Not used */
+  uint64_t insert_id;  /* id if insert on table with NEXTNR */
+  uint64_t extra_info; /* Not used */
+  /* Should the resultset checksum be calculated */
+  bool should_record_checksum;
+  /* Store the computed checksum from the resultset */
+  unsigned long checksum;
   unsigned long thread_id; /* Id for connection in server */
   unsigned long packet_length;
   unsigned int port;
