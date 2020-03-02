@@ -1948,14 +1948,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         thd->db
       };
 
-      if (multi_tenancy_admit_query(thd, &attrs))
-      {
-        my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-                 db_ac->get_max_waiting_queries(),
-                 thd->db ? thd->db : "unknown database");
-      }
-      else
-      {
+      if (!multi_tenancy_admit_query(thd, &attrs)) {
         native_procedure(thd, query_ptr + 1, query_len - 1);
         multi_tenancy_exit_query(thd, &attrs);
         thd->is_in_ac = false;
@@ -8063,9 +8056,6 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             };
             if (multi_tenancy_admit_query(thd, &attrs))
             {
-              my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-                  db_ac->get_max_waiting_queries(),
-                  thd->db? thd->db:"unknown database");
               error= 1;
             }
             else

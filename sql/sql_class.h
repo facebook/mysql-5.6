@@ -814,6 +814,7 @@ typedef struct system_variables
 
   my_bool high_precision_processlist;
 
+  long admission_control_queue_timeout;
 } SV;
 
 

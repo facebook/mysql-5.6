@@ -71,6 +71,7 @@ struct st_ac_node {
 #endif
   mysql_mutex_t lock;
   mysql_cond_t cond;
+  bool queued;
   st_ac_node() {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info,
@@ -80,6 +81,7 @@ struct st_ac_node {
 #endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_cond, &cond, NULL);
+    queued = false;
   }
 
   ~st_ac_node () {
@@ -127,6 +129,12 @@ public:
   Ac_info& operator=(const Ac_info&) = delete;
 };
 
+enum class Ac_result {
+  AC_ADMITTED, // Admitted
+  AC_REJECTED, // Rejected because queue size too large
+  AC_TIMEOUT   // Rejected because waiting on queue for too long
+};
+
 /**
   Global class used to enforce per admission control limits.
 */
@@ -150,6 +158,7 @@ class AC {
 #endif
 
   std::atomic<ulonglong> total_aborted_queries;
+  std::atomic<ulonglong> total_timeout_queries;
 
 public:
   AC() {
@@ -161,6 +170,7 @@ public:
     max_running_queries = 0;
     max_waiting_queries = 0;
     total_aborted_queries = 0;
+    total_timeout_queries = 0;
   }
 
   ~AC() {
@@ -253,14 +263,16 @@ public:
     return res;
   }
 
-  bool admission_control_enter(THD*, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *);
   void admission_control_exit(THD*, const MT_RESOURCE_ATTRS *);
-  void wait_for_signal(THD*, std::shared_ptr<st_ac_node>&,
+  bool wait_for_signal(THD *, std::shared_ptr<st_ac_node> &,
                        std::shared_ptr<Ac_info> ac_info);
+  static void remove_from_queue(THD *thd, std::shared_ptr<Ac_info> ac_info);
 
   ulonglong get_total_aborted_queries() const {
     return total_aborted_queries;
   }
+  ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
   ulong get_total_running_queries() {
     ulonglong res= 0;
     mysql_rwlock_rdlock(&LOCK_ac);

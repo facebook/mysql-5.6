@@ -10553,6 +10553,14 @@ static int get_db_ac_total_running_queries(THD *thd, SHOW_VAR *var,
   return 0;
 }
 
+static int get_db_ac_total_timeout_queries(THD *thd, SHOW_VAR *var,
+                                           char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((longlong *)buff) = db_ac->get_total_timeout_queries();
+  return 0;
+}
+
 static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
                                            char *buff) {
   var->type = SHOW_LONG;
@@ -10622,6 +10630,7 @@ SHOW_VAR status_vars[]= {
   {"Created_tmp_tables",       (char*) offsetof(STATUS_VAR, created_tmp_tables), SHOW_LONGLONG_STATUS},
   {"Database_admission_control_aborted_queries", (char*) &get_db_ac_total_aborted_queries, SHOW_FUNC},
   {"Database_admission_control_running_queries", (char*) &get_db_ac_total_running_queries, SHOW_FUNC},
+  {"Database_admission_control_timeout_queries", (char*) &get_db_ac_total_timeout_queries, SHOW_FUNC},
   {"Database_admission_control_waiting_queries", (char*) &get_db_ac_total_waiting_queries, SHOW_FUNC},
   {"Delayed_errors",           (char*) &delayed_insert_errors,  SHOW_LONG},
   {"Delayed_insert_threads",   (char*) &delayed_insert_threads, SHOW_LONG_NOFLUSH},
