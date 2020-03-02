@@ -1,3 +1,5 @@
+CREATE TABLE mysql.tmp_backup_tables_priv AS SELECT * FROM mysql.tables_priv;
+CREATE TABLE mysql.tmp_backup_user AS SELECT * FROM mysql.user;
 USE test;
 ALTER TABLE mysql.slave_master_info TABLESPACE innodb_file_per_table;
 CREATE TABLE test.slave_master_info_backup LIKE mysql.slave_master_info;
@@ -117,5 +119,11 @@ MODIFY Host VARCHAR(255) CHARACTER SET ASCII NULL COMMENT 'The host name of the 
 ALTER COLUMN Channel_name DROP DEFAULT;
 DROP TABLE test.slave_master_info_backup;
 DROP TABLE test.original;
+TRUNCATE TABLE mysql.tables_priv;
+INSERT INTO mysql.tables_priv (SELECT * FROM mysql.tmp_backup_tables_priv);
+DROP TABLE mysql.tmp_backup_tables_priv;
+TRUNCATE TABLE mysql.user;
+INSERT INTO mysql.user (SELECT * FROM mysql.tmp_backup_user);
+DROP TABLE mysql.tmp_backup_user;
 #Restart the server
 # restart

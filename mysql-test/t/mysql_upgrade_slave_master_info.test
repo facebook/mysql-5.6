@@ -16,6 +16,11 @@
 --source include/not_valgrind.inc
 --source include/mysql_upgrade_preparation.inc
 
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
+
 USE test;
 
 # Preserve the original state of the table so that it can be restored at the end of the test.
@@ -133,6 +138,11 @@ ALTER TABLE mysql.slave_master_info
 
 DROP TABLE test.slave_master_info_backup;
 DROP TABLE test.original;
+
+
+# Restore the saved contents of mysql.user and mysql.tables_priv
+--let $restore= 1
+--source include/backup_tables_priv_and_users.inc
 
 --echo #Restart the server
 --let $restart_parameters = restart

@@ -3,6 +3,11 @@
 --source include/have_myisam.inc
 --source include/mysql_upgrade_preparation.inc
 
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
+
 --echo #
 --echo # Bug#49823: mysql_upgrade fatal error due to general_log / slow_low CSV NULL
 --echo #
@@ -28,6 +33,10 @@ RENAME TABLE test.bug49823 TO general_log;
 DROP TABLE general_log;
 RENAME TABLE renamed_general_log TO general_log;
 USE test;
+
+# Restore the saved contents of mysql.user and mysql.tables_priv
+--let $restore= 1
+--source include/backup_tables_priv_and_users.inc
 
 --let $restart_parameters = restart:
 --source include/restart_mysqld.inc

@@ -4,6 +4,11 @@
 --source include/mysql_upgrade_preparation.inc
 --source include/big_test.inc
 
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
+
 --let $MYSQLD_DATADIR= `select @@datadir`
 --echo # Set different paths for --datadir
 --let $MYSQLD_DATADIR1 = $MYSQL_TMP_DIR/data57
@@ -384,3 +389,7 @@ SELECT * FROM test.t3;
 
  --let $restart_parameters = restart:
  --source include/start_mysqld.inc
+
+# Restore the saved contents of mysql.user and mysql.tables_priv
+--let $restore= 1
+--source include/backup_tables_priv_and_users.inc

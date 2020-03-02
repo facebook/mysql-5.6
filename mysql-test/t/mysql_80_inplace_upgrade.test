@@ -20,6 +20,11 @@ if ($lctn == 2)
 --source include/have_innodb_16k.inc
 --source include/mysql_upgrade_preparation.inc
 
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
+
 --let $MYSQLD_DATADIR= `select @@datadir`
 
 --echo ###########################################################################
@@ -185,3 +190,8 @@ SELECT COUNT(*) != 0 FROM mysql.help_topic;
 --let $restart_parameters = restart:
 --source include/start_mysqld.inc
 --source include/mysql_upgrade_cleanup.inc
+
+# Restore the saved contents of mysql.user and mysql.tables_priv
+--let $restore= 1
+--source include/backup_tables_priv_and_users.inc
+
