@@ -13460,11 +13460,13 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next() {
           if (have_min) {
             if (!(min_res = next_min()))
               update_min_result(&reset_min_value);
-            else if (min_res != HA_ERR_KEY_NOT_FOUND && min_res != HA_ERR_END_OF_FILE) {
+            else {
               result = min_res;
-              break;
-            } else {
-              continue;  // Record is not found, no reason to call next_max()
+              if (min_res != HA_ERR_KEY_NOT_FOUND && min_res != HA_ERR_END_OF_FILE) {
+                break;
+              } else {
+                continue;  // Record is not found, no reason to call next_max()
+              }
             }
           }
 
@@ -13483,11 +13485,13 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next() {
           if (have_max) {
             if (!(max_res = next_max()))
               update_max_result(&reset_max_value);
-            else if (max_res != HA_ERR_KEY_NOT_FOUND && max_res != HA_ERR_END_OF_FILE) {
+            else {
               result = max_res;
-              break;
-            } else {
-              continue;  // Record is not found, no reason to call next_min()
+              if (max_res != HA_ERR_KEY_NOT_FOUND && max_res != HA_ERR_END_OF_FILE) {
+                break;
+              } else {
+                continue;  // Record is not found, no reason to call next_min()
+              }
             }
           }
 
@@ -13523,12 +13527,15 @@ int QUICK_GROUP_MIN_MAX_SELECT::get_next() {
         returning just the one distinct record is enough.
       */
       if (!have_min && !have_max && result == 0) break;
-      /*
-        Reset result value at the last infix range if
-        at least one group is found.
-      */
-      if (seen_all_infix_ranges && found_result) result = 0;
     }
+
+    /*
+      Reset result value at the last infix range if
+      at least one group is found.
+    */
+    if (seen_all_infix_ranges && found_result &&
+        (result == HA_ERR_KEY_NOT_FOUND || result == HA_ERR_END_OF_FILE))
+      result = 0;
   } while ((result == HA_ERR_KEY_NOT_FOUND || result == HA_ERR_END_OF_FILE) &&
            is_last_prefix != 0);
 
