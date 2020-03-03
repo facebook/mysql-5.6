@@ -44,9 +44,10 @@ SELECT @@ROCKSDB_CREATE_TEMPORARY_CHECKPOINT;
 file_exists $MYSQL_TMP_DIR/ghj/CURRENT;
 
 disconnect con1;
---source include/wait_until_disconnected.inc
 
 connection default;
+--source include/wait_until_count_sessions.inc
+
 
 # error, checkpoint removed upon disconnect
 --error 1
