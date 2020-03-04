@@ -670,6 +670,7 @@ enum net_async_status mysql_next_result_nonblocking(MYSQL *mysql);
 enum net_async_status mysql_select_db_nonblocking(MYSQL *mysql,
                                                           const char *db,
                                                           bool *error);
+int mysql_get_socket_descriptor(MYSQL *mysql);
 void mysql_get_character_set_info(MYSQL *mysql,
                                           MY_CHARSET_INFO *charset);
 int mysql_session_track_get_first(MYSQL *mysql,

@@ -172,10 +172,10 @@ typedef struct NET_ASYNC {
   size_t compressed_buffers_size;
 } NET_ASYNC;
 
-struct NET_EXTENSION {
+typedef struct NET_EXTENSION {
   NET_ASYNC *net_async_context;
   mysql_compress_context compress_ctx;
-};
+} NET_EXTENSION;
 
 NET_EXTENSION *net_extension_init();
 void net_extension_free(NET *);
@@ -230,7 +230,7 @@ typedef struct MYSQL_ASYNC {
   struct MYSQL_RES *async_store_result_result;
 
   /** the query parameters data */
-  uchar *async_qp_data;
+  unsigned char *async_qp_data;
   /** the query parameters data length */
   unsigned long async_qp_data_length;
 
@@ -244,7 +244,5 @@ enum net_async_status net_write_command_nonblocking(
     size_t prefix_len, const unsigned char *packet, size_t packet_len,
     bool *res);
 enum net_async_status my_net_read_nonblocking(NET *net, unsigned long *len_ptr);
-
-int mysql_get_socket_descriptor(MYSQL *mysql);
 
 #endif /* MYSQL_ASYNC_INCLUDED */

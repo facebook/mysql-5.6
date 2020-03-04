@@ -34,6 +34,7 @@ SET(HEADERS
   my_compress.h
   my_list.h
   mysql.h
+  mysql_async.h
   mysql_com.h
   mysql_time.h
   ${CMAKE_CURRENT_BINARY_DIR}/mysql_version.h
