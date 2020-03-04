@@ -502,6 +502,7 @@ enum net_async_status STDCALL mysql_next_result_nonblocking(MYSQL *mysql);
 enum net_async_status STDCALL mysql_select_db_nonblocking(MYSQL *mysql,
                                                           const char *db,
                                                           bool *error);
+int STDCALL mysql_get_socket_descriptor(MYSQL *mysql);
 void STDCALL mysql_get_character_set_info(MYSQL *mysql,
                                           MY_CHARSET_INFO *charset);
 

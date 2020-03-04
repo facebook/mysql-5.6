@@ -131,9 +131,9 @@ typedef struct NET_ASYNC {
   bool async_multipacket_read_started;
 } NET_ASYNC;
 
-struct NET_EXTENSION {
+typedef struct NET_EXTENSION {
   NET_ASYNC *net_async_context;
-};
+} NET_EXTENSION;
 
 NET_EXTENSION *net_extension_init();
 void net_extension_free(NET *);
@@ -197,7 +197,5 @@ enum net_async_status net_write_command_nonblocking(
     bool *res);
 enum net_async_status my_net_read_nonblocking(NET *net, unsigned long *len_ptr,
                                               unsigned long *complen_ptr);
-
-int mysql_get_socket_descriptor(MYSQL *mysql);
 
 #endif /* MYSQL_ASYNC_INCLUDED */

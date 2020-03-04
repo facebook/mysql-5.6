@@ -4685,7 +4685,7 @@ static mysql_state_machine_status csm_send_one_init_command(
 
 #define MAX_CONNECTION_ATTR_STORAGE_LENGTH 65536
 
-int mysql_get_socket_descriptor(MYSQL *mysql) {
+int STDCALL mysql_get_socket_descriptor(MYSQL *mysql) {
   if (mysql && mysql->net.vio) {
     return vio_fd(mysql->net.vio);
   }

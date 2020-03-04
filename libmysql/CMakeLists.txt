@@ -185,6 +185,7 @@ mysql_store_result_nonblocking
 mysql_next_result_nonblocking
 mysql_fetch_row_nonblocking
 mysql_free_result_nonblocking
+mysql_get_socket_descriptor
 
 CACHE INTERNAL "Nonblocking functions exported by client API"
 )
