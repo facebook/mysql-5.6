@@ -188,6 +188,7 @@ SET(CLIENT_API_NONBLOCKING_FUNCTIONS
   mysql_real_query_nonblocking
   mysql_send_query_nonblocking
   mysql_store_result_nonblocking
+  mysql_get_socket_descriptor
 
   CACHE INTERNAL "Nonblocking functions exported by client API"
 )
