@@ -700,6 +700,11 @@ class Rdb_key_def {
                        Rdb_pack_field_context *const pack_ctx
                            MY_ATTRIBUTE((__unused__)));
 
+  static int unpack_bit(Rdb_field_packing *const fpi, Field *const field,
+                        uchar *const to, Rdb_string_reader *const reader,
+                        Rdb_string_reader *const unp_reader
+                            MY_ATTRIBUTE((__unused__)));
+
   static void pack_binary_str(
       Rdb_field_packing *const fpi, Field *const field,
       uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,

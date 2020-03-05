@@ -90,4 +90,26 @@ SELECT DISTINCT b FROM t1 IGNORE INDEX (b);
 
 DROP TABLE t1;
 
+CREATE TABLE t1 (
+  a ENUM('N.America','S.America','Africa','Europe','Australia','Asia','Antarctica'),
+  b ENUM('test1','test2','test3','test4','test5'),
+  c ENUM('1a','1b','1d','1j','4a','4z','5a','5b','6v','6z'),
+  d ENUM('1a','1b','1d','1j','4a','4z','5a','5b','6v','6z'),
+  pk ENUM('1','2','3','4','5','6','7','8','9') PRIMARY KEY,
+  key a_b_c_d(a,b,c,d)
+) ENGINE=rocksdb;
+
+INSERT INTO t1 (a,b,c,d,pk) VALUES
+('N.America','test1','5a','5a',1),('Europe','test1','5b','5b',2),('Europe','test2','6v','6v',3),
+('Africa','test3','4z','4z',4),('Africa','test4','1j','1j',5),('Antarctica','test4','1d','1d',6);
+
+SHOW INDEX IN t1;
+
+--replace_column 10 # 11 #
+EXPLAIN SELECT DISTINCT a,b,c,d FROM t1;
+--sorted_result
+SELECT DISTINCT a,b,c,d FROM t1;
+
+DROP TABLE t1;
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
