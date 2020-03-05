@@ -11679,15 +11679,20 @@ void Rdb_drop_index_thread::run() {
     }
 
     DBUG_EXECUTE_IF("rocksdb_drop_cf", {
-      THD *thd = new THD();
-      thd->thread_stack = reinterpret_cast<char *>(&(thd));
-      thd->store_globals();
+      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+      std::unordered_set<uint32> dropped_cf_ids;
+      dict_manager.get_all_dropped_cfs(&dropped_cf_ids);
+      if (dropped_cf_ids.empty()) {
+        THD *thd = new THD();
+        thd->thread_stack = reinterpret_cast<char *>(&(thd));
+        thd->store_globals();
 
-      const char act[] = "now signal drop_cf_done";
-      DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+        const char act[] = "now signal drop_cf_done";
+        DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
 
-      thd->restore_globals();
-      delete thd;
+        thd->restore_globals();
+        delete thd;
+      }
     });
     RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
   }
