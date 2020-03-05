@@ -2363,6 +2363,36 @@ void Rdb_key_def::pack_bit(
 
 /*
   Function of type rdb_index_field_unpack_t, used to
+  Unpack the bit by copying it over.
+  See Field_bit::unpack_bit for more details.
+*/
+int Rdb_key_def::unpack_bit(Rdb_field_packing *const fpi, Field *const field,
+                            uchar *const to, Rdb_string_reader *const reader,
+                            Rdb_string_reader *const unp_reader
+                                MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi != nullptr);
+  DBUG_ASSERT(field != nullptr);
+  const char *from;
+  if (!(from = reader->read(fpi->m_max_image_len))) {
+    /* Mem-comparable image doesn't have enough bytes */
+    return UNPACK_FAILURE;
+  }
+  auto *field_bit = static_cast<Field_bit *>(field);
+  if (field_bit->bit_len > 0) {
+    /* uneven high bits */
+    set_rec_bits(*from, field_bit->bit_ptr, field_bit->bit_ofs,
+                 field_bit->bit_len);
+    from++;
+  }
+  /* copy the rest */
+  uint data_length =
+      std::min((uint)fpi->m_max_image_len, field_bit->bytes_in_rec);
+  memcpy(to, from, data_length);
+  return UNPACK_SUCCESS;
+}
+
+/*
+  Function of type rdb_index_field_unpack_t, used to
   unpack the string by copying it over.
   This is for any data type that is a simply memcpy, such as
   BINARY(n) where the value occupies the whole length.
@@ -3736,12 +3766,15 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           DBUG_ASSERT(false);
           break;
       }
-      return false;
+      m_covered = true;
+      return true;
     }
 
     case MYSQL_TYPE_BIT:
       m_pack_func = Rdb_key_def::pack_bit;
-      return false;
+      m_unpack_func = Rdb_key_def::unpack_bit;
+      m_covered = true;
+      return true;
 
     case MYSQL_TYPE_VARCHAR:
       m_pack_func = Rdb_key_def::pack_with_varchar_encoding;
