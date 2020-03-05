@@ -51,12 +51,80 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 EXPLAIN SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	NULL	ALL	a	NULL	NULL	NULL	#	#	Using temporary; Using filesort
+1	SIMPLE	t1	NULL	index	a	a	2	NULL	#	#	Using index; Using temporary; Using filesort
 Warnings:
 Note	1003	/* select#1 */ select distinct (`test`.`t1`.`a` + 0) AS `a+0` from `test`.`t1` order by `test`.`t1`.`a`
 SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 a+0
 0
 1
+DROP TABLE t1;
+CREATE TABLE t1 (
+a BIT,
+b BIT(15),
+c BIT(23),
+d BIT(7),
+pk BIT(11) PRIMARY KEY,
+KEY b_c (b,c)
+) ENGINE=rocksdb;
+SHOW INDEX IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	b_c	1	b	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	b_c	2	c	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+INSERT INTO t1 (a,b,c,d,pk) VALUES
+(0,b'100011000110001',b'10001100011000110001101',b'1000110',b'10001100011'),
+(1,b'100000000110001',b'10001100011000110001111',b'1000111',b'10001100111'),
+(0,b'111111111111111',b'11111111111111111111111',b'1111111',b'11111111111');
+EXPLAIN SELECT b, c FROM t1 force index (b_c);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	b_c	7	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c` from `test`.`t1` FORCE INDEX (`b_c`)
+EXPLAIN SELECT pk FROM t1;
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	b_c	7	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`pk` AS `pk` from `test`.`t1`
+SELECT BIN(b), BIN(c) FROM t1 force index (b_c);
+BIN(b)	BIN(c)
+100000000110001	10001100011000110001111
+100011000110001	10001100011000110001101
+111111111111111	11111111111111111111111
+SELECT BIN(pk) FROM t1;
+BIN(pk)
+10001100011
+10001100111
+11111111111
+DROP TABLE t1;
+CREATE TABLE t1 (
+a BIT(13),
+b BIT(15),
+c BIT(23),
+d BIT(7),
+pk BIT(11) PRIMARY KEY,
+KEY a_b_c_d (a,b,c,d)
+) ENGINE=rocksdb;
+SHOW INDEX IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	1	a	A	62	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	2	b	A	125	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	3	c	A	250	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+t1	1	a_b_c_d	4	d	A	500	NULL	NULL	YES	SE_SPECIFIC			YES	NULL
+INSERT INTO t1 (a,b,c,d,pk) VALUES
+(b'1000110001100',b'100011000110001',b'10001100011000110001101',b'1000110',b'10001100011'),
+(b'1000000001110',b'100000000110001',b'10001100011000110001111',b'1000111',b'10001100111'),
+(b'1111111111111',b'111111111111111',b'11111111111111111111111',b'1111111',b'11111111111');
+EXPLAIN SELECT BIN(a), BIN(b), BIN(c), BIN(d) FROM t1 force index (a_b_c_d);
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	NULL	index	NULL	a_b_c_d	12	NULL	#	#	Using index
+Warnings:
+Note	1003	/* select#1 */ select conv(`test`.`t1`.`a`,10,2) AS `BIN(a)`,conv(`test`.`t1`.`b`,10,2) AS `BIN(b)`,conv(`test`.`t1`.`c`,10,2) AS `BIN(c)`,conv(`test`.`t1`.`d`,10,2) AS `BIN(d)` from `test`.`t1` FORCE INDEX (`a_b_c_d`)
+SELECT BIN(a), BIN(b), BIN(c), BIN(d) FROM t1 force index (a_b_c_d);
+BIN(a)	BIN(b)	BIN(c)	BIN(d)
+1000000001110	100000000110001	10001100011000110001111	1000111
+1000110001100	100011000110001	10001100011000110001101	1000110
+1111111111111	111111111111111	11111111111111111111111	1111111
 DROP TABLE t1;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
