@@ -53,4 +53,22 @@ NOT FOUND	NOT FOUND	NOT FOUND
 NOT FOUND	NOT FOUND	NOT FOUND
 set global rocksdb_lock_wait_timeout = @prior_lock_wait_timeout;
 set global rocksdb_deadlock_detect = @prior_deadlock_detect;
+set global rocksdb_max_latest_deadlocks = 0;
+# Clears deadlock buffer of any existent deadlocks.
+set global rocksdb_max_latest_deadlocks = @prior_max_latest_deadlocks;
+show engine rocksdb transaction status;
+Type	Name	Status
+rocksdb		
+============================================================
+TIMESTAMP ROCKSDB TRANSACTION MONITOR OUTPUT
+============================================================
+---------
+SNAPSHOTS
+---------
+LIST OF SNAPSHOTS FOR EACH SESSION:
+----------LATEST DETECTED DEADLOCKS----------
+-----------------------------------------
+END OF ROCKSDB TRANSACTION MONITOR OUTPUT
+=========================================
+
 set @@global.debug = @old_debug;
