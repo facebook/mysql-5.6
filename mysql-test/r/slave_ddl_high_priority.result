@@ -117,6 +117,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## killing conflicting shared lock in a transaction
 ## transaction will rollback
@@ -234,6 +235,130 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
+select * from t1_new;
+i
+1
+2
+3
+drop table t1_new;
+##
+## rename table, rename table doesn't support high_priority keyword
+##
+
+## Test parameters:
+## con_init          = master
+## con_block         = slave2
+## con_kill          = slave
+## con_status        = slave1
+## cmd               = rename table t1 to t1_new;
+## blocking_sql      = begin; insert into t1 values (5); select i from t1;
+## should_kill       = 1
+## recreate_table    = 1
+## throw_error       = 1
+
+connection master
+drop table if exists t1;
+create table t1 (i int);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+insert into t1 values (1), (2), (3);
+connection: slave2
+begin; insert into t1 values (5); select i from t1;;
+i
+1
+2
+3
+5
+set @m_lock_wait_timeout = @@lock_wait_timeout;
+set lock_wait_timeout = 0.02;
+set @m_high_priority_lock_wait_timout = @@high_priority_lock_wait_timeout;
+set high_priority_lock_wait_timeout = 0.02;
+SET @m_slave_high_priority_lock_wait_timeout =
+@@global.slave_high_priority_lock_wait_timeout;
+set global slave_high_priority_lock_wait_timeout = 0.02;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int	YES		NULL	
+connection: slave1 (for show locks);
+# check metadata_locks
+SELECT (COUNT(*) > 0) AS should_be_non_zero
+FROM performance_schema.metadata_locks
+WHERE object_schema = "test" AND source <> "";
+should_be_non_zero
+1
+connection: slave1 (for show processlist)
+# both slave2 and slave exist
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+connection: slave
+rename table t1 to t1_new;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
+# execute DDL command on master
+connection master
+rename table t1 to t1_new;;
+# sync slave with master
+include/sync_slave_sql_with_master.inc
+connection: slave1 ([slave]: show locks)
+connection: slave1 (for show processlist on slave)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
+connection: slave
+show create table t1_new;
+Table	Create Table
+t1_new	CREATE TABLE `t1_new` (
+  `i` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+select * from t1_new;
+i
+1
+2
+3
+connection: slave (for reset variable)
+set global slave_high_priority_ddl = 0;
+connection: slave1 (for show locks)
+# check metadata_locks
+SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
+WHERE object_schema = "test" AND source <> ""
+connection: slave1 (for show processlist)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+connection: slave
+set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
+set @@lock_wait_timeout = @m_lock_wait_timeout;
+connection: slave (for restore)
+set global slave_high_priority_lock_wait_timeout =
+@m_slave_high_priority_lock_wait_timeout;
+connection master
 select * from t1_new;
 i
 1
@@ -332,6 +457,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## killing conflicting transaction by drop table DDL
 ##
@@ -437,6 +563,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## create index
 ##
@@ -549,6 +676,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## drop index (use the previously created table)
 ##
@@ -652,6 +780,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## high_priority truncate table
 ##
@@ -760,6 +889,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## high_priority create trigger
 ##
@@ -874,6 +1004,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## high_priority drop trigger
 ##
@@ -977,6 +1108,116 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
+##
+## drop database 
+##
+create database menagerie;
+use menagerie;
+create table t1(a int);
+
+## Test parameters:
+## con_init          = master
+## con_block         = slave2
+## con_kill          = slave
+## con_status        = slave1
+## cmd               = drop database menagerie;
+## blocking_sql      = begin;use menagerie; select * from t1;
+## should_kill       = 1
+## recreate_table    = 0
+## throw_error       = 1
+
+connection master
+connection: slave2
+begin;use menagerie; select * from t1;;
+a
+set @m_lock_wait_timeout = @@lock_wait_timeout;
+set lock_wait_timeout = 0.02;
+set @m_high_priority_lock_wait_timout = @@high_priority_lock_wait_timeout;
+set high_priority_lock_wait_timeout = 0.02;
+SET @m_slave_high_priority_lock_wait_timeout =
+@@global.slave_high_priority_lock_wait_timeout;
+set global slave_high_priority_lock_wait_timeout = 0.02;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int	YES		NULL	
+connection: slave1 (for show locks);
+# check metadata_locks
+SELECT (COUNT(*) > 0) AS should_be_non_zero
+FROM performance_schema.metadata_locks
+WHERE object_schema = "test" AND source <> "";
+should_be_non_zero
+0
+connection: slave1 (for show processlist)
+# both slave2 and slave exist
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	menagerie	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+connection: slave
+drop database menagerie;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on schema metadata: menagerie
+set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
+# execute DDL command on master
+connection master
+drop database menagerie;;
+# sync slave with master
+include/sync_slave_sql_with_master.inc
+connection: slave1 ([slave]: show locks)
+connection: slave1 (for show processlist on slave)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
+connection: slave
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+select * from t1;
+i
+1
+2
+3
+connection: slave (for reset variable)
+set global slave_high_priority_ddl = 0;
+connection: slave1 (for show locks)
+# check metadata_locks
+SELECT COUNT(*) as should_be_zero FROM performance_schema.metadata_locks
+WHERE object_schema = "test" AND source <> ""
+connection: slave1 (for show processlist)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Tid
+#	event_scheduler	#	NULL	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	root	#	test	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+#	system user	#	NULL	#	#	#	#	#
+connection: slave
+set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
+set @@lock_wait_timeout = @m_lock_wait_timeout;
+connection: slave (for restore)
+set global slave_high_priority_lock_wait_timeout =
+@m_slave_high_priority_lock_wait_timeout;
+connection master
+use test;
 ##
 ## high_priority optimize table
 ##
@@ -1096,11 +1337,14 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## clean up
 ##
 connection master
 unlock tables;
 drop table if exists t1_new;
+Warnings:
+Note	1051	Unknown table 'test.t1_new'
 drop table t1;
 include/rpl_end.inc

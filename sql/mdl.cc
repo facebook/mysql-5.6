@@ -3313,7 +3313,11 @@ bool MDL_context::clone_ticket(MDL_request *mdl_request) {
 bool MDL_lock::scoped_lock_kill_conflicting_locks(
     MDL_context *ctx, MDL_lock *lock, enum_mdl_type kill_lower_than) {
   // do not kill connection for scoped lock conflicts for hi-pri ddl
-  if (ctx->get_owner()->get_thd()->variables.kill_conflicting_connections) {
+  // except for alter/drop database.
+  // SCHEMA namespace locks are treated as object locks for the purposes
+  // of killing conflicting connections.
+  if (ctx->get_owner()->get_thd()->variables.kill_conflicting_connections ||
+      lock->key.mdl_namespace() == MDL_key::SCHEMA) {
     return MDL_lock::object_lock_kill_conflicting_locks(ctx, lock,
                                                         kill_lower_than);
   }
