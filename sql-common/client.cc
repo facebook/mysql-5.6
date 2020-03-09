@@ -7919,6 +7919,7 @@ net_async_status STDCALL mysql_fetch_row_nonblocking(MYSQL_RES *res,
         }
 
         if (!ret) {
+          res->row_count++;
           *row = res->current_row = res->row;
           goto end;
         }
