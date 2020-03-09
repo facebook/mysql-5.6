@@ -105,6 +105,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## killing conflicting shared lock in a transaction
 ## transaction will rollback
@@ -211,12 +212,124 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 select * from t1_new;
 i
 1
 2
 3
-4
+drop table t1_new;
+##
+## rename table, rename table doesn't support high_priority keyword
+##
+
+## Test parameters:
+## use_sys_var       = 1
+## con_init          = master
+## con_block         = slave2
+## con_kill          = slave
+## con_status        = slave1
+## cmd               = rename table t1 to t1_new;
+## high_priority_cmd = rename high_priority table t1 to t1_new;
+## blocking_sql      = begin; insert into t1 values (5); select i from t1;
+## should_kill       = 1
+## recreate_table    = 1
+## throw_error       = 1
+
+connection master
+drop table if exists t1;
+create table t1 (i int);
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int(11) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
+insert into t1 values (1), (2), (3);
+connection: slave2
+begin; insert into t1 values (5); select i from t1;;
+i
+1
+2
+3
+5
+connection: slave
+set @m_lock_wait_timeout = @@lock_wait_timeout;
+set lock_wait_timeout = 0.02;
+set @m_high_priority_lock_wait_timout = @@high_priority_lock_wait_timeout;
+set high_priority_lock_wait_timeout = 0.02;
+SET @m_slave_high_priority_lock_wait_timeout =
+@@global.slave_high_priority_lock_wait_timeout;
+set global slave_high_priority_lock_wait_timeout = 0.02;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int(11)	YES		NULL	
+connection: slave1 (for show processlist);
+# both slave2 and slave exist
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+connection: slave
+rename table t1 to t1_new;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
+# execute DDL command on master
+connection master
+rename table t1 to t1_new;;
+# sync slave with master
+include/sync_slave_sql_with_master.inc
+connection: slave1 (for show processlist on slave)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
+connection: slave
+show create table t1_new;
+Table	Create Table
+t1_new	CREATE TABLE `t1_new` (
+  `i` int(11) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
+select * from t1_new;
+i
+1
+2
+3
+5
+connection: slave (for reset variable)
+set global slave_high_priority_ddl = 0;
+connection: slave1 (for show processlist)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+connection: slave
+set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
+set @@lock_wait_timeout = @m_lock_wait_timeout;
+connection: slave (for restore)
+set global slave_high_priority_lock_wait_timeout =
+@m_slave_high_priority_lock_wait_timeout;
+connection master
+select * from t1_new;
+i
+1
+2
+3
 drop table t1_new;
 ##
 ## simulate conflicting DDL which will not be killed
@@ -300,6 +413,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## killing conflicting transaction by drop table DDL
 ##
@@ -393,6 +507,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## create index
 ##
@@ -493,6 +608,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## drop index (use the previously created table)
 ##
@@ -584,6 +700,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## high_priority truncate table
 ##
@@ -680,6 +797,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## high_priority create/drop trigger
 ##
@@ -779,6 +897,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## drop trigger (use the previously created table)
 ##
@@ -870,6 +989,104 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
+##
+## drop database 
+##
+create database menagerie;
+use menagerie;
+create table t1(a int);
+
+## Test parameters:
+## use_sys_var       = 1
+## con_init          = master
+## con_block         = slave2
+## con_kill          = slave
+## con_status        = slave1
+## cmd               = drop database menagerie;
+## high_priority_cmd = drop high_priority database menagerie;
+## blocking_sql      = begin;use menagerie; select * from t1;
+## should_kill       = 1
+## recreate_table    = 0
+## throw_error       = 1
+
+connection master
+connection: slave2
+begin;use menagerie; select * from t1;;
+a
+connection: slave
+set @m_lock_wait_timeout = @@lock_wait_timeout;
+set lock_wait_timeout = 0.02;
+set @m_high_priority_lock_wait_timout = @@high_priority_lock_wait_timeout;
+set high_priority_lock_wait_timeout = 0.02;
+SET @m_slave_high_priority_lock_wait_timeout =
+@@global.slave_high_priority_lock_wait_timeout;
+set global slave_high_priority_lock_wait_timeout = 0.02;
+describe t1;
+Field	Type	Null	Key	Default	Extra
+i	int(11)	YES		NULL	
+connection: slave1 (for show processlist);
+# both slave2 and slave exist
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	root	#	menagerie	#	#	#	#	#	#	#	0
+connection: slave
+drop database menagerie;;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: menagerie.t1
+set global slave_high_priority_ddl = 1;
+connection : slave1([slave] : show status)
+# execute DDL command on master
+connection master
+drop database menagerie;;
+# sync slave with master
+include/sync_slave_sql_with_master.inc
+connection: slave1 (for show processlist on slave)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+include/assert.inc [high priority DDL should issue one kill]
+include/assert.inc [high priority DDL should be kill at least one connection]
+connection: slave
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int(11) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
+select * from t1;
+i
+1
+2
+3
+connection: slave (for reset variable)
+set global slave_high_priority_ddl = 0;
+connection: slave1 (for show processlist)
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid	Srv_Id
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	root	#	test	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+#	system user	#	NULL	#	#	#	#	#	#	#	0
+connection: slave
+set @@high_priority_lock_wait_timeout = @m_high_priority_lock_wait_timout;
+set @@lock_wait_timeout = @m_lock_wait_timeout;
+connection: slave (for restore)
+set global slave_high_priority_lock_wait_timeout =
+@m_slave_high_priority_lock_wait_timeout;
+connection master
+use test;
 ##
 ## high_priority optimize table
 ##
@@ -976,6 +1193,7 @@ set @@lock_wait_timeout = @m_lock_wait_timeout;
 connection: slave (for restore)
 set global slave_high_priority_lock_wait_timeout =
 @m_slave_high_priority_lock_wait_timeout;
+connection master
 ##
 ## clean up
 ##

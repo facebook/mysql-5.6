@@ -36,6 +36,21 @@ drop table t1_new;
 # restore tablename
 --let $tablename = t1
 
+--echo ##
+--echo ## rename table, rename table doesn't support high_priority keyword
+--echo ##
+--let $saved_use_sys_var=$use_sys_var
+--let $use_sys_var=1
+--let $blocking_sql = begin; insert into t1 values (5); select i from t1;
+--let $cmd = rename table t1 to t1_new;
+--let $high_priority_cmd = rename high_priority table t1 to t1_new;
+--let $tablename = t1_new
+--source include/ddl_high_priority_module.inc
+select * from t1_new;
+drop table t1_new;
+# restore tablename
+--let $tablename = t1
+--let $use_sys_var = $saved_use_sys_var
 
 --echo ##
 --echo ## simulate conflicting DDL which will not be killed
@@ -150,6 +165,27 @@ if (!$slave_ddl) {
 # restore $recreate_table
 --let $recreate_table = 1
 
+
+--echo ##
+--echo ## drop database 
+--echo ##
+create database menagerie;
+use menagerie;
+create table t1(a int);
+if (!$slave_ddl) {
+  echo connection $con_init;
+  connection $con_init;
+  grant all on t1 to test_user1@localhost;
+  grant all on t1 to test_user2@localhost;
+}
+--let $recreate_table = 0
+--let $blocking_sql = begin;use menagerie; select * from t1;
+--let $cmd = drop database menagerie;
+--let $high_priority_cmd = drop high_priority database menagerie;
+--source include/ddl_high_priority_module.inc
+# restore $recreate_table
+--let $recreate_table = 1
+use test;
 
 --echo ##
 --echo ## high_priority optimize table

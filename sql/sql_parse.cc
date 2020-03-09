@@ -762,8 +762,12 @@ bool support_high_priority(enum enum_sql_command command)
     case SQLCOM_CREATE_TABLE:
     case SQLCOM_ALTER_TABLE:
     case SQLCOM_DROP_TABLE:
+    case SQLCOM_RENAME_TABLE:
     case SQLCOM_CREATE_INDEX:
     case SQLCOM_DROP_INDEX:
+    case SQLCOM_CREATE_DB:
+    case SQLCOM_ALTER_DB:
+    case SQLCOM_DROP_DB:
     case SQLCOM_TRUNCATE:
     case SQLCOM_CREATE_TRIGGER:
     case SQLCOM_DROP_TRIGGER:

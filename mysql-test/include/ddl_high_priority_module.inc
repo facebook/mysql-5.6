@@ -138,9 +138,6 @@ if ($use_sys_var) {
   if (!$slave_ddl) {
     --echo connection: $con_kill
     --connection $con_kill
-    # non-supported command will timeout
-    --error ER_LOCK_WAIT_TIMEOUT
-    rename table t1 to t2;
 
     if (!$should_kill) {
       # regular user ddl will fail regardless of high_priority_ddl being on
@@ -260,4 +257,7 @@ if ($slave_ddl) {
   connection $con_kill;
   set global slave_high_priority_lock_wait_timeout =
   @m_slave_high_priority_lock_wait_timeout;
+
+  echo connection $con_init;
+  connection $con_init;
 }
