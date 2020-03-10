@@ -7386,8 +7386,6 @@ ER_CANT_DROP_CF
 ER_DB_ADMISSION_CONTROL_TIMEOUT
   eng "Got timeout while waiting on admission control queue for database `%s`"
 
-start-error-number 50110
-
 ER_QUERY_CHECKSUM_FAILED
   eng "Expected query checksum %u but found %u"
 
