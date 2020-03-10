@@ -1478,8 +1478,18 @@ The following options may be given as the first argument:
  --rocksdb-master-skip-tx-api 
  Skipping holding any lock on row access. Not effective on
  slave.
+ --rocksdb-max-background-compactions=# 
+ DBOptions::max_background_compactions for RocksDB
+ --rocksdb-max-background-flushes=# 
+ DBOptions::max_background_flushes for RocksDB
  --rocksdb-max-background-jobs=# 
  DBOptions::max_background_jobs for RocksDB
+ --rocksdb-max-bottom-pri-background-compactions=# 
+ Creating specified number of threads, setting lower CPU
+ priority, and letting compactions use them. Maximum
+ compaction concurrency is capped by
+ rocksdb_max_background_compactions or
+ rocksdb_max_background_jobs.
  --rocksdb-max-latest-deadlocks=# 
  Maximum number of recent deadlocks to store
  --rocksdb-max-log-file-size=# 
@@ -2514,7 +2524,10 @@ rocksdb-manifest-preallocation-size 4194304
 rocksdb-manual-compaction-threads 0
 rocksdb-manual-wal-flush TRUE
 rocksdb-master-skip-tx-api FALSE
+rocksdb-max-background-compactions -1
+rocksdb-max-background-flushes -1
 rocksdb-max-background-jobs 2
+rocksdb-max-bottom-pri-background-compactions 0
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 1073741824
