@@ -19732,8 +19732,8 @@ ER_PLACEHOLDER_50026
 ER_DB_READ_ONLY
   eng "Database '%s' is in read-only mode. %s"
 
-ER_PLACEHOLDER_50028
-  eng "Placeholder"
+ER_DB_ADMISSION_CONTROL
+  eng "Maximum waiting queries %lu reached for database `%s`"
 
 ER_PLACEHOLDER_50029
   eng "Placeholder"
@@ -19889,6 +19889,12 @@ ER_CF_DROPPED
 ER_CANT_DROP_CF
   eng "Cannot drop Column family ('%s') because it is in use or does not exist."
 
+ER_PLACEHOLDER_50080
+  eng "Placeholder"
+
+ER_QUERY_CHECKSUM_FAILED
+  eng "Expected query checksum %u but found %u"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #
@@ -19920,12 +19926,6 @@ ER_SEMISYNC_WHITELIST_UPDATED
 
 ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE
    eng "Semi-sync master: Received an ACK from an unrecognized slave with UUID = %s, ignoring"
-
-ER_DB_ADMISSION_CONTROL
-  eng "Maximum waiting queries %lu reached for database `%s`"
-
-ER_QUERY_CHECKSUM_FAILED
-  eng "Expected query checksum %u but found %u"
 
 #
 # End of 8.0 FB MySQL error messages.
