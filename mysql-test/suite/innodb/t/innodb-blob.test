@@ -207,3 +207,14 @@ SELECT a FROM t3;
 SELECT * FROM t2;
 
 DROP TABLE t1,t2,t3;
+
+--echo #
+--echo # Bug # [FATAL] MEMORY BLOCK IS INVALID | INNODB: ASSERTION
+--echo # FAILURE: UT0UT.CC:539
+--echo #
+set sql_mode='';
+CREATE TABLE t1(a INT, b TEXT NOT NULL);
+INSERT INTO t1 VALUES(0, "0");
+ALTER TABLE t1 ADD COLUMN c DATE NOT NULL;
+DROP TABLE t1;
+SET sql_mode = default;
