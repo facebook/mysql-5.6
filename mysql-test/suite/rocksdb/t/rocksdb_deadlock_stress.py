@@ -6,6 +6,8 @@ Usage: rocksdb_deadlock_stress.py user host port db_name table_name
 """
 import cStringIO
 import hashlib
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 from MySQLdb.constants import ER
 import os
@@ -56,7 +58,9 @@ class Worker(threading.Thread):
         for i in random.sample(xrange(100), 10):
           cur.execute(get_query(self.table_name, i))
         self.con.commit()
-      except MySQLdb.OperationalError, e:
+      # Different versions of PyMySQL may raise deadlock error as
+      # either of these two exceptions
+      except (MySQLdb.InternalError, MySQLdb.OperationalError) as e:
         self.con.rollback()
         cur = self.con.cursor()
         if not is_deadlock_error(e):

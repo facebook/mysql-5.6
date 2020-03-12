@@ -63,7 +63,7 @@ connection master;
 let $MYSQLD_DATADIR = `select @@datadir`;
 let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
 # Extracting and recreating the JSON through python's JSON lib so that the test is deterministic when we use diff JSON libs to produce TRX_META_DATA
-exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep '::TRX_META_DATA::' | sed 's/\"[0-9]*\"/\"ts\"/g' | sed 's/# \/\*::TRX_META_DATA:://g' | sed 's/}\*\//}/g' | python -c 'import sys, json; l = map(lambda line: json.dumps(json.loads(line.strip())), sys.stdin); print "\n".join(l)' > $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
+exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep '::TRX_META_DATA::' | sed 's/\"[0-9]*\"/\"ts\"/g' | sed 's/# \/\*::TRX_META_DATA:://g' | sed 's/}\*\//}/g' | python2 -c 'import sys, json; l = map(lambda line: json.dumps(json.loads(line.strip())), sys.stdin); print "\n".join(l)' > $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 exec cat $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 remove_file $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 --source include/sync_slave_sql_with_master.inc
@@ -72,7 +72,7 @@ connection slave;
 let $MYSQLD_DATADIR = `select @@datadir`;
 let $MYSQLD_SECURE_FILE_DIR = `select @@secure_file_priv`;
 # Extracting and recreating the JSON through python's JSON lib so that the test is deterministic when we use diff JSON libs to produce TRX_META_DATA
-exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/slave-bin.0* | grep '::TRX_META_DATA::' | sed 's/\"[0-9]*\"/\"ts\"/g' | sed 's/# \/\*::TRX_META_DATA:://g' | sed 's/}\*\//}/g' | python -c 'import sys, json; l = map(lambda line: json.dumps(json.loads(line.strip())), sys.stdin); print "\n".join(l)' > $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
+exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/slave-bin.0* | grep '::TRX_META_DATA::' | sed 's/\"[0-9]*\"/\"ts\"/g' | sed 's/# \/\*::TRX_META_DATA:://g' | sed 's/}\*\//}/g' | python2 -c 'import sys, json; l = map(lambda line: json.dumps(json.loads(line.strip())), sys.stdin); print "\n".join(l)' > $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 exec cat $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 remove_file $MYSQLD_SECURE_FILE_DIR/binlog_db_metadata.dat;
 

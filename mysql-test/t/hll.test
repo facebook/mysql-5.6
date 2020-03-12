@@ -22,7 +22,7 @@ ENGINE=INNODB;
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
 
 let $exec =
-    python suite/innodb_stress/t/load_generator.py $pid_file 0
+    python2 suite/innodb_stress/t/load_generator.py $pid_file 0
     $num_records 0 0 $user $master_host $port
     $table 0 0 $MYSQL_TMP_DIR/load_generator 0 0 0 0 0;
 

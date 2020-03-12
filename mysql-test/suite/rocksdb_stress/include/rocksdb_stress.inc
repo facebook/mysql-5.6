@@ -9,7 +9,7 @@
 let $MYSQL_BASEDIR = `SELECT @@BASEDIR`;
 
 let $exec =
-  python $MYSQL_BASEDIR/mysql-test/suite/rocksdb_stress/t/load_generator.py
+  python2 $MYSQL_BASEDIR/mysql-test/suite/rocksdb_stress/t/load_generator.py
   -L $MYSQL_TMP_DIR/load_generator.log -H $master_host -t $table
   -P $MASTER_MYPORT -n $num_records -m $max_records
   -l $num_loaders -c $num_checkers -r $num_requests

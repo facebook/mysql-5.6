@@ -3,7 +3,7 @@ import re
 
 """
 Example usage:
-    python check_log_for_xa.py path/to/log/mysqld.2.err rollback,commit,prepare
+    python2 check_log_for_xa.py path/to/log/mysqld.2.err rollback,commit,prepare
 """
 
 log_path = sys.argv[1]

@@ -1,6 +1,8 @@
 import cStringIO
 import array
 import hashlib
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 from MySQLdb.constants import CR
 from MySQLdb.constants import ER

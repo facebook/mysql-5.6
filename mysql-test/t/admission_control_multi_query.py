@@ -1,5 +1,7 @@
 import time
 import sys
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 import argparse
 import random
@@ -7,7 +9,7 @@ import threading
 import traceback
 
 NUM_WORKERS = 50
-NUM_TRANSACTIONS = 10000
+NUM_TRANSACTIONS = 2500
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -38,31 +40,41 @@ def parse_args():
 
     return parser.parse_args()
 
-def generate_load(args):
+def is_deadlock_error(exc):
+    error_code = exc.args[0]
+    return (error_code == MySQLdb.constants.ER.LOCK_DEADLOCK or
+            error_code == MySQLdb.constants.ER.LOCK_WAIT_TIMEOUT)
+
+def generate_load(args, worker_id):
     con = MySQLdb.connect(user=args.user,
                           passwd=args.password,
                           host=args.host,
                           port=args.port,
                           db=args.database)
     for i in xrange(NUM_TRANSACTIONS):
-        cursor = con.cursor()
-        cursor.execute('begin;')
-        sql = ''
-        values = []
-        for i in xrange(3):
-            val = random.randrange(1, 50)
-            values.append(val)
-        values = sorted(values)
-        for val in values:
-            sql += 'insert into t1 values(%d, 1) on duplicate key ' \
-                   'update b=greatest(b+1, 0);' % (val)
-        sql += 'commit;'
-        cursor.execute(sql)
-        cursor.close()
+        try:
+            print "WORKER %d: Executing iteration %d" % (worker_id, i)
+            cursor = con.cursor()
+            cursor.execute('begin;')
+            values = []
+            for j in xrange(3):
+                val = random.randrange(1, 10000)
+                values.append(val)
+            values = sorted(values)
+            for val in values:
+                insert_sql = 'insert into t1 values(%d, 1) on duplicate key ' \
+                'update b=greatest(b+1, 0);' % (val)
+                cursor.execute(insert_sql)
+            cursor.execute("commit;")
+            cursor.close()
+        except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
+            if not is_deadlock_error(e):
+                raise e
+
     con.close()
 
 def run_admin_checks(args):
-    con = MySQLdb.connect(user='root',
+    con = MySQLdb.connect(user=args.user,
                           passwd=args.password,
                           host=args.host,
                           port=args.port,
@@ -81,11 +93,12 @@ def run_admin_checks(args):
                              max_running_queries))
 
 class worker_thread(threading.Thread):
-    def __init__(self, args, admin):
+    def __init__(self, args, worker_id, admin):
         threading.Thread.__init__(self)
         self.args = args
         self.exception = None
         self.admin = admin
+        self.worker_id = worker_id
         self.start()
 
     def run(self):
@@ -93,7 +106,7 @@ class worker_thread(threading.Thread):
             if self.admin:
                 run_admin_checks(self.args)
             else:
-                generate_load(self.args)
+                generate_load(self.args, self.worker_id)
         except Exception, e:
             self.exception = traceback.format_exc()
 
@@ -101,10 +114,10 @@ def main():
     args = parse_args()
     workers = []
     for i in xrange(NUM_WORKERS):
-        worker = worker_thread(args, False)
+        worker = worker_thread(args, i, False)
         workers.append(worker)
 
-    admin_worker = worker_thread(args, True)
+    admin_worker = worker_thread(args, NUM_WORKERS, True)
     workers.append(admin_worker)
 
     worker_failed = False

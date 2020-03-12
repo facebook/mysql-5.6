@@ -53,7 +53,7 @@ fi
 ###########################################################################
 
 log_debug "--- running slocket listener --- "
-$client_exe $datadir_path > $out_file &
+python2 $client_exe $datadir_path > $out_file &
 
 # perhaps the most important sleep of my life... without this, the test
 # fails because the socket isn't opened before the test continues

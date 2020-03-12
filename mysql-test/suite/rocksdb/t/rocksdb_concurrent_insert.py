@@ -4,13 +4,15 @@ Example Usage (in Mysql Test Framework):
 
   CREATE TABLE t1 (a INT) ENGINE=rocksdb;
 
-  let $exec = python suite/rocksdb/t/rocksdb_concurrent_insert.py \
+  let $exec = python2 suite/rocksdb/t/rocksdb_concurrent_insert.py \
                      root 127.0.0.1 $MASTER_MYPORT test t1 100 4;
   exec $exec;
 
 """
 import cStringIO
 import hashlib
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 import os
 import random

@@ -11,7 +11,7 @@ call mtr.add_suppression("InnoDB: Error: trying to do ibuf merge to a dropped ta
 let $pid_file = `SELECT @@pid_file`;
 
 let $exec =
-python suite/innodb/t/table_dropper.py $pid_file $MYSQL_TMP_DIR/innodb_dropper
+python2 suite/innodb/t/table_dropper.py $pid_file $MYSQL_TMP_DIR/innodb_dropper
 $min_records $max_records $num_workers $test_seconds $use_blob root 127.0.0.1 $MASTER_MYPORT;
 
 exec $exec;

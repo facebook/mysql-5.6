@@ -19,7 +19,7 @@ ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 KEY_BLOCK_SIZE=1;
 
-let $exec = python suite/innodb/t/innodb_optimistic_insert_race.py root 127.0.0.1 $MASTER_MYPORT;
+let $exec = python2 suite/innodb/t/innodb_optimistic_insert_race.py root 127.0.0.1 $MASTER_MYPORT;
 
 exec $exec;
 
