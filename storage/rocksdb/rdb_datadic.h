@@ -803,11 +803,6 @@ class Rdb_key_def {
                                      const Field *const field,
                                      Rdb_string_reader *const reader);
 
-  inline bool use_legacy_varbinary_format() const {
-    return !index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE2,
-                                   SECONDARY_FORMAT_VERSION_UPDATE2);
-  }
-
   static inline bool is_unpack_data_tag(char c) {
     return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG;
   }
@@ -976,7 +971,6 @@ class Rdb_field_packing {
     Valid only for VARCHAR fields.
   */
   const CHARSET_INFO *m_varchar_charset;
-  bool m_use_legacy_varbinary_format;
 
   // (Valid when Variable Length Space Padded Encoding is used):
   uint m_segment_size;  // size of segment used

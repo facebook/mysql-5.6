@@ -1735,25 +1735,18 @@ int Rdb_key_def::skip_max_length(const Rdb_field_packing *const fpi,
   unpack_binary_or_utf8_varchar.
 */
 #define RDB_ESCAPE_LENGTH 9
-#define RDB_LEGACY_ESCAPE_LENGTH RDB_ESCAPE_LENGTH
-static_assert((RDB_ESCAPE_LENGTH - 1) % 2 == 0,
-              "RDB_ESCAPE_LENGTH-1 must be even.");
 
 #define RDB_ENCODED_SIZE(len)                                   \
   ((len + (RDB_ESCAPE_LENGTH - 2)) / (RDB_ESCAPE_LENGTH - 1)) * \
       RDB_ESCAPE_LENGTH
 
-#define RDB_LEGACY_ENCODED_SIZE(len)                                          \
-  ((len + (RDB_LEGACY_ESCAPE_LENGTH - 1)) / (RDB_LEGACY_ESCAPE_LENGTH - 1)) * \
-      RDB_LEGACY_ESCAPE_LENGTH
-
 /*
   Function of type rdb_index_field_skip_t
 */
 
-int Rdb_key_def::skip_variable_length(const Rdb_field_packing *const fpi,
-                                      const Field *const field,
-                                      Rdb_string_reader *const reader) {
+int Rdb_key_def::skip_variable_length(
+    const Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
+    const Field *const field, Rdb_string_reader *const reader) {
   const uchar *ptr;
   bool finished = false;
 
@@ -1766,20 +1759,12 @@ int Rdb_key_def::skip_variable_length(const Rdb_field_packing *const fpi,
     dst_len = UINT_MAX;
   }
 
-  bool use_legacy_format = fpi->m_use_legacy_varbinary_format;
-
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(RDB_ESCAPE_LENGTH))) {
     uint used_bytes;
 
-    /* See pack_with_varchar_encoding. */
-    if (use_legacy_format) {
-      used_bytes = calc_unpack_legacy_variable_format(
-          ptr[RDB_ESCAPE_LENGTH - 1], &finished);
-    } else {
-      used_bytes =
-          calc_unpack_variable_format(ptr[RDB_ESCAPE_LENGTH - 1], &finished);
-    }
+    used_bytes =
+        calc_unpack_variable_format(ptr[RDB_ESCAPE_LENGTH - 1], &finished);
 
     if (used_bytes == (uint)-1 || dst_len < used_bytes) {
       return HA_EXIT_FAILURE;  // Corruption in the data
@@ -2566,53 +2551,6 @@ int Rdb_key_def::unpack_utf8_str(
 }
 
 /*
-  This is the original algorithm to encode a variable binary field.  It
-  sets a flag byte every Nth byte.  The flag value is (255 - #pad) where
-  #pad is the number of padding bytes that were needed (0 if all N-1
-  bytes were used).
-
-  If N=8 and the field is:
-  * 3 bytes (1, 2, 3) this is encoded as: 1, 2, 3, 0, 0, 0, 0, 251
-  * 4 bytes (1, 2, 3, 0) this is encoded as: 1, 2, 3, 0, 0, 0, 0, 252
-  And the 4 byte string compares as greater than the 3 byte string
-
-  Unfortunately the algorithm has a flaw.  If the input is exactly a
-  multiple of N-1, an extra N bytes are written.  Since we usually use
-  N=9, an 8 byte input will generate 18 bytes of output instead of the
-  9 bytes of output that is optimal.
-
-  See pack_variable_format for the newer algorithm.
-*/
-void Rdb_key_def::pack_legacy_variable_format(
-    const uchar *src,  // The data to encode
-    size_t src_len,    // The length of the data to encode
-    uchar **dst)       // The location to encode the data
-{
-  size_t copy_len;
-  size_t padding_bytes;
-  uchar *ptr = *dst;
-
-  do {
-    copy_len = std::min((size_t)RDB_LEGACY_ESCAPE_LENGTH - 1, src_len);
-    padding_bytes = RDB_LEGACY_ESCAPE_LENGTH - 1 - copy_len;
-    memcpy(ptr, src, copy_len);
-    ptr += copy_len;
-    src += copy_len;
-    // pad with zeros if necessary
-    if (padding_bytes > 0) {
-      memset(ptr, 0, padding_bytes);
-      ptr += padding_bytes;
-    }
-
-    *(ptr++) = 255 - padding_bytes;
-
-    src_len -= copy_len;
-  } while (padding_bytes == 0);
-
-  *dst = ptr;
-}
-
-/*
   This is the new algorithm.  Similarly to the legacy format the input
   is split up into N-1 bytes and a flag byte is used as the Nth byte
   in the output.
@@ -2710,11 +2648,7 @@ void Rdb_key_def::pack_with_varchar_encoding(
       std::min<size_t>(trimmed_len, max_xfrm_len), 0);
 
   /* Got a mem-comparable image in 'buf'. Now, produce varlength encoding */
-  if (fpi->m_use_legacy_varbinary_format) {
-    pack_legacy_variable_format(buf, xfrm_len, dst);
-  } else {
-    pack_variable_format(buf, xfrm_len, dst);
-  }
+  pack_variable_format(buf, xfrm_len, dst);
 }
 
 /*
@@ -2908,22 +2842,6 @@ void Rdb_key_def::pack_with_varchar_space_pad(
 
 /*
   Calculate the number of used bytes in the chunk and whether this is the
-  last chunk in the input.  This is based on the old legacy format - see
-  pack_legacy_variable_format.
- */
-uint Rdb_key_def::calc_unpack_legacy_variable_format(uchar flag, bool *done) {
-  uint pad = 255 - flag;
-  uint used_bytes = RDB_LEGACY_ESCAPE_LENGTH - 1 - pad;
-  if (used_bytes > RDB_LEGACY_ESCAPE_LENGTH - 1) {
-    return (uint)-1;
-  }
-
-  *done = used_bytes < RDB_LEGACY_ESCAPE_LENGTH - 1;
-  return used_bytes;
-}
-
-/*
-  Calculate the number of used bytes in the chunk and whether this is the
   last chunk in the input.  This is based on the new format - see
   pack_variable_format.
  */
@@ -3001,20 +2919,12 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar(
   // How much we can unpack
   size_t dst_len = field_var->pack_length() - field_var->length_bytes;
 
-  bool use_legacy_format = fpi->m_use_legacy_varbinary_format;
-
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(RDB_ESCAPE_LENGTH))) {
     uint used_bytes;
 
-    /* See pack_with_varchar_encoding. */
-    if (use_legacy_format) {
-      used_bytes = calc_unpack_legacy_variable_format(
-          ptr[RDB_ESCAPE_LENGTH - 1], &finished);
-    } else {
-      used_bytes =
-          calc_unpack_variable_format(ptr[RDB_ESCAPE_LENGTH - 1], &finished);
-    }
+    used_bytes =
+        calc_unpack_variable_format(ptr[RDB_ESCAPE_LENGTH - 1], &finished);
 
     if (used_bytes == (uint)-1 || dst_len < used_bytes) {
       return UNPACK_FAILURE;  // Corruption in the data
@@ -3688,15 +3598,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_make_unpack_info_func = nullptr;
   m_unpack_data_len = 0;
   space_xfrm = nullptr;  // safety
-  // whether to use legacy format for varchar
-  m_use_legacy_varbinary_format = false;
-  // ha_rocksdb::index_flags() will pass key_descr == null to
-  // see whether field(column) can be read-only reads through return value,
-  // but the legacy vs. new varchar format doesn't affect return value.
-  // Just change m_use_legacy_varbinary_format to true if key_descr isn't given.
-  if (!key_descr || key_descr->use_legacy_varbinary_format()) {
-    m_use_legacy_varbinary_format = true;
-  }
+
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len =
       field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
@@ -3884,13 +3786,10 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     // comparisons
     m_varchar_charset = cs;
     m_skip_func = Rdb_key_def::skip_variable_length;
-    if (!key_descr || key_descr->use_legacy_varbinary_format()) {
-      m_max_image_len = RDB_LEGACY_ENCODED_SIZE(m_max_image_len);
-    } else {
-      // Calculate the maximum size of the short section plus the
-      // maximum size of the long section
-      m_max_image_len = RDB_ENCODED_SIZE(m_max_image_len);
-    }
+
+    // Calculate the maximum size of the short section plus the
+    // maximum size of the long section
+    m_max_image_len = RDB_ENCODED_SIZE(m_max_image_len);
 
     const auto field_var = static_cast<const Field_varstring *>(field);
     m_unpack_info_uses_two_bytes = (field_var->field_length + 8 >= 0x100);
