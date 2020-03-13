@@ -7603,13 +7603,6 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
     kv_version = sk_latest_version;
   }
 
-  // Use PRIMARY_FORMAT_VERSION_UPDATE1 here since it is the same value as
-  // SECONDARY_FORMAT_VERSION_UPDATE1 so it doesn't matter if this is a
-  // primary key or secondary key.
-  DBUG_EXECUTE_IF("MYROCKS_LEGACY_VARBINARY_FORMAT", {
-    kv_version = Rdb_key_def::PRIMARY_FORMAT_VERSION_UPDATE1;
-  });
-
   DBUG_EXECUTE_IF("MYROCKS_NO_COVERED_BITMAP_FORMAT", {
     if (index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
       kv_version = Rdb_key_def::SECONDARY_FORMAT_VERSION_UPDATE2;
