@@ -7,8 +7,20 @@
 #
 --source include/have_myisam.inc
 
-let $iter = 20;
+if ($storage_engine == '')
+{
+  let $storage_engine='innodb';
+}
+if ($iter == '')
+{
+  let $iter = 20;
+}
+if ($databases == '')
+{
+  let $databases=16;
+}
 let $init_rows= 50;
+
 
 #
 # Distribution of queries within an iteration:
@@ -33,12 +45,15 @@ if (`select convert(@@version_compile_os using latin1) IN ("Win32","Win64","Wind
 }
 enable_query_log;
 
-let $databases = 16;
 
 connection slave;
 
 call mtr.add_suppression('Slave: Error dropping database'); ## todo: fix
-
+disable_query_log;
+call mtr.add_suppression('Recovery from master pos');
+call  mtr.add_suppression(".*The slave coordinator and worker threads are stopped.*");
+call mtr.add_suppression("The transaction owned GTID is already in the gtid_executed table");
+enable_query_log;
 source include/stop_slave.inc;
 start slave;
 
@@ -56,8 +71,8 @@ while($i)
   
   eval create database test$i1;
   eval use test$i1;
-  create table ti_nk (a int, b int, c text) engine=innodb;
-  create table ti_wk (a int auto_increment primary key, b int, c text) engine=innodb;
+  eval create table ti_nk (a int, b int, c varchar(36) primary key) engine=$storage_engine default charset=latin1 collate=latin1_bin;
+  eval create table ti_wk (a int auto_increment primary key, b int, c text) engine=$storage_engine;
   let $l1= $init_rows;
   while($l1)
   {
@@ -67,7 +82,7 @@ while($i)
 
   # this table is special - just for timing. It's more special on test0 db
   # where it contains master timing of the load as well.
-  create table benchmark (state text) engine=innodb; # timestamp keep on the slave side
+  eval create table benchmark (state varchar(100) primary key) engine=$storage_engine default charset=latin1 collate=latin1_bin; # timestamp keep on the slave side
 
   dec $i;
 }
@@ -114,7 +129,9 @@ connection master;
 
 # the extra ts col on slave is effective only with the STMT format (todo: bug-report)
 set @save.binlog_format= @@session.binlog_format;
-set @@session.binlog_format=STATEMENT;
+if (!`SELECT @@binlog_format = 'ROW' AND @@global.slave_use_idempotent_for_recovery = 'YES'`) {
+  set @@session.binlog_format=STATEMENT;
+}
 let $i = $databases + 1;
 while($i)
 {
@@ -225,7 +242,9 @@ connection master;
 
 let $i = $databases + 1;
 set @save.binlog_format= @@session.binlog_format;
-set @@session.binlog_format=STATEMENT;
+if (!`SELECT @@binlog_format = 'ROW' AND @@global.slave_use_idempotent_for_recovery = 'YES'`) {
+  set @@session.binlog_format=STATEMENT;
+}
 while($i)
 {
   let $i1 = $i;
@@ -249,6 +268,11 @@ connection slave;
 --disable_result_log
 
 insert into test0.benchmark set state='slave is processing load';
+disable_query_log;
+FLUSH LOGS;
+enable_query_log;
+let $wait_condition= SELECT count(*)+sleep(1) = 3 FROM test0.benchmark;
+source include/wait_condition.inc;
 
 # To force filling timestamp cols with the slave local clock values
 # to implement benchmarking.
@@ -257,9 +281,57 @@ insert into test0.benchmark set state='slave is processing load';
 #set @save.mts_exp_slave_local_timestamp=@@global.mts_exp_slave_local_timestamp;
 #set @@global.mts_exp_slave_local_timestamp=1;
 start slave sql_thread;
-
-let $wait_timeout= 600;
 let $wait_condition= SELECT count(*)+sleep(1) = 5 FROM test0.benchmark;
+let slave_data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1);
+let $slave_pid_file = `SELECT @@pid_file`;
+
+if (`SELECT @@binlog_format = 'ROW' AND @@global.slave_use_idempotent_for_recovery = 'YES'`)
+{
+  while ($num_crashes)
+  {
+    --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
+    exec kill -9 `head -1 $slave_pid_file`;
+
+    if ($storage_engine == 'rocksdb')
+    {
+  --write_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+  #!/bin/bash
+  F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
+  SIZE=`stat -c %s $F`
+  NEW_SIZE=`expr $SIZE - 100`
+  truncate -s $NEW_SIZE $F
+  rc=$?
+  if [[ $rc != 0 ]]; then
+    exit 1
+  fi
+  exit 0
+  EOF
+      --chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal.sh
+      --exec $MYSQL_TMP_DIR/truncate_tail_wal.sh
+      --remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+    }
+
+    -- let $rpl_server_number=2
+    -- source include/rpl_start_server.inc
+    -- source include/start_slave.inc
+    dec $num_crashes;
+    if (`$wait_condition`)
+    {
+      let $num_crashes=0;
+    }
+  }
+}
+
+#
+# Syncs the slave with the master and checks if the slaves applied all
+# changes from the master and is not out of sync.
+#
+connection master;
+sync_slave_with_master;
+
+connection slave;
+let $wait_condition= SELECT count(*) = 5 FROM test0.benchmark;
+let $wait_timeout= 600;
 source include/wait_condition_or_abort.inc;
 
 use test0;
