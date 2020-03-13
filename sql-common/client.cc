@@ -7717,11 +7717,14 @@ net_async_status STDCALL mysql_fetch_row_nonblocking(MYSQL_RES *res,
           goto end;
         }
       }
+      else {
+        set_mysql_error(mysql,
+                        res->unbuffered_fetch_cancelled
+                          ? CR_FETCH_CANCELED
+                          : CR_COMMANDS_OUT_OF_SYNC,
+                        unknown_sqlstate);
+      }
 
-      set_mysql_error(mysql,
-                      res->unbuffered_fetch_cancelled ? CR_FETCH_CANCELED
-                                                      : CR_COMMANDS_OUT_OF_SYNC,
-                      unknown_sqlstate);
       DBUG_PRINT("info", ("end of data"));
       res->eof = 1;
       mysql->status = MYSQL_STATUS_READY;
