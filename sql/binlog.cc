@@ -1505,7 +1505,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
      */
     error= gtid_before_write_cache(thd, this);
 
-    if (!error && enable_raft_plugin_save && !thd->rli_slave) {
+    if (!error && enable_raft_plugin_save && !mysql_bin_log.is_apply_log) {
       error= RUN_HOOK(raft_replication, before_flush,
                       (thd, &cache_log, false /* not a noop event */));
 

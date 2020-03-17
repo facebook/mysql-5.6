@@ -146,18 +146,23 @@ sub is_set {
   foreach my $opt (@$opts){
 
     my ($opt_name1, $value1)= _split_option($opt);
+    my $set = 0;
 
     foreach my $set_opt (@$set_opts){
       my ($opt_name2, $value2)= _split_option($set_opt);
 
-      if ($opt_name1 eq $opt_name2){
-	# Option already set
-	return 1;
+      if ($opt_name1 eq $opt_name2) {
+        $set= 1;
+        last;
       }
+    }
+
+    if ($set == 0) {
+      return 0;
     }
   }
 
-  return 0;
+  return 1;
 }
 
 
