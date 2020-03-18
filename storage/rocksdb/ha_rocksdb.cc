@@ -10881,11 +10881,36 @@ int ha_rocksdb::delete_row(const uchar *const buf) {
     if (!is_pk(i, table, m_tbl_def)) {
       int packed_size;
       const Rdb_key_def &kd = *m_key_descr_arr[i];
+
+      // The unique key should be locked so that behavior is
+      // similar to InnoDB and reduce conflicts. The key
+      // used for locking does not include the extended fields.
+      const KEY *key_info = &table->key_info[i];
+      if (key_info->flags & HA_NOSAME) {
+        uint user_defined_key_parts = key_info->user_defined_key_parts;
+        uint n_null_fields = 0;
+
+        packed_size = kd.pack_record(table, m_pack_buffer, buf,
+                                     m_sk_packed_tuple, nullptr, false, 0,
+                                     user_defined_key_parts, &n_null_fields);
+
+        // NULL fields are considered unique, so no lock is needed
+        if (n_null_fields == 0) {
+          rocksdb::Slice sk_slice(
+              reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
+          const rocksdb::Status s =
+              get_for_update(tx, kd.get_cf(), sk_slice, nullptr);
+          if (!s.ok()) {
+            DBUG_RETURN(tx->set_status_error(table->in_use, s, kd, m_tbl_def,
+                                             m_table_handler));
+          }
+        }
+      }
+
       packed_size = kd.pack_record(table, m_pack_buffer, buf, m_sk_packed_tuple,
                                    nullptr, false, hidden_pk_id);
       rocksdb::Slice secondary_key_slice(
           reinterpret_cast<const char *>(m_sk_packed_tuple), packed_size);
-      /* Deleting on secondary key doesn't need any locks: */
       tx->get_indexed_write_batch()->SingleDelete(kd.get_cf(),
                                                   secondary_key_slice);
       bytes_written += secondary_key_slice.size();
