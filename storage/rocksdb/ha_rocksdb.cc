@@ -4115,21 +4115,22 @@ static std::string rdb_xid_to_string(const XID &src) {
 /**
   Called by hton->flush_logs after MySQL group commit prepares a set of
   transactions.
+  @param[in]	hton			RocksDB handlerton
+  @param[in]	binlog_group_flush	true if we got invoked by binlog
+  group commit during flush stage, false in other cases.
 */
 static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
-  /* TODO(yzha) - 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
-                              ulonglong target_lsn MY_ATTRIBUTE((__unused__)), */
-                              bool binlog_group_flush MY_ATTRIBUTE((__unused__))) {
+                              bool binlog_group_flush) {
   DBUG_ASSERT(rdb != nullptr);
 
+  // Don't flush log if 2pc isn't enabled
+  if (binlog_group_flush && !rocksdb_enable_2pc) return HA_EXIT_SUCCESS;
+
   rocksdb::Status s;
-  /*
-    target_lsn is set to 0 when MySQL wants to sync the wal files
-   */
-  if ((/*target_lsn == 0 && */!rocksdb_db_options->allow_mmap_writes) ||
+  if ((!binlog_group_flush && !rocksdb_db_options->allow_mmap_writes) ||
       rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
     rocksdb_wal_group_syncs++;
-    s = rdb->FlushWAL(/* target_lsn == 0 || */
+    s = rdb->FlushWAL(!binlog_group_flush ||
                       rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
   }
 
@@ -4165,14 +4166,6 @@ static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
       thd_get_xid(thd, reinterpret_cast<MYSQL_XID *>(&xid));
       if (!tx->prepare(rdb_xid_to_string(xid))) {
         return HA_EXIT_FAILURE;
-      }
-      if (thd->durability_property == HA_IGNORE_DURABILITY &&
-          (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER)) {
-        /**
-          we set the log sequence as '1' just to trigger hton->flush_logs
-        */
-        /* TODO(yzha) - 37c7ed00ce9 write/sync redo log before flushing binlog cache to file */
-        // thd_store_lsn(thd, 1, DB_TYPE_ROCKSDB);
       }
     }
   
