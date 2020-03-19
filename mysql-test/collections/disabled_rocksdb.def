@@ -30,7 +30,6 @@ rocksdb_rpl.rpl_mts_dependency_unique_key_conflicts : BUG#0000 missing patch
 rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb.force_shutdown: BUG#0000 missing 5354b969fa6 Extending SHUTDOWN query to support read_only/aborting
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
-rocksdb.2pc_group_commit : BUG#0000 missing 37c7ed00ce9 write/sync redo log before flushing binlog cache to file
 rocksdb.group_min_max : BUG#0000 missing infinite loop fix
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
