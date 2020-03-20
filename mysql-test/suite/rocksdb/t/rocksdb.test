@@ -942,7 +942,7 @@ drop table t2;
 
 create table t3 (
   pk int primary key, 
-  key1 char(10) collate utf8_bin,
+  key1 char(10) collate utf8mb4_bin,
   col1 int,
   key (key1)
 ) engine=rocksdb;
@@ -1010,9 +1010,9 @@ INSERT INTO t1 VALUES (1,'foo'), (2,'bar');
 DROP TABLE t1;
 
 --echo #
---echo # MDEV-4304: RocksDB: Index-only scan by a field with utf8_bin collation returns garbage symbols
+--echo # MDEV-4304: RocksDB: Index-only scan by a field with utf8mb4_bin collation returns garbage symbols
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, c1 CHAR(1), c2 CHAR(1), KEY(c1)) ENGINE=RocksDB CHARSET utf8 COLLATE utf8_bin;
+CREATE TABLE t1 (pk INT PRIMARY KEY, c1 CHAR(1), c2 CHAR(1), KEY(c1)) ENGINE=RocksDB CHARSET UTF8MB4 COLLATE utf8mb4_bin;
 INSERT INTO t1 VALUES (1,'h','h');
 SELECT * FROM t1;
 SELECT c1 FROM t1;
@@ -1266,7 +1266,7 @@ insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 create table t1 (
   pk int primary key, 
-  col1 varchar(255),
+  col1 varchar(191),
   key(col1)
 ) engine=rocksdb;
 insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
@@ -1284,7 +1284,7 @@ CREATE TABLE t1 (
   id2 bigint(20) unsigned NOT NULL DEFAULT '0',
   link_type bigint(20) unsigned NOT NULL DEFAULT '0',
   visibility tinyint(3) NOT NULL DEFAULT '0',
-  data varchar(255) NOT NULL DEFAULT '',
+  data varchar(191) NOT NULL DEFAULT '',
   time bigint(20) unsigned NOT NULL DEFAULT '0',
   version int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (link_type,id1,id2)
@@ -1668,10 +1668,10 @@ drop table t1;
 --echo #Index on blob column
 SET @old_mode = @@sql_mode;
 SET sql_mode = 'strict_all_tables';
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(191), Primary Key(a), Key(c, b(191))) engine=rocksdb;
 drop table t1;
 set global rocksdb_large_prefix=1;
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(191), Primary Key(a), Key(b(191))) engine=rocksdb;
 set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
@@ -1878,8 +1878,8 @@ DROP TABLE t1;
 
 --disable_testcase BUG#888003
 CREATE TABLE t1(
-  c1 varchar(10) character set utf8 collate utf8_general_ci NOT NULL, 
-  c2 varchar(10) character set utf8 collate utf8_general_ci, 
+  c1 varchar(10) character set UTF8MB4 collate utf8mb4_general_ci NOT NULL,
+  c2 varchar(10) character set UTF8MB4 collate utf8mb4_general_ci,
   c3 INT, 
   INDEX idx(c1,c2)
 );

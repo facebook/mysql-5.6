@@ -1,7 +1,5 @@
 --source include/have_rocksdb.inc
 
---source include/have_partition.inc
-
 --disable_warnings
 drop table if exists t1,t2;
 --enable_warnings
@@ -27,9 +25,9 @@ drop table t1,t2;
 --echo #
 CREATE TABLE t1 (
  id INT PRIMARY KEY,
- a set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8,
- b set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8 default null,
- c set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8 not null,
+ a set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8mb4,
+ b set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8mb4 default null,
+ c set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8mb4 not null,
  INDEX (a),
  INDEX (b),
  INDEX (c)
@@ -99,7 +97,7 @@ drop table t1, t2;
 --echo #
 CREATE TABLE t1 (c1 INT NOT NULL, c2 CHAR(5)) PARTITION BY HASH(c1) PARTITIONS 4;
 INSERT INTO t1 VALUES(1,'a');
---error ER_ERROR_ON_RENAME
+--error ER_BAD_DB_ERROR
 RENAME TABLE t1 TO db3.t3;
 SELECT * FROM t1;
 SHOW TABLES;

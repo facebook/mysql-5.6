@@ -18,7 +18,7 @@ SHOW TABLES;
 call mtr.add_suppression("Failed to execute action for entry.*");
 --enable_query_log
 
---error ER_WRONG_TABLE_NAME
+--error ER_GET_ERRMSG
 ALTER TABLE t1 ADD PARTITION(PARTITION p3 DATA DIRECTORY='G:/mysqltest/p3Data' INDEX DIRECTORY='H:/mysqltest/p3Index');
 
 DROP TABLE t1;

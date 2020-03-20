@@ -17483,7 +17483,7 @@ static int copy_data_between_tables(
         /* Not a duplicate key error. */
         to->file->print_error(error, MYF(0));
         break;
-      } else {
+      } else if (!to->file->continue_partition_copying_on_error(error)) {
         /* Report duplicate key error. */
         uint key_nr = to->file->get_dup_key(error);
         if ((int)key_nr >= 0) {

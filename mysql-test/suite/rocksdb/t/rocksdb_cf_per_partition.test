@@ -272,7 +272,7 @@ DROP TABLE t1;
 # Verify that creating the table without COMMENT actually works.
 #
 CREATE TABLE `t2` (
-  `col1` bigint(20) NOT NULL,
+  `col1` bigint NOT NULL,
   `col2` varbinary(64) NOT NULL,
   `col3` varbinary(256) NOT NULL,
   `col4` bigint(20) NOT NULL,
@@ -297,7 +297,7 @@ DROP TABLE t2;
 # COMMENT.
 #
 CREATE TABLE `t2` (
-  `col1` bigint(20) NOT NULL,
+  `col1` bigint NOT NULL,
   `col2` varbinary(64) NOT NULL,
   `col3` varbinary(256) NOT NULL,
   `col4` bigint(20) NOT NULL,
@@ -336,8 +336,8 @@ SELECT col1, HEX(col2), HEX(col3), col4, HEX(col5) FROM t2;
 # Verify it's being fetched from the right partition. This tests partitioning
 # functionality, but we want to make sure that by adding CF-s per partition we
 # don't regress anything.
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x12345;
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x23456;
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
 
 # Delete the current PK and create a new one referencing different CF-s. We
 # need to verity that new CF-s will be created and no data will be lost in
@@ -357,8 +357,8 @@ INSERT INTO t2 VALUES (500, 0x12345, 0x5, 1, 0x2);
 INSERT INTO t2 VALUES (700, 0x23456, 0x7, 1, 0x3);
 
 # Verify that partition mappings are still intact.
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x12345;
-EXPLAIN PARTITIONS SELECT HEX(col2) FROM t2 where col2 = 0x23456;
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
 
 # Verify that no data is lost.
 SELECT col1, HEX(col2), HEX(col3), col4, HEX(col5) FROM t2;
@@ -370,7 +370,7 @@ DROP TABLE t2;
 # COMMENT. Use both the PK and SK when creating the table.
 #
 CREATE TABLE `t2` (
-  `col1` bigint(20) NOT NULL,
+  `col1` bigint NOT NULL,
   `col2` varbinary(64) NOT NULL,
   `col3` varbinary(256) NOT NULL,
   `col4` bigint(20) NOT NULL,
@@ -406,7 +406,7 @@ INSERT INTO t2 VALUES (400, 0x89ABC, 0x4, 1, 0x5);
 INSERT INTO t2 VALUES (500, 0x6789A, 0x5, 1, 0x7);
 
 # Basic verification that correct partition and key are used when searching.
-EXPLAIN PARTITIONS SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
+EXPLAIN SELECT  * FROM t2 WHERE col2 = 0x6789A AND col4 = 1;
 
 # Remove the key.
 ALTER TABLE t2 DROP KEY `col2`;
@@ -419,7 +419,7 @@ SELECT DISTINCT(cf_name) FROM information_schema.rocksdb_cfstats WHERE cf_name='
 
 # Verify that correct partition and key are used when searching.
 ANALYZE TABLE t2;
-EXPLAIN PARTITIONS SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
+EXPLAIN SELECT  * FROM t2 WHERE col3 = 0x4 AND col2 = 0x34567;
 
 DROP TABLE t2;
 
@@ -427,7 +427,7 @@ DROP TABLE t2;
 # Verify the same scenario as before, but with a UNIQUE KEY in addition to PK.
 #
 CREATE TABLE `t2` (
-  `col1` bigint(20) NOT NULL,
+  `col1` bigint NOT NULL,
   `col2` varbinary(64) NOT NULL,
   `col3` varbinary(256) NOT NULL,
   `col4` bigint(20) NOT NULL,
