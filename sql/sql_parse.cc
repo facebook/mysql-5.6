@@ -5617,9 +5617,6 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
                                      &thd->query_attrs_list, thd->db().str};
 
           if (multi_tenancy_admit_query(thd, &attrs)) {
-            my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
-                     db_ac->get_max_waiting_queries(),
-                     thd->db().str ? thd->db().str : "unknown database");
             error = 1;
           } else {
             error = mysql_execute_command(thd, true, last_timer);

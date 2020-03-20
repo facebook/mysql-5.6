@@ -431,6 +431,7 @@ struct System_variables {
   uint select_into_file_fsync_timeout;
   bool high_priority_ddl;
   bool kill_conflicting_connections;
+  long admission_control_queue_timeout;
 };
 
 /**

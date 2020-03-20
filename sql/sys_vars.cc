@@ -2855,6 +2855,13 @@ static Sys_var_bool Sys_admission_control_by_trx(
     GLOBAL_VAR(opt_admission_control_by_trx), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_long Sys_admission_control_queue_timeout(
+    "admission_control_queue_timeout",
+    "Number of milliseconds to wait on admission control queue. 0 means "
+    "immediate timeout. -1 means infinite timeout.",
+    SESSION_VAR(admission_control_queue_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(-1, LONG_MAX), DEFAULT(-1), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_max_connect_errors(
     "max_connect_errors",
     "If there is more than this number of interrupted connections from "

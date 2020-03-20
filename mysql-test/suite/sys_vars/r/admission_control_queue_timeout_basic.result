@@ -1,0 +1,60 @@
+SELECT @@global.admission_control_queue_timeout;
+@@global.admission_control_queue_timeout
+-1
+SET @@global.admission_control_queue_timeout=5;
+show global variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	5
+select * from performance_schema.global_variables where variable_name='admission_control_queue_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_queue_timeout	5
+select @@session.admission_control_queue_timeout;
+@@session.admission_control_queue_timeout
+-1
+show session variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	-1
+select * from performance_schema.session_variables where variable_name='admission_control_queue_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_queue_timeout	-1
+set session admission_control_queue_timeout=10;
+select @@session.admission_control_queue_timeout;
+@@session.admission_control_queue_timeout
+10
+show session variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	10
+set session admission_control_queue_timeout=0;
+select @@session.admission_control_queue_timeout;
+@@session.admission_control_queue_timeout
+0
+show session variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	0
+set session admission_control_queue_timeout=-100;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_queue_timeout value: '-100'
+select @@session.admission_control_queue_timeout;
+@@session.admission_control_queue_timeout
+-1
+show session variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	-1
+set session admission_control_queue_timeout=default;
+select @@session.admission_control_queue_timeout;
+@@session.admission_control_queue_timeout
+5
+show session variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	5
+set global admission_control_queue_timeout=default;
+select @@global.admission_control_queue_timeout;
+@@global.admission_control_queue_timeout
+-1
+show global variables like 'admission_control_queue_timeout';
+Variable_name	Value
+admission_control_queue_timeout	-1
+set admission_control_queue_timeout=1.1;
+ERROR 42000: Incorrect argument type to variable 'admission_control_queue_timeout'
+set admission_control_queue_timeout="foobar";
+ERROR 42000: Incorrect argument type to variable 'admission_control_queue_timeout'

@@ -19898,8 +19898,8 @@ ER_CF_DROPPED
 ER_CANT_DROP_CF
   eng "Cannot drop Column family ('%s') because it is in use or does not exist."
 
-ER_PLACEHOLDER_50080
-  eng "Placeholder"
+ER_DB_ADMISSION_CONTROL_TIMEOUT
+  eng "Got timeout while waiting on admission control queue for database `%s`"
 
 ER_QUERY_CHECKSUM_FAILED
   eng "Expected query checksum %lu but found %lu"

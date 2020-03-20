@@ -36,6 +36,10 @@ The following options may be given as the first argument:
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
  ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
+ --admission-control-queue-timeout[=#] 
+ Number of milliseconds to wait on admission control
+ queue. 0 means immediate timeout. -1 means infinite
+ timeout.
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -2161,6 +2165,7 @@ admin-address (No default value)
 admin-port 33062
 admission-control-by-trx FALSE
 admission-control-filter 
+admission-control-queue-timeout -1
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
