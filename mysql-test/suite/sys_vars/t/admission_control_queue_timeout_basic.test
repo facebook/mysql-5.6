@@ -1,0 +1,39 @@
+SELECT @@global.admission_control_queue_timeout;
+SET @@global.admission_control_queue_timeout=5;
+show global variables like 'admission_control_queue_timeout';
+select * from performance_schema.global_variables where variable_name='admission_control_queue_timeout';
+
+select @@session.admission_control_queue_timeout;
+show session variables like 'admission_control_queue_timeout';
+select * from performance_schema.session_variables where variable_name='admission_control_queue_timeout';
+
+#
+# show that it's writable
+#
+set session admission_control_queue_timeout=10;
+select @@session.admission_control_queue_timeout;
+show session variables like 'admission_control_queue_timeout';
+
+set session admission_control_queue_timeout=0;
+select @@session.admission_control_queue_timeout;
+show session variables like 'admission_control_queue_timeout';
+
+set session admission_control_queue_timeout=-100;
+select @@session.admission_control_queue_timeout;
+show session variables like 'admission_control_queue_timeout';
+
+set session admission_control_queue_timeout=default;
+select @@session.admission_control_queue_timeout;
+show session variables like 'admission_control_queue_timeout';
+
+set global admission_control_queue_timeout=default;
+select @@global.admission_control_queue_timeout;
+show global variables like 'admission_control_queue_timeout';
+
+#
+# incorrect assignments
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set admission_control_queue_timeout=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set admission_control_queue_timeout="foobar";

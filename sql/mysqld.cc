@@ -9552,6 +9552,14 @@ static int get_db_ac_total_running_queries(THD *thd MY_ATTRIBUTE((unused)),
   return 0;
 }
 
+static int get_db_ac_total_timeout_queries(THD *thd MY_ATTRIBUTE((unused)),
+                                           SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((longlong *)buff) = db_ac->get_total_timeout_queries();
+  return 0;
+}
+
 static int get_db_ac_total_waiting_queries(THD *thd MY_ATTRIBUTE((unused)),
                                            SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONG;
@@ -9875,6 +9883,8 @@ SHOW_VAR status_vars[] = {
      (char *)&get_db_ac_total_aborted_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Database_admission_control_running_queries",
      (char *)&get_db_ac_total_running_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Database_admission_control_timeout_queries",
+     (char *)&get_db_ac_total_timeout_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Database_admission_control_waiting_queries",
      (char *)&get_db_ac_total_waiting_queries, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {"Delayed_errors", (char *)&delayed_insert_errors, SHOW_LONG,
