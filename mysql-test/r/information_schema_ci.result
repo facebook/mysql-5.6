@@ -782,6 +782,7 @@ Variable_name	Value
 Com_show_databases	3
 Database_admission_control_aborted_queries	0
 Database_admission_control_running_queries	0
+Database_admission_control_timeout_queries	0
 Database_admission_control_waiting_queries	0
 show variables where variable_name like "skip_show_databas";
 Variable_name	Value

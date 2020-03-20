@@ -36,10 +36,8 @@
 
 #include "mysql/psi/mysql_mutex.h"
 
-#include <deque>
+#include <list>
 #include "sql/sql_class.h"
-
-#define IS_BIT_SET(val, n) ((val) & (1 << (n)))
 
 extern bool opt_admission_control_by_trx;
 extern ulonglong admission_control_filter;
@@ -145,12 +143,17 @@ static void init_st_ac_node_keys() {
 }
 #endif
 
+struct st_ac_node;
 struct st_ac_node {
   st_ac_node(const st_ac_node &) = delete;
   st_ac_node &operator=(const st_ac_node &) = delete;
   mysql_mutex_t lock;
   mysql_cond_t cond;
-  st_ac_node() {
+  // Note that running/queued cannot be simultaneously true.
+  bool running;  // whether we need to decrement from running_queries
+  bool queued;   // whether current node is queued. pos is valid iff queued.
+  std::list<std::shared_ptr<st_ac_node>>::iterator pos;
+  st_ac_node() : running(false), queued(false) {
 #ifdef HAVE_PSI_INTERFACE
     init_st_ac_node_keys();
 #endif
@@ -180,15 +183,16 @@ class Ac_info {
   PSI_mutex_info key_lock_info[1] = {
       {&key_lock, "Ac_info::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}};
 #endif
-  // Queue to track the running and waiting threads.
-  using ac_node_ptr_container = std::deque<st_ac_node_ptr>;
-  ac_node_ptr_container queue;
-  std::atomic_ulong waiting_queries;
+  // Queue to track waiting threads.
+  std::list<std::shared_ptr<st_ac_node>> queue;
+  unsigned long waiting_queries;
+  // Count for running queries.
+  unsigned long running_queries;
   // Protects the queue.
   mysql_mutex_t lock;
 
  public:
-  Ac_info() : waiting_queries(0) {
+  Ac_info() : waiting_queries(0), running_queries(0) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info, array_elements(key_lock_info));
 #endif
@@ -202,6 +206,13 @@ class Ac_info {
 };
 
 using Ac_info_ptr = std::shared_ptr<Ac_info>;
+
+enum class Ac_result {
+  AC_ADMITTED,  // Admitted
+  AC_ABORTED,   // Rejected because queue size too large
+  AC_TIMEOUT,   // Rejected because waiting on queue for too long
+  AC_KILLED     // Killed while waiting for admission
+};
 
 /**
   Global class used to enforce per admission control limits.
@@ -226,12 +237,14 @@ class AC {
 #endif
 
   std::atomic_ullong total_aborted_queries;
+  std::atomic_ullong total_timeout_queries;
 
  public:
   AC()
-      : max_running_queries(0),
+      : max_running_queries(1),
         max_waiting_queries(0),
-        total_aborted_queries(0) {
+        total_aborted_queries(0),
+        total_timeout_queries(0) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_rwlock_register("sql", key_rwlock_LOCK_ac_info,
                           array_elements(key_rwlock_LOCK_ac_info));
@@ -262,13 +275,18 @@ class AC {
     auto it = ac_map.find(str);
     if (it != ac_map.end()) {
       auto ac_info = it->second;
-      mysql_mutex_lock(&ac_info->lock);
-      while (ac_info->waiting_queries) {
-        for (uint i = max_running_queries; i < ac_info->queue.size(); ++i) {
-          signal(ac_info->queue[i]);
+      while (true) {
+        mysql_mutex_lock(&ac_info->lock);
+        if (ac_info->waiting_queries) {
+          for (auto &i : ac_info->queue) {
+            signal(i);
+          }
+        } else {
+          mysql_mutex_unlock(&ac_info->lock);
+          break;
         }
+        mysql_mutex_unlock(&ac_info->lock);
       }
-      mysql_mutex_unlock(&ac_info->lock);
     }
     mysql_rwlock_unlock(&LOCK_ac);
     mysql_rwlock_wrlock(&LOCK_ac);
@@ -298,9 +316,15 @@ class AC {
       for (auto &it : ac_map) {
         auto &ac_info = it.second;
         mysql_mutex_lock(&ac_info->lock);
-        for (uint i = old_val; (!val || i < val) && i < ac_info->queue.size();
-             ++i) {
-          signal(ac_info->queue[i]);
+        // Calculate the number of threads we need to signal in to_signal.
+        size_t to_signal = val ? val - old_val : ac_info->queue.size();
+        size_t signaled = 0;
+
+        for (auto &i : ac_info->queue) {
+          signal(i);
+          if (++signaled >= to_signal) {
+            break;
+          }
         }
         mysql_mutex_unlock(&ac_info->lock);
       }
@@ -328,11 +352,14 @@ class AC {
     return res;
   }
 
-  bool admission_control_enter(THD *, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *);
   void admission_control_exit(THD *, const MT_RESOURCE_ATTRS *);
-  void wait_for_signal(THD *, st_ac_node_ptr &, const Ac_info_ptr &ac_info);
+  bool wait_for_signal(THD *, st_ac_node_ptr &, const Ac_info_ptr &ac_info);
+  static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info);
+  static void dequeue(THD *thd, std::shared_ptr<Ac_info> ac_info);
 
   ulonglong get_total_aborted_queries() const { return total_aborted_queries; }
+  ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
 
   ulong get_total_running_queries() {
     ulonglong res = 0;
@@ -340,8 +367,7 @@ class AC {
     for (auto it : ac_map) {
       auto &ac_info = it.second;
       mysql_mutex_lock(&ac_info->lock);
-      res += ac_info->queue.size() < max_running_queries ? ac_info->queue.size()
-                                                         : max_running_queries;
+      res += ac_info->running_queries;
       mysql_mutex_unlock(&ac_info->lock);
     }
     mysql_rwlock_unlock(&LOCK_ac);
@@ -354,8 +380,7 @@ class AC {
     for (auto it : ac_map) {
       auto &ac_info = it.second;
       mysql_mutex_lock(&ac_info->lock);
-      if (ac_info->queue.size() > max_running_queries)
-        res += ac_info->queue.size() - max_running_queries;
+      res += ac_info->waiting_queries;
       mysql_mutex_unlock(&ac_info->lock);
     }
     mysql_rwlock_unlock(&LOCK_ac);

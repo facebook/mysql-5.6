@@ -326,6 +326,60 @@ connect (con1, localhost, test_user,,test_db);
 connect (con3, localhost, test_user,,test_db);
 --echo # End of open transaction test
 
+--echo # Test admission_control_queue_timeout
+connection default;
+use test_db;
+set @@global.max_running_queries=1;
+set @@global.max_waiting_queries=5;
+
+set @save_admission_control_filter = @@global.admission_control_filter;
+set @save_admission_control_queue_timeout = @@global.admission_control_queue_timeout;
+set @@global.admission_control_queue_timeout = 100;
+set @@global.admission_control_filter = 'BEGIN,COMMIT,ROLLBACK';
+
+let $start_timeout_queries = query_get_value(show global status like "Database_admission_control_timeout_queries", Value, 1);
+
+create table t2(a int primary key) engine=InnoDB;
+
+connect (con_timeout1, localhost, test_user,,test_db);
+begin;
+insert into t2 values (1);
+
+connect (con_timeout2, localhost, test_user,,test_db);
+begin;
+send insert into t2 values (1);
+
+connection default;
+let $wait_condition= select count(*) = 1 from information_schema.processlist where state = "update" and info = "insert into t2 values (1)";
+--source include/wait_condition.inc
+
+connection con_timeout1;
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+insert into t2 values (2);
+rollback;
+
+connection con_timeout2;
+reap;
+rollback;
+
+# Cleanup
+connection default;
+disconnect con_timeout1;
+disconnect con_timeout2;
+drop table t2;
+
+set @@global.admission_control_filter = @save_admission_control_filter;
+set @@global.admission_control_queue_timeout = @save_admission_control_queue_timeout;
+
+# Verify counters
+let $timeout_queries = query_get_value(show global status like "Database_admission_control_timeout_queries", Value, 1);
+let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
+--echo timeout_queries should be 1
+--echo timeout_queries = $timeout_queries
+let $waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
+--echo waiting_queries should be 0
+--echo waiting_queries = $waiting_queries
+
 connection default;
 --echo reset global.max_running_queries and global.max_waiting_queries
 set @@global.max_running_queries=10;
