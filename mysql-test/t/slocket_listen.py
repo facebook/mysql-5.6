@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 from socket import socket, AF_UNIX, SOCK_DGRAM
 from select import select
 from os import unlink, getcwd, stat
