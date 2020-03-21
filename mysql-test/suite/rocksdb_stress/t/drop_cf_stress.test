@@ -61,7 +61,7 @@ WHILE ($i < $num_cfs)
 }
 
 let $exec =
-  python $MYSQL_TEST_DIR/suite/rocksdb_stress/t/drop_cf_stress.py
+  python2 $MYSQL_TEST_DIR/suite/rocksdb_stress/t/drop_cf_stress.py
   -L $MYSQL_TMP_DIR/drop_cf_stress.log -H $local_host
   -P $MASTER_MYPORT
   -w $num_workers -r $num_requests -v

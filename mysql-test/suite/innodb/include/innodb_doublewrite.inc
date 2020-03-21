@@ -14,7 +14,7 @@ if (`SELECT VARIABLE_VALUE NOT LIKE 'INNODB'
 
 let $data_dir = `SELECT @@datadir`;
 let $page_size = `SELECT @@innodb_page_size`;
-let $corrupt_exec = python suite/innodb/t/innodb_corrupt_doublewrite_pages.py $data_dir $page_size;
+let $corrupt_exec = python2 suite/innodb/t/innodb_corrupt_doublewrite_pages.py $data_dir $page_size;
 
 SET GLOBAL innodb_doublewrite=2;
 SET GLOBAL innodb_checkpoint_disabled=1;

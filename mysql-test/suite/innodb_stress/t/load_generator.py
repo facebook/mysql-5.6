@@ -1,5 +1,7 @@
 import cStringIO
 import hashlib
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 import os
 import random
