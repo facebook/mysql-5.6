@@ -1,6 +1,7 @@
 import time
 import sys
 import MySQLdb
+from MySQLdb.constants import *
 import argparse
 import random
 import threading

@@ -97,6 +97,7 @@ def populate_table(con, num_records_before, do_blob, log):
 
   for i in range(start_id, num_records_before):
       msg = get_msg(do_blob, i)
+      # print("length is %d, complen is %d" % (len(msg), len(zlib.compress(msg, 6))), file=log)
       stmt = """
 INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
 """ % (i+1, msg[0:255], msg, len(msg), sha1(msg))
@@ -223,6 +224,8 @@ class Worker(threading.Thread):
     prefix_match = msg_prefix == msg[0:255]
 
     checksum = sha1(msg)
+    if type(msg_checksum) == bytes:
+      msg_checksum = msg_checksum.decode('ascii')
     checksum_match = checksum == msg_checksum
 
     len_match = len(msg) == msg_length
@@ -363,6 +366,7 @@ class Worker(threading.Thread):
       except mysql.connector.Error as e:
         if e.args[0] in [2006, 2013, 2055]:  # server is killed
           print("mysqld down, transaction %d" % self.xid)
+          print("mysqld down, transaction %d" % self.xid, file=self.log)
           return
         elif e.args[0] in [1213, 1205]:    # deadlock or lock wait timeout, ignore
           return
@@ -403,7 +407,7 @@ if  __name__ == '__main__':
   server_pid = int(open(pid_file).read())
   log = open('%s/main.log' % LG_TMP_DIR, 'a')
 
-#  print  "kill_db_after = ",kill_db_after," num_records_before = ", \
+#  print( "kill_db_after = ",kill_db_after," num_records_before = ", \)
 #num_records_before, " num_workers= ",num_workers, "num_xactions_per_worker =",\
 #num_xactions_per_worker, "user = ",user, "host =", host,"port = ",port,\
 #" db = ", db, " server_pid = ", server_pid
