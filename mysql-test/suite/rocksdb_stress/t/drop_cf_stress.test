@@ -28,10 +28,10 @@ connect (conn1,localhost,root,,);
 --let $local_host = 127.0.0.1
 
 CREATE TABLE tables (
-    table_id int(5) NOT NULL,
+    table_id int NOT NULL,
     created BOOLEAN NOT NULL,
-    primary_cf_id int(5),
-    secondary_cf_id int(5),
+    primary_cf_id int,
+    secondary_cf_id int,
     PRIMARY KEY (table_id),
     KEY secondary_key (created, secondary_cf_id)
     ) ENGINE=MEMORY;
@@ -45,9 +45,9 @@ WHILE ($i < $num_tables)
 }
 
 CREATE TABLE cfs (
-    cf_id int(5) NOT NULL,
+    cf_id int NOT NULL,
     used BOOLEAN NOT NULL,
-    ref_count int(5) NOT NULL,
+    ref_count int NOT NULL,
     PRIMARY KEY (cf_id),
     KEY secondary_key (used, ref_count)
     ) ENGINE=MEMORY;
@@ -61,7 +61,7 @@ WHILE ($i < $num_cfs)
 }
 
 let $exec =
-  python $MYSQL_TEST_DIR/suite/rocksdb_stress/t/drop_cf_stress.py
+  /usr/bin/python3 $MYSQL_TEST_DIR/suite/rocksdb_stress/t/drop_cf_stress.py
   -L $MYSQL_TMP_DIR/drop_cf_stress.log -H $local_host
   -P $MASTER_MYPORT
   -w $num_workers -r $num_requests -v

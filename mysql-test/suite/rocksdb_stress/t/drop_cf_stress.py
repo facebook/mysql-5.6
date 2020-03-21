@@ -1,4 +1,3 @@
-import cStringIO
 import MySQLdb
 from MySQLdb.constants import CR
 from MySQLdb.constants import ER
@@ -13,7 +12,6 @@ import traceback
 import logging
 import argparse
 import array as arr
-from sets import Set
 
 # This is a stress rest for the drop cf feature. This test sends the following
 # commands to mysqld server in parallel: create table, drop table, add index,
@@ -25,10 +23,10 @@ from sets import Set
 # The first table is called "tables".
 
 # CREATE TABLE tables (
-#    table_id int(5) NOT NULL,
+#    table_id int NOT NULL,
 #    created BOOLEAN NOT NULL,
-#    primary_cf_id int(5),
-#    secondary_cf_id int(5),
+#    primary_cf_id int,
+#    secondary_cf_id int,
 #    PRIMARY KEY (table_id),
 #    KEY secondary_key (created, secondary_cf_id)
 #    ) ENGINE=MEMORY;
@@ -51,9 +49,9 @@ from sets import Set
 #
 # The second table is called "cfs".
 # CREATE TABLE cfs (
-#    cf_id int(5) NOT NULL,
+#    cf_id int NOT NULL,
 #    used BOOLEAN NOT NULL,
-#    ref_count int(5) NOT NULL,
+#    ref_count int NOT NULL,
 #    PRIMARY KEY (cf_id)
 #    ) ENGINE=MEMORY;
 
@@ -104,7 +102,7 @@ def roll_d100(p):
   return p >= random.randint(1, 100)
 
 def execute(cur, stmt):
-  ROW_COUNT_ERROR = 18446744073709551615L
+  ROW_COUNT_ERROR = 18446744073709551615
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
@@ -141,7 +139,7 @@ def wait_for_workers(workers):
   try:
     while threading.active_count() > 1:
       time.sleep(1)
-  except KeyboardInterrupt, e:
+  except KeyboardInterrupt as e:
     os._exit(1)
 
   num_failures = 0
@@ -244,15 +242,15 @@ class WorkerThread(threading.Thread):
 
         try:
             stmt = ("CREATE TABLE %s ("
-                    "id1 int(5) unsigned NOT NULL,"
-                    "id2 int(5) unsigned NOT NULL,"
+                    "id1 int unsigned NOT NULL,"
+                    "id2 int unsigned NOT NULL,"
                     "PRIMARY KEY (id1) COMMENT '%s'"
                     ") ENGINE=ROCKSDB" % (table_name, primary_cf_name))
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
-        except Exception, e:
+        except Exception as e:
             if is_table_exists_error(e):
                 self.rollback_and_sleep()
                 return
@@ -303,7 +301,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("DROP TABLE %s" % table_name)
             execute(self.cur, stmt)
-        except Exception, e:
+        except Exception as e:
             if is_table_not_found_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -371,10 +369,10 @@ class WorkerThread(threading.Thread):
                     "ADD INDEX secondary_key (id2) "
                     "COMMENT '%s'" % (table_name, secondary_cf_name))
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
-        except Exception, e:
+        except Exception as e:
             if is_no_such_table_error(e) or is_dup_key_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -426,7 +424,7 @@ class WorkerThread(threading.Thread):
             stmt = ("ALTER TABLE %s "
                     "DROP INDEX secondary_key" % table_name)
             execute(self.cur, stmt)
-        except Exception, e:
+        except Exception as e:
             if is_no_such_table_error(e) or is_cant_drop_key_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -470,7 +468,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_compact_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
 
         self.con.commit()
@@ -505,7 +503,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_delete_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
 
@@ -560,7 +558,7 @@ class WorkerThread(threading.Thread):
             logging.info("Started")
             self.runme()
             logging.info("Completed successfully")
-        except Exception, e:
+        except Exception as e:
             self.exception = traceback.format_exc()
             logging.error(self.exception)
             TEST_STOP = True
@@ -661,7 +659,7 @@ if  __name__ == '__main__':
     WEIGHTS.append(TOTAL_WEIGHT)
 
     workers = []
-    for i in xrange(OPTIONS.num_workers):
+    for i in range(OPTIONS.num_workers):
         workers.append(WorkerThread(i))
 
     workers_failed = 0

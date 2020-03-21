@@ -1,6 +1,7 @@
-import cStringIO
+import io
 import hashlib
 import MySQLdb
+from MySQLdb.constants import *
 import os
 import random
 import signal
@@ -9,10 +10,17 @@ import threading
 import time
 import string
 
-CHARS = string.letters + string.digits
+CHARS = string.ascii_letters + string.digits
 
 def sha1(x):
-  return hashlib.sha1(str(x)).hexdigest()
+  # x could be either unicode str or bytes encoded in utf8mb4
+  # but we do expect x to consists of only ascii characters as in CHARS
+  if type(x) == str:
+    # Unicode - convert to ascii
+    return hashlib.sha1(x.encode('ascii')).hexdigest()
+  else:
+    # Bytes - convert directly as they should be in ascii
+    return hashlib.sha1(x).hexdigest()
 
 # Should be deterministic given an idx
 def get_msg(do_blob, idx):
@@ -24,7 +32,7 @@ def get_msg(do_blob, idx):
 
   if random.randint(1, 2) == 1:
     # blob that cannot be compressed (well, compresses to 85% of original size)
-    return ''.join([random.choice(CHARS) for x in xrange(blob_length)])
+    return ''.join([random.choice(CHARS) for x in range(blob_length)])
   else:
     # blob that can be compressed
     return random.choice(CHARS) * blob_length
@@ -46,29 +54,29 @@ class PopulateWorker(threading.Thread):
   def run(self):
     try:
       self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
+      print("ok", file=self.log)
+    except Exception as e:
       self.exception = e
       try:
         cursor = self.con.cursor()
         cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-      print >> self.log, "caught (%s)" % e
+      except MySQLdb.Error as e2:
+        print("caught while inserting error (%s)" % e2, self.log)
+      print("caught (%s)" % e, self.log)
     finally:
       self.finish()
 
   def finish(self):
-    print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
+    print("total time: %.2f s" % (time.time() - self.start_time), file=self.log)
     self.log.close()
     self.con.commit()
     self.con.close()
 
   def runme(self):
-    print >> self.log, "populate thread-%d started" % self.num
+    print("populate thread-%d started" % self.num, file=self.log)
     cur = self.con.cursor()
     stmt = None
-    for i in xrange(self.start_id, self.end_id):
+    for i in range(self.start_id, self.end_id):
       msg = get_msg(do_blob, i)
       stmt = """
 INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
@@ -82,17 +90,17 @@ def populate_table(con, num_records_before, do_blob, log):
   cur = con.cursor()
   stmt = None
   workers = []
-  N = num_records_before / 10
+  N = int(num_records_before / 10)
   start_id = 0
-  for i in xrange(10):
+  for i in range(10):
      w = PopulateWorker(MySQLdb.connect(user=user, host=host, port=port, db=db),
                         start_id, start_id + N, i)
      start_id += N
      workers.append(w)
 
-  for i in xrange(start_id, num_records_before):
+  for i in range(start_id, num_records_before):
       msg = get_msg(do_blob, i)
-      # print >> log, "length is %d, complen is %d" % (len(msg), len(zlib.compress(msg, 6)))
+      # print("length is %d, complen is %d" % (len(msg), len(zlib.compress(msg, 6))), file=log)
       stmt = """
 INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
 """ % (i+1, msg[0:255], msg, len(msg), sha1(msg))
@@ -102,7 +110,7 @@ INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%
   for w in workers:
     w.join()
     if w.exception:
-      print >>log, "populater thead %d threw an exception" % w.num
+      print("populater thead %d threw an exception" % w.num, file=log)
       return False
   return True
 
@@ -140,32 +148,32 @@ class ChecksumWorker(threading.Thread):
     con.autocommit(False)
     self.log = open('/%s/worker-checksum.log' % LG_TMP_DIR, 'a')
     self.checksum = checksum
-    print >> self.log, "given checksum=%d" % checksum
+    print("given checksum=%d" % checksum, file=self.log)
     self.start()
 
   def run(self):
     try:
       self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
+      print("ok", file=self.log)
+    except Exception as e:
       try:
         cursor = self.con.cursor()
         cursor.execute("INSERT INTO errors VALUES('%s')" % e)
         con.commit()
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
+      except MySQLdb.Error as e2:
+        print("caught while inserting error (%s)" % e2, file=self.log)
 
-      print >> self.log, "caught (%s)" % e
+      print("caught (%s)" % e, file=self.log)
     finally:
       self.finish()
 
   def finish(self):
-    print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
+    print("total time: %.2f s" % (time.time() - self.start_time), file=self.log)
     self.log.close()
     self.con.close()
 
   def runme(self):
-    print >> self.log, "checksum thread started"
+    print("checksum thread started", file=self.log)
     self.start_time = time.time()
     cur = self.con.cursor()
     cur.execute("SET SESSION innodb_lra_size=16")
@@ -173,10 +181,10 @@ class ChecksumWorker(threading.Thread):
     checksum = cur.fetchone()[1]
     self.con.commit()
     if checksum != self.checksum:
-      print >> self.log, "checksums do not match. given checksum=%d, calculated checksum=%d" % (self.checksum, checksum)
+      print("checksums do not match. given checksum=%d, calculated checksum=%d" % (self.checksum, checksum), file=self.log)
       self.checksum = checksum
     else:
-      print >> self.log, "checksums match! (both are %d)" % checksum
+      print("checksums match! (both are %d)" % checksum, file=self.log)
 
 
 class Worker(threading.Thread):
@@ -209,12 +217,12 @@ class Worker(threading.Thread):
     self.start()
 
   def finish(self):
-    print >> self.log, "loop_num:%d, total time: %.2f s" % (
-        self.loop_num, time.time() - self.start_time + self.time_spent)
-    print >> self.log, "num_primary_select=%d,num_secondary_select=%d,num_secondary_only_select=%d" %\
-      (self.num_primary_select, self.num_secondary_select, self.num_secondary_only_select)
-    print >> self.log, "num_inserts=%d,num_updates=%d,num_deletes=%d,time_spent=%d" %\
-      (self.num_inserts, self.num_updates, self.num_deletes, self.time_spent)
+    print("loop_num:%d, total time: %.2f s" %\
+      (self.loop_num, time.time() - self.start_time + self.time_spent), file=self.log)
+    print("num_primary_select=%d,num_secondary_select=%d,num_secondary_only_select=%d" %\
+      (self.num_primary_select, self.num_secondary_select, self.num_secondary_only_select), file=self.log)
+    print("num_inserts=%d,num_updates=%d,num_deletes=%d,time_spent=%d" %\
+      (self.num_inserts, self.num_updates, self.num_deletes, self.time_spent), file=self.log)
     self.log.close()
 
   def validate_msg(self, msg_prefix, msg, msg_length, msg_checksum, idx):
@@ -222,6 +230,8 @@ class Worker(threading.Thread):
     prefix_match = msg_prefix == msg[0:255]
 
     checksum = sha1(msg)
+    if type(msg_checksum) == bytes:
+      msg_checksum = msg_checksum.decode('ascii')
     checksum_match = checksum == msg_checksum
 
     len_match = len(msg) == msg_length
@@ -232,14 +242,14 @@ class Worker(threading.Thread):
           len_match, len(msg), msg_length,
           checksum_match, checksum, msg_checksum,
           prefix_match, msg_prefix, msg[0:255])
-      print >> self.log, errmsg
+      print(errmsg, file=self.log)
 
       cursor = self.con.cursor()
       cursor.execute("INSERT INTO errors VALUES('%s')" % errmsg)
       cursor.execute("COMMIT")
       raise Exception('validate_msg failed')
     else:
-      print >> self.log, "Validated for length(%d) and id(%d)" % (msg_length, idx)
+      print("Validated for length(%d) and id(%d)" % (msg_length, idx), file=self.log)
 
   # Check to see if the idx is in the first column of res_array
   def check_exists(self, res_array, idx):
@@ -251,25 +261,25 @@ class Worker(threading.Thread):
   def run(self):
     try:
       self.runme()
-      print >> self.log, "ok, with do_blob %s" % self.do_blob
-    except Exception, e:
+      print("ok, with do_blob %s" % self.do_blob, file=self.log)
+    except Exception as e:
 
       try:
         cursor = self.con.cursor()
         cursor.execute("INSERT INTO errors VALUES('%s')" % e)
         cursor.execute("COMMIT")
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
+      except MySQLdb.Error as e2:
+        print("caught while inserting error (%s)" % e2, file=self.log)
 
-      print >> self.log, "caught (%s)" % e
+      print("caught (%s)" % e, file=self.log)
     finally:
       self.finish()
 
   def runme(self):
     self.start_time = time.time()
     cur = self.con.cursor()
-    print >> self.log, "thread %d started, run from %d to %d" % (
-        self.xid, self.loop_num, self.num_xactions)
+    print("thread %d started, run from %d to %d" % (
+        self.xid, self.loop_num, self.num_xactions), file=self.log)
 
     while not self.num_xactions or (self.loop_num < self.num_xactions):
       idx = self.rand.randint(0, self.max_id)
@@ -338,18 +348,18 @@ class Worker(threading.Thread):
           if insert_or_update:
             if insert_with_index:
               if not self.check_exists(res_array, idx):
-                print >> self.log, "Error: Inserted row doesn't exist in secondary index"
+                print("Error: Inserted row doesn't exist in secondary index", file=self.log)
                 raise Exception("Error: Inserted row doesn't exist in secondary index")
           else:
             if self.check_exists(res_array, idx):
-              print >> self.log, "Error: Deleted row still exists in secondary index"
+              print("Error: Deleted row still exists in secondary index", file=self.log)
               raise Exception("Error: Deleted row still exists in secondary index")
 
 
         if (self.loop_num % 100) == 0:
-          print >> self.log, "Thread %d loop_num %d: result %d: %s" % (self.xid,
+          print("Thread %d loop_num %d: result %d: %s" % (self.xid,
                                                             self.loop_num, query_result,
-                                                            stmt)
+                                                            stmt), file=self.log)
 
         # 30% commit, 10% rollback, 60% don't end the trx
         r = self.rand.randint(1,10)
@@ -358,17 +368,17 @@ class Worker(threading.Thread):
         elif r == 4:
           self.con.rollback()
 
-      except MySQLdb.Error, e:
+      except MySQLdb.Error as e:
         if e.args[0] == 2006:  # server is killed
-          print >> self.log, "mysqld down, transaction %d" % self.xid
+          print("mysqld down, transaction %d" % self.xid, file=self.log)
           return
         else:
-          print >> self.log, "mysql error for stmt(%s) %s" % (stmt, e)
+          print("mysql error for stmt(%s) %s" % (stmt, e), file=self.log)
 
     try:
       self.con.commit()
-    except Exception, e:
-      print >> self.log, "commit error %s" % e
+    except Exception as e:
+      print("commit error %s" % e, file=self.log)
 
 if  __name__ == '__main__':
   global LG_TMP_DIR
@@ -394,42 +404,42 @@ if  __name__ == '__main__':
   server_pid = int(open(pid_file).read())
   log = open('/%s/main.log' % LG_TMP_DIR, 'a')
 
-#  print  "kill_db_after = ",kill_db_after," num_records_before = ", \
+#  print( "kill_db_after = ",kill_db_after," num_records_before = ", \)
 #num_records_before, " num_workers= ",num_workers, "num_xactions_per_worker =",\
 #num_xactions_per_worker, "user = ",user, "host =", host,"port = ",port,\
 #" db = ", db, " server_pid = ", server_pid
 
   if num_records_before:
-    print >> log, "populate table do_blob is %d" % do_blob
+    print("populate table do_blob is %d" % do_blob, file=log)
     con = MySQLdb.connect(user=user, host=host, port=port, db=db)
     if not populate_table(con, num_records_before, do_blob, log):
       sys.exit(1)
     con.close()
 
   if checksum:
-    print >> log, "start the checksum thread"
+    print("start the checksum thread", file=log)
     checksum_worker = ChecksumWorker(MySQLdb.connect(user=user, host=host, port=port, db=db), checksum)
     workers.append(checksum_worker)
 
-  print >> log, "start %d threads" % num_workers
-  for i in xrange(num_workers):
+  print("start %d threads" % num_workers, file=log)
+  for i in range(num_workers):
     worker = Worker(num_xactions_per_worker, i,
                     MySQLdb.connect(user=user, host=host, port=port, db=db),
                     server_pid, do_blob, max_id, fake_changes, secondary_checks)
     workers.append(worker)
 
   if kill_db_after:
-    print >> log, "kill mysqld"
+    print("kill mysqld", file=log)
     time.sleep(kill_db_after)
     os.kill(server_pid, signal.SIGKILL)
 
-  print >> log, "wait for threads"
+  print("wait for threads", file=log)
   for w in workers:
     w.join()
 
   if checksum_worker and checksum_worker.checksum != checksum:
-    print >> log, "checksums do not match. given checksum=%d, calculated checksum=%d" % (checksum, checksum_worker.checksum)
+    print("checksums do not match. given checksum=%d, calculated checksum=%d" % (checksum, checksum_worker.checksum), file=log)
     sys.exit(1)
 
-  print >> log, "all threads done"
+  print("all threads done", file=log)
 

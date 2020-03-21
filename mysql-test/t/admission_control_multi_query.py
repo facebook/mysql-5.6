@@ -1,6 +1,7 @@
 import time
 import sys
 import MySQLdb
+from MySQLdb.constants import *
 import argparse
 import random
 import threading
@@ -57,18 +58,18 @@ def generate_load(args, worker_id):
 
     if args.weighted_queues:
         queue_id = worker_id % 2
-        print "WORKER %d: Using queue %d" % (worker_id, queue_id)
+        print("WORKER %d: Using queue %d" % (worker_id, queue_id))
         cursor = con.cursor()
         cursor.execute('set admission_control_queue = %d;' % queue_id)
         cursor.close()
 
-    for i in xrange(NUM_TRANSACTIONS):
+    for i in range(NUM_TRANSACTIONS):
         try:
-            print "WORKER %d: Executing iteration %d" % (worker_id, i)
+            print("WORKER %d: Executing iteration %d" % (worker_id, i))
             cursor = con.cursor()
             cursor.execute('begin;')
             values = []
-            for j in xrange(3):
+            for j in range(3):
                 val = random.randrange(1, 10000)
                 values.append(val)
             values = sorted(values)
@@ -94,7 +95,7 @@ def run_admin_checks(args):
     cursor.execute("select @@global.max_running_queries")
     rows = cursor.fetchone()
     max_running_queries = int(rows[0])
-    for i in xrange(NUM_TRANSACTIONS):
+    for i in range(NUM_TRANSACTIONS):
         cursor=con.cursor()
         cursor.execute("show status like '%admission%'")
         rows = cursor.fetchall()
@@ -118,13 +119,13 @@ class worker_thread(threading.Thread):
                 run_admin_checks(self.args)
             else:
                 generate_load(self.args, self.worker_id)
-        except Exception, e:
+        except Exception as e:
             self.exception = traceback.format_exc()
 
 def main():
     args = parse_args()
     workers = []
-    for i in xrange(NUM_WORKERS):
+    for i in range(NUM_WORKERS):
         worker = worker_thread(args, i, False)
         workers.append(worker)
 
@@ -135,7 +136,7 @@ def main():
     for w in workers:
         w.join()
         if w.exception:
-            print "worker hit an exception:\n%s\n'" % w.exception
+            print("worker hit an exception:\n%s\n'" % w.exception)
             worker_failed = True
 
     if worker_failed:
