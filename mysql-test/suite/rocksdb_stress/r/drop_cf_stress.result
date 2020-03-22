@@ -6,6 +6,10 @@ secondary_cf_id int(5),
 PRIMARY KEY (table_id),
 KEY secondary_key (created, secondary_cf_id)
 ) ENGINE=MEMORY;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO tables VALUES(0, 0, NULL, NULL);
 INSERT INTO tables VALUES(1, 0, NULL, NULL);
 INSERT INTO tables VALUES(2, 0, NULL, NULL);
@@ -29,6 +33,9 @@ ref_count int(5) NOT NULL,
 PRIMARY KEY (cf_id),
 KEY secondary_key (used, ref_count)
 ) ENGINE=MEMORY;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
 INSERT INTO cfs VALUES(0, 0, 0);
 INSERT INTO cfs VALUES(1, 0, 0);
 INSERT INTO cfs VALUES(2, 0, 0);
