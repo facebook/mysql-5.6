@@ -1,6 +1,7 @@
 include/master-slave.inc
 [connection master]
 DROP TABLE IF EXISTS t1;
+SET GLOBAL binlog_group_commit_sync_delay = 500;
 CREATE TABLE t1(id INT PRIMARY KEY,
 thread_id INT NOT NULL,
 request_id BIGINT UNSIGNED NOT NULL,
@@ -21,3 +22,5 @@ start slave;
 include/stop_slave.inc
 include/start_slave.inc
 include/stop_slave.inc
+include/stop_dump_threads.inc
+SET GLOBAL binlog_group_commit_sync_delay=0;

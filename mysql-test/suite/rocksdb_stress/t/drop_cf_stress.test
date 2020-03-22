@@ -26,7 +26,6 @@ connect (conn1,localhost,root,,);
 --connection conn1
 
 --let $local_host = 127.0.0.1
-let $MYSQL_BASEDIR = `SELECT @@BASEDIR`;
 
 CREATE TABLE tables (
     table_id int(5) NOT NULL,
@@ -62,7 +61,7 @@ WHILE ($i < $num_cfs)
 }
 
 let $exec =
-  python $MYSQL_BASEDIR/mysql-test/suite/rocksdb_stress/t/drop_cf_stress.py
+  python $MYSQL_TEST_DIR/suite/rocksdb_stress/t/drop_cf_stress.py
   -L $MYSQL_TMP_DIR/drop_cf_stress.log -H $local_host
   -P $MASTER_MYPORT
   -w $num_workers -r $num_requests -v
@@ -72,6 +71,7 @@ let $exec =
 
 exec $exec;
 
+--exec rm $MYSQL_TMP_DIR/drop_cf_stress.log
+
 DROP TABLE tables;
 DROP TABLE cfs;
-
