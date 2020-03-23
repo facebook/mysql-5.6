@@ -1300,6 +1300,8 @@ extern PSI_cond_key key_RELAYLOG_COND_done;
 extern PSI_cond_key key_RELAYLOG_update_cond;
 extern PSI_cond_key key_BINLOG_prep_xids_cond;
 extern PSI_cond_key key_RELAYLOG_prep_xids_cond;
+extern PSI_cond_key key_BINLOG_non_xid_trxs_cond;
+extern PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 extern PSI_cond_key key_gtid_ensure_index_cond;
 extern PSI_cond_key key_commit_order_manager_cond;
 

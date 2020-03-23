@@ -3030,6 +3030,7 @@ void MYSQL_BIN_LOG::cleanup()
     mysql_cond_destroy(&update_cond);
     my_atomic_rwlock_destroy(&m_prep_xids_lock);
     mysql_cond_destroy(&m_prep_xids_cond);
+    mysql_cond_destroy(&non_xid_trxs_cond);
     stage_manager.deinit();
   }
   DBUG_VOID_RETURN;
@@ -3051,6 +3052,7 @@ void MYSQL_BIN_LOG::init_pthread_objects()
   mysql_cond_init(m_key_update_cond, &update_cond, 0);
   my_atomic_rwlock_init(&m_prep_xids_lock);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond, NULL);
+  mysql_cond_init(m_key_non_xid_trxs_cond, &non_xid_trxs_cond, NULL);
   stage_manager.init(
 #ifdef HAVE_PSI_INTERFACE
                    m_key_LOCK_flush_queue,

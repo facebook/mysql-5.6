@@ -371,6 +371,8 @@ public:
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
   PSI_cond_key m_key_prep_xids_cond;
+  /** The instrumentation key to use for @ non_xid_trxs_cond. */
+  PSI_cond_key m_key_non_xid_trxs_cond;
   /** The instrumentation key to use for opening the log file. */
   PSI_file_key m_key_file_log;
   /** The instrumentation key to use for opening the log index file. */
@@ -626,6 +628,7 @@ public:
                     PSI_cond_key key_COND_done,
                     PSI_cond_key key_update_cond,
                     PSI_cond_key key_prep_xids_cond,
+                    PSI_cond_key key_non_xid_trxs_cond,
                     PSI_file_key key_file_log,
                     PSI_file_key key_file_log_index)
   {
@@ -647,6 +650,7 @@ public:
     m_key_LOCK_binlog_end_pos = key_LOCK_binlog_end_pos;
     m_key_update_cond= key_update_cond;
     m_key_prep_xids_cond= key_prep_xids_cond;
+    m_key_non_xid_trxs_cond= key_non_xid_trxs_cond;
     m_key_file_log= key_file_log;
     m_key_file_log_index= key_file_log_index;
   }
