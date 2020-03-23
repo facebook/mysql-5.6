@@ -1718,11 +1718,11 @@ static bool flush_one_result(MYSQL *mysql) {
 
   if (protocol_41(mysql)) {
     uchar *pos = mysql->net.read_pos + 1;
-    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet)
+    if (mysql->server_capabilities & CLIENT_DEPRECATE_EOF && !is_data_packet) {
       read_ok_ex(mysql, packet_length);
       if (validate_checksum(mysql))
         return true;
-    else {
+    } else {
       mysql->warning_count = uint2korr(pos);
       pos += 2;
       mysql->server_status = uint2korr(pos);
