@@ -5200,7 +5200,7 @@ bool MYSQL_BIN_LOG::open_binlog(
      * function (open_binlog()) should be called during server restart only
      * after initializing the local instance's HLC clock (by reading the
      * previous binlog file) */
-    if (enable_binlog_hlc) {
+    if (enable_binlog_hlc && !is_relay_log) {
       uint64_t current_hlc = mysql_bin_log.get_current_hlc();
       Metadata_log_event metadata_ev(current_hlc);
       if (write_event_to_binlog(&metadata_ev)) goto err;
