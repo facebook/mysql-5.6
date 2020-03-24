@@ -3970,15 +3970,12 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
   Rdb_transaction *tx = get_tx_from_thd(thd);
   // TODO: this is called too many times.. O(#rows)
   if (tx == nullptr) {
-    /* TODO(yzha) - 5cae581bff78 - Stop slave if master's binlog format is not
-     * ROW */
-    // if ((rpl_skip_tx_api && thd->rli_slave) ||
-    //     (THDVAR(thd, master_skip_tx_api) && !thd->rli_slave)) {
-    //   tx = new Rdb_writebatch_impl(thd);
-    // } else {
-    //
-    tx = new Rdb_transaction_impl(thd);
-    // }
+    if ((rpl_skip_tx_api && thd->rli_slave) ||
+        (THDVAR(thd, master_skip_tx_api) && !thd->rli_slave)) {
+      tx = new Rdb_writebatch_impl(thd);
+    } else {
+      tx = new Rdb_transaction_impl(thd);
+    }
     tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
     tx->start_tx();
     set_tx_on_thd(thd, tx);

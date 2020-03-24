@@ -42,10 +42,6 @@ rocksdb.validate_datadic : BUG#0000 redesign the testcase around schema validati
 rocksdb.skip_validate_tmp_table : BUG#0000 redesign the testcase around schema validation
 rocksdb.duplicate_table: BUG#0000 redesign the testcase around schema validation
 
-# rpl_skip_tx_api
-rocksdb.trx_info_rpl : BUG#0000 rpl_skip_tx_api missing
-rocksdb_rpl.rpl_skip_trx_api_binlog_format : BUG#0000 rpl_skip_tx_api missing
-
 # rocksdb_read_free_rpl
 rocksdb.rocksdb_read_free_rpl : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 rocksdb.rocksdb_read_free_rpl_stress : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication

@@ -2391,6 +2391,11 @@ static Sys_var_ulong Sys_rpl_stop_slave_timeout(
     GLOBAL_VAR(rpl_stop_slave_timeout), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(2, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT), BLOCK_SIZE(1));
 
+static Sys_var_bool Sys_rpl_skip_tx_api(
+    "rpl_skip_tx_api",
+    "Use write batches for replication thread instead of tx api",
+    GLOBAL_VAR(rpl_skip_tx_api), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_enum Sys_binlog_error_action(
     "binlog_error_action",
     "When statements cannot be written to the binary log due to a fatal "
