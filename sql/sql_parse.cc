@@ -3505,17 +3505,26 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
     }
     case SQLCOM_SHOW_ENGINE_STATUS: {
       if (check_global_access(thd, PROCESS_ACL)) goto error;
-      res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_STATUS);
+      if (ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_STATUS)) {
+        my_error(ER_UNKNOWN_ERROR, MYF(0), "SHOW ENGINE STATUS");
+        goto error;
+      }
       break;
     }
     case SQLCOM_SHOW_ENGINE_MUTEX: {
       if (check_global_access(thd, PROCESS_ACL)) goto error;
-      res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_MUTEX);
+      if (ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_MUTEX)) {
+        my_error(ER_UNKNOWN_ERROR, MYF(0), "SHOW ENGINE MUTEX");
+        goto error;
+      }
       break;
     }
     case SQLCOM_SHOW_ENGINE_TRX: {
       if (check_global_access(thd, PROCESS_ACL)) goto error;
-      res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_TRX);
+      if (ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_TRX)) {
+        my_error(ER_UNKNOWN_ERROR, MYF(0), "SHOW ENGINE TRX");
+        goto error;
+      }
       break;
     }
     case SQLCOM_SHOW_MEMORY_STATUS: {
@@ -3833,7 +3842,10 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       break;
     case SQLCOM_SHOW_ENGINE_LOGS: {
       if (check_access(thd, FILE_ACL, any_db, NULL, NULL, 0, 0)) goto error;
-      res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_LOGS);
+      if (ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_LOGS)) {
+        my_error(ER_UNKNOWN_ERROR, MYF(0), "SHOW ENGINE LOGS");
+        goto error;
+      }
       break;
     }
     case SQLCOM_CHANGE_DB: {
