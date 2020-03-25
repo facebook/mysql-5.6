@@ -118,10 +118,11 @@ def sha1(x):
 
 def is_connection_error(exc):
   error_code = exc.args[0]
-  return (error_code == MySQLdb.constants.CR.CONNECTION_ERROR or
-          error_code == MySQLdb.constants.CR.CONN_HOST_ERROR or
-          error_code == MySQLdb.constants.CR.SERVER_LOST or
-          error_code == MySQLdb.constants.CR.SERVER_GONE_ERROR or
+  # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
+  return (error_code == MySQLdb.constants.CR.CR_CONNECTION_ERROR or
+          error_code == MySQLdb.constants.CR.CR_CONN_HOST_ERROR or
+          error_code == MySQLdb.constants.CR.CR_SERVER_LOST or
+          error_code == MySQLdb.constants.CR.CR_SERVER_GONE_ERROR or
           error_code == MySQLdb.constants.ER.QUERY_INTERRUPTED or
           error_code == MySQLdb.constants.ER.SERVER_SHUTDOWN)
 
@@ -151,7 +152,8 @@ def execute(cur, stmt):
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
-    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
+    # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
+    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
                                    "Possible connection error, rowcount is %d"
                                    % cur.rowcount)
 
@@ -625,7 +627,8 @@ class LoadGenWorker(WorkerThread):
             res = self.cur.fetchone()
             ids_found[res[ID_COL]] = res[ZERO_SUM_COL]
         break
-      except MySQLdb.OperationalError, e:
+      # PyMySQL may throw InternalError instead of OperationalError in MySQLdb
+      except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
         if not is_deadlock_error(e):
           raise e
 
@@ -703,7 +706,7 @@ class LoadGenWorker(WorkerThread):
       self.con.commit()
       check_id(self.con.insert_id())
       if not self.con.get_server_info():
-        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
+        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
                                        "Possible connection error on commit")
       self.apply_cur_txn_changes()
 
@@ -734,7 +737,8 @@ class LoadGenWorker(WorkerThread):
 
         self.execute_one()
         self.loop_num += 1
-      except MySQLdb.OperationalError, e:
+      # PyMySQL may throw InternalError instead of OperationalError in MySQLdb
+      except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
         if not is_connection_error(e):
           raise e
         if self.reconnect():
@@ -877,7 +881,8 @@ class CheckerWorker(WorkerThread):
         self.loop_num += 1
         if self.loop_num % 10000 == 0:
           logging.info("Processed %d transactions so far" % self.loop_num)
-      except MySQLdb.OperationalError, e:
+      # PyMySQL may throw InternalError instead of OperationalError in MySQLdb
+      except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
         if not is_connection_error(e):
           raise e
         if self.reconnect():

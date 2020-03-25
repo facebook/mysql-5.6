@@ -110,7 +110,8 @@ def execute(cur, stmt):
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
-    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
+    # PyMySQL CR codes has CR prefix while MySQLdb doesn't
+    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
                                    "Possible connection error, rowcount is %d"
                                    % cur.rowcount)
 
@@ -251,7 +252,8 @@ class WorkerThread(threading.Thread):
                     "PRIMARY KEY (id1) COMMENT '%s'"
                     ") ENGINE=ROCKSDB" % (table_name, primary_cf_name))
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
+        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
             return
         except Exception, e:
@@ -373,7 +375,8 @@ class WorkerThread(threading.Thread):
                     "ADD INDEX secondary_key (id2) "
                     "COMMENT '%s'" % (table_name, secondary_cf_name))
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
+        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
             return
         except Exception, e:
@@ -472,7 +475,8 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_compact_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
+        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
 
         self.con.commit()
@@ -507,7 +511,8 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_delete_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        except MySQLdb.InterfaceError, e:
+        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
+        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
             return
 
