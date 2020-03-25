@@ -1526,7 +1526,7 @@ net_async_status cli_advanced_command_nonblocking(
     DBUG_DUMP("sending arg", arg, arg_length);
   }
 
-  if (mysql->net.vio == 0) {
+  if (mysql->net.vio == 0 || !net_async) {
     set_mysql_error(mysql, CR_SERVER_GONE_ERROR, unknown_sqlstate);
     goto end;
   }
