@@ -1109,6 +1109,13 @@ The following options may be given as the first argument:
  When this option is enabled, connections attempted using
  insecure transport will be rejected.  Secure transports
  are SSL/TLS, Unix socket or Shared Memory (on Windows).
+ --response-attrs-contain-hlc 
+ If this is enabled, then the HLC timestamp of a RW
+ transaction is sent back to clients as part of OK packet
+ in session response attribute. HLC is sent as a key-value
+ pair - 'hlc_ts' is the key and the value is the
+ stringified HLC timestamp. Note that HLC should be
+ enabled by setting enable_binlog_hlc
  --rpl-read-size=#   The size for reads done from the binlog and relay log. It
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
@@ -1694,6 +1701,7 @@ report-password (No default value)
 report-port 0
 report-user (No default value)
 require-secure-transport FALSE
+response-attrs-contain-hlc FALSE
 rpl-read-size 8192
 rpl-slave-flow-control TRUE
 rpl-stop-slave-timeout 31536000
