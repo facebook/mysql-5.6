@@ -1055,7 +1055,8 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
       DBUG_RETURN(1);
 
     // Update the checksum with the field metadata row
-    checksum = crc32(checksum, (uchar*)local_packet->ptr(), local_packet->length());
+    if (should_record_checksum)
+      checksum = crc32(checksum, (uchar*)local_packet->ptr(), local_packet->length());
 #ifndef DBUG_OFF
     field_types[count++]= field.type;
 #endif
