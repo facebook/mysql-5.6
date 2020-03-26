@@ -182,6 +182,77 @@ int parse_column_from_func_item(
   DBUG_RETURN(0);
 }
 
+int parse_column_from_cond_item(
+    const std::string& db_name, const std::string& table_name, Item_cond *citem,
+    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth) {
+  DBUG_ENTER("parse_column_from_cond_item");
+  DBUG_ASSERT(citem);
+
+  switch (citem->functype())
+  {
+    case Item_func::COND_AND_FUNC:
+    case Item_func::COND_OR_FUNC:
+    {
+      List<Item> *arg_list= citem->argument_list();
+      Item *item;
+      List_iterator_fast<Item> li(*arg_list);
+      while ((item = li++)) {
+        parse_column_from_item(
+            db_name, table_name, item, out_cus, recursion_depth + 1);
+      }
+      break;
+    }
+    default:
+    {
+      // Asserting in debug mode in case we reach this codepath which signifies
+      // that we've missed some conditional type.
+      DBUG_ASSERT(true);
+      break;
+    }
+  }
+  DBUG_RETURN(0);
+}
+
+int parse_column_from_item(
+    const std::string& db_name, const std::string& table_name, Item *item,
+    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth) {
+  DBUG_ENTER("parse_column_from_item");
+  DBUG_ASSERT(item);
+
+  // This is just a sanity check to detect infinite recursion. We will remove it
+  // once the code matures. There is no scientific reason behind choosing 15
+  // as a limit; it should be high enough for programmatically generated
+  // queries.
+  if (recursion_depth >= 15) {
+    // Killing the server only when debugger is attached. In production, we will
+    // just return.
+    DBUG_EXECUTE_IF(
+        "crash_excessive_recursion_column_stats", DBUG_SUICIDE();
+    );
+    DBUG_RETURN(-1);
+  }
+
+  switch (item->type())
+  {
+    case Item::COND_ITEM:
+    {
+      Item_cond *citem = static_cast<Item_cond *>(item);
+      parse_column_from_cond_item(
+          db_name, table_name, citem, out_cus, recursion_depth);
+      break;
+    }
+    case Item::FUNC_ITEM:
+    {
+      Item_func* fitem= static_cast<Item_func *>(item);
+      parse_column_from_func_item(db_name, table_name, fitem, out_cus);
+      break;
+    }
+    default:
+      break;
+  }
+  DBUG_RETURN(0);
+}
+
 int parse_column_usage_info(
     THD *thd, std::vector<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_column_usage_info");
@@ -222,41 +293,7 @@ int parse_column_usage_info(
       DBUG_RETURN(0);
     }
 
-    auto where_type = select_lex->where->type();
-    switch (where_type)
-    {
-      case Item::COND_ITEM:
-      {
-        Item_cond *where_cond = static_cast<Item_cond *>(select_lex->where);
-
-        // Simple selects only support simple conjuctions.
-        if (where_cond->functype() != Item_func::COND_AND_FUNC) {
-          DBUG_RETURN(0);
-        }
-
-        Item_cond_and *and_cond=
-            static_cast<Item_cond_and *>(select_lex->where);
-        List<Item> *and_list= and_cond->argument_list();
-        Item *item;
-        List_iterator_fast<Item> li(*and_list);
-        while ((item = li++)) {
-          if (item->type() != Item::FUNC_ITEM) {
-            continue;
-          }
-          Item_func* fitem= static_cast<Item_func *>(item);
-          parse_column_from_func_item(db, tn, fitem, out_cus);
-        }
-        break;
-      }
-      case Item::FUNC_ITEM:
-      {
-        Item_func* fitem= static_cast<Item_func *>(select_lex->where);
-        parse_column_from_func_item(db, tn, fitem, out_cus);
-        break;
-      }
-      default:
-        break;
-    }
+    parse_column_from_item(db, tn, select_lex->where, out_cus, 0);
   }
 
   DBUG_RETURN(0);

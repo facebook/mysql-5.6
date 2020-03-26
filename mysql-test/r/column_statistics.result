@@ -24,15 +24,27 @@ Johnny	john2@example.com
 SELECT email FROM MyGuests WHERE id > 1;
 email
 john2@example.com
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+firstname	email
+John	john@example.com
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+firstname	email
+John	john@example.com
 SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
 SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
 COUNT(DISTINCT SQL_ID)
-3
+5
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM information_schema.COLUMN_STATISTICS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+cus_test	MyGuests	id	FILTER	EQUAL
 cus_test	MyGuests	id	FILTER	GREATER_THAN
+cus_test	MyGuests	id	FILTER	GREATER_THAN
+cus_test	MyGuests	lastname	FILTER	EQUAL
+cus_test	MyGuests	id	FILTER	GREATER_THAN
+cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+cus_test	MyGuests	firstname	FILTER	EQUAL
 cus_test	MyGuests	id	FILTER	EQUAL
 cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
 cus_test	MyGuests	lastname	FILTER	EQUAL

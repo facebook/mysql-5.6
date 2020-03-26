@@ -55,6 +55,43 @@ int parse_column_from_func_item(
     Item_func *fitem, std::vector<ColumnUsageInfo>& out_cus);
 
 /*
+  parse_column_from_cond_item
+    Helper to parse column usage information corresponding to a single
+    conditional item.
+  Input:
+    db_name            in: std::string
+    table_name         in: std::string
+    citem              in: Item_cond
+                           The conditional item to be parsed.
+    out_cus            out: std::vector<ColumnUsageInfo>
+                            Column usage information parsed from fitem.
+    recursion_depth    in: int
+                           Book-keeping variable to prevent infinite recursion.
+                           To be removed later.
+*/
+int parse_column_from_cond_item(
+    const std::string& db_name, const std::string& table_name, Item_cond *citem,
+    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth);
+
+/*
+  parse_column_from_item
+    Helper to parse column usage information corresponding to a single item.
+  Input:
+    db_name            in: std::string
+    table_name         in: std::string
+    item               in: Item
+                           The item to be parsed.
+    out_cus            out: std::vector<ColumnUsageInfo>
+                            Column usage information parsed from fitem.
+    recursion_depth    in: int
+                           Book-keeping variable to prevent infinite recursion.
+                           To be removed later.
+*/
+int parse_column_from_item(
+    const std::string& db_name, const std::string& table_name, Item *item,
+    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth);
+
+/*
   parse_column_usage_info
     Parses column usage information from the parse tree before execution of the
     query.

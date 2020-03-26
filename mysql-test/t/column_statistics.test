@@ -29,6 +29,10 @@ SELECT firstname, email FROM MyGuests WHERE id IN (1, 2) AND lastname = 'Doe';
 
 SELECT email FROM MyGuests WHERE id > 1;
 
+SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
+
+SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
+
 --error 1054
 SELECT email FROM MyGuests WHERE fake_column = 1;
 
