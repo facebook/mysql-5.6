@@ -1,0 +1,8 @@
+SET SESSION DEBUG="+d,ha_partition_end_bulk_insert_fail";
+CREATE TABLE t1 (id INT PRIMARY KEY);
+INSERT INTO t1 VALUES (1),(2),(3);
+CREATE TABLE t2 (id INT PRIMARY KEY) ENGINE='RocksDB' PARTITION BY HASH (id) PARTITIONS 2;
+INSERT INTO t2 SELECT * FROM t1;
+ERROR HY000: Got error 1 - 'Operation not permitted' from storage engine
+DROP TABLE t1, t2;
+SET SESSION DEBUG=default;

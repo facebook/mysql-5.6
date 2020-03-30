@@ -23,8 +23,6 @@ CREATE TABLE `t1` (
 USE test;
 DROP TABLE t1;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 # Need a table which has multiple partitions and column families associated
 # with them to make sure that we're testing the valid scenario.
 CREATE TABLE `t1` (
@@ -50,6 +48,3 @@ CREATE TABLE `t1` (
 --source rocksdb_update_cf_options_basic.inc
 USE test;
 DROP TABLE t1;
-
---enable_testcase
-

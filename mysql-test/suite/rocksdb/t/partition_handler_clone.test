@@ -1,0 +1,54 @@
+--echo #
+--echo # PS-5206 - [PS8QA] handle_fatal_signal (sig=11) in handler::get_ha_share_ptr
+--echo #
+
+--source include/have_rocksdb.inc
+
+CREATE TABLE t1 (a SMALLINT, b VARCHAR(20), c SMALLINT, KEY a (a), KEY b (b) ) ENGINE=ROCKSDB PARTITION BY HASH(c) PARTITIONS 3;
+INSERT INTO t1  VALUES (1,'Bozo', NULL),(2,'Ronald', NULL),(3,'Kinko', NULL),(4,'Mr. Floppy', NULL);
+INSERT INTO t1  VALUES (5,'Bozo', NULL),(6,'Ronald', NULL),(7,'Kinko', NULL),(8,'Mr. Floppy', NULL);
+SELECT * FROM t1 WHERE b IS NULL or a IS NULL;
+DROP TABLE t1;
+
+--echo #
+--echo # PS-5562 - index_merge + partitioning + MyRocks crashes the server
+--echo #
+CREATE TABLE `t1` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `e` VARCHAR(150) NOT NULL DEFAULT '',
+  `l` INT UNSIGNED NOT NULL,
+  `dd` INT UNSIGNED NOT NULL DEFAULT '0',
+  `p` INT UNSIGNED NOT NULL DEFAULT '0',
+  `f1` VARCHAR(150) DEFAULT NULL,
+  `f2` VARCHAR(150) DEFAULT NULL,
+  `f3` VARCHAR(150) DEFAULT NULL,
+  `f4` VARCHAR(150) DEFAULT NULL,
+  `f5` VARCHAR(150) DEFAULT NULL,
+  `f6` VARCHAR(150) DEFAULT NULL,
+  `f7` VARCHAR(150) DEFAULT NULL,
+  `f8` VARCHAR(150) DEFAULT NULL,
+  `f9` VARCHAR(150) DEFAULT NULL,
+  `f0` VARCHAR(150) DEFAULT NULL,
+  PRIMARY KEY (`id`,`p`,`l`),
+  KEY `e` (`e`),
+  KEY `dd` (`dd`)
+) ENGINE=ROCKSDB AUTO_INCREMENT=1950201 DEFAULT CHARSET=utf8mb4
+PARTITION BY LIST (`p`)
+SUBPARTITION BY HASH (`l`)
+SUBPARTITIONS 5
+(PARTITION p0 VALUES IN (0) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES IN (1) ENGINE = ROCKSDB,
+ PARTITION p2 VALUES IN (2) ENGINE = ROCKSDB);
+
+--disable_query_log
+--let $i=0
+--while ($i < 10) {
+INSERT INTO t1 VALUES (null, uuid(), FLOOR(RAND()*(2-0+1)+0) , FLOOR(RAND()*(2-0+1)+0) ,FLOOR(RAND()*(2-0+1)+0) , uuid(), uuid(), uuid(), uuid(), uuid(), uuid(), uuid(), uuid(), uuid(), uuid());
+--inc $i
+--}
+--enable_query_log
+
+--let $i=0
+
+SELECT /*+ INDEX_MERGE(t1) */ id  FROM `t1` WHERE `l` = 281523560 AND `dd` = 0 AND `e` = '';
+DROP TABLE t1;

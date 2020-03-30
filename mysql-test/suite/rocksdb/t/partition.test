@@ -309,9 +309,9 @@ CREATE TABLE rc4 (
 
 SELECT (0,25,50) < (10,20,100), (10,20,100) < (10,30,50);
 
--- ERROR 1493 (HY000): VALUES LESS THAN value must be strictly increasing for each partition
+# ER_RANGE_NOT_INCREASING_ERROR: VALUES LESS THAN value must be strictly increasing for each partition
 
---error 1493
+--error ER_RANGE_NOT_INCREASING_ERROR
 CREATE TABLE rcf (
   a INT,
   b INT,
