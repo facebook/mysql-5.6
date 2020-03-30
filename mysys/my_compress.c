@@ -23,6 +23,7 @@
 #endif
 #include <zlib.h>
 #include <zstd.h>
+#include <lz4.h>
 #include <lz4frame.h>
 
 #include <mysql_com.h>
@@ -231,7 +232,11 @@ uchar *zstd_stream_compress_alloc(NET *net, const uchar *packet, size_t *len,
 nocompress:
   *complen = 0;
 error:
+#if ZSTD_VERSION_NUMBER >= 10400
   ZSTD_CCtx_reset(net->cctx, ZSTD_reset_session_only);
+#else
+  ZSTD_resetCStream(net->cctx, ZSTD_CONTENTSIZE_UNKNOWN);
+#endif
   compress_ctx_reset++;
   return NULL;
 }
@@ -282,7 +287,11 @@ my_bool zstd_stream_uncompress(NET *net, uchar *packet, size_t len, size_t *comp
 
 uchar *lz4f_stream_compress_alloc(NET *net, const uchar *packet, size_t *len,
                                   size_t *complen, int level) {
+#if defined(LZ4F_HEADER_SIZE_MAX)
   size_t lz4f_len = LZ4F_compressBound(*len, NULL) + LZ4F_HEADER_SIZE_MAX;
+#else
+  size_t lz4f_len = LZ4F_compressBound(*len, NULL) + 19;
+#endif
   void *compbuf;
   size_t lz4f_res;
   size_t pos = 0;
@@ -534,12 +543,24 @@ my_bool my_uncompress(NET *net, uchar *packet,
     // decompression side so that both contexts stay in sync.
     if (comp_lib == MYSQL_COMPRESSION_ZSTD_STREAM) {
       if (net->dctx) {
+#if ZSTD_VERSION_NUMBER >= 10400
         ZSTD_DCtx_reset(net->dctx, ZSTD_reset_session_only);
+#else
+        ZSTD_resetDStream(net->dctx);
+#endif
       }
     } else if (comp_lib == MYSQL_COMPRESSION_LZ4F_STREAM) {
       if (net->lz4f_dctx) {
         DBUG_PRINT("note", ("lz4f_stream dctx reset"));
+#if LZ4_VERSION_NUMBER >= 10800
         LZ4F_resetDecompressionContext(net->lz4f_dctx);
+#else
+        LZ4F_freeDecompressionContext(
+            (LZ4F_decompressionContext_t)net->lz4f_dctx);
+        net->lz4f_dctx = NULL;
+        // The context will be reinitialized on the next call to
+        // lz4f_stream_uncompress.
+#endif
       }
     }
   }
