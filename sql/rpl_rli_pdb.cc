@@ -2622,6 +2622,17 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
       row_ev->m_binlog_only = TRUE;
   }
 
+  DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
+     if (ev->is_row_log_event())
+     {
+        Gtid current_gtid;
+        rli->recovery_sid_lock->rdlock();
+        current_gtid.parse(rli->recovery_sid_map, worker->worker_last_gtid);
+        rli->recovery_sid_lock->unlock();
+        rli->recovery_max_engine_gtid= current_gtid;
+     }
+  });
+
   // Check if idempotent mode is required (used after crash recovery)
   if (ev->is_row_log_event() && worker->worker_last_gtid[0] &&
       thd->is_enabled_idempotent_recovery() &&
@@ -2639,6 +2650,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
                              worker->worker_last_gtid);
       ev->slave_exec_mode= SLAVE_EXEC_MODE_IDEMPOTENT;
       ((Rows_log_event*)ev)->m_force_binlog_idempotent= TRUE;
+      thd->m_skip_row_logging_functions= true;
     }
   }
 
