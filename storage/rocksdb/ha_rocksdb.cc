@@ -55,6 +55,7 @@
 #include "sql/sql_audit.h"
 #include "sql/sql_class.h"
 #include "sql/sql_lex.h"
+#include "sql/sql_partition.h"
 #include "sql/sql_table.h"
 
 /* RocksDB includes */
@@ -78,6 +79,7 @@
 /* MyRocks includes */
 #include "./event_listener.h"
 #include "./ha_rocksdb_proto.h"
+#include "./ha_rockspart.h"
 #include "./logger.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_cf_options.h"
@@ -5503,6 +5505,8 @@ static rocksdb::Status check_rocksdb_options_compatibility(
   return status;
 }
 
+static uint rocksdb_partition_flags() { return (HA_CANNOT_PARTITION_FK); }
+
 /*
   Storage Engine initialization function, invoked when plugin is loaded.
 */
@@ -5608,6 +5612,8 @@ static int rocksdb_init_func(void *const p) {
 
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
+
+  rocksdb_hton->partition_flags = rocksdb_partition_flags;
 
   if (rocksdb_db_options->max_open_files > (long)open_files_limit) {
     // NO_LINT_DEBUG
@@ -6573,10 +6579,19 @@ void Rdb_open_tables_map::release_table_handler(
   RDB_MUTEX_UNLOCK_CHECK(m_mutex);
 }
 
-static handler *rocksdb_create_handler(
-    my_core::handlerton *const hton, my_core::TABLE_SHARE *const table_arg,
-    bool partitioned MY_ATTRIBUTE((__unused__)),
-    my_core::MEM_ROOT *const mem_root) {
+static handler *rocksdb_create_handler(my_core::handlerton *const hton,
+                                       my_core::TABLE_SHARE *const table_arg,
+                                       bool partitioned,
+                                       my_core::MEM_ROOT *const mem_root) {
+  if (partitioned) {
+    ha_rockspart *file = new (mem_root) ha_rockspart(hton, table_arg);
+    if (file && file->init_partitioning(mem_root)) {
+      destroy(file);
+      return (nullptr);
+    }
+    return (file);
+  }
+
   return new (mem_root) ha_rocksdb(hton, table_arg);
 }
 
@@ -6637,7 +6652,8 @@ bool ha_rocksdb::init_with_fields() {
   const uint pk = table_share->primary_key;
   if (pk != MAX_KEY) {
     const uint key_parts = table_share->key_info[pk].user_defined_key_parts;
-    check_keyread_allowed(pk /*PK*/, key_parts - 1, true);
+    check_keyread_allowed(m_pk_can_be_decoded, table_share, pk /*PK*/,
+                          key_parts - 1, true);
   } else {
     m_pk_can_be_decoded = false;
   }
@@ -8100,10 +8116,11 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
   See comment in ha_rocksdb::index_flags() for details.
 */
 
-bool ha_rocksdb::check_keyread_allowed(uint inx, uint part,
-                                       bool all_parts) const {
+bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
+                                       const TABLE_SHARE *table_arg, uint inx,
+                                       uint part, bool all_parts) {
   bool res = true;
-  KEY *const key_info = &table_share->key_info[inx];
+  KEY *const key_info = &table_arg->key_info[inx];
 
   Rdb_field_packing dummy1;
   res = dummy1.setup(nullptr, key_info->key_part[part].field, inx, part,
@@ -8124,10 +8141,10 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part,
     }
   }
 
-  const uint pk = table_share->primary_key;
+  const uint pk = table_arg->primary_key;
   if (inx == pk && all_parts &&
-      part + 1 == table_share->key_info[pk].user_defined_key_parts) {
-    m_pk_can_be_decoded = res;
+      part + 1 == table_arg->key_info[pk].user_defined_key_parts) {
+    pk_can_be_decoded = res;
   }
 
   return res;
@@ -8454,17 +8471,20 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
     yet).
 */
 
-ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
+ulong ha_rocksdb::index_flags(bool &pk_can_be_decoded,
+                              const TABLE_SHARE *table_arg, uint inx,
+                              uint part, bool all_parts) {
   DBUG_ENTER_FUNC();
 
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
-  if (check_keyread_allowed(inx, part, all_parts)) {
+  if (check_keyread_allowed(pk_can_be_decoded, table_arg, inx, part,
+                            all_parts)) {
     base_flags |= HA_KEYREAD_ONLY;
   }
 
-  if (inx == table_share->primary_key) {
+  if (inx == table_arg->primary_key) {
     /*
       Index-only reads on primary key are the same as table scan for us. Still,
       we need to explicitly "allow" them, otherwise SQL layer will miss some
@@ -8481,6 +8501,10 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
   }
 
   DBUG_RETURN(base_flags);
+}
+
+ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
+  return index_flags(m_pk_can_be_decoded, table_share, inx, part, all_parts);
 }
 
 /**

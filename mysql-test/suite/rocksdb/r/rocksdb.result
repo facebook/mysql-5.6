@@ -305,6 +305,11 @@ pk
 2
 DROP TABLE t12;
 #
+# MDEV-3964: Assertion `!pk_descr' fails in ha_rocksdb::open on adding partitions ...
+#
+create table t14 (pk int primary key) engine=RocksDB partition by hash(pk) partitions 2;
+drop table t14;
+#
 # MDEV-3960: Server crashes on running DISCARD TABLESPACE on a RocksDB table
 #
 create table t9 (i int primary key) engine=rocksdb;
@@ -2653,6 +2658,26 @@ start transaction with consistent snapshot;
 SELECT * FROM t1;
 c1
 COMMIT;
+UNLOCK TABLES;
+DROP TABLE t1;
+#
+# Issue#213 Crash on LOCK TABLES + partitions
+#
+CREATE TABLE t1(a INT,b INT,KEY (b)) engine=rocksdb PARTITION BY HASH(a) PARTITIONS 2;
+INSERT INTO t1(a)VALUES (20010101101010.999949);
+Warnings:
+Warning	1264	Out of range value for column 'a' at row 1
+lock tables t1 write,t1 as t0 write,t1 as t2 write;
+SELECT a FROM t1 ORDER BY a;
+a
+2147483647
+truncate t1;
+INSERT INTO t1 VALUES(X'042000200020',X'042000200020'),(X'200400200020',X'200400200020');
+Warnings:
+Warning	1264	Out of range value for column 'a' at row 1
+Warning	1264	Out of range value for column 'b' at row 1
+Warning	1264	Out of range value for column 'a' at row 2
+Warning	1264	Out of range value for column 'b' at row 2
 UNLOCK TABLES;
 DROP TABLE t1;
 #

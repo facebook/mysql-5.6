@@ -402,6 +402,8 @@ class Partition_helper {
   Partition_helper(handler *main_handler);
   virtual ~Partition_helper();
 
+  void set_active_index(uint inx) { m_handler->active_index = inx; }
+
   /**
     Set partition info.
 
