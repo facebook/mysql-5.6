@@ -13054,14 +13054,15 @@ ulonglong Rows_query_log_event::extract_last_timestamp() const {
     return 0;
   }
   const auto ts_iter = pt.FindMember(ts_key.c_str());
-  ulonglong timestamps = 0;
+  ulonglong timestamp = 0;
   if (ts_iter != pt.MemberEnd() && ts_iter->value.IsArray()) {
-    for (auto iter = ts_iter->value.MemberBegin();
-         iter != ts_iter->value.MemberEnd(); ++iter) {
-      timestamps = iter->value.GetUint64();
+    const auto& arr = ts_iter->value.GetArray();
+    if (arr.Size() >= 1) {
+      const auto& value = arr[arr.Size() - 1];
+      timestamp = my_strtoull(value.GetString(), NULL, 10);
     }
   }
-  return timestamps;
+  return timestamp;
 }
 
 Rows_query_log_event::Rows_query_log_event(
