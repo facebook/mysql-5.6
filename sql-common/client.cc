@@ -3350,7 +3350,11 @@ MYSQL_EXTENSION *mysql_extension_init(MYSQL *mysql MY_ATTRIBUTE((unused))) {
 void mysql_extension_free(MYSQL_EXTENSION *ext) {
   if (!ext) return;
   if (ext->trace_data) my_free(ext->trace_data);
-  if (ext->mysql_async_context) my_free(ext->mysql_async_context);
+  if (ext->mysql_async_context) {
+    if (ext->mysql_async_context->connect_context)
+      my_free(ext->mysql_async_context->connect_context);
+    my_free(ext->mysql_async_context);
+  }
   // free state change related resources.
   free_state_change_info(ext);
 
@@ -5903,7 +5907,6 @@ net_async_status STDCALL mysql_real_connect_nonblocking(
       my_free(ctx->scramble_buffer);
       ctx->scramble_buffer = nullptr;
     }
-    my_free(ctx);
     DBUG_RETURN(NET_ASYNC_ERROR);
   }
 }
