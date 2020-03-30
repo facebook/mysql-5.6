@@ -9907,7 +9907,6 @@ int ha_rocksdb::check_and_lock_sk(const uint key_id,
     Also need to scan RocksDB and verify the key has not been deleted
     in the transaction.
   */
-  iter->Seek(new_slice);
   *found = !read_key_exact(kd, iter, all_parts_used, new_slice,
                            row_info.tx->m_snapshot_timestamp);
   delete iter;
