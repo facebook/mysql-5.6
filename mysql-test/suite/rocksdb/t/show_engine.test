@@ -17,14 +17,11 @@ CREATE TABLE t1 (i INT, PRIMARY KEY (i) COMMENT 'cf_t1') ENGINE = ROCKSDB;
 CREATE TABLE t2 (j INT, PRIMARY KEY (j) COMMENT 'rev:cf_t2') ENGINE = ROCKSDB;
 CREATE TABLE t3 (k INT, PRIMARY KEY (k) COMMENT 'cf_t1') ENGINE = ROCKSDB;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 # With partition based column family creation we now expect all the partitions
 # to belong to a default column family because mapping wasn't specified in
 # this case.
 CREATE TABLE t4 (l INT, PRIMARY KEY (l) COMMENT 'cf_t4') ENGINE = ROCKSDB
     PARTITION BY KEY(l) PARTITIONS 4;
---enable_testcase
 
 SET @save.rocksdb_max_background_jobs= @@global.rocksdb_max_background_jobs;
 SET GLOBAL rocksdb_max_background_jobs= 1;
@@ -35,11 +32,8 @@ SELECT COUNT(*) FROM t1;
 INSERT INTO t2 VALUES (1), (2), (3), (4);
 SELECT COUNT(*) FROM t2;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 INSERT INTO t4 VALUES (1), (2), (3), (4), (5);
 SELECT COUNT(*) FROM t4;
---enable_testcase
 
 SET GLOBAL rocksdb_force_flush_memtable_now=1;
 SET GLOBAL rocksdb_compact_cf="cf_t1";
@@ -65,11 +59,7 @@ SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_CF_OPTIONS;
 DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t3;
-
-# Disable until partition support is added
---disable_testcase BUG#888001
 DROP TABLE t4;
---enable_testcase
 
 SHOW ENGINE rocksdb MUTEX;
 # For SHOW ALL MUTEX even the number of lines is volatile, so the result logging is disabled

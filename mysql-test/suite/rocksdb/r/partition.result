@@ -478,7 +478,7 @@ SUBPARTITION s2,
 SUBPARTITION s3
 )
 );
-ERROR 42000: Wrong number of subpartitions defined, mismatch with previous setting near '
+ERROR 42000: Wrong number of subpartitions defined, mismatch with previous setting near ',
 PARTITION p2 VALUES LESS THAN MAXVALUE (
 SUBPARTITION s2,
 SUBPARTITION s3
@@ -580,8 +580,12 @@ id	name	purchased
 3	TV set	1996-03-10
 10	lava lamp	1998-12-25
 ALTER TABLE tr DROP PARTITION p2;
+Warnings:
+Warning	138	Inplace partition altering is not supported
 SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '1999-12-31';
 id	name	purchased
+3	TV set	1996-03-10
+10	lava lamp	1998-12-25
 CREATE TABLE members_3 (
 id INT,
 fname VARCHAR(25),
@@ -594,6 +598,8 @@ PARTITION p1 VALUES LESS THAN (1980),
 PARTITION p2 VALUES LESS THAN (1990)
 );
 ALTER TABLE members_3 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2000));
+Warnings:
+Warning	138	Inplace partition altering is not supported
 ALTER TABLE members_3 ADD PARTITION (PARTITION n VALUES LESS THAN (1960));
 ERROR HY000: VALUES LESS THAN value must be strictly increasing for each partition
 CREATE TABLE clients (
@@ -605,6 +611,8 @@ signed DATE
 PARTITION BY HASH( MONTH(signed) )
 PARTITIONS 12;
 ALTER TABLE clients COALESCE PARTITION 4;
+Warnings:
+Warning	138	Inplace partition altering is not supported
 CREATE TABLE clients_lk (
 id INT,
 fname VARCHAR(30),
@@ -616,6 +624,8 @@ PARTITIONS 12;
 ALTER TABLE clients COALESCE PARTITION 18;
 ERROR HY000: Cannot remove all partitions, use DROP TABLE instead
 ALTER TABLE clients ADD PARTITION PARTITIONS 6;
+Warnings:
+Warning	138	Inplace partition altering is not supported
 CREATE TABLE trb1 (
 id INT,
 name VARCHAR(50),

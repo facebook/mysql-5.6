@@ -165,8 +165,6 @@ where table_schema=database() and table_name='t1';
 
 drop table t1, t2;
 
-# Disable until partition support is added
---disable_testcase BUG#888001
 --echo #
 --echo # Check how it works for partitioned tables
 --echo #
@@ -177,4 +175,3 @@ select create_time IS NOT NULL , update_time IS NOT NULL
 from information_schema.tables 
 where table_schema=database() and table_name='t1';
 drop table t1;
---enable_testcase
