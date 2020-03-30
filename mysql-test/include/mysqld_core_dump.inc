@@ -30,8 +30,8 @@ if ($pid eq "") {
 $cur_time = time;
 
 # Kill mysqld to dump a core
-system("kill", "-s", "SIGABRT", "$pid");
-print "# Perl: Sent a SIGABRT to mysqld to dump a core.\n";
+system("kill", "-s", "SIGSEGV", "$pid");
+print "# Perl: Sent a SIGSEGV to mysqld to dump a core.\n";
 
 $core_dir = $ENV{'MYSQLTEST_VARDIR'} . '/mysqld.1/data/';
 
