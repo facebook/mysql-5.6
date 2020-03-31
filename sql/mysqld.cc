@@ -6574,6 +6574,15 @@ int mysqld_main(int argc, char **argv)
     unireg_abort(MYSQLD_ABORT_EXIT);  // Will do exit
   }
 
+  /*
+    All sys-var are processed so it is time handle
+    the per-user session variables.
+  */
+  if (!get_per_user_session_variables()->init()) {
+    fprintf(stderr, "[ERROR] init_per_user_session_variables() failed.\n");
+    unireg_abort(MYSQLD_ABORT_EXIT);
+  }
+
   my_init_signals();
 
   size_t guardize = 0;
