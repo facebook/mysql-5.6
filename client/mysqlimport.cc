@@ -472,6 +472,7 @@ static void db_disconnect(char *host, MYSQL *mysql) {
 
 static void safe_exit(int error, MYSQL *mysql) {
   if (ignore_errors) return;
+  if (opt_use_threads) return; /* Process can crash if worker thread exits */
   if (mysql) mysql_close(mysql);
   exit(error);
 }
