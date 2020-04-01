@@ -8201,7 +8201,7 @@ bool handler::is_using_prohibited_gap_locks(TABLE *table,
   const char *table_name = table->s->table_name.str;
 
   if (!using_full_primary_key
-      && table->s->table_category != TABLE_CATEGORY_DICTIONARY
+      && table->s->table_category == TABLE_CATEGORY_USER
       && !thd->is_system_thread()
       && ht
       && (ht->db_type == DB_TYPE_INNODB || ht->db_type == DB_TYPE_ROCKSDB)
