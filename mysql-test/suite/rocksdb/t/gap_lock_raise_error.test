@@ -29,6 +29,15 @@ select * from gap1 where value != 100 limit 1 for update;
 
 --source include/gap_lock_raise_error_cleanup.inc
 
+# Reset Slave All tries to acquire gap locks on system tables
+# which must succeed..
+--source include/gap_lock_raise_error_init.inc
+
+SET SESSION autocommit = 0;
+RESET REPLICA ALL;
+
+--source include/gap_lock_raise_error_cleanup.inc
+
 # This test has been temporarily removed because it fails when the server
 # is compiled using GCC 4.8 as full regular expression handling was added
 # in GCC 4.9.  We need to add the ability to detect if full regex is

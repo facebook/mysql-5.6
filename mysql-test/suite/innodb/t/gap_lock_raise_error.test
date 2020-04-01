@@ -23,4 +23,13 @@ select * from gap1 where value != 100 limit 1 for update;
 
 --source include/gap_lock_raise_error_cleanup.inc
 
+# Reset Slave All tries to acquire gap locks on system tables
+# which must succeed..
+--source include/gap_lock_raise_error_init.inc
+
+SET SESSION autocommit = 0;
+RESET REPLICA ALL;
+
+--source include/gap_lock_raise_error_cleanup.inc
+
 SET GLOBAL gap_lock_exceptions=@save_gap_lock_exceptions;
