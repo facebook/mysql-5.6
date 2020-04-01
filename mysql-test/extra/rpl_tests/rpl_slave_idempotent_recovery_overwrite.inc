@@ -3,12 +3,6 @@
 # the rows that the transaction touches have the same contents in all cols as if
 # it was executed normally.
 
-call mtr.add_suppression("Error_code: 1593");
-call mtr.add_suppression("The slave coordinator and worker threads are stopped");
-call mtr.add_suppression("The slave coordinator and worker threads are stopped");
-call mtr.add_suppression("Error in Log_event::read_log_event()");
-call mtr.add_suppression("Recovery from master pos");
-
 connection slave;
 source include/stop_slave.inc;
 change master to master_auto_position=1;
