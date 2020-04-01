@@ -5661,17 +5661,20 @@ static void set_session_binlog(bool flag) {
 
 static bool add_set_gtid_purged(MYSQL *mysql_con,
                                 const char *gtid_executed_set) {
-  MYSQL_RES *gtid_purged_res;
+  MYSQL_RES *gtid_purged_res = nullptr;
   MYSQL_ROW gtid_set;
-  ulonglong num_sets, idx;
+  ulonglong num_sets = 0, idx;
 
-  /* query to get the GTID_EXECUTED */
-  if (mysql_query_with_error_report(mysql_con, &gtid_purged_res,
-                                    "SELECT @@GLOBAL.GTID_EXECUTED"))
-    return true;
+  if (!gtid_executed_set) {
+    /* query to get the GTID_EXECUTED */
+    if (mysql_query_with_error_report(mysql_con, &gtid_purged_res,
+                                      "SELECT @@GLOBAL.GTID_EXECUTED"))
+      return true;
 
-  /* Proceed only if gtid_purged_res is non empty */
-  num_sets = mysql_num_rows(gtid_purged_res);
+    /* Proceed only if gtid_purged_res is non empty */
+    num_sets = mysql_num_rows(gtid_purged_res);
+  }
+
   if (gtid_executed_set || num_sets > 0) {
     if (opt_comments)
       fprintf(md_result_file,
@@ -5762,7 +5765,9 @@ static bool process_set_gtid_purged(MYSQL *mysql_con,
               "--all-databases --triggers --routines --events. \n");
     }
 
-    set_session_binlog(false);
+    if (opt_set_gtid_purged_mode == SET_GTID_PURGED_ON ||
+        opt_set_gtid_purged_mode == SET_GTID_PURGED_AUTO)
+      set_session_binlog(false);
     if (add_set_gtid_purged(mysql_con, gtid_executed_set)) {
       mysql_free_result(gtid_mode_res);
       return true;
