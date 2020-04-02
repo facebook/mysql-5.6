@@ -1,8 +1,3 @@
-# Save a copy of the user/tables_priv tables, to restore later
-# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
---let $backup= 1
---source include/backup_tables_priv_and_users.inc
-
 --let $lctn= query_get_value(SHOW VARIABLES LIKE 'lower_case_table_names', Value, 1)
 
 --let $MYSQLD_DATADIR1= $MYSQL_TMP_DIR/data_80011
@@ -21,6 +16,11 @@ if ($lctn == 2)
 --source include/not_valgrind.inc
 --source include/have_debug.inc
 --source include/have_innodb_16k.inc
+
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
 
 --let $MYSQLD_DATADIR= `select @@datadir`
 
