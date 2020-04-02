@@ -5900,13 +5900,13 @@ net_async_status STDCALL mysql_real_connect_nonblocking(
                          mysql->net.sqlstate, mysql->net.last_error));
     /* Free alloced memory */
     end_server(mysql);
-    mysql_close_free(mysql);
     if (!(ctx->client_flag & CLIENT_REMEMBER_OPTIONS))
       mysql_close_free_options(mysql);
     if (ctx->scramble_buffer_allocated) {
       my_free(ctx->scramble_buffer);
       ctx->scramble_buffer = nullptr;
     }
+    mysql_close_free(mysql);
     DBUG_RETURN(NET_ASYNC_ERROR);
   }
 }
