@@ -20,6 +20,11 @@ if ($wait_timeout)
 {
   let $wait_counter_init= `SELECT $wait_timeout * 10`;
 }
+
+if ($VALGRIND_TEST) {
+  let $wait_counter_init= `SELECT $wait_counter_init * 10`;
+}
+
 # Reset $wait_timeout so that its value won't be used on subsequent
 # calls, and default will be used instead.
 let $wait_timeout= 0;
