@@ -4991,6 +4991,10 @@ static void do_sync_with_master2(struct st_command *command, long offset) {
   MYSQL *mysql = &cur_con->mysql;
   char query_buf[FN_REFLEN + 128];
   int timeout = 300; /* seconds */
+  char *valgrind_env;
+  if ((valgrind_env = getenv("VALGRIND_TEST")) && strcmp(valgrind_env, "0")) {
+    timeout *= 10;
+  }
 
   if (!master_pos.file[0])
     die("Calling 'sync_with_master' without calling 'save_master_pos'");
@@ -5773,6 +5777,11 @@ static void do_shutdown_server(struct st_command *command) {
   }
 
   dynstr_free(&ds_timeout);
+
+  char *valgrind_env;
+  if ((valgrind_env = getenv("VALGRIND_TEST")) && strcmp(valgrind_env, "0")) {
+    timeout *= 10;
+  }
 
   MYSQL *mysql = &cur_con->mysql;
   std::string ds_file_name;

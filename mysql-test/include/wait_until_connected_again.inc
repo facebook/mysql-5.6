@@ -19,7 +19,7 @@ if ($explicit_default_wait_counter)
   --let $wait_counter= $explicit_default_wait_counter
 }
 if ($VALGRIND_TEST) {
-  --let $wait_counter= 20000
+  --let $wait_counter= 200000
   if ($add_wait_counter) {
     --expr $wait_counter= $wait_counter + $add_wait_counter
   }
