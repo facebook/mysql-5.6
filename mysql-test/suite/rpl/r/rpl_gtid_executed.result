@@ -14,6 +14,14 @@ insert into t1 values(3);
 SHOW GTID_EXECUTED IN 'master-bin.000002' FROM 400;
 Gtid_executed
 uuid:1-4
+# Verify setting gtid_purged also rotates the binlog
+SET GLOBAL gtid_purged="ffffffff-ffff-ffff-ffff-123456789abc:1-12345";
+insert into t1 values(4);
+SHOW GTID_EXECUTED IN 'master-bin.000003' FROM 400;
+Gtid_executed
+uuid:1-5,
+ffffffff-ffff-ffff-ffff-123456789abc:1-12345
+SET GLOBAL gtid_purged="ffffffff-ffff-ffff-ffff-123456789abc:1-12345";
 drop table t1;
 SHOW GTID_EXECUTED;
 ERROR HY000: Error when executing command SHOW GTID_EXECUTED: binlog file name is not specified

@@ -90,18 +90,19 @@ INSERT INTO t3 VALUES (1, 'a');
 INSERT INTO t3 VALUES (2, 'b');
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000006
-slave-bin.000002	#	Query	#	#	use `test`; CREATE TABLE t3 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
-slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000007
-slave-bin.000002	#	Query	#	#	BEGIN
-slave-bin.000002	#	Table_map	#	#	table_id: # (test.t3)
-slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
-slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
-slave-bin.000002	#	Metadata	#	#	HLC time: 2538630000000000008
-slave-bin.000002	#	Query	#	#	BEGIN
-slave-bin.000002	#	Table_map	#	#	table_id: # (test.t3)
-slave-bin.000002	#	Write_rows	#	#	table_id: # flags: STMT_END_F
-slave-bin.000002	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	Prev HLC time: 0
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000006
+slave-bin.000003	#	Query	#	#	use `test`; CREATE TABLE t3 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000007
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t3)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000003	#	Metadata	#	#	HLC time: 2538630000000000008
+slave-bin.000003	#	Query	#	#	BEGIN
+slave-bin.000003	#	Table_map	#	#	table_id: # (test.t3)
+slave-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000003	#	Xid	#	#	COMMIT /* XID */
 DROP TABLE t3;
 include/start_slave.inc
 [connection master]
