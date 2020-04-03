@@ -86,7 +86,7 @@ if ($shutdown_server_timeout)
   --let $ss_timeout= $shutdown_server_timeout
 }
 
---let $timeout_multiplier= 6
+--let $timeout_multiplier= 60
 
 if ($VALGRIND_TEST)
 {
