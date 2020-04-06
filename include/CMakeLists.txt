@@ -30,6 +30,7 @@ SET(HEADERS
   errmsg.h
   my_command.h
   my_compress.h
+  my_sqlcommand.h
   my_list.h
   mysql.h
   mysql_async.h
@@ -41,7 +42,12 @@ SET(HEADERS
 )
 SET(HEADERS_MYSQL_DIR
   mysql/client_plugin.h
+  mysql/mysql_lex_string.h
   mysql/plugin_auth_common.h
+  mysql/plugin.h
+  mysql/plugin_audit.h
+  mysql/plugin_audit_message_types.h
+  mysql/status_var.h
   mysql/udf_registration_types.h
 )
 
