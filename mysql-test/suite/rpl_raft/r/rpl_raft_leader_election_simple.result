@@ -6,7 +6,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-"server1 is the initial leader"
+"server_1 is the initial leader"
 select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
 variable_value
 LEADER
@@ -19,12 +19,12 @@ stop slave sql_thread;
 "Writing data on leader"
 create table t1 (a int primary key auto_increment) engine = innodb;
 insert into t1 values();
-"Transfering leadership: server1 -> server2"
+"Transfering leadership: server_1 -> server_2"
 set @@global.rpl_raft_new_leader_uuid = 'uuid2';
 select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
 variable_value
 LEADER
-"server2 should have all the data after leader election"
+"server_2 should have all the data after leader election"
 select * from t1;
 a
 1
@@ -36,12 +36,12 @@ Note	1255	Slave already has been stopped
 stop slave sql_thread;
 "Writing data on leader"
 insert into t1 values();
-"Transfering leadership: server2 -> server3"
+"Transfering leadership: server_2 -> server_3"
 set @@global.rpl_raft_new_leader_uuid = 'uuid3';
 select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
 variable_value
 LEADER
-"server3 should have all the data after leader election"
+"server_3 should have all the data after leader election"
 select * from t1;
 a
 1
@@ -54,12 +54,12 @@ Warnings:
 Note	1255	Slave already has been stopped
 "Writing data on leader"
 insert into t1 values();
-"Transfering leadership: server3 -> server1"
+"Transfering leadership: server_3 -> server_1"
 set @@global.rpl_raft_new_leader_uuid = 'uuid1';
 select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
 variable_value
 LEADER
-"server1 should have all the data after leader election"
+"server_1 should have all the data after leader election"
 select * from t1;
 a
 1

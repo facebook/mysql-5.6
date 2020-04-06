@@ -1,7 +1,7 @@
 --let $include_filename= raft_leadership.inc
 --source include/begin_include_file.inc
 
-connection server1;
+connection server_1;
 let $master_raft_uuid= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_PEER_UUID"`;
 let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
 
@@ -28,7 +28,7 @@ while ($master_raft_role != 'LEADER')
     dec $_rpl_server;
   }
 
-  connection server1;
+  connection server_1;
   let $master_raft_role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
 }
 

@@ -1,7 +1,7 @@
 # ==== Purpose ====
 #
 # Configure three servers in mysql raft with a single leader
-# Connection server1 and server1_1 will be for the initial leader
+# Connection server_1 and server_1_1 will be for the initial leader
 #
 # ==== Usage ====
 #
@@ -40,33 +40,26 @@ if ($rpl_server_count)
 --let $rpl_topology= 1->2,1->3
 --source include/rpl_init.inc
 
-# rpl_end.inc requires a connection called "master"
+# Some places in mtr require the following connections:
+# master
+# master1
+# slave
+# slave1
+
 --let $rpl_connection_name= master
 --let $rpl_server_number= 1
 --source include/rpl_connect.inc
 
---let $rpl_connection_name= server1
+--let $rpl_connection_name= master1
 --let $rpl_server_number= 1
 --source include/rpl_connect.inc
 
---let $rpl_connection_name= server1_1
---let $rpl_server_number= 1
---source include/rpl_connect.inc
-
---let $rpl_connection_name= server2
+--let $rpl_connection_name= slave
 --let $rpl_server_number= 2
 --source include/rpl_connect.inc
 
---let $rpl_connection_name= server2_1
+--let $rpl_connection_name= slave1
 --let $rpl_server_number= 2
---source include/rpl_connect.inc
-
---let $rpl_connection_name= server3
---let $rpl_server_number= 3
---source include/rpl_connect.inc
-
---let $rpl_connection_name= server3_1
---let $rpl_server_number= 3
 --source include/rpl_connect.inc
 
 # Set this variable to include metadata event in show_binlog_events.inc

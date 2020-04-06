@@ -1,78 +1,60 @@
 source ../include/raft_3_node.inc;
 
-connection server1;
-let $config_json_server1= `select @@global.rpl_raft_config_json`;
-show status like 'rpl_raft_role';
-
-connection server2;
-let $config_json_server2= `select @@global.rpl_raft_config_json`;
-show status like 'rpl_raft_role';
-
-connection server3;
-let $config_json_server3= `select @@global.rpl_raft_config_json`;
-show status like 'rpl_raft_role';
-
-connection server1;
+connection server_1;
 create table t1 (a int primary key);
 insert into t1 values(1);
 insert into t1 values(2);
 
-let $sync_slave_connection= server2;
+let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server3;
+let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
-connection server1;
+connection server_2;
 select * from t1;
 
-connection server2;
+connection server_3;
 select * from t1;
 
-connection server3;
+connection server_1;
+echo "Restarting server_1";
+let $rpl_server_number = 1;
+source include/rpl_restart_server.inc;
+
+connection server_2;
+echo "Restarting server_2";
+let $rpl_server_number = 2;
+source include/rpl_restart_server.inc;
+
+connection server_3;
+echo "Restarting server_3";
+let $rpl_server_number = 3;
+source include/rpl_restart_server.inc;
+
+let $rpl_raft_leader_number= 1;
+source ../include/raft_promote_to_leader.inc;
+
+connection server_1;
+insert into t1 values(3);
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
 select * from t1;
 
-# Below restart and reinit is commented because the leader crashes and there 
-# are tasks open to fix it
-# connection server1;
-# let $rpl_server_number= 3;
-# let $rpl_connection_name=server3;
-# let $sleep_in_restart=1;
-# let $rpl_server_parameters= --enable_raft_plugin=ON;
-# source include/rpl_restart_server.inc;
+connection server_3;
+select * from t1;
 
-# disconnect server3;
-# let $rpl_connection_name= server3;
-# let $rpl_server_number= 3;
-# source include/rpl_connect.inc;
+# cleanup
+connection server_1;
+drop table t1;
 
-# connection server3;
-# stop slave io_thread;
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
 
-# eval set global rpl_raft_config_json= '$config_json_server3';
-# set global rpl_raft_on= on;
-
-# connection server1;
-# insert into t1 values(3);
-
-# sleep 30;
-
-# let $sync_slave_connection= server2;
-# source include/sync_slave_sql_with_master.inc;
-# let $sync_slave_connection= server3;
-# source include/sync_slave_sql_with_master.inc;
-
-# connection server2;
-# select * from t1;
-
-# connection server3;
-# select * from t1;
-
-# connection server1;
-# drop table t1;
-
-# let $sync_slave_connection= server2;
-# source include/sync_slave_sql_with_master.inc;
-# let $sync_slave_connection= server3;
-# source include/sync_slave_sql_with_master.inc;
-
-# source include/rpl_end.inc;
+source include/rpl_end.inc;

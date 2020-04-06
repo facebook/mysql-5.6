@@ -32,3 +32,5 @@ binlog_checksum=CRC32
 replicate_same_server_id=1
 report_host=::1
 read_only=1
+enable_raft_plugin=1
+rpl_raft_on=1

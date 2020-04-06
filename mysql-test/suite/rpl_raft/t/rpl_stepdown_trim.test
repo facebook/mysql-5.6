@@ -16,7 +16,7 @@ call mtr.add_suppression("Run function 'before_commit' in plugin 'RPL_RAFT' fail
 --exec $cmd2 > $outfile2
 --exec $cmd3 > $outfile3
 
-connection server1;
+connection server_1;
 # InnoDB explicitly so that rollbacks are supported
 create table t1 (a int primary key) engine=innodb;
 insert into t1 values(1);
@@ -24,12 +24,12 @@ insert into t1 values(2);
 
 #--sleep 5
 
-let $sync_slave_connection= server2;
+let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server3;
+let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
-connection server1;
+connection server_1;
 insert into t1 values (3), (4), (5);
 
 # stop the 2 slaves so that they don't receive the last
@@ -40,7 +40,7 @@ insert into t1 values (3), (4), (5);
 # This makes sure that the slaves have stopped
 --sleep 5
 
-connection server1;
+connection server_1;
 SET net_write_timeout = 1;
 send insert into t1 values (6), (7), (8);
 --echo "Now triggering DMP by stopping current MASTER"
@@ -62,23 +62,23 @@ reap
 let $rpl_server_count= 3;
 --source ../include/raft_leadership.inc
 
-connection server1;
+connection server_1;
 show status like 'rpl_raft_role';
 
-connection server2;
+connection server_2;
 select * from t1;
 
-connection server3;
+connection server_3;
 select * from t1;
 
-connection server1;
+connection server_1;
 select * from t1;
 
 drop table t1;
 
-let $sync_slave_connection= server2;
+let $sync_slave_connection= server_2;
 source include/sync_slave_sql_with_master.inc;
-let $sync_slave_connection= server3;
+let $sync_slave_connection= server_3;
 source include/sync_slave_sql_with_master.inc;
 
 source include/rpl_end.inc;

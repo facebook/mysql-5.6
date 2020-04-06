@@ -8,12 +8,9 @@ while ($_rpl_server)
   let $plugin_was_early_installed = `SELECT COUNT(*) = 0 FROM mysql.plugin WHERE NAME = 'RPL_RAFT'`;
 
   disable_query_log;
-  SET GLOBAL ENABLE_RAFT_PLUGIN= default;
   SET GLOBAL RPL_RAFT_ON= 0;
   SET GLOBAL RPL_RAFT_CONFIG_JSON= default;
   SET GLOBAL RPL_RAFT_NEW_LEADER_UUID= default;
-  SET GLOBAL RPL_RAFT_WAL_DIR= default;
-  SET GLOBAL RPL_RAFT_LOG_DIR= default;
   if (!$plugin_was_early_installed)
   {
     UNINSTALL PLUGIN RPL_RAFT;
