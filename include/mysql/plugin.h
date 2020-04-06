@@ -31,8 +31,10 @@
 #include <stddef.h>
 
 #include "mysql_version.h" /* MYSQL_VERSION_ID */
+#ifndef MYSQL_PLUGIN_STRUCT_DEFS_ONLY
 #ifdef __cplusplus
 #include "sql/sql_plugin.h"  // plugin_thdvar_safe_update
+#endif
 #endif
 #endif
 
@@ -81,7 +83,9 @@ class Item;
 typedef void *MYSQL_PLUGIN;
 
 #ifndef MYSQL_ABI_CHECK
+#ifndef MYSQL_PLUGIN_STRUCT_DEFS_ONLY
 #include <mysql/services.h>
+#endif
 #endif
 
 #define MYSQL_XIDDATASIZE 128

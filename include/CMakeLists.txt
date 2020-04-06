@@ -32,6 +32,7 @@ SET(HEADERS
   errmsg.h
   my_command.h
   my_compress.h
+  my_sqlcommand.h
   my_list.h
   mysql.h
   mysql_async.h
@@ -43,7 +44,12 @@ SET(HEADERS
 )
 SET(HEADERS_MYSQL_DIR
   mysql/client_plugin.h
+  mysql/mysql_lex_string.h
   mysql/plugin_auth_common.h
+  mysql/plugin.h
+  mysql/plugin_audit.h
+  mysql/plugin_audit_message_types.h
+  mysql/status_var.h
   mysql/udf_registration_types.h
 )
 
@@ -249,14 +255,12 @@ CONFIGURE_FILE_CONTENT("${INSTALLED_HEADERS_CONTENT}"
   ${INSTALLED_HEADERS_CC}
   )
 
-# Verifies that all installed headers comply with -std=c++11
-# i.e. no c++17 features used.
-# VS/clang on windows do not accept /std:c++11
+# Verifies that all installed headers comply with -std=c++17
 MYSQL_ADD_EXECUTABLE(installed_headers
   ${INSTALLED_HEADERS_CC}
   DEPENDENCIES GenError
   SKIP_INSTALL
   )
-# This will add -std=gnu++11 for compilers which support it.
+# This will add -std=gnu++17 for compilers which support it.
 # It will be silently ignored on Windows.
-SET_PROPERTY(TARGET installed_headers PROPERTY CXX_STANDARD 11)
+SET_PROPERTY(TARGET installed_headers PROPERTY CXX_STANDARD 17)
