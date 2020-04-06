@@ -32,6 +32,16 @@ def get_msg(do_blob, idx):
     # blob that can be compressed
     return random.choice(CHARS) * blob_length
 
+def is_connection_error(exc):
+  error_code = exc.args[0]
+  # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
+  return (error_code == MySQLdb.constants.CR.CR_CONNECTION_ERROR or
+          error_code == MySQLdb.constants.CR.CR_CONN_HOST_ERROR or
+          error_code == MySQLdb.constants.CR.CR_SERVER_LOST or
+          error_code == MySQLdb.constants.CR.CR_SERVER_GONE_ERROR or
+          error_code == MySQLdb.constants.ER.QUERY_INTERRUPTED or
+          error_code == MySQLdb.constants.ER.SERVER_SHUTDOWN)
+
 class ValidateError(Exception):
   """Raised when validate_msg fails."""
   pass
@@ -380,8 +390,8 @@ class Worker(WorkerThread):
         elif r == 4:
           self.con.rollback()
 
-      except MySQLdb.Error, e:
-        if e.args[0] == 2006 or e.args[0] == 2013:
+      except (MySQLdb.OperationalError, MySQLdb.InternalError, MySQLdb.IntegrityError) as e:
+        if is_connection_error(e):
           print >> self.log, "mysqld down, transaction %d" % self.xid
           return
         else:
@@ -404,6 +414,28 @@ class DefragmentWorker(WorkerThread):
     self.stopped = False
     self.start()
 
+  def reconnect(self, timeout=900):
+    self.con = None
+    SECONDS_BETWEEN_RETRY = 10
+    attempts = 1
+    print >> self.log, "Attempting to connect to MySQL Server"
+    while not self.con and timeout > 0 and not self.stopped:
+      try:
+        self.con = MySQLdb.connect(user=user, host=host, port=port, db=db)
+        if self.con:
+          self.con.autocommit(False)
+          self.cur = self.con.cursor()
+          print >> self.log, "Connection successful after attempt %d" % attempts
+          break
+      except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
+        if not is_connection_error(e):
+          raise e
+
+      time.sleep(SECONDS_BETWEEN_RETRY)
+      timeout -= SECONDS_BETWEEN_RETRY
+      attempts += 1
+    return self.con is None
+
   def stop(self):
     self.stopped = True
 
@@ -411,7 +443,8 @@ class DefragmentWorker(WorkerThread):
     print >> self.log, "defragment ran %d times" % self.num_defragment
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
     self.log.close()
-    self.con.close()
+    if self.con:
+        self.con.close()
 
   def runme(self):
     print >> self.log, "defragmentation thread started"
@@ -423,10 +456,11 @@ class DefragmentWorker(WorkerThread):
         print >> self.log, "Defrag completed successfully."
         self.num_defragment += 1
         time.sleep(random.randint(0, 10))
-      except MySQLdb.Error, e:
+      except (MySQLdb.OperationalError, MySQLdb.InternalError) as e:
         # Handle crash tests that kill the server while defragment runs.
-        if e.args[0] == 2006 or e.args[0] == 2013:
+        if is_connection_error(e):
           print >> self.log, "Server crashed while defrag was running."
+          self.reconnect()
         else:
           raise e
 
