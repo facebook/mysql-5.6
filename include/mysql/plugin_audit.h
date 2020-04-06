@@ -29,8 +29,15 @@
 
 #include "mysql/mysql_lex_string.h"
 #include "plugin.h"
+#ifndef MYSQL_PLUGIN_STRUCT_DEFS_ONLY
 #ifndef MYSQL_ABI_CHECK
 #include "m_string.h"
+#endif
+#else
+struct CHARSET_INFO;
+#ifndef __cplusplus
+typedef struct CHARSET_INTO CHARSET_INFO;
+#endif
 #endif
 #include "my_command.h"
 #include "my_sqlcommand.h"
