@@ -256,7 +256,7 @@ static rocksdb::CompactRangeOptions getCompactRangeOptions(
     int concurrency = 0) {
   rocksdb::CompactRangeOptions compact_range_options;
   compact_range_options.bottommost_level_compaction =
-      rocksdb::BottommostLevelCompaction::kForce;
+      rocksdb::BottommostLevelCompaction::kForceOptimized;
   compact_range_options.exclusive_manual_compaction = false;
   if (concurrency > 0) {
     compact_range_options.max_subcompactions = concurrency;
