@@ -1749,6 +1749,17 @@ struct System_status_var *get_thd_status_var(THD *thd, bool *aggregated) {
   return &thd->status_var;
 }
 
+void aggregate_status_var(std::function<void(THD *)> callback,
+                          unsigned long tid) {
+  Find_thd_with_id find_thd_with_id(tid);
+  THD *thd = Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+  if (thd != nullptr) {
+    callback(thd);
+    mysql_mutex_assert_owner(&thd->LOCK_thd_data);
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+}
+
 static void option_error_reporter(enum loglevel level, uint ecode, ...) {
   va_list args;
   va_start(args, ecode);

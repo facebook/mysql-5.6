@@ -32,6 +32,7 @@
 #include <sys/un.h>
 #include <time.h>
 #include <atomic>
+#include <functional>
 
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -127,6 +128,7 @@ bool is_secure_file_path(const char *path);
 ulong sql_rnd_with_mutex();
 
 struct System_status_var *get_thd_status_var(THD *thd, bool *aggregated);
+void aggregate_status_var(std::function<void(THD *)> cb, unsigned long tid);
 bool update_Sys_slow_log_path(const char *const log_file_name,
                               const bool need_lock);
 
