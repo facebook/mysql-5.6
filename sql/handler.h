@@ -6869,6 +6869,7 @@ bool ha_notify_alter_table(THD *thd, const MDL_key *mdl_key,
 
 std::pair<int, bool> commit_owned_gtids(THD *thd, bool all);
 bool set_tx_isolation(THD *thd, enum_tx_isolation tx_isolation, bool one_shot);
+bool is_index_access_error(int error);
 
 /** Generate a string representation of an `ha_rkey_function` enum value.
  * @param[in] r value to turn into string
