@@ -24,7 +24,7 @@
 # Global constants, only to be changed between major releases.
 #
 
-SET(SHARED_LIB_MAJOR_VERSION "21")
+SET(SHARED_LIB_MAJOR_VERSION "21fb")
 SET(SHARED_LIB_MINOR_VERSION "1")
 SET(PROTOCOL_VERSION "10")
 
