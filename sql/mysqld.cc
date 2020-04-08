@@ -1969,6 +1969,12 @@ bool thd_mem_cnt_alloc(THD *thd, size_t size) {
 
 void thd_mem_cnt_free(THD *thd, size_t size) { thd->mem_cnt->free_cnt(size); }
 
+void aggregate_status_var(std::function<void(THD *)> callback, THD *thd) {
+  mysql_mutex_lock(&thd->LOCK_thd_data);
+  callback(thd);
+  mysql_mutex_unlock(&thd->LOCK_thd_data);
+}
+
 static void option_error_reporter(enum loglevel level, uint ecode, ...) {
   va_list args;
   va_start(args, ecode);

@@ -64,6 +64,8 @@ bool thd_mem_cnt_alloc(THD *, size_t) { return false; }
 
 void thd_mem_cnt_free(THD *, size_t) {}
 
+void aggregate_status_var(std::function<void(THD *)>, THD *) {}
+
 unsigned int mysql_errno_to_sqlstate_index(unsigned int) { return 0; }
 
 SERVICE_TYPE(registry) * mysql_plugin_registry_acquire() { return nullptr; }

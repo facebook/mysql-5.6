@@ -36,6 +36,7 @@
 #include "my_psi_config.h"
 #include "my_sys.h"
 #include "sql/mysqld.h"  // get_thd_status_var
+#include "sql/mysqld_thd_manager.h"
 #include "storage/perfschema/pfs.h"
 #include "storage/perfschema/pfs_account.h"
 #include "storage/perfschema/pfs_buffer_container.h"
@@ -1925,31 +1926,35 @@ void aggregate_all_memory(bool alive, PFS_memory_shared_stat *from_array,
 void aggregate_thread_status(PFS_thread *thread, PFS_account *safe_account,
                              PFS_user *safe_user, PFS_host *safe_host) {
   THD *thd = thread->m_thd;
-  bool aggregated = false;
 
   if (thd == nullptr) {
     return;
   }
 
-  System_status_var *status_var = get_thd_status_var(thd, &aggregated);
+  auto fn = [&safe_account, &safe_user, &safe_host](THD *thd) {
+    bool aggregated = false;
+    System_status_var *status_var = get_thd_status_var(thd, &aggregated);
 
-  if (unlikely(aggregated)) {
-    /* THD is being closed, status has already been aggregated. */
-    return;
-  }
+    if (unlikely(aggregated)) {
+      /* THD is being closed, status has already been aggregated. */
+      return;
+    }
 
-  if (likely(safe_account != nullptr)) {
-    safe_account->aggregate_status_stats(status_var);
-    return;
-  }
+    if (likely(safe_account != nullptr)) {
+      safe_account->aggregate_status_stats(status_var);
+      return;
+    }
 
-  if (safe_user != nullptr) {
-    safe_user->aggregate_status_stats(status_var);
-  }
+    if (safe_user != nullptr) {
+      safe_user->aggregate_status_stats(status_var);
+    }
 
-  if (safe_host != nullptr) {
-    safe_host->aggregate_status_stats(status_var);
-  }
+    if (safe_host != nullptr) {
+      safe_host->aggregate_status_stats(status_var);
+    }
+  };
+
+  aggregate_status_var(fn, thd);
 
   return;
 }
