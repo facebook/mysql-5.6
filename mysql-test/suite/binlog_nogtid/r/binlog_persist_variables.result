@@ -151,10 +151,10 @@ SET PERSIST slave_use_idempotent_for_recovery = @@GLOBAL.slave_use_idempotent_fo
 SET PERSIST sql_log_bin_triggers = @@GLOBAL.sql_log_bin_triggers;
 SET PERSIST sql_slave_skip_counter = @@GLOBAL.sql_slave_skip_counter;
 SET PERSIST sync_binlog = @@GLOBAL.sync_binlog;
-SET PERSIST sync_binlog_pos_threshold = @@GLOBAL.sync_binlog_pos_threshold;
 SET PERSIST sync_master_info = @@GLOBAL.sync_master_info;
 SET PERSIST sync_relay_log = @@GLOBAL.sync_relay_log;
 SET PERSIST sync_relay_log_info = @@GLOBAL.sync_relay_log_info;
+SET PERSIST update_binlog_pos_threshold = @@GLOBAL.update_binlog_pos_threshold;
 
 include/assert.inc ['Expect $expected persisted variables in persisted_variables table.']
 
@@ -308,10 +308,10 @@ RESET PERSIST IF EXISTS slave_use_idempotent_for_recovery;
 RESET PERSIST IF EXISTS sql_log_bin_triggers;
 RESET PERSIST IF EXISTS sql_slave_skip_counter;
 RESET PERSIST IF EXISTS sync_binlog;
-RESET PERSIST IF EXISTS sync_binlog_pos_threshold;
 RESET PERSIST IF EXISTS sync_master_info;
 RESET PERSIST IF EXISTS sync_relay_log;
 RESET PERSIST IF EXISTS sync_relay_log_info;
+RESET PERSIST IF EXISTS update_binlog_pos_threshold;
 
 include/assert.inc ['Expect 0 persisted variables.']
 

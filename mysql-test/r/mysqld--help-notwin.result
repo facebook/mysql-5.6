@@ -2061,9 +2061,6 @@ The following options may be given as the first argument:
  removed in a future release).
  --sync-binlog=#     Synchronously flush binary log to disk after every #th
  write to the file. Use 0 to disable synchronous flushing
- --sync-binlog-pos-threshold=# 
- Storage engine updates its binlog positions when its
- current position falls behind by # bytes
  --sync-master-info=# 
  Synchronously flush master info to disk after every #th
  event. Use 0 to disable synchronous flushing
@@ -2142,6 +2139,9 @@ The following options may be given as the first argument:
  Prohibit update of a VIEW, which does not contain a key
  of the underlying table and the query uses a LIMIT clause
  (usually get from GUI tools)
+ --update-binlog-pos-threshold=# 
+ Storage engine updates its binlog positions when its
+ current position falls behind by # bytes
  --upgrade=name      Set server upgrade mode. NONE to abort server if
  automatic upgrade of the server is needed; MINIMAL to
  start the server, but skip upgrade steps that are not
@@ -2748,7 +2748,6 @@ stored-program-definition-cache 256
 super-read-only FALSE
 symbolic-links FALSE
 sync-binlog 1
-sync-binlog-pos-threshold 5242880
 sync-master-info 10000
 sync-relay-log 10000
 sync-relay-log-info 10000
@@ -2771,6 +2770,7 @@ transaction-read-only FALSE
 transaction-write-set-extraction XXHASH64
 trim-binlog-to-recover FALSE
 updatable-views-with-limit YES
+update-binlog-pos-threshold 5242880
 upgrade AUTO
 validate-config FALSE
 validate-user-plugins TRUE

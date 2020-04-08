@@ -53,14 +53,14 @@ regexp_time_limit
 resultset_metadata
 sql_require_primary_key
 sql_require_primary_key
-sync_binlog_pos_threshold
-sync_binlog_pos_threshold
 temptable_use_mmap
 temptable_use_mmap
 tls_ciphersuites
 tls_ciphersuites
 tls_version
 tls_version
+update_binlog_pos_threshold
+update_binlog_pos_threshold
 use_secondary_engine
 drop table t1;
 drop table t2;

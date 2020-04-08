@@ -198,7 +198,7 @@ static inline bool has_commit_order_manager(THD *thd) {
          thd->rli_slave->get_commit_order_manager() != nullptr;
 }
 
-extern int ha_sync_binlog_pos(const char *, my_off_t, Gtid *);
+extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *);
 
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log) {
   DBUG_ENTER("normalize_binlog_name");
@@ -3651,7 +3651,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
       file_id(1),
       sync_period_ptr(sync_period),
       sync_counter(0),
-      ha_last_synced_binlog_pos(0),
+      ha_last_updated_binlog_pos(0),
       non_xid_trxs(0),
       is_relay_log(0),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
@@ -8930,9 +8930,9 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
      it doesn't have to be updated exactly per 'threshold', we're ok with
      ignoring this case.
     */
-    if (binlog_pos >= (ha_last_synced_binlog_pos + sync_binlog_pos_threshold)
-        || binlog_pos < ha_last_synced_binlog_pos) {
-
+    if (binlog_pos >=
+            (ha_last_updated_binlog_pos + update_binlog_pos_threshold) ||
+        binlog_pos < ha_last_updated_binlog_pos) {
       Gtid max_gtid{0, 0};
       if (max_gtid_var != nullptr) {
         global_sid_lock->rdlock();
@@ -8940,8 +8940,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
         global_sid_lock->unlock();
       }
 
-      if (!ha_sync_binlog_pos(binlog_file, binlog_pos, &max_gtid)) {
-          ha_last_synced_binlog_pos = binlog_pos;
+      if (!ha_update_binlog_pos(binlog_file, binlog_pos, &max_gtid)) {
+        ha_last_updated_binlog_pos = binlog_pos;
       }
     }
   }

@@ -312,13 +312,13 @@ bool Recovered_xa_transactions::recover_prepared_xa_transactions() {
 /* Read the current binlog position from SE and synchronize
  * it with the latest.
  */
-static bool sync_binlog_pos(THD *, plugin_ref plugin, void *arg) {
+static bool update_binlog_pos(THD *, plugin_ref plugin, void *arg) {
   handlerton *hton = plugin_data<handlerton *>(plugin);
   xarecover_st *info = (struct xarecover_st *)arg;
 
   DBUG_ASSERT(info->binlog_file && info->binlog_max_gtid_buf);
 
-  if (hton->state != SHOW_OPTION_YES || !hton->sync_binlog_pos ||
+  if (hton->state != SHOW_OPTION_YES || !hton->update_binlog_pos ||
       !hton->recover_binlog_pos) {
     return false;
   }
@@ -326,9 +326,8 @@ static bool sync_binlog_pos(THD *, plugin_ref plugin, void *arg) {
   /*
     Update SE's binlog position.
   */
-  bool status = hton->sync_binlog_pos(hton, info->binlog_file,
-                                      info->binlog_pos,
-                                      info->binlog_max_gtid_buf);
+  bool status = hton->update_binlog_pos(
+      hton, info->binlog_file, info->binlog_pos, info->binlog_max_gtid_buf);
 
   if (status) {
     /* SE is expected to do final check on updating binlog positions - it needs
@@ -354,11 +353,11 @@ static bool sync_binlog_pos(THD *, plugin_ref plugin, void *arg) {
  * This function is to be serialized during MYSQL_BIN_LOG
  * group commit phase where LOCK_commit is taken.
  */
-int ha_sync_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
-                       Gtid *max_gtid) {
+int ha_update_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
+                         Gtid *max_gtid) {
   xarecover_st info;
   char max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
-  DBUG_ENTER("ha_sync_binlog_pos");
+  DBUG_ENTER("ha_update_binlog_pos");
 
   if (binlog_file == nullptr || binlog_file[0] == '\0') {
     DBUG_RETURN(1);
@@ -383,8 +382,8 @@ int ha_sync_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
   /*
      Update binlog position of all SE that supports 2pc
    */
-  if (plugin_foreach(nullptr, sync_binlog_pos,
-                     MYSQL_STORAGE_ENGINE_PLUGIN, &info)) {
+  if (plugin_foreach(nullptr, update_binlog_pos, MYSQL_STORAGE_ENGINE_PLUGIN,
+                     &info)) {
     DBUG_RETURN(1);
   }
 

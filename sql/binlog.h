@@ -551,8 +551,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_cond_t m_prep_xids_cond;
   std::atomic<int32> m_atomic_prep_xids{0};
 
-  /* binlog offset tracker for the last sync done on SE's. */
-  my_off_t ha_last_synced_binlog_pos;
+  /* binlog offset tracker for the last update done on SE's. */
+  my_off_t ha_last_updated_binlog_pos;
 
   /**
     Increment the prepared XID counter.

@@ -7,8 +7,8 @@ connection master;
 
 # set a smaller threshold to force position
 # update on every statement for both engines
-set @save_sync_binlog_pos_threshold = @@global.sync_binlog_pos_threshold;
-set global sync_binlog_pos_threshold = 1;
+set @save_update_binlog_pos_threshold = @@global.update_binlog_pos_threshold;
+set global update_binlog_pos_threshold = 1;
 
 ######################################################################################################
 #                                                                                                    #
@@ -209,7 +209,7 @@ drop table bk_t;
 
 --echo **** Clean up ****
 
-set global sync_binlog_pos_threshold = @save_sync_binlog_pos_threshold;
+set global update_binlog_pos_threshold = @save_update_binlog_pos_threshold;
 
 --source include/rpl_end.inc
 

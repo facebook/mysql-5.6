@@ -4308,16 +4308,16 @@ static void rocksdb_recover_binlog_pos(
 /** This function is used to sync binlog positions and Gtid.
  * @return false on success. true on failure
  */
-static bool rocksdb_sync_binlog_pos(
-    handlerton *,           /*!< in: RocksDB handlerton */
-    const char *file,       /*!< in: Valid binlog file */
-    const my_off_t *offset, /*!< in: Valid binlog offset */
+static bool rocksdb_update_binlog_pos(
+    handlerton *,             /*!< in: RocksDB handlerton */
+    const char *file,         /*!< in: Valid binlog file */
+    const my_off_t *offset,   /*!< in: Valid binlog offset */
     const char *max_gtid_buf) /*!< in: Max valid binlog gtid in str format */
 {
   DBUG_ASSERT(file && offset && max_gtid_buf);
 
   bool sync = false;
-  DBUG_EXECUTE_IF("sync_binlog_pos", sync = true;);
+  DBUG_EXECUTE_IF("update_binlog_pos", sync = true;);
 
   if (binlog_manager.persist_pos(file, *offset, max_gtid_buf, sync))
     return true;
@@ -5515,7 +5515,7 @@ static int rocksdb_init_func(void *const p) {
   rocksdb_hton->commit_by_xid = rocksdb_commit_by_xid;
   rocksdb_hton->rollback_by_xid = rocksdb_rollback_by_xid;
   rocksdb_hton->recover_binlog_pos = rocksdb_recover_binlog_pos;
-  rocksdb_hton->sync_binlog_pos = rocksdb_sync_binlog_pos;
+  rocksdb_hton->update_binlog_pos = rocksdb_update_binlog_pos;
   rocksdb_hton->recover = rocksdb_recover;
   rocksdb_hton->commit = rocksdb_commit;
   rocksdb_hton->rollback = rocksdb_rollback;
