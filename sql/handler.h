@@ -1265,9 +1265,9 @@ typedef int (*prepare_t)(handlerton *hton, THD *thd, bool all);
 typedef void (*recover_binlog_pos_t)(handlerton *hton, Gtid *binlog_max_gtid,
                                      char *binlog_file, my_off_t *binlog_pos);
 
-typedef bool (*sync_binlog_pos_t)(handlerton *hton, const char *file,
-                                  const my_off_t *offset,
-                                  const char *max_gtid_buf);
+typedef bool (*update_binlog_pos_t)(handlerton *hton, const char *file,
+                                    const my_off_t *offset,
+                                    const char *max_gtid_buf);
 
 typedef int (*recover_t)(handlerton *hton, XA_recover_txn *xid_list, uint len,
                          MEM_ROOT *mem_root);
@@ -2344,7 +2344,7 @@ struct handlerton {
   rollback_t rollback;
   prepare_t prepare;
   recover_binlog_pos_t recover_binlog_pos;
-  sync_binlog_pos_t sync_binlog_pos;
+  update_binlog_pos_t update_binlog_pos;
   recover_t recover;
   commit_by_xid_t commit_by_xid;
   rollback_by_xid_t rollback_by_xid;

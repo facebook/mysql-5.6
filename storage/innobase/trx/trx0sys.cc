@@ -340,7 +340,7 @@ void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
   }
 
   mtr_commit(&mtr);
-  DBUG_EXECUTE_IF("sync_binlog_pos", {
+  DBUG_EXECUTE_IF("update_binlog_pos", {
     log_write_up_to(*log_sys, mtr.commit_lsn(), true /* sync */);
   };);
 }

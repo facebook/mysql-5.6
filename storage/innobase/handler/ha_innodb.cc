@@ -1340,7 +1340,7 @@ static void innobase_recover_binlog_pos(
     my_off_t *binlog_pos); /*!< out: Last valid binlog pos */
 /** This function is used to sync binlog positions and Gtid.
  */
-static bool innobase_sync_binlog_pos(
+static bool innobase_update_binlog_pos(
     handlerton *hton,       /*!< in: InnoDB handlerton */
     const char *file,       /*!< in: Valid binlog file */
     const my_off_t *offset, /*!< in: Valid binlog offset */
@@ -4735,7 +4735,7 @@ static int innodb_init(void *p) {
   innobase_hton->rollback = innobase_rollback;
   innobase_hton->prepare = innobase_xa_prepare;
   innobase_hton->recover_binlog_pos = innobase_recover_binlog_pos;
-  innobase_hton->sync_binlog_pos = innobase_sync_binlog_pos;
+  innobase_hton->update_binlog_pos = innobase_update_binlog_pos;
   innobase_hton->recover = innobase_xa_recover;
   innobase_hton->commit_by_xid = innobase_commit_by_xid;
   innobase_hton->rollback_by_xid = innobase_rollback_by_xid;
@@ -19166,7 +19166,7 @@ static void innobase_recover_binlog_pos(
 /** This function is used to sync binlog positions and Gtid.
  * @return false on success.
  */
-static bool innobase_sync_binlog_pos(
+static bool innobase_update_binlog_pos(
     handlerton *hton,         /*!< in: InnoDB handlerton */
     const char *file,         /*!< in: Valid binlog file */
     const my_off_t *offset,   /*!< in: Valid binlog offset */
