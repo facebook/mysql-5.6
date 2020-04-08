@@ -3,8 +3,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-set @save_sync_binlog_pos_threshold = @@global.sync_binlog_pos_threshold;
-set global sync_binlog_pos_threshold = 1;
+set @save_update_binlog_pos_threshold = @@global.update_binlog_pos_threshold;
+set global update_binlog_pos_threshold = 1;
 FLUSH LOGS;
 Test Case I: getting rocksdb binlog position before trx...
 include/assert.inc [RocksDB binlog position should not be initialized]
@@ -48,5 +48,5 @@ include/assert.inc [InnoDB and rocksdb binlog position should be same]
 Test Case IV: Cleanup testcase...
 drop table bk_t;
 **** Clean up ****
-set global sync_binlog_pos_threshold = @save_sync_binlog_pos_threshold;
+set global update_binlog_pos_threshold = @save_update_binlog_pos_threshold;
 include/rpl_end.inc
