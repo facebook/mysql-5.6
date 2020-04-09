@@ -1,8 +1,8 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "column_statistics_dt.h"
 #include "item.h"
@@ -47,12 +47,12 @@ operator_type match_op(Item_func::Functype fitem_type);
     table_name    in: std::string
     fitem         in: Item_func
                       The functional item to be parsed.
-    out_cus       out: std::vector<ColumnUsageInfo>
+    out_cus       out: std::set<ColumnUsageInfo>
                        Column usage information parsed from fitem.
 */
 int parse_column_from_func_item(
     const std::string& db_name, const std::string& table_name,
-    Item_func *fitem, std::vector<ColumnUsageInfo>& out_cus);
+    Item_func *fitem, std::set<ColumnUsageInfo>& out_cus);
 
 /*
   parse_column_from_cond_item
@@ -63,7 +63,7 @@ int parse_column_from_func_item(
     table_name         in: std::string
     citem              in: Item_cond
                            The conditional item to be parsed.
-    out_cus            out: std::vector<ColumnUsageInfo>
+    out_cus            out: std::set<ColumnUsageInfo>
                             Column usage information parsed from fitem.
     recursion_depth    in: int
                            Book-keeping variable to prevent infinite recursion.
@@ -71,7 +71,7 @@ int parse_column_from_func_item(
 */
 int parse_column_from_cond_item(
     const std::string& db_name, const std::string& table_name, Item_cond *citem,
-    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth);
+    std::set<ColumnUsageInfo>& out_cus, int recursion_depth);
 
 /*
   parse_column_from_item
@@ -81,7 +81,7 @@ int parse_column_from_cond_item(
     table_name         in: std::string
     item               in: Item
                            The item to be parsed.
-    out_cus            out: std::vector<ColumnUsageInfo>
+    out_cus            out: std::set<ColumnUsageInfo>
                             Column usage information parsed from fitem.
     recursion_depth    in: int
                            Book-keeping variable to prevent infinite recursion.
@@ -89,7 +89,7 @@ int parse_column_from_cond_item(
 */
 int parse_column_from_item(
     const std::string& db_name, const std::string& table_name, Item *item,
-    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth);
+    std::set<ColumnUsageInfo>& out_cus, int recursion_depth);
 
 /*
   parse_column_usage_info
@@ -97,11 +97,11 @@ int parse_column_from_item(
     query.
   Input:
     thd        in: THD
-    out_cus    out: std::vector<ColumnUsageInfo>
+    out_cus    out: std::set<ColumnUsageInfo>
                     Column usage info derived from the parse tree.
 */
 extern int parse_column_usage_info(
-    THD *thd, std::vector<ColumnUsageInfo>& out_cus);
+    THD *thd, std::set<ColumnUsageInfo>& out_cus);
 
 /*
   populate_column_usage_info
@@ -109,14 +109,14 @@ extern int parse_column_usage_info(
     This information was derived in `parse_column_usage_info`.
   Input:
     thd        in: THD
-    cus        in: std::vector<ColumnUsageInfo>
-                   A vector of column usage info structs to populate into the
+    cus        in: std::set<ColumnUsageInfo>
+                   A set of column usage info structs to populate into the
                    temporary table (COLUMN_STATISTICS) data structure.
                    NOTE: This parameter is acquired by the callee and cannot
                    be used any further by the caller.
 */
 extern void populate_column_usage_info(
-    THD *thd, std::vector<ColumnUsageInfo>& cus);
+    THD *thd, std::set<ColumnUsageInfo>& cus);
 
 /*
   fill_column_statistics
@@ -138,4 +138,5 @@ extern void free_column_stats();
 extern mysql_rwlock_t LOCK_column_statistics;
 
 // Mapping from SQL_ID to all the column usage information.
-extern std::unordered_map<md5_key, std::vector<ColumnUsageInfo> > col_statistics_map;
+extern std::unordered_map<md5_key, std::set<ColumnUsageInfo> >
+col_statistics_map;

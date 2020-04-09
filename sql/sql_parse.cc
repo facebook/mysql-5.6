@@ -3379,8 +3379,8 @@ mysql_execute_command(THD *thd,
   TABLE_LIST *all_tables;
   /* most outer SELECT_LEX_UNIT of query */
   SELECT_LEX_UNIT *unit= &lex->unit;
-  // Column usage information vector for the transaction.
-  std::vector<ColumnUsageInfo> out_cus;
+  // Column usage information set for the transaction.
+  std::set<ColumnUsageInfo> out_cus;
 
 #ifdef HAVE_REPLICATION
   /* have table map for update for multi-update statement (BUG#37051) */

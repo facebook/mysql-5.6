@@ -55,6 +55,11 @@ FROM information_schema.COLUMN_STATISTICS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
 cus_test	ColumnStatisticsRecursion	c0	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c1	FILTER	EQUAL
+cus_test	ColumnStatisticsRecursion	c10	FILTER	EQUAL
+cus_test	ColumnStatisticsRecursion	c11	FILTER	EQUAL
+cus_test	ColumnStatisticsRecursion	c12	FILTER	EQUAL
+cus_test	ColumnStatisticsRecursion	c13	FILTER	EQUAL
+cus_test	ColumnStatisticsRecursion	c14	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c2	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c3	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c4	FILTER	EQUAL
@@ -63,11 +68,6 @@ cus_test	ColumnStatisticsRecursion	c6	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c7	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c8	FILTER	EQUAL
 cus_test	ColumnStatisticsRecursion	c9	FILTER	EQUAL
-cus_test	ColumnStatisticsRecursion	c10	FILTER	EQUAL
-cus_test	ColumnStatisticsRecursion	c11	FILTER	EQUAL
-cus_test	ColumnStatisticsRecursion	c12	FILTER	EQUAL
-cus_test	ColumnStatisticsRecursion	c13	FILTER	EQUAL
-cus_test	ColumnStatisticsRecursion	c14	FILTER	EQUAL
 # Test setup: Preparing for crash
 SELECT c0 FROM ColumnStatisticsRecursion
 WHERE (c0 = 0 AND

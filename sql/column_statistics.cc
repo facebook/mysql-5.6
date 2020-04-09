@@ -23,7 +23,30 @@ ST_FIELD_INFO column_statistics_fields_info[]=
 };
 
 // Mapping from SQL_ID to column usage information.
-std::unordered_map<md5_key, std::vector<ColumnUsageInfo> > col_statistics_map;
+std::unordered_map<md5_key, std::set<ColumnUsageInfo> > col_statistics_map;
+
+// Operator definition for strict weak ordering. Should be a function of all
+// constituents of the struct.
+bool ColumnUsageInfo::operator<(const ColumnUsageInfo& other) const {
+  if (table_schema.compare(other.table_schema) < 0) {
+    return true;
+  } else if (table_schema.compare(other.table_schema) == 0) {
+    if (table_name.compare(other.table_name) < 0) {
+      return true;
+    } else if (table_name.compare(other.table_name) == 0) {
+      if (column_name.compare(other.column_name) < 0) {
+        return true;
+      } else if (column_name.compare(other.column_name) == 0) {
+        if (sql_op < other.sql_op) {
+          return true;
+        } else if (sql_op == other.sql_op) {
+          return op_type < other.op_type;
+        }
+      }
+    }
+  }
+  return false;
+}
 
 std::string sql_operation_string(const sql_operation& sql_op) {
   switch (sql_op) {
@@ -106,7 +129,7 @@ std::string parse_field_name(Item_field *field_arg)
 
 int parse_column_from_func_item(
     const std::string& db_name, const std::string& table_name, Item_func *fitem,
-    std::vector<ColumnUsageInfo>& out_cus) {
+    std::set<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_column_from_func_item");
   DBUG_ASSERT(fitem);
 
@@ -131,7 +154,7 @@ int parse_column_from_func_item(
         info.op_type= operator_type::SET_MEMBERSHIP;
         info.column_name= parse_field_name(field_arg);
 
-        out_cus.push_back(info);
+        out_cus.insert(info);
       }
       break;
     }
@@ -167,7 +190,7 @@ int parse_column_from_func_item(
         info.op_type= match_op(type);
         info.column_name= parse_field_name(field_arg);
 
-        out_cus.push_back(info);
+        out_cus.insert(info);
       }
       break;
     }
@@ -184,7 +207,7 @@ int parse_column_from_func_item(
 
 int parse_column_from_cond_item(
     const std::string& db_name, const std::string& table_name, Item_cond *citem,
-    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth) {
+    std::set<ColumnUsageInfo>& out_cus, int recursion_depth) {
   DBUG_ENTER("parse_column_from_cond_item");
   DBUG_ASSERT(citem);
 
@@ -215,7 +238,7 @@ int parse_column_from_cond_item(
 
 int parse_column_from_item(
     const std::string& db_name, const std::string& table_name, Item *item,
-    std::vector<ColumnUsageInfo>& out_cus, int recursion_depth) {
+    std::set<ColumnUsageInfo>& out_cus, int recursion_depth) {
   DBUG_ENTER("parse_column_from_item");
   DBUG_ASSERT(item);
 
@@ -254,7 +277,7 @@ int parse_column_from_item(
 }
 
 int parse_column_usage_info(
-    THD *thd, std::vector<ColumnUsageInfo>& out_cus) {
+    THD *thd, std::set<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_column_usage_info");
   DBUG_ASSERT(thd);
 
@@ -299,11 +322,11 @@ int parse_column_usage_info(
   DBUG_RETURN(0);
 }
 
-void populate_column_usage_info(THD *thd, std::vector<ColumnUsageInfo>& cus) {
+void populate_column_usage_info(THD *thd, std::set<ColumnUsageInfo>& cus) {
   DBUG_ENTER("populate_column_usage_info");
   DBUG_ASSERT(thd);
 
-  // If the transaction wasn't successful, clear the vector and return.
+  // If the transaction wasn't successful, return.
   // Column usage statistics are not updated in this case.
   if (thd->is_error() || (thd->variables.option_bits & OPTION_MASTER_SQL_ERROR))
   {
@@ -326,7 +349,7 @@ void populate_column_usage_info(THD *thd, std::vector<ColumnUsageInfo>& cus) {
   if (iter == col_statistics_map.end())
   {
     col_statistics_map.insert(
-        std::make_pair<md5_key, std::vector<ColumnUsageInfo> >(
+        std::make_pair<md5_key, std::set<ColumnUsageInfo> >(
             std::move(sql_id), std::move(cus)));
   }
   mysql_rwlock_unlock(&LOCK_column_statistics);
