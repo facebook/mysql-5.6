@@ -63,7 +63,8 @@ typedef ulonglong sql_mode_t;
 extern const char *mysql_sys_schema[];
 extern const char *fill_help_tables[];
 
-const char *upgrade_modes[] = {"NONE", "MINIMAL", "AUTO", "FORCE", NullS};
+const char *upgrade_modes[] = {
+    "NONE", "MINIMAL", "AUTO", "FORCE", "FORCE_AND_SHUTDOWN", NullS};
 TYPELIB upgrade_mode_typelib = {array_elements(upgrade_modes) - 1, "",
                                 upgrade_modes, nullptr};
 
@@ -404,7 +405,7 @@ bool fix_sys_schema(THD *thd) {
 
   if (sch != nullptr &&
       !dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() &&
-      (opt_upgrade_mode != UPGRADE_FORCE))
+      (!is_force_upgrade()))
     return false;
 
   const char **query_ptr;
@@ -829,13 +830,18 @@ bool upgrade_system_schemas(THD *thd) {
 
 bool no_server_upgrade_required() {
   return !(dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
-           opt_upgrade_mode == UPGRADE_FORCE);
+           is_force_upgrade());
 }
 
 bool I_S_upgrade_required() {
   return dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
          dd::bootstrap::DD_bootstrap_ctx::instance().I_S_upgrade_done() ||
-         opt_upgrade_mode == UPGRADE_FORCE;
+         is_force_upgrade();
+}
+
+bool is_force_upgrade() {
+  return opt_upgrade_mode == UPGRADE_FORCE ||
+         opt_upgrade_mode == UPGRADE_FORCE_AND_SHUTDOWN;
 }
 
 }  // namespace upgrade

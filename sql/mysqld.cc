@@ -6197,6 +6197,10 @@ static int init_server_components() {
       delete_optimizer_cost_module();
       recreate_non_dd_based_system_view = true;
 
+      if (opt_upgrade_mode == UPGRADE_FORCE_AND_SHUTDOWN) {
+        unireg_abort(MYSQLD_SUCCESS_EXIT);
+      }
+
       /*
         When upgrade is finished, we need to initialize the plugins that
         had their initialization delayed due to dependencies on the
