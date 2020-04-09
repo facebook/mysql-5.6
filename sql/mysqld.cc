@@ -5842,6 +5842,9 @@ static int init_server_components() {
         unireg_abort(1);
       }
       delete_optimizer_cost_module();
+      if (opt_upgrade_mode == UPGRADE_FORCE_AND_SHUTDOWN) {
+        unireg_abort(MYSQLD_SUCCESS_EXIT);
+      }
     }
   }
   auto res_grp_mgr = resourcegroups::Resource_group_mgr::instance();

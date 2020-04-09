@@ -63,7 +63,8 @@ typedef ulonglong sql_mode_t;
 extern const char *mysql_sys_schema[];
 extern const char *fill_help_tables[];
 
-const char *upgrade_modes[] = {"NONE", "MINIMAL", "AUTO", "FORCE", NullS};
+const char *upgrade_modes[] = {
+    "NONE", "MINIMAL", "AUTO", "FORCE", "FORCE_AND_SHUTDOWN", NullS};
 TYPELIB upgrade_mode_typelib = {array_elements(upgrade_modes) - 1, "",
                                 upgrade_modes, NULL};
 
@@ -433,7 +434,7 @@ bool check_and_fix_sys_schema(THD *thd) {
       thd->dd_client()->acquire("sys", &sch))
     return true;
 
-  if (opt_upgrade_mode == UPGRADE_FORCE) {
+  if (is_force_upgrade()) {
     return fix_sys_schema(thd);
   }
 
@@ -605,7 +606,7 @@ bool do_server_upgrade_checks(THD *thd) {
       dd::bootstrap::DD_bootstrap_ctx::instance().upgraded_server_version_is(
           bootstrap::SERVER_VERSION_80016)) {
     if (lower_case_table_names == 1 && lower_case_file_system == 0 &&
-        opt_upgrade_mode != UPGRADE_FORCE) {
+        !is_force_upgrade()) {
       /*
         We could do SELECT COUNT(*), but then we would need to analyze the
         result set. With the query below, we can determine whether there
@@ -981,7 +982,12 @@ bool upgrade_system_schemas(THD *thd) {
 
 bool no_server_upgrade_required() {
   return !(dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
-           opt_upgrade_mode == UPGRADE_FORCE);
+           is_force_upgrade());
+}
+
+bool is_force_upgrade(){
+  return opt_upgrade_mode == UPGRADE_FORCE ||
+           opt_upgrade_mode == UPGRADE_FORCE_AND_SHUTDOWN;
 }
 
 }  // namespace upgrade
