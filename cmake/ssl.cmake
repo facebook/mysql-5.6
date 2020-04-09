@@ -276,12 +276,29 @@ MACRO (MYSQL_CHECK_SSL)
       SET(LINUX_STANDALONE 1)
     ENDIF()
 
+    IF(WITHOUT_SERVER)
+      # Facebook: tp2: Do *NOT* link dependencies like OpenSSL statically. This
+      # will make runtime updates to OpenSSL impossible.
+      SET(_OLD_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+      SET(CMAKE_FIND_LIBRARY_SUFFIXES .so .dylib .dll)
+
+      # Facebook: tp2: Do *NOT* use ssl_pic or crypto_pic. We *always* want to
+      # dynamically link to OpenSSL.
+      SET(_OLD_PIC_EXT ${PIC_EXT})
+      SET(PIC_EXT "")
+    ENDIF()
+
     FIND_LIBRARY(OPENSSL_LIBRARY
       NAMES ssl${PIC_EXT} libssl${PIC_EXT} ssleay32${PIC_EXT} ssleay32MD${PIC_EXT}
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
       NAMES crypto${PIC_EXT} libcrypto${PIC_EXT} libeay32${PIC_EXT}
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
+
+    IF(WITHOUT_SERVER)
+      SET(CMAKE_FIND_LIBRARY_SUFFIXES ${_OLD_FIND_LIBRARY_SUFFIXES})
+      SET(PIC_EXT ${_OLD_PIC_EXT})
+    ENDIF()
 
     IF(OPENSSL_INCLUDE_DIR)
       # Verify version number. Version information looks like:
