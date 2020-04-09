@@ -101,6 +101,8 @@ while ($_rpl_server)
 --source include/assert.inc
 
 # Enable failure detection
+# Also get all instances back to first binlog file because first leader
+# election will have caused at lease one rotation
 let $_rpl_server= $rpl_server_count;
 while ($_rpl_server)
 {
@@ -109,6 +111,12 @@ while ($_rpl_server)
   SET GLOBAL RPL_RAFT_LEADER_FAILURE_DETECTION= ON;
   if ($_rpl_server != $master_server_num)
   {
+    STOP SLAVE;
+  }
+  RESET MASTER;
+  if ($_rpl_server != $master_server_num)
+  {
+    START SLAVE;
     source include/wait_for_slave_sql_to_start.inc;
   }
   dec $_rpl_server;
