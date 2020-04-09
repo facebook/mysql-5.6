@@ -35,7 +35,8 @@ enum enum_upgrade_mode : int {
   UPGRADE_NONE,
   UPGRADE_MINIMAL,
   UPGRADE_AUTO,
-  UPGRADE_FORCE
+  UPGRADE_FORCE,
+  UPGRADE_FORCE_AND_SHUTDOWN
 };
 
 namespace dd {
@@ -75,6 +76,7 @@ bool no_server_upgrade_required();
 
 bool I_S_upgrade_required();
 
+bool is_force_upgrade();
 }  // namespace upgrade
 
 }  // namespace dd
