@@ -463,7 +463,7 @@ IF(DISABLE_SHARED)
   MESSAGE("Dynamic plugins are disabled.")
 ENDIF()
 
-IF(NOT DISABLED_SHARED)
+IF(NOT DISABLE_SHARED)
   SET(PIC_EXT "_pic")
 ELSE()
   SET(PIC_EXT "")

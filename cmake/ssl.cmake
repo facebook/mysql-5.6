@@ -288,11 +288,15 @@ MACRO (MYSQL_CHECK_SSL)
       SET(PIC_EXT "")
     ENDIF()
 
+    # "_pic" suffix isn't a standard convention so probe for both with and
+    # without, preferring with _pic
     FIND_LIBRARY(OPENSSL_LIBRARY
       NAMES ssl${PIC_EXT} libssl${PIC_EXT} ssleay32${PIC_EXT} ssleay32MD${PIC_EXT}
+            ssl libssl ssleay32 ssleay32MD
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
     FIND_LIBRARY(CRYPTO_LIBRARY
       NAMES crypto${PIC_EXT} libcrypto${PIC_EXT} libeay32${PIC_EXT}
+            crypto libcrypto libeay32
                  HINTS ${OPENSSL_ROOT_DIR}/lib)
 
     IF(WITHOUT_SERVER)
