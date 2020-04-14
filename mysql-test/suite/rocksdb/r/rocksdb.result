@@ -967,7 +967,10 @@ rocksdb_manifest_preallocation_size	4194304
 rocksdb_manual_compaction_threads	0
 rocksdb_manual_wal_flush	ON
 rocksdb_master_skip_tx_api	OFF
+rocksdb_max_background_compactions	-1
+rocksdb_max_background_flushes	-1
 rocksdb_max_background_jobs	2
+rocksdb_max_bottom_pri_background_compactions	0
 rocksdb_max_latest_deadlocks	5
 rocksdb_max_log_file_size	0
 rocksdb_max_manifest_file_size	1073741824
