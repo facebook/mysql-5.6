@@ -6624,6 +6624,8 @@ a file name for --log-bin-index option", opt_binlog_index_name);
 
       if (mysql_bin_log.open_binlog_found)
       {
+        sql_print_information("In Raft mode open_binlog_found: %s\n",
+                              ((logname) ? logname : "nullfile"));
         if (mysql_bin_log.open_existing_binlog(
             logname, WRITE_CACHE, max_binlog_size))
         {
@@ -6635,6 +6637,8 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       }
       else
       {
+        sql_print_information("In Raft mode new binlog will be opened: %s\n",
+                              ((logname) ? logname : "nullfile"));
         if (mysql_bin_log.open_binlog(logname, 0,
                                       WRITE_CACHE, max_binlog_size, false,
                                       true/*need_lock_index=true*/,
