@@ -1,0 +1,47 @@
+--source include/have_rocksdb.inc
+--source include/linux.inc
+
+--exec grep "Set 1 compaction thread(s) with lower scheduling priority." $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1 | wc -l
+
+# Needs at least one compaction to happen to change priority
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (
+  a int not null,
+  b int not null,
+  primary key (a,b),
+  key (b)
+) ENGINE=RocksDB;
+
+# Populate tables
+let $max = 1000;
+let $table = t1;
+--source drop_table_repopulate_table.inc
+
+set @@global.rocksdb_compact_cf = 'default';
+
+--let $pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+--let PIDFILE= $pid_file
+perl;
+
+my $pid_file = $ENV{'PIDFILE'} or die "PIDFILE not set";
+
+# Get PID of mysqld
+open(my $fh, '<', $pid_file) || die "Cannot open pid file $pid_file\n";
+my $pid = <$fh>;
+$pid =~ s/\s//g;
+close($fh);
+
+if ($pid eq "") {
+  die "Couldn't retrieve PID from PID file.\n";
+}
+
+print "Bottom thread priority:\n";
+system("cat /proc/$pid/task/*/stat | grep bottom | awk '{print \$19}'");
+
+EOF
+
+drop table t1;
+
