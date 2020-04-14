@@ -39,6 +39,7 @@ class RaftListenerCallbackArg
     bool val_bool;
     uint32_t val_uint;
     std::pair<std::string, unsigned int> master_instance;
+    std::string val_str;
 };
 
 /* Result of the callback execution in the server. This will be set in the

@@ -15,11 +15,13 @@
 
 #include "sql_priv.h"
 #include "unireg.h"
+#include <m_string.h>
 
 #include "rpl_mi.h"
 #include "log_event.h"
 #include "rpl_filter.h"
 #include <my_dir.h>
+#include "set_var.h"
 #include "rpl_handler.h"
 #include "debug_sync.h"
 #include "global_threads.h"
@@ -812,6 +814,19 @@ pthread_handler_t process_raft_queue(void *arg)
       {
 #ifdef HAVE_REPLICATION
         result.error= raft_reset_slave(current_thd);
+        // When resetting a slave we also want to clear the read-only message
+        // since we can't make assumptions on the master instance anymore
+
+        sys_var *ro_err_msg_extra_sys_var_ptr=
+          find_sys_var(thd, STRING_WITH_LEN("read_only_error_msg_extra"));
+        if (ro_err_msg_extra_sys_var_ptr)
+        {
+          Item_string item("", 0, thd->charset());
+          LEX_STRING tmp;
+          set_var set_v(OPT_GLOBAL, ro_err_msg_extra_sys_var_ptr, &tmp, &item);
+          if(!set_v.check(thd) && !thd->is_error())
+            set_v.update(thd);
+        }
 #endif
         break;
       }
@@ -820,6 +835,18 @@ pthread_handler_t process_raft_queue(void *arg)
 #ifdef HAVE_REPLICATION
         result.error=
           raft_change_master(current_thd, element.arg.master_instance);
+        sys_var *ro_err_msg_extra_sys_var_ptr=
+          find_sys_var(thd, STRING_WITH_LEN("read_only_error_msg_extra"));
+        if (ro_err_msg_extra_sys_var_ptr &&
+              !element.arg.val_str.empty())
+        {
+          Item_string item(element.arg.val_str.c_str(),
+              element.arg.val_str.length(), thd->charset());
+          LEX_STRING tmp;
+          set_var set_v(OPT_GLOBAL, ro_err_msg_extra_sys_var_ptr, &tmp, &item);
+          if(!set_v.check(thd) && !thd->is_error())
+            set_v.update(thd);
+        }
 #endif
         break;
       }
