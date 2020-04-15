@@ -1,0 +1,125 @@
+Default value of global error_partial_strict is false
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+Default value of session error_partial_strict is false
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+0
+SET @tmp_max = @@global.max_allowed_packet;
+SET @@global.max_allowed_packet=1024*1024*1024;
+SET @@session.sql_mode='no_engine_substitution';
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+create table test_text(a int primary key, b tinytext, c text, d mediumtext);
+Insert valid values into the table
+insert into test_text values(1, repeat('w', 255), repeat('x', 65535), repeat('y', 16777215));
+Test inserting large data on each of column types
+insert into test_text values(2, repeat('w', 256), 'x', 'y');
+ERROR 22001: Data too long for column 'b' at row 1
+insert into test_text values(2, 'w', repeat('x', 65536), 'y');
+ERROR 22001: Data too long for column 'c' at row 1
+insert into test_text values(2, 'w', 'x', repeat('y', 16777216));
+ERROR 22001: Data too long for column 'd' at row 1
+SET @@session.error_partial_strict=false;
+Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_text values(2, repeat('w', 256), 'x', 'y');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+insert into test_text values(3, 'w', repeat('x', 65536), 'y');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+insert into test_text values(4, 'w', 'x', repeat('y', 16777216));
+Warnings:
+Warning	1265	Data truncated for column 'd' at row 1
+drop table test_text;
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+create table test_char(a int primary key, b char(4), c varchar(4));
+Insert valid values into the table
+insert into test_char values(1, 'xxxx', 'yyyy');
+Test inserting large data on each of column types
+insert into test_char values(2, 'xxxxx', 'yyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+insert into test_char values(2, 'xxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'c' at row 1
+SET @@session.error_partial_strict=false;
+Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_char values(2, 'xxxxx', 'yyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+insert into test_char values(3, 'xxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+drop table test_char;
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+create table test_blob(a int primary key, b tinyblob, c blob, d mediumblob);
+Insert valid values into the table
+insert into test_blob values(1, repeat('w', 255), repeat('x', 65535), repeat('y', 16777215));
+Test inserting large data on each of column types
+insert into test_blob values(2, repeat('w', 256), 'x', 'y');
+ERROR 22001: Data too long for column 'b' at row 1
+insert into test_blob values(2, 'w', repeat('x', 65536), 'y');
+ERROR 22001: Data too long for column 'c' at row 1
+insert into test_blob values(2, 'w', 'x', repeat('y', 16777216));
+ERROR 22001: Data too long for column 'd' at row 1
+SET @@session.error_partial_strict=false;
+Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_blob values(2, repeat('w', 256), 'x', 'y');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+insert into test_blob values(3, 'w', repeat('x', 65536), 'y');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+insert into test_blob values(4, 'w', 'x', repeat('y', 16777216));
+Warnings:
+Warning	1265	Data truncated for column 'd' at row 1
+drop table test_blob;
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+create table test_bin(a int primary key, b binary(4), c varbinary(4));
+Insert valid values into the table
+insert into test_bin values(1, 'xxxx', 'yyyy');
+Test inserting large data on each of column types
+insert into test_bin values(2, 'xxxxx', 'yyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+insert into test_bin values(2, 'xxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'c' at row 1
+SET @@session.error_partial_strict=false;
+Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_bin values(2, 'xxxxx', 'yyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+insert into test_bin values(3, 'xxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+drop table test_bin;
+SET @@session.error_partial_strict=default;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+0
+SELECT @@global.error_partial_strict;
+@@global.error_partial_strict
+0
+SET @@global.max_allowed_packet:= @tmp_max;

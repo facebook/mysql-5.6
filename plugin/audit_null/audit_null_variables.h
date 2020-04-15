@@ -24,6 +24,8 @@ AUDIT_NULL_VAR(general_log)
 AUDIT_NULL_VAR(general_error)
 AUDIT_NULL_VAR(general_result)
 AUDIT_NULL_VAR(general_status)
+AUDIT_NULL_VAR(general_warning_instr)
+AUDIT_NULL_VAR(general_error_instr)
 
 AUDIT_NULL_VAR(connection_connect)
 AUDIT_NULL_VAR(connection_disconnect)

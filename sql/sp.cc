@@ -2505,12 +2505,12 @@ bool sp_eval_expr(THD *thd, Field *result_field, Item **expr_item_ptr) {
     in a table. So, STRICT mode gives error if an invalid value is assigned
     to the variable here.
   */
-  if (thd->is_strict_mode() && !thd->lex->is_ignore())
+  if (thd->install_strict_handler() && !thd->lex->is_ignore())
     thd->push_internal_handler(&strict_handler);
   // Save the value in the field. Convert the value if needed.
   expr_item->save_in_field(result_field, false);
 
-  if (thd->is_strict_mode() && !thd->lex->is_ignore())
+  if (thd->install_strict_handler() && !thd->lex->is_ignore())
     thd->pop_internal_handler();
   thd->check_for_truncated_fields = save_check_for_truncated_fields;
   thd->get_transaction()->set_unsafe_rollback_flags(Transaction_ctx::STMT,

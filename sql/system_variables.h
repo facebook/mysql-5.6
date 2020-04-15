@@ -257,6 +257,8 @@ struct System_variables {
   bool optimizer_force_index_for_range;
   bool optimizer_full_scan;
   sql_mode_t sql_mode;  ///< which non-standard SQL behaviour should be enabled
+  bool error_partial_strict;
+  ulong audit_instrumented_event;
   ulonglong option_bits;  ///< OPTION_xxx constants, e.g. OPTION_PROFILING
   ha_rows select_limit;
   ha_rows max_join_size;

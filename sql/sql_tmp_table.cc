@@ -496,7 +496,7 @@ Field *create_tmp_field(THD *thd, TABLE *table, Item *item, Item::Type type,
     case Item::TYPE_HOLDER:
     case Item::VALUES_COLUMN_ITEM:
       result = down_cast<Item_aggregate_type *>(item)->make_field_by_type(
-          table, thd->is_strict_mode());
+          table, thd->is_strict_sql_mode());
       break;
     default:  // Doesn't have to be stored
       assert(false);

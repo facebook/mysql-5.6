@@ -5024,11 +5024,14 @@ longlong Item_source_pos_wait::val_int() {
   longlong pos = (ulong)args[1]->val_int();
   double timeout = (arg_count >= 3) ? args[2]->val_real() : 0;
   if (timeout < 0) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0), "SOURCE_POS_WAIT.");
     } else {
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
       push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
                           ER_THD(thd, ER_WRONG_ARGUMENTS), "SOURCE_POS_WAIT.");
+      thd->really_audit_instrumented_event = 0;
       null_value = true;
     }
     return 0;
@@ -5755,12 +5758,15 @@ longlong Item_func_sleep::val_int() {
   */
 
   if (args[0]->null_value || timeout < 0) {
-    if (!thd->lex->is_ignore() && thd->is_strict_mode()) {
+    if (!thd->lex->is_ignore() && thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0), "sleep.");
       return 0;
     } else
-      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
-                          ER_THD(thd, ER_WRONG_ARGUMENTS), "sleep.");
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                        ER_THD(thd, ER_WRONG_ARGUMENTS), "sleep.");
+    thd->really_audit_instrumented_event = 0;
   }
   /*
     On 64-bit OSX mysql_cond_timedwait() waits forever

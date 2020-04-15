@@ -23,6 +23,7 @@
 #include "sql/create_field.h"
 
 #include "sql/derror.h"
+#include "sql/error_handler.h"
 #include "sql/field.h"
 #include "sql/item.h"
 #include "sql/my_decimal.h"
@@ -399,17 +400,23 @@ bool Create_field::init(
           A default other than '' is always an error, and any non-NULL
           specified default is an error in strict mode.
         */
-        if (res->length() || thd->is_strict_mode()) {
+        if (res->length() || thd->is_strict_sql_mode()) {
           my_error(ER_BLOB_CANT_HAVE_DEFAULT, MYF(0),
                    fld_name); /* purecov: inspected */
           return true;
         } else {
+          Strict_error_handler strict_handler;
+          if (thd->install_strict_handler())
+            thd->push_internal_handler(&strict_handler);
+
           /*
             Otherwise a default of '' is just a warning.
           */
           push_warning_printf(thd, Sql_condition::SL_WARNING,
                               ER_BLOB_CANT_HAVE_DEFAULT,
                               ER_THD(thd, ER_BLOB_CANT_HAVE_DEFAULT), fld_name);
+
+          if (thd->install_strict_handler()) thd->pop_internal_handler();
         }
         constant_default = nullptr;
       }

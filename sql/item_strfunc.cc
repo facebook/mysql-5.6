@@ -166,7 +166,7 @@ bool Item_str_func::fix_fields(THD *thd, Item **ref) {
     In Item_str_func::check_well_formed_result() we may set null_value
     flag on the same condition as in test() below.
   */
-  set_nullable(is_nullable() || thd->is_strict_mode());
+  set_nullable(is_nullable() || thd->is_strict_sql_mode());
   return res;
 }
 
