@@ -368,12 +368,13 @@ bool Sql_cmd_create_table::execute(THD *thd) {
     Strict_error_handler strict_handler;
     if (lex->is_ignore())
       thd->push_internal_handler(&ignore_handler);
-    else if (thd->is_strict_mode())
+    else if (thd->install_strict_handler())
       thd->push_internal_handler(&strict_handler);
 
     res = populate_table(thd, lex);
 
-    if (lex->is_ignore() || thd->is_strict_mode()) thd->pop_internal_handler();
+    if (lex->is_ignore() || thd->install_strict_handler())
+      thd->pop_internal_handler();
     lex->cleanup(thd, false);
 
     // Abort the result set if execution ended in error
@@ -386,7 +387,7 @@ bool Sql_cmd_create_table::execute(THD *thd) {
   } else {
     Strict_error_handler strict_handler;
     /* Push Strict_error_handler */
-    if (!lex->is_ignore() && thd->is_strict_mode())
+    if (!lex->is_ignore() && thd->install_strict_handler())
       thd->push_internal_handler(&strict_handler);
     /* regular create */
     if (create_info.options & HA_LEX_CREATE_TABLE_LIKE) {
@@ -398,7 +399,8 @@ bool Sql_cmd_create_table::execute(THD *thd) {
       res = mysql_create_table(thd, create_table, &create_info, &alter_info);
     }
     /* Pop Strict_error_handler */
-    if (!lex->is_ignore() && thd->is_strict_mode()) thd->pop_internal_handler();
+    if (!lex->is_ignore() && thd->install_strict_handler())
+      thd->pop_internal_handler();
     if (!res) {
       /* in case of create temp tables if @@session_track_state_change is
          ON then send session state notification in OK packet */
@@ -460,13 +462,14 @@ bool Sql_cmd_create_or_drop_index_base::execute(THD *thd) {
 
   /* Push Strict_error_handler */
   Strict_error_handler strict_handler;
-  if (thd->is_strict_mode()) thd->push_internal_handler(&strict_handler);
+  if (thd->install_strict_handler())
+    thd->push_internal_handler(&strict_handler);
   DBUG_ASSERT(!select_lex->order_list.elements);
   const bool res =
       mysql_alter_table(thd, first_table->db, first_table->table_name,
                         &create_info, first_table, &alter_info);
   /* Pop Strict_error_handler */
-  if (thd->is_strict_mode()) thd->pop_internal_handler();
+  if (thd->install_strict_handler()) thd->pop_internal_handler();
   return res;
 }
 

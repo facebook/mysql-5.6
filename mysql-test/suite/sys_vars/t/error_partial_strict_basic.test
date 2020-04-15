@@ -1,0 +1,147 @@
+-- source include/load_sysvars.inc
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+####
+# Verify default value false
+####
+--echo Default value of global error_partial_strict is false
+SELECT @@global.error_partial_strict;
+
+####
+# Verify default session variable is off
+####
+--echo Default value of session error_partial_strict is false
+SELECT @@session.error_partial_strict;
+
+
+#
+# Testing here that mediumtext converts into longtext if the result
+# exceeds mediumtext maximum length
+#
+
+SET @tmp_max = @@global.max_allowed_packet;
+SET @@global.max_allowed_packet=1024*1024*1024;
+# switching connection to allow the new max_allowed_packet take effect
+--connect (newconn, localhost, root,,)
+SET @@session.sql_mode='no_engine_substitution';
+
+####
+# Test TINYTEXT, TEXT, MEDIUMTEXT truncation
+####
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+SELECT @@global.error_partial_strict;
+
+create table test_text(a int primary key, b tinytext, c text, d mediumtext);
+
+--echo Insert valid values into the table
+insert into test_text values(1, repeat('w', 255), repeat('x', 65535), repeat('y', 16777215));
+
+--echo Test inserting large data on each of column types
+--Error ER_DATA_TOO_LONG
+insert into test_text values(2, repeat('w', 256), 'x', 'y');
+--Error ER_DATA_TOO_LONG
+insert into test_text values(2, 'w', repeat('x', 65536), 'y');
+--Error ER_DATA_TOO_LONG
+insert into test_text values(2, 'w', 'x', repeat('y', 16777216));
+
+SET @@session.error_partial_strict=false;
+
+--echo Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_text values(2, repeat('w', 256), 'x', 'y');
+insert into test_text values(3, 'w', repeat('x', 65536), 'y');
+insert into test_text values(4, 'w', 'x', repeat('y', 16777216));
+
+drop table test_text;
+
+####
+# Test VARCHAR, CHAR truncation
+####
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+SELECT @@global.error_partial_strict;
+
+create table test_char(a int primary key, b char(4), c varchar(4));
+
+--echo Insert valid values into the table
+insert into test_char values(1, 'xxxx', 'yyyy');
+
+--echo Test inserting large data on each of column types
+--Error ER_DATA_TOO_LONG
+insert into test_char values(2, 'xxxxx', 'yyyy');
+--Error ER_DATA_TOO_LONG
+insert into test_char values(2, 'xxxx', 'yyyyy');
+
+SET @@session.error_partial_strict=false;
+
+--echo Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_char values(2, 'xxxxx', 'yyyy');
+insert into test_char values(3, 'xxxx', 'yyyyy');
+
+drop table test_char;
+
+####
+# Test TINYBLOB, BLOB, MEDIUMBLOB truncation
+####
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+SELECT @@global.error_partial_strict;
+
+create table test_blob(a int primary key, b tinyblob, c blob, d mediumblob);
+
+--echo Insert valid values into the table
+insert into test_blob values(1, repeat('w', 255), repeat('x', 65535), repeat('y', 16777215));
+
+--echo Test inserting large data on each of column types
+--Error ER_DATA_TOO_LONG
+insert into test_blob values(2, repeat('w', 256), 'x', 'y');
+--Error ER_DATA_TOO_LONG
+insert into test_blob values(2, 'w', repeat('x', 65536), 'y');
+--Error ER_DATA_TOO_LONG
+insert into test_blob values(2, 'w', 'x', repeat('y', 16777216));
+
+SET @@session.error_partial_strict=false;
+
+--echo Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_blob values(2, repeat('w', 256), 'x', 'y');
+insert into test_blob values(3, 'w', repeat('x', 65536), 'y');
+insert into test_blob values(4, 'w', 'x', repeat('y', 16777216));
+
+drop table test_blob;
+
+####
+# Test VARBINARY, BINARY truncation
+####
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+SELECT @@global.error_partial_strict;
+
+create table test_bin(a int primary key, b binary(4), c varbinary(4));
+
+--echo Insert valid values into the table
+insert into test_bin values(1, 'xxxx', 'yyyy');
+
+--echo Test inserting large data on each of column types
+--Error ER_DATA_TOO_LONG
+insert into test_bin values(2, 'xxxxx', 'yyyy');
+--Error ER_DATA_TOO_LONG
+insert into test_bin values(2, 'xxxx', 'yyyyy');
+
+SET @@session.error_partial_strict=false;
+
+--echo Inserts must succeed now that we have turned off error_partial_strict 
+insert into test_bin values(2, 'xxxxx', 'yyyy');
+insert into test_bin values(3, 'xxxx', 'yyyyy');
+
+drop table test_bin;
+
+SET @@session.error_partial_strict=default;
+SELECT @@session.error_partial_strict;
+SELECT @@global.error_partial_strict;
+
+--connection default
+SET @@global.max_allowed_packet:= @tmp_max;
+--disconnect newconn
+# Wait till we reached the initial number of concurrent sessions
+--source include/wait_until_count_sessions.inc

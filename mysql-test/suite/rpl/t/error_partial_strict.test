@@ -1,0 +1,33 @@
+-- source include/master-slave.inc
+
+--connection master
+SET @@session.sql_mode='no_engine_substitution';
+set global error_partial_strict = ON;
+set session error_partial_strict = ON;
+
+--connection slave
+set global error_partial_strict = ON;
+stop replica;
+start replica;
+
+--connection master
+create table t1(a char(3)) ENGINE=InnoDb;
+
+--Error ER_DATA_TOO_LONG
+insert into t1 values('aaaaa');
+
+set session error_partial_strict = OFF;
+insert into t1 values('aaaaa');
+select * from t1;
+
+-- sync_slave_with_master
+
+--connection slave
+select * from t1;
+set global error_partial_strict = OFF;
+
+--connection master
+drop table t1;
+set global error_partial_strict = OFF;
+
+--source include/rpl_end.inc

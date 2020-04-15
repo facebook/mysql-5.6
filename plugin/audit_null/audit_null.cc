@@ -45,6 +45,8 @@ LEX_CSTRING event_names[][6] = {
         {STRING_WITH_LEN("MYSQL_AUDIT_GENERAL_ERROR")},
         {STRING_WITH_LEN("MYSQL_AUDIT_GENERAL_RESULT")},
         {STRING_WITH_LEN("MYSQL_AUDIT_GENERAL_STATUS")},
+        {STRING_WITH_LEN("MYSQL_AUDIT_GENERAL_WARNING_INSTR")},
+        {STRING_WITH_LEN("MYSQL_AUDIT_GENERAL_ERROR_INSTR")},
     },
     /** MYSQL_AUDIT_CONNECTION_CLASS */
     {
@@ -549,6 +551,12 @@ static int audit_null_notify(MYSQL_THD thd, mysql_event_class_t event_class,
         number_of_calls_general_status++;
         break;
       }
+      case MYSQL_AUDIT_GENERAL_WARNING_INSTR:
+        number_of_calls_general_warning_instr++;
+        break;
+      case MYSQL_AUDIT_GENERAL_ERROR_INSTR:
+        number_of_calls_general_error_instr++;
+        break;
       default:
         break;
     }
