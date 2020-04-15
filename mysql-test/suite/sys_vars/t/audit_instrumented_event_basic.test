@@ -1,0 +1,132 @@
+--source include/have_null_audit_plugin.inc
+--source include/not_embedded.inc
+
+# Adjustment to the OS dependent extension of shared libraries.
+let $expected_extension= so;
+if(`SELECT CONVERT(@@version_compile_os USING latin1)
+           IN ("Win32","Win64","Windows")`)
+{
+   let $expected_extension= dll;
+}
+
+--replace_result $expected_extension <expected_extension>
+eval INSTALL PLUGIN null_audit SONAME 'adt_null.$expected_extension';
+
+####
+# Test VARCHAR, CHAR with truncation enabled does logging 
+####
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+create table test_char(a int primary key, b char(4), c varchar(4));
+
+--echo Truncation with warning
+insert into test_char values(1, 'xxxxx', 'yyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+--echo Truncation with warning
+insert into test_char values(2, 'xxxx', 'yyyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+--echo No Truncation
+insert into test_char values(3, 'xxxx', 'yyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+--echo Test audit_error also logs in case of warnings 
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+insert into test_char values(4, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--echo Truncation with warning
+insert into test_char values(5, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+drop table test_char;
+
+####
+# Test prefix key truncation during create table DDL does logging
+####
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+CREATE TABLE test_prefix_truncate(a int primary key, the_key varchar(255) NOT NULL, the_value text, KEY key_value_index (`the_key`,`the_value`(1000))) DEFAULT CHARSET=utf8 ENGINE=InnoDB;
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+drop table test_prefix_truncate;
+SET @@session.audit_instrumented_event='audit_off';
+
+CREATE TABLE test_prefix_truncate(a int primary key, the_key varchar(255) NOT NULL, the_value text, KEY key_value_index (`the_key`,`the_value`(1000))) DEFAULT CHARSET=utf8 ENGINE=InnoDB;
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+drop table test_prefix_truncate;
+
+####
+# Test VARCHAR, CHAR with error_partial_strict=true does not log
+####
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+
+create table test_char(a int primary key, b char(4), c varchar(4));
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(1, 'xxxxx', 'yyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+--echo No Truncation
+insert into test_char values(2, 'xxxx', 'yyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+drop table test_char;
+UNINSTALL PLUGIN null_audit;
+
+--source include/restart_mysqld.inc

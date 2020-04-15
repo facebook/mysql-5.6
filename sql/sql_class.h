@@ -647,6 +647,8 @@ typedef struct system_variables
   my_bool   optimizer_force_index_for_range;
   my_bool   optimizer_full_scan;
   sql_mode_t sql_mode; ///< which non-standard SQL behaviour should be enabled
+  my_bool   error_partial_strict;
+  ulong audit_instrumented_event;
   ulonglong option_bits; ///< OPTION_xxx constants, e.g. OPTION_PROFILING
   ha_rows select_limit;
   ha_rows max_join_size;
@@ -3635,6 +3637,13 @@ public:
   /* set during loop of derived table processing */
   bool       derived_tables_processing;
   my_bool    tablespace_op;	/* This is TRUE in DISCARD/IMPORT TABLESPACE */
+
+  /**
+     Transiently enabled when we need to error/log for strict mode violations.
+     Uses system variables error_partial_strict/audit_instrumented_event
+  */
+  bool       really_error_partial_strict;
+  ulong      really_audit_instrumented_event;
 
   /** Current SP-runtime context. */
   sp_rcontext *sp_runtime_ctx;

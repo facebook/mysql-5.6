@@ -986,6 +986,8 @@ THD::THD(bool enable_plugins)
    in_lock_tables(0),
    bootstrap(0),
    derived_tables_processing(FALSE),
+   really_error_partial_strict(false),
+   really_audit_instrumented_event(0),
    sp_runtime_ctx(NULL),
    m_parser_state(NULL),
 #if defined(ENABLED_DEBUG_SYNC)
@@ -1338,14 +1340,29 @@ Sql_condition* THD::raise_condition(uint sql_errno,
    sqlstate= mysql_errno_to_sqlstate(sql_errno);
 
   if ((level == Sql_condition::WARN_LEVEL_WARN) &&
-      really_abort_on_warning())
+      (really_abort_on_warning() ||
+       really_error_partial_strict))
   {
+    if (really_audit_instrumented_event > 1)
+    {
+      mysql_audit_general(this, MYSQL_AUDIT_GENERAL_ERROR_INSTR,
+                          sql_errno,
+                          msg);
+    }
+
     /*
       FIXME:
       push_warning and strict SQL_MODE case.
     */
     level= Sql_condition::WARN_LEVEL_ERROR;
     killed= THD::KILL_BAD_DATA;
+  }
+  else if ((level == Sql_condition::WARN_LEVEL_WARN) &&
+           really_audit_instrumented_event > 0)
+  {
+    mysql_audit_general(this, MYSQL_AUDIT_GENERAL_WARNING,
+                        sql_errno,
+                        msg);
   }
 
   switch (level)

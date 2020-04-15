@@ -169,6 +169,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     MYSQL_AUDIT_GENERAL_ERROR
     MYSQL_AUDIT_GENERAL_RESULT
     MYSQL_AUDIT_GENERAL_STATUS
+    MYSQL_AUDIT_GENERAL_WARNING
+    MYSQL_AUDIT_GENERAL_ERROR_INSTR
   
   @param[in] thd
   @param[in] event_subtype    Type of general audit event.

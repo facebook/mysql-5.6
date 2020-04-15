@@ -29,6 +29,8 @@ static volatile int number_of_calls_general_log;
 static volatile int number_of_calls_general_error;
 static volatile int number_of_calls_general_result;
 static volatile int number_of_calls_general_status;
+static volatile int number_of_calls_general_warning;
+static volatile int number_of_calls_general_error_instrumented;
 /* Count MYSQL_AUDIT_CONNECTION_CLASS event instances */
 static volatile int number_of_calls_connection_connect;
 static volatile int number_of_calls_connection_disconnect;
@@ -104,6 +106,8 @@ static int audit_null_plugin_init(void *arg MY_ATTRIBUTE((unused)))
   number_of_calls_general_error= 0;
   number_of_calls_general_result= 0;
   number_of_calls_general_status= 0;
+  number_of_calls_general_warning= 0;
+  number_of_calls_general_error_instrumented = 0;
   number_of_calls_connection_connect= 0;
   number_of_calls_connection_disconnect= 0;
   number_of_calls_connection_change_user= 0;
@@ -171,6 +175,12 @@ static void audit_null_notify(MYSQL_THD thd MY_ATTRIBUTE((unused)),
       log_event(event);
       number_of_calls_general_status++;
       break;
+    case MYSQL_AUDIT_GENERAL_WARNING:
+      number_of_calls_general_warning++;
+      break;
+    case MYSQL_AUDIT_GENERAL_ERROR_INSTR:
+      number_of_calls_general_error_instrumented++;
+      break;
     default:
       break;
     }
@@ -230,6 +240,12 @@ static struct st_mysql_show_var simple_status[]=
     SHOW_INT },
   { "Audit_null_general_status",
     (char *) &number_of_calls_general_status,
+    SHOW_INT },
+  { "Audit_null_general_warning",
+    (char *) &number_of_calls_general_warning,
+    SHOW_INT },
+  { "Audit_null_general_error_instrumented",
+    (char *) &number_of_calls_general_error_instrumented,
     SHOW_INT },
   { "Audit_null_connection_connect",
     (char *) &number_of_calls_connection_connect,

@@ -25,7 +25,7 @@
 
 #define MYSQL_AUDIT_CLASS_MASK_SIZE 1
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0305
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0306
 
 
 /*************************************************************************
@@ -44,6 +44,8 @@
 #define MYSQL_AUDIT_GENERAL_ERROR 1
 #define MYSQL_AUDIT_GENERAL_RESULT 2
 #define MYSQL_AUDIT_GENERAL_STATUS 3
+#define MYSQL_AUDIT_GENERAL_WARNING 4
+#define MYSQL_AUDIT_GENERAL_ERROR_INSTR 5
 
 struct mysql_event_general
 {

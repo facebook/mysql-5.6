@@ -4251,12 +4251,21 @@ mysql_prepare_create_table(THD *thd, const char *error_schema_name,
               key_part_length= min(key_part_length, max_field_size);
 	    if (key->type == Key::MULTIPLE)
 	    {
+              thd->really_error_partial_strict =
+                thd->variables.error_partial_strict;
+              thd->really_audit_instrumented_event =
+                thd->variables.audit_instrumented_event;
+
 	      /* not a critical problem */
 	      push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
 		                  ER_TOO_LONG_KEY, ER(ER_TOO_LONG_KEY),
                                   key_part_length);
+              thd->really_error_partial_strict = false;
+              thd->really_audit_instrumented_event = 0;
+
                /* Align key length to multibyte char boundary */
               key_part_length-= key_part_length % sql_field->charset->mbmaxlen;
+
               /*
                If SQL_MODE is STRICT, then report error, else report warning
                and continue execution.

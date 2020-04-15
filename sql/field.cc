@@ -6810,10 +6810,20 @@ Field_longstr::report_if_important_data(const char *pstr, const char *end,
   {
     if (test_if_important_data(field_charset, pstr, end))
     {
-      if (table->in_use->abort_on_warning)
+      THD *thd = table->in_use;
+      thd->really_error_partial_strict =
+        thd->variables.error_partial_strict;
+      thd->really_audit_instrumented_event =
+        thd->variables.audit_instrumented_event;
+
+      if (thd->abort_on_warning || thd->really_error_partial_strict)
         set_warning(Sql_condition::WARN_LEVEL_WARN, ER_DATA_TOO_LONG, 1);
       else
         set_warning(Sql_condition::WARN_LEVEL_WARN, WARN_DATA_TRUNCATED, 1);
+
+      thd->really_error_partial_strict = false;
+      thd->really_audit_instrumented_event = 0;
+
       return TYPE_WARN_TRUNCATED;
     }
     else if (count_spaces)

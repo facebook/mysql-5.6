@@ -1,0 +1,175 @@
+INSTALL PLUGIN null_audit SONAME 'adt_null.<expected_extension>';
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_WARN
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+create table test_char(a int primary key, b char(4), c varchar(4));
+Truncation with warning
+insert into test_char values(1, 'xxxxx', 'yyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	1
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+Truncation with warning
+insert into test_char values(2, 'xxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+No Truncation
+insert into test_char values(3, 'xxxx', 'yyyy');
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+Test audit_error also logs in case of warnings 
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_ERROR
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(4, 'xxxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	4
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_OFF
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+Truncation with warning
+insert into test_char values(5, 'xxxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	4
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+drop table test_char;
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_WARN
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+CREATE TABLE test_prefix_truncate(a int primary key, the_key varchar(255) NOT NULL, the_value text, KEY key_value_index (`the_key`,`the_value`(1000))) DEFAULT CHARSET=utf8 ENGINE=InnoDB;
+Warnings:
+Warning	1071	Specified key was too long; max key length is 767 bytes
+verify that audit logging API is called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+drop table test_prefix_truncate;
+SET @@session.audit_instrumented_event='audit_off';
+CREATE TABLE test_prefix_truncate(a int primary key, the_key varchar(255) NOT NULL, the_value text, KEY key_value_index (`the_key`,`the_value`(1000))) DEFAULT CHARSET=utf8 ENGINE=InnoDB;
+Warnings:
+Warning	1071	Specified key was too long; max key length is 767 bytes
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	0
+drop table test_prefix_truncate;
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_ERROR
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+create table test_char(a int primary key, b char(4), c varchar(4));
+insert into test_char values(1, 'xxxxx', 'yyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	1
+No Truncation
+insert into test_char values(2, 'xxxx', 'yyyy');
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	1
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_WARN
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	1
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_OFF
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+show status like 'Audit_null_general_error_instrumented';
+Variable_name	Value
+Audit_null_general_error_instrumented	1
+drop table test_char;
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
