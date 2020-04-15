@@ -6124,10 +6124,12 @@ String *Item::check_well_formed_result(String *str, bool send_error,
       return nullptr;
     }
     if (truncate && length_error) {
-      if (thd->is_strict_mode()) {
+      if (thd->is_strict_sql_mode()) {
         null_value = true;
         str = nullptr;
       } else {
+        thd->really_audit_instrumented_event =
+            thd->variables.audit_instrumented_event;
         str->length(valid_length);
       }
     }
@@ -6135,6 +6137,7 @@ String *Item::check_well_formed_result(String *str, bool send_error,
                         ER_INVALID_CHARACTER_STRING,
                         ER_THD(thd, ER_INVALID_CHARACTER_STRING),
                         replace_utf8_utf8mb3(cs->csname), hexbuf);
+    thd->really_audit_instrumented_event = 0;
   }
   return str;
 }

@@ -35,6 +35,7 @@
 #include "sql/derror.h"
 #include "sql/field.h"
 #include "sql/mdl.h"
+#include "sql/sql_audit.h"
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_lex.h"
 #include "sql/system_variables.h"
@@ -153,7 +154,7 @@ bool View_error_handler::handle_condition(THD *thd, uint sql_errno,
 */
 bool Strict_error_handler::handle_condition(
     THD *thd, uint sql_errno, const char *,
-    Sql_condition::enum_severity_level *level, const char *) {
+    Sql_condition::enum_severity_level *level, const char *msg) {
   /*
     STRICT error handler should not be effective if we have changed the
     variable to turn off STRICT mode. This is the case when a SF/SP/Trigger
@@ -163,7 +164,7 @@ bool Strict_error_handler::handle_condition(
     statement. We dont want the strict handler to be effective for the
     next SP/SF/Trigger call if it was not created in STRICT mode.
   */
-  if (!thd->is_strict_mode()) return false;
+  if (!thd->install_strict_handler()) return false;
   /* STRICT MODE should affect only the below statements */
   switch (thd->lex->sql_command) {
     case SQLCOM_SET_OPTION:
@@ -190,6 +191,45 @@ bool Strict_error_handler::handle_condition(
       return false;
   }
 
+  bool is_slave_thread = (thd->system_thread == SYSTEM_THREAD_SLAVE_SQL) ||
+                         (thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER);
+
+  /*
+    First check whether we need to error out because of
+    error_partial_strict system variable. This has higher precedence
+    than sql mode check since we end up auditing the errors
+    caused by the system variable.
+   */
+  switch (sql_errno) {
+    case ER_DATA_TOO_LONG:
+      if ((*level == Sql_condition::SL_WARNING) &&
+          thd->really_error_partial_strict && !is_slave_thread) {
+        (*level) = Sql_condition::SL_ERROR;
+
+        if (thd->variables.audit_instrumented_event > 1 &&
+            !thd->audited_event_for_command) {
+          thd->audited_event_for_command = true;
+          mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_ERROR_INSTR),
+                             sql_errno, msg, strlen(msg));
+        }
+
+        return false;
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  /*
+    We want to audit ER_DUPLICATED_VALUE_IN_TYPE but it is called with
+    Sql_condition::SL_NOTE. So set expected logging_level to SL_NOTE
+    for ER_DUPLICATED_VALUE_IN_TYPE.
+   */
+  Sql_condition::enum_severity_level logging_level =
+      sql_errno == ER_DUPLICATED_VALUE_IN_TYPE ? Sql_condition::SL_NOTE
+                                               : Sql_condition::SL_WARNING;
+
   switch (sql_errno) {
     case ER_TRUNCATED_WRONG_VALUE:
     case ER_WRONG_VALUE_FOR_TYPE:
@@ -213,16 +253,59 @@ bool Strict_error_handler::handle_condition(
     case ER_NUMERIC_JSON_VALUE_OUT_OF_RANGE:
     case ER_INVALID_JSON_VALUE_FOR_CAST:
     case ER_WARN_ALLOWED_PACKET_OVERFLOWED:
-      if ((*level == Sql_condition::SL_WARNING) &&
+      if (thd->is_strict_sql_mode() && (*level == logging_level) &&
           (!thd->get_transaction()->cannot_safely_rollback(
                Transaction_ctx::STMT) ||
            (thd->variables.sql_mode & MODE_STRICT_ALL_TABLES))) {
         (*level) = Sql_condition::SL_ERROR;
+        /*
+           Do not audit errors due to strict mode violations so break out
+           of the switch case.
+        */
+        break;
+      }
+      /* Fall through */
+      [[fallthrough]];
+      /*
+        The section below handles the audit logging for warning
+        messages in strict mode.
+       */
+    case WARN_COND_ITEM_TRUNCATED:
+    case ER_AUTO_CONVERT:
+    case ER_DUPLICATED_VALUE_IN_TYPE:
+    case ER_TOO_LONG_FIELD_COMMENT:
+    case ER_TOO_LONG_INDEX_COMMENT:
+    case ER_TOO_LONG_TABLE_COMMENT:
+    case ER_TOO_LONG_TABLE_PARTITION_COMMENT:
+    case ER_TOO_LONG_TABLESPACE_COMMENT:
+    case ER_BLOB_CANT_HAVE_DEFAULT:
+      if ((*level == logging_level) &&
+          thd->variables.audit_instrumented_event > 0 && !is_slave_thread &&
+          !thd->audited_event_for_command) {
+        thd->audited_event_for_command = true;
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_WARNING_INSTR),
+                           sql_errno, msg, strlen(msg));
       }
       break;
     default:
+      /*
+        There are some error codes (ER_WRONG_ARGUMENTS) that are
+        logged throughout the code. However only a subset of the
+        positions where they are logged end up being audited. Those
+        callers set really_audit_instrumented_event before printing
+        the warning.
+       */
+      if ((*level == logging_level) &&
+          thd->really_audit_instrumented_event > 0 &&
+          !thd->audited_event_for_command && !is_slave_thread) {
+        thd->audited_event_for_command = true;
+        mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_WARNING_INSTR),
+                           sql_errno, msg, strlen(msg));
+      }
+
       break;
   }
+
   return false;
 }
 

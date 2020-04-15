@@ -1,0 +1,394 @@
+INSTALL PLUGIN null_audit SONAME 'adt_null.<expected_extension>';
+set @@session.sql_mode='no_engine_substitution';
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_WARN
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+create table test_char(a int primary key, b char(4), c varchar(4));
+Truncation with warning
+insert into test_char values(1, 'xxxxx', 'yyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	1
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	0
+Truncation with warning
+insert into test_char values(2, 'xxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	2
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	0
+No Truncation
+insert into test_char values(3, 'xxxx', 'yyyy');
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	2
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	0
+Test audit_error also logs in case of warnings 
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_ERROR
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(4, 'xxxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	0
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_OFF
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+Truncation with warning
+insert into test_char values(5, 'xxxxx', 'yyyyy');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+Warning	1265	Data truncated for column 'c' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	0
+drop table test_char;
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_ERROR
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+@@session.error_partial_strict
+1
+create table test_char(a int primary key, b char(4), c varchar(4));
+insert into test_char values(1, 'xxxxx', 'yyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API Error is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+No Truncation
+insert into test_char values(2, 'xxxx', 'yyyy');
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_WARN
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+@@session.audit_instrumented_event
+AUDIT_OFF
+SELECT @@global.audit_instrumented_event;
+@@global.audit_instrumented_event
+AUDIT_OFF
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+ERROR 22001: Data too long for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_char;
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+create table test_tinyint(a int primary key, b tinyint);
+insert into test_tinyint values(1, 345.678);
+ERROR 22003: Out of range value for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	3
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+set @@session.sql_mode='no_engine_substitution';
+insert into test_tinyint values(1, 345.678);
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	4
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_warn';
+insert into test_tinyint values(2, 345.678);
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	5
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_off';
+insert into test_tinyint values(3, 345.678);
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	5
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_tinyint;
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+ERROR HY000: Column 'b' has duplicated value 'a' in ENUM
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	5
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+set @@session.sql_mode='no_engine_substitution';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+Warnings:
+Note	1291	Column 'b' has duplicated value 'a' in ENUM
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	6
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_enum;
+SET @@session.audit_instrumented_event='audit_warn';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+Warnings:
+Note	1291	Column 'b' has duplicated value 'a' in ENUM
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	7
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_enum;
+SET @@session.audit_instrumented_event='audit_off';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+Warnings:
+Note	1291	Column 'b' has duplicated value 'a' in ENUM
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	7
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_enum;
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+ERROR 42000: BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	7
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+set @@session.sql_mode='no_engine_substitution';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+Warnings:
+Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	8
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_blob_default;
+SET @@session.audit_instrumented_event='audit_warn';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+Warnings:
+Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	9
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_blob_default;
+SET @@session.audit_instrumented_event='audit_off';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+Warnings:
+Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	9
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_blob_default;
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+set @create_table_string = concat('create table test_max_comment(a int primary key) comment=\'', repeat('ab', 2048), '\'');
+prepare create_table from @create_table_string;
+execute create_table;
+ERROR HY000: Comment for table 'test_max_comment' is too long (max = 2048)
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	9
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+set @@session.sql_mode='no_engine_substitution';
+execute create_table;
+Warnings:
+Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	10
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_max_comment;
+SET @@session.audit_instrumented_event='audit_warn';
+execute create_table;
+Warnings:
+Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	11
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_max_comment;
+SET @@session.audit_instrumented_event='audit_off';
+execute create_table;
+Warnings:
+Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	11
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_max_comment;
+deallocate prepare create_table;
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+create table test_datetime(a int primary key, b datetime);
+insert into test_datetime values(1, '0');
+ERROR 22007: Incorrect datetime value: '0' for column 'b' at row 1
+insert into test_datetime values(1, '00/00/30000');
+ERROR 22007: Incorrect datetime value: '00/00/30000' for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	11
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+set @@session.sql_mode='no_engine_substitution';
+insert into test_datetime values(1, '0');
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+insert into test_datetime values(2, '00/00/30000');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	13
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_warn';
+insert into test_datetime values(3, '0');
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+insert into test_datetime values(4, '00/00/30000');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	15
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+SET @@session.audit_instrumented_event='audit_off';
+insert into test_datetime values(5, '0');
+Warnings:
+Warning	1264	Out of range value for column 'b' at row 1
+insert into test_datetime values(6, '00/00/30000');
+Warnings:
+Warning	1265	Data truncated for column 'b' at row 1
+verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	15
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_datetime;
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
+# restart

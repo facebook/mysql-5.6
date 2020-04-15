@@ -2885,7 +2885,7 @@ type_conversion_status Field_new_decimal::store(
       str2my_decimal(E_DEC_FATAL_ERROR & ~(E_DEC_OVERFLOW | E_DEC_BAD_NUM),
                      from, length, charset_arg, &decimal_value);
 
-  if (err != 0 && !thd->lex->is_ignore() && thd->is_strict_mode()) {
+  if (err != 0 && !thd->lex->is_ignore() && thd->install_strict_handler()) {
     ErrConvString errmsg(from, length, charset_arg);
     const Diagnostics_area *da = thd->get_stmt_da();
     push_warning_printf(
@@ -2895,7 +2895,8 @@ type_conversion_status Field_new_decimal::store(
     if (err == E_DEC_BAD_NUM) return store_value(&decimal_value);
     // Ensure that we always store something for virtual generated columns.
     if (is_virtual_gcol()) (void)store_value(&decimal_value);
-    return decimal_err_to_type_conv_status(err);
+    if (table->in_use->is_strict_sql_mode())
+      return decimal_err_to_type_conv_status(err);
   }
 
   if (err != 0) {
@@ -4519,9 +4520,10 @@ type_conversion_status Field_temporal::store(longlong nr, bool unsigned_val) {
     assert(warnings != 0);  // Must be set by convert_number_to_TIME
 
     if (warnings & (MYSQL_TIME_WARN_ZERO_DATE | MYSQL_TIME_WARN_ZERO_IN_DATE) &&
-        !current_thd->is_strict_mode())
+        !current_thd->is_strict_sql_mode())
       error = TYPE_NOTE_TIME_TRUNCATED;
   }
+
   if (warnings && set_warnings(ErrConvString(nr, unsigned_val), warnings))
     return TYPE_ERR_BAD_VALUE;
 
@@ -4541,7 +4543,7 @@ type_conversion_status Field_temporal::store_lldiv_t(const lldiv_t *lld,
     assert(warnings != nullptr);  // Must be set by convert_number_to_TIME
     if (((*warnings & MYSQL_TIME_WARN_ZERO_DATE) != 0 ||
          (*warnings & MYSQL_TIME_WARN_ZERO_IN_DATE) != 0) &&
-        !current_thd->is_strict_mode())
+        !current_thd->is_strict_sql_mode())
       error = TYPE_NOTE_TIME_TRUNCATED;
   }
 
@@ -4599,7 +4601,7 @@ type_conversion_status Field_temporal::store(const char *str, size_t len,
     reset();
     if (status.warnings &
             (MYSQL_TIME_WARN_ZERO_DATE | MYSQL_TIME_WARN_ZERO_IN_DATE) &&
-        !current_thd->is_strict_mode())
+        !current_thd->is_strict_sql_mode())
       error = TYPE_NOTE_TIME_TRUNCATED;
     else
       error = TYPE_ERR_BAD_VALUE;
@@ -6096,13 +6098,18 @@ type_conversion_status Field_longstr::report_if_important_data(
     THD *thd = current_thd;
 
     if (test_if_important_data(field_charset, pstr, end)) {
+      thd->really_error_partial_strict = thd->variables.error_partial_strict;
+
       // Warning should only be written when check_for_truncated_fields is set
       if (thd->check_for_truncated_fields) {
-        if (!thd->lex->is_ignore() && thd->is_strict_mode())
+        if (!thd->lex->is_ignore() &&
+            (thd->is_strict_sql_mode() || thd->really_error_partial_strict))
           set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
         else
           set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);
       }
+
+      thd->really_error_partial_strict = false;
       return TYPE_WARN_TRUNCATED;
     } else if (count_spaces) {
       // If we lost only spaces then produce a NOTE, not a WARNING
@@ -6163,7 +6170,7 @@ type_conversion_status Field_str::store(double nr) {
   if (error) {
     THD *thd = current_thd;
 
-    if (!thd->lex->is_ignore() && thd->is_strict_mode())
+    if (!thd->lex->is_ignore() && thd->is_strict_sql_mode())
       set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
     else
       set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);
@@ -7032,7 +7039,8 @@ type_conversion_status Field_blob::store_internal(const char *from,
       if (length > max_len) {
         store_ptr_and_length(from, max_len);
         if (thd->check_for_truncated_fields) {
-          if (thd->is_strict_mode() && !thd->lex->is_ignore())
+          if (!thd->lex->is_ignore() &&
+              (thd->is_strict_sql_mode() || thd->really_error_partial_strict))
             set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
           else
             set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);
@@ -8692,7 +8700,7 @@ type_conversion_status Field_bit::store(const char *from, size_t length,
       (!bit_len && delta < 0)) {
     set_rec_bits((1 << bit_len) - 1, bit_ptr, bit_ofs, bit_len);
     memset(ptr, 0xff, bytes_in_rec);
-    if (current_thd->is_strict_mode())
+    if (current_thd->is_strict_sql_mode())
       set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
     else
       set_warning(Sql_condition::SL_WARNING, ER_WARN_DATA_OUT_OF_RANGE, 1);
@@ -9078,7 +9086,7 @@ type_conversion_status Field_bit_as_char::store(const char *from, size_t length,
       (delta == 0 && bits && (uint)(uchar)*from >= (uint)(1 << bits))) {
     memset(ptr, 0xff, bytes_in_rec);
     if (bits) *ptr &= ((1 << bits) - 1); /* set first uchar */
-    if (current_thd->is_strict_mode())
+    if (current_thd->is_strict_sql_mode())
       set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
     else
       set_warning(Sql_condition::SL_WARNING, ER_WARN_DATA_OUT_OF_RANGE, 1);
@@ -10419,7 +10427,7 @@ Create_field *generate_create_field(THD *thd, Item *item, TABLE *tmp_table) {
        */
       table_field = nullptr;
       if (is_temporal_type_with_date(tmp_table_field->type()) &&
-          thd->is_strict_mode() && !item->is_nullable())
+          thd->is_strict_sql_mode() && !item->is_nullable())
         tmp_table_field->set_flag(NO_DEFAULT_VALUE_FLAG);
     }
   }

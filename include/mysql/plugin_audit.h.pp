@@ -124,7 +124,7 @@ int thd_killed(const void *v_thd);
 void thd_set_kill_status(const void * thd);
 void thd_binlog_pos(const void * thd, const char **file_var,
                     unsigned long long *pos_var, const char **gtid_var,
-					const char **max_gtid_var);
+                    const char **max_gtid_var);
 unsigned long thd_get_thread_id(const void * thd);
 void thd_get_xid(const void * thd, MYSQL_XID *xid);
 void *thd_get_ha_data(const void * thd, const struct handlerton *hton);
@@ -396,7 +396,9 @@ typedef enum {
   MYSQL_AUDIT_GENERAL_LOG = 1 << 0,
   MYSQL_AUDIT_GENERAL_ERROR = 1 << 1,
   MYSQL_AUDIT_GENERAL_RESULT = 1 << 2,
-  MYSQL_AUDIT_GENERAL_STATUS = 1 << 3
+  MYSQL_AUDIT_GENERAL_STATUS = 1 << 3,
+  MYSQL_AUDIT_GENERAL_WARNING_INSTR = 1 << 4,
+  MYSQL_AUDIT_GENERAL_ERROR_INSTR = 1 << 5
 } mysql_event_general_subclass_t;
 struct mysql_event_general {
   mysql_event_general_subclass_t event_subclass;
@@ -415,7 +417,7 @@ struct mysql_event_general {
   long long query_id;
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
-  unsigned int port;  
+  unsigned int port;
 };
 struct mysql_event_connection {
   mysql_event_connection_subclass_t event_subclass;

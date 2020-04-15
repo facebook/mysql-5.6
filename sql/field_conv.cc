@@ -314,7 +314,7 @@ static type_conversion_status do_copy_blob(Copy_field *,
   to_blob->set_ptr(std::min(from_length, to_field->max_data_length()),
                    from_blob->get_blob_data());
   if (to_blob->get_length() < from_length) {
-    if (current_thd->is_strict_mode()) {
+    if (current_thd->is_strict_sql_mode()) {
       to_field->set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
     } else {
       to_field->set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);

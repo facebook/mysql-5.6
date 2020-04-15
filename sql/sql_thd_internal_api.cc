@@ -321,7 +321,7 @@ size_t thd_get_tmp_table_size(const THD *thd) {
   }
 }
 
-bool thd_is_strict_mode(const THD *thd) { return thd->is_strict_mode(); }
+bool thd_is_strict_mode(const THD *thd) { return thd->is_strict_sql_mode(); }
 
 bool thd_is_error(const THD *thd) { return thd->is_error(); }
 
