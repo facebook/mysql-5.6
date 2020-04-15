@@ -320,7 +320,7 @@ static type_conversion_status do_copy_blob(Copy_field *,
   uint32 from_length = from_blob->get_length();
   to_blob->set_ptr(from_length, from_blob->get_ptr());
   if (to_blob->get_length() < from_length) {
-    if (to_field->table->in_use->is_strict_mode()) {
+    if (to_field->table->in_use->is_strict_sql_mode()) {
       to_field->set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG, 1);
     } else {
       to_field->set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);

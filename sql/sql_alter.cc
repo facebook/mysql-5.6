@@ -343,14 +343,14 @@ bool Sql_cmd_alter_table::execute(THD *thd) {
 
   /* Push Strict_error_handler for alter table*/
   Strict_error_handler strict_handler;
-  if (!thd->lex->is_ignore() && thd->is_strict_mode())
+  if (!thd->lex->is_ignore() && thd->install_strict_handler())
     thd->push_internal_handler(&strict_handler);
 
   result = mysql_alter_table(thd, alter_info.new_db_name.str,
                              alter_info.new_table_name.str, &create_info,
                              first_table, &alter_info);
 
-  if (!thd->lex->is_ignore() && thd->is_strict_mode())
+  if (!thd->lex->is_ignore() && thd->install_strict_handler())
     thd->pop_internal_handler();
   return result;
 }

@@ -926,7 +926,7 @@ bool MaterializeIterator::MaterializeRecursive() {
   Strict_error_handler strict_handler(
       Strict_error_handler::ENABLE_SET_SELECT_STRICT_ERROR_HANDLER);
   enum_check_fields save_check_for_truncated_fields{};
-  bool set_error_handler = thd()->is_strict_mode();
+  bool set_error_handler = thd()->install_strict_handler();
   if (set_error_handler) {
     save_check_for_truncated_fields = thd()->check_for_truncated_fields;
     thd()->check_for_truncated_fields = CHECK_FIELD_WARN;

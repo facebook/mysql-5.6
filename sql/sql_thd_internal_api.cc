@@ -245,7 +245,7 @@ void thd_get_autoinc(const THD *thd, ulong *off, ulong *inc) {
   *inc = thd->variables.auto_increment_increment;
 }
 
-bool thd_is_strict_mode(const THD *thd) { return thd->is_strict_mode(); }
+bool thd_is_strict_mode(const THD *thd) { return thd->is_strict_sql_mode(); }
 
 bool thd_is_error(const THD *thd) { return thd->is_error(); }
 
