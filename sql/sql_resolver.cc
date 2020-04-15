@@ -650,12 +650,12 @@ static bool simplify_const_condition(THD *thd, Item **cond, bool remove_cond,
   Strict_error_handler strict_handler;
   if (thd->lex->is_ignore())
     thd->push_internal_handler(&ignore_handler);
-  else if (thd->is_strict_mode())
+  else if (thd->install_strict_handler())
     thd->push_internal_handler(&strict_handler);
 
   bool err = eval_const_cond(thd, *cond, &cond_value);
   /* Pop ignore / strict error handler */
-  if (thd->lex->is_ignore() || thd->is_strict_mode())
+  if (thd->lex->is_ignore() || thd->install_strict_handler())
     thd->pop_internal_handler();
 
   if (err) return true;
@@ -2104,12 +2104,12 @@ bool SELECT_LEX::build_sj_cond(THD *thd, NESTED_JOIN *nested_join,
       Strict_error_handler strict_handler;
       if (thd->lex->is_ignore())
         thd->push_internal_handler(&ignore_handler);
-      else if (thd->is_strict_mode())
+      else if (thd->install_strict_handler())
         thd->push_internal_handler(&strict_handler);
 
       bool err = eval_const_cond(thd, predicate, &cond_value);
       /* Pop ignore / strict error handler */
-      if (thd->lex->is_ignore() || thd->is_strict_mode())
+      if (thd->lex->is_ignore() || thd->install_strict_handler())
         thd->pop_internal_handler();
 
       if (err) return true;

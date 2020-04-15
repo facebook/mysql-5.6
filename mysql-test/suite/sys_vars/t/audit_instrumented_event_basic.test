@@ -1,0 +1,308 @@
+--source include/have_null_audit_plugin.inc
+
+# Adjustment to the OS dependent extension of shared libraries.
+let $expected_extension= so;
+if(`SELECT CONVERT(@@version_compile_os USING latin1)
+           IN ("Win32","Win64","Windows")`)
+{
+   let $expected_extension= dll;
+}
+
+--replace_result $expected_extension <expected_extension>
+eval INSTALL PLUGIN null_audit SONAME 'adt_null.$expected_extension';
+set @@session.sql_mode='no_engine_substitution';
+
+####
+# Test VARCHAR, CHAR with truncation enabled does logging 
+####
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+create table test_char(a int primary key, b char(4), c varchar(4));
+
+--echo Truncation with warning
+insert into test_char values(1, 'xxxxx', 'yyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+--echo Truncation with warning
+insert into test_char values(2, 'xxxx', 'yyyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+--echo No Truncation
+insert into test_char values(3, 'xxxx', 'yyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+--echo Test audit_error also logs in case of warnings 
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+insert into test_char values(4, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--echo Truncation with warning
+insert into test_char values(5, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+drop table test_char;
+
+####
+# Test VARCHAR, CHAR with error_partial_strict=true logging
+####
+SET @@session.audit_instrumented_event='audit_error';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+SET @@session.error_partial_strict=true;
+SELECT @@session.error_partial_strict;
+
+create table test_char(a int primary key, b char(4), c varchar(4));
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(1, 'xxxxx', 'yyyy');
+--echo verify that audit logging API Error is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+--echo No Truncation
+insert into test_char values(2, 'xxxx', 'yyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_warn';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_off';
+SELECT @@session.audit_instrumented_event;
+SELECT @@global.audit_instrumented_event;
+
+--Error ER_DATA_TOO_LONG
+insert into test_char values(3, 'xxxxx', 'yyyyy');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+drop table test_char;
+
+####
+# Test Audit logging where both sql_mode and audit logging behavior
+# is handled inside Strict_error_handler.
+###
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+
+create table test_tinyint(a int primary key, b tinyint);
+
+--Error ER_WARN_DATA_OUT_OF_RANGE
+insert into test_tinyint values(1, 345.678);
+
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+set @@session.sql_mode='no_engine_substitution';
+
+insert into test_tinyint values(1, 345.678);
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_warn';
+insert into test_tinyint values(2, 345.678);
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_off';
+insert into test_tinyint values(3, 345.678);
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+drop table test_tinyint;
+
+####
+# Test Audit logging where sql_mode is handled outside Strict_error_handler
+# while audit logging behavior is handled inside Strict_error_handler.
+# ER_DUPLICATED_VALUE_IN_TYPE logs with SL_NOTE. Verify that it is captured
+# by audit plugin
+###
+
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+
+--Error ER_DUPLICATED_VALUE_IN_TYPE
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+set @@session.sql_mode='no_engine_substitution';
+
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_enum;
+
+SET @@session.audit_instrumented_event='audit_warn';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_enum;
+
+SET @@session.audit_instrumented_event='audit_off';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_enum;
+
+####
+# Test Audit logging where sql_mode is handled outside Strict_error_handler
+# while audit logging behavior is handled inside Strict_error_handler.
+# Test strict mode handling of default blob value
+###
+
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+
+--Error ER_BLOB_CANT_HAVE_DEFAULT
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+set @@session.sql_mode='no_engine_substitution';
+
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_blob_default;
+
+SET @@session.audit_instrumented_event='audit_warn';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_blob_default;
+
+SET @@session.audit_instrumented_event='audit_off';
+CREATE TABLE test_blob_default (a int primary key, b blob default '');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_blob_default;
+
+####
+# Test Audit logging where sql_mode is handled outside Strict_error_handler
+# while audit logging behavior is handled inside Strict_error_handler.
+# Test strict mode handling of table max comment
+###
+
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+
+set @create_table_string = concat('create table test_max_comment(a int primary key) comment=\'', repeat('ab', 2048), '\'');
+prepare create_table from @create_table_string;
+--Error ER_TOO_LONG_TABLE_COMMENT
+execute create_table;
+
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+set @@session.sql_mode='no_engine_substitution';
+
+execute create_table;
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_max_comment;
+
+SET @@session.audit_instrumented_event='audit_warn';
+execute create_table;
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_max_comment;
+
+SET @@session.audit_instrumented_event='audit_off';
+execute create_table;
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_max_comment;
+
+deallocate prepare create_table;
+
+####
+# Test Audit logging for datetime overflow warnings
+###
+
+SET @@session.sql_mode = 'strict_trans_tables,no_zero_date,no_zero_in_date,error_for_division_by_zero';
+SET @@session.audit_instrumented_event='audit_error';
+
+create table test_datetime(a int primary key, b datetime);
+
+--Error ER_TRUNCATED_WRONG_VALUE
+insert into test_datetime values(1, '0');
+--Error ER_TRUNCATED_WRONG_VALUE
+insert into test_datetime values(1, '00/00/30000');
+
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+set @@session.sql_mode='no_engine_substitution';
+
+insert into test_datetime values(1, '0');
+insert into test_datetime values(2, '00/00/30000');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_warn';
+insert into test_datetime values(3, '0');
+insert into test_datetime values(4, '00/00/30000');
+--echo verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+
+SET @@session.audit_instrumented_event='audit_off';
+insert into test_datetime values(5, '0');
+insert into test_datetime values(6, '00/00/30000');
+--echo verify that audit logging API is not called
+show status like 'Audit_null_general_warning_instr';
+show status like 'Audit_null_general_error_instr';
+drop table test_datetime;
+
+UNINSTALL PLUGIN null_audit;
+
+--source include/restart_mysqld.inc

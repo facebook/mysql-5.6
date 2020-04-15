@@ -3751,7 +3751,7 @@ static bool check_duplicates_in_interval(THD *thd, const char *set_or_name,
     tmp.count--;
     if (find_type2(&tmp, *cur_value, *cur_length, cs)) {
       ErrConvString err(*cur_value, *cur_length, cs);
-      if (thd->is_strict_mode()) {
+      if (thd->is_strict_sql_mode()) {
         my_error(ER_DUPLICATED_VALUE_IN_TYPE, MYF(0), name, err.ptr(),
                  set_or_name);
         return 1;
@@ -7850,7 +7850,7 @@ bool validate_comment_length(THD *thd, const char *comment_str,
   size_t tmp_len = system_charset_info->cset->charpos(
       system_charset_info, comment_str, comment_str + *comment_len, max_len);
   if (tmp_len < *comment_len) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       my_error(err_code, MYF(0), comment_name, static_cast<ulong>(max_len));
       DBUG_RETURN(true);
     }
@@ -7938,7 +7938,7 @@ static bool prepare_blob_field(THD *thd, Create_field *sql_field,
     /* Convert long VARCHAR columns to TEXT or BLOB */
     char warn_buff[MYSQL_ERRMSG_SIZE];
 
-    if (sql_field->constant_default || thd->is_strict_mode()) {
+    if (sql_field->constant_default || thd->is_strict_sql_mode()) {
       my_error(ER_TOO_BIG_FIELDLENGTH, MYF(0), sql_field->field_name,
                static_cast<ulong>(MAX_FIELD_VARCHARLENGTH /
                                   sql_field->charset->mbmaxlen));
@@ -13761,7 +13761,7 @@ bool prepare_fields_and_keys(THD *thd, const dd::Table *src_table, TABLE *table,
       if (def->sql_type == MYSQL_TYPE_GEOMETRY &&
           (def->flags & (NO_DEFAULT_VALUE_FLAG | NOT_NULL_FLAG)) &&
           field->type() != MYSQL_TYPE_GEOMETRY && field->maybe_null() &&
-          !thd->is_strict_mode() && !def->is_gcol()) {
+          !thd->is_strict_sql_mode() && !def->is_gcol()) {
         alter_ctx->error_if_not_empty |=
             Alter_table_ctx::GEOMETRY_WITHOUT_DEFAULT;
       }
@@ -17418,7 +17418,7 @@ static int copy_data_between_tables(
         ((alter_ctx->error_if_not_empty &
           Alter_table_ctx::DATETIME_WITHOUT_DEFAULT) &&
          (thd->variables.sql_mode & MODE_NO_ZERO_DATE) &&
-         thd->is_strict_mode())) {
+         thd->is_strict_sql_mode())) {
       error = 1;
       break;
     }

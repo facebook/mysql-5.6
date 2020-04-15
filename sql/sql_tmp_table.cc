@@ -432,7 +432,7 @@ Field *create_tmp_field(THD *thd, TABLE *table, Item *item, Item::Type type,
       break;
     case Item::TYPE_HOLDER:
       result = ((Item_type_holder *)item)
-                   ->make_field_by_type(table, thd->is_strict_mode());
+                   ->make_field_by_type(table, thd->is_strict_sql_mode());
       if (!result) break;
       result->set_derivation(item->collation.derivation);
       break;

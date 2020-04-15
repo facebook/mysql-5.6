@@ -43,7 +43,7 @@ typedef struct CHARSET_INTO CHARSET_INFO;
 #include "my_sqlcommand.h"
 #include "plugin_audit_message_types.h"
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0402
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0403
 
 /**
  @enum mysql_event_class_t
@@ -122,12 +122,18 @@ typedef enum {
   /** occurs after transmitting a resultset to the user. */
   MYSQL_AUDIT_GENERAL_RESULT = 1 << 2,
   /** occurs after transmitting a resultset or errors */
-  MYSQL_AUDIT_GENERAL_STATUS = 1 << 3
+  MYSQL_AUDIT_GENERAL_STATUS = 1 << 3,
+  /** occurs after instrumented warning is logged */
+  MYSQL_AUDIT_GENERAL_WARNING_INSTR = 1 << 4,
+  /** occurs after instrumented error is logged */
+  MYSQL_AUDIT_GENERAL_ERROR_INSTR = 1 << 5
 } mysql_event_general_subclass_t;
 
-#define MYSQL_AUDIT_GENERAL_ALL                          \
-  (MYSQL_AUDIT_GENERAL_LOG | MYSQL_AUDIT_GENERAL_ERROR | \
-   MYSQL_AUDIT_GENERAL_RESULT | MYSQL_AUDIT_GENERAL_STATUS)
+#define MYSQL_AUDIT_GENERAL_ALL                              \
+  (MYSQL_AUDIT_GENERAL_LOG | MYSQL_AUDIT_GENERAL_ERROR |     \
+   MYSQL_AUDIT_GENERAL_RESULT | MYSQL_AUDIT_GENERAL_STATUS | \
+   MYSQL_AUDIT_GENERAL_WARNING_INSTR | MYSQL_AUDIT_GENERAL_ERROR_INSTR)
+
 /**
   @struct mysql_event_general
 

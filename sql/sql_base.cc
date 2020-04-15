@@ -2998,7 +2998,7 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx) {
   if (check_stack_overrun(thd, STACK_MIN_SIZE_FOR_OPEN, (uchar *)&alias))
     DBUG_RETURN(true);
 
-  // New DD- In current_thd->is_strict_mode() mode we call open_table
+  // New DD- In current_thd->is_strict_sql_mode() mode we call open_table
   // on new DD tables like mysql.tables/* when CREATE fails and we
   // try to abort the operation and invoke quick_rm_table().
   // Currently, we ignore deleting table in strict mode. Need to fix this.

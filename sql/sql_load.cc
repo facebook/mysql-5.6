@@ -1981,13 +1981,13 @@ bool Sql_cmd_load_table::execute(THD *thd) {
   Strict_error_handler strict_handler;
   if (thd->lex->is_ignore())
     thd->push_internal_handler(&ignore_handler);
-  else if (thd->is_strict_mode())
+  else if (thd->install_strict_handler())
     thd->push_internal_handler(&strict_handler);
 
   bool res = execute_inner(thd, lex->duplicates);
 
   /* Pop ignore / strict error handler */
-  if (thd->lex->is_ignore() || thd->is_strict_mode())
+  if (thd->lex->is_ignore() || thd->install_strict_handler())
     thd->pop_internal_handler();
 
   return res;

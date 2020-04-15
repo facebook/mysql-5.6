@@ -1040,10 +1040,10 @@ bool sp_instr_set_trigger_field::exec_core(THD *thd, uint *nextp) {
     to the Field objects (NEW.<variable_name>= <Invalid value>),
     it should not be allowed.
   */
-  if (thd->is_strict_mode() && !thd->lex->is_ignore())
+  if (thd->install_strict_handler() && !thd->lex->is_ignore())
     thd->push_internal_handler(&strict_handler);
   bool error = m_trigger_field->set_value(thd, &m_value_item);
-  if (thd->is_strict_mode() && !thd->lex->is_ignore())
+  if (thd->install_strict_handler() && !thd->lex->is_ignore())
     thd->pop_internal_handler();
   return error;
 }

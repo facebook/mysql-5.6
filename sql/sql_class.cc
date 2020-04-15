@@ -417,6 +417,8 @@ THD::THD(bool enable_plugins)
       in_lock_tables(0),
       derived_tables_processing(false),
       parsing_system_view(false),
+      really_error_partial_strict(false),
+      really_audit_instrumented_event(0),
       sp_runtime_ctx(NULL),
       m_parser_state(NULL),
       work_part_info(NULL),

@@ -5625,16 +5625,19 @@ String *Item::check_well_formed_result(String *str, bool send_error,
       return 0;
     }
     if (truncate && length_error) {
-      if (thd->is_strict_mode()) {
+      if (thd->is_strict_sql_mode()) {
         null_value = 1;
         str = 0;
       } else {
+        thd->really_audit_instrumented_event =
+            thd->variables.audit_instrumented_event;
         str->length(valid_length);
       }
     }
     push_warning_printf(
         thd, Sql_condition::SL_WARNING, ER_INVALID_CHARACTER_STRING,
         ER_THD(thd, ER_INVALID_CHARACTER_STRING), cs->csname, hexbuf);
+    thd->really_audit_instrumented_event = 0;
   }
   return str;
 }

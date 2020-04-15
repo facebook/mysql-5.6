@@ -5128,12 +5128,12 @@ bool Item_cond::remove_const_conds(THD *thd, Item *item, Item **new_item) {
   Strict_error_handler strict_handler;
   if (thd->lex->is_ignore())
     thd->push_internal_handler(&ignore_handler);
-  else if (thd->is_strict_mode())
+  else if (thd->install_strict_handler())
     thd->push_internal_handler(&strict_handler);
 
   bool err = eval_const_cond(thd, item, &cond_value);
   /* Pop ignore / strict error handler */
-  if (thd->lex->is_ignore() || thd->is_strict_mode())
+  if (thd->lex->is_ignore() || thd->install_strict_handler())
     thd->pop_internal_handler();
 
   if (err) return true;

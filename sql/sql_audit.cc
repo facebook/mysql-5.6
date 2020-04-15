@@ -394,7 +394,9 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
 
   if (subclass == MYSQL_AUDIT_GENERAL_ERROR ||
       subclass == MYSQL_AUDIT_GENERAL_STATUS ||
-      subclass == MYSQL_AUDIT_GENERAL_RESULT) {
+      subclass == MYSQL_AUDIT_GENERAL_RESULT ||
+      subclass == MYSQL_AUDIT_GENERAL_WARNING_INSTR ||
+      subclass == MYSQL_AUDIT_GENERAL_ERROR_INSTR) {
     Ignore_event_error_handler handler(thd, subclass_name);
 
     return handler.get_result(

@@ -334,7 +334,7 @@ static type_conversion_status do_copy_blob(Copy_field *copy) {
   memcpy(copy->to_ptr, copy->from_ptr, sizeof(char *));
   ulong to_length = ((Field_blob *)copy->to_field())->get_length();
   if (to_length < from_length) {
-    if (copy->to_field()->table->in_use->is_strict_mode()) {
+    if (copy->to_field()->table->in_use->is_strict_sql_mode()) {
       copy->to_field()->set_warning(Sql_condition::SL_WARNING, ER_DATA_TOO_LONG,
                                     1);
     } else {

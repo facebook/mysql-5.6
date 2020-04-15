@@ -421,7 +421,7 @@ bool Sql_cmd_dml::prepare(THD *thd) {
     if (lex->is_ignore()) {
       thd->push_internal_handler(&ignore_handler);
       error_handler_active = true;
-    } else if (thd->is_strict_mode()) {
+    } else if (thd->install_strict_handler()) {
       thd->push_internal_handler(&strict_handler);
       error_handler_active = true;
     }
@@ -679,7 +679,7 @@ bool Sql_cmd_dml::execute(THD *thd) {
       */
       if (lex->sql_command == SQLCOM_UPDATE)
         lex->set_stmt_unsafe(LEX::BINLOG_STMT_UNSAFE_UPDATE_IGNORE);
-    } else if (thd->is_strict_mode()) {
+    } else if (thd->install_strict_handler()) {
       thd->push_internal_handler(&strict_handler);
       error_handler_active = true;
     }

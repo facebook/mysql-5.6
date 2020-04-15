@@ -219,7 +219,7 @@ static int assign_condition_item(MEM_ROOT *mem_root, const char *name, THD *thd,
   str = set->val_str(&str_value);
   truncated = assign_fixed_string(mem_root, &my_charset_utf8_bin, 64, ci, str);
   if (truncated) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       thd->raise_error_printf(ER_COND_ITEM_TOO_LONG, name);
       DBUG_RETURN(1);
     }
@@ -306,7 +306,7 @@ int Sql_cmd_common_signal::eval_signal_informations(THD *thd,
     truncated = assign_fixed_string(thd->mem_root, &my_charset_utf8_bin, 128,
                                     &utf8_text, str);
     if (truncated) {
-      if (thd->is_strict_mode()) {
+      if (thd->is_strict_sql_mode()) {
         thd->raise_error_printf(ER_COND_ITEM_TOO_LONG, "MESSAGE_TEXT");
         goto end;
       }

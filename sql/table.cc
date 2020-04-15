@@ -2638,7 +2638,7 @@ bool unpack_value_generator(THD *thd, TABLE *table,
   DBUG_ASSERT((*val_generator)->expr_item && !(*val_generator)->expr_str.str);
 
   /* Use strict mode regardless of strict mode setting when validating */
-  if (!thd->is_strict_mode()) {
+  if (!thd->is_strict_sql_mode()) {
     thd->variables.sql_mode |= MODE_STRICT_ALL_TABLES;
     thd->push_internal_handler(&strict_handler);
     disable_strict_mode = true;

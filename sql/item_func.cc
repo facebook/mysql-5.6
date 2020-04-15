@@ -4275,11 +4275,14 @@ longlong Item_master_pos_wait::val_int() {
   longlong pos = (ulong)args[1]->val_int();
   double timeout = (arg_count >= 3) ? args[2]->val_real() : 0;
   if (timeout < 0) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0), "MASTER_POS_WAIT.");
     } else {
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
       push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
                           ER_THD(thd, ER_WRONG_ARGUMENTS), "MASTER_POS_WAIT.");
+      thd->really_audit_instrumented_event = 0;
       null_value = 1;
     }
     return 0;
@@ -4388,12 +4391,15 @@ longlong Item_wait_for_executed_gtid_set::val_int() {
 
   double timeout = (arg_count == 2) ? args[1]->val_real() : 0;
   if (timeout < 0) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0), "WAIT_FOR_EXECUTED_GTID_SET.");
     } else {
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
       push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
                           ER_THD(thd, ER_WRONG_ARGUMENTS),
                           "WAIT_FOR_EXECUTED_GTID_SET.");
+      thd->really_audit_instrumented_event = 0;
       null_value = 1;
     }
     gtid_state->end_gtid_wait();
@@ -4428,13 +4434,16 @@ longlong Item_master_gtid_set_wait::val_int() {
   Master_info *mi = NULL;
   double timeout = (arg_count >= 2) ? args[1]->val_real() : 0;
   if (timeout < 0) {
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS.");
     } else {
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
       push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
                           ER_THD(thd, ER_WRONG_ARGUMENTS),
                           "WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS.");
+      thd->really_audit_instrumented_event = 0;
       null_value = 1;
     }
     DBUG_RETURN(0);
@@ -5213,12 +5222,15 @@ longlong Item_func_sleep::val_int() {
   */
 
   if (args[0]->null_value || timeout < 0) {
-    if (!thd->lex->is_ignore() && thd->is_strict_mode()) {
+    if (!thd->lex->is_ignore() && thd->is_strict_sql_mode()) {
       my_error(ER_WRONG_ARGUMENTS, MYF(0), "sleep.");
       return 0;
     } else
-      push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
-                          ER_THD(thd, ER_WRONG_ARGUMENTS), "sleep.");
+      thd->really_audit_instrumented_event =
+          thd->variables.audit_instrumented_event;
+    push_warning_printf(thd, Sql_condition::SL_WARNING, ER_WRONG_ARGUMENTS,
+                        ER_THD(thd, ER_WRONG_ARGUMENTS), "sleep.");
+    thd->really_audit_instrumented_event = 0;
   }
   /*
     On 64-bit OSX mysql_cond_timedwait() waits forever

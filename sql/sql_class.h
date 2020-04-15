@@ -2472,6 +2472,13 @@ class THD : public MDL_context_owner,
   // Set while parsing INFORMATION_SCHEMA system views.
   bool parsing_system_view;
 
+  /**
+     Transiently enabled when we need to error/log for strict mode violations.
+     Uses system variables error_partial_strict/audit_instrumented_event
+  */
+  bool really_error_partial_strict;
+  ulong really_audit_instrumented_event;
+
   /** Current SP-runtime context. */
   sp_rcontext *sp_runtime_ctx;
   sp_cache *sp_proc_cache;
@@ -2767,10 +2774,15 @@ class THD : public MDL_context_owner,
 
   // End implementation of MDL_context_owner interface.
 
-  inline bool is_strict_mode() const {
+  inline bool install_strict_handler() const {
+    return is_strict_sql_mode() || variables.error_partial_strict ||
+           variables.audit_instrumented_event > 0;
+  }
+  inline bool is_strict_sql_mode() const {
     return (variables.sql_mode &
             (MODE_STRICT_TRANS_TABLES | MODE_STRICT_ALL_TABLES));
   }
+
   inline const CHARSET_INFO *collation() {
     return variables.collation_server ? variables.collation_server
                                       : default_charset_info;

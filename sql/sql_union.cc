@@ -994,7 +994,7 @@ class Recursive_executor {
       For a non-recursive UNION, truncation shouldn't happen as all UNION
       members participated in type calculation.
     */
-    if (thd->is_strict_mode()) {
+    if (thd->is_strict_sql_mode()) {
       flags |= POP_HANDLER;
       save_check_for_truncated_fields = thd->check_for_truncated_fields;
       thd->check_for_truncated_fields = CHECK_FIELD_WARN;
