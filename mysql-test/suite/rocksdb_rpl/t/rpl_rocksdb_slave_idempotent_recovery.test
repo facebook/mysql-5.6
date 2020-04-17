@@ -1,0 +1,47 @@
+source include/master-slave.inc;
+source include/have_slave_use_idempotent_for_recovery.inc;
+source include/have_debug.inc;
+
+call mtr.add_suppression("Error in Log_event::read_log_event()");
+call mtr.add_suppression("Recovery from master pos");
+call mtr.add_suppression("Slave SQL.*Could not execute Delete_rows event on table test.t.* Error_code: 1032");
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1032");
+call mtr.add_suppression("Slave SQL.*Could not execute Update_rows event on table test.t.* Error_code: 1062");
+
+let $engine= rocksdb;
+
+connection master;
+let $img_type_save= `select @@global.binlog_row_image`;
+
+SET @img_types= 'FULL COMPLETE';
+while (`SELECT HEX(@img_types) != HEX('')`)
+{
+  let $img_type= `SELECT SUBSTRING_INDEX(@img_types, ' ', 1)`;
+  let $rpl_server_parameters= --binlog_row_image=$img_type;
+
+  connection master;
+  eval set @@global.binlog_row_image= $img_type;
+  eval set @@session.binlog_row_image= $img_type;
+
+  connection slave;
+  source include/stop_slave.inc;
+  eval set @@global.binlog_row_image= $img_type;
+  source include/start_slave.inc;
+
+  source extra/rpl_tests/rpl_slave_idempotent_recovery.inc;
+  source extra/rpl_tests/rpl_slave_idempotent_recovery_overwrite.inc;
+
+  connection master;
+  eval SET @img_types= LTRIM(SUBSTRING(@img_types, LENGTH('$img_type') + 1));
+}
+
+connection master;
+eval set @@global.binlog_row_image= $img_type_save;
+eval set @@session.binlog_row_image= $img_type_save;
+
+connection slave;
+source include/stop_slave.inc;
+eval set @@global.binlog_row_image= $img_type_save;
+source include/start_slave.inc;
+
+source include/rpl_end.inc;
