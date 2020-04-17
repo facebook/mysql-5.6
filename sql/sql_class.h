@@ -1528,6 +1528,12 @@ class THD : public MDL_context_owner,
   */
   bool is_current_stmt_binlog_disabled() const;
 
+  /* Flag which tells us if the current trx/stmt needs to produce binlogs using
+     row logging functions (see @force_write_to_binlog()). Currently this is
+     being used only during idempotent recovery where we log the relay log
+     contents instead of generating from logging functions */
+  bool m_skip_row_logging_functions = false;
+
   /**
     Determine if binlogging is currently disabled for this session.
     If the binary log is disabled for this thread (either by log_bin=0 or
