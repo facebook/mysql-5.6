@@ -3094,6 +3094,46 @@ bool Log_event::is_row_log_event() const noexcept {
 }
 
 /**
+ * Checks if the event needs to run in idempotent recovery mode and sets
+ * things up if it's required
+ */
+void Log_event::check_and_set_idempotent_recovery(Relay_log_info *rli,
+                                                  const char *gtid) {
+  if (!is_row_log_event()) {
+    return;
+  }
+
+  DBUG_EXECUTE_IF("dbg_enable_idempotent_recovery", {
+    Gtid current_gtid;
+    current_gtid.clear();
+    rli->recovery_sid_lock.rdlock();
+    DBUG_ASSERT(current_gtid.parse(&rli->recovery_sid_map, gtid) ==
+                RETURN_STATUS_OK);
+    rli->recovery_sid_lock.unlock();
+    rli->recovery_max_engine_gtid = current_gtid;
+  });
+
+  // Check if idempotent mode is required (used after crash recovery)
+  if (gtid[0] != '\0' && thd->is_enabled_idempotent_recovery() &&
+      !rli->recovery_max_engine_gtid.is_empty()) {
+    Gtid current_gtid;
+    current_gtid.clear();
+    rli->recovery_sid_lock.rdlock();
+    current_gtid.parse(&rli->recovery_sid_map, gtid);
+    rli->recovery_sid_lock.unlock();
+
+    if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
+        current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
+      sql_print_information("Enabling idempotent mode for %s", gtid);
+      rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
+      auto rev = static_cast<Rows_log_event *>(this);
+      rev->m_force_binlog_idempotent = true;
+      thd->m_skip_row_logging_functions = true;
+    }
+  }
+}
+
+/**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
    Worker.  A special case of the association is NULL when the Worker
@@ -3240,6 +3280,8 @@ int Log_event::apply_event(Relay_log_info *rli) {
         DBUG_ASSERT(actual_exec_mode == EVENT_EXEC_ASYNC);
       }
     }
+
+    check_and_set_idempotent_recovery(rli, rli->last_gtid);
 
     int error = do_apply_event(rli);
 
@@ -9549,6 +9591,9 @@ static void restore_empty_query_table_list(LEX *lex) {
 int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
   int error = 0;
 
+  // reset the row logging function flag
+  thd->m_skip_row_logging_functions = false;
+
   reset_log_pos();
   // Table map events are necessary before every row event.
   if (write_locked_table_maps(thd)) return HA_ERR_RBR_LOGGING_FAILED;
@@ -9590,6 +9635,8 @@ int Rows_log_event::force_write_to_binlog(Relay_log_info *rli) {
       is_after_image = true;
     }
 
+    prepare_record(m_table, cols, false);
+
     if ((error = unpack_current_row(rli, cols, is_after_image))) goto end;
 
     // advance m_curr_row
@@ -9622,6 +9669,62 @@ end:
   m_curr_row = saved_m_curr_row;
   m_curr_row_end = saved_m_curr_row_end;
   return error;
+}
+
+/**
+ * Checks if we can recover this during idempotent recovery
+ *
+ * @param rli           IN      Relay_log_info object
+ * @param err_msg       OUT     The msg string for specific error encountered
+ *
+ * @return              True if all good, False otherwise
+ */
+bool Rows_log_event::can_use_idempotent_recovery(Relay_log_info const *rli,
+                                                 std::string &err_msg) const {
+  DBUG_ASSERT(m_table);
+
+  // case: no idempotent recovery, no problem!
+  if (!m_force_binlog_idempotent) return true;
+
+  const std::string table_name = std::string(m_table->s->db.str) + "." +
+                                 std::string(m_table->s->table_name.str);
+
+  const std::string pos = std::string(rli->get_rpl_log_name()) + ":" +
+                          std::to_string(common_header->log_pos);
+
+  // case: idempotent recovery only works when we can reconstruct the entire row
+  // from the event (i.e. binlog_row_image = COMPLETE/FULL)
+  if (!bitmap_is_set_all(&m_cols)) {
+    err_msg =
+        "Found row event with incomplete column information. Check value "
+        "of binlog_row_image on the master, only COMPLETE and FULL are "
+        "supported when slave_use_idempotent_recovery is enabled. "
+        "Log position: " +
+        pos;
+    return false;
+  }
+  List<FOREIGN_KEY_INFO> f_key_list;
+  m_table->file->get_foreign_key_list(thd, &f_key_list);
+  // case: we can't handle foreign key references but we just print a warning
+  // for now
+  if (m_table->file->referenced_by_foreign_key() || !f_key_list.is_empty()) {
+    err_msg = "Cannot use idempotent recovery if table uses foreign keys: " +
+              table_name + ". Log position: " + pos;
+    sql_print_warning("%s", err_msg.c_str());
+  }
+  // case: if we are not using PK for lookup we abort immediately (except when
+  // the engine is BLACKHOLE or no lookup is needed)
+  if ((m_table->s->primary_key == MAX_KEY ||
+       (m_rows_lookup_algorithm != ROW_LOOKUP_NOT_NEEDED &&
+        m_key_index != m_table->s->primary_key)) &&
+      strcmp(m_table->file->table_type(), "BLACKHOLE") != 0) {
+    err_msg =
+        "Found table without primary key while performing idempotent "
+        "recovery: " +
+        table_name + ". Log position: " + pos;
+    return false;
+  }
+  return true;
 }
 
 int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
@@ -10061,23 +10164,6 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
         DBUG_ASSERT(false);
     }
 
-    // check if idempotent mode is required (used after crash recovery)
-    if (rli->last_gtid[0] != '\0' && thd->is_enabled_idempotent_recovery() &&
-        !rli->recovery_max_engine_gtid.is_empty()) {
-      Gtid current_gtid;
-      global_sid_lock->rdlock();
-      current_gtid.parse(global_sid_map, rli->last_gtid);
-      global_sid_lock->unlock();
-
-      if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
-          current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
-        sql_print_information("Enabling idempotent mode for %s",
-                              rli->last_gtid);
-        this->rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
-        m_force_binlog_idempotent = true;
-      }
-    }
-
     if (!m_force_binlog_idempotent) {
       if (thd->slave_thread)  // fix the mode for slave
         this->rbr_exec_mode = slave_exec_mode_options;
@@ -10087,6 +10173,16 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
 
     // Do event specific preparations
     error = do_before_row_operations(rli, tabledef);
+
+    std::string idempotent_recovery_err_msg;
+    if (!can_use_idempotent_recovery(rli, idempotent_recovery_err_msg)) {
+      rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                  ER_THD(thd, ER_SLAVE_FATAL_ERROR),
+                  idempotent_recovery_err_msg.c_str());
+      error = ER_SLAVE_FATAL_ERROR;
+      thd->reset_db(current_db_name_saved);
+      goto err;
+    }
 
     /*
       Bug#56662 Assertion failed: next_insert_id == 0, file handler.cc
@@ -10238,19 +10334,6 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     // correctly NOTE: error will be set to 0 in
     // handle_idempotent_and_ignored_errors() if there was an idempotent error
     if (m_force_binlog_idempotent && !error) {
-      if (table->s->primary_key == MAX_KEY &&
-          strcmp(table->file->table_type(), "BLACKHOLE") != 0) {
-        char buf[256];
-        snprintf(buf, sizeof(buf),
-                 "Found table without primary key while performing idempotent "
-                 "recovery: %s.%s",
-                 table->s->db.str, table->s->table_name.str);
-        rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
-                    ER_THD(thd, ER_SLAVE_FATAL_ERROR), buf);
-        error = ER_SLAVE_FATAL_ERROR;
-        thd->reset_db(current_db_name_saved);
-        goto err;
-      }
       DBUG_ASSERT(rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT);
       DBUG_ASSERT(thd->is_enabled_idempotent_recovery());
 
@@ -12815,11 +12898,114 @@ int Update_rows_log_event::do_after_row_operations(
   DBUG_RETURN(error);
 }
 
+int Update_rows_log_event::force_update(Relay_log_info const *rli,
+                                        const uchar *const curr_row) {
+  int error = 0;
+  DBUG_ASSERT(m_table);
+
+  /**
+   * NOTE: At this point record[1] will have the current engine image for the
+   * row (which might be different from the BI in the binlog event) and
+   * record[0] will have the after image overlayed on record[1]. When
+   * binlog_row_image is FULL record[0] will have the actual binlog row but when
+   * it's COMPLETE it'll have only the changed columns overwritten on the
+   * current engine image (record[1]). So, to insert the correct values for all
+   * columns we unpack the BI again from the binlog and then unpack the AI over
+   * it to get the correct full version of the row that needs to be inserted.
+   *
+   * In idempotent recovery case, just changing the cols in the AI should also
+   * work since all mutations to other cols that don't match the current event
+   * will be applied eventually. So, theoretically we could directly use
+   * record[0]/[1] but this makes thinking about edge cases harder. The
+   * invariant that force update of an event (or transaction) will bring the DB
+   * to the state as if all rows were updated normally will break if we don't
+   * construct records from the event, and that's a good invariant to have
+   * during recovery. This is why we don't support row images which do not
+   * enable contruction of full rows from BI and AI (e.g. MINIMAL and NOBLOB).
+   * This is why we're checking for bitmap_is_set_all(&m_cols) below.
+   *
+   * TODO: Handle foreign keys
+   */
+
+  if (!bitmap_is_set_all(&m_cols)) return HA_ERR_GENERIC;
+
+  error = m_table->file->ha_delete_row(m_table->record[1]);
+  if (error == HA_ERR_KEY_NOT_FOUND) error = 0;
+  if (error) return error;
+
+  // reconstruct the row that need to be inserted (see note above)
+  auto row_start = curr_row;
+  uchar *row_end = NULL;
+  bool has_value_options =
+      (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
+  prepare_record(m_table, &m_cols, false);
+
+  // unpack BI into record[0]
+  error = unpack_row(rli, m_table, m_width, row_start, &m_cols,
+                     const_cast<const uchar **>(&row_end), m_rows_end,
+                     enum_row_image_type::UPDATE_BI, has_value_options, false,
+                     thd->row_query);
+  row_start = row_end;
+  // unpack AI into record[0] (if binlog_row_image is FULL we overwrite all
+  // cols, if it's COMPLETE we overwrite only changed cols)
+  error = error || unpack_row(rli, m_table, m_width, row_start, &m_cols_ai,
+                              const_cast<const uchar **>(&row_end), m_rows_end,
+                              enum_row_image_type::UPDATE_AI, has_value_options,
+                              false, thd->row_query);
+
+  char *key = nullptr;
+  while (!error && (error = m_table->file->ha_write_row(m_table->record[0]))) {
+    if (error != HA_ERR_FOUND_DUPP_UNIQUE && error != HA_ERR_FOUND_DUPP_KEY)
+      break;
+
+    int keynum = m_table->file->get_dup_key(error);
+    if (keynum < 0) return HA_ERR_GENERIC;
+
+    if ((m_table->file->ha_table_flags() & HA_DUPLICATE_POS)) {
+      if (m_table->file->inited) error = m_table->file->ha_index_end();
+      error = error || m_table->file->ha_rnd_init(false);
+      error = error || m_table->file->ha_rnd_pos(m_table->record[1],
+                                                 m_table->file->dup_ref);
+      m_table->file->ha_rnd_end();
+    } else {
+      if (keynum == MAX_KEY) return HA_ERR_GENERIC;
+
+      if (key == nullptr) {
+        key = static_cast<char *>(my_alloca(m_table->s->max_unique_length));
+        if (key == nullptr) {
+          DBUG_PRINT("info", ("Can't allocate key buffer"));
+          return ENOMEM;
+        }
+      }
+
+      key_copy((uchar *)key, m_table->record[0], m_table->key_info + keynum, 0);
+      error = m_table->file->ha_index_read_idx_map(
+          m_table->record[1], keynum, (const uchar *)key, HA_WHOLE_KEY,
+          HA_READ_KEY_EXACT);
+    }
+    /* At this point record[1] should contain the offending row */
+    error = error || m_table->file->ha_delete_row(m_table->record[1]);
+  }
+  // case: force_update() either passes or fails, so we convert idempotent
+  // errors to a hard error which cannot be ignored
+  if (error && idempotent_error_code(error)) {
+    sql_print_error(
+        "Got an idempotent error during "
+        "Update_rows_log_event::force_update(), "
+        "error: %d, pos: %s:%llu",
+        error, rli->get_rpl_log_name(), common_header->log_pos);
+    error = HA_ERR_GENERIC;
+  }
+  return error;
+}
+
 int Update_rows_log_event::do_exec_row(const Relay_log_info *const rli) {
   DBUG_ASSERT(m_table != nullptr);
   int error = 0;
   const bool invoke_triggers =
       slave_run_triggers_for_rbr && !master_had_triggers && m_table->triggers;
+
+  const uchar *const saved_curr_row = m_curr_row;
 
   /*
     This is the situation after locating BI:
@@ -12857,7 +13043,11 @@ int Update_rows_log_event::do_exec_row(const Relay_log_info *const rli) {
     error = HA_ERR_GENERIC;  // in case if error is not set yet
     goto err;
   }
-  error = m_table->file->ha_update_row(m_table->record[1], m_table->record[0]);
+  if (m_force_binlog_idempotent)
+    error = force_update(rli, saved_curr_row);
+  else
+    error =
+        m_table->file->ha_update_row(m_table->record[1], m_table->record[0]);
   if (error == HA_ERR_RECORD_IS_THE_SAME) error = 0;
   if (invoke_triggers && !error &&
       process_triggers(TRG_EVENT_UPDATE, TRG_ACTION_AFTER, true))

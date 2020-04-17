@@ -7701,6 +7701,12 @@ int binlog_log_row(TABLE *table, const uchar *before_record,
   bool error = 0;
   THD *const thd = table->in_use;
 
+  // case: In some cases we don't want to use the logging functions to produce
+  // binlogs e.g. idempotent recovery where the relay log contents will be
+  // written to binlog in @Rows_log_event::force_write_to_binlog() (see:
+  // @slave_use_idempotent_for_recovery)
+  if (unlikely(thd->m_skip_row_logging_functions)) return 0;
+
   if (check_table_binlog_row_based(thd, table)) {
     if (thd->variables.transaction_write_set_extraction != HASH_ALGORITHM_OFF) {
       if (before_record && after_record) {

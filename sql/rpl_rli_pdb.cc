@@ -1859,24 +1859,7 @@ int Slave_worker::slave_worker_exec_event(Log_event *ev) {
   set_master_log_pos(static_cast<ulong>(ev->common_header->log_pos));
   set_gaq_index(ev->mts_group_idx);
 
-  // Check if idempotent mode is required (used after crash recovery)
-  if (ev->is_row_log_event() && worker_last_gtid[0] != '\0' &&
-      thd->is_enabled_idempotent_recovery() &&
-      !rli->recovery_max_engine_gtid.is_empty()) {
-    Gtid current_gtid;
-    rli->recovery_sid_lock.rdlock();
-    current_gtid.parse(&rli->recovery_sid_map, worker_last_gtid);
-    rli->recovery_sid_lock.unlock();
-
-    if (current_gtid.sidno == rli->recovery_max_engine_gtid.sidno &&
-        current_gtid.gno <= rli->recovery_max_engine_gtid.gno) {
-      sql_print_information("Enabling idempotent mode for %s",
-                            worker_last_gtid);
-      ev->rbr_exec_mode = RBR_EXEC_MODE_IDEMPOTENT;
-      auto rev = static_cast<Rows_log_event *>(ev);
-      rev->m_force_binlog_idempotent = true;
-    }
-  }
+  ev->check_and_set_idempotent_recovery(rli, worker_last_gtid);
 
   ret = ev->do_apply_event_worker(this);
 
