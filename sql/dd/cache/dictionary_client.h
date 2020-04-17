@@ -877,6 +877,24 @@ class Dictionary_client {
       MY_ATTRIBUTE((warn_unused_result));
 
   /**
+    Fetch the names of the tables in the schema belonging to specific
+    storage engine. E.g., Object with dd::Table::hidden() == true will be
+    ignored.
+
+    @param         schema         Schema for which to get component names.
+    @param         engine         Engine name of tables to match.
+    @param   [out] names          An std::vector containing all object names.
+
+    @return      true   Failure (error is reported).
+    @return      false  Success.
+  */
+
+  bool fetch_schema_table_names_by_engine(const Schema *schema,
+                                          const String_type &engine,
+                                          std::vector<String_type> *names) const
+      MY_ATTRIBUTE((warn_unused_result));
+
+  /**
     Fetch all global component ids of the given type.
 
     @tparam        T              Type of components to get.
