@@ -1291,6 +1291,13 @@ class Log_event {
   */
   virtual bool ends_group() const { return false; }
 #ifdef MYSQL_SERVER
+
+  /**
+   * Checks if the event needs to run in idempotent recovery mode and sets
+   * things up if it's required
+   */
+  void check_and_set_idempotent_recovery(Relay_log_info *rli, const char *gtid);
+
   /**
      Apply the event to the database.
 
@@ -3133,6 +3140,8 @@ class Rows_log_event : public virtual binary_log::Rows_event, public Log_event {
   int do_update_pos(Relay_log_info *rli) override;
   enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
   int force_write_to_binlog(Relay_log_info *rli);
+  bool can_use_idempotent_recovery(Relay_log_info const *rli,
+                                   std::string &err_msg) const;
 
   /*
     Primitive to prepare for a sequence of row executions.
@@ -3519,6 +3528,9 @@ class Update_rows_log_event : public Rows_log_event,
 
   int skip_after_image_for_update_event(const Relay_log_info *rli,
                                         const uchar *curr_bi_start) override;
+
+  /* performs update by using delete + forced insert */
+  int force_update(Relay_log_info const *rli, const uchar *const curr_row);
 
  private:
   /**
