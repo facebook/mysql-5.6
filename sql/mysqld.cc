@@ -9757,6 +9757,12 @@ static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff)
   return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
 }
 
+static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff)
+{
+  update_malloc_status();
+  return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
+}
+
 bool enable_jemalloc_hppfunc(char *enable_profiling_ptr)
 {
   std::string epp(enable_profiling_ptr);
@@ -10677,6 +10683,7 @@ SHOW_VAR status_vars[]= {
   {"Jemalloc_stats_active",    (char*) &show_jemalloc_active,           SHOW_FUNC},
   {"Jemalloc_stats_allocated", (char*) &show_jemalloc_allocated,        SHOW_FUNC},
   {"Jemalloc_stats_mapped",    (char*) &show_jemalloc_mapped,           SHOW_FUNC},
+  {"Jemalloc_stats_metadata",  (char*) &show_jemalloc_metadata,         SHOW_FUNC},
 #endif
 #endif
   {"Key_blocks_not_flushed",   (char*) offsetof(KEY_CACHE, global_blocks_changed), SHOW_KEY_CACHE_LONG},
