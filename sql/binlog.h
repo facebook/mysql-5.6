@@ -552,6 +552,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
    *   Caters today to relay log rotates, no-op rotates and config
    *   change rotates.
    */
+  void drain_committing_trxs(bool wait_non_xid_trxs_always);
   int new_file_impl(bool need_lock,
                     Format_description_log_event *extra_description_event,
                     RaftRotateInfo *raft_rotate_info = nullptr);

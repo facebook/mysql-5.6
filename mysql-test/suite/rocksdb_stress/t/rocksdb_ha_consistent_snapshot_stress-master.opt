@@ -1,0 +1,1 @@
+--initialize --default_authentication_plugin=mysql_native_password --gtid_mode=ON --enforce_gtid_consistency --log_bin --log_slave_updates
