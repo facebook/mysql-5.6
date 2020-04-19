@@ -1,0 +1,199 @@
+# Stress test for  START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT
+# Runs the load generator without any crashes in the background.
+--disable_warnings
+--source include/not_valgrind.inc
+--source include/have_rocksdb.inc
+--source include/master-slave.inc
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# create the actual table
+CREATE TABLE t1(id INT PRIMARY KEY,
+               thread_id INT NOT NULL,
+               request_id BIGINT UNSIGNED NOT NULL,
+               update_count INT UNSIGNED NOT NULL DEFAULT 0,
+               zero_sum INT DEFAULT 0,
+               msg VARCHAR(1024),
+               msg_length int,
+               msg_checksum varchar(128),
+               auto_inc BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+               KEY(auto_inc),
+               KEY msg_i(msg(255), zero_sum))
+ENGINE=RocksDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+
+--let $table = t1
+--let $num_loaders = 8
+--let $num_checkers = 2
+--let $num_records = 200
+--let $max_records = 100000
+--let $num_requests = 10000
+--let $reap_delay = 0
+
+# Run the load generator to populate the table and generate concurrent
+# updates. The load generator will run in the background while we
+# will be testing START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT
+# in the foreground
+--sync_slave_with_master
+
+--connection master
+--let $source_host = 127.0.0.1
+
+let $exec =
+  python3 $MYSQL_TEST_DIR/suite/rocksdb_stress/t/load_generator.py
+  -L $MYSQL_TMP_DIR/load_generator.log -H $source_host -t $table
+  -P $MASTER_MYPORT -n $num_records -m $max_records
+  -l $num_loaders -c $num_checkers -r $num_requests
+  -E $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+  -D $reap_delay;
+
+exec_in_background $exec;
+
+--let $num_iterations = 50
+--disable_query_log
+--disable_result_log
+--let include_silent = 1
+while ($num_iterations > 0)
+{
+  ####
+  # Test 1: START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT using binlog position
+  ####
+  --connection master
+
+  let $binlog_pos = query_get_value(START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT, Position, 1);
+
+  --let $outfile = $MYSQLTEST_VARDIR/tmp/rpl_rocksdb_snapshot.out.file
+
+  --replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+  eval SELECT * INTO OUTFILE '$outfile' FROM t1;
+  COMMIT;
+
+  # Switch to slave
+  sync_slave_with_master slave;
+
+  --source include/stop_slave.inc
+  RESET REPLICA;
+  RESET MASTER;
+  # Whack all the table contents. We will recreate the table from $outfile along
+  # with the log position evaluated during consistent snapshot
+  DELETE FROM t1;
+
+  --replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+  eval LOAD DATA INFILE '$outfile' INTO TABLE t1;
+
+  --replace_result $MASTER_MYPORT MASTER_PORT $binlog_pos binlog_pos
+  eval CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=$MASTER_MYPORT,source_user="root",source_log_file="master-bin.000001",source_log_pos=$binlog_pos,source_auto_position=0;
+  --source include/start_slave.inc
+
+  --connection master
+  sync_slave_with_master slave;
+
+  # Verify that invariant is preserved on the slave
+  select sum(zero_sum) from t1;
+
+  # Verify the checksum of both master and slave table
+  --connection master
+  # Block DMLs running on background process in master
+  LOCK TABLES t1 WRITE;
+  --let $source_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+  sync_slave_with_master slave;
+
+  --let $slave_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+  # Connect to master for unlocking table
+  --connection master
+  UNLOCK TABLES;
+
+  let $not_same = `SELECT $source_checksum-$slave_checksum`;
+  if ($not_same)
+  {
+    --die "The checksums of table $table for the master and slave do not match!"
+  }
+
+  --remove_file $outfile
+
+  ####
+  # Test 2: START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT using gtid protocol
+  ####
+  --connection master
+  let $gtid_executed = query_get_value(START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT, Gtid_executed, 1);
+
+  --let $outfile = $MYSQLTEST_VARDIR/tmp/rpl_rocksdb_snapshot.out.file
+
+  --replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+  eval SELECT * INTO OUTFILE '$outfile' FROM t1;
+  COMMIT;
+
+  # Switch to slave
+  sync_slave_with_master slave;
+
+  --source include/stop_slave.inc
+  RESET REPLICA;
+  RESET MASTER;
+  --replace_result $gtid_executed gtid_executed_from_snapshot
+  eval SET @@global.gtid_purged='$gtid_executed';
+  # Whack all the table contents. We will recreate the table from $outfile along
+  # with the gtid_executed evaluated during consistent snapshot
+  DELETE FROM t1;
+
+  --replace_result $MYSQLTEST_VARDIR <MYSQLTEST_VARDIR>
+  eval LOAD DATA INFILE '$outfile' INTO TABLE t1;
+
+  --replace_result $MASTER_MYPORT MASTER_PORT
+  eval CHANGE REPLICATION SOURCE TO source_host="127.0.0.1",source_port=$MASTER_MYPORT,source_user="root", source_auto_position=1;
+  --source include/start_slave.inc
+
+  --connection master
+  sync_slave_with_master slave;
+
+  # Verify that invariant is preserved on the slave
+  select sum(zero_sum) from t1;
+
+  # Verify the checksum of both master and slave table
+  --connection master
+  # Block DMLs running on background process in master
+  LOCK TABLES t1 WRITE;
+  --let $source_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+  sync_slave_with_master slave;
+  --let $slave_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1)
+
+  # Connect to master for unlocking table
+  --connection master
+  UNLOCK TABLES;
+
+  let $not_same = `SELECT $source_checksum-$slave_checksum`;
+  if ($not_same)
+  {
+    --die "The checksums of table $table for the master and slave do not match!"
+  }
+
+  --dec $num_iterations
+  --remove_file $outfile
+}
+--let include_silent = 0
+--enable_query_log
+--enable_result_log
+
+# Cleanup
+--connection master
+--let $cleanup = DROP TABLE $table
+eval $cleanup;
+--exec rm $MYSQL_TMP_DIR/load_generator.log
+
+# if sync_slave_with_master had a configurable timeout this would not be needed
+let $slave_sync_timeout = 7200;
+--source include/wait_for_slave_to_sync_with_master.inc
+
+--connection slave
+--source include/stop_slave.inc
+CHANGE REPLICATION SOURCE to source_auto_position=0;
+# For stress tests sometimes the replication thread can not connect to master
+# temporarily. This is either because the master crashed and it is recovering
+# or the master is too busy and could not service the slave's requests.
+# mtr's internal check requires that there be no errors in slave status.
+# restarting replication clears the errors.
+--source include/start_slave.inc
+--source include/stop_slave.inc
+--connection master
+--source include/stop_dump_threads.inc
