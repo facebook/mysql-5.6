@@ -213,17 +213,14 @@ class Stage_manager {
 
     @param stage Stage identifier for the queue to append to.
     @param first Queue to append.
-    @param leave_mutex
+    @param stage_mutex
                  Pointer to the currently held stage mutex, or NULL if
                  we're not in a stage.
-    @param enter_mutex
-                 Pointer to the mutex for the stage being entered.
 
     @retval true  Thread is stage leader.
     @retval false Thread was not stage leader and processing has been done.
    */
-  bool enroll_for(StageID stage, THD *first, mysql_mutex_t *leave_mutex,
-                  mysql_mutex_t *enter_mutex);
+  bool enroll_for(StageID stage, THD *first, mysql_mutex_t *leave_mutex);
 
   std::pair<bool, THD *> pop_front(StageID stage) {
     return m_queue[stage].pop_front();
@@ -591,6 +588,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
       Format_description_log_event *extra_description_event);
 
  private:
+  void drain_committing_trxs(bool wait_non_xid_trxs_always);
   int new_file_impl(bool need_lock,
                     Format_description_log_event *extra_description_event);
 

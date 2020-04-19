@@ -2384,32 +2384,12 @@ std::pair<bool, THD *> Stage_manager::Mutex_queue::pop_front() {
 }
 
 bool Stage_manager::enroll_for(StageID stage, THD *thd,
-                               mysql_mutex_t *leave_mutex,
-                               mysql_mutex_t *enter_mutex) {
+                               mysql_mutex_t *stage_mutex) {
   // If the queue was empty: we're the leader for this batch
   DBUG_PRINT("debug",
              ("Enqueue 0x%llx to queue for stage %d", (ulonglong)thd, stage));
-  DBUG_ASSERT(enter_mutex);
 
   bool leader = m_queue[stage].append(thd);
-
-  /*
-    If the leader, lock the enter_mutex before unlocking the leave_mutex in
-    order to ensure that MYSQL_BIN_LOG::lock_commits cannot acquire all the
-    group commit mutexes while a group commit is only partially complete.
-  */
-  if (leader) {
-    /*
-      We do not need to lock the enter_mutex if it is LOCK_log when rotating
-      binlog caused by logging incident log event, since it should be held
-      always during rotation.
-    */
-    bool need_lock_enter_mutex =
-        !(mysql_bin_log.is_rotating_caused_by_incident &&
-          enter_mutex == mysql_bin_log.get_log_lock());
-
-    if (need_lock_enter_mutex) mysql_mutex_lock(enter_mutex);
-  }
 
   if (stage == FLUSH_STAGE && has_commit_order_manager(thd)) {
     Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
@@ -2419,19 +2399,19 @@ bool Stage_manager::enroll_for(StageID stage, THD *thd,
   }
 
   /*
-    We do not need to unlock the leave_mutex if it is LOCK_log when rotating
+    We do not need to unlock the stage_mutex if it is LOCK_log when rotating
     binlog caused by logging incident log event, since it should be held
     always during rotation.
   */
-  bool need_unlock_leave_mutex =
+  bool need_unlock_stage_mutex =
       !(mysql_bin_log.is_rotating_caused_by_incident &&
-        leave_mutex == mysql_bin_log.get_log_lock());
+        stage_mutex == mysql_bin_log.get_log_lock());
 
   /*
     The stage mutex can be NULL if we are enrolling for the first
     stage.
   */
-  if (leave_mutex && need_unlock_leave_mutex) mysql_mutex_unlock(leave_mutex);
+  if (stage_mutex && need_unlock_stage_mutex) mysql_mutex_unlock(stage_mutex);
 
 #ifndef DBUG_OFF
   DBUG_PRINT("info", ("This is a leader thread: %d (0=n 1=y)", leader));
@@ -6859,6 +6839,37 @@ int MYSQL_BIN_LOG::new_file_without_locking(
 }
 
 /**
+  Wait for transactions in committing state to complete.
+  Assumes that LOCK_log is held for the entire duration
+  which prevents new transactions from sneaking in.
+ */
+void MYSQL_BIN_LOG::drain_committing_trxs(bool wait_non_xid_trxs_always) {
+  mysql_mutex_assert_owner(&LOCK_log);
+
+  mysql_mutex_lock(&LOCK_xids);
+  /*
+    We need to ensure that the number of prepared XIDs are 0.
+
+    If m_atomic_prep_xids is not zero:
+    - We wait for storage engine commit, hence decrease m_atomic_prep_xids
+    - We keep the LOCK_log to block new transactions from being
+      written to the binary log.
+   */
+  while (get_prep_xids() > 0) {
+    mysql_cond_wait(&m_prep_xids_cond, &LOCK_xids);
+  }
+  mysql_mutex_unlock(&LOCK_xids);
+
+  if (opt_trim_binlog || wait_non_xid_trxs_always) {
+    /* Wait for all non-xid trxs to finish */
+    mysql_mutex_lock(&LOCK_non_xid_trxs);
+    while (get_non_xid_trxs() > 0)
+      mysql_cond_wait(&non_xid_trxs_cond, &LOCK_non_xid_trxs);
+    mysql_mutex_unlock(&LOCK_non_xid_trxs);
+  }
+}
+
+/**
   Start writing to a new log file or reopen the old file.
 
   @param need_lock_log If true, this function acquires LOCK_log;
@@ -6888,33 +6899,12 @@ int MYSQL_BIN_LOG::new_file_impl(
     DBUG_RETURN(error);
   }
 
-  if (need_lock_log)
-    mysql_mutex_lock(&LOCK_log);
-  else
-    mysql_mutex_assert_owner(&LOCK_log);
+  if (need_lock_log) mysql_mutex_lock(&LOCK_log);
+
   DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                   DEBUG_SYNC(current_thd, "before_rotate_binlog"););
-  mysql_mutex_lock(&LOCK_xids);
-  /*
-    We need to ensure that the number of prepared XIDs are 0.
 
-    If m_atomic_prep_xids is not zero:
-    - We wait for storage engine commit, hence decrease m_atomic_prep_xids
-    - We keep the LOCK_log to block new transactions from being
-      written to the binary log.
-   */
-  while (get_prep_xids() > 0) {
-    mysql_cond_wait(&m_prep_xids_cond, &LOCK_xids);
-  }
-  mysql_mutex_unlock(&LOCK_xids);
-
-  if (opt_trim_binlog) {
-    /* Wait for all non-xid trxs to finish */
-    mysql_mutex_lock(&LOCK_non_xid_trxs);
-    while (get_non_xid_trxs() > 0)
-      mysql_cond_wait(&non_xid_trxs_cond, &LOCK_non_xid_trxs);
-    mysql_mutex_unlock(&LOCK_non_xid_trxs);
-  }
+  drain_committing_trxs(false);
 
   mysql_mutex_lock(&LOCK_index);
 
@@ -7651,8 +7641,7 @@ extern "C" void mysql_bin_log_unlock_commits(char *binlog_file,
 
 void MYSQL_BIN_LOG::lock_commits(void) {
   mysql_mutex_lock(&LOCK_log);
-  mysql_mutex_lock(&LOCK_sync);
-  mysql_mutex_lock(&LOCK_commit);
+  drain_committing_trxs(true);
 }
 
 void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos,
@@ -7670,8 +7659,6 @@ void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos,
   }
 
   global_sid_lock->unlock();
-  mysql_mutex_unlock(&LOCK_commit);
-  mysql_mutex_unlock(&LOCK_sync);
   mysql_mutex_unlock(&LOCK_log);
 }
 
@@ -9067,11 +9054,10 @@ bool MYSQL_BIN_LOG::change_stage(THD *thd MY_ATTRIBUTE((unused)),
   DBUG_ASSERT(enter_mutex);
   DBUG_ASSERT(queue);
   /*
-    After the sessions are queued, enroll_for will acquire the enter_mutex, if
-    the thread is the leader. After which, regardless of being the leader, it
-    will release the leave_mutex.
+    enroll_for will release the leave_mutex once the sessions are
+    queued.
   */
-  if (!stage_manager.enroll_for(stage, queue, leave_mutex, enter_mutex)) {
+  if (!stage_manager.enroll_for(stage, queue, leave_mutex)) {
     DBUG_ASSERT(!thd_get_cache_mngr(thd)->dbug_any_finalized());
     DBUG_RETURN(true);
   }
@@ -9081,7 +9067,17 @@ bool MYSQL_BIN_LOG::change_stage(THD *thd MY_ATTRIBUTE((unused)),
     DEBUG_SYNC(thd, "bgc_between_flush_and_sync");
 #endif
 
-  mysql_mutex_assert_owner(enter_mutex);
+  /*
+    We do not lock the enter_mutex if it is LOCK_log when rotating binlog
+    caused by logging incident log event, since it is already locked.
+  */
+  bool need_lock_enter_mutex =
+      !(is_rotating_caused_by_incident && enter_mutex == &LOCK_log);
+
+  if (need_lock_enter_mutex)
+    mysql_mutex_lock(enter_mutex);
+  else
+    mysql_mutex_assert_owner(enter_mutex);
 
   DBUG_RETURN(false);
 }
@@ -9594,8 +9590,8 @@ commit_stage:
     }
 
     /*
-      process_commit_stage_queue will call update_on_commit or
-      update_on_rollback for the GTID owned by each thd in the queue.
+      process_commit_stage_queue will call update_commit_group for the GTID
+      owned by each thd in the queue.
 
       This will be done this way to guarantee that GTIDs are added to
       gtid_executed in order, to avoid creating unnecessary temporary
