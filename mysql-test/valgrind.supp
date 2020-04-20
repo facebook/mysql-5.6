@@ -2582,6 +2582,20 @@
 }
 
 {
+   BoringSSL opt_ssl_key and locks are static, or TLS data on main
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:OPENSSL_malloc
+   ...
+   func:SslAcceptorContext::SslAcceptorContext
+   func:SslAcceptorContext::singleton_init
+   func:init_ssl_communication
+   func:mysqld_main
+   func:main
+}
+
+{
    TLS data on main thread is not cleaned up properly
    Memcheck:Leak
    match-leak-kinds: reachable
