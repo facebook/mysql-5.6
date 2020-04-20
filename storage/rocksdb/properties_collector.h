@@ -195,7 +195,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
   // floating window to count deleted rows
   std::vector<bool> m_deleted_rows_window;
   uint64_t m_window_pos, m_deleted_rows, m_max_deleted_rows;
-  uint64_t m_total_entries, m_total_puts, m_total_merges;
+  uint64_t m_total_puts, m_total_merges;
   uint64_t m_total_deletes, m_total_singledeletes, m_total_others;
   uint64_t m_file_size;
   Rdb_compact_params m_params;
