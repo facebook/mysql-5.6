@@ -3789,6 +3789,12 @@ static Sys_var_ulong Sys_max_statement_time(
        SESSION_VAR(max_statement_time), NO_CMD_LINE,
        VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_max_execution_time(
+       "max_execution_time",
+       "redirects to max_statement_time",
+       SESSION_VAR(max_statement_time), NO_CMD_LINE,
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /*
  * Handles changes to @@global.ssl
