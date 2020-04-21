@@ -1,0 +1,3 @@
+--innodb_file_format=barracuda
+--innodb_default_row_format=DYNAMIC
+--innodb_large_prefix=1

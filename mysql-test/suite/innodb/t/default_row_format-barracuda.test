@@ -1,0 +1,9 @@
+SET @saved_innodb_file_format=@@global.innodb_file_format;
+SET @save_innodb_default_row_format=@@innodb_default_row_format;
+
+SET GLOBAL innodb_file_format=Barracuda;
+
+--source ../include/default_row_format.inc
+
+SET GLOBAL innodb_file_format=@saved_innodb_file_format;
+SET GLOBAL innodb_default_row_format=@save_innodb_default_row_format;

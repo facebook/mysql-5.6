@@ -205,6 +205,33 @@ static char*	internal_innobase_data_file_path	= NULL;
 
 static char*	innodb_version_str = (char*) INNODB_VERSION_STR;
 
+/** Note we cannot use rec_format_enum because we do not allow
+COMPRESSED row format for innodb_default_row_format option. */
+enum default_row_format_enum {
+  DEFAULT_ROW_FORMAT_REDUNDANT = 0,
+  DEFAULT_ROW_FORMAT_COMPACT = 1,
+  DEFAULT_ROW_FORMAT_DYNAMIC = 2,
+};
+
+/** Return the InnoDB row_type enum value
+@param[in]	row_format	row_format from "innodb_default_row_format"
+@return InnoDB ROW_TYPE value from row_type enum. */
+static row_type get_default_row_type(ulong row_format) {
+  switch (row_format) {
+    case DEFAULT_ROW_FORMAT_REDUNDANT:
+      return (ROW_TYPE_REDUNDANT);
+    case DEFAULT_ROW_FORMAT_COMPACT:
+      return (ROW_TYPE_COMPACT);
+    case DEFAULT_ROW_FORMAT_DYNAMIC:
+      return (ROW_TYPE_DYNAMIC);
+    default:
+      ut_ad(0);
+      return (ROW_TYPE_COMPACT);
+  }
+}
+
+static ulong innodb_default_row_format = DEFAULT_ROW_FORMAT_COMPACT;
+
 /** Possible values for system variable "innodb_stats_method". The values
 are defined the same as its corresponding MyISAM system variable
 "myisam_stats_method"(see "myisam_stats_method_names"), for better usability */
@@ -244,6 +271,16 @@ static TYPELIB innodb_checksum_algorithm_typelib = {
 	innodb_checksum_algorithm_names,
 	NULL
 };
+
+/** Possible values for system variable "innodb_default_row_format". */
+static const char *innodb_default_row_format_names[] = {"redundant", "compact",
+                                                        "dynamic", NullS};
+
+/** Used to define an enumerate type of the system variable
+innodb_default_row_format. */
+static TYPELIB innodb_default_row_format_typelib = {
+    array_elements(innodb_default_row_format_names) - 1,
+    "innodb_default_row_format_typelib", innodb_default_row_format_names, NULL};
 
 /* The following counter is used to convey information to InnoDB
 about server activity: in case of normal DML ops it is not
@@ -10634,6 +10671,9 @@ index_bad:
 		}
 	}
 
+	if (row_format == ROW_TYPE_DEFAULT)
+		row_format = get_default_row_type(innodb_default_row_format);
+
 	/* Validate the row format.  Correct it if necessary */
 	switch (row_format) {
 	case ROW_TYPE_REDUNDANT:
@@ -10671,10 +10711,12 @@ index_bad:
 			thd, Sql_condition::WARN_LEVEL_WARN,
 			ER_ILLEGAL_HA_CREATE_OPTION,
 			"InnoDB: assuming ROW_FORMAT=COMPACT.");
-	case ROW_TYPE_DEFAULT:
 		/* If we fell through, set row format to Compact. */
-		row_format = ROW_TYPE_COMPACT;
 	case ROW_TYPE_COMPACT:
+		innodb_row_format = REC_FORMAT_COMPACT;
+		break;
+	default:
+		ut_ad(0);
 		break;
 	}
 
@@ -18724,6 +18766,13 @@ static MYSQL_SYSVAR_BOOL(cmp_per_index_enabled, srv_cmp_per_index_enabled,
   "may have negative impact on performance (off by default)",
   NULL, innodb_cmp_per_index_update, FALSE);
 
+static MYSQL_SYSVAR_ENUM(
+    default_row_format, innodb_default_row_format, PLUGIN_VAR_RQCMDARG,
+    "The default ROW FORMAT for all innodb tables created without explicit"
+    " ROW_FORMAT. Possible values are REDUNDANT, COMPACT, and DYNAMIC."
+    " The ROW_FORMAT value COMPRESSED is not allowed",
+    NULL, NULL, DEFAULT_ROW_FORMAT_COMPACT, &innodb_default_row_format_typelib);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_UINT(trx_rseg_n_slots_debug, trx_rseg_n_slots_debug,
   PLUGIN_VAR_RQCMDARG,
@@ -19019,6 +19068,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(sync_array_size),
   MYSQL_SYSVAR(compression_failure_threshold_pct),
   MYSQL_SYSVAR(compression_pad_pct_max),
+  MYSQL_SYSVAR(default_row_format),
   MYSQL_SYSVAR(simulate_comp_failures),
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(trx_rseg_n_slots_debug),
