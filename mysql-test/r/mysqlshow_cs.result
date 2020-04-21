@@ -137,6 +137,7 @@ Database: information_schema
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
+| ROCKSDB_COMPACTION_HISTORY            |
 | ROCKSDB_COMPACTION_STATS              |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
@@ -230,6 +231,7 @@ Database: INFORMATION_SCHEMA
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
+| ROCKSDB_COMPACTION_HISTORY            |
 | ROCKSDB_COMPACTION_STATS              |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |

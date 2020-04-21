@@ -1387,6 +1387,10 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-commit-time-batch-for-recovery to disable.)
  --rocksdb-compact-cf=name 
  Compact column family
+ --rocksdb-compaction-history[=name] 
+ Enable or disable ROCKSDB_COMPACTION_HISTORY plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
  --rocksdb-compaction-readahead-size=# 
  DBOptions::compaction_readahead_size for RocksDB
  --rocksdb-compaction-sequential-deletes=# 
@@ -1601,6 +1605,10 @@ The following options may be given as the first argument:
  compaction concurrency is capped by
  rocksdb_max_background_compactions or
  rocksdb_max_background_jobs.
+ --rocksdb-max-compaction-history[=#] 
+ Track history for at most this many completed
+ compactions. The history is in the
+ INFORMATION_SCHEMA.ROCKSDB_COMPACTION_HISTORY table.
  --rocksdb-max-latest-deadlocks=# 
  Maximum number of recent deadlocks to store
  --rocksdb-max-log-file-size=# 
@@ -2550,6 +2558,7 @@ rocksdb-collect-sst-properties TRUE
 rocksdb-commit-in-the-middle FALSE
 rocksdb-commit-time-batch-for-recovery TRUE
 rocksdb-compact-cf 
+rocksdb-compaction-history ON
 rocksdb-compaction-readahead-size 0
 rocksdb-compaction-sequential-deletes 0
 rocksdb-compaction-sequential-deletes-count-sd FALSE
@@ -2618,6 +2627,7 @@ rocksdb-max-background-compactions -1
 rocksdb-max-background-flushes -1
 rocksdb-max-background-jobs 2
 rocksdb-max-bottom-pri-background-compactions 0
+rocksdb-max-compaction-history 64
 rocksdb-max-latest-deadlocks 5
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 1073741824
