@@ -20,6 +20,7 @@
 #endif
 
 /* C++ standard header files */
+#include <deque>
 #include <map>
 #include <set>
 #include <string>
@@ -1030,31 +1031,42 @@ struct Rdb_inplace_alter_ctx : public my_core::inplace_alter_handler_ctx {
 // file name indicating RocksDB data corruption
 std::string rdb_corruption_marker_file_name();
 
-// Holds the compaction stats for ongoing compaction jobs. This class contains a
-// thread safe map which being accessed under a mutex lock
-class Active_compaction_stats {
- public:
-  std::map<uint64_t, rocksdb::CompactionJobInfo> get_current_stats() {
-    std::lock_guard<std::mutex> guard(map_mutex);
-    return std::map<uint64_t, rocksdb::CompactionJobInfo>(
-        active_compaction_stats_map);
-  }
-
-  void put(const uint64_t &thread_id, const rocksdb::CompactionJobInfo info) {
-    std::lock_guard<std::mutex> guard(map_mutex);
-    active_compaction_stats_map.insert({thread_id, info});
-  }
-
-  void remove(const uint64_t &thread_id) {
-    std::lock_guard<std::mutex> guard(map_mutex);
-    active_compaction_stats_map.erase(thread_id);
-  }
-
- private:
-  std::map<uint64_t, rocksdb::CompactionJobInfo> active_compaction_stats_map;
-  std::mutex map_mutex;
+struct Rdb_compaction_stats_record {
+  time_t start_timestamp;
+  time_t end_timestamp;
+  rocksdb::CompactionJobInfo info;
 };
 
-extern Active_compaction_stats active_compaction_stats;
+// Holds records of recently run compaction jobs, including ongoing ones. This
+// class accesses its internal data structures under a mutex lock.
+class Rdb_compaction_stats {
+ public:
+  Rdb_compaction_stats() {}
+
+  // resize_history() sets the max number of completed compactions for which we
+  // store history. Records for all ongoing compactions are stored in addition
+  // to at most `max_history_len` historical records.
+  void resize_history(size_t max_history_len);
+
+  // get_current_stats() returns the details of pending compactions only.
+  std::vector<Rdb_compaction_stats_record> get_current_stats();
+
+  // get_recent_history() returns the details of recently completed compactions.
+  std::vector<Rdb_compaction_stats_record> get_recent_history();
+
+  void record_start(rocksdb::CompactionJobInfo info);
+  void record_end(rocksdb::CompactionJobInfo info);
+
+ private:
+  std::mutex m_mutex;
+  // History of completed compactions.
+  std::deque<Rdb_compaction_stats_record> m_history;
+  size_t m_max_history_len = 0;
+  // Hold ongoing compactions in a map keyed on thread ID, as we use that to
+  // match `record_start()`s with `record_end()`s.
+  std::map<uint64_t, Rdb_compaction_stats_record> m_tid_to_pending_compaction;
+};
+
+extern Rdb_compaction_stats compaction_stats;
 
 }  // namespace myrocks

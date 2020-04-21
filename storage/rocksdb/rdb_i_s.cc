@@ -900,6 +900,57 @@ static int rdb_i_s_compact_stats_fill_table(
   DBUG_RETURN(ret);
 }
 
+namespace {
+
+using rocksdb::CompactionReason;
+
+// TODO(T65629248): this is copy/pasted from RocksDB as it is not exposed in a
+// public header file. Once https://github.com/facebook/rocksdb/issues/6471 is
+// fixed, we should delete this and use the RocksDB-provided strings.
+const char *GetCompactionReasonString(CompactionReason compaction_reason) {
+  switch (compaction_reason) {
+    case CompactionReason::kUnknown:
+      return "Unknown";
+    case CompactionReason::kLevelL0FilesNum:
+      return "LevelL0FilesNum";
+    case CompactionReason::kLevelMaxLevelSize:
+      return "LevelMaxLevelSize";
+    case CompactionReason::kUniversalSizeAmplification:
+      return "UniversalSizeAmplification";
+    case CompactionReason::kUniversalSizeRatio:
+      return "UniversalSizeRatio";
+    case CompactionReason::kUniversalSortedRunNum:
+      return "UniversalSortedRunNum";
+    case CompactionReason::kFIFOMaxSize:
+      return "FIFOMaxSize";
+    case CompactionReason::kFIFOReduceNumFiles:
+      return "FIFOReduceNumFiles";
+    case CompactionReason::kFIFOTtl:
+      return "FIFOTtl";
+    case CompactionReason::kManualCompaction:
+      return "ManualCompaction";
+    case CompactionReason::kFilesMarkedForCompaction:
+      return "FilesMarkedForCompaction";
+    case CompactionReason::kBottommostFiles:
+      return "BottommostFiles";
+    case CompactionReason::kTtl:
+      return "Ttl";
+    case CompactionReason::kFlush:
+      return "Flush";
+    case CompactionReason::kExternalSstIngestion:
+      return "ExternalSstIngestion";
+    case CompactionReason::kPeriodicCompaction:
+      return "PeriodicCompaction";
+    case CompactionReason::kNumOfReasons:
+      // fall through
+    default:
+      DBUG_ASSERT(false);
+      return "Invalid";
+  }
+}
+
+}  // anonymous namespace
+
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_ACTIVE_COMPACTION_STATS dynamic table
  */
@@ -910,33 +961,34 @@ static int rdb_i_s_active_compact_stats_fill_table(
   DBUG_ASSERT(tables != nullptr);
 
   DBUG_ENTER_FUNC();
-  auto ongoing_compaction = active_compaction_stats.get_current_stats();
+  auto ongoing_compaction = compaction_stats.get_current_stats();
 
   for (const auto &it : ongoing_compaction) {
     Field **field = tables->table->field;
     DBUG_ASSERT(field != nullptr);
     std::ostringstream oss;
-    std::copy(it.second.input_files.begin(), it.second.input_files.end(),
+    std::copy(it.info.input_files.begin(), it.info.input_files.end(),
               std::ostream_iterator<std::string>(oss, ","));
     std::string input_files(oss.str());
-    oss.clear();
-    std::copy(it.second.output_files.begin(), it.second.output_files.end(),
+    oss.str("");
+    std::copy(it.info.output_files.begin(), it.info.output_files.end(),
               std::ostream_iterator<std::string>(oss, ","));
     std::string output_files(oss.str());
-    std::string compression_type;
-    GetStringFromCompressionType(&compression_type, it.second.compression);
-    field[0]->store(it.first, true);
-    field[1]->store(it.second.cf_name.c_str(), it.second.cf_name.length(),
+    field[0]->store(it.info.thread_id, true);
+    field[1]->store(it.info.cf_name.c_str(), it.info.cf_name.length(),
                     system_charset_info);
+    // Strip trailing comma from file lists.
     auto input_files_length =
         input_files.length() > 0 ? input_files.length() - 1 : 0;
     field[2]->store(input_files.c_str(), input_files_length,
                     system_charset_info);
     auto output_files_length =
         output_files.length() > 0 ? output_files.length() - 1 : 0;
-    field[3]->store(output_files.c_str(), input_files_length,
+    field[3]->store(output_files.c_str(), output_files_length,
                     system_charset_info);
-    field[4]->store(compression_type.c_str(), output_files_length,
+    const char *compaction_reason =
+        GetCompactionReasonString(it.info.compaction_reason);
+    field[4]->store(compaction_reason, strlen(compaction_reason),
                     system_charset_info);
 
     int ret = static_cast<int>(
@@ -947,6 +999,72 @@ static int rdb_i_s_active_compact_stats_fill_table(
     }
   }
   DBUG_RETURN(0);
+}
+
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_COMPACTION_HISTORY dynamic table
+ */
+static int rdb_i_s_compact_history_fill_table(
+    my_core::THD *thd, my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
+  DBUG_ENTER_FUNC();
+
+  int ret = 0;
+  for (const auto &record : compaction_stats.get_recent_history()) {
+    Field **field = tables->table->field;
+    DBUG_ASSERT(field != nullptr);
+
+    std::ostringstream oss;
+    std::copy(record.info.input_files.begin(), record.info.input_files.end(),
+              std::ostream_iterator<std::string>(oss, ","));
+    std::string input_files(oss.str());
+    oss.str("");
+    std::copy(record.info.output_files.begin(), record.info.output_files.end(),
+              std::ostream_iterator<std::string>(oss, ","));
+    std::string output_files(oss.str());
+
+    field[0]->store(record.info.thread_id, true /* unsigned_val */);
+    field[1]->store(record.info.cf_name.c_str(), record.info.cf_name.size(),
+                    system_charset_info);
+    field[2]->store(record.info.base_input_level, false /* unsigned_val */);
+    field[3]->store(record.info.output_level, false /* unsigned_val */);
+    // Strip trailing comma from file lists.
+    auto input_files_length =
+        input_files.length() > 0 ? input_files.length() - 1 : 0;
+    field[4]->store(input_files.c_str(), input_files_length,
+                    system_charset_info);
+    auto output_files_length =
+        output_files.length() > 0 ? output_files.length() - 1 : 0;
+    field[5]->store(output_files.c_str(), output_files_length,
+                    system_charset_info);
+    const char *compaction_reason =
+        GetCompactionReasonString(record.info.compaction_reason);
+    field[6]->store(compaction_reason, strlen(compaction_reason),
+                    system_charset_info);
+    field[7]->store(record.start_timestamp, false /* unsigned_val */);
+    field[8]->store(record.end_timestamp, false /* unsigned_val */);
+
+    // Input and output compaction bytes.
+    field[9]->store(record.info.stats.total_input_bytes, false);
+    field[10]->store(record.info.stats.total_output_bytes, false);
+
+    // Input files count and output files count.
+    field[11]->store(record.info.input_files.size(), false);
+    field[12]->store(record.info.output_files.size(), false);
+
+    // CPU micros.
+    field[13]->store(record.info.stats.cpu_micros, false);
+
+    int ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+    if (ret != 0) {
+      break;
+    }
+  }
+  DBUG_RETURN(ret);
 }
 
 static ST_FIELD_INFO rdb_i_s_compact_stats_fields_info[] = {
@@ -963,6 +1081,27 @@ static ST_FIELD_INFO rdb_i_s_active_compact_stats_fields_info[] = {
     ROCKSDB_FIELD_INFO("OUTPUT_FILES", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("COMPACTION_REASON", FN_REFLEN + 1, MYSQL_TYPE_STRING,
                        0),
+    ROCKSDB_FIELD_INFO_END};
+
+static ST_FIELD_INFO rdb_i_s_compact_history_fields_info[] = {
+    ROCKSDB_FIELD_INFO("THREAD_ID", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("CF_NAME", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INPUT_LEVEL", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_LEVEL", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("INPUT_FILES", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_FILES", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("COMPACTION_REASON", FN_REFLEN + 1, MYSQL_TYPE_STRING,
+                       0),
+    ROCKSDB_FIELD_INFO("START_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("END_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("INPUT_COMPACTION_BYTES", sizeof(uint64),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_COMPACTION_BYTES", sizeof(uint64),
+                       MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("INPUT_FILE_COUNT", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("OUTPUT_FILE_COUNT", sizeof(uint32), MYSQL_TYPE_LONG, 0),
+    ROCKSDB_FIELD_INFO("CPU_MICROS", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO_END};
 
 namespace  // anonymous namespace = not visible outside this source file
@@ -1171,6 +1310,20 @@ static int rdb_i_s_active_compact_stats_init(void *p) {
 
   schema->fields_info = rdb_i_s_active_compact_stats_fields_info;
   schema->fill_table = rdb_i_s_active_compact_stats_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int rdb_i_s_compact_history_init(void *p) {
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER_FUNC();
+  DBUG_ASSERT(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_compact_history_fields_info;
+  schema->fill_table = rdb_i_s_compact_history_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -1994,6 +2147,23 @@ struct st_mysql_plugin rdb_i_s_active_compact_stats = {
     "RocksDB active compaction stats",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_active_compact_stats_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_compact_history = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_COMPACTION_HISTORY",
+    "Facebook",
+    "RocksDB recent compaction history",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_compact_history_init,
     nullptr, /* uninstall */
     rdb_i_s_deinit,
     0x0001,  /* version number (0.1) */

@@ -33,6 +33,7 @@
 /* C++ standard header files */
 #include <inttypes.h>
 #include <algorithm>
+#include <deque>
 #include <limits>
 #include <map>
 #include <queue>
@@ -120,7 +121,7 @@ static st_global_stats global_stats;
 static st_export_stats export_stats;
 static st_memory_stats memory_stats;
 static st_io_stall_stats io_stall_stats;
-Active_compaction_stats active_compaction_stats;
+Rdb_compaction_stats compaction_stats;
 
 const std::string DEFAULT_CF_NAME("default");
 const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
@@ -466,6 +467,10 @@ static void rocksdb_disable_file_deletions_update(
     my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
     void *const var_ptr, const void *const save);
 
+static void rocksdb_max_compaction_history_update(
+    my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save);
+
 static void rocksdb_force_flush_memtable_now_stub(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -747,6 +752,9 @@ static uint32_t rocksdb_debug_manual_compaction_delay = 0;
 static uint32_t rocksdb_max_manual_compactions = 0;
 static bool rocksdb_rollback_on_timeout = false;
 static bool rocksdb_enable_insert_with_update_caching = true;
+/* Use unsigned long long instead of uint64_t because of MySQL compatibility */
+static unsigned long long  // NOLINT(runtime/int)
+    rocksdb_max_compaction_history = 0;
 
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
@@ -1058,6 +1066,7 @@ const int64 RDB_DEFAULT_BLOCK_CACHE_SIZE = 512 * 1024 * 1024;
 const int64 RDB_MIN_BLOCK_CACHE_SIZE = 1024;
 const int RDB_MAX_CHECKSUMS_PCT = 100;
 const ulong RDB_DEADLOCK_DETECT_DEPTH = 50;
+const ulonglong RDB_DEFAULT_MAX_COMPACTION_HISTORY = 64;
 
 // TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -2204,6 +2213,15 @@ static MYSQL_SYSVAR_STR(
     rocksdb_trace_block_cache_access, rocksdb_trace_block_cache_access_stub,
     "");
 
+static MYSQL_SYSVAR_ULONGLONG(
+    max_compaction_history, rocksdb_max_compaction_history, PLUGIN_VAR_OPCMDARG,
+    "Track history for at most this many completed compactions. "
+    "The history is in the INFORMATION_SCHEMA.ROCKSDB_COMPACTION_HISTORY "
+    "table.",
+    nullptr, rocksdb_max_compaction_history_update,
+    RDB_DEFAULT_MAX_COMPACTION_HISTORY, 0ULL /* min */, UINT64_MAX /* max */,
+    0 /* blk */);
+
 static MYSQL_THDVAR_BOOL(disable_file_deletions,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_RQCMDARG,
                          "Prevent file deletions", nullptr,
@@ -2381,6 +2399,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(enable_insert_with_update_caching),
     MYSQL_SYSVAR(trace_block_cache_access),
+    MYSQL_SYSVAR(max_compaction_history),
     nullptr};
 
 static int rocksdb_compact_column_family(
@@ -5986,6 +6005,8 @@ static int rocksdb_init_func(void *const p) {
 
   io_watchdog = new Rdb_io_watchdog(std::move(directories));
   io_watchdog->reset_timeout(rocksdb_io_write_timeout_secs);
+
+  compaction_stats.resize_history(rocksdb_max_compaction_history);
 
   // NO_LINT_DEBUG
   sql_print_information(
@@ -15377,6 +15398,85 @@ std::string rdb_corruption_marker_file_name() {
   return ret;
 }
 
+static void rocksdb_max_compaction_history_update(
+    my_core::THD *const /* unused */, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save) {
+  DBUG_ASSERT(rdb != nullptr);
+
+  uint64_t val = *static_cast<uint64_t *>(var_ptr) =
+      *static_cast<const uint64_t *>(save);
+  compaction_stats.resize_history(val);
+}
+
+void Rdb_compaction_stats::resize_history(size_t max_history_len) {
+  std::lock_guard<std::mutex> guard(m_mutex);
+  m_max_history_len = max_history_len;
+  if (m_history.size() > m_max_history_len) {
+    m_history.erase(m_history.begin(),
+                    m_history.begin() + (m_history.size() - m_max_history_len));
+  }
+  DBUG_ASSERT(m_history.size() <= m_max_history_len);
+}
+
+std::vector<Rdb_compaction_stats_record>
+Rdb_compaction_stats::get_current_stats() {
+  std::lock_guard<std::mutex> guard(m_mutex);
+  std::vector<Rdb_compaction_stats_record> res;
+  res.reserve(m_tid_to_pending_compaction.size());
+  for (const auto &tid_and_pending_compaction : m_tid_to_pending_compaction) {
+    res.push_back(tid_and_pending_compaction.second);
+  }
+  return res;
+}
+
+std::vector<Rdb_compaction_stats_record>
+Rdb_compaction_stats::get_recent_history() {
+  std::lock_guard<std::mutex> guard(m_mutex);
+  std::vector<Rdb_compaction_stats_record> res;
+  res.reserve(m_history.size());
+  for (const auto &record : m_history) {
+    res.push_back(record);
+  }
+  return res;
+}
+
+void Rdb_compaction_stats::record_start(rocksdb::CompactionJobInfo info) {
+  std::lock_guard<std::mutex> guard(m_mutex);
+  time_t start_timestamp = time(nullptr /* tloc */);
+  DBUG_ASSERT(start_timestamp != static_cast<time_t>(-1));
+
+  m_tid_to_pending_compaction[info.thread_id] = Rdb_compaction_stats_record{
+      start_timestamp, static_cast<time_t>(-1) /* end_timestamp */,
+      std::move(info)};
+}
+
+void Rdb_compaction_stats::record_end(rocksdb::CompactionJobInfo info) {
+  std::lock_guard<std::mutex> guard(m_mutex);
+  auto tid_to_pending_compaction_iter =
+      m_tid_to_pending_compaction.find(info.thread_id);
+  DBUG_ASSERT(tid_to_pending_compaction_iter !=
+              m_tid_to_pending_compaction.end());
+  Rdb_compaction_stats_record record;
+  if (tid_to_pending_compaction_iter != m_tid_to_pending_compaction.end()) {
+    record.start_timestamp =
+        tid_to_pending_compaction_iter->second.start_timestamp;
+    m_tid_to_pending_compaction.erase(tid_to_pending_compaction_iter);
+  } else {
+    record.start_timestamp = static_cast<time_t>(-1);
+  }
+  if (m_max_history_len == 0) {
+    return;
+  }
+  if (m_history.size() == m_max_history_len) {
+    m_history.pop_front();
+  }
+  DBUG_ASSERT(m_history.size() < m_max_history_len);
+  record.end_timestamp = time(nullptr /* tloc */);
+  DBUG_ASSERT(record.end_timestamp != static_cast<time_t>(-1));
+  record.info = std::move(info);
+  m_history.emplace_back(std::move(record));
+}
+
 }  // namespace myrocks
 
 /*
@@ -15407,8 +15507,8 @@ mysql_declare_plugin(rocksdb_se){
     myrocks::rdb_i_s_cfstats, myrocks::rdb_i_s_dbstats,
     myrocks::rdb_i_s_perf_context, myrocks::rdb_i_s_perf_context_global,
     myrocks::rdb_i_s_cfoptions, myrocks::rdb_i_s_compact_stats,
-    myrocks::rdb_i_s_active_compact_stats, myrocks::rdb_i_s_global_info,
-    myrocks::rdb_i_s_ddl, myrocks::rdb_i_s_sst_props,
-    myrocks::rdb_i_s_index_file_map, myrocks::rdb_i_s_lock_info,
-    myrocks::rdb_i_s_trx_info,
+    myrocks::rdb_i_s_active_compact_stats, myrocks::rdb_i_s_compact_history,
+    myrocks::rdb_i_s_global_info, myrocks::rdb_i_s_ddl,
+    myrocks::rdb_i_s_sst_props, myrocks::rdb_i_s_index_file_map,
+    myrocks::rdb_i_s_lock_info, myrocks::rdb_i_s_trx_info,
     myrocks::rdb_i_s_deadlock_info mysql_declare_plugin_end;
