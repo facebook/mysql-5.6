@@ -28,6 +28,7 @@ extern struct st_mysql_plugin rdb_i_s_perf_context_global;
 extern struct st_mysql_plugin rdb_i_s_cfoptions;
 extern struct st_mysql_plugin rdb_i_s_compact_stats;
 extern struct st_mysql_plugin rdb_i_s_active_compact_stats;
+extern struct st_mysql_plugin rdb_i_s_compact_history;
 extern struct st_mysql_plugin rdb_i_s_global_info;
 extern struct st_mysql_plugin rdb_i_s_ddl;
 extern struct st_mysql_plugin rdb_i_s_sst_props;
