@@ -6,11 +6,13 @@ while ($_rpl_server)
 
   let $_is_slave= `SELECT SUBSTRING('$rpl_master_list', 1 + ($_rpl_server - 1) * $rpl_server_count_length, $rpl_server_count_length) != ''`;
   let $plugin_was_early_installed = `SELECT COUNT(*) = 0 FROM mysql.plugin WHERE NAME = 'RPL_RAFT'`;
+  let $fs_wal_path = `SELECT CONCAT((SELECT @@GLOBAL.RPL_RAFT_WAL_DIR), '/', (SELECT @@GLOBAL.PORT))`;
 
   disable_query_log;
   SET GLOBAL RPL_RAFT_ON= 0;
   SET GLOBAL RPL_RAFT_CONFIG_JSON= default;
   SET GLOBAL RPL_RAFT_NEW_LEADER_UUID= default;
+  exec rm -fr $fs_wal_path;
   if (!$plugin_was_early_installed)
   {
     UNINSTALL PLUGIN RPL_RAFT;

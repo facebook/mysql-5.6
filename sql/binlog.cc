@@ -12561,6 +12561,22 @@ int get_committed_gtids(const std::vector<std::string>& gtids,
   return 0;
 }
 
+int get_executed_gtids(std::string* const gtids) {
+  char* gtid_set_buffer= NULL;
+  global_sid_lock->wrlock();
+  const Gtid_set* gtid_set= gtid_state->get_logged_gtids();
+  if (gtid_set->to_string(&gtid_set_buffer) < 0)
+  {
+    global_sid_lock->unlock();
+    my_free(gtid_set_buffer);
+    return 1;
+  }
+  global_sid_lock->unlock();
+  *gtids = std::string(gtid_set_buffer);
+  my_free(gtid_set_buffer);
+  return 0;
+}
+
 #endif /* !defined(MYSQL_CLIENT) */
 
 struct st_mysql_storage_engine binlog_storage_engine=

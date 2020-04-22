@@ -30,7 +30,8 @@ Binlog_storage_delegate *binlog_storage_delegate;
 #ifdef HAVE_REPLICATION
 Binlog_transmit_delegate *binlog_transmit_delegate;
 Binlog_relay_IO_delegate *binlog_relay_io_delegate;
-extern int rli_relay_log_raft_reset(bool do_global_init=false);
+extern int rli_relay_log_raft_reset(
+    std::pair<std::string, unsigned long long> log_file_pos);
 extern int raft_reset_slave(THD *thd);
 extern int raft_change_master(THD *thd,
     const std::pair<const std::string, uint>& master_instance);
@@ -790,9 +791,8 @@ pthread_handler_t process_raft_queue(void *arg)
         break;
       case RaftListenerCallbackType::RLI_RELAY_LOG_RESET:
       {
-        /* val_bool = do a init of the relay log first time */
 #ifdef HAVE_REPLICATION
-        result.error= rli_relay_log_raft_reset(element.arg.val_bool);
+        result.error= rli_relay_log_raft_reset(element.arg.log_file_pos);
 #endif
         break;
       }
@@ -846,6 +846,12 @@ pthread_handler_t process_raft_queue(void *arg)
       {
         result.error= get_committed_gtids(element.arg.trim_gtids,
             &result.gtids);
+        break;
+      }
+      case RaftListenerCallbackType::GET_EXECUTED_GTIDS:
+      {
+        result.error= get_executed_gtids(&result.val_str);
+        break;
       }
       default:
         break;

@@ -1309,6 +1309,7 @@ void print_read_only_change(THD *thd);
 int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 int get_committed_gtids(const std::vector<std::string>& gtids,
                         std::vector<std::string> *committed_gtids);
+int get_executed_gtids(std::string* const gtids);
 int rotate_binlog_file(THD *thd);
 /* This is used to change the mysql_bin_log global MYSQL_BIN_LOG file
    to point to the apply binlog/reopen new one. Apply binlogs are binlog

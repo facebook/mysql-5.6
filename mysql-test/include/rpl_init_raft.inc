@@ -36,6 +36,10 @@ while ($_rpl_server)
 
   --let $_is_slave= `SELECT SUBSTRING('$rpl_master_list', 1 + ($_rpl_server - 1) * $rpl_server_count_length, $rpl_server_count_length) != ''`
 
+  let $fs_wal_path = `SELECT CONCAT((SELECT @@GLOBAL.RPL_RAFT_WAL_DIR), '/', (SELECT @@GLOBAL.PORT))`;
+  exec rm -fr $fs_wal_path;
+  exec mkdir -p $fs_wal_path;
+
   --let $config_json= `SELECT CONCAT('{', '$instances', '}')`
 
   if ($rpl_debug)

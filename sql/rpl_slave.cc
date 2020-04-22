@@ -1085,22 +1085,29 @@ end:
  * This changes the name of the raft relay log
  * to binlog name
  */
-int rli_relay_log_raft_reset(bool do_global_init)
+int rli_relay_log_raft_reset(
+    std::pair<std::string, unsigned long long> applied_log_file_pos)
 {
   DBUG_ENTER("rli_relay_log_raft_reset");
-  int error= 0;
 
   if (disable_raft_log_repointing)
     DBUG_RETURN(0);
 
   mysql_mutex_lock(&LOCK_active_mi);
-  Master_info* mi= active_mi;
-  DBUG_ASSERT(mi != NULL && mi->rli != NULL);
-  const char *errmsg;
-  LOG_INFO lastlog_linfo;
 
-  if (do_global_init && global_init_info(mi, false, SLAVE_SQL))
-    sql_print_error("Failed to initialize the master info structure");
+  int error= 0;
+  Master_info* mi= active_mi;
+  const char *errmsg;
+  LOG_INFO linfo;
+
+  DBUG_ASSERT(mi != NULL && mi->rli != NULL);
+
+  std::string normalized_log_name=
+    std::string(binlog_file_basedir_ptr) +
+    std::string(applied_log_file_pos.first.c_str() +
+        dirname_length(applied_log_file_pos.first.c_str()));
+  strcpy(linfo.log_file_name, normalized_log_name.c_str());
+  linfo.pos = applied_log_file_pos.second;
 
   /*
     We need a mutex while we are changing master info parameters to
@@ -1108,6 +1115,16 @@ int rli_relay_log_raft_reset(bool do_global_init)
   */
   mysql_mutex_lock(&mi->data_lock);
   mysql_mutex_lock(&mi->rli->data_lock);
+
+  if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
+    sql_print_information(
+        "Relay log info repository doesn't exists, creating one now");
+    if (global_init_info(mi, false, SLAVE_SQL, false)) {
+      sql_print_error("Failed to initialize the master info structure");
+      error= 1;
+      goto end;
+    }
+  }
 
   mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
   mi->rli->relay_log.lock_index();
@@ -1119,7 +1136,9 @@ int rli_relay_log_raft_reset(bool do_global_init)
   {
     sql_print_error("rli_relay_log_raft_reset::failed to open index file");
     error= 1;
-    goto err;
+    mi->rli->relay_log.unlock_index();
+    mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    goto end;
   }
 
   global_sid_lock->wrlock();
@@ -1143,26 +1162,36 @@ int rli_relay_log_raft_reset(bool do_global_init)
   {
     sql_print_error("rli_relay_log_raft_reset::failed to open binlog file");
     error= 1;
-    goto err;
+    mi->rli->relay_log.unlock_index();
+    mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    goto end;
   }
 
   mi->rli->relay_log.unlock_index();
   mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
 
-  if (do_global_init) {
-    (void) mi->rli->relay_log.get_current_log(&lastlog_linfo);
-
-    if (mi->rli->init_relay_log_pos(lastlog_linfo.log_file_name,
-                                    lastlog_linfo.pos,
-                                    false/*need_data_lock=true*/, &errmsg,
-                                    0 /*look for a description_event*/))
-    {
-      sql_print_error("rli_relay_log_raft_reset::failed to init_relay_log_pos");
-      goto err;
-    }
+  // Init the SQL thread's cursor on the relay log (this cursor came as a
+  // parameter)
+  if ((error= mi->rli->init_relay_log_pos(linfo.log_file_name,
+                                          linfo.pos,
+                                          false/*need_data_lock=true*/,
+                                          &errmsg,
+                                          0 /*look for a description_event*/)))
+  {
+    sql_print_error(
+        "rli_relay_log_raft_reset::failed to init_relay_log_pos, errmsg: %s",
+        errmsg);
+    goto end;
   }
 
-err:
+  sql_print_information(
+      "Relay log cursor set to: %s:%llu",
+      mi->rli->get_group_relay_log_name(),
+      mi->rli->get_group_relay_log_pos());
+
+  mi->rli->inited= true;
+
+end:
 
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
@@ -1170,7 +1199,8 @@ err:
   DBUG_RETURN(error);
 }
 
-int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask)
+int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
+                     bool need_lock)
 {
   DBUG_ENTER("init_info");
   DBUG_ASSERT(mi != NULL && mi->rli != NULL);
@@ -1182,8 +1212,11 @@ int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask)
     We need a mutex while we are changing master info parameters to
     keep other threads from reading bogus info
   */
-  mysql_mutex_lock(&mi->data_lock);
-  mysql_mutex_lock(&mi->rli->data_lock);
+  if (need_lock)
+  {
+    mysql_mutex_lock(&mi->data_lock);
+    mysql_mutex_lock(&mi->rli->data_lock);
+  }
 
   /*
     When info tables are used and autocommit= 0 we force a new
@@ -1244,8 +1277,11 @@ end:
     if (trans_commit(thd))
       init_error= 1;
 
-  mysql_mutex_unlock(&mi->rli->data_lock);
-  mysql_mutex_unlock(&mi->data_lock);
+  if (need_lock)
+  {
+    mysql_mutex_unlock(&mi->rli->data_lock);
+    mysql_mutex_unlock(&mi->data_lock);
+  }
 
   /*
     Handling MTS Relay-log recovery after successful initialization of mi and

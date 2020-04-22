@@ -279,10 +279,12 @@ int stop_slave(THD* thd, Master_info* mi, bool net_report);
 bool change_master(THD* thd, Master_info* mi);
 int reset_slave(THD *thd, Master_info* mi, bool purge=true);
 int init_slave();
-int rli_relay_log_raft_reset(bool do_global_init=false);
+int rli_relay_log_raft_reset(
+    std::pair<std::string, unsigned long long> log_file_pos);
 int raft_reset_slave(THD *thd);
 int init_recovery(Master_info* mi, const char** errmsg);
-int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask);
+int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
+                     bool need_lock= true);
 void end_info(Master_info* mi);
 int remove_info(Master_info* mi);
 int flush_master_info(Master_info* mi, bool force);
