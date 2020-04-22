@@ -21,10 +21,6 @@ a
 2
 "Restarting server_1"
 include/rpl_restart_server.inc [server_number=1]
-"Restarting server_2"
-include/rpl_restart_server.inc [server_number=2]
-"Restarting server_3"
-include/rpl_restart_server.inc [server_number=3]
 include/raft_promote_to_leader.inc
 insert into t1 values(3);
 include/sync_slave_sql_with_master.inc

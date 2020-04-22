@@ -3,17 +3,24 @@ source include/begin_include_file.inc;
 
 disable_query_log;
 
+let $skip_restore_connection= 1;
 let $_rpl_server= $rpl_server_count;
+
 while ($_rpl_server)
 {
-  let $is_leader= `SELECT VARIABLE_VALUE='LEADER' FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
-  if ($is_leader)
+  let $rpl_connection_name= server_$_rpl_server;
+  source include/rpl_connection.inc;
+
+  let $role= `SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = "RPL_RAFT_ROLE"`;
+  if ($role == 'LEADER')
   {
-    let $rpl_connection_name= server_$_rpl_server;
-    source include/rpl_connection.inc;
+    let $_leader_server= $_rpl_server;
   }
   dec $_rpl_server;
 }
+
+let $rpl_connection_name= server_$_leader_server;
+source include/rpl_connection.inc;
 
 enable_query_log;
 

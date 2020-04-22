@@ -21,16 +21,6 @@ echo "Restarting server_1";
 let $rpl_server_number = 1;
 source include/rpl_restart_server.inc;
 
-connection server_2;
-echo "Restarting server_2";
-let $rpl_server_number = 2;
-source include/rpl_restart_server.inc;
-
-connection server_3;
-echo "Restarting server_3";
-let $rpl_server_number = 3;
-source include/rpl_restart_server.inc;
-
 let $rpl_raft_leader_number= 1;
 source ../include/raft_promote_to_leader.inc;
 
