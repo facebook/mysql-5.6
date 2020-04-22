@@ -804,6 +804,7 @@ typedef struct system_variables
 
   my_bool high_priority_ddl;
   my_bool kill_conflicting_connections;
+  ulong kill_conflicting_connections_timeout;
 
   my_bool session_track_state_change;
   my_bool session_track_response_attributes;

@@ -6214,6 +6214,15 @@ static Sys_var_mybool Sys_kill_conflicting_connections(
     SESSION_ONLY(kill_conflicting_connections),
     CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_ulong Sys_kill_conflicting_connections_timeout(
+       "kill_conflicting_connections_timeout",
+       "Timeout in seconds of holding lock after issuing killing conflicting "
+       "connections.",
+       SESSION_VAR(kill_conflicting_connections_timeout),
+       CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(1), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 static bool enable_jemalloc_heap_profiling(sys_var *self, THD *thd,

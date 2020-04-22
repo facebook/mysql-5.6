@@ -486,6 +486,9 @@ The following options may be given as the first argument:
  the current session and the current session will wait for
  1 more second before aborting if the lock won't be
  granted.
+ --kill-conflicting-connections-timeout[=#] 
+ Timeout in seconds of holding lock after issuing killing
+ conflicting connections.
  -L, --language=name Client error messages in given language. May be given as
  a full path. Deprecated. Use --lc-messages-dir instead.
  --large-pages       Enable support for large pages
@@ -2223,6 +2226,7 @@ key-cache-age-threshold 300
 key-cache-block-size 1024
 key-cache-division-limit 100
 kill-conflicting-connections FALSE
+kill-conflicting-connections-timeout 1
 language MYSQL_SHAREDIR/
 large-pages FALSE
 lc-messages en_US

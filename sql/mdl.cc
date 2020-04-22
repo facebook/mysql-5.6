@@ -2395,10 +2395,13 @@ MDL_context::acquire_lock_nsec(MDL_request *mdl_request,
 
     DEBUG_SYNC(get_thd(), "mdl_high_priority_kill_conflicting_locks");
 
-    // retry a short wait of 1 second as kill command is asynchronous and
-    // only sessions with granted lock are killed but there could be more
-    // sessions in the queue before this one
-    set_timespec(abs_timeout, 1);
+    // retry after kill_conflicting_connections_timeout seconds as
+    // kill command is asynchronous, and MDL is held until killed
+    // connections complete rollback that take some time.
+    // And only sessions with granted lock are killed but there
+    // could be more sessions in the queue before this one.
+    set_timespec(abs_timeout,
+                 thd->variables.kill_conflicting_connections_timeout);
     wait_status= m_wait.timed_wait(m_owner, &abs_timeout, TRUE,
                                    mdl_request->key.get_wait_state_name());
   }
