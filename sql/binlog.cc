@@ -4163,7 +4163,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     don't set LOG_EVENT_BINLOG_IN_USE_F for SEQ_READ_APPEND io_cache
     as we won't be able to reset it later
   */
-  if (io_cache_type == WRITE_CACHE)
+  if (io_cache_type == WRITE_CACHE || raft_specific_handling)
     s.flags |= LOG_EVENT_BINLOG_IN_USE_F;
   s.checksum_alg= is_relay_log ?
     /* relay-log */
