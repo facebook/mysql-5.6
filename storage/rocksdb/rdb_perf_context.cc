@@ -108,8 +108,9 @@ std::string rdb_pc_stat_types[] = {
   } while (0)
 #define IO_STAT_RECORD(_field_)                                          \
   do {                                                                   \
-    if (rocksdb::get_iostats_context()->_field_ > 0) {                   \
-      counters->m_value[idx] += rocksdb::get_iostats_context()->_field_; \
+    auto* io_stats_context = rocksdb::get_iostats_context();             \
+    if (io_stats_context != nullptr && io_stats_context->_field_ > 0) {  \
+      counters->m_value[idx] += io_stats_context->_field_;               \
     }                                                                    \
     idx++;                                                               \
   } while (0)
@@ -205,7 +206,12 @@ bool Rdb_io_perf::start(const uint32_t perf_context_level) {
   }
 
   rocksdb::get_perf_context()->Reset();
-  rocksdb::get_iostats_context()->Reset();
+
+  auto* io_stats_context = rocksdb::get_iostats_context();
+  if (io_stats_context != nullptr) {
+    io_stats_context->Reset();
+  }
+
   return true;
 }
 
