@@ -30,11 +30,11 @@ include/assert.inc [Baseline sanity check: 0 rocksdb_covered_secondary_key_looku
 # Eligible for optimization.
 id	bigfield
 31	ddddddddddddddddddddddddddddddd
-include/assert.inc [Eligible for optimization.: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Eligible for optimization.: 1 rocksdb_covered_secondary_key_lookups]
 # Eligible for optimization, access via fake_id only
 id	bigfield
 31	ddddddddddddddddddddddddddddddd
-include/assert.inc [Eligible for optimization, access via fake_id only: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Eligible for optimization, access via fake_id only: 1 rocksdb_covered_secondary_key_lookups]
 # Not eligible for optimization, access via fake_id of big row.
 id	bigfield
 33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
@@ -50,11 +50,11 @@ include/assert.inc [Not eligible for optimization.: 0 rocksdb_covered_secondary_
 # Eligible for optimization.
 id	bigfield
 8	bbbbbbbb
-include/assert.inc [Eligible for optimization.: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Eligible for optimization.: 1 rocksdb_covered_secondary_key_lookups]
 # Eligible for optimization.
 id	bigfield
 24	cccccccccccccccccccccccc
-include/assert.inc [Eligible for optimization.: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Eligible for optimization.: 1 rocksdb_covered_secondary_key_lookups]
 # Not eligible for optimization.
 id	bigfield
 128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
@@ -62,14 +62,19 @@ include/assert.inc [Not eligible for optimization.: 0 rocksdb_covered_secondary_
 #
 # Test that multi-byte charsets are handled correctly
 #
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 # Charset record obviously shorter than the prefix
 a	b
 1	a
-include/assert.inc [Charset record obviously shorter than the prefix: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Charset record obviously shorter than the prefix: 1 rocksdb_covered_secondary_key_lookups]
 # Charset record shorter than prefix
 a	b
 2	cc
-include/assert.inc [Charset record shorter than prefix: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Charset record shorter than prefix: 1 rocksdb_covered_secondary_key_lookups]
 # Charset record with glyphs shorter than prefix
 a	b
 3	ŽŽ

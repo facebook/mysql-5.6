@@ -82,7 +82,6 @@ SELECT SUBSTRING(t,64), SUBSTRING(l,256) FROM t1 FORCE INDEX (l_t) WHERE t!=l AN
 
 DROP TABLE t1;
 
-
 CREATE TABLE t1 (
   b BLOB,
   t TINYBLOB,
@@ -172,5 +171,37 @@ INSERT INTO t1 (b) VALUES
 SELECT b FROM t1;
 
 DROP TABLE t1;
+
+--echo
+--echo #TINYBLOB Covering Indexes
+--echo
+--let $FIELD_TYPE = TINYBLOB
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--echo
+--echo #BLOB Covering Indexes
+--echo
+--let $FIELD_TYPE = BLOB
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--echo
+--echo #MEDIUMBLOB Covering Indexes
+--echo
+--let $FIELD_TYPE = MEDIUMBLOB
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--echo
+--echo #LONGBLOB Covering Indexes
+--echo
+--let $FIELD_TYPE = LONGBLOB
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
 
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;

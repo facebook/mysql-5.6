@@ -137,7 +137,7 @@ struct Rdb_index_info;
   C-style "virtual table" allowing different handling of packing logic based
   on the field type. See Rdb_field_packing::setup() implementation.
   */
-using rdb_make_unpack_info_t = void (*)(const Rdb_collation_codec *codec,
+using rdb_make_unpack_info_t = void (*)(const Rdb_field_packing *fpi,
                                         const Field *field,
                                         Rdb_pack_field_context *pack_ctx);
 using rdb_index_field_unpack_t = int (*)(Rdb_field_packing *fpi, Field *field,
@@ -383,7 +383,7 @@ class Rdb_key_def {
 
   inline bool use_covered_bitmap_format() const {
     return m_index_type == INDEX_TYPE_SECONDARY &&
-           m_kv_format_version >= SECONDARY_FORMAT_VERSION_2_BYTE_BITMAP;
+           m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE4;
   }
 
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
@@ -587,13 +587,11 @@ class Rdb_key_def {
     //  - Add a lead segment byte in space padding varchar datatypes to
     //    optimize for empty content.
     SECONDARY_FORMAT_VERSION_UPDATE3 = 14,
-    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE3,
-
     // This change includes support for covering SK lookups for varchars.  A
     // 2-byte bitmap is added after the tag-byte to unpack_info only for
-    // records which have covered varchar columns. Currently waiting before
-    // enabling in prod.
-    SECONDARY_FORMAT_VERSION_2_BYTE_BITMAP = 65535,
+    // records which have covered varchar/blob columns.
+    SECONDARY_FORMAT_VERSION_UPDATE4 = 15,
+    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE4,
   };
 
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
@@ -649,11 +647,11 @@ class Rdb_key_def {
     or at least sk_min if SK.*/
   bool index_format_min_check(const int pk_min, const int sk_min) const;
 
-  static void pack_with_varchar_encoding(
+  static void pack_with_varlength_encoding(
       Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
       Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__)));
 
-  static void pack_with_varchar_space_pad(
+  static void pack_with_varlength_space_pad(
       Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
       Rdb_pack_field_context *const pack_ctx);
 
@@ -729,19 +727,15 @@ class Rdb_key_def {
       uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
       Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__)));
 
-  static void pack_blob(
+  static int unpack_binary_or_utf8_varlength(
       Rdb_field_packing *const fpi, Field *const field,
-      uchar *const buf MY_ATTRIBUTE((__unused__)), uchar **dst,
-      Rdb_pack_field_context *const pack_ctx MY_ATTRIBUTE((__unused__)));
-
-  static int unpack_binary_or_utf8_varchar(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader,
+      uchar *dst MY_ATTRIBUTE((__unused__)), Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_binary_or_utf8_varchar_space_pad(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader);
+  static int unpack_binary_or_utf8_varlength_space_pad(
+      Rdb_field_packing *const fpi, Field *const field,
+      uchar *dst MY_ATTRIBUTE((__unused__)), Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader);
 
   static void pack_newdate(Rdb_field_packing *const fpi, Field *const field,
                            uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
@@ -758,14 +752,16 @@ class Rdb_key_def {
                              Rdb_string_reader *const unp_reader
                                  MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_unknown_varchar(Rdb_field_packing *const fpi,
-                                    Field *const field, uchar *dst,
-                                    Rdb_string_reader *const reader,
-                                    Rdb_string_reader *const unp_reader);
+  static int unpack_unknown_varlength(Rdb_field_packing *const fpi,
+                                      Field *const field,
+                                      uchar *dst MY_ATTRIBUTE((__unused__)),
+                                      Rdb_string_reader *const reader,
+                                      Rdb_string_reader *const unp_reader);
 
-  static int unpack_simple_varchar_space_pad(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader);
+  static int unpack_simple_varlength_space_pad(
+      Rdb_field_packing *const fpi, Field *const field,
+      uchar *dst MY_ATTRIBUTE((__unused__)), Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader);
 
   static int unpack_simple(Rdb_field_packing *const fpi,
                            Field *const field MY_ATTRIBUTE((__unused__)),
@@ -783,24 +779,24 @@ class Rdb_key_def {
                                    const uchar *const zero_val,
                                    void (*swap_func)(uchar *, const uchar *));
 
-  static void make_unpack_simple_varchar(
-      const Rdb_collation_codec *const codec, const Field *const field,
+  static void make_unpack_simple_varlength(
+      const Rdb_field_packing *const fpi, const Field *const field,
       Rdb_pack_field_context *const pack_ctx);
 
-  static void make_unpack_simple(const Rdb_collation_codec *const codec,
+  static void make_unpack_simple(const Rdb_field_packing *const fpi,
                                  const Field *const field,
                                  Rdb_pack_field_context *const pack_ctx);
 
   static void make_unpack_unknown(
-      const Rdb_collation_codec *codec MY_ATTRIBUTE((__unused__)),
+      const Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
       const Field *const field, Rdb_pack_field_context *const pack_ctx);
 
-  static void make_unpack_unknown_varchar(
-      const Rdb_collation_codec *const codec MY_ATTRIBUTE((__unused__)),
+  static void make_unpack_unknown_varlength(
+      const Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
       const Field *const field, Rdb_pack_field_context *const pack_ctx);
 
   static void dummy_make_unpack_info(
-      const Rdb_collation_codec *codec MY_ATTRIBUTE((__unused__)),
+      const Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
       const Field *field MY_ATTRIBUTE((__unused__)),
       Rdb_pack_field_context *pack_ctx MY_ATTRIBUTE((__unused__)));
 
@@ -809,9 +805,9 @@ class Rdb_key_def {
                                  MY_ATTRIBUTE((__unused__)),
                              Rdb_string_reader *const reader);
 
-  static int skip_variable_length(const Rdb_field_packing *const fpi,
-                                  const Field *const field,
-                                  Rdb_string_reader *const reader);
+  static int skip_variable_length_encoding(const Rdb_field_packing *const fpi,
+                                           const Field *const field,
+                                           Rdb_string_reader *const reader);
 
   static int skip_variable_space_pad(const Rdb_field_packing *const fpi,
                                      const Field *const field,
@@ -825,6 +821,12 @@ class Rdb_key_def {
     return index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE3,
                                   SECONDARY_FORMAT_VERSION_UPDATE3);
   }
+
+  /*
+    Returns true if the type of variable length.
+    Currently returns true for varchar, blob and text.
+  */
+  static bool is_variable_length_field(const enum_field_types type);
 
  private:
 #ifndef DBUG_OFF
@@ -845,6 +847,38 @@ class Rdb_key_def {
                                    uchar **dst);
 
   static uint calc_unpack_variable_format(uchar flag, bool *done);
+
+  /*
+    Stores data and len for the given field.
+    Currently this support varchar and blob data types.
+  */
+  static void store_field(const uchar *data, const size_t length, Field *field);
+
+  /*
+    Returns the data pointer from field.
+    Currently this support varchar and blob data types.
+  */
+  static const char *get_data_value(const Field *field);
+
+  /*
+    Returns the pointer where the field data will be stored.
+    Currently this support varchar and blob data types.
+  */
+  static uchar *get_data_start_ptr(const Field *field,
+                                   const size_t max_field_length);
+
+  /*
+    Returns number of bytes used to store the length for field.
+    Currently this support varchar and blob data types.
+  */
+  static uint16 get_length_bytes(const Field *field);
+
+  /*
+    Returns true if the varlength field prefix is eligile for covering index
+    lookup.
+  */
+  static bool is_varlength_prefix_covering(const Field *field,
+                                           const Rdb_field_packing *const fpi);
 
  public:
   uint16_t m_index_dict_version;
@@ -881,6 +915,9 @@ class Rdb_key_def {
 
   /* TTL column (if defined by user, otherwise implicit TTL is used) */
   std::string m_ttl_column;
+
+  /* Maximum total length of mem-comparable blob keys */
+  uint m_max_blob_length;
 
  private:
   /* Number of key parts in the primary key*/
@@ -982,9 +1019,9 @@ class Rdb_field_packing {
   bool m_maybe_null; /* true <=> NULL-byte is stored */
 
   /*
-    Valid only for VARCHAR fields.
+    Valid only for varlength fields i.e varchar and blob.
   */
-  const CHARSET_INFO *m_varchar_charset;
+  const CHARSET_INFO *m_varlength_charset;
 
   /*
     Use leading space byte in varchar encoding.
@@ -1034,6 +1071,11 @@ class Rdb_field_packing {
     This function skips over mem-comparable form.
   */
   rdb_index_field_skip_t m_skip_func;
+
+  /*
+    Stores max bytes used for field when longest allowed key is stored.
+  */
+  size_t m_max_field_bytes;
 
  private:
   /*

@@ -27,7 +27,7 @@ id	fake_id	bigfield
 SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id = 1031;
 id	bigfield
 31	ddddddddddddddddddddddddddddddd
-include/assert.inc [Eligible for optimization, access via fake_id only: 2 rocksdb_covered_secondary_key_lookups]
+include/assert.inc [Eligible for optimization, access via fake_id only: 1 rocksdb_covered_secondary_key_lookups]
 # Not eligible for optimization, access via fake_id of big row.
 SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id = 1033;
 id	bigfield
