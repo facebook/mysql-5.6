@@ -1,6 +1,4 @@
-# Disable until covered unpack_info format enabled in prod
 --source include/have_debug.inc
---source include/have_nodebug.inc
 
 --source include/have_rocksdb.inc
 
@@ -35,12 +33,12 @@ SELECT * FROM t1;
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Eligible for optimization.
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --let $prefix_index_check_query= SELECT id, bigfield FROM t1 FORCE INDEX(bf) WHERE bigfield = REPEAT('d', 31)
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Eligible for optimization, access via fake_id only
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --let $prefix_index_check_query= SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id = 1031
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
@@ -63,12 +61,12 @@ SELECT * FROM t1;
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Eligible for optimization.
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --let $prefix_index_check_query= SELECT id, bigfield FROM t1 FORCE INDEX(bf) WHERE bigfield = REPEAT('b', 8)
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Eligible for optimization.
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --let $prefix_index_check_query= SELECT id, bigfield FROM t1 FORCE INDEX(bf) WHERE bigfield = REPEAT('c', 24)
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
@@ -99,12 +97,12 @@ INSERT INTO t1 VALUES
 
 --let $prefix_index_check_title= Charset record obviously shorter than the prefix
 --let $prefix_index_check_query= SELECT * FROM t1 FORCE INDEX(k) WHERE b = "a"
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Charset record shorter than prefix
 --let $prefix_index_check_query= SELECT * FROM t1 FORCE INDEX(k) WHERE b = "cc"
---let $prefix_index_check_read_avoided_delta= 2
+--let $prefix_index_check_read_avoided_delta= 1
 --source suite/rocksdb/include/prefix_index_only_query_check.inc
 
 --let $prefix_index_check_title= Charset record with glyphs shorter than prefix
