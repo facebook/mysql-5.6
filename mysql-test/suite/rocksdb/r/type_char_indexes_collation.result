@@ -119,3 +119,254 @@ abc	3
 abc		4
 abca	5
 drop table t1;
+
+#VARCHAR Covering Indexes
+
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield varchar(256),
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "latin1" COLLATE "latin1_bin" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield varchar(256),
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "binary" COLLATE "binary" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield varchar(256),
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "utf8" COLLATE "utf8_bin" ;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield varchar(256),
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "latin1" COLLATE "latin1_swedish_ci" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield varchar(256),
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "utf8" COLLATE "utf8_general_ci" ;
+Warnings:
+Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
+Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";

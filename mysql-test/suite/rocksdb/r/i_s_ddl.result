@@ -12,10 +12,10 @@ COMMENT "ttl_duration=3600;";
 SELECT TABLE_SCHEMA,TABLE_NAME,PARTITION_NAME,INDEX_NAME,INDEX_TYPE,KV_FORMAT_VERSION,CF,TTL_DURATION,INDEX_FLAGS FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME like 'is_ddl_t%';
 TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	INDEX_TYPE	KV_FORMAT_VERSION	CF	TTL_DURATION	INDEX_FLAGS
 test	is_ddl_t1	NULL	PRIMARY	1	14	default	0	0
-test	is_ddl_t1	NULL	j	2	14	default	0	0
-test	is_ddl_t1	NULL	k	2	14	kl_cf	0	0
+test	is_ddl_t1	NULL	j	2	15	default	0	0
+test	is_ddl_t1	NULL	k	2	15	kl_cf	0	0
 test	is_ddl_t2	NULL	PRIMARY	1	14	zy_cf	0	0
-test	is_ddl_t2	NULL	x	2	14	default	0	0
+test	is_ddl_t2	NULL	x	2	15	default	0	0
 test	is_ddl_t3	NULL	PRIMARY	1	14	default	3600	1
 DROP TABLE is_ddl_t1;
 DROP TABLE is_ddl_t2;
