@@ -66,6 +66,11 @@ if ($rpl_server_count)
 # See: show_events.inc
 let $show_metadata_event= 1;
 
+# Set this variable to not decrement the binlog file name by 1 in
+# show_binlog_events.inc
+# See: show_events.inc
+let $dont_decrement_filename= 1;
+
 
 --let $include_filename= raft_3_node.inc
 --source include/end_include_file.inc

@@ -43,6 +43,19 @@ if ($binlog_file)
   }
   --let $statement= $statement in '$_binlog_file'
 }
+if (!$binlog_file)
+{
+  # In raft mode, if the binlog file is not provided, we skip the first file coz
+  # it will be empty and will have been rotated away
+  if ($rpl_enable_raft)
+  {
+    if (!$dont_decrement_filename)
+    {
+      --let $_binlog_file= query_get_value(SHOW BINARY LOGS, Log_name, 2)
+      --let $statement= $statement in '$_binlog_file'
+    }
+  }
+}
 
 --let $statement= $statement from $binlog_start
 
@@ -93,6 +106,19 @@ if ($keep_gtid_events)
 if (!$show_metadata_event)
 {
   exec eval sed '/Metadata/d' -i $output_file;
+}
+
+# If Raft is enabled, it will have caused one rotation at the beginning making
+# all binlog file names to be offset by 1. So we hack in to the output to
+# subtract 1 from the file number to make it appear like there was no rotation
+# in the beginning. This will help avoid having to re-record all tests which
+# rely on binlog file name matching in the output
+if ($rpl_enable_raft)
+{
+  if (!$dont_decrement_filename)
+  {
+    exec eval perl -pe 's/\(\(?:master\|slave\)-bin\.\)\([0-9]{6}\)/\$1.\(\"0\"\ x\(6-length\(\$2-1\)\)\).\(\$2-1\)/e' -i $output_file;
+  }
 }
 
 # Write to result file
