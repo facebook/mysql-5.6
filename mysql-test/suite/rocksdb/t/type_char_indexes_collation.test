@@ -136,3 +136,33 @@ insert into t1 values ('abc  ', 1), ('abc ', 2), ('abc', 3), ('abc\t', 4), ('abc
 # Use like to trigger prefix scan using index
 select str, val from t1 force index (str) where str like 'abc%' order by str, val;
 drop table t1;
+
+--echo
+--echo #VARCHAR Covering Indexes
+--echo
+--let $FIELD_TYPE = varchar(256)
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = varchar(256)
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = varchar(256)
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = varchar(256)
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_swedish_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+--let $FIELD_TYPE = varchar(256)
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_general_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
