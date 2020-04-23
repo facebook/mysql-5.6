@@ -168,4 +168,241 @@ SELECT hex(b) FROM t1;
 
 DROP TABLE t1;
 
+--echo
+--echo #Collation tests
+--echo
+# Testing if all characters in latin1 charset get restored correctly. This is
+# done by comparing results from a PK scan.
+create table t (id int not null auto_increment,
+                c1 text CHARACTER SET latin1 COLLATE latin1_swedish_ci,
+                c2 text CHARACTER SET latin1 COLLATE latin1_general_ci,
+                primary key (id),
+                key sk1 (c1(1)),
+                key sk2 (c2(1)));
+
+let $i = 0;
+
+--disable_query_log
+while ($i < 256)
+{
+  --eval insert into t (c1, c2) values (CHAR('$i'), CHAR('$i'))
+  inc $i;
+}
+--enable_query_log
+
+--replace_column 9 #
+explain select hex(c1) from t order by c1;
+--replace_column 9 #
+explain select hex(c1) from t IGNORE INDEX (sk1) order by c1;
+
+--replace_column 9 #
+explain select hex(c2) from t order by c2;
+--replace_column 9 #
+explain select hex(c2) from t IGNORE INDEX (sk1) order by c2;
+
+--let $file1=$MYSQLTEST_VARDIR/tmp/filesort_order
+--let $file2=$MYSQLTEST_VARDIR/tmp/sk_order
+
+--disable_query_log
+--eval select hex(c1) INTO OUTFILE '$file1' from t FORCE INDEX (sk1) order by c1
+--eval select hex(c1) INTO OUTFILE '$file2' from t FORCE INDEX (PRIMARY) order by c1
+--enable_query_log
+
+--diff_files $file1 $file2
+--remove_file $file1
+--remove_file $file2
+
+--disable_query_log
+--eval select hex(c2) INTO OUTFILE '$file1' from t FORCE INDEX (sk2) order by c2
+--eval select hex(c2) INTO OUTFILE '$file2' from t FORCE INDEX (PRIMARY) order by c2
+--enable_query_log
+
+--diff_files $file1 $file2
+--remove_file $file1
+--remove_file $file2
+
+truncate t;
+
+# Test handling of spaces at the end of fields.
+insert into t (c1, c2) values ('Asdf    ', 'Asdf    ');
+select char_length(c1), c1 from t FORCE INDEX (sk1);
+select char_length(c2), c2 from t FORCE INDEX (sk2);
+
+drop table t;
+
+create table t (id int not null auto_increment,
+                c2 text CHARACTER SET latin1 COLLATE latin1_general_ci,
+                primary key (id),
+                unique key sk2 (c2(255)));
+
+insert into t (c2) values ('Asdf');
+--error ER_DUP_ENTRY
+insert into t (c2) values ('asdf ');
+
+drop table t;
+
+create table t (id int not null auto_increment,
+                c1 text CHARACTER SET latin1 COLLATE latin1_swedish_ci,
+                primary key (id),
+                unique key sk1 (c1(256)));
+
+insert into t (c1) values ('Asdf');
+--error ER_DUP_ENTRY
+insert into t (c1) values ('asdf ');
+--error ER_DUP_ENTRY
+insert into t (c1) values ('asdf');
+
+drop table t;
+
+create table t (id int not null auto_increment,
+                c1 text CHARACTER SET latin1 COLLATE latin1_swedish_ci,
+                primary key (id),
+                unique key sk1 (c1(1)));
+
+insert into t (c1) values ('Asdf');
+insert into t (c1) values ('bbbb ');
+--error ER_DUP_ENTRY
+insert into t (c1) values ('a    ');
+
+--replace_column 9 #
+explain select c1 from t;
+select c1 from t;
+
+drop table t;
+
+# Test text keyparts with key prefix
+set session rocksdb_verify_row_debug_checksums = on;
+create table t (id int primary key, email text, KEY email_i (email(30))) engine=rocksdb default charset=latin1;
+insert into t values (1, '                                  a');
+--replace_column 9 #
+explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+drop table t;
+
+# Test text with length greater than 255
+create table t (id int primary key, email text, KEY email_i (email(767))) engine=rocksdb default charset=latin1;
+insert into t values (1, REPEAT('a', 700));
+select 'email_i' as index_name, count(*) AS count from t force index(email_i);
+drop table t;
+
+--echo
+--echo #TINYTEXT Covering Indexes
+--echo
+--let $FIELD_TYPE = TINYTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TINYTEXT
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TINYTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TINYTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_swedish_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+--let $FIELD_TYPE = TINYTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_general_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
+
+--echo
+--echo #Text Covering Indexes
+--echo
+--let $FIELD_TYPE = TEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TEXT
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = TEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_swedish_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+--let $FIELD_TYPE = TEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_general_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
+
+--echo
+--echo #MEDIUMTEXT Covering Indexes
+--echo
+--let $FIELD_TYPE = MEDIUMTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = MEDIUMTEXT
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = MEDIUMTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = MEDIUMTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_swedish_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+--let $FIELD_TYPE = MEDIUMTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_general_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
+
+--echo
+--echo #LONGTEXT Covering Indexes
+--echo
+--let $FIELD_TYPE = LONGTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = LONGTEXT
+--let $CHAR_SET = "binary"
+--let $COLLATION = "binary"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = LONGTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_bin"
+--source suite/rocksdb/include/covering_index_query.inc
+
+--let $FIELD_TYPE = LONGTEXT
+--let $CHAR_SET = "latin1"
+--let $COLLATION = "latin1_swedish_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+
+set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+--let $FIELD_TYPE = LONGTEXT
+--let $CHAR_SET = "utf8"
+--let $COLLATION = "utf8_general_ci"
+--source suite/rocksdb/include/covering_index_query.inc
+set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
+
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;

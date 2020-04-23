@@ -197,4 +197,208 @@ b
 00000000000000000000000000000001
 00000000000000000000000000000002
 DROP TABLE t1;
+
+#TINYBLOB Covering Indexes
+
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield TINYBLOB,
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "binary" COLLATE "binary" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+
+#BLOB Covering Indexes
+
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield BLOB,
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "binary" COLLATE "binary" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+
+#MEDIUMBLOB Covering Indexes
+
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield MEDIUMBLOB,
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "binary" COLLATE "binary" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
+
+#LONGBLOB Covering Indexes
+
+CREATE TABLE t1 (id INT,
+fake_id INT,
+bigfield LONGBLOB,
+PRIMARY KEY (id),
+KEY bf (bigfield(32)),
+KEY fid (fake_id, bigfield(32))
+) ENGINE=rocksdb CHARACTER SET "binary" COLLATE "binary" ;
+INSERT INTO t1 VALUES (0, 1000, ''),
+(1, 1001, REPEAT('a', 1)),
+(8, 1008, REPEAT('b', 8)),
+(24, 1024, REPEAT('c', 24)),
+(30, 1030, REPEAT(' ', 30)),
+(31, 1031, REPEAT('d', 31)),
+(32, 1032, REPEAT('x', 32)),
+(33, 1033, REPEAT('y', 33)),
+(34, 1034, REPEAT(' ', 34)),
+(128, 1128, REPEAT('z', 128));
+SELECT id, bigfield FROM t1 IGNORE INDEX(fid) ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+# Eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id <= 1032 ORDER BY fake_id;
+id	bigfield
+0	
+1	a
+8	bbbbbbbb
+24	cccccccccccccccccccccccc
+30	                              
+31	ddddddddddddddddddddddddddddddd
+32	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+include/assert.inc [Eligible for covering index optimization: 7 rocksdb_covered_secondary_key_lookups]
+# Not eligible for covering index optimization
+SELECT id, bigfield FROM t1 FORCE INDEX(fid) WHERE fake_id > 1032 ORDER BY fake_id;
+id	bigfield
+33	yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+34	                                  
+128	zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+include/assert.inc [Not eligible for covering index optimization: 0 rocksdb_covered_secondary_key_lookups]
+DROP TABLE t1;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
