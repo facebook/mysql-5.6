@@ -7842,7 +7842,24 @@ void MYSQL_BIN_LOG::close(uint exiting)
   if (log_state == LOG_OPENED)
   {
 #ifdef HAVE_REPLICATION
-    if ((exiting & LOG_CLOSE_STOP_EVENT) != 0)
+    // In raft mode, we are disabling all STOP_EVENT addition.
+    // There are primarily 3 reasons.
+    // 1. T65968945 - during shutdown of the server,
+    // relay logs and binlogs add STOP EVENTS. In Raft, the
+    // Master still has an RLI which holds onto a STALE relay log
+    // and adding a STOP EVENT during close will violate the append
+    // only rule to the file, because the same relay log has been
+    // usurped as a binlog by the master and appended to, changing its size
+    // 2. Comments in code have shown us that STOP EVENTs are not
+    // critical for relay logs and best effort in general.
+    // A server can crash with kill -9 and there wont be any stop event.
+    // Raft recovery code handles these scenarios and so STOP_EVENT is
+    // still best effort
+    // 3. In Raft on crash recovery we open_existing_binlog, which
+    // will have issues because the STOP_EVENT will be in the middle of
+    // the file and can confuse appliers, when we have to still keep
+    // appending new entries beyond it.
+    if (((exiting & LOG_CLOSE_STOP_EVENT) != 0) && !enable_raft_plugin)
     {
       Stop_log_event s;
       // the checksumming rule for relay-log case is similar to Rotate
