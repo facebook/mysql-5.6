@@ -7632,3 +7632,8 @@ static Sys_var_bool Sys_enable_resultset_checksum(
     "Enable CRC32 resultset checksums if requested by the client sending the "
     "checksum query attribute, set to the query checksum",
     GLOBAL_VAR(enable_resultset_checksum), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_charptr Sys_default_collation_for_utf8mb4_init(
+    "default_collation_for_utf8mb4_init", "default collation for utf8mb4",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(default_collation_for_utf8mb4_init),
+    NO_CMD_LINE, IN_SYSTEM_CHARSET, DEFAULT(0));

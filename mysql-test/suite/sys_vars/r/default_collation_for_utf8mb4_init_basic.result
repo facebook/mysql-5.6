@@ -1,0 +1,10 @@
+SELECT @@GLOBAL.default_collation_for_utf8mb4_init;
+@@GLOBAL.default_collation_for_utf8mb4_init
+utf8mb4_general_ci
+SELECT @@GLOBAL.default_collation_for_utf8mb4;
+@@GLOBAL.default_collation_for_utf8mb4
+utf8mb4_general_ci
+set global default_collation_for_utf8mb4_init="test";
+ERROR HY000: Variable 'default_collation_for_utf8mb4_init' is a read only variable
+set session default_collation_for_utf8mb4_init="test";
+ERROR HY000: Variable 'default_collation_for_utf8mb4_init' is a read only variable
