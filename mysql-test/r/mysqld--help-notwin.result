@@ -279,6 +279,8 @@ The following options may be given as the first argument:
  --default-authentication-plugin=name 
  The default authentication plugin used by the server to
  hash the password.
+ --default-collation-for-utf8mb4-init=name 
+ The default collation for utf8mb4 charsets
  --default-password-lifetime=# 
  The number of days after which the password will expire.
  --default-storage-engine=name 
@@ -2246,6 +2248,7 @@ create-admin-listener-thread FALSE
 cte-max-recursion-depth 1000
 daemonize FALSE
 default-authentication-plugin caching_sha2_password
+default-collation-for-utf8mb4-init (No default value)
 default-password-lifetime 0
 default-storage-engine InnoDB
 default-table-encryption FALSE
