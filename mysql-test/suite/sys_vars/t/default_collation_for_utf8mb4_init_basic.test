@@ -1,0 +1,10 @@
+SELECT @@GLOBAL.default_collation_for_utf8mb4_init;
+SELECT @@GLOBAL.default_collation_for_utf8mb4;
+
+#
+# show that it's read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global default_collation_for_utf8mb4_init="test";
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session default_collation_for_utf8mb4_init="test";
