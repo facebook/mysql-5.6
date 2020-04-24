@@ -423,9 +423,11 @@ Warning	1681	Updating 'default_collation_for_utf8mb4' is deprecated. It will be 
 SHOW GLOBAL VARIABLES LIKE '%default_collation_for_utf8mb4%';
 Variable_name	Value
 default_collation_for_utf8mb4	utf8mb4_0900_ai_ci
+default_collation_for_utf8mb4_init	
 SHOW SESSION VARIABLES LIKE '%default_collation_for_utf8mb4%';
 Variable_name	Value
 default_collation_for_utf8mb4	utf8mb4_general_ci
+default_collation_for_utf8mb4_init	
 CREATE DATABASE db1;
 USE db1;
 CREATE TABLE st1 (c1 INT ,c3 varchar(10) UNIQUE KEY);

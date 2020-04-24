@@ -1211,6 +1211,7 @@ ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 bool opt_keyring_migration_to_component = false;
 bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
+char *default_collation_for_utf8mb4_init = nullptr;
 
 #if defined(_WIN32)
 /*
@@ -5262,8 +5263,23 @@ int init_common_variables() {
   /* Set collactions that depends on the default collation */
   global_system_variables.collation_server = default_charset_info;
   global_system_variables.collation_database = default_charset_info;
-  global_system_variables.default_collation_for_utf8mb4 =
-      &my_charset_utf8mb4_0900_ai_ci;
+
+  /* Adjust the default collation for utf8mb4 if needed */
+  if (default_collation_for_utf8mb4_init) {
+    CHARSET_INFO *default_collation =
+        get_charset_by_name(default_collation_for_utf8mb4_init, MYF(0));
+    if (!default_collation ||
+        (default_collation != &my_charset_utf8mb4_0900_ai_ci &&
+         default_collation != &my_charset_utf8mb4_general_ci)) {
+      LogErr(ERROR_LEVEL, ER_FAILED_TO_FIND_COLLATION_NAME,
+             default_collation_for_utf8mb4_init);
+      return 1;
+    }
+    global_system_variables.default_collation_for_utf8mb4 = default_collation;
+  } else {
+    global_system_variables.default_collation_for_utf8mb4 =
+        &my_charset_utf8mb4_0900_ai_ci;
+  }
 
   if (is_supported_parser_charset(default_charset_info)) {
     global_system_variables.collation_connection = default_charset_info;
@@ -8895,6 +8911,10 @@ struct my_option my_long_options[] = {
      nullptr},
     {"core-file", OPT_WANT_CORE, "Write core on errors.", nullptr, nullptr,
      nullptr, GET_NO_ARG, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"default-collation-for-utf8mb4-init", 0,
+     "The default collation for utf8mb4 charsets",
+     &default_collation_for_utf8mb4_init, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0,
+     nullptr, 0, nullptr},
     /* default-storage-engine should have "MyISAM" as def_value. Instead
        of initializing it here it is done in init_common_variables() due
        to a compiler bug in Sun Studio compiler. */
@@ -10418,6 +10438,7 @@ static int mysql_init_variables() {
   national_charset_info = &my_charset_utf8_general_ci;
   table_alias_charset = &my_charset_bin;
   character_set_filesystem = &my_charset_bin;
+  default_collation_for_utf8mb4_init = nullptr;
 
   opt_specialflag = 0;
   binlog_file_basedir_ptr = binlog_file_basedir;
