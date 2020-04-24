@@ -6456,6 +6456,25 @@ static Sys_var_mybool Sys_maintain_database_hlc(
        CMD_LINE(OPT_ARG), DEFAULT(FALSE),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_maintain_database_hlc));
 
+static bool check_enable_block_stale_hlc_read(sys_var *self, THD *thd, set_var *var)
+{
+  // enable_block_stale_hlc_read is only safe under the current implementation
+  // if allow_noncurrent_db_rw is OFF. A more general implementation could safely
+  // handle allow_noncurrent_db_rw != OFF in the future
+  uint64_t new_enable_block_stale_hlc_read= var->save_result.ulonglong_value;
+  if (thd->variables.allow_noncurrent_db_rw != 3 && new_enable_block_stale_hlc_read != 0)
+    return true; // Needs allow_noncurrent_db_rw == OFF
+  return false;
+}
+
+static  Sys_var_mybool Sys_enable_block_stale_hlc_read(
+       "enable_block_stale_hlc_read",
+       "Enable blocking reads with a requested HLC timestamp ahead of the engine HLC",
+       SESSION_VAR(enable_block_stale_hlc_read),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_block_stale_hlc_read)
+);
+
 /*
   Global variable to control the implementation to get statistics per
   user-table pair

@@ -10832,7 +10832,7 @@ SHOW_VAR status_vars[]= {
   {"Slave_dependency_next_waits", (char*) &show_slave_dependency_next_waits, SHOW_FUNC},
   {"Slave_before_image_inconsistencies", (char*) &show_slave_before_image_inconsistencies, SHOW_FUNC},
 	{"Slave_high_priority_ddl_executed", (char *)&slave_high_priority_ddl_executed, SHOW_LONGLONG},
-	{"Slave_high_priority_ddl_killed_connections", (char *)&slave_high_priority_ddl_killed_connections, SHOW_LONGLONG}, 
+	{"Slave_high_priority_ddl_killed_connections", (char *)&slave_high_priority_ddl_killed_connections, SHOW_LONGLONG},
 #endif
   {"Slow_launch_threads",      (char*) &slow_launch_threads,    SHOW_LONG},
   {"Slow_queries",             (char*) offsetof(STATUS_VAR, long_query_count), SHOW_LONGLONG_STATUS},

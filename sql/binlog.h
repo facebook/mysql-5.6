@@ -324,6 +324,25 @@ class HybridLogicalClock {
    */
   void get_database_hlc(std::unordered_map<std::string, uint64_t>& applied_hlc);
 
+	
+  /**
+   * Get the applied hlc for the specified database
+   *
+   * @param  [in] A database name to select HLC for
+   *
+   * @return The HLC for the specified database, or 0 if not found
+   */
+  uint64_t get_selected_database_hlc(const std::string& database);
+  
+  /**
+   * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
+   *
+   * @param [in] The HLC value to validate
+   */
+  static bool is_valid_hlc(uint64_t hlc) {
+    return hlc != 0 && hlc != ULLONG_MAX;
+  }
+
  private:
 
   // nanosecond precision internal clock
@@ -733,6 +752,10 @@ public:
   void get_database_hlc(
       std::unordered_map<std::string, uint64_t>& database_hlc) {
     return hlc.get_database_hlc(database_hlc);
+  }
+  
+  uint64_t get_selected_database_hlc(const std::string& database) {
+    return hlc.get_selected_database_hlc(database);
   }
 
 private:

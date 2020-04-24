@@ -275,6 +275,9 @@ The following options may be given as the first argument:
  insert. Engine ignores primary key violations. This will
  avoid a delete and an insert. This is supported in
  MyRocks
+ --enable-block-stale-hlc-read 
+ Enable blocking reads with a requested HLC timestamp
+ ahead of the engine HLC
  --enable-gtid-mode-on-new-slave-with-old-master 
  This should be used only for testing purposes. This
  option allows enabling gtid_mode on new slave replicating
@@ -2171,6 +2174,7 @@ div-precision-increment 4
 enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
+enable-block-stale-hlc-read FALSE
 enable-gtid-mode-on-new-slave-with-old-master FALSE
 enable-jemalloc-hpp OFF
 enable-query-checksum FALSE

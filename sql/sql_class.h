@@ -814,6 +814,8 @@ typedef struct system_variables
   my_bool innodb_stats_on_metadata;
 
   my_bool high_precision_processlist;
+  
+  my_bool enable_block_stale_hlc_read;
 
   long admission_control_queue_timeout;
 } SV;

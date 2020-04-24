@@ -173,6 +173,7 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
 
 const char *any_db="*any*";	// Special symbol for check_access
+const char *hlc_ts_lower_bound="hlc_ts_lower_bound";
 
 char * histogram_step_size_connection_create= NULL;
 char * histogram_step_size_update_command= NULL;
@@ -6650,6 +6651,63 @@ finish:
   DBUG_RETURN(res || thd->is_error());
 }
 
+static bool check_hlc_lower_bound(THD * thd, TABLE_LIST * all_tables) {
+  if (!(thd->variables.enable_block_stale_hlc_read && thd->db &&
+      !thd->slave_thread)) {
+    return false;
+  }
+    
+  const auto it = thd->query_attrs_map.find(hlc_ts_lower_bound);
+  if (it == thd->query_attrs_map.end()) {
+    return false;
+  }
+
+  // Behavior of this feature on reads inside of a transaction is complex
+  // and not supported at this point in time.
+  if (thd->in_active_multi_stmt_transaction()) {
+    my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
+    return true;
+  }
+
+  uint64_t requested_hlc = strtoull(it->second.c_str(), NULL, 10);
+  if (!HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+    my_error(ER_INVALID_HLC_READ_BOUND, MYF(0), it->second.c_str());
+    return true;
+  }
+
+  // The implementation makes the assumption that
+  // allow_noncurrent_db_rw = OFF and only reads to the current database
+  // are allowed
+  if (thd->variables.allow_noncurrent_db_rw != 3 /* OFF */) {
+    my_error(ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND, MYF(0),
+            thd->variables.allow_noncurrent_db_rw);
+    return true;
+  }
+
+  // There are some tables we do not want to perform HLC checks on, since
+  // they are local to the instance and intentionally not replicated
+  for (TABLE_LIST *table = all_tables; table; table = table->next_global) {
+      bool good_table =
+          !my_strcasecmp(&my_charset_latin1, table->db, "mysql") ||
+          !my_strcasecmp(&my_charset_latin1, table->db,
+                          "information_schema") ||
+          !my_strcasecmp(&my_charset_latin1, table->db,
+                          "performance_schema");
+    if (good_table) {
+      return false;
+    }
+  }
+
+  std::string db(thd->db, thd->db_length);
+  uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
+  if (requested_hlc > applied_hlc) {
+    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, thd->db);
+    return true;
+  }
+ 
+  return false;
+}
+
 static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
 	ulonglong *last_timer)
 {
@@ -6673,6 +6731,10 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
   if (is_timer_applicable_to_statement(thd))
     statement_timer_armed= set_statement_timer(thd);
 #endif
+
+  if (check_hlc_lower_bound(thd, all_tables)) {
+    return 1;
+  }
 
   res = open_normal_and_derived_tables(thd, all_tables, 0);
 
