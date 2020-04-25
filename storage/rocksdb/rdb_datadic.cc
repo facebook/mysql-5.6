@@ -1806,6 +1806,13 @@ int Rdb_key_def::skip_variable_space_pad(const Rdb_field_packing *const fpi,
     dst_len = field_var->pack_length() - field_var->length_bytes;
   }
 
+  if (fpi->m_use_space_pad_lead_byte) {
+    uchar encoded_byte = *(const uchar *)reader->read(1);
+    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+    // This indicates empty content and we can return prematurely.
+    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) return HA_EXIT_SUCCESS;
+  }
+
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
     // See pack_with_varchar_space_pad
@@ -2682,11 +2689,13 @@ void Rdb_key_def::pack_with_varchar_encoding(
 }
 
 /*
-  Compare the string in [buf..buf_end) with a string that is an infinite
-  sequence of strings in space_xfrm
-*/
+  Compare the string suffix with a hypothetical infinite string of
+  spaces. It could be that the first difference is beyond the end of
+  current chunk.
 
-static int rdb_compare_string_with_spaces(
+  @return last byte value for the segment chunk which acts as terminator.
+*/
+static int rdb_get_segment_terminator(
     const uchar *buf, const uchar *const buf_end,
     const std::vector<uchar> *const space_xfrm) {
   int cmp = 0;
@@ -2695,10 +2704,22 @@ static int rdb_compare_string_with_spaces(
     if ((cmp = memcmp(buf, space_xfrm->data(), bytes)) != 0) break;
     buf += bytes;
   }
-  return cmp;
+
+  int val;
+  if (cmp < 0) {
+    val = VARCHAR_CMP_LESS_THAN_SPACES;
+  } else if (cmp > 0) {
+    val = VARCHAR_CMP_GREATER_THAN_SPACES;
+  } else {
+    // It turns out all the rest are spaces.
+    val = VARCHAR_CMP_EQUAL_TO_SPACES;
+  }
+
+  return val;
 }
 
 static const int RDB_TRIMMED_CHARS_OFFSET = 8;
+/* clang-format off */
 /*
   Pack the data with Variable-Length Space-Padded Encoding.
 
@@ -2731,6 +2752,9 @@ static const int RDB_TRIMMED_CHARS_OFFSET = 8;
      - VARCHAR_CMP_LESS_THAN_SPACES,
      - VARCHAR_CMP_EQUAL_TO_SPACES
      - VARCHAR_CMP_GREATER_THAN_SPACES
+  - First byte of the encoding is also encoded using above three values. This
+    helps to optimize for empty content in which first byte will be encoded
+    as VARCHAR_CMP_EQUAL_TO_SPACES.
 
   VARCHAR_CMP_EQUAL_TO_SPACES means that this chunk is the last one (the rest
   is spaces, or something that sorts as spaces, so there is no reason to store
@@ -2738,10 +2762,11 @@ static const int RDB_TRIMMED_CHARS_OFFSET = 8;
 
   Example: if fpi->m_segment_size=5, and the collation is latin1_bin:
 
-   'abcd\0'   => [ 'abcd' <VARCHAR_CMP_LESS> ]['\0    ' <VARCHAR_CMP_EQUAL> ]
-   'abcd'     => [ 'abcd' <VARCHAR_CMP_EQUAL>]
-   'abcd   '  => [ 'abcd' <VARCHAR_CMP_EQUAL>]
-   'abcdZZZZ' => [ 'abcd' <VARCHAR_CMP_GREATER>][ 'ZZZZ' <VARCHAR_CMP_EQUAL>]
+   'abcd\0'   => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_LESS> ]['\0    ' <VARCHAR_CMP_EQUAL> ]
+   'abcd'     => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_EQUAL>]
+   'abcd   '  => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_EQUAL>]
+   'abcdZZZZ' => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_GREATER>][ 'ZZZZ' <VARCHAR_CMP_EQUAL>]
+   ''         => [<VARCHAR_CMP_EQUAL>]
 
   As mentioned above, the last chunk is padded with mem-comparable images of
   cs->pad_char. It can be 1-byte long (latin1), 2 (utf8_bin), 3 (utf8mb4), etc.
@@ -2769,6 +2794,7 @@ static const int RDB_TRIMMED_CHARS_OFFSET = 8;
     dummy_make_unpack_info
     skip_variable_space_pad
 */
+/* clang-format on */
 
 void Rdb_key_def::pack_with_varchar_space_pad(
     Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
@@ -2811,7 +2837,17 @@ void Rdb_key_def::pack_with_varchar_space_pad(
 
   size_t encoded_size = 0;
   uchar *ptr = *dst;
-  size_t padding_bytes;
+  size_t padding_bytes = 0;
+  if (fpi->m_use_space_pad_lead_byte) {
+    // In new varchar format, we encode the lead segment byte. In
+    // can we reach end of buffer, we are done.
+    // This can happen in case of empty data or data containing
+    // only spaces.
+    *ptr = rdb_get_segment_terminator(buf, buf_end, fpi->space_xfrm);
+    encoded_size++;
+    if (*(ptr++) == VARCHAR_CMP_EQUAL_TO_SPACES) goto unpack_info;
+  }
+
   while (true) {
     const size_t copy_len =
         std::min<size_t>(fpi->m_segment_size - 1, buf_end - buf);
@@ -2828,23 +2864,14 @@ void Rdb_key_def::pack_with_varchar_space_pad(
       // Compare the string suffix with a hypothetical infinite string of
       // spaces. It could be that the first difference is beyond the end of
       // current chunk.
-      const int cmp =
-          rdb_compare_string_with_spaces(buf, buf_end, fpi->space_xfrm);
-
-      if (cmp < 0) {
-        *ptr = VARCHAR_CMP_LESS_THAN_SPACES;
-      } else if (cmp > 0) {
-        *ptr = VARCHAR_CMP_GREATER_THAN_SPACES;
-      } else {
-        // It turns out all the rest are spaces.
-        *ptr = VARCHAR_CMP_EQUAL_TO_SPACES;
-      }
+      *ptr = rdb_get_segment_terminator(buf, buf_end, fpi->space_xfrm);
     }
     encoded_size += fpi->m_segment_size;
 
     if (*(ptr++) == VARCHAR_CMP_EQUAL_TO_SPACES) break;
   }
 
+unpack_info:
   // m_unpack_info_stores_value means unpack_info stores the whole original
   // value. There is no need to store the number of trimmed/padded endspaces
   // in that case.
@@ -3032,6 +3059,14 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
+  if (fpi->m_use_space_pad_lead_byte) {
+    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+    // This indicates empty content or just spaces. We can bypass
+    // the main loop and check for spaces to be appended.
+    uchar encoded_byte = *(const uchar *)reader->read(1);
+    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
+  }
+
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
     const char last_byte = ptr[fpi->m_segment_size - 1];
@@ -3080,19 +3115,20 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
       len += used_bytes;
     }
 
-    if (finished) {
-      if (extra_spaces) {
-        // Both binary and UTF-8 charset store space as ' ',
-        // so the following is ok:
-        if (dst + extra_spaces > dst_end) return UNPACK_FAILURE;
-        memset(dst, fpi->m_varchar_charset->pad_char, extra_spaces);
-        len += extra_spaces;
-      }
-      break;
-    }
+    if (finished) break;
   }
 
   if (!finished) return UNPACK_FAILURE;
+
+finished:
+
+  if (extra_spaces) {
+    // Both binary and UTF-8 charset store space as ' ',
+    // so the following is ok:
+    if (dst + extra_spaces > dst_end) return UNPACK_FAILURE;
+    memset(dst, fpi->m_varchar_charset->pad_char, extra_spaces);
+    len += extra_spaces;
+  }
 
   /* Save the length */
   if (field_var->length_bytes == 1) {
@@ -3307,6 +3343,14 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
+  if (fpi->m_use_space_pad_lead_byte) {
+    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+    // This indicates empty content or just spaces. We can bypass
+    // the main loop and check for spaces to be appended.
+    uchar encoded_byte = *(const uchar *)reader->read(1);
+    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
+  }
+
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
     const char last_byte =
@@ -3341,19 +3385,20 @@ int Rdb_key_def::unpack_simple_varchar_space_pad(
     dst += used_bytes;
     len += used_bytes;
 
-    if (finished) {
-      if (extra_spaces) {
-        if (dst + extra_spaces > dst_end) return UNPACK_FAILURE;
-        // pad_char has a 1-byte form in all charsets that
-        // are handled by rdb_init_collation_mapping.
-        memset(dst, field_var->charset()->pad_char, extra_spaces);
-        len += extra_spaces;
-      }
-      break;
-    }
+    if (finished) break;
   }
 
   if (!finished) return UNPACK_FAILURE;
+
+finished:
+
+  if (extra_spaces) {
+    if (dst + extra_spaces > dst_end) return UNPACK_FAILURE;
+    // pad_char has a 1-byte form in all charsets that
+    // are handled by rdb_init_collation_mapping.
+    memset(dst, field_var->charset()->pad_char, extra_spaces);
+    len += extra_spaces;
+  }
 
   /* Save the length */
   if (field_var->length_bytes == 1) {
@@ -3629,6 +3674,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_unpack_data_len = 0;
   space_xfrm = nullptr;  // safety
 
+  // whether to use lead byte in space padded varchar encoding.
+  // ha_rocksdb::index_flags() will pass key_descr == null to
+  // see whether field(column) can be read-only reads through return value,
+  // but the legacy vs. new varchar format doesn't affect return value.
+  // Just change m_use_space_pad_lead_byte to true if key_descr isn't given.
+  m_use_space_pad_lead_byte =
+      key_descr && key_descr->use_varchar_v2_encoding_format();
+
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len =
       field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
@@ -3858,7 +3911,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_segment_size = get_segment_size_from_collation(cs);
         m_max_image_len =
             (max_image_len_before_chunks / (m_segment_size - 1) + 1) *
-            m_segment_size;
+                m_segment_size +
+            (m_use_space_pad_lead_byte ? 1 : 0);
         rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
                                      &space_mb_len);
       } else {
@@ -3893,7 +3947,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           m_segment_size = get_segment_size_from_collation(cs);
           m_max_image_len =
               (max_image_len_before_chunks / (m_segment_size - 1) + 1) *
-              m_segment_size;
+                  m_segment_size +
+              (m_use_space_pad_lead_byte ? 1 : 0);
           rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
                                        &space_mb_len);
         } else {
@@ -5404,7 +5459,7 @@ bool Rdb_dict_manager::get_index_info(
         index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
         ptr += RDB_SIZEOF_KV_VERSION;
         index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
-        if ((index_info->m_kv_version ==
+        if ((index_info->m_kv_version >=
              Rdb_key_def::PRIMARY_FORMAT_VERSION_TTL) &&
             index_info->m_ttl_duration > 0) {
           index_info->m_index_flags = Rdb_key_def::TTL_FLAG;
