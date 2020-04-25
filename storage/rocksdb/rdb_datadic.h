@@ -383,7 +383,7 @@ class Rdb_key_def {
 
   inline bool use_covered_bitmap_format() const {
     return m_index_type == INDEX_TYPE_SECONDARY &&
-           m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE3;
+           m_kv_format_version >= SECONDARY_FORMAT_VERSION_2_BYTE_BITMAP;
   }
 
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
@@ -565,7 +565,11 @@ class Rdb_key_def {
     //  - This means that when TTL is specified for the table an 8-byte TTL
     //    field is prepended in front of each value.
     PRIMARY_FORMAT_VERSION_TTL = 13,
-    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_TTL,
+    // This change includes:
+    //  - Add a lead segment byte in space padding varchar datatypes to
+    //    optimize for empty content.
+    PRIMARY_FORMAT_VERSION_UPDATE3 = 14,
+    PRIMARY_FORMAT_VERSION_LATEST = PRIMARY_FORMAT_VERSION_UPDATE3,
 
     SECONDARY_FORMAT_VERSION_INITIAL = 10,
     // This change the SK format to include unpack_info.
@@ -579,12 +583,17 @@ class Rdb_key_def {
     //  - This means that when TTL is specified for the table an 8-byte TTL
     //    field is prepended in front of each value.
     SECONDARY_FORMAT_VERSION_TTL = 13,
-    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_TTL,
+    // This change includes:
+    //  - Add a lead segment byte in space padding varchar datatypes to
+    //    optimize for empty content.
+    SECONDARY_FORMAT_VERSION_UPDATE3 = 14,
+    SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE3,
+
     // This change includes support for covering SK lookups for varchars.  A
     // 2-byte bitmap is added after the tag-byte to unpack_info only for
     // records which have covered varchar columns. Currently waiting before
     // enabling in prod.
-    SECONDARY_FORMAT_VERSION_UPDATE3 = 65535,
+    SECONDARY_FORMAT_VERSION_2_BYTE_BITMAP = 65535,
   };
 
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
@@ -812,6 +821,11 @@ class Rdb_key_def {
     return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG;
   }
 
+  inline bool use_varchar_v2_encoding_format() const {
+    return index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE3,
+                                  SECONDARY_FORMAT_VERSION_UPDATE3);
+  }
+
  private:
 #ifndef DBUG_OFF
   inline bool is_storage_available(const int offset, const int needed) const {
@@ -827,13 +841,8 @@ class Rdb_key_def {
 
   std::shared_ptr<rocksdb::ColumnFamilyHandle> m_cf_handle;
 
-  static void pack_legacy_variable_format(const uchar *src, size_t src_len,
-                                          uchar **dst);
-
   static void pack_variable_format(const uchar *src, size_t src_len,
                                    uchar **dst);
-
-  static uint calc_unpack_legacy_variable_format(uchar flag, bool *done);
 
   static uint calc_unpack_variable_format(uchar flag, bool *done);
 
@@ -976,6 +985,11 @@ class Rdb_field_packing {
     Valid only for VARCHAR fields.
   */
   const CHARSET_INFO *m_varchar_charset;
+
+  /*
+    Use leading space byte in varchar encoding.
+   */
+  bool m_use_space_pad_lead_byte;
 
   // (Valid when Variable Length Space Padded Encoding is used):
   uint m_segment_size;  // size of segment used

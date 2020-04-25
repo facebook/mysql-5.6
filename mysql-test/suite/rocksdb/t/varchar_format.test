@@ -1,0 +1,223 @@
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+
+####################
+# Create a table with a varchar key with the current format and validate
+# that it sorts correctly
+####################
+CREATE TABLE t1(
+  vc VARCHAR(64) primary key
+) ENGINE=rocksdb COLLATE=latin1_bin;
+
+INSERT INTO t1 VALUES('');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES('     ');
+INSERT INTO t1 VALUES(0x0000);
+INSERT INTO t1 VALUES(0x0000000000000000);
+INSERT INTO t1 VALUES(0x000000000000000000);
+INSERT INTO t1 VALUES('ABC');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
+
+	
+######################
+# Now create the same table in the old format to show that they can be read
+# and handled correctly
+######################
+set session debug= '+d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+CREATE TABLE t1(
+  vc VARCHAR(64) primary key
+) ENGINE=rocksdb COLLATE=latin1_bin;
+set session debug= '-d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+
+INSERT INTO t1 VALUES('');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES('     ');
+INSERT INTO t1 VALUES(0x0000);
+INSERT INTO t1 VALUES(0x0000000000000000);
+INSERT INTO t1 VALUES(0x000000000000000000);
+INSERT INTO t1 VALUES('ABC');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
+
+######################
+# Create a table with a varchar key as key part of primary key format and 
+# validate that it sorts correctly
+#####################
+CREATE TABLE t1(
+  a int,
+  vc VARCHAR(64),
+  PRIMARY KEY (a, vc)
+) ENGINE=rocksdb COLLATE=latin1_bin;
+
+INSERT INTO t1 VALUES(1, '');
+INSERT INTO t1 VALUES(2, '  ');
+INSERT INTO t1 VALUES(3, '        ');
+INSERT INTO t1 VALUES(4, '          ');
+INSERT INTO t1 VALUES(5, 'abc');
+INSERT INTO t1 VALUES(6, 'abc     ');
+INSERT INTO t1 VALUES(7, 'abc       ');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
+
+######################
+# Now create the same table in the old format to show that they can be read
+# and handled correctly
+######################
+set session debug= '+d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+CREATE TABLE t1(
+  a int,
+  vc VARCHAR(64),
+  PRIMARY KEY (a, vc)
+) ENGINE=rocksdb COLLATE=latin1_bin;
+set session debug= '-d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+
+INSERT INTO t1 VALUES(1, '');
+INSERT INTO t1 VALUES(2, '  ');
+INSERT INTO t1 VALUES(3, '        ');
+INSERT INTO t1 VALUES(4, '          ');
+INSERT INTO t1 VALUES(5, 'abc');
+INSERT INTO t1 VALUES(6, 'abc     ');
+INSERT INTO t1 VALUES(7, 'abc       ');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
+
+######################
+# Create a table with a varchar key in secondary key format and validate 
+# that it sorts correctly
+######################
+CREATE TABLE t1(
+  a int,
+  vc VARCHAR(64),
+  KEY (vc)
+) ENGINE=rocksdb COLLATE=latin1_bin;
+
+INSERT INTO t1 VALUES(1, '');
+INSERT INTO t1 VALUES(2, '  ');
+INSERT INTO t1 VALUES(5, 'abc');
+INSERT INTO t1 VALUES(6, 'abc     ');
+INSERT INTO t1 VALUES(7, 'abc       ');
+INSERT INTO t1 VALUES(3, '        ');
+INSERT INTO t1 VALUES(4, '          ');
+
+SELECT hex(vc) from t1 order by vc;
+
+drop table t1;
+
+######################
+# Now create the same table in the old format to show that they can be read
+# and handled correctly
+######################
+set session debug= '+d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+CREATE TABLE t1(
+  a int,
+  vc VARCHAR(64),
+  KEY (vc)
+) ENGINE=rocksdb COLLATE=latin1_bin;
+set session debug= '-d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+
+INSERT INTO t1 VALUES(1, '');
+INSERT INTO t1 VALUES(2, '  ');
+INSERT INTO t1 VALUES(5, 'abc');
+INSERT INTO t1 VALUES(6, 'abc     ');
+INSERT INTO t1 VALUES(7, 'abc       ');
+INSERT INTO t1 VALUES(3, '        ');
+INSERT INTO t1 VALUES(4, '          ');
+
+SELECT hex(vc) from t1 order by vc;
+
+drop table t1;
+
+####################
+# Create a table with a varchar key with the current format and validate
+# that it sorts correctly. use utf8mb4_bin which uses 10 byte segement
+# instead of 9 byte segment used by latin1_bin
+####################
+CREATE TABLE t1(
+  vc VARCHAR(64) primary key
+) ENGINE=rocksdb COLLATE=utf8mb4_bin;
+
+INSERT INTO t1 VALUES('');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES('     ');
+INSERT INTO t1 VALUES(0x0000);
+INSERT INTO t1 VALUES(0x0000000000000000);
+INSERT INTO t1 VALUES(0x000000000000000000);
+INSERT INTO t1 VALUES('ABC');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
+
+######################
+# Now create the same table in the old format to show that they can be read
+# and handled correctly.  use utf8mb4_bin which uses 10 byte segement
+# instead of 9 byte segment used by latin1_bin
+######################
+set session debug= '+d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+CREATE TABLE t1(
+  vc VARCHAR(64) primary key
+) ENGINE=rocksdb COLLATE=utf8mb4_bin;
+set session debug= '-d,MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED';
+
+INSERT INTO t1 VALUES('');
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES('     ');
+INSERT INTO t1 VALUES(0x0000);
+INSERT INTO t1 VALUES(0x0000000000000000);
+INSERT INTO t1 VALUES(0x000000000000000000);
+INSERT INTO t1 VALUES('ABC');
+
+SELECT hex(vc) from t1;
+
+# Use the fact that the rocksdb_locks shows the keys as they are encoded to
+# validate that the keys were encoded as expected
+BEGIN;
+SELECT hex(vc) FROM t1 FOR UPDATE;
+SELECT SUBSTRING(a.key,9) FROM information_schema.rocksdb_locks AS a ORDER BY a.key;
+ROLLBACK;
+
+drop table t1;
