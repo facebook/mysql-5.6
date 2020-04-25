@@ -2588,11 +2588,11 @@
    fun:malloc
    fun:OPENSSL_malloc
    ...
-   func:SslAcceptorContext::SslAcceptorContext
-   func:SslAcceptorContext::singleton_init
-   func:init_ssl_communication
-   func:mysqld_main
-   func:main
+   fun:SslAcceptorContext::SslAcceptorContext
+   fun:SslAcceptorContext::singleton_init
+   fun:init_ssl_communication
+   fun:mysqld_main
+   fun:main
 }
 
 {
