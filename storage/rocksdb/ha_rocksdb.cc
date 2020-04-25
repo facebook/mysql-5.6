@@ -7678,6 +7678,14 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
     }
   });
 
+  DBUG_EXECUTE_IF("MYROCKS_NO_LEAD_BYTE_VARCHAR_SPACE_PADDED", {
+    if (index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
+      kv_version = Rdb_key_def::SECONDARY_FORMAT_VERSION_TTL;
+    } else {
+      kv_version = Rdb_key_def::PRIMARY_FORMAT_VERSION_TTL;
+    }
+  });
+
   uint32 index_flags = (ttl_duration > 0 ? Rdb_key_def::TTL_FLAG : 0);
 
   uint32 ttl_rec_offset =
