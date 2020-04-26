@@ -8684,7 +8684,8 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
   for (THD *head= first; head; head= head->next_to_commit)
   {
     if (head->transaction.flags.run_hooks &&
-        head->commit_error == THD::CE_NONE)
+        head->commit_error == THD::CE_NONE &&
+        !head->commit_consensus_error)
     {
       /*
         TODO: This hook here should probably move outside/below this
