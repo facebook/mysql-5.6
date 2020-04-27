@@ -7691,7 +7691,7 @@ bool Rotate_log_event::write(IO_CACHE* file)
 int Rotate_log_event::do_apply_event(Relay_log_info const *rli)
 {
   if (enable_raft_plugin)
-    return RUN_HOOK(transaction, after_commit, (thd, false));
+    return RUN_HOOK(raft_replication, after_commit, (thd, false));
   return 0;
 }
 

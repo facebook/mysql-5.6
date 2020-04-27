@@ -494,6 +494,16 @@ typedef struct Raft_replication_observer {
                         const std::string & raft_log_path_prefix,
                         const std::string& s_hostname,
                         uint64_t port);
+
+  /**
+     This callback is called after transaction commit to engine
+
+     @param param The parameter for the observers
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*after_commit)(Trans_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

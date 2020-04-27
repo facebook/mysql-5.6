@@ -648,6 +648,18 @@ int Raft_replication_delegate::register_paths(
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::after_commit(THD *thd, bool all)
+{
+  DBUG_ENTER("Raft_replication_delegate::after_commit");
+  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+
+  thd->get_trans_marker(&param.term, &param.index);
+
+  int ret= 0;
+  FOREACH_OBSERVER(ret, after_commit, thd, (&param));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p)
 {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);

@@ -6284,7 +6284,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   if (!error && rotate_via_raft) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
-    (void)RUN_HOOK(transaction, after_commit, (current_thd, false));
+    (void)RUN_HOOK(raft_replication, after_commit, (current_thd, false));
   }
 
 end:
@@ -8695,6 +8695,8 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
       excursion.try_to_attach_to(head);
       bool all= head->transaction.flags.real_commit;
       (void) RUN_HOOK(transaction, after_commit, (head, all));
+      (void) RUN_HOOK(raft_replication, after_commit, (head, all));
+
       /*
         When after_commit finished for the transaction, clear the run_hooks flag.
         This allow other parts of the system to check if after_commit was called.
@@ -9009,6 +9011,8 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
     {
       (void) RUN_HOOK(transaction, after_commit, (thd, all));
+      (void) RUN_HOOK(raft_replication, after_commit, (thd, all));
+
       thd->transaction.flags.run_hooks= false;
     }
   }
