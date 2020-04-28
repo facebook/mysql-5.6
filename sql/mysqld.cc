@@ -6594,8 +6594,7 @@ int mysqld_main(int argc, char **argv)
   */
   if (!get_per_user_session_variables()->init()) {
     fprintf(stderr, "[ERROR] init_per_user_session_variables() failed.\n");
-    // Don't fail this as we need to fix our cnf settings first
-    // unireg_abort(MYSQLD_ABORT_EXIT);
+    unireg_abort(MYSQLD_ABORT_EXIT);
   }
 
   my_init_signals();
