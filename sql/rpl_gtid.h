@@ -2205,7 +2205,9 @@ public:
 
   /* Remove gtid from logged_gtid set while failed to flush binlog
   from cache to file. */
-  enum_return_status remove_gtid_on_failure(THD *thd);
+  enum_return_status remove_gtid_on_failure(
+      THD *thd, bool clear_owned_gtid= true);
+
   /* Add gtid into logged_gtid set. */
   enum_return_status mark_gtid_executed(THD *thd, const Gtid &gtid);
   /**

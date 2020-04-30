@@ -32,14 +32,15 @@ void Gtid_state::clear()
   DBUG_VOID_RETURN;
 }
 
-enum_return_status Gtid_state::remove_gtid_on_failure(THD *thd)
+enum_return_status Gtid_state::remove_gtid_on_failure(
+    THD *thd, bool clear_owned_gtid)
 {
   DBUG_ENTER("Gtid_state::remove_gtid_on_failure");
   global_sid_lock->assert_some_lock();
 
   if (thd->owned_gtid.sidno  > 0)
   {
-    DBUG_ASSERT(thd->gtid_precommit);
+    DBUG_ASSERT(enable_raft_plugin || thd->gtid_precommit);
     sid_locks.lock(thd->owned_gtid.sidno);
     /* Remove Gtid from logged_gtid set. */
     if (logged_gtids._remove_gtid(thd->owned_gtid) != RETURN_STATUS_OK)
@@ -55,7 +56,9 @@ enum_return_status Gtid_state::remove_gtid_on_failure(THD *thd)
     }
 
     sid_locks.unlock(thd->owned_gtid.sidno);
-    thd->owned_gtid.sidno= 0;
+
+    if (clear_owned_gtid)
+      thd->owned_gtid.sidno= 0;
   }
 
   RETURN_OK;

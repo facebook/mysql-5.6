@@ -8780,6 +8780,17 @@ void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd, bool async)
        * triggered when the session ends. ha_rollback_low() could fail,
        * but there is nothing much we can do */
        ha_rollback_low(thd, all);
+
+       // Remove the gtid from the logged gtids since we are rolling back the
+       // trx. Do not clear owned gtid yet, as we need it for additional cleanup
+       // in gtid_rollback()
+       global_sid_lock->rdlock();
+       gtid_state->remove_gtid_on_failure(thd, /*clear_owned_gtid=*/ false);
+       global_sid_lock->unlock();
+
+       // rollback the gtid, this updates owned gtids correctly
+       gtid_rollback(thd);
+
        thd->commit_error= THD::CE_COMMIT_ERROR;
        thd->transaction.flags.commit_low= false;
 
