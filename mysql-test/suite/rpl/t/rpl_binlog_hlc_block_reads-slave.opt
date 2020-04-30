@@ -1,0 +1,2 @@
+--gtid_mode=ON --enforce_gtid_consistency --log_bin --log_slave_updates --session-track-response-attributes=ON
+--replica_parallel_type='DATABASE' --replica_preserve_commit_order=OFF

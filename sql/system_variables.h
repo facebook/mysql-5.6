@@ -504,6 +504,7 @@ struct System_variables {
   long admission_control_queue_timeout;
   long admission_control_queue;
   ulong dscp_on_socket;
+  bool enable_block_stale_hlc_read;
 
   /* A bitmap for switching 5.6 fb json functions behavior on/off */
   ulonglong use_fb_json_functions;
