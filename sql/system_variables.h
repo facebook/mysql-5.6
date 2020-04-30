@@ -467,6 +467,7 @@ struct System_variables {
   bool kill_conflicting_connections;
   long admission_control_queue_timeout;
   ulong dscp_on_socket;
+  bool enable_block_stale_hlc_read;
 
   /**
     @sa Sys_select_into_buffer_size
