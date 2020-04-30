@@ -461,6 +461,8 @@ struct System_variables {
   long admission_control_queue_timeout;
 
   ulong dscp_on_socket;
+
+  bool enable_block_stale_hlc_read;
 };
 
 /**

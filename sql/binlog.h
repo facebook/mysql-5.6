@@ -221,6 +221,24 @@ class HybridLogicalClock {
   database_hlc_container get_database_hlc() const;
 
   /**
+   * Get the applied hlc for the specified database
+   *
+   * @param  [in] A database name to select HLC for
+   *
+   * @return The HLC for the specified database, or 0 if not found
+   */
+  uint64_t get_selected_database_hlc(const std::string &database);
+
+  /**
+   * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
+   *
+   * @param [in] The HLC value to validate
+   */
+  static bool is_valid_hlc(uint64_t hlc) {
+    return hlc != 0 && hlc != ULLONG_MAX;
+  }
+
+  /**
    * Clear database HLC map
    */
   void clear_database_hlc();
@@ -646,6 +664,11 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /* get the applied HLC for all known databases in this instance */
   database_hlc_container get_database_hlc() const {
     return hlc.get_database_hlc();
+  }
+
+  /* get the applied HLC for a specific database in this instance */
+  uint64_t get_selected_database_hlc(const std::string &database) {
+    return hlc.get_selected_database_hlc(database);
   }
 
   void clear_database_hlc() { return hlc.clear_database_hlc(); }
