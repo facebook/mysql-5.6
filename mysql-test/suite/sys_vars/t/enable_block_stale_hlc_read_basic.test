@@ -1,0 +1,44 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_binlog_hlc is false
+SELECT @@global.enable_block_stale_hlc_read;
+
+####
+## Verify that the variable cannot be set unless allow_noncurrent_db_rw is off
+## Actual tests which enables this are in different file which test this feature
+####
+--echo enable_block_stale_hlc_read can be enabled only when allow_noncurrent_db_rw is off
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.enable_block_stale_hlc_read = true;
+SELECT @@global.enable_block_stale_hlc_read;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.enable_block_stale_hlc_read = true;
+SELECT @@session.enable_block_stale_hlc_read;
+
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SELECT @@global.enable_block_stale_hlc_read;
+SET @@session.enable_block_stale_hlc_read = true;
+SELECT @@session.enable_block_stale_hlc_read;
+
+--echo enable_block_stale_hlc_read is enabled, so allow_noncurrent_db_rw should not be supported
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.allow_noncurrent_db_rw = ON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.allow_noncurrent_db_rw = ON;
+
+SET @@global.enable_block_stale_hlc_read = false;
+SELECT @@global.enable_block_stale_hlc_read;
+SET @@session.enable_block_stale_hlc_read = false;
+SELECT @@session.enable_block_stale_hlc_read;
+
+SET @@session.allow_noncurrent_db_rw = ON;
+SET @@global.allow_noncurrent_db_rw = ON;
+
+SET @@global.enable_block_stale_hlc_read = default;
+SELECT @@global.enable_block_stale_hlc_read;
+SET @@session.enable_block_stale_hlc_read = default;
+SELECT @@session.enable_block_stale_hlc_read;

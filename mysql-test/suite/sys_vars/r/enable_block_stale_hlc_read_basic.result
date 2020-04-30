@@ -1,0 +1,47 @@
+Default value of enable_binlog_hlc is false
+SELECT @@global.enable_block_stale_hlc_read;
+@@global.enable_block_stale_hlc_read
+0
+enable_block_stale_hlc_read can be enabled only when allow_noncurrent_db_rw is off
+SET @@global.enable_block_stale_hlc_read = true;
+ERROR 42000: Variable 'enable_block_stale_hlc_read' can't be set to the value of '1'
+SELECT @@global.enable_block_stale_hlc_read;
+@@global.enable_block_stale_hlc_read
+0
+SET @@session.enable_block_stale_hlc_read = true;
+ERROR 42000: Variable 'enable_block_stale_hlc_read' can't be set to the value of '1'
+SELECT @@session.enable_block_stale_hlc_read;
+@@session.enable_block_stale_hlc_read
+0
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@global.enable_block_stale_hlc_read = true;
+SELECT @@global.enable_block_stale_hlc_read;
+@@global.enable_block_stale_hlc_read
+1
+SET @@session.enable_block_stale_hlc_read = true;
+SELECT @@session.enable_block_stale_hlc_read;
+@@session.enable_block_stale_hlc_read
+1
+enable_block_stale_hlc_read is enabled, so allow_noncurrent_db_rw should not be supported
+SET @@session.allow_noncurrent_db_rw = ON;
+ERROR 42000: Variable 'allow_noncurrent_db_rw' can't be set to the value of 'ON'
+SET @@global.allow_noncurrent_db_rw = ON;
+ERROR 42000: Variable 'allow_noncurrent_db_rw' can't be set to the value of 'ON'
+SET @@global.enable_block_stale_hlc_read = false;
+SELECT @@global.enable_block_stale_hlc_read;
+@@global.enable_block_stale_hlc_read
+0
+SET @@session.enable_block_stale_hlc_read = false;
+SELECT @@session.enable_block_stale_hlc_read;
+@@session.enable_block_stale_hlc_read
+0
+SET @@session.allow_noncurrent_db_rw = ON;
+SET @@global.allow_noncurrent_db_rw = ON;
+SET @@global.enable_block_stale_hlc_read = default;
+SELECT @@global.enable_block_stale_hlc_read;
+@@global.enable_block_stale_hlc_read
+0
+SET @@session.enable_block_stale_hlc_read = default;
+SELECT @@session.enable_block_stale_hlc_read;
+@@session.enable_block_stale_hlc_read
+0
