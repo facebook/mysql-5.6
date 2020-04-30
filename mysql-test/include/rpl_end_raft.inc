@@ -12,6 +12,7 @@ while ($_rpl_server)
   SET GLOBAL RPL_RAFT_ON= 0;
   SET GLOBAL RPL_RAFT_CONFIG_JSON= default;
   SET GLOBAL RPL_RAFT_NEW_LEADER_UUID= default;
+  SET GLOBAL READ_ONLY_ERROR_MSG_EXTRA= default;
   exec rm -fr $fs_wal_path;
   if (!$plugin_was_early_installed)
   {
