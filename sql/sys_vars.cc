@@ -3804,6 +3804,17 @@ static Sys_var_enum Sys_thread_handling(
     READ_ONLY GLOBAL_VAR(Connection_handler_manager::thread_handling),
     CMD_LINE(REQUIRED_ARG), thread_handling_names, DEFAULT(0));
 
+static bool check_allow_noncurrent_db_rw(sys_var * /* self */, THD * thd,
+                                              set_var *var) {
+  // allow_noncurrent_db_rw != OFF is only safe under the current implementation
+  // if enable_block_stale_hlc_read is OFF. A more general implementation could safely
+  // handle enable_block_stale_hlc_read != OFF in the future
+  uint64_t new_allow_noncurrent_db_rw= var->save_result.ulonglong_value;
+  if (thd->variables.enable_block_stale_hlc_read != 0 && new_allow_noncurrent_db_rw != 3)
+    return true; // Needs enable_block_stale_hlc_read == OFF
+  return false;
+}
+
 static const char *allow_noncurrent_db_rw_levels[] = {"ON", "LOG", "LOG_WARN",
                                                       "OFF", 0};
 static Sys_var_enum Sys_allow_noncurrent_db_rw(
@@ -3811,7 +3822,8 @@ static Sys_var_enum Sys_allow_noncurrent_db_rw(
     "Switch to allow/deny reads and writes to a table not in the "
     "current database.",
     SESSION_VAR(allow_noncurrent_db_rw), CMD_LINE(REQUIRED_ARG),
-    allow_noncurrent_db_rw_levels, DEFAULT(0));
+    allow_noncurrent_db_rw_levels, DEFAULT(0), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_allow_noncurrent_db_rw));
 
 static Sys_var_charptr Sys_secure_file_priv(
     "secure_file_priv",
@@ -7594,6 +7606,25 @@ static Sys_var_bool Sys_maintain_database_hlc(
     "Enable maintaining of max HLC applied per database",
     GLOBAL_VAR(maintain_database_hlc), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_maintain_database_hlc));
+
+	
+static bool check_enable_block_stale_hlc_read(sys_var * /* self */, THD * thd,
+                                              set_var *var) {
+  // enable_block_stale_hlc_read is only safe under the current implementation
+  // if allow_noncurrent_db_rw is OFF. A more general implementation could safely
+  // handle allow_noncurrent_db_rw != OFF in the future
+  uint64_t new_enable_block_stale_hlc_read= var->save_result.ulonglong_value;
+  if (thd->variables.allow_noncurrent_db_rw != 3 && new_enable_block_stale_hlc_read != 0)
+    return true; // Needs allow_noncurrent_db_rw == OFF
+  return false;
+}
+
+static  Sys_var_bool Sys_enable_block_stale_hlc_read(
+       "enable_block_stale_hlc_read",
+       "Enable blocking reads with a requested HLC timestamp ahead of the engine HLC",
+       SESSION_VAR(enable_block_stale_hlc_read), CMD_LINE(OPT_ARG), DEFAULT(false),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_block_stale_hlc_read)
+);
 
 static Sys_var_bool Sys_fast_integer_to_string(
     "fast_integer_to_string",

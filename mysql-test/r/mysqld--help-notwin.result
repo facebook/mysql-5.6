@@ -337,6 +337,9 @@ The following options may be given as the first argument:
  name and library is the plugin library in plugin_dir.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
+ --enable-block-stale-hlc-read 
+ Enable blocking reads with a requested HLC timestamp
+ ahead of the engine HLC
  --enable-query-checksum 
  Enable query checksums for queries that have the checksum
  query attribute set. Uses a CRC32 checksum of the query
@@ -2270,6 +2273,7 @@ disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
 enable-binlog-hlc FALSE
+enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
 enable-resultset-checksum FALSE
 end-markers-in-json FALSE

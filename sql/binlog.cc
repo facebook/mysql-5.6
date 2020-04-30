@@ -2589,6 +2589,14 @@ database_hlc_container HybridLogicalClock::get_database_hlc() const {
   return database_applied_hlc_;
 }
 
+uint64_t
+HybridLogicalClock::get_selected_database_hlc(const std::string& database) {
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+
+  const auto it = database_applied_hlc_.find(database);
+  return it != database_applied_hlc_.end() ? it->second : 0;
+}
+
 void HybridLogicalClock::clear_database_hlc() {
   std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
   database_applied_hlc_.clear();

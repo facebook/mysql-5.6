@@ -216,6 +216,8 @@ using std::max;
 
 static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 
+const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
+
 const LEX_STRING command_name[] = {
     {C_STRING_WITH_LEN("Sleep")},
     {C_STRING_WITH_LEN("Quit")},
@@ -2896,6 +2898,60 @@ static inline void binlog_gtid_end_transaction(THD *thd) {
   DBUG_VOID_RETURN;
 }
 
+static bool check_hlc_lower_bound(THD * thd) {
+  if (!(thd->variables.enable_block_stale_hlc_read && thd->db().str &&
+      !thd->slave_thread)) {
+    return false;
+  }
+
+  // Behavior of this feature on reads inside of a transaction is complex
+  // and not supported at this point in time.
+  if (thd->in_active_multi_stmt_transaction()) {
+    my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
+    return true;
+  }
+
+  const char* str = nullptr;
+  for (const auto& p : thd->query_attrs_list) {
+    if (p.first == hlc_ts_lower_bound) {
+      str = p.second.c_str();
+      break;
+    }
+  }
+
+  // No lower bound HLC ts specified
+  if (!str) {
+    return false;
+  }
+
+  char* endptr = nullptr;
+  uint64_t requested_hlc = strtoull(str, &endptr, 10);
+  if (!endptr || *endptr != '\0' || !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+    my_error(ER_INVALID_HLC_READ_BOUND, MYF(0), str);
+    return true;
+  }
+
+  // The implementation makes the assumption that
+  // allow_noncurrent_db_rw = OFF and only reads to the current database
+  // are allowed
+  if (thd->variables.allow_noncurrent_db_rw != 3 /* OFF */) {
+    my_error(ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND, MYF(0),
+            thd->variables.allow_noncurrent_db_rw);
+    return true;
+  }
+
+  const auto& db_lex_str = thd->db();
+  std::string db(db_lex_str.str, db_lex_str.length);
+
+  uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
+  if (requested_hlc > applied_hlc) {
+    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, db.c_str());
+    return true;
+  }
+
+  return false;
+}
+
 /**
   Execute command saved in thd and lex->sql_command.
 
@@ -3321,6 +3377,11 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
   /* Check if the statement fulfill the requirements on ACL CACHE */
   if (!command_satisfy_acl_cache_requirement(lex->sql_command)) {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables", "");
+    goto error;
+  }
+  
+  /* Check if the HLC read bound is satisfied */
+  if (lex->sql_command == SQLCOM_SELECT && check_hlc_lower_bound(thd)) {
     goto error;
   }
 

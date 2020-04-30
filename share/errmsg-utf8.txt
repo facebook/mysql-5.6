@@ -19907,6 +19907,18 @@ ER_QUERY_CHECKSUM_FAILED
 ER_RESULTSET_CHECKSUM_FAILED
   eng "Expected resultset checksum %lu but found %lu"
 
+ER_HLC_READ_BOUND_IN_TRANSACTION
+  eng "HLC read bound for read inside transaction is not supported"
+
+ER_INVALID_HLC_READ_BOUND
+  eng "Invalid HLC read bound timestamp supplied: `%s`"
+
+ER_STALE_HLC_READ
+  eng "Requested HLC timestamp %llu not present in engine for database `%s`"
+
+ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
+  eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #

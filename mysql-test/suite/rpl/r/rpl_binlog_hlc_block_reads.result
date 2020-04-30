@@ -1,0 +1,200 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+CREATE DATABASE a;
+USE a;
+CREATE TABLE ta (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO ta (a, b) VALUES (1, 'foo');
+CREATE DATABASE b;
+USE b;
+CREATE TABLE tb (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO tb (a, b) VALUES (2, 'bar');
+CREATE DATABASE c;
+USE c;
+CREATE TABLE tc (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+include/sync_slave_sql_with_master.inc
+Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (3, 'baz');
+COMMIT;
+HLC: 2538630000000000009
+include/sync_slave_sql_with_master.inc
+USE a;
+SELECT * FROM ta;
+a	b
+1	foo
+3	baz
+include/stop_slave.inc
+Perform another write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (4, 'bah');
+COMMIT;
+HLC: 2538630000000000010
+USE a;
+SELECT * FROM ta;
+ERROR HY000: Requested HLC timestamp 2538630000000000010 not present in engine for database `a`
+SELECT * FROM mysql.slow_log;
+ERROR HY000: Requested HLC timestamp 2538630000000000010 not present in engine for database `a`
+SELECT * FROM information_schema.database_applied_hlc;
+ERROR HY000: Requested HLC timestamp 2538630000000000010 not present in engine for database `a`
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+USE a;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN;
+SELECT * FROM ta;
+ERROR HY000: HLC read bound for read inside transaction is not supported
+COMMIT;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM ta;
+ERROR HY000: HLC read bound for read inside transaction is not supported
+COMMIT;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM ta;
+ERROR HY000: HLC read bound for read inside transaction is not supported
+COMMIT;
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+BEGIN;
+SELECT * FROM ta;
+ERROR HY000: HLC read bound for read inside transaction is not supported
+COMMIT;
+USE a;
+SET autocommit = 0;
+SELECT * FROM ta;
+a	b
+1	foo
+3	baz
+4	bah
+SELECT * FROM ta;
+ERROR HY000: HLC read bound for read inside transaction is not supported
+COMMIT;
+SET autocommit = 1;
+USE c;
+BEGIN;
+INSERT INTO tc (a, b) VALUES (1, 'bar');
+COMMIT;
+HLC: 2538630000000000011
+include/sync_slave_sql_with_master.inc
+USE c;
+SELECT * FROM tc;
+a	b
+1	bar
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (6, 'baz');
+COMMIT;
+USE c;
+BEGIN;
+INSERT INTO tc (a, b) VALUES (6, 'baz');
+COMMIT;
+include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
+USE b;
+SELECT * FROM tb;
+a	b
+2	bar
+6	baz
+SELECT * FROM tb;
+ERROR HY000: Requested HLC timestamp 2538630000000000013 not present in engine for database `b`
+USE c;
+SELECT * FROM tc;
+a	b
+1	bar
+6	baz
+SELECT * FROM tc;
+a	b
+1	bar
+6	baz
+include/start_slave.inc
+USE a;
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC read bound timestamp supplied: `0`
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC read bound timestamp supplied: `12a`
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC read bound timestamp supplied: `abc`
+STOP SLAVE;
+SET @@global.slave_parallel_workers = 8;
+SET @@global.slave_use_idempotent_for_recovery= YES;
+SET @@global.mts_dependency_replication = TBL;
+START SLAVE;
+USE a;
+BEGIN;
+UPDATE ta SET b = 'foo' WHERE a = 3;
+USE a;
+BEGIN;
+UPDATE ta SET b = 'bar' WHERE a = 3;
+COMMIT;
+HLC: 2538630000000000014
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (7, 'baz');
+COMMIT;
+HLC: 2538630000000000015
+USE c;
+BEGIN;
+INSERT INTO tc (a, b) VALUES (7, 'baz');
+COMMIT;
+HLC: 2538630000000000016
+USE b;
+USE c;
+USE a;
+SELECT * FROM ta;
+ERROR HY000: Requested HLC timestamp 2538630000000000014 not present in engine for database `a`
+USE b;
+SELECT * FROM tb;
+a	b
+2	bar
+6	baz
+7	baz
+USE c;
+SELECT * FROM tc;
+a	b
+1	bar
+6	baz
+7	baz
+ROLLBACK;
+USE a;
+SELECT * FROM ta;
+a	b
+1	foo
+3	baz
+4	bah
+Reset state
+DROP DATABASE a;
+DROP DATABASE b;
+DROP DATABASE c;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.minimum_hlc_ns = 0;
+include/sync_slave_sql_with_master.inc
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.slave_parallel_workers = default;
+SET @@global.slave_use_idempotent_for_recovery = default;
+SET @@global.mts_dependency_replication = default;
+include/rpl_end.inc
