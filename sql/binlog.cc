@@ -6281,7 +6281,18 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
   }
   my_free(old_name);
 
-  if (!error && rotate_via_raft) {
+  // We do raft after commit hook only for regular rotates and
+  // never for NO-OP rotates.
+  // rotate_via_raft = (no_op || !is_relay) && (!is_apply)
+  // therefore the condition below is equivalent to
+  // (!is_relay) && (!is_apply) i.e this rotate is
+  // on a binlog in the master
+  // Why do we skip AFTER COMMIT for this rotate.
+  // This is to prevent the same after commit notification coming
+  // twice, once for this call and later for the apply thread
+  // processing this NO-OP event. The double notification can
+  // confuse LWM and outOfOrderTrxs computation.
+  if (!error && rotate_via_raft && !no_op) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
     (void)RUN_HOOK(raft_replication, after_commit, (current_thd, false));
