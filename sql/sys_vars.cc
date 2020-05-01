@@ -75,6 +75,9 @@
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
 #include <zstd.h>
+#ifndef ZSTD_CLEVEL_DEFAULT
+#define ZSTD_CLEVEL_DEFAULT 3
+#endif
 
 TYPELIB bool_typelib={ array_elements(bool_values)-1, "", bool_values, 0 };
 
