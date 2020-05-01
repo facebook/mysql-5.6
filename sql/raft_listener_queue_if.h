@@ -4,6 +4,7 @@
 
 #include <future>
 #include <vector>
+#include <map>
 
 /* Type of callback that raft plugin wants to invoke in the server */
 enum class RaftListenerCallbackType
@@ -24,6 +25,7 @@ enum class RaftListenerCallbackType
   CHANGE_MASTER = 14,
   GET_COMMITTED_GTIDS = 15,
   GET_EXECUTED_GTIDS = 16,
+  SET_BINLOG_DURABILITY = 17,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -40,6 +42,7 @@ class RaftListenerCallbackArg
     uint32_t val_uint;
     std::pair<std::string, unsigned int> master_instance;
     std::string val_str;
+    std::map<std::string, unsigned int> val_sys_var_uint;
 };
 
 /* Result of the callback execution in the server. This will be set in the

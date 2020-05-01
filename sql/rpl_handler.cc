@@ -662,6 +662,54 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
   DBUG_RETURN(ret);
 }
 
+static int update_sys_var(const char *var_name, uint name_len, Item& update_item)
+{
+  // find_sys_var will take a mutex on LOCK_plugin, and a read lock on
+  // LOCK_system_variables_hash
+  sys_var *sys_var_ptr=
+    find_sys_var(current_thd, var_name, name_len);
+  if (sys_var_ptr)
+  {
+    LEX_STRING tmp;
+    set_var set_v(OPT_GLOBAL, sys_var_ptr, &tmp, &update_item);
+    return !set_v.check(current_thd) && set_v.update(current_thd);
+  }
+
+  return 1;
+}
+
+static int set_durability(const std::map<std::string, unsigned int>& durability){
+  auto sync_binlog_it= durability.find("sync_binlog");
+  if (sync_binlog_it == durability.end())
+  {
+    return 1;
+  }
+  Item_uint sync_binlog_item(sync_binlog_it->second);
+  int sync_binlog_update = update_sys_var(
+    STRING_WITH_LEN("sync_binlog"), sync_binlog_item);
+
+  if (sync_binlog_update) // failed
+    return sync_binlog_update;
+
+  // These two might not always update since innodb might not be enabled
+  auto flush_log_it= durability.find("innodb_flush_log_at_trx_commit");
+  if (flush_log_it != durability.end())
+  {
+    Item_uint flush_log_item(flush_log_it->second);
+    update_sys_var(STRING_WITH_LEN("innodb_flush_log_at_trx_commit"),
+      flush_log_item);
+  }
+
+  auto doublewrite_it= durability.find("innodb_doublewrite");
+  if (doublewrite_it != durability.end())
+  {
+    Item_uint doublewrite_item(doublewrite_it->second);
+    update_sys_var(STRING_WITH_LEN("innodb_doublewrite"), doublewrite_item);
+  }
+
+  return sync_binlog_update;
+}
+
 int register_trans_observer(Trans_observer *observer, void *p)
 {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
@@ -816,16 +864,11 @@ pthread_handler_t process_raft_queue(void *arg)
         result.error= raft_reset_slave(current_thd);
         // When resetting a slave we also want to clear the read-only message
         // since we can't make assumptions on the master instance anymore
-
-        sys_var *ro_err_msg_extra_sys_var_ptr=
-          find_sys_var(thd, STRING_WITH_LEN("read_only_error_msg_extra"));
-        if (ro_err_msg_extra_sys_var_ptr)
+        if (!result.error)
         {
-          Item_string item("", 0, thd->charset());
-          LEX_STRING tmp;
-          set_var set_v(OPT_GLOBAL, ro_err_msg_extra_sys_var_ptr, &tmp, &item);
-          if(!set_v.check(thd) && !thd->is_error())
-            set_v.update(thd);
+          Item_string item("", 0, current_thd->charset());
+          result.error= update_sys_var(
+              STRING_WITH_LEN("read_only_error_msg_extra"), item);
         }
 #endif
         break;
@@ -835,17 +878,12 @@ pthread_handler_t process_raft_queue(void *arg)
 #ifdef HAVE_REPLICATION
         result.error=
           raft_change_master(current_thd, element.arg.master_instance);
-        sys_var *ro_err_msg_extra_sys_var_ptr=
-          find_sys_var(thd, STRING_WITH_LEN("read_only_error_msg_extra"));
-        if (ro_err_msg_extra_sys_var_ptr &&
-              !element.arg.val_str.empty())
+        if (!result.error && !element.arg.val_str.empty())
         {
           Item_string item(element.arg.val_str.c_str(),
-              element.arg.val_str.length(), thd->charset());
-          LEX_STRING tmp;
-          set_var set_v(OPT_GLOBAL, ro_err_msg_extra_sys_var_ptr, &tmp, &item);
-          if(!set_v.check(thd) && !thd->is_error())
-            set_v.update(thd);
+            element.arg.val_str.length(), current_thd->charset());
+          result.error= update_sys_var(
+            STRING_WITH_LEN("read_only_error_msg_extra"), item);
         }
 #endif
         break;
@@ -890,6 +928,11 @@ pthread_handler_t process_raft_queue(void *arg)
       case RaftListenerCallbackType::GET_EXECUTED_GTIDS:
       {
         result.error= get_executed_gtids(&result.val_str);
+        break;
+      }
+      case RaftListenerCallbackType::SET_BINLOG_DURABILITY:
+      {
+        result.error= set_durability(element.arg.val_sys_var_uint);
         break;
       }
       default:

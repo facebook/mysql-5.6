@@ -19,6 +19,10 @@ while ($_rpl_server)
     UNINSTALL PLUGIN RPL_RAFT;
   }
   SET GLOBAL READ_ONLY= 1;
+  SET GLOBAL SYNC_BINLOG= 0;
+  SET GLOBAL INNODB_FLUSH_LOG_AT_TRX_COMMIT= 1;
+  SET GLOBAL INNODB_DOUBLEWRITE= 1;
+
   enable_query_log;
 
   if ($_is_slave)
