@@ -884,6 +884,7 @@ TABLES	CREATE_TIME	datetime
 TABLES	UPDATE_TIME	datetime
 TABLES	CHECK_TIME	datetime
 TRIGGERS	CREATED	datetime
+SQL_STATISTICS	QUERY_SAMPLE_SEEN	datetime
 event	execute_at	datetime
 event	last_executed	datetime
 event	starts	datetime

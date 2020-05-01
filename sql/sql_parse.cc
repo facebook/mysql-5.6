@@ -2088,7 +2088,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       If not multi-query: The stats updated here will be fore the entire
         statement.
     */
-		sub_query_byte_length = (int)(packet_end - beginning_of_current_stmt);
+    char * query_end = thd->query() + thd->query_length();
+		sub_query_byte_length = (int)(query_end - beginning_of_current_stmt);
 		sub_query_byte_length = min(sub_query_byte_length, 1024);
 		memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
 		sub_query[sub_query_byte_length] = '\0';
