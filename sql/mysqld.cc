@@ -139,6 +139,9 @@
 #endif
 
 #include <zstd.h>
+#ifndef ZSTD_CLEVEL_DEFAULT
+#define ZSTD_CLEVEL_DEFAULT 3
+#endif
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
