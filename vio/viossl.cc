@@ -757,6 +757,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder) {
   DBUG_TRACE;
+  vio_set_blocking(vio, false);
   int ret =
       ssl_do(ptr, vio, timeout, nullptr, SSL_accept, ssl_errno_holder, nullptr);
   return ret;
@@ -766,6 +767,10 @@ int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                SSL_SESSION *ssl_session, unsigned long *ssl_errno_holder,
                SSL **ssl) {
   DBUG_TRACE;
+  // Setting non blocking mode since openssl/boringssl does not support
+  // timeout with blocking mode on handshake
+  vio_set_blocking(vio, false);
+
   int ret = ssl_do(ptr, vio, timeout, ssl_session, SSL_connect,
                    ssl_errno_holder, ssl);
   return ret;
