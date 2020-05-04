@@ -63,8 +63,13 @@ slave_ignored_err_throttle(window_size,
 
 #include "sql_digest.h"
 
+#ifdef HAVE_RAPIDJSON
+#include "rapidjson/document.h"
+#else
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#endif
+
 #include <boost/algorithm/string.hpp>
 #include "debug_sync.h"
 
@@ -15631,8 +15636,28 @@ Rows_query_log_event::write_data_body(IO_CACHE *file)
               (uint) strlen(m_rows_query)));
 }
 
+static const std::string ts_key{"ts"};
+
 inline ulonglong Rows_query_log_event::extract_last_timestamp() const
 {
+#ifdef HAVE_RAPIDJSON
+  rapidjson::Document pt;
+  std::string json = extract_trx_meta_data();
+  if (json.empty()) return 0;
+  if (pt.Parse(json.c_str()).HasParseError()) {
+    return 0;
+  }
+  const auto ts_iter = pt.FindMember(ts_key.c_str());
+  ulonglong timestamp = 0;
+  if (ts_iter != pt.MemberEnd() && ts_iter->value.IsArray()) {
+    const auto& arr = ts_iter->value.GetArray();
+    if (arr.Size() >= 1) {
+      const auto& value = arr[arr.Size() - 1];
+      timestamp = strtoull(value.GetString(), NULL, 10);
+    }
+  }
+  return timestamp;
+#else
   boost::property_tree::ptree pt;
   std::string json= extract_trx_meta_data();
   if (json.empty())
@@ -15645,10 +15670,11 @@ inline ulonglong Rows_query_log_event::extract_last_timestamp() const
     return 0;
   }
 
-  auto timestamps= pt.get_child("ts", boost::property_tree::ptree());
+  auto timestamps= pt.get_child(ts_key, boost::property_tree::ptree());
   DBUG_ASSERT(!timestamps.empty());
   return timestamps.empty() ? 0 :
          timestamps.back().second.get_value<ulonglong>();
+#endif
 }
 
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
