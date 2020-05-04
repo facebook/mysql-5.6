@@ -456,13 +456,26 @@ enum_return_status Gtid_state::remove_logged_gtid_on_trim(
   const auto& first_gtid= trimmed_gtids.front();
 
   Gtid gtid;
-  gtid.parse(global_sid_map, first_gtid.c_str());
+  if (gtid.parse(global_sid_map, first_gtid.c_str()) != RETURN_STATUS_OK)
+  {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed to parse gtid %s", first_gtid.c_str());
+    RETURN_REPORTED_ERROR;
+  }
+
   rpl_sidno first_sidno= gtid.sidno;
   sid_locks.lock(first_sidno);
 
   for (const auto& trimmed_gtid : trimmed_gtids)
   {
-    gtid.parse(global_sid_map, trimmed_gtid.c_str());
+    if (gtid.parse(global_sid_map, trimmed_gtid.c_str()) != RETURN_STATUS_OK)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to parse gtid %s", trimmed_gtid.c_str());
+      sid_locks.unlock(first_sidno);
+      RETURN_REPORTED_ERROR;
+    }
+
     DBUG_ASSERT(first_sidno == gtid.sidno);
     if (gtid.sidno > 0)
     {

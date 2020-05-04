@@ -2225,6 +2225,47 @@ err:
   DBUG_RETURN(error);
 }
 
+int Relay_log_info::remove_logged_gtids(
+    const std::vector<std::string>& trimmed_gtids)
+{
+  DBUG_ENTER("Relay_log_info::remove_logged_gtid");
+  global_sid_lock->assert_some_lock();
+
+  if (trimmed_gtids.empty())
+    RETURN_OK;
+
+
+  Gtid gtid;
+  for (const auto& trimmed_gtid : trimmed_gtids)
+  {
+    if (gtid.parse(global_sid_map, trimmed_gtid.c_str()) != RETURN_STATUS_OK)
+    {
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to parse gtid %s", trimmed_gtid.c_str());
+      RETURN_REPORTED_ERROR;
+    }
+
+    if (gtid.sidno > 0)
+    {
+      /* Remove Gtid from logged_gtid set. */
+      DBUG_PRINT(
+          "info", ("Removing gtid(sidno:%d, gno:%lld) from rli logged gtids",
+           gtid.sidno, gtid.gno));
+
+      if (gtid_set._remove_gtid(gtid) != RETURN_STATUS_OK)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to remove gtid(sidno:%d, gno: %lld) from "
+            "rli logged gtids. ", gtid.sidno, gtid.gno);
+        RETURN_REPORTED_ERROR;
+
+      }
+    }
+  }
+
+  RETURN_OK;
+}
+
 void Relay_log_info::end_info()
 {
   DBUG_ENTER("Relay_log_info::end_info");

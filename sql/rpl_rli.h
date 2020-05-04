@@ -299,6 +299,9 @@ public:
       ret= 1;
     return ret;
   }
+
+  int remove_logged_gtids(const std::vector<std::string>& trimmed_gtids);
+
   const Gtid_set *get_gtid_set() const { return &gtid_set; }
 
   Gtid_set *get_gtid_set_nc() { return  &gtid_set; }
