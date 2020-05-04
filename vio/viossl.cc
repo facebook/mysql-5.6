@@ -629,6 +629,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder) {
   DBUG_ENTER("sslaccept");
+  vio_set_blocking(vio, false);
   int ret =
       ssl_do(ptr, vio, timeout, nullptr, SSL_accept, ssl_errno_holder, nullptr);
   DBUG_RETURN(ret);
