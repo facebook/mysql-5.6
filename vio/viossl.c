@@ -651,7 +651,7 @@ static int ssl_do(struct st_VioSSLFd *ptr,
     // We should have a case there loop_ret isn't VIO_SOCKET_ERROR and p_ssl is
     // NULL. If that happens, it might mean that `sslaccept` now is using
     // nonblocking calls and that is supported in this function.
-    DBUG_ASSERT(loop_ret == VIO_SOCKET_ERROR);
+    DBUG_ASSERT(loop_ret == VIO_SOCKET_ERROR || (loop_ret != VIO_SOCKET_ERROR && !vio_is_blocking(vio)));
 
 #ifndef DBUG_OFF  /* Debug build */
     report_errors(ssl);
@@ -671,6 +671,7 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslaccept");
+  vio_set_blocking(vio, FALSE);
   DBUG_RETURN(
       ssl_do(
         ptr, vio, timeout, NULL, SSL_accept, NULL, ssl_errno_holder
