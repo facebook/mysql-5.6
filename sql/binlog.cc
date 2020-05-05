@@ -7733,7 +7733,7 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
           // all databases that this trx touches
           hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
         }
-        else
+        else if (log_warnings >= 2)
         {
           // Log a error line if databases are empty. This could happen in SBR
           // NO_LINT_DEBUG
