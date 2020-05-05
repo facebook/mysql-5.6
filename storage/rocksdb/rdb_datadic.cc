@@ -2589,21 +2589,17 @@ void Rdb_key_def::pack_with_varlength_encoding(
   const CHARSET_INFO *const charset = field->charset();
   size_t value_length = field->data_length();
   const char *src = get_data_value(field);
-  // We only store the trimmed contents but encode the missing char with
-  // removed_chars later to save space
-  const size_t trimmed_len =
-      charset->cset->lengthsp(charset, src, value_length);
 
   // Max memcmp byte length with char_length(), in case we need to truncate
   const size_t max_xfrm_len = charset->cset->charpos(
-      charset, src, src + trimmed_len,
+      charset, src, src + value_length,
       fpi->m_max_field_bytes / fpi->m_varlength_charset->mbmaxlen);
 
   // Trimmed length in code points - this is needed to avoid the padding
   // behavior in strnxfrm for padding collations otherwise strnxfrm would
   // pad to max length which defeats the trimming earlier
   const size_t trimmed_codepoints =
-      charset->cset->numchars(charset, src, src + trimmed_len);
+      charset->cset->numchars(charset, src, src + value_length);
 
   const size_t xfrm_len = charset->coll->strnxfrm(
       charset, buf, fpi->m_max_image_len_before_encoding,
@@ -2611,7 +2607,7 @@ void Rdb_key_def::pack_with_varlength_encoding(
           trimmed_codepoints,
           fpi->m_max_field_bytes / fpi->m_varlength_charset->mbmaxlen),
       reinterpret_cast<const uchar *>(src),
-      std::min<size_t>(trimmed_len, max_xfrm_len), 0);
+      std::min<size_t>(value_length, max_xfrm_len), 0);
 
   /* Got a mem-comparable image in 'buf'. Now, produce varlength encoding */
   pack_variable_format(buf, xfrm_len, dst);
@@ -3976,8 +3972,13 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // Currently we handle these collations as NO_PAD, even if they have
         // PAD_SPACE attribute.
         if (cs->levels_for_compare == 1) {
-          m_pack_func = Rdb_key_def::pack_with_varlength_space_pad;
-          m_skip_func = Rdb_key_def::skip_variable_space_pad;
+          if (cs->pad_attribute == NO_PAD) {
+            m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
+            m_skip_func = Rdb_key_def::skip_variable_length_encoding;
+          } else {
+            m_pack_func = Rdb_key_def::pack_with_varlength_space_pad;
+            m_skip_func = Rdb_key_def::skip_variable_space_pad;
+          }
           m_segment_size = get_segment_size_from_collation(cs);
           m_max_image_len =
               (max_image_len_before_chunks / (m_segment_size - 1) + 1) *
