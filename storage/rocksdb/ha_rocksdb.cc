@@ -12259,6 +12259,8 @@ static int calculate_cardinality_table_scan(
                                    Rdb_key_def::INDEX_NUMBER_SIZE);
 
     uint64_t rows_scanned = 0ul;
+    cardinality_collector
+        .Reset(); /* reset m_last_key for each key definition */
     for (it->Seek(first_index_key); is_valid(it.get()); it->Next()) {
       if (killed && *killed) {
         // NO_LINT_DEBUG
