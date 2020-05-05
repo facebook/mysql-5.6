@@ -17,7 +17,7 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
   `HOST` varchar(64) NOT NULL DEFAULT '',
   `DB` varchar(64) DEFAULT NULL,
   `COMMAND` varchar(16) NOT NULL DEFAULT '',
-  `TIME` decimal(9,6) NOT NULL DEFAULT '0.000000',
+  `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext,
   `SRV_ID` bigint(21) unsigned NOT NULL DEFAULT '0'
