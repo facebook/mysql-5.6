@@ -1,6 +1,7 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 --disable_query_log
 call mtr.add_suppression("Cannot mark Column family.*because it is in use");
@@ -77,3 +78,11 @@ reap;
 show tables;
 
 set @@global.debug = @old_debug;
+
+# in case "Rdb_drop_index_thread::run" is waiting for "ready_to_drop_cf"
+set debug_sync = "now signal ready_to_drop_cf";
+
+--connection default
+--disconnect conn1
+--disconnect conn2
+--source include/wait_until_count_sessions.inc

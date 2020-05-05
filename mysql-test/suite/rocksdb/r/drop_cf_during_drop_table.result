@@ -57,3 +57,4 @@ set debug_sync = "now signal mark_cf_dropped_done_after_delete_table";
 show tables;
 Tables_in_test
 set @@global.debug = @old_debug;
+set debug_sync = "now signal ready_to_drop_cf";
