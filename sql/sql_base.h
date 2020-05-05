@@ -397,6 +397,10 @@ void insert_sql_plan(THD *thd, String *json_plan);
 extern ST_FIELD_INFO column_statistics_fields_info[];
 int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
 
+/* For information_schema.REPLICA_STATISTICS */
+extern ST_FIELD_INFO replica_statistics_fields_info[];
+int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
+
 /* For information_schema.user_latency_histograms */
 extern char *histogram_step_size_connection_create;
 extern char *histogram_step_size_update_command;

@@ -691,6 +691,8 @@ ulong gtid_mode;
 ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
 my_bool is_slave = false;
+/* Set to true when slave_stats_daemon thread is in use */
+bool slave_stats_daemon_thread_in_use;
 my_bool read_only_slave;
 const char *gtid_mode_names[]=
 {"OFF", "UPGRADE_STEP_1", "UPGRADE_STEP_2", "ON", NullS};
@@ -2366,6 +2368,7 @@ void clean_up(bool print_message)
 
   delete db_ac;
   stop_handle_manager();
+
   release_ddl_log();
 
   memcached_shutdown();
@@ -2565,6 +2568,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_delayed_status);
   mysql_mutex_destroy(&LOCK_delayed_create);
   mysql_mutex_destroy(&LOCK_manager);
+  mysql_mutex_destroy(&LOCK_slave_stats_daemon);
   mysql_mutex_destroy(&LOCK_crypt);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_mutex_destroy(&LOCK_connection_count);
@@ -2592,6 +2596,7 @@ static void clean_up_mutexes()
   mysql_cond_destroy(&COND_thread_cache);
   mysql_cond_destroy(&COND_flush_thread_cache);
   mysql_cond_destroy(&COND_manager);
+  mysql_cond_destroy(&COND_slave_stats_daemon);
   mysql_cond_destroy(&COND_connection_count);
 #ifdef _WIN32
   mysql_rwlock_destroy(&LOCK_named_pipe_full_access_group);
@@ -5454,6 +5459,8 @@ static int init_thread_environment()
                    &LOCK_delayed_create, MY_MUTEX_INIT_SLOW);
   mysql_mutex_init(key_LOCK_manager,
                    &LOCK_manager, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_slave_stats_daemon,
+                   &LOCK_slave_stats_daemon, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_crypt, &LOCK_crypt, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_user_conn, &LOCK_user_conn, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_active_mi, &LOCK_active_mi, MY_MUTEX_INIT_FAST);
@@ -5520,6 +5527,7 @@ static int init_thread_environment()
   mysql_cond_init(key_COND_thread_cache, &COND_thread_cache, NULL);
   mysql_cond_init(key_COND_flush_thread_cache, &COND_flush_thread_cache, NULL);
   mysql_cond_init(key_COND_manager, &COND_manager, NULL);
+  mysql_cond_init(key_COND_slave_stats_daemon, &COND_slave_stats_daemon, NULL);
   mysql_mutex_init(key_LOCK_server_started,
                    &LOCK_server_started, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started, NULL);
@@ -12636,6 +12644,7 @@ PSI_mutex_key
   key_LOCK_delayed_insert, key_LOCK_delayed_status, key_LOCK_error_log,
   key_LOCK_gdl, key_LOCK_global_system_variables,
   key_LOCK_manager,
+  key_LOCK_slave_stats_daemon,
   key_LOCK_prepared_stmt_count,
   key_LOCK_sql_slave_skip_counter,
   key_LOCK_slave_net_timeout,
@@ -12741,6 +12750,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_gdl, "LOCK_gdl", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_system_variables, "LOCK_global_system_variables", PSI_FLAG_GLOBAL},
   { &key_LOCK_manager, "LOCK_manager", PSI_FLAG_GLOBAL},
+  { &key_LOCK_slave_stats_daemon, "LOCK_slave_stats_daemon", PSI_FLAG_GLOBAL},
   { &key_LOCK_prepared_stmt_count, "LOCK_prepared_stmt_count", PSI_FLAG_GLOBAL},
   { &key_LOCK_sql_slave_skip_counter, "LOCK_sql_slave_skip_counter", PSI_FLAG_GLOBAL},
   { &key_LOCK_slave_net_timeout, "LOCK_slave_net_timeout", PSI_FLAG_GLOBAL},
@@ -12846,7 +12856,7 @@ PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
 #endif /* HAVE_MMAP */
 
 PSI_cond_key key_BINLOG_update_cond,
-  key_COND_cache_status_changed, key_COND_manager,
+  key_COND_cache_status_changed, key_COND_manager, key_COND_slave_stats_daemon,
   key_COND_server_started,
   key_delayed_insert_cond, key_delayed_insert_cond_client,
   key_item_func_sleep_cond, key_master_info_data_cond,
@@ -12891,6 +12901,7 @@ static PSI_cond_info all_server_conds[]=
   { &key_RELAYLOG_non_xid_trxs_cond, "MYSQL_RELAY_LOG::non_xid_trxs_cond", 0},
   { &key_COND_cache_status_changed, "Query_cache::COND_cache_status_changed", 0},
   { &key_COND_manager, "COND_manager", PSI_FLAG_GLOBAL},
+  { &key_COND_slave_stats_daemon, "COND_slave_stats_daemon", PSI_FLAG_GLOBAL},
   { &key_COND_server_started, "COND_server_started", PSI_FLAG_GLOBAL},
   { &key_delayed_insert_cond, "Delayed_insert::cond", 0},
   { &key_delayed_insert_cond_client, "Delayed_insert::cond_client", 0},
@@ -12924,7 +12935,7 @@ static PSI_cond_info all_server_conds[]=
 };
 
 PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
-  key_thread_handle_manager, key_thread_main,
+  key_thread_handle_manager, key_thread_handle_slave_stats_daemon, key_thread_main,
   key_thread_one_connection, key_thread_signal_hand;
 
 #ifdef HAVE_MY_TIMER
@@ -12956,6 +12967,7 @@ static PSI_thread_info all_server_threads[]=
   { &key_thread_bootstrap, "bootstrap", PSI_FLAG_GLOBAL},
   { &key_thread_delayed_insert, "delayed_insert", 0},
   { &key_thread_handle_manager, "manager", PSI_FLAG_GLOBAL},
+  { &key_thread_handle_slave_stats_daemon, "slave_stats_daemon", PSI_FLAG_GLOBAL},
   { &key_thread_main, "main", PSI_FLAG_GLOBAL},
   { &key_thread_one_connection, "one_connection", 0},
   { &key_thread_signal_hand, "signal_handler", PSI_FLAG_GLOBAL}

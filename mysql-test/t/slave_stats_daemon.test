@@ -1,0 +1,135 @@
+#
+# Test if slaves are able to send lag statistics to master every 15 seconds.
+#
+
+-- source include/master-slave.inc
+
+########################################################################################################
+### Case 1: Stats are not sent by default i.e. interval value set to 0
+########################################################################################################
+connection slave;
+select @@slave_stats_daemon_interval;
+
+connection master;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from information_schema.replica_statistics;
+
+
+########################################################################################################
+### Case 2: Stats are sent when interval value is set > 0 on slaves
+########################################################################################################
+connection slave;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select @@slave_stats_daemon_interval;
+
+connection master;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+
+########################################################################################################
+### Case 2.5: Connection is restored and stats are sent to master after it stops and restarts
+########################################################################################################
+connection slave;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select @@slave_stats_daemon_interval;
+
+connection master;
+select sleep(1);
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+let $rpl_server_number= 1
+-- source include/rpl_restart_server.inc
+
+connection master;
+select sleep(1);
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+
+
+########################################################################################################
+### Case 3: In case of master promotions, slave thread is able to reconnet to new master.
+### In this test, I point the slave to an unavailable new master and then re-point it back to original
+### master to verify if stats communication resumes.
+########################################################################################################
+connection slave;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+let $status_items= Master_User, Master_Host;
+-- source include/show_slave_status.inc
+
+-- source include/stop_slave.inc
+change master to master_user='test';
+start slave;
+-- source include/show_slave_status.inc
+
+connection master;
+select sleep(2);
+
+# No stats should have been received in last 2 seconds
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
+
+connection slave;
+-- source include/stop_slave.inc
+change master to master_user='root';
+-- source include/start_slave.inc
+-- source include/show_slave_status.inc
+
+connection master;
+select sleep(2);
+
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
+
+
+########################################################################################################
+### Case 4: Promote slave to master and master to slave. Old master(new slave) should be able to send
+### stats to new master(old slave)
+########################################################################################################
+connection master;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+
+# get slave port and store it for later use
+--let $old_slave_host= query_get_value(SHOW SLAVE HOSTS, Host, 1)
+--let $old_slave_port= query_get_value(SHOW SLAVE HOSTS, Port, 1)
+
+connection slave;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+
+# get master port and store it for later use during cleanup
+--let $old_master_host= query_get_value(SHOW SLAVE STATUS, Master_Host, 1)
+--let $old_master_port= query_get_value(SHOW SLAVE STATUS, Master_Port, 1)
+
+# Slave should not have any stats in replica_statistics table
+select * from information_schema.replica_statistics;
+
+# promote slave to be the new master
+Stop slave;
+reset slave all;
+
+# Update old master to be a slave and point it to the new master
+connection master;
+--replace_result $old_slave_host MASTER_HOST $old_slave_port MASTER_PORT
+--eval CHANGE MASTER TO MASTER_HOST= '$old_slave_host', MASTER_USER= 'root', MASTER_PORT= $old_slave_port;
+start slave;
+select sleep(2);
+
+#connect to new master and verify that it has received slave statistics
+connection slave;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+
+########################################################################################################
+### Cleanup
+### Reset the topology, swap master and slaves again
+########################################################################################################
+# reset original master
+connection master;
+set @@GLOBAL.slave_stats_daemon_interval=0;
+Stop slave;
+reset slave all;
+
+# reset original slave
+connection slave;
+set @@GLOBAL.slave_stats_daemon_interval=0;
+--replace_result $old_master_host MASTER_HOST $old_master_port MASTER_PORT
+--eval CHANGE MASTER TO MASTER_HOST= '$old_master_host', MASTER_USER= 'root', MASTER_PORT= $old_master_port;
+start slave;
+
+-- source include/rpl_end.inc

@@ -1,0 +1,25 @@
+Default value of slave_stats_daemon_interval is 0
+SELECT @@global.slave_stats_daemon_interval;
+@@global.slave_stats_daemon_interval
+0
+SELECT @@session.slave_stats_daemon_interval;
+ERROR HY000: Variable 'slave_stats_daemon_interval' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+slave_stats_daemon_interval is a dynamic variable (change to 1)
+set @@global.slave_stats_daemon_interval = 1;
+SELECT @@global.slave_stats_daemon_interval;
+@@global.slave_stats_daemon_interval
+1
+restore the default value
+SET @@global.slave_stats_daemon_interval = 0;
+SELECT @@global.slave_stats_daemon_interval;
+@@global.slave_stats_daemon_interval
+0
+restart the server with non default value (1)
+SELECT @@global.slave_stats_daemon_interval;
+@@global.slave_stats_daemon_interval
+1
+restart the server with the default value (0)
+SELECT @@global.slave_stats_daemon_interval;
+@@global.slave_stats_daemon_interval
+0

@@ -91,7 +91,8 @@ enum enum_server_command
     The following are Facebook specific commands. They are put at the top end
     to avoid conflicting with upstream.
   */
-  COM_TOP_END = 254,
+  COM_TOP_END = 253,
+  COM_SEND_REPLICA_STATISTICS = 254,
   COM_QUERY_ATTRS = 255,
   COM_MAX = 256,
 };
@@ -784,8 +785,8 @@ typedef struct st_udf_init
   char *ptr;                   /* free pointer for function data */
   my_bool const_item;          /* 1 if function always returns the same value */
   void *extension;
-} UDF_INIT;
-/* 
+} UDF_INIT; 
+/*
   TODO: add a notion for determinism of the UDF. 
   See Item_udf_func::update_used_tables ()
 */

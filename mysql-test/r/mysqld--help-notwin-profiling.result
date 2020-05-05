@@ -1932,6 +1932,10 @@ The following options may be given as the first argument:
  network before writing them to the relay log. Enabled by
  default.
  (Defaults to on; use --skip-slave-sql-verify-checksum to disable.)
+ --slave-stats-daemon-interval=# 
+ Period(seconds) for the background thread responsible for
+ sending slave lag statistics to master.New period is
+ applied after the current period finishes.
  --slave-transaction-retries=# 
  Number of times the slave SQL thread will retry a
  transaction in case it failed with a deadlock or elapsed
@@ -2454,7 +2458,7 @@ performance-schema-max-rwlock-instances -1
 performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-stage-classes 150
-performance-schema-max-statement-classes 187
+performance-schema-max-statement-classes 188
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
 performance-schema-max-thread-classes 50
@@ -2725,6 +2729,7 @@ slave-rows-search-algorithms TABLE_SCAN,INDEX_SCAN
 slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
+slave-stats-daemon-interval 0
 slave-transaction-retries 10
 slave-tx-isolation REPEATABLE-READ
 slave-type-conversions 

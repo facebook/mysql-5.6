@@ -136,6 +136,7 @@ DROP TABLE t1, t2;
 | QUERY_PERF_COUNTER                    |
 | RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
+| REPLICA_STATISTICS                    |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_COMPACTION_STATS              |
@@ -235,6 +236,7 @@ DROP TABLE t1, t2;
 | QUERY_PERF_COUNTER                    |
 | RBR_BI_INCONSISTENCIES                |
 | REFERENTIAL_CONSTRAINTS               |
+| REPLICA_STATISTICS                    |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_COMPACTION_STATS              |

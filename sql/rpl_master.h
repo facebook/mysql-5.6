@@ -21,6 +21,7 @@
 #ifdef HAVE_REPLICATION
 
 #include <map>
+#include <set>
 
 extern bool server_id_supplied;
 extern int max_binlog_dump_events;
@@ -30,6 +31,28 @@ extern my_bool opt_show_slave_auth_info;
 extern ulong rpl_event_buffer_size;
 extern uint rpl_send_buffer_size;
 
+/*
+ * SlaveStats struct contains the statistics continuously sent by slaves to the
+ * master
+ */
+typedef struct st_slave_stats {
+  int server_id;
+  int timestamp;
+  int milli_sec_behind_master;
+
+  st_slave_stats(uchar* packet);
+  // Operator definition for strict weak ordering. Should be a function of all
+  // constituents of the struct.
+  bool operator<(const st_slave_stats& other) const {
+    if (timestamp < other.timestamp) {
+      return true;
+    } else if (timestamp == other.timestamp) {
+      return milli_sec_behind_master < other.milli_sec_behind_master;
+    }
+    return false;
+  }
+} SLAVE_STATS;
+
 typedef struct st_slave_info
 {
   uint32 server_id;
@@ -38,6 +61,7 @@ typedef struct st_slave_info
   char user[USERNAME_LENGTH+1];
   char password[MAX_PASSWORD_LENGTH+1];
   uint16 port;
+  std::set<SLAVE_STATS> *slave_stats;
   THD* thd;
 } SLAVE_INFO;
 
@@ -47,6 +71,7 @@ void init_compressed_event_cache();
 void clear_compressed_event_cache();
 void free_compressed_event_cache();
 bool is_semi_sync_slave(THD *thd);
+int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
 int register_slave(THD* thd, uchar* packet, uint packet_length);
 void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list);
 bool show_slave_hosts(THD* thd);
@@ -118,6 +143,16 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                        const Gtid_set* gtid_set, int flags);
 
 int reset_master(THD* thd);
+
+/*
+  fill_replica_statistics
+    Populates the temporary table by reading from the replica statistics map.
+  Input:
+    thd     in: THD
+    cond    in: Item
+    table   out: TABLE_LIST
+*/
+extern int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
 
 #endif /* HAVE_REPLICATION */
 

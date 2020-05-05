@@ -6882,3 +6882,29 @@ static Sys_var_mybool Sys_sql_plans_capture_apply_filter(
        "If set MySQL will capture the plan for statements based on a filter",
        GLOBAL_VAR(sql_plans_capture_apply_filter),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
+/* Update the time interval for sending the slave lag stats to master. Signal
+ * the thread if it is blocked on interval update */
+static bool update_slave_stats_daemon_interval(sys_var *self, THD *thd,
+                                               enum_var_type type) {
+  mysql_mutex_lock(&LOCK_slave_stats_daemon);
+  mysql_cond_signal(&COND_slave_stats_daemon);
+  mysql_mutex_unlock(&LOCK_slave_stats_daemon);
+
+  return false; // success
+}
+
+/*
+** slave_stats_daemon_interval
+** Controls the time interval for running slave_stats_daemon (in seconds)
+** Default = 0 i.e. slave stats are not sent to master.
+*/
+static Sys_var_ulong Sys_slave_stats_daemon_interval(
+       "slave_stats_daemon_interval",
+       "Period(seconds) for the background thread responsible "
+       "for sending slave lag statistics to master."
+       "New period is applied after the current period finishes.",
+       GLOBAL_VAR(slave_stats_daemon_interval),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
+       DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(nullptr), ON_UPDATE(update_slave_stats_daemon_interval));

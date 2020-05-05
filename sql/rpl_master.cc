@@ -33,12 +33,42 @@
 #include "rpl_slave.h"
 #include <queue>
 
+#include "sql_show.h" // schema_table_store_record
+#include "tztime.h" // struct Time_zone
+
 #ifdef HAVE_JUNCTION
 #pragma GCC diagnostic ignored "-Wunused-value"
 #include <junction/ConcurrentMap_Grampa.h>
 #pragma GCC diagnostic error "-Wunused-value"
 #endif
 
+#define MAX_LAG_DATAPOINT_PER_SLAVE 10
+/*
+  REPLICA_STATISTICS
+  Associates a Slave ID to its replication statistics for last
+  N(=MAX_LAG_DATAPOINT_PER_SLAVE) datapoints. These statistics are sent by
+  slaves to the master at regular intervals.
+*/
+ST_FIELD_INFO replica_statistics_fields_info[] = {
+  {"SERVER_ID", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"TIMESTAMP", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"MILLI_SEC_BEHIND_MASTER", MY_INT64_NUM_DECIMAL_DIGITS,
+    MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+SLAVE_STATS::st_slave_stats(uchar* packet) {
+  /* 4 bytes for the server id */
+  /* 4 bytes timestamp */
+  /* 4 bytes for milli_second_behind_master */
+  server_id = uint4korr(packet);
+  packet += 4;
+  timestamp = uint4korr(packet);
+  packet += 4;
+  milli_sec_behind_master = uint4korr(packet);
+}
 
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
@@ -249,6 +279,99 @@ void free_compressed_event_cache()
 }
 
 /**
+  Populates slave statistics data-point into the slave_lists hash table.
+  These stats are sent by slaves to master at regular intervals.
+
+  @return
+    0	ok
+  @return
+    1	Error.   Error message sent to client
+*/
+int store_replica_stats(THD *thd, uchar *packet, uint packet_length)
+{
+  if (check_access(thd, REPL_SLAVE_ACL, any_db, NULL, NULL, 0, 0))
+    return 1;
+  if (sizeof(SLAVE_STATS) > packet_length)
+  {
+    my_error(ER_MALFORMED_PACKET, MYF(0));
+    return 1;
+  }
+
+  SLAVE_STATS stats(packet);
+  int server_id = stats.server_id;
+
+  mysql_mutex_lock(&LOCK_slave_list);
+  SLAVE_INFO *si =
+      (SLAVE_INFO *)my_hash_search(&slave_list, (uchar *)&server_id, 4);
+
+  if (si != nullptr)
+  {
+    if (si->slave_stats == nullptr) 
+    {
+      si->slave_stats = new std::set<SLAVE_STATS>();
+    }
+    // Erase oldest entry for this slave if needed and insert the new data
+    if (si->slave_stats->size() > MAX_LAG_DATAPOINT_PER_SLAVE) 
+    {
+      si->slave_stats->erase(si->slave_stats->begin());
+    }
+    si->slave_stats->insert(std::move(stats));
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
+  return 0;
+}
+
+/**
+  Fills the INFORMATION_SCHEMA.REPLICA_STATISTICS table
+  @return
+    0	ok
+  @return
+    1	Error
+*/
+int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_replica_statistics");
+  TABLE* table= tables->table;
+
+  mysql_mutex_lock(&LOCK_slave_list);
+
+  for (uint slaveIter = 0; slaveIter < slave_list.records; ++slaveIter)
+  {
+    SLAVE_INFO* si = (SLAVE_INFO*) my_hash_element(&slave_list, slaveIter);
+    if (si->slave_stats == nullptr) 
+    {
+      // No stats collected for this slave so far, continue
+      continue;
+    }
+    for (const SLAVE_STATS &stats : *(si->slave_stats)) 
+    {
+      int fieldPos= 0;
+      MYSQL_TIME time;
+
+      // slave id
+      table->field[fieldPos++]->store(si->server_id, TRUE);
+      // timestamp
+      if (stats.timestamp == 0) 
+      {
+        table->field[fieldPos++]->set_null();
+      } else 
+      {
+        thd->variables.time_zone->gmt_sec_to_TIME(
+            &time, (my_time_t)stats.timestamp);
+        table->field[fieldPos]->set_notnull();
+        table->field[fieldPos++]->store_time(&time);
+      }
+      // milli_second_behind_master
+      table->field[fieldPos++]->store(stats.milli_sec_behind_master, TRUE);
+
+      schema_table_store_record(thd, table);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
+  DBUG_RETURN(0);
+}
+
+/**
   Register slave in 'slave_list' hash table.
 
   @return
@@ -295,6 +418,7 @@ int register_slave(THD* thd, uchar* packet, uint packet_length)
   p += 4;
   if (!(si->master_id= uint4korr(p)))
     si->master_id= server_id;
+  si->slave_stats= nullptr;
   si->thd= thd;
 
   mysql_mutex_lock(&LOCK_slave_list);
@@ -3087,7 +3211,7 @@ err:
   if (my_errno == ER_MASTER_FATAL_ERROR_READING_BINLOG && my_b_inited(&log))
   {
     /* 
-       detailing the fatal error message with coordinates 
+       detailing the fatal error message with coordinates
        of the last position read.
     */
     my_snprintf(error_text, sizeof(error_text),

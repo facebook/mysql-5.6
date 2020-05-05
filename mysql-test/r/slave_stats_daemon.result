@@ -1,0 +1,101 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+select @@slave_stats_daemon_interval;
+@@slave_stats_daemon_interval
+0
+select sleep(2);
+sleep(2)
+0
+select count(*) = 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select @@slave_stats_daemon_interval;
+@@slave_stats_daemon_interval
+1
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select @@slave_stats_daemon_interval;
+@@slave_stats_daemon_interval
+1
+select sleep(1);
+sleep(1)
+0
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+select sleep(1);
+sleep(1)
+0
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.slave_stats_daemon_interval=1;
+Master_User = 'root'
+Master_Host = '127.0.0.1'
+include/stop_slave.inc
+change master to master_user='test';
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+start slave;
+Master_User = 'test'
+Master_Host = '127.0.0.1'
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
+more_than_1_sec_old_most_recent_stats
+1
+include/stop_slave.inc
+change master to master_user='root';
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+include/start_slave.inc
+Master_User = 'root'
+Master_Host = '127.0.0.1'
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
+set @@GLOBAL.slave_stats_daemon_interval=1;
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select * from information_schema.replica_statistics;
+SERVER_ID	TIMESTAMP	MILLI_SEC_BEHIND_MASTER
+Stop slave;
+reset slave all;
+CHANGE MASTER TO MASTER_HOST= 'MASTER_HOST', MASTER_USER= 'root', MASTER_PORT= MASTER_PORT;;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+start slave;
+select sleep(2);
+sleep(2)
+0
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.slave_stats_daemon_interval=0;
+Stop slave;
+reset slave all;
+set @@GLOBAL.slave_stats_daemon_interval=0;
+CHANGE MASTER TO MASTER_HOST= 'MASTER_HOST', MASTER_USER= 'root', MASTER_PORT= MASTER_PORT;;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+start slave;
+include/rpl_end.inc

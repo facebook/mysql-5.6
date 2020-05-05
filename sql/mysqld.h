@@ -968,6 +968,7 @@ extern std::atomic<ulonglong> slave_high_priority_ddl_executed;
 extern my_bool log_gtid_unsafe_statements;
 extern char *mysqld_socket_umask;
 extern my_bool is_slave;
+extern bool slave_stats_daemon_thread_in_use;
 extern my_bool read_only_slave;
 extern ulonglong rbr_unsafe_queries;
 extern my_bool use_db_uuid;
@@ -976,6 +977,7 @@ extern my_bool separate_conn_handling_thread;
 extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
+extern ulong slave_stats_daemon_interval;
 
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
@@ -1271,6 +1273,7 @@ extern PSI_mutex_key
   key_LOCK_delayed_insert, key_LOCK_delayed_status, key_LOCK_error_log,
   key_LOCK_gdl, key_LOCK_global_system_variables,
   key_LOCK_lock_db, key_LOCK_logger, key_LOCK_manager,
+  key_LOCK_slave_stats_daemon,
   key_LOCK_prepared_stmt_count,
   key_LOCK_sql_slave_skip_counter,
   key_LOCK_slave_net_timeout,
@@ -1335,6 +1338,7 @@ extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
 
 extern PSI_cond_key key_BINLOG_update_cond,
   key_COND_cache_status_changed, key_COND_manager,
+  key_COND_slave_stats_daemon,
   key_COND_server_started,
   key_delayed_insert_cond, key_delayed_insert_cond_client,
   key_item_func_sleep_cond, key_master_info_data_cond,
@@ -1360,8 +1364,9 @@ extern PSI_cond_key key_gtid_ensure_index_cond;
 extern PSI_cond_key key_commit_order_manager_cond;
 
 extern PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
-  key_thread_handle_manager, key_thread_kill_server, key_thread_main,
-  key_thread_one_connection, key_thread_signal_hand;
+  key_thread_handle_manager, key_thread_handle_slave_stats_daemon,
+  key_thread_kill_server, key_thread_main, key_thread_one_connection,
+  key_thread_signal_hand;
 
 #ifdef HAVE_MMAP
 extern PSI_file_key key_file_map;
@@ -1573,7 +1578,7 @@ extern mysql_mutex_t
        LOCK_user_locks, LOCK_status,
        LOCK_error_log, LOCK_delayed_insert, LOCK_uuid_generator,
        LOCK_delayed_status, LOCK_delayed_create, LOCK_crypt, LOCK_timezone,
-       LOCK_slave_list, LOCK_active_mi, LOCK_manager,
+       LOCK_slave_list, LOCK_active_mi, LOCK_manager, LOCK_slave_stats_daemon,
        LOCK_global_system_variables, LOCK_user_conn, LOCK_log_throttle_qni,
        LOCK_log_throttle_legacy, LOCK_log_throttle_ddl,
        LOCK_prepared_stmt_count, LOCK_error_messages, LOCK_connection_count,
@@ -1591,6 +1596,7 @@ extern mysql_rwlock_t LOCK_column_statistics;
 extern mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
 extern mysql_rwlock_t LOCK_system_variables_hash;
 extern mysql_cond_t COND_manager;
+extern mysql_cond_t COND_slave_stats_daemon;
 extern int32 num_thread_running;
 extern my_atomic_rwlock_t thread_running_lock;
 extern my_atomic_rwlock_t slave_open_temp_tables_lock;

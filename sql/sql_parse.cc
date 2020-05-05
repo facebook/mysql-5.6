@@ -1924,6 +1924,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       my_ok(thd);
     break;
   }
+  case COM_SEND_REPLICA_STATISTICS:
+  {
+    if (!store_replica_stats(thd, (uchar*)packet, packet_length))
+      my_ok(thd);
+    break;
+  }
 #endif
   case COM_RESET_CONNECTION:
   {

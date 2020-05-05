@@ -33,8 +33,8 @@ typedef enum { SLAVE_THD_IO, SLAVE_THD_SQL, SLAVE_THD_WORKER } SLAVE_THD_TYPE;
   @file
 */
 
-/** 
-   Some of defines are need in parser even though replication is not 
+/**
+   Some of defines are need in parser even though replication is not
    compiled in (embedded).
 */
 
@@ -58,7 +58,7 @@ typedef enum { SLAVE_THD_IO, SLAVE_THD_SQL, SLAVE_THD_WORKER } SLAVE_THD_TYPE;
 #define MTS_WORKER_UNDEF ((ulong) -1)
 #define MTS_MAX_WORKERS  1024
 
-/* 
+/*
    When using tables to store the slave workers bitmaps,
    we use a BLOB field. The maximum size of a BLOB is:
 
@@ -81,11 +81,11 @@ extern bool server_id_supplied;
     I/O Thread - One of these threads is started for each master server.
                  They maintain a connection to their master server, read log
                  events from the master as they arrive, and queues them into
-                 a single, shared relay log file.  A Master_info 
+                 a single, shared relay log file.  A Master_info
                  represents each of these threads.
 
     SQL Thread - One of these threads is started and reads from the relay log
-                 file, executing each event.  A Relay_log_info 
+                 file, executing each event.  A Relay_log_info
                  represents this thread.
 
   Buffering in the relay log file makes it unnecessary to reread events from
@@ -126,7 +126,7 @@ extern bool server_id_supplied;
   In MYSQL_BIN_LOG: LOCK_log, LOCK_index of the binlog and the relay log
   LOCK_log: when you write to it. LOCK_index: when you create/delete a binlog
   (so that you have to update the .index file).
-  
+
   ==== Order of acquisition ====
 
   Here, we list most major functions that acquire multiple locks.
@@ -285,6 +285,8 @@ int remove_info(Master_info* mi);
 int flush_master_info(Master_info* mi, bool force);
 void add_slave_skip_errors(const char* arg);
 void set_slave_skip_errors(char** slave_skip_errors_ptr);
+void configure_master_connection_options(MYSQL* mysql, Master_info* mi);
+int send_replica_statistics_to_master(MYSQL* mysql, Master_info* mi);
 int register_slave_on_master(MYSQL* mysql);
 int terminate_slave_threads(Master_info* mi, int thread_mask,
                             bool need_lock_term= true);

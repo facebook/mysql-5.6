@@ -272,6 +272,9 @@ def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_CATALOG	4		NO	v
 def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_NAME	6	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_SCHEMA	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	UPDATE_RULE	8		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	REPLICA_STATISTICS	MILLI_SEC_BEHIND_MASTER	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	REPLICA_STATISTICS	SERVER_ID	1	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	REPLICA_STATISTICS	TIMESTAMP	2	0000-00-00 00:00:00	NO	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	ROUTINES	CHARACTER_MAXIMUM_LENGTH	7	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_OCTET_LENGTH	8	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_SET_CLIENT	29		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
@@ -986,6 +989,9 @@ NULL	information_schema	QUERY_PERF_COUNTER	NUM_QUERIES	bigint	NULL	NULL	NULL	NUL
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	DELETE_RULE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	REFERENCED_TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+NULL	information_schema	REPLICA_STATISTICS	SERVER_ID	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	REPLICA_STATISTICS	TIMESTAMP	datetime	NULL	NULL	NULL	NULL	datetime
+NULL	information_schema	REPLICA_STATISTICS	MILLI_SEC_BEHIND_MASTER	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	ROUTINES	SPECIFIC_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	ROUTINES	ROUTINE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	ROUTINES	ROUTINE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)

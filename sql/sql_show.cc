@@ -10376,6 +10376,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_slave_db_load, 0, 0, -1, -1, 0, 0},
   {"RBR_BI_INCONSISTENCIES", rbr_bi_inconsistencies_fields_info,
     create_schema_table, fill_rbr_bi_inconsistencies, 0, 0, -1, -1, 0, 0},
+  {"REPLICA_STATISTICS", replica_statistics_fields_info, create_schema_table,
+   fill_replica_statistics, NULL, NULL, -1, -1, false, 0},
 #endif
   {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
    fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},

@@ -81,6 +81,7 @@ SET(SQL_SHARED_SOURCES
   filesort_utils.cc
   gcalc_slicescan.cc
   gcalc_tools.cc
+  slave_stats_daemon.cc
   gstream.cc
   handler.cc
   hh_wheel_timer.cc

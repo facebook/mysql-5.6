@@ -83,6 +83,7 @@ if ($tmp)
   --echo Master_SSL_Actual_Cipher	#
   --echo Master_SSL_Subject	#
   --echo Master_SSL_Issuer	#
+  --echo Slave_Lag_Stats_Thread_Running	No
 }
 if (!$tmp) {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
