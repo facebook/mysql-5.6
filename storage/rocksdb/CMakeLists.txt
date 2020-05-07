@@ -61,6 +61,11 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
     # TODO(yzha): Fix warnings in MyRocks
     ADD_COMPILE_FLAGS(rdb_datadic.cc COMPILE_FLAGS "-Wno-class-memaccess")
   ENDIF()
+
+  MY_CHECK_CXX_COMPILER_FLAG("-Wno-deprecated-copy" HAVE_NO_DEPRECATED_COPY)
+  IF(HAVE_NO_DEPRECATED_COPY)
+    ADD_COMPILE_FLAGS(../../rocksdb/db/db_impl/db_impl.cc COMPILE_FLAGS "-Wno-deprecated-copy")
+  ENDIF()
 ENDIF()
 
 

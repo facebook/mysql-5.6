@@ -19808,7 +19808,7 @@ ER_UNSUPPORTED_COLLATION
   eng "Unsupported collation on string indexed column %s.%s Use binary collation (%s)."
 
 ER_METADATA_INCONSISTENCY
-  eng "Table '%s' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency. Please check if '%s.frm' exists, and try to restore it if it does not exist."
+  eng "Table '%s' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency."
 
 ER_KEY_CREATE_DURING_ALTER
   eng "MyRocks failed creating new key definitions during alter."

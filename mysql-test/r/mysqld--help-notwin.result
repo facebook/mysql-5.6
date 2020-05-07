@@ -1787,8 +1787,8 @@ The following options may be given as the first argument:
  DBOptions::use_direct_reads for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
  --rocksdb-validate-tables=# 
- Verify all .frm files match all RocksDB tables (0 means
- no verification, 1 means verify and fail on error, and 2
+ Verify all DD tables match all RocksDB tables (0 means no
+ verification, 1 means verify and fail on error, and 2
  means verify but continue
  --rocksdb-verify-row-debug-checksums 
  Verify checksums when reading index/table records
