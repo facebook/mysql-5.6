@@ -1,15 +1,12 @@
-DROP TABLE IF EXISTS t;
-CREATE TABLE t(id int primary key) engine=rocksdb;
+CALL mtr.add_suppression("Schema mismatch - Table test\.t is registered in RocksDB but does not have a corresponding DD table");
+# restart
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 INSERT INTO t values (1), (2), (3);
-CREATE TABLE t(id int primary key) engine=rocksdb;
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 ERROR 42S01: Table 't' already exists
-FLUSH TABLES;
-CREATE TABLE t(id int primary key) engine=rocksdb;
-ERROR HY000: Table 'test.t' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency. Please check if './test/t.frm' exists, and try to restore it if it does not exist.
-FLUSH TABLES;
-SELECT * FROM t;
-id
-1
-2
-3
+# restart:--rocksdb_validate_tables=2
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
+ERROR HY000: Table 'test.t' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency.
+# restart:--rocksdb_validate_tables=2
+include/assert.inc [t should have 3 rows]
 DROP TABLE t;
