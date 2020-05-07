@@ -2192,6 +2192,10 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
   */
   while (!table->file->ha_rnd_next(new_table.record[1]))
   {
+    if (unlikely(thd->killed != 0)) {
+      write_err = HA_ERR_INTERNAL_ERROR;
+      goto err;
+    }
     write_err= new_table.file->ha_write_row(new_table.record[1]);
     DBUG_EXECUTE_IF("raise_error", write_err= HA_ERR_FOUND_DUPP_KEY ;);
     if (write_err)
