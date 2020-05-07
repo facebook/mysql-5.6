@@ -1,19 +1,26 @@
-create table t1 (pk int primary key) engine=rocksdb;
-show tables;
-Tables_in_test
-#mysql50#t1#sql-test
-t1
-set session debug="+d,gen_sql_table_name";
-rename table t1 to t2;
-set session debug= "-d,gen_sql_table_name";
-show tables;
-Tables_in_test
-#mysql50#t1#sql-test
-t2
-show tables;
-Tables_in_test
-create table t2 (pk int primary key) engine=rocksdb;
-show tables;
-Tables_in_test
-t2
-drop table t2;
+CALL mtr.add_suppression("Schema mismatch - A DD table exists for table test\.t2, but that table is not registered in RocksDB");
+CALL mtr.add_suppression("Schema mismatch - Table test\.t2_rdb_only is registered in RocksDB but does not have a corresponding DD table");
+CREATE TABLE t1 (pk INT PRIMARY KEY) ENGINE=RocksDB;
+SET @@session.debug = "+d,gen_sql_table_name";
+RENAME TABLE t1 TO t2;
+SET @@session.debug = "-d,gen_sql_table_name";
+# restart:--rocksdb_validate_tables=2
+include/assert.inc [The "test" database should have 1 table in MySQL DD (t2)]
+include/assert.inc [The "test" database should have 1 table in RocksDB DD (t2_rdb_only)]
+CREATE TABLE t2_rdb_only (pk INT PRIMARY KEY) ENGINE=RocksDB;
+ERROR HY000: Table 'test.t2_rdb_only' does not exist, but metadata information exists inside MyRocks. This is a sign of data inconsistency.
+INSERT INTO t2_rdb_only VALUES (1);
+ERROR 42S02: Table 'test.t2_rdb_only' doesn't exist
+DROP TABLE t2_rdb_only;
+ERROR 42S02: Unknown table 'test.t2_rdb_only'
+include/assert.inc [The "test" database should have 1 table in RocksDB DD (t2_rdb_only)]
+CREATE TABLE t2 (pk INT PRIMARY KEY) ENGINE=RocksDB;
+ERROR HY000: Internal error: Attempt to open a table that is not present in RocksDB-SE data dictionary
+INSERT INTO t2 VALUES (1);
+ERROR HY000: Internal error: Attempt to open a table that is not present in RocksDB-SE data dictionary
+DROP TABLE t2;
+ERROR HY000: Storage engine can't drop table 'test.t2' because it is missing. Use DROP TABLE IF EXISTS to remove it from data-dictionary.
+DROP TABLE IF EXISTS t2;
+Warnings:
+Warning	1146	Table 'test.t2' doesn't exist
+include/assert.inc [The "test" database should have no tables in MySQL DD]

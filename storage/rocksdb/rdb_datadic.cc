@@ -37,6 +37,8 @@
 #include "./my_bitmap.h"
 #include "./my_byteorder.h"
 #include "my_dir.h"
+#include "mysql/thread_pool_priv.h"
+#include "sql/dd/cache/dictionary_client.h"  // dd::cache::Dictionary_client
 #include "sql/field.h"
 #include "sql/key.h"
 #include "sql/sql_table.h"
@@ -4258,25 +4260,18 @@ int Rdb_ddl_manager::find_in_uncommitted_keydef(const uint32_t &cf_id) {
 namespace  // anonymous namespace = not visible outside this source file
 {
 struct Rdb_validate_tbls : public Rdb_tables_scanner {
-  using tbl_info_t = std::pair<std::string, bool>;
-  using tbl_list_t = std::map<std::string, std::set<tbl_info_t>>;
+  using tbl_list_t = std::map<std::string, std::set<std::string>>;
 
   tbl_list_t m_list;
 
   int add_table(Rdb_tbl_def *tdef) override;
 
-  bool compare_to_actual_tables(const std::string &datadir, bool *has_errors);
-
-  // bool scan_for_frms(const std::string &datadir, const std::string &dbname,
-  //                    bool *has_errors);
-  // 
-  // bool check_frm_file(const std::string &fullpath, const std::string &dbname,
-  //                     const std::string &tablename, bool *has_errors);
+  bool validate(void);
 };
 }  // anonymous namespace
 
 /*
-  Get a list of tables that we expect to have .frm files for.  This will use the
+  Get a list of tables that we expect to have DD tables for.  This will use the
   information just read from the RocksDB data dictionary.
 */
 int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
@@ -4284,157 +4279,86 @@ int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
 
   /* Add the database/table into the list that are not temp table */
   if (tdef->base_tablename().find(tmp_file_prefix) == std::string::npos) {
-    bool is_partition = tdef->base_partition().size() != 0;
-    m_list[tdef->base_dbname()].insert(
-        tbl_info_t(tdef->base_tablename(), is_partition));
+    m_list[tdef->base_dbname()].insert(tdef->base_tablename());
   }
 
   return HA_EXIT_SUCCESS;
 }
 
 /*
-  Access the .frm file for this dbname/tablename and see if it is a RocksDB
-  table (or partition table).
+  Get the list of RocksDB tables from the MySQL data dictionary
+  and compare them to the list of tables from the RocksDB database dictionary
 */
-// bool Rdb_validate_tbls::check_frm_file(const std::string &fullpath,
-//                                        const std::string &dbname,
-//                                        const std::string &tablename,
-//                                        bool *has_errors) {
-//   /* Check this .frm file to see what engine it uses */
-//   String fullfilename(fullpath.c_str(), &my_charset_bin);
-//   fullfilename.append(FN_DIRSEP);
-//   fullfilename.append(tablename.c_str());
-//   fullfilename.append(".frm");
-// 
-//   /*
-//     This function will return the legacy_db_type of the table.  Currently
-//     it does not reference the first parameter (THD* thd), but if it ever
-//     did in the future we would need to make a version that does it without
-//     the connection handle as we don't have one here.
-//   */
-//   enum legacy_db_type eng_type;
-//   frm_type_enum type = dd_frm_type(nullptr, fullfilename.c_ptr(), &eng_type);
-//   if (type == FRMTYPE_ERROR) {
-//     // NO_LINT_DEBUG
-//     sql_print_warning("RocksDB: Failed to open/read .from file: %s",
-//                       fullfilename.ptr());
-//     return false;
-//   }
-// 
-//   if (type == FRMTYPE_TABLE) {
-//     /* For a RocksDB table do we have a reference in the data dictionary? */
-//     if (eng_type == DB_TYPE_ROCKSDB) {
-//       /*
-//         Attempt to remove the table entry from the list of tables.  If this
-//         fails then we know we had a .frm file that wasn't registered in RocksDB.
-//       */
-//       tbl_info_t element(tablename, false);
-//       if (m_list.count(dbname) == 0 || m_list[dbname].erase(element) == 0) {
-//         // NO_LINT_DEBUG
-//         sql_print_warning(
-//             "RocksDB: Schema mismatch - "
-//             "A .frm file exists for table %s.%s, "
-//             "but that table is not registered in RocksDB",
-//             dbname.c_str(), tablename.c_str());
-//         *has_errors = true;
-//       }
-//     } else if (eng_type == DB_TYPE_PARTITION_DB) {
-//       /*
-//         For partition tables, see if it is in the m_list as a partition,
-//         but don't generate an error if it isn't there - we don't know that the
-//         .frm is for RocksDB.
-//       */
-//       if (m_list.count(dbname) > 0) {
-//         m_list[dbname].erase(tbl_info_t(tablename, true));
-//       }
-//     }
-//   }
-// 
-//   return true;
-// }
+bool Rdb_validate_tbls::validate(void) {
+  THD *const thd = my_core::thd_get_current_thd();
+  bool result = true;
 
-/* Scan the database subdirectory for .frm files */
-// bool Rdb_validate_tbls::scan_for_frms(const std::string &datadir,
-//                                       const std::string &dbname,
-//                                       bool *has_errors) {
-//   bool result = true;
-//   std::string fullpath = datadir + dbname;
-//   struct MY_DIR *dir_info = my_dir(fullpath.c_str(), MYF(MY_DONT_SORT));
-// 
-//   /* Access the directory */
-//   if (dir_info == nullptr) {
-//     // NO_LINT_DEBUG
-//     sql_print_warning("RocksDB: Could not open database directory: %s",
-//                       fullpath.c_str());
-//     return false;
-//   }
-// 
-//   /* Scan through the files in the directory */
-//   struct fileinfo *file_info = dir_info->dir_entry;
-//   for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
-//     /* Find .frm files that are not temp files (those that contain '#sql') */
-//     const char *ext = strrchr(file_info->name, '.');
-//     if (ext != nullptr && strstr(file_info->name, tmp_file_prefix) == nullptr &&
-//         strcmp(ext, ".frm") == 0) {
-//       std::string tablename =
-//           std::string(file_info->name, ext - file_info->name);
-// 
-//       /* Check to see if the .frm file is from RocksDB */
-//       if (!check_frm_file(fullpath, dbname, tablename, has_errors)) {
-//         result = false;
-//         break;
-//       }
-//     }
-//   }
-// 
-//   /* Remove any databases who have no more tables listed */
-//   if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
-//     m_list.erase(dbname);
-//   }
-// 
-//   /* Release the directory entry */
-//   my_dirend(dir_info);
-// 
-//   return result;
-// }
+  dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
+
+  /* Compare that to the list of RocksDB tables in the MySQL data dictionary */
+  std::vector<const dd::Schema *> schema_vector;
+  if (thd->dd_client()->fetch_global_components(&schema_vector)) return false;
+
+  for (const dd::Schema *schema : schema_vector) {
+    std::vector<dd::String_type> tables;
+    if (thd->dd_client()->fetch_schema_table_names_by_engine(
+            schema, rocksdb_hton_name, &tables))
+      return false;
+
+    if (tables.size() == 0) continue;
+
+    const std::string dbname = schema->name().c_str();
+    for (const dd::String_type &table_name : tables) {
+      const std::string tablename = table_name.c_str();
+      /*
+        Attempt to remove the table entry from the list of tables.  If this
+        fails then we know we had a DD table that wasn't registered in RocksDB.
+      */
+      if (m_list.count(dbname) == 0 || m_list[dbname].erase(tablename) == 0) {
+        sql_print_warning(
+            "RocksDB: Schema mismatch - "
+            "A DD table exists for table %s.%s, "
+            "but that table is not registered in RocksDB",
+            dbname.c_str(), tablename.c_str());
+        result = false;
+      }
+    }
+
+    /* Remove any databases which have no more tables listed */
+    if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
+      m_list.erase(dbname);
+    }
+  }
+
+  /*
+    Any tables left in the tables list are ones that are registered in RocksDB
+    but don't have a corresponding DD table.
+  */
+  for (const auto &db : m_list) {
+    for (const auto &table : db.second) {
+      sql_print_warning(
+          "Schema mismatch - Table %s.%s is registered in RocksDB "
+          "but does not have a corresponding DD table",
+          db.first.c_str(), table.c_str());
+      result = false;
+    }
+  }
+  return result;
+}
 
 /*
-  Scan the datadir for all databases (subdirectories) and get a list of .frm
-  files they contain
+  Validate that all the tables in the RocksDB database dictionary match the
+  MySQL data dictionary
 */
-bool Rdb_validate_tbls::compare_to_actual_tables(
-    const std::string &datadir, bool *has_errors MY_ATTRIBUTE((unused))) {
-  bool result = true;
-  struct MY_DIR *dir_info;
-  struct fileinfo *file_info;
+bool Rdb_ddl_manager::validate_schemas(void) {
+  Rdb_validate_tbls table_list;
 
-  dir_info = my_dir(datadir.c_str(), MYF(MY_DONT_SORT | MY_WANT_STAT));
-  if (dir_info == nullptr) {
-    // NO_LINT_DEBUG
-    sql_print_warning("RocksDB: could not open datadir: %s", datadir.c_str());
+  /* Get the list of tables from the RocksDB database dictionary */
+  if (scan_for_tables(&table_list) != 0) {
     return false;
   }
 
-  file_info = dir_info->dir_entry;
-  for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
-    /* Ignore files/dirs starting with '.' */
-    if (file_info->name[0] == '.') continue;
-
-    /* Ignore all non-directory files */
-    if (!MY_S_ISDIR(file_info->mystat->st_mode)) continue;
-
-    /* Scan all the .frm files in the directory */
-    /* TODO(yzha) - New validation for data dictionary in 8.0 */
-    // if (!scan_for_frms(datadir, file_info->name, has_errors)) {
-    //   result = false;
-    //   break;
-    // }
-  }
-
-  /* Release the directory info */
-  my_dirend(dir_info);
-
-  return result;
+  return table_list.validate();
 }
 
 /*
@@ -4477,8 +4401,9 @@ bool Rdb_ddl_manager::validate_auto_incr() {
       sql_print_warning(
           "RocksDB: AUTOINC mismatch - "
           "Index number (%u, %u) found in AUTOINC "
-          "but does not exist as a DDL entry",
-          gl_index_id.cf_id, gl_index_id.index_id);
+          "but does not exist as a DDL entry for table %s",
+          gl_index_id.cf_id, gl_index_id.index_id,
+          safe_get_table_name(gl_index_id).c_str());
       return false;
     }
 
@@ -4489,8 +4414,9 @@ bool Rdb_ddl_manager::validate_auto_incr() {
       sql_print_warning(
           "RocksDB: AUTOINC mismatch - "
           "Index number (%u, %u) found in AUTOINC "
-          "is on unsupported version %d",
-          gl_index_id.cf_id, gl_index_id.index_id, version);
+          "is on unsupported version %d for table %s",
+          gl_index_id.cf_id, gl_index_id.index_id, version,
+          safe_get_table_name(gl_index_id).c_str());
       return false;
     }
   }
@@ -4500,45 +4426,6 @@ bool Rdb_ddl_manager::validate_auto_incr() {
   }
 
   return true;
-}
-
-/*
-  Validate that all the tables in the RocksDB database dictionary match the .frm
-  files in the datadir
-*/
-bool Rdb_ddl_manager::validate_schemas(void) {
-  bool has_errors = false;
-  const std::string datadir = std::string(mysql_real_data_home);
-  Rdb_validate_tbls table_list;
-
-  /* Get the list of tables from the database dictionary */
-  if (scan_for_tables(&table_list) != 0) {
-    return false;
-  }
-
-  /* TODO(yzha) - New validation for data dictionary in 8.0 */
-  /* Compare that to the list of actual .frm files */
-  // if (!table_list.compare_to_actual_tables(datadir, &has_errors)) {
-  //   return false;
-  // }
-  //
-  /*
-    Any tables left in the tables list are ones that are registered in RocksDB
-    but don't have .frm files.
-  */
-  // for (const auto &db : table_list.m_list) {
-  //   for (const auto &table : db.second) {
-  //     // NO_LINT_DEBUG
-  //     sql_print_warning(
-  //         "RocksDB: Schema mismatch - "
-  //         "Table %s.%s is registered in RocksDB "
-  //         "but does not have a .frm file",
-  //         db.first.c_str(), table.first.c_str());
-  //     has_errors = true;
-  //   }
-  // }
-
-  return !has_errors;
 }
 
 bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
@@ -4689,7 +4576,7 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
     if (!validate_schemas()) {
       msg =
           "RocksDB: Problems validating data dictionary "
-          "against .frm files, exiting";
+          "against DD tables, exiting";
     } else if (!validate_auto_incr()) {
       msg =
           "RocksDB: Problems validating auto increment values in "
@@ -4697,7 +4584,9 @@ bool Rdb_ddl_manager::init(Rdb_dict_manager *const dict_arg,
     }
     if (validate_tables == 1 && !msg.empty()) {
       // NO_LINT_DEBUG
-      sql_print_error("%s", msg.c_str());
+      sql_print_error(
+          "%s. Use \"rocksdb_validate_tables=2\" to ignore this error.",
+          msg.c_str());
       return true;
     }
   }

@@ -2090,7 +2090,7 @@ static MYSQL_THDVAR_BOOL(master_skip_tx_api, PLUGIN_VAR_RQCMDARG,
 static MYSQL_SYSVAR_UINT(
     validate_tables, rocksdb_validate_tables,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-    "Verify all .frm files match all RocksDB tables (0 means no verification, "
+    "Verify all DD tables match all RocksDB tables (0 means no verification, "
     "1 means verify and fail on error, and 2 means verify but continue",
     nullptr, nullptr, 1 /* default value */, 0 /* min value */,
     2 /* max value */, 0);
@@ -7948,11 +7948,8 @@ error:
 
   @details
   When create() is called you do not need to worry about
-  opening the table. Also, the .frm file will have already been
-  created so adjusting create_info is not necessary. You can overwrite
-  the .frm file at this point if you wish to change the table
-  definition, but there are no methods currently provided for doing
-  so.
+  opening the table. Also, the DD table have already been
+  created so adjusting create_info is not necessary.
 
   Called from handle.cc by ha_create_table().
 
@@ -8014,7 +8011,7 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
         DBUG_RETURN(err);
       }
     } else {
-      my_error(ER_METADATA_INCONSISTENCY, MYF(0), str.c_str(), name);
+      my_error(ER_METADATA_INCONSISTENCY, MYF(0), str.c_str());
       DBUG_RETURN(HA_ERR_ROCKSDB_CORRUPT_DATA);
     }
   }
@@ -11943,7 +11940,7 @@ int ha_rocksdb::rename_table(
     DBUG_RETURN(-1);
   }
 
-  DBUG_EXECUTE_IF("gen_sql_table_name", to_str = to_str + "#sql-test";);
+  DBUG_EXECUTE_IF("gen_sql_table_name", to_str = to_str + "_rdb_only";);
 
   const std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   rocksdb::WriteBatch *const batch = wb.get();

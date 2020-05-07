@@ -1,16 +1,44 @@
 --source include/have_rocksdb.inc
---disable_warnings
-DROP TABLE IF EXISTS t;
---enable_warnings
-CREATE TABLE t(id int primary key) engine=rocksdb;
+
+CALL mtr.add_suppression("Schema mismatch - Table test\.t is registered in RocksDB but does not have a corresponding DD table");
+
+--let $MYSQLD_DATADIR= `select @@datadir`
+
+# Shut down and save MySQL DD without user tables
+--source include/shutdown_mysqld.inc
+--copy_file $MYSQLD_DATADIR/mysql.ibd $MYSQL_TMP_DIR/mysql.ibd.no_tables
+
+# Restart the server
+--let $restart_parameters=
+--source include/start_mysqld.inc
+
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
 INSERT INTO t values (1), (2), (3); 
+
 --error ER_TABLE_EXISTS_ERROR 
-CREATE TABLE t(id int primary key) engine=rocksdb;
-FLUSH TABLES;
---exec mv $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm.tmp
---error ER_METADATA_INCONSISTENCY 
-CREATE TABLE t(id int primary key) engine=rocksdb;
---exec mv $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm.tmp $MYSQLTEST_VARDIR/mysqld.1/data/test/t.frm
-FLUSH TABLES;
-SELECT * FROM t;
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
+
+# Shut down, save MySQL DD with t table, and restore MySQL DD without user tables
+--source include/shutdown_mysqld.inc
+--copy_file $MYSQLD_DATADIR/mysql.ibd $MYSQL_TMP_DIR/mysql.ibd.t_table
+--move_file $MYSQL_TMP_DIR/mysql.ibd.no_tables $MYSQLD_DATADIR/mysql.ibd
+
+# Restart the server
+--let $restart_parameters=restart:--rocksdb_validate_tables=2
+--source include/start_mysqld.inc
+
+--error ER_METADATA_INCONSISTENCY
+CREATE TABLE t(id INT PRIMARY KEY) ENGINE=RocksDB;
+
+# Shut down and restore MySQL DD with t table
+--source include/shutdown_mysqld.inc
+--move_file $MYSQL_TMP_DIR/mysql.ibd.t_table $MYSQLD_DATADIR/mysql.ibd
+
+# Restart the server
+--source include/start_mysqld.inc
+
+--let $assert_text = t should have 3 rows
+--let $assert_cond = [SELECT COUNT(*) from t] = 3
+--source include/assert.inc
+
 DROP TABLE t;
