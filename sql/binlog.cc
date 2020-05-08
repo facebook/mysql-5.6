@@ -1863,6 +1863,12 @@ HybridLogicalClock::get_selected_database_hlc(const std::string& database) {
   return it != database_applied_hlc_.end() ? it->second : 0;
 }
 
+void HybridLogicalClock::clear_database_hlc()
+{
+  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+  database_applied_hlc_.clear();
+}
+
 /**
   Write a rollback record of the transaction to the binary log.
 

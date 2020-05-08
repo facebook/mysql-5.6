@@ -110,6 +110,55 @@ connection slave;
 --source include/sync_slave_sql_with_master.inc
 select * from information_schema.database_applied_hlc order by 2;
 
+-- echo Case 6: Duplicate enabling of maintain_database_hlc should not clear the map
+connection master;
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2;
+
+connection slave;
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2;
+
+-- echo Case 7: Duplicate enabling of binlog_hlc should not clear the map
+connection master;
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2;
+
+connection slave;
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2;
+
+-- echo Case 8: Disabling maintain_database_hlc should clear the map
+connection master;
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2;
+
+connection slave;
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2;
+
+-- echo Case 9: Disabling enable_binlog_hlc should clear the map
+connection master;
+SET @@global.maintain_database_hlc = ON;
+connection slave;
+SET @@global.maintain_database_hlc = ON;
+
+connection master;
+insert into test1.t2 values(100);
+select * from information_schema.database_applied_hlc order by 2;
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2;
+
+connection slave;
+--source include/sync_slave_sql_with_master.inc
+select * from information_schema.database_applied_hlc order by 2;
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2;
+
 # Cleanup
 connection master;
 SET @@global.minimum_hlc_ns = default;

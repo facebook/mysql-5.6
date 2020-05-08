@@ -324,7 +324,7 @@ class HybridLogicalClock {
    */
   void get_database_hlc(std::unordered_map<std::string, uint64_t>& applied_hlc);
 
-	
+
   /**
    * Get the applied hlc for the specified database
    *
@@ -333,7 +333,12 @@ class HybridLogicalClock {
    * @return The HLC for the specified database, or 0 if not found
    */
   uint64_t get_selected_database_hlc(const std::string& database);
-  
+
+  /**
+   * Clear database HLC map
+   */
+  void clear_database_hlc();
+
   /**
    * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
    *
@@ -753,9 +758,13 @@ public:
       std::unordered_map<std::string, uint64_t>& database_hlc) {
     return hlc.get_database_hlc(database_hlc);
   }
-  
+
   uint64_t get_selected_database_hlc(const std::string& database) {
     return hlc.get_selected_database_hlc(database);
+  }
+
+  void clear_database_hlc() {
+    return hlc.clear_database_hlc();
   }
 
 private:
