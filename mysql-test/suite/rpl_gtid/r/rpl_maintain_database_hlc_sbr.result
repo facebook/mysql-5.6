@@ -370,6 +370,71 @@ DATABASE_NAME	APPLIED_HLC
 test1	2538630000000000007
 test2	2538630000000000008
 test3	2538630000000000009
+Case 6: Duplicate enabling of maintain_database_hlc should not clear the map
+[connection master]
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+[connection slave]
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+Case 7: Duplicate enabling of binlog_hlc should not clear the map
+[connection master]
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+[connection slave]
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000007
+test2	2538630000000000008
+test3	2538630000000000009
+Case 8: Disabling maintain_database_hlc should clear the map
+[connection master]
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+[connection slave]
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+Case 9: Disabling enable_binlog_hlc should clear the map
+[connection master]
+SET @@global.maintain_database_hlc = ON;
+[connection slave]
+SET @@global.maintain_database_hlc = ON;
+[connection master]
+insert into test1.t2 values(100);
+commit;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000010
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+include/sync_slave_sql_with_master.inc
+[connection slave]
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
+test1	2538630000000000010
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+DATABASE_NAME	APPLIED_HLC
 [connection master]
 DROP TABLE test1.t1;
 DROP TABLE test2.t1;

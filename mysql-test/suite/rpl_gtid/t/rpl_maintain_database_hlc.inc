@@ -101,7 +101,6 @@ SELECT * FROM test1.t1;
 SELECT * FROM test2.t1;
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
 
-
 --echo Case 5: Pure DDL should also update and maintain per database HLC
 --source include/rpl_connection_master.inc
 SET autocommit = OFF;
@@ -114,6 +113,56 @@ SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
 --source include/sync_slave_sql_with_master.inc
 --source include/rpl_connection_slave.inc
 SELECT * FROM information_schema.database_applied_hlc ORDER BY 2, 1;
+
+-- echo Case 6: Duplicate enabling of maintain_database_hlc should not clear the map
+--source include/rpl_connection_master.inc
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+--source include/rpl_connection_slave.inc
+SET @@global.maintain_database_hlc = ON;
+SET @@global.maintain_database_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+-- echo Case 7: Duplicate enabling of binlog_hlc should not clear the map
+--source include/rpl_connection_master.inc
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+--source include/rpl_connection_slave.inc
+SET @@global.enable_binlog_hlc = ON;
+SET @@global.enable_binlog_hlc = ON;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+-- echo Case 8: Disabling maintain_database_hlc should clear the map
+--source include/rpl_connection_master.inc
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+--source include/rpl_connection_slave.inc
+SET @@global.maintain_database_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+-- echo Case 9: Disabling enable_binlog_hlc should clear the map
+--source include/rpl_connection_master.inc
+SET @@global.maintain_database_hlc = ON;
+--source include/rpl_connection_slave.inc
+SET @@global.maintain_database_hlc = ON;
+
+--source include/rpl_connection_master.inc
+insert into test1.t2 values(100);
+commit;
+select * from information_schema.database_applied_hlc order by 2, 1;
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_connection_slave.inc
+select * from information_schema.database_applied_hlc order by 2, 1;
+SET @@global.enable_binlog_hlc = OFF;
+select * from information_schema.database_applied_hlc order by 2, 1;
 
 # Cleanup
 --source include/rpl_connection_master.inc
