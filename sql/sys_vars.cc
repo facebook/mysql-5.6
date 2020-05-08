@@ -7582,6 +7582,9 @@ static bool check_enable_binlog_hlc(sys_var * /* self */, THD * /* thd */,
       new_enable_binlog_hlc)
     return true;  // Needs gtid mode to enable binlog hlc
 
+  // if the feature is being turned off, then clear the map
+  if (!new_enable_binlog_hlc) mysql_bin_log.clear_database_hlc();
+
   return false;
 }
 
@@ -7593,6 +7596,10 @@ static Sys_var_bool Sys_enable_binlog_hlc(
 
 static bool check_maintain_database_hlc(sys_var *, THD *, set_var *var) {
   uint64_t new_maintain_db_hlc = var->save_result.ulonglong_value;
+
+  // if the feature is being turned off, then clear the map
+  if (!new_maintain_db_hlc) mysql_bin_log.clear_database_hlc();
+
   if (!enable_binlog_hlc && new_maintain_db_hlc)
     return true;  // Needs enable_binlog_hlc
 
