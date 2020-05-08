@@ -76,7 +76,7 @@ file_exists $MYSQLD_DATADIR/relay-log.info;
 
 --connection master
 
-CREATE TABLE test(id INTEGER NOT NULL PRIMARY KEY);
+CREATE TABLE test(id INTEGER NOT NULL PRIMARY KEY) ENGINE=INNODB;
 INSERT INTO test VALUES (1), (2), (3);
 
 ########################################################################################

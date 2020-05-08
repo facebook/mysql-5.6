@@ -121,5 +121,11 @@ if (!$rpl_server_error)
   --source include/rpl_reconnect.inc
 
   --let $include_filename= rpl_start_server.inc [$_rpl_start_server_info]
+  if ($rpl_enable_raft)
+  {
+    # raft starts the slave sql appliers on restart. stop it explicitly
+    let $rpl_only_running_threads= 1;
+    --source include/stop_slave.inc
+  }
   --source include/end_include_file.inc
 }
