@@ -208,6 +208,11 @@ class HybridLogicalClock {
    */
   database_hlc_container get_database_hlc() const;
 
+  /**
+   * Clear database HLC map
+   */
+  void clear_database_hlc();
+
  private:
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
@@ -677,6 +682,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   database_hlc_container get_database_hlc() const {
     return hlc.get_database_hlc();
   }
+
+  void clear_database_hlc() { return hlc.clear_database_hlc(); }
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
