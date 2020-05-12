@@ -25,8 +25,6 @@
 #include "./ha_rocksdb.h"
 #include "./rdb_utils.h"
 
-using namespace rocksdb;
-
 namespace myrocks {
 
 static PSI_stage_info stage_waiting_on_row_lock2 = {0, "Waiting for row lock",
@@ -42,7 +40,8 @@ Rdb_cond_var::Rdb_cond_var() { mysql_cond_init(0, &m_cond); }
 
 Rdb_cond_var::~Rdb_cond_var() { mysql_cond_destroy(&m_cond); }
 
-Status Rdb_cond_var::Wait(const std::shared_ptr<TransactionDBMutex> mutex_arg) {
+rocksdb::Status Rdb_cond_var::Wait(
+    const std::shared_ptr<rocksdb::TransactionDBMutex> mutex_arg) {
   return WaitFor(mutex_arg, ONE_YEAR_IN_MICROSECS);
 }
 
@@ -55,13 +54,13 @@ Status Rdb_cond_var::Wait(const std::shared_ptr<TransactionDBMutex> mutex_arg) {
      timeout_micros  Timeout in microseconds. Negative value means no timeout.
 
   @return
-    Status::OK()       - Wait successfull
-    Status::TimedOut() - Timed out or wait killed (the caller can check
+    rocksdb::Status::OK()       - Wait successfull
+    rocksdb::Status::TimedOut() - Timed out or wait killed (the caller can check
                          thd_killed() to determine which occurred)
 */
 
-Status Rdb_cond_var::WaitFor(
-    const std::shared_ptr<TransactionDBMutex> mutex_arg,
+rocksdb::Status Rdb_cond_var::WaitFor(
+    const std::shared_ptr<rocksdb::TransactionDBMutex> mutex_arg,
     int64_t timeout_micros) {
   auto *mutex_obj = reinterpret_cast<Rdb_mutex *>(mutex_arg.get());
   DBUG_ASSERT(mutex_obj != nullptr);
@@ -105,9 +104,9 @@ Status Rdb_cond_var::WaitFor(
   } while (!killed && res == EINTR);
 
   if (res || killed) {
-    return Status::TimedOut();
+    return rocksdb::Status::TimedOut();
   } else {
-    return Status::OK();
+    return rocksdb::Status::OK();
   }
 }
 
@@ -157,24 +156,25 @@ Rdb_mutex::Rdb_mutex() {
 
 Rdb_mutex::~Rdb_mutex() { mysql_mutex_destroy(&m_mutex); }
 
-Status Rdb_mutex::Lock() {
+rocksdb::Status Rdb_mutex::Lock() {
   RDB_MUTEX_LOCK_CHECK(m_mutex);
   DBUG_ASSERT(m_old_stage_info.count(current_thd) == 0);
-  return Status::OK();
+  return rocksdb::Status::OK();
 }
 
 // Attempt to acquire lock.  If timeout is non-negative, operation may be
 // failed after this many milliseconds.
 // If implementing a custom version of this class, the implementation may
 // choose to ignore the timeout.
-// Return OK on success, or other Status on failure.
-Status Rdb_mutex::TryLockFor(int64_t timeout_time MY_ATTRIBUTE((__unused__))) {
+// Return OK on success, or other rocksdb::Status on failure.
+rocksdb::Status Rdb_mutex::TryLockFor(
+    int64_t timeout_time MY_ATTRIBUTE((__unused__))) {
   /*
     Note: PThreads API has pthread_mutex_timedlock(), but mysql's
     mysql_mutex_* wrappers do not wrap that function.
   */
   RDB_MUTEX_LOCK_CHECK(m_mutex);
-  return Status::OK();
+  return rocksdb::Status::OK();
 }
 
 #ifndef STANDALONE_UNITTEST
