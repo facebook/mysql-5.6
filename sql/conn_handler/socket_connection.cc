@@ -1044,6 +1044,15 @@ static bool handle_admin_socket(
 #endif
 
   while (!connection_events_loop_aborted()) {
+    /*
+      Ensure server is fully started before we start accepting
+      connections, otherwise you may run into crashes due to
+      race conditions with acl_init
+     */
+    if (get_server_state() != SERVER_OPERATING) {
+      my_sleep(100*1000);
+      continue;
+    }
 #ifdef HAVE_POLL
     int retval = poll(fds, NUMBER_OF_POLLED_FDS, -1);
 #else
