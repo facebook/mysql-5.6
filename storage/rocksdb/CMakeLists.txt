@@ -13,6 +13,10 @@ IF(HAVE_SCHED_GETCPU)
   ADD_DEFINITIONS(-DHAVE_SCHED_GETCPU=1 -DROCKSDB_SCHED_GETCPU_PRESENT)
 ENDIF()
 
+# use my_rocksdb for rocksdb namespace to avoid conflicts with other rocksdb
+# copies in plugins
+ADD_DEFINITIONS(-DROCKSDB_NAMESPACE=my_rocksdb)
+
 # get a list of rocksdb library source files
 # run with env -i to avoid passing variables
 EXECUTE_PROCESS(

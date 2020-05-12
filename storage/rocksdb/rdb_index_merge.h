@@ -30,6 +30,7 @@
 #include "rocksdb/db.h"
 
 /* MyRocks header files */
+#include "./rdb_global.h"
 
 namespace myrocks {
 
