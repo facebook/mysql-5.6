@@ -2601,6 +2601,7 @@ class Rdb_transaction {
     They should provide RocksDB's savepoint semantics.
   */
   virtual void do_set_savepoint() = 0;
+  virtual rocksdb::Status do_pop_savepoint() = 0;
   virtual void do_rollback_to_savepoint() = 0;
 
  public:
@@ -3253,9 +3254,8 @@ class Rdb_transaction {
     // one. This is very important for long transactions doing lots of
     // SELECTs.
     if (m_writes_at_last_savepoint != m_write_count) {
-      rocksdb::WriteBatchBase *batch = get_write_batch();
       rocksdb::Status status = rocksdb::Status::NotFound();
-      while ((status = batch->PopSavePoint()) == rocksdb::Status::OK()) {
+      while ((status = do_pop_savepoint()) == rocksdb::Status::OK()) {
       }
 
       if (status != rocksdb::Status::NotFound()) {
@@ -3650,6 +3650,9 @@ class Rdb_transaction_impl : public Rdb_transaction {
   /* Implementations of do_*savepoint based on rocksdB::Transaction savepoints
    */
   void do_set_savepoint() override { m_rocksdb_tx->SetSavePoint(); }
+  rocksdb::Status do_pop_savepoint() override {
+    return m_rocksdb_tx->PopSavePoint();
+  }
 
   void do_rollback_to_savepoint() override {
     m_rocksdb_tx->RollbackToSavePoint();
@@ -3774,6 +3777,9 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   /* Implementations of do_*savepoint based on rocksdB::WriteBatch savepoints */
   void do_set_savepoint() override { m_batch->SetSavePoint(); }
+  rocksdb::Status do_pop_savepoint() override {
+    return m_batch->PopSavePoint();
+  }
 
   void do_rollback_to_savepoint() override { m_batch->RollbackToSavePoint(); }
 
