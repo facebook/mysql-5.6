@@ -2884,8 +2884,8 @@ static void fill_fields_connection_attrs(THD *thd, THD *tmp, TABLE *table,
 }
 
 void set_thread_info_srv_session(thread_info *thd_info, THD* thd,
-                                std::shared_ptr<Srv_session> srv_session,
-                                ulong max_query_length)
+                                 std::shared_ptr<Srv_session> srv_session,
+                                 ulong max_query_length)
 {
   auto session_thd = srv_session->get_thd();
   auto attached_conn_thid = srv_session->get_conn_thd_id();
@@ -10333,6 +10333,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_sql_text, NULL, NULL, -1, -1, false, 0},
   {"CLIENT_ATTRIBUTES", client_attrs_fields_info, create_schema_table,
    fill_client_attrs, NULL, NULL, -1, -1, false, 0},
+  {"SQL_PLANS", sql_plan_fields_info, create_schema_table,
+   fill_sql_plans, NULL, NULL, -1, -1, false, 0},
 #endif
   {"COLUMN_STATISTICS", column_statistics_fields_info, create_schema_table,
    fill_column_statistics, NULL, NULL, -1, -1, false, 0},

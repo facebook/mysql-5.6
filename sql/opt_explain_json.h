@@ -35,7 +35,9 @@ private:
   select_result *output;
 
 public:
-  Explain_format_JSON() : current_context(NULL), output(NULL) {}
+  bool stored_plan;
+  Explain_format_JSON(bool sp=false) :
+      current_context(NULL), output(NULL), stored_plan(sp) {}
 
   virtual bool is_hierarchical() const { return true; }
   virtual bool send_headers(select_result *result);

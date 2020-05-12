@@ -824,6 +824,10 @@ The following options may be given as the first argument:
  Number of seconds to wait for a block to be written to a
  connection before aborting the write
  -n, --new           Use very new possible "unsafe" functions
+ --normalized-plan-id 
+ If set MySQL will compute the plan ID from a normalized
+ execution plan
+ (Defaults to on; use --skip-normalized-plan-id to disable.)
  --num-conn-handling-threads[=#] 
  Use these many threads to offload accept threads
  --num-sharded-listen-sockets[=#] 
@@ -1978,6 +1982,25 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-sql-log-bin-triggers to disable.)
  --sql-mode=name     Syntax: sql-mode=mode[,mode[,mode...]]. See the manual
  for the complete list of valid sql modes
+ --sql-plans-capture-apply-filter 
+ If set MySQL will capture the plan for statements based
+ on a filter
+ (Defaults to on; use --skip-sql-plans-capture-apply-filter to disable.)
+ --sql-plans-capture-frequency=# 
+ Controls the frequency of sql plans capture, i.ea new
+ plan is captured for every N executions ofSQL statements.
+ Default is to capture a new planfor every execution (1)
+ --sql-plans-capture-slow-query 
+ If set MySQL will capture the execution plan for slow
+ queries
+ --sql-plans-control=name 
+ Provides a control to store SQL execution plans for every
+ SQL statement. This data is exposed through the SQL_PLANS
+ plan. It accepts the following values: OFF_HARD: Default
+ value. Stop collecting the SQL plans and flush all SQL
+ plans related data from memory. OFF_SOFT: Stop collecting
+ the SQL plans, but retain any data collected so far. ON:
+ Collect the SQL plans.
  --sql-stats-control=name 
  Provides a control to collect normalized SQL text and
  statistics for every SQL statement. This data is exposed
@@ -2365,6 +2388,7 @@ net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
 new FALSE
+normalized-plan-id TRUE
 num-conn-handling-threads 1
 num-sharded-listen-sockets 1
 num-sharded-locks 1
@@ -2706,6 +2730,10 @@ sort-buffer-size 262144
 sporadic-binlog-dump-fail FALSE
 sql-log-bin-triggers TRUE
 sql-mode NO_ENGINE_SUBSTITUTION
+sql-plans-capture-apply-filter TRUE
+sql-plans-capture-frequency 1
+sql-plans-capture-slow-query FALSE
+sql-plans-control OFF_HARD
 sql-stats-control OFF_HARD
 stored-program-cache 256
 super-read-only FALSE

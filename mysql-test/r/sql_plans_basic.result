@@ -1,0 +1,1022 @@
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+create user user2@localhost identified by 'u2';
+grant alter, create, insert, select, drop on test.* to user2@localhost;
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+-> Case 1: both sql stats/plans are default (OFF_HARD)
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select @@sql_plans_control;
+@@sql_plans_control
+OFF_HARD
+create table t1(a int, b char(10));
+create table t2(a int, b char(10));
+insert into t1 values(1,1), (2,2), (3,3), (4,4), (5,5);
+insert into t1 values(10,10), (20,20), (30,30), (40,40), (50,50);
+insert into t2 select * from t1;
+commit;
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+select * From t1;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+-> no plan captured
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+-> Case 2: both sql stats/plans are ON
+set @@GLOBAL.sql_stats_control=ON;
+set @@GLOBAL.sql_plans_control=ON;
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select @@sql_plans_control;
+@@sql_plans_control
+ON
+select 13;
+13
+13
+select @@sql_plans_control;
+@@sql_plans_control
+ON
+-> no plan captured: we only capture plans with at least one table
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+select * From t1;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2 where a =  20;
+a	b
+20	20
+select * From t2 where a >  10;
+a	b
+20	20
+30	30
+40	40
+50	50
+select * From t2 where a >= 10;
+a	b
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2 where a <  30;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+select * From t2 where a <= 30;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+select * From t2 where a between 1 and 3;
+a	b
+1	1
+2	2
+3	3
+select * From t2 where a between 10 and 30;
+a	b
+10	10
+20	20
+30	30
+select * From t2 where a between 10 and 30 or a between 56 and 58;
+a	b
+10	10
+20	20
+30	30
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+a	b
+10	10
+-> should see 2 plans, one for each table
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+insert into t2 select * from t2;
+commit;
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	OK
+select * From t2;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+-> should still see 1 plan for t2, (total of 3 including for insert)
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+select count(1) FROM t1 JOIN t2 WHERE t1.a=t2.a;
+count(1)
+20
+-> should see 4 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+select * from t1 where t1.b like '1%'
+union
+select * from t2 where t2.b like '3%';
+a	b
+1	1
+10	10
+3	3
+30	30
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%'
+union
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+a	b
+10	10
+-> should see 6 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%'
+union all
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+a	b
+10	10
+10	10
+10	10
+10	10
+-> should see 7 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+select * from (select * from t1) a;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+-> should see 8 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+select * from t1 where a in (select a from t2);
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+-> should see 9 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+select * from t1 where a not in (select a from t2);
+a	b
+-> should see 10 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+select * from t1 where exists (select a from t2 where t1.a=t2.a);
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+-> should see 11 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+select * from t1 where not exists (select a from t2 where t1.a=t2.a);
+a	b
+-> should see 11 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+select (select count(1) cnt from t2 where t2.a=t1.a) t2_cnt, t1.a t1_a from t1;
+t2_cnt	t1_a
+2	1
+2	2
+2	3
+2	4
+2	5
+2	10
+2	20
+2	30
+2	40
+2	50
+-> should see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+3e88cfc2b4b443a2534915ff82a87890	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+-> case 3: plans are not captured for a specific user
+select * From t1;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2 where a = 20;
+a	b
+20	20
+20	20
+-> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+3e88cfc2b4b443a2534915ff82a87890	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+-> case 4: plans are not captured for a specific database
+create database mz_db;
+grant alter, create, insert, select, drop on mz_db.* to user1@localhost;
+create table t1(a int, b char(10));
+create table t2(a int, b char(10));
+insert into t1 values(1,1), (2,2), (3,3), (4,4), (5,5);
+insert into t1 values(10,10), (20,20), (30,30), (40,40), (50,50);
+insert into t2 select * from t1;
+commit;
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+mz_db.t1	analyze	status	OK
+analyze table t2;
+Table	Op	Msg_type	Msg_text
+mz_db.t2	analyze	status	OK
+select * From t1;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2;
+a	b
+1	1
+2	2
+3	3
+4	4
+5	5
+10	10
+20	20
+30	30
+40	40
+50	50
+select * From t2 where a =  20;
+a	b
+20	20
+-> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+3e88cfc2b4b443a2534915ff82a87890	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+c63aca0e3e2270468eaadb4364351527	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "message": "No tab
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+-> case 5: negative tests
+create table t_select(a int, b char(10));
+-> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+plan_id	substr(plan_data, 1, 80)
+0ba68f17540c8062f523848bcdba3497	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "a",
+235df400bf99e8be718c58ed76fb147e	{
+  "query_block": {
+    "select_id": 2,
+    "nested_loop": [
+      {
+        "t
+2fbbd29e4b6996198537a9d698b9aef6	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+307aa670352e5ad5c0ac1583cdbfa8b2	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+3e88cfc2b4b443a2534915ff82a87890	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+8825b5b1716c6628648e1ce83728fd50	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": false,
+a2c4f5e90d373f057d7518531173bb5f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+ad4dd9037a9a857e220f18a568e95dbe	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t2"
+b1c011b702aa8867e263fcdc465f2c9d	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "t
+c00be2a01db53a804f245bd8bbefae76	{
+  "query_block": {
+    "select_id": 1,
+    "buffer_result": {
+      "using_tem
+c63aca0e3e2270468eaadb4364351527	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "message": "No tab
+d4e0be31e9d8be98c57938cf26635d68	{
+  "query_block": {
+    "union_result": {
+      "using_temporary_table": true,
+
+fb2caabe331a4b9d1f6b2ff6daf1d53f	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "t1"
+-> case 6: test with a I_S tables
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_plans_control="OFF_HARD";
+include/assert.inc [assert that the counts (tables, etc) are the same]
+-> Cleanup
+drop table t1;
+drop table t2;
+drop table t_select;
+drop database mz_db;
+drop user user1@localhost;
+drop user user2@localhost;
+drop user user_super@localhost;

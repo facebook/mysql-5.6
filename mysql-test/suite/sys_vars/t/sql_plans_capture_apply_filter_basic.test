@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is ON
+####
+--echo Default value of sql_plans_capture_apply_filter is ON
+SELECT @@global.sql_plans_capture_apply_filter;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_plans_capture_apply_filter;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_plans_capture_apply_filter is a dynamic variable (change to "OFF")
+set @@global.sql_plans_capture_apply_filter = "off";
+SELECT @@global.sql_plans_capture_apply_filter;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_plans_capture_apply_filter = "on";
+SELECT @@global.sql_plans_capture_apply_filter;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (OFF)
+--let $_mysqld_option=--sql_plans_capture_apply_filter=off
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.sql_plans_capture_apply_filter;
+
+--echo restart the server with the default value (ON)
+--source include/restart_mysqld.inc
+
+# check value is default (ON)
+SELECT @@global.sql_plans_capture_apply_filter;

@@ -1,0 +1,25 @@
+Default value of sql_plans_control is OFF_HARD
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+SELECT @@session.sql_plans_control;
+ERROR HY000: Variable 'sql_plans_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_plans_control is a dynamic variable (change to "ON")
+set @@global.sql_plans_control = "on";
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+ON
+restore the default value
+SET @@global.sql_plans_control = "off_hard";
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD
+restart the server with non default value (OFF_SOFT)
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_SOFT
+restart the server with the default value (OFF_HARD)
+SELECT @@global.sql_plans_control;
+@@global.sql_plans_control
+OFF_HARD

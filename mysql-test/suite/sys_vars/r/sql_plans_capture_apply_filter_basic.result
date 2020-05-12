@@ -1,0 +1,25 @@
+Default value of sql_plans_capture_apply_filter is ON
+SELECT @@global.sql_plans_capture_apply_filter;
+@@global.sql_plans_capture_apply_filter
+1
+SELECT @@session.sql_plans_capture_apply_filter;
+ERROR HY000: Variable 'sql_plans_capture_apply_filter' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_plans_capture_apply_filter is a dynamic variable (change to "OFF")
+set @@global.sql_plans_capture_apply_filter = "off";
+SELECT @@global.sql_plans_capture_apply_filter;
+@@global.sql_plans_capture_apply_filter
+0
+restore the default value
+SET @@global.sql_plans_capture_apply_filter = "on";
+SELECT @@global.sql_plans_capture_apply_filter;
+@@global.sql_plans_capture_apply_filter
+1
+restart the server with non default value (OFF)
+SELECT @@global.sql_plans_capture_apply_filter;
+@@global.sql_plans_capture_apply_filter
+0
+restart the server with the default value (ON)
+SELECT @@global.sql_plans_capture_apply_filter;
+@@global.sql_plans_capture_apply_filter
+1

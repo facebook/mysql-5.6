@@ -138,6 +138,8 @@
 using std::max;
 using std::min;
 
+#include "opt_explain_json.h"
+
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
@@ -1580,6 +1582,93 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
   }
+
+  thd->clear_plan_id();
+}
+
+/**
+  Capture SQL Plan
+
+  @param       thd           Current thread
+  @param       query_text    The query text
+  @param       query_length  Length of the query text
+
+*/
+static void
+capture_sql_plan(THD *thd, const char *query_text, uint query_length)
+{
+  /* Skip if plan capture is disabled or tracing is enabled */
+  if (!SQL_PLANS_ENABLED ||
+      (thd->variables.optimizer_trace & Opt_trace_context::FLAG_ENABLED) ||
+      (thd->variables.option_bits & OPTION_AUTO_IS_NULL))
+    return;
+
+  /* Skip if this statement does not qualify based on
+    - frequency setting
+    - slow query tag
+  */
+  if (thd->query_id % sql_plans_capture_frequency > 0 &&
+      !(sql_plans_capture_slow_query &&
+        thd->server_status & SERVER_QUERY_WAS_SLOW))
+    return;
+
+  /*
+    Check the query text contains a supported statement type (select, insert,
+    update, delete)
+    This is a crude way of checking (the keyword can appear in a comment, we
+    do not cover cses where the keyword is a mix of upper and lower case, etc)
+    However, this saves us on parsing for cases we do not care about and from
+    bumping counters tracking parse failures, etc.
+  */
+  std::string query_str(query_text);
+  if (!sql_plans_capture_apply_filter ||
+      (query_str.find("select") == std::string::npos &&
+       query_str.find("SELECT") == std::string::npos &&
+       query_str.find("update") == std::string::npos &&
+       query_str.find("UPDATE") == std::string::npos &&
+       query_str.find("delete") == std::string::npos &&
+       query_str.find("DELETE") == std::string::npos &&
+       query_str.find("insert") == std::string::npos &&
+       query_str.find("INSERT") == std::string::npos))
+    return;
+
+  const char *explain_json_str = "EXPLAIN format=json ";
+  uint  exp_cst_len    = strlen(explain_json_str);
+  uint  explain_length = query_length + exp_cst_len + 1;
+  char *explain_text   = (char *) my_malloc(explain_length, MYF(MY_WME));
+
+  memcpy(explain_text, explain_json_str, exp_cst_len);
+  memcpy(explain_text+exp_cst_len, query_text, query_length);
+  explain_text[explain_length-1] = '\0';
+
+  /* initialize the parser state */
+  Parser_state parser_state;
+  if (parser_state.init(thd, explain_text, explain_length) == 0)
+  {
+    sql_digest_state *parent_digest= thd->m_digest;
+    PSI_statement_locker *parent_locker= thd->m_statement_psi;
+    CSET_STRING query_string_save = thd->query_string;
+
+    thd->m_statement_psi= NULL;
+    thd->m_digest= NULL;
+    thd->set_query_inner(explain_text, explain_length-1, thd->charset());
+    thd->set_plan_capture(true);
+
+    mysql_parse(thd, explain_text, explain_length, &parser_state, NULL, NULL);
+
+    // Cleanup
+    /* Silence non fatal errors raised when capturing SQL plans */
+    if (thd->is_error() && !thd->is_fatal_error)
+      thd->clear_error();
+    thd->clear_warning();
+    thd->set_plan_capture(false);
+    thd->query_string = query_string_save;
+    thd->m_digest= parent_digest;
+    thd->m_statement_psi= parent_locker;
+  }
+
+  thd->cleanup_after_query();
+  my_free(explain_text);
 }
 
 static int validate_checksum(THD* thd, const char* packet, uint packet_length)
@@ -1644,6 +1733,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
   bool state_changed = false;
   THD *save_thd = nullptr;
   std::shared_ptr<Srv_session> srv_session;
+  /* query text and length used for passing the query info to sql_plan_capture */
+  const char *my_query_txt = NULL;
+  uint        my_query_len = 0;
 
   if (command == COM_QUERY_ATTRS) {
     auto packet_ptr = packet;
@@ -1973,6 +2065,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       break;
     }
 
+    /* SQL_PLAN - capture the sql plan */
+    capture_sql_plan(thd, thd->query(), thd->query_length());
+
     Parser_state parser_state;
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
@@ -1980,9 +2075,13 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
                 &last_timer, &async_commit);
 
-		char *beginning_of_current_stmt= (char*) thd->query();
-		char sub_query[1025]; // 1024 bytes + '\0'
-		int sub_query_byte_length;
+    my_query_txt = thd->query();
+    my_query_len = thd->query_length();
+
+    char *beginning_of_current_stmt= (char*) thd->query();
+    char sub_query[1025]; // 1024 bytes + '\0'
+    int sub_query_byte_length;
+
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
     {
@@ -1990,11 +2089,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         Multiple queries exits, execute them individually
       */
       char *beginning_of_next_stmt= (char*) parser_state.m_lip.found_semicolon;
-			sub_query_byte_length=
-				(int)(beginning_of_next_stmt - beginning_of_current_stmt);
-			sub_query_byte_length = min(sub_query_byte_length, 1024);
-			memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
-			sub_query[sub_query_byte_length] = '\0';
+      sub_query_byte_length=(int)(beginning_of_next_stmt - beginning_of_current_stmt);
+      sub_query_byte_length = min(sub_query_byte_length, 1024);
+      memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+      sub_query[sub_query_byte_length] = '\0';
 
       /*
         Update SQL stats.
@@ -2005,7 +2103,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         The stats updated here will be for the first statement of the
         multi-query set.
       */
-
       update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
       /* Check to see if any state changed */
@@ -2013,10 +2110,16 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         state_changed = srv_session->session_state_changed();
       }
 
-      /* Finalize server status flags after executing a statement. */
+    /* Finalize server status flags after executing a statement. */
       thd->update_server_status();
       thd->protocol->end_statement(thd);
       query_cache_end_of_result(thd);
+
+      /* SQL_PLAN - capture the sql plan for long running queries if not yet */
+      if (sql_plans_capture_slow_query &&
+          !thd->plan_id_set            &&
+          (thd->server_status & SERVER_QUERY_WAS_SLOW))
+        capture_sql_plan(thd, my_query_txt, my_query_len);
 
       mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_STATUS,
                           thd->get_stmt_da()->is_error() ?
@@ -2085,11 +2188,21 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       statistic_increment(thd->status_var.questions, &LOCK_status);
       thd->set_time(); /* Reset the query start time. */
+
+      /* SQL_PLAN - capture the sql plan */
+      capture_sql_plan(thd, beginning_of_next_stmt, length);
+
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
 			beginning_of_current_stmt = beginning_of_next_stmt;
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
                   &last_timer, &async_commit);
+
+      /* Finalize server status flags after executing a statement. */
+      thd->update_server_status();
+
+      my_query_txt = beginning_of_next_stmt;
+      my_query_len = length;
     }
 
     /*
@@ -2100,10 +2213,11 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
         statement.
     */
     char * query_end = thd->query() + thd->query_length();
-		sub_query_byte_length = (int)(query_end - beginning_of_current_stmt);
-		sub_query_byte_length = min(sub_query_byte_length, 1024);
-		memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
-		sub_query[sub_query_byte_length] = '\0';
+    sub_query_byte_length = (int)(query_end - beginning_of_current_stmt);
+    sub_query_byte_length = min(sub_query_byte_length, 1024);
+    memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+    sub_query[sub_query_byte_length] = '\0';
+
     update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
@@ -2475,6 +2589,7 @@ done:
 
   /* Finalize server status flags after executing a command. */
   thd->update_server_status();
+
   if (thd->killed)
     thd->send_kill_message();
 
@@ -2490,6 +2605,13 @@ done:
 
   thd->protocol->end_statement(thd);
   query_cache_end_of_result(thd);
+
+  /* SQL_PLAN - capture the sql plan for long running queries if not yet */
+  if (my_query_len > 0             && // len=0 for COM's other than QUERY
+      sql_plans_capture_slow_query &&
+      !thd->plan_id_set            &&
+      (thd->server_status & SERVER_QUERY_WAS_SLOW))
+    capture_sql_plan(thd, my_query_txt, my_query_len);
 
   if (!thd->is_error() && !thd->killed_errno())
     mysql_audit_general(thd, MYSQL_AUDIT_GENERAL_RESULT, 0, 0);
@@ -6666,7 +6788,7 @@ static bool check_hlc_lower_bound(THD * thd, TABLE_LIST * all_tables) {
       !thd->slave_thread)) {
     return false;
   }
-    
+
   const auto it = thd->query_attrs_map.find(hlc_ts_lower_bound);
   if (it == thd->query_attrs_map.end()) {
     return false;
@@ -6714,7 +6836,7 @@ static bool check_hlc_lower_bound(THD * thd, TABLE_LIST * all_tables) {
     my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, thd->db);
     return true;
   }
- 
+
   return false;
 }
 
@@ -8050,11 +8172,15 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
   lex_start(thd);
   mysql_reset_thd_for_next_command(thd);
 
-  if (query_cache_send_result_to_client(thd, rawbuf, length) <= 0)
+  if (thd->in_capture_sql_plan() || /* skip query cache during plan capture */
+      query_cache_send_result_to_client(thd, rawbuf, length) <= 0)
   {
     LEX *lex= thd->lex;
 
     bool err= parse_sql(thd, parser_state, NULL);
+
+    /* Skip this statement if SQL plan post parse check fail */
+    err |= !SQL_PLAN_CHECK_POST_PARSE(thd);
 
     const char *found_semicolon= parser_state->m_lip.found_semicolon;
     size_t      qlen= found_semicolon
@@ -8091,7 +8217,8 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
           lex->safe_to_cache_query= false; // see comments below
       }
 
-      if (!(opt_log_raw || thd->slave_thread))
+      if (!(opt_log_raw || thd->slave_thread ||
+            (SQL_PLANS_ENABLED && thd->in_capture_sql_plan())))
       {
         if (thd->rewritten_query.length())
           general_log_write(thd, COM_QUERY, thd->rewritten_query.c_ptr_safe(),
@@ -8206,16 +8333,19 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     }
     else
     {
-      /* Instrument this broken statement as "statement/sql/error" */
-      thd->m_statement_psi= MYSQL_REFINE_STATEMENT(thd->m_statement_psi,
+      /* do not log the parse error if running under sql plan capture */
+      if (!thd->in_capture_sql_plan())
+      {
+        /* Instrument this broken statement as "statement/sql/error" */
+        thd->m_statement_psi= MYSQL_REFINE_STATEMENT(thd->m_statement_psi,
                                                    sql_statement_info[SQLCOM_END].m_key);
 
-      DBUG_ASSERT(thd->is_error());
-      /* no need of logging throttled query in error log */
-      if (!query_throttled)
-        DBUG_PRINT("info",("Command aborted. Fatal_error: %d",
-                           thd->is_fatal_error));
-
+        DBUG_ASSERT(thd->is_error());
+        /* no need of logging throttled query in error log */
+        if (!query_throttled)
+          DBUG_PRINT("info",("Command aborted. Fatal_error: %d",
+                             thd->is_fatal_error));
+      }
       query_cache_abort(&thd->query_cache_tls);
     }
 

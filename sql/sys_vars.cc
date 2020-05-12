@@ -6792,3 +6792,86 @@ static Sys_var_long Sys_max_digest_sample_age(
       GLOBAL_VAR(max_digest_sample_age),
       CMD_LINE(REQUIRED_ARG), VALID_RANGE(-1, 1024 * 1024),
       DEFAULT(-1), BLOCK_SIZE(1));
+
+/*
+** sql_plan_control
+**
+** Used to control the capture of execution plans for both currently executing
+** or completed SQL statements. The plan capture capturefd for SELECT, UPDATE,
+** DELETE and INSERT statements.
+** We support 3 values
+** - ON:       Collect the SQL plans
+** - OFF_SOFT: Stop collecting the SQL plans, but retain data collected so far
+** - OFF_HARD: Default value. Stop collecting the SQL plans and flush all SQL
+**             plans related data from memory
+*/
+static const char *sql_plans_control_values[] =
+{ "OFF_HARD", "OFF_SOFT", "ON",
+  /* Add new control before the following line */
+  0
+};
+
+static bool set_sql_plans_control(sys_var *, THD *, enum_var_type type)
+{
+  if (sql_plans_control == SQL_PLANS_CONTROL_OFF_HARD) {
+    free_global_sql_plans();
+  }
+
+  return false; // success
+}
+
+static Sys_var_enum Sys_sql_plans_control(
+       "sql_plans_control",
+       "Provides a control to store SQL execution plans for every SQL "
+       "statement. This data is exposed through the SQL_PLANS plan. "
+       "It accepts the following values: "
+       "OFF_HARD: Default value. Stop collecting the SQL plans and flush "
+       "all SQL plans related data from memory. "
+       "OFF_SOFT: Stop collecting the SQL plans, but retain any data "
+       "collected so far. "
+       "ON: Collect the SQL plans.",
+       GLOBAL_VAR(sql_plans_control),
+       CMD_LINE(REQUIRED_ARG),
+       sql_plans_control_values, DEFAULT(SQL_PLANS_CONTROL_OFF_HARD),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+       ON_UPDATE(set_sql_plans_control));
+
+/*
+** normalized_plan_id
+*/
+static Sys_var_mybool Sys_normalized_plan_id(
+       "normalized_plan_id",
+       "If set MySQL will compute the plan ID from a normalized execution plan",
+       GLOBAL_VAR(normalized_plan_id),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
+/*
+** sql_plans_capture_slow_query
+*/
+static Sys_var_mybool Sys_sql_plans_capture_slow_query(
+       "sql_plans_capture_slow_query",
+       "If set MySQL will capture the execution plan for slow queries",
+       GLOBAL_VAR(sql_plans_capture_slow_query),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+/*
+** sql_plans_capture_frequency
+*/
+static Sys_var_uint Sys_sql_plans_capture_frequency(
+       "sql_plans_capture_frequency",
+       "Controls the frequency of sql plans capture, i.e"
+       "a new plan is captured for every N executions of"
+       "SQL statements. Default is to capture a new plan"
+       "for every execution (1)",
+        GLOBAL_VAR(sql_plans_capture_frequency),
+        CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 1000),
+        DEFAULT(1), BLOCK_SIZE(1));
+
+/*
+** sql_plans_capture_apply_filter
+*/
+static Sys_var_mybool Sys_sql_plans_capture_apply_filter(
+       "sql_plans_capture_apply_filter",
+       "If set MySQL will capture the plan for statements based on a filter",
+       GLOBAL_VAR(sql_plans_capture_apply_filter),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));

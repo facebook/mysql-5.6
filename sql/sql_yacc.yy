@@ -1155,7 +1155,7 @@ Item *create_dot_separated_ident(THD *thd, List<One_ident> *ident_list){
 
 /* Return true if item could be a document */
 bool is_document(Item *item) {
-  return (item->type() == Item::DOCUMENT_ITEM || 
+  return (item->type() == Item::DOCUMENT_ITEM ||
     item->type() == Item::FIELD_ITEM || item->type() == Item::REF_ITEM);
 }
 
@@ -9728,7 +9728,7 @@ predicate:
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
-        | bit_expr SIMILAR simple_expr 
+        | bit_expr SIMILAR simple_expr
           {
             if (!is_document($1) || !is_document($3))
             {
@@ -9755,7 +9755,7 @@ predicate:
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
-        | bit_expr SUBDOC simple_expr 
+        | bit_expr SUBDOC simple_expr
           {
             if (!is_document($1) || !is_document($3))
             {
@@ -9783,7 +9783,7 @@ predicate:
               MYSQL_YYABORT;
           }
          /* CONTAINS is simply SUBDOC with the operands inverted */
-        | bit_expr CONTAINS_SYM simple_expr 
+        | bit_expr CONTAINS_SYM simple_expr
           {
             if (!is_document($1) || !is_document($3))
             {
@@ -10386,7 +10386,7 @@ function_call_nonkeyword:
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
-        | 
+        |
           DOCUMENT_SYM '(' expr ')'
           {
             $$= new (YYTHD->mem_root) Item_func_document($3);
@@ -13797,7 +13797,8 @@ opt_extended_describe:
           {
             if (!my_strcasecmp(system_charset_info, $3.str, "JSON"))
             {
-              if ((Lex->explain_format= new Explain_format_JSON) == NULL)
+              if ((Lex->explain_format= 
+                   new Explain_format_JSON(YYTHD->in_capture_sql_plan())) == NULL)
                 MYSQL_YYABORT;
               Lex->describe|= DESCRIBE_EXTENDED | DESCRIBE_PARTITIONS;
             }

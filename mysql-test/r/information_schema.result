@@ -105,6 +105,7 @@ USER_TABLE_STATISTICS
 SQL_STATISTICS
 SQL_TEXT
 CLIENT_ATTRIBUTES
+SQL_PLANS
 COLUMN_STATISTICS
 DATABASE_APPLIED_HLC
 ADMISSION_CONTROL_QUEUE
@@ -953,7 +954,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	55
+information_schema	56
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1432,6 +1433,7 @@ SESSION_STATUS	information_schema.SESSION_STATUS	1
 SESSION_VARIABLES	information_schema.SESSION_VARIABLES	1
 SLAVE_DB_LOAD	information_schema.SLAVE_DB_LOAD	1
 SOCKET_DIAG_SLAVES	information_schema.SOCKET_DIAG_SLAVES	1
+SQL_PLANS	information_schema.SQL_PLANS	1
 SQL_STATISTICS	information_schema.SQL_STATISTICS	1
 SQL_TEXT	information_schema.SQL_TEXT	1
 SRV_SESSIONS	information_schema.SRV_SESSIONS	1

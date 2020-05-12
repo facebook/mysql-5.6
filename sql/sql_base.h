@@ -370,11 +370,13 @@ void reset_user_conn_admin_flag();
 extern ST_FIELD_INFO sql_stats_fields_info[];
 extern mysql_mutex_t LOCK_global_sql_stats;
 void free_global_sql_stats(bool limits_updated);
-int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+int  fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char *sub_query);
 void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats);
 void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
                                SHARED_SQL_STATS *stats);
+bool is_sql_stats_collection_above_limit();
+
 
 /* For information_schema.sql_text */
 extern ST_FIELD_INFO sql_text_fields_info[];
@@ -382,6 +384,14 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond);
 
 extern ST_FIELD_INFO client_attrs_fields_info[];
 int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond);
+
+/* For information_schema.sql_plans */
+extern ST_FIELD_INFO sql_plan_fields_info[];
+extern mysql_mutex_t LOCK_global_sql_plans;
+void free_global_sql_plans(void);
+int  fill_sql_plans(THD *thd, TABLE_LIST *tables, Item *cond);
+void insert_sql_plan(THD *thd, String *json_plan);
+
 
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];

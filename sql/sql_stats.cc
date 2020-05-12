@@ -2,7 +2,6 @@
 #include "sql_base.h"
 #include "sql_show.h"
 #include "sql_string.h"
-#include "md5_dt.h"
 #include "tztime.h"                             // struct Time_zone
 
 /*
@@ -14,7 +13,8 @@
 ST_FIELD_INFO sql_stats_fields_info[]=
 {
   {"SQL_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"PLAN_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"PLAN_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
   {"CLIENT_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"TABLE_SCHEMA", NAME_CHAR_LEN, MYSQL_TYPE_STRING,
       0, 0, 0, SKIP_OPEN_TABLE},
@@ -88,10 +88,14 @@ ulonglong max_sql_stats_count;
 ulonglong max_sql_stats_size;
 
 /*
-  The current utilization of the sql statistics.
+  The current utilization for the sql metrics
+  (statistics, text, client attributes, plans)
 */
 ulonglong sql_stats_count= 0;
 ulonglong sql_stats_size= 0;
+
+extern ulonglong sql_plans_size;
+
 
 /*
   These are used to determine if existing stats need to be flushed on changing
@@ -378,6 +382,7 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
 static bool set_sql_stats_cache_key(
     const unsigned char *sql_id,
     const unsigned char *plan_id,
+    const          bool  plan_id_set,
     const unsigned char *client_id,
     const uint32_t db_id,
     const uint32_t user_id,
@@ -385,16 +390,24 @@ static bool set_sql_stats_cache_key(
 {
   DBUG_ASSERT(sql_id && plan_id && client_id);
 
-  char sql_stats_cache_key[(MD5_HASH_SIZE * 3) + sizeof(db_id) + sizeof(user_id)];
+  char sql_stats_cache_key[(MD5_HASH_SIZE*3) + sizeof(db_id) + sizeof(user_id)];
   int offset = 0;
+
   memcpy(sql_stats_cache_key + offset, sql_id, MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
-  memcpy(sql_stats_cache_key + offset, plan_id, MD5_HASH_SIZE);
-  offset += MD5_HASH_SIZE;
+  /* skip plan_id if not available */
+  if (plan_id_set)
+  {
+    memcpy(sql_stats_cache_key + offset, plan_id, MD5_HASH_SIZE);
+    offset += MD5_HASH_SIZE;
+  }
+
   memcpy(sql_stats_cache_key + offset, client_id, MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
+
   memcpy(sql_stats_cache_key + offset, &db_id, sizeof(db_id));
   offset += sizeof(db_id);
+
   memcpy(sql_stats_cache_key + offset, &user_id, sizeof(user_id));
   offset += sizeof(user_id);
 
@@ -407,11 +420,18 @@ static void set_sql_stats_attributes(
     SQL_STATS *stats,
     const unsigned char *sql_id,
     const unsigned char *plan_id,
+    const          bool  plan_id_set,
     const unsigned char *client_id,
     const uint32_t db_id,
     const uint32_t user_id)
 {
   memcpy(stats->sql_id, sql_id, MD5_HASH_SIZE);
+
+  /* plan ID not always available */
+  stats->plan_id_set = plan_id_set;
+  if (plan_id_set)
+    memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
+
   memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
   memcpy(stats->client_id, client_id, MD5_HASH_SIZE);
   stats->db_id= db_id;
@@ -505,6 +525,7 @@ void free_global_sql_stats(bool limits_updated)
 
   for (auto it= global_sql_stats_map.begin(); it != global_sql_stats_map.end(); ++it)
   {
+    my_free((char *) it->second->query_sample_text);
     my_free((char*)(it->second));
   }
   global_sql_stats_map.clear();
@@ -597,9 +618,14 @@ static void serialize_client_attrs(THD *thd) {
   }
 }
 
-static bool is_sql_stats_collection_above_limit() {
+/*
+  is_sql_stats_collection_above_limit
+    Checks whether we reached the counter and size limits for the
+    SQL metrics (statistics, text, client attributes, plans)
+*/
+bool is_sql_stats_collection_above_limit() {
   return (sql_stats_count >= max_sql_stats_count ||
-          sql_stats_size >= max_sql_stats_size);
+          sql_stats_size + sql_plans_size  >= max_sql_stats_size);
 }
 
 /*
@@ -633,7 +659,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     m_digest_storage could be empty if sql_stats_control was turned on in the
     current statement. Since the variable was OFF during parse, but ON when
     update_sql_stats_after_statement is called, we won't have the digest
-    available. In that case, just skip stats collection.
+    available. In that case, just skip text and stats collection.
   */
   DBUG_ASSERT(thd->m_digest);
   if (!thd->m_digest || thd->m_digest->m_digest_storage.is_empty())
@@ -648,14 +674,20 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
                    thd->client_attrs_string.length());
 
   md5_key sql_stats_cache_key;
-  if (!set_sql_stats_cache_key(sql_id.data(), sql_id.data(), client_id.data(),
-                               db_id, user_id, sql_stats_cache_key.data()))
+  if (!set_sql_stats_cache_key(sql_id.data(), thd->plan_id.data(),
+                               thd->plan_id_set,
+                               client_id.data(), db_id, user_id,
+                               sql_stats_cache_key.data()))
     return;
 
   bool lock_acquired = lock_sql_stats();
 
-  // Check again inside the lock
-  if (is_sql_stats_collection_above_limit()) return;
+  // Check again inside the lock and release the lock if exiting
+  if (is_sql_stats_collection_above_limit())
+  {
+    unlock_sql_stats(lock_acquired);
+    return;
+  }
 
   current_max_sql_stats_count = max_sql_stats_count;
   current_max_sql_stats_size = max_sql_stats_size;
@@ -708,9 +740,8 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
       return;
     }
 
-    /* For now pass in sql_id as plan_id */
-    /* TODO (svemuri): Change to the correct plan_id later */
-    set_sql_stats_attributes(sql_stats, sql_id.data(), sql_id.data(),
+    set_sql_stats_attributes(sql_stats, sql_id.data(), thd->plan_id.data(),
+                             thd->plan_id_set,
                              client_id.data(), db_id, user_id);
     sql_stats->reset();
 
@@ -793,8 +824,18 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
     /* PLAN ID */
-    table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
-                             system_charset_info);
+    if (sql_stats->plan_id_set)
+    {
+      char plan_id_hex_string[MD5_BUFF_LENGTH];
+      array_to_hex(plan_id_hex_string, sql_stats->plan_id, MD5_HASH_SIZE);
+
+      table->field[f]->set_notnull();
+      table->field[f++]->store(plan_id_hex_string, MD5_BUFF_LENGTH,
+                               system_charset_info);
+    }
+    else
+      table->field[f++]->set_null();
+
     /* CLIENT ID */
     table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);

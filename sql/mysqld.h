@@ -1053,6 +1053,57 @@ enum enum_column_stats_control
 };
 extern ulong column_stats_control;
 
+/*
+  Global variable to control collecting sql plans for every SQL statement
+
+  - Setting the control to "OFF_HARD" will stop the plans collection and all
+    data from sql plans related in-memory structures is evicted.
+  - Setting the control to a "OFF_SOFT" will stop collecting the SQL plans, but
+    any existing stats will continue to be in memory. The plans are not flushed
+  - Setting the control to "ON" will start or resume collecting the plans.
+
+  Keep the enum in the sync with sql_plans_control_values[] (sys_vars.cc)
+*/
+enum enum_sql_plans_control
+{
+  SQL_PLANS_CONTROL_OFF_HARD   = 0,
+  SQL_PLANS_CONTROL_OFF_SOFT   = 1,
+  SQL_PLANS_CONTROL_ON         = 2,
+  /* Add new control before the following line */
+  SQL_PLANS_CONTROL_INVALID
+};
+extern ulong sql_plans_control;
+
+/*
+  SQL plan capture enabled
+  Checks that
+  - server variable is set to ON,
+  - not running in bootstrap mode
+*/
+#define SQL_PLANS_ENABLED                                       \
+  (sql_plans_control == SQL_PLANS_CONTROL_ON && !in_bootstrap)
+
+/*
+  Post parse checks when capturing sql plans: skip statements that
+  - have no table referenced (e.g, select @@var)
+*/
+#define SQL_PLAN_CHECK_POST_PARSE(thd)                          \
+  (!(thd)->in_capture_sql_plan() ||                             \
+   (is_explainable_query((thd)->lex->sql_command) &&            \
+    (thd)->lex->select_lex.table_list.elements > 0))
+
+/* Controls collecting execution plans for slow queries */
+extern my_bool sql_plans_capture_slow_query;
+
+/* Controls the frequency of sql plans capture */
+extern uint sql_plans_capture_frequency;
+
+/* Controls collecting execution plans based on a filter on query text */
+extern my_bool sql_plans_capture_apply_filter;
+
+/* Controls whether the plan ID is computed from normalized execution plan */
+extern my_bool normalized_plan_id;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
@@ -1241,6 +1292,7 @@ extern PSI_mutex_key
   key_LOCK_error_messages, key_LOCK_thread_count, key_LOCK_thd_remove,
   key_LOCK_global_table_stats,
   key_LOCK_global_sql_stats,
+  key_LOCK_global_sql_plans,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

@@ -516,6 +516,14 @@ typedef struct st_db_stats {
   }
 } DB_STATS;
 
+/* SQL plan - stores the execution plan for SQL statements */
+typedef struct st_sql_plan
+{
+  char *plan_data;
+  uint  plan_len;
+
+} SQL_PLAN;
+
 typedef struct st_shared_sql_stats {
   /* Row metrics */
   ulonglong rows_inserted;
@@ -540,6 +548,7 @@ typedef struct st_shared_sql_stats {
 typedef struct st_sql_stats {
   unsigned char sql_id[MD5_HASH_SIZE];
   unsigned char plan_id[MD5_HASH_SIZE];
+  bool          plan_id_set;
   unsigned char client_id[MD5_HASH_SIZE];
   uint32_t db_id;
   uint32_t user_id;

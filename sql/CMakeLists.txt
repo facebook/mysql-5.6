@@ -178,6 +178,7 @@ SET(SQL_SHARED_SOURCES
   sql_partition.cc
   sql_partition_admin.cc
   sql_planner.cc
+  sql_plans.cc
   sql_plugin.cc
   sql_prepare.cc
   sql_profile.cc

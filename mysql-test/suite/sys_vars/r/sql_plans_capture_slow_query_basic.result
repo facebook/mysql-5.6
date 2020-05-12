@@ -1,0 +1,25 @@
+Default value of sql_plans_capture_slow_query is OFF
+SELECT @@global.sql_plans_capture_slow_query;
+@@global.sql_plans_capture_slow_query
+0
+SELECT @@session.sql_plans_capture_slow_query;
+ERROR HY000: Variable 'sql_plans_capture_slow_query' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_plans_capture_slow_query is a dynamic variable (change to "ON")
+set @@global.sql_plans_capture_slow_query = "on";
+SELECT @@global.sql_plans_capture_slow_query;
+@@global.sql_plans_capture_slow_query
+1
+restore the default value
+SET @@global.sql_plans_capture_slow_query = "off";
+SELECT @@global.sql_plans_capture_slow_query;
+@@global.sql_plans_capture_slow_query
+0
+restart the server with non default value (ON)
+SELECT @@global.sql_plans_capture_slow_query;
+@@global.sql_plans_capture_slow_query
+1
+restart the server with the default value (OFF)
+SELECT @@global.sql_plans_capture_slow_query;
+@@global.sql_plans_capture_slow_query
+0

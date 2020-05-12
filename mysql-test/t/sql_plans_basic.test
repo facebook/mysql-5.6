@@ -1,0 +1,289 @@
+--source include/count_sessions.inc
+
+##########################################
+### create 2 normal users and 1 super user
+##########################################
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+
+create user user2@localhost identified by 'u2';
+grant alter, create, insert, select, drop on test.* to user2@localhost;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+##################################################
+### Case 1: both parameters are default (OFF_HARD)
+##################################################
+--echo -> Case 1: both sql stats/plans are default (OFF_HARD)
+
+select @@sql_stats_control;
+select @@sql_plans_control;
+
+connect (con11, localhost, user1,u1,test);
+
+create table t1(a int, b char(10));
+create table t2(a int, b char(10));
+
+insert into t1 values(1,1), (2,2), (3,3), (4,4), (5,5);
+insert into t1 values(10,10), (20,20), (30,30), (40,40), (50,50);
+insert into t2 select * from t1;
+
+commit;
+analyze table t1;
+analyze table t2;
+
+select * From t1;
+
+--echo -> no plan captured
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+##################################################
+### Case 2: both parameters are default (ON)
+##################################################
+--echo -> Case 2: both sql stats/plans are ON
+
+connect (con21, localhost, user_super,su,test);
+set @@GLOBAL.sql_stats_control=ON;
+set @@GLOBAL.sql_plans_control=ON;
+
+select @@sql_stats_control;
+select @@sql_plans_control;
+
+select 13;
+select @@sql_plans_control;
+
+--echo -> no plan captured: we only capture plans with at least one table
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### should see two entries, one for each table, as we
+### capture unique plans (we strip all conditions)
+connect (con22, localhost, user1,u1,test);
+
+select * From t1;
+select * From t2;
+select * From t2 where a =  20;
+select * From t2 where a >  10;
+select * From t2 where a >= 10;
+select * From t2 where a <  30;
+select * From t2 where a <= 30;
+select * From t2 where a between 1 and 3;
+select * From t2 where a between 10 and 30;
+select * From t2 where a between 10 and 30 or a between 56 and 58;
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+
+--echo -> should see 2 plans, one for each table
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### increase size of t2 by 16x and show that the plan
+### capture is not affected by difference in "rows"
+insert into t2 select * from t2;
+commit;
+analyze table t2;
+
+select * From t2;
+
+--echo -> should still see 1 plan for t2, (total of 3 including for insert)
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### JOIN case
+select count(1) FROM t1 JOIN t2 WHERE t1.a=t2.a;
+
+--echo -> should see 4 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### UNION cases: involving 2 different tables and 2 same tables
+select * from t1 where t1.b like '1%'
+union
+select * from t2 where t2.b like '3%';
+
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%'
+union
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+
+--echo -> should see 6 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### UNION-ALL case
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%'
+union all
+select * From t2 where a between 10 and 30 and b like '1%' or a between 56 and 58 and b like '5%';
+
+--echo -> should see 7 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### derived table case
+select * from (select * from t1) a;
+
+--echo -> should see 8 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### IN
+select * from t1 where a in (select a from t2);
+
+--echo -> should see 9 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### NOT IN
+select * from t1 where a not in (select a from t2);
+
+--echo -> should see 10 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### EXISTS
+select * from t1 where exists (select a from t2 where t1.a=t2.a);
+
+--echo -> should see 11 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### NOT EXISTS
+select * from t1 where not exists (select a from t2 where t1.a=t2.a);
+
+--echo -> should see 11 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+### scalar sub-query
+select (select count(1) cnt from t2 where t2.a=t1.a) t2_cnt, t1.a t1_a from t1;
+
+--echo -> should see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+##################################################
+### Case 3: test with a different user
+##################################################
+-- echo -> case 3: plans are not captured for a specific user
+connect (con31, localhost, user2,u2,test);
+
+select * From t1;
+select * From t2;
+select * From t2 where a = 20;
+
+--echo -> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+##################################################
+### Case 4: test with a different database
+##################################################
+-- echo -> case 4: plans are not captured for a specific database
+
+connect (con41, localhost, user_super,su,test);
+create database mz_db;
+grant alter, create, insert, select, drop on mz_db.* to user1@localhost;
+
+connect (con42, localhost, user1,u1,mz_db);
+
+create table t1(a int, b char(10));
+create table t2(a int, b char(10));
+
+insert into t1 values(1,1), (2,2), (3,3), (4,4), (5,5);
+insert into t1 values(10,10), (20,20), (30,30), (40,40), (50,50);
+insert into t2 select * from t1;
+
+commit;
+analyze table t1;
+analyze table t2;
+
+select * From t1;
+select * From t2;
+select * From t2 where a =  20;
+
+--echo -> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+##################################################
+### Case 5: negative tests
+##################################################
+-- echo -> case 5: negative tests
+connect (con51, localhost, user1,u1,test);
+# even though the statement qualifies for plan capture
+# (text include select) there is no plan captured
+create table t_select(a int, b char(10));
+
+--echo -> should still see 12 plans
+select plan_id, substr(plan_data, 1, 80) from information_schema.sql_plans
+where plan_data not like '%sql_plans%'
+order by plan_id;
+
+##################################################
+### Case 6: test with a I_S tables
+##################################################
+-- echo -> case 6: test with a I_S tables
+connect (con61, localhost, root,,test);
+
+let $tables_count_on = `select count(1) from information_schema.tables`;
+let $columns_count_on = `select count(1) from information_schema.columns`;
+let $schemata_count_on = `select count(1) from information_schema.schemata`;
+
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_plans_control="OFF_HARD";
+
+let $tables_count_off = `select count(1) from information_schema.tables`;
+let $columns_count_off = `select count(1) from information_schema.columns`;
+let $schemata_count_off = `select count(1) from information_schema.schemata`;
+
+let $assert_text = assert that the counts (tables, etc) are the same;
+let $assert_cond= ($tables_count_on   = $tables_count_off);
+let $assert_cond= ($columns_count_on  = $columns_count_off);
+let $assert_cond= ($schemata_count_on = $schemata_count_off);
+--source include/assert.inc
+
+###########
+### Cleanup
+###########
+--echo -> Cleanup
+
+drop table t1;
+drop table t2;
+drop table t_select;
+drop database mz_db;
+drop user user1@localhost;
+drop user user2@localhost;
+drop user user_super@localhost;
+
+disconnect con11;
+
+disconnect con21;
+disconnect con22;
+
+disconnect con31;
+
+disconnect con41;
+disconnect con42;
+
+disconnect con51;
+
+disconnect con61;
+
+connection default;
+# Check that all connections opened by test cases in this file are gone
+--source include/wait_until_count_sessions.inc

@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 1
+####
+--echo Default value of sql_plans_capture_frequency is 1
+SELECT @@global.sql_plans_capture_frequency;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_plans_capture_frequency;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_plans_capture_frequency is a dynamic variable (change to 10)
+set @@global.sql_plans_capture_frequency = 10;
+SELECT @@global.sql_plans_capture_frequency;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_plans_capture_frequency = 1;
+SELECT @@global.sql_plans_capture_frequency;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (100)
+--let $_mysqld_option=--sql_plans_capture_frequency=100
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.sql_plans_capture_frequency;
+
+--echo restart the server with the default value (1)
+--source include/restart_mysqld.inc
+
+# check value is default (1)
+SELECT @@global.sql_plans_capture_frequency;

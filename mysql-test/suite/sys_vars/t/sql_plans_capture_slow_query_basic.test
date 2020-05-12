@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of sql_plans_capture_slow_query is OFF
+SELECT @@global.sql_plans_capture_slow_query;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_plans_capture_slow_query;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_plans_capture_slow_query is a dynamic variable (change to "ON")
+set @@global.sql_plans_capture_slow_query = "on";
+SELECT @@global.sql_plans_capture_slow_query;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_plans_capture_slow_query = "off";
+SELECT @@global.sql_plans_capture_slow_query;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (ON)
+--let $_mysqld_option=--sql_plans_capture_slow_query=on
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.sql_plans_capture_slow_query;
+
+--echo restart the server with the default value (OFF)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.sql_plans_capture_slow_query;

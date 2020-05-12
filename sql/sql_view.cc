@@ -21,7 +21,7 @@
 #include "sql_base.h"    // find_table_in_global_list, lock_table_names
 #include "sql_parse.h"                          // sql_parse
 #include "sql_cache.h"                          // query_cache_*
-#include "lock.h"        // MYSQL_OPEN_SKIP_TEMPORARY 
+#include "lock.h"        // MYSQL_OPEN_SKIP_TEMPORARY
 #include "sql_show.h"    // append_identifier
 #include "sql_table.h"                         // build_table_filename
 #include "sql_db.h"            // mysql_opt_change_db, mysql_change_db
@@ -33,8 +33,6 @@
 #include "sp_cache.h"
 #include "datadict.h"   // dd_frm_type()
 #include "opt_trace.h"  // opt_trace_disable_etc
-
-#define MD5_BUFF_LENGTH 33
 
 const LEX_STRING view_type= { C_STRING_WITH_LEN("VIEW") };
 
@@ -204,11 +202,11 @@ static void make_valid_column_names(LEX *lex)
       view               view to operate on
 
   DESCRIPTION
-    This function will initialize the parts of the view 
+    This function will initialize the parts of the view
     definition that are not specified in ALTER VIEW
     to their values from CREATE VIEW.
     The view must be opened to get its definition.
-    We use a copy of the view when opening because we want 
+    We use a copy of the view when opening because we want
     to preserve the original view instance.
 
   RETURN VALUE
@@ -240,7 +238,7 @@ fill_defined_view_parts (THD *thd, TABLE_LIST *view)
   if (lex->create_view_algorithm == VIEW_ALGORITHM_UNDEFINED)
     lex->create_view_algorithm= (uint8) decoy.algorithm;
   if (lex->create_view_suid == VIEW_SUID_DEFAULT)
-    lex->create_view_suid= decoy.view_suid ? 
+    lex->create_view_suid= decoy.view_suid ?
       VIEW_SUID_DEFINER : VIEW_SUID_INVOKER;
 
   return FALSE;
@@ -547,8 +545,8 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
     check that tables are not temporary  and this VIEW do not used in query
     (it is possible with ALTERing VIEW).
     open_and_lock_tables can change the value of tables,
-    e.g. it may happen if before the function call tables was equal to 0. 
-  */ 
+    e.g. it may happen if before the function call tables was equal to 0.
+  */
   for (tbl= lex->query_tables; tbl; tbl= tbl->next_global)
   {
     /* is this table view and the same view which we creates now? */
@@ -662,12 +660,12 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
    */
   {
     Item *report_item= NULL;
-    /* 
+    /*
        This will hold the intersection of the priviliges on all columns in the
        view.
      */
     uint final_priv= VIEW_ANY_ACL;
-    
+
     for (sl= select_lex; sl; sl= sl->next_select())
     {
       DBUG_ASSERT(view->db);                     /* Must be set in the parser */
@@ -690,7 +688,7 @@ bool mysql_create_view(THD *thd, TABLE_LIST *views,
         }
       }
     }
-    
+
     if (!final_priv && report_item)
     {
       my_error(ER_COLUMNACCESS_DENIED_ERROR, MYF(0),
@@ -935,7 +933,7 @@ static int mysql_register_view(THD *thd, TABLE_LIST *view,
   {
     my_error(ER_OUT_OF_RESOURCES, MYF(0));
     error= -1;
-    goto err;   
+    goto err;
   }
 
   view->file_version= 1;
@@ -944,7 +942,7 @@ static int mysql_register_view(THD *thd, TABLE_LIST *view,
   {
     my_error(ER_OUT_OF_RESOURCES, MYF(0));
     error= -1;
-    goto err;   
+    goto err;
   }
   view->md5.length= 32;
   if (lex->create_view_algorithm == VIEW_ALGORITHM_MERGE &&
@@ -1076,7 +1074,7 @@ loop_out:
   {
     my_error(ER_OUT_OF_RESOURCES, MYF(0));
     error= -1;
-    goto err;   
+    goto err;
   }
 
   /*
@@ -1183,7 +1181,7 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
   {
     my_error(ER_WRONG_OBJECT, MYF(0), share->db.str, share->table_name.str,
              "BASE TABLE");
-    DBUG_RETURN(true); 
+    DBUG_RETURN(true);
   }
 
   if (table->view)
@@ -1351,7 +1349,7 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
                           table->select_stmt.length))
         goto err;
 
-    /* 
+    /*
       Use view db name as thread default database, in order to ensure
       that the view is parsed and prepared correctly.
     */
@@ -1456,7 +1454,7 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
           Finally at this point making sure we have SHOW_VIEW_ACL on the views
           will suffice as we implicitly require SELECT_ACL anyway.
         */
-        
+
         TABLE_LIST view_no_suid;
         memset(static_cast<void *>(&view_no_suid), 0, sizeof(TABLE_LIST));
         view_no_suid.db= table->db;
@@ -1749,8 +1747,8 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
         unit->slave= save_slave; // fix include_down initialisation
       }
 
-      /* 
-        We can safely ignore the VIEW's ORDER BY if we merge into union 
+      /*
+        We can safely ignore the VIEW's ORDER BY if we merge into union
         branch, as order is not important there.
       */
       if (!table->select_lex->master_unit()->is_union())
@@ -1760,7 +1758,7 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
 	to make it processed by mysql_handle_derived(),
 	but it will not be included to SELECT_LEX tree, because it
 	will not be executed
-      */ 
+      */
       goto ok;
     }
 
@@ -1861,7 +1859,7 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
     build_table_filename(path, sizeof(path) - 1,
                          view->db, view->table_name, reg_ext, 0);
 
-    if (access(path, F_OK) || 
+    if (access(path, F_OK) ||
         FRMTYPE_VIEW != (type= dd_frm_type(thd, path, &not_used)))
     {
       if (thd->lex->drop_if_exists)
@@ -1913,7 +1911,7 @@ bool mysql_drop_view(THD *thd, TABLE_LIST *views, enum_drop_mode drop_mode)
 
   if (wrong_object_name)
   {
-    my_error(ER_WRONG_OBJECT, MYF(0), wrong_object_db, wrong_object_name, 
+    my_error(ER_WRONG_OBJECT, MYF(0), wrong_object_db, wrong_object_name,
              "VIEW");
   }
   if (non_existant_views.length())
@@ -2144,7 +2142,7 @@ int view_checksum(THD *thd, TABLE_LIST *view)
     view       view
 
   Return values:
-    FALSE      Ok 
+    FALSE      Ok
     TRUE       Error
 */
 bool
@@ -2165,7 +2163,7 @@ mysql_rename_view(THD *thd,
                                        view->db, view->table_name,
                                        reg_ext, 0);
 
-  if ((parser= sql_parse_prepare(&pathstr, thd->mem_root, 1)) && 
+  if ((parser= sql_parse_prepare(&pathstr, thd->mem_root, 1)) &&
        is_equal(&view_type, parser->type()))
   {
     TABLE_LIST view_def;
@@ -2218,7 +2216,7 @@ mysql_rename_view(THD *thd,
       goto err;
     }
   } else
-    DBUG_RETURN(1);  
+    DBUG_RETURN(1);
 
   /* remove cache entries */
   query_cache_invalidate3(thd, view, 0);

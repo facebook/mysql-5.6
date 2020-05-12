@@ -677,6 +677,16 @@ Regex_list_handler *admin_users_list_regex;
 ulong sql_stats_control;
 /* Controls collecting column statistics for every SQL statement */
 ulong column_stats_control;
+/* Controls collecting execution plans for every SQL statement */
+ulong sql_plans_control;
+/* Controls collecting execution plans for slow queries */
+my_bool sql_plans_capture_slow_query;
+/* Controls the frequency of sql plans capture */
+uint  sql_plans_capture_frequency;
+/* Controls collecting execution plans based on a filter on query text */
+my_bool sql_plans_capture_apply_filter;
+/* Controls whether the plan ID is computed from normalized execution plan */
+my_bool normalized_plan_id;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1038,6 +1048,8 @@ mysql_mutex_t LOCK_thread_count, LOCK_thd_remove;
 
 /* Lock to protect global_sql_stats_map and global_sql_text_map structures */
 mysql_mutex_t LOCK_global_sql_stats;
+/* Lock to protect global_sql_plans map structure */
+mysql_mutex_t LOCK_global_sql_plans;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2421,6 +2433,7 @@ void clean_up(bool print_message)
   free_global_table_stats();
   free_global_db_stats();
   free_max_user_conn();
+  free_global_sql_plans();
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   free_aux_user_table_stats();
 #endif
@@ -2557,6 +2570,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_connection_count);
   mysql_mutex_destroy(&LOCK_global_table_stats);
   mysql_mutex_destroy(&LOCK_global_sql_stats);
+  mysql_mutex_destroy(&LOCK_global_sql_plans);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -4460,6 +4474,7 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
 {
   THD *thd= current_thd;
   DBUG_ENTER("my_message_sql");
+
   DBUG_PRINT("error", ("error: %u  message: '%s'", error, str));
 
   DBUG_ASSERT(str != NULL);
@@ -5473,6 +5488,8 @@ static int init_thread_environment()
                    &LOCK_global_table_stats, MY_MUTEX_INIT_ERRCHK);
   mysql_mutex_init(key_LOCK_global_sql_stats,
                    &LOCK_global_sql_stats, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_global_sql_plans,
+                   &LOCK_global_sql_plans, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -12640,6 +12657,7 @@ PSI_mutex_key
   key_LOCK_error_messages, key_LOG_INFO_lock, key_LOCK_thread_count,
   key_LOCK_global_table_stats,
   key_LOCK_global_sql_stats,
+  key_LOCK_global_sql_plans,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12763,6 +12781,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_log_throttle_ddl, "LOCK_log_throttle_ddl", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_table_stats, "LOCK_global_table_stats", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_sql_stats, "LOCK_global_sql_stats", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_sql_plans, "LOCK_global_sql_plans", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

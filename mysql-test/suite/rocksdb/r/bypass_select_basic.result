@@ -303,6 +303,7 @@ SELECT @@rocksdb_select_bypass_policy;
 always_on
 SELECT variable_value INTO @a FROM information_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
+SET GLOBAL sql_plans_control=on;
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
@@ -319,6 +320,38 @@ SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 id1	id2	id1_type	id2_type	data	version
 1	2	1	2	a10	125
+# 1 row returned (1 plan for statements with bypass)
+select * from information_schema.sql_plans
+where plan_data like '%link_table%' and plan_data not like '%sql_plans%';
+PLAN_ID	PLAN_LENGTH	PLAN_DATA
+844b8a9917ec913f2a764fd24acecc14	451	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "link_table",
+      "access_type": "const",
+      "possible_keys": [
+        "PRIMARY",
+        "id1_type"
+      ],
+      "key": "PRIMARY",
+      "used_key_parts": [
+        "link_type",
+        "id1",
+        "id2"
+      ],
+      "key_length": "24",
+      "ref": [
+        "const",
+        "const",
+        "const"
+      ],
+      "rows": 1,
+      "filtered": 100
+    }
+  }
+}
+SET GLOBAL sql_plans_control=off_hard;
 SELECT variable_value INTO @b FROM information_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 # Should be 4

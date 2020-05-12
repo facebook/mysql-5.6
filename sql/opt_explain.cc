@@ -14,7 +14,7 @@
    along with this program; if not, write to the Free Software Foundation,
    51 Franklin Street, Suite 500, Boston, MA 02110-1335 USA */
 
-/** @file "EXPLAIN <command>" implementation */ 
+/** @file "EXPLAIN <command>" implementation */
 
 #include "opt_explain.h"
 #include "sql_select.h"
@@ -607,7 +607,7 @@ bool Explain::explain_subqueries(select_result *result)
       This must be after mysql_explain_unit() so that JOIN::optimize() has run
       and had a chance to choose materialization.
     */
-    if (fmt->is_hierarchical() && 
+    if (fmt->is_hierarchical() &&
         (context == CTX_WHERE || context == CTX_HAVING ||
          context == CTX_SELECT_LIST ||
          context == CTX_GROUP_BY_SQ || context == CTX_ORDER_BY_SQ) &&
@@ -1100,7 +1100,7 @@ bool Explain_table_base::explain_tmptable_and_filesort(bool need_tmp_table_arg,
     "Using filesort" with related ORDER BY, GROUP BY or DISTINCT
   */
   if (fmt->is_hierarchical())
-    return false; 
+    return false;
 
   if (need_tmp_table_arg && push_extra(ET_USING_TEMPORARY))
     return true;
@@ -1206,7 +1206,7 @@ bool Explain_join::shallow_explain()
     return true;
   if (end_sort_context(ESC_ORDER_BY, CTX_ORDER_BY))
     return true;
-    
+
   return false;
 }
 
@@ -1233,7 +1233,7 @@ bool Explain_join::explain_join_tab(size_t tab_num)
     fmt->begin_context(CTX_DUPLICATES_WEEDOUT);
 
   const bool first_non_const= tabnum == join->const_tables;
-  
+
   if (first_non_const)
   {
     if (begin_simple_sort_context(ESC_ORDER_BY, CTX_SIMPLE_ORDER_BY))
@@ -1249,7 +1249,7 @@ bool Explain_join::explain_join_tab(size_t tab_num)
 
   if (fmt->begin_context(c) || prepare_columns())
     return true;
-  
+
   fmt->entry()->query_block_id= table->pos_in_table_list->query_block_id();
 
   if (sjm)
@@ -1489,7 +1489,7 @@ bool Explain_join::explain_extra()
         if (push_extra(ET_OPEN_FULL_TABLE))
           return true;
       }
-      
+
       StringBuffer<32> buff(cs);
       if (table_list->has_db_lookup_value &&
           table_list->has_table_lookup_value)
@@ -1748,7 +1748,7 @@ bool Explain_table::explain_rows_and_filtered()
 
   if (describe(DESCRIBE_EXTENDED))
     fmt->entry()->col_filtered.set(100.0);
-  
+
   return false;
 }
 
@@ -1756,7 +1756,7 @@ bool Explain_table::explain_rows_and_filtered()
 bool Explain_table::explain_extra()
 {
   const uint keyno= (select && select->quick) ? select->quick->index : key;
-  const int quick_type= (select && select->quick) ? select->quick->get_type() 
+  const int quick_type= (select && select->quick) ? select->quick->get_type()
                                                   : -1;
   return (explain_extra_common(select, NULL, quick_type, keyno) ||
           explain_tmptable_and_filesort(need_tmp_table, need_sort));
@@ -1796,7 +1796,7 @@ protected:
   bool prepared;    ///< prepare() is done
   bool prepared2;   ///< prepare2() is done
   bool initialized; ///< initialize_tables() is done
-  
+
   /**
     Pointer to underlying insert_select, multi_update or multi_delete object
   */
@@ -2055,10 +2055,16 @@ bool explain_query_expression(THD *thd, select_result *result)
     str.append('\0');
     push_warning(thd, Sql_condition::WARN_LEVEL_NOTE, ER_YES, str.ptr());
   }
-  if (res)
-    result->abort_result_set();
-  else
-    result->send_eof();
+
+  /* Skip if capturing SQL plan */
+  if (! thd->in_capture_sql_plan())
+  {
+    if (res)
+      result->abort_result_set();
+    else
+      result->send_eof();
+  }
+
   DBUG_RETURN(res);
 }
 
@@ -2142,5 +2148,3 @@ bool mysql_explain_unit(THD *thd, SELECT_LEX_UNIT *unit, select_result *result)
   }
   DBUG_RETURN(res || thd->is_error());
 }
-
-

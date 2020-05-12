@@ -34,6 +34,9 @@ SELECT @@rocksdb_select_bypass_policy;
 SELECT variable_value INTO @a FROM information_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 
+### enable sql plan capture
+SET GLOBAL sql_plans_control=on;
+
 SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT /*+ abc */ id1,id2,id1_type,id2_type,data,version FROM link_table
@@ -42,6 +45,12 @@ SELECT /*+ no_bypass*/ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
 SELECT id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1=1 AND id2=2 AND link_type=3;
+
+--echo # 1 row returned (1 plan for statements with bypass)
+select * from information_schema.sql_plans
+where plan_data like '%link_table%' and plan_data not like '%sql_plans%';
+### disable sql plan capture
+SET GLOBAL sql_plans_control=off_hard;
 
 SELECT variable_value INTO @b FROM information_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
@@ -376,4 +385,3 @@ DROP TABLE link_table4;
 SELECT @@rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=@save_rocksdb_select_bypass_policy;
 SELECT @@rocksdb_select_bypass_policy;
-

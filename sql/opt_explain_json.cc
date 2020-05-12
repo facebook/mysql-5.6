@@ -15,6 +15,7 @@
 
 #include "opt_trace.h"
 #include "opt_explain_json.h"
+#include "sql_base.h"
 
 /**
   Property names, former parts of traditional "extra" column
@@ -50,7 +51,7 @@ static const char *json_extra_tags[ET_total]=
   NULL,                                 // ET_START_MATERIALIZE
   NULL,                                 // ET_END_MATERIALIZE
   NULL,                                 // ET_SCAN
-  "using_join_buffer",                  // ET_USING_JOIN_BUFFER 
+  "using_join_buffer",                  // ET_USING_JOIN_BUFFER
   "const_row_not_found",                // ET_CONST_ROW_NOT_FOUND
   "unique_row_not_found",               // ET_UNIQUE_ROW_NOT_FOUND
   "impossible_on_condition",            // ET_IMPOSSIBLE_ON_CONDITION
@@ -128,7 +129,7 @@ enum subquery_list_enum
   @note Keep in sync with @c subquery_list_enum.
 */
 static const char *list_names[SQ_total]=
-{ 
+{
   K_SELECT_LIST_SUBQUERIES,
   K_UPDATE_VALUE_SUBQUERIES,
   K_HAVING_SUBQUERIES,
@@ -168,7 +169,7 @@ public:
     @retval false       Ok
     @retval true        Error
 
-    @note The @c join_ctx class overloads this function. 
+    @note The @c join_ctx class overloads this function.
   */
   virtual bool format(Opt_trace_context *json)
   {
@@ -654,7 +655,7 @@ public:
   virtual bool format_unit(Opt_trace_context *json)
   { return table_base_ctx::format_unit(json); }
 
-  void push_down_query_specs(List<context> *specs) { query_specs= specs; } 
+  void push_down_query_specs(List<context> *specs) { query_specs= specs; }
 
   virtual bool add_subquery(subquery_list_enum subquery_type,
                             subquery_ctx *ctx)
@@ -682,7 +683,7 @@ public:
     if (table_base_ctx::format(json))
       return true;
 
-    if (!order_by_subqueries.is_empty() && 
+    if (!order_by_subqueries.is_empty() &&
         format_list(json, order_by_subqueries, K_ORDER_BY_SUBQUERIES))
       return true;
 
@@ -847,7 +848,7 @@ class join_tab_ctx : public joinable_ctx,
   /**
     Subquery units that are associated with this JOIN_TAB's condition
 
-    This list is used to match with the @c subquery parameter of 
+    This list is used to match with the @c subquery parameter of
     the @c add_where_subquery function.
   */
   List<SELECT_LEX_UNIT> where_subquery_units;
@@ -1006,7 +1007,7 @@ public:
     else
       return subqueries.push_back(ctx);
   }
-  
+
 private:
   virtual bool format_body(Opt_trace_context *json, Opt_trace_object *obj)
   {
@@ -1159,7 +1160,7 @@ public:
       return subqueries.push_back(ctx);
     return false;
   }
-    
+
 private:
   virtual bool format_body(Opt_trace_context *json, Opt_trace_object *obj)
   {
@@ -1275,7 +1276,7 @@ static size_t get_id(List<T> &list, bool hide)
 {
   if (!hide)
     return list.head()->id();
-    
+
   List_iterator<T> it(list);
   T *j;
   size_t ret= 0;
@@ -1529,7 +1530,7 @@ bool Explain_format_JSON::begin_context(Explain_context_enum ctx,
       return true;
     break;
   case CTX_ORDER_BY:
-    { 
+    {
       DBUG_ASSERT(current_context->type == CTX_JOIN);
       sort_ctx *ctx= new sort_with_subqueries_ctx(CTX_ORDER_BY,
                                                   K_ORDERING_OPERATION,
@@ -1543,7 +1544,7 @@ bool Explain_format_JSON::begin_context(Explain_context_enum ctx,
       break;
     }
   case CTX_GROUP_BY:
-    { 
+    {
       DBUG_ASSERT(current_context->type == CTX_JOIN ||
                   current_context->type == CTX_ORDER_BY ||
                   current_context->type == CTX_DISTINCT);
@@ -1559,7 +1560,7 @@ bool Explain_format_JSON::begin_context(Explain_context_enum ctx,
       break;
     }
   case CTX_DISTINCT:
-    { 
+    {
       DBUG_ASSERT(current_context->type == CTX_JOIN ||
                   current_context->type == CTX_ORDER_BY);
       sort_ctx *ctx= new sort_ctx(CTX_DISTINCT, K_DUPLICATES_REMOVAL,
@@ -1571,7 +1572,7 @@ bool Explain_format_JSON::begin_context(Explain_context_enum ctx,
       break;
     }
   case CTX_BUFFER_RESULT:
-    { 
+    {
       DBUG_ASSERT(current_context->type == CTX_JOIN ||
                   current_context->type == CTX_ORDER_BY ||
                   current_context->type == CTX_DISTINCT ||
@@ -1616,7 +1617,7 @@ bool Explain_format_JSON::begin_context(Explain_context_enum ctx,
                                             K_ORDERING_OPERATION,
                                             current_context, SQ_ORDER_BY, flags,
                                             ESC_ORDER_BY);
-                                                          
+
       if (ctx == NULL || current_context->add_join_tab(ctx))
         return true;
       current_context= ctx;
@@ -1842,7 +1843,7 @@ bool Explain_format_JSON::end_context(Explain_context_enum ctx)
   {
     Item* item;
 #ifdef OPTIMIZER_TRACE
-    Opt_trace_context json; 
+    Opt_trace_context json;
     const size_t max_size= ULONG_MAX;
     if (json.start(true,           // support_I_S (enable JSON generation)
                    false,          // support_dbug_or_missing_priv
@@ -1875,10 +1876,19 @@ bool Explain_format_JSON::end_context(Explain_context_enum ctx)
 #endif
       item= new Item_null();
 
-    List<Item> field_list;
-    ret= (item == NULL ||
+    if (stored_plan)
+    {
+      /* saves the SQL plan information (plan ID, plan in JSON, etc) */
+      String *json_plan = item->val_str(nullptr);
+      insert_sql_plan(current_thd, json_plan);
+    }
+    else
+    {
+      List<Item> field_list;
+      ret= (item == NULL ||
           field_list.push_back(item) ||
           output->send_data(field_list));
+    }
   }
   else if (ctx == CTX_DERIVED)
   {
@@ -1900,6 +1910,9 @@ bool Explain_format_JSON::send_headers(select_result *result)
   if (Explain_format::send_headers(result))
     return true;
 
+  if (stored_plan)
+    return false;
+
   List<Item> field_list;
   Item *item= new Item_empty_string("EXPLAIN", 78, system_charset_info);
   if (item == NULL || field_list.push_back(item))
@@ -1908,4 +1921,3 @@ bool Explain_format_JSON::send_headers(select_result *result)
                                           Protocol::SEND_NUM_ROWS |
                                           Protocol::SEND_EOF);
 }
-

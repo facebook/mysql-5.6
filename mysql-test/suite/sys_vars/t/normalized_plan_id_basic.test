@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of normalized_plan_id is OFF
+SELECT @@global.normalized_plan_id;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.normalized_plan_id;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo normalized_plan_id is a dynamic variable (change to "ON")
+set @@global.normalized_plan_id = "on";
+SELECT @@global.normalized_plan_id;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.normalized_plan_id = "off";
+SELECT @@global.normalized_plan_id;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (ON)
+--let $_mysqld_option=--normalized_plan_id=on
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.normalized_plan_id;
+
+--echo restart the server with the default value (OFF)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.normalized_plan_id;

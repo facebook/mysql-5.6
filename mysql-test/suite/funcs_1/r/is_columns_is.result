@@ -339,9 +339,12 @@ def	information_schema	SOCKET_DIAG_SLAVES	TOTAL_RETRANS	12	0	NO	bigint	NULL	NULL
 def	information_schema	SOCKET_DIAG_SLAVES	UID	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SOCKET_DIAG_SLAVES	USER	2		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SOCKET_DIAG_SLAVES	WQUEUE	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_PLANS	PLAN_DATA	3		NO	varchar	8192	24576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(8192)			select	
+def	information_schema	SQL_PLANS	PLAN_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
+def	information_schema	SQL_PLANS	PLAN_LENGTH	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	CLIENT_ID	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	EXECUTION_COUNT	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	PLAN_ID	2		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
+def	information_schema	SQL_STATISTICS	PLAN_ID	2	NULL	YES	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	QUERY_SAMPLE_SEEN	7	NULL	YES	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	SQL_STATISTICS	QUERY_SAMPLE_TEXT	6		NO	varchar	4096	12288	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(4096)			select	
 def	information_schema	SQL_STATISTICS	ROWS_DELETED	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
@@ -1041,6 +1044,9 @@ NULL	information_schema	SOCKET_DIAG_SLAVES	MASTER_ID	bigint	NULL	NULL	NULL	NULL	
 3.0000	information_schema	SOCKET_DIAG_SLAVES	SLAVE_UUID	varchar	36	108	utf8	utf8_general_ci	varchar(36)
 NULL	information_schema	SOCKET_DIAG_SLAVES	IS_SEMI_SYNC	int	NULL	NULL	NULL	NULL	int(7) unsigned
 3.0000	information_schema	SOCKET_DIAG_SLAVES	REPLICATION STATUS	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+3.0000	information_schema	SQL_PLANS	PLAN_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+NULL	information_schema	SQL_PLANS	PLAN_LENGTH	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+3.0000	information_schema	SQL_PLANS	PLAN_DATA	varchar	8192	24576	utf8	utf8_general_ci	varchar(8192)
 3.0000	information_schema	SQL_STATISTICS	SQL_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SQL_STATISTICS	PLAN_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SQL_STATISTICS	CLIENT_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)

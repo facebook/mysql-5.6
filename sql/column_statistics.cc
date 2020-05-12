@@ -1,6 +1,5 @@
 #include "column_statistics.h"
 
-#include "md5_dt.h"
 #include "sql_class.h"
 #include "sql_show.h" // schema_table_store_record
 

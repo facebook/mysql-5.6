@@ -1,0 +1,25 @@
+Default value of normalized_plan_id is OFF
+SELECT @@global.normalized_plan_id;
+@@global.normalized_plan_id
+1
+SELECT @@session.normalized_plan_id;
+ERROR HY000: Variable 'normalized_plan_id' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+normalized_plan_id is a dynamic variable (change to "ON")
+set @@global.normalized_plan_id = "on";
+SELECT @@global.normalized_plan_id;
+@@global.normalized_plan_id
+1
+restore the default value
+SET @@global.normalized_plan_id = "off";
+SELECT @@global.normalized_plan_id;
+@@global.normalized_plan_id
+0
+restart the server with non default value (ON)
+SELECT @@global.normalized_plan_id;
+@@global.normalized_plan_id
+1
+restart the server with the default value (OFF)
+SELECT @@global.normalized_plan_id;
+@@global.normalized_plan_id
+1

@@ -1,0 +1,25 @@
+Default value of sql_plans_capture_frequency is 1
+SELECT @@global.sql_plans_capture_frequency;
+@@global.sql_plans_capture_frequency
+1
+SELECT @@session.sql_plans_capture_frequency;
+ERROR HY000: Variable 'sql_plans_capture_frequency' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_plans_capture_frequency is a dynamic variable (change to 10)
+set @@global.sql_plans_capture_frequency = 10;
+SELECT @@global.sql_plans_capture_frequency;
+@@global.sql_plans_capture_frequency
+10
+restore the default value
+SET @@global.sql_plans_capture_frequency = 1;
+SELECT @@global.sql_plans_capture_frequency;
+@@global.sql_plans_capture_frequency
+1
+restart the server with non default value (100)
+SELECT @@global.sql_plans_capture_frequency;
+@@global.sql_plans_capture_frequency
+100
+restart the server with the default value (1)
+SELECT @@global.sql_plans_capture_frequency;
+@@global.sql_plans_capture_frequency
+1

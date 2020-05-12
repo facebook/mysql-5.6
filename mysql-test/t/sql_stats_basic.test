@@ -22,6 +22,8 @@ from information_schema.sql_statistics;
 --echo Case 2: sql_stats_control=ON
 set @@GLOBAL.sql_stats_control="ON";
 select @@sql_stats_control;
+set @@GLOBAL.sql_plans_control=ON;
+select @@sql_plans_control;
 select 1;
 select 2;
 select 100;
@@ -184,6 +186,7 @@ order by sql_id;
 --echo Cleanup
 connection default;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.max_digest_sample_age=-1;
 drop table t1;
 drop user user_super@localhost;

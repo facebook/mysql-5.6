@@ -57,6 +57,7 @@
 #include "my_atomic.h"
 #include "sql_db.h"
 #include "rpl_master.h"
+#include "md5_dt.h"
 
 #ifdef HAVE_RAPIDJSON
 #include "rapidjson/document.h"
@@ -3419,6 +3420,15 @@ public:
 
   void capture_system_thread_id();
 
+  void clear_plan_id()
+    { plan_id_set = false; capture_sql_plan = false; }
+  void set_plan_id(const unsigned char *plan_id_val)
+    { memcpy(plan_id.data(), plan_id_val, MD5_HASH_SIZE); plan_id_set = true; }
+  void set_plan_capture(bool val)
+    { capture_sql_plan = val; }
+  bool in_capture_sql_plan()
+    { return capture_sql_plan; }
+
   /* local hash map of db opt */
   HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
@@ -3434,6 +3444,11 @@ public:
   unsigned char *m_token_array;
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
+
+  /** Current statement Plan ID */
+  md5_key plan_id;
+  bool    plan_id_set;
+  bool    capture_sql_plan;
 
   /** Current statement instrumentation. */
   PSI_statement_locker *m_statement_psi;
