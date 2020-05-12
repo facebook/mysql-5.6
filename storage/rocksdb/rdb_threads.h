@@ -29,6 +29,7 @@
 #include <mysql/thread_pool_priv.h>
 
 /* MyRocks header files */
+#include "./rdb_global.h"
 #include "./rdb_utils.h"
 #include "./sql_class.h"
 #include "rocksdb/db.h"

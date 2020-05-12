@@ -25,6 +25,7 @@
 #include "rocksdb/comparator.h"
 
 /* MyRocks header files */
+#include "./rdb_global.h"
 #include "./rdb_utils.h"
 
 namespace myrocks {

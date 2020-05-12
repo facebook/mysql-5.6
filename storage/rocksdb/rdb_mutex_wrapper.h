@@ -30,6 +30,9 @@
 /* RocksDB header files */
 #include "rocksdb/utilities/transaction_db_mutex.h"
 
+/* MyRocks header files */
+#include "./rdb_global.h"
+
 namespace myrocks {
 
 class Rdb_mutex : public rocksdb::TransactionDBMutex {

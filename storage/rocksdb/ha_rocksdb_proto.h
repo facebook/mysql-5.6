@@ -26,6 +26,9 @@
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/transaction_db.h"
 
+/* MyRocks header files */
+#include "./rdb_global.h"
+
 namespace myrocks {
 
 enum RDB_IO_ERROR_TYPE {

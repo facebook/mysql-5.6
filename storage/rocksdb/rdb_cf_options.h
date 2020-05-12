@@ -25,6 +25,7 @@
 #include "rocksdb/utilities/options_util.h"
 
 /* MyRocks header files */
+#include "./rdb_global.h"
 #include "./rdb_comparator.h"
 
 namespace myrocks {
