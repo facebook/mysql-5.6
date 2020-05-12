@@ -25,14 +25,14 @@
 
 #define MYSQL_AUDIT_CLASS_MASK_SIZE 1
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0306
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0307
 
 
 /*************************************************************************
   AUDIT CLASS : GENERAL
-  
+
   LOG events occurs before emitting to the general query log.
-  ERROR events occur before transmitting errors to the user. 
+  ERROR events occur before transmitting errors to the user.
   RESULT events occur after transmitting a resultset to the user.
   STATUS events occur after transmitting a resultset or errors
   to the user.
@@ -76,12 +76,14 @@ struct mysql_event_general
   unsigned int port;
   const char **response_attributes;
   unsigned int response_attributes_length;
+  const char *shard;
+  unsigned int shard_length;
 };
 
 
 /*
   AUDIT CLASS : CONNECTION
-  
+
   CONNECT occurs after authentication phase is completed.
   DISCONNECT occurs after connection is terminated.
   CHANGE_USER occurs after COM_CHANGE_USER RPC is completed.
@@ -116,6 +118,8 @@ struct mysql_event_connection
   const char *connection_certificate;
   unsigned int connection_certificate_length;
   unsigned int port;
+  const char *shard;
+  unsigned int shard_length;
 };
 
 
@@ -127,12 +131,12 @@ struct mysql_event_connection
   disassociated from the specified THD. This would typically occur
   before some operation which may require sleeping - such as when
   waiting for the next query from the client.
-  
+
   event_notify() is invoked whenever an event occurs which is of any
   class for which the plugin has interest. The second argument
   indicates the specific event class and the third argument is data
   as required for that class.
-  
+
   class_mask is an array of bits used to indicate what event classes
   that this plugin wants to receive.
 */

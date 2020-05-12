@@ -293,6 +293,8 @@ struct mysql_event_general
   unsigned int port;
   const char **response_attributes;
   unsigned int response_attributes_length;
+  const char *shard;
+  unsigned int shard_length;
 };
 struct mysql_event_connection
 {
@@ -316,6 +318,8 @@ struct mysql_event_connection
   const char *connection_certificate;
   unsigned int connection_certificate_length;
   unsigned int port;
+  const char *shard;
+  unsigned int shard_length;
 };
 struct st_mysql_audit
 {

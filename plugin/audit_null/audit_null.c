@@ -39,7 +39,10 @@ static volatile int number_of_calls_connection_change_user;
 static volatile char *query_attributes;
 static volatile char *response_attributes;
 
+static volatile char *shard;
+
 static const int attr_buf_size = 1000;
+static const int shard_buf_size = 1024;
 
 static void serializeAttrsIntoBuffer(
     const char **attrs,
@@ -64,13 +67,13 @@ static void serializeAttrsIntoBuffer(
  * Print an audit plugin event to the error log
  *
  * SYNOPSIS
- *  log_event()
+ *  log_attrs()
  *
  * DESCRIPTION
  *  Prints some details of the event to the error log for testing
  *
  */
-static void log_event(const struct mysql_event_general* event)
+static void log_attrs(const struct mysql_event_general* event)
 {
   serializeAttrsIntoBuffer(
       event->query_attributes,
@@ -84,7 +87,41 @@ static void log_event(const struct mysql_event_general* event)
       (char *)response_attributes,
       attr_buf_size
   );
+
+  }
+
+/*
+  Stores the shard name from an general audit event into the plugin
+  variable: shard.
+
+  SYNOPSIS
+    log_shard_general()
+
+  DESCRIPTION
+    Stores the shard name from the audit event, set from DB_METADATA into the
+    plugin variable for verification in tests.
+*/
+static void log_shard_general(const struct mysql_event_general* event)
+{
+  snprintf((char *)shard, shard_buf_size, "%s", event->shard);
 }
+
+/*
+  Stores the shard name from a connection audit event into the plugin
+  variable: shard.
+
+  SYNOPSIS
+    log_shard_connection()
+
+  DESCRIPTION
+    Stores the shard name from the audit event, set from DB_METADATA into the
+    plugin variable for verification in tests.
+*/
+static void log_shard_connection(const struct mysql_event_connection* event)
+{
+  snprintf((char *)shard, shard_buf_size, "%s", event->shard);
+}
+
 /*
   Initialize the plugin at server start or plugin installation.
 
@@ -111,8 +148,9 @@ static int audit_null_plugin_init(void *arg MY_ATTRIBUTE((unused)))
   number_of_calls_connection_connect= 0;
   number_of_calls_connection_disconnect= 0;
   number_of_calls_connection_change_user= 0;
-  query_attributes = my_malloc(attr_buf_size, MY_ZEROFILL);
-  response_attributes = my_malloc(attr_buf_size, MY_ZEROFILL);
+  query_attributes= my_malloc(attr_buf_size, MY_ZEROFILL);
+  response_attributes= my_malloc(attr_buf_size, MY_ZEROFILL);
+  shard= my_malloc(shard_buf_size, MY_ZEROFILL);
   return(0);
 }
 
@@ -133,9 +171,11 @@ static int audit_null_plugin_init(void *arg MY_ATTRIBUTE((unused)))
 static int audit_null_plugin_deinit(void *arg MY_ATTRIBUTE((unused)))
 {
   my_free((void*)query_attributes);
-  query_attributes = NULL;
+  query_attributes= NULL;
   my_free((void*)response_attributes);
-  response_attributes = NULL;
+  response_attributes= NULL;
+  my_free((void*)shard);
+  shard= NULL;
   return(0);
 }
 
@@ -160,6 +200,7 @@ static void audit_null_notify(MYSQL_THD thd MY_ATTRIBUTE((unused)),
   {
     const struct mysql_event_general *event_general=
       (const struct mysql_event_general *) event;
+    log_shard_general(event);
     switch (event_general->event_subclass)
     {
     case MYSQL_AUDIT_GENERAL_LOG:
@@ -172,7 +213,7 @@ static void audit_null_notify(MYSQL_THD thd MY_ATTRIBUTE((unused)),
       number_of_calls_general_result++;
       break;
     case MYSQL_AUDIT_GENERAL_STATUS:
-      log_event(event);
+      log_attrs(event);
       number_of_calls_general_status++;
       break;
     case MYSQL_AUDIT_GENERAL_WARNING:
@@ -189,6 +230,7 @@ static void audit_null_notify(MYSQL_THD thd MY_ATTRIBUTE((unused)),
   {
     const struct mysql_event_connection *event_connection=
       (const struct mysql_event_connection *) event;
+    log_shard_connection(event);
     switch (event_connection->event_subclass)
     {
     case MYSQL_AUDIT_CONNECTION_CONNECT:
@@ -261,6 +303,9 @@ static struct st_mysql_show_var simple_status[]=
     SHOW_CHAR_PTR },
   { "Audit_null_response_attributes",
     (char *) &response_attributes,
+    SHOW_CHAR_PTR },
+  { "Audit_null_shard",
+    (char *) &shard,
     SHOW_CHAR_PTR },
   { 0, 0, 0}
 };

@@ -78,14 +78,14 @@ static inline uint make_user_name(THD *thd, char *buf)
 
 /**
   Call audit plugins of GENERAL audit class, MYSQL_AUDIT_GENERAL_LOG subtype.
-  
+
   @param[in] thd
   @param[in] cmd              Command name
   @param[in] cmdlen           Command name length
   @param[in] query_str        query text. Leave empty to fetch it from THD
   @param[in] query_len        query text length. 0 to fetch it from THD
   */
- 
+
 static inline
 void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
                              const char *query_str, size_t query_len)
@@ -98,9 +98,9 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     static MYSQL_LEX_STRING empty= { C_STRING_WITH_LEN("") };
     ha_rows resultrows= 0;
     longlong affectrows= 0;
-    int error_code= 0; 
-    uint userlen, databaselen;
-    const char *user, *database;
+    int error_code= 0;
+		uint userlen, databaselen, shardlen;
+		const char *user, *database, *shard;
     time_t time= (time_t) thd->start_time.tv_sec;
     std::vector<const char*> query_attrs;
     std::vector<const char*> audit_attrs;
@@ -137,6 +137,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       databaselen= thd->db_length;
       get_query_attributes_from_thd(thd, query_attrs);
       get_audit_attributes_from_thd(thd, audit_attrs);
+			shard= thd->shard_id.c_str();
+			shardlen= thd->shard_id.length();
     }
     else
     {
@@ -148,6 +150,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       sql_command= empty;
       database= 0;
       databaselen= 0;
+      shard= 0;
+      shardlen= 0;
     }
     const CHARSET_INFO *clientcs= thd ? thd->variables.character_set_client
       : global_system_variables.character_set_client;
@@ -157,7 +161,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
                        query.length, clientcs, resultrows, affectrows,
                        sql_command, host, external_user, ip, database,
                        databaselen, query_attrs.data(), query_attrs.size(),
-                       mysqld_port, audit_attrs.data(), audit_attrs.size());
+                       mysqld_port, audit_attrs.data(), audit_attrs.size(),
+											 shard, shardlen);
   }
 #endif
 }
@@ -171,7 +176,7 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     MYSQL_AUDIT_GENERAL_STATUS
     MYSQL_AUDIT_GENERAL_WARNING
     MYSQL_AUDIT_GENERAL_ERROR_INSTR
-  
+
   @param[in] thd
   @param[in] event_subtype    Type of general audit event.
   @param[in] error_code       Error code
@@ -186,8 +191,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   {
     time_t time= my_time(0);
     uint msglen= msg ? strlen(msg) : 0;
-    uint userlen, databaselen;
-    const char *user, *database;
+    uint userlen, databaselen, shardlen;
+    const char *user, *database, *shard;
     CSET_STRING query;
     MYSQL_LEX_STRING ip, host, external_user, sql_command;
     // Result rows will hold the number of rows sent to the client.
@@ -226,6 +231,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       databaselen= thd->db_length;
       get_query_attributes_from_thd(thd, query_attrs);
       get_audit_attributes_from_thd(thd, audit_attrs);
+			shard= thd->shard_id.c_str();
+			shardlen= thd->shard_id.length();
     }
     else
     {
@@ -239,6 +246,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       affectrows= 0;
       database= 0;
       databaselen= 0;
+			shard= 0;
+			shardlen= 0;
     }
 
     mysql_audit_notify(thd, MYSQL_AUDIT_GENERAL_CLASS, event_subtype,
@@ -247,7 +256,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
                        resultrows, affectrows, sql_command, host,
                        external_user, ip, database, databaselen,
                        query_attrs.data(), query_attrs.size(), mysqld_port,
-                       audit_attrs.data(), audit_attrs.size());
+                       audit_attrs.data(), audit_attrs.size(),
+											 shard, shardlen);
   }
 #endif
 }
@@ -267,7 +277,10 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length(), mysqld_port);
+  (thd)->connection_certificate_length(),\
+  mysqld_port,\
+  (thd)->shard_id.c_str(),\
+	(thd)->shard_id.length());
 
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_DISCONNECT(thd, errcode)\
@@ -286,7 +299,10 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length(), mysqld_port);
+  (thd)->connection_certificate_length(),\
+	mysqld_port,\
+	(thd)->shard_id.c_str(),\
+	(thd)->shard_id.length());
 
 #define MYSQL_AUDIT_NOTIFY_CONNECTION_CHANGE_USER(thd) mysql_audit_notify(\
   (thd), MYSQL_AUDIT_CONNECTION_CLASS, MYSQL_AUDIT_CONNECTION_CHANGE_USER,\
@@ -303,6 +319,9 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   (thd)->security_ctx->get_ip()->length(),\
   (thd)->db, (thd)->db ? strlen((thd)->db) : 0,\
   (thd)->connection_certificate(),\
-  (thd)->connection_certificate_length(), mysqld_port);
+  (thd)->connection_certificate_length(),\
+	mysqld_port,\
+	(thd)->shard_id.c_str(),\
+	(thd)->shard_id.length());
 
 #endif /* SQL_AUDIT_INCLUDED */
