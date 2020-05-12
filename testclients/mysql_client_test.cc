@@ -20631,7 +20631,6 @@ static void test_bug31104389() {
 
   /* this call should not crash and report error */
   mysql_close(mysql_local);
-  fprintf(stderr, "\n %s", mysql_error(mysql_local));
 }
 
 static void test_get_connect_stage() {
