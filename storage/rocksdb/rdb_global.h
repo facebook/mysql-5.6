@@ -422,3 +422,9 @@ struct st_io_stall_stats {
         total_slowdown(0) {}
 };
 }  // namespace myrocks
+
+// We define ROCKSDB_NAMESPACE = my_rocksdb to avoid symbol conflicts
+// But keep code with rocksdb for clarity
+// Declare my_rocks namespace is needed to make namespace alias happy
+namespace ROCKSDB_NAMESPACE {};
+namespace rocksdb = ROCKSDB_NAMESPACE;
