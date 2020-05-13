@@ -57,5 +57,3 @@ rocksdb.com_rpc_tx : BUG#0000 detached session is missing in 8.0
 # Misc bugs
 rocksdb.persistent_cache : BUG#0000 only repros with other tests running
 rocksdb.index_merge_rocksdb2 : BUG#0000 query plan is different between 8.0 and 5.6
-rocksdb.rqg_transactions : BUG#0000 commit without prepare
-
