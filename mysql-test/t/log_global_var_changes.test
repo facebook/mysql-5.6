@@ -4,6 +4,8 @@
 SET @old_config = @@global.log_global_var_changes;
 SELECT @old_config;
 
+call mtr.add_suppression("Global variable");
+
 --echo ###### Enable logging global var changes
 SET GLOBAL log_global_var_changes = TRUE;
 
@@ -213,7 +215,7 @@ SET @@session.binlog_row_image = @old_val;
 SELECT @@session.binlog_row_image;
 
 --echo ### Verifying error log
---exec grep "Global variable .* by user .* from host" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f4 | tail -n 38
+--exec grep "Global variable .* by user .* from host" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep Warning |cut -d] -f4 | tail -n 38
 
 SET GLOBAL log_global_var_changes = @old_config;
 SELECT @@global.log_global_var_changes;

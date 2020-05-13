@@ -2,6 +2,7 @@ SET @old_config = @@global.log_global_var_changes;
 SELECT @old_config;
 @old_config
 0
+call mtr.add_suppression("Global variable");
 ###### Enable logging global var changes
 SET GLOBAL log_global_var_changes = TRUE;
 ###### Integer category

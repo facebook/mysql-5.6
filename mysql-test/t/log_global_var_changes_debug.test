@@ -4,6 +4,8 @@
 # This test case is only for debug mode
 --source include/have_debug.inc
 
+call mtr.add_suppression("Global variable");
+
 --echo ### Sys_var_dbug
 SET @old_val = @@global.debug;
 SELECT @old_val;
@@ -21,5 +23,5 @@ SET GLOBAL debug = @old_val;
 SELECT @@global.debug;
 
 --echo ### Verifying error log
---exec grep "Global variable .* by user .* from host" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f4 | tail -n 4
+--exec grep "Global variable .* by user .* from host" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep Warning |cut -d] -f4 | tail -n 4
 --exit

@@ -1252,7 +1252,7 @@ int set_var::update(THD *thd) {
     }
     after_value[after_value_len] = '\0';
 
-    LogErr(INFORMATION_LEVEL, ER_LOG_GLOBAL_VAR_CHANGE, var->name.str,
+    LogErr(WARNING_LEVEL, ER_LOG_GLOBAL_VAR_CHANGE, var->name.str,
            before_value, after_value, thd->security_context()->user().str,
            thd->security_context()->host().str);
   }
