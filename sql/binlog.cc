@@ -11119,7 +11119,7 @@ int THD::binlog_query(THD::enum_binlog_query_type qtype, char const *query_arg,
   DBUG_RETURN(0);
 }
 
-std::pair<std::string, my_off_t> last_acked;
+std::atomic<st_filenum_pos> last_acked;
 mysql_mutex_t LOCK_last_acked;
 mysql_cond_t COND_last_acked;
 #ifdef HAVE_PSI_INTERFACE
@@ -11130,14 +11130,16 @@ bool semi_sync_last_ack_inited= false;
 
 void init_semi_sync_last_acked()
 {
-  const char* file_name= mysql_bin_log.engine_binlog_file +
+  const char *file_name= mysql_bin_log.engine_binlog_file +
                          dirname_length(mysql_bin_log.engine_binlog_file);
-  last_acked= std::make_pair(std::string(file_name),
-                             mysql_bin_log.engine_binlog_pos);
+  const st_filenum_pos coord= {
+      mysql_bin_log.extract_file_index(file_name).second,
+      static_cast<uint>(std::min<ulonglong>(st_filenum_pos::max_pos,
+                                            mysql_bin_log.engine_binlog_pos))};
   sql_print_information(
-      "[rpl_wait_for_semi_sync_ack] Last ACKed pos initialized to: %s:%llu",
-      last_acked.first.c_str(), last_acked.second);
-
+      "[rpl_wait_for_semi_sync_ack] Last ACKed pos initialized to: %s:%u",
+      file_name, coord.pos);
+  last_acked= coord;
   mysql_mutex_init(key_LOCK_last_acked, &LOCK_last_acked, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_last_acked, &COND_last_acked, NULL);
   semi_sync_last_ack_inited= true;
@@ -11156,8 +11158,23 @@ void destroy_semi_sync_last_acked()
 bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
                             NET* net, ulonglong wait_timeout_nsec)
 {
-  const char* file_name= coord->file_name + dirname_length(coord->file_name);
-  const auto current= std::make_pair(std::string(file_name), coord->pos);
+  const char *file_name= coord->file_name + dirname_length(coord->file_name);
+  const st_filenum_pos current= {
+      mysql_bin_log.extract_file_index(file_name).second,
+      static_cast<uint>(
+          std::min<ulonglong>(st_filenum_pos::max_pos, coord->pos))};
+
+  // case: Check if we're not ahead of the last acked coord and short-circuit.
+  // We need special handling for overflow, since after overflow `==`
+  // comparisons don't make sense
+  const auto snapshot_last_acked= last_acked.load();
+  if (current < snapshot_last_acked ||
+      (snapshot_last_acked.pos != st_filenum_pos::max_pos &&
+       current == snapshot_last_acked))
+  {
+    return true;
+  }
+
   ulonglong timeout= 1000000000ULL; // one sec in nanosecs
   if (wait_timeout_nsec && wait_timeout_nsec < timeout)
     timeout= wait_timeout_nsec;
@@ -11176,15 +11193,14 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
   // viable workaround.
   // case: wait till this log pos is <= to the last acked log pos, or if waiting
   // is not required anymore
-  const auto wait_for_pos= [&current]() {
-    return current.first.length() == last_acked.first.length() ?
-      current > last_acked :
-      current.first.length() > last_acked.first.length();
-  };
   while (!current_thd->killed &&
          rpl_semi_sync_master_enabled &&
          rpl_wait_for_semi_sync_ack &&
-         wait_for_pos())
+         (current > last_acked.load() ||
+          // We want to keep waiting till the next binlog rotation if we've hit
+          // the max pos (overflow). It's okay to load last_acked twice since we
+          // have locked the mutex at this point
+          last_acked.load().pos == st_filenum_pos::max_pos))
   {
     ++repl_semi_sync_master_ack_waits;
     // wait for an ack for with a timeout, then retry if applicable
@@ -11204,13 +11220,26 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
 
 void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
 {
-  const char* file_name=
-    acked_coord->file_name + dirname_length(acked_coord->file_name);
-  const auto acked= std::make_pair(std::string(file_name), acked_coord->pos);
+  const char *file_name=
+      acked_coord->file_name + dirname_length(acked_coord->file_name);
+  const st_filenum_pos acked= {
+      mysql_bin_log.extract_file_index(file_name).second,
+      // NOTE: If the acked pos cannot fit in st_filenum_pos::pos then we store
+      // uint_max, this way we'll never send unacked trxs because the last acked
+      // pos will be stuck at position uint_max in the current binlog file until
+      // a rotation happens. This can only happen when a very large trx is
+      // written to the binlog, max_binlog_size is capped at 1G but that's a
+      // soft limit as one could still write more that 1G of binlogs in a single
+      // trx, so when we hit this the log will immediately be rotated and things
+      // will be back to normal.
+      static_cast<uint>(std::min<ulonglong>(st_filenum_pos::max_pos,
+                                            acked_coord->pos))};
+
+  // case: nothing to update so no signal needed, let's exit
+  if (acked <= last_acked.load()) { return; }
+
   mysql_mutex_lock(&LOCK_last_acked);
-  const bool update= acked.first.length() == last_acked.first.length() ?
-    acked > last_acked : acked.first.length() > last_acked.first.length();
-  if (update)
+  if (acked > last_acked.load())
   {
     last_acked= acked;
     mysql_cond_broadcast(&COND_last_acked);
@@ -11221,7 +11250,7 @@ void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)
 void reset_semi_sync_last_acked()
 {
   mysql_mutex_lock(&LOCK_last_acked);
-  last_acked= std::make_pair("", 0);
+  last_acked= {0, 0};
   mysql_cond_broadcast(&COND_last_acked);
   mysql_mutex_unlock(&LOCK_last_acked);
 }

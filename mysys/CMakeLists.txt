@@ -76,6 +76,8 @@ TARGET_LINK_LIBRARIES(mysys dbug strings ${ZLIB_LIBRARY} ${ZSTD_LIBRARY} ${LZ4_L
  ${LIBNSL} ${LIBM} ${LIBRT} ${LIBEXECINFO})
 DTRACE_INSTRUMENT(mysys)
 
+TARGET_LINK_LIBRARIES(mysys atomic)
+
 # Need explicit pthread for gcc -fsanitize=address
 IF(CMAKE_USE_PTHREADS_INIT AND CMAKE_C_FLAGS MATCHES "-fsanitize=")
   TARGET_LINK_LIBRARIES(mysys pthread)

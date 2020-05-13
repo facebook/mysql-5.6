@@ -10056,13 +10056,14 @@ static int show_last_acked_binlog_pos(THD *thd, SHOW_VAR *var, char *buff)
   var->type= SHOW_UNDEF;
   if (rpl_semi_sync_master_enabled && rpl_wait_for_semi_sync_ack)
   {
-    if (!mysql_mutex_trylock(&LOCK_last_acked))
-    {
-      var->type= SHOW_CHAR;
-      var->value= buff;
-      sprintf(buff, "%s:%llu", last_acked.first.c_str(), last_acked.second);
-      mysql_mutex_unlock(&LOCK_last_acked);
-    }
+    const auto coord= last_acked.load();
+    var->type= SHOW_CHAR;
+    var->value= buff;
+    char full_name[FN_REFLEN];
+    full_name[0]= '\0';
+    if (coord.file_num)
+      sprintf(full_name, "%s.%06u", opt_bin_logname, coord.file_num);
+    sprintf(buff, "%s:%u", full_name, coord.pos);
   }
   return 0;
 }

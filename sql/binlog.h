@@ -1143,7 +1143,36 @@ end:
 uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
 
 #ifndef MYSQL_CLIENT
-extern std::pair<std::string, my_off_t> last_acked;
+struct st_filenum_pos
+{
+  uint file_num= 0;
+  uint pos= 0;
+
+  static const uint max_pos = std::numeric_limits<uint>::max();
+
+  st_filenum_pos() = default;
+
+  st_filenum_pos(uint file_num, uint pos)
+  {
+    this->file_num= file_num;
+    this->pos= pos;
+  }
+
+  int cmp(const st_filenum_pos& other) const
+  {
+    if (file_num == other.file_num && pos == other.pos) return 0;
+    if (file_num == other.file_num) return pos < other.pos ? -1 : 1;
+    return file_num < other.file_num ? -1 : 1;
+  }
+
+  bool operator==(const st_filenum_pos& other) const { return cmp(other) == 0; }
+  bool operator<(const st_filenum_pos& other) const { return cmp(other) < 0; }
+  bool operator>(const st_filenum_pos& other) const { return cmp(other) > 0; }
+  bool operator<=(const st_filenum_pos& other) const { return cmp(other) <= 0; }
+  bool operator>=(const st_filenum_pos& other) const { return cmp(other) >= 0; }
+};
+
+extern std::atomic<st_filenum_pos> last_acked;
 extern mysql_mutex_t LOCK_last_acked;
 extern mysql_cond_t COND_last_acked;
 #ifdef HAVE_PSI_INTERFACE
