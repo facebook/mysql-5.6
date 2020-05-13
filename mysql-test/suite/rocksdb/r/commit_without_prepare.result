@@ -10,3 +10,11 @@ pk	a	b
 2	2	NULL
 drop table t1;
 drop table t2;
+create table t1 (pk int primary key);
+insert into t1 values (1);
+start transaction;
+insert into t1 values (2), (3), (1);
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+savepoint a;
+commit;
+drop table t1;

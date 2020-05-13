@@ -3313,7 +3313,7 @@ class Rdb_transaction {
         statement start) because setting a savepoint is cheap.
       */
       do_set_savepoint();
-      m_writes_at_last_savepoint = m_write_count;
+      m_write_count = m_writes_at_last_savepoint;
     }
   }
 
