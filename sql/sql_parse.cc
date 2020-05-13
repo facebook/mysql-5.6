@@ -1782,10 +1782,8 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 #endif /* HAVE_PSI_THREAD_INTERFACE */
 
         if (!save_security_ctx.check_access(SUPER_ACL)) {
-          mysql_mutex_lock(&LOCK_user_conn);
           // previous user was a non-super user, decrement nonsuper_connections
-          nonsuper_connections--;
-          mysql_mutex_unlock(&LOCK_user_conn);
+          thd->remove_nonsuper_connections_ref();
         }
         if (save_user_connect) decrease_user_connections(save_user_connect);
         mysql_mutex_lock(&thd->LOCK_thd_data);

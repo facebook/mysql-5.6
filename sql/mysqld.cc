@@ -1262,7 +1262,8 @@ ulong specialflag = 0;
 ulong binlog_cache_use = 0, binlog_cache_disk_use = 0;
 ulong binlog_stmt_cache_use = 0, binlog_stmt_cache_disk_use = 0;
 ulong max_connections, max_connect_errors;
-ulong max_nonsuper_connections = 0, nonsuper_connections = 0;
+ulong max_nonsuper_connections = 0;
+std::atomic<ulong> nonsuper_connections(0);
 ulong opt_max_running_queries, opt_max_waiting_queries;
 ulong rpl_stop_slave_timeout = LONG_TIMEOUT;
 bool rpl_skip_tx_api = false;
@@ -9130,7 +9131,7 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Max_used_connections_time", (char *)&show_max_used_connections_time,
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
-    {"Non_super_connections", (char *)&nonsuper_connections, SHOW_LONG,
+    {"Non_super_connections", (char *)&nonsuper_connections, SHOW_LONG_NOFLUSH,
      SHOW_SCOPE_GLOBAL},
     {"Not_flushed_delayed_rows", (char *)&delayed_rows_in_use,
      SHOW_LONG_NOFLUSH, SHOW_SCOPE_GLOBAL},

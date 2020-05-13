@@ -3523,12 +3523,9 @@ int acl_authenticate(THD *thd, enum_server_command command) {
                         mpvio.db.str));
 
     if (!thd->m_main_security_ctx.check_access(SUPER_ACL)) {
-      mysql_mutex_lock(&LOCK_user_conn);
       // this is non-super user, increment nonsuper_connections
-      nonsuper_connections++;
       const bool limit_reached =
-          nonsuper_connections > max_nonsuper_connections;
-      mysql_mutex_unlock(&LOCK_user_conn);
+          thd->add_nonsuper_connections_ref() > max_nonsuper_connections;
 
       if (max_nonsuper_connections &&
           limit_reached) {  // max_nonsuper_connections limit reached
