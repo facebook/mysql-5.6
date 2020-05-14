@@ -20,6 +20,7 @@
 #include "thr_lock.h"
 
 #include "map"
+#include <string>
 
 /* forward declarations */
 class THD;
