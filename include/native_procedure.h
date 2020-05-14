@@ -21,6 +21,7 @@
 #include <mysql_com.h>
 
 #include <map>
+#include <string>
 #include <vector>
 
 enum execution_status_enum {

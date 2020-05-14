@@ -1,5 +1,6 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 #include <memory>
+#include <string>
 #include <cassert>
 #include "perf_counters.h"
 
