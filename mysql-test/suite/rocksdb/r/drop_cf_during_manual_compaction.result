@@ -12,6 +12,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set @@global.debug = '+d,rocksdb_compact_column_family';
 set @@global.debug = '+d,rocksdb_drop_cf';
 set @@global.rocksdb_compact_cf = 'cf_primary_key';
@@ -27,6 +36,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 select * from information_schema.rocksdb_cfstats where cf_name='cf_primary_key';
 CF_NAME	STAT_TYPE	VALUE
@@ -39,6 +57,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set debug_sync = "now signal mark_cf_dropped_done_in_compact_column_family";
 set @@global.debug = '+d,rocksdb_drop_cf';
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
@@ -52,6 +79,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set debug_sync = "now signal ready_to_drop_cf";
 set debug_sync = "now wait_for drop_cf_done";
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
@@ -70,6 +106,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set @@global.debug = '+d,rocksdb_manual_compaction';
 set @@global.rocksdb_compact_cf = 'cf_primary_key';
 set debug_sync = "now wait_for ready_to_mark_cf_dropped_in_manual_compaction";
@@ -84,6 +129,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set @@global.debug = '+d,rocksdb_drop_cf';
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key' ;
@@ -97,6 +151,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set debug_sync = "now signal ready_to_drop_cf";
 set debug_sync = "now wait_for drop_cf_done";
 select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key';
