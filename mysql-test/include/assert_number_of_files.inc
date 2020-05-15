@@ -15,6 +15,11 @@
 #   $expected_number
 #     The expected number of files
 
+if ($VALGRIND_TEST)
+{
+  --sleep 5
+}
+
 --perl
   use strict;
   my $dir = $ENV{'MYSQL_TMP_DIR'} or die "MYSQL_TMP_DIR not set";
