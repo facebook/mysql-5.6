@@ -1,0 +1,177 @@
+--source include/load_sysvars.inc
+
+##############################################################
+#   START OF tmp_table_conv_concurrency_timeout TESTS        #
+##############################################################
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.tmp_table_conv_concurrency_timeout;
+SET @start_session_value = @@session.tmp_table_conv_concurrency_timeout;
+
+--echo '#--------------------FN_DYNVARS_005_01-------------------------#'
+###################################################################
+# Display the DEFAULT value of tmp_table_conv_concurrency_timeout #
+###################################################################
+
+SET @@global.tmp_table_conv_concurrency_timeout = 100;
+SET @@global.tmp_table_conv_concurrency_timeout = DEFAULT;
+
+SET @@session.tmp_table_conv_concurrency_timeout = 200;
+SET @@session.tmp_table_conv_concurrency_timeout = DEFAULT;
+
+--echo '#--------------------FN_DYNVARS_005_02-------------------------#'
+########################################################################
+#   Check the DEFAULT value of tmp_table_conv_concurrency_timeout      #
+########################################################################
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+
+--echo '#--------------------FN_DYNVARS_005_03-------------------------#'
+############################################################################################
+# Change the value of tmp_table_conv_concurrency_timeout to a valid value for GLOBAL Scope #
+############################################################################################
+
+SET @@global.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+SET @@global.tmp_table_conv_concurrency_timeout = 60000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+SET @@global.tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+
+--echo '#--------------------FN_DYNVARS_005_04-------------------------#'
+#############################################################################################
+# Change the value of tmp_table_conv_concurrency_timeout to a valid value for SESSION Scope #
+#############################################################################################
+
+SET @@session.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+
+SET @@session.tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+SET @@session.tmp_table_conv_concurrency_timeout = 65535;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+
+
+--echo '#------------------FN_DYNVARS_005_05-----------------------#'
+##############################################################################
+# Change the value of tmp_table_conv_concurrency_timeout to an invalid value #
+##############################################################################
+
+SET @@global.tmp_table_conv_concurrency_timeout = 0;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+SET @@global.tmp_table_conv_concurrency_timeout = -1024;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+SET @@global.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_conv_concurrency_timeout = ON;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_conv_concurrency_timeout = OFF;
+
+SET @@global.tmp_table_conv_concurrency_timeout = True;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+SET @@global.tmp_table_conv_concurrency_timeout = False;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_conv_concurrency_timeout = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_conv_concurrency_timeout ="Test";
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.tmp_table_conv_concurrency_timeout = ON;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.tmp_table_conv_concurrency_timeout = OFF;
+
+SET @@session.tmp_table_conv_concurrency_timeout = True;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+
+SET @@session.tmp_table_conv_concurrency_timeout = False;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.tmp_table_conv_concurrency_timeout = "Test";
+
+SET @@session.tmp_table_conv_concurrency_timeout = 12345678901;
+
+# With a 64 bit mysqld:12345678901,with a 32 bit mysqld: 4294967295
+SELECT @@session.tmp_table_conv_concurrency_timeout IN (12345678901,4294967295);
+
+--echo '#------------------FN_DYNVARS_005_06-----------------------#'
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+SELECT @@global.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_conv_concurrency_timeout';
+
+--echo '#------------------FN_DYNVARS_005_07-----------------------#'
+####################################################################
+#  Check if the value in SESSION Table matches value in variable   #
+####################################################################
+
+SELECT @@session.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_conv_concurrency_timeout';
+
+--echo '#---------------------FN_DYNVARS_001_09----------------------#'
+########################################################################
+#  Check if global and session variables are independent of each other #
+########################################################################
+
+SET @@global.tmp_table_conv_concurrency_timeout = 1024;
+SET @@tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@tmp_table_conv_concurrency_timeout = @@global.tmp_table_conv_concurrency_timeout;
+
+--echo '#---------------------FN_DYNVARS_001_10----------------------#'
+##################################################################
+#    Check if accessing variable with SESSION,LOCAL and without  #
+#    SCOPE points to same session variable                       #
+##################################################################
+
+SET @@tmp_table_conv_concurrency_timeout = 100;
+SELECT @@tmp_table_conv_concurrency_timeout = @@local.tmp_table_conv_concurrency_timeout;
+SELECT @@local.tmp_table_conv_concurrency_timeout = @@session.tmp_table_conv_concurrency_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_001_11----------------------#'
+#############################################################################################
+#   Check if tmp_table_conv_concurrency_timeout can be accessed with and without @@ sign    #
+#############################################################################################
+
+SET tmp_table_conv_concurrency_timeout = 1027;
+SELECT @@tmp_table_conv_concurrency_timeout;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.tmp_table_conv_concurrency_timeout;
+
+--Error ER_UNKNOWN_TABLE
+SELECT global.tmp_table_conv_concurrency_timeout;
+
+--Error ER_BAD_FIELD_ERROR
+SELECT tmp_table_conv_concurrency_timeout = @@session.tmp_table_conv_concurrency_timeout;
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.tmp_table_conv_concurrency_timeout = @start_global_value;
+SET @@session.tmp_table_conv_concurrency_timeout = @start_session_value;
+
+###################################################
+# END OF tmp_table_conv_concurrency_timeout TESTS #
+###################################################
+

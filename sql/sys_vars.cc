@@ -4124,6 +4124,13 @@ static Sys_var_ulonglong Sys_tmp_table_size(
        VALID_RANGE(1024, (ulonglong)~(intptr)0), DEFAULT(16*1024*1024),
        BLOCK_SIZE(1));
 
+static Sys_var_ulonglong Sys_tmp_table_conv_concurrency_timeout(
+       "tmp_table_conv_concurrency_timeout",
+       "Number of milliseconds after which Heap to MyIsam temp table "
+       "conversion releases concurrency slots.",
+       SESSION_VAR(tmp_table_conv_concurrency_timeout), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(5 * 1000), BLOCK_SIZE(1));
+
 static Sys_var_ulonglong Sys_tmp_table_max_file_size(
        "tmp_table_max_file_size",
        "The max size of a file to use for a temporary table. Raise an error "

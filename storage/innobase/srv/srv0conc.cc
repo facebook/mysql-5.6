@@ -280,6 +280,7 @@ srv_conc_enter_innodb_with_atomics(
 			srv_thread_sleep_delay = static_cast<ulong>(sleep_in_us);
 		}
 
+		DEBUG_SYNC(trx->mysql_thd, "before_entering_sleep");
 		os_thread_sleep(sleep_in_us);
 
 		trx->op_info = "";

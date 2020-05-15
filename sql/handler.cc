@@ -2742,6 +2742,39 @@ int ha_delete_table(THD *thd, handlerton *table_type, const char *path,
   DBUG_RETURN(error);
 }
 
+static my_bool release_concurrency_slot_handlerton(THD *thd, plugin_ref plugin, void *)
+{
+  handlerton *hton= plugin_data(plugin, handlerton *);
+  if (hton->state == SHOW_OPTION_YES && hton->release_concurrency_slot)
+    hton->release_concurrency_slot(hton, thd);
+
+  return FALSE;
+}
+
+/**
+  @details
+  This function should be called when MySQL is about to run a long running
+  outside InnoDB. One of the examples is Heap to MyIsam conversion that
+  can run for quite a while.
+  The handler releases all the InnoDB tickets along with deregistering
+  itself from active threads. This clears up another SQL query waiting
+  to enter InnoDB but stalled due to srv_thread_concurrency limit.
+  Note that once this function is called, the thread has relinquished its
+  InnoDB tickets. It will have to subsequently contend to enter InnoDB once
+  it is done finishing long running task. So be extra vigilant when calling
+  this.
+
+  @param thd           the thread handle of the current connection
+*/
+
+void ha_release_concurrency_slot(THD *thd)
+{
+  status_var_increment(thd->status_var.ha_release_concurrency_slot_count);
+  plugin_foreach(thd, release_concurrency_slot_handlerton,
+                 MYSQL_STORAGE_ENGINE_PLUGIN, 0);
+}
+
+
 /****************************************************************************
 ** General handler functions
 ****************************************************************************/

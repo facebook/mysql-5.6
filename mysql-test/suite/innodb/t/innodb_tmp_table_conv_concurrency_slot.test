@@ -1,0 +1,68 @@
+--source include/have_innodb.inc
+--source include/have_debug_sync.inc
+
+# Save the initial number of concurrent sessions.
+--source include/count_sessions.inc
+
+SET @old_innodb_thread_sleep_delay := @@innodb_thread_sleep_delay;
+SET @old_innodb_thread_concurrency := @@innodb_thread_concurrency;
+# Set global innodb thread concurrency such that only 1 thread can enter innodb
+SET GLOBAL innodb_thread_concurrency = 1;
+
+--echo # Establish session con1 (user=root)
+connect (con1,localhost,root,,);
+--echo # Establish session con1 (user=root)
+connect (con2,localhost,root,,);
+
+connection con1;
+
+# Populate tables in order to cause temp table spill
+create table t1 (s char(200)) engine=InnoDB;
+insert into t1 values (repeat("1",200));
+create table t2 (s char(200)) engine=InnoDB;
+insert into t2 values (repeat("1",200));
+insert into t2 select * from t1;
+insert into t1 select * from t2;
+insert into t2 select * from t1;
+insert into t1 select * from t2;
+insert into t2 select * from t1;
+
+# Force temp table size to be small in order to cause the spill.
+SET @@session.tmp_table_size=1024;
+# Enter the codepath that releases innodb concurrent slot 
+# immediately.
+SET @@session.tmp_table_conv_concurrency_timeout=0;
+
+SET DEBUG_SYNC = 'RESET';
+# Wait just before releasing concurrent slot in innodb
+SET DEBUG_SYNC = 'before_ha_release_concurrency_slot SIGNAL releasing WAIT_FOR conn_sleep';
+
+--send
+select count(*) from (select * from t1 union all select * from t2 order by 1) b;
+
+connection con2;
+
+SET DEBUG_SYNC = 'now WAIT_FOR releasing';
+# Signal con1 just before this connection is about to sleep while waiting for
+# innodb concurrent slot
+SET DEBUG_SYNC = 'before_entering_sleep SIGNAL conn_sleep';
+
+SELECT count(*) from t1;
+
+disconnect con1;
+disconnect con2;
+
+--echo # session default
+connection default;
+SET DEBUG_SYNC = 'RESET';
+SET DEBUG = '';
+SET GLOBAL innodb_thread_sleep_delay = @old_innodb_thread_sleep_delay;
+SET GLOBAL innodb_thread_concurrency = @old_innodb_thread_concurrency;
+DROP TABLE t1;
+DROP TABLE t2;
+
+# Check that all connections opened by test cases in this file are really
+# gone so execution of other tests won't be affected by their presence.
+--source include/wait_until_count_sessions.inc
+
+SET GLOBAL DEBUG = '';

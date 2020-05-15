@@ -978,6 +978,7 @@ struct handlerton
                             const char *query, uint query_length,
                             const char *db, const char *table_name);
    int (*release_temporary_latches)(handlerton *hton, THD *thd);
+   int (*release_concurrency_slot)(handlerton *hton, THD *thd);
 
    /*
      Get log status.
@@ -3792,6 +3793,10 @@ int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 
 /* report to InnoDB that control passes to the client */
 int ha_release_temporary_latches(THD *thd);
+
+/* report to InnoDB that the executor will not be calling into innodb anytime
+   soon */
+void ha_release_concurrency_slot(THD *thd);
 
 /* transactions: interface to handlerton functions */
 int ha_start_consistent_snapshot(THD *thd, snapshot_info_st *ss_info,

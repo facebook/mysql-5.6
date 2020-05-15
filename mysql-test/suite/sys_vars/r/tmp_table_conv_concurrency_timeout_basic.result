@@ -1,0 +1,128 @@
+SET @start_global_value = @@global.tmp_table_conv_concurrency_timeout;
+SET @start_session_value = @@session.tmp_table_conv_concurrency_timeout;
+'#--------------------FN_DYNVARS_005_01-------------------------#'
+SET @@global.tmp_table_conv_concurrency_timeout = 100;
+SET @@global.tmp_table_conv_concurrency_timeout = DEFAULT;
+SET @@session.tmp_table_conv_concurrency_timeout = 200;
+SET @@session.tmp_table_conv_concurrency_timeout = DEFAULT;
+'#--------------------FN_DYNVARS_005_02-------------------------#'
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+5000
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+5000
+'#--------------------FN_DYNVARS_005_03-------------------------#'
+SET @@global.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+1000
+SET @@global.tmp_table_conv_concurrency_timeout = 60000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+60000
+SET @@global.tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+4294967295
+'#--------------------FN_DYNVARS_005_04-------------------------#'
+SET @@session.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+1000
+SET @@session.tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+4294967295
+SET @@session.tmp_table_conv_concurrency_timeout = 65535;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+65535
+'#------------------FN_DYNVARS_005_05-----------------------#'
+SET @@global.tmp_table_conv_concurrency_timeout = 0;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+0
+SET @@global.tmp_table_conv_concurrency_timeout = -1024;
+Warnings:
+Warning	1292	Truncated incorrect tmp_table_conv_concurrency_timeo value: '-1024'
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+0
+SET @@global.tmp_table_conv_concurrency_timeout = 1000;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+1000
+SET @@global.tmp_table_conv_concurrency_timeout = ON;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@global.tmp_table_conv_concurrency_timeout = OFF;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@global.tmp_table_conv_concurrency_timeout = True;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+1
+SET @@global.tmp_table_conv_concurrency_timeout = False;
+SELECT @@global.tmp_table_conv_concurrency_timeout;
+@@global.tmp_table_conv_concurrency_timeout
+0
+SET @@global.tmp_table_conv_concurrency_timeout = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@global.tmp_table_conv_concurrency_timeout ="Test";
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@session.tmp_table_conv_concurrency_timeout = ON;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@session.tmp_table_conv_concurrency_timeout = OFF;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@session.tmp_table_conv_concurrency_timeout = True;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+1
+SET @@session.tmp_table_conv_concurrency_timeout = False;
+SELECT @@session.tmp_table_conv_concurrency_timeout;
+@@session.tmp_table_conv_concurrency_timeout
+0
+SET @@session.tmp_table_conv_concurrency_timeout = "Test";
+ERROR 42000: Incorrect argument type to variable 'tmp_table_conv_concurrency_timeout'
+SET @@session.tmp_table_conv_concurrency_timeout = 12345678901;
+SELECT @@session.tmp_table_conv_concurrency_timeout IN (12345678901,4294967295);
+@@session.tmp_table_conv_concurrency_timeout IN (12345678901,4294967295)
+1
+'#------------------FN_DYNVARS_005_06-----------------------#'
+SELECT @@global.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_conv_concurrency_timeout';
+@@global.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+1
+'#------------------FN_DYNVARS_005_07-----------------------#'
+SELECT @@session.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_conv_concurrency_timeout';
+@@session.tmp_table_conv_concurrency_timeout = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_001_09----------------------#'
+SET @@global.tmp_table_conv_concurrency_timeout = 1024;
+SET @@tmp_table_conv_concurrency_timeout = 4294967295;
+SELECT @@tmp_table_conv_concurrency_timeout = @@global.tmp_table_conv_concurrency_timeout;
+@@tmp_table_conv_concurrency_timeout = @@global.tmp_table_conv_concurrency_timeout
+0
+'#---------------------FN_DYNVARS_001_10----------------------#'
+SET @@tmp_table_conv_concurrency_timeout = 100;
+SELECT @@tmp_table_conv_concurrency_timeout = @@local.tmp_table_conv_concurrency_timeout;
+@@tmp_table_conv_concurrency_timeout = @@local.tmp_table_conv_concurrency_timeout
+1
+SELECT @@local.tmp_table_conv_concurrency_timeout = @@session.tmp_table_conv_concurrency_timeout;
+@@local.tmp_table_conv_concurrency_timeout = @@session.tmp_table_conv_concurrency_timeout
+1
+'#---------------------FN_DYNVARS_001_11----------------------#'
+SET tmp_table_conv_concurrency_timeout = 1027;
+SELECT @@tmp_table_conv_concurrency_timeout;
+@@tmp_table_conv_concurrency_timeout
+1027
+SELECT local.tmp_table_conv_concurrency_timeout;
+ERROR 42S02: Unknown table 'local' in field list
+SELECT global.tmp_table_conv_concurrency_timeout;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT tmp_table_conv_concurrency_timeout = @@session.tmp_table_conv_concurrency_timeout;
+ERROR 42S22: Unknown column 'tmp_table_conv_concurrency_timeout' in 'field list'
+SET @@global.tmp_table_conv_concurrency_timeout = @start_global_value;
+SET @@session.tmp_table_conv_concurrency_timeout = @start_session_value;

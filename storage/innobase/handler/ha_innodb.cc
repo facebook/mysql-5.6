@@ -2209,6 +2209,33 @@ innobase_release_temporary_latches(
 }
 
 /********************************************************************//**
+Call this function when mysqld is going to run a long running task
+outside innodb while still holding innodb tickets. This ends up clearing
+all the tickets which means the subsequent entry into innodb will have
+to contend for the slot.
+@return	0 */
+static
+int
+innobase_release_concurrency_slot(
+/*===============================*/
+	handlerton*	hton,	/*!< in: handlerton */
+	THD*		thd)	/*!< in: MySQL thread */
+{
+	DBUG_ASSERT(hton == innodb_hton_ptr);
+
+	if (!innodb_inited) {
+		return(0);
+	}
+
+	trx_t*	trx = thd_to_trx(thd);
+	if (trx != NULL) {
+		innobase_srv_conc_force_exit_innodb(trx);
+	}
+
+	return(0);
+}
+
+/********************************************************************//**
 Increments innobase_active_counter and every INNOBASE_WAKE_INTERVALth
 time calls srv_active_wake_master_thread. This function should be used
 when a single database operation may introduce a small need for
@@ -3773,6 +3800,8 @@ innobase_init(
 
 	innobase_hton->release_temporary_latches =
 		innobase_release_temporary_latches;
+	innobase_hton->release_concurrency_slot =
+		innobase_release_concurrency_slot;
 
 	innobase_hton->data = &innodb_api_cb;
 

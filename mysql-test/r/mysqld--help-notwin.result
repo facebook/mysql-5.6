@@ -2024,6 +2024,9 @@ The following options may be given as the first argument:
  --time-format=name  The TIME format (ignored)
  --timed-mutexes     Specify whether to time mutexes. Deprecated, has no
  effect.
+ --tmp-table-conv-concurrency-timeout[=#] 
+ Number of milliseconds after which Heap to MyIsam temp
+ table conversion releases concurrency slots.
  --tmp-table-max-file-size=# 
  The max size of a file to use for a temporary table.
  Raise an error when this is exceeded. 0 means no limit.
@@ -2710,6 +2713,7 @@ thread-nice-value
 thread-stack 327680
 time-format %H:%i:%s
 timed-mutexes FALSE
+tmp-table-conv-concurrency-timeout 5000
 tmp-table-max-file-size 0
 tmp-table-rpl-max-file-size 0
 tmp-table-size 16777216

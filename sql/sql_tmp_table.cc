@@ -2112,6 +2112,12 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
     delete new_table.file;
     DBUG_RETURN(1);
   }
+
+  auto start_ts = std::chrono::steady_clock::now();
+  auto interval = std::chrono::milliseconds(
+      thd->variables.tmp_table_conv_concurrency_timeout);
+  bool released_concurrency_slot = false;
+
   save_proc_info=thd->proc_info;
   THD_STAGE_INFO(thd, stage_converting_heap_to_myisam);
 
@@ -2192,6 +2198,21 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
   */
   while (!table->file->ha_rnd_next(new_table.record[1]))
   {
+    /*
+      Check whether the conversion routine has run long enough.
+      In case the timeout threshold is reached, we yield the
+      InnoDB tickets. This will unblock the other thread contending
+      to enter the InnoDB but stalled due to concurrency limit.
+    */
+    if (!released_concurrency_slot) {
+      auto now_ts = std::chrono::steady_clock::now();
+      if (start_ts + interval < now_ts) {
+        DEBUG_SYNC(thd, "before_ha_release_concurrency_slot");
+        ha_release_concurrency_slot(thd);
+        released_concurrency_slot = true;
+      }
+    }
+
     if (unlikely(thd->killed != 0)) {
       write_err = HA_ERR_INTERNAL_ERROR;
       goto err;
