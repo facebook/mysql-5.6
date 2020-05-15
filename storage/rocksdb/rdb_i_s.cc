@@ -97,7 +97,22 @@ static int rdb_i_s_cfstats_fill_table(
        "NUM_ENTRIES_IMM_MEM_TABLES"},
       {rocksdb::DB::Properties::kEstimateTableReadersMem,
        "NON_BLOCK_CACHE_SST_MEM_USAGE"},
-      {rocksdb::DB::Properties::kNumLiveVersions, "NUM_LIVE_VERSIONS"}};
+      {rocksdb::DB::Properties::kNumLiveVersions, "NUM_LIVE_VERSIONS"},
+      {rocksdb::DB::Properties::kNumImmutableMemTableFlushed,
+       "NUM_IMMUTABLE_MEM_TABLE_FLUSHED"},
+      {rocksdb::DB::Properties::kNumRunningFlushes, "NUM_RUNNING_FLUSHES"},
+      {rocksdb::DB::Properties::kNumRunningCompactions,
+       "NUM_RUNNING_COMPACTIONS"},
+      {rocksdb::DB::Properties::kSizeAllMemTables, "SIZE_ALL_MEM_TABLES"},
+      {rocksdb::DB::Properties::kNumDeletesActiveMemTable,
+       "NUM_DELETES_ACTIVE_MEM_TABLE"},
+      {rocksdb::DB::Properties::kNumDeletesImmMemTables,
+       "NUM_DELETES_IMM_MEM_TABLES"},
+      {rocksdb::DB::Properties::kEstimateNumKeys, "ESTIMATE_NUM_KEYS"},
+      {rocksdb::DB::Properties::kEstimateLiveDataSize,
+       "ESTIMATE_LIVE_DATA_SIZE"},
+      {rocksdb::DB::Properties::kEstimatePendingCompactionBytes,
+       "ESTIMATE_PENDING_COMPACTION_BYTES"}};
 
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
 
