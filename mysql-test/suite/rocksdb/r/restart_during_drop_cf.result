@@ -12,6 +12,15 @@ cf_primary_key	NUM_ENTRIES_ACTIVE_MEM_TABLE	0
 cf_primary_key	NUM_ENTRIES_IMM_MEM_TABLES	0
 cf_primary_key	NON_BLOCK_CACHE_SST_MEM_USAGE	0
 cf_primary_key	NUM_LIVE_VERSIONS	1
+cf_primary_key	NUM_IMMUTABLE_MEM_TABLE_FLUSHED	0
+cf_primary_key	NUM_RUNNING_FLUSHES	0
+cf_primary_key	NUM_RUNNING_COMPACTIONS	0
+cf_primary_key	SIZE_ALL_MEM_TABLES	728
+cf_primary_key	NUM_DELETES_ACTIVE_MEM_TABLE	0
+cf_primary_key	NUM_DELETES_IMM_MEM_TABLES	0
+cf_primary_key	ESTIMATE_NUM_KEYS	0
+cf_primary_key	ESTIMATE_LIVE_DATA_SIZE	0
+cf_primary_key	ESTIMATE_PENDING_COMPACTION_BYTES	0
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 set debug_sync = "now wait_for ready_to_restart_during_drop_cf";
 # restart
