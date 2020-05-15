@@ -75,6 +75,7 @@ Database: test
 2 rows in set.
 
 DROP TABLE t1, t2;
+| ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CLIENT_ATTRIBUTES                     |
@@ -172,6 +173,7 @@ DROP TABLE t1, t2;
 | USER_STATISTICS                       |
 | USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
+| ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CLIENT_ATTRIBUTES                     |

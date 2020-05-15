@@ -763,6 +763,7 @@ ulong max_connections, max_connect_errors;
 uint max_nonsuper_connections;
 ulong opt_max_running_queries, opt_max_waiting_queries;
 my_bool opt_admission_control_by_trx= 0;
+char *admission_control_weights;
 extern AC *db_ac;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool rpl_slave_flow_control = 1;
@@ -7502,6 +7503,7 @@ int mysqld_main(int argc, char **argv)
   db_ac = new AC();
   db_ac->update_max_running_queries(opt_max_running_queries);
   db_ac->update_max_waiting_queries(opt_max_waiting_queries);
+  db_ac->update_queue_weights(admission_control_weights);
   if (init_server_components())
     unireg_abort(1);
 

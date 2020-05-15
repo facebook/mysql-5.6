@@ -3543,6 +3543,29 @@ static Sys_var_long Sys_admission_control_queue_timeout(
     SESSION_VAR(admission_control_queue_timeout), CMD_LINE(OPT_ARG),
     VALID_RANGE(-1, LONG_MAX), DEFAULT(-1), BLOCK_SIZE(1));
 
+static Sys_var_long Sys_admission_control_queue(
+       "admission_control_queue",
+       "Determines which queue this request goes to during admission control. "
+       "Allowed values are 0-9, since only 10 queues are available.",
+       SESSION_VAR(admission_control_queue), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, MAX_AC_QUEUES-1), DEFAULT(0), BLOCK_SIZE(1));
+
+static bool check_admission_control_weights(sys_var *self, THD *thd, set_var *var)
+{
+  return db_ac->update_queue_weights(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_admission_control_weights(
+       "admission_control_weights",
+       "Determines the weight of each queue as a comma-separated list of "
+       "integers, where the nth number is the nth queue's weight. The queue "
+       "weight to total weight ratio determines what fraction of the running "
+       "pool a queue can use.",
+       GLOBAL_VAR(admission_control_weights),
+       CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(0),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_admission_control_weights));
+
 static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "slave_sql_verify_checksum",
        "Force checksum verification of replication events after reading them "

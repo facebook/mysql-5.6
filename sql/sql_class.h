@@ -821,6 +821,7 @@ typedef struct system_variables
   my_bool enable_block_stale_hlc_read;
 
   long admission_control_queue_timeout;
+  long admission_control_queue;
 } SV;
 
 

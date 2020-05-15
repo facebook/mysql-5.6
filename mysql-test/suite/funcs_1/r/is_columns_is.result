@@ -3,6 +3,12 @@ WHERE table_schema = 'information_schema'
 AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 ORDER BY table_schema, table_name, column_name;
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT
+def	information_schema	ADMISSION_CONTROL_QUEUE	ABORTED_QUERIES	5	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	ADMISSION_CONTROL_QUEUE	RUNNING_QUERIES	4	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	ADMISSION_CONTROL_QUEUE	TIMEOUT_QUERIES	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	AUTHINFO	HOST	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	AUTHINFO	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	AUTHINFO	INFO	5	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
@@ -699,6 +705,12 @@ WHERE table_schema = 'information_schema'
 AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION;
 COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE
+3.0000	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	RUNNING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	ABORTED_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	TIMEOUT_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	AUTHINFO	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	AUTHINFO	USER	varchar	80	240	utf8	utf8_general_ci	varchar(80)
 3.0000	information_schema	AUTHINFO	HOST	varchar	64	192	utf8	utf8_general_ci	varchar(64)

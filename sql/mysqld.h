@@ -909,6 +909,7 @@ extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern ulong opt_max_running_queries, opt_max_waiting_queries;
 extern my_bool opt_admission_control_by_trx;
+extern char *admission_control_weights;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
 extern char *enable_jemalloc_hpp;

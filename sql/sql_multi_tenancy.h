@@ -54,6 +54,9 @@ extern std::string multi_tenancy_get_entity_counter(
 extern void multi_tenancy_show_resource_counters(
     THD *thd, const MT_RESOURCE_ATTRS *, const char *entity);
 
+extern ST_FIELD_INFO admission_control_queue_fields_info[];
+int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
+
 /**
   Per-thread information used in admission control.
 */
@@ -77,7 +80,11 @@ struct st_ac_node {
   bool running; // whether we need to decrement from running_queries
   bool queued;  // whether current node is queued. pos is valid iff queued.
   std::list<std::shared_ptr<st_ac_node>>::iterator pos;
-  st_ac_node() {
+  // The queue that this node belongs to.
+  long queue;
+  // The THD owning this node.
+  THD *thd;
+  st_ac_node(THD *thd_arg) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info,
                          array_elements(key_lock_info));
@@ -88,6 +95,8 @@ struct st_ac_node {
     mysql_cond_init(key_cond, &cond, NULL);
     running = false;
     queued = false;
+    queue = 0;
+    thd = thd_arg;
   }
 
   ~st_ac_node () {
@@ -96,6 +105,23 @@ struct st_ac_node {
   }
 };
 
+const ulong MAX_AC_QUEUES = 10;
+/**
+  Represents a queue, and its associated stats.
+*/
+struct Ac_queue {
+  // The list representing the queue.
+  std::list<std::shared_ptr<st_ac_node>> queue;
+  inline size_t waiting_queries() const {
+    return queue.size();
+  }
+  // Track number of running queries.
+  unsigned long running_queries = 0;
+  // Track number of rejected queries.
+  unsigned long aborted_queries = 0;
+  // Track number of timed out queries.
+  unsigned long timeout_queries = 0;
+};
 
 /**
   Class used in admission control.
@@ -106,6 +132,7 @@ struct st_ac_node {
 */
 class Ac_info {
   friend class AC;
+  friend int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
 #ifdef HAVE_PSI_INTERFACE
   PSI_mutex_key key_lock;
   PSI_mutex_info key_lock_info[1]=
@@ -113,12 +140,15 @@ class Ac_info {
     {&key_lock, "Ac_info::lock", 0}
   };
 #endif
-  // Queue to track waiting threads.
-  std::list<std::shared_ptr<st_ac_node>> queue;
+
+  // Queues
+  std::array<Ac_queue, MAX_AC_QUEUES> queues{};
+
+  // Count for waiting_queries in queues for this Ac_info.
   unsigned long waiting_queries;
-  // Count for running queries.
+  // Count for running queries in queues for this Ac_info.
   unsigned long running_queries;
-  // Protects the queue.
+  // Protects the queues.
   mysql_mutex_t lock;
 public:
   Ac_info() {
@@ -149,12 +179,16 @@ enum class Ac_result {
   Global class used to enforce per admission control limits.
 */
 class AC {
+  friend int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
+
   // This map is protected by the rwlock LOCK_ac.
   std::unordered_map<std::string, std::shared_ptr<Ac_info>> ac_map;
   // Variables to track global limits
   ulong max_running_queries, max_waiting_queries;
+
+  std::array<unsigned long, MAX_AC_QUEUES> weights;
   /**
-    Protects ac_map and max_running_queries/max_waiting_queries.
+    Protects the above variables.
 
     Locking order followed is LOCK_ac, Ac_info::lock, st_ac_node::lock.
   */
@@ -190,44 +224,14 @@ public:
   AC(const AC&) = delete;
   AC& operator=(const AC&) = delete;
 
-  inline void signal(std::shared_ptr<st_ac_node>& ac_node) {
+  static inline void signal(std::shared_ptr<st_ac_node>& ac_node) {
     DBUG_ASSERT(ac_node && ac_node.get());
     mysql_mutex_lock(&ac_node->lock);
     mysql_cond_signal(&ac_node->cond);
     mysql_mutex_unlock(&ac_node->lock);
   }
 
-  /*
-   * Removes a dropped entity info from the global map.
-   */
-  void remove(const char* entity) {
-    std::string str(entity);
-    // First take a read lock to unblock any waiting queries.
-    mysql_rwlock_rdlock(&LOCK_ac);
-    auto it = ac_map.find(str);
-    if (it != ac_map.end()) {
-      auto ac_info  = it->second;
-      while (true) {
-        mysql_mutex_lock(&ac_info->lock);
-        if (ac_info->waiting_queries) {
-          for (auto &i : ac_info->queue) {
-            signal(i);
-          }
-        } else {
-          mysql_mutex_unlock(&ac_info->lock);
-          break;
-        }
-        mysql_mutex_unlock(&ac_info->lock);
-      }
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-    mysql_rwlock_wrlock(&LOCK_ac);
-    it = ac_map.find(std::string(str));
-    if (it != ac_map.end()) {
-      ac_map.erase(it);
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
+  void remove(const char* entity);
 
   void insert(const std::string &entity) {
     mysql_rwlock_wrlock(&LOCK_ac);
@@ -244,17 +248,25 @@ public:
     max_running_queries = val;
     // Signal any waiting threads which are below the new limit. Note 0 is a
     // special case where every waiting thread needs to be signalled.
+    //
+    // We don't kill any queries if the max is lowered, so it's possible for
+    // the number of running queries temporarily exceed the new max.
     if (val > old_val || !val) {
       for (auto &it: ac_map) {
         auto &ac_info = it.second;
         mysql_mutex_lock(&ac_info->lock);
-        size_t to_signal = val ? val - old_val : ac_info->queue.size();
-        size_t signaled = 0;
 
-        for (auto &i : ac_info->queue) {
-          signal(i);
-          if (++signaled >= to_signal) {
-            break;
+        size_t signaled = 0;
+        // If we're not signaling all threads, we should dequeue according to
+        // score for fairness, but we're not for simplicity. This might be
+        // fine since update_max_running_queries should be a relatively rare
+        // operation, so we're still fair in steady state.
+        for (auto &q : ac_info->queues) {
+          while (q.waiting_queries() > 0) {
+            dequeue_and_run(q.queue.front()->thd, ac_info);
+            if (val && ++signaled >= val - old_val) {
+              break;
+            }
           }
         }
         mysql_mutex_unlock(&ac_info->lock);
@@ -289,6 +301,9 @@ public:
                        std::shared_ptr<Ac_info> ac_info);
   static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info);
   static void dequeue(THD *thd, std::shared_ptr<Ac_info> ac_info);
+  static void dequeue_and_run(THD *thd, std::shared_ptr<Ac_info> ac_info);
+
+  int update_queue_weights(char *str);
 
   ulonglong get_total_aborted_queries() const {
     return total_aborted_queries;

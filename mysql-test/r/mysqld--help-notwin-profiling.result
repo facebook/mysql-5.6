@@ -21,10 +21,19 @@ The following options may be given as the first argument:
  The legal values are: ALTER, BEGIN, COMMIT, CREATE,
  DELETE, DROP, INSERT, LOAD, SELECT, SET, REPLACE,
  ROLLBACK, TRUNCATE, UPDATE, SHOW and empty string
+ --admission-control-queue[=#] 
+ Determines which queue this request goes to during
+ admission control. Allowed values are 0-9, since only 10
+ queues are available.
  --admission-control-queue-timeout[=#] 
  Number of milliseconds to wait on admission control
  queue. 0 means immediate timeout. -1 means infinite
  timeout.
+ --admission-control-weights[=name] 
+ Determines the weight of each queue as a comma-separated
+ list of integers, where the nth number is the nth queue's
+ weight. The queue weight to total weight ratio determines
+ what fraction of the running pool a queue can use.
  --allow-document-type 
  Allows document type when parsing queries, creating and
  altering tables.
@@ -2117,7 +2126,9 @@ admin-port 0
 admin-users-list 
 admission-control-by-trx FALSE
 admission-control-filter 
+admission-control-queue 0
 admission-control-queue-timeout -1
+admission-control-weights (No default value)
 allow-document-type FALSE
 allow-multiple-engines FALSE
 allow-noncurrent-db-rw ON

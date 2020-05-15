@@ -107,6 +107,7 @@ SQL_TEXT
 CLIENT_ATTRIBUTES
 COLUMN_STATISTICS
 DATABASE_APPLIED_HLC
+ADMISSION_CONTROL_QUEUE
 columns_priv
 db
 event
@@ -952,7 +953,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	54
+information_schema	55
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1392,6 +1393,7 @@ and t.table_name not like 'innodb_%'
         and t.table_name not like 'rocksdb_%'
 group by t.table_name order by num1, t.table_name;
 table_name	group_concat(t.table_schema, '.', t.table_name)	num1
+ADMISSION_CONTROL_QUEUE	information_schema.ADMISSION_CONTROL_QUEUE	1
 AUTHINFO	information_schema.AUTHINFO	1
 CHARACTER_SETS	information_schema.CHARACTER_SETS	1
 CLIENT_ATTRIBUTES	information_schema.CLIENT_ATTRIBUTES	1

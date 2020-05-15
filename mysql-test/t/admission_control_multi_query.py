@@ -37,6 +37,10 @@ def parse_args():
         '--database',
         type=str,
         help='database to use')
+    parser.add_argument(
+        '--weighted-queues',
+        action="store_true",
+        help='use weighted queues')
 
     return parser.parse_args()
 
@@ -51,6 +55,13 @@ def generate_load(args, worker_id):
                           host=args.host,
                           port=args.port,
                           db=args.database)
+    if args.weighted_queues:
+        queue_id = worker_id % 2
+        print "WORKER %d: Using queue %d" % (worker_id, queue_id)
+        cursor = con.cursor()
+        cursor.execute('set admission_control_queue = %d;' % queue_id)
+        cursor.close()
+
     for i in xrange(NUM_TRANSACTIONS):
         try:
             print "WORKER %d: Executing iteration %d" % (worker_id, i)
