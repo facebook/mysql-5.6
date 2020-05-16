@@ -5,7 +5,7 @@
 #
 # Default is 5.6 - XtraBackup for MySQL version 5.6
 
-LIBS += -lpthread $(LDFLAGS)
+LIBS += -lpthread -latomic $(LDFLAGS)
 DEFS = -DUNIV_LINUX -DMYSQL_SERVER
 
 COMMON_FLAGS = -DXTRABACKUP_VERSION=\"$(XTRABACKUP_VERSION)\" -DXTRABACKUP -pedantic -Wall -Wundef -Wshadow  -fdiagnostics-show-option  -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Wformat -Wno-format-nonliteral -Wno-format-security -Wno-long-long  -Wno-redundant-decls
