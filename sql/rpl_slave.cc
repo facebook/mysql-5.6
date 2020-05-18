@@ -1054,6 +1054,10 @@ int raft_reset_slave(THD *thd)
   active_mi->port = 0;
   active_mi->inited= false;
   active_mi->rli->inited= false;
+  active_mi->flush_info(true);
+
+  // no longer a slave. will be set again during change master
+  is_slave = false;
 
   mysql_mutex_unlock(&LOCK_active_mi);
   DBUG_RETURN(error);
@@ -1075,6 +1079,10 @@ int raft_change_master(
   active_mi->port= master_instance.second;
   active_mi->set_auto_position(true);
   active_mi->inited= true;
+  active_mi->flush_info(true);
+
+  // changing to a slave. set the is_slave flag
+  is_slave = true;
 
 end:
   mysql_mutex_unlock(&LOCK_active_mi);
@@ -1119,7 +1127,7 @@ int rli_relay_log_raft_reset(
   if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
     sql_print_information(
         "Relay log info repository doesn't exists, creating one now");
-    if (global_init_info(mi, false, SLAVE_SQL, false)) {
+    if (global_init_info(mi, false, SLAVE_SQL | SLAVE_IO, false)) {
       sql_print_error("Failed to initialize the master info structure");
       error= 1;
       goto end;
