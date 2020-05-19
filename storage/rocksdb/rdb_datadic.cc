@@ -159,10 +159,9 @@ int Rdb_convert_to_record_key_decoder::decode(
     HA_EXIT_SUCCESS    OK
     other              HA_ERR error code
 */
-int Rdb_convert_to_record_key_decoder::skip(const Rdb_field_packing *fpi,
-                                            const Field *field,
-                                            Rdb_string_reader *reader,
-                                            Rdb_string_reader *unp_reader) {
+int Rdb_convert_to_record_key_decoder::skip(
+    const Rdb_field_packing *fpi, const Field *field, Rdb_string_reader *reader,
+    Rdb_string_reader *unp_reader, bool covered_bitmap_format_enabled) {
   /* It is impossible to unpack the column. Skip it. */
   if (fpi->m_maybe_null) {
     const char *nullp;
@@ -181,6 +180,7 @@ int Rdb_convert_to_record_key_decoder::skip(const Rdb_field_packing *fpi,
   if ((fpi->m_skip_func)(fpi, field, reader)) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
+
   // If this is a space padded varchar, we need to skip the indicator
   // bytes for trailing bytes. They're useless since we can't restore the
   // field anyway.
@@ -189,7 +189,7 @@ int Rdb_convert_to_record_key_decoder::skip(const Rdb_field_packing *fpi,
   // generate unpack info, because we know prefixed varchars cannot be
   // unpacked. In this case, it is not necessary to skip.
   if (fpi->m_skip_func == &Rdb_key_def::skip_variable_space_pad &&
-      !fpi->m_unpack_info_stores_value) {
+      !fpi->m_unpack_info_stores_value && !covered_bitmap_format_enabled) {
     unp_reader->read(fpi->m_unpack_info_uses_two_bytes ? 2 : 1);
   }
   return HA_EXIT_SUCCESS;
@@ -240,7 +240,6 @@ int Rdb_key_field_iterator::next() {
   int status = HA_EXIT_SUCCESS;
   while (m_iter_index < m_iter_end) {
     int curr_index = m_iter_index++;
-
     m_fpi = &m_pack_info[curr_index];
     /*
       Hidden pk field is packed at the end of the secondary keys, but the SQL
@@ -258,10 +257,10 @@ int Rdb_key_field_iterator::next() {
 
     m_field = m_fpi->get_field_in_table(m_table);
 
-    bool covered_column = true;
+    bool covered_column = (m_fpi->m_covered == Rdb_key_def::KEY_COVERED);
     if (m_covered_bitmap != nullptr &&
         Rdb_key_def::is_variable_length_field(m_field->real_type()) &&
-        !m_fpi->m_covered) {
+        m_fpi->m_covered == Rdb_key_def::KEY_MAY_BE_COVERED) {
       covered_column = m_curr_bitmap_pos < MAX_REF_PARTS &&
                        bitmap_is_set(m_covered_bitmap, m_curr_bitmap_pos++);
     }
@@ -276,8 +275,9 @@ int Rdb_key_field_iterator::next() {
       }
       break;
     } else {
-      status = Rdb_convert_to_record_key_decoder::skip(m_fpi, m_field, m_reader,
-                                                       m_unp_reader);
+      status = Rdb_convert_to_record_key_decoder::skip(
+          m_fpi, m_field, m_reader, m_unp_reader,
+          this->m_key_def->use_covered_bitmap_format());
       if (status) {
         return status;
       }
@@ -463,6 +463,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
     int unpack_len = 0;
     int max_part_len = 0;
     bool simulating_extkey = false;
+    bool store_covered_bitmap = false;
     uint dst_i = 0;
     uint max_blob_length = 0;
     uint keyno_to_set = m_keyno;
@@ -525,7 +526,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
         }
 
         max_len += m_pack_info[dst_i].m_max_image_len;
-
+        store_covered_bitmap |=
+            (m_pack_info[dst_i].m_covered == KEY_MAY_BE_COVERED);
         max_part_len =
             std::max(max_part_len, m_pack_info[dst_i].m_max_image_len);
 
@@ -574,6 +576,8 @@ void Rdb_key_def::setup(const TABLE *const tbl,
 
     m_key_parts = dst_i;
     m_max_blob_length = max_blob_length;
+    m_store_covered_bitmap =
+        store_covered_bitmap && use_covered_bitmap_format();
     /* Initialize the memory needed by the stats structure */
     m_stats.m_distinct_keys_per_prefix.resize(get_key_parts());
 
@@ -1115,7 +1119,7 @@ void Rdb_key_def::get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const {
 
     // Columns which are always covered are not stored in the covered bitmap so
     // we can ignore them here too.
-    if (m_pack_info[i].m_covered &&
+    if (m_pack_info[i].m_covered == KEY_COVERED &&
         bitmap_is_set(table->read_set, field->field_index)) {
       bitmap_set_bit(&maybe_covered_bitmap, field->field_index);
       continue;
@@ -1199,7 +1203,7 @@ bool Rdb_key_def::covers_lookup(const rocksdb::Slice *const unpack_info,
 /* Indicates that all key parts can be unpacked to cover a secondary lookup */
 bool Rdb_key_def::can_cover_lookup() const {
   for (uint i = 0; i < m_key_parts; i++) {
-    if (!m_pack_info[i].m_covered) return false;
+    if (m_pack_info[i].m_covered != KEY_COVERED) return false;
   }
   return true;
 }
@@ -1307,20 +1311,8 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
   if (n_null_fields) *n_null_fields = 0;
 
-  // Check if we need a covered bitmap. If it is certain that all key parts are
-  // covering, we don't need one.
-  bool store_covered_bitmap = false;
-  if (unpack_info && use_covered_bitmap_format()) {
-    for (uint i = 0; i < n_key_parts; i++) {
-      if (!m_pack_info[i].m_covered) {
-        store_covered_bitmap = true;
-        break;
-      }
-    }
-  }
-
-  const char tag =
-      store_covered_bitmap ? RDB_UNPACK_COVERED_DATA_TAG : RDB_UNPACK_DATA_TAG;
+  const char tag = m_store_covered_bitmap ? RDB_UNPACK_COVERED_DATA_TAG
+                                          : RDB_UNPACK_DATA_TAG;
 
   if (unpack_info) {
     unpack_info->clear();
@@ -1344,7 +1336,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     // we don't know the total length yet, so write a zero
     unpack_info->write_uint16(0);
 
-    if (store_covered_bitmap) {
+    if (m_store_covered_bitmap) {
       // Reserve two bytes for the covered bitmap. This will store, for key
       // parts which are not always covering, whether or not it is covering
       // for this record.
@@ -1382,9 +1374,10 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
                        unpack_info, n_null_fields);
 
     // If this key part is a prefix of a VARCHAR field, check if it's covered.
-    if (store_covered_bitmap &&
+    if (m_store_covered_bitmap &&
         Rdb_key_def::is_variable_length_field(field->real_type()) &&
-        !m_pack_info[i].m_covered && curr_bitmap_pos < MAX_REF_PARTS) {
+        m_pack_info[i].m_covered == KEY_MAY_BE_COVERED &&
+        curr_bitmap_pos < MAX_REF_PARTS) {
       if (m_pack_info[i].m_unpack_func != nullptr &&
           is_varlength_prefix_covering(field, &m_pack_info[i])) {
         bitmap_set_bit(&covered_bitmap, curr_bitmap_pos);
@@ -1410,7 +1403,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
     if (m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY) {
       if (len == get_unpack_header_size(tag) && !covered_bits) {
         unpack_info->truncate(unpack_start_pos);
-      } else if (store_covered_bitmap) {
+      } else if (m_store_covered_bitmap) {
         unpack_info->write_uint16_at(covered_bitmap_pos, covered_bits);
       }
     } else {
@@ -2754,6 +2747,12 @@ void Rdb_key_def::pack_with_varlength_space_pad(
   const size_t trimmed_len = charset->cset->lengthsp(
       charset, src, value_length);
 
+  // Max memcmp byte length with char_length() including space characters, in
+  // case we need to truncate for prefix keys
+  const size_t max_allowed_len = charset->cset->charpos(
+      charset, src, src + value_length,
+      fpi->m_max_field_bytes / fpi->m_varlength_charset->mbmaxlen);
+
   // Max memcmp byte length with char_length(), in case we need to truncate
   // for prefix keys
   const size_t max_xfrm_len = charset->cset->charpos(
@@ -2814,10 +2813,14 @@ void Rdb_key_def::pack_with_varlength_space_pad(
   }
 
 unpack_info:
-  // m_unpack_info_stores_value means unpack_info stores the whole original
-  // value. There is no need to store the number of trimmed/padded endspaces
-  // in that case.
-  if (unpack_info && !fpi->m_unpack_info_stores_value) {
+  /*
+   There is no need to store the number of trimmed/padded endspaces in below
+   cases : 1) m_unpack_info_stores_value means unpack_info stores the whole
+   original value 2) max_allowed_len < value_length i.e prefix key is not
+   covered and this is only used if m_use_covered_bitmap_format.
+  */
+  if (unpack_info && !fpi->m_unpack_info_stores_value &&
+      (max_allowed_len >= value_length || !fpi->m_use_covered_bitmap_format)) {
     // (value_length - trimmed_len) is the number of trimmed space *characters*
     // then, padding_bytes is the number of *bytes* added as padding
     // then, we add 8, because we don't store negative values.
@@ -3716,7 +3719,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                               const Field *const field, const uint keynr_arg,
                               const uint key_part_arg,
                               const uint16 key_length) {
-  int res = false;
   enum_field_types type = field ? field->real_type() : MYSQL_TYPE_LONGLONG;
 
   m_keynr = keynr_arg;
@@ -3736,6 +3738,9 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_use_space_pad_lead_byte =
       key_descr && key_descr->use_varchar_v2_encoding_format();
 
+  m_use_covered_bitmap_format =
+      key_descr && key_descr->use_covered_bitmap_format();
+
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len =
       field ? field->pack_length() : ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN;
@@ -3745,49 +3750,49 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_skip_func = Rdb_key_def::skip_max_length;
   m_pack_func = nullptr;
 
-  m_covered = false;
+  m_covered = Rdb_key_def::KEY_NOT_COVERED;
 
   switch (type) {
     case MYSQL_TYPE_LONGLONG:
       m_pack_func = Rdb_key_def::pack_integer<8>;
       m_unpack_func = Rdb_key_def::unpack_integer<8>;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_LONG:
       m_pack_func = Rdb_key_def::pack_integer<4>;
       m_unpack_func = Rdb_key_def::unpack_integer<4>;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_INT24:
       m_pack_func = Rdb_key_def::pack_integer<3>;
       m_unpack_func = Rdb_key_def::unpack_integer<3>;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_SHORT:
       m_pack_func = Rdb_key_def::pack_integer<2>;
       m_unpack_func = Rdb_key_def::unpack_integer<2>;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_TINY:
       m_pack_func = Rdb_key_def::pack_integer<1>;
       m_unpack_func = Rdb_key_def::unpack_integer<1>;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_DOUBLE:
       m_pack_func = Rdb_key_def::pack_double;
       m_unpack_func = Rdb_key_def::unpack_double;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_FLOAT:
       m_pack_func = Rdb_key_def::pack_float;
       m_unpack_func = Rdb_key_def::unpack_float;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_NEWDECIMAL:
@@ -3803,7 +3808,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       /* Everything that comes here is packed with just a memcpy(). */
       m_pack_func = Rdb_key_def::pack_binary_str;
       m_unpack_func = Rdb_key_def::unpack_binary_str;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_NEWDATE:
@@ -3813,7 +3818,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       */
       m_pack_func = Rdb_key_def::pack_newdate;
       m_unpack_func = Rdb_key_def::unpack_newdate;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_TINY_BLOB:
@@ -3856,14 +3861,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           DBUG_ASSERT(false);
           break;
       }
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
     }
 
     case MYSQL_TYPE_BIT:
       m_pack_func = Rdb_key_def::pack_bit;
       m_unpack_func = Rdb_key_def::unpack_bit;
-      m_covered = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
       return true;
 
     case MYSQL_TYPE_VARCHAR:
@@ -3931,7 +3936,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       m_unpack_func = is_varlength
                           ? Rdb_key_def::unpack_binary_or_utf8_varlength
                           : Rdb_key_def::unpack_binary_str;
-      res = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
     } else if (cs == &my_charset_latin1_bin || cs == &my_charset_utf8_bin) {
       // For _bin collations, mem-comparable form of the string is the string
       // itself.
@@ -3958,11 +3963,11 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                             ? Rdb_key_def::unpack_binary_str
                             : Rdb_key_def::unpack_utf8_str;
       }
-      res = true;
+      m_covered = Rdb_key_def::KEY_COVERED;
     } else {
       // This is [VAR]CHAR(n) and the collation is not $(charset_name)_bin
 
-      res = true;  // index-only scans are possible
+      m_covered = Rdb_key_def::KEY_COVERED;  // index-only scans are possible
       m_unpack_data_len = is_varlength ? 0 : field->field_length;
       const uint idx = is_varlength ? 0 : 1;
       const Rdb_collation_codec *codec = nullptr;
@@ -4025,7 +4030,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // Here, we just indicate to the SQL layer we can't do it.
         DBUG_ASSERT(m_unpack_func == nullptr);
         m_unpack_info_stores_value = false;
-        res = false;  // Indicate that index-only reads are not possible
+        m_covered = Rdb_key_def::KEY_NOT_COVERED;  // Indicate that index-only
+                                                   // reads are not possible
       }
     }
 
@@ -4041,7 +4047,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
     }
 
     if (field_length != key_length) {
-      res = false;
+      m_covered = Rdb_key_def::KEY_MAY_BE_COVERED;
       // If this index doesn't support covered bitmaps, then we won't know
       // during a read if the column is actually covered or not. If so, we need
       // to assume the column isn't covered and skip it during unpacking.
@@ -4054,12 +4060,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_unpack_func = nullptr;
         m_make_unpack_info_func = nullptr;
         m_unpack_info_stores_value = true;
+        m_covered = Rdb_key_def::KEY_NOT_COVERED;
       }
     }
   }
 
-  m_covered = res;
-  return res;
+  return m_covered == Rdb_key_def::KEY_COVERED;
 }
 
 Field *Rdb_field_packing::get_field_in_table(const TABLE *const tbl) const {
