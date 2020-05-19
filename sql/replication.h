@@ -570,12 +570,14 @@ int unregister_raft_replication_observer(
     Raft_replication_observer *observer, void *p);
 
 /**
- * Mark this GTID as logged in the rli
+ * Mark this GTID as logged in the rli and sets the master_log_file and
+ * master_log_pos in mi. Also, flushes the master.info file.
  * @retval 0 Success
  * @retval 1 Some failure
  */
-int add_gtid_to_rli(const std::string& gtid_s);
-
+int update_rli_and_mi(
+    const std::string& gtid_s,
+    const std::pair<const std::string, unsigned long long>& master_log_pos);
 /*
  * An enum to control what kind of registrations the
  * plugin needs from server.

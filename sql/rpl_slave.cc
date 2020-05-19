@@ -7741,17 +7741,36 @@ static int queue_old_event(Master_info *mi, const char *buf,
 Format_description_log_event s_fdle(4);
 
 /**
- *  * Mark this GTID as logged in the rli
- *   * @retval 0 Success
- *    * @retval 1 Some failure
+ * Mark this GTID as logged in the rli and set the master_log_file_name and
+ * master_log_file_pos in mi. Finally,  flushes the master.info file
  *
+ * @retval 0 Success
+ * @retval 1 Some failure
  */
-int add_gtid_to_rli(const std::string& gtid_s)
+int update_rli_and_mi(
+    const std::string& gtid_s,
+    const std::pair<const std::string, unsigned long long>& master_log_pos)
 {
   Master_info* mi= active_mi;
   Relay_log_info *rli= mi->rli;
   DBUG_ASSERT(mi != NULL && mi->rli != NULL);
   mysql_mutex_lock(&mi->data_lock);
+
+  // Update the master log file name in mi, if provided
+  if (!master_log_pos.first.empty()) {
+    mi->set_master_log_name(master_log_pos.first.c_str());
+  }
+  // Update the master log file pos in mi
+  mi->set_master_log_pos(master_log_pos.second);
+  // Flush the master.info file
+  mi->flush_info(false);
+
+  // It is possible that this call was only done to update the master_log_pos
+  // in which case an empty gtid would have been passed
+  if (!gtid_s.length()) {
+    mysql_mutex_unlock(&mi->data_lock);
+    return 0;
+  }
 
   global_sid_lock->rdlock();
   const char *buf = gtid_s.c_str();
