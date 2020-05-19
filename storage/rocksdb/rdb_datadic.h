@@ -56,7 +56,8 @@ class Rdb_convert_to_record_key_decoder {
                     Rdb_string_reader *reader,
                     Rdb_string_reader *unpack_reader);
   static int skip(const Rdb_field_packing *fpi, const Field *field,
-                  Rdb_string_reader *reader, Rdb_string_reader *unpack_reader);
+                  Rdb_string_reader *reader, Rdb_string_reader *unpack_reader,
+                  bool covered_bitmap_format_enabled);
 
  private:
   static int decode_field(Rdb_field_packing *fpi, Field *field,
@@ -594,6 +595,13 @@ class Rdb_key_def {
     SECONDARY_FORMAT_VERSION_LATEST = SECONDARY_FORMAT_VERSION_UPDATE4,
   };
 
+  // Stores if the secondary index keys are covered for index scans or not.
+  enum INDEX_KEY_TYPE {
+    KEY_COVERED = 1,
+    KEY_NOT_COVERED = 2,
+    KEY_MAY_BE_COVERED = 3,
+  };
+
   void setup(const TABLE *const table, const Rdb_tbl_def *const tbl_def);
 
   static uint extract_ttl_duration(const TABLE *const table_arg,
@@ -958,6 +966,9 @@ class Rdb_key_def {
   /* Maximum length of the mem-comparable form. */
   uint m_maxlength;
 
+  /* True if the index contains any key of type KEY_MAY_BE_COVERED */
+  bool m_store_covered_bitmap;
+
   /* mutex to protect setup */
   mysql_mutex_t m_mutex;
 };
@@ -1025,8 +1036,13 @@ class Rdb_field_packing {
 
   /*
     Use leading space byte in varchar encoding.
-   */
+  */
   bool m_use_space_pad_lead_byte;
+
+  /*
+    Use bitmap format for prefix indexes.
+  */
+  bool m_use_covered_bitmap_format;
 
   // (Valid when Variable Length Space Padded Encoding is used):
   uint m_segment_size;  // size of segment used
@@ -1036,11 +1052,14 @@ class Rdb_field_packing {
   bool m_unpack_info_uses_two_bytes;
 
   /*
-    True implies that an index-only read is always possible for this field.
-    False means an index-only read may be possible depending on the record and
-    field type.
+    Stores one of the below values depending upon if keys are covered for index
+    scans or not.
+
+    KEY_COVERED = 1 // an index-only read is always possible for this field.
+    KEY_NOT_COVERED = 2 // an index-only read is not possible for this field.
+    KEY_MAY_BE_COVERED = 3 // an index-only read may be possible for this field.
   */
-  bool m_covered;
+  Rdb_key_def::INDEX_KEY_TYPE m_covered;
 
   const std::vector<uchar> *space_xfrm;
   size_t space_xfrm_len;
