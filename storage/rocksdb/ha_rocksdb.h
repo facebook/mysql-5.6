@@ -420,6 +420,9 @@ class ha_rocksdb : public my_core::handler {
 
   int m_checksums_pct;
 
+  /* stores the count of index keys with checksum */
+  ha_rows m_validated_checksums = 0;
+
   ha_rocksdb(my_core::handlerton *const hton,
              my_core::TABLE_SHARE *const table_arg);
   virtual ~ha_rocksdb() override;

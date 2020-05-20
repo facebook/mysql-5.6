@@ -179,15 +179,19 @@ const size_t RDB_UNPACK_HEADER_SIZE =
     sizeof(RDB_UNPACK_DATA_TAG) + RDB_UNPACK_DATA_LEN_SIZE;
 
 /*
-  This header format is 1 tag-byte plus a two byte length field plus a two byte
-  covered bitmap. The length field includes the header size.
+  This header format is 1 tag-byte plus a two byte covered bitmap.
 */
 const char RDB_UNPACK_COVERED_DATA_TAG = 0x03;
-const size_t RDB_UNPACK_COVERED_DATA_LEN_SIZE = sizeof(uint16_t);
 const size_t RDB_COVERED_BITMAP_SIZE = sizeof(uint16_t);
 const size_t RDB_UNPACK_COVERED_HEADER_SIZE =
-    sizeof(RDB_UNPACK_COVERED_DATA_TAG) + RDB_UNPACK_COVERED_DATA_LEN_SIZE +
-    RDB_COVERED_BITMAP_SIZE;
+    sizeof(RDB_UNPACK_COVERED_DATA_TAG) + RDB_COVERED_BITMAP_SIZE;
+
+/*
+  Unpack data is variable length. The header is 1 tag-byte.
+*/
+const char RDB_UNPACK_DATA_WITHOUT_LEN_TAG = 0x04;
+const size_t RDB_UNPACK_DATA_WITHOUT_LEN_HEADER_SIZE =
+    sizeof(RDB_UNPACK_DATA_WITHOUT_LEN_TAG);
 
 /*
   Data dictionary index info field sizes.
@@ -272,7 +276,6 @@ class Rdb_key_def {
                     const rocksdb::Slice *const unpack_info,
                     const bool verify_row_debug_checksums) const;
 
-  static bool unpack_info_has_checksum(const rocksdb::Slice &unpack_info);
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t *const column_index) const;
 
@@ -822,7 +825,8 @@ class Rdb_key_def {
                                      Rdb_string_reader *const reader);
 
   static inline bool is_unpack_data_tag(char c) {
-    return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG;
+    return c == RDB_UNPACK_DATA_TAG || c == RDB_UNPACK_COVERED_DATA_TAG ||
+           c == RDB_UNPACK_DATA_WITHOUT_LEN_TAG;
   }
 
   inline bool use_varchar_v2_encoding_format() const {
