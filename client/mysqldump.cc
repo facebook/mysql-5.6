@@ -5683,7 +5683,7 @@ static bool add_set_gtid_purged(MYSQL *mysql_con,
     const char *comment_suffix = "";
     if (opt_set_gtid_purged_mode == SET_GTID_PURGED_COMMENTED) {
       comment_suffix = "*/";
-      fprintf(md_result_file, "/* SET @@GLOBAL.GTID_PURGED='+");
+      fprintf(md_result_file, "/* SET @@GLOBAL.GTID_PURGED='");
     } else {
       fprintf(md_result_file, "SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '");
     }
@@ -5754,20 +5754,20 @@ static bool process_set_gtid_purged(MYSQL *mysql_con,
        For any gtid_mode !=OFF and irrespective of --set-gtid-purged
        being AUTO or ON,  add GTID_PURGED in the output.
     */
-    if (opt_databases || !opt_alldbs || !opt_dump_triggers || !opt_routines ||
-        !opt_events) {
-      fprintf(stderr,
-              "Warning: A partial dump from a server that has GTIDs will "
-              "by default include the GTIDs of all transactions, even "
-              "those that changed suppressed parts of the database. If "
-              "you don't want to restore GTIDs, pass "
-              "--set-gtid-purged=OFF. To make a complete dump, pass "
-              "--all-databases --triggers --routines --events. \n");
-    }
-
     if (opt_set_gtid_purged_mode == SET_GTID_PURGED_ON ||
-        opt_set_gtid_purged_mode == SET_GTID_PURGED_AUTO)
+        opt_set_gtid_purged_mode == SET_GTID_PURGED_AUTO) {
+      if (opt_databases || !opt_alldbs || !opt_dump_triggers || !opt_routines ||
+          !opt_events) {
+        fprintf(stderr,
+                "Warning: A partial dump from a server that has GTIDs will "
+                "by default include the GTIDs of all transactions, even "
+                "those that changed suppressed parts of the database. If "
+                "you don't want to restore GTIDs, pass "
+                "--set-gtid-purged=OFF or COMMENTED. To make a complete dump,"
+                "pass --all-databases --triggers --routines --events. \n");
+      }
       set_session_binlog(false);
+    }
     if (add_set_gtid_purged(mysql_con, gtid_executed_set)) {
       mysql_free_result(gtid_mode_res);
       return true;
