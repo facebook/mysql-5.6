@@ -8872,7 +8872,7 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
       extra(HA_EXTRA_KEYREAD);
       ha_index_init(keyno, true);
       ha_rows rows = 0;
-      ha_rows checksums = 0;
+      m_validated_checksums = 0;
       if (first_index) {
         row_checksums_at_start = m_converter->get_row_checksums_checked();
       }
@@ -8899,11 +8899,6 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
         sec_key_copy.copy(key.data(), key.size(), &my_charset_bin);
         rowkey_copy.copy(m_last_rowkey.ptr(), m_last_rowkey.length(),
                          &my_charset_bin);
-
-        if (m_key_descr_arr[keyno]->unpack_info_has_checksum(
-                m_scan_it->value())) {
-          checksums++;
-        }
 
         if ((res = get_row_by_rowid(table->record[0], rowkey_copy.ptr(),
                                     rowkey_copy.length()))) {
@@ -8973,7 +8968,7 @@ int ha_rocksdb::check(THD *const thd MY_ATTRIBUTE((__unused__)),
       sql_print_information(
           "CHECKTABLE %s:   ... %lld index entries checked "
           "(%lld had checksums)",
-          table_name, rows, checksums);
+          table_name, rows, m_validated_checksums);
 
       if (first_index) {
         row_checksums =

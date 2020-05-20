@@ -1017,34 +1017,6 @@ uint Rdb_key_def::pack_index_tuple(TABLE *const tbl, uchar *const pack_buffer,
                      false, 0, n_used_parts);
 }
 
-/**
-  @brief
-    Check if "unpack info" data includes checksum.
-
-  @detail
-    This is used only by CHECK TABLE to count the number of rows that have
-    checksums.
-*/
-
-bool Rdb_key_def::unpack_info_has_checksum(const rocksdb::Slice &unpack_info) {
-  size_t size = unpack_info.size();
-  if (size == 0) {
-    return false;
-  }
-  const uchar *ptr = (const uchar *)unpack_info.data();
-
-  // Skip unpack info if present.
-  if (is_unpack_data_tag(ptr[0]) && size >= get_unpack_header_size(ptr[0])) {
-    const uint16 skip_len = rdb_netbuf_to_uint16(ptr + 1);
-    SHIP_ASSERT(size >= skip_len);
-
-    size -= skip_len;
-    ptr += skip_len;
-  }
-
-  return (size == RDB_CHECKSUM_CHUNK_SIZE && ptr[0] == RDB_CHECKSUM_DATA_TAG);
-}
-
 /*
   @return Number of bytes that were changed
 */
@@ -1085,7 +1057,8 @@ int Rdb_key_def::predecessor(uchar *const packed_tuple, const uint len) {
 
 static const std::map<char, size_t> UNPACK_HEADER_SIZES = {
     {RDB_UNPACK_DATA_TAG, RDB_UNPACK_HEADER_SIZE},
-    {RDB_UNPACK_COVERED_DATA_TAG, RDB_UNPACK_COVERED_HEADER_SIZE}};
+    {RDB_UNPACK_COVERED_DATA_TAG, RDB_UNPACK_COVERED_HEADER_SIZE},
+    {RDB_UNPACK_DATA_WITHOUT_LEN_TAG, RDB_UNPACK_DATA_WITHOUT_LEN_HEADER_SIZE}};
 
 /*
   @return The length in bytes of the header specified by the given tag
@@ -1194,8 +1167,7 @@ bool Rdb_key_def::covers_lookup(const rocksdb::Slice *const unpack_info,
   my_bitmap_map covered_bits;
   bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
   covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
-                                      sizeof(RDB_UNPACK_COVERED_DATA_TAG) +
-                                      RDB_UNPACK_COVERED_DATA_LEN_SIZE);
+                                      sizeof(RDB_UNPACK_COVERED_DATA_TAG));
 
   return bitmap_is_subset(lookup_bitmap, &covered_bitmap);
 }
@@ -1311,8 +1283,12 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
   if (n_null_fields) *n_null_fields = 0;
 
-  const char tag = m_store_covered_bitmap ? RDB_UNPACK_COVERED_DATA_TAG
-                                          : RDB_UNPACK_DATA_TAG;
+  char tag = RDB_UNPACK_DATA_TAG;
+
+  if (use_covered_bitmap_format()) {
+    tag = m_store_covered_bitmap ? RDB_UNPACK_COVERED_DATA_TAG
+                                 : RDB_UNPACK_DATA_WITHOUT_LEN_TAG;
+  }
 
   if (unpack_info) {
     unpack_info->clear();
@@ -1332,9 +1308,12 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
 
     unpack_start_pos = unpack_info->get_current_pos();
     unpack_info->write_uint8(tag);
-    unpack_len_pos = unpack_info->get_current_pos();
-    // we don't know the total length yet, so write a zero
-    unpack_info->write_uint16(0);
+
+    if (tag == RDB_UNPACK_DATA_TAG) {
+      unpack_len_pos = unpack_info->get_current_pos();
+      // we don't know the total length yet, so write a zero
+      unpack_info->write_uint16(0);
+    }
 
     if (m_store_covered_bitmap) {
       // Reserve two bytes for the covered bitmap. This will store, for key
@@ -1616,6 +1595,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   }
 
   // Reset the blob buffer required for unpacking.
+  auto handler = (ha_rocksdb *)table->file;
   if (this->m_max_blob_length) {
     auto handler = (ha_rocksdb *)table->file;
     if (handler->reset_blob_buffer(this->m_max_blob_length)) {
@@ -1631,8 +1611,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
   if (has_covered_bitmap) {
     bitmap_init(&covered_bitmap, &covered_bits, MAX_REF_PARTS, false);
     covered_bits = rdb_netbuf_to_uint16((const uchar *)unpack_header +
-                                        sizeof(RDB_UNPACK_COVERED_DATA_TAG) +
-                                        RDB_UNPACK_COVERED_DATA_LEN_SIZE);
+                                        sizeof(RDB_UNPACK_COVERED_DATA_TAG));
   }
 
   int err = HA_EXIT_SUCCESS;
@@ -1680,6 +1659,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
     } else {
       /* The checksums are present but we are not checking checksums */
     }
+    handler->m_validated_checksums++;
   }
 
   if (reader.remaining_bytes()) return HA_ERR_ROCKSDB_CORRUPT_DATA;
