@@ -56,10 +56,6 @@ typedef struct Trans_param {
   */
   const char *log_file;
   my_off_t log_pos;
-
-  /* Term and index that is passed across different raft plugins */
-  int64_t term;
-  int64_t index;
 } Trans_param;
 
 /**
@@ -136,9 +132,6 @@ typedef struct Binlog_storage_param {
   uint32 server_id;
   const char* host_or_ip;
 
-  /* Term and index that is passed across different raft plugins */
-  int64_t term= -1;
-  int64_t index= -1;
 } Binlog_storage_param;
 
 /**
@@ -414,6 +407,16 @@ typedef struct Binlog_relay_IO_observer {
 } Binlog_relay_IO_observer;
 
 /**
+  Raft replication observer parameter
+*/
+typedef struct Raft_replication_param {
+  uint32 server_id = 0;
+  const char* host_or_ip = nullptr;
+  int64_t term = -1;
+  int64_t index = -1;
+} Raft_replication_param;
+
+/**
    Observe special events for Raft replication to work
 */
 typedef struct Raft_replication_observer {
@@ -431,7 +434,7 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*before_commit)(Trans_param *param);
+  int (*before_commit)(Raft_replication_param *param);
 
   /**
      This callback is called before events of a txn are written to binlog file
@@ -443,7 +446,7 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*before_flush)(Binlog_storage_param *param, IO_CACHE* cache,
+  int (*before_flush)(Raft_replication_param *param, IO_CACHE* cache,
                       bool no_op);
 
   /**
@@ -503,7 +506,7 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*after_commit)(Trans_param *param);
+  int (*after_commit)(Raft_replication_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

@@ -257,17 +257,16 @@ void delegates_destroy()
 int Trans_delegate::before_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::before_commit");
-  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+  Trans_param param = { 0, 0, 0, 0, 0};
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
     param.flags = true;
 
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
-  thd->get_trans_marker(&param.term, &param.index);
 
-  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu, term: %ld, index: %ld",
-                       param.log_file, param.log_pos, param.term, param.index));
+  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu",
+                       param.log_file, param.log_pos));
 
   int ret= 0;
   FOREACH_OBSERVER(ret, before_commit, thd, (&param));
@@ -279,14 +278,13 @@ int Trans_delegate::before_commit(THD *thd, bool all)
 int Trans_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::after_commit");
-  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+  Trans_param param = { 0, 0, 0, 0, 0};
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
     param.flags = true;
 
   thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
-  thd->get_trans_marker(&param.term, &param.index);
 
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu", param.log_file, param.log_pos));
   DEBUG_SYNC(thd, "before_call_after_commit_observer");
@@ -298,7 +296,7 @@ int Trans_delegate::after_commit(THD *thd, bool all)
 
 int Trans_delegate::after_rollback(THD *thd, bool all)
 {
-  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+  Trans_param param = { 0, 0, 0, 0, 0};
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
@@ -331,12 +329,6 @@ int Binlog_storage_delegate::before_flush(THD *thd, IO_CACHE* io_cache)
   int ret= 0;
 
   FOREACH_OBSERVER(ret, before_flush, thd, (&param, io_cache));
-
-  DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
-
-  /* (term, index) will be used later in before_commit hook of trans
-   * observer */
-  thd->set_trans_marker(param.term, param.index);
 
   DBUG_RETURN(ret);
 }
@@ -563,7 +555,7 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
                                             bool no_op)
 {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
-  Binlog_storage_param param;
+  Raft_replication_param param;
 
   int ret= 0;
 
@@ -581,17 +573,11 @@ int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
 int Raft_replication_delegate::before_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Raft_replications_delegate::before_commit");
-  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
-  bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
+  Raft_replication_param param;
 
-  if (is_real_trans)
-    param.flags = true;
-
-  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   thd->get_trans_marker(&param.term, &param.index);
 
-  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu, term: %ld, index: %ld",
-                       param.log_file, param.log_pos, param.term, param.index));
+  DBUG_PRINT("enter", ("term: %ld, index: %ld", param.term, param.index));
 
   int ret= 0;
   FOREACH_OBSERVER(ret, before_commit, thd, (&param));
@@ -609,7 +595,8 @@ int Raft_replication_delegate::setup_flush(
     mysql_cond_t *update_cond, ulong *cur_log_ext, int context)
 {
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
-  Binlog_storage_param param;
+  Raft_replication_param param;
+
   int ret= 0;
 
   FOREACH_OBSERVER(ret, setup_flush, thd,
@@ -623,8 +610,8 @@ int Raft_replication_delegate::setup_flush(
 int Raft_replication_delegate::before_shutdown(THD *thd)
 {
   DBUG_ENTER("Raft_replication_delegate::before_shutdown");
-  Binlog_storage_param param;
   int ret= 0;
+  Raft_replication_param param;
 
   FOREACH_OBSERVER(ret, before_shutdown, thd, ());
 
@@ -639,8 +626,8 @@ int Raft_replication_delegate::register_paths(
     const std::string& s_hostname, uint64_t port)
 {
   DBUG_ENTER("Raft_replication_delegate::register_paths");
-  Binlog_storage_param param;
   int ret= 0;
+  Raft_replication_param param;
 
   FOREACH_OBSERVER(ret, register_paths, thd,
                   (&raft_listener_queue, s_uuid, wal_dir_parent,
@@ -653,7 +640,7 @@ int Raft_replication_delegate::register_paths(
 int Raft_replication_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Raft_replication_delegate::after_commit");
-  Trans_param param = { 0, 0, 0, 0, 0, -1, -1 };
+  Raft_replication_param param;
 
   thd->get_trans_marker(&param.term, &param.index);
 
