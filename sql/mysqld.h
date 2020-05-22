@@ -329,7 +329,6 @@ extern my_bool send_error_before_closing_timed_out_connection;
 extern my_bool allow_document_type;
 extern my_bool block_create_myisam;
 extern my_bool block_create_memory;
-extern my_bool block_create_no_primary_key;
 extern my_bool lower_case_file_system;
 extern ulonglong slave_rows_search_algorithms_options;
 #ifndef DBUG_OFF

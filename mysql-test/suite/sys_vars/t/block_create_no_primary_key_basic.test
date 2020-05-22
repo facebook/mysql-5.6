@@ -1,6 +1,7 @@
 -- source include/load_sysvars.inc
 
 SET @start_block_create_no_primary_key = @@global.block_create_no_primary_key;
+SET @start_block_create_no_primary_key_session = @@session.block_create_no_primary_key;
 SELECT @start_block_create_no_primary_key;
 
 SET @@global.block_create_no_primary_key = true;
@@ -18,7 +19,6 @@ SELECT @@global.block_create_no_primary_key;
 SET @@global.block_create_no_primary_key = 1;
 SELECT @@global.block_create_no_primary_key;
 SET @@global.block_create_no_primary_key = 0;
-
 SELECT @@global.block_create_no_primary_key;
 
 --Error ER_WRONG_VALUE_FOR_VAR
@@ -31,10 +31,22 @@ SELECT @@global.block_create_no_primary_key;
 SET @@global.block_create_no_primary_key = 1000.01;
 SELECT @@global.block_create_no_primary_key;
 
---ERROR ER_GLOBAL_VARIABLE
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@session.block_create_no_primary_key = 10;
---ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
 SELECT @@session.block_create_no_primary_key;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.block_create_no_primary_key = 1000.01;
+SELECT @@session.block_create_no_primary_key;
+
+SET @@global.block_create_no_primary_key = false;
+SELECT @@global.block_create_no_primary_key;
+SET @@global.block_create_no_primary_key = true;
+SELECT @@global.block_create_no_primary_key;
+
+SET @@global.block_create_no_primary_key = 1;
+SELECT @@global.block_create_no_primary_key;
+SET @@global.block_create_no_primary_key = 0;
+SELECT @@global.block_create_no_primary_key;
 
 SELECT @@global.block_create_no_primary_key = VARIABLE_VALUE
 FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
@@ -44,6 +56,8 @@ SELECT @@block_create_no_primary_key = VARIABLE_VALUE
 FROM INFORMATION_SCHEMA.SESSION_VARIABLES
 WHERE VARIABLE_NAME='block_create_no_primary_key';
 
-
 SET @@global.block_create_no_primary_key = @start_block_create_no_primary_key;
 SELECT @@global.block_create_no_primary_key;
+
+SET @@session.block_create_no_primary_key = @start_block_create_no_primary_key_session;
+SELECT @@session.block_create_no_primary_key;

@@ -107,7 +107,7 @@ static int mysql_prepare_create_table(
 static bool should_check_table_for_primary_key(
     THD *thd, HA_CREATE_INFO *create_info, const char *db_name)
 {
-  if (!block_create_no_primary_key ||
+  if (!thd->variables.block_create_no_primary_key ||
       (create_info->options & HA_LEX_CREATE_TMP_TABLE) ||
       strcmp(db_name, "mysql") == 0 ||
       strcmp(db_name, "mtr") == 0)

@@ -823,6 +823,8 @@ typedef struct system_variables
 
   long admission_control_queue_timeout;
   long admission_control_queue;
+
+  my_bool block_create_no_primary_key;
 } SV;
 
 

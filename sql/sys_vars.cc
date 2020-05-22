@@ -624,13 +624,6 @@ static Sys_var_mybool Sys_block_create_memory(
        GLOBAL_VAR(block_create_memory),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
-static Sys_var_mybool Sys_block_create_no_primary_key(
-       "block_create_no_primary_key",
-       "Block creation of non-temp tables without primary key outside of mysql"
-       "schema.",
-       GLOBAL_VAR(block_create_no_primary_key),
-       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
-
 static Sys_var_mybool Sys_disable_trigger(
        "disable_trigger",
        "Disable triggers for the session.",
@@ -859,6 +852,14 @@ static bool fix_binlog_format_after_update(sys_var *self, THD *thd,
     thd->reset_current_stmt_binlog_format_row();
   return false;
 }
+
+static Sys_var_mybool Sys_block_create_no_primary_key(
+       "block_create_no_primary_key",
+       "Block creation of non-temp tables without primary key outside of mysql"
+       "schema.",
+       SESSION_VAR(block_create_no_primary_key),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_has_super));
 
 my_bool opt_core_file = FALSE;
 static Sys_var_mybool Sys_core_file(

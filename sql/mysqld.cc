@@ -574,7 +574,6 @@ my_bool send_error_before_closing_timed_out_connection = TRUE;
 my_bool allow_document_type = FALSE;
 my_bool block_create_myisam = FALSE;
 my_bool block_create_memory = FALSE;
-my_bool block_create_no_primary_key = FALSE;
 my_bool read_only= 0, opt_readonly= 0;
 char* opt_read_only_error_msg_extra;
 my_bool skip_master_info_check_for_read_only_error_msg_extra;

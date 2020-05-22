@@ -36,11 +36,15 @@ SET sql_mode="";
 CREATE TABLE mysql_noeng_sub(a INT, b INT) ENGINE=BOGUS_ENGINE;
 ERROR HY000: Table without primary key cannot be created outside mysql schema.
 CREATE TABLE mysql_primkey5 LIKE mysql_primkey;
-SET @@global.block_create_no_primary_key = false;
+SET @@session.block_create_no_primary_key = false;
 CREATE TABLE mysql_no_primkey (a INT) ENGINE=ROCKSDB;
-SET @@global.block_create_no_primary_key = true;
+SET @@session.block_create_no_primary_key = true;
 CREATE TABLE mysql_block_no_primkey LIKE mysql_no_primkey;
 ERROR HY000: Table without primary key cannot be created outside mysql schema.
+SET @@global.block_create_no_primary_key = false;
+CREATE TABLE mysql_global_no_primkey LIKE mysql_no_primkey;
+ERROR HY000: Table without primary key cannot be created outside mysql schema.
+SET @@global.block_create_no_primary_key = true;
 DROP TABLE mysql_primkey;
 DROP TABLE mysql_primkey2;
 DROP TABLE mysql_primkey3;

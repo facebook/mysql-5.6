@@ -47,11 +47,18 @@ CREATE TABLE mysql_noeng_sub(a INT, b INT) ENGINE=BOGUS_ENGINE;
 
 CREATE TABLE mysql_primkey5 LIKE mysql_primkey;
 
-SET @@global.block_create_no_primary_key = false;
+SET @@session.block_create_no_primary_key = false;
 CREATE TABLE mysql_no_primkey (a INT) ENGINE=INNODB;
-SET @@global.block_create_no_primary_key = true;
+SET @@session.block_create_no_primary_key = true;
 -- error ER_BLOCK_NO_PRIMARY_KEY
 CREATE TABLE mysql_block_no_primkey LIKE mysql_no_primkey;
+
+# Confirm that changes to global variable do not apply to
+# current session.
+SET @@global.block_create_no_primary_key = false;
+-- error ER_BLOCK_NO_PRIMARY_KEY
+CREATE TABLE mysql_global_no_primkey LIKE mysql_no_primkey;
+SET @@global.block_create_no_primary_key = true;
 
 DROP TABLE temp_table;
 DROP TABLE mysql_primkey;
