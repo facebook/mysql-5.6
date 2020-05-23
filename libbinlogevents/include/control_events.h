@@ -736,6 +736,29 @@ class Metadata_event : public Binary_log_event {
   uint64_t get_prev_hlc_time() const;
 
   /**
+   * Get raft term
+   *
+   * @return raft_term if present. -1 otherwise
+   */
+  int64_t get_raft_term() const;
+
+  /**
+   * Get raft_index
+   *
+   * @return raft_index if present. -1 otherwise
+   */
+  int64_t get_raft_index() const;
+
+  /**
+   * Set raft_term and raft_index and update internal state needed later to
+   * write this to stream
+   *
+   * @param term - Raft term to sert
+   * @param index - Raft index to sert
+   */
+  void set_raft_term_and_index(int64_t term, int64_t index);
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -787,6 +810,13 @@ class Metadata_event : public Binary_log_event {
   /* Prev HLC timestamp. The type corresponding to this is PREV_HLC_TYPE. */
   uint64_t prev_hlc_time_ns_ = 0;
   static const uint32_t ENCODED_PREV_HLC_SIZE = sizeof(prev_hlc_time_ns_);
+
+  /* Raft (term, index). Written and interpreted by raft consensus plugin.
+   * The type corresponding to this is RAFT_TERM_INDEX_TYPE */
+  int64_t raft_term_ = -1;
+  int64_t raft_index_ = -1;
+  static const uint32_t ENCODED_RAFT_TERM_INDEX_SIZE =
+      sizeof(raft_term_) + sizeof(raft_index_);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
