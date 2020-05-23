@@ -16195,6 +16195,28 @@ uint64_t Metadata_log_event::get_prev_hlc_time()
   return prev_hlc_time_ns_;
 }
 
+void Metadata_log_event::set_raft_term_and_index(int64_t term, int64_t index)
+{
+  raft_term_= term;
+  raft_index_= index;
+
+  set_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE);
+
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+    (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_TERM_INDEX_SIZE);
+}
+
+int64_t Metadata_log_event::get_raft_term() const
+{
+  return raft_term_;
+}
+
+int64_t Metadata_log_event::get_raft_index() const
+{
+  return raft_index_;
+}
+
 uint Metadata_log_event::read_type(
     Metadata_log_event_types type, char const* buffer)
 {
@@ -16203,6 +16225,7 @@ uint Metadata_log_event::read_type(
 
   // Read the 'length' of the field's value
   uint value_length= uint2korr(buffer);
+  int64_t term= -1, index= -1;
 
   switch (type)
   {
@@ -16216,11 +16239,15 @@ uint Metadata_log_event::read_type(
       DBUG_ASSERT(value_length == 8);
       set_prev_hlc_time(uint8korr(buffer + ENCODED_LENGTH_SIZE));
       break;
+    case MLET::RAFT_TERM_INDEX_TYPE:
+      DBUG_ASSERT(value_length == ENCODED_RAFT_TERM_INDEX_SIZE);
+      term= uint8korr(buffer + ENCODED_LENGTH_SIZE);
+      index= uint8korr(buffer + ENCODED_LENGTH_SIZE + sizeof(raft_term_));
+      set_raft_term_and_index(term, index);
+      break;
     default:
       // This is a event which we do not know about. Just skip this
-      // NO_LINT_DEBUG
-      sql_print_information(
-          "Unknown field type %u. Skipping past this field.", (uint)type);
+      size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + value_length);
       break;
   }
 
@@ -16242,6 +16269,9 @@ bool Metadata_log_event::write_data_body(IO_CACHE *file)
     DBUG_RETURN(1);
 
   if (write_prev_hlc_time(file))
+    DBUG_RETURN(1);
+
+  if (write_raft_term_and_index(file))
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
@@ -16301,6 +16331,35 @@ bool Metadata_log_event::write_prev_hlc_time(IO_CACHE* file)
   DBUG_RETURN(ret);
 }
 
+bool Metadata_log_event::write_raft_term_and_index(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_term_and_index");
+
+  if (!does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
+    DBUG_RETURN(0); /* No need to write term and index */
+
+  char buffer[ENCODED_RAFT_TERM_INDEX_SIZE];
+  char* ptr_buffer= buffer;
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::RAFT_TERM_INDEX_TYPE,
+        sizeof(raft_term_) + sizeof(raft_index_)))
+  {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, raft_term_);
+  ptr_buffer+= sizeof(raft_term_);
+
+  int8store(ptr_buffer, raft_index_);
+  ptr_buffer+= sizeof(raft_index_);
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
 bool Metadata_log_event::write_type_and_length(
     IO_CACHE* file, Metadata_log_event_types type, uint32_t length)
 {
@@ -16384,6 +16443,11 @@ Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
       buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
     if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
       buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
+    if (does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
+      buffer.append(
+          "\tRaft term: " + std::to_string(raft_term_) +
+          ", Raft Index: " + std::to_string(raft_index_));
+
 
     print_header(head, print_event_info, FALSE);
     my_b_printf(head, "%s\n", buffer.c_str());
