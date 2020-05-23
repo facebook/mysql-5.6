@@ -3842,6 +3842,15 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   bool write_prev_hlc_time(Basic_ostream *ostream);
 
   /**
+   * Write raft term and index to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_term_and_index(Basic_ostream *ostream);
+
+  /**
    * Write type and length to file
    *
    * @param ostream - stream to write to

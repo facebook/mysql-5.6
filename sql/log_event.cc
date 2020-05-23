@@ -14072,6 +14072,9 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_prev_hlc_time(ostream)) DBUG_RETURN(1);
 
+  if (write_raft_term_and_index(ostream)) DBUG_RETURN(1);
+
+
   DBUG_RETURN(0);
 }
 
@@ -14118,6 +14121,35 @@ bool Metadata_log_event::write_prev_hlc_time(Basic_ostream *ostream) {
   DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
 
   bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_raft_term_and_index(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_term_and_index");
+
+  if (!does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+    DBUG_RETURN(0); /* No need to write term and index */
+  }
+
+  char buffer[ENCODED_RAFT_TERM_INDEX_SIZE];
+  char* ptr_buffer = buffer;
+
+  if (write_type_and_length(
+        ostream,
+        Metadata_event_types::RAFT_TERM_INDEX_TYPE,
+        sizeof(raft_term_) + sizeof(raft_index_))) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, raft_term_);
+  ptr_buffer += sizeof(raft_term_);
+
+  int8store(ptr_buffer, raft_index_);
+  ptr_buffer += sizeof(raft_index_);
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *) buffer, sizeof(buffer));
   DBUG_RETURN(ret);
 }
 
@@ -14191,6 +14223,11 @@ void Metadata_log_event::print(FILE * /* file */,
       buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
     if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
       buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
+    if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE))
+      buffer.append(
+          "\tRaft term: " + std::to_string(raft_term_) +
+          ", Raft Index: " + std::to_string(raft_index_));
+
 
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());

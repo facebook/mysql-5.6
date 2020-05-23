@@ -428,6 +428,21 @@ void Metadata_event::set_prev_hlc_time(uint64_t prev_hlc_time_ns) {
 
 uint64_t Metadata_event::get_prev_hlc_time() const { return prev_hlc_time_ns_; }
 
+void Metadata_event::set_raft_term_and_index(int64_t term, int64_t index) {
+  raft_term_ = term;
+  raft_index_ = index;
+
+  set_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE);
+
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+    (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_TERM_INDEX_SIZE);
+}
+
+int64_t Metadata_event::get_raft_term() const { return raft_term_; }
+
+int64_t Metadata_event::get_raft_index() const {  return raft_index_; }
+
 uint Metadata_event::read_type(Metadata_event_types type) {
   BAPI_ENTER("Metadata_event::read_type");
   using MET = Metadata_event_types;
@@ -436,6 +451,7 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   uint value_length = 0;
   uint64_t hlc_time = 0;
   uint64_t prev_hlc_time = 0;
+  int64_t term= -1, index= -1;
 
   READER_TRY_SET(value_length, read<uint16_t>);
 
@@ -452,9 +468,16 @@ uint Metadata_event::read_type(Metadata_event_types type) {
       READER_TRY_SET(prev_hlc_time, read_and_letoh<uint64_t>);
       set_prev_hlc_time(prev_hlc_time);
       break;
+    case MET::RAFT_TERM_INDEX_TYPE:
+      DBUG_ASSERT(value_length == ENCODED_RAFT_TERM_INDEX_SIZE);
+      READER_TRY_SET(term, read_and_letoh<int64_t>);
+      READER_TRY_SET(index, read_and_letoh<int64_t>);
+      set_raft_term_and_index(term, index);
+      break;
     default:
       // This is a event which we do not know about. Just skip this
-      READER_CALL(go_to, READER_CALL(position) - value_length);
+      READER_CALL(ptr, value_length);
+      size_ += (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + value_length);
       break;
   }
 
