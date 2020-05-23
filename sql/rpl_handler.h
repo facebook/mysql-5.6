@@ -35,6 +35,8 @@
 #include "mysql/psi/mysql_rwlock.h"
 #include "sql/sql_list.h"        // List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
+#include "replication.h"
+#include "raft_listener_queue_if.h"
 
 class Master_info;
 class String;
@@ -88,7 +90,7 @@ class Delegate {
       iter.remove();
       delete info;
     } else
-      ret = true;
+      ret= MYSQL_REPLICATION_OBSERVER_NOT_FOUND;
     unlock();
     return ret;
   }
@@ -265,6 +267,42 @@ class Binlog_relay_IO_delegate : public Delegate {
   void init_param(Binlog_relay_IO_param *param, Master_info *mi);
 };
 
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
+#endif
+
+class Raft_replication_delegate
+  :public Delegate {
+public:
+
+  Raft_replication_delegate()
+  : Delegate(
+#ifdef HAVE_PSI_INTERFACE
+             key_rwlock_Raft_replication_delegate_lock
+#endif
+             )
+  {}
+
+  typedef Raft_replication_observer Observer;
+  int before_flush(THD *thd, IO_CACHE* io_cache, bool no_op);
+  int before_commit(THD *thd);
+
+  int setup_flush(THD *thd, bool is_relay_log,
+                  IO_CACHE* log_file_cache,
+                  const char *log_prefix, const char *log_name,
+                  mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
+                  mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
+
+  int before_shutdown(THD *thd);
+  int register_paths(THD *thd, const std::string& s_uuid,
+                     const std::string& wal_dir_parent,
+                     const std::string& log_dir_parent,
+                     const std::string& raft_log_path_prefix,
+                     const std::string& s_hostname,
+                     uint64_t port);
+  int after_commit(THD *thd);
+};
+
 int delegates_init();
 void delegates_destroy();
 
@@ -273,6 +311,7 @@ extern Binlog_storage_delegate *binlog_storage_delegate;
 extern Server_state_delegate *server_state_delegate;
 extern Binlog_transmit_delegate *binlog_transmit_delegate;
 extern Binlog_relay_IO_delegate *binlog_relay_io_delegate;
+extern Raft_replication_delegate *raft_replication_delegate;
 
 /*
   if there is no observers in the delegate, we can return 0
@@ -286,3 +325,48 @@ extern Binlog_relay_IO_delegate *binlog_relay_io_delegate;
 int launch_hook_trans_begin(THD *thd, TABLE_LIST *table);
 
 #endif /* RPL_HANDLER_H */
+
+class RaftListenerQueue : public RaftListenerQueueIf
+{
+ public:
+  explicit RaftListenerQueue()
+  {
+    inited_.store(false);
+  }
+
+  ~RaftListenerQueue();
+
+  /* Init the queue, this will create a listening thread for this queue
+   *
+   * @return 0 on success, 1 on error
+   */
+  int init();
+
+  /* Deinit the queue. This will add an exit event into the queue which will
+   * be picked up by any listening thread and it will stop listening */
+  void deinit();
+
+  /* Add an element to the queue. This will signal any listening threads
+   * after adding the element to the queue
+   *
+   * @param element QueueElement to add to queue
+   *
+   * @return 0 on success, 1 on error
+   */
+  int add(QueueElement element);
+
+  /* Get an element from the queue. This will block if there are no elements
+   * in the queue to be processed
+   *
+   * @return QueueElement to be processed next
+   */
+  QueueElement get();
+
+ private:
+  std::mutex queue_mutex_; // Lock guarding the queue
+  std::condition_variable queue_cv_; // CV to wait and signal
+  std::queue<QueueElement> queue_; // The queue of events to be processed
+
+  std::mutex init_mutex_; // Mutex to guard against init and deinit races
+  std::atomic_bool inited_; // Has this been inited?
+};
