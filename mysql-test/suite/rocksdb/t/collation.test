@@ -142,12 +142,12 @@ CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=roc
 
 # test allowing alters to create temporary tables
 SET GLOBAL rocksdb_strict_collation_exceptions='t1';
-CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 ALTER TABLE t1 AUTO_INCREMENT=1;
 DROP TABLE t1;
 --error ER_UNSUPPORTED_COLLATION
-CREATE TABLE t2 (id INT primary key, value varchar(50), index(value)) engine=rocksdb;
-CREATE TABLE t2 (id INT primary key, value varchar(50)) engine=rocksdb;
+CREATE TABLE t2 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+CREATE TABLE t2 (id INT primary key, value varchar(50)) engine=rocksdb charset utf8;
 --error ER_UNSUPPORTED_COLLATION
 ALTER TABLE t2 ADD INDEX(value);
 DROP TABLE t2;

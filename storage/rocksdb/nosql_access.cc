@@ -350,10 +350,10 @@ class select_parser {
 
       auto field_type = field->real_type();
       if (field_type == MYSQL_TYPE_VARCHAR &&
-          field->charset() != &my_charset_utf8_bin &&
-          field->charset() != &my_charset_latin1_bin) {
+          rdb_is_binary_collation(field->charset())) {
         m_error_msg =
-            "only utf8_bin, latin1_bin is supported for varchar field";
+            "only utf8_bin, utf8mb4_bin, latin1_bin is supported for varchar "
+            "field";
         return true;
       }
 

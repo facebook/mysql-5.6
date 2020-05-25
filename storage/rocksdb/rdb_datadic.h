@@ -678,14 +678,14 @@ class Rdb_key_def {
                                Rdb_string_reader *const unp_reader
                                    MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_binary_or_utf8_varchar(
+  static int unpack_binary_varchar(
       Rdb_field_packing *const fpi, Field *const field, uchar *dst,
       Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_binary_or_utf8_varchar_space_pad(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader);
+  static rdb_index_field_unpack_t unpack_binary_varchar_space_pad;
+  static rdb_index_field_unpack_t unpack_utf8_varchar_space_pad;
+  static rdb_index_field_unpack_t unpack_utf8mb4_varchar_space_pad;
 
   static int unpack_newdate(
       Rdb_field_packing *const fpi,
@@ -693,10 +693,8 @@ class Rdb_key_def {
       Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_utf8_str(Rdb_field_packing *const fpi, Field *const field,
-                             uchar *dst, Rdb_string_reader *const reader,
-                             Rdb_string_reader *const unp_reader
-                                 MY_ATTRIBUTE((__unused__)));
+  static rdb_index_field_unpack_t unpack_utf8_str;
+  static rdb_index_field_unpack_t unpack_utf8mb4_str;
 
   static int unpack_unknown_varchar(Rdb_field_packing *const fpi,
                                     Field *const field, uchar *dst,
@@ -1700,5 +1698,8 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
     return rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(s.data()));
   }
 };
+
+bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs);
+bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs);
 
 }  // namespace myrocks

@@ -1,0 +1,220 @@
+CREATE TABLE collations AS SELECT * FROM information_schema.COLLATION_CHARACTER_SET_APPLICABILITY WHERE COLLATION_NAME NOT IN ("latin2_czech_cs", "cp1250_czech_cs") ORDER BY COLLATION_NAME;
+CharSet, Collate, Char Extra, VarChar Extra
+armscii8, armscii8_bin, Using index, Using index
+armscii8, armscii8_general_ci, Using index, Using index
+ascii, ascii_bin, Using index, Using index
+ascii, ascii_general_ci, Using index, Using index
+big5, big5_bin, NULL, NULL
+big5, big5_chinese_ci, NULL, NULL
+binary, binary, Using index, Using index
+cp1250, cp1250_bin, Using index, Using index
+cp1250, cp1250_croatian_ci, Using index, Using index
+cp1250, cp1250_general_ci, Using index, Using index
+cp1250, cp1250_polish_ci, Using index, Using index
+cp1251, cp1251_bin, Using index, Using index
+cp1251, cp1251_bulgarian_ci, Using index, Using index
+cp1251, cp1251_general_ci, Using index, Using index
+cp1251, cp1251_general_cs, Using index, Using index
+cp1251, cp1251_ukrainian_ci, Using index, Using index
+cp1256, cp1256_bin, Using index, Using index
+cp1256, cp1256_general_ci, Using index, Using index
+cp1257, cp1257_bin, Using index, Using index
+cp1257, cp1257_general_ci, Using index, Using index
+cp1257, cp1257_lithuanian_ci, Using index, Using index
+cp850, cp850_bin, Using index, Using index
+cp850, cp850_general_ci, Using index, Using index
+cp852, cp852_bin, Using index, Using index
+cp852, cp852_general_ci, Using index, Using index
+cp866, cp866_bin, Using index, Using index
+cp866, cp866_general_ci, Using index, Using index
+cp932, cp932_bin, NULL, NULL
+cp932, cp932_japanese_ci, NULL, NULL
+dec8, dec8_bin, Using index, Using index
+dec8, dec8_swedish_ci, Using index, Using index
+eucjpms, eucjpms_bin, NULL, NULL
+eucjpms, eucjpms_japanese_ci, NULL, NULL
+euckr, euckr_bin, NULL, NULL
+euckr, euckr_korean_ci, NULL, NULL
+gb2312, gb2312_bin, NULL, NULL
+gb2312, gb2312_chinese_ci, NULL, NULL
+gbk, gbk_bin, NULL, NULL
+gbk, gbk_chinese_ci, NULL, NULL
+geostd8, geostd8_bin, Using index, Using index
+geostd8, geostd8_general_ci, Using index, Using index
+greek, greek_bin, Using index, Using index
+greek, greek_general_ci, Using index, Using index
+hebrew, hebrew_bin, Using index, Using index
+hebrew, hebrew_general_ci, Using index, Using index
+hp8, hp8_bin, Using index, Using index
+hp8, hp8_english_ci, Using index, Using index
+keybcs2, keybcs2_bin, Using index, Using index
+keybcs2, keybcs2_general_ci, Using index, Using index
+koi8r, koi8r_bin, Using index, Using index
+koi8r, koi8r_general_ci, Using index, Using index
+koi8u, koi8u_bin, Using index, Using index
+koi8u, koi8u_general_ci, Using index, Using index
+latin1, latin1_bin, Using index, Using index
+latin1, latin1_danish_ci, Using index, Using index
+latin1, latin1_general_ci, Using index, Using index
+latin1, latin1_general_cs, Using index, Using index
+latin1, latin1_german1_ci, Using index, Using index
+latin1, latin1_german2_ci, NULL, NULL
+latin1, latin1_spanish_ci, Using index, Using index
+latin1, latin1_swedish_ci, Using index, Using index
+latin2, latin2_bin, Using index, Using index
+latin2, latin2_croatian_ci, Using index, Using index
+latin2, latin2_general_ci, Using index, Using index
+latin2, latin2_hungarian_ci, Using index, Using index
+latin5, latin5_bin, Using index, Using index
+latin5, latin5_turkish_ci, Using index, Using index
+latin7, latin7_bin, Using index, Using index
+latin7, latin7_estonian_cs, Using index, Using index
+latin7, latin7_general_ci, Using index, Using index
+latin7, latin7_general_cs, Using index, Using index
+macce, macce_bin, Using index, Using index
+macce, macce_general_ci, Using index, Using index
+macroman, macroman_bin, Using index, Using index
+macroman, macroman_general_ci, Using index, Using index
+sjis, sjis_bin, NULL, NULL
+sjis, sjis_japanese_ci, NULL, NULL
+swe7, swe7_bin, Using index, Using index
+swe7, swe7_swedish_ci, Using index, Using index
+tis620, tis620_bin, Using index, Using index
+tis620, tis620_thai_ci, NULL, NULL
+ucs2, ucs2_bin, NULL, NULL
+ucs2, ucs2_croatian_ci, NULL, NULL
+ucs2, ucs2_czech_ci, NULL, NULL
+ucs2, ucs2_danish_ci, NULL, NULL
+ucs2, ucs2_esperanto_ci, NULL, NULL
+ucs2, ucs2_estonian_ci, NULL, NULL
+ucs2, ucs2_general_ci, NULL, NULL
+ucs2, ucs2_general_mysql500_ci, NULL, NULL
+ucs2, ucs2_german2_ci, NULL, NULL
+ucs2, ucs2_hungarian_ci, NULL, NULL
+ucs2, ucs2_icelandic_ci, NULL, NULL
+ucs2, ucs2_latvian_ci, NULL, NULL
+ucs2, ucs2_lithuanian_ci, NULL, NULL
+ucs2, ucs2_persian_ci, NULL, NULL
+ucs2, ucs2_polish_ci, NULL, NULL
+ucs2, ucs2_romanian_ci, NULL, NULL
+ucs2, ucs2_roman_ci, NULL, NULL
+ucs2, ucs2_sinhala_ci, NULL, NULL
+ucs2, ucs2_slovak_ci, NULL, NULL
+ucs2, ucs2_slovenian_ci, NULL, NULL
+ucs2, ucs2_spanish2_ci, NULL, NULL
+ucs2, ucs2_spanish_ci, NULL, NULL
+ucs2, ucs2_swedish_ci, NULL, NULL
+ucs2, ucs2_turkish_ci, NULL, NULL
+ucs2, ucs2_unicode_520_ci, NULL, NULL
+ucs2, ucs2_unicode_ci, NULL, NULL
+ucs2, ucs2_vietnamese_ci, NULL, NULL
+ujis, ujis_bin, NULL, NULL
+ujis, ujis_japanese_ci, NULL, NULL
+utf16le, utf16le_bin, NULL, NULL
+utf16le, utf16le_general_ci, NULL, NULL
+utf16, utf16_bin, NULL, NULL
+utf16, utf16_croatian_ci, NULL, NULL
+utf16, utf16_czech_ci, NULL, NULL
+utf16, utf16_danish_ci, NULL, NULL
+utf16, utf16_esperanto_ci, NULL, NULL
+utf16, utf16_estonian_ci, NULL, NULL
+utf16, utf16_general_ci, NULL, NULL
+utf16, utf16_german2_ci, NULL, NULL
+utf16, utf16_hungarian_ci, NULL, NULL
+utf16, utf16_icelandic_ci, NULL, NULL
+utf16, utf16_latvian_ci, NULL, NULL
+utf16, utf16_lithuanian_ci, NULL, NULL
+utf16, utf16_persian_ci, NULL, NULL
+utf16, utf16_polish_ci, NULL, NULL
+utf16, utf16_romanian_ci, NULL, NULL
+utf16, utf16_roman_ci, NULL, NULL
+utf16, utf16_sinhala_ci, NULL, NULL
+utf16, utf16_slovak_ci, NULL, NULL
+utf16, utf16_slovenian_ci, NULL, NULL
+utf16, utf16_spanish2_ci, NULL, NULL
+utf16, utf16_spanish_ci, NULL, NULL
+utf16, utf16_swedish_ci, NULL, NULL
+utf16, utf16_turkish_ci, NULL, NULL
+utf16, utf16_unicode_520_ci, NULL, NULL
+utf16, utf16_unicode_ci, NULL, NULL
+utf16, utf16_vietnamese_ci, NULL, NULL
+utf32, utf32_bin, NULL, NULL
+utf32, utf32_croatian_ci, NULL, NULL
+utf32, utf32_czech_ci, NULL, NULL
+utf32, utf32_danish_ci, NULL, NULL
+utf32, utf32_esperanto_ci, NULL, NULL
+utf32, utf32_estonian_ci, NULL, NULL
+utf32, utf32_general_ci, NULL, NULL
+utf32, utf32_german2_ci, NULL, NULL
+utf32, utf32_hungarian_ci, NULL, NULL
+utf32, utf32_icelandic_ci, NULL, NULL
+utf32, utf32_latvian_ci, NULL, NULL
+utf32, utf32_lithuanian_ci, NULL, NULL
+utf32, utf32_persian_ci, NULL, NULL
+utf32, utf32_polish_ci, NULL, NULL
+utf32, utf32_romanian_ci, NULL, NULL
+utf32, utf32_roman_ci, NULL, NULL
+utf32, utf32_sinhala_ci, NULL, NULL
+utf32, utf32_slovak_ci, NULL, NULL
+utf32, utf32_slovenian_ci, NULL, NULL
+utf32, utf32_spanish2_ci, NULL, NULL
+utf32, utf32_spanish_ci, NULL, NULL
+utf32, utf32_swedish_ci, NULL, NULL
+utf32, utf32_turkish_ci, NULL, NULL
+utf32, utf32_unicode_520_ci, NULL, NULL
+utf32, utf32_unicode_ci, NULL, NULL
+utf32, utf32_vietnamese_ci, NULL, NULL
+utf8mb4, utf8mb4_bin, Using index, Using index
+utf8mb4, utf8mb4_croatian_ci, NULL, NULL
+utf8mb4, utf8mb4_czech_ci, NULL, NULL
+utf8mb4, utf8mb4_danish_ci, NULL, NULL
+utf8mb4, utf8mb4_esperanto_ci, NULL, NULL
+utf8mb4, utf8mb4_estonian_ci, NULL, NULL
+utf8mb4, utf8mb4_general_ci, NULL, NULL
+utf8mb4, utf8mb4_german2_ci, NULL, NULL
+utf8mb4, utf8mb4_hungarian_ci, NULL, NULL
+utf8mb4, utf8mb4_icelandic_ci, NULL, NULL
+utf8mb4, utf8mb4_latvian_ci, NULL, NULL
+utf8mb4, utf8mb4_lithuanian_ci, NULL, NULL
+utf8mb4, utf8mb4_persian_ci, NULL, NULL
+utf8mb4, utf8mb4_polish_ci, NULL, NULL
+utf8mb4, utf8mb4_romanian_ci, NULL, NULL
+utf8mb4, utf8mb4_roman_ci, NULL, NULL
+utf8mb4, utf8mb4_sinhala_ci, NULL, NULL
+utf8mb4, utf8mb4_slovak_ci, NULL, NULL
+utf8mb4, utf8mb4_slovenian_ci, NULL, NULL
+utf8mb4, utf8mb4_spanish2_ci, NULL, NULL
+utf8mb4, utf8mb4_spanish_ci, NULL, NULL
+utf8mb4, utf8mb4_swedish_ci, NULL, NULL
+utf8mb4, utf8mb4_turkish_ci, NULL, NULL
+utf8mb4, utf8mb4_unicode_520_ci, NULL, NULL
+utf8mb4, utf8mb4_unicode_ci, NULL, NULL
+utf8mb4, utf8mb4_vietnamese_ci, NULL, NULL
+utf8, utf8_bin, Using index, Using index
+utf8, utf8_croatian_ci, NULL, NULL
+utf8, utf8_czech_ci, NULL, NULL
+utf8, utf8_danish_ci, NULL, NULL
+utf8, utf8_esperanto_ci, NULL, NULL
+utf8, utf8_estonian_ci, NULL, NULL
+utf8, utf8_general_ci, NULL, NULL
+utf8, utf8_general_mysql500_ci, NULL, NULL
+utf8, utf8_german2_ci, NULL, NULL
+utf8, utf8_hungarian_ci, NULL, NULL
+utf8, utf8_icelandic_ci, NULL, NULL
+utf8, utf8_latvian_ci, NULL, NULL
+utf8, utf8_lithuanian_ci, NULL, NULL
+utf8, utf8_persian_ci, NULL, NULL
+utf8, utf8_polish_ci, NULL, NULL
+utf8, utf8_romanian_ci, NULL, NULL
+utf8, utf8_roman_ci, NULL, NULL
+utf8, utf8_sinhala_ci, NULL, NULL
+utf8, utf8_slovak_ci, NULL, NULL
+utf8, utf8_slovenian_ci, NULL, NULL
+utf8, utf8_spanish2_ci, NULL, NULL
+utf8, utf8_spanish_ci, NULL, NULL
+utf8, utf8_swedish_ci, NULL, NULL
+utf8, utf8_turkish_ci, NULL, NULL
+utf8, utf8_unicode_520_ci, NULL, NULL
+utf8, utf8_unicode_ci, NULL, NULL
+utf8, utf8_vietnamese_ci, NULL, NULL
+DROP TABLE collations;

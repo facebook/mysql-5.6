@@ -2098,14 +2098,15 @@ int Rdb_key_def::unpack_binary_str(
 
 /*
   Function of type rdb_index_field_unpack_t.
-  For UTF-8, we need to convert 2-byte wide-character entities back into
+  For UTF-8, we need to convert 2- or 3-byte wide-character entities back into
   UTF8 sequences.
 */
 
-int Rdb_key_def::unpack_utf8_str(
-    Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-    Rdb_string_reader *const reader,
-    Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
+template <const int bytes>
+int unpack_utf8_str_templ(Rdb_field_packing *const fpi, Field *const field,
+                          uchar *dst, Rdb_string_reader *const reader,
+                          Rdb_string_reader *const unp_reader
+                              MY_ATTRIBUTE((__unused__))) {
   my_core::CHARSET_INFO *const cset = (my_core::CHARSET_INFO *)field->charset();
   const uchar *src;
   if (!(src = (const uchar *)reader->read(fpi->m_max_image_len))) {
@@ -2117,10 +2118,11 @@ int Rdb_key_def::unpack_utf8_str(
   uchar *const dst_end = dst + field->pack_length();
 
   while (src < src_end) {
-    my_wc_t wc = (src[0] << 8) | src[1];
-    src += 2;
+    my_wc_t wc = (bytes == 3) ? (src[0] << 16) | (src[1] << 8) | src[2]
+                              : (src[0] << 8) | src[1];
+    src += bytes;
     int res = cset->cset->wc_mb(cset, wc, dst, dst_end);
-    DBUG_ASSERT(res > 0 && res <= 3);
+    DBUG_ASSERT(res > 0 && res <= bytes + 1);
     if (res < 0) return UNPACK_FAILURE;
     dst += res;
   }
@@ -2129,6 +2131,11 @@ int Rdb_key_def::unpack_utf8_str(
                    cset->pad_char);
   return UNPACK_SUCCESS;
 }
+
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8mb4_str =
+    unpack_utf8_str_templ<3>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8_str =
+    unpack_utf8_str_templ<2>;
 
 /*
   This is the original algorithm to encode a variable binary field.  It
@@ -2471,34 +2478,56 @@ uint Rdb_key_def::calc_unpack_variable_format(uchar flag, bool *done) {
   return RDB_ESCAPE_LENGTH - 1;
 }
 
+template <const int bytes>
+bool check_src_len(uint src_len);
+
+template <>
+bool check_src_len<2>(uint src_len) {
+  if (src_len & 1) {
+    /*
+      utf8mb3 characters are encoded into two-byte entities. There is no way
+      we can have an odd number of bytes after encoding.
+    */
+    return false;
+  }
+  return true;
+}
+
+template <>
+bool check_src_len<3>(uint src_len) {
+  if (src_len % 3) {
+    /*
+      utf8mb4 characters are encoded into three-byte entities. There is no way
+      we can have 1 or 2 bytes after encoding.
+    */
+    return false;
+  }
+  return true;
+}
+
 /*
   Unpack data that has charset information.  Each two bytes of the input is
   treated as a wide-character and converted to its multibyte equivalent in
   the output.
  */
-static int unpack_charset(
-    const CHARSET_INFO *cset,  // character set information
-    const uchar *src,          // source data to unpack
-    uint src_len,              // length of source data
-    uchar *dst,                // destination of unpacked data
-    uint dst_len,              // length of destination data
-    uint *used_bytes)          // output number of bytes used
+template <const int bytes>
+int unpack_charset(const CHARSET_INFO *cset,  // character set information
+                   const uchar *src,          // source data to unpack
+                   uint src_len,              // length of source data
+                   uchar *dst,                // destination of unpacked data
+                   uint dst_len,              // length of destination data
+                   uint *used_bytes)          // output number of bytes used
 {
-  if (src_len & 1) {
-    /*
-      UTF-8 characters are encoded into two-byte entities. There is no way
-      we can have an odd number of bytes after encoding.
-    */
-    return UNPACK_FAILURE;
-  }
+  if (!check_src_len<bytes>(src_len)) return UNPACK_FAILURE;
 
   uchar *dst_end = dst + dst_len;
   uint used = 0;
 
-  for (uint ii = 0; ii < src_len; ii += 2) {
-    my_wc_t wc = (src[ii] << 8) | src[ii + 1];
+  for (uint i = 0; i < src_len; i += bytes) {
+    my_wc_t wc = (bytes == 3) ? (src[i] << 16) | (src[i + 1] << 8) | src[i + 2]
+                              : (src[i] << 8) | src[i + 1];
     int res = cset->cset->wc_mb(cset, wc, dst + used, dst_end);
-    DBUG_ASSERT(res > 0 && res <= 3);
+    DBUG_ASSERT(res > 0 && res <= bytes + 1);
     if (res < 0) {
       return UNPACK_FAILURE;
     }
@@ -2514,10 +2543,11 @@ static int unpack_charset(
   Function of type rdb_index_field_unpack_t
 */
 
-int Rdb_key_def::unpack_binary_or_utf8_varchar(
+int Rdb_key_def::unpack_binary_varchar(
     Rdb_field_packing *const fpi, Field *const field, uchar *dst,
     Rdb_string_reader *const reader,
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(fpi->m_varchar_charset == &my_charset_bin);
   const uchar *ptr;
   size_t len = 0;
   bool finished = false;
@@ -2549,15 +2579,7 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar(
     /*
       Now, we need to decode used_bytes of data and append them to the value.
     */
-    if (fpi->m_varchar_charset == &my_charset_utf8_bin) {
-      int err = unpack_charset(fpi->m_varchar_charset, ptr, used_bytes, dst,
-                               dst_len, &used_bytes);
-      if (err != UNPACK_SUCCESS) {
-        return err;
-      }
-    } else {
-      memcpy(dst, ptr, used_bytes);
-    }
+    memcpy(dst, ptr, used_bytes);
 
     dst += used_bytes;
     dst_len -= used_bytes;
@@ -2589,7 +2611,8 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar(
     charsets.
     skip_variable_space_pad - skip function
 */
-int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
+template <const int bytes>
+int unpack_binary_or_utf8_varchar_space_pad(
     Rdb_field_packing *const fpi, Field *const field, uchar *dst,
     Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader) {
   const uchar *ptr;
@@ -2638,23 +2661,18 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
     }
 
     // Now, need to decode used_bytes of data and append them to the value.
-    if (fpi->m_varchar_charset == &my_charset_utf8_bin) {
-      if (used_bytes & 1) {
-        /*
-          UTF-8 characters are encoded into two-byte entities. There is no way
-          we can have an odd number of bytes after encoding.
-        */
-        return UNPACK_FAILURE;
-      }
+    if (bytes > 1) {
+      if (!check_src_len<bytes>(used_bytes)) return UNPACK_FAILURE;
 
       const uchar *src = ptr;
       const uchar *const src_end = ptr + used_bytes;
       while (src < src_end) {
-        my_wc_t wc = (src[0] << 8) | src[1];
-        src += 2;
+        my_wc_t wc = (bytes == 3) ? (src[0] << 16) | (src[1] << 8) | src[2]
+                                  : (src[0] << 8) | src[1];
+        src += bytes;
         const CHARSET_INFO *cset = fpi->m_varchar_charset;
         int res = cset->cset->wc_mb(cset, wc, dst, dst_end);
-        DBUG_ASSERT(res <= 3);
+        DBUG_ASSERT(res <= bytes + 1);
         if (res <= 0) return UNPACK_FAILURE;
         dst += res;
         len += res;
@@ -2689,6 +2707,13 @@ int Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad(
   }
   return UNPACK_SUCCESS;
 }
+
+rdb_index_field_unpack_t Rdb_key_def::unpack_binary_varchar_space_pad =
+    unpack_binary_or_utf8_varchar_space_pad<1>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8_varchar_space_pad =
+    unpack_binary_or_utf8_varchar_space_pad<2>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8mb4_varchar_space_pad =
+    unpack_binary_or_utf8_varchar_space_pad<3>;
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -3090,8 +3115,13 @@ std::array<const Rdb_collation_codec *, MY_ALL_CHARSETS_SIZE>
     rdb_collation_data;
 mysql_mutex_t rdb_collation_data_mutex;
 
-static bool rdb_is_collation_supported(const my_core::CHARSET_INFO *const cs) {
+bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs) {
   return (cs->coll == &my_collation_8bit_simple_ci_handler);
+}
+
+bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs) {
+  return (cs->coll == &my_collation_8bit_bin_handler) ||
+         (cs == &my_charset_utf8mb4_bin) || (cs == &my_charset_utf8_bin);
 }
 
 static const Rdb_collation_codec *rdb_init_collation_mapping(
@@ -3099,7 +3129,7 @@ static const Rdb_collation_codec *rdb_init_collation_mapping(
   DBUG_ASSERT(cs && cs->state & MY_CS_AVAILABLE);
   const Rdb_collation_codec *codec = rdb_collation_data[cs->number];
 
-  if (codec == nullptr && rdb_is_collation_supported(cs)) {
+  if (codec == nullptr && rdb_is_simple_collation(cs)) {
     RDB_MUTEX_LOCK_CHECK(rdb_collation_data_mutex);
 
     codec = rdb_collation_data[cs->number];
@@ -3107,37 +3137,32 @@ static const Rdb_collation_codec *rdb_init_collation_mapping(
       Rdb_collation_codec *cur = nullptr;
 
       // Compute reverse mapping for simple collations.
-      if (cs->coll == &my_collation_8bit_simple_ci_handler) {
-        cur = new Rdb_collation_codec;
-        std::map<uchar, std::vector<uchar>> rev_map;
-        size_t max_conflict_size = 0;
-        for (int src = 0; src < 256; src++) {
-          uchar dst = cs->sort_order[src];
-          rev_map[dst].push_back(src);
-          max_conflict_size = std::max(max_conflict_size, rev_map[dst].size());
-        }
-        cur->m_dec_idx.resize(max_conflict_size);
-
-        for (auto const &p : rev_map) {
-          uchar dst = p.first;
-          for (uint idx = 0; idx < p.second.size(); idx++) {
-            uchar src = p.second[idx];
-            uchar bits =
-                my_bit_log2(my_round_up_to_next_power(p.second.size()));
-            cur->m_enc_idx[src] = idx;
-            cur->m_enc_size[src] = bits;
-            cur->m_dec_size[dst] = bits;
-            cur->m_dec_idx[idx][dst] = src;
-          }
-        }
-
-        cur->m_make_unpack_info_func = {Rdb_key_def::make_unpack_simple_varchar,
-                                        Rdb_key_def::make_unpack_simple};
-        cur->m_unpack_func = {Rdb_key_def::unpack_simple_varchar_space_pad,
-                              Rdb_key_def::unpack_simple};
-      } else {
-        // Out of luck for now.
+      cur = new Rdb_collation_codec;
+      std::map<uchar, std::vector<uchar>> rev_map;
+      size_t max_conflict_size = 0;
+      for (int src = 0; src < 256; src++) {
+        uchar dst = cs->sort_order[src];
+        rev_map[dst].push_back(src);
+        max_conflict_size = std::max(max_conflict_size, rev_map[dst].size());
       }
+      cur->m_dec_idx.resize(max_conflict_size);
+
+      for (auto const &p : rev_map) {
+        uchar dst = p.first;
+        for (uint idx = 0; idx < p.second.size(); idx++) {
+          uchar src = p.second[idx];
+          uchar bits = my_bit_log2(my_round_up_to_next_power(p.second.size()));
+          cur->m_enc_idx[src] = idx;
+          cur->m_enc_size[src] = bits;
+          cur->m_dec_size[dst] = bits;
+          cur->m_dec_idx[idx][dst] = src;
+        }
+      }
+
+      cur->m_make_unpack_info_func = {Rdb_key_def::make_unpack_simple_varchar,
+                                      Rdb_key_def::make_unpack_simple};
+      cur->m_unpack_func = {Rdb_key_def::unpack_simple_varchar_space_pad,
+                            Rdb_key_def::unpack_simple};
 
       if (cur != nullptr) {
         codec = cur;
@@ -3354,10 +3379,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       // - For VARBINARY(N), values may have different lengths, so we're using
       //   variable-length encoding. This is also the only charset where the
       //   values are not space-padded for comparison.
-      m_unpack_func = is_varchar ? Rdb_key_def::unpack_binary_or_utf8_varchar
+      DBUG_ASSERT((is_varchar &&
+                   m_pack_func == Rdb_key_def::pack_with_varchar_encoding) ||
+                  m_pack_func == Rdb_key_def::pack_with_make_sort_key);
+      DBUG_ASSERT(m_make_unpack_info_func == nullptr);
+      m_unpack_func = is_varchar ? Rdb_key_def::unpack_binary_varchar
                                  : Rdb_key_def::unpack_binary_str;
       res = true;
-    } else if (cs == &my_charset_latin1_bin || cs == &my_charset_utf8_bin) {
+    } else if (rdb_is_binary_collation(cs)) {
       // For _bin collations, mem-comparable form of the string is the string
       // itself.
 
@@ -3365,7 +3394,13 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // VARCHARs - are compared as if they were space-padded - but are
         // not actually space-padded (reading the value back produces the
         // original value, without the padding)
-        m_unpack_func = Rdb_key_def::unpack_binary_or_utf8_varchar_space_pad;
+        m_unpack_func =
+            (cs == &my_charset_utf8mb4_bin)
+                ? Rdb_key_def::unpack_utf8mb4_varchar_space_pad
+                : (cs == &my_charset_utf8_bin)
+                      ? Rdb_key_def::unpack_utf8_varchar_space_pad
+                      : Rdb_key_def::unpack_binary_varchar_space_pad;
+
         m_skip_func = Rdb_key_def::skip_variable_space_pad;
         m_pack_func = Rdb_key_def::pack_with_varchar_space_pad;
         m_make_unpack_info_func = Rdb_key_def::dummy_make_unpack_info;
@@ -3378,9 +3413,13 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       } else {
         // SQL layer pads CHAR(N) values to their maximum length.
         // We just store that and restore it back.
-        m_unpack_func = (cs == &my_charset_latin1_bin)
-                            ? Rdb_key_def::unpack_binary_str
-                            : Rdb_key_def::unpack_utf8_str;
+        DBUG_ASSERT(m_pack_func == Rdb_key_def::pack_with_make_sort_key);
+        DBUG_ASSERT(m_make_unpack_info_func == nullptr);
+        m_unpack_func = (cs == &my_charset_utf8mb4_bin)
+                            ? Rdb_key_def::unpack_utf8mb4_str
+                            : (cs == &my_charset_utf8_bin)
+                                  ? Rdb_key_def::unpack_utf8_str
+                                  : Rdb_key_def::unpack_binary_str;
       }
       res = true;
     } else {

@@ -211,7 +211,7 @@ ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index or
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
 ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t3 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
-ERROR 42000: SELECT statement pattern not supported: only utf8_bin, latin1_bin is supported for varchar field
+ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	0
