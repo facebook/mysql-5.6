@@ -1251,11 +1251,14 @@ void warn_about_deprecated_binary(THD *thd)
 /*
   Here is an intentional gap in token numbers.
 
-  Token numbers starting 1000 till NOT_A_TOKEN_SYM are occupied by:
+  Token numbers starting 1000 till YYUNDEF are occupied by:
   1. hint terminals (see sql_hints.yy),
   2. digest special internal token numbers (see gen_lex_token.cc, PART 6).
+
+  Note: YYUNDEF in internal to Bison. Please don't change its number, or change
+  it in sync with YYUNDEF in sql_hints.yy.
 */
-%token NOT_A_TOKEN_SYM 1150                             /* INTERNAL */
+%token YYUNDEF 1150                /* INTERNAL (for use in the lexer) */
 
 
 /*
