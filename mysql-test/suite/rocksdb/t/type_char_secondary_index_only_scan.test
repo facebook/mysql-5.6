@@ -1,0 +1,52 @@
+# 1. Find all collations that support index-only scans with secondary
+#    keys using the "Extra" field from "EXPLAIN SELECT"
+# 2. Verify if the original string is reconstructed correctly from SK
+#    (or from PK when index-only scans with SK are not supported)
+
+--source include/have_rocksdb.inc
+
+CALL mtr.add_suppression("MyRocks will handle this collation internally as if it had a NO_PAD attribute");
+CALL mtr.add_suppression("RocksDB: you're trying to create an index with a multi-level collation");
+
+CREATE TABLE collations AS SELECT * FROM information_schema.COLLATION_CHARACTER_SET_APPLICABILITY ORDER BY COLLATION_NAME;
+
+--echo CharSet, Collate, Char Extra, VarChar Extra
+--disable_query_log
+--let $i=1
+--let $collate = query_get_value(select * from collations, COLLATION_NAME, $i)
+while ($collate != 'No such row')
+{
+  --let $charset = query_get_value(select * from collations, CHARACTER_SET_NAME, $i)
+  --let table_name=t_$charset
+  if ($charset == "binary")
+  {
+    --eval CREATE TABLE $table_name (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, vch VARBINARY(64), ch BINARY(64), KEY vch_idx (vch), KEY ch_idx (ch)) ENGINE=rocksdb
+  }
+  if ($charset != "binary")
+  {
+    --eval CREATE TABLE $table_name (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, vch VARCHAR(64), ch CHAR(64), KEY vch_idx (vch), KEY ch_idx (ch)) ENGINE=rocksdb CHARSET $charset COLLATE $collate
+  }
+  --eval INSERT INTO $table_name (vch, ch) VALUES('VARCHAR', 'char')
+  --let $vch_extra = query_get_value(EXPLAIN SELECT vch FROM $table_name, Extra, 1)
+  --let $ch_extra = query_get_value(EXPLAIN SELECT ch FROM $table_name, Extra, 1)
+  --echo $charset, $collate, $ch_extra, $vch_extra
+  --let $ch_value = query_get_value(SELECT ch FROM $table_name, ch, 1)
+  --let $vch_value = query_get_value(SELECT vch FROM $table_name, vch, 1)
+  if ($ch_value != "char")
+  {
+    --echo ERROR for $charset, $collate: \$ch_value=$ch_value, \$vch_value=$vch_value
+    --die
+  }
+  if ($vch_value != "VARCHAR")
+  {
+    --echo ERROR for $charset, $collate: \$ch_value=$ch_value, \$vch_value=$vch_value
+    --die
+  }
+  --eval DROP TABLE $table_name
+
+  --inc $i
+  --let $collate=query_get_value(select * from collations, COLLATION_NAME, $i)
+}
+--enable_query_log
+
+DROP TABLE collations;

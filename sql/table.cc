@@ -751,7 +751,10 @@ void setup_key_part_field(TABLE_SHARE *share, handler *handler_file,
   } else if (part_of_key_not_extended) {
     field->part_of_prefixkey.set_bit(key_n);
   }
-  if ((handler_file->index_flags(key_n, key_part_n, 0) & HA_KEYREAD_ONLY) &&
+
+  /* call index_flags() only after all key parts were processed */
+  if ((key_part_n == keyinfo->actual_key_parts - 1) &&
+      (handler_file->index_flags(key_n, key_part_n, 0) & HA_KEYREAD_ONLY) &&
       field->type() != MYSQL_TYPE_GEOMETRY) {
     // Set the key as 'keys_for_keyread' even if it is prefix key.
     share->keys_for_keyread.set_bit(key_n);
