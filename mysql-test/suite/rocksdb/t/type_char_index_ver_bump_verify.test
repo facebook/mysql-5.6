@@ -10,7 +10,7 @@
 
 --source include/upgrade_from_prev_ver_suppressions.inc
 call mtr.add_suppression("RocksDB: you're trying to create an index with a multi-level collation");
-call mtr.add_suppression("MyRocks will handle this collation internally  as if it had a NO_PAD attribute.");
+call mtr.add_suppression("MyRocks will handle this collation internally as if it had a NO_PAD attribute.");
 
 
 --let $ADDITIONAL_OPTS=
