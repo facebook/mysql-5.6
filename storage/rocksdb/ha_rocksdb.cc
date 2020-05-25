@@ -7785,7 +7785,8 @@ int ha_rocksdb::rdb_error_to_mysql(const rocksdb::Status &s,
 
 /* MyRocks supports only the following collations for indexed columns */
 static const std::set<const my_core::CHARSET_INFO *> RDB_INDEX_COLLATIONS = {
-    &my_charset_bin, &my_charset_utf8mb3_bin, &my_charset_latin1_bin};
+    &my_charset_bin, &my_charset_utf8mb3_bin, &my_charset_utf8mb4_bin,
+    &my_charset_latin1_bin};
 
 static bool rdb_is_index_collation_supported(
     const my_core::Field *const field) {
@@ -7793,8 +7794,10 @@ static bool rdb_is_index_collation_supported(
   /* Handle [VAR](CHAR|BINARY) or TEXT|BLOB */
   if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_STRING ||
       type == MYSQL_TYPE_BLOB) {
-    return RDB_INDEX_COLLATIONS.find(field->charset()) !=
-           RDB_INDEX_COLLATIONS.end();
+    return rdb_is_simple_collation(field->charset()) ||
+           rdb_is_binary_collation(field->charset()) ||
+           RDB_INDEX_COLLATIONS.find(field->charset()) !=
+               RDB_INDEX_COLLATIONS.end();
   }
   return true;
 }

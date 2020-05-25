@@ -2507,14 +2507,15 @@ void Rdb_key_def::pack_string(
 
 /*
   Function of type rdb_index_field_unpack_t.
-  For UTF-8, we need to convert 2-byte wide-character entities back into
+  For UTF-8, we need to convert 2- or 3-byte wide-character entities back into
   UTF8 sequences.
 */
 
-int Rdb_key_def::unpack_utf8_str(
-    Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-    Rdb_string_reader *const reader,
-    Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
+template <const int bytes>
+int unpack_utf8_str_templ(Rdb_field_packing *const fpi, Field *const field,
+                          uchar *dst, Rdb_string_reader *const reader,
+                          Rdb_string_reader *const unp_reader
+                              MY_ATTRIBUTE((__unused__))) {
   my_core::CHARSET_INFO *const cset = (my_core::CHARSET_INFO *)field->charset();
   const uchar *src;
   if (!(src = (const uchar *)reader->read(fpi->m_max_image_len))) {
@@ -2526,10 +2527,11 @@ int Rdb_key_def::unpack_utf8_str(
   uchar *const dst_end = dst + field->pack_length();
 
   while (src < src_end) {
-    my_wc_t wc = (src[0] << 8) | src[1];
-    src += 2;
+    my_wc_t wc = (bytes == 3) ? (src[0] << 16) | (src[1] << 8) | src[2]
+                              : (src[0] << 8) | src[1];
+    src += bytes;
     int res = cset->cset->wc_mb(cset, wc, dst, dst_end);
-    assert(res > 0 && res <= 3);
+    assert(res > 0 && res <= bytes + 1);
     if (res < 0) return UNPACK_FAILURE;
     dst += res;
   }
@@ -2538,6 +2540,11 @@ int Rdb_key_def::unpack_utf8_str(
                    cset->pad_char);
   return UNPACK_SUCCESS;
 }
+
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8mb4_str =
+    unpack_utf8_str_templ<3>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8_str =
+    unpack_utf8_str_templ<2>;
 
 /*
   This is the new algorithm.  Similarly to the legacy format the input
@@ -2990,53 +2997,42 @@ bool Rdb_key_def::is_variable_length_field(const enum_field_types type) {
   return type == MYSQL_TYPE_VARCHAR || is_blob(type);
 }
 
-/*
-  Unpack data that has charset information.  Each two bytes of the input is
-  treated as a wide-character and converted to its multibyte equivalent in
-  the output.
- */
-static int unpack_charset(
-    const CHARSET_INFO *cset,  // character set information
-    const uchar *src,          // source data to unpack
-    uint src_len,              // length of source data
-    uchar *dst,                // destination of unpacked data
-    uint dst_len,              // length of destination data
-    uint *used_bytes)          // output number of bytes used
-{
+template <const int bytes>
+bool check_src_len(uint src_len);
+
+template <>
+bool check_src_len<2>(uint src_len) {
   if (src_len & 1) {
     /*
-      UTF-8 characters are encoded into two-byte entities. There is no way
+      utf8mb3 characters are encoded into two-byte entities. There is no way
       we can have an odd number of bytes after encoding.
     */
-    return UNPACK_FAILURE;
+    return false;
   }
+  return true;
+}
 
-  uchar *dst_end = dst + dst_len;
-  uint used = 0;
-
-  for (uint ii = 0; ii < src_len; ii += 2) {
-    my_wc_t wc = (src[ii] << 8) | src[ii + 1];
-    int res = cset->cset->wc_mb(cset, wc, dst + used, dst_end);
-    assert(res > 0 && res <= 3);
-    if (res < 0) {
-      return UNPACK_FAILURE;
-    }
-
-    used += res;
+template <>
+bool check_src_len<3>(uint src_len) {
+  if (src_len % 3) {
+    /*
+      utf8mb4 characters are encoded into three-byte entities. There is no way
+      we can have 1 or 2 bytes after encoding.
+    */
+    return false;
   }
-
-  *used_bytes = used;
-  return UNPACK_SUCCESS;
+  return true;
 }
 
 /*
   Function of type rdb_index_field_unpack_t
 */
-int Rdb_key_def::unpack_binary_or_utf8_varlength(
+int Rdb_key_def::unpack_binary_varlength(
     Rdb_field_packing *const fpi, Field *const field,
     uchar *dst MY_ATTRIBUTE((__unused__)), Rdb_string_reader *const reader,
     Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__))) {
   assert(field->field_ptr() == dst);
+  assert(fpi->m_varlength_charset == &my_charset_bin);
   const uchar *ptr;
   size_t len = 0;
   bool finished = false;
@@ -3059,15 +3055,7 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength(
     /*
       Now, we need to decode used_bytes of data and append them to the value.
     */
-    if (fpi->m_varlength_charset == &my_charset_utf8mb3_bin) {
-      int err = unpack_charset(fpi->m_varlength_charset, ptr, used_bytes, data,
-                               data_len, &used_bytes);
-      if (err != UNPACK_SUCCESS) {
-        return err;
-      }
-    } else {
-      memcpy(data, ptr, used_bytes);
-    }
+    memcpy(data, ptr, used_bytes);
 
     data += used_bytes;
     data_len -= used_bytes;
@@ -3092,6 +3080,8 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength(
     charsets.
     skip_variable_space_pad - skip function
 */
+
+template <const int bytes>
 int Rdb_key_def::unpack_binary_or_utf8_varlength_space_pad(
     Rdb_field_packing *const fpi, Field *const field,
     uchar *dst MY_ATTRIBUTE((__unused__)), Rdb_string_reader *const reader,
@@ -3150,23 +3140,18 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength_space_pad(
     }
 
     // Now, need to decode used_bytes of data and append them to the value.
-    if (fpi->m_varlength_charset == &my_charset_utf8mb3_bin) {
-      if (used_bytes & 1) {
-        /*
-          UTF-8 characters are encoded into two-byte entities. There is no way
-          we can have an odd number of bytes after encoding.
-        */
-        return UNPACK_FAILURE;
-      }
+    if (bytes > 1) {
+      if (!check_src_len<bytes>(used_bytes)) return UNPACK_FAILURE;
 
       const uchar *src = ptr;
       const uchar *const src_end = ptr + used_bytes;
       while (src < src_end) {
-        my_wc_t wc = (src[0] << 8) | src[1];
-        src += 2;
+        my_wc_t wc = (bytes == 3) ? (src[0] << 16) | (src[1] << 8) | src[2]
+                                  : (src[0] << 8) | src[1];
+        src += bytes;
         const CHARSET_INFO *cset = fpi->m_varlength_charset;
         int res = cset->cset->wc_mb(cset, wc, data, data_end);
-        assert(res <= 3);
+        assert(res <= bytes + 1);
         if (res <= 0) return UNPACK_FAILURE;
         data += res;
         len += res;
@@ -3195,6 +3180,13 @@ finished:
   store_field(data_start, len, field);
   return UNPACK_SUCCESS;
 }
+
+rdb_index_field_unpack_t Rdb_key_def::unpack_binary_varlength_space_pad =
+    unpack_binary_or_utf8_varlength_space_pad<1>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8_varlength_space_pad =
+    unpack_binary_or_utf8_varlength_space_pad<2>;
+rdb_index_field_unpack_t Rdb_key_def::unpack_utf8mb4_varlength_space_pad =
+    unpack_binary_or_utf8_varlength_space_pad<3>;
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -3614,8 +3606,13 @@ Rds_mysql_mutex rdb_collation_data_mutex;
 std::array<const Rdb_collation_codec *, MY_ALL_CHARSETS_SIZE>
     rdb_collation_data;
 
-static bool rdb_is_collation_supported(const my_core::CHARSET_INFO *const cs) {
+bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs) {
   return (cs->coll == &my_collation_8bit_simple_ci_handler);
+}
+
+bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs) {
+  return (cs->coll == &my_collation_8bit_bin_handler) ||
+         (cs == &my_charset_utf8mb4_bin) || (cs == &my_charset_utf8mb3_bin);
 }
 
 static const Rdb_collation_codec *rdb_init_collation_mapping(
@@ -3623,7 +3620,7 @@ static const Rdb_collation_codec *rdb_init_collation_mapping(
   assert(cs && cs->state & MY_CS_AVAILABLE);
   const Rdb_collation_codec *codec = rdb_collation_data[cs->number];
 
-  if (codec == nullptr && rdb_is_collation_supported(cs)) {
+  if (codec == nullptr && rdb_is_simple_collation(cs)) {
     RDB_MUTEX_LOCK_CHECK(rdb_collation_data_mutex);
 
     codec = rdb_collation_data[cs->number];
@@ -3631,38 +3628,32 @@ static const Rdb_collation_codec *rdb_init_collation_mapping(
       Rdb_collation_codec *cur = nullptr;
 
       // Compute reverse mapping for simple collations.
-      if (cs->coll == &my_collation_8bit_simple_ci_handler) {
-        cur = new Rdb_collation_codec;
-        std::map<uchar, std::vector<uchar>> rev_map;
-        size_t max_conflict_size = 0;
-        for (int src = 0; src < 256; src++) {
-          uchar dst = cs->sort_order[src];
-          rev_map[dst].push_back(src);
-          max_conflict_size = std::max(max_conflict_size, rev_map[dst].size());
-        }
-        cur->m_dec_idx.resize(max_conflict_size);
-
-        for (auto const &p : rev_map) {
-          uchar dst = p.first;
-          for (uint idx = 0; idx < p.second.size(); idx++) {
-            uchar src = p.second[idx];
-            uchar bits =
-                my_bit_log2(my_round_up_to_next_power(p.second.size()));
-            cur->m_enc_idx[src] = idx;
-            cur->m_enc_size[src] = bits;
-            cur->m_dec_size[dst] = bits;
-            cur->m_dec_idx[idx][dst] = src;
-          }
-        }
-
-        cur->m_make_unpack_info_func = {
-            Rdb_key_def::make_unpack_simple_varlength,
-            Rdb_key_def::make_unpack_simple};
-        cur->m_unpack_func = {Rdb_key_def::unpack_simple_varlength_space_pad,
-                              Rdb_key_def::unpack_simple};
-      } else {
-        // Out of luck for now.
+      cur = new Rdb_collation_codec;
+      std::map<uchar, std::vector<uchar>> rev_map;
+      size_t max_conflict_size = 0;
+      for (int src = 0; src < 256; src++) {
+        uchar dst = cs->sort_order[src];
+        rev_map[dst].push_back(src);
+        max_conflict_size = std::max(max_conflict_size, rev_map[dst].size());
       }
+      cur->m_dec_idx.resize(max_conflict_size);
+
+      for (auto const &p : rev_map) {
+        uchar dst = p.first;
+        for (uint idx = 0; idx < p.second.size(); idx++) {
+          uchar src = p.second[idx];
+          uchar bits = my_bit_log2(my_round_up_to_next_power(p.second.size()));
+          cur->m_enc_idx[src] = idx;
+          cur->m_enc_size[src] = bits;
+          cur->m_dec_size[dst] = bits;
+          cur->m_dec_idx[idx][dst] = src;
+        }
+      }
+
+      cur->m_make_unpack_info_func = {Rdb_key_def::make_unpack_simple_varlength,
+                                      Rdb_key_def::make_unpack_simple};
+      cur->m_unpack_func = {Rdb_key_def::unpack_simple_varlength_space_pad,
+                            Rdb_key_def::unpack_simple};
 
       if (cur != nullptr) {
         codec = cur;
@@ -3945,11 +3936,14 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       // - For VARBINARY(N), values may have different lengths, so we're using
       //   variable-length encoding. This is also the only charset where the
       //   values are not space-padded for comparison.
-      m_unpack_func = is_varlength
-                          ? Rdb_key_def::unpack_binary_or_utf8_varlength
-                          : Rdb_key_def::unpack_binary_str;
+      assert((is_varlength &&
+              m_pack_func == Rdb_key_def::pack_with_varlength_encoding) ||
+             m_pack_func == Rdb_key_def::pack_string);
+      assert(m_make_unpack_info_func == nullptr);
+      m_unpack_func = is_varlength ? Rdb_key_def::unpack_binary_varlength
+                                   : Rdb_key_def::unpack_binary_str;
       m_covered = Rdb_key_def::KEY_COVERED;
-    } else if (cs == &my_charset_latin1_bin || cs == &my_charset_utf8mb3_bin) {
+    } else if (rdb_is_binary_collation(cs)) {
       // For _bin collations, mem-comparable form of the string is the string
       // itself.
 
@@ -3957,7 +3951,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // VARCHARs - are compared as if they were space-padded - but are
         // not actually space-padded (reading the value back produces the
         // original value, without the padding)
-        m_unpack_func = Rdb_key_def::unpack_binary_or_utf8_varlength_space_pad;
+        m_unpack_func = (cs == &my_charset_utf8mb4_bin)
+                            ? Rdb_key_def::unpack_utf8mb4_varlength_space_pad
+                        : (cs == &my_charset_utf8mb3_bin)
+                            ? Rdb_key_def::unpack_utf8_varlength_space_pad
+                            : Rdb_key_def::unpack_binary_varlength_space_pad;
+
         m_skip_func = Rdb_key_def::skip_variable_space_pad;
         m_pack_func = Rdb_key_def::pack_with_varlength_space_pad;
         m_make_unpack_info_func = Rdb_key_def::dummy_make_unpack_info;
@@ -3971,9 +3970,12 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       } else {
         // SQL layer pads CHAR(N) values to their maximum length.
         // We just store that and restore it back.
-        m_unpack_func = (cs == &my_charset_latin1_bin)
-                            ? Rdb_key_def::unpack_binary_str
-                            : Rdb_key_def::unpack_utf8_str;
+        assert(m_pack_func == Rdb_key_def::pack_string);
+        assert(m_make_unpack_info_func == nullptr);
+        m_unpack_func =
+            (cs == &my_charset_utf8mb4_bin)   ? Rdb_key_def::unpack_utf8mb4_str
+            : (cs == &my_charset_utf8mb3_bin) ? Rdb_key_def::unpack_utf8_str
+                                              : Rdb_key_def::unpack_binary_str;
       }
       m_covered = Rdb_key_def::KEY_COVERED;
     } else {
@@ -4018,7 +4020,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           //  NO_LINT_DEBUG
           sql_print_warning(
               "MyRocks will handle this collation internally "
-              " as if it had a NO_PAD attribute.");
+              "as if it had a NO_PAD attribute.");
           m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
           m_skip_func = Rdb_key_def::skip_variable_length_encoding;
         }
