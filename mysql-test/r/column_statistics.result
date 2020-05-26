@@ -38,14 +38,14 @@ COUNT(DISTINCT SQL_ID)
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM information_schema.COLUMN_STATISTICS;
 TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-cus_test	MyGuests	id	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	GREATER_THAN
-cus_test	MyGuests	lastname	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	GREATER_THAN
 cus_test	MyGuests	firstname	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
 cus_test	MyGuests	id	FILTER	EQUAL
+cus_test	MyGuests	id	FILTER	EQUAL
+cus_test	MyGuests	id	FILTER	GREATER_THAN
+cus_test	MyGuests	id	FILTER	GREATER_THAN
 cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+cus_test	MyGuests	lastname	FILTER	EQUAL
 cus_test	MyGuests	lastname	FILTER	EQUAL
 set global column_stats_control = OFF_HARD;
 DROP TABLE MyGuests;
