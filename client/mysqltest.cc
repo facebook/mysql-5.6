@@ -1035,6 +1035,23 @@ static void async_mysql_free_result_wrapper(MYSQL_RES *result) {
   return;
 }
 
+static int async_mysql_reset_connection_wrapper(MYSQL *mysql) {
+  net_async_status status;
+  AsyncTimer t(__func__);
+  while ((status = mysql_reset_connection_nonblocking(mysql)) ==
+         NET_ASYNC_NOT_READY) {
+    t.check();
+    NET_ASYNC *net_async = NET_ASYNC_DATA(&(mysql->net));
+    int result = socket_event_listen(net_async->async_blocking_state,
+                                     mysql_get_socket_descriptor(mysql));
+    if (result == -1) return 1;
+  }
+  if (status == NET_ASYNC_ERROR) {
+    return 1;
+  }
+  return 0;
+}
+
 /*
   Below are the wrapper functions which are defined on top of standard C APIs
   to make a decision on whether to call blocking or non blocking API based on
@@ -1112,6 +1129,13 @@ static void mysql_free_result_wrapper(MYSQL_RES *result) {
     return async_mysql_free_result_wrapper(result);
   else
     return mysql_free_result(result);
+}
+
+static int mysql_reset_connection_wrapper(MYSQL *mysql) {
+  if (enable_async_client)
+    return async_mysql_reset_connection_wrapper(mysql);
+  else
+    return mysql_reset_connection(mysql);
 }
 
 /* async client test code (end) */
@@ -7214,7 +7238,7 @@ static void do_reset_connection() {
   MYSQL *mysql = &cur_con->mysql;
 
   DBUG_ENTER("do_reset_connection");
-  if (mysql_reset_connection(mysql))
+  if (mysql_reset_connection_wrapper(mysql))
     die("reset connection failed: %s", mysql_error(mysql));
   if (cur_con->stmt) {
     mysql_stmt_close(cur_con->stmt);
