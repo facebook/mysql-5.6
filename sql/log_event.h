@@ -4758,6 +4758,12 @@ std::pair<bool, binary_log::Log_event_basic_info> extract_log_event_basic_info(
     const binary_log::Format_description_event *fd_event);
 
 /**
+
+  Set the global print_sql_string option
+ */
+void my_b_set_print_sql_string(bool option);
+
+/**
   @} (end of group Replication)
 */
 

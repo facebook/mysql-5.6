@@ -515,3 +515,8 @@ flush logs;
 let $MYSQLD_DATADIR= `select @@datadir`;
 --let $mysqlbinlog_parameters= --base64-output=decode-rows -v -v $MYSQLD_DATADIR/binlog.000001
 --source include/mysqlbinlog.inc
+
+# Again with --sql-string
+let $MYSQLD_DATADIR= `select @@datadir`;
+--let $mysqlbinlog_parameters= --base64-output=decode-rows -v -v --sql-string $MYSQLD_DATADIR/binlog.000001
+--source include/mysqlbinlog.inc
