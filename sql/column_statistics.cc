@@ -289,8 +289,15 @@ int parse_column_usage_info(
   LEX *lex= thd->lex;
   SELECT_LEX *select_lex= &lex->select_lex;
 
-  // Check statement type - only SIMPLE SELECT
-  if (lex->sql_command == SQLCOM_SELECT) {
+  // List of supported commands for the collection of COLUMN_STATISTICS.
+  static const std::set<enum_sql_command> supported_commands = {
+    SQLCOM_SELECT,
+    SQLCOM_UPDATE,
+    SQLCOM_DELETE
+  };
+
+  // Check statement type - only commands featuring SIMPLE SELECTs.
+  if (supported_commands.find(lex->sql_command) != supported_commands.end()) {
     if (select_lex->type(thd) != st_select_lex::SLT_SIMPLE ||
         select_lex->table_list.elements != 1)
     {
