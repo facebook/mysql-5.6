@@ -4528,6 +4528,11 @@ my_off_t find_gtid_pos_in_log(const char *log_name, const Gtid &gtid,
 #include "find_gtid_impl.cc"
 
 /**
+  Set the global print_sql_string option
+ */
+void my_b_set_print_sql_string(bool option);
+
+/**
   @} (end of group Replication)
 */
 

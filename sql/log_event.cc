@@ -1495,8 +1495,106 @@ static const uchar *get_quote_table() {
 }
 
 /**
+  Auxiliary function that sets up a conversion table for m_b_write_quoted.
+
+  This conversion table is for SQL compatible string literals with
+  printable characters and control characters.
+
+  See get_quote_table for more details on structure of the table.
+
+  @return Pointer to the table, a 256*5 character array where
+  character i quoted .
+ */
+static const uchar *get_sql_str_table() {
+  static uchar buf[256][5];
+  for (int i = 0; i < 256; i++) {
+    char str[6];
+    switch (i) {
+      case 0:
+        strcpy(str, "\\0");
+        break;
+      case '\'':
+        strcpy(str, "\\'");
+        break;
+      case '\"':
+        strcpy(str, "\\\"");
+        break;
+      case '\b':
+        strcpy(str, "\b");
+        break;
+      case '\n':
+        strcpy(str, "\\n");
+        break;
+      case '\r':
+        strcpy(str, "\\r");
+        break;
+      case '\t':
+        strcpy(str, "\\t");
+        break;
+      case 26:
+        strcpy(str, "\\Z");
+        break;
+      case '\\':
+        strcpy(str, "\\\\");
+        break;
+      default:
+        if (isprint(i)) {
+          str[0] = i;
+          str[1] = '\0';
+        } else {
+          str[0] = '\0';
+        }
+        break;
+    }
+    buf[i][0] = strlen(str);
+    memcpy(buf[i] + 1, str, strlen(str));
+  }
+  return (const uchar *)(buf);
+}
+
+/**
+  Auxiliary function that sets up a conversion table for m_b_write_quoted.
+
+  This conversion table is for SQL compatible hexadecimal literals for any
+  binary data.
+
+  See get_quote_table for more details on structure of the table.
+
+  @return Pointer to the table, a 256*5 character array where
+  character i quoted .
+ */
+static const uchar *get_sql_bin_table() {
+  static uchar buf[256][5];
+  for (int i = 0; i < 256; i++) {
+    char *str = (char *)&buf[i][1];
+    sprintf(str, "%02X", i);
+    buf[i][0] = strlen(str);
+  }
+  return (const uchar *)(buf);
+}
+
+/**
+  Print using sql-compatible string format
+ */
+static bool print_sql_string;
+
+/**
+  Set the global print_sql_string option
+ */
+void my_b_set_print_sql_string(bool option) {
+  print_sql_string = option;
+}
+
+/**
   Prints a quoted string to io cache.
-  Control characters are displayed as hex sequence, e.g. \x00
+
+  If print_sql_string is off, print the string in quoted format - see
+  get_quote_table for more details.
+
+  If print_sql_string is on, print the string as string literal if the string
+  only has printable characters and control characters. Otherwise print as
+  hexadecimal literals. See get_sql_str_table and get_sql_bin_table for more
+  details.
 
   @param[in] file              IO cache
   @param[in] prt               Pointer to string
@@ -1507,10 +1605,40 @@ static const uchar *get_quote_table() {
 */
 static bool my_b_write_quoted(IO_CACHE *file, const uchar *ptr, uint length) {
   const uchar *s;
+  const uchar *table;
   static const uchar *quote_table = get_quote_table();
-  my_b_printf(file, "'");
+  static const uchar *sql_str_table = get_sql_str_table();
+  static const uchar *sql_bin_table = get_sql_bin_table();
+
+  if (print_sql_string) {
+    bool is_printable = true;
+    uint len = length;
+    for (s = ptr; len > 0; s++, len--) {
+      const uchar *len_and_str = sql_str_table + *s * 5;
+
+      /* 0 length means non-printable */
+      if (len_and_str[0] == 0) {
+        is_printable = false;
+        break;
+      }
+    }
+
+    if (is_printable) {
+      /* Use string literal for printable chars */
+      table = sql_str_table;
+      my_b_printf(file, "'");
+    } else {
+      /* Use hexadecimal literal for binary */
+      table = sql_bin_table;
+      my_b_printf(file, "X'");
+    }
+  } else {
+    table = quote_table;
+    my_b_printf(file, "'");
+  }
+
   for (s = ptr; length > 0; s++, length--) {
-    const uchar *len_and_str = quote_table + *s * 5;
+    const uchar *len_and_str = table + *s * 5;
     my_b_write(file, len_and_str + 1, len_and_str[0]);
   }
   if (my_b_printf(file, "'") == (size_t)-1) return true;

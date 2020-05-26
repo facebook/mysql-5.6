@@ -278,6 +278,7 @@ ulong opt_binlog_rows_event_max_size;
 uint test_flags = 0;
 static uint opt_protocol = 0;
 static uint opt_compress = 0;
+static uint opt_print_sql_string = 0;
 static FILE *result_file;
 
 #ifndef DBUG_OFF
@@ -1962,6 +1963,9 @@ static struct my_option my_long_options[] = {
      "for initialization of previous gtid sets (local log only).",
      &opt_index_file_str, &opt_index_file_str, 0, GET_STR_ALLOC, REQUIRED_ARG,
      0, 0, 0, 0, 0, 0},
+    {"sql-string", 0, "Print out sql string instead of quoted string",
+     &opt_print_sql_string, &opt_print_sql_string, 0, GET_BOOL, NO_ARG,
+     0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
 /**
@@ -3341,6 +3345,8 @@ int main(int argc, char **argv) {
     my_end(my_end_arg);
     return EXIT_FAILURE;
   }
+
+  my_b_set_print_sql_string(opt_print_sql_string);  
 
   if (gtid_client_init()) {
     error("Could not initialize GTID structuress.");
