@@ -5879,7 +5879,7 @@ static void *handle_slave_worker(void *arg) {
   my_thread_init();
   DBUG_ENTER("handle_slave_worker");
 
-  thd = new THD;
+  thd = new THD(/* enable_plugin = */ true, /* is_slave = */ true);
   if (!thd) {
     LogErr(ERROR_LEVEL, ER_RPL_SLAVE_CANT_INITIALIZE_SLAVE_WORKER,
            rli->get_for_channel_str());
@@ -5897,9 +5897,6 @@ static void *handle_slave_worker(void *arg) {
 #endif
   mysql_thread_set_psi_id(thd->thread_id());
   mysql_thread_set_psi_THD(thd);
-
-  w->info_thd->variables.transaction_isolation =
-      static_cast<enum_tx_isolation>(slave_tx_isolation);
 
   if (init_slave_thread(thd, SLAVE_THD_WORKER)) {
     // todo make SQL thread killed
@@ -6916,7 +6913,8 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->events_until_exit = abort_slave_event_count;
 #endif
 
-  thd = new THD;                     // note that contructor of THD uses DBUG_ !
+  // note that contructor of THD uses DBUG_ !  
+  thd = new THD(/* enable_plugin = */ true, /* is_slave = */ true);
   thd->thread_stack = (char *)&thd;  // remember where our stack is
   mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd = thd;
@@ -6953,9 +6951,6 @@ extern "C" void *handle_slave_sql(void *arg) {
   } else {
     thd->rpl_thd_ctx.set_rpl_channel_type(RPL_STANDARD_CHANNEL);
   }
-
-  rli->info_thd->variables.transaction_isolation =
-      static_cast<enum_tx_isolation>(slave_tx_isolation);
 
   mysql_mutex_unlock(&rli->info_thd_lock);
 

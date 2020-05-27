@@ -2580,7 +2580,7 @@ class THD : public MDL_context_owner,
   */
   bool m_gap_lock_log_written;
 
-  THD(bool enable_plugins = true);
+  THD(bool enable_plugins = true, bool is_slave = false);
 
   /*
     The THD dtor is effectively split in two:
@@ -2603,7 +2603,7 @@ class THD : public MDL_context_owner,
   bool cleanup_done;
   void cleanup(void);
 
-  void init(void);
+  void init(bool is_slave);
 
  public:
   void fix_capability_based_variables() {
