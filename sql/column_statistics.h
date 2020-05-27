@@ -39,6 +39,17 @@ std::string operator_type_string(const operator_type& op_type);
 operator_type match_op(Item_func::Functype fitem_type);
 
 /*
+  match_op
+    Overloads match_op to match ORDER::enum_order to operators that feature
+    in column usage stats.
+  Input:
+    direction     in: ORDER::enum_order
+  Output:
+    operator_type
+*/
+operator_type match_op(ORDER::enum_order direction);
+
+/*
   parse_column_from_func_item
     Helper to parse column usage information corresponding to a single
     function item.
@@ -90,6 +101,25 @@ int parse_column_from_cond_item(
 int parse_column_from_item(
     const std::string& db_name, const std::string& table_name, Item *item,
     std::set<ColumnUsageInfo>& out_cus, int recursion_depth);
+
+/*
+  parse_columns_from_order_list
+    Helper to parse column usage information corresponding to an ordered list
+    of columns. This is used for ORDER BY and GROUP BY clauses.
+  Input:
+    db_name            in: std::string
+    table_name         in: std::string
+    op                 in: sql_operation
+                           The operation GROUP BY or ORDER_BY which corresponds
+                           to the list being processed.
+    first_col          in: ORDER*
+                           Pointer to the first column being parsed.
+    out_cus            out: std::set<ColumnUsageInfo>
+                            Column usage information parsed from fitem.
+*/
+int parse_columns_from_order_list(
+    const std::string& db_name, const std::string& table_name,
+    sql_operation op, ORDER* first_col, std::set<ColumnUsageInfo>& out_cus);
 
 /*
   parse_column_usage_info

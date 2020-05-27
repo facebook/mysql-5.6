@@ -57,6 +57,8 @@ std::string sql_operation_string(const sql_operation& sql_op) {
       return "TABLE_JOIN";
     case sql_operation::ORDER_BY:
       return "ORDER_BY";
+    case sql_operation::GROUP_BY:
+      return "GROUP_BY";
     default:
       // Asserting in debug mode since this code path implies that we've missed
       // some SQL operation.
@@ -83,6 +85,10 @@ std::string operator_type_string(const operator_type& op_type) {
       return "SET_MEMBERSHIP";
     case operator_type::PATTERN_MATCH:
       return "PATTERN_MATCH";
+    case operator_type::SORT_ASCENDING:
+      return "SORT_ASCENDING";
+    case operator_type::SORT_DESCENDING:
+      return "SORT_DESCENDING";
     case operator_type::UNKNOWN_OPERATOR:
     default:
       // Asserting in debug mode since this code path implies that we've missed
@@ -111,6 +117,18 @@ operator_type match_op(Item_func::Functype fitem_type) {
       break;
   }
   return operator_type::UNKNOWN_OPERATOR;
+}
+
+operator_type match_op(ORDER::enum_order direction) {
+  switch(direction) {
+    case ORDER::ORDER_ASC:
+      return operator_type::SORT_ASCENDING;
+    case ORDER::ORDER_DESC:
+      return operator_type::SORT_DESCENDING;
+    case ORDER::ORDER_NOT_RELEVANT:
+    default:
+      return operator_type::UNKNOWN_OPERATOR;
+  }
 }
 
 std::string parse_field_name(Item_field *field_arg)
@@ -275,6 +293,42 @@ int parse_column_from_item(
   DBUG_RETURN(0);
 }
 
+int parse_columns_from_order_list(
+    const std::string& db_name, const std::string& table_name,
+    sql_operation op, ORDER* first_col, std::set<ColumnUsageInfo>& out_cus) {
+  DBUG_ENTER("parse_columns_from_order_list");
+
+  // Return early if the column is null.
+  if (!first_col) {
+    DBUG_RETURN(0);
+  }
+
+  // Iterate over the linked list of columns.
+  for (ORDER* order_obj = first_col; order_obj && order_obj->item;
+      order_obj = order_obj->next) {
+
+    // Skip if there is no item corresponding to the column or if the
+    // item type is not FIELD_ITEM (representing a FIELD).
+    if (*(order_obj->item) == nullptr ||
+        (*(order_obj->item))->type() != Item::FIELD_ITEM) {
+      continue;
+    }
+
+    Item_field *field_arg = static_cast<Item_field *>(*(order_obj->item));
+
+    // Populating ColumnUsageInfo struct
+    ColumnUsageInfo info;
+    info.table_schema= db_name;
+    info.table_name= table_name;
+    info.sql_op= op;
+    info.op_type= match_op(order_obj->direction);
+    info.column_name= parse_field_name(field_arg);
+
+    out_cus.insert(info);
+  }
+  DBUG_RETURN(0);
+}
+
 int parse_column_usage_info(
     THD *thd, std::set<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_column_usage_info");
@@ -297,33 +351,45 @@ int parse_column_usage_info(
   };
 
   // Check statement type - only commands featuring SIMPLE SELECTs.
-  if (supported_commands.find(lex->sql_command) != supported_commands.end()) {
-    if (select_lex->type(thd) != st_select_lex::SLT_SIMPLE ||
-        select_lex->table_list.elements != 1)
-    {
-      DBUG_RETURN(0);
-    }
-
-    TABLE_LIST *table_list= select_lex->table_list.first;
-
-    // Since for simple select, we only have a single table, table resolution
-    // is easier. For more complex queries, we might have to wait until the
-    // field_name(s) are actually resolved.
-    if (!table_list ||
-        (table_list->db == nullptr) || (table_list->table_name == nullptr))
-    {
-      DBUG_RETURN(-1);
-    }
-
-    std::string db(table_list->db);
-    std::string tn(table_list->table_name);
-
-    if (select_lex->where == nullptr) {
-      DBUG_RETURN(0);
-    }
-
-    parse_column_from_item(db, tn, select_lex->where, out_cus, 0);
+  if (supported_commands.find(lex->sql_command) == supported_commands.end()) {
+    DBUG_RETURN(0);
   }
+
+  if (select_lex->type(thd) != st_select_lex::SLT_SIMPLE ||
+      select_lex->table_list.elements != 1)
+  {
+    DBUG_RETURN(0);
+  }
+
+  TABLE_LIST *table_list= select_lex->table_list.first;
+
+  // Since for simple select, we only have a single table, table resolution
+  // is easier. For more complex queries, we might have to wait until the
+  // field_name(s) are actually resolved.
+  if (!table_list ||
+      (table_list->db == nullptr) || (table_list->table_name == nullptr))
+  {
+    DBUG_RETURN(-1);
+  }
+
+  std::string db(table_list->db);
+  std::string tn(table_list->table_name);
+
+  if (select_lex->where == nullptr) {
+    DBUG_RETURN(0);
+  }
+
+  // Parsing column statistics from the WHERE clause.
+  parse_column_from_item(
+      db, tn, select_lex->where, out_cus, 0 /* recursion_depth */);
+
+  // Parsing column statistics from the GROUP BY clause.
+  parse_columns_from_order_list(
+      db, tn, sql_operation::GROUP_BY, select_lex->group_list.first, out_cus);
+
+  // Parsing column statistics from the ORDER BY clause.
+  parse_columns_from_order_list(
+      db, tn, sql_operation::ORDER_BY, select_lex->order_list.first, out_cus);
 
   DBUG_RETURN(0);
 }

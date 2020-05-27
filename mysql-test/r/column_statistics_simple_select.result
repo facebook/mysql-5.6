@@ -45,8 +45,10 @@ cus_test	MyGuests	id	FILTER	GREATER_THAN
 cus_test	MyGuests	id	FILTER	GREATER_THAN
 cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
 cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
 cus_test	MyGuests	lastname	FILTER	EQUAL
 cus_test	MyGuests	lastname	FILTER	EQUAL
+cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
 set global column_stats_control = OFF_HARD;
 DROP TABLE MyGuests;
 DROP DATABASE cus_test;

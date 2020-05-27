@@ -15,7 +15,8 @@ enum sql_operation: int {
   UPDATE,
   FILTER,
   TABLE_JOIN,
-  ORDER_BY
+  ORDER_BY,
+  GROUP_BY
 };
 
 /*
@@ -31,6 +32,8 @@ enum operator_type: int {
   NOT_EQUAL,
   SET_MEMBERSHIP,
   PATTERN_MATCH,
+  SORT_ASCENDING,
+  SORT_DESCENDING,
   UNKNOWN_OPERATOR
 };
 
