@@ -40,10 +40,10 @@ insert into t3 select * from t2;
 --source include/sync_slave_sql_with_master.inc
 
 connection slave;
-let $old_debug = `select @@global.debug`;
-set global debug= 'd,dbug.rocksdb.get_row_by_rowid';
 --source include/stop_slave.inc
 --source include/start_slave.inc
+let $old_debug = `select @@global.debug`;
+set global debug= 'd,dbug.rocksdb.get_row_by_rowid';
 
 connection master;
 update t2 set col1=100 where kp1 between 1 and 3 and mod(kp2,2)=0;
@@ -63,9 +63,9 @@ select * from t2 where pk < 5;
 
 # For GitHub issue#162 (result file must be updated after fixing #162)
 connection slave;
-set global debug= 'd,dbug.rocksdb.get_row_by_rowid';
 --source include/stop_slave.inc
 --source include/start_slave.inc
+set global debug= 'd,dbug.rocksdb.get_row_by_rowid';
 
 connection master;
 update t3 set col1=100 where kp1 between 1 and 4 and mod(kp2,2)=0;

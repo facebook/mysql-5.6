@@ -2293,7 +2293,7 @@ lower-case-table-names 1
 lz4f-net-compression-level 0
 maintain-database-hlc FALSE
 master-info-file master.info
-master-info-repository FILE
+master-info-repository TABLE
 master-retry-count 86400
 master-verify-checksum FALSE
 max-allowed-packet 4194304

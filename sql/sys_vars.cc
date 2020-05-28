@@ -1078,7 +1078,7 @@ static Sys_var_enum Sys_mi_repository(
        "master_info_repository",
        "Defines the type of the repository for the master information."
        ,GLOBAL_VAR(opt_mi_repository_id), CMD_LINE(REQUIRED_ARG),
-       repository_names, DEFAULT(INFO_REPOSITORY_FILE), NO_MUTEX_GUARD,
+       repository_names, DEFAULT(INFO_REPOSITORY_TABLE), NO_MUTEX_GUARD,
        NOT_IN_BINLOG, ON_CHECK(master_info_repository_check),
        ON_UPDATE(0));
 
