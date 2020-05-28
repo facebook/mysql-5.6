@@ -760,6 +760,13 @@ class Log_event {
   Relay_log_info *worker;
 
   /**
+    MTS: Additional switch to allow dependency replication to determine
+    if an event has already been processed. Row_query_log_event
+    also sets worker to nullptr to prevent workers from freeing the ev.
+  */
+  bool m_mts_dep_allowed;
+
+  /**
     A copy of the main rli value stored into event to pass to MTS worker rli
   */
   ulonglong future_event_relay_log_pos;

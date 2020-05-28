@@ -4479,7 +4479,8 @@ apply_event_and_update_pos(Log_event **ptr_ev, THD *thd, Relay_log_info *rli) {
     if (!exec_res && (ev->worker != rli)) {
       if (is_mts_parallel_type_dependency(rli)) {
         DBUG_ASSERT(ev->worker == nullptr);
-        if (!static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
+        if (ev->m_mts_dep_allowed &&
+            !static_cast<Mts_submode_dependency *>(rli->current_mts_submode)
                  ->schedule_dep(rli, ev)) {
           *ptr_ev = nullptr;
           DBUG_RETURN(SLAVE_APPLY_EVENT_AND_UPDATE_POS_APPLY_ERROR);

@@ -3281,6 +3281,7 @@ int Log_event::apply_event(Relay_log_info *rli) {
   THD *rli_thd = rli->info_thd;
 
   worker = rli;
+  m_mts_dep_allowed = false;
 
   if (rli->is_mts_recovery()) {
     bool skip = bitmap_is_set(&rli->recovery_groups, rli->mts_recovery_index) &&
@@ -3474,6 +3475,7 @@ int Log_event::apply_event(Relay_log_info *rli) {
                binary_log::DELETE_FILE_EVENT));
 
   worker = nullptr;
+  m_mts_dep_allowed = true;
   rli->mts_group_status = Relay_log_info::MTS_IN_GROUP;
 
   // milli-sec behind master related for MTS
