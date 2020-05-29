@@ -12152,6 +12152,8 @@ static int calculate_cardinality_table_scan(
     rocksdb::Slice first_index_key((const char *)r_buf,
                                    Rdb_key_def::INDEX_NUMBER_SIZE);
 
+    // Reset m_last_key for new index
+    cardinality_collector.Reset();
     uint64_t rows_scanned = 0ul;
     for (it->Seek(first_index_key); is_valid_iterator(it.get()); it->Next()) {
       if (killed && *killed) {
