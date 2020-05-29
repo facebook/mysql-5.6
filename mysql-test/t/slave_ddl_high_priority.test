@@ -11,7 +11,7 @@
 # Default values
 --let $con_init = master
 --let $con_block = slave2
---let $con_block_host = 127.0.0.1 
+--let $con_block_host = 127.0.0.1
 --let $con_block_user = root
 --let $con_block_port = $SLAVE_MYPORT
 --let $con_kill = slave
