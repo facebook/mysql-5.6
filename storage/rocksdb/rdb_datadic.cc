@@ -1470,9 +1470,14 @@ int Rdb_key_def::compare_keys(const rocksdb::Slice *key1,
   Rdb_string_reader reader2(key2);
 
   // Skip the index number
-  if ((!reader1.read(INDEX_NUMBER_SIZE))) return HA_EXIT_FAILURE;
+  auto indexp1 = reader1.read(INDEX_NUMBER_SIZE);
+  if (!indexp1) return HA_EXIT_FAILURE;
 
-  if ((!reader2.read(INDEX_NUMBER_SIZE))) return HA_EXIT_FAILURE;
+  auto indexp2 = reader2.read(INDEX_NUMBER_SIZE);
+  if (!indexp2) return HA_EXIT_FAILURE;
+
+  // shouldn't compare with other index
+  assert(memcmp(indexp1, indexp2, INDEX_NUMBER_SIZE) == 0);
 
   for (uint i = 0; i < m_key_parts; i++) {
     const Rdb_field_packing *const fpi = &m_pack_info[i];
