@@ -1283,6 +1283,7 @@ std::atomic<ulonglong> slave_high_priority_ddl_killed_connections(0);
 bool log_datagram = 0;
 ulong log_datagram_usecs = 0;
 int log_datagram_sock = -1;
+bool opt_parthandler_allow_drop_partition = true;
 
 /**
   Limit of the total number of prepared statements in the server.

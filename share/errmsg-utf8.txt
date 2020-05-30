@@ -19951,6 +19951,9 @@ ER_SEMISYNC_WHITELIST_UPDATED
 ER_SEMISYNC_ACK_FROM_UNRECOGNIZED_SLAVE
    eng "Semi-sync master: Received an ACK from an unrecognized slave with UUID = %s, ignoring"
 
+ER_ALLOW_DROP_PARTITION_PREVENTED
+   eng "Dropping partitions is not allowed due to parthandler_allow_drop_partition"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

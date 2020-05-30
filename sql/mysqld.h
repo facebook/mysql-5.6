@@ -517,6 +517,8 @@ extern ulong log_datagram_usecs;
 extern int log_datagram_sock;
 bool setup_datagram_socket(sys_var *self, THD *thd, enum_var_type type);
 
+extern bool opt_parthandler_allow_drop_partition;
+
 extern bool persisted_globals_load;
 extern bool opt_keyring_operations;
 extern bool opt_table_encryption_privilege_check;
