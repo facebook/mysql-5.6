@@ -1,0 +1,113 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.parthandler_allow_drop_partition;
+SELECT @start_value;
+
+SET @@global.parthandler_allow_drop_partition = DEFAULT;
+SELECT @@global.parthandler_allow_drop_partition = TRUE;
+
+SET @@global.parthandler_allow_drop_partition = ON;
+SELECT @@global.parthandler_allow_drop_partition;
+SET @@global.parthandler_allow_drop_partition = OFF;
+SELECT @@global.parthandler_allow_drop_partition;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.parthandler_allow_drop_partition = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.parthandler_allow_drop_partition = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.parthandler_allow_drop_partition;
+
+SELECT IF(@@global.parthandler_allow_drop_partition, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='parthandler_allow_drop_partition';
+
+
+SET @@global.parthandler_allow_drop_partition = 0;
+SELECT @@global.parthandler_allow_drop_partition;
+SET @@global.parthandler_allow_drop_partition = 1;
+SELECT @@global.parthandler_allow_drop_partition;
+
+SET @@global.parthandler_allow_drop_partition = TRUE;
+SELECT @@global.parthandler_allow_drop_partition;
+SET @@global.parthandler_allow_drop_partition = FALSE;
+SELECT @@global.parthandler_allow_drop_partition;
+
+SET @@global.parthandler_allow_drop_partition = ON;
+SELECT @@parthandler_allow_drop_partition = @@global.parthandler_allow_drop_partition;
+
+--Error ER_GLOBAL_VARIABLE
+SET parthandler_allow_drop_partition = ON;
+--Error ER_PARSE_ERROR
+SET local.parthandler_allow_drop_partition = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.parthandler_allow_drop_partition;
+--Error ER_PARSE_ERROR
+SET global.parthandler_allow_drop_partition = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.parthandler_allow_drop_partition;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT parthandler_allow_drop_partition = @@session.parthandler_allow_drop_partition;
+
+# InnoDB allows drop partition, but rocksdb does not
+CREATE TABLE t1 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=INNODB
+  PARTITION BY RANGE (pk) (
+    PARTITION p0 VALUES LESS THAN (10),
+    PARTITION p1 VALUES LESS THAN (20),
+    PARTITION p2 VALUES LESS THAN (30));
+CREATE TABLE t2 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=INNODB
+  PARTITION BY LIST (pk) (
+    PARTITION p0 VALUES IN (1, 10, 20),
+    PARTITION p1 VALUES IN (100, 200, 300),
+    PARTITION p2 VALUES IN (1000, 2000, 3000));
+CREATE TABLE t3 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB
+  PARTITION BY RANGE (pk) (
+    PARTITION p0 VALUES LESS THAN (10),
+    PARTITION p1 VALUES LESS THAN (20),
+    PARTITION p2 VALUES LESS THAN (30));
+CREATE TABLE t4 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB
+  PARTITION BY LIST (pk) (
+    PARTITION p0 VALUES IN (1, 10, 20),
+    PARTITION p1 VALUES IN (100, 200, 300),
+    PARTITION p2 VALUES IN (1000, 2000, 3000));
+
+SET GLOBAL parthandler_allow_drop_partition = OFF;
+ALTER TABLE t1 DROP PARTITION p1;
+ALTER TABLE t2 DROP PARTITION p1;
+--Error ER_ALLOW_DROP_PARTITION_PREVENTED
+ALTER TABLE t3 DROP PARTITION p1;
+--Error ER_ALLOW_DROP_PARTITION_PREVENTED
+ALTER TABLE t4 DROP PARTITION p1;
+
+SET GLOBAL parthandler_allow_drop_partition = ON;
+ALTER TABLE t3 DROP PARTITION p1;
+ALTER TABLE t4 DROP PARTITION p1;
+
+DROP TABLE t1, t2, t3, t4;
+
+SET @@global.parthandler_allow_drop_partition = @start_value;
+SELECT @@global.parthandler_allow_drop_partition;

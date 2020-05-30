@@ -1,0 +1,120 @@
+SET @start_value = @@global.parthandler_allow_drop_partition;
+SELECT @start_value;
+@start_value
+1
+SET @@global.parthandler_allow_drop_partition = DEFAULT;
+SELECT @@global.parthandler_allow_drop_partition = TRUE;
+@@global.parthandler_allow_drop_partition = TRUE
+1
+SET @@global.parthandler_allow_drop_partition = ON;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+1
+SET @@global.parthandler_allow_drop_partition = OFF;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+0
+SET @@global.parthandler_allow_drop_partition = 2;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of '2'
+SET @@global.parthandler_allow_drop_partition = -1;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of '-1'
+SET @@global.parthandler_allow_drop_partition = TRUEF;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'TRUEF'
+SET @@global.parthandler_allow_drop_partition = TRUE_F;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'TRUE_F'
+SET @@global.parthandler_allow_drop_partition = FALSE0;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'FALSE0'
+SET @@global.parthandler_allow_drop_partition = OON;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'OON'
+SET @@global.parthandler_allow_drop_partition = ONN;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'ONN'
+SET @@global.parthandler_allow_drop_partition = OOFF;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of 'OOFF'
+SET @@global.parthandler_allow_drop_partition = 0FF;
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of '0FF'
+SET @@global.parthandler_allow_drop_partition = ' ';
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of ' '
+SET @@global.parthandler_allow_drop_partition = " ";
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of ' '
+SET @@global.parthandler_allow_drop_partition = '';
+ERROR 42000: Variable 'parthandler_allow_drop_partition' can't be set to the value of ''
+SET @@session.parthandler_allow_drop_partition = OFF;
+ERROR HY000: Variable 'parthandler_allow_drop_partition' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.parthandler_allow_drop_partition;
+ERROR HY000: Variable 'parthandler_allow_drop_partition' is a GLOBAL variable
+SELECT IF(@@global.parthandler_allow_drop_partition, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='parthandler_allow_drop_partition';
+IF(@@global.parthandler_allow_drop_partition, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.parthandler_allow_drop_partition = 0;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+0
+SET @@global.parthandler_allow_drop_partition = 1;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+1
+SET @@global.parthandler_allow_drop_partition = TRUE;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+1
+SET @@global.parthandler_allow_drop_partition = FALSE;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+0
+SET @@global.parthandler_allow_drop_partition = ON;
+SELECT @@parthandler_allow_drop_partition = @@global.parthandler_allow_drop_partition;
+@@parthandler_allow_drop_partition = @@global.parthandler_allow_drop_partition
+1
+SET parthandler_allow_drop_partition = ON;
+ERROR HY000: Variable 'parthandler_allow_drop_partition' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.parthandler_allow_drop_partition = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.parthandler_allow_drop_partition = OFF' at line 1
+SELECT local.parthandler_allow_drop_partition;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.parthandler_allow_drop_partition = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'global.parthandler_allow_drop_partition = ON' at line 1
+SELECT global.parthandler_allow_drop_partition;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT parthandler_allow_drop_partition = @@session.parthandler_allow_drop_partition;
+ERROR HY000: Variable 'parthandler_allow_drop_partition' is a GLOBAL variable
+CREATE TABLE t1 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=INNODB
+PARTITION BY RANGE (pk) (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30));
+CREATE TABLE t2 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=INNODB
+PARTITION BY LIST (pk) (
+PARTITION p0 VALUES IN (1, 10, 20),
+PARTITION p1 VALUES IN (100, 200, 300),
+PARTITION p2 VALUES IN (1000, 2000, 3000));
+CREATE TABLE t3 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB
+PARTITION BY RANGE (pk) (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30));
+CREATE TABLE t4 (pk INT, val INT, PRIMARY KEY (pk)) ENGINE=ROCKSDB
+PARTITION BY LIST (pk) (
+PARTITION p0 VALUES IN (1, 10, 20),
+PARTITION p1 VALUES IN (100, 200, 300),
+PARTITION p2 VALUES IN (1000, 2000, 3000));
+SET GLOBAL parthandler_allow_drop_partition = OFF;
+ALTER TABLE t1 DROP PARTITION p1;
+ALTER TABLE t2 DROP PARTITION p1;
+ALTER TABLE t3 DROP PARTITION p1;
+ERROR HY000: Dropping partitions is not allowed due to parthandler_allow_drop_partition
+ALTER TABLE t4 DROP PARTITION p1;
+ERROR HY000: Dropping partitions is not allowed due to parthandler_allow_drop_partition
+SET GLOBAL parthandler_allow_drop_partition = ON;
+ALTER TABLE t3 DROP PARTITION p1;
+Warnings:
+Warning	138	Inplace partition altering is not supported
+ALTER TABLE t4 DROP PARTITION p1;
+Warnings:
+Warning	138	Inplace partition altering is not supported
+DROP TABLE t1, t2, t3, t4;
+SET @@global.parthandler_allow_drop_partition = @start_value;
+SELECT @@global.parthandler_allow_drop_partition;
+@@global.parthandler_allow_drop_partition
+1
