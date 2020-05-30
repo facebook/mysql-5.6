@@ -33,6 +33,7 @@
 #include "myisam.h"                                  // TT_FOR_UPGRADE
 #include "mysql/components/services/log_builtins.h"  // print error messages
 #include "sql/key.h"         // key_rec_cmp, field_unpack
+#include "sql/mysqld.h"      // opt_parthandler_allow_drop_partition
 #include "sql/sql_admin.h"   // SQL_ADMIN_MSG_TEXT_SIZE
 #include "sql/sql_plugin.h"  // plugin_unlock_list
 #include "sql/sql_show.h"    // append_identifier
@@ -3909,6 +3910,13 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
   */
   if (ha_alter_info->alter_info->flags == Alter_info::ALTER_PARTITION)
     DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK);
+
+  /* Fail DROP partitions because partitions cannot be truncated */
+  if (!opt_parthandler_allow_drop_partition &&
+      ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+    my_error(ER_ALLOW_DROP_PARTITION_PREVENTED, MYF(0));
+    DBUG_RETURN(HA_ALTER_ERROR);
+  }
 
   if (ha_alter_info->alter_info->flags &
       (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_DROP_PARTITION |
