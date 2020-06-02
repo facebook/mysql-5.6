@@ -7404,6 +7404,9 @@ ER_STALE_HLC_READ
 ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
   eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
 
+ER_INVALID_CHECKSUM
+  eng "Invalid checksum supplied by client: %s"
+
 #
 #  End of 5.6 error messages.
 #

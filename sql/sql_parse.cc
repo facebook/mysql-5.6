@@ -1582,6 +1582,25 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
   }
 }
 
+static int validate_checksum(THD* thd, const char* packet, uint packet_length)
+{
+  auto it = thd->query_attrs_map.find("checksum");
+  if (it != thd->query_attrs_map.end()) {
+    try {
+      unsigned long checksum = crc32(0, (const uchar *)packet, packet_length);
+      unsigned long expected = std::stoul(it->second);
+      if (expected != checksum) {
+        my_error(ER_QUERY_CHECKSUM_FAILED, MYF(0), expected, checksum);
+        return 1;
+      }
+    } catch (std::exception e) {
+      my_error(ER_INVALID_CHECKSUM, MYF(0), it->second.c_str());
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -1911,17 +1930,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     size_t query_len= packet_length;
 
     // Check checksum if enabled
-    if (enable_query_checksum) {
-      auto it = thd->query_attrs_map.find("checksum");
-      if (it != thd->query_attrs_map.end()) {
-        unsigned long checksum = crc32(0, (const uchar *)packet, packet_length);
-        unsigned long expected = std::stoul(it->second);
-        if (expected != checksum) {
-          my_error(ER_QUERY_CHECKSUM_FAILED, MYF(0), expected, checksum);
-          break;
-        }
-      }
-    }
+    if (enable_query_checksum && validate_checksum(thd, packet, packet_length))
+      break;
 
     if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
