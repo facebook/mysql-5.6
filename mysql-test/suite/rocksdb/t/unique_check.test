@@ -170,3 +170,129 @@ insert into t3 values (1, 1), (1, 1);
 set @@session.unique_checks = @old_val;
 # cleanup
 drop table t1, t2, t3;
+
+--echo #
+--echo #  Issue#1026: MyRocks may return "Can't find record" which is unexpected
+--echo #
+
+connect (con1, localhost, root,,);
+connection default;
+
+CREATE TABLE t1 (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  a varchar(36) NOT NULL ,
+  b varchar(128) NOT NULL ,
+  c varchar(10240) NOT NULL ,
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_idx (a,b)
+) ENGINE=ROCKSDB;
+
+insert into t1 values (1,1,1,1), (2,2,2,2);
+
+## TRX A:
+begin;
+set debug_sync='rocksdb.after_unique_pk_check SIGNAL trx_a_sleep WAIT_FOR trx_a_cont';
+send
+insert into t1(a,b,c) values (10,'file_type','trx-a') on duplicate key update c=values(c);
+
+connection con1;
+# TRX B:
+set debug_sync='now WAIT_FOR trx_a_sleep';
+begin;
+insert into t1(a,b,c) values (10,'file_type','trx-b') on duplicate key update c=values(c);
+commit;
+set debug_sync='now SIGNAL trx_a_cont';
+
+
+connection default;
+--error ER_LOCK_DEADLOCK
+reap;
+
+disconnect con1;
+rollback;
+drop table t1;
+
+set debug_sync='RESET';
+
+--echo #
+--echo # Issue#1026, testcase #2 (with READ-COMMITTED).
+--echo #
+
+CREATE table t1 (
+  pk0 int primary key auto_increment,
+  sk int,
+  val int default 0,
+  unique(sk)
+) engine=rocksdb;
+
+insert into t1 (sk) values (20), (30);
+
+connect (con1, localhost, root,,);
+
+connection con1;
+set transaction_isolation='READ-COMMITTED';
+begin;
+set debug_sync='rocksdb.after_unique_sk_check SIGNAL here WAIT_FOR go';
+send 
+insert into t1 (sk) values (1), (2) on duplicate key update val = val + 1;
+
+connection default;
+set debug_sync='now WAIT_FOR here';
+begin;
+insert into t1 (sk) values (2);
+commit;
+set debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+commit;
+
+connection default;
+disconnect con1;
+
+select * from t1;
+
+drop table t1;
+
+set debug_sync='RESET';
+
+--echo #
+--echo # Issue#1026, testcase #3 (with READ-COMMITTED and PK).
+--echo #
+
+CREATE table t1 (
+  pk int primary key,
+  val int default 0
+) engine=rocksdb;
+
+insert into t1 (pk) values (20), (30);
+
+connect (con1, localhost, root,,);
+
+connection con1;
+set transaction_isolation='READ-COMMITTED';
+begin;
+set debug_sync='rocksdb.after_unique_pk_check SIGNAL here WAIT_FOR go';
+send 
+insert into t1 (pk) values (1), (2) on duplicate key update val = val + 1;
+
+connection default;
+set debug_sync='now WAIT_FOR here';
+begin;
+insert into t1 (pk) values (2);
+commit;
+set debug_sync='now SIGNAL go';
+
+connection con1;
+reap;
+commit;
+
+connection default;
+disconnect con1;
+
+select * from t1;
+
+drop table t1;
+
+set debug_sync='RESET';
+

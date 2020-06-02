@@ -82,3 +82,83 @@ ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
 insert into t3 values (1, 1), (1, 1);
 set @@session.unique_checks = @old_val;
 drop table t1, t2, t3;
+#
+#  Issue#1026: MyRocks may return "Can't find record" which is unexpected
+#
+CREATE TABLE t1 (
+id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+a varchar(36) NOT NULL ,
+b varchar(128) NOT NULL ,
+c varchar(10240) NOT NULL ,
+PRIMARY KEY (id),
+UNIQUE KEY uniq_idx (a,b)
+) ENGINE=ROCKSDB;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+insert into t1 values (1,1,1,1), (2,2,2,2);
+begin;
+set debug_sync='rocksdb.after_unique_pk_check SIGNAL trx_a_sleep WAIT_FOR trx_a_cont';
+insert into t1(a,b,c) values (10,'file_type','trx-a') on duplicate key update c=values(c);
+set debug_sync='now WAIT_FOR trx_a_sleep';
+begin;
+insert into t1(a,b,c) values (10,'file_type','trx-b') on duplicate key update c=values(c);
+commit;
+set debug_sync='now SIGNAL trx_a_cont';
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)
+rollback;
+drop table t1;
+set debug_sync='RESET';
+#
+# Issue#1026, testcase #2 (with READ-COMMITTED).
+#
+CREATE table t1 (
+pk0 int primary key auto_increment,
+sk int,
+val int default 0,
+unique(sk)
+) engine=rocksdb;
+insert into t1 (sk) values (20), (30);
+set transaction_isolation='READ-COMMITTED';
+begin;
+set debug_sync='rocksdb.after_unique_sk_check SIGNAL here WAIT_FOR go';
+insert into t1 (sk) values (1), (2) on duplicate key update val = val + 1;
+set debug_sync='now WAIT_FOR here';
+begin;
+insert into t1 (sk) values (2);
+commit;
+set debug_sync='now SIGNAL go';
+commit;
+select * from t1;
+pk0	sk	val
+1	20	0
+2	30	0
+3	1	0
+4	2	1
+drop table t1;
+set debug_sync='RESET';
+#
+# Issue#1026, testcase #3 (with READ-COMMITTED and PK).
+#
+CREATE table t1 (
+pk int primary key,
+val int default 0
+) engine=rocksdb;
+insert into t1 (pk) values (20), (30);
+set transaction_isolation='READ-COMMITTED';
+begin;
+set debug_sync='rocksdb.after_unique_pk_check SIGNAL here WAIT_FOR go';
+insert into t1 (pk) values (1), (2) on duplicate key update val = val + 1;
+set debug_sync='now WAIT_FOR here';
+begin;
+insert into t1 (pk) values (2);
+commit;
+set debug_sync='now SIGNAL go';
+commit;
+select * from t1;
+pk	val
+1	0
+2	1
+20	0
+30	0
+drop table t1;
+set debug_sync='RESET';
