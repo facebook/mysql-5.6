@@ -286,12 +286,18 @@ class ha_rocksdb : public my_core::handler {
    */
   bool m_insert_with_update;
 
-  /* true if last time the insertion failed due to duplicated PK */
-  bool m_dup_pk_found;
+  /*
+    TRUE if last time the insertion failed due to duplicate key error.
+    (m_dupp_errkey holds the key# that we've had error for)
+  */
+  bool m_dup_key_found;
 
 #ifndef DBUG_OFF
-  /* Last retreived record for sanity checking */
-  String m_dup_pk_retrieved_record;
+  /*
+    Last retrieved record (for duplicate PK) or index tuple (for duplicate
+    unique SK). Used for sanity checking.
+  */
+  String m_dup_key_retrieved_record;
 #endif
 
   /**
