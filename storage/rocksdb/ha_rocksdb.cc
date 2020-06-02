@@ -12222,7 +12222,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
   // Getting statistics, including from Memtables
   uint8_t include_flags = rocksdb::DB::INCLUDE_FILES;
   rdb->GetApproximateSizes(kd.get_cf(), &r, 1, &sz, include_flags);
-  ret = rows * sz / disk_size;
+  ret = rows * ((double)sz / (double)disk_size);
   uint64_t memTableCount;
   rdb->GetApproximateMemTableStats(kd.get_cf(), r, &memTableCount, &sz);
   ret += memTableCount;
