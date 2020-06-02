@@ -113,11 +113,11 @@ static Field *create_tmp_field_from_item(THD *thd, Item *item, TABLE *table,
                                 item->item_name.ptr(), item->decimals, TRUE);
     break;
   case INT_RESULT:
-    /* 
+    /*
       Select an integer type with the minimal fit precision.
       MY_INT32_NUM_DECIMAL_DIGITS is sign inclusive, don't consider the sign.
-      Values with MY_INT32_NUM_DECIMAL_DIGITS digits may or may not fit into 
-      Field_long : make them Field_longlong.  
+      Values with MY_INT32_NUM_DECIMAL_DIGITS digits may or may not fit into
+      Field_long : make them Field_longlong.
     */
     if (item->max_length >= (MY_INT32_NUM_DECIMAL_DIGITS - 1))
       new_field=new Field_longlong(item->max_length, maybe_null,
@@ -128,9 +128,9 @@ static Field *create_tmp_field_from_item(THD *thd, Item *item, TABLE *table,
     break;
   case STRING_RESULT:
     DBUG_ASSERT(item->collation.collation);
-  
+
     /*
-      DATE/TIME and GEOMETRY fields have STRING_RESULT result type. 
+      DATE/TIME and GEOMETRY fields have STRING_RESULT result type.
       To preserve type they needed to be handled separately.
     */
     if (item->is_temporal() || item->field_type() == MYSQL_TYPE_GEOMETRY)
@@ -283,7 +283,7 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
       *from_field= field->field;
       if (modify_item)
         field->result_field= result;
-    } 
+    }
     else if (table_cant_handle_bit_fields && field->field->type() ==
              MYSQL_TYPE_BIT)
     {
@@ -374,7 +374,7 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
                                        (make_copy_field ? 0 : copy_func),
                                        modify_item);
     break;
-  case Item::TYPE_HOLDER:  
+  case Item::TYPE_HOLDER:
     result= ((Item_type_holder *)item)->make_field_by_type(table);
     if (!result)
       break;
@@ -964,7 +964,7 @@ update_hidden:
     share->default_values= table->record[1]+alloc_length;
   }
   copy_func[0]=0;				// End marker
-  param->func_count= copy_func - param->items_to_copy; 
+  param->func_count= copy_func - param->items_to_copy;
 
   setup_tmp_table_column_bitmaps(table, bitmaps);
 
@@ -1031,7 +1031,7 @@ update_hidden:
     */
     if (default_field[i] && default_field[i]->ptr)
     {
-      /* 
+      /*
          default_field[i] is set only in the cases  when 'field' can
          inherit the default value that is defined for the field referred
          by the Item_field object from which 'field' has been created.
@@ -1060,7 +1060,7 @@ update_hidden:
         memcpy(field->ptr, orig_field->ptr, field->pack_length());
       }
       orig_field->move_field_offset(-diff);     // Back to record[0]
-    } 
+    }
 
     if (from_field[i])
     {						/* Not a table Item */
@@ -1078,7 +1078,7 @@ update_hidden:
              field->real_type() == MYSQL_TYPE_STRING &&
 	     length >= MIN_STRING_LENGTH_TO_PACK_ROWS)
       recinfo->type=FIELD_SKIP_ENDSPACE;
-    else if (use_packed_rows && 
+    else if (use_packed_rows &&
              field->real_type() == MYSQL_TYPE_VARCHAR &&
              length >= MIN_STRING_LENGTH_TO_PACK_ROWS)
       recinfo->type= FIELD_VARCHAR;
@@ -1189,7 +1189,7 @@ update_hidden:
       share->uniques= 1;
     }
     null_pack_length-=hidden_null_pack_length;
-    keyinfo->user_defined_key_parts= 
+    keyinfo->user_defined_key_parts=
       ((field_count-param->hidden_field_count) +
        (share->uniques ? MY_TEST(null_pack_length) : 0));
     keyinfo->actual_key_parts= keyinfo->user_defined_key_parts;
@@ -1274,14 +1274,14 @@ err:
     create_duplicate_weedout_tmp_table()
       thd                    Thread handle
       uniq_tuple_length_arg  Length of the table's column
-      sjtbl                  Update sjtbl->[start_]recinfo values which 
-                             will be needed if we'll need to convert the 
+      sjtbl                  Update sjtbl->[start_]recinfo values which
+                             will be needed if we'll need to convert the
                              created temptable from HEAP to MyISAM/Maria.
 
   DESCRIPTION
     Create a temporary table to weed out duplicate rowid combinations. The
     table has a single column that is a concatenation of all rowids in the
-    combination. 
+    combination.
 
     Depending on the needed length, there are two cases:
 
@@ -1301,7 +1301,7 @@ err:
     NULL on error
 */
 
-TABLE *create_duplicate_weedout_tmp_table(THD *thd, 
+TABLE *create_duplicate_weedout_tmp_table(THD *thd,
                                           uint uniq_tuple_length_arg,
                                           SJ_TMP_TABLE *sjtbl)
 {
@@ -1368,7 +1368,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
     DBUG_RETURN(NULL);
   }
   strmov(tmpname,path);
-  
+
 
   /* STEP 4: Create TABLE description */
   memset(table, 0, sizeof(*table));
@@ -1417,9 +1417,9 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
     field->reset_fields();
     field->init(table);
     field->orig_table= NULL;
-     
+
     field->field_index = 0;
-    
+
     *(reg_field++)= field;
     *blob_field= 0;
     *reg_field= 0;
@@ -1430,7 +1430,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
 
   uint reclength= field->pack_length();
   if (using_unique_constraint)
-  { 
+  {
     share->db_plugin= ha_lock_engine(0, myisam_hton);
     table->file= get_new_handler(share, &table->mem_root,
                                  share->db_type());
@@ -1487,7 +1487,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   {
     /* Table description for the concatenated rowid column */
     memset(recinfo, 0, sizeof(*recinfo));
-    /* 
+    /*
        Don't care about packing the VARCHAR since it's only a
        concatenation of rowids. @see create_tmp_table() for how
        packed VARCHARs can be achieved
@@ -1548,7 +1548,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   share->db_record_offset= 1;
   if (share->db_type() == myisam_hton)
     recinfo++;
-  if (instantiate_tmp_table(table, keyinfo, start_recinfo, &recinfo, 
+  if (instantiate_tmp_table(table, keyinfo, start_recinfo, &recinfo,
                             0, 0, &thd->opt_trace,
                             thd))
     goto err;
@@ -1748,7 +1748,7 @@ bool open_tmp_table(TABLE *table)
          when there are many nullable columns)
       2. Table columns
       3. One free MI_COLUMNDEF element (*recinfo points here)
-   
+
     This function may use the free element to create hash column for unique
     constraint.
 
@@ -1757,9 +1757,9 @@ bool open_tmp_table(TABLE *table)
      TRUE  - Error
 */
 
-bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo, 
+bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo,
                              MI_COLUMNDEF *start_recinfo,
-                             MI_COLUMNDEF **recinfo, 
+                             MI_COLUMNDEF **recinfo,
                              ulonglong options, my_bool big_tables,
                              THD *thd)
 {
@@ -1905,7 +1905,7 @@ void trace_tmp_table(Opt_trace_context *trace, const TABLE *table)
     trace_tmp.add_alnum("table", "intermediate_tmp_table");
 
   trace_tmp.add("row_length",table->s->reclength).
-    add("key_length", table->s->key_info ? 
+    add("key_length", table->s->key_info ?
         table->s->key_info->key_length : 0).
     add("unique_constraint", table->s->uniques ? true : false);
 
@@ -1914,7 +1914,7 @@ void trace_tmp_table(Opt_trace_context *trace, const TABLE *table)
     trace_tmp.add_alnum("location", "disk (MyISAM)");
     if (table->s->db_create_options & HA_OPTION_PACK_RECORD)
       trace_tmp.add_alnum("record_format", "packed");
-    else 
+    else
       trace_tmp.add_alnum("record_format", "fixed");
   }
   else
@@ -1946,9 +1946,9 @@ void trace_tmp_table(Opt_trace_context *trace, const TABLE *table)
      TRUE  - Error
 */
 
-bool instantiate_tmp_table(TABLE *table, KEY *keyinfo, 
+bool instantiate_tmp_table(TABLE *table, KEY *keyinfo,
                            MI_COLUMNDEF *start_recinfo,
-                           MI_COLUMNDEF **recinfo, 
+                           MI_COLUMNDEF **recinfo,
                            ulonglong options, my_bool big_tables,
                            Opt_trace_context *trace,
                            THD *thd)
@@ -2049,7 +2049,7 @@ free_tmp_table(THD *thd, TABLE *entry)
   @param table           Table reference
   @param start_recinfo   Engine's column descriptions
   @param recinfo[in,out] End of engine's column descriptions
-  @param error           Reason why inserting into MEMORY table failed. 
+  @param error           Reason why inserting into MEMORY table failed.
   @param ignore_last_dup If true, ignore duplicate key error for last
                          inserted key (see detailed description below).
   @param is_duplicate[out] if non-NULL and ignore_last_dup is TRUE,
@@ -2075,7 +2075,7 @@ free_tmp_table(THD *thd, TABLE *entry)
 
 bool create_myisam_from_heap(THD *thd, TABLE *table,
                              MI_COLUMNDEF *start_recinfo,
-                             MI_COLUMNDEF **recinfo, 
+                             MI_COLUMNDEF **recinfo,
 			     int error, bool ignore_last_dup,
                              bool *is_duplicate)
 {
@@ -2085,7 +2085,7 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
   int write_err;
   DBUG_ENTER("create_myisam_from_heap");
 
-  if (table->s->db_type() != heap_hton || 
+  if (table->s->db_type() != heap_hton ||
       error != HA_ERR_RECORD_FILE_FULL)
   {
     /*
@@ -2214,7 +2214,7 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
     }
 
     if (unlikely(thd->killed != 0)) {
-      write_err = HA_ERR_INTERNAL_ERROR;
+      write_err = HA_ERR_QUERY_INTERRUPTED;
       goto err;
     }
     write_err= new_table.file->ha_write_row(new_table.record[1]);
