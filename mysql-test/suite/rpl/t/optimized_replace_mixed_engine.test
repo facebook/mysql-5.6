@@ -1,0 +1,55 @@
+--source include/have_debug.inc
+--source include/have_log_bin.inc
+--source include/have_binlog_format_row.inc
+--source include/have_rocksdb.inc
+--source include/master-slave.inc
+
+# Create a table in master with rocksdb as storage engine
+--echo Create a table in master with rocskdb as storage engine
+--source include/rpl_connection_master.inc
+create table t1 (c1 int primary key, c2 int) engine=rocksdb;
+select table_name, engine from information_schema.tables where table_name = 't1';
+--source include/sync_slave_sql_with_master.inc
+
+# Change table to have innodb as storage engine
+-- echo Table is altered in slave to be in innodb storage engine
+--source include/rpl_connection_slave.inc
+alter table t1 engine=innodb;
+select table_name, engine from information_schema.tables where table_name = 't1';
+
+--source include/rpl_connection_master.inc
+select table_name, engine from information_schema.tables where table_name = 't1';
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+select * from t1;
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+select table_name, engine from information_schema.tables where table_name = 't1';
+select * from t1;
+
+# Issue a replace into in master. This should be a blind insert
+--echo replace into should be a blind replace in master and a regular replace in slave
+--source include/rpl_connection_master.inc
+select variable_value into @d from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+replace into t1 values (1, 11);
+select case when variable_value-@d > 1 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+
+# Ensure that replace into is replayed correctly in slave. 
+# This should be a regular replace into in slave with no 'blind replace' optimization
+# binlog event should indicate a Write_rows event in master and Update_rows event in slave
+select * from t1;
+--source include/show_binlog_events.inc
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_connection_slave.inc
+select * from t1;
+--source include/show_binlog_events.inc
+
+# Cleanup
+--source include/rpl_connection_master.inc
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc
