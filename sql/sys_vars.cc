@@ -7959,6 +7959,13 @@ static Sys_var_bool Sys_disallow_raft(
     "once raft is ready for 8.0",
     GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_enable_blind_replace(
+    "enable_blind_replace",
+    "Optimize 'replace into' statement by doing a blind insert. Engine "
+    "ignores primary key violations. This will avoid a delete and an "
+    "insert. This is supported in MyRocks",
+    GLOBAL_VAR(enable_blind_replace), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static const char *commit_consensus_error_actions[] = {
     "ROLLBACK_TRXS_IN_GROUP", "IGNORE_COMMIT_CONSENSUS_ERROR", 0};
 

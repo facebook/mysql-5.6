@@ -362,6 +362,11 @@ The following options may be given as the first argument:
  name and library is the plugin library in plugin_dir.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
+ --enable-blind-replace 
+ Optimize 'replace into' statement by doing a blind
+ insert. Engine ignores primary key violations. This will
+ avoid a delete and an insert. This is supported in
+ MyRocks
  --enable-block-stale-hlc-read 
  Enable blocking reads with a requested HLC timestamp
  ahead of the engine HLC
@@ -2341,6 +2346,7 @@ disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
 enable-binlog-hlc FALSE
+enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
