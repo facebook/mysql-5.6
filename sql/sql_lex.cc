@@ -456,6 +456,7 @@ void LEX::reset() {
   keep_diagnostics = DA_KEEP_NOTHING;
   m_statement_options = 0;
   next_binlog_file_nr = 0;
+  blind_replace_into = false;
 
   name.str = nullptr;
   name.length = 0;

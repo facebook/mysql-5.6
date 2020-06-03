@@ -18,12 +18,6 @@ rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
-# Blind replace
-rocksdb.optimize_myrocks_replace_into_base : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.optimize_myrocks_replace_into_lock : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb_rpl.optimize_myrocks_replace_into : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-rocksdb.mysqlbinlog_blind_replace : BUG#0000 missing patch f14c64cf950 Optimize replace into to do a blind write
-
 # rocksdb_read_free_rpl
 rocksdb.rocksdb_read_free_rpl : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
 rocksdb.rocksdb_read_free_rpl_stress : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication

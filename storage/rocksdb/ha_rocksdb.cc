@@ -10494,9 +10494,7 @@ int ha_rocksdb::check_and_lock_unique_pk(const uint key_id,
          row_info.new_pk_slice.compare(row_info.old_pk_slice) != 0);
 
   /* Ignore PK violations if this is a optimized 'replace into' */
-  const bool ignore_pk_unique_check = false;
-  /* TODO(yzha) - f14c64cf950 Optimize replace into to do a blind write
-   = ha_thd()->lex->blind_replace_into */
+  const bool ignore_pk_unique_check = ha_thd()->lex->blind_replace_into;
 
   /*
     Perform a read to determine if a duplicate entry exists. For primary

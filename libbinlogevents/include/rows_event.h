@@ -938,10 +938,16 @@ class Rows_event : public Binary_log_event {
     */
     COMPLETE_ROWS_F = (1U << 3),
     /**
+      Indicates that this event is for writing a row as part of a blind
+      'replace into' statement optimization where pk constraints are ignored.
+      Note that we are using the MSB to make this forward compatible
+    */
+    BLIND_REPLACE_INTO_F = (1U << 15),
+    /**
       Flags for everything. Please update when you add new flags.
      */
-    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F | RELAXED_UNIQUE_CHECKS_F |
-                COMPLETE_ROWS_F
+    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F | COMPLETE_ROWS_F |
+                BLIND_REPLACE_INTO_F
   };
 
   /**
@@ -1088,6 +1094,7 @@ class Rows_event : public Binary_log_event {
     PARSE_FLAG(flag_str, NO_FOREIGN_KEY_CHECKS_F);
     PARSE_FLAG(flag_str, RELAXED_UNIQUE_CHECKS_F);
     PARSE_FLAG(flag_str, COMPLETE_ROWS_F);
+    PARSE_FLAG(flag_str, BLIND_REPLACE_INTO_F);
     auto unknown_flags = (m_flags & ~ALL_FLAGS);
     if (unknown_flags) {
       assert(false);
@@ -1103,9 +1110,8 @@ class Rows_event : public Binary_log_event {
     if (flag & NO_FOREIGN_KEY_CHECKS_F) str.append(" No foreign Key checks");
     if (flag & RELAXED_UNIQUE_CHECKS_F) str.append(" No unique key checks");
     if (flag & COMPLETE_ROWS_F) str.append(" Complete Rows");
-    if (flag & ~(STMT_END_F | NO_FOREIGN_KEY_CHECKS_F |
-                 RELAXED_UNIQUE_CHECKS_F | COMPLETE_ROWS_F))
-      str.append("Unknown Flag");
+    if (flag & BLIND_REPLACE_INTO_F) str.append(" Blind Replace Into");
+    if (flag & ~ALL_FLAGS) str.append("Unknown Flag");
     return str;
   }
 #ifndef HAVE_MYSYS
