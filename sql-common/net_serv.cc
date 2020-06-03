@@ -551,6 +551,8 @@ static int begin_packet_write_state(NET *net, uchar command,
   struct io_vec *vec;
   uchar *headers;
   uchar **compressed_buffers = nullptr;
+  bool try_coalesce = true;
+
   if (total_len < MAX_PACKET_LENGTH) {
     /*
       Most writes hit this case, ie, less than MAX_PACKET_LENGTH of
@@ -574,6 +576,11 @@ static int begin_packet_write_state(NET *net, uchar command,
       my_free(vec);
       return 0;
     }
+
+    // Don't try any coalescing on messages that require multiple network
+    // packets - the efficiency gains would be minimal and the code would
+    // be more complex.
+    try_coalesce = false;
   }
   /*
     Regardless of where vec and headers come from, these are what we
@@ -631,10 +638,7 @@ static int begin_packet_write_state(NET *net, uchar command,
       }
       int3store(buf, comp_packet_len);
       buf[3] = (uchar)net->compress_pkt_nr++;
-      /*
-       The bytes in COMP_HEADER_SIZE are implicitly zero because they were
-       zero filled. A zero length means that the contents are uncompressed.
-      */
+      memset(buf + NET_HEADER_SIZE, 0, COMP_HEADER_SIZE);
       buf += NET_HEADER_SIZE + COMP_HEADER_SIZE;
     }
 
@@ -653,65 +657,82 @@ static int begin_packet_write_state(NET *net, uchar command,
       ++bytes_queued;
     }
 
-    ++vec;
-
     /* Second iovec (if any), our optional prefix. */
     if (packet_num == 0 && optional_prefix != nullptr) {
-      (*vec).iov_base = const_cast<uchar *>(optional_prefix);
-      (*vec).iov_len = prefix_len;
+      if (try_coalesce &&
+          vec->iov_len + prefix_len <= ASYNC_COALESCE_BUFFER_SIZE) {
+        memcpy((uchar *)vec->iov_base + vec->iov_len, optional_prefix,
+               prefix_len);
+        vec->iov_len += prefix_len;
+      } else {
+        ++vec;
+        (*vec).iov_base = const_cast<uchar *>(optional_prefix);
+        (*vec).iov_len = prefix_len;
+        try_coalesce = false;
+      }
       bytes_queued += prefix_len;
-      ++vec;
     }
     /*
       Final iovec, the payload itself. Send however many bytes from
       packet we have left, and advance our packet pointer.
     */
     size_t remaining_bytes = packet_size - bytes_queued;
-    (*vec).iov_base = const_cast<uchar *>(packet);
-    (*vec).iov_len = remaining_bytes;
+    if (remaining_bytes != 0) {
+      // Turn off coalescing if compressing
+      try_coalesce = try_coalesce && !net->compress;
 
-    bytes_queued += remaining_bytes;
-
-    packet += remaining_bytes;
-    total_len -= bytes_queued;
-    /* clang-format off */
-    /*
-      If we have a payload to compress, then compress_packet will add
-      compression headers for us. This is what we have at this point where
-      each line is an iovec.
-      | len              |cpn|uncompress len| len                                    | pn | command |
-      | prefix + command | 0 |0             | total_len = command + prefix + payload | 0  |COM_*    |
-
-      | prefix |
-      |...     |
-
-      |payload |
-      |...     |
-
-      We want to transform into this:
-
-      | len             |cpn|uncompress len| len                                    | pn | command |
-      | prefix +command | 0 |0             | total_len = command + prefix + payload | 0  |COM_*    |
-
-      | prefix |
-      |...     |
-
-      | len                     |cpn|uncompress len| compressed payload |
-      | len(compressed payload) |  1|  len(payload)|  compress(payload) |
-    */
-    /* clang-format on */
-
-    if (net->compress && remaining_bytes) {
-      (*vec).iov_base =
-          compress_packet(net, (uchar *)(*vec).iov_base, &(*vec).iov_len);
-      if (!(*vec).iov_base) {
-        reset_packet_write_state(net);
-        return 0;
+      if (try_coalesce &&
+          vec->iov_len + remaining_bytes <= ASYNC_COALESCE_BUFFER_SIZE) {
+        memcpy((uchar *)vec->iov_base + vec->iov_len, packet, remaining_bytes);
+        vec->iov_len += remaining_bytes;
+      } else {
+        ++vec;
+        (*vec).iov_base = const_cast<uchar *>(packet);
+        (*vec).iov_len = remaining_bytes;
       }
-      compressed_buffers[net_async->compressed_buffers_size++] =
-          (uchar *)(*vec).iov_base;
+
+      bytes_queued += remaining_bytes;
+
+      packet += remaining_bytes;
+      /* clang-format off */
+      /*
+        If we have a payload to compress, then compress_packet will
+        add compression headers for us. This is what we have at this point where
+        each line is an iovec.
+        | len              |cpn|uncompress len| len                                    | pn | command |
+        | prefix + command |  0|             0| total_len = command + prefix + payload |  0 |   COM_* |
+
+        | prefix |
+        | ...    |
+
+        | payload |
+        | ...     |
+
+        We want to transform into this:
+        | len              |cpn|uncompress len| len                                    | pn | command |
+        | prefix + command |  0|             0| total_len = command + prefix + payload |  0 |   COM_* |
+
+        | prefix |
+        | ...    |
+
+        | len                     |cpn|uncompress len| compressed payload |
+        | len(compressed payload) |  1|  len(payload)|  compress(payload) |
+      */
+      /* clang-format on */
+      if (net->compress) {
+        (*vec).iov_base = compress_packet(
+            net, static_cast<uchar *>((*vec).iov_base), &(*vec).iov_len);
+        if (!(*vec).iov_base) {
+          reset_packet_write_state(net);
+          return 0;
+        }
+        compressed_buffers[net_async->compressed_buffers_size++] =
+            static_cast<uchar *>((*vec).iov_base);
+      }
     }
     ++vec;
+    total_len -= bytes_queued;
+    try_coalesce = false;
 
     /* Make sure we sent entire packets. */
     if (total_len > 0) {
