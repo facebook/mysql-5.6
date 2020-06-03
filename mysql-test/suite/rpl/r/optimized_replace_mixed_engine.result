@@ -1,0 +1,102 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+Create a table in master with rocskdb as storage engine
+[connection master]
+create table t1 (c1 int primary key, c2 int) engine=rocksdb;
+select table_name, engine from information_schema.tables where table_name = 't1';
+TABLE_NAME	ENGINE
+t1	ROCKSDB
+include/sync_slave_sql_with_master.inc
+Table is altered in slave to be in innodb storage engine
+[connection slave]
+alter table t1 engine=innodb;
+select table_name, engine from information_schema.tables where table_name = 't1';
+TABLE_NAME	ENGINE
+t1	InnoDB
+[connection master]
+select table_name, engine from information_schema.tables where table_name = 't1';
+TABLE_NAME	ENGINE
+t1	ROCKSDB
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+insert into t1 values(3, 3);
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+include/sync_slave_sql_with_master.inc
+[connection slave]
+select table_name, engine from information_schema.tables where table_name = 't1';
+TABLE_NAME	ENGINE
+t1	InnoDB
+select * from t1;
+c1	c2
+1	1
+2	2
+3	3
+replace into should be a blind replace in master and a regular replace in slave
+[connection master]
+select variable_value into @d from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+replace into t1 values (1, 11);
+select case when variable_value-@d > 1 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
+read_free
+true
+select * from t1;
+c1	c2
+1	11
+2	2
+3	3
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000001	#	Query	#	#	use `test`; create table t1 (c1 int primary key, c2 int) engine=rocksdb
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+include/sync_slave_sql_with_master.inc
+[connection slave]
+select * from t1;
+c1	c2
+1	11
+2	2
+3	3
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+slave-bin.000001	#	Query	#	#	use `test`; create table t1 (c1 int primary key, c2 int) engine=rocksdb
+slave-bin.000001	#	Query	#	#	use `test`; alter table t1 engine=innodb
+slave-bin.000001	#	Query	#	#	BEGIN
+slave-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000001	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000001	#	Query	#	#	BEGIN
+slave-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000001	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000001	#	Query	#	#	BEGIN
+slave-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000001	#	Xid	#	#	COMMIT /* XID */
+slave-bin.000001	#	Query	#	#	BEGIN
+slave-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+slave-bin.000001	#	Update_rows	#	#	table_id: # flags: STMT_END_F
+slave-bin.000001	#	Xid	#	#	COMMIT /* XID */
+[connection master]
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
