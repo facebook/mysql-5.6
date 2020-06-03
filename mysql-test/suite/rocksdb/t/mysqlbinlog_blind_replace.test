@@ -9,9 +9,9 @@
 --source include/have_debug.inc
 
 reset master;
-set GLOBAL binlog_format= 'ROW';
+SET GLOBAL binlog_format= 'ROW';
 SET GLOBAL enable_blind_replace=ON;
-set binlog_format=row;
+SET binlog_format=row;
 
 create table t5 (c1 int primary key, c2 int);
 insert into t5 values (1, 1);
@@ -57,6 +57,7 @@ select * from t5;
 
 --source include/show_binlog_events.inc
 
-set GLOBAL binlog_format=DEFAULT;
+--remove_file $MYSQLTEST_VARDIR/tmp/mysqlbinlog-output
+SET GLOBAL binlog_format=DEFAULT;
 SET GLOBAL enable_blind_replace=DEFAULT;
 drop table t5;

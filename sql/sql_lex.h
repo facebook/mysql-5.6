@@ -3324,6 +3324,14 @@ struct LEX : public Query_tables_list {
   uint32 next_binlog_file_nr;
   ulong thread_id_opt; /* thread id option */
 
+  /*
+    If this is set, then 'replace into' will do a bind write by ignoring
+    primary key violation errors. This is an optimization which allows to
+    write the row without having to read, delete and insert the row in case
+    of 'replace into' statements.
+  */
+  bool blind_replace_into;
+
  private:
   bool m_broken;  ///< see mark_broken()
   /**
