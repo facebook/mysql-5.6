@@ -91,6 +91,15 @@ struct io_vec {
   size_t iov_len; /**< Number of bytes to transfer */
 };
 
+#define ASYNC_COALESCE_BUFFER_SIZE 1024
+
+// Make sure the coalesce buffer size is larger than we used to have
+#define ASYNC_INLINE_ORIGINAL_SIZE \
+  NET_HEADER_SIZE + COMP_HEADER_SIZE + NET_HEADER_SIZE + 1
+#if ASYNC_COALESCE_BUFFER_SIZE < ASYNC_INLINE_ORIGINAL_SIZE
+#error The coalesce buffer size is too small
+#endif
+
 typedef struct NET_ASYNC {
   /**
     The position in buff we continue reads from when data is next
@@ -162,8 +171,7 @@ typedef struct NET_ASYNC {
     B12       : COM_COMMAND
     ~~~~~~~~~~~~~~~~~~~
   */
-  unsigned char inline_async_write_header[NET_HEADER_SIZE + COMP_HEADER_SIZE +
-                                          NET_HEADER_SIZE + 1];
+  unsigned char inline_async_write_header[ASYNC_COALESCE_BUFFER_SIZE];
   struct io_vec inline_async_write_vector[3];
 
   /** Keep track of compressed buffers */
