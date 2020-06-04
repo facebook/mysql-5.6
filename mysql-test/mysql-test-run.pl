@@ -7229,6 +7229,10 @@ sub run_ctest() {
   # the MTR tests.
   mtr_report("Running ctest parallel=$opt_parallel");
   $ENV{CTEST_PARALLEL_LEVEL} = $opt_parallel;
+  my $old_asan_options = $ENV{'ASAN_OPTIONS'};
+  # Disable odr violation check
+  $ENV{ASAN_OPTIONS} = $ENV{'ASAN_OPTIONS'} . ",detect_odr_violation=0"
+    if $opt_sanitize;
   my $ctest = $opt_ctest_path || "ctest";
   my $ctest_options = "";
   if ($opt_ctest_exclude) {
@@ -7247,6 +7251,7 @@ sub run_ctest() {
   my $ctest_out = `$ctest_cmd`;
   if ($? == $no_ctest && ($opt_ctest == -1 || defined $ENV{PB2WORKDIR})) {
     chdir($olddir);
+    $ENV{'ASAN_OPTIONS'} = $old_asan_options;
     return;
   }
 
@@ -7296,6 +7301,7 @@ sub run_ctest() {
   mark_time_used('test');
   mtr_report_test($tinfo);
   chdir($olddir);
+  $ENV{'ASAN_OPTIONS'} = $old_asan_options;
   return $tinfo;
 }
 
