@@ -1,0 +1,20 @@
+#
+# Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
+# Verify the primary_key index is set
+#
+CREATE TABLE t1(
+c1 INT,
+c2 INT,
+c3 INT,
+INDEX idx(c1,c2)
+);
+FLUSH TABLES;
+SET debug="+d,myrocks_verify_tbl_share_primary_idx";
+INSERT INTO t1 VALUES (1, 2, 3);
+INSERT INTO t1 VALUES (4, 5, 6);
+SELECT * FROM t1 FORCE INDEX(idx);
+c1	c2	c3
+1	2	3
+4	5	6
+SET debug="-d,myrocks_verify_tbl_share_primary_idx";
+drop table t1;
