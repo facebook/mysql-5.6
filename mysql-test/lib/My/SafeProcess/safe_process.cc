@@ -275,6 +275,13 @@ int main(int argc, char *const argv[]) {
       ld_preload.append(asan_library_name);
       lib_count++;
     }
+    if (strlen(com_err_library_name) > 0) {
+      if (lib_count > 0) {
+        ld_preload.append(":");
+      }
+      ld_preload.append(com_err_library_name);
+      lib_count++;
+    }
     if (strlen(tirpc_library_name) > 0) {
       if (lib_count > 0) {
         ld_preload.append(":");

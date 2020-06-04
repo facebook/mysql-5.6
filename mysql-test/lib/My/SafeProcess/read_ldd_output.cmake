@@ -41,7 +41,16 @@ FOREACH(LINE ${LDD_FILE_LINES})
 #    MESSAGE(STATUS "CMAKE_MATCH_2 ${CMAKE_MATCH_2}")
     SET(TIRPC_LIBRARY_NAME ${CMAKE_MATCH_2})
   ENDIF()
+  STRING(REGEX MATCH "^[\t ]*(libcom_err.so.[0-9]) => ([/a-zA-Z0-9._-]+)" XXX ${LINE})
+  IF(CMAKE_MATCH_1)
+#    MESSAGE(STATUS "LINE ${LINE}")
+#    MESSAGE(STATUS "XXX ${XXX}")
+#    MESSAGE(STATUS "CMAKE_MATCH_1 ${CMAKE_MATCH_1}")
+#    MESSAGE(STATUS "CMAKE_MATCH_2 ${CMAKE_MATCH_2}")
+    SET(COM_ERR_LIBRARY_NAME ${CMAKE_MATCH_2})
+  ENDIF()
 ENDFOREACH()
 FILE(WRITE ${OUTFILE}
   "const char *asan_library_name=\"${ASAN_LIBRARY_NAME}\";"
-  "const char *tirpc_library_name=\"${TIRPC_LIBRARY_NAME}\";")
+  "const char *tirpc_library_name=\"${TIRPC_LIBRARY_NAME}\";"
+  "const char *com_err_library_name=\"${COM_ERR_LIBRARY_NAME}\";")
