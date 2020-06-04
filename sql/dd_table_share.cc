@@ -312,6 +312,18 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
     keyinfo = share->key_info;
     key_part = keyinfo->key_part;
 
+    /*
+      The following if-else is here for MyRocks:
+      set share->primary_key as early as possible, because the return value
+      of ha_rocksdb::index_flags(key, ...) (HA_KEYREAD_ONLY bit in particular)
+      depends on whether the key is the primary key.
+    */
+    if (primary_key < MAX_KEY && share->keys_in_use.is_set(primary_key)) {
+      share->primary_key = primary_key;
+    } else {
+      share->primary_key = MAX_KEY;
+    }
+
     dd::Table::Index_collection::const_iterator idx_it(
         table_def->indexes().begin());
 
@@ -354,6 +366,14 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
           the same way as above call to is_suitable_for_primary_key().
         */
         DBUG_ASSERT((primary_key == key) == (*idx_it)->is_candidate_key());
+
+        /*
+          The following is here for MyRocks. See the comment above
+          about "set share->primary_key as early as possible"
+        */
+        if (primary_key < MAX_KEY && share->keys_in_use.is_set(primary_key)) {
+          share->primary_key = primary_key;
+        }
       }
 
       dd::Index::Index_elements::const_iterator idx_el_it(
@@ -500,8 +520,7 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
       }
     }
 
-    if (primary_key < MAX_KEY && (share->keys_in_use.is_set(primary_key))) {
-      share->primary_key = primary_key;
+    if (share->primary_key != MAX_KEY) {
       /*
          If we are using an integer as the primary key then allow the user to
          refer to it as '_rowid'
@@ -514,8 +533,7 @@ static bool prepare_share(THD *thd, TABLE_SHARE *share,
               (share->key_info[primary_key].key_part[0].fieldnr);
         }
       }
-    } else
-      share->primary_key = MAX_KEY;  // we do not have a primary key
+    }
   } else
     share->primary_key = MAX_KEY;
   destroy(handler_file);

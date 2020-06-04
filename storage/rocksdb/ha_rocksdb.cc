@@ -8473,6 +8473,10 @@ ulong ha_rocksdb::index_flags(bool &pk_can_be_decoded,
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
+  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx", {
+    DBUG_ASSERT(table_arg->primary_key == MAX_INDEXES);
+  };);
+
   if (check_keyread_allowed(pk_can_be_decoded, table_arg, inx, part,
                             all_parts)) {
     base_flags |= HA_KEYREAD_ONLY;
@@ -9176,7 +9180,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 
   DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
   DBUG_EXECUTE_IF("dbug.rocksdb.get_row_by_rowid", {
-    THD *thd = ha_thd();
+  THD *thd = ha_thd();
     const char act[] =
         "now signal Reached "
         "wait_for signal.rocksdb.get_row_by_rowid_let_running";
