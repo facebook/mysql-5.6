@@ -1873,25 +1873,21 @@ DROP TABLE t1;
 
 --echo #
 --echo # Issue#250: MyRocks/Innodb different output from query with order by on table with index and decimal type
---echo #  (the test was changed to use VARCHAR, because DECIMAL now supports index-only, and this issue 
---echo #   needs a datype that doesn't support index-inly)
+--echo #  (the issue needs a datype that doesn't support index-only)
 --echo #
-
---disable_testcase BUG#888003
 CREATE TABLE t1(
-  c1 varchar(10) character set utf8 collate utf8_general_ci NOT NULL, 
-  c2 varchar(10) character set utf8 collate utf8_general_ci, 
-  c3 INT, 
+  c1 ENUM('c1-val1','c1-val2','c1-val3') NOT NULL,
+  c2 ENUM('c2-val1','c2-val2','c2-val3'),
+  c3 INT,
   INDEX idx(c1,c2)
 ) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES ('c1-val1','c2-val1',5);
-INSERT INTO t1 VALUES ('c1-val2','c2-val3',6);
+INSERT INTO t1 VALUES ('c1-val2','c2-val2',6);
 INSERT INTO t1 VALUES ('c1-val3','c2-val3',7);
 SELECT * FROM t1 force index(idx) WHERE c1 <> 'c1-val2' ORDER BY c1 DESC;
 --replace_column 10 # 11 #
 explain SELECT * FROM t1  force index(idx) WHERE c1 <> '1' ORDER BY c1 DESC;
 drop table t1;
---enable_testcase
 
 --echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)

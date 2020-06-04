@@ -8481,6 +8481,9 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const {
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
+  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx",
+                  { DBUG_ASSERT(table_arg->primary_key == MAX_INDEXES); };);
+
   if (check_keyread_allowed(inx, part, all_parts)) {
     base_flags |= HA_KEYREAD_ONLY;
   }
