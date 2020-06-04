@@ -186,7 +186,7 @@ class AC {
   // Variables to track global limits
   ulong max_running_queries, max_waiting_queries;
 
-  std::array<unsigned long, MAX_AC_QUEUES> weights;
+  std::array<unsigned long, MAX_AC_QUEUES> weights{};
   /**
     Protects the above variables.
 
