@@ -1,0 +1,47 @@
+--source include/have_rocksdb.inc
+
+CREATE TABLE collations AS SELECT * FROM information_schema.COLLATION_CHARACTER_SET_APPLICABILITY WHERE COLLATION_NAME NOT IN ("latin2_czech_cs", "cp1250_czech_cs");
+
+--let $i=1
+--let $charset=query_get_value(select * from collations, CHARACTER_SET_NAME, $i)
+--let $collate=query_get_value(select * from collations, COLLATION_NAME, $i)
+while ($charset != 'No such row')
+{
+  --echo # Testing character set "$charset" collation "$collate"
+  --let table_name=t_$charset
+  if ($charset == "binary")
+  {
+    --eval CREATE TABLE $table_name (pk_varchar VARBINARY(64), pk_char BINARY(64), d_varchar VARBINARY(64), d_char BINARY(64), PRIMARY KEY(pk_varchar, pk_char)) ENGINE=RocksDB
+    --eval INSERT INTO $table_name VALUES('a ', 'a ', 'a ', 'a ')
+    --eval INSERT INTO $table_name VALUES ('a', 'a', 'a', 'a')
+    --eval INSERT INTO $table_name VALUES('b  ', 'b  ', 'b  ', 'b  ');
+    --eval INSERT INTO $table_name VALUES('b', 'b', 'b', 'b')
+    --eval INSERT INTO $table_name VALUES('a\t', 'a\t', 'a\t', 'a\t')
+    --eval INSERT INTO $table_name VALUES('a \t', 'a \t', 'a \t', 'a \t')
+    --eval INSERT INTO $table_name VALUES('a          ', 'a          ', 'a          ', 'a          ')
+  }
+  if ($charset != "binary")
+  {
+    --eval CREATE TABLE $table_name (pk_varchar VARCHAR(64), pk_char CHAR(64), d_varchar VARCHAR(64), d_char CHAR(64), PRIMARY KEY(pk_varchar, pk_char)) ENGINE=RocksDB CHARSET $charset COLLATE $collate
+    --eval INSERT INTO $table_name VALUES('a ', 'a ', 'a ', 'a ')
+    --error ER_DUP_ENTRY
+    --eval INSERT INTO $table_name VALUES ('a', 'a', 'a', 'a')
+    --eval INSERT INTO $table_name VALUES('b  ', 'b  ', 'b  ', 'b  ');
+    --error ER_DUP_ENTRY
+    --eval INSERT INTO $table_name VALUES('b', 'b', 'b', 'b')
+    --eval INSERT INTO $table_name VALUES('a\t', 'a\t', 'a\t', 'a\t')
+    --eval INSERT INTO $table_name VALUES('a \t', 'a \t', 'a \t', 'a \t')
+    --error ER_DUP_ENTRY
+    --eval INSERT INTO $table_name VALUES('a          ', 'a          ', 'a          ', 'a          ')
+    --eval INSERT INTO $table_name VALUES('c          ', 'c          ', 'c          ', 'c          ')
+  }
+
+  --eval SELECT pk_varchar, length(pk_varchar), hex(pk_varchar), pk_char, length(pk_char), hex(pk_char), d_varchar, length(d_varchar), hex(d_varchar), d_char, length(d_char), hex(d_char) FROM $table_name
+  --eval DROP TABLE $table_name
+
+  --inc $i
+  --let $charset=query_get_value(select * from collations, CHARACTER_SET_NAME, $i)
+  --let $collate=query_get_value(select * from collations, COLLATION_NAME, $i)
+}
+
+DROP TABLE collations;
