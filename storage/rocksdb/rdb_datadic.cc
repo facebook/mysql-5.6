@@ -3606,11 +3606,11 @@ std::array<const Rdb_collation_codec *, MY_ALL_CHARSETS_SIZE>
     rdb_collation_data;
 mysql_mutex_t rdb_collation_data_mutex;
 
-bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs) {
+static bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs) {
   return (cs->coll == &my_collation_8bit_simple_ci_handler);
 }
 
-bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs) {
+static bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs) {
   return (cs->coll == &my_collation_8bit_bin_handler) ||
          (cs == &my_charset_utf8mb4_bin) || (cs == &my_charset_utf8_bin);
 }
@@ -3927,9 +3927,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   if (is_varlength || type == MYSQL_TYPE_STRING) {
     // See http://dev.mysql.com/doc/refman/5.7/en/string-types.html for
     // information about character-based datatypes are compared.
-    bool use_unknown_collation = false;
-    DBUG_EXECUTE_IF("myrocks_enable_unknown_collation_index_only_scans",
-                    use_unknown_collation = true;);
 
     if (cs == &my_charset_bin) {
       // - SQL layer pads BINARY(N) so that it always is N bytes long.
@@ -4013,18 +4010,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
               (m_use_space_pad_lead_byte ? 1 : 0);
           rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
                                        &space_mb_len);
-        } else {
-          //  NO_LINT_DEBUG
-          sql_print_warning(
-              "RocksDB: you're trying to create an index "
-              "with a multi-level collation %s",
-              cs->name);
-          //  NO_LINT_DEBUG
-          sql_print_warning(
-              "MyRocks will handle this collation internally "
-              "as if it had a NO_PAD attribute.");
-          m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
-          m_skip_func = Rdb_key_def::skip_variable_length_encoding;
         }
       }
 
@@ -4035,7 +4020,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_make_unpack_info_func = codec->m_make_unpack_info_func[idx];
         m_unpack_func = codec->m_unpack_func[idx];
         m_charset_codec = codec;
-      } else if (use_unknown_collation) {
+      } else {
         // We have no clue about how this collation produces mem-comparable
         // form. Our way of restoring the original value is to keep a copy of
         // the original value in unpack_info.
@@ -4045,14 +4030,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                          : Rdb_key_def::make_unpack_unknown;
         m_unpack_func = is_varlength ? Rdb_key_def::unpack_unknown_varlength
                                      : Rdb_key_def::unpack_unknown;
-      } else {
-        // Same as above: we don't know how to restore the value from its
-        // mem-comparable form.
-        // Here, we just indicate to the SQL layer we can't do it.
-        DBUG_ASSERT(m_unpack_func == nullptr);
-        m_unpack_info_stores_value = false;
-        m_covered = Rdb_key_def::KEY_NOT_COVERED;  // Indicate that index-only
-                                                   // reads are not possible
       }
     }
 

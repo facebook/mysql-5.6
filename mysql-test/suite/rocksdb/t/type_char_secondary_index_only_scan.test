@@ -5,9 +5,6 @@
 
 --source include/have_rocksdb.inc
 
-CALL mtr.add_suppression("MyRocks will handle this collation internally as if it had a NO_PAD attribute");
-CALL mtr.add_suppression("RocksDB: you're trying to create an index with a multi-level collation");
-
 CREATE TABLE collations AS SELECT * FROM information_schema.COLLATION_CHARACTER_SET_APPLICABILITY ORDER BY COLLATION_NAME;
 
 --echo CharSet, Collate, Char Extra, VarChar Extra

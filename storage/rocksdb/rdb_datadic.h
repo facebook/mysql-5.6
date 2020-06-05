@@ -1821,7 +1821,4 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
   }
 };
 
-bool rdb_is_simple_collation(const my_core::CHARSET_INFO *const cs);
-bool rdb_is_binary_collation(const my_core::CHARSET_INFO *const cs);
-
 }  // namespace myrocks
