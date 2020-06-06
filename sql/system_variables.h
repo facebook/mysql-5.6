@@ -444,10 +444,12 @@ struct System_variables {
   bool high_priority_ddl;
   bool kill_conflicting_connections;
   long admission_control_queue_timeout;
-  
+
   bool enable_block_stale_hlc_read;
 
   ulong dscp_on_socket;
+
+  bool enable_user_tables_engine_check;
 };
 
 /**

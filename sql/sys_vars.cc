@@ -7777,3 +7777,10 @@ static Sys_var_enum Sys_commit_consensus_error_action(
        GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
        commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_enable_user_tables_engine_check(
+    "enable_user_tables_engine_check",
+    "Enable checking storage engine compatibilty of user table creation DDL.",
+    SESSION_VAR(enable_user_tables_engine_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_session_admin));

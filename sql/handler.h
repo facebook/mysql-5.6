@@ -1551,6 +1551,15 @@ typedef bool (*is_supported_system_table_t)(const char *db,
                                             bool is_sql_layer_system_table);
 
 /**
+  Check if the SE finds the user table to be unsupported.
+
+  @param db_type                     Target SE of the table
+  @retval true                       table for target SE is not supported.
+  @retval false                      table for target SE is supported.
+ */
+typedef bool (*is_user_table_blocked_t)(legacy_db_type db_type);
+
+/**
   Create SDI in a tablespace. This API should be used when upgrading
   a tablespace with no SDI or after invoking sdi_drop().
   @param[in]  tablespace     tablespace object
@@ -2392,6 +2401,7 @@ struct handlerton {
   table_exists_in_engine_t table_exists_in_engine;
   make_pushed_join_t make_pushed_join;
   is_supported_system_table_t is_supported_system_table;
+  is_user_table_blocked_t is_user_table_blocked;
 
   /*
     APIs for retrieving Serialized Dictionary Information by tablespace id
@@ -6813,6 +6823,8 @@ int ha_find_files(THD *thd, const char *db, const char *path, const char *wild,
 int ha_table_exists_in_engine(THD *thd, const char *db, const char *name);
 bool ha_check_if_supported_system_table(handlerton *hton, const char *db,
                                         const char *table_name);
+bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db,
+                                 const char *table_name);
 bool ha_rm_tmp_tables(THD *thd, List<LEX_STRING> *files);
 bool default_rm_tmp_tables(handlerton *hton, THD *thd, List<LEX_STRING> *files);
 

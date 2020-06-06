@@ -4170,9 +4170,8 @@ static std::string rdb_xid_to_string(const XID &src) {
   @param[in]	binlog_group_flush	true if we got invoked by binlog
   group commit during flush stage, false in other cases.
 */
-static bool rocksdb_flush_wal(
-    handlerton *const hton MY_ATTRIBUTE((__unused__)),
-    bool binlog_group_flush) {
+static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
+                              bool binlog_group_flush) {
   DBUG_ASSERT(rdb != nullptr);
 
   // Don't flush log if 2pc isn't enabled
@@ -4182,7 +4181,8 @@ static bool rocksdb_flush_wal(
   if ((!binlog_group_flush && !rocksdb_db_options->allow_mmap_writes) ||
       rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
     rocksdb_wal_group_syncs++;
-    s = rdb->FlushWAL(!binlog_group_flush || rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+    s = rdb->FlushWAL(!binlog_group_flush ||
+                      rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
   }
 
   if (!s.ok()) {
@@ -4193,12 +4193,23 @@ static bool rocksdb_flush_wal(
 }
 
 /**
+  Called during create user table DDL. Block innodb table
+  if rocksdb plugin is installed in the system.
+
+  @param[in]       Target SE of table
+  @retval true     Block table creation in target SE
+  @retval false    Allow table creation in target SE
+ */
+static bool rocksdb_user_table_blocked(legacy_db_type db_type) {
+  return db_type == DB_TYPE_INNODB;
+}
+
+/**
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
 static int rocksdb_prepare(handlerton *const hton MY_ATTRIBUTE((__unused__)),
-                           THD *const thd,
-                           bool prepare_tx) {
+                           THD *const thd, bool prepare_tx) {
   Rdb_transaction *tx = get_tx_from_thd(thd);
   if (!tx->can_prepare()) {
     return HA_EXIT_FAILURE;
@@ -5603,6 +5614,7 @@ static int rocksdb_init_func(void *const p) {
   /* TODO(yzha) - table_stats is gone in 8.0
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats; */
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
+  rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
 
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;

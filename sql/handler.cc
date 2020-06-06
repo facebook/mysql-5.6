@@ -291,6 +291,11 @@ struct st_sys_tbl_chk_params {
   } status;  // OUT param
 };
 
+struct st_usr_tbl_chk_params {
+  legacy_db_type db_type;      // IN param
+  bool is_user_table_blocked;  // OUT param
+};
+
 static plugin_ref ha_default_plugin(THD *thd) {
   if (thd->variables.table_plugin) return thd->variables.table_plugin;
   return my_plugin_lock(thd, &global_system_variables.table_plugin);
@@ -5450,6 +5455,84 @@ static bool check_engine_system_table_handlerton(THD *, plugin_ref plugin,
   }
 
   return false;
+}
+
+/**
+  @brief Called for each SE to check if given table can be created on target SE.
+
+  @details This gives the flexibility for an SE to block user table creation
+  on a different SE.
+
+  @param   plugin  Points to specific SE.
+  @param   arg     Is of type struct st_sys_tbl_chk_params.
+
+  @note
+    args->status   Indicates OUT param,
+
+  @return Operation status
+    @retval  true  SE plugin passed in arg has indicated that the table creation
+                   must be blocked. This will stop doing checks with other SE's.
+
+    @retval  false SE plugin is okay with table creation.
+                   Other SE's will be checked to find a match.
+*/
+static bool check_engine_user_table_blocked_handlerton(THD *, plugin_ref plugin,
+                                                       void *arg) {
+  st_usr_tbl_chk_params *check_params = (st_usr_tbl_chk_params *)arg;
+  handlerton *hton = plugin_data<handlerton *>(plugin);
+
+  if (hton->is_user_table_blocked) {
+    check_params->is_user_table_blocked =
+        hton->is_user_table_blocked(check_params->db_type);
+    /*
+      Iteration will stop as soon as is_supported_system_table is returned
+      as true by SE. This will happen if an SE finds the table creation
+      to be unsupported.
+     */
+    return check_params->is_user_table_blocked;
+  }
+
+  return false;
+}
+
+/**
+  @brief Check if a given user table can be created with a target SE..
+
+  @details The primary purpose of introducing this function is to have the
+  flexibility for blocking user table creation across multiple storage engines.
+  This prevents dual engine recovery complications since all the user related
+  tables will live in the same storage engine. System variable
+  enable_user_tables_engine_check can be used to override this behavior which
+  can only happen under admin session.
+
+  @param   thd                   Thread context.
+  @param   hton                  Handlerton of target engine.
+  @param   db                    Database name.
+  @param   table_name            Table name to be checked.
+
+  @return Operation status
+    @retval  true                If the table creation should be blocked.
+    @retval  false               If its okay to create table with target SE.
+*/
+bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db,
+                                 const char *table_name) {
+  DBUG_ENTER("ha_check_user_table_blocked");
+  st_usr_tbl_chk_params check_params;
+
+  if (!thd->variables.enable_user_tables_engine_check) {
+    DBUG_RETURN(false);
+  }
+
+  bool is_sql_layer_system_table = false;
+  if (check_if_system_table(db, table_name, &is_sql_layer_system_table)) {
+    DBUG_RETURN(false);  // It's a system table name
+  }
+
+  check_params.db_type = hton->db_type;
+  plugin_foreach(NULL, check_engine_user_table_blocked_handlerton,
+                 MYSQL_STORAGE_ENGINE_PLUGIN, &check_params);
+
+  DBUG_RETURN(check_params.is_user_table_blocked);
 }
 
 static bool rm_tmp_tables_handlerton(THD *thd, plugin_ref plugin, void *files) {

@@ -357,6 +357,9 @@ The following options may be given as the first argument:
  Enable CRC32 resultset checksums if requested by the
  client sending the checksum query attribute, set to the
  query checksum
+ --enable-user-tables-engine-check 
+ Enable checking storage engine compatibilty of user table
+ creation DDL.
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -2291,6 +2294,7 @@ enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
 enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
+enable-user-tables-engine-check FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 200

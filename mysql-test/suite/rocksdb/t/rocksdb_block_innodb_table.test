@@ -1,0 +1,39 @@
+--source include/have_rocksdb.inc
+
+#
+# MyRocks-specific tests for enable_user_tables_engine_check
+#
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+SET @start_value= @@global.enable_user_tables_engine_check;
+
+SET @@session.enable_user_tables_engine_check=ON;
+
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1(a int primary key) engine=InnoDB;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+drop table temp_t1;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb;
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+alter table t1 engine=InnoDB;
+drop table t1;
+
+SET @@session.enable_user_tables_engine_check=OFF;
+create table t1(a int primary key) engine=InnoDB;
+drop table t1;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+drop table temp_t1;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb;
+alter table t1 engine=InnoDB;
+drop table t1;
+
+SET @@global.enable_user_tables_engine_check=@start_value;
