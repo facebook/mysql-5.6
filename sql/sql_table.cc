@@ -435,7 +435,7 @@ static int copy_data_between_tables(
 
 static bool prepare_blob_field(THD *thd, Create_field *sql_field,
                                bool convert_character_set);
-static bool check_engine(const char *db_name, const char *table_name,
+static bool check_engine(THD *thd, const char *db_name, const char *table_name,
                          HA_CREATE_INFO *create_info);
 
 static bool prepare_set_field(THD *thd, Create_field *sql_field);
@@ -8622,7 +8622,7 @@ static bool create_table_impl(
     return true;
   }
 
-  if (check_engine(db, table_name, create_info)) return true;
+  if (check_engine(thd, db, table_name, create_info)) return true;
 
   // Secondary engine cannot be defined for temporary tables.
   if (create_info->secondary_engine.str != nullptr &&
@@ -8754,7 +8754,7 @@ static bool create_table_impl(
                 ha_resolve_storage_engine_name(part_info->default_engine_type),
                 ha_resolve_storage_engine_name(create_info->db_type)));
     if (part_info->check_partition_info(thd, &engine_type, file.get(),
-                                        create_info, false))
+                                        create_info, db, table_name, false))
       return true;
     part_info->default_engine_type = engine_type;
 
@@ -16309,7 +16309,7 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
       create_info->db_type = table->s->db_type();
   }
 
-  if (check_engine(alter_ctx.new_db, alter_ctx.new_name, create_info))
+  if (check_engine(thd, alter_ctx.new_db, alter_ctx.new_name, create_info))
     return true;
 
   /*
@@ -18585,10 +18585,29 @@ err:
   @retval true  Engine not available/supported, error has been reported.
   @retval false Engine available/supported.
 */
-static bool check_engine(const char *db_name, const char *table_name,
+static bool check_engine(THD *thd, const char *db_name, const char *table_name,
                          HA_CREATE_INFO *create_info) {
   DBUG_TRACE;
   handlerton **new_engine = &create_info->db_type;
+
+  if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE) && !opt_initialize &&
+      ha_check_user_table_blocked(thd, *new_engine, db_name)) {
+    handlerton *default_engine = ha_default_handlerton(thd);
+    bool no_substitution = (!is_engine_substitution_allowed(thd));
+    if (no_substitution || default_engine == *new_engine) {
+      my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db_name, table_name,
+               ha_resolve_storage_engine_name(*new_engine));
+      *new_engine = nullptr;
+      return true;
+    }
+
+    push_warning_printf(thd, Sql_condition::SL_NOTE,
+                        ER_WARN_USER_TABLE_BLOCKED_ENGINE,
+                        ER_THD(thd, ER_WARN_USER_TABLE_BLOCKED_ENGINE), db_name,
+                        table_name, ha_resolve_storage_engine_name(*new_engine),
+                        ha_resolve_storage_engine_name(default_engine));
+    *new_engine = default_engine;
+  }
 
   /*
     Check, if the given table name is system table, and if the storage engine

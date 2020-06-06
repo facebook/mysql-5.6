@@ -1,0 +1,1 @@
+--initialize --enable_user_tables_engine_check=ON --default-storage-engine=rocksdb --slave_parallel_workers=0

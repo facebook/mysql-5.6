@@ -5,3 +5,10 @@ CREATE TABLE t0(c1 INT UNSIGNED, PRIMARY KEY(c1)) ENGINE=RocksDB;
 SELECT * FROM t0 WHERE c1<>4294967295;
 c1
 DROP TABLE t0;
+#
+# PS-7290: Using RocksDB as a temp table can lead to an assertion on the debug build
+#
+CREATE TEMPORARY TABLE t0(ID INT);
+ALTER TABLE t0 ENGINE=RocksDB;
+ERROR HY000: Table storage engine 'ROCKSDB' does not support the create option 'TEMPORARY'
+DROP TABLE t0;

@@ -1,0 +1,140 @@
+######### mysql-test\t\enable_user_tables_engine_check.test ###################
+#                                                                             #
+# Variable Name: enable_user_tables_engine_check                              #
+# Scope: Global & Session                                                     #
+# Access Type: Static                                                         #
+# Data Type: bool                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable                           #
+#             enable_user_tables_engine_check                                 #
+#             that checks the behavior of this variable in the following ways #
+#              * Value Check                                                  #
+#              * Scope Check                                                  #
+#                                                                             #
+###############################################################################
+
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+
+--echo '#---------------------BS_STVARS_002_01----------------------#'
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SET @start_value= @@global.enable_user_tables_engine_check;
+
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+--echo 1 Expected
+
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+--echo 1 Expected
+
+--echo '#---------------------BS_STVARS_002_02----------------------#'
+####################################################################
+#   Check if Value can set                                         #
+####################################################################
+SET @@GLOBAL.enable_user_tables_engine_check=TRUE;
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+
+SET @@SESSION.enable_user_tables_engine_check=TRUE;
+SELECT @@SESSION.enable_user_tables_engine_check;
+
+--echo '#---------------------BS_STVARS_002_03----------------------#'
+#################################################################
+# Check if the value in GLOBAL Table matches value in variable  #
+#################################################################
+
+--disable_warnings
+SELECT
+IF(@@GLOBAL.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+--enable_warnings
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+--echo 1 Expected
+
+--disable_warnings
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+--enable_warnings
+--echo 1 Expected
+
+
+--echo '#---------------------BS_STVARS_002_04----------------------#'
+#################################################################
+# Check if the value in SESSION Table matches value in variable #
+#################################################################
+
+--disable_warnings
+SELECT
+IF(@@SESSION.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+--enable_warnings
+--echo 1 Expected
+
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+--echo 1 Expected
+
+--disable_warnings
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+--enable_warnings
+--echo 1 Expected
+
+
+--echo '#---------------------BS_STVARS_002_05----------------------#'
+#######################################################################################
+#   Check if enable_user_tables_engine_check can be accessed with and without @@ sign #
+#######################################################################################
+
+SELECT COUNT(@@enable_user_tables_engine_check);
+--echo 1 Expected
+SELECT COUNT(@@local.enable_user_tables_engine_check);
+--echo 1 Expected
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+--echo 1 Expected
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+--echo 1 Expected
+
+--echo '#---------------------BS_STVARS_002_06----------------------#'
+################################################################################
+#   Test enable_user_tables_engine_check can be only set within admin session  #
+################################################################################
+
+CREATE USER u1 IDENTIFIED BY 'pwd';
+
+--echo ##Test: User without admin/super privilege
+connect(con1,localhost,u1,pwd,test,,,);
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET GLOBAL enable_user_tables_engine_check=ON;
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+SET SESSION enable_user_tables_engine_check=ON;
+
+connection default;
+
+--echo ##Test: User with admin privilege
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO u1;
+disconnect con1;
+connect(con1,localhost,u1,pwd,test,,,);
+SET GLOBAL enable_user_tables_engine_check=ON;
+SET SESSION enable_user_tables_engine_check=ON;
+
+connection default;
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM u1;
+
+--echo ##Test: User with SUPER privilege
+GRANT SUPER ON *.* TO u1;
+disconnect con1;
+connect(con1,localhost,u1,pwd,test,,,);
+SET GLOBAL enable_user_tables_engine_check=OFF;
+SET SESSION enable_user_tables_engine_check=OFF;
+
+--echo CLEANUP
+disconnect con1;
+connection default;
+DROP USER u1;
+
+SET @@global.enable_user_tables_engine_check= @start_value;

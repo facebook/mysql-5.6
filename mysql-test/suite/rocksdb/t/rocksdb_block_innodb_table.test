@@ -1,0 +1,102 @@
+--source include/have_rocksdb.inc
+
+#
+# MyRocks-specific tests for enable_user_tables_engine_check
+#
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+SET @start_value= @@global.enable_user_tables_engine_check;
+
+SET @@session.enable_user_tables_engine_check=ON;
+
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+drop table t1;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+drop table temp_t1;
+--Error ER_ILLEGAL_HA_CREATE_OPTION
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+alter table t1 engine=InnoDB;
+show create table t1;
+drop table t1;
+
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+--error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+
+SET @@session.enable_user_tables_engine_check=OFF;
+
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+show create table t1;
+drop table t1;
+create table t1(a int primary key) engine=RocksDB charset=latin1;
+show create table t1;
+drop table t1;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+drop table temp_t1;
+--Error ER_ILLEGAL_HA_CREATE_OPTION
+create temporary table temp_t1(a int primary key) engine=RocksDB;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+alter table t1 engine=InnoDB charset=latin1;
+show create table t1;
+drop table t1;
+create table t1(a int primary key) engine=Innodb charset=latin1;
+show create table t1;
+alter table t1 engine=Rocksdb charset=latin1;
+show create table t1;
+drop table t1;
+
+# Change sql_mode to allow engine substitution
+set @@session.sql_mode=NO_UNSIGNED_SUBTRACTION;
+SET @@session.enable_user_tables_engine_check=ON;
+
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+show create table t1;
+drop table t1;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+drop table temp_t1;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+alter table t1 engine=InnoDB;
+show create table t1;
+drop table t1;
+
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+show create table t1;
+drop table t1;
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+show create table t1;
+drop table t1;
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+show create table t1;
+drop table t1;
+
+SET @@global.enable_user_tables_engine_check=@start_value;

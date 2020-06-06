@@ -1,0 +1,49 @@
+--source include/no_valgrind_without_big.inc
+--source include/mysql_upgrade_preparation.inc
+
+# Save a copy of the user/tables_priv tables, to restore later
+# Otherwise the final mysql_upgrade will REPLACE and update timestamps etc.
+--let $backup= 1
+--source include/backup_tables_priv_and_users.inc
+
+--echo #
+--echo # 8.0.17 - MYSQL_UPGRADE with enable_user_tables_engine_check
+--echo #
+
+--let $MYSQLD_LOG= $MYSQLTEST_VARDIR/log/mysql_upgrade_block_user_table_test.log
+--replace_result $MYSQLD_LOG MYSQLD_LOG
+--let restart_parameters=restart: --enable_user_tables_engine_check=ON --upgrade=FORCE --log-error=$MYSQLD_LOG
+--let $wait_counter= 10000
+--source include/restart_mysqld.inc
+
+--echo # There should be no errors
+--let SEARCH_FILE= $MYSQLD_LOG
+
+--let SEARCH_PATTERN= \[ERROR\]
+--source include/search_pattern.inc
+
+--echo #
+--echo # 8.0.17 - MYSQL_UPGRADE with enable_user_tables_engine_check and skip rocksdb
+--echo #
+
+--replace_result $MYSQLD_LOG MYSQLD_LOG
+--let restart_parameters=restart: --enable_user_tables_engine_check=ON --skip-rocksdb --upgrade=FORCE --log-error=$MYSQLD_LOG
+--let $wait_counter= 10000
+--source include/restart_mysqld.inc
+
+--echo # There should be no errors
+--let SEARCH_FILE= $MYSQLD_LOG
+
+--let SEARCH_PATTERN= \[ERROR\]
+--source include/search_pattern.inc
+
+# Restore the saved contents of mysql.user and mysql.tables_priv
+--let $restore= 1
+--source include/backup_tables_priv_and_users.inc
+
+--echo # Restart server with defaults
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+--remove_file $MYSQLD_LOG
+--source include/mysql_upgrade_cleanup.inc

@@ -1,0 +1,1 @@
+--initialize --enable_user_tables_engine_check=ON --binlog-format=statement --default-storage-engine=rocksdb
