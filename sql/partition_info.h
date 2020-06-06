@@ -490,7 +490,8 @@ class partition_info {
   bool check_range_constants(THD *thd);
   bool check_list_constants(THD *thd);
   bool check_partition_info(THD *thd, handlerton **eng_type, handler *file,
-                            HA_CREATE_INFO *info,
+                            HA_CREATE_INFO *info, const char *db,
+                            const char *table_name,
                             bool check_partition_function);
   void print_no_partition_found(THD *thd, TABLE *table);
   void print_debug(const char *str, uint *);
