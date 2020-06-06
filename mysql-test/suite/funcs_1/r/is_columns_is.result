@@ -350,10 +350,11 @@ def	information_schema	SQL_STATISTICS	QUERY_SAMPLE_TEXT	6		NO	varchar	4096	12288
 def	information_schema	SQL_STATISTICS	ROWS_DELETED	11	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	ROWS_INSERTED	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	ROWS_READ	12	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ROWS_SENT	13	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	ROWS_UPDATED	10	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	TABLE_SCHEMA	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SQL_STATISTICS	TOTAL_CPU	13	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	TOTAL_CPU	14	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	USER_NAME	5		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SQL_TEXT	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_TEXT	SQL_TEXT	4		NO	varchar	4096	12288	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(4096)			select	
@@ -1059,6 +1060,7 @@ NULL	information_schema	SQL_STATISTICS	ROWS_INSERTED	bigint	NULL	NULL	NULL	NULL	
 NULL	information_schema	SQL_STATISTICS	ROWS_UPDATED	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	ROWS_DELETED	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	ROWS_READ	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	SQL_STATISTICS	ROWS_SENT	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	TOTAL_CPU	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	SQL_TEXT	SQL_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	SQL_TEXT	SQL_TYPE	varchar	16	48	utf8	utf8_general_ci	varchar(16)

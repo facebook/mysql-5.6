@@ -35,6 +35,8 @@ ST_FIELD_INFO sql_stats_fields_info[]=
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
   {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"ROWS_SENT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
 
   {"TOTAL_CPU", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
@@ -357,6 +359,7 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
 {
   /* check statistics that are specific to SQL_STATISTICS */
   if (sql_stats->count == 0 &&
+      sql_stats->rows_sent == 0 &&
       sql_stats->shared_stats.rows_inserted == 0 &&
       sql_stats->shared_stats.rows_updated == 0 &&
       sql_stats->shared_stats.rows_deleted == 0 &&
@@ -777,11 +780,14 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   }
   /* Update stats */
   sql_stats->count++;
+  sql_stats->rows_sent += (ulonglong) thd->get_sent_row_count();
+
   // Update Row counts
   sql_stats->shared_stats.rows_inserted += stats->rows_inserted;
   sql_stats->shared_stats.rows_updated += stats->rows_updated;
   sql_stats->shared_stats.rows_deleted += stats->rows_deleted;
   sql_stats->shared_stats.rows_read += stats->rows_read;
+
   // Update CPU stats
   sql_stats->shared_stats.us_tot += stats->us_tot;
 
@@ -875,6 +881,8 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_stats->shared_stats.rows_deleted, TRUE);
     /* Rows read */
     table->field[f++]->store(sql_stats->shared_stats.rows_read, TRUE);
+    /* Rows returned to the client */
+    table->field[f++]->store(sql_stats->rows_sent, TRUE);
     /* Total CPU in microseconds */
     table->field[f++]->store(sql_stats->shared_stats.us_tot, TRUE);
 

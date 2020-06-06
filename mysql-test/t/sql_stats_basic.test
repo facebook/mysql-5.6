@@ -43,8 +43,66 @@ update t1 set c=c+500;
 delete from t1 where c=905;
 delete from t1 where c=903;
 
+# Join Query
+select a.c c1, b.c c2
+  from t1 a, t1 b
+ where a.c <= b.c
+order by 1, 2;
+
+# Group-by Query
+select c.c, min(a.c), max(b.c)
+  from t1 a, t1 b, t1 c
+ where a.c <= b.c and a.c <= c.c
+group by c.c
+order by 1, 2, 3;
+
+# Group-by Query
+select a.c, b.c, sum(c.c)
+  from t1 a, t1 b, t1 c
+ where a.c <= b.c and a.c <= c.c
+group by a.c, b.c
+order by 1, 2, 3;
+
+# Group-by + Having Query
+select a.c, b.c, sum(c.c)
+  from t1 a, t1 b, t1 c
+ where a.c <= b.c and a.c <= c.c
+group by a.c, b.c
+having sum(c.c) < 2000
+order by 1, 2, 3;
+
+# Group-by + Having Query
+select a.c, b.c, sum(c.c)
+  from t1 a, t1 b, t1 c
+ where a.c <= b.c and a.c <= c.c
+group by a.c, b.c
+having sum(c.c) < 2000
+order by 1, 2, 3;
+
+#Exists Sub-Query
+select c
+  from t1 a
+  where exists (select sum_val
+                  from (select a.c c1, b.c c2, sum(c.c) sum_val
+                          from t1 a, t1 b, t1 c
+                         where a.c <= b.c and a.c <= c.c
+                         group by a.c, b.c having sum(c.c) < 2000) v1
+                 where sum_val = a.c)
+order by 1;
+
+#Not-exists Sub-Query
+select c
+  from t1 a
+  where not exists (select sum_val
+                  from (select a.c c1, b.c c2, sum(c.c) sum_val
+                          from t1 a, t1 b, t1 c
+                         where a.c <= b.c and a.c <= c.c
+                         group by a.c, b.c having sum(c.c) < 2000) v1
+                 where sum_val = a.c)
+order by 1;
+
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -65,7 +123,7 @@ select @@sql_stats_control;
 select 1 union select 2;
 select 1 union select 2 union select 3;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -76,7 +134,7 @@ order by sql_id;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -88,7 +146,7 @@ set @@GLOBAL.sql_stats_control="ON";
 select @@sql_stats_control;
 select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -113,7 +171,7 @@ drop table t2;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -134,7 +192,7 @@ select 4;
 
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   query_sample_seen, execution_count, rows_inserted, rows_updated,
-	rows_deleted, rows_read
+	rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -154,7 +212,7 @@ select 4;
 
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -176,9 +234,206 @@ select 4;
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0 && CURRENT_TIMESTAMP - query_sample_seen < 10)
 	as is_query_sample_seen_valid, execution_count, rows_inserted,
-	rows_updated, rows_deleted, rows_read
+	rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
+
+####################################################
+### Case 10: Multi-query support
+####################################################
+--echo Case 10: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t10(c int);
+insert into t10 values(1);
+insert into t10 values(2);
+insert into t10 values(3);
+insert into t10 select * from t10;
+insert into t10 select * from t10;
+insert into t10 select * from t10;
+select c from t10 order by 1;
+select * from t10 where c=1 order by 1;
+drop table t10;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+####################################################
+### Case 11: Multi-query support
+####################################################
+--echo Case 11: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t11(c int);
+insert into t11 values(1);
+insert into t11 values(2);
+insert into t11 values(3);
+insert into t11 select * from t11;
+insert into t11 select * from t11;
+insert into t11 select * from t11;
+select c from t11 order by 1;
+select * from t11 where c=1 order by 1;
+update t11 set c=c+100 where c>1;
+drop table t11;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+####################################################
+### Case 12: Multi-query support
+####################################################
+--echo Case 12: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t12(c int);
+insert into t12 values(1);
+insert into t12 values(2);
+insert into t12 values(3);
+insert into t12 select * from t12;
+insert into t12 select * from t12;
+insert into t12 select * from t12;
+select c from t12 order by 1;
+select * from t12 where c=1 order by 1;
+insert into t12 select * from t12 where c > 1;
+drop table t12;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+####################################################
+### Case 13: Multi-query support
+####################################################
+--echo Case 13: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t13(c int);
+insert into t13 values(1);
+insert into t13 values(2);
+insert into t13 values(3);
+insert into t13 select * from t13;
+insert into t13 select * from t13;
+insert into t13 select * from t13;
+select c from t13 order by 1;
+select * from t13 where c=1 order by 1;
+insert into t13 select * from t13 where c > 1;
+update t13 set c=c+100 where c>1;
+drop table t13;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+####################################################
+### Case 14: Multi-query support
+####################################################
+--echo Case 14: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t14(c int);
+insert into t14 values(1);
+insert into t14 values(2);
+insert into t14 values(3);
+insert into t14 select * from t14;
+insert into t14 select * from t14;
+insert into t14 select * from t14;
+select * from t14 where c=1 order by 1;
+insert into t14 select * from t14 where c > 1;
+update t14 set c=c+100 where c>1;
+drop table t14;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
+
+####################################################
+### Case 15: Multi-query support
+####################################################
+--echo Case 15: Multi-query support
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+delimiter ||||;
+
+select 1;
+select 2;
+select 3;
+create table t15(c int);
+insert into t15 values(1);
+insert into t15 values(2);
+insert into t15 values(3);
+insert into t15 select * from t15;
+insert into t15 select * from t15;
+insert into t15 select * from t15;
+insert into t15 select * from t15 where c > 1;
+update t15 set c=c+100 where c>1;
+drop table t15;
+||||
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id||||
+
+# reset delimiter
+delimiter ;||||
 
 ###########
 ### Cleanup

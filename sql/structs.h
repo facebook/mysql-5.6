@@ -558,10 +558,13 @@ typedef struct st_sql_stats {
   ulonglong count;   /* execution count of the normalized SQL */
                                   /* statement */
 
+  ulonglong rows_sent; /* rows sent back to the client */
+
   SHARED_SQL_STATS shared_stats;
 
   void reset() {
     count= 0;
+    rows_sent = 0;
     shared_stats.reset();
   }
 } SQL_STATS;
