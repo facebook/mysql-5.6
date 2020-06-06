@@ -1,0 +1,170 @@
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+@@GLOBAL.enable_user_tables_engine_check
+1
+SET @start_value= @@global.enable_user_tables_engine_check;
+set @@session.sql_mode=NO_UNSIGNED_SUBTRACTION;
+SET @@session.enable_user_tables_engine_check=ON;
+create table t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 't1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create table t1(a int primary key) engine=InnoDB;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table temp_t1;
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 'temp_t1'
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table temp_t1;
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+show create table mysql.enable_user_tables_engine_check_test;
+Table	Create Table
+enable_user_tables_engine_check_test	CREATE TABLE `enable_user_tables_engine_check_test` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table mysql.enable_user_tables_engine_check_test;
+create table t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 't1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 engine=InnoDB;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create table t1(a int primary key) engine=Innodb;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+SET @@session.enable_user_tables_engine_check=OFF;
+create table t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 't1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create table t1(a int primary key) engine=InnoDB;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table temp_t1;
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 'temp_t1'
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table temp_t1;
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+show create table mysql.enable_user_tables_engine_check_test;
+Table	Create Table
+enable_user_tables_engine_check_test	CREATE TABLE `enable_user_tables_engine_check_test` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table mysql.enable_user_tables_engine_check_test;
+create table t1(a int primary key) engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+Warning	1266	Using storage engine InnoDB for table 't1'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 engine=InnoDB;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+create table t1(a int primary key) engine=Innodb;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+alter table t1 engine=Rocksdb;
+Warnings:
+Warning	1286	Unknown storage engine 'Rocksdb'
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+SET @@global.enable_user_tables_engine_check=@start_value;

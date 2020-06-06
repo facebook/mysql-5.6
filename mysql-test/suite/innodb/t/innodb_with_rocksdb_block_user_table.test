@@ -1,0 +1,67 @@
+#
+# MyRocks-specific tests for enable_user_tables_engine_check
+#
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+SET @start_value= @@global.enable_user_tables_engine_check;
+
+set @@session.sql_mode='NO_UNSIGNED_SUBTRACTION,NO_ENGINE_SUBSTITUTION';
+SET @@session.enable_user_tables_engine_check=ON;
+
+create table t1(a int primary key) engine=Rocksdb;
+show create table t1;
+drop table t1;
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1(a int primary key) engine=InnoDB;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+show create table temp_t1;
+drop table temp_t1;
+--Error ER_ILLEGAL_HA_CREATE_OPTION
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+show create table mysql.enable_user_tables_engine_check_test;
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb;
+show create table t1;
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+alter table t1 engine=InnoDB;
+drop table t1;
+
+--Error ER_USER_TABLE_BLOCKED_ENGINE
+create table t1(a int primary key) engine=Innodb;
+
+SET @@session.enable_user_tables_engine_check=OFF;
+
+create table t1(a int primary key) engine=Rocksdb;
+show create table t1;
+drop table t1;
+create table t1(a int primary key) engine=InnoDB;
+show create table t1;
+drop table t1;
+
+create temporary table temp_t1(a int primary key) engine=InnoDB;
+show create table temp_t1;
+drop table temp_t1;
+--Error ER_ILLEGAL_HA_CREATE_OPTION
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+
+create table mysql.enable_user_tables_engine_check_test(a int primary key);
+show create table mysql.enable_user_tables_engine_check_test;
+drop table mysql.enable_user_tables_engine_check_test;
+
+create table t1(a int primary key) engine=Rocksdb;
+show create table t1;
+alter table t1 engine=InnoDB;
+show create table t1;
+drop table t1;
+
+create table t1(a int primary key) engine=Innodb;
+show create table t1;
+alter table t1 engine=Rocksdb;
+show create table t1;
+drop table t1;
+
+SET @@global.enable_user_tables_engine_check=@start_value;
+

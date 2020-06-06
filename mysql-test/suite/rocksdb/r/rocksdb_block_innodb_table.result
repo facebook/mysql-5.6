@@ -1,0 +1,206 @@
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+@@GLOBAL.enable_user_tables_engine_check
+0
+SET @start_value= @@global.enable_user_tables_engine_check;
+SET @@session.enable_user_tables_engine_check=ON;
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+drop table temp_t1;
+create temporary table temp_t1(a int primary key) engine=Rocksdb;
+ERROR HY000: Table storage engine 'ROCKSDB' does not support the create option 'TEMPORARY'
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+Table	Create Table
+enable_user_tables_engine_check_test	CREATE TABLE `enable_user_tables_engine_check_test` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table mysql.enable_user_tables_engine_check_test;
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+alter table t1 engine=InnoDB;
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+ERROR HY000: User table creation [test.t1] is blocked on Storage engine InnoDB
+SET @@session.enable_user_tables_engine_check=OFF;
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+drop table t1;
+create table t1(a int primary key) engine=RocksDB charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+drop table temp_t1;
+create temporary table temp_t1(a int primary key) engine=RocksDB;
+ERROR HY000: Table storage engine 'ROCKSDB' does not support the create option 'TEMPORARY'
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+Table	Create Table
+enable_user_tables_engine_check_test	CREATE TABLE `enable_user_tables_engine_check_test` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table mysql.enable_user_tables_engine_check_test;
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table t1 engine=InnoDB charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+drop table t1;
+create table t1(a int primary key) engine=Innodb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+alter table t1 engine=Rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+set @@session.sql_mode=NO_UNSIGNED_SUBTRACTION;
+SET @@session.enable_user_tables_engine_check=ON;
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create temporary table temp_t1(a int primary key) engine=InnoDB charset=latin1;
+show create table temp_t1;
+Table	Create Table
+temp_t1	CREATE TEMPORARY TABLE `temp_t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+drop table temp_t1;
+create table mysql.enable_user_tables_engine_check_test(a int primary key) charset=latin1;
+show create table mysql.enable_user_tables_engine_check_test;
+Table	Create Table
+enable_user_tables_engine_check_test	CREATE TABLE `enable_user_tables_engine_check_test` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table mysql.enable_user_tables_engine_check_test;
+create table t1(a int primary key) engine=Rocksdb charset=latin1;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+alter table t1 engine=InnoDB;
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+drop table t1;
+create table t1 (a int primary key) engine=rocksdb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (20) ENGINE = ROCKSDB) */
+drop table t1;
+create table t1 (a int primary key) engine=innodb partition by range (a) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (20) ENGINE = ROCKSDB) */
+drop table t1;
+create table t1 (a int, b int, primary key(a, b)) engine=innodb partition by range(a) subpartition by key(b) (partition p0 values less than (10) engine = innodb, partition p1 values less than (20) engine = innodb);
+Warnings:
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+Note	50111	User table creation [test.t1] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  `b` int NOT NULL,
+  PRIMARY KEY (`a`,`b`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+/*!50100 PARTITION BY RANGE (`a`)
+SUBPARTITION BY KEY (b)
+(PARTITION p0 VALUES LESS THAN (10) ENGINE = ROCKSDB,
+ PARTITION p1 VALUES LESS THAN (20) ENGINE = ROCKSDB) */
+drop table t1;
+SET @@global.enable_user_tables_engine_check=@start_value;

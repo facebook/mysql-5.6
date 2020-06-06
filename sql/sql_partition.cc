@@ -4966,8 +4966,9 @@ uint prep_alter_part_table(THD *thd, TABLE *table, Alter_info *alter_info,
         tab_part_info->use_default_subpartitions = false;
         tab_part_info->use_default_num_subpartitions = false;
       }
-      if (tab_part_info->check_partition_info(thd, (handlerton **)nullptr,
-                                              table->file, nullptr, true)) {
+      if (tab_part_info->check_partition_info(
+              thd, (handlerton **)nullptr, table->file, nullptr, alter_ctx->db,
+              alter_ctx->table_name, true)) {
         goto err;
       }
       /*

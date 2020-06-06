@@ -1403,11 +1403,15 @@ static void warn_if_dir_in_part_elem(THD *thd, partition_element *part_elem) {
 
 bool partition_info::check_partition_info(THD *thd, handlerton **eng_type,
                                           handler *file, HA_CREATE_INFO *info,
+                                          const char *db,
+                                          const char *table_name,
                                           bool add_or_reorg_part) {
   handlerton *table_engine = default_engine_type;
   uint i, tot_partitions;
   bool result = true, table_engine_set;
   const char *same_name;
+  bool no_substitution = (!is_engine_substitution_allowed(thd));
+  handlerton *default_engine = ha_default_handlerton(thd);
   DBUG_TRACE;
 
   DBUG_PRINT("info", ("default table_engine = %s",
@@ -1542,6 +1546,20 @@ bool partition_info::check_partition_info(THD *thd, handlerton **eng_type,
               num_subparts_not_set++;
             }
           }
+          if (!(info && info->options & HA_LEX_CREATE_TMP_TABLE) &&
+              ha_check_user_table_blocked(thd, sub_elem->engine_type, db)) {
+            if (no_substitution || default_engine == sub_elem->engine_type) {
+              my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db, table_name,
+                       ha_resolve_storage_engine_name(sub_elem->engine_type));
+              goto end;
+            }
+            push_warning_printf(
+                thd, Sql_condition::SL_NOTE, ER_WARN_USER_TABLE_BLOCKED_ENGINE,
+                ER_THD(thd, ER_WARN_USER_TABLE_BLOCKED_ENGINE), db, table_name,
+                ha_resolve_storage_engine_name(sub_elem->engine_type),
+                ha_resolve_storage_engine_name(default_engine));
+            sub_elem->engine_type = default_engine;
+          }
           DBUG_PRINT("info",
                      ("part = %d sub = %d engine = %s", i, j,
                       ha_resolve_storage_engine_name(sub_elem->engine_type)));
@@ -1567,6 +1585,20 @@ bool partition_info::check_partition_info(THD *thd, handlerton **eng_type,
             part_elem->engine_type = default_engine_type;
           }
         }
+      }
+      if (!(info && info->options & HA_LEX_CREATE_TMP_TABLE) &&
+          ha_check_user_table_blocked(thd, part_elem->engine_type, db)) {
+        if (no_substitution || default_engine == part_elem->engine_type) {
+          my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db, table_name,
+                   ha_resolve_storage_engine_name(part_elem->engine_type));
+          goto end;
+        }
+        push_warning_printf(
+            thd, Sql_condition::SL_NOTE, ER_WARN_USER_TABLE_BLOCKED_ENGINE,
+            ER_THD(thd, ER_WARN_USER_TABLE_BLOCKED_ENGINE), db, table_name,
+            ha_resolve_storage_engine_name(part_elem->engine_type),
+            ha_resolve_storage_engine_name(default_engine));
+        part_elem->engine_type = default_engine;
       }
     } while (++i < num_parts);
     if (!table_engine_set && num_parts_not_set != 0 &&
