@@ -1,0 +1,96 @@
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+@@GLOBAL.enable_user_tables_engine_check
+0
+'#---------------------BS_STVARS_002_01----------------------#'
+SET @start_value= @@global.enable_user_tables_engine_check;
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+COUNT(@@GLOBAL.enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+COUNT(@@SESSION.enable_user_tables_engine_check)
+1
+1 Expected
+'#---------------------BS_STVARS_002_02----------------------#'
+SET @@GLOBAL.enable_user_tables_engine_check=TRUE;
+SELECT @@GLOBAL.enable_user_tables_engine_check;
+@@GLOBAL.enable_user_tables_engine_check
+1
+SET @@SESSION.enable_user_tables_engine_check=TRUE;
+SELECT @@SESSION.enable_user_tables_engine_check;
+@@SESSION.enable_user_tables_engine_check
+1
+'#---------------------BS_STVARS_002_03----------------------#'
+SELECT
+IF(@@GLOBAL.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+IF(@@GLOBAL.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+COUNT(@@GLOBAL.enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+'#---------------------BS_STVARS_002_04----------------------#'
+SELECT
+IF(@@SESSION.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+IF(@@SESSION.enable_user_tables_engine_check, "ON", "OFF") = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+COUNT(@@SESSION.enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='enable_user_tables_engine_check';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+'#---------------------BS_STVARS_002_05----------------------#'
+SELECT COUNT(@@enable_user_tables_engine_check);
+COUNT(@@enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(@@local.enable_user_tables_engine_check);
+COUNT(@@local.enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(@@SESSION.enable_user_tables_engine_check);
+COUNT(@@SESSION.enable_user_tables_engine_check)
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.enable_user_tables_engine_check);
+COUNT(@@GLOBAL.enable_user_tables_engine_check)
+1
+1 Expected
+'#---------------------BS_STVARS_002_06----------------------#'
+CREATE USER u1 IDENTIFIED BY 'pwd';
+##Test: User without admin/super privilege
+SET GLOBAL enable_user_tables_engine_check=ON;
+ERROR 42000: Access denied; you need (at least one of) the SUPER or SYSTEM_VARIABLES_ADMIN privilege(s) for this operation
+SET SESSION enable_user_tables_engine_check=ON;
+ERROR 42000: Access denied; you need (at least one of) the SUPER, SYSTEM_VARIABLES_ADMIN or SESSION_VARIABLES_ADMIN privilege(s) for this operation
+##Test: User with admin privilege
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO u1;
+SET GLOBAL enable_user_tables_engine_check=ON;
+SET SESSION enable_user_tables_engine_check=ON;
+REVOKE SYSTEM_VARIABLES_ADMIN ON *.* FROM u1;
+##Test: User with SUPER privilege
+GRANT SUPER ON *.* TO u1;
+Warnings:
+Warning	1287	The SUPER privilege identifier is deprecated
+SET GLOBAL enable_user_tables_engine_check=OFF;
+SET SESSION enable_user_tables_engine_check=OFF;
+CLEANUP
+DROP USER u1;
+SET @@global.enable_user_tables_engine_check= @start_value;

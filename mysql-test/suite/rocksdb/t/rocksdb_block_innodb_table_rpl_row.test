@@ -1,0 +1,1 @@
+--source suite/rocksdb/t/rocksdb_block_innodb_table_rpl.inc

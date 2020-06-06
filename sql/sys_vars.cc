@@ -8013,6 +8013,13 @@ static Sys_var_bool Sys_tx_read_only(
     READ_ONLY SESSION_VAR(transaction_read_only), NO_CMD_LINE, DEFAULT(0),
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_bool Sys_enable_user_tables_engine_check(
+    "enable_user_tables_engine_check",
+    "Enable checking storage engine compatibilty of user table creation DDL.",
+    SESSION_VAR(enable_user_tables_engine_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(check_session_admin));
+
 static const char *use_fb_json_functions_names[] = {
     "use_fb_json_extract", "use_fb_json_contains", "default", NullS};
 

@@ -1481,11 +1481,10 @@ static int process_noncurrent_db_rw(THD *thd, TABLE_LIST *all_tables) {
   if (!thd->variables.allow_noncurrent_db_rw)
     DBUG_RETURN(0); /* Allow cross db read and write. */
   for (TABLE_LIST *table = all_tables; table; table = table->next_global) {
-    bool skip_table =
-        table->is_view_or_derived() || table->is_view() ||
-        table->schema_table || !strcmp(table->db, "mysql") ||
-        !strcmp(table->db, "performance_schema") || !strcmp(table->db, "") ||
-        !strcmp(table->db, "information_schema") || !strcmp(table->db, "sys");
+    bool skip_table = table->is_view_or_derived() || table->is_view() ||
+                      table->schema_table ||
+                      is_mysql_builtin_database(table->db) ||
+                      !strcmp(table->db, "");
     if (skip_table) continue;
     if ((!thd->db().str && table->db) || strcmp(thd->db().str, table->db))
       DBUG_RETURN((int)thd->variables.allow_noncurrent_db_rw);

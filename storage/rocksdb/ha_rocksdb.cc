@@ -4188,6 +4188,18 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
 }
 
 /**
+  Called during create user table DDL. Block innodb table
+  if rocksdb plugin is installed in the system.
+
+  @param[in]       Target SE of table
+  @retval true     Block table creation in target SE
+  @retval false    Allow table creation in target SE
+ */
+static bool rocksdb_user_table_blocked(legacy_db_type db_type) {
+  return db_type == DB_TYPE_INNODB;
+}
+
+/**
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
@@ -5604,6 +5616,7 @@ static int rocksdb_init_internal(void *const p) {
   /* TODO(yzha) - table_stats is gone in 8.0
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats; */
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
+  rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
 
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;

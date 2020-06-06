@@ -1,0 +1,61 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+select @@global.enable_user_tables_engine_check;
+@@global.enable_user_tables_engine_check
+1
+select @@global.enable_user_tables_engine_check;
+@@global.enable_user_tables_engine_check
+1
+# 
+# Create table on master where engine is substituted
+# with enable_user_tables_engine_check=ON on both master and slave
+#
+set @@session.sql_mode=NO_UNSIGNED_SUBTRACTION;
+create table t0(a int primary key) engine=InnoDB charset=latin1;
+Warnings:
+Note	50111	User table creation [test.t0] is blocked on Storage engine InnoDB. Using engine ROCKSDB instead.
+include/sync_slave_sql_with_master.inc
+# 
+# Create table on master where engine is not substituted
+# with enable_user_tables_engine_check=OFF on both master and slave
+#
+stop slave sql_thread;
+SET @@global.enable_user_tables_engine_check=OFF;
+start slave sql_thread;
+SET @@session.enable_user_tables_engine_check=OFF;
+create table t1(a int primary key) engine=InnoDB charset=latin1;
+# Print storage engines of both tables created on master
+show create table t0;
+Table	Create Table
+t0	CREATE TABLE `t0` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+include/sync_slave_sql_with_master.inc
+# Print storage engines of both tables created on slave
+show create table t0;
+Table	Create Table
+t0	CREATE TABLE `t0` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SET @@global.enable_user_tables_engine_check=ON;
+drop table t0;
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
