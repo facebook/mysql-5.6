@@ -973,11 +973,13 @@ void AC::remove(const char* entity) {
   auto it = ac_map.find(str);
   if (it != ac_map.end()) {
     auto ac_info  = it->second;
+    mysql_mutex_lock(&ac_info->lock);
     for (auto &q : ac_info->queues) {
       while (q.waiting_queries() > 0) {
         dequeue_and_run(q.queue.front()->thd, ac_info);
       }
     }
+    mysql_mutex_unlock(&ac_info->lock);
   }
   mysql_rwlock_unlock(&LOCK_ac);
   mysql_rwlock_wrlock(&LOCK_ac);
