@@ -1,0 +1,21 @@
+create table t1 (a int, b int, c int) engine=innodb;
+
+--echo # Executing query with 8K+ SELECT UNION SELECT
+--disable_result_log
+--disable_query_log
+
+let $i=0;
+let $str=select 1 as a, 2 as b, 3 as c UNION ALL;
+while ($i != 15)
+{
+  let $str=$str $str;
+  inc $i;
+}
+let $query = select * from t1 right join ( $str select 1 as a, 2 as b, 3 as c) t2 on t1.a = t2.a;
+
+--error ER_STACK_OVERRUN_NEED_MORE
+--eval $query
+--enable_query_log
+--enable_result_log
+
+drop table t1;

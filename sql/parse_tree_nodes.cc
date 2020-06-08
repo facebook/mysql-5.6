@@ -534,8 +534,16 @@ Sql_cmd *PT_select_stmt::make_cmd(THD *thd) {
 
   thd->lex->sql_command = m_sql_command;
 
-  if (m_qe->contextualize(&pc) || contextualize_safe(&pc, m_into))
+  if (m_qe->contextualize(&pc)) {
     return nullptr;
+  }
+  if (m_into != nullptr && m_qe->has_into_clause()) {
+    my_error(ER_PARSE_ERROR, MYF(0), ER_THD(thd, ER_SYNTAX_ERROR), "INTO", 0);
+    return nullptr;
+  }
+  if (contextualize_safe(&pc, m_into)) {
+    return nullptr;
+  }
 
   if (thd->lex->sql_command == SQLCOM_SELECT)
     return new (thd->mem_root) Sql_cmd_select(thd->lex->result);
@@ -1107,6 +1115,12 @@ bool PT_union::contextualize(Parse_context *pc) {
   pc->select = pc->thd->lex->new_union_query(pc->select, m_is_distinct, false);
 
   if (pc->select == NULL || m_rhs->contextualize(pc)) return true;
+
+  if (m_rhs->is_union()) {
+    my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+             "nesting of unions at the right-hand side");
+    return true;
+  }
 
   SELECT_LEX_UNIT *unit = pc->select->master_unit();
   if (unit->fake_select_lex == NULL && unit->add_fake_select_lex(thd))
