@@ -2864,7 +2864,7 @@ void Rdb_key_def::store_field(const uchar *data, const size_t length,
     auto field_blob = (Field_blob *)field;
     auto length_bytes = field_blob->pack_length_no_ptr();
     field_blob->store_length(length);
-    auto blob_data = (char *const)(data);
+    auto blob_data = (char *)(data);
     memset(field_blob->ptr + length_bytes, 0, 8);
     memcpy(field_blob->ptr + length_bytes, &blob_data, sizeof(uchar **));
   } else {
