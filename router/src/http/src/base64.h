@@ -32,6 +32,7 @@
 #include <string>
 #include <utility>  // index_sequence
 #include <vector>
+#include <stdexcept>
 
 enum class Base64Endianess { LITTLE, BIG };
 

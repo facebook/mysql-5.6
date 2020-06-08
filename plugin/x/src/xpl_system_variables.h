@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include <cstdint>
 
 #ifdef max_allowed_packet
 #undef max_allowed_packet
