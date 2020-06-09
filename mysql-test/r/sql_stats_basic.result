@@ -340,13 +340,10 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 as is_query_sample_seen_valid, execution_count, rows_inserted,
 rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
+where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	select @@sql_stats_control	1	1	0	0	0	0	1
-e9e49af74e44eb320d7ede94b70e0ffa	NULL	test	user_super	set @@GLOBAL.max_digest_sample_age=1	1	1	0	0	0	0	0
 ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	select 3	1	3	0	0	0	0	3
-f1c369a57edbf1642f8cfcf4adbe5ab2	NULL	test	user_super	select @@max_digest_sample_age	1	1	0	0	0	0	1
-fdfef25fbf8f8595a008663beb4d5727	NULL	test	user_super	select sleep(2)	1	1	0	0	0	0	1
 Case 10: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";

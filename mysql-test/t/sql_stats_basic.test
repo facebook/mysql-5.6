@@ -236,6 +236,7 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 	as is_query_sample_seen_valid, execution_count, rows_inserted,
 	rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
+where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
 
 ####################################################
