@@ -34,8 +34,10 @@
 #ifndef ROWS_EVENT_INCLUDED
 #define ROWS_EVENT_INCLUDED
 
+#include <sstream>
 #include <vector>
 #include "control_events.h"
+#include "my_dbug.h"
 #include "table_id.h"
 
 /**
@@ -934,7 +936,12 @@ class Rows_event : public Binary_log_event {
       Indicates that rows in this event are complete, that is contain
       values for all columns of the table.
     */
-    COMPLETE_ROWS_F = (1U << 3)
+    COMPLETE_ROWS_F = (1U << 3),
+    /**
+      Flags for everything. Please update when you add new flags.
+     */
+    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F | RELAXED_UNIQUE_CHECKS_F |
+                COMPLETE_ROWS_F
   };
 
   /**
@@ -1067,6 +1074,28 @@ class Rows_event : public Binary_log_event {
   uint32_t get_null_bits_len() const { return n_bits_len; }
 
   unsigned long get_width() const { return m_width; }
+
+  std::string get_enum_flag_string() const {
+    std::stringstream flag_str;
+
+#define PARSE_FLAG(__str__, __flag__) \
+  if (m_flags & __flag__) {           \
+    __str__ << " " #__flag__;         \
+  }
+
+    flag_str << " flags:";
+    PARSE_FLAG(flag_str, STMT_END_F);
+    PARSE_FLAG(flag_str, NO_FOREIGN_KEY_CHECKS_F);
+    PARSE_FLAG(flag_str, RELAXED_UNIQUE_CHECKS_F);
+    PARSE_FLAG(flag_str, COMPLETE_ROWS_F);
+    auto unknown_flags = (m_flags & ~ALL_FLAGS);
+    if (unknown_flags) {
+      assert(false);
+      flag_str << " UNKNOWN_FLAG(";
+      flag_str << std::hex << "0x" << unknown_flags << ")";
+    }
+    return flag_str.str();
+  }
 
   static std::string get_flag_string(enum_flag flag) {
     std::string str = "";
