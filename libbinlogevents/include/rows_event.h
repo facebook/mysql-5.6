@@ -929,7 +929,12 @@ class Rows_event : public Binary_log_event {
       Indicates that rows in this event are complete, that is contain
       values for all columns of the table.
     */
-    COMPLETE_ROWS_F = (1U << 3)
+    COMPLETE_ROWS_F = (1U << 3),
+    /**
+      Flags for everything. Please update when you add new flags.
+     */
+    ALL_FLAGS = STMT_END_F | NO_FOREIGN_KEY_CHECKS_F |
+                RELAXED_UNIQUE_CHECKS_F | COMPLETE_ROWS_F
   };
 
   /**

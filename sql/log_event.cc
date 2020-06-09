@@ -10796,15 +10796,33 @@ int Rows_log_event::pack_info(Protocol *protocol) {
 #endif  // MYSQL_SERVER
 
 #ifndef MYSQL_SERVER
+#define PARSE_FLAG(str, flag) \
+  if (get_flags(flag)) {      \
+    str << " " #flag;         \
+  }
+
 void Rows_log_event::print_helper(FILE *,
                                   PRINT_EVENT_INFO *print_event_info) const {
   IO_CACHE *const head = &print_event_info->head_cache;
   IO_CACHE *const body = &print_event_info->body_cache;
   if (!print_event_info->short_form) {
+    std::stringstream flag_str;
+    flag_str << " flags:";
+    PARSE_FLAG(flag_str, STMT_END_F);
+    PARSE_FLAG(flag_str, NO_FOREIGN_KEY_CHECKS_F);
+    PARSE_FLAG(flag_str, RELAXED_UNIQUE_CHECKS_F);
+    PARSE_FLAG(flag_str, COMPLETE_ROWS_F);
+    auto unknown_flags = (m_flags & ~ALL_FLAGS);
+    if (unknown_flags) {
+      DBUG_ASSERT(false);
+      flag_str << " UNKNOWN_FLAG(";
+      flag_str << std::hex << "0x" << unknown_flags << ")";
+    }
+
     bool const last_stmt_event = get_flags(STMT_END_F);
     print_header(head, print_event_info, !last_stmt_event);
     my_b_printf(head, "\t%s: table id %llu%s\n", get_type_str(),
-                m_table_id.id(), last_stmt_event ? " flags: STMT_END_F" : "");
+                m_table_id.id(), m_flags ? flag_str.str().c_str() : "");
     print_base64(body, print_event_info, !last_stmt_event);
   }
 }
