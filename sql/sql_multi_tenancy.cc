@@ -582,9 +582,9 @@ static ulong get_queue(THD * thd) {
 
   // To get queue name, we look at query attribute, connection attribute, and
   // then session variable in that order.
-  for (const auto& map : { thd->query_attrs_map, thd->connection_attrs_map }) {
-    auto it = map.find(attr_name);
-    if (it != map.end()) {
+  for (const auto& map : { &thd->query_attrs_map, &thd->connection_attrs_map }) {
+    auto it = map->find(attr_name);
+    if (it != map->end()) {
       ulong value = 0;
       if (!stoul_noexcept(it->second.c_str(), &value) &&
           value < MAX_AC_QUEUES) {
