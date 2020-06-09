@@ -21,7 +21,7 @@ create table test (
 ) engine = rocksdb default charset = latin1;
 
 --disable_query_log
-let $i = 1000;
+let $i = 1500;
 while ($i) {
   --eval insert into test values (10, 1, "i", $i / 100, $i, "f", "g", "h", "i", "j", "k", "l", "m", $i);
   --eval insert into test values (10, 2, "i", $i / 100, $i, "f", "g", "h", "i", "j", "k", "l", "m", $i);

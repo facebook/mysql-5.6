@@ -117,7 +117,7 @@ explain select a, b, c, d from t where ((a = 5 and b = 2) or a = 2) and d >= 98;
 select count(*) from information_schema.optimizer_trace where trace like '%keypart_in_disjunctive_query%';
 
 --replace_column 9 #
-explain select a, b, c, d from t where a > 2 and d >= 98;
+explain select a, b, c, d from t where a > 5 and d >= 98;
 select count(*) from information_schema.optimizer_trace where trace like '%prefix_not_const_equality%';
 
 --replace_column 9 #

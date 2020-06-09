@@ -32,7 +32,7 @@ while ($cnt)
 }
 
 --echo # Printing of many insert into t1 select .... from t0 disabled.
-let $1=4;
+let $1=5;
 while ($1)
 {
   let $2=4;
@@ -54,13 +54,13 @@ while ($1)
 # -1 is used for values 'out of any range we are using'
 # insert enough rows for index intersection to be used for (key1,key2)
 INSERT INTO t1 (key1, key2, key3, key4, filler1) VALUES (100, 100, 100, 100,'key1-key2-key3-key4');
-let $cnt=400;
+let $cnt=500;
 while ($cnt)
 {
   eval INSERT INTO t1 (key1, key2, key3, key4, filler1) VALUES (100, -1, 100, -1,'key1-key3');
   dec $cnt;
 }
-let $cnt=400;
+let $cnt=500;
 while ($cnt)
 {
   eval INSERT INTO t1 (key1, key2, key3, key4, filler1) VALUES (-1, 100, -1, 100,'key2-key4');
