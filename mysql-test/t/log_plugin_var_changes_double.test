@@ -1,0 +1,25 @@
+# This test is to check logging of double plugin variables changes.
+# It is separate from main test because rocksdb doesn't have double variables.
+
+SET @old_config = @@global.log_global_var_changes;
+SELECT @old_config;
+
+--echo ###### Enable logging global var changes
+SET GLOBAL log_global_var_changes = TRUE;
+
+--echo ### MYSQL_SYSVAR_DOUBLE
+SET @old_val = @@global.innodb_max_dirty_pages_pct;
+SELECT @old_val;
+
+SET GLOBAL innodb_max_dirty_pages_pct = 75.5;
+SELECT @@global.innodb_max_dirty_pages_pct;
+
+SET @@global.innodb_max_dirty_pages_pct = @old_val;
+SELECT @@global.innodb_max_dirty_pages_pct;
+
+SET GLOBAL log_global_var_changes = @old_config;
+SELECT @@global.log_global_var_changes;
+
+--echo ### Verifying error log
+--exec grep "Global variable .* by user .* from host" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | tail -n 3
+--exit

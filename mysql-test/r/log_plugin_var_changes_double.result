@@ -1,0 +1,27 @@
+SET @old_config = @@global.log_global_var_changes;
+SELECT @old_config;
+@old_config
+0
+###### Enable logging global var changes
+SET GLOBAL log_global_var_changes = TRUE;
+### MYSQL_SYSVAR_DOUBLE
+SET @old_val = @@global.innodb_max_dirty_pages_pct;
+SELECT @old_val;
+@old_val
+75
+SET GLOBAL innodb_max_dirty_pages_pct = 75.5;
+SELECT @@global.innodb_max_dirty_pages_pct;
+@@global.innodb_max_dirty_pages_pct
+75.500000
+SET @@global.innodb_max_dirty_pages_pct = @old_val;
+SELECT @@global.innodb_max_dirty_pages_pct;
+@@global.innodb_max_dirty_pages_pct
+75.000000
+SET GLOBAL log_global_var_changes = @old_config;
+SELECT @@global.log_global_var_changes;
+@@global.log_global_var_changes
+0
+### Verifying error log
+ Global variable @@innodb_max_dirty_pages_pct has been changed from 75.000000 to 75.500000 by user root from host localhost
+ Global variable @@innodb_max_dirty_pages_pct has been changed from 75.500000 to 75.000000 by user root from host localhost
+ Global variable @@log_global_var_changes has been changed from 1 to 0 by user root from host localhost

@@ -18,7 +18,7 @@
 #include "unireg.h"
 #include "my_global.h"                       // REQUIRED by m_string.h
 #include "sql_class.h"                          // set_var.h: THD
-#include "sys_vars_shared.h"
+#include "sys_vars.h"
 #include "sql_locale.h"
 #include "sql_plugin.h"
 #include "sql_parse.h"          // check_table_access
@@ -3304,6 +3304,59 @@ bool sys_var_pluginvar::global_update(THD *thd, set_var *var)
       break;
     case PLUGIN_VAR_DOUBLE | PLUGIN_VAR_THDLOCAL:
       src= &((thdvar_double_t*) plugin_var)->def_val;
+      break;
+    default:
+      DBUG_ASSERT(0);
+    }
+  }
+
+  if (opt_log_global_var_changes)
+  {
+    switch (plugin_var->flags & PLUGIN_VAR_TYPEMASK)
+    {
+    case PLUGIN_VAR_INT:
+    case PLUGIN_VAR_LONG:
+    case PLUGIN_VAR_ENUM:
+    case PLUGIN_VAR_LONGLONG:
+    case PLUGIN_VAR_SET:
+    case PLUGIN_VAR_BOOL:
+    {
+      ulonglong old_val;
+      ulonglong new_val;
+      switch (plugin_var->flags & PLUGIN_VAR_TYPEMASK)
+      {
+      case PLUGIN_VAR_INT:
+        old_val = (ulonglong)*(int *)tgt;
+        new_val = (ulonglong)*(int *)src;
+        break;
+      case PLUGIN_VAR_LONG:
+      case PLUGIN_VAR_ENUM:
+        old_val = (ulonglong)*(long *)tgt;
+        new_val = (ulonglong)*(long *)src;
+        break;
+      case PLUGIN_VAR_LONGLONG:
+      case PLUGIN_VAR_SET:
+        old_val = *(ulonglong *)tgt;
+        new_val = *(ulonglong *)src;
+        break;
+      case PLUGIN_VAR_BOOL:
+        old_val = (ulonglong)*(my_bool *)tgt;
+        new_val = (ulonglong)*(my_bool *)src;
+        break;
+      }
+
+      if (plugin_var->flags & PLUGIN_VAR_UNSIGNED)
+        LOG_GLOBAL_VAR_CHANGES(FMT_ULONGLONG, old_val, new_val);
+      else
+        LOG_GLOBAL_VAR_CHANGES(FMT_LONGLONG, old_val, new_val);
+
+      break;
+    }
+    case PLUGIN_VAR_STR:
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, *(char **)tgt, *(char **)src);
+      break;
+    case PLUGIN_VAR_DOUBLE:
+      LOG_GLOBAL_VAR_CHANGES(FMT_DOUBLE, *(double *)tgt, *(double *)src);
       break;
     default:
       DBUG_ASSERT(0);

@@ -79,6 +79,7 @@ static const char *bool_values[3]= {"OFF", "ON", 0};
 extern my_bool opt_log_global_var_changes;
 
 #define FMT_LONG "%ld to %ld"
+#define FMT_LONGLONG "%lld to %lld"
 #define FMT_ULONGLONG "%llu to %llu"
 #define FMT_DOUBLE "%f to %f"
 #define FMT_STR "'%s' to '%s'"

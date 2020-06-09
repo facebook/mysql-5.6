@@ -1,0 +1,144 @@
+SET @old_config = @@global.log_global_var_changes;
+SELECT @old_config;
+@old_config
+0
+###### Enable logging global var changes
+SET GLOBAL log_global_var_changes = TRUE;
+###### Integer category
+### MYSQL_SYSVAR_INT
+SET @old_val = @@global.rocksdb_max_background_jobs;
+SELECT @old_val;
+@old_val
+2
+SET GLOBAL rocksdb_max_background_jobs = -1;
+SELECT @@global.rocksdb_max_background_jobs;
+@@global.rocksdb_max_background_jobs
+-1
+SET GLOBAL rocksdb_max_background_jobs = 1;
+SELECT @@global.rocksdb_max_background_jobs;
+@@global.rocksdb_max_background_jobs
+1
+SET @@global.rocksdb_max_background_jobs = @old_val;
+SELECT @@global.rocksdb_max_background_jobs;
+@@global.rocksdb_max_background_jobs
+2
+### MYSQL_SYSVAR_UINT
+SET @old_val = @@global.rocksdb_max_latest_deadlocks;
+SELECT @old_val;
+@old_val
+5
+SET GLOBAL rocksdb_max_latest_deadlocks = 10;
+SELECT @@global.rocksdb_max_latest_deadlocks;
+@@global.rocksdb_max_latest_deadlocks
+10
+SET @@global.rocksdb_max_latest_deadlocks = @old_val;
+SELECT @@global.rocksdb_max_latest_deadlocks;
+@@global.rocksdb_max_latest_deadlocks
+5
+### MYSQL_SYSVAR_ULONG
+SET @old_val = @@global.rocksdb_compaction_readahead_size;
+SELECT @old_val;
+@old_val
+0
+SET GLOBAL rocksdb_compaction_readahead_size = 1000000;
+SELECT @@global.rocksdb_compaction_readahead_size;
+@@global.rocksdb_compaction_readahead_size
+1000000
+SET @@global.rocksdb_compaction_readahead_size = @old_val;
+SELECT @@global.rocksdb_compaction_readahead_size;
+@@global.rocksdb_compaction_readahead_size
+0
+### MYSQL_SYSVAR_LONGLONG
+SET @old_val = @@global.rocksdb_compaction_sequential_deletes_file_size;
+SELECT @old_val;
+@old_val
+0
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size = -1;
+SELECT @@global.rocksdb_compaction_sequential_deletes_file_size;
+@@global.rocksdb_compaction_sequential_deletes_file_size
+-1
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size = 1000000000000;
+SELECT @@global.rocksdb_compaction_sequential_deletes_file_size;
+@@global.rocksdb_compaction_sequential_deletes_file_size
+1000000000000
+SET @@global.rocksdb_compaction_sequential_deletes_file_size = @old_val;
+SELECT @@global.rocksdb_compaction_sequential_deletes_file_size;
+@@global.rocksdb_compaction_sequential_deletes_file_size
+0
+### MYSQL_SYSVAR_ULONGLONG
+SET @old_val = @@global.rocksdb_sst_mgr_rate_bytes_per_sec;
+SELECT @old_val;
+@old_val
+0
+SET GLOBAL rocksdb_sst_mgr_rate_bytes_per_sec = 9223372036854775808;
+SELECT @@global.rocksdb_sst_mgr_rate_bytes_per_sec;
+@@global.rocksdb_sst_mgr_rate_bytes_per_sec
+9223372036854775808
+SET @@global.rocksdb_sst_mgr_rate_bytes_per_sec = @old_val;
+SELECT @@global.rocksdb_sst_mgr_rate_bytes_per_sec;
+@@global.rocksdb_sst_mgr_rate_bytes_per_sec
+0
+### MYSQL_SYSVAR_ENUM
+SET @old_val = @@global.rocksdb_read_free_rpl;
+SELECT @old_val;
+@old_val
+OFF
+SET GLOBAL rocksdb_read_free_rpl = PK_SK;
+SELECT @@global.rocksdb_read_free_rpl;
+@@global.rocksdb_read_free_rpl
+PK_SK
+SET @@global.rocksdb_read_free_rpl = @old_val;
+SELECT @@global.rocksdb_read_free_rpl;
+@@global.rocksdb_read_free_rpl
+OFF
+### MYSQL_SYSVAR_BOOL
+SET @old_val = @@global.rocksdb_enable_remove_orphaned_dropped_cfs;
+SELECT @old_val;
+@old_val
+1
+SET GLOBAL rocksdb_enable_remove_orphaned_dropped_cfs = FALSE;
+SELECT @@rocksdb_enable_remove_orphaned_dropped_cfs;
+@@rocksdb_enable_remove_orphaned_dropped_cfs
+0
+SET @@global.rocksdb_enable_remove_orphaned_dropped_cfs = @old_val;
+SELECT @@global.rocksdb_enable_remove_orphaned_dropped_cfs;
+@@global.rocksdb_enable_remove_orphaned_dropped_cfs
+1
+###### String category
+### MYSQL_SYSVAR_STR
+SET @old_val = @@global.rocksdb_read_free_rpl_tables;
+SELECT @old_val;
+@old_val
+.*
+SET GLOBAL rocksdb_read_free_rpl_tables = 'mytable';
+SELECT @@global.rocksdb_read_free_rpl_tables;
+@@global.rocksdb_read_free_rpl_tables
+mytable
+SET GLOBAL rocksdb_read_free_rpl_tables = @old_val;
+SELECT @@global.rocksdb_read_free_rpl_tables;
+@@global.rocksdb_read_free_rpl_tables
+.*
+SET GLOBAL log_global_var_changes = @old_config;
+SELECT @@global.log_global_var_changes;
+@@global.log_global_var_changes
+0
+### Verifying error log
+ Global variable @@rocksdb_max_background_jobs has been changed from 2 to -1 by user root from host localhost
+ Global variable @@rocksdb_max_background_jobs has been changed from -1 to 1 by user root from host localhost
+ Global variable @@rocksdb_max_background_jobs has been changed from 1 to 2 by user root from host localhost
+ Global variable @@rocksdb_max_latest_deadlocks has been changed from 5 to 10 by user root from host localhost
+ Global variable @@rocksdb_max_latest_deadlocks has been changed from 10 to 5 by user root from host localhost
+ Global variable @@rocksdb_compaction_readahead_size has been changed from 0 to 1000000 by user root from host localhost
+ Global variable @@rocksdb_compaction_readahead_size has been changed from 1000000 to 0 by user root from host localhost
+ Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from 0 to -1 by user root from host localhost
+ Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from -1 to 1000000000000 by user root from host localhost
+ Global variable @@rocksdb_compaction_sequential_deletes_file_size has been changed from 1000000000000 to 0 by user root from host localhost
+ Global variable @@rocksdb_sst_mgr_rate_bytes_per_sec has been changed from 0 to 9223372036854775808 by user root from host localhost
+ Global variable @@rocksdb_sst_mgr_rate_bytes_per_sec has been changed from 9223372036854775808 to 0 by user root from host localhost
+ Global variable @@rocksdb_read_free_rpl has been changed from 0 to 2 by user root from host localhost
+ Global variable @@rocksdb_read_free_rpl has been changed from 2 to 0 by user root from host localhost
+ Global variable @@rocksdb_enable_remove_orphaned_dropped_cfs has been changed from 1 to 0 by user root from host localhost
+ Global variable @@rocksdb_enable_remove_orphaned_dropped_cfs has been changed from 0 to 1 by user root from host localhost
+ Global variable @@rocksdb_read_free_rpl_tables has been changed from '.*' to 'mytable' by user root from host localhost
+ Global variable @@rocksdb_read_free_rpl_tables has been changed from 'mytable' to '.*' by user root from host localhost
+ Global variable @@log_global_var_changes has been changed from 1 to 0 by user root from host localhost
