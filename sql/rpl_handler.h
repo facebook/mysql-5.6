@@ -302,6 +302,8 @@ public:
                      const std::string& s_hostname,
                      uint64_t port);
   int after_commit(THD *thd, bool all);
+
+  int purge_logs(THD *thd, uint64_t file_ext);
 };
 
 int delegates_init();

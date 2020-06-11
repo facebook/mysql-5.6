@@ -649,6 +649,20 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext)
+{
+  DBUG_ENTER("Raft_replication_delegate::purge_logs");
+  Raft_replication_param param;
+  param.purge_file_ext = file_ext;
+  int ret= 0;
+  FOREACH_OBSERVER(ret, purge_logs, thd, (&param));
+
+  // Set the safe purge file that was sent back by the plugin
+  thd->set_safe_purge_file(param.purge_file);
+
+  DBUG_RETURN(ret);
+}
+
 static int update_sys_var(const char *var_name, uint name_len, Item& update_item)
 {
   // find_sys_var will take a mutex on LOCK_plugin, and a read lock on

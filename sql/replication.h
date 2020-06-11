@@ -414,8 +414,18 @@ typedef struct Binlog_relay_IO_observer {
 typedef struct Raft_replication_param {
   uint32 server_id = 0;
   const char* host_or_ip = nullptr;
+
+  // Raft term and index. Set by the before_flush hook and used in subsequent
+  // hooks for ordered_commit or file rotation
   int64_t term = -1;
   int64_t index = -1;
+
+  // The max file extension that is to be deleted. Passed as a parameter to
+  // purge_logs hook
+  uint64_t purge_file_ext = 0;
+
+  // The file that is safe to be deleted. Plugin will set it in purge_logs hook
+  std::string purge_file;
 } Raft_replication_param;
 
 /**
@@ -510,6 +520,20 @@ typedef struct Raft_replication_observer {
      @retval 1 Failure
   */
   int (*after_commit)(Raft_replication_param *param);
+
+  /**
+     This callback is called before purging binary logs. This is a way for
+     raft plugin to identify the file that could be safely deleted based on
+     its state for duarbility and peers that are still catching up. Server
+     provides the max extension of the file that it wants to purge. The
+     plugin returns the max file name that is safe to be deleted
+
+     @param param The parameter for the observers
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*purge_logs)(Raft_replication_param *param);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

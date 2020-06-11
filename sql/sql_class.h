@@ -2970,6 +2970,8 @@ private:
   int64_t term_= -1;
   int64_t index_= -1;
 
+  std::string safe_purge_file;
+
 public:
   const char *get_trans_gtid() const {
     return m_trans_gtid;
@@ -3812,6 +3814,15 @@ public:
 
   /* Stash the trans marker i.e (term, index) tuple in this THD */
   void set_trans_marker(int64_t term, int64_t index);
+
+  /* Returns the file that is considered safe to be deleted */
+  std::string get_safe_purge_file() const;
+
+  /* Sets the file that is considered safe to be deleted  */
+  void set_safe_purge_file(std::string purge_file);
+
+  /* Clear the safe purge file */
+  void clear_safe_purge_file();
 
   /*
     Error code from committing or rolling back the transaction.
