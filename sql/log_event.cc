@@ -15163,10 +15163,13 @@ bool Rows_log_event::parse_keys(Relay_log_info *rli, TABLE *table,
         (get_type_code() == binary_log::PARTIAL_UPDATE_ROWS_EVENT);
 
     // Unpack the row
+    // This codepath should only be invoked through dependency replication
+    // The SQL thread should not log the keys to the row_query string
+    DBUG_ASSERT(is_mts_parallel_type_dependency(rli));
     if (::unpack_row(rli, table, m_width, curr_row, cols,
                      const_cast<const uchar **>(&curr_row_end), m_rows_end,
-                     row_image_type, has_value_options, false,
-                     thd->row_query)) {
+                     row_image_type, has_value_options, false, thd->row_query,
+                     /* skip logging to row_query */ false)) {
       /* We were unable to unpack the row. This is a serious error. */
       sql_print_error("Unable to unpack row at pos %s:%llu, syncing group",
                       rli->get_rpl_log_name(), common_header->log_pos);

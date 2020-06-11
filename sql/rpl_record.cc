@@ -703,7 +703,7 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
                 uchar const *const event_end,
                 enum_row_image_type row_image_type,
                 bool event_has_value_options, bool only_seek,
-                std::string &row_query) {
+                std::string &row_query, bool insert_row_query) {
   DBUG_ENTER("unpack_row");
   DBUG_ASSERT(rli != nullptr);
   DBUG_ASSERT(table != nullptr);
@@ -1005,7 +1005,7 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
     }
   }
 
-  insert_row_fields(row_query, table);
+  if (insert_row_query) insert_row_fields(row_query, table);
 
   // We have read all the null bits.
   DBUG_ASSERT(null_bits.tell() == image_column_count);
