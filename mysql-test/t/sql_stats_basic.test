@@ -436,6 +436,19 @@ order by sql_id||||
 # reset delimiter
 delimiter ;||||
 
+####################################################
+### Case 16: Flush sql_statistics
+####################################################
+--echo Case 16: Flush sql_statistics and confirm that all stats are gone.
+flush sql_statistics;
+
+select sql_id, plan_id, table_schema, user_name, execution_count,
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id;
+select * from information_schema.sql_text;
+select count(*) from information_schema.client_attributes;
+
 ###########
 ### Cleanup
 ###########

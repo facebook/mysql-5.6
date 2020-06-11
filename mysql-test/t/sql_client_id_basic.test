@@ -14,7 +14,7 @@ select * from sql_text;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -25,7 +25,7 @@ order by client_id;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -37,7 +37,7 @@ select 1;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -48,7 +48,7 @@ order by client_id;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 # change user command to re-send connection attributes
@@ -69,7 +69,7 @@ select 1;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -80,7 +80,7 @@ order by client_id;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -92,7 +92,7 @@ select 1;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -103,7 +103,7 @@ order by client_id;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 --echo #
@@ -115,7 +115,7 @@ select 1;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 set global sql_stats_control = OFF_HARD;
@@ -123,7 +123,7 @@ set global sql_stats_control = OFF_HARD;
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 set global sql_stats_control = ON;
@@ -139,7 +139,7 @@ delimiter ;||||
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 query_attrs_add caller qa_test3;
@@ -151,7 +151,7 @@ delimiter ;||||
 select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
 from sql_statistics stats, client_attributes ca
 where stats.client_id = ca.client_id
-and sql_id = "ea1a18bec5a37513f7a0720e73526477"
+and sql_id = "0448f3d24e4d02752389c951b6da98b1"
 order by client_id;
 
 query_attrs_reset;

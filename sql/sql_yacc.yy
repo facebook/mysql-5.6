@@ -1797,6 +1797,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SQL_NO_CACHE_SYM
 %token  SQL_NO_FCACHE_SYM
 %token  SQL_SMALL_RESULT
+%token  SQL_STATISTICS_SYM
 %token  SQL_SYM                       /* SQL-2003-R */
 %token  SQL_THREAD
 %token  SRV_SESSIONS_SYM
@@ -13928,6 +13929,8 @@ flush_option:
           { Lex->type|= REFRESH_USER_RESOURCES; }
         | STATISTICS_SYM
           { Lex->type|= REFRESH_STATISTICS; }
+        | SQL_STATISTICS_SYM
+          { Lex->type|= REFRESH_SQL_STATISTICS; }
         ;
 
 opt_table_list:
@@ -15343,6 +15346,7 @@ keyword_sp:
         | SQL_CACHE_SYM            {}
         | SQL_BUFFER_RESULT        {}
         | SQL_NO_CACHE_SYM         {}
+        | SQL_STATISTICS_SYM       {}
         | SQL_THREAD               {}
         | SRV_SESSIONS_SYM         {}
         | STARTS_SYM               {}

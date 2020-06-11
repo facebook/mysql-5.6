@@ -31,10 +31,10 @@ select 100;
 select sql_id, plan_id, table_schema, user_name, execution_count
 from information_schema.sql_statistics order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count
-08218f46736de8bfbd53566c8c48cc12	NULL	test	user_super	1
-159d8280d1e0ee77a1aadb0152e02fd4	NULL	test	user_super	1
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3
+b83dc7fc415c9cbdb49b1bdf3f8272e1	NULL	test	user_super	1
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1
+f3923e96b3200fb797805a1622d50fce	NULL	test	user_super	1
 create table t1(c int);
 insert into t1 values(1);
 insert into t1 values(2);
@@ -126,43 +126,43 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-08218f46736de8bfbd53566c8c48cc12	NULL	test	user_super	1	0	0	0	0	0
-159d8280d1e0ee77a1aadb0152e02fd4	NULL	test	user_super	1	0	0	0	0	1
-279bcd77d61df560ddc2ce0524b09da4	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0
-2afc9bd804532f840391132aa8a646ea	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2
-2bb06dab5e4df72c13ce9dcbd1901620	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6
-32c39b123453eba8562a6019a6263429	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3
-3da33426ba270d36ad95b2b819d03a24	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0
-43b42378dc4b4becd7841b85627a934e	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1
-6708ce04cdc63d5b5d46b6b4c105086a	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6
-6ff712a3a736ab8661969995a86b40a5	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-b2c751001aacadcf66d589277fe89c39	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0
-b473dac11510107b3dd116f54e106008	NULL	test	user_super	1	0	0	0	0	0
-bcb18f202af627f545e12f03303093b0	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+0660aff6405a986b61bcf96e3c9c0eeb	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3
+115790d5caa4aa4c41170d787721a093	NULL	test	user_super	1	0	0	0	0	0
+20e348ba32bf39ecbfa4161409915904	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6
+4488f553b185292516085f7fce34723d	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6
+5272724305c2c990975c4a1f1611fa9c	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2
+585ddd5705455eff24f3879ea2ba93af	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1
+5d297aa0bf23bdacb24771b08a2039d2	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0
+61496664e13fbf642ce2fedd1c057adc	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4
+8a5876129638d090183167e45d244a98	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6
+a41d29f30d2b12c6cf1d3c1fa212bc98	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0
+b0d1c8aef69877d3fd8ccbcf92a899f3	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0
+b83dc7fc415c9cbdb49b1bdf3f8272e1	NULL	test	user_super	1	0	0	0	0	1
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+f3923e96b3200fb797805a1622d50fce	NULL	test	user_super	1	0	0	0	0	0
 select information_schema.sql_statistics.sql_id, table_schema, user_name,
 execution_count, sql_text
 from information_schema.sql_statistics, information_schema.sql_text
 where information_schema.sql_statistics.sql_id=information_schema.sql_text.sql_id
 order by sql_id;
 sql_id	table_schema	user_name	execution_count	sql_text
-08218f46736de8bfbd53566c8c48cc12	test	user_super	1	SET @@GLOBAL . `sql_plans_control` = ON 
-159d8280d1e0ee77a1aadb0152e02fd4	test	user_super	1	SELECT @@`sql_plans_control` 
-279bcd77d61df560ddc2ce0524b09da4	test	user_super	5	INSERT INTO `t1` VALUES (?) 
-2afc9bd804532f840391132aa8a646ea	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE NOT EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
-2bb06dab5e4df72c13ce9dcbd1901620	test	user_super	1	SELECT `a` . `c` `c1` , `b` . `c` `c2` FROM `t1` `a` , `t1` `b` WHERE `a` . `c` <= `b` . `c` ORDER BY ?, ... 
-32c39b123453eba8562a6019a6263429	test	user_super	1	SELECT `c` . `c` , MIN ( `a` . `c` ) , MAX ( `b` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `c` . `c` ORDER BY ?, ... 
-3da33426ba270d36ad95b2b819d03a24	test	user_super	2	DELETE FROM `t1` WHERE `c` = ? 
-43b42378dc4b4becd7841b85627a934e	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
-6708ce04cdc63d5b5d46b6b4c105086a	test	user_super	1	SELECT `a` . `c` , `b` . `c` , SUM ( `c` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` ORDER BY ?, ... 
-6ff712a3a736ab8661969995a86b40a5	test	user_super	2	SELECT `a` . `c` , `b` . `c` , SUM ( `c` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ORDER BY ?, ... 
-7607b20afdca65f50cf919609d171ad8	test	user_super	1	SELECT @@`sql_stats_control` 
-b2c751001aacadcf66d589277fe89c39	test	user_super	3	UPDATE `t1` SET `c` = `c` + ? 
-b473dac11510107b3dd116f54e106008	test	user_super	1	CREATE TABLE `t1` ( `c` INTEGER ) 
-bcb18f202af627f545e12f03303093b0	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
-c49d0dc5f999e80d23b658240b33dc94	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
-ea1a18bec5a37513f7a0720e73526477	test	user_super	3	SELECT ? 
+0448f3d24e4d02752389c951b6da98b1	test	user_super	3	SELECT ? 
+0660aff6405a986b61bcf96e3c9c0eeb	test	user_super	1	SELECT `c` . `c` , MIN ( `a` . `c` ) , MAX ( `b` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `c` . `c` ORDER BY ?, ... 
+115790d5caa4aa4c41170d787721a093	test	user_super	1	CREATE TABLE `t1` ( `c` INTEGER ) 
+20e348ba32bf39ecbfa4161409915904	test	user_super	1	SELECT `a` . `c` `c1` , `b` . `c` `c2` FROM `t1` `a` , `t1` `b` WHERE `a` . `c` <= `b` . `c` ORDER BY ?, ... 
+4488f553b185292516085f7fce34723d	test	user_super	2	SELECT `a` . `c` , `b` . `c` , SUM ( `c` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ORDER BY ?, ... 
+5272724305c2c990975c4a1f1611fa9c	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE NOT EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
+585ddd5705455eff24f3879ea2ba93af	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
+5d297aa0bf23bdacb24771b08a2039d2	test	user_super	2	DELETE FROM `t1` WHERE `c` = ? 
+61496664e13fbf642ce2fedd1c057adc	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+8a5876129638d090183167e45d244a98	test	user_super	1	SELECT `a` . `c` , `b` . `c` , SUM ( `c` . `c` ) FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` ORDER BY ?, ... 
+a41d29f30d2b12c6cf1d3c1fa212bc98	test	user_super	3	UPDATE `t1` SET `c` = `c` + ? 
+b0d1c8aef69877d3fd8ccbcf92a899f3	test	user_super	5	INSERT INTO `t1` VALUES (?) 
+b83dc7fc415c9cbdb49b1bdf3f8272e1	test	user_super	1	SELECT @@`sql_plans_control` 
+bb4be4c349279f26812ee1cc0371a5ca	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+e27c5cdf6a99b5400d5394fed7999a27	test	user_super	1	SELECT @@`sql_stats_control` 
+f3923e96b3200fb797805a1622d50fce	test	user_super	1	SET @@GLOBAL . `sql_plans_control` = ON 
 Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
 set @@GLOBAL.sql_stats_control="OFF_SOFT";
 select @@sql_stats_control;
@@ -182,23 +182,23 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-08218f46736de8bfbd53566c8c48cc12	NULL	test	user_super	1	0	0	0	0	0
-159d8280d1e0ee77a1aadb0152e02fd4	NULL	test	user_super	1	0	0	0	0	1
-279bcd77d61df560ddc2ce0524b09da4	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0
-2afc9bd804532f840391132aa8a646ea	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2
-2bb06dab5e4df72c13ce9dcbd1901620	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6
-32c39b123453eba8562a6019a6263429	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3
-3da33426ba270d36ad95b2b819d03a24	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0
-43b42378dc4b4becd7841b85627a934e	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1
-6708ce04cdc63d5b5d46b6b4c105086a	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6
-6ff712a3a736ab8661969995a86b40a5	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-b2c751001aacadcf66d589277fe89c39	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0
-b473dac11510107b3dd116f54e106008	NULL	test	user_super	1	0	0	0	0	0
-bcb18f202af627f545e12f03303093b0	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4
-c0cc565ac4469288962d2e15f96722c0	2eea1bb868964e5a66a4f786e40cfbf3	test	user_super	1	0	0	0	0	16
-c49d0dc5f999e80d23b658240b33dc94	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
+01e7397e2cdbee57e94c0ca56c396aa7	2eea1bb868964e5a66a4f786e40cfbf3	test	user_super	1	0	0	0	0	16
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+0660aff6405a986b61bcf96e3c9c0eeb	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3
+115790d5caa4aa4c41170d787721a093	NULL	test	user_super	1	0	0	0	0	0
+20e348ba32bf39ecbfa4161409915904	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6
+4488f553b185292516085f7fce34723d	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6
+5272724305c2c990975c4a1f1611fa9c	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2
+585ddd5705455eff24f3879ea2ba93af	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1
+5d297aa0bf23bdacb24771b08a2039d2	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0
+61496664e13fbf642ce2fedd1c057adc	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4
+8a5876129638d090183167e45d244a98	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6
+a41d29f30d2b12c6cf1d3c1fa212bc98	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0
+b0d1c8aef69877d3fd8ccbcf92a899f3	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0
+b83dc7fc415c9cbdb49b1bdf3f8272e1	NULL	test	user_super	1	0	0	0	0	1
+bb4be4c349279f26812ee1cc0371a5ca	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+f3923e96b3200fb797805a1622d50fce	NULL	test	user_super	1	0	0	0	0	0
 Case 4: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
@@ -222,8 +222,8 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	1	0	0	0	0	1
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	1	0	0	0	0	1
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
 Case 6: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -253,14 +253,14 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-1a15305517598063a249eb3eaac3044f	c63aca0e3e2270468eaadb4364351527	test	user_super	1	1	0	0	0	0
-30db1722a6d958b0de756ec322a0ac6b	f343b9befca0a2e2d56935211139703e	test	user_super	1	0	0	1	1	0
-41e549ce8a53912cafa487f3aace1e94	5b09041e2c03efb8b820a1fda0bf8146	test	user_super	1	0	0	0	2	1
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-a78554303c31babf6aaaaf2193428953	NULL	test	user_super	1	0	0	0	0	0
-b551871920521a753f36a52ad702c054	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	1	0	1	0
-e5672050f068011f4e794f8aa32262bd	NULL	test	user_super	1	0	0	0	0	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+08e2e1aa05ce79fab18802903ff52353	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	1	0	1	0
+3899758cccb9d26c0134dd59cca080c5	f343b9befca0a2e2d56935211139703e	test	user_super	1	0	0	1	1	0
+6a27ad290846ca8699dca282fa3f10a3	c63aca0e3e2270468eaadb4364351527	test	user_super	1	1	0	0	0	0
+b7f7406ebf52639736c0b3dfbaf63bb3	NULL	test	user_super	1	0	0	0	0	0
+d8dfdc1dc9c54e97f5a09cd3687f6bf7	NULL	test	user_super	1	0	0	0	0	0
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+f8845f2e23dc354f349819ec2a3c70e1	5b09041e2c03efb8b820a1fda0bf8146	test	user_super	1	0	0	0	2	1
 Case 7: Query no sampling by default
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -282,8 +282,8 @@ rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	query_sample_text	query_sample_seen	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super		NULL	1	0	0	0	0	1
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super		NULL	3	0	0	0	0	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super		NULL	3	0	0	0	0	3
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super		NULL	1	0	0	0	0	1
 Case 8: Query Only Once Sampling support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -309,10 +309,10 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	select @@sql_stats_control	1	1	0	0	0	0	1
-e9e49af74e44eb320d7ede94b70e0ffa	NULL	test	user_super	set @@GLOBAL.max_digest_sample_age=0	1	1	0	0	0	0	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	select 1	1	3	0	0	0	0	3
-f1c369a57edbf1642f8cfcf4adbe5ab2	NULL	test	user_super	select @@max_digest_sample_age	1	1	0	0	0	0	1
+03fe8e4607a4d56b50bff20d1bc67176	NULL	test	user_super	set @@GLOBAL.max_digest_sample_age=0	1	1	0	0	0	0	0
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	select 1	1	3	0	0	0	0	3
+7b049b2c451da141323a2d3a34f3b702	NULL	test	user_super	select @@max_digest_sample_age	1	1	0	0	0	0	1
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	select @@sql_stats_control	1	1	0	0	0	0	1
 Case 9: Query Re-sampling support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -343,7 +343,6 @@ from information_schema.sql_statistics
 where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	select 3	1	3	0	0	0	0	3
 Case 10: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -409,14 +408,14 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7374e0aba70db96ce964104329d921bf	0c68a814e4bc7ce05336789421cdeee2	test	user_super	3	21	0	0	21	0
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-824800b089a6b61ccf4664c17c445adc	bb775f67f5bdb8c07f6fc05195cea244	test	user_super	1	0	0	0	24	24
-9dfe5bdfcc6c773733dfc9b350e0df27	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
-ea8843d0afcc33597c12c87a3d3ea936	NULL	test	user_super	1	0	0	0	0	0
-f10007a8c9aabebf0839c532665d9a1f	NULL	test	user_super	1	0	0	0	0	0
-fcb76dc016acacb173c5a1e9ea929795	a87c8388de86c82198fa06675de68c3f	test	user_super	1	0	0	0	24	8
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+1f190da0b32921035695df19c81d513b	NULL	test	user_super	1	0	0	0	0	0
+5293635f719ecd8854fe9ae5d80b2ea0	a87c8388de86c82198fa06675de68c3f	test	user_super	1	0	0	0	24	8
+6a084d4b518d797082c40b1149c0c304	0c68a814e4bc7ce05336789421cdeee2	test	user_super	3	21	0	0	21	0
+a7aa3561f11c055c76ff1d797578321b	bb775f67f5bdb8c07f6fc05195cea244	test	user_super	1	0	0	0	24	24
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+f187615046cfbe7d1a88a3ec86aadcd0	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
+f7467ccac03c7da89b942711fa90df94	NULL	test	user_super	1	0	0	0	0	0
 Case 11: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -483,15 +482,15 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-223e3c581eb05f317c127f718aeed178	4e629c338e9448ec75b16454a974ce37	test	user_super	3	21	0	0	21	0
-509f67f99be4e1a1401d1a274e7326d8	8f26bb7e672b92ab2d74613a6b1e3b14	test	user_super	1	0	0	0	24	24
-60355a6c6f5c76a6c25960528a0df809	c24516a3e2e6f108b2f12ff638860fd6	test	user_super	1	0	16	0	24	0
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-a05e637ba6b113f5579360e16fa6b97c	1205d6f41cfd8eee9ac0fefed3b7a5ad	test	user_super	1	0	0	0	24	8
-b8564ef37f94cea6243ec23f697907a5	NULL	test	user_super	1	0	0	0	0	0
-bfc5f0c01de3ab6e486cc9b4f974f6b0	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-df7b39796c1524ee8536b97e8bd6ebdb	NULL	test	user_super	1	0	0	0	0	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+0c59077a70a2aeac4818c0bb4cb6627e	c24516a3e2e6f108b2f12ff638860fd6	test	user_super	1	0	16	0	24	0
+19771d4aba4c1bf5e4ee248c36e5ec56	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
+1d42a0d65a0cc393f9b6da0252503504	NULL	test	user_super	1	0	0	0	0	0
+3e7fec38c1f03cfaf3d69b8d16c57be2	NULL	test	user_super	1	0	0	0	0	0
+5229da5a139654c16958b1a576c2552b	4e629c338e9448ec75b16454a974ce37	test	user_super	3	21	0	0	21	0
+6e9e39b0ef2e1a1067e29d1a97f05739	1205d6f41cfd8eee9ac0fefed3b7a5ad	test	user_super	1	0	0	0	24	8
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+eb4925497c3d55620c4fab16fba4e384	8f26bb7e672b92ab2d74613a6b1e3b14	test	user_super	1	0	0	0	24	24
 Case 12: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -558,15 +557,15 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-9f67d8c291a56b29db526d866c65f1b8	NULL	test	user_super	1	0	0	0	0	0
-a985a194b47655fd18b0acd17c766ffc	63ce70a8b3d6b3b07ed5d4504741c52b	test	user_super	1	0	0	0	24	8
-acfbd87e1f29746cf0c0c6ceb80110eb	e20fa51953e77162c47d427dc9b3d796	test	user_super	1	16	0	0	24	0
-affebceafd65c104b811559b0855593c	d4d42e245869a5ad6d4c991f37715319	test	user_super	1	0	0	0	24	24
-b88a783206f9e7f26be367f00a71e3c2	e20fa51953e77162c47d427dc9b3d796	test	user_super	3	21	0	0	21	0
-e0eac6bf74bdc61fc724c65accdf579d	NULL	test	user_super	1	0	0	0	0	0
-e174fb3e96b318aa1e1cac26b157e8b3	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+3dbbb61cc4c822932c7ccb3f377a142a	NULL	test	user_super	1	0	0	0	0	0
+69d4bd4fb32a7e5c70db97a826b383d8	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
+70a04dd805498899a23e858c174b4e59	NULL	test	user_super	1	0	0	0	0	0
+90d54180866cc4d7c8deeca49f37e5b7	d4d42e245869a5ad6d4c991f37715319	test	user_super	1	0	0	0	24	24
+a1cb320bf5154af3215175d77317d450	e20fa51953e77162c47d427dc9b3d796	test	user_super	3	21	0	0	21	0
+a671ff0e794e504edd0e7992c77e7b1d	63ce70a8b3d6b3b07ed5d4504741c52b	test	user_super	1	0	0	0	24	8
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+e6770ada1de10d675bc36e6b51c32e6e	e20fa51953e77162c47d427dc9b3d796	test	user_super	1	16	0	0	24	0
 Case 13: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -634,16 +633,16 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-03d74d11f883e0288b4dfcac86aa0df0	4a90aceb0568c53439dd6a23089fe389	test	user_super	1	16	0	0	24	0
-14a48d068073e662e05ae673270aaffa	78e987e8c5aed34aa2ace332289a7412	test	user_super	1	0	0	0	24	24
-2404878e98ec843aad84cc1483fbdbfa	4b974e5532640edc9fa95b3beb67899e	test	user_super	1	0	32	0	40	0
-374f0246bc2b83347b0be15ba5f255a8	4a90aceb0568c53439dd6a23089fe389	test	user_super	3	21	0	0	21	0
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-7bf46fe195b7072c0322ef9a47b45a87	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-913155dffe79dd2c5ea1c2e97a714e5c	aff29d3a71e81392f86033f8e503c8e1	test	user_super	1	0	0	0	24	8
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
-f0556125b05f1015e4ae19b811bf9e1e	NULL	test	user_super	1	0	0	0	0	0
-f923b8c2f13cf31a2874dcbfdfc78c09	NULL	test	user_super	1	0	0	0	0	0
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+2789114df08be92e4226bcabcbb38d95	78e987e8c5aed34aa2ace332289a7412	test	user_super	1	0	0	0	24	24
+505a72eddc224819447edba7e0e0db0f	4a90aceb0568c53439dd6a23089fe389	test	user_super	3	21	0	0	21	0
+698b6fa2700b0c588c211dd2a8378b29	NULL	test	user_super	1	0	0	0	0	0
+6cf00464c47a44f346dd61348a48b02c	4b974e5532640edc9fa95b3beb67899e	test	user_super	1	0	32	0	40	0
+b7650098d409f63b73ee65a480094989	NULL	test	user_super	1	0	0	0	0	0
+d046137b000bcb3ed8171a31a9e0a4c6	4a90aceb0568c53439dd6a23089fe389	test	user_super	1	16	0	0	24	0
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+ea0611e00466c5fbfff21859a5535143	aff29d3a71e81392f86033f8e503c8e1	test	user_super	1	0	0	0	24	8
+edf00ebd0ff2854bb8f94afc808ebe2d	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
 Case 14: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -685,15 +684,15 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-01c3833a46ccc4c4ab5cc84ec4be4876	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-10299e3b71eb1fdfa50c80ba42fc8e6a	NULL	test	user_super	1	0	0	0	0	0
-194b8bbba4f564d8db035de2504b8ce7	NULL	test	user_super	1	0	0	0	0	0
-45b8135571e0c4fe5b04410ebdcff241	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	3	21	0	0	21	0
-4c5250bb3a441820a422410463bb4b1d	b248616d23287bf9c4d4475c91614bf5	test	user_super	1	0	0	0	24	8
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-7b09d4a45fc7d721e1f35f78ce7745f4	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	1	16	0	0	24	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
-fe503e758a456024f85b6ae98f19a638	d814f7204842756b5a4bd40bd006d886	test	user_super	1	0	32	0	40	0
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+2240ce1dd399bfc1fd6f3e5b55f0d283	b248616d23287bf9c4d4475c91614bf5	test	user_super	1	0	0	0	24	8
+658c0e04a337ae3f568db2846c32ead9	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	3	21	0	0	21	0
+88fe191ede151cda8a3c0686d9d77841	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
+991fa14b9229684f268b760ab673c31f	d814f7204842756b5a4bd40bd006d886	test	user_super	1	0	32	0	40	0
+a29d96e6a7ca53ba1a8c2cc10095cdcb	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	1	16	0	0	24	0
+a73768e04e9d93e8bc748510af0128c6	NULL	test	user_super	1	0	0	0	0	0
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+f334ce54493b4df3e973c2370382c47d	NULL	test	user_super	1	0	0	0	0	0
 Case 15: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -725,14 +724,29 @@ rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
 from information_schema.sql_statistics
 order by sql_id||||
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
-0cba5f1d3b8054ee4aca3f0c107f34ec	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
-7607b20afdca65f50cf919609d171ad8	NULL	test	user_super	1	0	0	0	0	1
-976728c4d3e4a6b0dbd9f55cbd25b7c2	c351cb9aa35ffd197e5732574574e5dc	test	user_super	1	0	32	0	40	0
-c5ad6233d0a33ae0187e5ea833adcbba	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	3	21	0	0	21	0
-ea1a18bec5a37513f7a0720e73526477	NULL	test	user_super	3	0	0	0	0	3
-f85f9c04f8cf2a71205431262a58d4a9	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	1	16	0	0	24	0
-faded6058d4e39d2ffb9f4b6f7bd6c3b	NULL	test	user_super	1	0	0	0	0	0
-fcb99bb741bded34643e7426952956e8	NULL	test	user_super	1	0	0	0	0	0
+0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3
+2b85decb443e2637268d6c31e015c69e	NULL	test	user_super	1	0	0	0	0	0
+57e3eba95857bdd253438f824b3276dd	NULL	test	user_super	1	0	0	0	0	0
+aba6b507bce09ad55bae47f076d15d41	c351cb9aa35ffd197e5732574574e5dc	test	user_super	1	0	32	0	40	0
+adbf60ef4a4d5383fecd8296e2ca7f5f	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	1	16	0	0	24	0
+b423eb4103cc740c4224acedccc2bf29	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0
+ceb9c94c5b12b5881ff044e25292188b	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	3	21	0	0	21	0
+e27c5cdf6a99b5400d5394fed7999a27	NULL	test	user_super	1	0	0	0	0	1
+Case 16: Flush sql_statistics and confirm that all stats are gone.
+flush sql_statistics;
+select sql_id, plan_id, table_schema, user_name, execution_count,
+rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+from information_schema.sql_statistics
+order by sql_id;
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent
+25719880df551a9058a6338635d05303	NULL	test	user_super	1	0	0	0	0	0
+select * from information_schema.sql_text;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+bb4be4c349279f26812ee1cc0371a5ca	SELECT	222	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+25719880df551a9058a6338635d05303	OTHER	21	FLUSH SQL_STATISTICS 
+select count(*) from information_schema.client_attributes;
+count(*)
+1
 Cleanup
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_plans_control=OFF_HARD;

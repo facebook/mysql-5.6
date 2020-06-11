@@ -39,10 +39,10 @@ select 100;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
-ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 3: sql_stats_control=ON, max_sql_stats_count=10, default max_sql_stats_size. Stats within limits.
 set @@GLOBAL.max_sql_stats_count=10;
 set @@GLOBAL.max_sql_stats_size=104857600;
@@ -67,13 +67,13 @@ select 1 union select 2 union select 3;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-24e9a10039a39af0c1ffda472ca59827	SET	41	SET @@GLOBAL . `max_sql_stats_count` = ? 
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-855ca995151d6d7b23e8e73eeae07e14	SELECT	39	SELECT ? UNION SELECT ? UNION SELECT ? 
-8a4f906e942718281fe4ee69eaa295cf	SELECT	24	SELECT ? UNION SELECT ? 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+69f6e006822c9edd8ec876a821689ca8	SET	41	SET @@GLOBAL . `max_sql_stats_count` = ? 
+72bfb12783dd4501ea8687c4a69f4bc3	SELECT	24	SELECT ? UNION SELECT ? 
+d8e10f350cdae124ae4cd034b4fe06b6	SELECT	39	SELECT ? UNION SELECT ? UNION SELECT ? 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 4: sql_stats_control=ON, max_sql_stats_count=5, default max_sql_stats_size. Stats hit the count limit.
 set @@GLOBAL.max_sql_stats_count=4;
 set @@GLOBAL.max_sql_stats_size=104857600;
@@ -98,10 +98,10 @@ select 1 union select 2 union select 3;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-24e9a10039a39af0c1ffda472ca59827	SET	41	SET @@GLOBAL . `max_sql_stats_count` = ? 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+69f6e006822c9edd8ec876a821689ca8	SET	41	SET @@GLOBAL . `max_sql_stats_count` = ? 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 5: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=8KB. Stats within limits.
 set @@GLOBAL.max_sql_stats_count=100000;
 set @@GLOBAL.max_sql_stats_size=8192;
@@ -126,12 +126,12 @@ select 1 union select 2 union select 3;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-855ca995151d6d7b23e8e73eeae07e14	SELECT	39	SELECT ? UNION SELECT ? UNION SELECT ? 
-8a4f906e942718281fe4ee69eaa295cf	SELECT	24	SELECT ? UNION SELECT ? 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+72bfb12783dd4501ea8687c4a69f4bc3	SELECT	24	SELECT ? UNION SELECT ? 
+d8e10f350cdae124ae4cd034b4fe06b6	SELECT	39	SELECT ? UNION SELECT ? UNION SELECT ? 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=5KB. Stats hit the size limit.
 set @@GLOBAL.max_sql_stats_count=100000;
 set @@GLOBAL.max_sql_stats_size=5120;
@@ -150,11 +150,11 @@ select 1;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
-ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 select 1 union select 2;
 1
 1
@@ -180,11 +180,11 @@ select 1 union select 2 union select 3 union select 4 union select 5;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
-7607b20afdca65f50cf919609d171ad8	SELECT	29	SELECT @@`sql_stats_control` 
-9f88d75556b99ce43a5c32c9239fcda5	SELECT	31	SELECT @@`max_sql_stats_count` 
-ea1a18bec5a37513f7a0720e73526477	SELECT	9	SELECT ? 
+0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
+3d71673b628aae69c54831834e0aac85	SELECT	31	SELECT @@`max_sql_stats_count` 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 7: sql_stats_control=ON, updating max_sql_stats_size should reset the memory and restart the collection
 set @@GLOBAL.max_sql_stats_size=4096;
 select @@max_sql_stats_size;
@@ -193,8 +193,8 @@ select @@max_sql_stats_size;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-39e281f8d9904f6a7fef385972c7d13e	SELECT	30	SELECT @@`max_sql_stats_size` 
-504457c568e716f12bc650b01d8e713b	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
+51ced1327bbc3db40a2affc4c33838be	SELECT	30	SELECT @@`max_sql_stats_size` 
+59cee932177c73e6ee714e8f95a119f3	SET	40	SET @@GLOBAL . `max_sql_stats_size` = ? 
 Case 8: sql_stats_control=OFF_SOFT, updating max_sql_stats_size should reset the memory
 set @@GLOBAL.sql_stats_control="OFF_SOFT";
 set @@GLOBAL.max_sql_stats_size=500;
