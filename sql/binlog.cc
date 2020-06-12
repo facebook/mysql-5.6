@@ -302,6 +302,9 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
     std::unique_ptr<IO_CACHE_ostream> file_ostream(new IO_CACHE_ostream);
     if (file_ostream->open(log_file_key, binlog_name, flags)) DBUG_RETURN(true);
 
+    // Get the underlying IO_CACHE for the file stream
+    m_io_cache = file_ostream->get_io_cache();
+
     m_pipeline_head = std::move(file_ostream);
 
     /* Setup encryption for new files if needed */
@@ -481,11 +484,18 @@ class MYSQL_BIN_LOG::Binlog_ofile : public Basic_ostream {
 
   my_off_t get_my_b_tell() { return m_pipeline_head->get_my_b_tell(); }
 
+  /**
+     Return the underlying io_cache for this stream object
+     @retval A pointer to the underlying IO_CACHE
+  */
+  IO_CACHE* get_io_cache() const { return m_io_cache; }
+
  private:
   my_off_t m_position = 0;
   int m_encrypted_header_size = 0;
   std::unique_ptr<Truncatable_ostream> m_pipeline_head;
   bool m_encrypted = false;
+  IO_CACHE* m_io_cache = nullptr;
 };
 
 /**

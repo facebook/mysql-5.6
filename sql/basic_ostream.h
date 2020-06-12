@@ -150,6 +150,12 @@ class IO_CACHE_ostream : public Truncatable_ostream {
 
   my_off_t get_my_b_tell() override { return my_b_tell(&m_io_cache); }
 
+  /**
+     Return the underlying io_cache for this stream object
+     @retval A pointer to the underlying IO_CACHE
+  */
+  IO_CACHE* get_io_cache() { return &m_io_cache; }
+
  private:
   IO_CACHE m_io_cache;
 };

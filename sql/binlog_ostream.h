@@ -136,6 +136,12 @@ class IO_CACHE_binlog_cache_storage : public Truncatable_ostream {
   bool flush() override { return false; }
   bool sync() override { return false; }
 
+  /**
+     Return the underlying io_cache for this stream object
+     @retval A pointer to the underlying IO_CACHE
+  */
+  IO_CACHE* get_io_cache() { return &m_io_cache; }
+
  private:
   IO_CACHE m_io_cache;
   my_off_t m_max_cache_size = 0;
@@ -229,6 +235,12 @@ class Binlog_cache_storage : public Basic_ostream {
      Returns true if binlog cache is empty.
   */
   bool is_empty() const { return length() == 0; }
+
+  /**
+     Return the underlying io_cache for this stream object
+     @retval A pointer to the underlying IO_CACHE
+  */
+  IO_CACHE* get_io_cache() { return m_file.get_io_cache(); }
 
  private:
   Truncatable_ostream *m_pipeline_head = nullptr;
