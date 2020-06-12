@@ -14301,9 +14301,28 @@ bool Metadata_log_event::write_raft_term_and_index(Basic_ostream *ostream) {
   DBUG_RETURN(ret);
 }
 
+bool Metadata_log_event::write_raft_str(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_raft_str");
+
+  if (!does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE))
+    DBUG_RETURN(0); /* No need to write raft string */
+
+  if (write_type_and_length(
+        ostream,
+        Metadata_event_types::RAFT_GENERIC_STR_TYPE,
+        raft_str_.size())) {
+    DBUG_RETURN(1);
+  }
+
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *) raft_str_.c_str(),
+                                    raft_str_.size());
+
+  DBUG_RETURN(ret);
+}
+
 bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
                                                Metadata_event_types type,
-                                               uint32_t length) {
+                                               uint16_t length) {
   DBUG_ENTER("Metadata_log_event::write_type_and_length");
 
   char buffer[ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE];
@@ -14319,6 +14338,115 @@ bool Metadata_log_event::write_type_and_length(Basic_ostream *ostream,
 
   bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
   DBUG_RETURN(ret);
+}
+
+uint32 Metadata_log_event::write_data_body(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_data_body");
+
+  // Cannot contain both hlc and prev-hlc timestamp in the same metadata event
+  DBUG_ASSERT(!(does_exist(Metadata_event_types::HLC_TYPE) &&
+                does_exist(Metadata_event_types::PREV_HLC_TYPE)));
+
+  uint32 length = 0;
+
+  length += write_hlc_time(obuffer + length);
+  length += write_prev_hlc_time(obuffer + length);
+  length += write_raft_term_and_index(obuffer + length);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_hlc_time(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_hlc_time");
+
+  if (!does_exist(Metadata_event_types::HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write HLC time */
+
+  uint32 length = 0;
+
+  length += write_type_and_length(obuffer + length,
+                                  Metadata_event_types::HLC_TYPE,
+                                  sizeof(hlc_time_ns_));
+
+  int8store(obuffer + length, hlc_time_ns_);
+  length += sizeof(hlc_time_ns_);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_prev_hlc_time(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_prev_hlc_time");
+
+  if (!does_exist(Metadata_event_types::PREV_HLC_TYPE))
+    DBUG_RETURN(0); /* No need to write prev hlc time */
+
+  uint32 length = 0;
+
+  length += write_type_and_length(obuffer + length,
+                                  Metadata_event_types::PREV_HLC_TYPE,
+                                  sizeof(prev_hlc_time_ns_));
+
+  int8store(obuffer + length, prev_hlc_time_ns_);
+  length += sizeof(prev_hlc_time_ns_);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_raft_term_and_index(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_term_and_index");
+
+  if (!does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+    DBUG_RETURN(0); /* No need to write term and index */
+  }
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length,
+      Metadata_event_types::RAFT_TERM_INDEX_TYPE,
+      sizeof(raft_term_) + sizeof(raft_index_));
+
+  int8store(obuffer + length, raft_term_);
+  length += sizeof(raft_term_);
+
+  int8store(obuffer + length, raft_index_);
+  length += sizeof(raft_index_);
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_raft_str(uchar *obuffer) {
+  DBUG_ENTER("Metadata_log_event::write_raft_str");
+
+  if (!does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE)) {
+    DBUG_RETURN(0); /* No need to write raft string */
+  }
+
+  uint32 length = 0;
+
+  length += write_type_and_length(
+      obuffer + length,
+      Metadata_event_types::RAFT_GENERIC_STR_TYPE,
+      raft_str_.size());
+
+  memcpy(obuffer + length, raft_str_.c_str(), raft_str_.size());
+  length += raft_str_.length();
+
+  DBUG_RETURN(length);
+}
+
+uint32 Metadata_log_event::write_type_and_length(
+    uchar *obuffer, Metadata_event_types type, uint16_t length) {
+  DBUG_ENTER("Metadata_log_event::write_type_and_length");
+
+  uint32 len = 0;
+  *obuffer = static_cast<uchar>(type);
+  len += ENCODED_TYPE_SIZE;
+
+  int2store(obuffer + len, length);
+  len += ENCODED_LENGTH_SIZE;
+
+  DBUG_RETURN(len);
 }
 
 #endif  // MYSQL_SERVER
@@ -14369,12 +14497,18 @@ void Metadata_log_event::print(FILE * /* file */,
 
     if (does_exist(Metadata_event_types::HLC_TYPE))
       buffer.append("\tHLC time: " + std::to_string(hlc_time_ns_));
+
     if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
       buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
+
     if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE))
       buffer.append(
           "\tRaft term: " + std::to_string(raft_term_) +
           ", Raft Index: " + std::to_string(raft_index_));
+
+    if (does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE))
+      buffer.append("\t Raft string: '" + raft_str_ + "'");
+
 
 
     print_header(head, print_event_info, false);

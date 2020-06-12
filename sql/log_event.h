@@ -3819,6 +3819,13 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
 
 #ifdef MYSQL_SERVER
   bool write_data_body(Basic_ostream *ostream) override;
+
+  uint32 write_to_memory(uchar *obuffer) {
+    common_header->data_written = LOG_EVENT_HEADER_LEN + get_data_size();
+    uint32 len = write_header_to_memory(obuffer);
+    len += write_data_body(obuffer + len);
+    return len;
+  }
   int pack_info(Protocol *) override;
 #endif
 
@@ -3851,11 +3858,20 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   /**
    * Write raft term and index to file
    *
-   * @param file - file to write into
+   * @param ostream - stream to write into
    *
    * @returns - 0 on success, 1 on false
    */
   bool write_raft_term_and_index(Basic_ostream *ostream);
+
+  /**
+   * Write raft provided generic string
+   *
+   * @param ostream - stream to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_str(Basic_ostream *ostream);
 
   /**
    * Write type and length to file
@@ -3867,7 +3883,64 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - 0 on success, 1 on false
    */
   bool write_type_and_length(Basic_ostream *ostream, Metadata_event_types type,
-                             uint32_t length);
+                             uint16_t length);
+
+  /**
+   * Write data body section of this event to memory buffer
+   *
+   * @param obuffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_data_body(uchar *obuffer);
+
+  /**
+   * Write HLC timestamp to memory buffer
+   *
+   * @param obffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_hlc_time(uchar *obuffer);
+
+  /**
+   * Write prev HLC timestamp to memory buffer
+   *
+   * @param obuffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_prev_hlc_time(uchar *obuffer);
+
+  /**
+   * Write raft term and index to memory buffer
+   *
+   * @param obuffer - buffer to write to
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_term_and_index(uchar *obuffer);
+
+  /**
+   * Write raft provided generic string to memory buffer
+   *
+   * @param obuffer - buffer to write into
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_raft_str(uchar *obuffer);
+
+  /**
+   * Write type and length to memory buffer
+   *
+   * @param obuffer - buffer to write to
+   * @param type    - type to write to buffer
+   * @param length  - length to write to buffer
+   *
+   * @returns - number of bytes written
+   */
+  uint32 write_type_and_length(
+      uchar *obuffer, Metadata_event_types type, uint16_t length);
 #endif
 };
 
