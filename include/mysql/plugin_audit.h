@@ -43,7 +43,7 @@ typedef struct CHARSET_INTO CHARSET_INFO;
 #include "my_sqlcommand.h"
 #include "plugin_audit_message_types.h"
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0403
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0402
 
 /**
  @enum mysql_event_class_t
