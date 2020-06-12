@@ -759,6 +759,20 @@ class Metadata_event : public Binary_log_event {
   void set_raft_term_and_index(int64_t term, int64_t index);
 
   /**
+   * Adds a raft string field type into the metadata log event.
+   *
+   * @param str - the raft provided string
+   */
+  void set_raft_str(const std::string &str);
+
+  /**
+   * Get the generic string field reference.
+   *
+   * @return raft_str if present, null string if not.
+   */
+  const std::string &get_raft_str() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -773,6 +787,8 @@ class Metadata_event : public Binary_log_event {
     PREV_HLC_TYPE = 1,
     /* Raft term and index added by raft consensus plugin */
     RAFT_TERM_INDEX_TYPE = 2,
+    /* Config added by raft consensus plugin */
+    RAFT_GENERIC_STR_TYPE = 3,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -817,6 +833,13 @@ class Metadata_event : public Binary_log_event {
   int64_t raft_index_ = -1;
   static const uint32_t ENCODED_RAFT_TERM_INDEX_SIZE =
       sizeof(raft_term_) + sizeof(raft_index_);
+
+  /* Raft generic string to be added to a metadata event. Written and
+   * interpreted by raft plugin or by kuduraft. Currently being used
+   * to convey a config change operation, when the Metadata event
+   * preceedes the RotateEvent.
+   */
+  std::string raft_str_;
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
