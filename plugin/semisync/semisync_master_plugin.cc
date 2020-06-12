@@ -263,29 +263,24 @@ static void update_whitelist(THD *, SYS_VAR *, void *var_ptr,
 */
 static int check_histogram_step_size(MYSQL_THD, SYS_VAR *, void *save,
                                      struct st_mysql_value *value) {
-  const char *step_size_local;
-  char buff[STRING_BUFFER_USUAL_SIZE];
-  int len = sizeof(buff);
-  int ret = 0;
+  int len = 0;
+  const char *step_size_local = value->val_str(value, nullptr, &len);
+
   size_t length = 0;
-
-  step_size_local = value->val_str(value, buff, &len);
-
   if (step_size_local) length = strlen(step_size_local);
 
   if (length == 0) {
-    *static_cast<const char **>(save) = NULL;
+    *static_cast<const char **>(save) = nullptr;
     return 0;
   }
 
   /*
-    Validating if the string (non empty)ends with ms/us/s and the
+    Validating if the string (non empty) ends with ms/us/s and the
     rest of it is a valid floating point number
   */
-  ret = histogram_validate_step_size_string(step_size_local);
-  if (!ret)
-    *static_cast<const char **>(save) =
-        my_strdup(key_memory_global_system_variables, step_size_local, MYF(0));
+  int ret = histogram_validate_step_size_string(step_size_local);
+  if (!ret) *static_cast<const char **>(save) = step_size_local;
+
   return ret;
 }
 
@@ -395,8 +390,7 @@ static MYSQL_SYSVAR_STR(
 
 static MYSQL_SYSVAR_STR(histogram_trx_wait_step_size,
                         histogram_trx_wait_step_size,
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC |
-                            PLUGIN_VAR_ALLOCATED,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
                         "Histogram step size for transaction wait time. ",
                         check_histogram_step_size,
                         update_histogram_trx_wait_step_size, "500us");
