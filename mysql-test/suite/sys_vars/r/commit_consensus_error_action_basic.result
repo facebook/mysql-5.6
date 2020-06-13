@@ -1,0 +1,29 @@
+SELECT @@GLOBAL.commit_consensus_error_action;
+@@GLOBAL.commit_consensus_error_action
+ROLLBACK_TRXS_IN_GROUP
+ROLLBACK_TRXS_IN_GROUP Expected
+SELECT @@SESSION.commit_consensus_error_action;
+ERROR HY000: Variable 'commit_consensus_error_action' is a GLOBAL variable
+SET @start_value= @@global.commit_consensus_error_action;
+SHOW GLOBAL VARIABLES LIKE 'commit_consensus_error_action';
+Variable_name	Value
+commit_consensus_error_action	ROLLBACK_TRXS_IN_GROUP
+SET @@GLOBAL.commit_consensus_error_action=ROLLBACK_TRXS_IN_GROUP;
+SELECT @@GLOBAL.commit_consensus_error_action;
+@@GLOBAL.commit_consensus_error_action
+ROLLBACK_TRXS_IN_GROUP
+ROLLBACK_TRXS_IN_GROUP Expected
+SET @@GLOBAL.commit_consensus_error_action=IGNORE_COMMIT_CONSENSUS_ERROR;
+SELECT @@GLOBAL.commit_consensus_error_action;
+@@GLOBAL.commit_consensus_error_action
+IGNORE_COMMIT_CONSENSUS_ERROR
+IGNORE_COMMIT_CONSENSUS_ERROR Expected
+SELECT COUNT(@@commit_consensus_error_action);
+COUNT(@@commit_consensus_error_action)
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.commit_consensus_error_action);
+COUNT(@@GLOBAL.commit_consensus_error_action)
+1
+1 Expected
+SET @@global.commit_consensus_error_action= @start_value;

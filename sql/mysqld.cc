@@ -1043,6 +1043,10 @@ bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 char *default_collation_for_utf8mb4_init = nullptr;
 
+ulong opt_commit_consensus_error_action = 0;
+bool enable_raft_plugin = 0;
+bool disallow_raft = 1;  // raft is not allowed by default
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
@@ -1195,7 +1199,7 @@ const char *binlog_format_names[] = {"MIXED", "STATEMENT", "ROW", NullS};
 bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
 const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",
-                                          NullS};
+                                          "ROLLBACK_TRX", NullS};
 uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
