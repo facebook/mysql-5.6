@@ -396,7 +396,13 @@ enum enum_binlog_error_action {
   /// Ignore the error and let server continue without binlogging
   IGNORE_ERROR = 0,
   /// Abort the server
-  ABORT_SERVER = 1
+  ABORT_SERVER = 1,
+  /// Rollback the trx which failed to flush to binlog and continue.
+  /// Transaction which fail to write to binlog during ordered-commit will be
+  /// rolled back. The server is not aborted and continues to be up and running
+  /// Other cases of flush-error (outside of ordered-commit) will
+  /// continue to abort server.
+  ROLLBACK_TRX = 2
 };
 extern const char *binlog_error_action_list[];
 extern char *opt_authentication_policy;
@@ -421,6 +427,11 @@ extern ulonglong minimum_hlc_ns;
 
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 extern ulonglong maximum_hlc_drift_ns;
+extern bool enable_raft_plugin;
+extern bool disallow_raft;
+
+/* What should the server do when trxs fail inside ordered commit */
+extern ulong opt_commit_consensus_error_action;
 
 /* Enable query checksum validation for queries with a checksum sent */
 extern bool enable_query_checksum;
