@@ -1,0 +1,39 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value 1
+####
+--echo Default value of enable_raft_plugin is 0
+SELECT @@global.enable_raft_plugin;
+
+####
+# Verify that this is not a session variable #
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.enable_raft_plugin;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--echo raft can be turned on only if binlog error action is rollback_trx
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.enable_raft_plugin = 1;
+
+--echo raft can be turned on only if disallow_raft = 0
+SET @@global.binlog_error_action = ROLLBACK_TRX;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.enable_raft_plugin = 1;
+
+####
+## Verify that the variable is dynamic
+####
+--echo enable_raft_plugin is a dynamic variable
+SET @@global.disallow_raft = 0;
+SET @@global.enable_raft_plugin = 1;
+SELECT @@global.enable_raft_plugin;
+
+SET @@global.enable_raft_plugin = 0;
+SELECT @@global.enable_raft_plugin;
+
+SET @@global.enable_raft_plugin = default;
+SELECT @@global.enable_raft_plugin;
+SET @@global.binlog_error_action = default;
+SET @@global.disallow_raft = default;

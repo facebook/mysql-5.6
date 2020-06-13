@@ -1,0 +1,16 @@
+Default value of disallow_raft is 1
+SELECT @@global.disallow_raft;
+@@global.disallow_raft
+1
+SELECT @@session.disallow_raft;
+ERROR HY000: Variable 'disallow_raft' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+enable_raft_plugin is a dynamic variable
+SET @@global.disallow_raft = 0;
+SELECT @@global.disallow_raft;
+@@global.disallow_raft
+0
+SET @@global.disallow_raft = default;
+SELECT @@global.disallow_raft;
+@@global.disallow_raft
+1
