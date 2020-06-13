@@ -7703,3 +7703,77 @@ static Sys_var_bool Sys_parthandler_allow_drop_partition(
     "If set, partition handler allows partitions to be dropped",
     GLOBAL_VAR(opt_parthandler_allow_drop_partition), CMD_LINE(OPT_ARG),
     DEFAULT(true));
+
+static bool validate_enable_raft(sys_var * /*self */, THD *, set_var *var) {
+  bool err = false;
+  bool enable_raft = var->save_result.ulonglong_value;
+
+  // TODO: Check for IO thread running
+  // TODO: flip disallow_raft eventually when raft is ready for 8.0
+
+  if (disallow_raft && enable_raft) {
+    // Do not allow raft to be turned ON if disallow raft is set
+    err = true;
+  }
+
+  if (disallow_raft && enable_raft && binlog_error_action == ABORT_SERVER) {
+    // TODO: put a proper error frame here
+    // my_error(ER_RAFT_BINLOG_ERROR_ACTION, MYF(0));
+    // we can't have raft co-exist with ABORT_SERVER
+    // as flush failures can be common during leader change.
+    err = true;
+  }
+
+  return err;
+}
+
+static bool log_enable_raft_change(
+    sys_var * /*self */, THD *thd, enum_var_type) {
+  const char *user = "unknown";  const char *host = "unknown";
+
+  if (thd && thd->get_user_connect()) {
+    user = (const_cast<USER_CONN*>(thd->get_user_connect()))->user;
+    host = (const_cast<USER_CONN*>(thd->get_user_connect()))->host;
+  }
+
+  // NO_LINT_DEBUG
+  sql_print_information(
+    "Setting global variable: "
+    "enable_raft_plugin = %d (user '%s' from '%s')",
+    enable_raft_plugin,
+    user,
+    host
+    );
+
+  return false;
+}
+
+static Sys_var_bool Sys_enable_raft_plugin(
+       "enable_raft_plugin",
+       "Enables RAFT based consensus plugin. Replication will run through this "
+       "plugin when it is enabled",
+       GLOBAL_VAR(enable_raft_plugin),
+       CMD_LINE(OPT_ARG), DEFAULT(false),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
+
+static Sys_var_bool Sys_disallow_raft(
+       "disallow_raft",
+       "Temporary variable wich blocks turning on raft. Will be removed later "
+       "once raft is ready for 8.0",
+       GLOBAL_VAR(disallow_raft),
+       CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static const char *commit_consensus_error_actions[]= {
+  "ROLLBACK_TRXS_IN_GROUP",
+  "IGNORE_COMMIT_CONSENSUS_ERROR",
+  0
+};
+
+static Sys_var_enum Sys_commit_consensus_error_action(
+       "commit_consensus_error_action",
+       "Defines the server action when a thread fails inside ordered commit "
+       "due to consensus error",
+       GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
+       commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);

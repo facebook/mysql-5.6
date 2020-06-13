@@ -1,0 +1,51 @@
+################## mysql-test\t\commit_consensus_error_action_basic.test ################
+#                                                                             #
+# Variable Name: commit_consensus_error_action
+# Scope: Global                                                               #
+# Data Type: enumeration                                                      #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2014-09-11                                                   #
+# Author : Anirban Rahut 
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable commit_consensus_error_action       #
+#             that checks the behavior of this variable in the following ways #
+#              * Value Check                                                  #
+#              * Scope Check                                                  #
+###############################################################################
+
+
+SELECT @@GLOBAL.commit_consensus_error_action;
+--echo ROLLBACK_TRXS_IN_GROUP Expected
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@SESSION.commit_consensus_error_action;
+
+SET @start_value= @@global.commit_consensus_error_action;
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SHOW GLOBAL VARIABLES LIKE 'commit_consensus_error_action';
+
+####################################################################
+#   Check if Value can set                                         #
+####################################################################
+SET @@GLOBAL.commit_consensus_error_action=ROLLBACK_TRXS_IN_GROUP;
+SELECT @@GLOBAL.commit_consensus_error_action;
+--echo ROLLBACK_TRXS_IN_GROUP Expected
+
+SET @@GLOBAL.commit_consensus_error_action=IGNORE_COMMIT_CONSENSUS_ERROR;
+SELECT @@GLOBAL.commit_consensus_error_action;
+--echo IGNORE_COMMIT_CONSENSUS_ERROR Expected
+
+################################################################################
+#   Check if commit_consensus_error_action can be accessed with @@ sign           #
+################################################################################
+
+SELECT COUNT(@@commit_consensus_error_action);
+--echo 1 Expected
+SELECT COUNT(@@GLOBAL.commit_consensus_error_action);
+--echo 1 Expected
+
+SET @@global.commit_consensus_error_action= @start_value;

@@ -260,6 +260,9 @@ The following options may be given as the first argument:
  -r, --chroot=name   Chroot mysqld daemon during startup.
  --collation-server=name 
  Set the default collation.
+ --commit-consensus-error-action[=name] 
+ Defines the server action when a thread fails inside
+ ordered commit due to consensus error
  --completion-type=name 
  The transaction completion type, one of NO_CHAIN, CHAIN,
  RELEASE
@@ -319,6 +322,9 @@ The following options may be given as the first argument:
  along with INSERT DELAYED.
  --disabled-storage-engines=name 
  Limit CREATE TABLE for the storage engines listed
+ --disallow-raft     Temporary variable wich blocks turning on raft. Will be
+ removed later once raft is ready for 8.0
+ (Defaults to on; use --skip-disallow-raft to disable.)
  --disconnect-on-expired-password 
  Give clients that don't signal password expiration
  support execution time error(s) instead of connection
@@ -344,6 +350,9 @@ The following options may be given as the first argument:
  Enable query checksums for queries that have the checksum
  query attribute set. Uses a CRC32 checksum of the query
  contents, but not the attributes
+ --enable-raft-plugin 
+ Enables RAFT based consensus plugin. Replication will run
+ through this plugin when it is enabled
  --enable-resultset-checksum 
  Enable CRC32 resultset checksums if requested by the
  client sending the checksum query attribute, set to the
@@ -2252,6 +2261,7 @@ character-sets-dir MYSQL_CHARSETSDIR/
 check-proxy-users FALSE
 chroot (No default value)
 collation-server utf8mb4_0900_ai_ci
+commit-consensus-error-action ROLLBACK_TRXS_IN_GROUP
 completion-type NO_CHAIN
 concurrent-insert AUTO
 connect-timeout 10
@@ -2272,12 +2282,14 @@ delayed-insert-limit 100
 delayed-insert-timeout 300
 delayed-queue-size 1000
 disabled-storage-engines 
+disallow-raft TRUE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
 enable-binlog-hlc FALSE
 enable-block-stale-hlc-read FALSE
 enable-query-checksum FALSE
+enable-raft-plugin FALSE
 enable-resultset-checksum FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE

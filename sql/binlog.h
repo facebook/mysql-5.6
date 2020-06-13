@@ -101,6 +101,22 @@ struct Binlog_user_var_event {
   bool unsigned_flag;
 };
 
+/* The enum defining the server's action when a trx fails inside ordered commit
+ * due to an error related to consensus (raft plugin) */
+enum enum_commit_consensus_error_actions
+{
+  /* Transactions that fail in ordered commit will be rolled back.
+   * Currently all trxs in the group will be rolled back when the leader thread
+   * of the group fails. An optimization to just rollback the failing trx is
+   * left as a TODO */
+  ROLLBACK_TRXS_IN_GROUP = 0,
+  /* Ignore consensus errors and proceed as usual. Might be useful as an
+   * override in some cases like consensus plugin bugs, easier rollouts, full
+   * region failures etc */
+  IGNORE_COMMIT_CONSENSUS_ERROR = 1,
+  INVALID_COMMIT_CONSENSUS_ERROR_ACTION
+};
+
 /**
   Class for maintaining the commit stages for binary log group commit.
  */

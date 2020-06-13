@@ -1,0 +1,30 @@
+Default value of enable_raft_plugin is 0
+SELECT @@global.enable_raft_plugin;
+@@global.enable_raft_plugin
+0
+SELECT @@session.enable_raft_plugin;
+ERROR HY000: Variable 'enable_raft_plugin' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+raft can be turned on only if binlog error action is rollback_trx
+SET @@global.enable_raft_plugin = 1;
+ERROR 42000: Variable 'enable_raft_plugin' can't be set to the value of '1'
+raft can be turned on only if disallow_raft = 0
+SET @@global.binlog_error_action = ROLLBACK_TRX;
+SET @@global.enable_raft_plugin = 1;
+ERROR 42000: Variable 'enable_raft_plugin' can't be set to the value of '1'
+enable_raft_plugin is a dynamic variable
+SET @@global.disallow_raft = 0;
+SET @@global.enable_raft_plugin = 1;
+SELECT @@global.enable_raft_plugin;
+@@global.enable_raft_plugin
+1
+SET @@global.enable_raft_plugin = 0;
+SELECT @@global.enable_raft_plugin;
+@@global.enable_raft_plugin
+0
+SET @@global.enable_raft_plugin = default;
+SELECT @@global.enable_raft_plugin;
+@@global.enable_raft_plugin
+0
+SET @@global.binlog_error_action = default;
+SET @@global.disallow_raft = default;
