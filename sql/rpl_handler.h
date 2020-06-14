@@ -284,7 +284,11 @@ public:
   {}
 
   typedef Raft_replication_observer Observer;
-  int before_flush(THD *thd, IO_CACHE* io_cache, bool no_op);
+  int before_flush(THD *thd, IO_CACHE *io_cache,
+                   RaftReplicateMsgOpType op_type,
+                   uchar *gtid_buffer,
+                   uchar *metadata_buffer);
+
   int before_commit(THD *thd);
 
   int setup_flush(THD *thd, bool is_relay_log,

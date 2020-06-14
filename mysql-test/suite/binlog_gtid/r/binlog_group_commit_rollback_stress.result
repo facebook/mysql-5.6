@@ -1,0 +1,6 @@
+call mtr.add_suppression("Commit consensus error set for *");
+# Build connections
+
+select * from t1;
+c1
+drop table t1;

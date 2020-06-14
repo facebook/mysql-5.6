@@ -1,0 +1,93 @@
+###############################################################################
+# When before commit error happens, the trx is rolled back if
+# commit_consensus_error_action is set to ROLLBACK_TRXS_IN_GROUP.
+# All trxs in the group should be rolled back. However binlog events for all
+# trxs will be retained in the binlog
+###############################################################################
+--source include/have_log_bin.inc
+--source include/have_innodb_max_16k.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+call mtr.add_suppression("Commit consensus error set for *");
+
+--disable_query_log
+--disable_result_log
+
+--connection default
+create table t1(c1 int primary key) engine=innodb;
+--enable_result_log
+--enable_query_log
+
+
+--echo # Build connections
+--disable_query_log
+--disable_result_log
+--let $num_conns= 20 # Number of connections
+--let $i= 1
+while ($i < $num_conns)
+{
+  --connect(con$i,localhost,root,,)
+  --inc $i
+}
+
+--let $i= 1
+while ($i < $num_conns)
+{
+  --connection con$i
+  set session debug="+d,simulate_before_commit_error";
+  --inc $i
+}
+--enable_result_log
+--enable_query_log
+
+--echo
+--let $num_loops= 100 # Number of loops each connection should run
+--let $j= 1
+--let $key= 0
+--disable_query_log
+--disable_result_log
+while ($j < $num_loops)
+{
+  # Execute INSERT statement on these connections in parallel
+  --let $i= 1
+  while ($i < $num_conns)
+  {
+    --connection con$i
+    --send
+    --eval insert into t1 values($key)
+    --inc $i
+    --inc $key
+  }
+  # reap on every connection
+  --let $i= 1
+  while ($i < $num_conns)
+  {
+    --connection con$i
+    --error ER_ERROR_DURING_COMMIT
+    --reap
+    --inc $i
+  }
+  --inc $j
+}
+--enable_result_log
+--enable_query_log
+
+
+# clean up
+--connection default
+select * from t1;
+drop table t1;
+
+--disable_query_log
+--disable_result_log
+
+# disconnect connections
+--let $i= 1
+while ($i < $num_conns)
+{
+  --disconnect con$i
+  --inc $i
+}
+
+--enable_result_log
+--enable_query_log

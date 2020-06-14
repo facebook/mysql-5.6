@@ -1985,6 +1985,11 @@ class THD : public MDL_context_owner,
     auto_inc_intervals_forced.append(next_id, ULLONG_MAX, 0);
   }
 
+  /* Was there an error during consensus commit of a trx? This is usually set
+   * when the raft plugin fails to obtain majority acks (in before_commit hook)
+   */
+  bool commit_consensus_error = false;
+
   /**
     Stores the result of the FOUND_ROWS() function.  Set at query end, stable
     throughout the query.

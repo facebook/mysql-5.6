@@ -11418,6 +11418,7 @@ PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_transmit_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
 PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
+PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
 
 /* clang-format off */
 static PSI_rwlock_info all_server_rwlocks[]=
@@ -11445,6 +11446,8 @@ static PSI_rwlock_info all_server_rwlocks[]=
      "This lock protects named pipe security attributes, preventing their "
      "simultaneous application and modification."},
 #endif // _WIN32
+  { &key_rwlock_Raft_replication_delegate_lock,
+    "Raft_replication_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 

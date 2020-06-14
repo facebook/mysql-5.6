@@ -1474,12 +1474,14 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  *
  * @param thd - the THD in group commit
  * @param cache_data - The cache that is being written dusring flush stage
- * @param writer - Binlog writer
+ * @param writer - Binlog writer (metadata event with HLC will be written here)
+ * @param obuffer - if not null, metadata event will be written here (instead
+ *                  of writing to writer)
  *
  * @return false on success, true on failure
  */
 bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
-                              Binlog_event_writer *writer) {
+                              Binlog_event_writer *writer, uchar *obuffer) {
   if (!thd->should_write_hlc) {
     /* HLC was not assigned to this thd */
     thd->hlc_time_ns_next = 0;
@@ -1491,7 +1493,13 @@ bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
 
   Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache(),
                                  thd->hlc_time_ns_next);
-  bool result = metadata_ev.write(writer);
+
+  bool result = false;
+  if (obuffer) {
+    (void) metadata_ev.write_to_memory(obuffer);
+  } else {
+    result = metadata_ev.write(writer);
+  }
 
   /* Update session tracker with hlc timestamp of this trx */
   auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
@@ -1565,7 +1573,7 @@ bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {
   @retval true Error.
 */
 bool MYSQL_BIN_LOG::write_gtid(THD *thd, binlog_cache_data *cache_data,
-                               Binlog_event_writer *writer) {
+                               Binlog_event_writer *writer, uchar *obuffer) {
   DBUG_ENTER("MYSQL_BIN_LOG::write_gtid");
 
   /*
@@ -1713,7 +1721,12 @@ bool MYSQL_BIN_LOG::write_gtid(THD *thd, binlog_cache_data *cache_data,
   DBUG_PRINT("info",
              ("transaction_length= %llu", gtid_event.transaction_length));
 
-  bool ret = gtid_event.write(writer);
+  bool ret = false;
+  if (obuffer != nullptr) {
+    (void) gtid_event.write_to_memory(obuffer);
+  } else {
+    ret = gtid_event.write(writer);
+  }
 
   DBUG_RETURN(ret);
 }
@@ -1935,6 +1948,41 @@ int binlog_cache_data::finalize(THD *thd, Log_event *end_event, XID_STATE *xs) {
   return finalize(thd, end_event);
 }
 
+void MYSQL_BIN_LOG::handle_write_error(THD *thd) {
+  DBUG_ENTER("MYSQL_BIN_LOG::handle_write_error(THD *)");
+
+  report_binlog_write_error();
+
+  thd->commit_error = THD::CE_FLUSH_ERROR;
+
+  DBUG_VOID_RETURN;
+}
+
+bool MYSQL_BIN_LOG::post_write(
+    THD *thd, binlog_cache_data *cache_data, int error) {
+  DBUG_ENTER("MYSQL_BIN_LOG::post_write(THD *, binlog_cache_data *, int)");
+
+  mysql_mutex_assert_owner(&LOCK_log);
+  DBUG_ASSERT(is_open());
+
+  if (unlikely(!is_open()))
+    DBUG_RETURN(false);
+
+  Binlog_cache_storage *cache = cache_data->get_cache();
+  if (cache->length() == 0)
+    DBUG_RETURN(false);
+
+  if (write_error || error) {
+    handle_write_error(thd);
+    DBUG_RETURN(true);
+  }
+
+  binlog_bytes_written += cache->length();
+  update_thd_next_event_pos(thd);
+
+  DBUG_RETURN(false);
+}
+
 /**
   Flush caches to the binary log.
 
@@ -2011,16 +2059,66 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
       }
     };);
 
-    if (!error)
-      if ((error = mysql_bin_log.write_gtid(thd, this, &writer)))
+    if (!error && enable_raft_plugin) {
+      // TODO: malloc for every trx could become expensive and fragmented.
+      // See if we can do static allocation here
+      uchar *gtid_buff = (uchar *) my_malloc(
+          PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
+      uchar *metadata_buff = (uchar *) my_malloc(
+          PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
+
+      if ((error = mysql_bin_log.write_gtid(thd, this, &writer, gtid_buff)))
         thd->commit_error = THD::CE_FLUSH_ERROR;
 
-    if (!error) {
-      if ((error = mysql_bin_log.write_hlc(thd, this, &writer)))
+      if (!error) {
+        if ((error = mysql_bin_log.write_hlc(
+                thd, this, &writer, metadata_buff)))
+          thd->commit_error = THD::CE_FLUSH_ERROR;
+      }
+
+      if (!error) {
+        thd->commit_consensus_error = false;
+        error = RUN_HOOK(raft_replication, before_flush,
+                        (thd, m_cache.get_io_cache(),
+                         RaftReplicateMsgOpType::OP_TYPE_TRX,
+                         gtid_buff, metadata_buff));
+      }
+
+       DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
+
+       my_free(gtid_buff);
+       my_free(metadata_buff);
+
+      /*
+       * before_flush hook failing is a guarantee by raft that any subsequent
+       * replicate message sent to raft (through before_flush hook) fails (in
+       * this group and in subsequent groups). In other words, raft will
+       * initiate a step down and will not take any more writes. This
+       * is necessary condition to avoid having holes or duplicates in
+       * executed_gtid
+       */
+      if (error) {
+        // Calling into mysql_raft plugin failed. Set commit consensus error.
+        // This will ensure that if this THD's trx is allowed to proceed to
+        // commit stage, then we rollback the trx
+        thd->commit_consensus_error = true;
         thd->commit_error = THD::CE_FLUSH_ERROR;
+      }
+
+      mysql_bin_log.post_write(thd, this, error);
+    } else {
+      if (!error) {
+        if ((error = mysql_bin_log.write_gtid(thd, this, &writer)))
+          thd->commit_error = THD::CE_FLUSH_ERROR;
+      }
+
+      if (!error) {
+        if ((error = mysql_bin_log.write_hlc(thd, this, &writer)))
+          thd->commit_error = THD::CE_FLUSH_ERROR;
+      }
+
+      if (!error) error = mysql_bin_log.write_cache(thd, this, &writer);
     }
-
-    if (!error) error = mysql_bin_log.write_cache(thd, this, &writer);
 
     if (flags.with_xid && error == 0) *wrote_xid = true;
 
@@ -2333,6 +2431,29 @@ static int binlog_rollback(handlerton *, THD *thd, bool all) {
   DBUG_RETURN(error);
 }
 
+#ifndef DBUG_OFF
+static void wait_for_follower(THD* thd) {
+  const char act[] =
+    "now signal group_leader_selected wait_for group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void signal_leader(THD* thd) {
+  const char act[] =
+    "now signal group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void wait_for_leader(THD* thd) {
+  const char act[] =
+    "now wait_for group_leader_selected";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+#endif
+
 bool Stage_manager::Mutex_queue::append(THD *first) {
   DBUG_ENTER("Stage_manager::Mutex_queue::append");
   lock();
@@ -2399,7 +2520,25 @@ bool Stage_manager::enroll_for(StageID stage, THD *thd,
   DBUG_PRINT("debug",
              ("Enqueue 0x%llx to queue for stage %d", (ulonglong)thd, stage));
 
+  DBUG_EXECUTE_IF("become_group_follower",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      wait_for_leader(thd);
+                  });
+
   bool leader = m_queue[stage].append(thd);
+
+  DBUG_EXECUTE_IF("become_group_leader",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      wait_for_follower(thd);
+                  });
+
+  DBUG_EXECUTE_IF("become_group_follower",
+                  {
+                    if (stage == FLUSH_STAGE)
+                      signal_leader(thd);
+                  });
 
   if (stage == FLUSH_STAGE && has_commit_order_manager(thd)) {
     Slave_worker *worker = dynamic_cast<Slave_worker *>(thd->rli_slave);
@@ -3965,7 +4104,7 @@ bool MYSQL_BIN_LOG::open(PSI_file_key log_file_key, const char *log_name,
   DBUG_RETURN(0);
 
 err:
-  if (binlog_error_action == ABORT_SERVER) {
+  if (should_abort_on_binlog_error()) {
     exec_binlog_error_action_abort(
         "Either disk is full, file system is read only or "
         "there was an encryption error while opening the binlog. "
@@ -5327,7 +5466,7 @@ err:
   if (is_inited_purge_index_file())
     purge_index_entry(nullptr, nullptr, need_lock_index);
   close_purge_index_file();
-  if (binlog_error_action == ABORT_SERVER) {
+  if (should_abort_on_binlog_error()) {
     exec_binlog_error_action_abort(
         "Either disk is full, file system is read only or "
         "there was an encryption error while opening the binlog. "
@@ -6360,7 +6499,7 @@ err:
     Then error codes from purging the index entry.
   */
   error = error ? error : error_index;
-  if (error && binlog_error_action == ABORT_SERVER) {
+  if (error && should_abort_on_binlog_error()) {
     exec_binlog_error_action_abort(
         "Either disk is full, file system is read only or "
         "there was an encryption error while opening the binlog. "
@@ -6861,6 +7000,18 @@ int MYSQL_BIN_LOG::new_file_without_locking(
   return new_file_impl(false /*need_lock_log=false*/, extra_description_event);
 }
 
+/*
+  Checks binlog error action to identify if the server needs to abort on
+  non-recoverable errors when writing to binlog
+
+  @return
+    true if server needs to be aborted, false otherwise
+*/
+bool MYSQL_BIN_LOG::should_abort_on_binlog_error() {
+  return (binlog_error_action == ABORT_SERVER ||
+      binlog_error_action == ROLLBACK_TRX);
+}
+
 /**
   Wait for transactions in committing state to complete.
   Assumes that LOCK_log is held for the entire duration
@@ -6957,7 +7108,8 @@ int MYSQL_BIN_LOG::new_file_impl(
                    ER_THD(current_thd, ER_RPL_GTID_TABLE_CANNOT_OPEN), "mysql",
                    "gtid_executed");
 
-          if (binlog_error_action != ABORT_SERVER)
+          if (binlog_error_action != ABORT_SERVER &&
+              binlog_error_action != ROLLBACK_TRX)
             LogErr(WARNING_LEVEL,
                    ER_BINLOG_UNABLE_TO_ROTATE_GTID_TABLE_READONLY,
                    "Binary logging going to be disabled.");
@@ -7096,7 +7248,7 @@ end:
        - switch server to protected/readonly mode
        - ...
     */
-    if (binlog_error_action == ABORT_SERVER) {
+    if (should_abort_on_binlog_error()) {
       char abort_msg[ERR_CLOSE_MSG_LEN + 48];
       memset(abort_msg, 0, sizeof abort_msg);
       snprintf(abort_msg, sizeof abort_msg,
@@ -7996,6 +8148,13 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
         DBUG_PRINT("info", ("crashing before writing xid"));
         DBUG_SUICIDE();
       });
+
+      DBUG_EXECUTE_IF("fail_binlog_flush_raft", {
+        thd->commit_error = THD::CE_FLUSH_ERROR;
+        thd->commit_consensus_error = true;
+        goto err;
+      });
+
       if (do_write_cache(cache, writer)) goto err;
 
       binlog_bytes_written += cache->length();
@@ -8810,6 +8969,7 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   DBUG_ASSERT(total_bytes_var && rotate_var && out_queue_var);
   my_off_t total_bytes = 0;
   int flush_error = 1;
+  int commit_consensus_error = 0;
   mysql_mutex_assert_owner(&LOCK_log);
 
   /*
@@ -8830,12 +8990,24 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   assign_automatic_gtids_to_flush_group(first_seen);
   /* Flush thread caches to binary log. */
   for (THD *head = first_seen; head; head = head->next_to_commit) {
+    head->commit_consensus_error = 0;
     std::pair<int, my_off_t> result = flush_thread_caches(head);
+
     total_bytes += result.second;
     if (flush_error == 1) flush_error = result.first;
 #ifndef DBUG_OFF
     no_flushes++;
 #endif
+
+    /* There is a weird check above that if first thread in the group could
+     * flush successfully, then every thread in the group will also flush
+     * successfully. This does not look right - so for the time being, we will
+     * use commit_consensus_error flag to identify if there was a error in
+     * before_flush hook of raft plugin and set commit_consensus_error here.
+     * This will subsequently fail the entire group
+     */
+    if (head->commit_consensus_error)
+      commit_consensus_error = 1;
   }
 
   *out_queue_var = first_seen;
@@ -8844,11 +9016,44 @@ int MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
       (m_binlog_file->get_real_file_size() >= (my_off_t)max_size ||
        DBUG_EVALUATE_IF("simulate_max_binlog_size", true, false)))
     *rotate_var = true;
+
+  if (commit_consensus_error && enable_raft_plugin)
+    flush_error = 1;
+
 #ifndef DBUG_OFF
   DBUG_PRINT("info", ("no_flushes:= %d", no_flushes));
   no_flushes = 0;
 #endif
   DBUG_RETURN(flush_error);
+}
+
+/**
+  Waits for consensus commit (before proceeding to engine commit). Invokes
+  raft replication plugin's before_commit hook
+
+  @param queue_head  Head of the commit stage queue.
+*/
+void MYSQL_BIN_LOG::process_consensus_queue(THD *queue_head) {
+   DBUG_EXECUTE_IF("simulate_before_commit_error", {
+       set_commit_consensus_error(queue_head);
+       return;
+       });
+
+   if (!enable_raft_plugin)
+     return;
+
+   THD *last_thd = NULL;
+   int error = 0;
+   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
+      if (thd->commit_error == THD::CE_NONE)
+        last_thd = thd;
+
+   if (last_thd) {
+     error= RUN_HOOK(raft_replication, before_commit, (last_thd));
+
+     if (error)
+       set_commit_consensus_error(queue_head);
+   }
 }
 
 /**
@@ -8910,9 +9115,17 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
       /*
         storage engine commit
        */
-      if (ha_commit_low(head, all, false))
+      bool error = false;
+      if (head->commit_consensus_error) {
+        error = true;
+        handle_commit_consensus_error(head);
+      }
+      else if (ha_commit_low(head, all, false)) {
+        error = true;
         head->commit_error = THD::CE_COMMIT_ERROR;
-      else {
+      }
+
+      if (!error) {
         candidate = head;
         if (enable_binlog_hlc && maintain_database_hlc &&
                head->hlc_time_ns_next) {
@@ -8928,6 +9141,7 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
           }
         }
       }
+
       head->databases.clear();
     }
     DBUG_PRINT("debug", ("commit_error: %d, commit_pending: %s",
@@ -9014,7 +9228,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
 void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
   for (THD *head = first; head; head = head->next_to_commit) {
     if (head->get_transaction()->m_flags.run_hooks &&
-        head->commit_error != THD::CE_COMMIT_ERROR) {
+        head->commit_error != THD::CE_COMMIT_ERROR &&
+        !head->commit_consensus_error) {
       /*
         TODO: This hook here should probably move outside/below this
               if and be the only after_commit invocation left in the
@@ -9023,6 +9238,9 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       Thd_backup_and_restore switch_thd(thd, head);
       bool all = head->get_transaction()->m_flags.real_commit;
       (void)RUN_HOOK(transaction, after_commit, (head, all));
+
+      if (enable_raft_plugin)
+        (void) RUN_HOOK(raft_replication, after_commit, (head));
 
       my_off_t pos;
       head->get_trans_pos(nullptr, &pos, nullptr, nullptr);
@@ -9035,6 +9253,70 @@ void MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first) {
       head->get_transaction()->m_flags.run_hooks = false;
     }
   }
+}
+
+/**
+  Sets the commit_consensus_error flag in all thd's of this group if there was
+  an error in the before_commit hook
+
+  @param queue_head  Head of the queue
+*/
+void MYSQL_BIN_LOG::set_commit_consensus_error(THD *queue_head) {
+  uint32 thread_count = 0;
+
+   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit) {
+     thread_count++;
+     thd->commit_consensus_error = true;
+   }
+
+   // NO_LINT_DEBUG
+   sql_print_error("Commit consensus error set for %u threads in the group",
+       thread_count);
+}
+
+/**
+  Handles commit_consensus_error by consulting commit_consensus_error_action
+
+  @param thd Thd for which conecnsus error needs to be handled
+*/
+void MYSQL_BIN_LOG::handle_commit_consensus_error(THD *thd) {
+  DBUG_ENTER("MYSQL_BIN_LOG::handle_commit_consensus_error");
+  bool all = thd->get_transaction()->m_flags.real_commit;
+
+  /* Handle commit consensus error appropriately */
+  switch (opt_commit_consensus_error_action) {
+    case ROLLBACK_TRXS_IN_GROUP:
+      /* Rollbak the trx and set commit_error in thd->commit_error
+       * Also clear commit_low flag to prevent commit getting
+       * triggered when the session ends. ha_rollback_low() could fail,
+       * but there is nothing much we can do */
+       ha_rollback_low(thd, all);
+       gtid_state->update_on_rollback(thd);
+
+       thd->commit_error = THD::CE_COMMIT_ERROR;
+       thd->get_transaction()->m_flags.commit_low = false;
+
+       // Clear hlc_time since we did not commit this trx
+       thd->hlc_time_ns_next = 0;
+
+       thd->clear_error(); // Clear previous errors first
+       char errbuf[MYSQL_ERRMSG_SIZE];
+       my_error(ER_ERROR_DURING_COMMIT, MYF(0), 1,
+                my_strerror(errbuf, MYSQL_ERRMSG_SIZE, 1));
+
+       break;
+     case IGNORE_COMMIT_CONSENSUS_ERROR:
+       /* Ignore commit consensus error and commit to engine as usual */
+       if (ha_commit_low(thd, all))
+         thd->commit_error = THD::CE_COMMIT_ERROR;
+
+       break;
+     default:
+       // Should not happen. This is here to placate the compiler
+       DBUG_ASSERT(false);
+  }
+
+  DBUG_VOID_RETURN;
 }
 
 #ifndef DBUG_OFF
@@ -9204,8 +9486,11 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     /*
       storage engine commit
     */
-    if (ha_commit_low(thd, all, false))
+    if (thd->commit_consensus_error)
+      handle_commit_consensus_error(thd);
+    else if (ha_commit_low(thd, all, false))
       thd->commit_error = THD::CE_COMMIT_ERROR;
+
     /*
       Decrement the prepared XID counter after storage engine commit
     */
@@ -9223,6 +9508,11 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     if ((thd->commit_error != THD::CE_COMMIT_ERROR) &&
         thd->get_transaction()->m_flags.run_hooks) {
       (void)RUN_HOOK(transaction, after_commit, (thd, all));
+      thd->get_transaction()->m_flags.run_hooks = false;
+    }
+
+    if (enable_raft_plugin && thd->commit_error == THD::CE_NONE) {
+      (void) RUN_HOOK(raft_replication, after_commit, (thd));
       thd->get_transaction()->m_flags.run_hooks = false;
     }
   } else if (thd->get_transaction()->m_flags.xid_written)
@@ -9310,6 +9600,34 @@ static inline int call_after_sync_hook(THD *queue_head) {
 */
 void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
                                                       bool need_lock_log) {
+  bool commit_consensus_error = false;
+
+  if (enable_raft_plugin) {
+    for (THD* head = thd; head; head = head->next_to_commit) {
+      if (head->commit_consensus_error &&
+          head->commit_error == THD::CE_FLUSH_ERROR) {
+        commit_consensus_error = true;
+        break;
+      }
+    }
+
+    /* This trx (and the group) will be rolled back in the engine if:
+     * (1) binlog_error_action is set to rollback_trx
+     * (2) There was a flush error because of a commit_consensus_error (i.e
+     * flush error was due to a error inside the before_flush hook of raft
+     * plugin)
+     *
+     * If (2) is not true, then we cannot safely rollbak the trx (either it
+     * is too late OR safety of the raft consensus plugin will be violated.
+     * Hence we proceed and abort the server
+     */
+    if (binlog_error_action == ROLLBACK_TRX && commit_consensus_error) {
+      // Set commit consensus error for the entire group
+      set_commit_consensus_error(thd);
+      return;
+    }
+  }
+
   char errmsg[MYSQL_ERRMSG_SIZE];
   sprintf(
       errmsg,
@@ -9317,39 +9635,64 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
       "'binlog_error_action' is set to '%s'.",
       thd->commit_error == THD::CE_FLUSH_ERROR ? "flush" : "sync",
       binlog_error_action == ABORT_SERVER ? "ABORT_SERVER" : "IGNORE_ERROR");
-  if (binlog_error_action == ABORT_SERVER) {
-    char err_buff[MYSQL_ERRMSG_SIZE + 27];
+
+  if (should_abort_on_binlog_error()) {
+    /* At this stage the error is either due to
+     * (1) sync stage error
+     * (2) flush stage error, but consensus error was not set - indicating that
+     * the error did not happen inside raft plugin
+     *
+     * In both these cases we abort the server even when error_action is set to
+     * rollback_trx. This is because sync happens periodically and the trx has
+     * already committed to engine (so cannot rollback). We cannot safely
+     * rollback flush stage errors happening outside of raft plugin.
+     *
+     * TODO: revisit if and when we have the ability to step down from within
+     * mysql server
+     */
+    char err_buff[MYSQL_ERRMSG_SIZE];
     sprintf(err_buff, "%s Hence aborting the server.", errmsg);
     exec_binlog_error_action_abort(err_buff);
   } else {
-    DEBUG_SYNC(thd, "before_binlog_closed_due_to_error");
-    if (need_lock_log)
-      mysql_mutex_lock(&LOCK_log);
-    else
-      mysql_mutex_assert_owner(&LOCK_log);
-    /*
-      It can happen that other group leader encountered
-      error and already closed the binary log. So print
-      error only if it is in open state. But we should
-      call close() always just in case if the previous
-      close did not close index file.
-    */
-    if (is_open()) {
-      LogErr(ERROR_LEVEL, ER_TURNING_LOGGING_OFF_FOR_THE_DURATION, errmsg);
-    }
-    close(LOG_CLOSE_INDEX | LOG_CLOSE_STOP_EVENT, false /*need_lock_log=false*/,
+    if (binlog_error_action == ABORT_SERVER) {
+      char err_buff[MYSQL_ERRMSG_SIZE + 27];
+      sprintf(err_buff, "%s Hence aborting the server.", errmsg);
+      exec_binlog_error_action_abort(err_buff);
+    } else {
+      DEBUG_SYNC(thd, "before_binlog_closed_due_to_error");
+      if (need_lock_log)
+        mysql_mutex_lock(&LOCK_log);
+      else
+        mysql_mutex_assert_owner(&LOCK_log);
+      /*
+        It can happen that other group leader encountered
+        error and already closed the binary log. So print
+        error only if it is in open state. But we should
+        call close() always just in case if the previous
+        close did not close index file.
+      */
+      if (is_open()) {
+        LogErr(ERROR_LEVEL, ER_TURNING_LOGGING_OFF_FOR_THE_DURATION, errmsg);
+      }
+      close(
+          LOG_CLOSE_INDEX | LOG_CLOSE_STOP_EVENT,
+          false /*need_lock_log=false*/,
           true /*need_lock_index=true*/);
-    /*
-      If there is a write error (flush/sync stage) and if
-      binlog_error_action=IGNORE_ERROR, clear the error
-      and allow the commit to happen in storage engine.
-    */
-    if (check_write_error(thd)) thd->clear_error();
 
-    if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
-    DEBUG_SYNC(thd, "after_binlog_closed_due_to_error");
+      /*
+        If there is a write error (flush/sync stage) and if
+        binlog_error_action=IGNORE_ERROR, clear the error
+        and allow the commit to happen in storage engine.
+      */
+      if (check_write_error(thd)) thd->clear_error();
+
+      if (need_lock_log) mysql_mutex_unlock(&LOCK_log);
+
+      DEBUG_SYNC(thd, "after_binlog_closed_due_to_error");
+    }
   }
 }
+
 /**
   Flush and commit the transaction.
 
@@ -9613,6 +9956,8 @@ commit_stage:
         stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
     DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                     DEBUG_SYNC(thd, "before_process_commit_stage_queue"););
+
+    process_consensus_queue(commit_queue);
 
     ulonglong start_time;
     if (flush_error == 0 && sync_error == 0) {

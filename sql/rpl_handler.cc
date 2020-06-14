@@ -174,6 +174,8 @@ int delegates_init() {
       place_transmit_mem[sizeof(Binlog_transmit_delegate)];
   alignas(Binlog_relay_IO_delegate) static char
       place_relay_io_mem[sizeof(Binlog_relay_IO_delegate)];
+  alignas(Raft_replication_delegate) static char
+      place_raft_mem[sizeof(Raft_replication_delegate)];
 
   transaction_delegate = new (place_trans_mem) Trans_delegate;
   if (!transaction_delegate->is_inited()) {
@@ -196,6 +198,13 @@ int delegates_init() {
 
   binlog_relay_io_delegate = new (place_relay_io_mem) Binlog_relay_IO_delegate;
   if (!binlog_relay_io_delegate->is_inited()) {
+    LogErr(ERROR_LEVEL, ER_RPL_BINLOG_RELAY_DELEGATES_INIT_FAILED);
+    return 1;
+  }
+
+  raft_replication_delegate = new (place_raft_mem) Raft_replication_delegate;
+  if (!raft_replication_delegate->is_inited()) {
+    // TODO: use raft specific error codes later
     LogErr(ERROR_LEVEL, ER_RPL_BINLOG_RELAY_DELEGATES_INIT_FAILED);
     return 1;
   }
@@ -964,14 +973,19 @@ int Binlog_relay_IO_delegate::applier_log_event(THD *thd, int &out) {
   DBUG_RETURN(ret);
 }
 
-int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE* io_cache,
-                                            bool no_op) {
+int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
+                                            RaftReplicateMsgOpType op_type,
+                                            uchar *gtid_buffer,
+                                            uchar *metadata_buffer) {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
   Raft_replication_param param;
+  param.gtid_buffer = gtid_buffer;
+  param.metadata_buffer = metadata_buffer;
 
   int ret= 0;
 
-  FOREACH_OBSERVER(ret, before_flush, (&param, io_cache, no_op));
+  thd->set_trans_marker(-1, -1);
+  FOREACH_OBSERVER(ret, before_flush, (&param, io_cache, op_type));
 
   DBUG_PRINT("return", ("term: %ld, index: %ld", param.term, param.index));
 
@@ -998,8 +1012,8 @@ int Raft_replication_delegate::before_commit(THD *thd) {
 }
 
 int Raft_replication_delegate::setup_flush(
-    THD* /* thd */, bool is_relay_log,
-    IO_CACHE* log_file_cache,
+    THD * /* thd */, bool is_relay_log,
+    IO_CACHE *log_file_cache,
     const char *log_prefix,
     const char *log_name,
     mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,

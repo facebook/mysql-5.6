@@ -628,6 +628,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
       Format_description_log_event *extra_description_event);
 
  private:
+  /**
+    Checks binlog error action to identify if the server needs to abort on
+    non-recoverable errors when writing to binlog
+
+    @return true if server needs to be aborted
+   */
+  bool should_abort_on_binlog_error();
   void drain_committing_trxs(bool wait_non_xid_trxs_always);
   int new_file_impl(bool need_lock,
                     Format_description_log_event *extra_description_event);
@@ -895,6 +902,28 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void process_after_commit_stage_queue(THD *thd, THD *first);
   int process_flush_stage_queue(my_off_t *total_bytes_var, bool *rotate_var,
                                 THD **out_queue_var);
+
+  /* Uses the commit stage queue of ordered commit to call raft replication's
+   * before_commit hook to block until consensus-commit of trxs
+   * (before committing to engine)
+   *
+   * @param queue_head - The head of the commit stage queue
+   *
+   */
+  void process_consensus_queue(THD *queue_head);
+
+  /* Handles commit consensus error. Commit consensus errors are failures that
+   * happen inside raft replication when the leader fails to achieve consensus
+   * (majority votes) on trxs. This function either commit's the trx to the
+   * engine OR aborts the trx (rollback) based on commit_consensus_error_action
+   *
+   * @param thd The THD for the session that encountered commit-consensus error
+   */
+  void handle_commit_consensus_error(THD *thd);
+
+  /* Sets the commit consensus error for all threads in the group */
+  void set_commit_consensus_error(THD *queue_head);
+
   int ordered_commit(THD *thd, bool all, bool skip_commit = false);
   void handle_binlog_flush_or_sync_error(THD *thd, bool need_lock_log);
   bool do_write_cache(Binlog_cache_storage *cache,
@@ -975,6 +1004,27 @@ class MYSQL_BIN_LOG : public TC_LOG {
                    class Binlog_event_writer *writer);
 
   /**
+   * Called after a THD's iocache is written to binlog (i.e binlog's cache)
+   * during ordered commit. Updates all internal state maintained by mysql.
+   * Used only when raft based replication is enabled
+   *
+   * @param thd Thread variable
+   * @param cache_data The cache which was written to binlog
+   * @param error will be 1 on errors which needs to be handled in post_write
+   *
+   * @returns true on error, false on success
+   */
+  bool post_write(THD *thd, binlog_cache_data *cache_data, int error);
+
+  /**
+   * Handles error that occured when flushing the cache to binlog file. Used
+   * only when raft based replication is enabled
+   *
+   * @param thd Thread variable
+   */
+  void handle_write_error(THD *thd);
+
+  /**
    * Assign HLC timestamp to a thd in group commit
    *
    * @param thd - the THD in group commit
@@ -989,11 +1039,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @param thd - the THD in group commit
    * @param cache_data - The cache that is being written dusring flush stage
    * @param writer - Binlog writer
+   * @param obuffer - The metadata event will be written to the buffer
+   *                  (if not null)
    *
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer);
+                 Binlog_event_writer *writer, uchar *obuffer = nullptr);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush
@@ -1004,7 +1056,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   bool assign_automatic_gtids_to_flush_group(THD *first_seen);
   bool write_gtid(THD *thd, binlog_cache_data *cache_data,
-                  class Binlog_event_writer *writer);
+                  class Binlog_event_writer *writer, uchar *obuffer = nullptr);
 
   /**
      Write a dml into statement cache and then flush it into binlog. It writes
