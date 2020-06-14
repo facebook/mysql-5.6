@@ -1537,6 +1537,9 @@ void THD::init(void)
   owned_gtid.gno= 0;
 
   clear_plan_id();
+
+  m_tmp_table_bytes_written = 0; /* temp table space bytes written */
+  m_filesort_bytes_written  = 0; /* filesort space bytes written */
 }
 
 

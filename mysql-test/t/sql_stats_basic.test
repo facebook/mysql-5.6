@@ -102,7 +102,8 @@ select c
 order by 1;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -123,7 +124,8 @@ select @@sql_stats_control;
 select 1 union select 2;
 select 1 union select 2 union select 3;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -134,7 +136,8 @@ order by sql_id;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -146,7 +149,8 @@ set @@GLOBAL.sql_stats_control="ON";
 select @@sql_stats_control;
 select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -171,7 +175,8 @@ drop table t2;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -192,7 +197,8 @@ select 4;
 
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   query_sample_seen, execution_count, rows_inserted, rows_updated,
-	rows_deleted, rows_read, rows_sent
+	rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -212,7 +218,8 @@ select 4;
 
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -234,7 +241,8 @@ select 4;
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0 && CURRENT_TIMESTAMP - query_sample_seen < 10)
 	as is_query_sample_seen_valid, execution_count, rows_inserted,
-	rows_updated, rows_deleted, rows_read, rows_sent
+	rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
@@ -264,7 +272,8 @@ drop table t10;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -297,7 +306,8 @@ drop table t11;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -330,7 +340,8 @@ drop table t12;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -364,7 +375,8 @@ drop table t13;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -397,7 +409,8 @@ drop table t14;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -429,7 +442,8 @@ drop table t15;
 ||||
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
-	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent
+	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
+        tmp_table_bytes_written, filesort_bytes_written
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -448,6 +462,143 @@ from information_schema.sql_statistics
 order by sql_id;
 select * from information_schema.sql_text;
 select count(*) from information_schema.client_attributes;
+
+####################################################
+### Case 17: Temp Table Space and Filesort Space Statistics
+####################################################
+--echo Case 17: Temp Table Space and Filesort Space Statistics
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+
+create table t17 (i int, c char(255));
+
+insert into t17 values (0, lpad('a', 250, 'b'));
+insert into t17 select i+1,c from t17;
+insert into t17 select i+2,c from t17;
+insert into t17 select i+4,c from t17;
+insert into t17 select i+8,c from t17;
+insert into t17 select i+16,c from t17;
+insert into t17 select i+32,c from t17;
+insert into t17 select i+64,c from t17;
+insert into t17 select i+128,c from t17;
+insert into t17 select i+256,c from t17;
+
+set session tmp_table_size=16384;
+set session max_heap_table_size=16384;
+
+set global sql_stats_control = ON;
+
+insert into t17 select i+512,c from t17;
+
+--disable_result_log
+select i, substr(c, 1, 10) from t17 group by i, c;
+
+select i, substr(c, 1, 10) from t17 order by i, c;
+
+select i, substr(c, 1, 10) from t17 group by i, c order by i, c;
+
+select count(*) from (select * from t17) v;
+--enable_result_log
+
+select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+  from information_schema.sql_statistics s, information_schema.sql_text t
+ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
+order by 1,2,3,4,5,6,7,8;
+
+create temporary table tm_t17(i int, c char(255)) engine=myisam;
+
+insert into tm_t17 select * from t17;
+
+update tm_t17 set c = lpad('b', 250, 'a');
+
+delete from tm_t17 where i < 100;
+
+drop temporary table tm_t17;
+
+select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+  from information_schema.sql_statistics s, information_schema.sql_text t
+ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
+order by 1,2,3,4,5,6,7,8;
+
+drop table t17;
+
+select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+  from information_schema.sql_statistics s, information_schema.sql_text t
+ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
+order by 1,2,3,4,5,6,7,8;
+
+####################################################
+### Case 18: Multiple statement support for Temp Table Space and Filesort Space Statistics
+####################################################
+--echo Case 18: Multiple statement support for Temp Table Space and Filesort Space Statistics
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.sql_stats_control="ON";
+select @@sql_stats_control;
+
+create table t18 (i int, c char(255));
+
+insert into t18 values (0, lpad('a', 250, 'b'));
+insert into t18 select i+1,c from t18;
+insert into t18 select i+2,c from t18;
+insert into t18 select i+4,c from t18;
+insert into t18 select i+8,c from t18;
+insert into t18 select i+16,c from t18;
+insert into t18 select i+32,c from t18;
+insert into t18 select i+64,c from t18;
+insert into t18 select i+128,c from t18;
+insert into t18 select i+256,c from t18;
+
+set session tmp_table_size=16384;
+set session max_heap_table_size=16384;
+
+set global sql_stats_control = ON;
+
+select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+  from information_schema.sql_statistics s, information_schema.sql_text t
+ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
+order by 1,2,3,4,5,6,7,8;
+
+--disable_result_log
+
+delimiter ||||;
+insert into t18 select i+512,c from t18;
+
+select i, substr(c, 1, 10) from t18 group by i, c;
+
+select i, substr(c, 1, 10) from t18 order by i, c;
+
+select i, substr(c, 1, 10) from t18 group by i, c order by i, c;
+
+select count(*) from (select * from t18) v;
+
+create temporary table tm_t18(i int, c char(255)) engine=myisam;
+
+insert into tm_t18 select * from t18;
+
+update tm_t18 set c = lpad('b', 250, 'a');
+
+delete from tm_t18 where i < 100;
+
+drop temporary table tm_t18;
+
+drop table t18;
+||||
+
+--enable_result_log
+
+select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+  from information_schema.sql_statistics s, information_schema.sql_text t
+ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
+order by 1,2,3,4,5,6,7,8||||
+
+# reset delimiter
+delimiter ;||||
 
 ###########
 ### Cleanup

@@ -134,7 +134,7 @@ d8e10f350cdae124ae4cd034b4fe06b6	SELECT	39	SELECT ? UNION SELECT ? UNION SELECT 
 e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
 Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=5KB. Stats hit the size limit.
 set @@GLOBAL.max_sql_stats_count=100000;
-set @@GLOBAL.max_sql_stats_size=5120;
+set @@GLOBAL.max_sql_stats_size=6144;
 select @@sql_stats_control;
 @@sql_stats_control
 ON
@@ -143,7 +143,7 @@ select @@max_sql_stats_count;
 100000
 select @@max_sql_stats_size;
 @@max_sql_stats_size
-5120
+6144
 select 1;
 1
 1

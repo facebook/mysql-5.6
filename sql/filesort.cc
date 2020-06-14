@@ -928,6 +928,10 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
   {
     if (my_b_write(tempfile, (uchar*) *sort_keys, (uint) rec_length))
       goto err;
+    else /* remember the number of temp bytes written into filesort space */
+    {
+      thd->inc_filesort_bytes_written((ulonglong) rec_length);
+    }
     if (thd->variables.filesort_max_file_size > 0 &&
         tempfile->pos_in_file > thd->variables.filesort_max_file_size)
     {
@@ -938,6 +942,10 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
   }
   if (my_b_write(buffpek_pointers, (uchar*) &buffpek, sizeof(buffpek)))
     goto err;
+  else /* remember the number of temp bytes written into filesort space */
+  {
+    thd->inc_filesort_bytes_written((ulonglong) sizeof(buffpek));
+  }
   DBUG_RETURN(0);
 
 err:
@@ -1683,6 +1691,10 @@ int merge_buffers(Sort_param *param, IO_CACHE *from_file,
     {
       error=1; goto err;                        /* purecov: inspected */
     }
+    else /* remember the number of temp bytes written into filesort space */
+    {
+      current_thd->inc_filesort_bytes_written((ulonglong) rec_length);
+    }
     buffpek->key+= rec_length;
     buffpek->mem_count--;
     if (!--max_rows)
@@ -1717,12 +1729,20 @@ int merge_buffers(Sort_param *param, IO_CACHE *from_file,
         {
           error=1; goto err;                        /* purecov: inspected */
         }
+        else /* remember the number of temp bytes written into filesort space */
+        {
+          current_thd->inc_filesort_bytes_written((ulonglong) rec_length);
+        }
       }
       else
       {
         if (my_b_write(to_file, (uchar*) buffpek->key+offset, res_length))
         {
           error=1; goto err;                        /* purecov: inspected */
+        }
+        else /* remember the number of temp bytes written into filesort space */
+        {
+          current_thd->inc_filesort_bytes_written((ulonglong) res_length);
         }
       }
       if (!--max_rows)
@@ -1780,6 +1800,11 @@ int merge_buffers(Sort_param *param, IO_CACHE *from_file,
       {
         error= 1; goto err;                        /* purecov: inspected */
       }
+      else /* remember the number of temp bytes written into filesort space */
+      {
+        current_thd->inc_filesort_bytes_written(
+            (ulonglong) (rec_length*buffpek->mem_count));
+      }
     }
     else
     {
@@ -1792,6 +1817,10 @@ int merge_buffers(Sort_param *param, IO_CACHE *from_file,
         if (my_b_write(to_file, (uchar *) strpos, res_length))
         {
           error=1; goto err;                        
+        }
+        else /* remember the number of temp bytes written into filesort space */
+        {
+          current_thd->inc_filesort_bytes_written((ulonglong) res_length);
         }
       }
     }

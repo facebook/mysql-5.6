@@ -3292,6 +3292,15 @@ private:
   */
   ulonglong m_accessed_rows_and_keys;
 
+  /**
+    The number of bytes written into temp table space.
+  */
+  ulonglong m_tmp_table_bytes_written;
+
+  /**
+     The number of bytes written into filesort space.
+  */
+  ulonglong m_filesort_bytes_written;
 private:
   std::shared_ptr<explicit_snapshot> m_explicit_snapshot;
 
@@ -3395,6 +3404,24 @@ public:
   void set_sent_row_count(ha_rows count);
   void set_examined_row_count(ha_rows count);
   void set_accessed_rows_and_keys(ulonglong count);
+
+  ulonglong get_tmp_table_bytes_written() const
+  { return m_tmp_table_bytes_written; }
+
+  void set_tmp_table_bytes_written(ulonglong val)
+  { m_tmp_table_bytes_written = val; }
+
+  void inc_tmp_table_bytes_written(ulonglong val)
+  { m_tmp_table_bytes_written += val; }
+
+  ulonglong get_filesort_bytes_written() const
+  { return m_filesort_bytes_written; }
+
+  void set_filesort_bytes_written(ulonglong val)
+  { m_filesort_bytes_written = val; }
+
+  void inc_filesort_bytes_written(ulonglong val)
+  { m_filesort_bytes_written += val; }
 
   /**
     Check if the number of rows accessed by a statement exceeded

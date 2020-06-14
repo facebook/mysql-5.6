@@ -89,7 +89,7 @@ order by sql_id;
 ####################################################
 --echo Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=5KB. Stats hit the size limit.
 set @@GLOBAL.max_sql_stats_count=100000;
-set @@GLOBAL.max_sql_stats_size=5120;
+set @@GLOBAL.max_sql_stats_size=6144;
 select @@sql_stats_control;
 select @@max_sql_stats_count;
 select @@max_sql_stats_size;

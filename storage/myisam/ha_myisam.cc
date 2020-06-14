@@ -1667,7 +1667,11 @@ void ha_myisam::inc_tmp_table_bytes_written() {
   {
     THD *thd= (THD *)table->in_use;
     if (thd)
+    {
       thd->status_var.tmp_table_bytes_written+= file->data_file_written;
+      /* remember the number of bytes written into tmp table space */
+      thd->inc_tmp_table_bytes_written(file->data_file_written);
+    }
   }
 }
 

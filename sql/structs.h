@@ -559,12 +559,16 @@ typedef struct st_sql_stats {
                                   /* statement */
 
   ulonglong rows_sent; /* rows sent back to the client */
+  ulonglong tmp_table_bytes_written; /* bytes written to temp table space */
+  ulonglong filesort_bytes_written; /* bytes written to filesort space */
 
   SHARED_SQL_STATS shared_stats;
 
   void reset() {
     count= 0;
     rows_sent = 0;
+    tmp_table_bytes_written = 0;
+    filesort_bytes_written = 0;
     shared_stats.reset();
   }
 } SQL_STATS;

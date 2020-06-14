@@ -7833,6 +7833,8 @@ void THD::reset_for_next_command()
   thd->set_sent_row_count(0);
   thd->set_examined_row_count(0);
   thd->set_accessed_rows_and_keys(0);
+  thd->set_tmp_table_bytes_written(0); /* reset temp table bytes written */
+  thd->set_filesort_bytes_written(0); /* reset filesort bytes written */
 
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags= 0;
