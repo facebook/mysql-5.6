@@ -25,6 +25,7 @@
 
 #include "my_thread_local.h"         // my_thread_id
 #include "mysql/psi/mysql_thread.h"  // mysql_mutex_t
+#include "raft_listener_queue_if.h"  // RaftReplicateMsgOpType
 #include "rpl_context.h"
 #include "sql/handler.h"  // enum_tx_isolation
 
@@ -743,6 +744,8 @@ typedef struct Raft_replication_param {
   const char *host_or_ip = nullptr;
   int64_t term = -1;
   int64_t index = -1;
+  uchar *gtid_buffer = nullptr;
+  uchar *metadata_buffer = nullptr;
 } Raft_replication_param;
 
 /**
@@ -770,13 +773,13 @@ typedef struct Raft_replication_observer {
 
      @param param Observer common parameter
      @param cache IO_CACHE containing binlog events for the txn
-     @param noop  Is this a Raft NOOP event being faked as a Rotate Event
+     @param op_type The type of operation for which before_flush is called
 
      @retval 0 Sucess
      @retval 1 Failure
   */
   int (*before_flush)(Raft_replication_param *param, IO_CACHE *cache,
-                      bool no_op);
+                      RaftReplicateMsgOpType op_type);
 
   /**
      This callback is called once upfront to setup the appropriate

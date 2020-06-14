@@ -441,7 +441,8 @@ class Raft_replication_delegate : public Delegate {
   }
 
   typedef Raft_replication_observer Observer;
-  int before_flush(THD *thd, IO_CACHE *io_cache, bool no_op);
+  int before_flush(THD *thd, IO_CACHE *io_cache, RaftReplicateMsgOpType op_type);
+
   int before_commit(THD *thd);
 
   int setup_flush(THD *thd, bool is_relay_log, IO_CACHE *log_file_cache,
