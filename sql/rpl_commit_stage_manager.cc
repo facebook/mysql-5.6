@@ -33,6 +33,27 @@ class Commit_order_manager;
 
 #define YESNO(X) ((X) ? "yes" : "no")
 
+#ifndef DBUG_OFF
+static void wait_for_follower(THD *thd) {
+  const char act[] =
+      "now signal group_leader_selected wait_for group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void signal_leader(THD *thd) {
+  const char act[] = "now signal group_follower_added";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+
+static void wait_for_leader(THD *thd) {
+  const char act[] = "now wait_for group_leader_selected";
+
+  DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+}
+#endif
+
 bool Commit_stage_manager::Mutex_queue::append(THD *first) {
   DBUG_TRACE;
   DBUG_PRINT("enter", ("first: 0x%llx", (ulonglong)first));
@@ -151,7 +172,12 @@ bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
   DBUG_PRINT("debug",
              ("Enqueue 0x%llx to queue for stage %d", (ulonglong)thd, stage));
 
+  DBUG_EXECUTE_IF("become_group_follower", {
+    if (stage == BINLOG_FLUSH_STAGE) wait_for_leader(thd);
+  });
+
   lock_queue(stage);
+
   bool leader = m_queue[stage].append(thd);
 
   /*
@@ -198,6 +224,14 @@ bool Commit_stage_manager::enroll_for(StageID stage, THD *thd,
   }
 
   unlock_queue(stage);
+
+  DBUG_EXECUTE_IF("become_group_leader", {
+    if (stage == BINLOG_FLUSH_STAGE) wait_for_follower(thd);
+  });
+
+  DBUG_EXECUTE_IF("become_group_follower", {
+    if (stage == BINLOG_FLUSH_STAGE) signal_leader(thd);
+  });
 
   /* Notify next transaction in commit order that it can enter the queue. */
   if (stage == BINLOG_FLUSH_STAGE) {
