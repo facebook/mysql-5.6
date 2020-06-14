@@ -1,0 +1,15 @@
+###############################################################################
+# When before commit error happens, the trx is rolled back if
+# commit_consensus_error_action is set to ROLLBACK_TRXS_IN_GROUP.
+# All trxs in the group should be rolled back. However binlog events for all
+# trxs will be retained in the binlog
+###############################################################################
+--source include/have_log_bin.inc
+--source include/have_innodb_max_16k.inc
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
+--source include/have_binlog_format_row.inc
+--source include/not_parallel.inc
+
+call mtr.add_suppression("Commit consensus error set for *");
+--source suite/binlog_gtid/t/binlog_group_commit_rollback_base.inc
