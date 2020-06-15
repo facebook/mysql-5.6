@@ -1536,6 +1536,8 @@ void THD::init(void)
   owned_gtid.sidno= 0;
   owned_gtid.gno= 0;
 
+  clear_sql_id();
+  clear_client_id();
   clear_plan_id();
 
   m_tmp_table_bytes_written = 0; /* temp table space bytes written */
@@ -5847,4 +5849,86 @@ static std::string get_shard_id(const std::string& db_metadata)
 void THD::set_shard_id()
 {
   this->shard_id = get_shard_id(this->db_metadata);
+}
+
+/*
+  serialize_client_attrs
+    Extracts and serializes client attributes into the buffer
+    THD::client_attrs_string.
+
+    This is only calculated once per command (as opposed to per statement),
+    and cleared at the end of the command. This is because attributes are
+    attached commands, not statements.
+*/
+void THD::serialize_client_attrs()
+{
+  if (sql_stats_control != SQL_STATS_CONTROL_ON)
+    return;
+
+  if (client_attrs_string.is_empty()) {
+    std::vector<std::pair<String, String>> client_attrs;
+
+    // Populate caller
+    static const std::string caller = "caller";
+    auto it = query_attrs_map.find(caller);
+    if (it != query_attrs_map.end()) {
+      client_attrs.emplace_back(String(it->first.data(), it->first.size(),
+                                       &my_charset_bin),
+                                String(it->second.data(), it->second.size(),
+                                       &my_charset_bin));
+    } else {
+      auto it = connection_attrs_map.find(caller);
+      if (it != connection_attrs_map.end()) {
+        client_attrs.emplace_back(String(it->first.data(), it->first.size(),
+                                         &my_charset_bin),
+                                  String(it->second.data(), it->second.size(),
+                                         &my_charset_bin));
+      }
+    }
+
+    // Populate async id (inspired from find_async_tag)
+    //
+    // Search only in first 100 characters to avoid scanning the whole query.
+    // The async id is usually near the beginning.
+    String query100(query(), MY_MIN(100, query_length()), &my_charset_bin);
+    String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
+
+    int pos = query100.strstr(async_word);
+
+    if (pos != -1) {
+      pos += async_word.length();
+      int epos = pos;
+
+      while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
+        epos++;
+      }
+      client_attrs.emplace_back(String("async_id", &my_charset_bin),
+                                String(&query100[pos], epos - pos, &my_charset_bin));
+    }
+
+    // Serialize into JSON
+    auto& buf = client_attrs_string;
+    buf.q_append('{');
+
+    for (size_t i = 0; i < client_attrs.size(); i++) {
+      const auto& p = client_attrs[i];
+
+      if (i > 0) {
+        buf.q_append(C_STRING_WITH_LEN(", "));
+      }
+      buf.q_append('\'');
+      buf.q_append(p.first.ptr(), MY_MIN(100, p.first.length()));
+      buf.q_append(C_STRING_WITH_LEN("' : '"));
+      buf.q_append(p.second.ptr(), MY_MIN(100, p.second.length()));
+      buf.q_append('\'');
+    }
+    buf.q_append('}');
+
+    mysql_mutex_lock(&LOCK_thd_data);
+    compute_md5_hash((char *)client_id.data(), client_attrs_string.ptr(),
+                     client_attrs_string.length());
+
+    client_id_set = true;
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
 }

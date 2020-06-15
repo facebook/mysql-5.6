@@ -818,7 +818,7 @@ typedef struct system_variables
   my_bool innodb_stats_on_metadata;
 
   my_bool high_precision_processlist;
-  
+
   my_bool enable_block_stale_hlc_read;
 
   long admission_control_queue_timeout;
@@ -3452,11 +3452,33 @@ public:
   void clear_plan_id()
     { plan_id_set = false; capture_sql_plan = false; }
   void set_plan_id(const unsigned char *plan_id_val)
-    { memcpy(plan_id.data(), plan_id_val, MD5_HASH_SIZE); plan_id_set = true; }
+    { mysql_mutex_lock(&LOCK_thd_data);
+      memcpy(plan_id.data(), plan_id_val, MD5_HASH_SIZE);
+      plan_id_set = true;
+      mysql_mutex_unlock(&LOCK_thd_data);
+    }
   void set_plan_capture(bool val)
     { capture_sql_plan = val; }
   bool in_capture_sql_plan()
     { return capture_sql_plan; }
+
+  // CLIENT_ID is set in serialize_client_attrs()
+  void clear_client_id()
+    { client_id_set = false; }
+
+  void clear_sql_id()
+    { sql_id_set = false; }
+  void set_sql_id()
+    { // check SQL stats is enabled and the digest has been populated
+      if (sql_stats_control == SQL_STATS_CONTROL_ON &&
+          m_digest && !m_digest->m_digest_storage.is_empty())
+      {
+        mysql_mutex_lock(&LOCK_thd_data);
+        compute_digest_md5(&m_digest->m_digest_storage, sql_id.data());
+        sql_id_set = true;
+        mysql_mutex_unlock(&LOCK_thd_data);
+      }
+    }
 
   /* local hash map of db opt */
   HASH db_read_only_hash;
@@ -3474,10 +3496,16 @@ public:
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
 
-  /** Current statement Plan ID */
+  /** Plan ID = compute_md5_hash(sql plan) */
   md5_key plan_id;
-  bool    plan_id_set;
+  std::atomic_bool plan_id_set;
   bool    capture_sql_plan;
+  /** Client ID = compute_md5_hash(client_attrs_string) */
+  md5_key client_id;
+  std::atomic_bool client_id_set;
+  /** SQL ID = compute_md5_hash(statement digest) */
+  md5_key sql_id;
+  std::atomic_bool sql_id_set;
 
   /** Current statement instrumentation. */
   PSI_statement_locker *m_statement_psi;
@@ -4810,6 +4838,8 @@ public:
   void set_query_attrs(const char *attrs, size_t length);
   void set_query_attrs(const std::unordered_map<std::string, std::string>& attrs);
   int parse_query_info_attr();
+  // serialize client attributes and compute CLIENT_ID
+  void serialize_client_attrs();
   void reset_query_attrs()
   {
     mysql_mutex_lock(&LOCK_thd_data);

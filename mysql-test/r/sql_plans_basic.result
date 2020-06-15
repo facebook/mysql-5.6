@@ -1008,7 +1008,96 @@ fb2caabe331a4b9d1f6b2ff6daf1d53f	{
     "select_id": 1,
     "table": {
       "table_name": "t1"
--> case 6: test with a I_S tables
+-> case 6: test processlist and transaction_list
+select pl.info, pl.sql_id,
+ca.client_id, ca.client_attributes,
+sp.plan_id, sp.plan_data
+from information_schema.processlist pl,
+information_schema.sql_plans   sp,
+information_schema.client_attributes ca
+where command='Query'
+  and pl.plan_id=sp.plan_id
+and pl.client_id=ca.client_id;
+info	sql_id	client_id	client_attributes	plan_id	plan_data
+select pl.info, pl.sql_id,
+ca.client_id, ca.client_attributes,
+sp.plan_id, sp.plan_data
+from information_schema.processlist pl,
+information_schema.sql_plans   sp,
+information_schema.client_attributes ca
+where command='Query'
+  and pl.plan_id=sp.plan_id
+and pl.client_id=ca.client_id	543d8964398888b5b5431c07d15521d1	99914b932bd37a50b983c5e7c90ae93b	{}	3febcdf44b9210e2d3f5fad32cfaa363	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "pl",
+          "access_type": "ALL",
+          "attached_condition": "(`pl`.`COMMAND` = 'Query')"
+        }
+      },
+      {
+        "table": {
+          "table_name": "sp",
+          "access_type": "ALL",
+          "using_join_buffer": "Block Nested Loop",
+          "attached_condition": "(`sp`.`PLAN_ID` = `pl`.`PLAN_ID`)"
+        }
+      },
+      {
+        "table": {
+          "table_name": "ca",
+          "access_type": "ALL",
+          "using_join_buffer": "Block Nested Loop",
+          "attached_condition": "(`pl`.`CLIENT_ID` = `ca`.`CLIENT_ID`)"
+        }
+      }
+    ]
+  }
+}
+select tl.db, tl.user, tl.sql_id,
+ca.client_id, ca.client_attributes,
+sp.plan_id, sp.plan_data
+from information_schema.transaction_list tl,
+information_schema.sql_plans sp,
+information_schema.client_attributes ca
+where command='Query'
+  and tl.plan_id=sp.plan_id
+and tl.client_id=ca.client_id;
+db	user	sql_id	client_id	client_attributes	plan_id	plan_data
+test	user1	8ce31dfc53a5fe7b8352d47669a9949c	99914b932bd37a50b983c5e7c90ae93b	{}	1b77986b1bdd9b59015cce07c92d0e14	{
+  "query_block": {
+    "select_id": 1,
+    "nested_loop": [
+      {
+        "table": {
+          "table_name": "tl",
+          "access_type": "ALL",
+          "attached_condition": "(`tl`.`COMMAND` = 'Query')"
+        }
+      },
+      {
+        "table": {
+          "table_name": "sp",
+          "access_type": "ALL",
+          "using_join_buffer": "Block Nested Loop",
+          "attached_condition": "(`sp`.`PLAN_ID` = `tl`.`PLAN_ID`)"
+        }
+      },
+      {
+        "table": {
+          "table_name": "ca",
+          "access_type": "ALL",
+          "using_join_buffer": "Block Nested Loop",
+          "attached_condition": "(`tl`.`CLIENT_ID` = `ca`.`CLIENT_ID`)"
+        }
+      }
+    ]
+  }
+}
+-> case 7: test with a I_S tables
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_plans_control="OFF_HARD";
 include/assert.inc [assert that the counts (tables, etc) are the same]

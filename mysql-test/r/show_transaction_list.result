@@ -12,6 +12,9 @@ COMMAND_SECONDS	decimal(9,6)	NO		0.000000
 READ_ONLY	tinyint(1) unsigned	NO		0	
 SQL_LOG_BIN	tinyint(1) unsigned	NO		0	
 SRV_ID	bigint(21) unsigned	NO		0	
+SQL_ID	varchar(32)	YES		NULL	
+CLIENT_ID	varchar(32)	YES		NULL	
+PLAN_ID	varchar(32)	YES		NULL	
 create table t1 (id integer not null auto_increment, i int, primary key (id))
 engine = innodb;
 create user mysqluser1;

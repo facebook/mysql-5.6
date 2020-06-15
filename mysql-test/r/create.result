@@ -1898,7 +1898,10 @@ t1	CREATE TABLE `t1` (
   `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext,
-  `SRV_ID` bigint(21) unsigned NOT NULL DEFAULT '0'
+  `SRV_ID` bigint(21) unsigned NOT NULL DEFAULT '0',
+  `SQL_ID` varchar(32) DEFAULT NULL,
+  `CLIENT_ID` varchar(32) DEFAULT NULL,
+  `PLAN_ID` varchar(32) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8
 drop table t1;
 create temporary table t1 like information_schema.processlist;
@@ -1913,7 +1916,10 @@ t1	CREATE TEMPORARY TABLE `t1` (
   `TIME` double NOT NULL DEFAULT '0',
   `STATE` varchar(64) DEFAULT NULL,
   `INFO` longtext,
-  `SRV_ID` bigint(21) unsigned NOT NULL DEFAULT '0'
+  `SRV_ID` bigint(21) unsigned NOT NULL DEFAULT '0',
+  `SQL_ID` varchar(32) DEFAULT NULL,
+  `CLIENT_ID` varchar(32) DEFAULT NULL,
+  `PLAN_ID` varchar(32) DEFAULT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8
 drop table t1;
 create table t1 like information_schema.character_sets;

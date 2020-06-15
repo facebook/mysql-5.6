@@ -559,77 +559,6 @@ void free_global_sql_stats(bool limits_updated)
 }
 
 /*
-  serialize_client_attrs
-    Extracts and serializes client attributes into the buffer
-    THD::client_attrs_string.
-
-    This is only calculated once per command (as opposed to per statement),
-    and cleared at the end of the command. This is because attributes are
-    attached commands, not statements.
-*/
-static void serialize_client_attrs(THD *thd) {
-  if (thd->client_attrs_string.is_empty()) {
-    std::vector<std::pair<String, String>> client_attrs;
-
-    // Populate caller
-    static const std::string caller = "caller";
-    auto it = thd->query_attrs_map.find(caller);
-    if (it != thd->query_attrs_map.end()) {
-      client_attrs.emplace_back(String(it->first.data(), it->first.size(),
-                                       &my_charset_bin),
-                                String(it->second.data(), it->second.size(),
-                                       &my_charset_bin));
-    } else {
-      auto it = thd->connection_attrs_map.find(caller);
-      if (it != thd->connection_attrs_map.end()) {
-        client_attrs.emplace_back(String(it->first.data(), it->first.size(),
-                                         &my_charset_bin),
-                                  String(it->second.data(), it->second.size(),
-                                         &my_charset_bin));
-      }
-    }
-
-    // Populate async id (inspired from find_async_tag)
-    //
-    // Search only in first 100 characters to avoid scanning the whole query.
-    // The async id is usually near the beginning.
-    String query100(thd->query(), MY_MIN(100, thd->query_length()), &my_charset_bin);
-    String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
-
-    int pos = query100.strstr(async_word);
-
-    if (pos != -1) {
-      pos += async_word.length();
-      int epos = pos;
-
-      while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
-        epos++;
-      }
-      client_attrs.emplace_back(String("async_id", &my_charset_bin),
-                                String(&query100[pos], epos - pos, &my_charset_bin));
-    }
-
-    // Serialize into JSON
-    auto& buf = thd->client_attrs_string;
-    buf.q_append('{');
-
-    for (size_t i = 0; i < client_attrs.size(); i++) {
-      const auto& p = client_attrs[i];
-
-      if (i > 0) {
-        buf.q_append(C_STRING_WITH_LEN(", "));
-      }
-      buf.q_append('\'');
-      buf.q_append(p.first.ptr(), MY_MIN(100, p.first.length()));
-      buf.q_append(C_STRING_WITH_LEN("' : '"));
-      buf.q_append(p.second.ptr(), MY_MIN(100, p.second.length()));
-      buf.q_append('\'');
-    }
-    buf.q_append('}');
-  }
-}
-
-/*
   is_sql_stats_collection_above_limit
     Checks whether we reached the counter and size limits for the
     SQL metrics (statistics, text, client attributes, plans)
@@ -676,18 +605,10 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   if (!thd->m_digest || thd->m_digest->m_digest_storage.is_empty())
     return;
 
-  md5_key sql_id;
-  compute_digest_md5(&thd->m_digest->m_digest_storage, sql_id.data());
-
-  md5_key client_id;
-  serialize_client_attrs(thd);
-  compute_md5_hash((char *)client_id.data(), thd->client_attrs_string.ptr(),
-                   thd->client_attrs_string.length());
-
   md5_key sql_stats_cache_key;
-  if (!set_sql_stats_cache_key(sql_id.data(), thd->plan_id.data(),
+  if (!set_sql_stats_cache_key(thd->sql_id.data(), thd->plan_id.data(),
                                thd->plan_id_set,
-                               client_id.data(), db_id, user_id,
+                               thd->client_id.data(), db_id, user_id,
                                sql_stats_cache_key.data()))
     return;
 
@@ -704,9 +625,9 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   current_max_sql_stats_size = max_sql_stats_size;
 
   /* Get or create client attributes for this statement. */
-  auto client_id_iter = global_client_attrs_map.find(client_id);
+  auto client_id_iter = global_client_attrs_map.find(thd->client_id);
   if (client_id_iter == global_client_attrs_map.end()) {
-    global_client_attrs_map.emplace(client_id,
+    global_client_attrs_map.emplace(thd->client_id,
                                     std::string(thd->client_attrs_string.ptr(),
                                                 thd->client_attrs_string.length()));
     sql_stats_size += (MD5_HASH_SIZE + thd->client_attrs_string.length());
@@ -714,7 +635,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
 
   /* Get or create the SQL_TEXT object for this sql statement. */
   SQL_TEXT *sql_text;
-  auto sql_text_iter= global_sql_text_map.find(sql_id);
+  auto sql_text_iter= global_sql_text_map.find(thd->sql_id);
   if (sql_text_iter == global_sql_text_map.end())
   {
     if (!(sql_text= ((SQL_TEXT*)my_malloc(sizeof(SQL_TEXT), MYF(MY_WME)))))
@@ -727,7 +648,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     set_sql_text_attributes(sql_text, thd->lex->sql_command,
                             &thd->m_digest->m_digest_storage);
 
-    auto ret= global_sql_text_map.emplace(sql_id, sql_text);
+    auto ret= global_sql_text_map.emplace(thd->sql_id, sql_text);
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_TEXT into the hash map.");
@@ -751,9 +672,9 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
       return;
     }
 
-    set_sql_stats_attributes(sql_stats, sql_id.data(), thd->plan_id.data(),
+    set_sql_stats_attributes(sql_stats, thd->sql_id.data(), thd->plan_id.data(),
                              thd->plan_id_set,
-                             client_id.data(), db_id, user_id);
+                             thd->client_id.data(), db_id, user_id);
     sql_stats->reset();
 
     auto ret= global_sql_stats_map.emplace(sql_stats_cache_key, sql_stats);
@@ -833,9 +754,6 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     char sql_id_hex_string[MD5_BUFF_LENGTH];
     array_to_hex(sql_id_hex_string, sql_stats->sql_id, MD5_HASH_SIZE);
 
-    char client_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(client_id_hex_string, sql_stats->client_id, MD5_HASH_SIZE);
-
     /* SQL ID */
     table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
@@ -851,6 +769,9 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     }
     else
       table->field[f++]->set_null();
+
+    char client_id_hex_string[MD5_BUFF_LENGTH];
+    array_to_hex(client_id_hex_string, sql_stats->client_id, MD5_HASH_SIZE);
 
     /* CLIENT ID */
     table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
@@ -967,7 +888,7 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
   bool lock_acquired = lock_sql_stats();
 
   for (auto iter= global_client_attrs_map.cbegin();
-      iter != global_client_attrs_map.cend(); ++iter)
+       iter != global_client_attrs_map.cend(); ++iter)
   {
     int f= 0;
 

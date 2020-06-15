@@ -66,7 +66,7 @@
 let $table= processlist;
 #
 # columns of the information_schema table e.g. to use in a select.
-let $columns= ID, USER, HOST, DB, COMMAND, TIME, STATE, INFO, SRV_ID;
+let $columns= ID, USER, HOST, DB, COMMAND, TIME, STATE, INFO, SRV_ID, SQL_ID, CLIENT_ID, PLAN_ID;
 #
 # Where clause for an update.
 let $update_where= WHERE id=1 ;
@@ -140,13 +140,13 @@ eval SHOW CREATE TABLE $table;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SHOW $table;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SELECT * FROM $table $select_where ORDER BY id;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 eval SELECT $columns FROM $table $select_where ORDER BY id;
 --source suite/funcs_1/datadict/datadict_priv.inc
 
@@ -164,11 +164,11 @@ eval SHOW CREATE TABLE $table;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SHOW $table;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SELECT * FROM $table $select_where ORDER BY id;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 eval SELECT $columns FROM $table $select_where ORDER BY id;
@@ -196,7 +196,7 @@ SHOW GRANTS;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -212,7 +212,7 @@ SHOW GRANTS;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -238,7 +238,7 @@ SHOW GRANTS;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -264,7 +264,7 @@ SHOW GRANTS;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -294,7 +294,7 @@ if ($fixed_bug_30395)
 --sorted_result
 SHOW processlist;
 }
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -319,7 +319,7 @@ SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -345,7 +345,7 @@ SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -396,7 +396,7 @@ SHOW GRANTS FOR 'ddicttestuser2'@'localhost';
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -421,7 +421,7 @@ SHOW GRANTS;
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -448,7 +448,7 @@ GRANT PROCESS ON *.* TO 'ddicttestuser2'@'localhost';
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;
@@ -476,7 +476,7 @@ SHOW GRANTS FOR 'ddicttestuser1'@'localhost';
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SHOW processlist;
---replace_column 1 ID 3 HOST_NAME 6 TIME 11 TID
+--replace_column 1 ID 3 HOST_NAME 6 TIME
 --replace_result "init" STATE "starting" STATE "cleaning up" STATE
 --sorted_result
 SELECT * FROM information_schema.processlist;

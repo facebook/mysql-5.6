@@ -1583,6 +1583,7 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
   }
 
+  thd->clear_sql_id();
   thd->clear_plan_id();
 }
 
@@ -2064,6 +2065,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       }
       break;
     }
+
+    /* Serial client attributes and set client ID */
+    thd->serialize_client_attrs();
 
     /* SQL_PLAN - capture the sql plan */
     capture_sql_plan(thd, thd->query(), thd->query_length());
@@ -2649,6 +2653,7 @@ done:
   thd->reset_query();
   thd->reset_query_attrs();
   thd->client_attrs_string.length(0);
+  thd->clear_client_id();
   thd->get_tracker()->reset_audit_attrs();
   thd->set_command(COM_SLEEP);
   thd->proc_info= 0;
@@ -10327,6 +10332,11 @@ bool parse_sql(THD *thd,
   }
 
   MYSQL_QUERY_PARSE_DONE(ret_value);
+
+  /* Compute SQL ID if parse was successful */
+  if (ret_value == 0)
+    thd->set_sql_id();
+
   return ret_value;
 }
 

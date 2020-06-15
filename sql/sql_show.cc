@@ -64,6 +64,7 @@
 #include "rpl_rli_pdb.h"
 #include "rpl_master.h"
 #include "violite.h"      // vio_getnameinfo
+#include "my_md5.h"
 #include <algorithm>
 #include <set>
 #include <map>
@@ -2684,10 +2685,27 @@ static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
   return true;
 }
 
+/* Fill a key field ID: SQL_ID, CLIENT_ID, or PLAN_ID */
+static void fill_key_field_id(TABLE *table, CHARSET_INFO *cs,
+                              md5_key *id_value, bool id_is_set, uint pos)
+{
+  if (id_is_set)
+  {
+    char hex_string[MD5_BUFF_LENGTH];
+    array_to_hex(hex_string, id_value->data(),
+                 id_value->size());
+
+    table->field[pos]->set_notnull();
+    table->field[pos]->store(hex_string, MD5_BUFF_LENGTH, cs);
+  }
+  else
+    table->field[pos]->set_null();
+}
+
 /* Return false if the current row (process) is skipped */
 static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
                                     char *user, CHARSET_INFO *cs,
-                                    timeval *time_now)
+                                    timeval *time_now, bool key_field_id)
 {
   struct st_my_thread_var *mysys_var = NULL;
   if (!fill_fields_process_common(thd, conn_thd, table, user, cs, mysys_var))
@@ -2737,6 +2755,21 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
   if (srv_session_thd)
     table->field[8]->store((ulonglong) srv_session_thd->thread_id(), TRUE);
 
+  /* this function is shared between two tables and one of which has
+     key field IDS (sql_id, client_id and plan_id) and other doesn't
+  */
+  if (key_field_id)
+  {
+    /* SQL_ID */
+    fill_key_field_id(table, cs, &(tmp->sql_id), tmp->sql_id_set, 9);
+
+    /* CLIENT_ID */
+    fill_key_field_id(table, cs, &(tmp->client_id), tmp->client_id_set, 10);
+
+    /* PLAN_ID */
+    fill_key_field_id(table, cs, &(tmp->plan_id), tmp->plan_id_set, 11);
+  }
+
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
   mysql_mutex_unlock(&tmp->LOCK_thd_data);
 
@@ -2751,7 +2784,9 @@ static bool fill_fields_srv_session(THD *thd,
 {
   auto srv_session_thd = srv_session->get_thd();
 
-  if (!fill_fields_processlist(thd, srv_session_thd, table, user, cs, time_now))
+  // fill the processlist fields, excluding key field ID's (false)
+  if (!fill_fields_processlist(thd, srv_session_thd, table, user, cs, time_now,
+                               false))
     return false;
 
   auto attached_conn_thid = srv_session->get_conn_thd_id();
@@ -2765,6 +2800,7 @@ static bool fill_fields_srv_session(THD *thd,
     table->field[6]->store(state, strlen(state), cs);
     table->field[6]->set_notnull();
   }
+
   return true;
 }
 #endif
@@ -2816,6 +2852,15 @@ static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
 
   if (srv_session_thd)
     table->field[11]->store((ulonglong) srv_session_thd->thread_id(), TRUE);
+
+  /* SQL_ID */
+  fill_key_field_id(table, cs, &(tmp->sql_id), tmp->sql_id_set, 12);
+
+  /* CLIENT_ID */
+  fill_key_field_id(table, cs, &(tmp->client_id), tmp->client_id_set, 13);
+
+  /* PLAN_ID */
+  fill_key_field_id(table, cs, &(tmp->plan_id), tmp->plan_id_set, 14);
 
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
   mysql_mutex_unlock(&tmp->LOCK_thd_data);
@@ -3181,8 +3226,9 @@ int fill_schema_process_trx_helper(THD *thd, TABLE_LIST *tables, Item *cond,
             continue;
 
           case process_list_type::SHOW_PROCESS_LIST:
+            // fill the processlist fields, including key field ID's (true)
             store = fill_fields_processlist(thd, tmp, table, user, cs,
-                                            &time_now);
+                                            &time_now, true);
             break;
 
           default:
@@ -9891,6 +9937,12 @@ ST_FIELD_INFO transaction_list_fields_info[]=
     SKIP_OPEN_TABLE},
   {"SRV_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Srv_id",
     SKIP_OPEN_TABLE},
+  {"SQL_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
+  {"CLIENT_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
+  {"PLAN_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -9910,6 +9962,12 @@ ST_FIELD_INFO processlist_fields_info[]=
    SKIP_OPEN_TABLE},
   {"SRV_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Srv_id",
     SKIP_OPEN_TABLE},
+  {"SQL_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
+  {"CLIENT_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
+  {"PLAN_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, MY_I_S_MAYBE_NULL, 0,
+   SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
