@@ -1451,6 +1451,9 @@ void do_handle_one_connection(THD *thd_arg)
     */
     per_user_session_variables.set_thd(thd);
 
+    // set correct thread priority
+    thd->set_thread_priority();
+
     conn_timeout = thd->variables.net_wait_timeout_seconds;
     set_conn_timeout_err(thd, timeout_error_msg_buf);
 

@@ -1,6 +1,6 @@
-################## mysql-test\t\thread_nice_value_basic.test ###############
+################## mysql-test\t\thread_priority_str_basic.test ###############
 #                                                                             #
-# Variable Name: thread_nice_value                                            #
+# Variable Name: thread_priority_str                                            #
 # Scope:Global                                                                #
 #                                                                             #
 # Creation Date: 2018-03-08                                                   #
@@ -11,30 +11,27 @@
 #                                                                             #
 ###############################################################################
 
-SET @start_global_value = @@GLOBAL.thread_nice_value;
+SET @start_global_value = @@GLOBAL.thread_priority_str;
 SELECT @start_global_value;
 
 ########################################################################
-#          Display the DEFAULT value of thread_nice_value            #
+#          Display the DEFAULT value of thread_priority_str            #
 ########################################################################
-select @@GLOBAL.thread_nice_value;
+select @@GLOBAL.thread_priority_str;
 
 
 ########################################################################
 #          Invalid input types                                         #
 ########################################################################
 --Error ER_WRONG_VALUE_FOR_VAR
-SET @@GLOBAL.thread_nice_value = '';
+SET @@GLOBAL.thread_priority_str = ':';
 
 --Error ER_WRONG_VALUE_FOR_VAR
-SET @@GLOBAL.thread_nice_value = ':';
-
---Error ER_WRONG_VALUE_FOR_VAR
-SET @@GLOBAL.thread_nice_value = ' : -3';
+SET @@GLOBAL.thread_priority_str = ' : -3';
 
 ################################
 #     Restore initial value    #
 ################################
 
-SET @start_global_value = @@GLOBAL.thread_nice_value;
+SET @start_global_value = @@GLOBAL.thread_priority_str;
 SELECT @start_global_value;

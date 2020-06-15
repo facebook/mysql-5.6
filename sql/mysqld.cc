@@ -199,6 +199,9 @@ extern "C" {          // Because of SCO 3.2V4.2
 
 #if !defined(__WIN__)
 #include <sys/resource.h>
+#ifdef HAVE_SYS_CAPABILITY_H
+#include <sys/capability.h>
+#endif
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
 #endif
@@ -754,7 +757,7 @@ ulonglong binlog_bytes_written = 0;
 ulonglong relay_log_bytes_written = 0;
 ulong binlog_cache_size=0;
 char *enable_jemalloc_hpp;
-char *thread_nice_value = NULL;
+char *thread_priority_str = NULL;
 ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
 ulong binlog_stmt_cache_size=0;
@@ -2770,7 +2773,7 @@ static void set_user(const char *user, struct passwd *user_info_arg)
     sql_perror("setgid");
     unireg_abort(1);
   }
-  if (setuid(user_info_arg->pw_uid) == -1)
+  if (setresuid(user_info_arg->pw_uid, user_info_arg->pw_uid, -1) == -1)
   {
     sql_perror("setuid");
     unireg_abort(1);
@@ -3336,17 +3339,6 @@ static void do_backoff(int* num_backoffs) // num_backoffs is initialized to 0
 }
 #endif
 
-static bool check_and_reset_thd_pri(THD *thd)
-{
-    if (!thd->is_thd_priority_alt())
-    {
-      return true;
-    }
-    //reset nice value of a thread
-    int rc = setpriority(PRIO_PROCESS, thd->system_thread_id, 0);
-    return rc == 0;
-}
-
 /**
   Block the current pthread for reuse by new connections.
 
@@ -3417,6 +3409,8 @@ static bool block_until_new_connection_halflock()
       mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
       add_global_thread(thd);
       mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
+
+      thd->set_thread_priority();
       return true;
     }
   }
@@ -3460,7 +3454,8 @@ bool one_thread_per_connection_end(THD *thd, bool block_pthread)
   ERR_remove_state(0);
 #endif
 
-  block_pthread = check_and_reset_thd_pri(thd);
+  // reset thread priority
+  block_pthread = thd->set_thread_priority(0);
   delete thd;
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
@@ -3988,10 +3983,21 @@ int histogram_validate_step_size_string(const char* step_size_with_unit)
   return ret;
 }
 
-bool update_thread_nice_value(char *thd_id_nice_val)
+/**
+ * Set the priority of an OS thread.
+ *
+ * @param thread_priority_cptr  A string of the format os_thread_id:nice_val.
+ * @return                      true on success, false otherwise.
+ */
+bool set_thread_priority(char *thread_priority_cptr)
 {
   //parse input to get thread_id and nice_val
-  std::string thd_id_nice_val_str(thd_id_nice_val);
+  std::string thd_id_nice_val_str(thread_priority_cptr);
+
+  if (thd_id_nice_val_str.empty())
+  {
+    return true;
+  }
 
   std::size_t delimpos = thd_id_nice_val_str.find(':');
   if (delimpos == std::string::npos)
@@ -4024,34 +4030,91 @@ bool update_thread_nice_value(char *thd_id_nice_val)
   //Check weather thread_id is a valid active system_thread_id
   mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
 
+  bool ret= false;
   Thread_iterator it= global_thread_list->begin();
   Thread_iterator end= global_thread_list->end();
   for (; it != end; ++it)
   {
-    THD *thd = *it;
-    if (thd->thread_id() == thread_id)
+    THD *thd= *it;
+    if ((unsigned long)thd->system_thread_id == thread_id)
     {
-      int which = PRIO_PROCESS;
-
-      int ret = setpriority(which, thd->system_thread_id, nice_val);
-      if (ret != 0)
-      {
-        /* NO_LINT_DEBUG */
-        sql_print_information("Set schedParam failed, returned "
-            "val is %d. Error %s\n", ret, strerror(errno));
-        break;
-      }
-      else
-      {
-        //Update the variable used for resetting the nice value
-        thd->mark_thd_priority_as_alt();
-        mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
-        return true;
-      }
+      ret= thd->set_thread_priority(nice_val);
+      break;
     }
   }
+
   mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
-  return false;
+  return ret;
+}
+
+/**
+ * Set a capability's flags.
+ * Effective capabilities of a thread are changed.
+ *
+ * @param capability  Capability to change. e.g. CAP_SYS_NICE
+ * @param flag        Flag to set. e.g. CAP_SET, CAP_CLEAR
+ * @return            true on success, false otherwise.
+ */
+static bool set_capability_flag(cap_value_t capability, cap_flag_value_t flag)
+{
+  DBUG_ENTER("set_capability_flag");
+
+  cap_value_t cap_list[]= {capability};
+  cap_t caps= cap_get_proc();
+  bool ret= true;
+
+  if (!caps ||
+      cap_set_flag(caps, CAP_EFFECTIVE, 1, cap_list, flag) ||
+      cap_set_proc(caps))
+  {
+    ret= false;
+  }
+
+  if (caps)
+  {
+    cap_free(caps);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static bool acquire_capability(cap_value_t capability)
+{
+  return set_capability_flag(capability, CAP_SET);
+}
+
+static bool drop_capability(cap_value_t capability)
+{
+  return set_capability_flag(capability, CAP_CLEAR);
+}
+
+/**
+ * Sets a system thread priority.
+ * CAP_SYS_NICE capability is temporarily acquired if it does not already
+ * exist, and dropped after the setpriority() call is complete.
+ *
+ * @param tid  OS thread id.
+ * @param pri  Priority (nice value) to set the thread to.
+ * @return     true on success, false otherwise.
+ */
+bool set_system_thread_priority(pid_t tid, int pri)
+{
+  DBUG_ENTER("set_system_thread_priority");
+
+  bool ret= true;
+  acquire_capability(CAP_SYS_NICE);
+  if (setpriority(PRIO_PROCESS, tid, pri) == -1)
+  {
+    ret= false;
+  }
+  drop_capability(CAP_SYS_NICE);
+
+  DBUG_RETURN(ret);
+}
+
+bool set_current_thread_priority()
+{
+  return current_thd->set_thread_priority();
 }
 
 /**

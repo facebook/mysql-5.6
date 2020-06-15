@@ -826,6 +826,8 @@ typedef struct system_variables
   long admission_control_queue;
 
   my_bool block_create_no_primary_key;
+
+  long thread_priority;
 } SV;
 
 
@@ -5059,14 +5061,6 @@ public:
   // ExecutionContextImpl is used for native procedures.
   ExecutionContextImpl *ec;
 
-  bool is_thd_priority_alt() { return thd_priority_alt; }
-  void mark_thd_priority_as_alt()
-  {
-    mysql_mutex_lock(&LOCK_thd_data);
-    thd_priority_alt = true;
-    mysql_mutex_unlock(&LOCK_thd_data);
-  }
-
   bool is_a_srv_session() const { return is_a_srv_session_thd; }
   void mark_as_srv_session() { is_a_srv_session_thd= true; }
 
@@ -5107,9 +5101,6 @@ private:
   */
   bool is_a_srv_session_thd = false;
 
-  /*Variable to mark weather nice value of this thread changed or not*/
-  bool thd_priority_alt = false;
-
   /**
    * Set only in Conn THD points to the attached srv session.
    * Filled in only while executing the query for the attached session.
@@ -5133,6 +5124,22 @@ public:
     variables.character_set_client= other->variables.character_set_client;
     variables.collation_connection= other->variables.collation_connection;
     variables.character_set_results= other->variables.character_set_results;
+  }
+
+private:
+  // Priority (nice value) of the system thread associated with this THD.
+  int thread_priority= 0;
+public:
+  int get_thread_priority() const
+  {
+    return thread_priority;
+  }
+
+  bool set_thread_priority(int pri);
+
+  bool set_thread_priority()
+  {
+    return set_thread_priority(variables.thread_priority);
   }
 };
 

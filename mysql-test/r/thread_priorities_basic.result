@@ -1,0 +1,196 @@
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+set @saved_thread_cache_size = @@global.thread_cache_size;
+set @saved_thread_priority = @@global.thread_priority;
+set @saved_thread_priority_str = @@global.thread_priority_str;
+Case 1: Default thread priority.
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+0
+Case 2: Change current thread's priority.
+set @@global.thread_cache_size = 100;
+connect con3
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+@@session.thread_priority
+5
+select @priority;
+@priority
+5
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+5
+0
+disconnect con3
+connect default
+select count(*) from information_schema.thread_priorities where priority = 5;
+count(*)
+0
+connect con4
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+0
+0
+disconnect con4
+connect default
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+0
+Case 3: Multiple threads concurrently running with different priorities.
+set @@global.thread_cache_size = 100;
+connect con5
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+@@session.thread_priority
+5
+select @priority;
+@priority
+5
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+5
+0
+connect con6
+set @@session.thread_priority = 15;
+select @@session.thread_priority;
+@@session.thread_priority
+15
+select @priority;
+@priority
+15
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+15
+5
+0
+connect con7
+set @@session.thread_priority = 7;
+select @@session.thread_priority;
+@@session.thread_priority
+7
+select @priority;
+@priority
+7
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+15
+7
+5
+0
+connect con8
+set @@session.thread_priority = 100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '100'
+select @@session.thread_priority;
+@@session.thread_priority
+19
+select @priority;
+@priority
+19
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+19
+15
+7
+5
+0
+connect con9
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+19
+15
+7
+5
+0
+0
+disconnect con5
+disconnect con6
+disconnect con7
+disconnect con8
+disconnect con9
+connect default
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+0
+Case 4: Change global thread_priority. All new threads should use this priority.
+select @@global.thread_priority;
+@@global.thread_priority
+0
+set @@global.thread_priority = 5;
+select @@global.thread_priority;
+@@global.thread_priority
+5
+select @@session.thread_priority;
+@@session.thread_priority
+0
+connect con9
+select @@session.thread_priority;
+@@session.thread_priority
+5
+select @priority;
+@priority
+5
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+5
+0
+disconnect con9
+connect default
+set @@global.thread_priority=@saved_thread_priority;
+select @@global.thread_priority;
+@@global.thread_priority
+0
+Case 5: Change the priority of another thread.
+connect con10
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+0
+0
+connect default
+set @@global.thread_priority_str = @con10_nice_val;
+select @priority;
+@priority
+9
+select priority from information_schema.thread_priorities order by priority desc;
+priority
+9
+0
+disconnect con10
+Cleanup
+set @@global.thread_cache_size = @saved_thread_cache_size;
+set @@global.thread_priority = @saved_thread_priority;
+set @@global.thread_priority_str = @saved_thread_priority_str;
+drop user user_super@localhost;

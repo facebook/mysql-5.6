@@ -518,6 +518,9 @@ def	information_schema	TABLE_STATISTICS	TABLE_NAME	2		NO	varchar	192	576	NULL	NU
 def	information_schema	TABLE_STATISTICS	TABLE_SCHEMA	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	TABLE_STATISTICS	UNCOMPRESS_OPS	26	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	TABLE_STATISTICS	UNCOMPRESS_USECS	27	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	THREAD_PRIORITIES	ID	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	THREAD_PRIORITIES	PRIORITY	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(5)			select	
+def	information_schema	THREAD_PRIORITIES	SYSTEM_THREAD_ID	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	TRANSACTION_LIST	CLIENT_ID	14	NULL	YES	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	TRANSACTION_LIST	COMMAND	5		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
 def	information_schema	TRANSACTION_LIST	COMMAND_SECONDS	9	0.000000	NO	decimal	NULL	NULL	9	6	NULL	NULL	NULL	decimal(9,6)			select	
@@ -1247,6 +1250,9 @@ NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ_BLOB	int	NULL	NULL	NU
 NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN	int	NULL	NULL	NULL	NULL	int(11)
 NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_INDEX	int	NULL	NULL	NULL	NULL	int(11)
 NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_BLOB	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	THREAD_PRIORITIES	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	THREAD_PRIORITIES	SYSTEM_THREAD_ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	THREAD_PRIORITIES	PRIORITY	bigint	NULL	NULL	NULL	NULL	bigint(5)
 NULL	information_schema	TRANSACTION_LIST	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	TRANSACTION_LIST	USER	varchar	80	240	utf8	utf8_general_ci	varchar(80)
 3.0000	information_schema	TRANSACTION_LIST	HOST	varchar	64	192	utf8	utf8_general_ci	varchar(64)

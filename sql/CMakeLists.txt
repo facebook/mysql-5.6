@@ -269,7 +269,7 @@ DTRACE_INSTRUMENT(sql)
 TARGET_LINK_LIBRARIES(sql ${MYSQLD_STATIC_PLUGIN_LIBS}
   mysys mysys_ssl dbug strings vio regex utils
   ${LIBWRAP} ${LIBCRYPT} ${LIBDL}
-  ${SSL_LIBRARIES})
+  ${SSL_LIBRARIES} ${LIBCAP})
 
 #
 # On Windows platform we compile in the clinet-side Windows Native Authentication

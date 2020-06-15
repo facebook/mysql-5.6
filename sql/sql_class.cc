@@ -6090,3 +6090,28 @@ void THD::propagate_pending_global_disk_usage()
                    global_status_var.tmp_table_disk_usage_peak);
 
 }
+
+/*
+  Set the priority of the underlying OS thread.
+
+  @param pri    The priority to set the thread to.
+  @return       true on success, false otherwise.
+*/
+bool THD::set_thread_priority(int pri)
+{
+  DBUG_ENTER("THD::set_thread_priority");
+
+  bool ret= true;
+
+  if (get_thread_priority() != pri) {
+    mysql_mutex_lock(&LOCK_thd_data);
+    ret= set_system_thread_priority(system_thread_id, pri);
+    if (ret)
+    {
+      thread_priority= pri;
+    }
+    mysql_mutex_unlock(&LOCK_thd_data);
+  }
+
+  DBUG_RETURN(ret);
+}

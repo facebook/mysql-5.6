@@ -102,6 +102,7 @@
 #cmakedefine HAVE_SYS_UTIME_H 1
 #cmakedefine HAVE_SYS_WAIT_H 1
 #cmakedefine HAVE_SYS_PARAM_H 1
+#cmakedefine HAVE_SYS_CAPABILITY_H 1
 
 /* Libraries */
 #cmakedefine HAVE_LIBPTHREAD 1
@@ -116,6 +117,7 @@
 #cmakedefine HAVE_LIBRESOLV 1
 /* Does "struct timespec" have a "sec" and "nsec" field? */
 #cmakedefine HAVE_TIMESPEC_TS_SEC 1
+#cmakedefine HAVE_LIBCAP 1
 
 /* Readline */
 #cmakedefine HAVE_HIST_ENTRY 1

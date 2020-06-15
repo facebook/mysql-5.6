@@ -1,0 +1,15 @@
+SET @start_global_value = @@GLOBAL.thread_priority_str;
+SELECT @start_global_value;
+@start_global_value
+
+select @@GLOBAL.thread_priority_str;
+@@GLOBAL.thread_priority_str
+
+SET @@GLOBAL.thread_priority_str = ':';
+ERROR 42000: Variable 'thread_priority_str' can't be set to the value of ':'
+SET @@GLOBAL.thread_priority_str = ' : -3';
+ERROR 42000: Variable 'thread_priority_str' can't be set to the value of ' : -3'
+SET @start_global_value = @@GLOBAL.thread_priority_str;
+SELECT @start_global_value;
+@start_global_value
+

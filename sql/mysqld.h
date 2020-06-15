@@ -660,11 +660,6 @@ void counter_histogram_increment(counter_histogram* current_histogram,
 ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
                                      size_t bin_num);
 /**
- * Update the nice value of a thread
- * @param thd_id_nice_val threadId:niceVal
- * **/
-bool update_thread_nice_value(char *thd_id_nice_val);
-/**
   Validate if the string passed to the configurable histogram step size
   conforms to proper syntax.
 
@@ -673,6 +668,30 @@ bool update_thread_nice_value(char *thd_id_nice_val);
   @return                     1 if invalid, 0 if valid.
 */
 int histogram_validate_step_size_string(const char* step_size_with_unit);
+
+/**
+ * Set the priority of an OS thread.
+ *
+ * @param thread_priority_str  A string of the format os_thread_id:nice_val.
+ * @return                     true on success, false otherwise.
+ */
+bool set_thread_priority(char *thread_priority_str);
+
+/**
+ * Set priority of the current thread.
+ *
+ * @return true on success, false otherwise.
+ */
+bool set_current_thread_priority();
+
+/**
+ * Set the priority of an OS thread.
+ * 
+ * @param tid  The OS thread id.
+ * @param pri  The priority to set the thread to.
+ * @return     true on success, false otherwise.
+ */
+bool set_system_thread_priority(pid_t tid, int pri);
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
@@ -912,7 +931,7 @@ extern char *admission_control_weights;
 extern my_bool opt_slave_allow_batching;
 extern my_bool allow_slave_start;
 extern char *enable_jemalloc_hpp;
-extern char *thread_nice_value;
+extern char *thread_priority_str;
 extern LEX_CSTRING reason_slave_blocked;
 extern ulong slave_trans_retries;
 extern uint  slave_net_timeout;

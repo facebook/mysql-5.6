@@ -1160,19 +1160,38 @@ static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
        IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_histogram_step_size_syntax));
 
-static bool update_thread_nice_val(sys_var *self, THD *thd,
-                                     set_var *var)
+static bool update_thread_priority_str(sys_var *self, THD *thd,
+                                       set_var *var)
 {
-  return !update_thread_nice_value(var->save_result.string_value.str);
+  return !set_thread_priority(var->save_result.string_value.str);
 }
 
-static Sys_var_charptr Sys_thread_nice_value(
-       "thread_nice_value","Input format is threadId:niceValue"
-       " nice value range is -20 to 19",
-       GLOBAL_VAR(thread_nice_value),
+static Sys_var_charptr Sys_thread_priority_str(
+       "thread_priority_str", "Set the priority of a thread. "
+       "The input format is OSthreadId:PriValue. "
+       "The priority values are in the range -20 to 19, similar to nice.",
+       GLOBAL_VAR(thread_priority_str),
        CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET, DEFAULT(""),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(update_thread_nice_val));
+       ON_CHECK(update_thread_priority_str));
+
+static bool update_thread_priority(sys_var *self, THD *thd,
+                                   enum_var_type type)
+{
+  if (type == OPT_GLOBAL) return false;
+  return !set_current_thread_priority();
+}
+
+static Sys_var_long Sys_thread_priority(
+       "thread_priority", "Set the priority of a thread. "
+       "Changes the priority of the current thread if set at the session level. "
+       "Changes the priority of all new threads if set at the global level. "
+       "The values are in the range -20 to 19, similar to nice.",
+       SESSION_VAR(thread_priority),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(-20, 19),
+       DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(NULL), ON_UPDATE(update_thread_priority));
 
 #ifdef HAVE_REPLICATION
 static bool update_binlog_group_commit_step(sys_var *self, THD *thd,

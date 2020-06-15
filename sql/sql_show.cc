@@ -3754,6 +3754,42 @@ int fill_socket_diag_slaves(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_RETURN(0);
 }
 
+/* Fills the THREAD_PRIORITIES table. */
+int fill_thread_priorities(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_thread_priorities");
+  TABLE* table= tables->table;
+
+  /* make a copy of global_thread_list, sorted by thread_id */
+  std::set<THD *, bool (*)(const THD *, const THD *)>
+      global_thread_list_copy(&thd_compare);
+  mutex_lock_all_shards(SHARDED(&LOCK_thd_remove));
+  copy_global_thread_list_sorted(&global_thread_list_copy);
+  mutex_unlock_all_shards(SHARDED(&LOCK_thd_remove));
+
+  for (const auto &tmp: global_thread_list_copy)
+  {
+    int f= 0;
+    restore_record(table, s->default_values);
+
+    /* ID */
+    table->field[f++]->store((ulonglong) tmp->thread_id(), TRUE);
+
+    /* SYSTEM_THREAD_ID */
+    table->field[f++]->store(tmp->system_thread_id, TRUE);
+
+    /* PRIORITY */
+    table->field[f++]->store(tmp->get_thread_priority(), FALSE);
+
+    if (schema_table_store_record(thd, table))
+    {
+      DBUG_RETURN(-1);
+    }
+  }
+
+  DBUG_RETURN(0);
+}
+
 /****************************************************************************
   Main functions for processlist, transaction_list, connection_attrs,
     srv_sessions, mysqld_list_processes, mysqld_list_transactions,
@@ -10242,6 +10278,16 @@ ST_FIELD_INFO db_applied_hlc_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO thread_priorities_fields_info[] =
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG,
+    0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"SYSTEM_THREAD_ID", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+    0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"PRIORITY", 5, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -10410,6 +10456,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_ac_queue, NULL, NULL, -1, -1, false, 0},
   {"SQL_FINDINGS", sql_findings_fields_info, create_schema_table,
    fill_sql_findings, NULL, NULL, -1, -1, false, 0},
+  {"THREAD_PRIORITIES", thread_priorities_fields_info, create_schema_table,
+   fill_thread_priorities, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
