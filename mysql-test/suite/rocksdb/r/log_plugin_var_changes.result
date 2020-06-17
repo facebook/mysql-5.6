@@ -118,10 +118,39 @@ SET GLOBAL rocksdb_read_free_rpl_tables = @old_val;
 SELECT @@global.rocksdb_read_free_rpl_tables;
 @@global.rocksdb_read_free_rpl_tables
 .*
+###### Corner cases
+### Check and no-op update vars
+CREATE TABLE cf_test_table (
+id1 int(10) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (id1) COMMENT 'cf_primary_key'
+) ENGINE=ROCKSDB;
+DROP TABLE cf_test_table;
+SET GLOBAL rocksdb_compact_cf = 'cf_primary_key';
+SELECT @@global.rocksdb_compact_cf;
+@@global.rocksdb_compact_cf
+
+SET GLOBAL rocksdb_delete_cf = 'cf_primary_key';
+SELECT @@global.rocksdb_delete_cf;
+@@global.rocksdb_delete_cf
+
+SET GLOBAL rocksdb_create_checkpoint = 'TMP/abc';
+SELECT @@global.rocksdb_create_checkpoint;
+@@global.rocksdb_create_checkpoint
+
+SET GLOBAL rocksdb_force_flush_memtable_now = ON;
+SELECT @@global.rocksdb_force_flush_memtable_now;
+@@global.rocksdb_force_flush_memtable_now
+0
+SET GLOBAL rocksdb_force_flush_memtable_and_lzero_now = ON;
+SELECT @@global.rocksdb_force_flush_memtable_and_lzero_now;
+@@global.rocksdb_force_flush_memtable_and_lzero_now
+0
+###### Restore value of logging global var changes
 SET GLOBAL log_global_var_changes = @old_config;
 SELECT @@global.log_global_var_changes;
 @@global.log_global_var_changes
 0
+### Clean up
 ### Verifying error log
  Global variable @@rocksdb_max_background_jobs has been changed from 2 to -1 by user root from host localhost
  Global variable @@rocksdb_max_background_jobs has been changed from -1 to 1 by user root from host localhost
@@ -141,4 +170,9 @@ SELECT @@global.log_global_var_changes;
  Global variable @@rocksdb_enable_remove_orphaned_dropped_cfs has been changed from 0 to 1 by user root from host localhost
  Global variable @@rocksdb_read_free_rpl_tables has been changed from '.*' to 'mytable' by user root from host localhost
  Global variable @@rocksdb_read_free_rpl_tables has been changed from 'mytable' to '.*' by user root from host localhost
+ Global variable @@rocksdb_compact_cf has been changed from '' to '(null)' by user root from host localhost
+ Global variable @@rocksdb_delete_cf has been changed from '' to '(null)' by user root from host localhost
+ Global variable @@rocksdb_create_checkpoint has been changed from '' to '(null)' by user root from host localhost
+ Global variable @@rocksdb_force_flush_memtable_now has been changed from 0 to 0 by user root from host localhost
+ Global variable @@rocksdb_force_flush_memtable_and_lzero_now has been changed from 0 to 0 by user root from host localhost
  Global variable @@log_global_var_changes has been changed from 1 to 0 by user root from host localhost

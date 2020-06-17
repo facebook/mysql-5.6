@@ -233,6 +233,13 @@ public:
     :var(var_arg), type(type_arg), base(*base_name_arg)
   {
     /*
+      Initialize save_result to zero in case sys_var::check doesn't set it
+      for some reason so that sys_var::update doesn't try to read random
+      memory.
+    */
+    memset(&save_result, 0, sizeof(save_result));
+
+    /*
       If the set value is a field, change it to a string to allow things like
       SET table_type=MYISAM;
     */
@@ -367,4 +374,3 @@ int sys_var_add_options(std::vector<my_option> *long_options, int parse_flags);
 void sys_var_end(void);
 
 #endif
-
