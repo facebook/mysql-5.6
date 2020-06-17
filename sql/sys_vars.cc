@@ -7356,3 +7356,17 @@ static Sys_var_enum Sys_commit_consensus_error_action(
        commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static const char *raft_signal_async_dump_threads_options[]=
+{
+  "AFTER_CONSENSUS",
+  "AFTER_ENGINE_COMMIT",
+  0
+};
+
+static Sys_var_enum Sys_raft_signal_async_dump_threads(
+       "raft_signal_async_dump_threads",
+       "When should we signal async dump threads who are waiting to send events",
+       GLOBAL_VAR(opt_raft_signal_async_dump_threads), CMD_LINE(OPT_ARG),
+       raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+

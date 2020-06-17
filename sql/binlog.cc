@@ -8799,6 +8799,8 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
                                                 bool async)
 {
   Thread_excursion excursion(thd);
+  int error= 0;
+  THD *last_thd= nullptr;
   for (THD *head= first; head; head= head->next_to_commit)
   {
     if (head->transaction.flags.run_hooks &&
@@ -8813,14 +8815,27 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
       excursion.try_to_attach_to(head);
       bool all= head->transaction.flags.real_commit;
       (void) RUN_HOOK(transaction, after_commit, (head, all));
-      (void) RUN_HOOK(raft_replication, after_commit, (head, all));
+      error = error || RUN_HOOK(raft_replication, after_commit, (head, all));
 
       /*
         When after_commit finished for the transaction, clear the run_hooks flag.
         This allow other parts of the system to check if after_commit was called.
       */
       head->transaction.flags.run_hooks= false;
+      last_thd= thd;
     }
+  }
+  if (!error &&
+      last_thd &&
+      opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
+      enable_raft_plugin &&
+      rpl_wait_for_semi_sync_ack)
+  {
+    char* log_file= nullptr;
+    my_off_t log_pos= 0;
+    last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+    const LOG_POS_COORD coord= { log_file, log_pos };
+    signal_semi_sync_ack(&coord);
   }
 }
 
@@ -8836,6 +8851,14 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
 void
 MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
 {
+    DBUG_EXECUTE_IF("before_before_commit", {
+                    const char act[]= "now signal reached "
+                                      "wait_for continue";
+                    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+                    DBUG_ASSERT(!debug_sync_set_action(
+                                   current_thd,
+                                   STRING_WITH_LEN(act)));
+                    });
    THD *last_thd = NULL;
    int error= 0;
    for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
@@ -8862,6 +8885,18 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
 
      if (error)
        set_commit_consensus_error(queue_head);
+
+     if (!error &&
+         opt_raft_signal_async_dump_threads == AFTER_CONSENSUS &&
+         enable_raft_plugin &&
+         rpl_wait_for_semi_sync_ack)
+     {
+       char* log_file= nullptr;
+       my_off_t log_pos= 0;
+       last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+       const LOG_POS_COORD coord= { log_file, log_pos };
+       signal_semi_sync_ack(&coord);
+     }
    }
 }
 
@@ -9140,7 +9175,19 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
     {
       (void) RUN_HOOK(transaction, after_commit, (thd, all));
-      (void) RUN_HOOK(raft_replication, after_commit, (thd, all));
+      int error= RUN_HOOK(raft_replication, after_commit, (thd, all));
+
+      if (!error &&
+          opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
+          enable_raft_plugin &&
+          rpl_wait_for_semi_sync_ack)
+      {
+        char* log_file= nullptr;
+        my_off_t log_pos= 0;
+        thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+        const LOG_POS_COORD coord= { log_file, log_pos };
+        signal_semi_sync_ack(&coord);
+      }
 
       thd->transaction.flags.run_hooks= false;
     }
@@ -12494,7 +12541,7 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
   // case: wait till this log pos is <= to the last acked log pos, or if waiting
   // is not required anymore
   while (!current_thd->killed &&
-         rpl_semi_sync_master_enabled &&
+         (rpl_semi_sync_master_enabled || enable_raft_plugin) &&
          rpl_wait_for_semi_sync_ack &&
          (current > last_acked.load() ||
           // We want to keep waiting till the next binlog rotation if we've hit

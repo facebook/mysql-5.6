@@ -2633,7 +2633,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                semi_sync_slave,
                                event_type != FORMAT_DESCRIPTION_EVENT &&
                                event_type != ROTATE_EVENT,
-                               rpl_semi_sync_master_enabled &&
+                               (rpl_semi_sync_master_enabled ||
+                                enable_raft_plugin) &&
                                rpl_wait_for_semi_sync_ack, heartbeat_period))
         {
           GOTO_ERR;
@@ -3103,7 +3104,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                    semi_sync_slave,
                                    (event_type != FORMAT_DESCRIPTION_EVENT &&
                                     event_type != ROTATE_EVENT),
-                                   rpl_semi_sync_master_enabled &&
+                                   (rpl_semi_sync_master_enabled ||
+                                    enable_raft_plugin) &&
                                    rpl_wait_for_semi_sync_ack,
                                    heartbeat_period))
             {

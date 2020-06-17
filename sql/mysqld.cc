@@ -508,6 +508,7 @@ longlong max_digest_sample_age;
 ulonglong max_tmp_disk_usage;
 bool enable_raft_plugin= 0;
 bool disable_raft_log_repointing= 0;
+ulong opt_raft_signal_async_dump_threads= 0;
 
 /* write_control_level:
  * Global variable to control write throttling for short running queries and
@@ -10369,7 +10370,8 @@ static int show_slave_lag_sla_misses(THD *thd, SHOW_VAR *var, char *buff)
 static int show_last_acked_binlog_pos(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_UNDEF;
-  if (rpl_semi_sync_master_enabled && rpl_wait_for_semi_sync_ack)
+  if ((rpl_semi_sync_master_enabled || enable_raft_plugin) &&
+      rpl_wait_for_semi_sync_ack)
   {
     const auto coord= last_acked.load();
     var->type= SHOW_CHAR;

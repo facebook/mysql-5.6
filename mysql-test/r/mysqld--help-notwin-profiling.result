@@ -1114,6 +1114,9 @@ The following options may be given as the first argument:
  Invalidate queries in query cache on LOCK for write
  --query-prealloc-size=# 
  Persistent buffer for query parsing and execution
+ --raft-signal-async-dump-threads[=name] 
+ When should we signal async dump threads who are waiting
+ to send events
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
@@ -2615,6 +2618,7 @@ query-cache-size 1048576
 query-cache-type OFF
 query-cache-wlock-invalidate FALSE
 query-prealloc-size 8192
+raft-signal-async-dump-threads AFTER_CONSENSUS
 range-alloc-block-size 4096
 range-optimizer-fail-mode WARN
 range-optimizer-max-mem-size 1536000
