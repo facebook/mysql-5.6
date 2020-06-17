@@ -27,5 +27,9 @@ while ($mysql_errno)
   }
   --sleep 0.1
 }
+if ($rpl_enable_raft)
+{
+  source include/rpl_raft_make_master_leader.inc;
+}
 --enable_query_log
 --enable_result_log

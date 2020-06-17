@@ -13,6 +13,15 @@ while ($_rpl_server)
     --skip Mysql Raft cannot be enabled without binlog checksums
   }
 
+  # Store the orginial values of these server variables as a string delimited by ':', one value for each server
+  let $rpl_raft_orig_sync_binlog= `SELECT CONCAT((SELECT @@GLOBAL.SYNC_BINLOG), ':', '$rpl_raft_orig_sync_binlog')`;
+  let $rpl_raft_orig_innodb_flush= `SELECT CONCAT((SELECT @@GLOBAL.INNODB_FLUSH_LOG_AT_TRX_COMMIT), ':', '$rpl_raft_orig_innodb_flush')`;
+  let $rpl_raft_orig_innodb_doublewrite= `SELECT CONCAT((SELECT @@GLOBAL.INNODB_DOUBLEWRITE), ':', '$rpl_raft_orig_innodb_doublewrite')`;
+
+  let $rpl_raft_orig_sync_binlog= `SELECT TRIM(BOTH ':' FROM '$rpl_raft_orig_sync_binlog')`;
+  let $rpl_raft_orig_innodb_flush= `SELECT TRIM(BOTH ':' FROM '$rpl_raft_orig_innodb_flush')`;
+  let $rpl_raft_orig_innodb_doublewrite= `SELECT TRIM(BOTH ':' FROM '$rpl_raft_orig_innodb_doublewrite')`;
+
   # Check if the plugin binary exists in the plugin dir
   --let $plugin_dir= `SELECT @@GLOBAL.PLUGIN_DIR`
   --file_exists $plugin_dir/mysql_raft_repl.so
@@ -114,6 +123,18 @@ while ($_rpl_server)
   if ($_rpl_server != $master_server_num)
   {
     source include/wait_for_slave_sql_to_start.inc;
+  }
+  if ($_rpl_server == $master_server_num)
+  {
+    let $max_sleep= 300;
+    while (!$_leader_writeable) {
+      let $_leader_writeable= `SELECT @@GLOBAL.READ_ONLY = 0`;
+      sleep 1;
+      let $max_sleep= $max_sleep - 1;
+      if ($max_sleep == 0) {
+        die "Timeout while waiting for read_only = 0 on leader";
+      }
+    }
   }
   dec $_rpl_server;
 }

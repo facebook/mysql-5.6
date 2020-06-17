@@ -123,7 +123,33 @@ if (!$rpl_server_error)
   --let $include_filename= rpl_start_server.inc [$_rpl_start_server_info]
   if ($rpl_enable_raft)
   {
-    # raft starts the slave sql appliers on restart. stop it explicitly
+    # If the leader is not mobile we need to make the mysql master the raft leader
+    if (!$rpl_raft_mobile_leader)
+    {
+      let $_is_master= `SELECT SUBSTRING('$rpl_master_list', 1 + ($rpl_server_number - 1) * $rpl_server_count_length, $rpl_server_count_length) = ''`;
+      if ($_is_master)
+      {
+        source include/rpl_raft_make_master_leader.inc;
+      }
+      if (!$_is_master)
+      {
+        let $status_var= Rpl_raft_role;
+        let $status_var_value= FOLLOWER;
+        source include/wait_for_status_var.inc;
+        let $sql_status= query_get_value("SHOW SLAVE STATUS", Slave_SQL_Running, 1);
+        let $max_sleep= 300;
+        while ($sql_status != "Yes")
+        {
+          sleep 1;
+          let $max_sleep= $max_sleep - 1;
+          if ($max_sleep == 0)
+          {
+            die "Timeout while waiting for follower's SQL thread to start";
+          }
+        }
+      }
+    }
+    # Raft starts the slave sql appliers on restart. stop it explicitly
     let $rpl_only_running_threads= 1;
     --source include/stop_slave.inc
   }

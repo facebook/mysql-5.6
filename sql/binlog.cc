@@ -9390,10 +9390,8 @@ void MYSQL_BIN_LOG::check_and_register_log_entities(THD *thd)
 
   // if this is a master and raft is turned ON,
   // register the IO_cache and the appropriate locks
-  // with the plugin. Borrowed master check from @vinay
-  // TODO - we need to have a discussion about rli_slave
-  // and what is the proper check we should have for this
-  if (!thd->rli_slave)
+  // with the plugin.
+  if (!mysql_bin_log.is_apply_log)
   {
     // only register once
     if (setup_flush_done)

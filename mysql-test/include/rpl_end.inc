@@ -80,12 +80,13 @@ while ($_rpl_server)
   --dec $_rpl_server
 }
 
+--source include/rpl_sync.inc
+
 if ($rpl_enable_raft)
 {
   --source include/rpl_end_raft.inc
 }
 
---source include/rpl_sync.inc
 --source include/rpl_stop_slaves.inc
 
 # mtr configures server 2 to be a slave before it runs the test. We

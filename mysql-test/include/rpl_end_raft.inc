@@ -19,9 +19,14 @@ while ($_rpl_server)
     UNINSTALL PLUGIN RPL_RAFT;
   }
   SET GLOBAL READ_ONLY= 1;
-  SET GLOBAL SYNC_BINLOG= 0;
-  SET GLOBAL INNODB_FLUSH_LOG_AT_TRX_COMMIT= 1;
-  SET GLOBAL INNODB_DOUBLEWRITE= 1;
+
+  # Extract original values for these variables (they are stored as a string seprated by ':', one value for each server)
+  let $sync_binlog= `SELECT SUBSTRING_INDEX(SUBSTRING_INDEX('$rpl_raft_orig_sync_binlog', ':', $rpl_server_count - $_rpl_server + 1), ':', -1)`;
+  let $innodb_flush= `SELECT SUBSTRING_INDEX(SUBSTRING_INDEX('$rpl_raft_orig_innodb_flush', ':', $rpl_server_count - $_rpl_server + 1), ':', -1)`;
+  let $innodb_doublewrite= `SELECT SUBSTRING_INDEX(SUBSTRING_INDEX('$rpl_raft_orig_innodb_doublewrite', ':', $rpl_server_count - $_rpl_server + 1), ':', -1)`;
+  eval SET GLOBAL SYNC_BINLOG= $sync_binlog;
+  eval SET GLOBAL INNODB_FLUSH_LOG_AT_TRX_COMMIT= $innodb_flush;
+  eval SET GLOBAL INNODB_DOUBLEWRITE= $innodb_doublewrite;
 
   enable_query_log;
 

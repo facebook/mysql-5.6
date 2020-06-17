@@ -29,8 +29,9 @@ while ($i <= $last_gitd_transaction_id)
   -- let assert_text = Gtid used in FIND BINLOG GITD and returned by SHOW BINLOG EVENTS should be same
   -- let assert_cond = `SELECT "$gtid" = "SET @@SESSION.GTID_NEXT= '$MASTER_UUID:$i'"`
   -- source include/assert.inc
+  -- let $log_prefix = `SELECT SUBSTRING_INDEX('$log_name', '.', 1)`
 
-  -- exec $MYSQL_BINLOG --index_file=$MYSQLD_DATADIR/slave-bin.index --find-gtid-position=$MASTER_UUID:$i > $MYSQLD_DATADIR/tmp.result
+  -- exec $MYSQL_BINLOG --index_file=$MYSQLD_DATADIR/$log_prefix.index --find-gtid-position=$MASTER_UUID:$i > $MYSQLD_DATADIR/tmp.result
 
   -- let $result= `SELECT LOAD_FILE('$MYSQLD_DATADIR/tmp.result')`
   -- let $log_name = `SELECT SUBSTRING_INDEX('$result', '\n', 1)`

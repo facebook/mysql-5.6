@@ -7,8 +7,8 @@ call mtr.add_suppression('Slave SQL:.* Could not execute Write_rows event '
                          'on table test.test_table2');
 call mtr.add_suppression('The slave coordinator and worker threads are stopped,'
                          ' possibly leaving data in inconsistent state');
-create table test_table1 (a int primary key);
-create table test_table2 (a int primary key);
+create table test_table1 (a int primary key) engine = innodb;
+create table test_table2 (a int primary key) engine = innodb;
 insert into test_table1 values(1);
 insert into test_table2 values(1);
 set @old_var = @@global.rbr_idempotent_tables;
@@ -26,7 +26,10 @@ include/stop_slave_sql.inc
 set @@global.rbr_idempotent_tables = @old_var;
 include/start_slave_sql.inc
 insert into test_table2 values(2);
-include/wait_for_slave_sql_error_and_skip.inc [errno=1062]
+include/wait_for_slave_sql_error.inc [errno=1062]
+set @@sql_log_bin = 0;
+delete from test_table2 where a = 2;
+include/start_slave.inc
 drop table test_table1;
 drop table test_table2;
 include/rpl_end.inc

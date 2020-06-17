@@ -35,6 +35,11 @@
 --let $_old_slave_error_param= $slave_error_param
 --let $slave_error_param= Last_IO_Errno
 
+if ($rpl_enable_raft)
+{
+  let $use_gtids= 1;
+}
+
 if ($use_gtids)
 {
   --let $slave_param= Retrieved_Gtid_Set

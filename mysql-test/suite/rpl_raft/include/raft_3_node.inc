@@ -37,6 +37,8 @@ if ($rpl_server_count)
 
 
 --let $rpl_enable_raft= 1
+# In this test suite leader can move around
+--let $rpl_raft_mobile_leader= 1
 --let $rpl_topology= 1->2,1->3
 --source include/rpl_init.inc
 

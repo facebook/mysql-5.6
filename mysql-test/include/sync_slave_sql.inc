@@ -42,6 +42,11 @@ if ($rpl_debug)
   --echo use_gtids='$use_gtids' ignore_gtids_on_sync='$ignore_gtids_on_sync' _saved_gtids='$_saved_gtids' _saved_file='$_saved_file' _saved_pos='$_saved_pos' timeout='$_sss_slave_timeout'
 }
 
+if ($rpl_enable_raft)
+{
+  let $use_gtids= 1;
+}
+
 #
 # Verify if the SQL thread is already updated by the master position
 # regardless the use if GTIDs. If the SQL thread is already updated,
