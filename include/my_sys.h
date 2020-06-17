@@ -475,6 +475,10 @@ typedef struct st_io_cache		/* Used when cacheing files */
   IO_CACHE_CALLBACK post_read;
   IO_CACHE_CALLBACK pre_close;
   /*
+    Callback when the actual write I/O happens.
+  */
+  IO_CACHE_CALLBACK post_write;
+  /*
     Counts the number of times, when we were forced to use disk. We use it to
     increase the binlog_cache_disk_use and binlog_stmt_cache_disk_use status
     variables.
@@ -515,6 +519,9 @@ typedef struct st_io_cache		/* Used when cacheing files */
 #endif
   struct compressor *compressor;
   struct decompressor *decompressor;
+
+  /* Disk usage reported to global/session tracking. */
+  my_off_t reported_disk_usage;
 } IO_CACHE;
 
 typedef int (*qsort2_cmp)(const void *, const void *, const void *);

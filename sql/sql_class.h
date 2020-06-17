@@ -913,27 +913,46 @@ typedef struct system_status_var
   */
   ulonglong questions;
 
-  ulong com_other;
-  ulong com_stat[(uint) SQLCOM_END];
-
   /*
     IMPORTANT!
     SEE last_system_status_var DEFINITION BELOW.
     Below 'last_system_status_var' are all variables that cannot be handled
     automatically by add_to_status()/add_diff_to_status().
   */
+
+  ulong com_other;
+  ulong com_stat[(uint) SQLCOM_END];
+
   double last_query_cost;
   ulonglong last_query_partial_plans;
+
+  ulonglong tmp_table_disk_usage_peak;
+  ulonglong filesort_disk_usage_peak;
+
+  /*
+    IMPORTANT!
+    SEE first_norefresh_status_var DEFINITION BELOW.
+    Below 'first_norefresh_status_var' are all session variables that
+    are not reset by FLUSH STATUS (refresh_status()). Note that
+    global variables in STATUS_VAR are never reset.
+  */
+  ulonglong tmp_table_disk_usage;
+  ulonglong filesort_disk_usage;
 
 } STATUS_VAR;
 
 /*
   This is used for 'SHOW STATUS'. It must be updated to the last ulong
-  variable in system_status_var which is makes sens to add to the global
+  variable in system_status_var which is makes sense to add to the global
   counter
 */
-
 #define last_system_status_var questions
+
+/*
+  First variable that is not reset by FLUSH STATUS, and also not
+  aggregated to the global status since it's after last_system_status_var.
+*/
+#define first_norefresh_status_var tmp_table_disk_usage
 
 
 /**
@@ -3526,6 +3545,10 @@ public:
       }
     }
 
+  /* Adjust disk usage for current session. */
+  void adjust_tmp_table_disk_usage(longlong delta);
+  void adjust_filesort_disk_usage(longlong delta);
+
   /* local hash map of db opt */
   HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
@@ -4393,6 +4416,7 @@ public:
              (variables.sql_mode & MODE_STRICT_ALL_TABLES)));
   }
   void set_status_var_init();
+  void refresh_status_vars();
   void reset_n_backup_open_tables_state(Open_tables_backup *backup);
   void restore_backup_open_tables_state(Open_tables_backup *backup);
   void reset_sub_statement_state(Sub_statement_state *backup, uint new_state);

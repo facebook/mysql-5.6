@@ -390,6 +390,10 @@ int chk_size(MI_CHECK *param, register MI_INFO *info)
     mi_check_print_warning(param, "Datafile is almost full, %10s of %10s used",
 			   llstr(info->state->data_file_length,buff),
 			   llstr(info->s->base.max_data_file_length-1,buff2));
+
+  if (!error)
+    error = mi_notify_file_length_change(info);
+
   DBUG_RETURN(error);
 } /* chk_size */
 
@@ -605,6 +609,9 @@ static int chk_index_down(MI_CHECK *param, MI_INFO *info, MI_KEYDEF *keyinfo,
     info->state->key_file_length= (max_length &
                                    ~ (my_off_t) (keyinfo->block_length - 1));
     /* purecov: end */
+
+    if (mi_notify_file_length_change(info))
+      goto err;
   }
 
   /* Key blocks must be aligned at MI_MIN_KEY_BLOCK_LENGTH. */
@@ -1500,6 +1507,8 @@ static int mi_drop_all_indexes(MI_CHECK *param, MI_INFO *info, my_bool force)
   /* Reset index file length to end of index file header. */
   info->state->key_file_length= share->base.keystart;
 
+  error = mi_notify_file_length_change(info);
+
   DBUG_PRINT("repair", ("dropped all indexes"));
   /* error= 0; set by last (error= flush_key_bocks()). */
 
@@ -1715,7 +1724,9 @@ int mi_repair(MI_CHECK *param, register MI_INFO *info,
 			     llstr(sort_info.dupp,llbuff));
   }
 
-  got_error=0;
+  if ((got_error = mi_notify_file_length_change(info)))
+    goto err;
+
   /* If invoked by external program that uses thr_lock */
   if (&share->state.state != info->state)
     memcpy( &share->state.state, info->state, sizeof(*info->state));
@@ -1999,6 +2010,11 @@ int mi_sort_index(MI_CHECK *param, register MI_INFO *info, char * name,
       index_pos[key]= HA_OFFSET_ERROR;		/* No blocks */
   }
 
+  /* Report new size before switching over to new file. */
+  longlong delta = param->new_file_pos - info->state->key_file_length;
+  if (mi_notify_file_length_change_by(info, delta))
+    goto err;
+
   /* Flush key cache for this file if we are calling this outside myisamchk */
   flush_key_blocks(share->key_cache,share->kfile, FLUSH_IGNORE_CHANGED);
 
@@ -2041,6 +2057,8 @@ err:
 err2:
   (void) mysql_file_delete(mi_key_file_datatmp,
                            param->temp_filename, MYF(MY_WME));
+  /* Report old file size. */
+  (void) mi_notify_file_length_change(info);
   DBUG_RETURN(-1);
 } /* mi_sort_index */
 
@@ -2543,7 +2561,9 @@ int mi_repair_by_sort(MI_CHECK *param, register MI_INFO *info,
 			     "%s records have been removed",
 			     llstr(sort_info.dupp,llbuff));
   }
-  got_error=0;
+
+  if ((got_error = mi_notify_file_length_change(info)))
+    goto err;
 
   if (&share->state.state != info->state)
     memcpy( &share->state.state, info->state, sizeof(*info->state));
@@ -3069,7 +3089,9 @@ int mi_repair_parallel(MI_CHECK *param, register MI_INFO *info,
 			     "%s records have been removed",
 			     llstr(sort_info.dupp,llbuff));
   }
-  got_error=0;
+
+  if ((got_error = mi_notify_file_length_change(info)))
+    goto err;
 
   if (&share->state.state != info->state)
     memcpy(&share->state.state, info->state, sizeof(*info->state));
@@ -4400,7 +4422,9 @@ int recreate_table(MI_CHECK *param, MI_INFO **org_info, char *filename)
   if (update_state_info(param,*org_info,UPDATE_TIME | UPDATE_STAT |
 			UPDATE_OPEN_COUNT))
     goto end;
-  error=0;
+
+  error = mi_notify_file_length_change(*org_info);
+
 end:
   my_afree((uchar*) uniquedef);
   my_afree((uchar*) keyinfo);

@@ -163,6 +163,8 @@ Created_tmp_disk_tables	0
 Created_tmp_files	0
 Created_tmp_tables	0
 Tmp_table_bytes_written	0
+Tmp_table_disk_usage	0
+Tmp_table_disk_usage_peak	0
 show status like 'hand%write%';
 Variable_name	Value
 Handler_write	0
@@ -172,11 +174,13 @@ Created_tmp_disk_tables	0
 Created_tmp_files	0
 Created_tmp_tables	0
 Tmp_table_bytes_written	0
+Tmp_table_disk_usage	0
+Tmp_table_disk_usage_peak	0
 show status like 'com_show_status';
 Variable_name	Value
 Com_show_status	8
 rnd_diff	tmp_table_diff
-22	8
+26	8
 flush status;
 show status like 'Com%function';
 Variable_name	Value

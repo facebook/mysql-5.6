@@ -137,6 +137,55 @@ static void trace_filesort_information(Opt_trace_context *trace,
   }
 }
 
+static int filesort_post_write(IO_CACHE *cache)
+{
+  THD *thd = current_thd;
+  my_off_t prior_usage = cache->reported_disk_usage;
+  my_off_t current_usage = cache->pos_in_file;
+  Filesort_info *fs_info = (Filesort_info*)cache->arg;
+
+  if (fs_info &&
+      thd->variables.filesort_max_file_size > 0 &&
+      current_usage > thd->variables.filesort_max_file_size)
+  {
+    fs_info->file_size_exceeded = true;
+    my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
+    cache->error = ER_FILESORT_MAX_FILE_SIZE_EXCEEDED;
+  }
+
+  if (current_usage > prior_usage)
+  {
+    thd->adjust_filesort_disk_usage(current_usage - prior_usage);
+    cache->reported_disk_usage = current_usage;
+  }
+
+  return cache->error;
+}
+
+static int filesort_pre_close(IO_CACHE *cache)
+{
+  if (cache->reported_disk_usage)
+  {
+    current_thd->adjust_filesort_disk_usage(-cache->reported_disk_usage);
+    cache->reported_disk_usage = 0;
+  }
+
+  return 0;
+}
+
+static my_bool filesort_open_cached_file(IO_CACHE *cache, const char* dir,
+                                         const char *prefix,
+                                         size_t cache_size,
+                                         myf cache_myflags,
+                                         Filesort_info *fs_info = nullptr)
+{
+  my_bool result = open_cached_file(cache, dir, prefix, cache_size,
+                                    cache_myflags);
+  cache->post_write = filesort_post_write;
+  cache->pre_close = filesort_pre_close;
+  cache->arg = fs_info;
+  return result;
+}
 
 /**
   Sort a table.
@@ -331,8 +380,8 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
     }
   }
 
-  if (open_cached_file(&buffpek_pointers,mysql_tmpdir,TEMP_PREFIX,
-		       DISK_BUFFER_SIZE, MYF(MY_WME)))
+  if (filesort_open_cached_file(&buffpek_pointers,mysql_tmpdir,TEMP_PREFIX,
+                                DISK_BUFFER_SIZE, MYF(MY_WME)))
     goto err;
 
   param.sort_form= table;
@@ -382,8 +431,8 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
     close_cached_file(&buffpek_pointers);
 	/* Open cached file if it isn't open */
     if (! my_b_inited(outfile) &&
-	open_cached_file(outfile,mysql_tmpdir,TEMP_PREFIX,READ_RECORD_BUFFER,
-			  MYF(MY_WME)))
+        filesort_open_cached_file(outfile, mysql_tmpdir, TEMP_PREFIX,
+                                  READ_RECORD_BUFFER, MYF(MY_WME)))
       goto err;
     if (reinit_io_cache(outfile,WRITE_CACHE,0L,0,0))
       goto err;
@@ -913,9 +962,13 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
 
   fs_info->sort_buffer(param, count);
 
+  /*
+    Pass fs_info to open to indicate that filesize is to be checked
+    against max.
+  */
   if (!my_b_inited(tempfile) &&
-      open_cached_file(tempfile, mysql_tmpdir, TEMP_PREFIX, DISK_BUFFER_SIZE,
-                       MYF(MY_WME)))
+      filesort_open_cached_file(tempfile, mysql_tmpdir, TEMP_PREFIX,
+                                DISK_BUFFER_SIZE, MYF(MY_WME), fs_info))
     goto err;                                   /* purecov: inspected */
   /* check we won't have more buffpeks than we can possibly keep in memory */
   if (my_b_tell(buffpek_pointers) + sizeof(BUFFPEK) > (ulonglong)UINT_MAX)
@@ -931,13 +984,6 @@ write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
     else /* remember the number of temp bytes written into filesort space */
     {
       thd->inc_filesort_bytes_written((ulonglong) rec_length);
-    }
-    if (thd->variables.filesort_max_file_size > 0 &&
-        tempfile->pos_in_file > thd->variables.filesort_max_file_size)
-    {
-      fs_info->file_size_exceeded= true;
-      my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
-      goto err;
     }
   }
   if (my_b_write(buffpek_pointers, (uchar*) &buffpek, sizeof(buffpek)))
@@ -1491,8 +1537,8 @@ int merge_many_buff(Sort_param *param, uchar *sort_buffer,
   if (*maxbuffer < MERGEBUFF2)
     DBUG_RETURN(0);				/* purecov: inspected */
   if (flush_io_cache(t_file) ||
-      open_cached_file(&t_file2,mysql_tmpdir,TEMP_PREFIX,DISK_BUFFER_SIZE,
-			MYF(MY_WME)))
+      filesort_open_cached_file(&t_file2, mysql_tmpdir, TEMP_PREFIX,
+                                DISK_BUFFER_SIZE, MYF(MY_WME)))
     DBUG_RETURN(1);				/* purecov: inspected */
 
   from_file= t_file ; to_file= &t_file2;

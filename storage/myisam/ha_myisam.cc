@@ -647,7 +647,8 @@ ha_myisam::ha_myisam(handlerton *hton, TABLE_SHARE *table_arg)
                   HA_FILE_BASED | HA_CAN_GEOMETRY | HA_NO_TRANSACTIONS |
                   HA_CAN_INSERT_DELAYED | HA_CAN_BIT_FIELD | HA_CAN_RTREEKEYS |
                   HA_HAS_RECORDS | HA_STATS_RECORDS_IS_EXACT | HA_CAN_REPAIR),
-   can_enable_indexes(1)
+   can_enable_indexes(1),
+   recorded_disk_usage(0)
 {}
 
 handler *ha_myisam::clone(const char *name, MEM_ROOT *mem_root)
@@ -748,6 +749,18 @@ int ha_myisam::open(const char *name, int mode, uint test_if_locked)
 
   if (!(file=mi_open(name, mode, test_if_locked | HA_OPEN_FROM_SQL_LAYER)))
     return (my_errno ? my_errno : -1);
+
+  /* Set up notifications. Arg is used for disk usage and index cond check. */
+  file->callback_arg = this;
+  file->file_length_change = record_disk_usage_change;
+
+  /*
+    Call the callback manually for the first time to record and check
+    the current file size.
+  */
+  if (record_disk_usage_change(this, 0))
+    goto err;
+
   if (!table->s->tmp_table) /* No need to perform a check for tmp table */
   {
     if ((my_errno= table2myisam(table, &keyinfo, &recinfo, &recs)))
@@ -807,7 +820,8 @@ int ha_myisam::close(void)
 {
   MI_INFO *tmp=file;
   file=0;
-  return mi_close(tmp);
+  int error = mi_close(tmp);
+  return error;
 }
 
 int ha_myisam::write_row(uchar *buf)
@@ -818,12 +832,9 @@ int ha_myisam::write_row(uchar *buf)
     return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
   };);
 
-  if (get_max_bytes() &&
-      (file->state->data_file_length + file->state->key_file_length)
-      > get_max_bytes())
-  {
-    return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
-  }
+  int e = check_disk_usage(get_disk_usage());
+  if (e)
+    return e;
 
   /*
     If we have an auto_increment column and we are writing a changed row
@@ -831,9 +842,8 @@ int ha_myisam::write_row(uchar *buf)
   */
   if (table && table->next_number_field && buf == table->record[0])
   {
-    int error;
-    if ((error= update_auto_increment()))
-      return error;
+    if ((e = update_auto_increment()))
+      return e;
   }
 
   /*
@@ -841,7 +851,7 @@ int ha_myisam::write_row(uchar *buf)
     the call to mi_write.
   */
   file->data_file_written= 0;
-  int e= mi_write(file,buf);
+  e = mi_write(file,buf);
   if (!e)
   {
     stats.rows_inserted++;
@@ -1631,15 +1641,12 @@ int ha_myisam::update_row(const uchar *old_data, uchar *new_data)
 {
   ha_statistic_increment(&SSV::ha_update_count);
 
-  if (get_max_bytes() &&
-      (file->state->data_file_length + file->state->key_file_length)
-      > get_max_bytes())
-  {
-    return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
-  }
+  int error = check_disk_usage(get_disk_usage());
+  if (error)
+    return error;
 
   file->data_file_written= 0;
-  int error= mi_update(file,old_data,new_data);
+  error= mi_update(file,old_data,new_data);
   if (!error)
   {
     stats.rows_updated++;
@@ -1694,7 +1701,7 @@ int ha_myisam::index_init(uint idx, bool sorted)
 { 
   active_index=idx;
   if (pushed_idx_cond_keyno == idx)
-    mi_set_index_cond_func(file, index_cond_func_myisam, this);
+    mi_set_index_cond_func(file, index_cond_func_myisam);
   return 0; 
 }
 
@@ -1703,7 +1710,7 @@ int ha_myisam::index_end()
 {
   active_index=MAX_KEY;
   //pushed_idx_cond_keyno= MAX_KEY;
-  mi_set_index_cond_func(file, NULL, 0);
+  mi_set_index_cond_func(file, NULL);
   in_range_check_pushed_down= FALSE;
   ds_mrr.dsmrr_close();
   return 0; 
@@ -2048,7 +2055,7 @@ int ha_myisam::reset(void)
   /* Reset MyISAM specific part for index condition pushdown */
   DBUG_ASSERT(pushed_idx_cond == NULL);
   DBUG_ASSERT(pushed_idx_cond_keyno == MAX_KEY);
-  mi_set_index_cond_func(file, NULL, 0);
+  mi_set_index_cond_func(file, NULL);
   ds_mrr.reset();
   return mi_reset(file);
 }
@@ -2141,6 +2148,7 @@ int ha_myisam::create(const char *name, register TABLE *table_arg,
   TABLE_SHARE *share= table_arg->s;
   uint options= share->db_options_in_use;
   DBUG_ENTER("ha_myisam::create");
+
   for (i= 0; i < share->keys; i++)
   {
     if (table_arg->key_info[i].flags & HA_USES_PARSER)
@@ -2436,7 +2444,7 @@ Item *ha_myisam::idx_cond_push(uint keyno_arg, Item* idx_cond_arg)
   pushed_idx_cond= idx_cond_arg;
   in_range_check_pushed_down= TRUE;
   if (active_index == pushed_idx_cond_keyno)
-    mi_set_index_cond_func(file, index_cond_func_myisam, this);
+    mi_set_index_cond_func(file, index_cond_func_myisam);
   return NULL;
 }
 
@@ -2569,3 +2577,99 @@ my_bool ha_myisam::register_query_cache_table(THD *thd, char *table_name,
   DBUG_RETURN(TRUE);
 }
 #endif
+
+/**
+  @brief Get current disk usage in bytes.
+
+  @return The sum of all file sizes.
+*/
+my_off_t ha_myisam::get_disk_usage()
+{
+  my_off_t usage = 0;
+  if (file)
+  {
+    usage = file->state->data_file_length + file->state->key_file_length;
+  }
+
+  return usage;
+}
+
+/**
+  @brief Check if disk usage is within limits.
+
+  @param usage Usage to check.
+
+  @note This check validates that the current disk usage is within local
+    and global limits.
+
+  @return The error code (errno).
+*/
+int ha_myisam::check_disk_usage(my_off_t usage)
+{
+  int error = 0;
+  if (get_max_bytes() && usage > get_max_bytes())
+  {
+    error = HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED;
+  }
+
+  my_errno = error;
+  return error;
+}
+
+/**
+  @brief Record a change in disk usage.
+
+  @param arg Pointer to ha_myisam instance.
+  @param proposed_delta A change the caller would like to make, if possible.
+
+  @note This method is designed to not only record usage but also check
+    against limits. The check would be done for current size + proposed delta.
+    After that the current size would be recorded regardless, and the delta
+    would also be recorded if the check was successful. If in later code the
+    caller gets a failure (e.g. write to new space fails) and ends up not
+    updating the file size with proposed delta, the caller needs to call this
+    again with 0 delta to update recorded size.
+    However the check is not done now due because the code in MyISAM sometimes
+    treats these errors as corruption and marks the table as crashed. So until
+    that code is fixed this function always returns success.
+
+  @return The error code (errno).
+*/
+int ha_myisam::record_disk_usage_change(void *arg, longlong proposed_delta)
+{
+  ha_myisam *h = reinterpret_cast<ha_myisam *>(arg);
+  TABLE *table = h->table;
+
+  if (table->s->tmp_table != NO_TMP_TABLE &&
+      table->s->tmp_table != SYSTEM_TMP_TABLE)
+  {
+    THD *thd = (THD *)table->in_use;
+    if (thd)
+    {
+      longlong delta = h->get_disk_usage() - h->recorded_disk_usage;
+      delta += proposed_delta;
+      thd->adjust_tmp_table_disk_usage(delta);
+      h->recorded_disk_usage += delta;
+    }
+  }
+
+  return 0;
+}
+
+/**
+  @brief Add tmp table disk usage to new thread.
+
+  @return void
+*/
+void ha_myisam::register_tmp_table_disk_usage(bool attach) const
+{
+  if (recorded_disk_usage)
+  {
+    THD *thd = (THD *)table->in_use;
+    if (thd)
+    {
+      longlong delta = attach ? recorded_disk_usage : -recorded_disk_usage;
+      thd->adjust_tmp_table_disk_usage(delta);
+    }
+  }
+}

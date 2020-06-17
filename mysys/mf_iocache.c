@@ -157,12 +157,14 @@ int init_io_cache(IO_CACHE *info, File file, size_t cachesize,
   info->type= TYPE_NOT_SET;	    /* Don't set it until mutex are created */
   info->pos_in_file= seek_offset;
   info->pre_close = info->pre_read = info->post_read = 0;
+  info->post_write = NULL;
   info->arg = 0;
   info->alloced_buffer = 0;
   info->buffer=0;
   info->seek_not_done= 0;
   info->compressor = 0;
   info->decompressor = 0;
+  info->reported_disk_usage = 0;
 
   if (file >= 0)
   {
@@ -1538,6 +1540,7 @@ int _my_b_write(register IO_CACHE *info, const uchar *Buffer, size_t Count)
 {
   size_t rest_length,length;
   my_off_t pos_in_file= info->pos_in_file;
+  IO_CACHE_CALLBACK post_write;
 
   DBUG_EXECUTE_IF("simulate_huge_load_data_file",
                   {
@@ -1595,6 +1598,11 @@ int _my_b_write(register IO_CACHE *info, const uchar *Buffer, size_t Count)
     Count-=length;
     Buffer+=length;
     info->pos_in_file+=length;
+
+    /* Invoke post write callback, info->error will be set on error. */
+    post_write = info->post_write;
+    if (post_write && (*post_write)(info))
+      return 1;
   }
   memcpy(info->write_pos,Buffer,(size_t) Count);
   info->write_pos+=Count;
@@ -1611,6 +1619,7 @@ int _my_b_write(register IO_CACHE *info, const uchar *Buffer, size_t Count)
 int my_b_append(register IO_CACHE *info, const uchar *Buffer, size_t Count)
 {
   size_t rest_length,length;
+  IO_CACHE_CALLBACK post_write;
 
   /*
     Assert that we cannot come here with a shared cache. If we do one
@@ -1642,6 +1651,14 @@ int my_b_append(register IO_CACHE *info, const uchar *Buffer, size_t Count)
     Count-=length;
     Buffer+=length;
     info->end_of_file+=length;
+
+    /* Invoke post write callback, info->error will be set on error. */
+    post_write = info->post_write;
+    if (post_write && (*post_write)(info))
+    {
+      unlock_append_buffer(info);
+      return 1;
+    }
   }
 
 end:
@@ -1739,6 +1756,8 @@ int my_b_flush_io_cache(IO_CACHE *info,
   size_t length;
   my_off_t pos_in_file;
   my_bool append_cache= (info->type == SEQ_READ_APPEND);
+  IO_CACHE_CALLBACK post_write;
+
   DBUG_ENTER("my_b_flush_io_cache");
   DBUG_PRINT("enter", ("cache: 0x%lx", (long) info));
 
@@ -1808,6 +1827,15 @@ int my_b_flush_io_cache(IO_CACHE *info,
       info->append_read_pos=info->write_pos=info->write_buffer;
       ++info->disk_writes;
       UNLOCK_APPEND_BUFFER;
+
+      if (!info->error)
+      {
+        /* Invoke post write callback, info->error will be set on error. */
+        post_write = info->post_write;
+        if (post_write)
+          (*post_write)(info);
+      }
+
       DBUG_RETURN(info->error);
     }
   }

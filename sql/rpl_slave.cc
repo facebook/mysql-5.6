@@ -1387,6 +1387,7 @@ static void set_thd_in_use_temporary_tables(Relay_log_info *rli)
       */
       table->file->unbind_psi();
       table->file->rebind_psi();
+      table->file->register_tmp_table_disk_usage(true /* attach */);
     }
   }
 }

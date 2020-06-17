@@ -10676,6 +10676,8 @@ SHOW_VAR status_vars[]= {
   {"Delayed_insert_threads",   (char*) &delayed_insert_threads, SHOW_LONG_NOFLUSH},
   {"Delayed_writes",           (char*) &delayed_insert_writes,  SHOW_LONG},
   {"Exec_seconds",             (char*) offsetof(STATUS_VAR, exec_time), SHOW_TIMER_STATUS},
+  {"Filesort_disk_usage",      (char*) offsetof(STATUS_VAR, filesort_disk_usage), SHOW_LONGLONG_STATUS},
+  {"Filesort_disk_usage_peak", (char*) offsetof(STATUS_VAR, filesort_disk_usage_peak), SHOW_LONGLONG_STATUS},
   {"Flashcache_enabled",       (char*) &cachedev_enabled,       SHOW_BOOL },
   {"Flush_commands",           (char*) &refresh_version,        SHOW_LONG_NOFLUSH},
   {"git_hash",                 (char*) git_hash, SHOW_CHAR },
@@ -10918,6 +10920,8 @@ SHOW_VAR status_vars[]= {
   {"Threads_running",          (char*) &num_thread_running,     SHOW_INT},
   {"Timer_in_use",             (char*) &timer_in_use,           SHOW_CHAR_PTR},
   {"Tmp_table_bytes_written",  (char*) offsetof(STATUS_VAR, tmp_table_bytes_written), SHOW_LONGLONG_STATUS},
+  {"Tmp_table_disk_usage",     (char*) offsetof(STATUS_VAR, tmp_table_disk_usage), SHOW_LONGLONG_STATUS},
+  {"Tmp_table_disk_usage_peak", (char*) offsetof(STATUS_VAR, tmp_table_disk_usage_peak), SHOW_LONGLONG_STATUS},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
   {"Transaction_seconds",      (char*) &show_trx_time, SHOW_FUNC},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},
@@ -12587,7 +12591,7 @@ void refresh_status(THD *thd)
   add_to_status(&global_status_var, &thd->status_var);
 
   /* Reset thread's status variables */
-  memset(&thd->status_var, 0, sizeof(thd->status_var));
+  thd->refresh_status_vars();
 
   /* Reset some global variables */
   reset_status_vars();

@@ -1,4 +1,10 @@
 --let $prevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $tmp_table_disk_usage_peak = 0 and $tmp_table_disk_usage = 0 as "usage and peak are 0"
+--enable_query_log
+
 
 create table t1 (i int, c char(255));
 create table t2 (i int, c varchar(255));
@@ -26,24 +32,37 @@ create temporary table tm(i int, c char(255)) engine=myisam;
 
 --let MYSQLD_TMPDIR = `select @@tmpdir`
 
+# EXPECTED_FILE_SIZE ignores index file which is empty except for the header.
+# The tmp table tm is empty now so its data file size is 0.
+--let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --let EXPECTED_FILE_SIZE = 0
+--let EXPECTED_TOTAL_FILE_SIZE = $tmp_table_disk_usage_new
 --source include/temp_table_size_counter_perl.inc
+
 
 # The above statements should not have increased Tmp_table_bytes_written
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
+--eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
 --enable_query_log
 
 insert into tm select * from t1;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage = $tmp_table_disk_usage_new
+--let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
 --enable_query_log
 
+
 --let EXPECTED_FILE_SIZE = `select $nextSize - $prevSize`
+--let EXPECTED_TOTAL_FILE_SIZE = $tmp_table_disk_usage_new
 --source include/temp_table_size_counter_perl.inc
 
 update tm set c = lpad('b', 250, 'a');
@@ -70,40 +89,50 @@ drop temporary table tm;
 create temporary table tm(i int, c varchar(255)) engine=myisam;
 
 --let EXPECTED_FILE_SIZE = 0
+--let EXPECTED_TOTAL_FILE_SIZE = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --source include/temp_table_size_counter_perl.inc
 
 # The above statements should not have increased Tmp_table_bytes_written
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
+--eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
 --enable_query_log
 
 insert into tm select * from t2;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
 --enable_query_log
 
 --let EXPECTED_FILE_SIZE = `select $nextSize - $prevSize`
+--let EXPECTED_TOTAL_FILE_SIZE = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --source include/temp_table_size_counter_perl.inc
 
 update tm set c = lpad('b', 250, 'a');
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
 --enable_query_log
 
 delete from tm where i < 100;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
 --enable_query_log
 
 # Test implicit tables.
@@ -111,16 +140,33 @@ select i, c, count(*) from t1 group by i, c having count(*) > 1;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_peak_new > $tmp_table_disk_usage_peak as "peak increased"
 --enable_query_log
 
 select i, c, count(*) from t2 group by i, c having count(*) > 1;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = $tmp_table_disk_usage_peak_new
+--let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
+--eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--enable_query_log
+
+flush status;
+
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $nextSize = 0 as "written is reset to 0"
+--eval select $tmp_table_disk_usage = $tmp_table_disk_usage_new as "usage is still the same after flush"
+--eval select $tmp_table_disk_usage_peak = 0 as "peak is reset to 0"
 --enable_query_log
 
 drop table t1;
@@ -129,8 +175,10 @@ drop temporary table tm;
 
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
+--eval select $tmp_table_disk_usage = 0 as "usage dropped to 0"
 --enable_query_log
 
 # Test whether variable is session level.
@@ -147,13 +195,22 @@ connection con1;
 connection default;
 insert into tm values (1, 'asdf');
 
+--let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
+--enable_query_log
+
 # Third, check variables on con1
 connection con1;
 --let $con1NextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $con1_tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $con1_tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $con1NextSize = $con1PrevSize as "no increase"
 --eval select $globalNextSize > $globalPrevSize as "increased"
+--eval select $con1_tmp_table_disk_usage_peak = 0 and $con1_tmp_table_disk_usage = 0 as "con1 usage and peak are 0"
 --enable_query_log
 
 connection default;
@@ -171,8 +228,11 @@ connection con1;
 create temporary table tm(i int, c char(255)) engine=myisam;
 insert into tm values (1, 'asdf');
 --let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--let $con1_tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $con1_tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $globalNextSize > $globalPrevSize as "increased"
+--eval select $con1_tmp_table_disk_usage != 0 and $con1_tmp_table_disk_usage = $con1_tmp_table_disk_usage_peak as "con1 usage and peak are the same and not 0"
 --enable_query_log
 
 disconnect con1;

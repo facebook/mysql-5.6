@@ -23,6 +23,20 @@ show global variables like "filesort_max_file_size";
 explain select i, c from t1 order by hex(c) limit 1 offset 4000;
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 
+--let $filesort_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage', Value, 1)
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage = 0 as "filesort usage is 0"
+--eval select $filesort_disk_usage_peak > 2000000 as "filesort peak is above 2000000"
+--enable_query_log
+
+flush status;
+
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage_peak = 0 as "filesort peak is reset to 0"
+--enable_query_log
+
 echo Query fails with a limit;
 set session filesort_max_file_size=1000000;
 show variables like "filesort_max_file_size";
@@ -30,6 +44,11 @@ show session variables like "filesort_max_file_size";
 show global variables like "filesort_max_file_size";
 --error ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
 select i, c from t1 order by hex(c) limit 1 offset 4000;
+
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select 1000000 < $filesort_disk_usage_peak and $filesort_disk_usage_peak < 1100000 as "filesort peak is slightly above 1000000"
+--enable_query_log
 
 echo Query is OK when another session has a limit;
 connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);

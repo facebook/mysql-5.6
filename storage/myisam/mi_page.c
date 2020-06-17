@@ -133,6 +133,10 @@ my_off_t _mi_new(register MI_INFO *info, MI_KEYDEF *keyinfo, int level)
       my_errno=HA_ERR_INDEX_FILE_FULL;
       DBUG_RETURN(HA_OFFSET_ERROR);
     }
+
+    if (mi_notify_file_length_change_by(info, keyinfo->block_length))
+      DBUG_RETURN(HA_OFFSET_ERROR);
+
     pos=info->state->key_file_length;
     info->state->key_file_length+= keyinfo->block_length;
   }

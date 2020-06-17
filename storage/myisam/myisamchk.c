@@ -1576,13 +1576,17 @@ static int mi_sort_records(MI_CHECK *param,
     goto err;
   }
 
+  longlong delta = sort_param.filepos - info->state->data_file_length;
+  if (mi_notify_file_length_change_by(info, delta))
+    goto err;
+
   (void) my_close(info->dfile,MYF(MY_WME));
   param->out_flag|=O_NEW_DATA;			/* Data in new file */
   info->dfile=new_file;				/* Use new datafile */
+  info->state->data_file_length = sort_param.filepos;
   info->state->del=0;
   info->state->empty=0;
   share->state.dellink= HA_OFFSET_ERROR;
-  info->state->data_file_length=sort_param.filepos;
   share->state.split=info->state->records;	/* Only hole records */
   share->state.version=(ulong) time((time_t*) 0);
 

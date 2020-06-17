@@ -108,7 +108,6 @@ int mi_close(register MI_INFO *info)
         mysql_rwlock_destroy(&share->key_root_lock[i]);
       }
     }
-    my_free(info->s);
   }
   if (info->open_list.data)
     mysql_mutex_unlock(&THR_LOCK_myisam);
@@ -120,7 +119,20 @@ int mi_close(register MI_INFO *info)
   if (info->dfile >= 0 && mysql_file_close(info->dfile, MYF(0)))
     error = my_errno;
 
+  if (flag)
+  {
+    /* Notify that files are closed since this is last reference. */
+    info->state->key_file_length = 0;
+    info->state->data_file_length = 0;
+    if (mi_notify_file_length_change(info) && !error)
+      error = my_errno;
+  }
+
   myisam_log_command(MI_LOG_CLOSE,info,NULL,0,error);
+
+  /* Release info->s now that info->state is no longer used. */
+  if (flag)
+    my_free(info->s);
   my_free(info);
 
   if (error)

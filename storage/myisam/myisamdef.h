@@ -229,6 +229,7 @@ typedef struct st_mi_bit_buff {		/* Used for packing of record */
 
 C_MODE_START
 typedef ICP_RESULT (*index_cond_func_t)(void *param);
+typedef int (*file_length_change_t)(void *param, longlong extra);
 C_MODE_END
 
 struct st_myisam_info {
@@ -302,7 +303,7 @@ struct st_myisam_info {
     my_bool set_rnext_same_key;
 
   index_cond_func_t index_cond_func;   /* Index condition function */
-  void *index_cond_func_arg;           /* parameter for the func */
+  void *callback_arg;                  /* Parameter for callbacks. */
 #ifdef __WIN__
   my_bool owned_by_merge;                       /* This MyISAM table is part of a merge union */
 #endif
@@ -310,6 +311,7 @@ struct st_myisam_info {
   uchar  *rtree_recursion_state;	/* For RTREE */
   int     rtree_recursion_depth;
   uint data_file_written; /* Track bytes written to data file */
+  file_length_change_t file_length_change; /* File length change notification. */
 };
 
 typedef struct st_buffpek {
@@ -797,8 +799,9 @@ int flush_blocks(MI_CHECK *param, KEY_CACHE *key_cache, File file);
 int sort_write_record(MI_SORT_PARAM *sort_param);
 int _create_index_by_sort(MI_SORT_PARAM *info, my_bool no_messages, ulonglong);
 
-extern void mi_set_index_cond_func(MI_INFO *info, index_cond_func_t func,
-                                   void *func_arg);
+extern void mi_set_index_cond_func(MI_INFO *info, index_cond_func_t func);
+int mi_notify_file_length_change(MI_INFO *info);
+int mi_notify_file_length_change_by(MI_INFO *info, longlong delta);
 #ifdef __cplusplus
 }
 #endif
@@ -821,4 +824,3 @@ extern PSI_thread_key mi_key_thread_find_all_keys;
 void init_myisam_psi_keys();
 C_MODE_END
 #endif /* HAVE_PSI_INTERFACE */
-

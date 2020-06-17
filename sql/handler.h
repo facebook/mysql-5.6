@@ -2457,6 +2457,11 @@ public:
 
   virtual const char *index_type(uint key_number) { DBUG_ASSERT(0); return "";}
 
+  /**
+    An opportunity for handler to detach tmp table disk usage from old thread
+    and attach it to new thread.
+  */
+  virtual void register_tmp_table_disk_usage(bool attach) const {}
 
   /**
     Signal that the table->read_set and table->write_set table maps changed

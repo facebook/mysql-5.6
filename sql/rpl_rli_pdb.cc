@@ -870,7 +870,13 @@ TABLE* mts_move_temp_tables_to_thd(THD *thd, TABLE *temporary_tables)
   // walk along the source list and associate the tables with thd
   do
   {
+    if (table->file)
+      table->file->register_tmp_table_disk_usage(false /* detach */);
+
     table->in_use= thd;
+
+    if (table->file)
+      table->file->register_tmp_table_disk_usage(true /* attach */);
   } while(table->next && (table= table->next));
 
   // link the former list against the tail of the source list

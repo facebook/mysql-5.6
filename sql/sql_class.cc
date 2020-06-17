@@ -1509,7 +1509,7 @@ void THD::init(void)
   update_charset();
   reset_current_stmt_binlog_format_row();
   reset_binlog_local_stmt_filter();
-  memset(&status_var, 0, sizeof(status_var));
+  set_status_var_init();
   binlog_row_event_extra_data= 0;
 
   if (variables.sql_log_bin)
@@ -1595,14 +1595,16 @@ void THD::init_for_queries(Relay_log_info *rli)
 
 void THD::cleanup_connection(void)
 {
-  mysql_mutex_lock(&LOCK_status);
-  add_to_status(&global_status_var, &status_var);
-  memset(&status_var, 0, sizeof(status_var));
-  mysql_mutex_unlock(&LOCK_status);
-
   cleanup();
   killed= NOT_KILLED;
   cleanup_done= 0;
+
+  /* Aggregate to global status now that cleanup is done. */
+  mysql_mutex_lock(&LOCK_status);
+  add_to_status(&global_status_var, &status_var);
+  set_status_var_init();
+  mysql_mutex_unlock(&LOCK_status);
+
   init();
   stmt_map.reset();
   my_hash_init(&user_vars, system_charset_info, USER_VARS_HASH_SIZE, 0, 0,
@@ -1748,11 +1750,6 @@ void THD::release_resources()
   mutex_assert_not_owner_shard(SHARDED(&LOCK_thread_count), this);
   DBUG_ASSERT(m_release_resources_done == false);
 
-  mysql_mutex_lock(&LOCK_status);
-  add_to_status(&global_status_var, &status_var);
-  memset(&status_var, 0, sizeof(status_var));
-  mysql_mutex_unlock(&LOCK_status);
-
   /* Ensure that no one is using THD */
   mysql_mutex_lock(&LOCK_thd_data);
   m_release_resources_started = 1;
@@ -1798,6 +1795,12 @@ void THD::release_resources()
   if (timer_cache)
     thd_timer_destroy(timer_cache);
 #endif
+
+  /* Aggregate to global status now that operations above are done. */
+  mysql_mutex_lock(&LOCK_status);
+  add_to_status(&global_status_var, &status_var);
+  set_status_var_init();
+  mysql_mutex_unlock(&LOCK_status);
 
   m_release_resources_done= true;
 }
@@ -4172,6 +4175,10 @@ void THD::set_status_var_init()
   memset(&status_var, 0, sizeof(status_var));
 }
 
+void THD::refresh_status_vars()
+{
+  memset(&status_var, 0, offsetof(STATUS_VAR, first_norefresh_status_var));
+}
 
 void Security_context::init()
 {
@@ -5936,4 +5943,43 @@ void THD::serialize_client_attrs()
     client_id_set = true;
     mysql_mutex_unlock(&LOCK_thd_data);
   }
+}
+
+static void adjust_by(ulonglong& value, ulonglong& peak, longlong delta)
+{
+  /*
+    Atomic operation is only needed for the secondary threads that steal
+    tmp tables from one another (see mts_move_temp_tables_to_thd).
+  */
+  ulonglong old_value = my_atomic_add64((int64 *)&value, delta);
+  ulonglong new_value = old_value + delta;
+
+  /* Check for over and underflow. */
+  DBUG_ASSERT(delta >= 0 ? new_value >= old_value : new_value < old_value);
+
+  /* Correct on primary, best effort on secondary. */
+  if (peak < new_value)
+    peak = new_value;
+}
+
+/**
+  Adjust tmp table disk usage for current session.
+
+  @param delta    signed delta value in bytes
+*/
+void THD::adjust_tmp_table_disk_usage(longlong delta)
+{
+  adjust_by(status_var.tmp_table_disk_usage,
+            status_var.tmp_table_disk_usage_peak, delta);
+}
+
+/**
+  Adjust filesort disk usage for current session.
+
+  @param delta    signed delta value in bytes
+*/
+void THD::adjust_filesort_disk_usage(longlong delta)
+{
+  adjust_by(status_var.filesort_disk_usage,
+            status_var.filesort_disk_usage_peak, delta);
 }

@@ -513,7 +513,7 @@ int mi_check_index_cond(register MI_INFO *info, uint keynr, uchar *record)
     my_errno=HA_ERR_CRASHED;
     return -1;
   }
-  return info->index_cond_func(info->index_cond_func_arg);
+  return info->index_cond_func(info->callback_arg);
 }
 
 

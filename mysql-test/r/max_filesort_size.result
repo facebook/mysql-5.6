@@ -29,6 +29,13 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 i	c
 576	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
+filesort usage is 0
+1
+filesort peak is above 2000000
+1
+flush status;
+filesort peak is reset to 0
+1
 Query fails with a limit
 set session filesort_max_file_size=1000000;
 show variables like "filesort_max_file_size";
@@ -42,6 +49,8 @@ Variable_name	Value
 filesort_max_file_size	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 ERROR HY000: Filesort file is too big
+filesort peak is slightly above 1000000
+1
 Query is OK when another session has a limit
 show variables like "filesort_max_file_size";
 Variable_name	Value

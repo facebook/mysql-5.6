@@ -428,6 +428,10 @@ static int _mi_find_writepos(MI_INFO *info,
     }
     if (tmp > MI_MAX_BLOCK_LENGTH)
       tmp=MI_MAX_BLOCK_LENGTH;
+
+    if (mi_notify_file_length_change_by(info, tmp))
+      DBUG_RETURN(-1);
+
     *length= tmp;
     info->state->data_file_length+= tmp;
     info->s->state.split++;

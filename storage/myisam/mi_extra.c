@@ -387,11 +387,23 @@ int mi_extra(MI_INFO *info, enum ha_extra_function function, void *extra_arg)
 } /* mi_extra */
 
 
-void mi_set_index_cond_func(MI_INFO *info, index_cond_func_t func,
-                            void *func_arg)
+void mi_set_index_cond_func(MI_INFO *info, index_cond_func_t func)
 {
   info->index_cond_func= func;
-  info->index_cond_func_arg= func_arg;
+}
+
+int mi_notify_file_length_change_by(MI_INFO *info, longlong delta)
+{
+  int error = 0;
+  file_length_change_t file_length_change = info->file_length_change;
+  if (file_length_change)
+    error = file_length_change(info->callback_arg, delta);
+  return error;
+}
+
+int mi_notify_file_length_change(MI_INFO *info)
+{
+  return mi_notify_file_length_change_by(info, 0);
 }
 
 /*

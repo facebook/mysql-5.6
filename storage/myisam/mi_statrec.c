@@ -47,6 +47,10 @@ int _mi_write_static_record(MI_INFO *info, const uchar *record)
       my_errno=HA_ERR_RECORD_FILE_FULL;
       return(2);
     }
+
+    if (mi_notify_file_length_change_by(info, info->s->base.pack_reclength))
+      return(2);
+
     if (info->opt_flag & WRITE_CACHE_USED)
     {				/* Cash in use */
       if (my_b_write(&info->rec_cache, record,
@@ -78,12 +82,15 @@ int _mi_write_static_record(MI_INFO *info, const uchar *record)
     goto err;
       }
     }
-    info->data_file_written+=info->s->base.pack_reclength;
     info->state->data_file_length+=info->s->base.pack_reclength;
+    info->data_file_written+=info->s->base.pack_reclength;
     info->s->state.split++;
   }
   return 0;
- err:
+
+err:
+  /* Restore file size in case some write above fails. */
+  (void) mi_notify_file_length_change(info);
   return 1;
 }
 
