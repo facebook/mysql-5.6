@@ -10787,42 +10787,28 @@ bool Rows_log_event::write_data_body(Basic_ostream *ostream) {
 
 int Rows_log_event::pack_info(Protocol *protocol) {
   char buf[256];
-  char const *const flagstr = get_flags(STMT_END_F) ? " flags: STMT_END_F" : "";
-  size_t bytes =
-      snprintf(buf, sizeof(buf), "table_id: %llu%s", m_table_id.id(), flagstr);
+  std::string flagstr;
+  if (m_flags) flagstr = get_enum_flag_string();
+
+  size_t bytes = snprintf(buf, sizeof(buf), "table_id: %llu%s", m_table_id.id(),
+                          flagstr.c_str());
   protocol->store(buf, bytes, &my_charset_bin);
   return 0;
 }
 #endif  // MYSQL_SERVER
 
 #ifndef MYSQL_SERVER
-#define PARSE_FLAG(str, flag) \
-  if (get_flags(flag)) {      \
-    str << " " #flag;         \
-  }
-
 void Rows_log_event::print_helper(FILE *,
                                   PRINT_EVENT_INFO *print_event_info) const {
   IO_CACHE *const head = &print_event_info->head_cache;
   IO_CACHE *const body = &print_event_info->body_cache;
   if (!print_event_info->short_form) {
-    std::stringstream flag_str;
-    flag_str << " flags:";
-    PARSE_FLAG(flag_str, STMT_END_F);
-    PARSE_FLAG(flag_str, NO_FOREIGN_KEY_CHECKS_F);
-    PARSE_FLAG(flag_str, RELAXED_UNIQUE_CHECKS_F);
-    PARSE_FLAG(flag_str, COMPLETE_ROWS_F);
-    auto unknown_flags = (m_flags & ~ALL_FLAGS);
-    if (unknown_flags) {
-      DBUG_ASSERT(false);
-      flag_str << " UNKNOWN_FLAG(";
-      flag_str << std::hex << "0x" << unknown_flags << ")";
-    }
+    std::string flag_str = get_enum_flag_string();
 
     bool const last_stmt_event = get_flags(STMT_END_F);
     print_header(head, print_event_info, !last_stmt_event);
     my_b_printf(head, "\t%s: table id %llu%s\n", get_type_str(),
-                m_table_id.id(), m_flags ? flag_str.str().c_str() : "");
+                m_table_id.id(), m_flags ? flag_str.c_str() : "");
     print_base64(body, print_event_info, !last_stmt_event);
   }
 }
