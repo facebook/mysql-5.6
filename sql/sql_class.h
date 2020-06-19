@@ -3301,6 +3301,22 @@ private:
      The number of bytes written into filesort space.
   */
   ulonglong m_filesort_bytes_written;
+
+  /**
+     The number of index dive queries executed during compilation.
+  */
+  uint m_index_dive_count;
+
+  /**
+     CPU time spent for index dive queries measured in microseconds.
+  */
+  ulonglong m_index_dive_cpu;
+
+  /**
+     CPU time spent for plan compilation measured in microseconds.
+  */
+  ulonglong m_compilation_cpu;
+
 private:
   std::shared_ptr<explicit_snapshot> m_explicit_snapshot;
 
@@ -3422,6 +3438,33 @@ public:
 
   void inc_filesort_bytes_written(ulonglong val)
   { m_filesort_bytes_written += val; }
+
+  uint get_index_dive_count() const
+  { return m_index_dive_count; }
+
+  void set_index_dive_count(uint val)
+  { m_index_dive_count = val; }
+
+  void inc_index_dive_count(uint val)
+  { m_index_dive_count += val; }
+
+  ulonglong get_index_dive_cpu() const
+  { return m_index_dive_cpu; }
+
+  void set_index_dive_cpu(ulonglong val)
+  { m_index_dive_cpu = val; }
+
+  void inc_index_dive_cpu(ulonglong val)
+  { m_index_dive_cpu += val; }
+
+  ulonglong get_compilation_cpu() const
+  { return m_compilation_cpu; }
+
+  void set_compilation_cpu(ulonglong val)
+  { m_compilation_cpu = val; }
+
+  void inc_compilation_cpu(ulonglong val)
+  { m_compilation_cpu += val; }
 
   /**
     Check if the number of rows accessed by a statement exceeded

@@ -102,6 +102,8 @@ only_eq_ref_tables(JOIN *join, ORDER *order, table_map tables,
 
 static const char* can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab);
 
+static void measure_compilation_cpu(THD *thd, int cpu_res, void *beginning_id);
+
 /**
   global select optimisation.
 
@@ -127,6 +129,25 @@ JOIN::optimize()
   if (optimized)
     DBUG_RETURN(0);
 
+  /* measure the compilation CPU
+     TODO: Currently compilation CPU is not correctly for two
+           kinds of queries:
+     - delete from <TBL> where <predicate(s) on columns>
+     - update from <TBL> where <predicate(s) on columns>
+     NOTE: If the where clause contains sub-queries then
+           the compilation CPU is tracked correctly.
+   */
+  void *beginning_id = NULL;
+#if HAVE_CLOCK_GETTIME
+    timespec time_beg;
+    int cpu_res= clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+    beginning_id = (void *) &time_beg;
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_beg;
+    int cpu_res= getrusage(RUSAGE_THREAD, &rusage_beg);
+    beginning_id = (void *) &rusage_beg;
+#endif
+
   // We may do transformations (like semi-join):
   Prepare_error_tracker tracker(thd);
 
@@ -149,14 +170,22 @@ JOIN::optimize()
 
   /* dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables); */
   if (flatten_subqueries())
+  {
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1); /* purecov: inspected */
+  }
 
   /*
     Run optimize phase for all derived tables/views used in this SELECT,
     including those in semi-joins.
   */
   if (select_lex->handle_derived(thd->lex, &mysql_derived_optimize))
+  {
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
+  }
 
   /* dump_TABLE_LIST_graph(select_lex, select_lex->leaf_tables); */
 
@@ -202,11 +231,15 @@ JOIN::optimize()
     if (simplify_joins(this, join_list, conds, true, false, &conds))
     {
       DBUG_PRINT("error",("Error from simplify_joins"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
     if (record_join_nest_info(select_lex, join_list))
     {
       DBUG_PRINT("error",("Error from record_join_nest_info"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
     build_bitmap_for_nested_joins(join_list, 0);
@@ -241,6 +274,8 @@ JOIN::optimize()
   {
     error= 1;
     DBUG_PRINT("error",("Error from optimize_cond"));
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
   }
 
@@ -252,6 +287,8 @@ JOIN::optimize()
     {
       error= 1;
       DBUG_PRINT("error",("Error from optimize_cond"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
     if (select_lex->cond_value == Item::COND_FALSE || 
@@ -272,6 +309,8 @@ JOIN::optimize()
   {
     error= 1;
     DBUG_PRINT("error", ("Error from prune_partitions"));
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
   }
 #endif
@@ -311,6 +350,8 @@ JOIN::optimize()
       {
         error= res;
         DBUG_PRINT("error",("Error from opt_sum_query"));
+        if (beginning_id)
+          measure_compilation_cpu(thd, cpu_res, beginning_id);
         DBUG_RETURN(1);
       }
       if (res < 0)
@@ -355,7 +396,13 @@ JOIN::optimize()
     best_rowcount= 1;
     error= 0;
     if (make_tmp_tables_info())
+    {
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
+    }
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(0);
   }
   error= -1;					// Error is sent to client
@@ -367,6 +414,8 @@ JOIN::optimize()
       first_optimization))
   {
     DBUG_PRINT("error",("Error: make_join_statistics() failed"));
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
   }
 
@@ -375,6 +424,8 @@ JOIN::optimize()
     if (rollup_process_const_fields())
     {
       DBUG_PRINT("error", ("Error: rollup_process_fields() failed"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
   }
@@ -398,6 +449,8 @@ JOIN::optimize()
   {						/* purecov: inspected */
     my_message(ER_TOO_BIG_SELECT, ER(ER_TOO_BIG_SELECT), MYF(0));
     error= -1;
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
   }
   if (const_tables && !thd->locked_tables_mode &&
@@ -437,6 +490,8 @@ JOIN::optimize()
     {
       error= 1;
       DBUG_PRINT("error",("Error from substitute_for_best_equal"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
     conds->update_used_tables();
@@ -460,6 +515,8 @@ JOIN::optimize()
       {
         error= 1;
         DBUG_PRINT("error",("Error from substitute_for_best_equal"));
+        if (beginning_id)
+          measure_compilation_cpu(thd, cpu_res, beginning_id);
         DBUG_RETURN(1);
       }
       (*tab->on_expr_ref)->update_used_tables();
@@ -479,6 +536,8 @@ JOIN::optimize()
   {
     error= 1;
     DBUG_PRINT("error",("Error from set_access_methods"));
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
   }
 
@@ -489,6 +548,8 @@ JOIN::optimize()
   if (result->initialize_tables(this))
   {
     DBUG_PRINT("error",("Error: initialize_tables() failed"));
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);				// error == -1
   }
 
@@ -509,6 +570,8 @@ JOIN::optimize()
     {
       error= 1;
       DBUG_PRINT("error",("Error from remove_const"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
 
@@ -668,7 +731,11 @@ JOIN::optimize()
 	group_list= 0;
     }
     else if (thd->is_fatal_error)			// End of memory
+    {
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
+    }
   }
   simple_group= 0;
   {
@@ -682,6 +749,8 @@ JOIN::optimize()
     {
       error= 1;
       DBUG_PRINT("error",("Error from remove_const"));
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
     if (old_group_list && !group_list)
@@ -724,7 +793,11 @@ JOIN::optimize()
     (select_lex->ftfunc_list->elements ?  SELECT_NO_JOIN_CACHE : 0);
 
   if (make_join_readinfo(this, select_opts_for_readinfo, no_jbuf_after))
+  {
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
+  }
 
   /*
     Check if we need to create a temporary table.
@@ -749,7 +822,11 @@ JOIN::optimize()
       select_lex->has_ft_funcs())
   {
     if (init_ftfuncs(thd, select_lex, order))
+    {
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
+    }
     optimize_fts_query();
   }
 
@@ -782,13 +859,19 @@ JOIN::optimize()
       having= having_for_explain= new Item_int((longlong) 0,1);
       zero_result_cause= "Impossible HAVING noticed after reading const tables";
       error= 0;
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(0);
     }
   }
 
   /* Cache constant expressions in WHERE, HAVING, ON clauses. */
   if (!plan_is_const() && cache_const_exprs())
+  {
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
+  }
 
   // See if this subquery can be evaluated with subselect_indexsubquery_engine
   if (!group_list && !order &&
@@ -856,6 +939,8 @@ JOIN::optimize()
         which those subqueries don't have.
         @todo: let execution flow down instead, to be future-proof.
       */
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(unit->item->change_engine(engine));
     }
   }
@@ -907,6 +992,8 @@ JOIN::optimize()
         ((order && simple_order) || (group_list && simple_group)))
     {
       if (add_ref_to_table_cond(thd,tab)) {
+        if (beginning_id)
+          measure_compilation_cpu(thd, cpu_res, beginning_id);
         DBUG_RETURN(1);
       }
     }
@@ -1003,7 +1090,11 @@ JOIN::optimize()
   {
     const AQP::Join_plan plan(this);
     if (ha_make_pushed_joins(thd, &plan))
+    {
+      if (beginning_id)
+        measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
+    }
   }
 
   /**
@@ -1016,9 +1107,15 @@ JOIN::optimize()
   }
 
   if (make_tmp_tables_info())
+  {
+    if (beginning_id)
+      measure_compilation_cpu(thd, cpu_res, beginning_id);
     DBUG_RETURN(1);
+  }
 
   error= 0;
+  if (beginning_id)
+    measure_compilation_cpu(thd, cpu_res, beginning_id);
   DBUG_RETURN(0);
 
 setup_subq_exit:
@@ -1038,6 +1135,8 @@ setup_subq_exit:
 
   having_for_explain= having;
   error= 0;
+  if (beginning_id)
+    measure_compilation_cpu(thd, cpu_res, beginning_id);
   DBUG_RETURN(0);
 }
 
@@ -10037,6 +10136,45 @@ void JOIN::refine_best_rowcount()
     considered "const", with actual row count 0 or 1.
   */
   set_if_smaller(best_rowcount, unit->select_limit_cnt);
+}
+
+/**
+  Measure Compilation CPU and store it in thread
+
+    The function computes the compilation CPU time and stores it in thread.
+    This function is called from JOIN::optimize().
+
+  @param thd          thread handle
+  @param cpu_res      CPU resource usage return code
+  @param beginning_id beginning ID of time
+                      corresponds to timespec if HAVE_CLOCK_GETTIME is TRUE
+                      corresponds to rusage if HAVE_GETRUSAGE is TRUE
+*/
+
+static void measure_compilation_cpu(THD *thd, int cpu_res, void *beginning_id)
+{
+#if HAVE_CLOCK_GETTIME
+  timespec *time_begP = (timespec *) beginning_id;
+  timespec time_beg = (*time_begP);
+    timespec time_end;
+    if (cpu_res == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+      ulonglong diff= diff_timespec(time_end, time_beg);
+      diff /= 1000; /* convert to microseconds */
+      thd->inc_compilation_cpu(diff);
+    }
+#elif HAVE_GETRUSAGE
+    struct rusage *rusage_beg = (struct rusage *) beginning_id;
+    struct rusage rusage_end;
+    if (cpu_res == 0 &&
+        (getrusage(RUSAGE_THREAD, &rusage_end) == 0)) {
+      ulonglong diffu=
+        RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg->ru_utime);
+      ulonglong diffs=
+        RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg->ru_stime);
+      thd->inc_compilation_cpu(diffu+diffs);
+    }
+#endif
 }
 
 /**

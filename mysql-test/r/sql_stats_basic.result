@@ -927,6 +927,398 @@ SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0
 SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0
 SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0
 UPDATE `tm_t18` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0
+set global sql_stats_control=OFF_HARD;
+create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
+a6 int, a7 int, a8 int, a9 int, a10 int);
+create procedure populate()
+begin
+declare i int default 0;
+while i < 100 do
+insert into idx_dive_tbl values(i, i+1, i+2, i+3, i+4,
+i, i+1, i+2, i+3, i+4);
+set i = i + 1;
+end while;
+end //
+call populate();
+create index idx_dive_tbl_idx_a1 on idx_dive_tbl(a1);
+create index idx_dive_tbl_idx_a2 on idx_dive_tbl(a2);
+create index idx_dive_tbl_idx_a3 on idx_dive_tbl(a3);
+create index idx_dive_tbl_idx_a4 on idx_dive_tbl(a4);
+create index idx_dive_tbl_idx_a5 on idx_dive_tbl(a5);
+create index idx_dive_tbl_idx_a6 on idx_dive_tbl(a6);
+create index idx_dive_tbl_idx_a7 on idx_dive_tbl(a7);
+create index idx_dive_tbl_idx_a8 on idx_dive_tbl(a8);
+create index idx_dive_tbl_idx_a9 on idx_dive_tbl(a9);
+create index idx_dive_tbl_idx_a10 on idx_dive_tbl(a10);
+set optimizer_trace_max_mem_size=1048576;
+SET end_markers_in_json=off;
+flush sql_statistics;
+Case 19.1: eq_range_index_dive_limit=10
+SET eq_range_index_dive_limit=10;
+SET optimizer_trace="enabled=on,one_line=off";
+set global sql_stats_control=ON;
+set @trace_count = 0;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") into @trace_count
+from information_schema.optimizer_trace;
+set global sql_stats_control=OFF_SOFT;
+SET optimizer_trace="enabled=off";
+select sql_text, index_dive_count,
+cast(@trace_count as UNSIGNED) as indexes_accessed_for_dive,
+case
+when index_dive_count = 45 then "Success"
+            else "Fail"
+       end as test_status,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from (select concat(substring(sql_text, 1, 23), "...") as sql_text,
+index_dive_count, index_dive_cpu, compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+and sql_text not like 'SET%'
+           and sql_text not like '%round%') v;
+sql_text	index_dive_count	indexes_accessed_for_dive	test_status	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	45	9	Success	populated	populated
+flush sql_statistics;
+Case 19.2: eq_range_index_dive_limit=5
+SET eq_range_index_dive_limit=5;
+SET optimizer_trace="enabled=on,one_line=off";
+set global sql_stats_control=ON;
+set @trace_count = 0;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") into @trace_count
+from information_schema.optimizer_trace;
+set global sql_stats_control=OFF_SOFT;
+SET optimizer_trace="enabled=off";
+select sql_text, index_dive_count,
+cast(@trace_count as UNSIGNED) as indexes_accessed_for_dive,
+case
+when index_dive_count = 10 then "Success"
+            else "Fail"
+       end as test_status,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from (select concat(substring(sql_text, 1, 23), "...") as sql_text,
+index_dive_count, index_dive_cpu, compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+and sql_text not like 'SET%'
+           and sql_text not like '%round%') v;
+sql_text	index_dive_count	indexes_accessed_for_dive	test_status	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	10	4	Success	populated	populated
+flush sql_statistics;
+Case 19.3: eq_range_index_dive_limit=11
+SET eq_range_index_dive_limit=11;
+SET optimizer_trace="enabled=on,one_line=off";
+set global sql_stats_control=ON;
+set @trace_count = 0;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") into @trace_count
+from information_schema.optimizer_trace;
+set global sql_stats_control=OFF_SOFT;
+SET optimizer_trace="enabled=off";
+select sql_text, index_dive_count,
+cast(@trace_count as UNSIGNED) as indexes_accessed_for_dive,
+case
+when index_dive_count = 55 then "Success"
+            else "Fail"
+       end as test_status,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from (select concat(substring(sql_text, 1, 23), "...") as sql_text,
+index_dive_count, index_dive_cpu, compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+and sql_text not like 'SET%'
+           and sql_text not like '%round%') v;
+sql_text	index_dive_count	indexes_accessed_for_dive	test_status	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	55	10	Success	populated	populated
+flush sql_statistics;
+Case 19.4: eq_range_index_dive_limit=2
+SET eq_range_index_dive_limit=2;
+SET optimizer_trace="enabled=on,one_line=off";
+set global sql_stats_control=ON;
+set @trace_count = 0;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") into @trace_count
+from information_schema.optimizer_trace;
+set global sql_stats_control=OFF_SOFT;
+SET optimizer_trace="enabled=off";
+select sql_text, index_dive_count,
+cast(@trace_count as UNSIGNED) as indexes_accessed_for_dive,
+case
+when index_dive_count = 1 then "Success"
+            else "Fail"
+       end as test_status,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from (select concat(substring(sql_text, 1, 23), "...") as sql_text,
+index_dive_count, index_dive_cpu, compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+and sql_text not like 'SET%'
+           and sql_text not like '%round%') v;
+sql_text	index_dive_count	indexes_accessed_for_dive	test_status	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	1	1	Success	populated	populated
+flush sql_statistics;
+Case 19.5: eq_range_index_dive_limit=7
+SET eq_range_index_dive_limit=7;
+SET optimizer_trace="enabled=on,one_line=off";
+set global sql_stats_control=ON;
+set @trace_count = 0;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+count(*)
+0
+select round(length(trace)-
+length(replace(trace, "\"index_dives_for_eq_ranges\": true", "")))
+/length("\"index_dives_for_eq_ranges\": true") into @trace_count
+from information_schema.optimizer_trace;
+set global sql_stats_control=OFF_SOFT;
+SET optimizer_trace="enabled=off";
+select sql_text, index_dive_count,
+cast(@trace_count as UNSIGNED) as indexes_accessed_for_dive,
+case
+when index_dive_count = 21 then "Success"
+            else "Fail"
+       end as test_status,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from (select concat(substring(sql_text, 1, 23), "...") as sql_text,
+index_dive_count, index_dive_cpu, compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+and sql_text not like 'SET%'
+           and sql_text not like '%round%') v;
+sql_text	index_dive_count	indexes_accessed_for_dive	test_status	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	21	6	Success	populated	populated
+flush sql_statistics;
+Case 19.6: eq_range_index_dive_limit=11
+SET eq_range_index_dive_limit=11;
+set global sql_stats_control=ON;
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90);
+select count(*)
+from idx_dive_tbl
+where idx_dive_tbl.a1  in (10)
+and idx_dive_tbl.a2  in (10, 20)
+and idx_dive_tbl.a3  in (10, 20, 30)
+and idx_dive_tbl.a4  in (10, 20, 30, 40)
+and idx_dive_tbl.a5  in (10, 20, 30, 40, 50)
+and idx_dive_tbl.a6  in (10, 20, 30, 40, 50, 60)
+and idx_dive_tbl.a7  in (10, 20, 30, 40, 50, 60, 70)
+and idx_dive_tbl.a8  in (10, 20, 30, 40, 50, 60, 70, 80)
+and idx_dive_tbl.a9  in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+and idx_dive_tbl.a10 in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
+||||
+count(*)
+1
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+count(*)
+0
+select concat(substring(sql_text, 1, 23), "...") as sql_text,
+length(sql_text) sql_text_len,
+index_dive_count,
+case
+when index_dive_cpu > 0 then "populated"
+           else "not populated"
+       end index_dive_cpu,
+case
+when compilation_cpu > 0 then "populated"
+           else "not populated"
+       end compilation_cpu
+from information_schema.sql_statistics s, information_schema.sql_text t
+where s.sql_id = t.sql_id
+order by 1,2,3,4||||
+sql_text	sql_text_len	index_dive_count	index_dive_cpu	compilation_cpu
+SELECT COUNT ( * ) FROM...	74	1	populated	populated
+SELECT COUNT ( * ) FROM...	109	3	populated	populated
+SELECT COUNT ( * ) FROM...	144	6	populated	populated
+SELECT COUNT ( * ) FROM...	179	10	populated	populated
+SELECT COUNT ( * ) FROM...	214	15	populated	populated
+SELECT COUNT ( * ) FROM...	249	21	populated	populated
+SELECT COUNT ( * ) FROM...	284	28	populated	populated
+SELECT COUNT ( * ) FROM...	319	36	populated	populated
+SELECT COUNT ( * ) FROM...	354	45	populated	populated
+SELECT COUNT ( * ) FROM...	390	55	populated	populated
+drop table idx_dive_tbl;
+drop procedure populate;
 Cleanup
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_plans_control=OFF_HARD;

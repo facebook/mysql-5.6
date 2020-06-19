@@ -9659,6 +9659,14 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
   if (tree->type != SEL_ARG::KEY_RANGE || tree->part != 0)
     DBUG_RETURN(HA_POS_ERROR);				// Don't use tree
 
+#if HAVE_CLOCK_GETTIME
+    timespec time_beg;
+    int cpu_res= clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_beg;
+    int cpu_res= getrusage(RUSAGE_THREAD, &rusage_beg);
+#endif
+
   seq.keyno= idx;
   seq.real_keyno= keynr;
   seq.start= tree;
@@ -9733,6 +9741,31 @@ ha_rows check_quick_select(PARAM *param, uint idx, bool index_only,
   }
   if (param->table->file->index_flags(keynr, 0, TRUE) & HA_KEY_SCAN_NOT_ROR)
     param->is_ror_scan= FALSE;
+
+  /* Store index dive CPU time in thd */
+  if (param && param->thd)
+  {
+#if HAVE_CLOCK_GETTIME
+    timespec time_end;
+    if (cpu_res == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+      ulonglong diff= diff_timespec(time_end, time_beg);
+      diff /= 1000; /* convert to microseconds */
+      param->thd->inc_index_dive_cpu(diff);
+    }
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_end;
+    if (cpu_res == 0 &&
+        (getrusage(RUSAGE_THREAD, &rusage_end) == 0)) {
+      ulonglong diffu=
+        RUSAGE_DIFF_USEC(rusage_end.ru_utime, rusage_beg.ru_utime);
+      ulonglong diffs=
+        RUSAGE_DIFF_USEC(rusage_end.ru_stime, rusage_beg.ru_stime);
+      param->thd->inc_index_dive_cpu(diffu+diffs);
+    }
+#endif
+  }
+
   DBUG_PRINT("exit", ("Records: %lu", (ulong) rows));
   DBUG_RETURN(rows);
 }

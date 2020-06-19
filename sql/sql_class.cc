@@ -1542,6 +1542,9 @@ void THD::init(void)
 
   m_tmp_table_bytes_written = 0; /* temp table space bytes written */
   m_filesort_bytes_written  = 0; /* filesort space bytes written */
+  m_index_dive_count        = 0; /* index dive count */
+  m_index_dive_cpu          = 0; /* index dive cpu time in microseconds */
+  m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
 }
 
 

@@ -6260,6 +6260,7 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
         total_rows= HA_POS_ERROR;
         break;
       }
+      thd->inc_index_dive_count(1); /* register that index dive query is issued */
     }
     total_rows += rows;
   }
