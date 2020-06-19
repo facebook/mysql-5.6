@@ -1,0 +1,7 @@
+select @@global.group_replication_plugin_hooks;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set @@global.group_replication_plugin_hooks = ON;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set @@session.group_replication_plugin_hooks = ON;

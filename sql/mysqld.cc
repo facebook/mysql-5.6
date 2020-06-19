@@ -1450,7 +1450,8 @@ ulong locked_account_connection_count = 0;
 ulonglong global_conn_mem_limit = 0;
 ulonglong global_conn_mem_counter = 0;
 
-bool slave_high_priority_ddl = 0;
+bool opt_group_replication_plugin_hooks = false;
+bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
 std::atomic<ulonglong> slave_high_priority_ddl_executed(0);
