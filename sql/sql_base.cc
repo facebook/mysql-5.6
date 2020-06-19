@@ -5365,7 +5365,9 @@ struct schema_key_equal {
  */
 int run_before_dml_hook(THD *thd) {
   int out_value = 0;
-  (void)RUN_HOOK(transaction, before_dml, (thd, out_value));
+  if (opt_group_replication_plugin_hooks) {
+    (void)RUN_HOOK(transaction, before_dml, (thd, out_value));
+  }
 
   if (out_value) my_error(ER_BEFORE_DML_VALIDATION_ERROR, MYF(0));
 

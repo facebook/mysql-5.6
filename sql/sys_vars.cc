@@ -7771,12 +7771,12 @@ static const char *commit_consensus_error_actions[]= {
 };
 
 static Sys_var_enum Sys_commit_consensus_error_action(
-       "commit_consensus_error_action",
-       "Defines the server action when a thread fails inside ordered commit "
-       "due to consensus error",
-       GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
-       commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG);
+    "commit_consensus_error_action",
+    "Defines the server action when a thread fails inside ordered commit "
+    "due to consensus error",
+    GLOBAL_VAR(opt_commit_consensus_error_action), CMD_LINE(OPT_ARG),
+    commit_consensus_error_actions, DEFAULT(ROLLBACK_TRXS_IN_GROUP),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
 static Sys_var_bool Sys_enable_user_tables_engine_check(
     "enable_user_tables_engine_check",
@@ -7784,3 +7784,9 @@ static Sys_var_bool Sys_enable_user_tables_engine_check(
     SESSION_VAR(enable_user_tables_engine_check), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_session_admin));
+
+static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
+    "group_replication_plugin_hooks",
+    "Enable interfaces and codepaths used by group replication plugin",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_group_replication_plugin_hooks),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

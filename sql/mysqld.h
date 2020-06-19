@@ -374,6 +374,7 @@ extern ulong binlog_error_action;
 extern ulong locked_account_connection_count;
 extern bool opt_core_file;
 extern bool skip_core_dump_on_error;
+extern bool opt_group_replication_plugin_hooks;
 enum enum_binlog_error_action {
   /// Ignore the error and let server continue without binlogging
   IGNORE_ERROR = 0,
@@ -384,7 +385,7 @@ enum enum_binlog_error_action {
   /// rolled back. The server is not aborted and continues to be up and running
   /// Other cases of flush-error (outside of ordered-commit) will
   /// continue to abort server.
-  ROLLBACK_TRX= 2
+  ROLLBACK_TRX = 2
 };
 extern const char *binlog_error_action_list[];
 
