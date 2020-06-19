@@ -1598,10 +1598,16 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
 static void
 capture_sql_plan(THD *thd, const char *query_text, uint query_length)
 {
-  /* Skip if plan capture is disabled or tracing is enabled */
+  /* Skip if
+     - plan capture is disabled
+     - tracing is enabled
+     - sql_auto_is_null is ON (explain caused side effects)
+     - we reached the limits for SQL stats and plans
+  */
   if (!SQL_PLANS_ENABLED ||
       (thd->variables.optimizer_trace & Opt_trace_context::FLAG_ENABLED) ||
-      (thd->variables.option_bits & OPTION_AUTO_IS_NULL))
+      (thd->variables.option_bits & OPTION_AUTO_IS_NULL) ||
+      is_sql_stats_collection_above_limit())
     return;
 
   /* Skip if this statement does not qualify based on

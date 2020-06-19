@@ -5862,7 +5862,9 @@ void THD::set_shard_id()
 */
 void THD::serialize_client_attrs()
 {
-  if (sql_stats_control != SQL_STATS_CONTROL_ON)
+  // skip if (1) SQL stats is not enabled, or (2) capturing the sql plan
+  if (sql_stats_control != SQL_STATS_CONTROL_ON ||
+      in_capture_sql_plan())
     return;
 
   if (client_attrs_string.is_empty()) {

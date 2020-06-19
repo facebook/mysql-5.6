@@ -3469,8 +3469,11 @@ public:
   void clear_sql_id()
     { sql_id_set = false; }
   void set_sql_id()
-    { // check SQL stats is enabled and the digest has been populated
+    { /* check SQL stats is enabled, the digest has been populated and
+         not an internal explain to capture the sql plan
+       */
       if (sql_stats_control == SQL_STATS_CONTROL_ON &&
+          !in_capture_sql_plan()                    &&
           m_digest && !m_digest->m_digest_storage.is_empty())
       {
         mysql_mutex_lock(&LOCK_thd_data);
