@@ -5169,7 +5169,9 @@ int run_before_dml_hook(THD *thd) {
   TX_TRACKER_GET(tst);
   tst->add_trx_state(thd, TX_STMT_DML);
 
-  (void)RUN_HOOK(transaction, before_dml, (thd, out_value));
+  if (opt_group_replication_plugin_hooks) {
+    (void)RUN_HOOK(transaction, before_dml, (thd, out_value));
+  }
 
   if (out_value) {
     tst->clear_trx_state(thd, TX_STMT_DML);

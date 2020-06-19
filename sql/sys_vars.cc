@@ -7730,3 +7730,9 @@ static Sys_var_ulong Sys_session_set_dscp_on_socket(
     "DSCP value for socket/connection to control binlog downloads",
     SESSION_ONLY(dscp_on_socket), NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0),
     BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
+    "group_replication_plugin_hooks",
+    "Enable interfaces and codepaths used by group replication plugin",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_group_replication_plugin_hooks),
+    CMD_LINE(OPT_ARG), DEFAULT(false));

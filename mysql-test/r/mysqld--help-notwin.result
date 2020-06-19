@@ -442,6 +442,9 @@ The following options may be given as the first argument:
  Transaction consistency guarantee, possible values:
  EVENTUAL, BEFORE_ON_PRIMARY_FAILOVER, BEFORE, AFTER,
  BEFORE_AND_AFTER
+ --group-replication-plugin-hooks 
+ Enable interfaces and codepaths used by group replication
+ plugin
  --gtid-executed-compression-period[=#] 
  When binlog is disabled, a background thread wakes up to
  compress the gtid_executed table every
@@ -1789,6 +1792,7 @@ general-log FALSE
 generated-random-password-length 20
 group-concat-max-len 1024
 group-replication-consistency EVENTUAL
+group-replication-plugin-hooks FALSE
 gtid-executed-compression-period 1000
 gtid-mode OFF
 help TRUE
