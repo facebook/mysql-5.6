@@ -1600,7 +1600,11 @@ int launch_hook_trans_begin(THD *thd, Table_ref *all_tables) {
     PSI_stage_info old_stage;
     thd->enter_stage(&stage_hook_begin_trans, &old_stage, __func__, __FILE__,
                      __LINE__);
-    RUN_HOOK(transaction, trans_begin, (thd, ret));
+
+    if (opt_group_replication_plugin_hooks) {
+      RUN_HOOK(transaction, trans_begin, (thd, ret));
+    }
+
     THD_STAGE_INFO(thd, old_stage);
     if (!ret && (sql_command == SQLCOM_BEGIN ||
                  thd->in_active_multi_stmt_transaction())) {
