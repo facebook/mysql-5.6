@@ -1,0 +1,28 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of apply_log_retention_num is 15
+SELECT @@global.apply_log_retention_num;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.apply_log_retention_num;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo apply_log_retention_num is a dynamic variable
+set @@global.apply_log_retention_num = 17;
+SELECT @@global.apply_log_retention_num;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.apply_log_retention_num = default;
+SELECT @@global.apply_log_retention_num;

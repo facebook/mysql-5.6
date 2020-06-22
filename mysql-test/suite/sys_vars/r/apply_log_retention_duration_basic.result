@@ -1,0 +1,17 @@
+Default value of apply_log_retention_duration is 10
+SELECT @@global.apply_log_retention_duration;
+@@global.apply_log_retention_duration
+15
+SELECT @@session.apply_log_retention_duration;
+ERROR HY000: Variable 'apply_log_retention_duration' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+apply_log_retention_duration is a dynamic variable
+set @@global.apply_log_retention_duration = 17;
+SELECT @@global.apply_log_retention_duration;
+@@global.apply_log_retention_duration
+17
+restore the default value
+SET @@global.apply_log_retention_duration = default;
+SELECT @@global.apply_log_retention_duration;
+@@global.apply_log_retention_duration
+15

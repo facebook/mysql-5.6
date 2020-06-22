@@ -459,6 +459,8 @@ extern ulonglong maximum_hlc_drift_ns;
 extern bool enable_raft_plugin;
 extern bool disable_raft_log_repointing;
 extern ulong opt_raft_signal_async_dump_threads;
+extern ulonglong apply_log_retention_num;
+extern ulonglong apply_log_retention_duration;
 
 /* Enable query checksum validation for queries with a checksum sent */
 extern my_bool enable_query_checksum;

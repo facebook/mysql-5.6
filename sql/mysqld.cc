@@ -509,6 +509,8 @@ ulonglong max_tmp_disk_usage;
 bool enable_raft_plugin= 0;
 bool disable_raft_log_repointing= 0;
 ulong opt_raft_signal_async_dump_threads= 0;
+ulonglong apply_log_retention_num= 0;
+ulonglong apply_log_retention_duration= 0;
 
 /* write_control_level:
  * Global variable to control write throttling for short running queries and

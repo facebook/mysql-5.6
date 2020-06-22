@@ -7370,3 +7370,14 @@ static Sys_var_enum Sys_raft_signal_async_dump_threads(
        raft_signal_async_dump_threads_options, DEFAULT(AFTER_CONSENSUS),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+static Sys_var_ulonglong Sys_apply_log_retention_num(
+       "apply_log_retention_num",
+       "Minimum number of apply logs that need to be retained.",
+       GLOBAL_VAR(apply_log_retention_num), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
+
+static Sys_var_ulonglong Sys_apply_log_retention_duration(
+       "apply_log_retention_duration",
+       "Minimum duration (mins) that apply logs need to be retained.",
+       GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
