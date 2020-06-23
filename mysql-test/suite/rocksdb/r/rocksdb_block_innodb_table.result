@@ -1,6 +1,6 @@
 SELECT @@GLOBAL.enable_user_tables_engine_check;
 @@GLOBAL.enable_user_tables_engine_check
-0
+1
 SET @start_value= @@global.enable_user_tables_engine_check;
 SET @@session.enable_user_tables_engine_check=ON;
 create table t1(a int primary key) engine=InnoDB;
