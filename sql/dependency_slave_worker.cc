@@ -30,7 +30,10 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
   {
     ++c_rli->begin_event_waits;
     ++c_rli->num_workers_waiting;
-    mysql_cond_wait(&c_rli->dep_empty_cond, &c_rli->dep_lock);
+    const auto timeout_nsec= c_rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(abstime, timeout_nsec);
+    mysql_cond_timedwait(&c_rli->dep_empty_cond, &c_rli->dep_lock, &abstime);
     --c_rli->num_workers_waiting;
   }
 

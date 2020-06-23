@@ -3341,7 +3341,10 @@ bool Log_event::schedule_dep(Relay_log_info *rli)
     // wait if queue has reached full capacity
     while (unlikely(rli->dep_full))
     {
-      mysql_cond_wait(&rli->dep_full_cond, &rli->dep_lock);
+      const auto timeout_nsec= rli->mts_dependency_cond_wait_timeout * 1000000;
+      struct timespec abstime;
+      set_timespec_nsec(abstime, timeout_nsec);
+      mysql_cond_timedwait(&rli->dep_full_cond, &rli->dep_lock, &abstime);
     }
 
     rli->enqueue_dep(rli->current_begin_event);

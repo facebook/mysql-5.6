@@ -5488,6 +5488,12 @@ static Sys_var_mybool Sys_mts_dependency_order_commits(
        GLOBAL_VAR(opt_mts_dependency_order_commits),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static Sys_var_ulonglong Sys_mts_dependency_cond_wait_timeout(
+       "mts_dependency_cond_wait_timeout",
+       "Timeout for all conditional waits in dependency repl in milliseconds",
+       GLOBAL_VAR(opt_mts_dependency_cond_wait_timeout), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, UINT_MAX32), DEFAULT(5000), BLOCK_SIZE(1));
+
 static Sys_var_ulonglong Sys_mts_pending_jobs_size_max(
        "slave_pending_jobs_size_max",
        "Max size of Slave Worker queues holding yet not applied events."

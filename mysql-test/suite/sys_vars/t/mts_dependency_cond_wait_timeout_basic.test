@@ -1,0 +1,155 @@
+--source include/load_sysvars.inc
+
+######################################################################## 
+#              START OF mts_dependency_cond_wait_timeout TESTS                    #
+######################################################################## 
+
+
+######################################################################## 
+# Saving initial value of mts_dependency_cond_wait_timeout in a temporary variable#
+######################################################################## 
+
+SET @start_mts_dependency_cond_wait_timeout = @@global.mts_dependency_cond_wait_timeout;
+SELECT @start_mts_dependency_cond_wait_timeout;
+
+
+--echo '#--------------------FN_DYNVARS_072_01------------------------#'
+######################################################################## 
+#           Display the DEFAULT value of mts_dependency_cond_wait_timeout         #
+######################################################################## 
+
+SET @@global.mts_dependency_cond_wait_timeout = 5000;
+SET @@global.mts_dependency_cond_wait_timeout = DEFAULT;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_072_02-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+############################################### 
+
+SET @@global.mts_dependency_cond_wait_timeout = @start_mts_dependency_cond_wait_timeout;
+SELECT @@global.mts_dependency_cond_wait_timeout = 4294967295;
+
+--echo '#--------------------FN_DYNVARS_072_03------------------------#'
+######################################################################## 
+#    Change the value of mts_dependency_cond_wait_timeout to a valid value        #
+######################################################################## 
+
+SET @@global.mts_dependency_cond_wait_timeout = 4096;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 4294967295;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 4294967294;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 4097;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 65535;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+
+--echo '#--------------------FN_DYNVARS_072_04-------------------------#'
+########################################################################### 
+#      Change the value of mts_dependency_cond_wait_timeout to invalid value         #
+########################################################################### 
+
+SET @@global.mts_dependency_cond_wait_timeout = -1;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 100000000000;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_cond_wait_timeout = 10000.01;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = -1024;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 1024;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 4294967296;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = 4095;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_cond_wait_timeout = ON;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.mts_dependency_cond_wait_timeout = 'test';
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+
+--echo '#-------------------FN_DYNVARS_072_05----------------------------#'
+########################################################################### 
+#       Test if accessing session mts_dependency_cond_wait_timeout gives error       #
+########################################################################### 
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.mts_dependency_cond_wait_timeout = 4096;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.mts_dependency_cond_wait_timeout;
+
+
+--echo '#----------------------FN_DYNVARS_072_06------------------------#'
+############################################################################## 
+# Check if the value in GLOBAL & SESSION Tables matches values in variable   #
+##############################################################################
+
+SELECT @@global.mts_dependency_cond_wait_timeout = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='mts_dependency_cond_wait_timeout';
+
+SELECT @@mts_dependency_cond_wait_timeout = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='mts_dependency_cond_wait_timeout';
+
+
+--echo '#---------------------FN_DYNVARS_072_07----------------------#'
+################################################################### 
+#      Check if TRUE and FALSE values can be used on variable     #
+################################################################### 
+
+SET @@global.mts_dependency_cond_wait_timeout = TRUE;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+SET @@global.mts_dependency_cond_wait_timeout = FALSE;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_072_08----------------------#'
+########################################################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points to same session variable  #
+########################################################################################################
+
+SET @@global.mts_dependency_cond_wait_timeout = 5000;
+SELECT @@mts_dependency_cond_wait_timeout = @@global.mts_dependency_cond_wait_timeout;
+
+
+--echo '#---------------------FN_DYNVARS_072_09----------------------#'
+################################################################################  
+#   Check if mts_dependency_cond_wait_timeout can be accessed with and without @@ sign    #
+################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET mts_dependency_cond_wait_timeout = 6000;
+SELECT @@mts_dependency_cond_wait_timeout;
+--Error ER_PARSE_ERROR
+SET local.mts_dependency_cond_wait_timeout = 7000;
+--Error ER_UNKNOWN_TABLE
+SELECT local.mts_dependency_cond_wait_timeout;
+--Error ER_PARSE_ERROR
+SET global.mts_dependency_cond_wait_timeout = 8000;
+--Error ER_UNKNOWN_TABLE
+SELECT global.mts_dependency_cond_wait_timeout;
+--Error ER_BAD_FIELD_ERROR
+SELECT mts_dependency_cond_wait_timeout = @@session.mts_dependency_cond_wait_timeout;
+
+
+##############################  
+#   Restore initial value    #
+##############################
+
+SET @@global.mts_dependency_cond_wait_timeout = @start_mts_dependency_cond_wait_timeout;
+SELECT @@global.mts_dependency_cond_wait_timeout;
+
+
+######################################################################## 
+#              END OF mts_dependency_cond_wait_timeout TESTS                      #
+######################################################################## 

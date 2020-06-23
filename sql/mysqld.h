@@ -922,6 +922,7 @@ extern ulonglong opt_mts_dependency_size;
 extern double opt_mts_dependency_refill_threshold;
 extern ulonglong opt_mts_dependency_max_keys;
 extern my_bool opt_mts_dependency_order_commits;
+extern ulonglong opt_mts_dependency_cond_wait_timeout;
 extern my_bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
 extern ulonglong opt_mts_pending_jobs_size_max;

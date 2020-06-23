@@ -1893,7 +1893,10 @@ bool wait_for_dep_workers_to_finish(Relay_log_info *rli, bool partial_trx)
                             &old_stage);
   while (rli->num_in_flight_trx > num && !rli->info_thd->killed)
   {
-    mysql_cond_wait(&rli->dep_trx_all_done_cond, &rli->dep_lock);
+    const auto timeout_nsec= rli->mts_dependency_cond_wait_timeout * 1000000;
+    struct timespec abstime;
+    set_timespec_nsec(abstime, timeout_nsec);
+    mysql_cond_timedwait(&rli->dep_trx_all_done_cond, &rli->dep_lock, &abstime);
   }
 
   rli->info_thd->EXIT_COND(&old_stage);

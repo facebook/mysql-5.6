@@ -1133,6 +1133,7 @@ public:
   double mts_dependency_refill_threshold= 0;
   ulonglong mts_dependency_max_keys= 0;
   my_bool mts_dependency_order_commits= TRUE;
+  ulonglong mts_dependency_cond_wait_timeout= 0;
 
   std::deque<std::shared_ptr<Log_event_wrapper>> dep_queue;
   mysql_mutex_t dep_lock;

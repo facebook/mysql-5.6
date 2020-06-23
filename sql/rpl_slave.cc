@@ -6645,6 +6645,7 @@ pthread_handler_t handle_slave_sql(void *arg)
   rli->mts_dependency_refill_threshold= opt_mts_dependency_refill_threshold;
   rli->mts_dependency_max_keys= opt_mts_dependency_max_keys;
   rli->mts_dependency_order_commits= opt_mts_dependency_order_commits;
+  rli->mts_dependency_cond_wait_timeout= opt_mts_dependency_cond_wait_timeout;
 
   if (rli->mts_dependency_replication &&
       !slave_use_idempotent_for_recovery_options)
