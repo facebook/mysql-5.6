@@ -17,12 +17,6 @@ rocksdb.innodb_i_s_tables_disabled : BUG#0000 missing patch
 rocksdb_rpl.rpl_rocksdb_schema_change : BUG#0000 missing 031b5cec711 Use column names while applying row changes on slave
 rocksdb.native_procedure : BUG#0000 missing 7292a82ad28 Native procedures in MySQL
 
-# rocksdb_read_free_rpl
-rocksdb.rocksdb_read_free_rpl : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.rocksdb_read_free_rpl_stress : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.blind_delete_rc : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
-rocksdb.blind_delete_rr : BUG#0000 missing af531c246d35 Added a new variable to control read-free replication
-
 # i_s.table_statistics
 rocksdb.lock_wait_timeout_stats : BUG#0000 table_statistics missing
 rocksdb.deadlock_stats : BUG#0000 table_statistics missing
