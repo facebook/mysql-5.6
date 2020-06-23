@@ -1889,7 +1889,7 @@ The following options may be given as the first argument:
  DBOptions::wal_dir for RocksDB
  --rocksdb-wal-recovery-mode=# 
  DBOptions::wal_recovery_mode for RocksDB. Default is
- kAbsoluteConsistency
+ kPointInTimeRecovery
  --rocksdb-wal-size-limit-mb=# 
  DBOptions::WAL_size_limit_MB for RocksDB
  --rocksdb-wal-ttl-seconds=# 
@@ -2822,7 +2822,7 @@ rocksdb-validate-tables 1
 rocksdb-verify-row-debug-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
-rocksdb-wal-recovery-mode 1
+rocksdb-wal-recovery-mode 2
 rocksdb-wal-size-limit-mb 0
 rocksdb-wal-ttl-seconds 0
 rocksdb-whole-key-filtering TRUE
