@@ -189,3 +189,5 @@ SET @@GLOBAL.relay_log_info_repository= "TABLE";
 
 DROP TABLE test;
 --source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

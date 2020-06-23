@@ -46,15 +46,18 @@
 --let $include_filename= rpl_reset.inc
 --source include/begin_include_file.inc
 
+--source include/rpl_sync.inc
+
+if ($rpl_enable_raft)
+{
+  source include/rpl_sync.inc;
+  source include/rpl_end_raft.inc;
+}
 
 if (!$rpl_debug)
 {
   --disable_query_log
 }
-
-
---source include/rpl_sync.inc
-
 
 if ($rpl_debug)
 {
@@ -80,6 +83,11 @@ while ($_rpl_server)
 if (!$rpl_no_start_slave)
 {
   --source include/rpl_start_slaves.inc
+}
+
+if ($rpl_enable_raft)
+{
+  source include/rpl_init_raft.inc;
 }
 
 

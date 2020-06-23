@@ -69,7 +69,12 @@ while ($_rpl_server)
 
   if ($_is_slave)
   {
-    STOP SLAVE IO_THREAD;
+    let $_slave_io_state= query_get_value(SHOW SLAVE STATUS, Slave_IO_Running, 1);
+    let $_running= `SELECT '$_slave_io_running' = 'Yes'`;
+    if ($_running != 0)
+    {
+      STOP SLAVE IO_THREAD;
+    }
     # Disable failure detection on the slaves so that master becomes the leader
     SET GLOBAL RPL_RAFT_LEADER_FAILURE_DETECTION= OFF;
   }

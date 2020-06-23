@@ -18,9 +18,11 @@ call mtr.add_suppression("Duplicate entry");
 -- let $skip_cleanup=1
 -- source extra/rpl_tests/rpl_parallel_simple_load.test
 
+-- connection slave
 -- let $MYSQLD_DATADIR = `select @@datadir`
 -- let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1)
 -- let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1)
+-- let $slave_log_prefix= `SELECT SUBSTRING_INDEX('$slave_binlog_file', '.', 1)`
 
 # Truncate quarter of the binlog
 -- let $three_fourth = `select ROUND($slave_binlog_size / 4 * 3)`
@@ -40,7 +42,7 @@ change master to master_auto_position=1, master_heartbeat_period=0.25;
 
 # Test slave has no missing binlog events by first resetting slave and
 # taking backup of slave binlogs and re-executing the binlogs.
--- exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/slave-bin.0* > $MYSQLTEST_VARDIR/tmp/fulldump.sql
+-- exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/$slave_log_prefix.0* > $MYSQLTEST_VARDIR/tmp/fulldump.sql
 reset master;
 -- exec $MYSQL --user=root --host=127.0.0.1 --port=$SLAVE_MYPORT < $MYSQLTEST_VARDIR/tmp/fulldump.sql
 -- remove_file $MYSQLTEST_VARDIR/tmp/fulldump.sql

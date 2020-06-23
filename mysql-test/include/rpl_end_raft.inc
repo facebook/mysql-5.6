@@ -37,3 +37,4 @@ while ($_rpl_server)
 
   dec $_rpl_server;
 }
+source include/rpl_change_topology.inc;
