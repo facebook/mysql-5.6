@@ -357,7 +357,9 @@ INSERT INTO t2 VALUES (500, 0x12345, 0x5, 1, 0x2);
 INSERT INTO t2 VALUES (700, 0x23456, 0x7, 1, 0x3);
 
 # Verify that partition mappings are still intact.
+--replace_column 5 # 8 # 10 # 11 # 12 #
 EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x12345;
+--replace_column 5 # 8 # 10 # 11 # 12 #
 EXPLAIN SELECT HEX(col2) FROM t2 where col2 = 0x23456;
 
 # Verify that no data is lost.
