@@ -35,6 +35,7 @@
 #include "sql/sql_const.h"    // MAX_PASSWORD_LENGTH
 
 struct Gtid;
+struct snapshot_info_st;
 class Gtid_set;
 class String;
 class Sid_map;
@@ -65,9 +66,7 @@ int register_replica(THD *thd, uchar *packet, size_t packet_length);
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
 bool show_replicas(THD *thd);
 String *get_replica_uuid(THD *thd, String *value, bool need_lock = true);
-bool show_master_offset(THD *thd, const char *file, ulonglong pos,
-                        const char *gtid_executed, int gtid_executed_length,
-                        ulonglong snapshot_hlc, bool *need_ok);
+bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd, bool with_gtid = false);
 void kill_zombie_dump_threads(THD *thd);

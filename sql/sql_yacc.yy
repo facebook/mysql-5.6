@@ -513,8 +513,7 @@ void warn_about_deprecated_binary(THD *thd)
   1. We do not accept any reduce/reduce conflicts
   2. We should not introduce new shift/reduce conflicts any more.
 */
-
-%expect 66
+%expect 88
 
 /*
    MAINTAINER:
@@ -1421,6 +1420,10 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> SUPER_READ_ONLY_SYM 1253
 %token<lexer.keyword> DB_METADATA_SYM 1254
 %token<lexer.keyword> SQL_NO_FCACHE_SYM 1255       /* MYSQL */
+%token<lexer.keyword> ATTACH_SYM 1256              /* MYSQL */
+%token<lexer.keyword> EXISTING_SYM 1257            /* MYSQL */
+%token<lexer.keyword> EXPLICIT_SYM 1258            /* MYSQL */
+%token<lexer.keyword> SHARED_SYM 1259              /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -2343,6 +2346,7 @@ simple_statement:
         | alter_user_stmt               { $$= nullptr; }
         | alter_view_stmt               { $$= nullptr; }
         | analyze_table_stmt
+        | attach                        { $$= nullptr; }
         | binlog_base64_event           { $$= nullptr; }
         | call_stmt
         | change                        { $$= nullptr; }
@@ -3573,6 +3577,18 @@ create:
             Lex->server_options.set_scheme($7);
             Lex->m_sql_cmd=
               NEW_PTN Sql_cmd_create_server(&Lex->server_options);
+          }
+        | CREATE EXPLICIT_SYM ident_or_text SNAPSHOT_SYM
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == nullptr)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            Lex->sql_command= SQLCOM_CREATE_EXPLICIT_SNAPSHOT;
           }
         ;
 
@@ -9461,7 +9477,32 @@ start_transaction_option:
                               &Lex->create_info->db_type))
               MYSQL_YYABORT;
 
-            $$= MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT;
+            $$= MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT;
+          }
+        | WITH SHARED_SYM ident_or_text SNAPSHOT_SYM
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == nullptr)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            $$= MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT;
+          }
+        | WITH EXISTING_SYM ident_or_text SNAPSHOT_SYM ulonglong_num
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == nullptr)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            $$= MYSQL_START_TRANS_OPT_WITH_EXIS_ENGINE_SNAPSHOT;
+            Lex->snapshot_id = $5;
           }
         | READ_SYM ONLY_SYM
           {
@@ -14490,6 +14531,23 @@ use:
           }
         ;
 
+attach:
+          ATTACH_SYM EXPLICIT_SYM ident_or_text SNAPSHOT_SYM
+          ulonglong_num
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == nullptr)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            Lex->sql_command=SQLCOM_ATTACH_EXPLICIT_SNAPSHOT;
+            Lex->snapshot_id = $5;
+          }
+        ;
+
 /* import, export of files */
 
 load_stmt:
@@ -15411,6 +15469,7 @@ ident_keywords_unambiguous:
         | ARRAY_SYM
         | AT_SYM
         | ATTRIBUTE_SYM
+        | ATTACH_SYM
         | AUTHENTICATION_SYM
         | AUTOEXTEND_SIZE_SYM
         | AUTO_INC
@@ -15490,8 +15549,10 @@ ident_keywords_unambiguous:
         | EVERY_SYM
         | EXCHANGE_SYM
         | EXCLUDE_SYM
+        | EXISTING_SYM
         | EXPANSION_SYM
         | EXPIRE_SYM
+        | EXPLICIT_SYM
         | EXPORT_SYM
         | EXTENDED_SYM
         | EXTENT_SIZE_SYM
@@ -15723,6 +15784,7 @@ ident_keywords_unambiguous:
         | SERIAL_SYM
         | SERVER_SYM
         | SHARE_SYM
+        | SHARED_SYM
         | SIMPLE_SYM
         | SKIP_SYM
         | SLOW
@@ -17470,6 +17532,18 @@ rollback:
             LEX *lex=Lex;
             lex->sql_command= SQLCOM_ROLLBACK_TO_SAVEPOINT;
             lex->ident= $5;
+          }
+        | RELEASE_SYM EXPLICIT_SYM ident_or_text SNAPSHOT_SYM
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == nullptr)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            Lex->sql_command= SQLCOM_RELEASE_EXPLICIT_SNAPSHOT;
           }
         ;
 
