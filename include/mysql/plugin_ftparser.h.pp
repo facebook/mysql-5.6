@@ -90,6 +90,7 @@ struct st_mysql_value {
   int (*val_int)(struct st_mysql_value *, long long *intbuf);
   int (*is_unsigned)(struct st_mysql_value *);
 };
+struct snapshot_info_st;
 int thd_in_lock_tables(const void * thd);
 int thd_tablespace_op(const void * thd);
 long long thd_test_options(const void * thd, long long test_options);
@@ -124,12 +125,8 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
 char mysql_bin_log_is_open(void);
-void mysql_bin_log_lock_commits(void);
-void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos,
-                                  char **gtid_executed,
-                                  int *gtid_executed_length,
-                                  unsigned long long *snapshot_hlc);
+void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info);
+void mysql_bin_log_unlock_commits(struct snapshot_info_st *ss_info);
 enum enum_ftparser_mode {
   MYSQL_FTPARSER_SIMPLE_MODE = 0,
   MYSQL_FTPARSER_WITH_STOPWORDS = 1,

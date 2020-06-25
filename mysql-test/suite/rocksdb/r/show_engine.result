@@ -478,4 +478,46 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
 
 ROLLBACK;
+START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+binlog.000001	3733		1
+SHOW ENGINE rocksdb STATUS;
+Type	Name	Status
+STATISTICS	#	#
+DBSTATS	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+MEMORY_STATS	#	#
+EXPLICIT_SNAPSHOTS	#	#
+BINLOG POSITION	#	#
+ROLLBACK;
+CREATE EXPLICIT rocksdb SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+binlog.000001	3733		2
+SHOW ENGINE rocksdb STATUS;
+Type	Name	Status
+STATISTICS	#	#
+DBSTATS	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+MEMORY_STATS	#	#
+EXPLICIT_SNAPSHOTS	#	#
+BINLOG POSITION	#	#
+RELEASE EXPLICIT rocksdb SNAPSHOT;
+File	Position	Gtid_executed	Snapshot_ID
+binlog.000001	3733		2
+SHOW ENGINE rocksdb STATUS;
+Type	Name	Status
+STATISTICS	#	#
+DBSTATS	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+CF_COMPACTION	#	#
+MEMORY_STATS	#	#
+BINLOG POSITION	#	#
 SET GLOBAL rocksdb_max_background_jobs= @save.rocksdb_max_background_jobs;

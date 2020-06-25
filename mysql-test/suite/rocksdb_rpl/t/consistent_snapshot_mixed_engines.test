@@ -5,17 +5,12 @@
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
-
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 
 connection con1;
 create table i1 (id int primary key , value int) engine=innodb;
 create table r1 (id int primary key , value int) engine=rocksdb;
-
 
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
@@ -32,6 +27,7 @@ select * from r1;
 
 # Both Rocksdb/InnoDB participate in snapshot
 --disable_result_log
+COMMIT;
 START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT;
 --enable_result_log
 
@@ -42,7 +38,6 @@ insert into r1 values (2,2);
 connection con1;
 select * from i1;
 select * from r1;
-
 connection con2;
 insert into i1 values (3,2);
 insert into r1 values (3,2);
@@ -53,6 +48,7 @@ select * from r1;
 
 # Both Rocksdb/InnoDB participate in snapshot
 --disable_result_log
+COMMIT;
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
 --enable_result_log
 
@@ -60,12 +56,14 @@ connection con2;
 insert into r1 values (4,4);
 
 connection con1;
+select * from i1;
 select * from r1;
 
 connection con2;
 insert into r1 values (5,5);
 
 connection con1;
+select * from i1;
 select * from r1;
 
 drop table i1;
