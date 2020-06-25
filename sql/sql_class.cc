@@ -1494,6 +1494,10 @@ void THD::release_resources() {
   // Mark THD life cycle state as "SCHEDULED_FOR_DISPOSAL".
   start_disposal();
 
+  if (m_explicit_snapshot) {
+    set_explicit_snapshot(nullptr);
+  }
+
   /* if we are still in admission control, release it */
   if (is_in_ac) {
     MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_list,
@@ -2829,6 +2833,37 @@ void THD::set_original_commit_timestamp_for_slave_thread() {
       system_thread == SYSTEM_THREAD_SLAVE_WORKER) {
     rli_slave->original_commit_timestamp = variables.original_commit_timestamp;
   }
+}
+
+bool THD::create_explicit_snapshot() {
+  auto hton = lex->create_info->db_type;
+  snapshot_info_st ss_info;
+  ss_info.op = snapshot_operation::SNAPSHOT_CREATE;
+  bool error = ha_explicit_snapshot(this, hton, &ss_info);
+  bool need_ok = true;
+  error = error || show_master_offset(this, ss_info, &need_ok);
+  return error;
+}
+
+bool THD::attach_explicit_snapshot(const ulonglong snapshot_id) {
+  auto hton = lex->create_info->db_type;
+  snapshot_info_st ss_info;
+  ss_info.snapshot_id = snapshot_id;
+  ss_info.op = snapshot_operation::SNAPSHOT_ATTACH;
+  bool error = ha_explicit_snapshot(this, hton, &ss_info);
+  bool need_ok = true;
+  error = error || show_master_offset(this, ss_info, &need_ok);
+  return error;
+}
+
+bool THD::release_explicit_snapshot() {
+  auto hton = lex->create_info->db_type;
+  snapshot_info_st ss_info;
+  ss_info.op = snapshot_operation::SNAPSHOT_RELEASE;
+  bool error = ha_explicit_snapshot(this, hton, &ss_info);
+  bool need_ok = true;
+  error = error || show_master_offset(this, ss_info, &need_ok);
+  return error;
 }
 
 void THD::update_global_binlog_max_gtid(void) {
