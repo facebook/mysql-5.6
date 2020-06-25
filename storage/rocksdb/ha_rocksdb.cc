@@ -8166,37 +8166,9 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 */
 
 bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
-                                       const TABLE_SHARE *table_arg, uint inx,
-                                       uint part, bool all_parts) {
-  bool res = true;
-  KEY *const key_info = &table_arg->key_info[inx];
-
-  Rdb_field_packing dummy1;
-  res = dummy1.setup(nullptr, key_info->key_part[part].field, inx, part,
-                     key_info->key_part[part].length);
-
-  if (res && all_parts) {
-    for (uint i = 0; i < part; i++) {
-      Field *field;
-      if ((field = key_info->key_part[i].field)) {
-        Rdb_field_packing dummy;
-        if (!dummy.setup(nullptr, field, inx, i,
-                         key_info->key_part[i].length)) {
-          /* Cannot do index-only reads for this column */
-          res = false;
-          break;
-        }
-      }
-    }
-  }
-
-  const uint pk = table_arg->primary_key;
-  if (inx == pk && all_parts &&
-      part + 1 == table_arg->key_info[pk].user_defined_key_parts) {
-    pk_can_be_decoded = res;
-  }
-
-  return res;
+                                       const TABLE_SHARE *, uint, uint, bool) {
+  pk_can_be_decoded = true;
+  return true;
 }
 
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
