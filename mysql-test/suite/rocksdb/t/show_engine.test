@@ -85,8 +85,6 @@ SHOW ENGINE rocksdb TRANSACTION STATUS;
 ROLLBACK;
 
 # Check if explicit snapshots are correctly populated
-# Enable once explicit snapshot is ported
---disable_testcase BUG#888002
 START TRANSACTION WITH SHARED ROCKSDB SNAPSHOT;
 --replace_column 2 # 3 #
 SHOW ENGINE rocksdb STATUS;
@@ -97,7 +95,6 @@ SHOW ENGINE rocksdb STATUS;
 RELEASE EXPLICIT rocksdb SNAPSHOT;
 --replace_column 2 # 3 #
 SHOW ENGINE rocksdb STATUS;
---enable_testcase
 
 
 # Restore old values
