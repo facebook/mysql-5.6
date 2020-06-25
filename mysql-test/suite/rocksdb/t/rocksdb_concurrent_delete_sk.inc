@@ -45,8 +45,6 @@ SET debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  # TODO(yzha) - Update error message once following patch is ported
-  # 1e50e3fe7bf Add lock information to lock timeout error message
   --error ER_LOCK_DEADLOCK
   reap;
 }
@@ -68,8 +66,6 @@ SET debug_sync='now SIGNAL go';
 connection con;
 if ($isolation_level == "REPEATABLE READ")
 {
-  # TODO(yzha) - Update error message once following patch is ported
-  # 1e50e3fe7bf Add lock information to lock timeout error message
   --error ER_LOCK_DEADLOCK
   reap;
 }
