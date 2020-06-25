@@ -8250,8 +8250,25 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 */
 
 bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
+#ifndef DBUG_OFF
                                        const TABLE_SHARE *table_arg, uint inx,
-                                       uint part, bool all_parts) {
+                                       uint part, bool all_parts
+#else  /* DBUG_OFF */
+                                       const TABLE_SHARE *, uint, uint, bool
+#endif /* DBUG_OFF */
+) {
+
+  /*
+    (TODO) This code should be removed once the old formats are no longer
+    supported or used. Once this code is removed, Rdb_field_packing::setup()
+    should be updated, and '[mysql80] Issue #108: Index-only scans do not work
+    for partitioned tables and extended keys' should also be dropped.
+  */
+#ifndef DBUG_OFF
+  /*
+    Check to see if changes from SQL causes breaks our assumption that
+    keyreads are allowed
+  */
   bool res = true;
   KEY *const key_info = &table_arg->key_info[inx];
 
@@ -8280,7 +8297,12 @@ bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
     pk_can_be_decoded = res;
   }
 
+  DBUG_ASSERT(res);
   return res;
+#else  /* DBUG_OFF */
+  pk_can_be_decoded = true;
+  return true;
+#endif /* DBUG_OFF */
 }
 
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
