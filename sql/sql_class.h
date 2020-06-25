@@ -82,6 +82,7 @@
 #include "mysqld_error.h"
 #include "pfs_thread_provider.h"
 #include "prealloced_array.h"
+#include "rpl_master.h"
 #include "sql/auth/sql_security_ctx.h"  // Security_context
 #include "sql/current_thd.h"
 #include "sql/discrete_interval.h"   // Discrete_interval
@@ -95,6 +96,7 @@
 #include "sql/rpl_context.h"  // Rpl_thd_context
 #include "sql/rpl_gtid.h"
 #include "sql/session_tracker.h"  // Session_tracker
+#include "sql/snapshot.h"
 #include "sql/sql_connect.h"
 #include "sql/sql_const.h"
 #include "sql/sql_digest_stream.h"  // sql_digest_state
@@ -2142,6 +2144,37 @@ class THD : public MDL_context_owner,
     filesort() before reading it for e.g. update.
   */
   ha_rows m_examined_row_count;
+
+ private:
+  using explicit_snapshot_ptr = std::shared_ptr<explicit_snapshot>;
+  explicit_snapshot_ptr m_explicit_snapshot;
+
+ public:
+  /**
+   * Creates an explicit snapshot and associates it with the current conn
+   * return true if error, false otherwise
+   */
+  bool create_explicit_snapshot();
+
+  explicit_snapshot_ptr get_explicit_snapshot() const {
+    return m_explicit_snapshot;
+  }
+
+  void set_explicit_snapshot(explicit_snapshot_ptr s) {
+    m_explicit_snapshot = std::move(s);
+  }
+
+  /**
+   * Attaches an existing explicit snapshot to the current conn
+   * return true if error, false otherwise
+   */
+  bool attach_explicit_snapshot(const ulonglong snapshot_id);
+
+  /**
+   * Releases the explicit snapshot associated with the current conn
+   * return true if error, false otherwise
+   */
+  bool release_explicit_snapshot();
 
  private:
   USER_CONN *m_user_connect;

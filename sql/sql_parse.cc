@@ -4473,10 +4473,27 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
         res = mysql_show_create_user(thd, show_user, are_both_users_same);
       break;
     }
+    case SQLCOM_CREATE_EXPLICIT_SNAPSHOT: {
+      thd->create_explicit_snapshot();
+      break;
+    }
+    case SQLCOM_ATTACH_EXPLICIT_SNAPSHOT: {
+      thd->attach_explicit_snapshot(lex->snapshot_id);
+      break;
+    }
+    case SQLCOM_RELEASE_EXPLICIT_SNAPSHOT: {
+      thd->release_explicit_snapshot();
+      break;
+    }
     case SQLCOM_BEGIN: {
       bool need_ok = true;
-      if (trans_begin(thd, lex->start_transaction_opt, &need_ok)) goto error;
-      if (need_ok) my_ok(thd);
+      if (trans_begin(thd, lex->start_transaction_opt, &need_ok,
+                      lex->create_info ? lex->create_info->db_type : nullptr)) {
+        goto error;
+      }
+      if (need_ok) {
+        my_ok(thd);
+      }
       break;
     }
     case SQLCOM_COMMIT: {

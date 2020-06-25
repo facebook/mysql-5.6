@@ -32,6 +32,7 @@
 #include "sql/sql_const.h"  // MAX_PASSWORD_LENGTH
 
 struct Gtid;
+struct snapshot_info_st;
 class Gtid_set;
 class String;
 class Sid_map;
@@ -63,9 +64,7 @@ using thd_to_slave_info_container = malloc_unordered_map<THD *, SLAVE_INFO>;
 thd_to_slave_info_container copy_slaves();
 
 String *get_slave_uuid(THD *thd, String *value, bool need_lock = true);
-bool show_master_offset(THD *thd, const char *file, ulonglong pos,
-                        const char *gtid_executed, int gtid_executed_length,
-                        ulonglong snapshot_hlc, bool *need_ok);
+bool show_master_offset(THD *thd, snapshot_info_st &ss_info, bool *need_ok);
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd, bool with_gtid = false);
 void kill_zombie_dump_threads(THD *thd);

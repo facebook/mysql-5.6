@@ -132,31 +132,6 @@ static std::vector<std::string> rdb_tables_to_recalc;
 
 static Rdb_exec_time st_rdb_exec_time;
 
-enum snapshot_operation {
-  SNAPSHOT_CREATE,
-  SNAPSHOT_ATTACH,
-  SNAPSHOT_RELEASE,
-  SNAPSHOT_NONE
-};
-
-struct snapshot_info_st {
-  std::string binlog_file;
-  ulonglong binlog_pos = 0;
-  std::string gtid_executed;
-  ulonglong snapshot_id = 0;
-  enum snapshot_operation op = snapshot_operation::SNAPSHOT_NONE;
-  ulonglong snapshot_hlc = 0;
-};
-
-class explicit_snapshot {
- protected:
-  virtual ~explicit_snapshot() {}
-
- public:
-  snapshot_info_st ss_info;
-  explicit_snapshot(snapshot_info_st ss_info) : ss_info(ss_info) {}
-};
-
 class Rdb_explicit_snapshot : public explicit_snapshot {
  public:
   static std::shared_ptr<Rdb_explicit_snapshot> create(
@@ -3448,13 +3423,11 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   void acquire_snapshot(bool acquire_now) override {
     if (m_read_opts.snapshot == nullptr) {
-      /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
       const auto thd_ss = std::static_pointer_cast<Rdb_explicit_snapshot>(
           m_thd->get_explicit_snapshot());
       if (thd_ss) {
         m_explicit_snapshot = thd_ss;
       }
-      */
       if (m_explicit_snapshot) {
         auto snapshot = m_explicit_snapshot->get_snapshot()->snapshot();
         snapshot_created(snapshot);
@@ -5147,48 +5120,47 @@ static inline void rocksdb_register_tx(
   }
 }
 
-/* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots */
-// static bool rocksdb_explicit_snapshot(
-//     handlerton *const /* hton */, /*!< in: RocksDB handlerton */
-//     THD *const thd,               /*!< in: MySQL thread handle */
-//     snapshot_info_st *ss_info)    /*!< out: Snapshot information */
-// {
-//   switch (ss_info->op) {
-//     case snapshot_operation::SNAPSHOT_CREATE: {
-//       if (mysql_bin_log_is_open()) {
-//         mysql_bin_log_lock_commits(ss_info);
-//       }
-//       auto s = Rdb_explicit_snapshot::create(ss_info, rdb,
-//       rdb->GetSnapshot());
-//         mysql_bin_log_unlock_commits(ss_info);
-//       }
-//
-//       thd->set_explicit_snapshot(s);
-//       return s == nullptr;
-//     }
-//     case snapshot_operation::SNAPSHOT_ATTACH: {
-//       auto s = Rdb_explicit_snapshot::get(ss_info->snapshot_id);
-//       if (!s) {
-//         return true;
-//       }
-//       *ss_info = s->ss_info;
-//       thd->set_explicit_snapshot(s);
-//       return false;
-//     }
-//     case snapshot_operation::SNAPSHOT_RELEASE: {
-//       if (!thd->get_explicit_snapshot()) {
-//         return true;
-//       }
-//       *ss_info = thd->get_explicit_snapshot()->ss_info;
-//       thd->set_explicit_snapshot(nullptr);
-//       return false;
-//     }
-//     default:
-//       DBUG_ASSERT(false);
-//       return true;
-//   }
-//   return true;
-// }
+static int rocksdb_explicit_snapshot(
+    handlerton *const /* hton */, /*!< in: RocksDB handlerton */
+    THD *const thd,               /*!< in: MySQL thread handle */
+    snapshot_info_st *ss_info)    /*!< out: Snapshot information */
+{
+  switch (ss_info->op) {
+    case snapshot_operation::SNAPSHOT_CREATE: {
+      if (mysql_bin_log_is_open()) {
+        mysql_bin_log_lock_commits(ss_info);
+      }
+      auto s = Rdb_explicit_snapshot::create(ss_info, rdb, rdb->GetSnapshot());
+      if (mysql_bin_log_is_open()) {
+        mysql_bin_log_unlock_commits(ss_info);
+      }
+
+      thd->set_explicit_snapshot(s);
+      return s == nullptr ? HA_EXIT_FAILURE : HA_EXIT_SUCCESS;
+    }
+    case snapshot_operation::SNAPSHOT_ATTACH: {
+      auto s = Rdb_explicit_snapshot::get(ss_info->snapshot_id);
+      if (!s) {
+        return HA_EXIT_FAILURE;
+      }
+      *ss_info = s->ss_info;
+      thd->set_explicit_snapshot(s);
+      return HA_EXIT_SUCCESS;
+    }
+    case snapshot_operation::SNAPSHOT_RELEASE: {
+      if (!thd->get_explicit_snapshot()) {
+        return HA_EXIT_FAILURE;
+      }
+      *ss_info = thd->get_explicit_snapshot()->ss_info;
+      thd->set_explicit_snapshot(nullptr);
+      return HA_EXIT_SUCCESS;
+    }
+    default:
+      DBUG_ASSERT(false);
+      return HA_EXIT_FAILURE;
+  }
+  return HA_EXIT_FAILURE;
+}
 
 /*
     Supporting START TRANSACTION WITH CONSISTENT [ROCKSDB] SNAPSHOT
@@ -5235,93 +5207,86 @@ static int rocksdb_start_tx_and_assign_read_view(
   return HA_EXIT_SUCCESS;
 }
 
-/* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots */
-// static int rocksdb_start_tx_with_shared_read_view(
-//     handlerton *const hton,    /*!< in: RocksDB handlerton */
-//     THD *const thd,            /*!< in: MySQL thread handle of the
-//                                user for whom the transaction should
-//                                be committed */
-//     snapshot_info_st *ss_info) /*!< out: Snapshot info like binlog file, pos,
-//                                gtid executed and snapshot ID */
-// {
-//   DBUG_ASSERT(thd != nullptr);
-//   DBUG_ASSERT(ss_info != nullptr);
-//
-//   int error = HA_EXIT_SUCCESS;
-//
-//   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
-//   if (tx_isolation != ISO_REPEATABLE_READ) {
-//     my_error(ER_ISOLATION_LEVEL_WITH_CONSISTENT_SNAPSHOT, MYF(0));
-//     return HA_EXIT_FAILURE;
-//   }
-//
-//   std::shared_ptr<Rdb_explicit_snapshot> explicit_snapshot;
-//   const auto op = ss_info->op;
-//   Rdb_transaction *tx = nullptr;
-//
-//   DBUG_ASSERT(op == snapshot_operation::SNAPSHOT_CREATE ||
-//               op == snapshot_operation::SNAPSHOT_ATTACH);
-//
-//   // case: if binlogs are available get binlog file/pos and gtid info
-//   if (op == snapshot_operation::SNAPSHOT_CREATE && mysql_bin_log_is_open()) {
-//     /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
-//     mysql_bin_log_lock_commits(ss_info);
-//     */
-//   }
-//
-//   if (op == snapshot_operation::SNAPSHOT_ATTACH) {
-//     explicit_snapshot = Rdb_explicit_snapshot::get(ss_info->snapshot_id);
-//     if (!explicit_snapshot) {
-//       my_printf_error(ER_UNKNOWN_ERROR, "Snapshot %llu does not exist",
-//       MYF(0),
-//                       ss_info->snapshot_id);
-//       error = HA_EXIT_FAILURE;
-//     }
-//   }
-//
-//   // case: all good till now
-//   if (error == HA_EXIT_SUCCESS) {
-//     tx = get_or_create_tx(thd);
-//     Rdb_perf_context_guard guard(tx, rocksdb_perf_context_level(thd));
-//
-//     if (explicit_snapshot) {
-//       tx->m_explicit_snapshot = explicit_snapshot;
-//     }
-//
-//     DBUG_ASSERT(!tx->has_snapshot());
-//     tx->set_tx_read_only(true);
-//     rocksdb_register_tx(hton, thd, tx);
-//     tx->acquire_snapshot(true);
-//
-//     // case: an explicit snapshot was not assigned to this transaction
-//     if (!tx->m_explicit_snapshot) {
-//       tx->m_explicit_snapshot =
-//           Rdb_explicit_snapshot::create(ss_info, rdb,
-//           tx->m_read_opts.snapshot);
-//       if (!tx->m_explicit_snapshot) {
-//         my_printf_error(ER_UNKNOWN_ERROR, "Could not create snapshot",
-//         MYF(0)); error = HA_EXIT_FAILURE;
-//       }
-//     }
-//   }
-//
-//   // case: unlock the binlog
-//   if (op == snapshot_operation::SNAPSHOT_CREATE && mysql_bin_log_is_open()) {
-//     /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
-//     mysql_bin_log_unlock_commits(ss_info);
-//     */
-//   }
-//
-//   DBUG_ASSERT(error == HA_EXIT_FAILURE || tx->m_explicit_snapshot);
-//
-//   // copy over the snapshot details to pass to the upper layers
-//   if (tx->m_explicit_snapshot) {
-//     *ss_info = tx->m_explicit_snapshot->ss_info;
-//     ss_info->op = op;
-//   }
-//
-//   return error;
-// }
+static int rocksdb_start_tx_with_shared_read_view(
+    handlerton *const hton,    /*!< in: RocksDB handlerton */
+    THD *const thd,            /*!< in: MySQL thread handle of the
+                               user for whom the transaction should
+                               be committed */
+    snapshot_info_st *ss_info) /*!< out: Snapshot info like binlog file, pos,
+                               gtid executed and snapshot ID */
+{
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(ss_info != nullptr);
+
+  int error = HA_EXIT_SUCCESS;
+
+  ulong const tx_isolation = my_core::thd_tx_isolation(thd);
+  if (tx_isolation != ISO_REPEATABLE_READ) {
+    my_error(ER_ISOLATION_LEVEL_WITH_CONSISTENT_SNAPSHOT, MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  std::shared_ptr<Rdb_explicit_snapshot> explicit_snapshot;
+  const auto op = ss_info->op;
+  Rdb_transaction *tx = nullptr;
+
+  DBUG_ASSERT(op == snapshot_operation::SNAPSHOT_CREATE ||
+              op == snapshot_operation::SNAPSHOT_ATTACH);
+
+  // case: if binlogs are available get binlog file/pos and gtid info
+  if (op == snapshot_operation::SNAPSHOT_CREATE && mysql_bin_log_is_open()) {
+    mysql_bin_log_lock_commits(ss_info);
+  }
+
+  if (op == snapshot_operation::SNAPSHOT_ATTACH) {
+    explicit_snapshot = Rdb_explicit_snapshot::get(ss_info->snapshot_id);
+    if (!explicit_snapshot) {
+      my_printf_error(ER_UNKNOWN_ERROR, "Snapshot %llu does not exist", MYF(0),
+                      ss_info->snapshot_id);
+      error = HA_EXIT_FAILURE;
+    }
+  }
+
+  // case: all good till now
+  if (error == HA_EXIT_SUCCESS) {
+    tx = get_or_create_tx(thd);
+    Rdb_perf_context_guard guard(tx, thd);
+
+    if (explicit_snapshot) {
+      tx->m_explicit_snapshot = explicit_snapshot;
+    }
+
+    DBUG_ASSERT(!tx->has_snapshot());
+    tx->set_tx_read_only(true);
+    rocksdb_register_tx(hton, thd, tx);
+    tx->acquire_snapshot(true);
+
+    // case: an explicit snapshot was not assigned to this transaction
+    if (!tx->m_explicit_snapshot) {
+      tx->m_explicit_snapshot =
+          Rdb_explicit_snapshot::create(ss_info, rdb, tx->m_read_opts.snapshot);
+      if (!tx->m_explicit_snapshot) {
+        my_printf_error(ER_UNKNOWN_ERROR, "Could not create snapshot", MYF(0));
+        error = HA_EXIT_FAILURE;
+      }
+    }
+  }
+
+  // case: unlock the binlog
+  if (op == snapshot_operation::SNAPSHOT_CREATE && mysql_bin_log_is_open()) {
+    mysql_bin_log_unlock_commits(ss_info);
+  }
+
+  DBUG_ASSERT(error == HA_EXIT_FAILURE || tx->m_explicit_snapshot);
+
+  // copy over the snapshot details to pass to the upper layers
+  if (tx->m_explicit_snapshot) {
+    *ss_info = tx->m_explicit_snapshot->ss_info;
+    ss_info->op = op;
+  }
+
+  return error;
+}
 
 /* Dummy SAVEPOINT support. This is needed for long running transactions
  * like mysqldump (https://bugs.mysql.com/bug.php?id=71017).
@@ -5601,14 +5566,10 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->lock_hton_log = rocksdb_lock_hton_log;
   rocksdb_hton->unlock_hton_log = rocksdb_unlock_hton_log;
   rocksdb_hton->collect_hton_log_info = rocksdb_collect_hton_log_info;
-  /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
   rocksdb_hton->explicit_snapshot = rocksdb_explicit_snapshot;
-  */
   rocksdb_hton->start_consistent_snapshot =
       rocksdb_start_tx_and_assign_read_view;
-  /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
   rocksdb_hton->start_shared_snapshot = rocksdb_start_tx_with_shared_read_view;
-  */
   rocksdb_hton->savepoint_set = rocksdb_savepoint;
   rocksdb_hton->savepoint_rollback = rocksdb_rollback_to_savepoint;
   rocksdb_hton->savepoint_rollback_can_release_mdl =
@@ -11755,12 +11716,10 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
 
-      /* TODO(yzha) - 0b671a35cc7 SQL to create and manage explicit snapshots
       if (thd->get_explicit_snapshot()) {
         my_error(ER_UPDATES_WITH_EXPLICIT_SNAPSHOT, MYF(0));
         DBUG_RETURN(HA_ERR_UNSUPPORTED);
       }
-      */
 
       /*
         SQL layer signals us to take a write lock. It does so when starting DML

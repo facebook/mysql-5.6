@@ -74,6 +74,7 @@ class user_var_entry;
 class Binlog_cache_storage;
 
 struct Gtid;
+struct snapshot_info_st;
 
 typedef int64 query_id_t;
 
@@ -1198,10 +1199,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   std::pair<int, std::list<std::string>> get_log_index(
       bool need_lock_index = true);
-  void lock_commits(void);
-  void unlock_commits(char *binlog_file, ulonglong *binlog_pos,
-                      char **gtid_executed, int *gtid_executed_length,
-                      ulonglong *snapshot_hlc);
+  void lock_commits(snapshot_info_st *ss_info);
+  void unlock_commits(snapshot_info_st *ss_info);
   inline char *get_index_fname() { return index_file_name; }
   inline char *get_log_fname() { return log_file_name; }
   const char *get_name() const { return name; }

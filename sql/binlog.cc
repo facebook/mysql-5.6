@@ -8021,40 +8021,57 @@ uint MYSQL_BIN_LOG::next_file_id() {
 
 extern "C" char mysql_bin_log_is_open(void) { return mysql_bin_log.is_open(); }
 
-extern "C" void mysql_bin_log_lock_commits(void) {
-  mysql_bin_log.lock_commits();
+extern "C" void mysql_bin_log_lock_commits(struct snapshot_info_st *ss_info) {
+  mysql_bin_log.lock_commits(ss_info);
 }
 
-extern "C" void mysql_bin_log_unlock_commits(char *binlog_file,
-                                             unsigned long long *binlog_pos,
-                                             char **gtid_executed,
-                                             int *gtid_executed_length,
-                                             unsigned long long *snapshot_hlc) {
-  mysql_bin_log.unlock_commits(binlog_file, binlog_pos, gtid_executed,
-                               gtid_executed_length, snapshot_hlc);
+extern "C" void mysql_bin_log_unlock_commits(struct snapshot_info_st *ss_info) {
+  mysql_bin_log.unlock_commits(ss_info);
 }
 
-void MYSQL_BIN_LOG::lock_commits(void) {
+void MYSQL_BIN_LOG::lock_commits(snapshot_info_st *ss_info) {
   mysql_mutex_lock(&LOCK_log);
   mysql_mutex_lock(&LOCK_sync);
   mysql_mutex_lock(&LOCK_commit);
-}
 
-void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos,
-                                   char **gtid_executed,
-                                   int *gtid_executed_length,
-                                   ulonglong *snapshot_hlc) {
-  strmake(binlog_file, log_file_name, FN_REFLEN);
-  *binlog_pos = m_binlog_file->get_my_b_tell();
   global_sid_lock->wrlock();
-  const Gtid_set *logged_gtids = gtid_state->get_executed_gtids();
-  *gtid_executed_length = logged_gtids->to_string(gtid_executed);
+  char *gtid_buff = nullptr;
+  gtid_state->get_executed_gtids()->to_string(&gtid_buff);
 
-  if (enable_binlog_hlc && snapshot_hlc) {
-    *snapshot_hlc = get_current_hlc();
+  if (gtid_buff != nullptr) {
+    if (enable_binlog_hlc) {
+      ss_info->snapshot_hlc = get_current_hlc();
+    }
+
+    ss_info->binlog_file = log_file_name;
+    ss_info->binlog_pos = m_binlog_file->get_my_b_tell();
+    ss_info->gtid_executed = gtid_buff;
+    my_free(gtid_buff);
   }
 
   global_sid_lock->unlock();
+}
+
+void MYSQL_BIN_LOG::unlock_commits(snapshot_info_st *ss_info
+#ifdef DBUG_OFF
+                                       MY_ATTRIBUTE((unused))
+#endif
+) {
+#ifndef DBUG_OFF
+  global_sid_lock->wrlock();
+  char *gtid_buff = nullptr;
+  gtid_state->get_executed_gtids()->to_string(&gtid_buff);
+
+  assert(ss_info != nullptr &&
+         ss_info->binlog_file == std::string(log_file_name) &&
+         ss_info->binlog_pos == m_binlog_file->get_my_b_tell() &&
+         gtid_buff != nullptr &&
+         ss_info->gtid_executed == std::string(gtid_buff));
+
+  my_free(gtid_buff);
+  global_sid_lock->unlock();
+#endif
+
   mysql_mutex_unlock(&LOCK_commit);
   mysql_mutex_unlock(&LOCK_sync);
   mysql_mutex_unlock(&LOCK_log);

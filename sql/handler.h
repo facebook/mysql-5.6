@@ -66,7 +66,8 @@
 #include "sql/dd/types/object_table.h"  // dd::Object_table
 #include "sql/discrete_interval.h"      // Discrete_interval
 #include "sql/key.h"
-#include "sql/rpl_gtid.h"        // GTID
+#include "sql/rpl_gtid.h"  // GTID
+#include "sql/snapshot.h"
 #include "sql/sql_const.h"       // SHOW_COMP_OPTION
 #include "sql/sql_list.h"        // SQL_I_List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -638,8 +639,12 @@ static const uint MYSQL_START_TRANS_OPT_READ_ONLY = 2;
 static const uint MYSQL_START_TRANS_OPT_READ_WRITE = 4;
 // HIGH PRIORITY option
 static const uint MYSQL_START_TRANS_OPT_HIGH_PRIORITY = 8;
-// WITH CONSISTENT INNODB SNAPSHOT option
-static const uint MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT = 16;
+// WITH CONSISTENT INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT = 16;
+// WITH SHARED INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT = 32;
+// WITH EXISTING INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_EXIS_ENGINE_SNAPSHOT = 64;
 
 enum legacy_db_type {
   DB_TYPE_UNKNOWN = 0,
@@ -1341,7 +1346,13 @@ typedef void (*drop_database_t)(handlerton *hton, char *path);
 
 typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
+typedef int (*explicit_snapshot_t)(handlerton *hton, THD *thd,
+                                   snapshot_info_st *ss_info);
+
 typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
+
+typedef int (*start_shared_snapshot_t)(handlerton *hton, THD *thd,
+                                       snapshot_info_st *ss_info);
 
 /**
   Flush the log(s) of storage engine(s).
@@ -2360,7 +2371,9 @@ struct handlerton {
   create_t create;
   drop_database_t drop_database;
   panic_t panic;
+  explicit_snapshot_t explicit_snapshot;
   start_consistent_snapshot_t start_consistent_snapshot;
+  start_shared_snapshot_t start_shared_snapshot;
   flush_logs_t flush_logs;
   show_status_t show_status;
   partition_flags_t partition_flags;
@@ -6849,10 +6862,12 @@ int ha_resize_key_cache(KEY_CACHE *key_cache);
 int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 
 /* transactions: interface to handlerton functions */
-int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong *binlog_pos, char **gtid_executed,
-                                 int *gtid_executed_length,
-                                 ulonglong *snapshot_hlc);
+int ha_start_consistent_snapshot(THD *thd, snapshot_info_st *ss_info,
+                                 handlerton *hton);
+int ha_start_shared_snapshot(THD *thd, snapshot_info_st *ss_info,
+                             handlerton *hton);
+int ha_start_existing_snapshot(THD *thd, snapshot_info_st *ss_info,
+                               handlerton *hton);
 int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock = false);
 int ha_commit_attachable(THD *thd);
 int ha_rollback_trans(THD *thd, bool all);
@@ -6911,6 +6926,8 @@ bool ha_rollback_to_savepoint_can_release_mdl(THD *thd);
 int ha_savepoint(THD *thd, SAVEPOINT *sv);
 int ha_release_savepoint(THD *thd, SAVEPOINT *sv);
 
+bool ha_explicit_snapshot(THD *thd, handlerton *hton,
+                          snapshot_info_st *ss_info);
 /* these are called by storage engines */
 void trans_register_ha(THD *thd, bool all, handlerton *ht,
                        const ulonglong *trxid);
