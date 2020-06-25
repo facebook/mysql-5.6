@@ -5862,10 +5862,7 @@ void THD::set_shard_id()
 */
 void THD::serialize_client_attrs()
 {
-  // skip if (1) SQL stats is not enabled, or (2) capturing the sql plan
-  if (sql_stats_control != SQL_STATS_CONTROL_ON ||
-      in_capture_sql_plan())
-    return;
+  DBUG_ASSERT(!in_capture_sql_plan());
 
   if (client_attrs_string.is_empty()) {
     std::vector<std::pair<String, String>> client_attrs;
