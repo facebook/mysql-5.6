@@ -1,0 +1,154 @@
+# restart
+show variables like 'rocksdb_use_default_sk_cf';
+Variable_name	Value
+rocksdb_use_default_sk_cf	OFF
+create table t1 (a int, b int, 
+primary key (a), key (b) ) engine=rocksdb;
+create table t2 (a int, b int, c int,
+primary key (a), key(b,c)) engine=rocksdb;
+create table t3 (a int,b int,
+primary key (a), key (b) comment 'z') engine=rocksdb;
+insert into t1 values (1, 1);
+insert into t2 values (2, 2, 2);
+insert into t3 values (3, 3);
+select cf_name, option_type, value
+from information_schema.rocksdb_cf_options
+where option_type in ('WRITE_BUFFER_SIZE',
+'TARGET_FILE_SIZE_BASE',
+'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+order by cf_name, option_type;
+cf_name	option_type	value
+default	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default	TARGET_FILE_SIZE_BASE	67108864
+default	WRITE_BUFFER_SIZE	67108864
+z	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+z	TARGET_FILE_SIZE_BASE	67108864
+z	WRITE_BUFFER_SIZE	67108864
+__system__	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+__system__	TARGET_FILE_SIZE_BASE	67108864
+__system__	WRITE_BUFFER_SIZE	67108864
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3') order by TABLE_NAME, INDEX_NAME, CF;
+TABLE_NAME	INDEX_NAME	CF
+t1	b	default
+t1	PRIMARY	default
+t2	b	default
+t2	PRIMARY	default
+t3	b	z
+t3	PRIMARY	default
+# restart: --rocksdb_use_default_sk_cf=1 --rocksdb_override_cf_options=default={write_buffer_size=8m;target_file_size_base=2m}
+create table t4 (a int, b int, c int,
+primary key (a), key(b,c)) engine=rocksdb;
+create table t40 (a int, b int, c int, key(b,c)) engine=rocksdb;
+create table t41 (a int, b int, c int) engine=rocksdb;
+SELECT cf_name, option_type, value
+FROM information_schema.rocksdb_cf_options
+where option_type in ('WRITE_BUFFER_SIZE',
+'TARGET_FILE_SIZE_BASE',
+'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+order by cf_name, option_type;
+cf_name	option_type	value
+default	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default	TARGET_FILE_SIZE_BASE	2097152
+default	WRITE_BUFFER_SIZE	8388608
+default_sk	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default_sk	TARGET_FILE_SIZE_BASE	67108864
+default_sk	WRITE_BUFFER_SIZE	67108864
+z	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+z	TARGET_FILE_SIZE_BASE	67108864
+z	WRITE_BUFFER_SIZE	67108864
+__system__	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+__system__	TARGET_FILE_SIZE_BASE	67108864
+__system__	WRITE_BUFFER_SIZE	67108864
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't40', 't41') order by TABLE_NAME, INDEX_NAME, CF;
+TABLE_NAME	INDEX_NAME	CF
+t1		default
+t1		default
+t2		default
+t2		default
+t3		default
+t3		z
+t4	b	default_sk
+t4	PRIMARY	default
+t40	b	default_sk
+t40	HIDDEN_PK_ID	default
+t41	HIDDEN_PK_ID	default
+# restart: --rocksdb_use_default_sk_cf=1 --rocksdb_override_cf_options=default={write_buffer_size=9m;target_file_size_base=2m};default_sk={write_buffer_size=16m;target_file_size_base=4m}
+create table t5 (a int, b int, c int,
+primary key (a), key(b,c)) engine=rocksdb;
+SELECT cf_name, option_type, value
+FROM information_schema.rocksdb_cf_options
+where option_type in ('WRITE_BUFFER_SIZE',
+'TARGET_FILE_SIZE_BASE',
+'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+order by cf_name, option_type;
+cf_name	option_type	value
+default	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default	TARGET_FILE_SIZE_BASE	2097152
+default	WRITE_BUFFER_SIZE	9437184
+default_sk	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default_sk	TARGET_FILE_SIZE_BASE	4194304
+default_sk	WRITE_BUFFER_SIZE	16777216
+z	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+z	TARGET_FILE_SIZE_BASE	67108864
+z	WRITE_BUFFER_SIZE	67108864
+__system__	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+__system__	TARGET_FILE_SIZE_BASE	67108864
+__system__	WRITE_BUFFER_SIZE	67108864
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't5') order by TABLE_NAME, INDEX_NAME, CF;
+TABLE_NAME	INDEX_NAME	CF
+t1		default
+t1		default
+t2		default
+t2		default
+t3		default
+t3		z
+t4		default
+t4		default_sk
+t5	b	default_sk
+t5	PRIMARY	default
+create table t6 (a int,b int,
+primary key (a), key (b) comment 'default_sk') engine=rocksdb;
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't5', 't6') order by
+TABLE_NAME, INDEX_NAME, CF;
+TABLE_NAME	INDEX_NAME	CF
+t1		default
+t1		default
+t2		default
+t2		default
+t3		default
+t3		z
+t4		default
+t4		default_sk
+t5	b	default_sk
+t5	PRIMARY	default
+t6	b	default_sk
+t6	PRIMARY	default
+set @@global.rocksdb_delete_cf = 'default_sk';
+ERROR HY000: Cannot drop Column family ('default_sk') because it is in use or does not exist.
+set global rocksdb_update_cf_options="default_sk={write_buffer_size=3m;target_file_size_base=3m}";
+select cf_name, option_type, value
+from information_schema.rocksdb_cf_options
+where option_type in ('WRITE_BUFFER_SIZE',
+'TARGET_FILE_SIZE_BASE',
+'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+order by cf_name, option_type;
+cf_name	option_type	value
+default	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default	TARGET_FILE_SIZE_BASE	2097152
+default	WRITE_BUFFER_SIZE	9437184
+default_sk	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+default_sk	TARGET_FILE_SIZE_BASE	3145728
+default_sk	WRITE_BUFFER_SIZE	3145728
+z	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+z	TARGET_FILE_SIZE_BASE	67108864
+z	WRITE_BUFFER_SIZE	67108864
+__system__	MAX_BYTES_FOR_LEVEL_MULTIPLIER	10.000000
+__system__	TARGET_FILE_SIZE_BASE	67108864
+__system__	WRITE_BUFFER_SIZE	67108864
+# restart: --rocksdb_use_default_sk_cf=1 --rocksdb_override_cf_options=default={write_buffer_size=9m;target_file_size_base=2m};default_sk={write_buffer_size=16m;target_file_size_base=4m}
+
+drop table t1, t2, t3, t4, t40, t41, t5, t6;
