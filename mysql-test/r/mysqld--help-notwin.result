@@ -1913,6 +1913,8 @@ The following options may be given as the first argument:
  DBOptions::use_adaptive_mutex for RocksDB
  --rocksdb-use-clock-cache 
  Use ClockCache instead of default LRUCache for RocksDB
+ --rocksdb-use-default-sk-cf 
+ Use default_sk for secondary keys
  --rocksdb-use-direct-io-for-flush-and-compaction 
  DBOptions::use_direct_io_for_flush_and_compaction for
  RocksDB
@@ -2876,6 +2878,7 @@ rocksdb-unsafe-for-binlog FALSE
 rocksdb-update-cf-options (No default value)
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-clock-cache FALSE
+rocksdb-use-default-sk-cf FALSE
 rocksdb-use-direct-io-for-flush-and-compaction FALSE
 rocksdb-use-direct-reads FALSE
 rocksdb-use-fsync FALSE
