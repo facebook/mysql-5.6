@@ -325,27 +325,32 @@ static int rocksdb_delete_column_family(THD *const /* thd */,
   char buff[STRING_BUFFER_USUAL_SIZE];
   int len = sizeof(buff);
 
-  assert(value != nullptr);
+  const char *const cf = value->val_str(value, buff, &len);
+  if (cf == nullptr) return HA_EXIT_SUCCESS;
 
-  if (const char *const cf = value->val_str(value, buff, &len)) {
-    auto &cf_manager = rdb_get_cf_manager();
-    int ret = 0;
-
-    {
-      std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
-      ret = cf_manager.drop_cf(&ddl_manager, &dict_manager, cf);
-    }
-
-    if (ret == HA_EXIT_SUCCESS) {
-      rdb_drop_idx_thread.signal();
-    } else {
-      my_error(ER_CANT_DROP_CF, MYF(0), cf);
-    }
-
-    return ret;
+  std::string cf_name = std::string(cf);
+  // Forbid to remove these built-in CFs
+  if (cf_name == DEFAULT_SYSTEM_CF_NAME || cf_name == DEFAULT_CF_NAME ||
+      cf_name.empty()) {
+    my_error(ER_CANT_DROP_CF, MYF(0), cf);
+    return HA_EXIT_FAILURE;
   }
 
-  return HA_EXIT_SUCCESS;
+  auto &cf_manager = rdb_get_cf_manager();
+  int ret = 0;
+
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    ret = cf_manager.drop_cf(&ddl_manager, &dict_manager, cf_name);
+  }
+
+  if (ret == HA_EXIT_SUCCESS) {
+    rdb_drop_idx_thread.signal();
+  } else {
+    my_error(ER_CANT_DROP_CF, MYF(0), cf);
+  }
+
+  return ret;
 }
 
 ///////////////////////////////////////////////////////////
@@ -2406,7 +2411,11 @@ static int rocksdb_compact_column_family(
       assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
     });
 
-    auto cfh = cf_manager.get_cf(cf);
+    std::string cf_name = std::string(cf);
+    // use rocksdb_compact_cf="" or "default" to compact default CF
+    if (cf_name.empty()) cf_name = DEFAULT_CF_NAME;
+
+    auto cfh = cf_manager.get_cf(cf_name);
     if (cfh != nullptr && rdb != nullptr) {
       int mc_id = rdb_mc_thread.request_manual_compaction(
           cfh, nullptr, nullptr, THDVAR(thd, manual_compaction_threads));
@@ -7475,6 +7484,9 @@ int ha_rocksdb::create_cfs(
         assert(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
       }
     });
+
+    // if not specified, use default CF name
+    if (cf_name.empty()) cf_name = DEFAULT_CF_NAME;
 
     // Here's how `get_or_create_cf` will use the input parameters:
     //

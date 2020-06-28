@@ -77,19 +77,16 @@ void Rdb_cf_manager::cleanup() {
     See Rdb_cf_manager::get_cf
 */
 std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
-    rocksdb::DB *const rdb, const std::string &cf_name_arg) {
+    rocksdb::DB *const rdb, const std::string &cf_name) {
   assert(rdb != nullptr);
-
+  assert(!cf_name.empty());
   std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
-  if (cf_name_arg == PER_INDEX_CF_NAME) {
+  if (cf_name == PER_INDEX_CF_NAME) {
     // per-index column families is no longer supported.
     my_error(ER_PER_INDEX_CF_DEPRECATED, MYF(0));
     return cf_handle;
   }
-
-  const std::string &cf_name =
-      cf_name_arg.empty() ? DEFAULT_CF_NAME : cf_name_arg;
 
   RDB_MUTEX_LOCK_CHECK(m_mutex);
 
@@ -133,18 +130,18 @@ std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_or_create_cf(
   Find column family by its cf_name.
 */
 std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_cf(
-    const std::string &cf_name_arg) const {
-  return get_cf(cf_name_arg, false /*lock_held_by_caller*/);
+    const std::string &cf_name) const {
+  return get_cf(cf_name, false /*lock_held_by_caller*/);
 }
 
 std::shared_ptr<rocksdb::ColumnFamilyHandle> Rdb_cf_manager::get_cf(
-    const std::string &cf_name_arg, const bool lock_held_by_caller) const {
+    const std::string &cf_name, const bool lock_held_by_caller) const {
+  assert(!cf_name.empty());
   std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle;
 
   if (!lock_held_by_caller) {
     RDB_MUTEX_LOCK_CHECK(m_mutex);
   }
-  std::string cf_name = cf_name_arg.empty() ? DEFAULT_CF_NAME : cf_name_arg;
 
   const auto it = m_cf_name_map.find(cf_name);
 
@@ -311,11 +308,11 @@ struct Rdb_cf_scanner : public Rdb_tables_scanner {
 int Rdb_cf_manager::drop_cf(Rdb_ddl_manager *const ddl_manager,
                             Rdb_dict_manager *const dict_manager,
                             const std::string &cf_name) {
+  assert(!cf_name.empty());
   dict_manager->assert_lock_held();
   uint32_t cf_id = 0;
 
-  if (cf_name == DEFAULT_SYSTEM_CF_NAME || cf_name == DEFAULT_CF_NAME ||
-      cf_name.empty()) {
+  if (cf_name == DEFAULT_SYSTEM_CF_NAME || cf_name == DEFAULT_CF_NAME) {
     return HA_EXIT_FAILURE;
   }
 
@@ -384,6 +381,7 @@ int Rdb_cf_manager::drop_cf(Rdb_ddl_manager *const ddl_manager,
 int Rdb_cf_manager::create_cf_flags_if_needed(
     const Rdb_dict_manager *const dict_manager, const uint32 &cf_id,
     const std::string &cf_name, const bool is_per_partition_cf) {
+  assert(!cf_name.empty());
   uchar flags =
       (is_cf_name_reverse(cf_name.c_str()) ? Rdb_key_def::REVERSE_CF_FLAG : 0) |
       (is_per_partition_cf ? Rdb_key_def::PER_PARTITION_CF_FLAG : 0);
