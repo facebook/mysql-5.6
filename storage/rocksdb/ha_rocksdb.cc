@@ -127,6 +127,7 @@ Rdb_compaction_stats compaction_stats;
 const std::string DEFAULT_CF_NAME("default");
 const std::string DEFAULT_SYSTEM_CF_NAME("__system__");
 const std::string PER_INDEX_CF_NAME("$per_index_cf");
+const std::string DEFAULT_SK_CF_NAME("default_sk");
 
 static std::vector<std::string> rdb_tables_to_recalc;
 
@@ -265,6 +266,7 @@ static rocksdb::CompactRangeOptions getCompactRangeOptions(
 static char *rocksdb_default_cf_options = nullptr;
 static char *rocksdb_override_cf_options = nullptr;
 static char *rocksdb_update_cf_options = nullptr;
+static bool rocksdb_use_default_sk_cf = false;
 
 ///////////////////////////////////////////////////////////
 // Globals
@@ -331,7 +333,8 @@ static int rocksdb_delete_column_family(THD *const /* thd */,
   std::string cf_name = std::string(cf);
   // Forbid to remove these built-in CFs
   if (cf_name == DEFAULT_SYSTEM_CF_NAME || cf_name == DEFAULT_CF_NAME ||
-      cf_name.empty()) {
+      cf_name.empty() ||
+      (cf_name == DEFAULT_SK_CF_NAME && rocksdb_use_default_sk_cf)) {
     my_error(ER_CANT_DROP_CF, MYF(0), cf);
     return HA_EXIT_FAILURE;
   }
@@ -1796,6 +1799,11 @@ static MYSQL_SYSVAR_STR(update_cf_options, rocksdb_update_cf_options,
                         rocksdb_validate_update_cf_options,
                         rocksdb_set_update_cf_options, nullptr);
 
+static MYSQL_SYSVAR_BOOL(use_default_sk_cf, rocksdb_use_default_sk_cf,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "Use default_sk for secondary keys", nullptr, nullptr,
+                         false);
+
 static MYSQL_SYSVAR_UINT(flush_log_at_trx_commit,
                          rocksdb_flush_log_at_trx_commit, PLUGIN_VAR_RQCMDARG,
                          "Sync on transaction commit. Similar to "
@@ -2319,6 +2327,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(default_cf_options),
     MYSQL_SYSVAR(override_cf_options),
     MYSQL_SYSVAR(update_cf_options),
+    MYSQL_SYSVAR(use_default_sk_cf),
 
     MYSQL_SYSVAR(flush_log_at_trx_commit),
     MYSQL_SYSVAR(write_disable_wal),
@@ -7406,6 +7415,8 @@ int ha_rocksdb::create_cfs(
   my_core::filename_to_tablename(tbl_def_arg->base_tablename().c_str(),
                                  tablename_sys, sizeof(tablename_sys));
 
+  uint primary_key_index = pk_index(table_arg, tbl_def_arg);
+
   /*
     The first loop checks the index parameters and creates
     column families if necessary.
@@ -7486,7 +7497,12 @@ int ha_rocksdb::create_cfs(
     });
 
     // if not specified, use default CF name
-    if (cf_name.empty()) cf_name = DEFAULT_CF_NAME;
+    if (cf_name.empty()) {
+      if (i != primary_key_index && rocksdb_use_default_sk_cf)
+        cf_name = DEFAULT_SK_CF_NAME;
+      else
+        cf_name = DEFAULT_CF_NAME;
+    }
 
     // Here's how `get_or_create_cf` will use the input parameters:
     //
