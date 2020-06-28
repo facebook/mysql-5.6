@@ -1,3 +1,17 @@
+# The test does the following:
+# 1. Uses debug executes to ensure that multiple threads enter ordered_commit
+#    as a group.
+# 2. Uses debug execute to ensure that one thread in the group fails after
+#    flushing to the log with commit-consensus-error
+# 3. Verifies that none of the trxs in the group committed (all trxs were
+#    aborted in the engine)
+# 4. Verifies that the trxs that were aborted released their owned_gtid (and
+#    gtid_executed was not updates for these trxs)
+# 5. All row locks for the trxs were released as part of abort. So subsequent
+#    inserts with the same key is a success
+# 6. The newly committed trxs were assigned sequentially increasing gtid
+#    (since #4 ensured that owned_gtids were released correctly)
+
 # clean slate
 reset master;
 
@@ -36,7 +50,16 @@ set session debug="+d,become_group_follower";
 # Verify that the trx was rolled back
 select * from t1;
 
-# Verify that gtid_executed table is maintained correctly
+# Binlog should retain events for the rolledback trxs
+--source include/show_binlog_events.inc
+
+# Insert a flush log and wait until gtid_executed table is compressed
+SET @@GLOBAL.DEBUG= '+d,compress_gtid_table';
+flush logs;
+SET DEBUG_SYNC='now WAIT_FOR complete_compression';
+
+# Verify that gtid_executed table is maintained correctly. It should have only
+# one entry corresponding to 'create table...'
 --replace_result $master_uuid MASTER_UUID
 select * from mysql.gtid_executed;
 
@@ -46,10 +69,14 @@ insert into t1 values(1, 'a');
 insert into t1 values(2, 'b');
 select * from t1;
 
+# Insert a flush log and wait until gtid_executed table is compressed
+SET @@GLOBAL.DEBUG= '+d,compress_gtid_table';
+flush logs;
+SET DEBUG_SYNC='now WAIT_FOR complete_compression';
+
 # Verify that gtid_executed table is maintained correctly without any holes
 --replace_result $master_uuid MASTER_UUID
 select * from mysql.gtid_executed;
 
-# Binlog should retain events for the rolledback trxs
---source include/show_binlog_events.inc
 drop table t1;
+SET @@GLOBAL.DEBUG= '-d,compress_gtid_table';
