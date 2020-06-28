@@ -1,0 +1,99 @@
+--source include/have_rocksdb.inc
+
+let MYSQLD_DATADIR= `SELECT @@datadir`;
+let file= $MYSQL_TMP_DIR/use_default_sk_cf.cnf;
+
+# restart with new column families in DB
+--source include/restart_mysqld.inc
+
+show variables like 'rocksdb_use_default_sk_cf';
+
+create table t1 (a int, b int, 
+                primary key (a), key (b) ) engine=rocksdb;
+create table t2 (a int, b int, c int,
+                primary key (a), key(b,c)) engine=rocksdb;
+create table t3 (a int,b int,
+                primary key (a), key (b) comment 'z') engine=rocksdb;
+
+insert into t1 values (1, 1);
+insert into t2 values (2, 2, 2);
+insert into t3 values (3, 3);
+
+select cf_name, option_type, value
+  from information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3') order by TABLE_NAME, INDEX_NAME, CF;
+
+
+# Enable default cf for sk
+--let restart_parameters=restart: --rocksdb_use_default_sk_cf=1 --rocksdb_override_cf_options=default={write_buffer_size=8m;target_file_size_base=2m}
+--source include/restart_mysqld.inc
+
+create table t4 (a int, b int, c int,
+                primary key (a), key(b,c)) engine=rocksdb;
+
+create table t40 (a int, b int, c int, key(b,c)) engine=rocksdb;
+
+create table t41 (a int, b int, c int) engine=rocksdb;
+
+SELECT cf_name, option_type, value
+  FROM information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't40', 't41') order by TABLE_NAME, INDEX_NAME, CF;
+
+# override default cf for sk
+--let restart_parameters=restart: --rocksdb_use_default_sk_cf=1 --rocksdb_override_cf_options=default={write_buffer_size=9m;target_file_size_base=2m};default_sk={write_buffer_size=16m;target_file_size_base=4m}
+--source include/restart_mysqld.inc
+
+create table t5 (a int, b int, c int,
+                primary key (a), key(b,c)) engine=rocksdb;
+
+SELECT cf_name, option_type, value
+  FROM information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't5') order by TABLE_NAME, INDEX_NAME, CF;
+
+# okay to use default_sk cf directly 
+create table t6 (a int,b int,
+                primary key (a), key (b) comment 'default_sk') engine=rocksdb;
+
+select TABLE_NAME, INDEX_NAME, CF from information_schema.rocksdb_ddl where
+TABLE_NAME in ('t1', 't2', 't3', 't4', 't5', 't6') order by
+TABLE_NAME, INDEX_NAME, CF;
+
+# not okay to drop built-in default_sk cf
+--error ER_CANT_DROP_CF
+set @@global.rocksdb_delete_cf = 'default_sk';
+
+# ok to update built_in default_sk cf dynamically, similar behavior as default
+# cf, see https://github.com/facebook/mysql-5.6/issues/888
+set global rocksdb_update_cf_options="default_sk={write_buffer_size=3m;target_file_size_base=3m}";
+
+select cf_name, option_type, value
+  from information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+
+# restart to clean dynamic setting 
+--source include/restart_mysqld.inc
+
+# cleanup
+--echo
+drop table t1, t2, t3, t4, t40, t41, t5, t6;
