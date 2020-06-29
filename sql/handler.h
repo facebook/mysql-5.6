@@ -3525,6 +3525,21 @@ void get_sweep_read_cost(TABLE *table, ha_rows nrows, bool interrupted,
 */
 #define HA_MRR_SUPPORT_SORTED 256
 
+/*
+  SQL layer passes this as an argument to multi_range_read_info() to indicate
+  that the lookup keys are full extended keys for the index
+*/
+#define HA_MRR_FULL_EXTENDED_KEYS 512
+
+/*
+  MRR implementation returns this flag to indicate that when the optimizer has
+  a choice between
+   - ref(const) access (which doesnt use the MRR interface)
+   - range access (which does use MRR interface)
+  the latter should be preferred.
+*/
+#define HA_MRR_CONVERT_REF_TO_RANGE 1024
+
 class ha_statistics {
  public:
   ulonglong data_file_length;     /* Length off data file */

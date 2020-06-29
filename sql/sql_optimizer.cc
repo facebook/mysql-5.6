@@ -142,9 +142,9 @@ static bool test_if_skip_sort_order(JOIN_TAB *tab, ORDER_with_src &order,
 static Item_func_match *test_if_ft_index_order(ORDER *order);
 
 static uint32 get_key_length_tmp_table(Item *item);
-static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
-                                         enum_order ordering,
-                                         bool recheck_range);
+static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
+                                                enum_order ordering,
+                                                bool recheck_range);
 
 static bool has_not_null_predicate(Item *cond, Item_field *not_null_item);
 
@@ -2535,15 +2535,17 @@ bool JOIN::prune_table_partitions() {
   @param recheck_range Check possibility of range scan even if it is currently
                        unviable.
 
-  @return true   Range is better than ref
-  @return false  Ref is better or switch isn't possible
+  @return Pointer  Range is better than ref. The pointer points to a string
+                   describing why (the string is intended to be used in the
+                   optimizer trace)
+  @return nullptr  Ref is better or switch isn't possible
 
   @todo: This decision should rather be made in best_access_path()
 */
 
-static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
-                                         enum_order ordering,
-                                         bool recheck_range) {
+static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
+                                                enum_order ordering,
+                                                bool recheck_range) {
   if ((tab->quick() &&                                       // 1)
        tab->position()->key->key == tab->quick()->index) ||  // 2)
       recheck_range) {
@@ -2579,7 +2581,7 @@ static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
           if (length < qck->max_used_key_length) {
             delete tab->quick();
             tab->set_quick(qck);
-            return true;
+            return "uses_more_keyparts";
           } else {
             Opt_trace_object(trace, "access_type_unchanged")
                 .add("ref_key_length", length)
@@ -2587,11 +2589,29 @@ static bool can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
             delete qck;
           }
         }
-      } else
-        return length < tab->quick()->max_used_key_length;  // 5)
+      } else if (length == tab->quick()->max_used_key_length &&
+                 tab->quick()->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE) {
+        /*
+          If there was a quick select that
+           - was scanning the same range
+           - used MRR
+           - MRR implementation indicated that it's preferred to use MRR over
+             ref(const).
+          then switch to range access as it will read rows using the MRR
+          interface
+        */
+        auto *qr = static_cast<QUICK_RANGE_SELECT *>(tab->quick());
+        if ((qr->mrr_flags & HA_MRR_USE_DEFAULT_IMPL) == 0 &&
+            (qr->mrr_flags & HA_MRR_CONVERT_REF_TO_RANGE) != 0) {
+          return "uses_mrr";
+        }
+      } else {
+        return length < tab->quick()->max_used_key_length ? "uses_more_keyparts"
+                                                          : nullptr;  // 5)
+      }
     }
   }
-  return false;
+  return nullptr;
 }
 
 /**
@@ -2641,7 +2661,9 @@ void JOIN::adjust_access_methods() {
         // From table scan to index scan, thus filter effect needs no recalc.
       }
     } else if (tab->type() == JT_REF) {
-      if (can_switch_from_ref_to_range(thd, tab, ORDER_NOT_RELEVANT, false)) {
+      const char *switch_reason =
+          can_switch_from_ref_to_range(thd, tab, ORDER_NOT_RELEVANT, false);
+      if (switch_reason != nullptr) {
         tab->set_type(JT_RANGE);
 
         Opt_trace_context *const trace = &thd->opt_trace;
@@ -2652,7 +2674,7 @@ void JOIN::adjust_access_methods() {
                       tab->table()->key_info[tab->position()->key->key].name)
             .add_alnum("old_type", "ref")
             .add_alnum("new_type", join_type_str[tab->type()])
-            .add_alnum("cause", "uses_more_keyparts");
+            .add_alnum("cause", switch_reason);
 
         tab->use_quick = QS_RANGE;
         tab->position()->filter_effect = COND_FILTER_STALE;
@@ -3263,6 +3285,11 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
 
       if (tab->table()->covering_keys.is_set(tab->ref().key))
         join_cache_flags |= HA_MRR_INDEX_ONLY;
+
+      if (tab->table()->key_info[tab->ref().key].actual_key_parts ==
+          tab->ref().key_parts)
+        join_cache_flags |= HA_MRR_FULL_EXTENDED_KEYS;
+
       rows = tab->table()->file->multi_range_read_info(
           tab->ref().key, 10, 20, &bufsz, &join_cache_flags, &cost);
       /*
