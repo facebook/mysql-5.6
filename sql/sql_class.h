@@ -3511,40 +3511,6 @@ public:
 
   void capture_system_thread_id();
 
-  void clear_plan_id()
-    { plan_id_set = false; capture_sql_plan = false; }
-  void set_plan_id(const unsigned char *plan_id_val)
-    { mysql_mutex_lock(&LOCK_thd_data);
-      memcpy(plan_id.data(), plan_id_val, MD5_HASH_SIZE);
-      plan_id_set = true;
-      mysql_mutex_unlock(&LOCK_thd_data);
-    }
-  void set_plan_capture(bool val)
-    { capture_sql_plan = val; }
-  bool in_capture_sql_plan()
-    { return capture_sql_plan; }
-
-  // CLIENT_ID is set in serialize_client_attrs()
-  void clear_client_id()
-    { client_id_set = false; }
-
-  void clear_sql_id()
-    { sql_id_set = false; }
-  void set_sql_id()
-    { /* check SQL stats is enabled, the digest has been populated and
-         not an internal explain to capture the sql plan
-       */
-      if (sql_stats_control == SQL_STATS_CONTROL_ON &&
-          !in_capture_sql_plan() &&
-          m_digest && !m_digest->m_digest_storage.is_empty())
-      {
-        mysql_mutex_lock(&LOCK_thd_data);
-        compute_digest_md5(&m_digest->m_digest_storage, sql_id.data());
-        sql_id_set = true;
-        mysql_mutex_unlock(&LOCK_thd_data);
-      }
-    }
-
   /* Adjust disk usage for current session. */
   void adjust_tmp_table_disk_usage(longlong delta);
   void adjust_filesort_disk_usage(longlong delta);
@@ -3565,16 +3531,63 @@ public:
   /** Top level statement digest. */
   sql_digest_state m_digest_state;
 
-  /** Plan ID = compute_md5_hash(sql plan) */
-  md5_key plan_id{};
-  std::atomic_bool plan_id_set;
+  /** set to true when running in plan capture mode */
   bool    capture_sql_plan;
-  /** Client ID = compute_md5_hash(client_attrs_string) */
-  md5_key client_id{};
-  std::atomic_bool client_id_set;
-  /** SQL ID = compute_md5_hash(statement digest) */
-  md5_key sql_id{};
-  std::atomic_bool sql_id_set;
+
+  void set_plan_capture(bool val)
+    { capture_sql_plan = val; }
+  bool in_capture_sql_plan()
+    { return capture_sql_plan; }
+
+  /** Types of keys used to track various attributes of a query
+      For each key we maintain an ID computed as a MD5 and a status
+      of whether the ID has been set or not (i.e, valid for read).
+      Both are stored in an array indexed by the corresponding enum value
+
+      Plan ID   = compute_md5_hash(sql plan)
+      Client ID = compute_md5_hash(client attributes)
+      SQL ID    = compute_md5_hash(statement digest)
+      SQL Hash  = compute_md5_hash(statement text + flags from QC)
+   */
+  enum enum_mt_key
+  {
+    PLAN_ID   = 0,
+    SQL_ID    = 1,
+    CLIENT_ID = 2,
+    SQL_HASH  = 3,
+    MT_KEY_MAX
+  };
+
+  md5_key          mt_key_val[MT_KEY_MAX];
+  std::atomic_bool mt_key_val_set[MT_KEY_MAX];
+
+  /* SQL_ID and SQL_PLAN may be accessed by another thread executing
+     SHOW PROCESSLIST or a SQL reading from I_S.PROCESSLIST
+  */
+  void mt_mutex_lock(enum_mt_key key_name)
+    {
+      if (key_name == SQL_ID || key_name == PLAN_ID)
+        mysql_mutex_lock(&LOCK_thd_data);
+    }
+  void mt_mutex_unlock(enum_mt_key key_name)
+    {
+      if (key_name == SQL_ID || key_name == PLAN_ID)
+        mysql_mutex_unlock(&LOCK_thd_data);
+    }
+  void mt_key_set(enum_mt_key key_name, const unsigned char *key_val)
+    {
+      DBUG_ASSERT(key_name < MT_KEY_MAX);
+      mt_mutex_lock(key_name);
+      memcpy(mt_key_val[key_name].data(), key_val, MD5_HASH_SIZE);
+      mt_key_val_set[key_name] = true;
+      mt_mutex_unlock(key_name);
+    }
+  bool mt_key_is_set(enum_mt_key key_name)
+    { DBUG_ASSERT(key_name < MT_KEY_MAX); return mt_key_val_set[key_name]; }
+  md5_key& mt_key_value(enum_mt_key key_name)
+    { DBUG_ASSERT(key_name < MT_KEY_MAX); return mt_key_val[key_name]; }
+  void mt_key_clear(enum_mt_key key_name)
+    { DBUG_ASSERT(key_name < MT_KEY_MAX); mt_key_val_set[key_name] = false; }
 
   /** Current statement instrumentation. */
   PSI_statement_locker *m_statement_psi;

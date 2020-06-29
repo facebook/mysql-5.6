@@ -606,20 +606,20 @@ void Query_cache::unlock(void)
 /**
   Helper function for determine if a SELECT statement has a SQL_NO_CACHE
   directive.
-  
+
   @param sql A pointer to the first white space character after SELECT
-  
+
   @return
    @retval TRUE The character string contains SQL_NO_CACHE
    @retval FALSE No directive found.
 */
- 
+
 static bool has_no_cache_directive(char *sql)
 {
   int i=0;
   while (sql[i] == ' ')
     ++i;
-    
+
   if (my_toupper(system_charset_info, sql[i])    == 'S' &&
       my_toupper(system_charset_info, sql[i+1])  == 'Q' &&
       my_toupper(system_charset_info, sql[i+2])  == 'L' &&
@@ -634,8 +634,8 @@ static bool has_no_cache_directive(char *sql)
       my_toupper(system_charset_info, sql[i+11]) == 'E' &&
       my_toupper(system_charset_info, sql[i+12]) == ' ')
     return TRUE;
-  
-  return FALSE;       
+
+  return FALSE;
 }
 
 
@@ -1027,7 +1027,7 @@ void Query_cache::end_of_result(THD *thd)
   if (query_block)
   {
     /*
-      The writer is still present; finish last result block by chopping it to 
+      The writer is still present; finish last result block by chopping it to
       suitable size if needed and setting block type. Since this is the last
       block, the writer should be dropped.
     */
@@ -1144,7 +1144,7 @@ ulong Query_cache::resize(ulong query_cache_size_arg)
       if (query->writer())
       {
         /*
-           Drop the writer; this will cancel any attempts to store 
+           Drop the writer; this will cancel any attempts to store
            the processed statement associated with this writer.
          */
         query->writer()->first_query_block= NULL;
@@ -1167,7 +1167,6 @@ ulong Query_cache::resize(ulong query_cache_size_arg)
   DBUG_RETURN(new_query_cache_size);
 }
 
-
 ulong Query_cache::set_min_res_unit(ulong size)
 {
   if (size < min_allocation_unit)
@@ -1178,78 +1177,53 @@ ulong Query_cache::set_min_res_unit(ulong size)
   return (min_result_data_size= ALIGN_SIZE(size));
 }
 
-
-void Query_cache::store_query(THD *thd, TABLE_LIST *tables_used)
+/*
+  get_query_cache_flags
+   Get the query cache flags used to build a key when looking
+   for identical queries
+*/
+Query_cache_query_flags get_query_cache_flags(THD *thd, bool from_QC)
 {
-  TABLE_COUNTER_TYPE local_tables;
-  ulong tot_length;
-  NET* net = thd->get_net();
+  Query_cache_query_flags  flags;
 
-  DBUG_ENTER("Query_cache::store_query");
+  // fill all gaps between fields with 0 to get repeatable key
+  memset(&flags, 0, QUERY_CACHE_FLAGS_SIZE);
+  flags.client_long_flag= MY_TEST(thd->client_capabilities & CLIENT_LONG_FLAG);
+  flags.client_protocol_41= MY_TEST(thd->client_capabilities &
+                                    CLIENT_PROTOCOL_41);
   /*
-    Testing 'query_cache_size' without a lock here is safe: the thing
-    we may loose is that the query won't be cached, but we save on
-    mutex locking in the case when query cache is disabled or the
-    query is uncachable.
-
-    See also a note on double-check locking usage above.
+    Protocol influences result format, so statement results in the binary
+    protocol (COM_EXECUTE) cannot be served to statements asking for results
+    in the text protocol (COM_QUERY) and vice-versa.
   */
-  if (thd->locked_tables_mode || query_cache_size == 0)
-    DBUG_VOID_RETURN;
-
-#ifndef EMBEDDED_LIBRARY
-  /*
-    Without active vio, net_write_packet() will not be called and
-    therefore neither Query_cache::insert(). Since we will never get a
-    complete query result in this case, it does not make sense to
-    register the query in the first place.
-  */
-  if (net->vio == NULL)
-    DBUG_VOID_RETURN;
-#endif
-
-  uint8 tables_type= 0;
-
-  if ((local_tables= is_cacheable(thd, thd->query_length(),
-				  thd->query(), thd->lex, tables_used,
-				  &tables_type)))
+  flags.protocol_type= (unsigned int) thd->protocol->type();
+  /* PROTOCOL_LOCAL results are not cached. */
+  DBUG_ASSERT(flags.protocol_type != (unsigned int) Protocol::PROTOCOL_LOCAL);
+  flags.more_results_exists= MY_TEST(thd->server_status &
+                                     SERVER_MORE_RESULTS_EXISTS);
+  flags.in_trans= thd->in_active_multi_stmt_transaction();
+  flags.autocommit= MY_TEST(thd->server_status & SERVER_STATUS_AUTOCOMMIT);
+  // the statement position in the packet is only used when called from QC
+  if (from_QC)
   {
-    Query_cache_query_flags flags;
-    // fill all gaps between fields with 0 to get repeatable key
-    memset(&flags, 0, QUERY_CACHE_FLAGS_SIZE);
-    flags.client_long_flag= MY_TEST(thd->client_capabilities & CLIENT_LONG_FLAG);
-    flags.client_protocol_41= MY_TEST(thd->client_capabilities &
-                                      CLIENT_PROTOCOL_41);
-    /*
-      Protocol influences result format, so statement results in the binary
-      protocol (COM_EXECUTE) cannot be served to statements asking for results
-      in the text protocol (COM_QUERY) and vice-versa.
-    */
-    flags.protocol_type= (unsigned int) thd->protocol->type();
-    /* PROTOCOL_LOCAL results are not cached. */
-    DBUG_ASSERT(flags.protocol_type != (unsigned int) Protocol::PROTOCOL_LOCAL);
-    flags.more_results_exists= MY_TEST(thd->server_status &
-                                       SERVER_MORE_RESULTS_EXISTS);
-    flags.in_trans= thd->in_active_multi_stmt_transaction();
-    flags.autocommit= MY_TEST(thd->server_status & SERVER_STATUS_AUTOCOMMIT);
+    NET* net = thd->get_net();
     flags.pkt_nr= net->pkt_nr;
-    flags.character_set_client_num=
-      thd->variables.character_set_client->number;
-    flags.character_set_results_num=
+  }
+  flags.character_set_client_num= thd->variables.character_set_client->number;
+  flags.character_set_results_num=
       (thd->variables.character_set_results ?
        thd->variables.character_set_results->number :
        UINT_MAX);
-    flags.collation_connection_num=
-      thd->variables.collation_connection->number;
-    flags.limit= thd->variables.select_limit;
-    flags.time_zone= thd->variables.time_zone;
-    flags.sql_mode= thd->variables.sql_mode;
-    flags.max_sort_length= thd->variables.max_sort_length;
-    flags.lc_time_names= thd->variables.lc_time_names;
-    flags.group_concat_max_len= thd->variables.group_concat_max_len;
-    flags.div_precision_increment= thd->variables.div_precincrement;
-    flags.default_week_format= thd->variables.default_week_format;
-    DBUG_PRINT("qcache", ("\
+  flags.collation_connection_num= thd->variables.collation_connection->number;
+  flags.limit= thd->variables.select_limit;
+  flags.time_zone= thd->variables.time_zone;
+  flags.sql_mode= thd->variables.sql_mode;
+  flags.max_sort_length= thd->variables.max_sort_length;
+  flags.lc_time_names= thd->variables.lc_time_names;
+  flags.group_concat_max_len= thd->variables.group_concat_max_len;
+  flags.div_precision_increment= thd->variables.div_precincrement;
+  flags.default_week_format= thd->variables.default_week_format;
+  DBUG_PRINT("query key flags", ("\
 long %d, 4.1: %d, bin_proto: %d, more results %d, pkt_nr: %d, \
 CS client: %u, CS result: %u, CS conn: %u, limit: %lu, TZ: 0x%lx, \
 sql mode: 0x%llx, sort len: %lu, conncat len: %lu, div_precision: %lu, \
@@ -1271,6 +1245,46 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
                           flags.default_week_format,
                           (int)flags.in_trans,
                           (int)flags.autocommit));
+
+  return flags;
+}
+
+void Query_cache::store_query(THD *thd, TABLE_LIST *tables_used)
+{
+  TABLE_COUNTER_TYPE local_tables;
+  ulong tot_length;
+
+  DBUG_ENTER("Query_cache::store_query");
+  /*
+    Testing 'query_cache_size' without a lock here is safe: the thing
+    we may loose is that the query won't be cached, but we save on
+    mutex locking in the case when query cache is disabled or the
+    query is uncachable.
+
+    See also a note on double-check locking usage above.
+  */
+  if (thd->locked_tables_mode || query_cache_size == 0)
+    DBUG_VOID_RETURN;
+
+#ifndef EMBEDDED_LIBRARY
+  /*
+    Without active vio, net_write_packet() will not be called and
+    therefore neither Query_cache::insert(). Since we will never get a
+    complete query result in this case, it does not make sense to
+    register the query in the first place.
+  */
+  NET* net = thd->get_net();
+  if (net->vio == NULL)
+    DBUG_VOID_RETURN;
+#endif
+
+  uint8 tables_type= 0;
+
+  if ((local_tables= is_cacheable(thd, thd->query_length(),
+				  thd->query(), thd->lex, tables_used,
+				  &tables_type)))
+  {
+    Query_cache_query_flags flags = get_query_cache_flags(thd, true);
 
     /*
      Make InnoDB to release the adaptive hash index latch before
@@ -1308,10 +1322,10 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
     /* Key is query + database + flag */
     if (thd->db_length)
     {
-      memcpy(thd->query() + thd->query_length() + 1 + sizeof(size_t), 
+      memcpy(thd->query() + thd->query_length() + 1 + sizeof(size_t),
              thd->db, thd->db_length);
       DBUG_PRINT("qcache", ("database: %s  length: %u",
-			    thd->db, (unsigned) thd->db_length)); 
+			    thd->db, (unsigned) thd->db_length));
     }
     else
     {
@@ -1536,7 +1550,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
       DBUG_PRINT("qcache", ("The statement is not a SELECT; Not cached"));
       goto err;
     }
-    
+
     if (query_length > 20 && has_no_cache_directive(&sql[i+6]))
     {
       /*
@@ -1565,7 +1579,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
         but for now we just leave it uncached
       */
 
-      DBUG_PRINT("qcache", 
+      DBUG_PRINT("qcache",
                  ("Current database has changed since start of query"));
       goto err;
     }
@@ -1585,7 +1599,7 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
 
   Query_cache_block *query_block;
 
-  tot_length= query_length + 1 + sizeof(size_t) + 
+  tot_length= query_length + 1 + sizeof(size_t) +
               thd->db_length + QUERY_CACHE_FLAGS_SIZE;
 
   if (thd->db_length)
@@ -1601,53 +1615,8 @@ Query_cache::send_result_to_client(THD *thd, char *sql, uint query_length)
 
   THD_STAGE_INFO(thd, stage_checking_query_cache_for_query);
 
-  // fill all gaps between fields with 0 to get repeatable key
-  memset(&flags, 0, QUERY_CACHE_FLAGS_SIZE);
-  flags.client_long_flag= MY_TEST(thd->client_capabilities & CLIENT_LONG_FLAG);
-  flags.client_protocol_41= MY_TEST(thd->client_capabilities &
-                                    CLIENT_PROTOCOL_41);
-  flags.protocol_type= (unsigned int) thd->protocol->type();
-  flags.more_results_exists= MY_TEST(thd->server_status &
-                                     SERVER_MORE_RESULTS_EXISTS);
-  flags.in_trans= thd->in_active_multi_stmt_transaction();
-  flags.autocommit= MY_TEST(thd->server_status & SERVER_STATUS_AUTOCOMMIT);
-  flags.pkt_nr= thd->get_net()->pkt_nr;
-  flags.character_set_client_num= thd->variables.character_set_client->number;
-  flags.character_set_results_num=
-    (thd->variables.character_set_results ?
-     thd->variables.character_set_results->number :
-     UINT_MAX);
-  flags.collation_connection_num= thd->variables.collation_connection->number;
-  flags.limit= thd->variables.select_limit;
-  flags.time_zone= thd->variables.time_zone;
-  flags.sql_mode= thd->variables.sql_mode;
-  flags.max_sort_length= thd->variables.max_sort_length;
-  flags.group_concat_max_len= thd->variables.group_concat_max_len;
-  flags.div_precision_increment= thd->variables.div_precincrement;
-  flags.default_week_format= thd->variables.default_week_format;
-  flags.lc_time_names= thd->variables.lc_time_names;
-  DBUG_PRINT("qcache", ("\
-long %d, 4.1: %d, bin_proto: %d, more results %d, pkt_nr: %d, \
-CS client: %u, CS result: %u, CS conn: %u, limit: %lu, TZ: 0x%lx, \
-sql mode: 0x%llx, sort len: %lu, conncat len: %lu, div_precision: %lu, \
-def_week_frmt: %lu, in_trans: %d, autocommit: %d",
-                          (int)flags.client_long_flag,
-                          (int)flags.client_protocol_41,
-                          (int)flags.protocol_type,
-                          (int)flags.more_results_exists,
-                          flags.pkt_nr,
-                          flags.character_set_client_num,
-                          flags.character_set_results_num,
-                          flags.collation_connection_num,
-                          (ulong) flags.limit,
-                          (ulong) flags.time_zone,
-                          flags.sql_mode,
-                          flags.max_sort_length,
-                          flags.group_concat_max_len,
-                          flags.div_precision_increment,
-                          flags.default_week_format,
-                          (int)flags.in_trans,
-                          (int)flags.autocommit));
+  flags = get_query_cache_flags(thd, true);
+
   memcpy((uchar *)(sql + (tot_length - QUERY_CACHE_FLAGS_SIZE)),
 	 (uchar*) &flags, QUERY_CACHE_FLAGS_SIZE);
   query_block = (Query_cache_block *)  my_hash_search(&queries, (uchar*) sql,
@@ -1688,7 +1657,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
     BLOCK_UNLOCK_RD(query_block);
     goto err_unlock;
   }
-      
+
   // Check access;
   THD_STAGE_INFO(thd, stage_checking_privileges_on_cached_query);
   block_table= query_block->table(0);
@@ -1707,7 +1676,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
     */
     for (tmptable= thd->temporary_tables; tmptable ; tmptable= tmptable->next)
     {
-      if (tmptable->s->table_cache_key.length - TMP_TABLE_KEY_EXTRA == 
+      if (tmptable->s->table_cache_key.length - TMP_TABLE_KEY_EXTRA ==
           table->key_length() &&
           !memcmp(tmptable->s->table_cache_key.str, table->data(),
                   table->key_length()))
@@ -1751,7 +1720,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
     }
 #endif /*!NO_EMBEDDED_ACCESS_CHECKS*/
     engine_data= table->engine_data();
-    if (table->callback()) 
+    if (table->callback())
     {
       char qcache_se_key_name[FN_REFLEN + 1];
       uint qcache_se_key_len;
@@ -1761,7 +1730,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
                                               sizeof(qcache_se_key_name),
                                               table->db(), table->table(),
                                               "", SKIP_SYMDIR_ACCESS);
-   
+
       if (!(*table->callback())(thd, qcache_se_key_name,
                                 qcache_se_key_len, &engine_data))
       {
@@ -1808,7 +1777,7 @@ def_week_frmt: %lu, in_trans: %d, autocommit: %d",
 			  result_block->length, result_block->used,
 			  (ulong) (result_block->headers_len()+
                                    ALIGN_SIZE(sizeof(Query_cache_result)))));
-    
+
     Query_cache_result *result = result_block->result();
     NET* net = thd->get_net();
     if (send_data_in_chunks(net, result->data(),
@@ -1954,7 +1923,7 @@ void Query_cache::invalidate_locked_for_write(TABLE_LIST *tables_used)
   Remove all cached queries that uses the given table
 */
 
-void Query_cache::invalidate(THD *thd, TABLE *table, 
+void Query_cache::invalidate(THD *thd, TABLE *table,
 			     my_bool using_transactions)
 {
   DBUG_ENTER("Query_cache::invalidate (table)");
@@ -1962,7 +1931,7 @@ void Query_cache::invalidate(THD *thd, TABLE *table,
     DBUG_VOID_RETURN;
 
   using_transactions= using_transactions && thd->in_multi_stmt_transaction_mode();
-  if (using_transactions && 
+  if (using_transactions &&
       (table->file->table_cache_type() == HA_CACHE_TBL_TRANSACT))
     thd->add_changed_table(table);
   else
@@ -1995,7 +1964,7 @@ void Query_cache::invalidate(THD *thd, const char *key, uint32  key_length,
 
 void Query_cache::invalidate(char *db)
 {
-  
+
   DBUG_ENTER("Query_cache::invalidate (db)");
   if (is_disabled())
     DBUG_VOID_RETURN;
@@ -2046,7 +2015,7 @@ void Query_cache::invalidate(char *db)
             restart= TRUE;
             table_block= tables_blocks;
           }
-          /* 
+          /*
             The used tables are linked in a circular list;
             loop until we return to the begining.
           */
@@ -2331,8 +2300,8 @@ ulong Query_cache::init_cache()
                       query_cache_query_get_key, 0, 0);
 #ifndef FN_NO_CASE_SENSE
   /*
-    If lower_case_table_names!=0 then db and table names are already 
-    converted to lower case and we can use binary collation for their 
+    If lower_case_table_names!=0 then db and table names are already
+    converted to lower case and we can use binary collation for their
     comparison (no matter if file system case sensitive or not).
     If we have case-sensitive file system (like on most Unixes) and
     lower_case_table_names == 0 then we should distinguish my_table
@@ -3006,7 +2975,7 @@ Query_cache::register_tables_from_list(TABLE_LIST *tables_used,
                         tables_used->engine_data))
         DBUG_RETURN(0);
 
-#ifdef WITH_MYISAMMRG_STORAGE_ENGINE      
+#ifdef WITH_MYISAMMRG_STORAGE_ENGINE
       /*
         XXX FIXME: Some generic mechanism is required here instead of this
         MYISAMMRG-specific implementation.
@@ -3096,7 +3065,7 @@ Query_cache::insert_table(uint key_len, const char *key,
 
   THD *thd= current_thd;
 
-  Query_cache_block *table_block= 
+  Query_cache_block *table_block=
     (Query_cache_block *) my_hash_search(&tables, (uchar*) key, key_len);
 
   if (table_block &&
@@ -3269,8 +3238,8 @@ Query_cache::get_free_block(ulong len, my_bool not_less, ulong min)
   if (bins[start].number != 0)
   {
     Query_cache_block *list = bins[start].free_blocks;
-    if (list->prev->length >= len) // check block with max size 
-    { 
+    if (list->prev->length >= len) // check block with max size
+    {
       first = list;
       uint n = 0;
       while ( n < QUERY_CACHE_MEM_BIN_TRY &&
@@ -3483,7 +3452,7 @@ uint Query_cache::find_bin(ulong size)
     DBUG_PRINT("qcache", ("first bin (# 0), size %lu",size));
     DBUG_RETURN(0);
   }
-  uint bin =  steps[left].idx - 
+  uint bin =  steps[left].idx -
     (uint)((size - steps[left].size)/steps[left].increment);
 
   DBUG_PRINT("qcache", ("bin %u step %u, size %lu step size %lu",
@@ -3632,7 +3601,7 @@ Query_cache::process_and_count_tables(THD *thd, TABLE_LIST *tables_used,
   for (; tables_used; tables_used= tables_used->next_global)
   {
     table_count++;
-#ifndef NO_EMBEDDED_ACCESS_CHECKS 
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
     /*
       Disable any attempt to store this statement if there are
       column level grants on any referenced tables.
@@ -3696,7 +3665,7 @@ Query_cache::process_and_count_tables(THD *thd, TABLE_LIST *tables_used,
                     "other non-cacheable table(s)"));
         DBUG_RETURN(0);
       }
-#ifdef WITH_MYISAMMRG_STORAGE_ENGINE      
+#ifdef WITH_MYISAMMRG_STORAGE_ENGINE
       /*
         XXX FIXME: Some generic mechanism is required here instead of this
         MYISAMMRG-specific implementation.
@@ -3986,7 +3955,7 @@ my_bool Query_cache::move_by_type(uchar **border,
     size_t key_length;
     key=query_cache_query_get_key((uchar*) block, &key_length, 0);
     my_hash_first(&queries, (uchar*) key, key_length, &record_idx);
-    // Move table of used tables 
+    // Move table of used tables
     memmove((char*) new_block->table(0), (char*) block->table(0),
 	   ALIGN_SIZE(n_tables*sizeof(Query_cache_block_table)));
     block->query()->unlock_n_destroy();
@@ -4002,7 +3971,7 @@ my_bool Query_cache::move_by_type(uchar **border,
     Query_cache_block_table *beg_of_table_table= block->table(0),
       *end_of_table_table= block->table(n_tables);
     uchar *beg_of_new_table_table= (uchar*) new_block->table(0);
-      
+
     for (TABLE_COUNTER_TYPE j=0; j < n_tables; j++)
     {
       Query_cache_block_table *block_table = new_block->table(j);
@@ -4010,7 +3979,7 @@ my_bool Query_cache::move_by_type(uchar **border,
       // use aligment from begining of table if 'next' is in same block
       if ((beg_of_table_table <= block_table->next) &&
 	  (block_table->next < end_of_table_table))
-	((Query_cache_block_table *)(beg_of_new_table_table + 
+	((Query_cache_block_table *)(beg_of_new_table_table +
 				     (((uchar*)block_table->next) -
 				      ((uchar*)beg_of_table_table))))->prev=
 	 block_table;
@@ -4020,7 +3989,7 @@ my_bool Query_cache::move_by_type(uchar **border,
       // use aligment from begining of table if 'prev' is in same block
       if ((beg_of_table_table <= block_table->prev) &&
 	  (block_table->prev < end_of_table_table))
-	((Query_cache_block_table *)(beg_of_new_table_table + 
+	((Query_cache_block_table *)(beg_of_new_table_table +
 				     (((uchar*)block_table->prev) -
 				      ((uchar*)beg_of_table_table))))->next=
 	  block_table;
@@ -4043,7 +4012,7 @@ my_bool Query_cache::move_by_type(uchar **border,
     Query_cache_query *new_query= ((Query_cache_query *) new_block->data());
     mysql_rwlock_init(key_rwlock_query_cache_query_lock, &new_query->lock);
 
-    /* 
+    /*
       If someone is writing to this block, inform the writer that the block
       has been moved.
     */
@@ -4289,7 +4258,7 @@ void Query_cache::wreck(uint line, const char *message)
 void Query_cache::bins_dump()
 {
   uint i;
-  
+
   if (!initialized || query_cache_size == 0)
   {
     DBUG_PRINT("qcache", ("Query Cache not initialized"));
@@ -4380,7 +4349,7 @@ void Query_cache::queries_dump()
       str[len]= 0; // make zero ending DB name
       DBUG_PRINT("qcache", ("F: %u  C: %u L: %lu  T: '%s' (%lu)  '%s'  '%s'",
 			    flags.client_long_flag,
-			    flags.character_set_client_num, 
+			    flags.character_set_client_num,
                             (ulong)flags.limit,
                             flags.time_zone->get_name()->ptr(),
 			    (ulong) len, str, strend(str)+1));
@@ -4486,8 +4455,8 @@ my_bool Query_cache::check_integrity(bool locked)
     if (!block)
       break;
 
-    DBUG_PRINT("qcache", ("block 0x%lx, type %u...", 
-			  (ulong) block, (uint) block->type));  
+    DBUG_PRINT("qcache", ("block 0x%lx, type %u...",
+			  (ulong) block, (uint) block->type));
     // Check allignment
     if ((((long)block) % (long) ALIGN_SIZE(1)) !=
 	(((long)first_block) % (long)ALIGN_SIZE(1)))
@@ -4500,12 +4469,12 @@ my_bool Query_cache::check_integrity(bool locked)
     // Check memory allocation
     if (block->pnext == first_block) // Is it last block?
     {
-      if (((uchar*)block) + block->length != 
+      if (((uchar*)block) + block->length !=
 	  ((uchar*)first_block) + query_cache_size)
       {
-	DBUG_PRINT("error", 
+	DBUG_PRINT("error",
 		   ("block 0x%lx, type %u, ended at 0x%lx, but cache ended at 0x%lx",
-		    (ulong) block, (uint) block->type, 
+		    (ulong) block, (uint) block->type,
 		    (ulong) (((uchar*)block) + block->length),
 		    (ulong) (((uchar*)first_block) + query_cache_size)));
 	result = 1;
@@ -4514,9 +4483,9 @@ my_bool Query_cache::check_integrity(bool locked)
     else
       if (((uchar*)block) + block->length != ((uchar*)block->pnext))
       {
-	DBUG_PRINT("error", 
+	DBUG_PRINT("error",
 		   ("block 0x%lx, type %u, ended at 0x%lx, but next block begining at 0x%lx",
-		    (ulong) block, (uint) block->type, 
+		    (ulong) block, (uint) block->type,
 		    (ulong) (((uchar*)block) + block->length),
 		    (ulong) ((uchar*)block->pnext)));
       }
@@ -4533,9 +4502,9 @@ my_bool Query_cache::check_integrity(bool locked)
       if (((uchar*)bin) < ((uchar*)bins) ||
 	  ((uchar*)bin) >= ((uchar*)first_block))
       {
-	DBUG_PRINT("error", 
+	DBUG_PRINT("error",
 		   ("free block 0x%lx have bin pointer 0x%lx beyaond of bins array bounds [0x%lx,0x%lx]",
-		    (ulong) block, 
+		    (ulong) block,
 		    (ulong) bin,
 		    (ulong) bins,
 		    (ulong) first_block));
@@ -4563,11 +4532,11 @@ my_bool Query_cache::check_integrity(bool locked)
       for (TABLE_COUNTER_TYPE j=0; j < block->n_tables; j++)
       {
 	Query_cache_block_table *block_table = block->table(j);
-	Query_cache_block_table *block_table_root = 
-	  (Query_cache_block_table *) 
+	Query_cache_block_table *block_table_root =
+	  (Query_cache_block_table *)
 	  (((uchar*)block_table->parent) -
 	   ALIGN_SIZE(sizeof(Query_cache_block_table)));
-	
+
     	if (in_table_list(block_table, block_table_root, "table list"))
     	  result = 1;
       }
@@ -4584,7 +4553,7 @@ my_bool Query_cache::check_integrity(bool locked)
       if (((uchar*)query_block) < ((uchar*)first_block) ||
 	  ((uchar*)query_block) >= (((uchar*)first_block) + query_cache_size))
       {
-	DBUG_PRINT("error", 
+	DBUG_PRINT("error",
 		   ("result block 0x%lx have query block pointer 0x%lx beyaond of block pool bounds [0x%lx,0x%lx]",
 		    (ulong) block,
 		    (ulong) query_block,
@@ -4609,10 +4578,10 @@ my_bool Query_cache::check_integrity(bool locked)
                            (long) block, block->type));
       result = 1;
     }
-    
+
     block = block->pnext;
   } while (block != first_block);
-  
+
   if (used + free != query_cache_size)
   {
     DBUG_PRINT("error",
@@ -4620,7 +4589,7 @@ my_bool Query_cache::check_integrity(bool locked)
 		used, free, query_cache_size));
     result = 1;
   }
-  
+
   if (free != free_memory)
   {
     DBUG_PRINT("error",
@@ -4634,7 +4603,7 @@ my_bool Query_cache::check_integrity(bool locked)
   {
     do
     {
-      DBUG_PRINT("qcache", ("block 0x%lx, type %u...", 
+      DBUG_PRINT("qcache", ("block 0x%lx, type %u...",
 			    (ulong) block, (uint) block->type));
       size_t length;
       uchar *key = query_cache_query_get_key((uchar*) block, &length, 0);
@@ -4652,7 +4621,7 @@ my_bool Query_cache::check_integrity(bool locked)
 	Query_cache_block * result_block = results;
 	do
 	{
-	  DBUG_PRINT("qcache", ("block 0x%lx, type %u...", 
+	  DBUG_PRINT("qcache", ("block 0x%lx, type %u...",
 				(ulong) block, (uint) block->type));
 	  if (in_blocks(result_block))
 	    result = 1;
@@ -4669,7 +4638,7 @@ my_bool Query_cache::check_integrity(bool locked)
   {
     do
     {
-      DBUG_PRINT("qcache", ("block 0x%lx, type %u...", 
+      DBUG_PRINT("qcache", ("block 0x%lx, type %u...",
 			    (ulong) block, (uint) block->type));
       size_t length;
       uchar *key = query_cache_table_get_key((uchar*) block, &length, 0);
@@ -4679,7 +4648,7 @@ my_bool Query_cache::check_integrity(bool locked)
 	DBUG_PRINT("error", ("block 0x%lx found in tables hash like 0x%lx",
 			     (ulong) block, (ulong) val));
       }
-      
+
       if (in_blocks(block))
 	result = 1;
       block=block->next;
@@ -4694,11 +4663,11 @@ my_bool Query_cache::check_integrity(bool locked)
       uint count = 0;
       do
       {
-	DBUG_PRINT("qcache", ("block 0x%lx, type %u...", 
+	DBUG_PRINT("qcache", ("block 0x%lx, type %u...",
 			      (ulong) block, (uint) block->type));
 	if (in_blocks(block))
 	  result = 1;
-	
+
 	count++;
 	block=block->next;
       } while (block != bins[i].free_blocks);
@@ -4800,7 +4769,7 @@ my_bool Query_cache::in_list(Query_cache_block * root,
   {
     DBUG_PRINT("error",
 	       ("block 0x%lx (0x%lx<-->0x%lx) not owned by list '%s' 0x%lx",
-		(ulong) block, 
+		(ulong) block,
 		(ulong) block->prev, (ulong) block->next,
 		name, (ulong) root));
     return 1;
@@ -4829,7 +4798,7 @@ err2:
   return result;
 }
 
-void dump_node(Query_cache_block_table * node, 
+void dump_node(Query_cache_block_table * node,
 	       const char * call, const char * descr)
 {
   DBUG_PRINT("qcache", ("%s: %s: node: 0x%lx", call, descr, (ulong) node));
@@ -4856,15 +4825,15 @@ my_bool Query_cache::in_table_list(Query_cache_block_table * root,
     {
       DBUG_PRINT("error",
 		 ("table 0x%lx(0x%lx) in list '%s' 0x%lx(0x%lx) is incorrect linked, prev table 0x%lx(0x%lx) refered as next to 0x%lx(0x%lx) (check from 0x%lx(0x%lx))",
-		  (ulong) table, (ulong) table->block(), name, 
+		  (ulong) table, (ulong) table->block(), name,
 		  (ulong) root, (ulong) root->block(),
 		  (ulong) table->prev, (ulong) table->prev->block(),
-		  (ulong) table->prev->next, 
+		  (ulong) table->prev->next,
 		  (ulong) table->prev->next->block(),
 		  (ulong) point, (ulong) point->block()));
       //back trace
       for (; table != point; table = table->next)
-	    DBUG_PRINT("error", ("back trace 0x%lx(0x%lx)", 
+	    DBUG_PRINT("error", ("back trace 0x%lx(0x%lx)",
 				 (ulong) table, (ulong) table->block()));
       result = 1;
       goto err1;
@@ -4913,4 +4882,3 @@ err2:
 #endif /* DBUG_OFF */
 
 #endif /*HAVE_QUERY_CACHE*/
-

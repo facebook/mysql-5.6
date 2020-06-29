@@ -1,0 +1,92 @@
+connect  conn1, localhost, root,,test;
+set @@GLOBAL.sql_stats_control=on;
+affected rows: 0
+set @@GLOBAL.max_digest_sample_age=1;
+affected rows: 0
+
+"Case 1: off, no error expected"
+connection default;
+SELECT 'Q1', sleep(2) from dual;
+connection conn1;
+SELECT 'Q1', sleep(2) from dual;
+connection default;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+connection conn1;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+set @@GLOBAL.sql_maximum_duplicate_executions=1;
+affected rows: 0
+
+"Case 2: on, in a transaction, no error"
+connection default;
+begin; SELECT 'Q1', sleep(2) from dual; rollback;;
+connection conn1;
+SELECT 'Q1', sleep(2) from dual;
+connection default;
+affected rows: 0
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+affected rows: 0
+connection conn1;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+
+"Case 3: on, expected the new error"
+connection default;
+SELECT 'Q1', sleep(2) from dual;
+connection conn1;
+SELECT 'Q1', sleep(2) from dual;
+connection default;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+connection conn1;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+
+"Case 4.1: on, comment handling: mix quotes and comments"
+connection default;
+/*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from dual /*C3*/;
+connection conn1;
+/*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from dual /*"D3"*/;
+connection default;
+Q2	/*	*/	sleep(2)
+Q2	/*	*/	0
+affected rows: 1
+connection conn1;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+"Case 4.2: on, comment handling: same with escaped quotes"
+connection default;
+/*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from dual /*C3*/;
+connection conn1;
+/*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from dual /*"D3"*/;
+connection default;
+'Q3'	'/*'	"*/"	1+sleep(2)
+'Q3'	'/*'	"*/"	1
+affected rows: 1
+connection conn1;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+connection default;
+
+"execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
+select query_sample_text, execution_count, skipped_count
+from information_schema.sql_statistics s,
+information_schema.sql_text t
+where t.sql_id=s.sql_id and skipped_count > 0
+order by length(query_sample_text);
+query_sample_text	execution_count	skipped_count
+SELECT 'Q1', sleep(2) from dual	6	1
+/*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from dual /*"D3"*/	2	1
+/*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from dual /*"D3"*/	2	1
+affected rows: 3
+set @@GLOBAL.sql_stats_control=off_hard;
+affected rows: 0
+set @@GLOBAL.sql_maximum_duplicate_executions=0;
+affected rows: 0
+set @@GLOBAL.max_digest_sample_age=-1;
+affected rows: 0
+disconnect conn1;

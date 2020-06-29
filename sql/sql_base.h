@@ -377,6 +377,12 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
                                SHARED_SQL_STATS *stats);
 bool is_sql_stats_collection_above_limit();
 
+/* For active sql */
+extern mysql_mutex_t LOCK_global_active_sql;
+void free_global_active_sql(void);
+bool register_active_sql(THD *thd, char *query_text, uint query_length);
+void remove_active_sql(THD *thd);
+
 
 /* For information_schema.sql_text */
 extern ST_FIELD_INFO sql_text_fields_info[];

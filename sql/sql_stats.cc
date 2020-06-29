@@ -4,6 +4,212 @@
 #include "sql_string.h"
 #include "tztime.h"                             // struct Time_zone
 
+/* Global map to track the number of active identical sql statements */
+static std::unordered_map<md5_key, uint> global_active_sql;
+
+static bool mt_lock(mysql_mutex_t *mutex)
+{
+/*
+  In debug mode safe_mutex is turned on, and
+  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP is ignored.
+
+  However, safe_mutex contains information about the thread ID
+  which we can use to determine if we are re-locking the calling thread.
+
+  In release builds pthread_mutex_t is used, which respects the
+  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP property.
+*/
+#ifndef DBUG_OFF
+  if (!pthread_equal(pthread_self(),
+                     (&(mutex)->m_mutex)->thread))
+  {
+    mysql_mutex_lock(mutex);
+    return false;
+  }
+
+  return true;
+#else
+  return mysql_mutex_lock(mutex) == EDEADLK;
+#endif
+}
+
+static void mt_unlock(bool acquired, mysql_mutex_t *mutex)
+{
+  /* If lock was already acquired by calling thread, do nothing. */
+  if (acquired)
+    return;
+
+  /* Otherwise, unlock the mutex */
+  mysql_mutex_unlock(mutex);
+}
+
+/*
+  free_global_active_sql
+    Frees global_active_sql
+*/
+void free_global_active_sql(void)
+{
+  bool lock_acquired = mt_lock(&LOCK_global_active_sql);
+
+  global_active_sql.clear();
+
+  mt_unlock(lock_acquired, &LOCK_global_active_sql);
+}
+
+/*
+  skip_quote
+  Skips over quoted strings
+  It handles both single and double quotes by calling
+  it twice by passing the quote character as argument
+  first time single quote and second as double quote.
+  Skipping happens by changing the offset of the next
+  comment search (position of the second quote+1).
+  It handles both cases when the string includes the
+  begining of a comment or not
+*/
+static bool skip_quote(
+    std::string& query_str,
+    size_t      *offset,
+    size_t       c_start_pos,
+    const char  *quote)
+{
+  size_t quote_pos = query_str.find(quote, *offset);
+
+  if (quote_pos != std::string::npos &&
+      quote_pos < c_start_pos)
+  {
+    quote_pos = query_str.find(quote, quote_pos+1);
+    *offset   = quote_pos+1;
+    return true;
+  }
+  return false;
+}
+
+/*
+  strip_query_comment
+    Return the query text without comments
+
+  Examples (where begin comment is /+ and end comment is +/)
+   IN: /+C1+/ select '''Q2''', '''/+''', """+/""" /+C2+/ from dual /+C3+/
+   OUT:  select '''Q2''', '''/+''', """+/"""  from dual
+   IN: /+C1+/ select 'Q2', '/+', "+/" /+C2+/ from dual /+C3+/
+   OUT:  select 'Q2', '/+', "+/"  from dual
+*/
+static void strip_query_comments(std::string& query_str)
+{
+  const uint comment_size = 2;
+  size_t offset = 0;
+  while (true)
+  {
+    size_t c_start_pos = query_str.find("/*", offset);
+
+    if (c_start_pos == std::string::npos)
+      break;
+
+    // so far we found a start of a comment; next we
+    // check if it is enclosed in a string i.e either
+    // single or double quoted
+    if (skip_quote(query_str, &offset, c_start_pos, "'"))
+      continue;
+
+    if (skip_quote(query_str, &offset, c_start_pos, "\""))
+      continue;
+
+    size_t c_stop_pos = query_str.find("*/", c_start_pos);
+    DBUG_ASSERT(c_stop_pos != std::string::npos);
+
+    query_str.erase(c_start_pos, c_stop_pos + comment_size - c_start_pos);
+  }
+}
+
+/*
+  register_active_sql
+    Register a new active SQL, called right after SQL parsing
+
+  Returns FALSE if the number of duplicate executions exceeds the limit
+*/
+bool register_active_sql(THD *thd, char *query_text, uint query_length)
+{
+  /* Exit now if any of the conditions that prevent the feature is true
+     - feature is off
+     - command type is not SELECT
+     - EXPLAIN
+     - in a transaction
+  */
+  if (sql_maximum_duplicate_executions == 0  ||
+      thd->lex->sql_command != SQLCOM_SELECT ||
+      thd->lex->describe                     ||
+      thd->in_active_multi_stmt_transaction())
+    return true;
+
+  /* prepare a string with a size large enough to store the sql text,
+     database, and some flags (that affect query similarity).
+  */
+  std::string query_str;
+  query_str.reserve(query_length+thd->db_length+QUERY_CACHE_FLAGS_SIZE+1);
+
+  /* load the sql text */
+  query_str.append(query_text, query_length);
+
+  /* strip the query comments (everywhere in the text) */
+  strip_query_comments(query_str);
+
+  /* load the database name */
+  query_str.append((const char*) thd->db, thd->db_length);
+
+  /* load the flags */
+  Query_cache_query_flags flags = get_query_cache_flags(thd, false);
+  query_str.append((const char*) &flags, QUERY_CACHE_FLAGS_SIZE);
+
+  /* compute MD5 from the key value (query, db, flags) */
+  md5_key sql_hash;
+  compute_md5_hash((char*)sql_hash.data(), query_str.c_str(), query_str.length());
+
+  thd->mt_key_set(THD::SQL_HASH, sql_hash.data());
+  DBUG_ASSERT(thd->mt_key_is_set(THD::SQL_HASH));
+
+  bool ret = true;  // so far did not exceed the max number of dups
+  bool lock_acquired = mt_lock(&LOCK_global_active_sql);
+  auto iter = global_active_sql.find(sql_hash);
+  if (iter == global_active_sql.end())
+  {
+    global_active_sql.emplace(sql_hash, 1); // its first occurrence
+  }
+  else
+  {
+    if (iter->second+1 > sql_maximum_duplicate_executions)
+      ret = false;     // one too many
+    else
+      iter->second++;  // increment the number of duplicates
+  }
+
+  mt_unlock(lock_acquired, &LOCK_global_active_sql);
+  return ret;
+}
+
+/*
+  remove_active_sql
+    Remove an active SQL, called at end of the execution
+*/
+void remove_active_sql(THD *thd)
+{
+  if (!thd->mt_key_is_set(THD::SQL_HASH))
+    return;
+
+  bool lock_acquired = mt_lock(&LOCK_global_active_sql);
+
+  auto iter = global_active_sql.find(thd->mt_key_value(THD::SQL_HASH));
+  if (iter != global_active_sql.end())
+  {
+    if (iter->second == 1)
+      global_active_sql.erase(iter);
+    else
+      iter->second--;
+  }
+
+  mt_unlock(lock_acquired, &LOCK_global_active_sql);
+}
+
 /*
   SQL_STATISTICS
 
@@ -25,6 +231,9 @@ ST_FIELD_INFO sql_stats_fields_info[]=
       0, MY_I_S_MAYBE_NULL, 0, SKIP_OPEN_TABLE},
 
   {"EXECUTION_COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+
+  {"SKIPPED_COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
 
   {"ROWS_INSERTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
@@ -60,7 +269,7 @@ ST_FIELD_INFO sql_stats_fields_info[]=
 };
 
 /* Global sql stats hash map to track and update metrics in-memory */
-std::unordered_map<md5_key, SQL_STATS*> global_sql_stats_map;
+static std::unordered_map<md5_key, SQL_STATS*> global_sql_stats_map;
 
 /*
   SQL_TEXT
@@ -80,7 +289,7 @@ ST_FIELD_INFO sql_text_fields_info[]=
 };
 
 /* Global sql text hash map to track and update metrics in-memory */
-std::unordered_map<md5_key, SQL_TEXT*> global_sql_text_map;
+static std::unordered_map<md5_key, SQL_TEXT*> global_sql_text_map;
 
 /*
   CLIENT_ATTRIBUTES
@@ -95,7 +304,7 @@ ST_FIELD_INFO client_attrs_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-std::unordered_map<md5_key, std::string> global_client_attrs_map;
+static std::unordered_map<md5_key, std::string> global_client_attrs_map;
 
 /*
   These limits control the maximum accumulation of all sql statistics.
@@ -321,49 +530,6 @@ static std::string sql_cmd_type(enum_sql_command sql_command)
 }
 
 /*
-  It's possible for this mutex to be locked twice by one thread when
-  ha_myisam::write_row() errors out during a information schema query.
-
-  We use an error checking mutex here so we can handle this situation.
-  More details: https://github.com/facebook/mysql-5.6/issues/132.
-*/
-static bool lock_sql_stats() {
-/*
-  In debug mode safe_mutex is turned on, and
-  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP is ignored.
-
-  However, safe_mutex contains information about the thread ID
-  which we can use to determine if we are re-locking the calling thread.
-
-  In release builds pthread_mutex_t is used, which respects the
-  PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP property.
-*/
-#ifndef DBUG_OFF
-  if (!pthread_equal(pthread_self(),
-                     (&(&LOCK_global_sql_stats)->m_mutex)->thread))
-  {
-    mysql_mutex_lock(&LOCK_global_sql_stats);
-    return false;
-  }
-
-  return true;
-#else
-  return mysql_mutex_lock(&LOCK_global_sql_stats) == EDEADLK;
-#endif
-}
-
-static void unlock_sql_stats(bool acquired) {
-  /* If lock was already acquired by calling thread, do nothing. */
-  if (acquired)
-  {
-    return;
-  }
-
-  /* Otherwise, unlock the mutex */
-  mysql_mutex_unlock(&LOCK_global_sql_stats);
-}
-
-/*
   valid_sql_stats
     Returns TRUE if sql statistics are valid: considered as non
     valid if all the statistics are 0.
@@ -374,6 +540,7 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
 {
   /* check statistics that are specific to SQL_STATISTICS */
   if (sql_stats->count == 0 &&
+      sql_stats->skipped_count == 0 &&
       sql_stats->rows_sent == 0 &&
       sql_stats->tmp_table_bytes_written == 0 &&
       sql_stats->filesort_bytes_written == 0 &&
@@ -403,29 +570,27 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
     cache_key_val out: - cache key value
 */
 static bool set_sql_stats_cache_key(
-    const unsigned char *sql_id,
-    const unsigned char *plan_id,
-    const          bool  plan_id_set,
-    const unsigned char *client_id,
+    md5_key& sql_id,
+    md5_key& plan_id,
+    const bool plan_id_set,
+    md5_key& client_id,
     const uint32_t db_id,
     const uint32_t user_id,
     unsigned char *cache_key)
 {
-  DBUG_ASSERT(sql_id && plan_id && client_id);
-
   char sql_stats_cache_key[(MD5_HASH_SIZE*3) + sizeof(db_id) + sizeof(user_id)];
   int offset = 0;
 
-  memcpy(sql_stats_cache_key + offset, sql_id, MD5_HASH_SIZE);
+  memcpy(sql_stats_cache_key + offset, sql_id.data(), MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
   /* skip plan_id if not available */
   if (plan_id_set)
   {
-    memcpy(sql_stats_cache_key + offset, plan_id, MD5_HASH_SIZE);
+    memcpy(sql_stats_cache_key + offset, plan_id.data(), MD5_HASH_SIZE);
     offset += MD5_HASH_SIZE;
   }
 
-  memcpy(sql_stats_cache_key + offset, client_id, MD5_HASH_SIZE);
+  memcpy(sql_stats_cache_key + offset, client_id.data(), MD5_HASH_SIZE);
   offset += MD5_HASH_SIZE;
 
   memcpy(sql_stats_cache_key + offset, &db_id, sizeof(db_id));
@@ -441,22 +606,21 @@ static bool set_sql_stats_cache_key(
 
 static void set_sql_stats_attributes(
     SQL_STATS *stats,
-    const unsigned char *sql_id,
-    const unsigned char *plan_id,
-    const          bool  plan_id_set,
-    const unsigned char *client_id,
+    md5_key& sql_id,
+    md5_key& plan_id,
+    const bool plan_id_set,
+    md5_key& client_id,
     const uint32_t db_id,
     const uint32_t user_id)
 {
-  memcpy(stats->sql_id, sql_id, MD5_HASH_SIZE);
+  memcpy(stats->sql_id, sql_id.data(), MD5_HASH_SIZE);
 
   /* plan ID not always available */
   stats->plan_id_set = plan_id_set;
   if (plan_id_set)
-    memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
+    memcpy(stats->plan_id, plan_id.data(), MD5_HASH_SIZE);
 
-  memcpy(stats->plan_id, plan_id, MD5_HASH_SIZE);
-  memcpy(stats->client_id, client_id, MD5_HASH_SIZE);
+  memcpy(stats->client_id, client_id.data(), MD5_HASH_SIZE);
   stats->db_id= db_id;
   stats->user_id= user_id;
 	stats->query_sample_text = (char *)my_malloc(strlen("") + 1, MYF(MY_WME));
@@ -534,14 +698,14 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
 */
 void free_global_sql_stats(bool limits_updated)
 {
-  bool lock_acquired = lock_sql_stats();
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
 
   if (limits_updated) {
     if ((current_max_sql_stats_count <= max_sql_stats_count) &&
         (current_max_sql_stats_size <= max_sql_stats_size)) {
       current_max_sql_stats_count = max_sql_stats_count;
       current_max_sql_stats_size = max_sql_stats_size;
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
   }
@@ -567,7 +731,7 @@ void free_global_sql_stats(bool limits_updated)
   current_max_sql_stats_count = max_sql_stats_count;
   current_max_sql_stats_size = max_sql_stats_size;
 
-  unlock_sql_stats(lock_acquired);
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }
 
 /*
@@ -618,18 +782,20 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     return;
 
   md5_key sql_stats_cache_key{};
-  if (!set_sql_stats_cache_key(thd->sql_id.data(), thd->plan_id.data(),
-                               thd->plan_id_set,
-                               thd->client_id.data(), db_id, user_id,
+  if (!set_sql_stats_cache_key(thd->mt_key_value(THD::SQL_ID),
+                               thd->mt_key_value(THD::PLAN_ID),
+                               thd->mt_key_is_set(THD::PLAN_ID),
+                               thd->mt_key_value(THD::CLIENT_ID),
+                               db_id, user_id,
                                sql_stats_cache_key.data()))
     return;
 
-  bool lock_acquired = lock_sql_stats();
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
 
   // Check again inside the lock and release the lock if exiting
   if (is_sql_stats_collection_above_limit())
   {
-    unlock_sql_stats(lock_acquired);
+    mt_unlock(lock_acquired, &LOCK_global_sql_stats);
     return;
   }
 
@@ -637,35 +803,36 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   current_max_sql_stats_size = max_sql_stats_size;
 
   /* Get or create client attributes for this statement. */
-  auto client_id_iter = global_client_attrs_map.find(thd->client_id);
+  auto client_id_iter = global_client_attrs_map.find(
+      thd->mt_key_value(THD::CLIENT_ID));
   if (client_id_iter == global_client_attrs_map.end()) {
-    global_client_attrs_map.emplace(thd->client_id,
+    global_client_attrs_map.emplace(thd->mt_key_value(THD::CLIENT_ID),
                                     std::string(thd->client_attrs_string.ptr(),
                                                 thd->client_attrs_string.length()));
     sql_stats_size += (MD5_HASH_SIZE + thd->client_attrs_string.length());
   }
 
   /* Get or create the SQL_TEXT object for this sql statement. */
-  SQL_TEXT *sql_text = nullptr;
-  auto sql_text_iter= global_sql_text_map.find(thd->sql_id);
+  auto sql_text_iter= global_sql_text_map.find(thd->mt_key_value(THD::SQL_ID));
   if (sql_text_iter == global_sql_text_map.end())
   {
+    SQL_TEXT *sql_text;
     if (!(sql_text= ((SQL_TEXT*)my_malloc(sizeof(SQL_TEXT), MYF(MY_WME)))))
     {
       sql_print_error("Cannot allocate memory for SQL_TEXT.");
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
 
     set_sql_text_attributes(sql_text, thd->lex->sql_command,
                             &thd->m_digest->m_digest_storage);
 
-    auto ret= global_sql_text_map.emplace(thd->sql_id, sql_text);
+    auto ret= global_sql_text_map.emplace(thd->mt_key_value(THD::SQL_ID), sql_text);
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_TEXT into the hash map.");
       my_free((char*)sql_text);
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
     sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_TEXT));
@@ -680,13 +847,16 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     if (!(sql_stats= ((SQL_STATS*)my_malloc(sizeof(SQL_STATS), MYF(MY_WME)))))
     {
       sql_print_error("Cannot allocate memory for SQL_STATS.");
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
 
-    set_sql_stats_attributes(sql_stats, thd->sql_id.data(), thd->plan_id.data(),
-                             thd->plan_id_set,
-                             thd->client_id.data(), db_id, user_id);
+    set_sql_stats_attributes(sql_stats,
+                             thd->mt_key_value(THD::SQL_ID),
+                             thd->mt_key_value(THD::PLAN_ID),
+                             thd->mt_key_is_set(THD::PLAN_ID),
+                             thd->mt_key_value(THD::CLIENT_ID),
+                             db_id, user_id);
     sql_stats->reset();
 
     auto ret= global_sql_stats_map.emplace(sql_stats_cache_key, sql_stats);
@@ -694,7 +864,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     {
       sql_print_error("Failed to insert SQL_STATS into the hash table.");
       my_free((char*)sql_stats);
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
     sql_stats_count++;
@@ -721,6 +891,9 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   }
   /* Update stats */
   sql_stats->count++;
+  if (thd->get_stmt_da()->is_error() &&
+      thd->get_stmt_da()->sql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION)
+    sql_stats->skipped_count++;
   sql_stats->rows_sent += (ulonglong) thd->get_sent_row_count();
   sql_stats->tmp_table_bytes_written += thd->get_tmp_table_bytes_written();
   sql_stats->filesort_bytes_written += thd->get_filesort_bytes_written();
@@ -737,7 +910,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   // Update CPU stats
   sql_stats->shared_stats.us_tot += stats->us_tot;
 
-  unlock_sql_stats(lock_acquired);
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }
 
 /* Fills the SQL_STATISTICS table. */
@@ -746,8 +919,8 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_sql_stats");
   TABLE* table= tables->table;
 
-  bool lock_acquired = lock_sql_stats();
-	MYSQL_TIME time;
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
+  MYSQL_TIME time;
 
   ID_NAME_MAP db_map;
   ID_NAME_MAP user_map;
@@ -819,6 +992,8 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     /* Execution Count */
     table->field[f++]->store(sql_stats->count, TRUE);
+    /* Skipped Count */
+    table->field[f++]->store(sql_stats->skipped_count, TRUE);
     /* Rows inserted */
     table->field[f++]->store(sql_stats->shared_stats.rows_inserted, TRUE);
     /* Rows updated */
@@ -844,11 +1019,11 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       DBUG_RETURN(-1);
     }
   }
-  unlock_sql_stats(lock_acquired);
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
   DBUG_RETURN(0);
 }
@@ -859,7 +1034,7 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_sql_text");
   TABLE* table= tables->table;
 
-  bool lock_acquired = lock_sql_stats();
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
 
   for (auto iter= global_sql_text_map.cbegin();
       iter != global_sql_text_map.cend(); ++iter)
@@ -892,11 +1067,11 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       DBUG_RETURN(-1);
     }
   }
-  unlock_sql_stats(lock_acquired);
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
   DBUG_RETURN(0);
 }
@@ -906,7 +1081,7 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_ENTER("fill_client_attrs");
   TABLE* table= tables->table;
 
-  bool lock_acquired = lock_sql_stats();
+  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
 
   for (auto iter= global_client_attrs_map.cbegin();
        iter != global_client_attrs_map.cend(); ++iter)
@@ -929,11 +1104,11 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      unlock_sql_stats(lock_acquired);
+      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       DBUG_RETURN(-1);
     }
   }
-  unlock_sql_stats(lock_acquired);
+  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
   DBUG_RETURN(0);
 }

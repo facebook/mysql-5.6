@@ -18,6 +18,7 @@
 
 #include "hash.h"
 #include "my_base.h"                            /* ha_rows */
+#include <string>
 
 class MY_LOCALE;
 struct TABLE_LIST;
@@ -44,9 +45,9 @@ typedef ulonglong sql_mode_t;
 /* minimal result data size when data allocated */
 #define QUERY_CACHE_MIN_RESULT_DATA_SIZE	1024*4
 
-/* 
+/*
    start estimation of first result block size only when number of queries
-   bigger then: 
+   bigger then:
 */
 #define QUERY_CACHE_MIN_ESTIMATED_QUERIES_NUMBER 3
 
@@ -101,7 +102,7 @@ struct Query_cache_block_table
   TABLE_COUNTER_TYPE n;
 
   /**
-    Pointers to the next and previous node, linking all queries with 
+    Pointers to the next and previous node, linking all queries with
     a common table.
   */
   Query_cache_block_table *next, *prev;
@@ -114,7 +115,7 @@ struct Query_cache_block_table
 
   /**
     A method to calculate the address of the query cache block
-    owning this node. The purpose of this calculation is to 
+    owning this node. The purpose of this calculation is to
     make it easier to move the query cache block without having
     to modify all the pointer addresses.
   */
@@ -330,7 +331,7 @@ protected:
   /* options */
   ulong min_allocation_unit, min_result_data_size;
   uint def_query_hash_size, def_table_hash_size;
-  
+
   uint mem_bin_num, mem_bin_steps;		// See at init_cache & find_bin
 
   my_bool initialized;
@@ -360,7 +361,7 @@ protected:
   void invalidate_table(THD *thd, TABLE *table);
   void invalidate_table(THD *thd, uchar *key, uint32  key_length);
   void invalidate_table(THD *thd, Query_cache_block *table_block);
-  void invalidate_query_block_list(THD *thd, 
+  void invalidate_query_block_list(THD *thd,
                                    Query_cache_block_table *list_root);
 
   TABLE_COUNTER_TYPE
@@ -540,6 +541,14 @@ struct Query_cache_query_flags
   ulong div_precision_increment;
   MY_LOCALE *lc_time_names;
 };
+
+/*
+  get_query_cache_flags
+   Get the query cache flags used to build a key when looking
+   for identical queries
+*/
+Query_cache_query_flags get_query_cache_flags(THD *thd, bool from_QC);
+
 #define QUERY_CACHE_FLAGS_SIZE sizeof(Query_cache_query_flags)
 #include "sql_cache.h"
 #define query_cache_abort(A) query_cache.abort(A)

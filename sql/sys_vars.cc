@@ -6908,3 +6908,23 @@ static Sys_var_ulong Sys_slave_stats_daemon_interval(
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(update_slave_stats_daemon_interval));
+
+/*
+** sql_maximum_duplicate_executions
+*/
+static bool set_sql_max_dup_exe(sys_var *, THD *, enum_var_type type)
+{
+  if (sql_maximum_duplicate_executions == 0)
+    free_global_active_sql();
+
+  return false; // success
+}
+
+static Sys_var_uint Sys_sql_maximum_duplicate_executions(
+       "sql_maximum_duplicate_executions",
+       "Used by MySQL to limit the number of duplicate SQL statements "
+       "Defaut is 0 and means the feature is turned off",
+       GLOBAL_VAR(sql_maximum_duplicate_executions),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX),
+       DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(nullptr), ON_UPDATE(set_sql_max_dup_exe));

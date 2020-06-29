@@ -1106,6 +1106,9 @@ extern my_bool sql_plans_capture_apply_filter;
 /* Controls whether the plan ID is computed from normalized execution plan */
 extern my_bool normalized_plan_id;
 
+/* Controls whether MySQL sends an error when running duplicate statements */
+extern uint sql_maximum_duplicate_executions;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
@@ -1296,6 +1299,7 @@ extern PSI_mutex_key
   key_LOCK_global_table_stats,
   key_LOCK_global_sql_stats,
   key_LOCK_global_sql_plans,
+  key_LOCK_global_active_sql,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

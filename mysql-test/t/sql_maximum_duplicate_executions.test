@@ -1,0 +1,122 @@
+--source include/count_sessions.inc
+--enable_connect_log
+--enable_info
+--enable_query_log
+--enable_result_log
+
+connect (conn1, localhost, root,,test);
+
+set @@GLOBAL.sql_stats_control=on;
+set @@GLOBAL.max_digest_sample_age=1;
+
+#############
+# Case 1: off
+#############
+--echo
+--echo "Case 1: off, no error expected"
+--connection default
+--send SELECT 'Q1', sleep(2) from dual
+--real_sleep 1
+
+--connection conn1
+--send SELECT 'Q1', sleep(2) from dual
+
+--connection default
+--reap
+
+--connection conn1
+--reap
+
+set @@GLOBAL.sql_maximum_duplicate_executions=1;
+
+##############################
+# Case 2: on, in a transaction
+##############################
+--echo
+--echo "Case 2: on, in a transaction, no error"
+--connection default
+--send begin; SELECT 'Q1', sleep(2) from dual; rollback;
+--real_sleep 1
+
+--connection conn1
+--send SELECT 'Q1', sleep(2) from dual
+
+--connection default
+--reap
+
+--connection conn1
+--reap
+
+#############
+# Case 3: on
+#############
+--echo
+--echo "Case 3: on, expected the new error"
+--connection default
+--send SELECT 'Q1', sleep(2) from dual
+--real_sleep 1
+
+--connection conn1
+--send SELECT 'Q1', sleep(2) from dual
+
+--connection default
+--reap
+
+--connection conn1
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+##############################
+# Case 4: on, comment handling
+##############################
+--echo
+--echo "Case 4.1: on, comment handling: mix quotes and comments"
+--connection default
+--send /*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from dual /*C3*/
+--real_sleep 1
+
+--connection conn1
+--send /*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from dual /*"D3"*/
+
+--connection default
+--reap
+
+--connection conn1
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--echo "Case 4.2: on, comment handling: same with escaped quotes"
+--connection default
+--send /*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from dual /*C3*/
+--real_sleep 1
+
+--connection conn1
+--send /*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from dual /*"D3"*/
+
+--connection default
+--reap
+
+--connection conn1
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--connection default
+--echo
+--echo "execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
+select query_sample_text, execution_count, skipped_count
+from information_schema.sql_statistics s,
+     information_schema.sql_text t
+where t.sql_id=s.sql_id and skipped_count > 0
+order by length(query_sample_text);
+
+# tidy up
+set @@GLOBAL.sql_stats_control=off_hard;
+set @@GLOBAL.sql_maximum_duplicate_executions=0;
+set @@GLOBAL.max_digest_sample_age=-1;
+
+--disconnect conn1
+
+--disable_query_log
+--disable_result_log
+--disable_connect_log
+--source include/wait_until_count_sessions.inc

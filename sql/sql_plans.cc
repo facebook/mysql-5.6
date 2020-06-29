@@ -240,7 +240,7 @@ void insert_sql_plan(THD *thd, String *json_plan)
     memcpy(sql_plan->plan_data, json_plan->c_ptr(), plan_len);
     sql_plan->plan_data[plan_len] = '\0';
 
-    thd->set_plan_id(plan_id.data());
+    thd->mt_key_set(THD::PLAN_ID, plan_id.data());
 
     auto ret= global_sql_plans.emplace(plan_id, sql_plan);
     if (! ret.second)
@@ -249,7 +249,7 @@ void insert_sql_plan(THD *thd, String *json_plan)
     sql_plans_size += (MD5_HASH_SIZE + sizeof(SQL_PLAN) + plan_len);
   }
   else
-    thd->set_plan_id(sql_plan_iter->first.data());
+    thd->mt_key_set(THD::PLAN_ID, sql_plan_iter->first.data());
 
   unlock_sql_plans(lock_acquired);
 }

@@ -1536,9 +1536,11 @@ void THD::init(void)
   owned_gtid.sidno= 0;
   owned_gtid.gno= 0;
 
-  clear_sql_id();
-  clear_client_id();
-  clear_plan_id();
+  mt_key_clear(THD::SQL_ID);
+  mt_key_clear(THD::CLIENT_ID);
+  mt_key_clear(THD::PLAN_ID);
+  mt_key_clear(THD::SQL_HASH);
+  set_plan_capture(false);
 
   m_tmp_table_bytes_written = 0; /* temp table space bytes written */
   m_filesort_bytes_written  = 0; /* filesort space bytes written */
@@ -5937,10 +5939,11 @@ void THD::serialize_client_attrs()
     buf.q_append('}');
 
     mysql_mutex_lock(&LOCK_thd_data);
-    compute_md5_hash((char *)client_id.data(), client_attrs_string.ptr(),
+    compute_md5_hash((char *)mt_key_val[CLIENT_ID].data(),
+                     client_attrs_string.ptr(),
                      client_attrs_string.length());
 
-    client_id_set = true;
+    mt_key_val_set[CLIENT_ID] = true;
     mysql_mutex_unlock(&LOCK_thd_data);
   }
 }

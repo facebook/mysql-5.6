@@ -2687,13 +2687,13 @@ static bool fill_fields_process_common(THD *thd, THD *tmp, TABLE *table,
 
 /* Fill a key field ID: SQL_ID, CLIENT_ID, or PLAN_ID */
 static void fill_key_field_id(TABLE *table, CHARSET_INFO *cs,
-                              md5_key *id_value, bool id_is_set, uint pos)
+                              md5_key& id_value, bool id_is_set, uint pos)
 {
   if (id_is_set)
   {
     char hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(hex_string, id_value->data(),
-                 id_value->size());
+    array_to_hex(hex_string, id_value.data(),
+                 id_value.size());
 
     table->field[pos]->set_notnull();
     table->field[pos]->store(hex_string, MD5_BUFF_LENGTH, cs);
@@ -2761,13 +2761,16 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
   if (key_field_id)
   {
     /* SQL_ID */
-    fill_key_field_id(table, cs, &(tmp->sql_id), tmp->sql_id_set, 9);
+    fill_key_field_id(table, cs, tmp->mt_key_value(THD::SQL_ID),
+                      tmp->mt_key_is_set(THD::SQL_ID), 9);
 
     /* CLIENT_ID */
-    fill_key_field_id(table, cs, &(tmp->client_id), tmp->client_id_set, 10);
+    fill_key_field_id(table, cs, tmp->mt_key_value(THD::CLIENT_ID),
+                      tmp->mt_key_is_set(THD::CLIENT_ID), 10);
 
     /* PLAN_ID */
-    fill_key_field_id(table, cs, &(tmp->plan_id), tmp->plan_id_set, 11);
+    fill_key_field_id(table, cs, tmp->mt_key_value(THD::PLAN_ID),
+                      tmp->mt_key_is_set(THD::PLAN_ID), 11);
   }
 
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
@@ -2854,13 +2857,16 @@ static bool fill_fields_transaction_list(THD *thd, THD *conn_thd, TABLE *table,
     table->field[11]->store((ulonglong) srv_session_thd->thread_id(), TRUE);
 
   /* SQL_ID */
-  fill_key_field_id(table, cs, &(tmp->sql_id), tmp->sql_id_set, 12);
+  fill_key_field_id(table, cs, tmp->mt_key_value(THD::SQL_ID),
+                    tmp->mt_key_is_set(THD::SQL_ID), 12);
 
   /* CLIENT_ID */
-  fill_key_field_id(table, cs, &(tmp->client_id), tmp->client_id_set, 13);
+  fill_key_field_id(table, cs, tmp->mt_key_value(THD::CLIENT_ID),
+                    tmp->mt_key_is_set(THD::CLIENT_ID), 13);
 
   /* PLAN_ID */
-  fill_key_field_id(table, cs, &(tmp->plan_id), tmp->plan_id_set, 14);
+  fill_key_field_id(table, cs, tmp->mt_key_value(THD::PLAN_ID),
+                    tmp->mt_key_is_set(THD::PLAN_ID), 14);
 
   // unlock LOCK_thd_data (locked in fill_fields_process_common())
   mysql_mutex_unlock(&tmp->LOCK_thd_data);

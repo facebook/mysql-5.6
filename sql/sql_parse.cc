@@ -1583,8 +1583,9 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
   }
 
-  thd->clear_sql_id();
-  thd->clear_plan_id();
+  thd->mt_key_clear(THD::SQL_ID);
+  thd->mt_key_clear(THD::PLAN_ID);
+  thd->mt_key_clear(THD::SQL_HASH);
 }
 
 /**
@@ -2133,7 +2134,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
       /* SQL_PLAN - capture the sql plan for long running queries if not yet */
       if (sql_plans_capture_slow_query &&
-          !thd->plan_id_set            &&
+          !thd->mt_key_is_set(THD::PLAN_ID) &&
           (thd->server_status & SERVER_QUERY_WAS_SLOW))
         capture_sql_plan(thd, my_query_txt, my_query_len);
 
@@ -2623,9 +2624,9 @@ done:
   query_cache_end_of_result(thd);
 
   /* SQL_PLAN - capture the sql plan for long running queries if not yet */
-  if (my_query_len > 0             && // len=0 for COM's other than QUERY
-      sql_plans_capture_slow_query &&
-      !thd->plan_id_set            &&
+  if (my_query_len > 0               && // len=0 for COM's other than QUERY
+      sql_plans_capture_slow_query      &&
+      !thd->mt_key_is_set(THD::PLAN_ID) &&
       (thd->server_status & SERVER_QUERY_WAS_SLOW))
     capture_sql_plan(thd, my_query_txt, my_query_len);
 
@@ -2665,7 +2666,7 @@ done:
   thd->reset_query();
   thd->reset_query_attrs();
   thd->client_attrs_string.length(0);
-  thd->clear_client_id();
+  thd->mt_key_clear(THD::CLIENT_ID);
   thd->get_tracker()->reset_audit_attrs();
   thd->set_command(COM_SLEEP);
   thd->proc_info= 0;
@@ -8163,6 +8164,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 {
   int error MY_ATTRIBUTE((unused));
   ulonglong statement_start_time;
+  bool skip_dup_exec = false;
 
   DBUG_ENTER("mysql_parse");
 
@@ -8209,12 +8211,20 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
                       ? (found_semicolon - thd->query())
                       : thd->query_length();
 
+    /* If the parse was successful then Register the current SQL statement
+       in the active list and remember it for skipping.
+    */
+    if (err || register_active_sql(thd, rawbuf, qlen))
+      skip_dup_exec = false;
+    else
+      skip_dup_exec = true;
+
     /* We throttle certain type of queries based on the current state
     of the system. This function will check if we need to throttle and
     if so, it will set the appropriate error and return true. */
     bool query_throttled= throttle_query_if_needed(thd);
 
-    if (!err && !query_throttled)
+    if (!err && !query_throttled && !skip_dup_exec)
     {
       /*
         See whether we can do any query rewriting. opt_log_raw only controls
@@ -8252,7 +8262,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     if (last_timer)
       thd->status_var.parse_time += my_timer_since_and_update(last_timer);
 
-    if (!err)
+    if (!err && !skip_dup_exec)
     {
       if (async_commit)
         *async_commit = lex->async_commit;
@@ -8353,7 +8363,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 	}
       }
     }
-    else
+    else if (!skip_dup_exec)
     {
       /* do not log the parse error if running under sql plan capture */
       if (!thd->in_capture_sql_plan())
@@ -8377,6 +8387,10 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     thd->end_statement();
     thd->cleanup_after_query();
     DBUG_ASSERT(thd->change_list.is_empty());
+
+    // This query was flagged for skipping
+    if (skip_dup_exec)
+      my_error(ER_DUPLICATE_STATEMENT_EXECUTION, MYF(0));
   }
   else
   {
@@ -8406,6 +8420,10 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
       &((const_cast<USER_CONN*>(thd->get_user_connect()))->user_stats);
     us->rows_fetched.inc(thd->get_sent_row_count());
   }
+
+  // Remove the current statement from the active list
+  if (!skip_dup_exec)
+    remove_active_sql(thd);
 
   DBUG_VOID_RETURN;
 }
@@ -10350,7 +10368,19 @@ bool parse_sql(THD *thd,
 
   /* Compute SQL ID if parse was successful */
   if (ret_value == 0)
-    thd->set_sql_id();
+  {
+    /* check SQL stats is enabled, the digest has been populated and
+       not an internal explain to capture the sql plan
+     */
+    if (sql_stats_control == SQL_STATS_CONTROL_ON &&
+        !thd->in_capture_sql_plan() &&
+        thd->m_digest && !thd->m_digest->m_digest_storage.is_empty())
+      {
+        md5_key sql_id;
+        compute_digest_md5(&thd->m_digest->m_digest_storage, sql_id.data());
+        thd->mt_key_set(THD::SQL_ID, sql_id.data());
+      }
+  }
 
   return ret_value;
 }

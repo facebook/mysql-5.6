@@ -1987,6 +1987,10 @@ The following options may be given as the first argument:
  not logged inbinlog if this option is FALSE. Default is
  TRUE.
  (Defaults to on; use --skip-sql-log-bin-triggers to disable.)
+ --sql-maximum-duplicate-executions=# 
+ Used by MySQL to limit the number of duplicate SQL
+ statements Defaut is 0 and means the feature is turned
+ off
  --sql-mode=name     Syntax: sql-mode=mode[,mode[,mode...]]. See the manual
  for the complete list of valid sql modes
  --sql-plans-capture-apply-filter 
@@ -2738,6 +2742,7 @@ socket-umask 0
 sort-buffer-size 262144
 sporadic-binlog-dump-fail FALSE
 sql-log-bin-triggers TRUE
+sql-maximum-duplicate-executions 0
 sql-mode NO_ENGINE_SUBSTITUTION
 sql-plans-capture-apply-filter TRUE
 sql-plans-capture-frequency 1

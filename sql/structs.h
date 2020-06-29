@@ -557,6 +557,7 @@ typedef struct st_sql_stats {
 
   ulonglong count;   /* execution count of the normalized SQL */
                                   /* statement */
+  ulonglong skipped_count;     /* count of skipped executions */
 
   ulonglong rows_sent; /* rows sent back to the client */
   ulonglong tmp_table_bytes_written; /* bytes written to temp table space */
@@ -569,6 +570,7 @@ typedef struct st_sql_stats {
 
   void reset() {
     count= 0;
+    skipped_count= 0;
     rows_sent = 0;
     tmp_table_bytes_written = 0;
     filesort_bytes_written = 0;
