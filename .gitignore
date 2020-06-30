@@ -1,3 +1,26 @@
+# Arcanist cache
+/arcanist/.phutil_module_cache
+
+# Jellyfish
+/.jfconfig
+
+# Internal Facebook build puts generate files in directories like:
+/_build-*
+compile_commands.json
+
+# Internal Facebook Howtoeven static analyzer uses this directory.
+/.howtoeven/*
+
+# Files used in Facebook's internal testing system
+/.arcrc
+/tools
+
+# Allow
+!storage/innobase/xtrabackup/*
+
+# Clangd code completion index.
+/.clangd
+
 # emacs backup files
 *~
 
