@@ -810,6 +810,7 @@ static COMMANDS commands[] = {
     {"SQL_BUFFER_RESULT", 0, nullptr, false, ""},
     {"SQL_CALC_FOUND_ROWS", 0, nullptr, false, ""},
     {"SQL_NO_CACHE", 0, nullptr, false, ""},
+    {"SQL_NO_FCACHE", 0, nullptr, false, ""},
     {"SQL_SMALL_RESULT", 0, nullptr, false, ""},
     {"SQL_THREAD", 0, nullptr, false, ""},
     {"SQL_TSI_SECOND", 0, nullptr, false, ""},
