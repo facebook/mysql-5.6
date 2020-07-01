@@ -295,7 +295,9 @@ sub validate_disabled_test_entry($$$) {
                             $disabled_def_file);
 
   # Check if the disabled test exists
-  validate_test_existence($test_name) if $test_name;
+  # FB - disable this since the same disable lists are shared
+  # across multiple mysqld versions
+  # validate_test_existence($test_name) if $test_name;
 
   # Check the format of comment part.
   my $comment =

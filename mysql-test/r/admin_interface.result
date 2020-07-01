@@ -99,10 +99,10 @@ connect ordinary_con_2,localhost,u2,,,,,;
 ERROR 08004: Too many connections
 # Check that attempt to establish the third connection to admin interface
 # doesn't result in error
-connect admin_con_3,localhost,u1,,,$ADMIN_PORT,,TCP;
+connect admin_con_3,127.0.0.1,u1,,,$ADMIN_PORT,,TCP;
 # Check that total number of concurrent connection made to admin interface
 # is not limited by the value max-connections + 1
-connect admin_con_4,localhost,u1,,,$ADMIN_PORT,,TCP;
+connect admin_con_4,127.0.0.1,u1,,,$ADMIN_PORT,,TCP;
 connection ordinary_con_1;
 disconnect ordinary_con_1;
 connection admin_con_3;

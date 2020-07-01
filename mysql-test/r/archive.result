@@ -12726,7 +12726,7 @@ test.t1	analyze	note	The storage engine for the table doesn't support analyze
 SELECT DATA_LENGTH, AVG_ROW_LENGTH FROM
 INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
 DATA_LENGTH	AVG_ROW_LENGTH
-122	61
+123	61
 DROP TABLE t1;
 SET @save_join_buffer_size= @@join_buffer_size;
 SET @@join_buffer_size= 8192;

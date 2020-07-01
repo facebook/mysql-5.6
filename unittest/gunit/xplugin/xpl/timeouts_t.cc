@@ -55,8 +55,8 @@ class Timers_test_suite : public ::testing::Test {
     EXPECT_CALL(mock_server, get_config()).WillRepeatedly(Return(config));
     EXPECT_CALL(*mock_vio, get_mysql_socket())
         .WillRepeatedly(ReturnRef(m_socket));
-    sut.reset(new StrictMock<Mock_ngs_client>(mock_vio, mock_server, /* id */ 1,
-                                              &mock_protocol_monitor));
+    sut.reset(new Mock_ngs_client(mock_vio, mock_server, /* id */ 1,
+                                  &mock_protocol_monitor));
   }
 
   void TearDown() { EXPECT_CALL(*mock_vio, shutdown()); }

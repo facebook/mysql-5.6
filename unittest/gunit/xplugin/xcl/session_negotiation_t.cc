@@ -115,7 +115,7 @@ class Xcl_session_negotiation_tests : public Xcl_session_impl_tests {
   void expect_fetch_capabilities(Mysqlx::Connection::Capabilities &src_caps) {
     auto capabilities = src_caps.New();
     capabilities->CopyFrom(src_caps);
-    EXPECT_CALL(*m_mock_protocol, execute_fetch_capabilities_raw)
+    EXPECT_CALL(*m_mock_protocol, execute_fetch_capabilities_raw(_))
         .WillOnce(Return(capabilities));
   }
 

@@ -477,7 +477,7 @@ Mysqlx_ssl_verify_mode
 # IX.2
 RUN SHOW STATUS WHERE `Variable_name` RLIKE '^Mysqlx_ssl_(cipher_list|ctx_verify_(depth|mode)|server_not_(after|before)|verify_(depth|mode))$'
 Variable_name	Value
-Mysqlx_ssl_cipher_list	DHE-RSA-AES256-SHA:AES256-SHA
+Mysqlx_ssl_cipher_list	TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:DHE-RSA-AES256-SHA:AES256-SHA
 Mysqlx_ssl_ctx_verify_depth	-1
 Mysqlx_ssl_ctx_verify_mode	5
 Mysqlx_ssl_server_not_after	Dec  1 04:48:40 2029 GMT
@@ -1011,7 +1011,7 @@ Mysqlx_ssl_verify_mode
 # IX.2
 RUN SHOW STATUS WHERE `Variable_name` RLIKE '^Mysqlx_ssl_(cipher_list|ctx_verify_(depth|mode)|server_not_(after|before)|verify_(depth|mode))$'
 Variable_name	Value
-Mysqlx_ssl_cipher_list	DHE-RSA-AES256-SHA:AES256-SHA
+Mysqlx_ssl_cipher_list	TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:DHE-RSA-AES256-SHA:AES256-SHA
 Mysqlx_ssl_ctx_verify_depth	-1
 Mysqlx_ssl_ctx_verify_mode	5
 Mysqlx_ssl_server_not_after	Dec  1 04:48:40 2029 GMT
@@ -1545,7 +1545,7 @@ Mysqlx_ssl_verify_mode
 # IX.2
 RUN SHOW STATUS WHERE `Variable_name` RLIKE '^Mysqlx_ssl_(cipher_list|ctx_verify_(depth|mode)|server_not_(after|before)|verify_(depth|mode))$'
 Variable_name	Value
-Mysqlx_ssl_cipher_list	DHE-RSA-AES256-SHA:AES256-SHA
+Mysqlx_ssl_cipher_list	TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:DHE-RSA-AES256-SHA:AES256-SHA
 Mysqlx_ssl_ctx_verify_depth	-1
 Mysqlx_ssl_ctx_verify_mode	5
 Mysqlx_ssl_server_not_after	Dec  1 04:48:40 2029 GMT
