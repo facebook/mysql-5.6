@@ -7,8 +7,7 @@ let $engine=innodb;
 # Test for table having an index with mixed keyparts(asc/desc)
 ALTER TABLE t ADD KEY k2(a DESC, b, c DESC, d);
 ANALYZE TABLE t;
---sorted_result
-SELECT a, b, MIN(d) FROM t
+EXPLAIN SELECT a, b, MIN(d) FROM t
 WHERE (a > 4) AND (c = 3 or c = 40) AND (d > 7)  GROUP BY a, b;
 --sorted_result
 SELECT a, b, MIN(d) FROM t
@@ -27,8 +26,10 @@ ALTER TABLE t DROP KEY k1;
 ALTER TABLE t ADD KEY k1(a, b, c, d DESC);
 ANALYZE TABLE t;
 EXPLAIN SELECT a, b, MIN(d) FROM t WHERE (a > 9) AND (c = 3) GROUP BY a, b;
+--sorted_result
 SELECT a, b, MIN(d) FROM t WHERE (a > 9) AND (c = 3) GROUP BY a, b;
 EXPLAIN SELECT a, b, MIN(d), MAX(d) FROM t WHERE (a > 9) AND (c = 3) GROUP BY a, b;
+--sorted_result
 SELECT a, b, MIN(d), MAX(d) FROM t WHERE (a > 9) AND (c = 3) GROUP BY a, b;
 
 
