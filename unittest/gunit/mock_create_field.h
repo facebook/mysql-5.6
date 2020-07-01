@@ -42,6 +42,7 @@ class Mock_create_field : public Create_field {
     */
     assert(field_type == MYSQL_TYPE_TIMESTAMP ||
            field_type == MYSQL_TYPE_TIMESTAMP2);
+    memset(&m_lex_string, 0, sizeof(m_lex_string));
     init(nullptr,  // THD *thd
          nullptr,  // char *fld_name
          field_type,

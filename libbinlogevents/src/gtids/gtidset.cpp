@@ -236,6 +236,7 @@ std::size_t Gtid_set::count() const {
   std::size_t count{0};
 
   for (auto const &[uuid, intervals] : m_gtid_set) {
+    (void)uuid;
     for (auto &interval : intervals) {
       count += interval.count();
     }

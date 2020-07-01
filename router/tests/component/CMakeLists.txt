@@ -156,6 +156,14 @@ add_router_test_file(${CMAKE_CURRENT_SOURCE_DIR}/${test_file}
   )
 ENDFOREACH()
 
+# Suppress warnings for gcc-5 or older
+IF(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6.0)
+  MY_CHECK_CXX_COMPILER_FLAG("-Wno-unused-value" HAVE_NO_UNUSED_VALUE)
+  IF(HAVE_NO_UNUSED_VALUE)
+    ADD_COMPILE_FLAGS(test_rest_api_enable.cc COMPILE_FLAGS "-Wno-unused-value")
+  ENDIF()
+ENDIF()
+
 # When system deployment bootstrap is executed, files are
 # created in locations specified by deployment layout.
 # Since component tests may not have access to directories defined
