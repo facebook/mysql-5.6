@@ -43,7 +43,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
-#include <memory> // only to support hash of smart pointers
+#include <limits>  // std::numeric_limits
+#include <memory>  // only to support hash of smart pointers
 #include <stdexcept>
 #include <string>
 #include <type_traits>

@@ -1193,6 +1193,7 @@ static void *test_thread(void *arg) {
   THR_LOCK_DATA *multi_locks[MAX_LOCK_COUNT];
   my_thread_id id;
   mysql_cond_t COND_thr_lock;
+  memset(&COND_thr_lock, 0, sizeof(COND_thr_lock));
 
   id = param + 1; /* Main thread uses value 0. */
   mysql_cond_init(0, &COND_thr_lock);

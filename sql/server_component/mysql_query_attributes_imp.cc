@@ -274,7 +274,7 @@ static String *query_parameter_val_str(const PS_PARAM *param,
         str->length(
             my_TIME_to_str(tm, str->ptr(), uint8{DATETIME_MAX_DECIMALS}));
       } else {
-        delete str;
+        delete[] str;
         str = nullptr;
       }
       break;
@@ -300,7 +300,7 @@ static String *query_parameter_val_str(const PS_PARAM *param,
         str->length(
             my_TIME_to_str(tm, str->ptr(), uint8{DATETIME_MAX_DECIMALS}));
       } else {
-        delete str;
+        delete[] str;
         str = nullptr;
       }
       break;
@@ -342,7 +342,7 @@ static String *query_parameter_val_str(const PS_PARAM *param,
         str->length(
             my_TIME_to_str(tm, str->ptr(), uint8{DATETIME_MAX_DECIMALS}));
       } else {
-        delete str;
+        delete[] str;
         str = nullptr;
       }
       break;
@@ -355,7 +355,7 @@ static String *query_parameter_val_str(const PS_PARAM *param,
       uint dummy_errors;
       if (str->copy(reinterpret_cast<const char *>(param->value), param->length,
                     &my_charset_bin, &my_charset_bin, &dummy_errors)) {
-        delete str;
+        delete[] str;
         str = nullptr;
       }
       break;
@@ -368,7 +368,7 @@ static String *query_parameter_val_str(const PS_PARAM *param,
       uint dummy_errors;
       if (str->copy(reinterpret_cast<const char *>(param->value), param->length,
                     cs, cs, &dummy_errors)) {
-        delete str;
+        delete[] str;
         str = nullptr;
       }
       break;

@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
+#include <limits>  // std::numeric_limits
 #include <memory>
 #include <string>
 #include <tuple>

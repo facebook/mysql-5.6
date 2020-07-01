@@ -28,6 +28,7 @@
 
 #include <mysql/components/services/page_track_service.h>
 
+#include <stddef.h>  // size_t
 #include <list>
 
 #include "mysqlbackup.h"

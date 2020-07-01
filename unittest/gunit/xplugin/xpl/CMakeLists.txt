@@ -101,6 +101,12 @@ IF(MY_COMPILER_IS_SUNPRO)
     COMPILE_FLAGS "-xO2")
 ENDIF()
 
+# Suppress googletest warnings for clang-10 or older
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-deprecated FILES protocol_decoder_t.cc index_field_t.cc
+      listener_unix_socket_t.cc timeouts_t.cc account_verification_handler_t.cc admin_cmd_index_t.cc)
+ENDIF()
+
 TARGET_LINK_LIBRARIES(${XPL_UNIT_TESTS}
   ${GCOV_LDFLAGS}
   ${MYSQLX_CLIENT_LIB}
