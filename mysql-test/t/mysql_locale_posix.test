@@ -81,7 +81,7 @@ DROP DATABASE IF EXISTS `ó`;
 --echo
 --echo iso88591
 --exec LC_ALL=fi_FI.iso88591 $MYSQL --default-character-set=auto test -e "SELECT @@character_set_client"
---exec LC_ALL=fi_FI.iso88591 $MYSQLADMIN -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
+--exec LC_ALL=fi_FI.iso88591 $MYSQLADMIN --no-defaults -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
 --exec LC_ALL=fi_FI.iso88591 $MYSQL_SHOW --default-character-set=auto ó
 --exec LC_ALL=fi_FI.iso88591 $MYSQL_CHECK --default-character-set=auto "ó"
 
@@ -105,7 +105,7 @@ DROP DATABASE IF EXISTS `ó`;
 --echo
 --echo iso88592
 --exec LC_ALL=cs_CZ.iso88592 $MYSQL --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto test -e "SELECT @@character_set_client"
---exec LC_ALL=cs_CZ.iso88592 $MYSQLADMIN --character-sets-dir=$MYSQL_SHAREDIR/charsets  -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
+--exec LC_ALL=cs_CZ.iso88592 $MYSQLADMIN --no-defaults --character-sets-dir=$MYSQL_SHAREDIR/charsets  -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
 --exec LC_ALL=cs_CZ.iso88592 $MYSQL_SHOW --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto ó
 --exec LC_ALL=cs_CZ.iso88592 $MYSQL_CHECK --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto "ó"
 
@@ -140,7 +140,7 @@ DROP DATABASE IF EXISTS `ó`;
 --echo
 --echo koi8r
 --exec LC_ALL=ru_RU.koi8r $MYSQL --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto test -e "SELECT @@character_set_client"
---exec LC_ALL=ru_RU.koi8r $MYSQLADMIN --character-sets-dir=$MYSQL_SHAREDIR/charsets -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
+--exec LC_ALL=ru_RU.koi8r $MYSQLADMIN --no-defaults --character-sets-dir=$MYSQL_SHAREDIR/charsets -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
 --exec LC_ALL=ru_RU.koi8r $MYSQL_SHOW --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto ó
 --exec LC_ALL=ru_RU.koi8r $MYSQL_CHECK --character-sets-dir=$MYSQL_SHAREDIR/charsets --default-character-set=auto "ó"
 
@@ -160,7 +160,7 @@ DROP DATABASE IF EXISTS `ó`;
 --echo 
 --echo utf8
 --exec LC_ALL=en_US.utf8 $MYSQL --default-character-set=auto test -e "SELECT @@character_set_client"
---exec LC_ALL=en_US.utf8 $MYSQLADMIN -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
+--exec LC_ALL=en_US.utf8 $MYSQLADMIN --no-defaults -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT --default-character-set=auto create ó
 --exec LC_ALL=en_US.utf8 $MYSQL_SHOW --default-character-set=auto ó
 --exec LC_ALL=en_US.utf8 $MYSQL_SHOW --default-character-set=auto "Ã³"
 --exec LC_ALL=en_US.utf8 $MYSQL_SHOW --default-character-set=auto "Ăł"

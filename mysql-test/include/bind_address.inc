@@ -50,6 +50,7 @@ foreach my $ip (@ipv4_addresses)
   $rc =
     system(
       "$MYSQLADMIN " .
+      "--no-defaults " .
       "--host=$ip " .
       "--port=$MASTER_MYPORT " .
       "--user=u1 " .
@@ -108,6 +109,7 @@ foreach my $ip (@ipv6_addresses)
   $rc =
     system(
       "$MYSQLADMIN " .
+      "--no-defaults " .
       "--host=$ip " .
       "--port=$MASTER_MYPORT " .
       "--user=u1 " .

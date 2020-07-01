@@ -179,6 +179,8 @@ select * from performance_schema.global_variables where variable_name like 'myis
 set global net_retry_count=10, session net_retry_count=10;
 set global net_buffer_length=1024, net_write_timeout=200, net_read_timeout=300;
 show global variables like 'net_%';
+# With more variables, the max_join_size needs to increase for the following query
+set max_join_size=4000;
 --disable_warnings
 select * from performance_schema.global_variables where variable_name like 'net_%' order by 1;
 --enable_warnings
