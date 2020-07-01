@@ -68,6 +68,10 @@
 #include "sql/transaction_info.h"
 #include "sql_string.h"
 
+/** start of raft related extern funtion declarations  **/
+extern int rotate_binlog_file(THD *thd);
+/** end of raft related extern funtion declarations  **/
+
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
 Server_state_delegate *server_state_delegate;
@@ -1266,7 +1270,7 @@ extern "C" void *process_raft_queue(void *) {
   thd = new THD;
   thd->thread_stack = (char *)&thd;
   thd->store_globals();
-  // thd->thr_create_utime= thd->start_utime= my_micro_time();
+  // thd->thr_create_utime = thd->start_utime = my_micro_time();
   thd->m_security_ctx->skip_grants();
 
   thd_manager->add_thd(thd);
@@ -1284,6 +1288,10 @@ extern "C" void *process_raft_queue(void *) {
     RaftListenerQueue::QueueElement element = raft_listener_queue.get();
     RaftListenerCallbackResult result;
     switch (element.type) {
+      case RaftListenerCallbackType::ROTATE_BINLOG: {
+        result.error = rotate_binlog_file(current_thd);
+        break;
+      }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         exit = true;
         result.error = 0;

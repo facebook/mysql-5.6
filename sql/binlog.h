@@ -443,7 +443,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   bool should_abort_on_binlog_error();
   int new_file_impl(bool need_lock,
-                    Format_description_log_event *extra_description_event);
+                    Format_description_log_event *extra_description_event,
+                    myf raft_flags = MYF(0));
 
   bool open(PSI_file_key log_file_key, const char *log_name,
             const char *new_name, uint32 new_index_number);
@@ -456,6 +457,19 @@ class MYSQL_BIN_LOG : public TC_LOG {
   const char *generate_name(const char *log_name, const char *suffix,
                             char *buff);
   bool is_open() { return atomic_log_state != LOG_CLOSED; }
+
+  /* True if this binlog is an apply-log (in raft mode apply logs are the binlog
+   * used as trx log on follower instances)
+   *
+   * This is set to true, at the end of converting a Raft FOLLOWER to a
+   * MySQL Slave. It is set to false, when the Raft Candidate transitions
+   * to LEADER, and converts the MySQL Slave to a MySQL Master as a part
+   * of Election Decision Callback.
+   *
+   * @ref - rpl_handler.cc / point_binlog_to_binlog
+   *        rpl_handler.cc / point_binlog_to_apply
+   */
+  bool is_apply_log = false;
 
   /* This is relay log */
   bool is_relay_log;
@@ -937,12 +951,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
     binary log files.
     @param new_index_number The binary log file index number to start from
     after the RESET MASTER TO command is called.
+    @param raft_specific_handling Does this open_binlog interact with raft
+    (binlog or relay log)
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
-                   uint32 new_index_number = 0);
+                   uint32 new_index_number = 0,
+                   bool raft_specific_handling = false);
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
   /* Use this to start writing a new log file */
@@ -1299,6 +1316,17 @@ extern const char *log_bin_basename;
 extern bool opt_binlog_order_commits;
 extern ulong rpl_read_size;
 extern bool rpl_semi_sync_master_enabled;
+
+/**
+  Rotates the binary log file. Helper method invoked by raft plugin through
+  raft listener queue.
+
+  @param thd  The current thread doing the rotate
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int rotate_binlog_file(THD *thd);
+
 /**
   Turns a relative log binary log path into a full path, based on the
   opt_bin_logname or opt_relay_logname. Also trims the cr-lf at the
