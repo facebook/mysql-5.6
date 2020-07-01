@@ -1610,8 +1610,6 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  * @param writer - Binlog writer (metadata event with HLC will be written here)
  * @param obuffer - if not null, metadata event will be written here (instead
  *                  of writing to writer)
- * @param obuffer - if not null, metadata event will be written here (instead
- *                  of writing to writer)
  *
  * @return false on success, true on failure
  */
@@ -1840,7 +1838,7 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
              ("transaction_length= %llu", gtid_event.transaction_length));
 
   bool ret = false;
-  if (!enable_raft_plugin) {
+  if (!enable_raft_plugin || mysql_bin_log.is_apply_log) {
     ret = gtid_event.write(writer);
     if (ret) goto end;
 
@@ -1869,10 +1867,11 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
 
 
     thd->commit_consensus_error = false;
-    ret = RUN_HOOK(
-        raft_replication, before_flush,
-        (thd, cache_data->get_cache()->get_io_cache(),
-         RaftReplicateMsgOpType::OP_TYPE_TRX));
+    // TODO(luqun): perf concern? merge in plugin?
+    cache_data->get_cache()->copy_to(temp_binlog_cache.get());
+    ret = RUN_HOOK(raft_replication, before_flush,
+                   (thd, temp_binlog_cache->get_io_cache(),
+                    RaftReplicateMsgOpType::OP_TYPE_TRX));
 
     DBUG_EXECUTE_IF("fail_binlog_flush_raft", { ret = 1; });
 
@@ -5240,7 +5239,7 @@ bool MYSQL_BIN_LOG::open_binlog(
     const char *log_name, const char *new_name, ulong max_size_arg,
     bool null_created_arg, bool need_lock_index, bool need_sid_lock,
     Format_description_log_event *extra_description_event,
-    uint32 new_index_number) {
+    uint32 new_index_number, bool raft_specific_handling) {
   // lock_index must be acquired *before* sid_lock.
   assert(need_sid_lock || !need_lock_index);
   DBUG_TRACE;
@@ -5341,7 +5340,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   if (!s.is_valid()) goto err;
   s.dont_set_created = null_created_arg;
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
-  if (is_relay_log) s.set_relay_log_event();
+  if (is_relay_log && !raft_specific_handling) s.set_relay_log_event();
   if (write_event_to_binlog(&s)) goto err;
   /*
     We need to revisit this code and improve it.
@@ -7077,18 +7076,26 @@ bool MYSQL_BIN_LOG::should_abort_on_binlog_error() {
   thread while creating a new relay log file. This should be NULL for
   binary log files.
 
+  @param raft_flags Flags indicating how the rotate behaves when initiated by
+  raft plugin. In non-raft world, this defaults to 0
+
   @retval 0 success
   @retval nonzero - error
 
   @note The new file name is stored last in the index file
 */
 int MYSQL_BIN_LOG::new_file_impl(
-    bool need_lock_log, Format_description_log_event *extra_description_event) {
+    bool need_lock_log, Format_description_log_event *extra_description_event,
+    myf raft_flags) {
   int error = 0;
   bool close_on_error = false;
   char new_name[FN_REFLEN], *new_name_ptr = nullptr, *old_name, *file_to_open;
   const size_t ERR_CLOSE_MSG_LEN = 1024;
   char close_on_error_msg[ERR_CLOSE_MSG_LEN];
+
+  // Temporary cache for Rotate Event
+  std::unique_ptr<Binlog_cache_storage> temp_binlog_cache;
+
   memset(close_on_error_msg, 0, sizeof close_on_error_msg);
 
   DBUG_TRACE;
@@ -7124,6 +7131,26 @@ int MYSQL_BIN_LOG::new_file_impl(
       mysql_cond_wait(&non_xid_trxs_cond, &LOCK_non_xid_trxs);
     mysql_mutex_unlock(&LOCK_non_xid_trxs);
   }
+
+  // rotate events need to go through consensus so that we don't have
+  // to trim anything previous to a rotate event, i.e. into a rotated file.
+  bool no_op =
+      enable_raft_plugin && (raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP);
+
+  // If we are rotating a apply log, then we are a slave trying to do
+  // FLUSH BINARY LOGS, which should not have to go through consensus
+  bool rotate_via_raft =
+      enable_raft_plugin && (no_op || !is_relay_log) && (!is_apply_log);
+
+  // Skip rotate event append. This happens on followers because rotate event
+  // is already appended to the log inside raft plugin. POSTAPPEND flag
+  // indicates the same and is explicitly passed in by the plugin
+  bool skip_re_append = enable_raft_plugin &&
+                        (raft_flags & RaftListenerQueue::RAFT_FLAGS_POSTAPPEND);
+
+  if (rotate_via_raft) assert(!skip_re_append);
+
+  if (skip_re_append) assert(is_relay_log);
 
   mysql_mutex_lock(&LOCK_index);
 
@@ -7195,17 +7222,36 @@ int MYSQL_BIN_LOG::new_file_impl(
     Make sure that the log_file is initialized before writing
     Rotate_log_event into it.
   */
-  if (m_binlog_file->is_open()) {
+  if (m_binlog_file->is_open() && !skip_re_append) {
     /*
       We log the whole file name for log file as the user may decide
       to change base names at some point.
+      In raft, no_op rotates should not be tagged as relay log rotates because
+      it gets replicated and written to the binlog on the followers
     */
-    Rotate_log_event r(new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
-                       is_relay_log ? Rotate_log_event::RELAY_LOG : 0);
+    Rotate_log_event r(
+        new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
+        is_relay_log && !no_op ? Rotate_log_event::RELAY_LOG : 0);
 
-    if (DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error = 1),
-                         false) ||
-        (error = write_event_to_binlog(&r))) {
+    if (rotate_via_raft) {
+      // in raft mode checksums are calculated in plugin
+      ((Log_event *)&r)->common_footer->checksum_alg =
+          binary_log::BINLOG_CHECKSUM_ALG_OFF;
+
+      temp_binlog_cache = std::make_unique<Binlog_cache_storage>();
+      if (!temp_binlog_cache) {
+        error = 1;
+        goto end;
+      }
+
+      if ((error = temp_binlog_cache->open(4000, 4000))) goto end;
+
+      if ((error = r.write(temp_binlog_cache.get()))) goto end;
+
+      add_bytes_written(((Log_event *)&r)->common_header->data_written);
+    } else if (DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event",
+                                (error = 1), false) ||
+               (error = write_event_to_binlog(&r))) {
       char errbuf[MYSYS_STRERROR_SIZE];
       DBUG_EXECUTE_IF("fault_injection_new_file_rotate_event", errno = 2;);
       close_on_error = true;
@@ -7217,6 +7263,22 @@ int MYSQL_BIN_LOG::new_file_impl(
                       my_strerror(errbuf, sizeof(errbuf), errno));
       goto end;
     }
+
+    // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
+    if (rotate_via_raft) {
+      RaftReplicateMsgOpType op_type = RaftReplicateMsgOpType::OP_TYPE_ROTATE;
+
+      if (no_op) op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
+
+      error = RUN_HOOK(raft_replication, before_flush,
+                       (current_thd, temp_binlog_cache->get_io_cache(), op_type));
+
+      if (!error) {
+        error = RUN_HOOK(raft_replication, before_commit, (current_thd));
+      }
+    }
+
+    if (error) goto end;
 
     if ((error = m_binlog_file->flush())) {
       close_on_error = true;
@@ -7263,7 +7325,8 @@ int MYSQL_BIN_LOG::new_file_impl(
     error = open_binlog(old_name, new_name_ptr, max_size,
                         true /*null_created_arg=true*/,
                         false /*need_lock_index=false*/,
-                        true /*need_sid_lock=true*/, extra_description_event);
+                        true /*need_sid_lock=true*/, extra_description_event,
+                        rotate_via_raft && no_op /*raft_specific_handling*/);
   }
 
   /* handle reopening errors */
@@ -7279,8 +7342,24 @@ int MYSQL_BIN_LOG::new_file_impl(
   }
   my_free(old_name);
 
-end:
+  // We do after_commit hook only for regular rotates and never for NO-OP
+  // rotates.
+  // rotate_via_raft = (no_op || !is_relay) && (!is_apply)
+  // therefore the condition below is equivalent to
+  // (!is_relay) && (!is_apply) i.e this rotate is
+  // on a binlog in the master
+  // Why do we skip AFTER COMMIT for this rotate?
+  // This is to prevent the same after commit notification coming
+  // twice, once for this call and later when the apply thread
+  // processes this NO-OP event. The double notification can
+  // confuse LWM and outOfOrderTrxs computation in the plugin
+  if (!error && rotate_via_raft && !no_op) {
+    // not trapping return code, because this is the existing
+    // pattern in most places of after_commit hook (TODO)
+    (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
+  }
 
+end:
   if (error && close_on_error /* rotate, flush or reopen failed */) {
     /*
       Close whatever was left opened.
@@ -9996,6 +10075,17 @@ commit_stage:
     Hence treat only COMMIT_ERRORs as errors.
   */
   return thd->commit_error == THD::CE_COMMIT_ERROR;
+}
+
+int rotate_binlog_file(THD *thd) {
+  int error = 0;
+  DBUG_ENTER("rotate_binlog_file(THD *)");
+
+  if (mysql_bin_log.is_open()) {
+    error = mysql_bin_log.rotate_and_purge(thd, true);
+  }
+
+  DBUG_RETURN(error);
 }
 
 // Given a file name of the form 'binlog-file-name.index', it extracts the
