@@ -4878,12 +4878,14 @@ class Item_result_field : public Item {
   }
 
   longlong llrint_with_overflow_check(double realval) {
-    if (realval < LLONG_MIN || realval > LLONG_MAX) {
+    if (realval < static_cast<double>(LLONG_MIN) ||
+        realval > static_cast<double>(LLONG_MAX)) {
       raise_integer_overflow();
       return error_int();
     }
     // Rounding error, llrint() may return LLONG_MIN.
-    const longlong retval = realval == LLONG_MAX ? LLONG_MAX : llrint(realval);
+    const longlong retval =
+        realval == static_cast<double>(LLONG_MAX) ? LLONG_MAX : llrint(realval);
     return retval;
   }
 

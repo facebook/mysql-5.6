@@ -1462,7 +1462,8 @@ bool Explain_join::explain_rows_and_filtered() {
     // Print cost-related info
     double prefix_rows = pos->prefix_rowcount;
     ulonglong prefix_rows_ull =
-        prefix_rows >= std::numeric_limits<ulonglong>::max()
+        prefix_rows >=
+                static_cast<double>(std::numeric_limits<ulonglong>::max())
             ? std::numeric_limits<ulonglong>::max()
             : static_cast<ulonglong>(prefix_rows);
     fmt->entry()->col_prefix_rows.set(prefix_rows_ull);

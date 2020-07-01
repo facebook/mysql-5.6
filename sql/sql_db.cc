@@ -876,7 +876,7 @@ static bool find_db_tables(THD *thd, const dd::Schema &schema, const char *db,
                                                                   &sch_tables))
     return true;
 
-  for (const dd::String_type table_name : sch_tables) {
+  for (const dd::String_type &table_name : sch_tables) {
     TABLE_LIST *table_list = new (thd->mem_root) TABLE_LIST;
     if (table_list == nullptr) return true; /* purecov: inspected */
 

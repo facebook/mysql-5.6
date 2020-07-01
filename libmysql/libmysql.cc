@@ -3120,8 +3120,8 @@ static void fetch_long_with_conversion(MYSQL_BIND *param, MYSQL_FIELD *field,
       volatile double data;
       if (is_unsigned) {
         data = ulonglong2double(value);
-        *param->error =
-            data >= ULLONG_MAX || ((ulonglong)value) != ((ulonglong)data);
+        *param->error = data >= static_cast<double>(ULLONG_MAX) ||
+                        ((ulonglong)value) != ((ulonglong)data);
       } else {
         data = (double)value;
         *param->error = value != ((longlong)data);

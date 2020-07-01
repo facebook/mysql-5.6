@@ -40,7 +40,7 @@ template <typename T>
 class Sql_statement_builder_test_base : public testing::TestWithParam<T> {
  public:
   Query_string_builder m_qb;
-  Sql_statement_builder m_builder{{&m_qb}};
+  Sql_statement_builder m_builder{&m_qb};
 };
 
 struct Param_sql_statement_builder {

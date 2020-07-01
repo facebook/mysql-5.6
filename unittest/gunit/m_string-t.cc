@@ -88,7 +88,8 @@ TEST(MString, HumanReadableSize) {
   human_readable_num_bytes(data_size_str, 32, data_size);
   EXPECT_STREQ("1025000000Y", data_size_str);
 
-  data_size *= std::numeric_limits<unsigned long long>::max();
+  data_size *=
+      static_cast<double>(std::numeric_limits<unsigned long long>::max());
   human_readable_num_bytes(data_size_str, 32, data_size);
   EXPECT_STREQ("+INF", data_size_str);
 }
