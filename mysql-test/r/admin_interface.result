@@ -34,7 +34,7 @@ Pattern "Can't start server: cannot resolve hostname" found
 # restart: --admin-address=127.0.0.1 --admin-port=ADMIN_PORT --max-connections=2
 # Test case 5
 # Check that ordinary connection using tcp protocol can be established
-connect ordinary_tcp_con,localhost,root,,,,,TCP;
+connect ordinary_tcp_con,127.0.0.1,root,,,,,TCP;
 SELECT CURRENT_USER();
 CURRENT_USER()
 root@localhost
@@ -43,7 +43,7 @@ disconnect ordinary_tcp_con;
 Pattern "Can't start server: Bind on TCP/IP port: (Address .*in use|Only one usage of each socket address .* normally permitted)" found
 # Test case 6
 # Check that ordinary connection using default connection method can be established
-connect ordinary_con,localhost,root,,,,,;
+connect ordinary_con,127.0.0.1,root,,,,,;
 SELECT CURRENT_USER();
 CURRENT_USER()
 root@localhost
@@ -83,7 +83,7 @@ connection default;
 # Test case 10
 # Check that the parameter max_connections does affect to an ordinary
 # connection and doesn't affect to a connection made to admin interface
-connect ordinary_con_1,localhost,u1,,,,,;
+connect ordinary_con_1,127.0.0.1,u1,,,,,;
 # Show how many active connections exist after the connection
 # ordinary_con_1 established
 SHOW STATUS LIKE 'Threads_connected';
@@ -94,15 +94,15 @@ Threads_connected	2
 # the default connection and the second one is for the connection
 # ordinary_con_1) an attempt to connect to the server results in
 # error ER_CON_COUNT_ERROR
-connect(localhost,u2,,test,MASTER_PORT,MASTER_SOCKET);
-connect ordinary_con_2,localhost,u2,,,,,;
+connect(127.0.0.1,u2,,test,MASTER_PORT,MASTER_SOCKET);
+connect ordinary_con_2,127.0.0.1,u2,,,,,;
 ERROR 08004: Too many connections
 # Check that attempt to establish the third connection to admin interface
 # doesn't result in error
-connect admin_con_3,localhost,u1,,,$MASTER_ADMINPORT,,TCP;
+connect admin_con_3,127.0.0.1,u1,,,$MASTER_ADMINPORT,,TCP;
 # Check that total number of concurrent connection made to admin interface
 # is not limited by the value max-connections + 1
-connect admin_con_4,localhost,u1,,,$MASTER_ADMINPORT,,TCP;
+connect admin_con_4,127.0.0.1,u1,,,$MASTER_ADMINPORT,,TCP;
 connection ordinary_con_1;
 disconnect ordinary_con_1;
 connection admin_con_3;
@@ -162,7 +162,7 @@ connection default;
 # Check that admin interface is not setup when the option
 # --admin-port is specified without --admin-address
 # restart: --admin-port=ADMIN_PORT
-connect ordinary_tcp_con,localhost,root,,,,,TCP;
+connect ordinary_tcp_con,127.0.0.1,root,,,,,TCP;
 SELECT CURRENT_USER();
 CURRENT_USER()
 root@localhost

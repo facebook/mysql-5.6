@@ -1,5 +1,6 @@
 # This test case needs to crash the server. Needs a debug server.
 --source include/have_debug.inc
+--source include/big_test.inc
 
 # Valgrind can hang or return spurious messages on DBUG_SUICIDE
 --source include/not_valgrind.inc

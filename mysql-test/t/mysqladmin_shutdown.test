@@ -12,7 +12,7 @@
 --let $_expect_file_name= $MYSQLTEST_VARDIR/tmp/mysqld.$_server_id.expect
 --exec echo "wait" > $_expect_file_name
 
---exec $MYSQLADMIN -uroot --password="" -S $MASTER_MYSOCK shutdown 2>&1
+--exec $MYSQLADMIN --no-defaults -uroot --password="" -S $MASTER_MYSOCK shutdown 2>&1
 
 # pid file should be gone
 --error 1

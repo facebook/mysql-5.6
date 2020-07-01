@@ -59,7 +59,7 @@ remove_file $MYSQLTEST_VARDIR/tmp/bug10608.cnf;
 EOF
 
 --echo # Using --defaults-extra-file option with 'cnf_file'.
---exec $MYSQLADMIN --defaults-extra-file=$MYSQLTEST_VARDIR/tmp/cnf_file -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT ping 2>&1
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-extra-file=$MYSQLTEST_VARDIR/tmp/cnf_file -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT ping 2>&1
 
 # Testing with non-empty --defaults-extra-file with .cnf extension.
 --write_file $MYSQLTEST_VARDIR/tmp/cnf_test.cnf
@@ -67,7 +67,7 @@ EOF
 host = 127.0.0.1
 EOF
 
---exec $MYSQLADMIN --defaults-extra-file=$MYSQLTEST_VARDIR/tmp/cnf_test.cnf -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT ping 2>&1
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf --defaults-extra-file=$MYSQLTEST_VARDIR/tmp/cnf_test.cnf -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT ping 2>&1
 
 --remove_file $MYSQLTEST_VARDIR/tmp/cnf_test.cnf
 
@@ -94,10 +94,10 @@ EOF
 --remove_file $MYSQLTEST_VARDIR/tmp/cnf_test_df.cnf
 
 # Using option relative
---exec $MYSQLADMIN -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --sleep=1 --count=2 extended status < /dev/null > /dev/null  2>&1
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --sleep=1 --count=2 extended status < /dev/null > /dev/null  2>&1
 
 # Running mysqladmin with --compress
---exec $MYSQLADMIN -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --compress --skip-verbose ping 2>&1
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf -uroot -h localhost --password="" -S $MASTER_MYSOCK -P $MASTER_MYPORT --compress --skip-verbose ping 2>&1
 
 # Testing option --login-path
 CREATE USER testadmin_user1;
@@ -109,8 +109,8 @@ DROP USER testadmin_user1;
 
 # Using --server-public-key-path and --get-server-public-key
 CREATE USER tester@localhost IDENTIFIED WITH caching_sha2_password BY 'abcd';
---exec $MYSQLADMIN --host=127.0.0.1 -P $MASTER_MYPORT --ssl-mode=DISABLED -utester -pabcd --server-public-key-path=$MYSQL_TEST_DIR/std_data/rsa_public_key.pem ping
---exec $MYSQLADMIN --host=127.0.0.1 -P $MASTER_MYPORT --ssl-mode=DISABLED -utester -pabcd --get-server-public-key ping
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf --host=127.0.0.1 -P $MASTER_MYPORT --ssl-mode=DISABLED -utester -pabcd --server-public-key-path=$MYSQL_TEST_DIR/std_data/rsa_public_key.pem ping
+--exec $MYSQLADMIN --defaults-file=$MYSQLTEST_VARDIR/my.cnf --host=127.0.0.1 -P $MASTER_MYPORT --ssl-mode=DISABLED -utester -pabcd --get-server-public-key ping
 DROP USER tester@localhost;
 
 --echo #
@@ -165,5 +165,9 @@ exec $MYSQLADMIN --defaults-file=$file2 -uroot -h localhost --password="" -S $MA
 remove_file $file;
 remove_file $file2;
 
+# Test does not remove this correctly and there seem to be
+# instances where the file is not generated.
+--exec echo > $MYSQLTEST_VARDIR/tmp/.mylogin.cnf
+--remove_file $MYSQLTEST_VARDIR/tmp/.mylogin.cnf
 
 --echo End of tests

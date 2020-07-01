@@ -86,7 +86,7 @@ GRANT SUPER ON *.* TO u3;
 --echo # Test case 5
 --echo # Check that ordinary connection using tcp protocol can be established
 
---connect(ordinary_tcp_con,localhost,root,,,,,TCP)
+--connect(ordinary_tcp_con,127.0.0.1,root,,,,,TCP)
 SELECT CURRENT_USER();
 
 --disconnect ordinary_tcp_con
@@ -106,7 +106,7 @@ SELECT CURRENT_USER();
 --echo # Test case 6
 --echo # Check that ordinary connection using default connection method can be established
 
---connect(ordinary_con,localhost,root,,,,,)
+--connect(ordinary_con,127.0.0.1,root,,,,,)
 SELECT CURRENT_USER();
 
 --disconnect ordinary_con
@@ -164,7 +164,7 @@ SELECT CURRENT_USER();
 --echo # Test case 10
 --echo # Check that the parameter max_connections does affect to an ordinary
 --echo # connection and doesn't affect to a connection made to admin interface
---connect(ordinary_con_1,localhost,u1,,,,,)
+--connect(ordinary_con_1,127.0.0.1,u1,,,,,)
 
 --echo # Show how many active connections exist after the connection
 --echo # ordinary_con_1 established
@@ -177,15 +177,15 @@ SHOW STATUS LIKE 'Threads_connected';
 --echo # error ER_CON_COUNT_ERROR
 --replace_result $MASTER_MYSOCK MASTER_SOCKET $MASTER_MYPORT MASTER_PORT
 --error ER_CON_COUNT_ERROR
---connect(ordinary_con_2,localhost,u2,,,,,)
+--connect(ordinary_con_2,127.0.0.1,u2,,,,,)
 
 --echo # Check that attempt to establish the third connection to admin interface
 --echo # doesn't result in error
---connect(admin_con_3,localhost,u1,,,$MASTER_ADMINPORT,,TCP)
+--connect(admin_con_3,127.0.0.1,u1,,,$MASTER_ADMINPORT,,TCP)
 
 --echo # Check that total number of concurrent connection made to admin interface
 --echo # is not limited by the value max-connections + 1
---connect(admin_con_4,localhost,u1,,,$MASTER_ADMINPORT,,TCP)
+--connect(admin_con_4,127.0.0.1,u1,,,$MASTER_ADMINPORT,,TCP)
 
 --connection ordinary_con_1
 --disconnect ordinary_con_1
@@ -287,7 +287,7 @@ SELECT CURRENT_USER();
 --source include/start_mysqld.inc
 
 # Make ordinary connection
---connect(ordinary_tcp_con,localhost,root,,,,,TCP)
+--connect(ordinary_tcp_con,127.0.0.1,root,,,,,TCP)
 
 SELECT CURRENT_USER();
 --replace_result $MASTER_ADMINPORT ADMIN_PORT

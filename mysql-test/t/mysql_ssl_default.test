@@ -26,7 +26,7 @@
 
 CREATE USER u1@localhost IDENTIFIED BY 'secret' REQUIRE SSL;
 --echo # verify that mysqladmin default connect with ssl channel
---exec $MYSQLADMIN -uu1 -psecret --host=127.0.0.1 -P $MASTER_MYPORT ping 2>&1
+--exec $MYSQLADMIN --no-defaults -uu1 -psecret --host=127.0.0.1 -P $MASTER_MYPORT ping 2>&1
 
 --echo # verify that mysql_show default connect with ssl channel
 --exec $MYSQL_SHOW -uu1 -psecret --host=127.0.0.1 -P $MASTER_MYPORT 2>&1

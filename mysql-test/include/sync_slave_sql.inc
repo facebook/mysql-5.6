@@ -155,7 +155,7 @@ if ($_sss_result < 0)
   --echo ERROR: timeout='$_sss_slave_timeout'
   --echo ERROR: result='$_sss_result'
   --echo ERROR: error type: $error_type
-  --die Error in sync_with_master.inc
+  --die Error in sync_slave_sql.inc
 }
 
 --let $include_filename= sync_slave_sql.inc

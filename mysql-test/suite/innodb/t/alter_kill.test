@@ -24,6 +24,7 @@ call mtr.add_suppression("Error number [0-9]* means 'Resource temporarily unavai
 call mtr.add_suppression("Skip updating information_schema metadata in InnoDB read-only mode.");
 call mtr.add_suppression(".*MY-\d+.* Tablespace [0-9]+, name 'test.*bug16720368', unable to open file '.*test.*bug16720368.ibd' - Data structure corruption");
 call mtr.add_suppression("Skipped updating resource group metadata in InnoDB read only mode.");
+call mtr.add_suppression("Error number 38 means 'Function not implemented'");
 -- enable_query_log
 
 -- echo #

@@ -46,7 +46,7 @@ SET GLOBAL rpl_semi_sync_source_timeout = 10000000;
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --disable_result_log
 --replace_regex /.*mysqladmin.*: /mysqladmin: /
---exec $MYSQLADMIN -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT shutdown 2>&1
+--exec $MYSQLADMIN --no-defaults -uroot -S $MASTER_MYSOCK -P $MASTER_MYPORT shutdown 2>&1
 --enable_result_log
 
 --source include/rpl_connection_master.inc
