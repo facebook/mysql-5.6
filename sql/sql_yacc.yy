@@ -1420,6 +1420,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> GTID_EXECUTED 1252           /* MYSQL */
 %token<lexer.keyword> SUPER_READ_ONLY_SYM 1253
 %token<lexer.keyword> DB_METADATA_SYM 1254
+%token<lexer.keyword> SQL_NO_FCACHE_SYM 1255       /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -10195,6 +10196,13 @@ select_option:
           {
             push_deprecated_warn_no_replacement(YYTHD, "SQL_NO_CACHE");
             /* Ignored since MySQL 8.0. */
+            $$.query_spec_options= 0;
+          }
+        ;
+        | SQL_NO_FCACHE_SYM
+          {
+            push_deprecated_warn_no_replacement(YYTHD, "SQL_NO_FCACHE");
+            /* Deprecated but added back for compat */
             $$.query_spec_options= 0;
           }
         ;
