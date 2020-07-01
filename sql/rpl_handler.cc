@@ -68,6 +68,10 @@
 #include "sql/transaction_info.h"
 #include "sql_string.h"
 
+/** start of raft related extern funtion declarations  **/
+extern int rotate_binlog_file(THD *thd);
+/** end of raft related extern funtion declarations  **/
+
 Trans_delegate *transaction_delegate;
 Binlog_storage_delegate *binlog_storage_delegate;
 Server_state_delegate *server_state_delegate;
@@ -1251,36 +1255,38 @@ int launch_hook_trans_begin(THD *thd, TABLE_LIST *all_tables) {
 
 extern "C" void *process_raft_queue(void *) {
   THD *thd;
-  bool thd_added= false;
+  bool thd_added = false;
 
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   /* Setup this thread */
   my_thread_init();
-  thd= new THD;
+  thd = new THD;
   thd->thread_stack= (char *)&thd;
   thd->store_globals();
-  // thd->thr_create_utime= thd->start_utime= my_micro_time();
+  // thd->thr_create_utime = thd->start_utime = my_micro_time();
   thd->m_security_ctx->skip_grants();
 
   thd_manager->add_thd(thd);
-  thd_added= true;
+  thd_added = true;
 
   /* Start listening for new events in the queue */
-  bool exit= false;
+  bool exit = false;
   // The exit is triggered by the raft plugin gracefully
   // enqueing an exit function for this thread.
   // if we listen to abort_loop or thd->killed
   // then we might not give the plugin the opportunity to
   // do some critical tasks before exit
-  while (!exit)
-  {
+  while (!exit) {
     thd->get_stmt_da()->reset_diagnostics_area();
-    RaftListenerQueue::QueueElement element= raft_listener_queue.get();
+    RaftListenerQueue::QueueElement element = raft_listener_queue.get();
     RaftListenerCallbackResult result;
-    switch (element.type)
-    {
+    switch (element.type) {
+      case RaftListenerCallbackType::ROTATE_BINLOG: {
+        result.error = rotate_binlog_file(current_thd);
+        break;
+      }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
-        exit= true;
+        exit = true;
         result.error = 0;
         break;
       default:
@@ -1342,7 +1348,7 @@ RaftListenerQueue::QueueElement RaftListenerQueue::get() {
   while (queue_.empty())
     queue_cv_.wait(lock);
 
-  QueueElement element= queue_.front();
+  QueueElement element = queue_.front();
   queue_.pop();
 
   return element;
@@ -1358,7 +1364,7 @@ int RaftListenerQueue::init() {
   if (start_raft_listener_thread())
     return 1; // Fails to initialize
 
-  inited_= true;
+  inited_ = true;
   return 0; // Initialization success
 }
 
@@ -1372,7 +1378,7 @@ void RaftListenerQueue::deinit() {
   // Queue an exit event in the queue. The listener thread will eventually pick
   // this up and exit
   QueueElement element;
-  element.type= RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
+  element.type = RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
   add(element);
 
   inited_= false;
