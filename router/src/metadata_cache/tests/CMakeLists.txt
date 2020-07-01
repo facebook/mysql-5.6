@@ -140,3 +140,9 @@ TARGET_COMPILE_DEFINITIONS(${test_target}
 
 # TODO(sgunders): Remove when all GMock tests use MOCK_METHOD().
 STRING(REPLACE "-Wsuggest-override" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+# Suppress warnings for gcc-7.x
+IF(CMAKE_COMPILER_IS_GNUCXX AND
+   NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-maybe-uninitialized FILES ${PROJECT_SOURCE_DIR}/src/metadata_cache/src/cluster_metadata_gr.cc)
+ENDIF()

@@ -911,6 +911,13 @@ IF(COMPRESS_DEBUG_SECTIONS)
   ENDIF()
 ENDIF()
 
+# Suppress warnings for gcc-11 or newer
+IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-mismatched-new-delete FILES sql_cursor.cc sql_prepare.cc)
+  # a false positive with a bison-generated file (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98753)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-free-nonheap-object FILES ${CMAKE_CURRENT_BINARY_DIR}/sql_hints.yy.cc)
+ENDIF()
+
 ADD_LIBRARY(sql_dd STATIC ${DD_SOURCES})
 ADD_DEPENDENCIES(sql_dd GenFixPrivs)
 ADD_DEPENDENCIES(sql_dd GenServerSource)
