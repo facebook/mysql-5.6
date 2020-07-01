@@ -1,0 +1,23 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/buildpack-deps:xenial
+    steps:
+      - checkout
+      - run:
+          name: Clang-format test
+          command: |
+            curl -sSL "http://apt.llvm.org/llvm-snapshot.gpg.key" | sudo -E apt-key add -
+            echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list > /dev/null
+            sudo -E apt-get -yq update >> ~/apt-get-update.log 2>&1
+            sudo -E apt-get -yq --no-install-suggests --no-install-recommends install clang-format-8
+            wget https://llvm.org/svn/llvm-project/cfe/trunk/tools/clang-format/clang-format-diff.py
+            chmod a+x clang-format-diff.py
+            git diff -U0 --no-color HEAD^1 *.c *.cc *.cpp *.h *.hpp *.i *.ic *.ih | ./clang-format-diff.py -binary=clang-format-8 -style=file -p1 >_GIT_DIFF
+            if [ ! -s _GIT_DIFF ]; then
+               echo The last git commit is clang-formatted;
+            else
+               cat _GIT_DIFF;
+               false;
+            fi

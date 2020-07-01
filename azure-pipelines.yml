@@ -1,0 +1,377 @@
+jobs:
+- job:
+  timeoutInMinutes: 240
+  pool:
+    vmImage: $(imageName)
+
+  variables:
+    UBUNTU_CODE_NAME: focal
+    BOOST_VERSION: boost_1_77_0
+    BOOST_DIR: $(Pipeline.Workspace)/boost
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    CCACHE_COMPRESS: 1
+    CCACHE_COMPRESSLEVEL: 9
+    CCACHE_CPP2: 1
+    CCACHE_MAXSIZE: 4G
+    OS_NAME: $(Agent.OS)
+    PARENT_BRANCH: 8.0
+    BUILD_PARAMS_TYPE: normal
+
+  strategy:
+    matrix:
+      Jammy clang-15 Debug ASan:
+        UBUNTU_CODE_NAME: jammy
+        imageName: 'ubuntu-22.04'
+        Compiler: clang
+        CompilerVer: 15
+        BuildType: Debug
+        BUILD_PARAMS_TYPE: sanitize
+
+      Jammy clang-15 Debug:
+        UBUNTU_CODE_NAME: jammy
+        imageName: 'ubuntu-22.04'
+        Compiler: clang
+        CompilerVer: 15
+        BuildType: Debug
+
+      Jammy clang-15 RelWithDebInfo:
+        UBUNTU_CODE_NAME: jammy
+        imageName: 'ubuntu-22.04'
+        Compiler: clang
+        CompilerVer: 15
+        BuildType: RelWithDebInfo
+
+      Jammy clang-14 Debug:
+        UBUNTU_CODE_NAME: jammy
+        imageName: 'ubuntu-22.04'
+        Compiler: clang
+        CompilerVer: 14
+        BuildType: Debug
+
+      Jammy clang-14 RelWithDebInfo:
+        UBUNTU_CODE_NAME: jammy
+        imageName: 'ubuntu-22.04'
+        Compiler: clang
+        CompilerVer: 14
+        BuildType: RelWithDebInfo
+
+      Focal clang-13 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 13
+        BuildType: Debug
+
+      Focal clang-13 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 13
+        BuildType: RelWithDebInfo
+
+      Focal clang-11 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 11
+        BuildType: Debug
+
+      Focal clang-11 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 11
+        BuildType: RelWithDebInfo
+
+      Focal clang-9 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 9
+        BuildType: Debug
+
+      Focal clang-9 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 9
+        BuildType: RelWithDebInfo
+
+      Focal clang-7 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 7
+        BuildType: Debug
+
+      Focal clang-7 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 7
+        BuildType: RelWithDebInfo
+
+      Jammy gcc-12 Debug ASan:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: Debug
+        BUILD_PARAMS_TYPE: sanitize
+
+      Jammy gcc-12 Debug:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: Debug
+
+      Jammy gcc-12 RelWithDebInfo:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: RelWithDebInfo
+
+      Focal gcc-11 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 11
+        BuildType: Debug
+
+      Focal gcc-11 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 11
+        BuildType: RelWithDebInfo
+
+      Focal gcc-9 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 9
+        BuildType: Debug
+
+      Focal gcc-9 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 9
+        BuildType: RelWithDebInfo
+
+      Focal gcc-7 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 7
+        BuildType: Debug
+
+      Focal gcc-7 RelWithDebInfo:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 7
+        BuildType: RelWithDebInfo
+
+  steps:
+  - script: |
+      uname -r
+      df -Th
+      ls -l ..
+      pwd
+      ls -l
+
+      if [[ "$OS_NAME" == "Linux" ]]; then
+        SELECTED_CC=$(Compiler)-$(CompilerVer)
+        if [[ "$(Compiler)" == "clang" ]]; then
+          SELECTED_CXX=clang++-$(CompilerVer)
+          PACKAGES="$SELECTED_CC $PACKAGES"
+        else
+          SELECTED_CXX=g++-$(CompilerVer)
+          PACKAGES="$SELECTED_CXX $PACKAGES"
+        fi
+      else
+        REAL_COMPILER_VER=`$(Compiler) --version | grep -o "clang version.*" | awk '{print $3}'`
+        SELECTED_CC=$(Compiler)
+        SELECTED_CXX=clang++
+      fi
+
+      echo SELECTED_CC=$SELECTED_CC SELECTED_CXX=$SELECTED_CXX BuildType=$(BuildType) BUILD_PARAMS_TYPE=$(BUILD_PARAMS_TYPE) imageName=$(imageName) OS_NAME=$OS_NAME
+      echo --- Configure required LLVM and Ubuntu Toolchain repositories
+      if [[ "$OS_NAME" == "Linux" ]] && [[ "$SELECTED_CC" == "clang"* ]]; then
+        PACKAGES="llvm-$(CompilerVer)-dev $PACKAGES"
+        if [[ "$(BUILD_PARAMS_TYPE)" == "sanitize" ]]; then
+          PACKAGES="libclang-$(CompilerVer)-dev $PACKAGES"
+        fi
+        curl -sSL "http://apt.llvm.org/llvm-snapshot.gpg.key" | sudo -E apt-key add -
+        echo "deb http://apt.llvm.org/$(UBUNTU_CODE_NAME)/ llvm-toolchain-$(UBUNTU_CODE_NAME)-$(CompilerVer) main" | sudo tee -a /etc/apt/sources.list > /dev/null
+      fi
+
+      echo --- Update list of packages and download dependencies
+      if [[ "$OS_NAME" == "Linux" ]]; then
+        sudo -E apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
+        sudo -E apt-get -yq update >> ~/apt-get-update.log 2>&1
+
+        sudo -E apt-get -yq --no-install-suggests --no-install-recommends --allow-unauthenticated install libedit-dev
+        sudo -E apt-get -yq --no-install-suggests --no-install-recommends --allow-unauthenticated install $PACKAGES cmake cmake-curses-gui ccache bison libudev-dev libaio-dev libmecab-dev libnuma-dev liblzma-dev libssl-dev libreadline-dev libpam-dev libcurl4-openssl-dev libldap2-dev libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit || exit 1;
+        if [[ "$(BUILD_PARAMS_TYPE)" != "inverted" ]]; then
+          sudo -E apt-get -yq --no-install-suggests --no-install-recommends --allow-unauthenticated install rapidjson-dev zlib1g-dev libzstd-dev liblz4-dev libfido2-dev libevent-dev libreadline-dev protobuf-compiler libprotobuf-dev libprotoc-dev libicu-dev || exit 1;
+        fi
+
+        if [[ "$(Compiler)" == "clang" ]]; then
+          REAL_COMPILER_VER=`$SELECTED_CC --version | grep -o "clang version.*" | awk '{print $3}'`
+        else
+          REAL_COMPILER_VER=`$SELECTED_CC --version | head -1 | awk '{print $4}'`
+        fi
+      else
+         brew update
+         brew install ccache protobuf lz4 rapidjson openssl@1.1
+      fi
+
+      UPDATE_TIME=$SECONDS
+      echo --- Packages updated in $UPDATE_TIME seconds.
+
+      echo "##vso[task.setvariable variable=REAL_COMPILER_VER]${REAL_COMPILER_VER%%-*}"
+      echo "##vso[task.setvariable variable=SELECTED_CC]$SELECTED_CC"
+      echo "##vso[task.setvariable variable=SELECTED_CXX]$SELECTED_CXX"
+      echo "##vso[task.setvariable variable=UPDATE_TIME]$UPDATE_TIME"
+
+    displayName: '*** Install Build Dependencies'
+
+  - task: Cache@2
+    continueOnError: true
+    inputs:
+      key: '"ccache"| "$(PARENT_BRANCH)" | "$(imageName)-$(Compiler)-$(REAL_COMPILER_VER)-$(BuildType)" | "BUILD_PARAMS_TYPE=$(BUILD_PARAMS_TYPE)" | "$(Build.SourceVersion)"'
+      restoreKeys: '"ccache" | "$(PARENT_BRANCH)" | "$(imageName)-$(Compiler)-$(REAL_COMPILER_VER)-$(BuildType)" | "BUILD_PARAMS_TYPE=$(BUILD_PARAMS_TYPE)"'
+      path: $(CCACHE_DIR)
+    displayName: '*** Download/upload ccached files'
+
+  - task: Cache@2
+    continueOnError: true
+    inputs:
+      key: $(BOOST_VERSION)
+      restoreKeys: $(BOOST_VERSION)
+      path: $(BOOST_DIR)
+    displayName: '*** Download/upload $(BOOST_VERSION) libraries'
+
+  - checkout: self
+    fetchDepth: 32
+
+  - script: |
+      df -Th
+      git submodule sync
+      git submodule update --init --force --depth=256
+      git submodule
+    displayName: '*** Update git submodules'
+
+  - script: |
+      echo "SELECTED_CC=$SELECTED_CC (`which $SELECTED_CC`) SELECTED_CXX=$SELECTED_CXX (`which $SELECTED_CXX`) REAL_COMPILER_VER=$REAL_COMPILER_VER BuildType=$(BuildType)"
+      $SELECTED_CC -v
+      $SELECTED_CXX -v
+      ccache --version
+      ccache -p
+      ccache --zero-stats
+      df -Th
+      if [[ "$OS_NAME" == "Linux" ]]; then
+        cat /proc/cpuinfo
+      fi
+    displayName: '*** System and compiler info'
+
+  - script: |
+      echo SELECTED_CC=$SELECTED_CC SELECTED_CXX=$SELECTED_CXX REAL_COMPILER_VER=$REAL_COMPILER_VER BuildType=$(BuildType) BUILD_PARAMS_TYPE=$(BUILD_PARAMS_TYPE) imageName=$(imageName) OS_NAME=$OS_NAME
+      echo --- Set cmake parameters
+      COMPILE_OPT+=(
+        -DCMAKE_C_FLAGS_DEBUG=-g1
+        -DCMAKE_CXX_FLAGS_DEBUG=-g1
+      )
+
+      if [[ "$(BUILD_PARAMS_TYPE)" == "sanitize" ]]; then
+        SANITIZER_DEFINES="-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON"
+      fi
+
+      CMAKE_OPT="
+        -DCMAKE_BUILD_TYPE=$(BuildType)
+        -DBUILD_CONFIG=mysql_release
+        -DDOWNLOAD_BOOST=1
+        -DWITH_BOOST=$(BOOST_DIR)
+        -DCMAKE_C_COMPILER=$SELECTED_CC
+        -DCMAKE_CXX_COMPILER=$SELECTED_CXX
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      "
+
+      if [[ ( "$(Compiler)" == "gcc" ) && ( $(bc <<< "$(CompilerVer) < 8.1") -eq 1 ) ]]; then
+        CMAKE_OPT+="
+          -DWITH_ROUTER=OFF
+        "
+      fi
+
+      if [[ "$OS_NAME" == "Darwin" ]]; then
+        CMAKE_OPT+="
+          -DMYSQL_MAINTAINER_MODE=OFF
+          -DWITH_PROTOBUF=system
+          -DWITH_SYSTEM_LIBS=ON
+          -DWITH_ICU=/usr/local/opt/icu4c
+          -DWITH_SSL=/usr/local/opt/openssl@1.1
+          -DWITH_FIDO=bundled
+          -DWITH_ZLIB=bundled
+        "
+      else
+        CMAKE_OPT+="
+          -DMYSQL_MAINTAINER_MODE=ON
+        "
+        if [[ "$(BUILD_PARAMS_TYPE)" != "inverted" ]]; then
+          CMAKE_OPT+="
+            -DWITH_MECAB=system
+            -DWITH_NUMA=ON
+            -DWITH_SYSTEM_LIBS=ON
+          "
+          `# Required liblz4 1.9.3 and installed version is 1.9.2`
+          if [[ "$(imageName)" == "ubuntu-20.04" ]]; then
+            CMAKE_OPT+="-DWITH_LZ4=bundled"
+          fi
+        else
+          CMAKE_OPT+="
+            -DWITH_NDB=ON
+            -DWITH_NDBCLUSTER=ON
+            -DWITH_NDB_JAVA=OFF
+
+            -DWITH_ROUTER=OFF
+            -DWITH_UNIT_TESTS=OFF
+            -DWITH_NUMA=OFF
+
+            -DWITH_EDITLINE=bundled
+            -DWITH_FIDO=bundled
+            -DWITH_ICU=bundled
+            -DWITH_LIBEVENT=bundled
+            -DWITH_LZ4=bundled
+            -DWITH_PROTOBUF=bundled
+            -DWITH_RAPIDJSON=bundled
+            -DWITH_ZLIB=bundled
+            -DWITH_ZSTD=bundled
+
+            -DWITH_ARCHIVE_STORAGE_ENGINE=OFF
+            -DWITH_BLACKHOLE_STORAGE_ENGINE=OFF
+            -DWITH_EXAMPLE_STORAGE_ENGINE=ON
+            -DWITH_FEDERATED_STORAGE_ENGINE=OFF
+            -DWITHOUT_PERFSCHEMA_STORAGE_ENGINE=ON
+            -DWITH_INNODB_MEMCACHED=ON
+          "
+        fi
+      fi
+
+      echo --- CMAKE_OPT=\"$CMAKE_OPT\"
+      echo --- COMPILE_OPT=\"${COMPILE_OPT[@]}\"
+      mkdir bin; cd bin
+      cmake .. $SANITIZER_DEFINES $CMAKE_OPT "${COMPILE_OPT[@]}" || (cat CMakeFiles/CMakeError.log && exit 1)
+      rm -f $(BOOST_DIR)/$(BOOST_VERSION).tar.gz
+
+      CMAKE_TIME=$SECONDS
+      echo --- CMake took $CMAKE_TIME seconds. Packages updated in $UPDATE_TIME seconds.
+      cmake -L .
+
+      echo '##vso[task.setvariable variable=CMAKE_TIME]'$CMAKE_TIME
+
+    displayName: '*** cmake -DCMAKE_BUILD_TYPE=$(BuildType)'
+
+  - script: |
+      df -Th
+      cd bin
+      make -j2 || exit 1
+      ccache --show-stats
+
+      BUILD_TIME=$SECONDS
+      echo --- Total time $(($BUILD_TIME + $UPDATE_TIME + $CMAKE_TIME)) seconds. Build time $BUILD_TIME seconds. CMake took $CMAKE_TIME seconds. Packages updated in $UPDATE_TIME seconds.
+
+      mysql-test/mysql-test-run.pl --debug-server --parallel=auto 1st
+
+      df -Th
+      rm -rf *
+      df -Th
+
+    displayName: '*** Compile'
