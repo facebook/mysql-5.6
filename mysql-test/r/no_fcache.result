@@ -1,0 +1,23 @@
+CALL mtr.add_suppression("'SQL_NO_FCACHE' is deprecated");
+CREATE TABLE t1 (a INT);
+INSERT INTO t1 VALUES (0);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (3);
+SELECT SQL_NO_FCACHE * FROM t1;
+a
+0
+1
+2
+3
+Warnings:
+Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
+SELECT * FROM (SELECT SQL_NO_FCACHE * FROM t1) AS t2;
+a
+0
+1
+2
+3
+Warnings:
+Warning	1681	'SQL_NO_CACHE' is deprecated and will be removed in a future release.
+DROP TABLE t1;
