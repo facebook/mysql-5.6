@@ -1,0 +1,271 @@
+jobs:
+- job:
+  timeoutInMinutes: 240
+  pool:
+    vmImage: $(imageName)
+
+  variables:
+    UBUNTU_CODE_NAME: focal
+    BOOST_VERSION: boost_1_73_0
+    BOOST_DIR: $(Pipeline.Workspace)/boost
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    CCACHE_COMPRESS: 1
+    CCACHE_COMPRESSLEVEL: 9
+    CCACHE_CPP2: 1
+    CCACHE_MAXSIZE: 4G
+    SanitizerType: NoSan
+
+  strategy:
+    matrix:
+      Focal clang-14 Debug ASan:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 14
+        BuildType: Debug
+        SanitizerType: ASan
+
+      Focal clang-14 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 14
+        BuildType: Debug
+
+      Focal clang-14 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 14
+        BuildType: RelWithDebInfo
+
+      Focal clang-13 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 13
+        BuildType: Debug
+
+      Focal clang-13 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 13
+        BuildType: RelWithDebInfo
+
+      Focal clang-11 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 11
+        BuildType: Debug
+
+      Focal clang-11 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 11
+        BuildType: RelWithDebInfo
+
+      Focal clang-9 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 9
+        BuildType: Debug
+
+      Focal clang-9 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: clang
+        CompilerVer: 9
+        BuildType: RelWithDebInfo
+
+      Bionic clang-7 Debug:
+        UBUNTU_CODE_NAME: bionic
+        imageName: 'ubuntu-18.04'
+        Compiler: clang
+        CompilerVer: 7
+        BuildType: Debug
+
+      Bionic clang-7 Release:
+        UBUNTU_CODE_NAME: bionic
+        imageName: 'ubuntu-18.04'
+        Compiler: clang
+        CompilerVer: 7
+        BuildType: RelWithDebInfo
+
+      Jammy gcc-12 ASan:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: Debug
+        SanitizerType: ASan
+
+      Jammy gcc-12 Debug:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: Debug
+
+      Jammy gcc-12 Release:
+        imageName: 'ubuntu-22.04'
+        Compiler: gcc
+        CompilerVer: 12
+        BuildType: RelWithDebInfo
+
+      Focal gcc-11 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 11
+        BuildType: Debug
+
+      Focal gcc-11 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 11
+        BuildType: RelWithDebInfo
+
+      Focal gcc-9 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 9
+        BuildType: Debug
+
+      Focal gcc-9 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 9
+        BuildType: RelWithDebInfo
+
+      Focal gcc-7 Debug:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 7
+        BuildType: Debug
+
+      Focal gcc-7 Release:
+        imageName: 'ubuntu-20.04'
+        Compiler: gcc
+        CompilerVer: 7
+        BuildType: RelWithDebInfo
+
+  steps:
+  - checkout: self
+    submodules: true
+  - script: |
+      uname -r
+      df -Th
+      ls -l ..
+      pwd
+      ls -l
+      CC=$(Compiler)-$(CompilerVer)
+      if [[ "$(Compiler)" == "clang" ]]; then
+        CXX=clang++-$(CompilerVer)
+        PACKAGES="$CC $PACKAGES"
+      else
+        CXX=g++-$(CompilerVer)
+        PACKAGES="$CXX $PACKAGES"
+      fi
+
+      echo CC=$CC CXX=$CXX BuildType=$(BuildType) Ubuntu=$UBUNTU_CODE_NAME
+      echo --- Configure required LLVM and Ubuntu Toolchain repositories
+      if [[ "$CC" == clang* ]]; then
+         PACKAGES="$PACKAGES llvm-$(CompilerVer)-dev"
+         curl -sSL "http://apt.llvm.org/llvm-snapshot.gpg.key" | sudo -E apt-key add -
+         echo "deb http://apt.llvm.org/$UBUNTU_CODE_NAME/ llvm-toolchain-$UBUNTU_CODE_NAME-$(CompilerVer) main" | sudo tee -a /etc/apt/sources.list > /dev/null
+      fi
+
+      echo --- Update list of packages and download dependencies
+      sudo -E apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
+      sudo -E apt-get -yq update >> ~/apt-get-update.log 2>&1
+      sudo -E apt-get -yq --no-install-suggests --no-install-recommends --allow-unauthenticated install $PACKAGES cmake cmake-curses-gui ccache bison libzstd-dev libncurses5-dev libaio-dev libmecab-dev libnuma-dev liblzma-dev libreadline-dev libpam-dev libssl-dev libcurl4-openssl-dev libldap2-dev libkrb5-dev libsasl2-dev libsasl2-modules-gssapi-mit || exit 1;
+      sudo -E apt-get -yq --no-install-suggests --no-install-recommends --allow-unauthenticated install libevent-dev libedit-dev liblz4-dev libre2-dev protobuf-compiler libprotobuf-dev libprotoc-dev libicu-dev || exit 1;
+
+      UPDATE_TIME=$SECONDS
+      echo --- Packages updated in $UPDATE_TIME seconds.
+
+      $CC -v
+      $CXX -v
+      ccache --version
+      ccache --print-config
+      ccache --zero-stats
+      df -Th
+
+      COMPILER_VER=$(CompilerVer)
+      echo '##vso[task.setvariable variable=CompilerMajorVer]'${COMPILER_VER%.*}
+      echo '##vso[task.setvariable variable=CC]'$CC
+      echo '##vso[task.setvariable variable=CXX]'$CXX
+      echo '##vso[task.setvariable variable=UPDATE_TIME]'$UPDATE_TIME
+      echo '##vso[task.prependpath]/usr/lib/ccache'
+
+    displayName: '*** Install Build Dependencies'
+
+  - task: Cache@2
+    continueOnError: true
+    inputs:
+      key: ccache | $(Agent.OS)-$(Compiler)-$(CompilerMajorVer)-$(BuildType)-$(SanitizerType) | $(Build.SourceVersion)
+      restoreKeys: ccache | $(Agent.OS)-$(Compiler)-$(CompilerMajorVer)-$(BuildType)-$(SanitizerType)
+      path: $(CCACHE_DIR)
+    displayName: '*** Download/upload ccached files'
+
+  - task: Cache@2
+    continueOnError: true
+    inputs:
+      key: $(BOOST_VERSION)
+      restoreKeys: $(BOOST_VERSION)
+      path: $(BOOST_DIR)
+    displayName: '*** Download/upload $(BOOST_VERSION) libraries'
+
+  - script: |
+      echo --- Set cmake parameters
+      COMPILE_OPT+=(
+        -DCMAKE_C_FLAGS_DEBUG=-g1
+        -DCMAKE_CXX_FLAGS_DEBUG=-g1
+        '-DCMAKE_C_FLAGS_RELWITHDEBINFO=-O2 -g1 -DNDEBUG'
+        '-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g1 -DNDEBUG'
+      )
+
+      if [[ "$(SanitizerType)" == "ASan" ]]; then
+        SANITIZER_DEFINES="-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON"
+      fi
+
+      CMAKE_OPT="
+        -DCMAKE_BUILD_TYPE=$(BuildType)
+        -DBUILD_CONFIG=mysql_release
+        -DENABLE_DOWNLOADS=1
+        -DDOWNLOAD_BOOST=1
+        -DWITH_BOOST=$(BOOST_DIR)
+        -DMYSQL_MAINTAINER_MODE=ON
+        -DWITH_SYSTEM_LIBS=ON
+        -DWITH_LZ4=bundled
+        -DWITH_ZSTD=bundled
+        -DWITH_PROTOBUF=bundled
+        -DWITH_FIDO=bundled
+        -DWITH_MECAB=system
+        -DWITH_NUMA=ON
+        $SANITIZER_DEFINES
+        -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache
+        -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache
+      "
+
+      echo --- CMAKE_OPT=\"$CMAKE_OPT\"
+      echo --- COMPILE_OPT=\"${COMPILE_OPT[@]}\"
+      mkdir bin; cd bin
+      CC=$CC CXX=$CXX cmake .. $CMAKE_OPT "${COMPILE_OPT[@]}" || exit 1
+      rm -f $(BOOST_DIR)/$(BOOST_VERSION).tar.gz
+
+      CMAKE_TIME=$SECONDS
+      echo --- CMake took $CMAKE_TIME seconds. Packages updated in $UPDATE_TIME seconds.
+
+      echo '##vso[task.setvariable variable=CMAKE_TIME]'$CMAKE_TIME
+
+    displayName: '*** CC=$(Compiler)-$(CompilerVer) cmake .. -DCMAKE_BUILD_TYPE=$(BuildType)'
+
+  - script: |
+      df -Th
+      cd bin
+      make -j2 || exit 1
+      ccache --show-stats
+
+      BUILD_TIME=$SECONDS
+      echo --- Total time $(($BUILD_TIME + $UPDATE_TIME + $CMAKE_TIME)) seconds. Build time $BUILD_TIME seconds. CMake took $CMAKE_TIME seconds. Packages updated in $UPDATE_TIME seconds.
+
+      mysql-test/mysql-test-run.pl --debug-server --parallel=auto 1st
+
+      df -Th
+      rm -rf *
+      df -Th
+
+    displayName: '*** Compile'
