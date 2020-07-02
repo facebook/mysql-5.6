@@ -1347,7 +1347,8 @@ extern PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
   key_rwlock_LOCK_gap_lock_exceptions, key_rwlock_LOCK_legacy_user_name_pattern,
   key_rwlock_LOCK_admin_users_list_regex,
   key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
-  key_rwlock_hash_filo;
+  key_rwlock_hash_filo,
+  key_rwlock_sql_stats_snapshot;
 
 #ifdef HAVE_MMAP
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;

@@ -1,0 +1,45 @@
+Default value of sql_stats_snapshot is OFF
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+0
+SELECT @@global.sql_stats_snapshot;
+ERROR HY000: Variable 'sql_stats_snapshot' is a SESSION variable
+Expected error 'Variable is a SESSION variable'
+sql_stats_snapshot is a dynamic variable (change to "ON")
+set @@session.sql_stats_snapshot = on;
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+1
+set @@session.sql_stats_snapshot = "on";
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+1
+set @@session.sql_stats_snapshot = 1;
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+1
+Verify that on another connection it is still set to default
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+0
+restore the default value
+set @@session.sql_stats_snapshot = off;
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+0
+set @@session.sql_stats_snapshot = "off";
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+0
+set @@session.sql_stats_snapshot = 0;
+SELECT @@session.sql_stats_snapshot;
+@@session.sql_stats_snapshot
+0
+set @@session.sql_stats_snapshot = offline;
+ERROR 42000: Variable 'sql_stats_snapshot' can't be set to the value of 'offline'
+set @@session.sql_stats_snapshot = "offline";
+ERROR 42000: Variable 'sql_stats_snapshot' can't be set to the value of 'offline'
+set @@session.sql_stats_snapshot = 2;
+ERROR 42000: Variable 'sql_stats_snapshot' can't be set to the value of '2'
+set @@session.sql_stats_snapshot = 1.0;
+ERROR 42000: Incorrect argument type to variable 'sql_stats_snapshot'

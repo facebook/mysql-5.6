@@ -1020,6 +1020,10 @@ ulonglong json_contains_count = 0;
 ulonglong json_valid_count = 0;
 ulonglong json_func_binary_count = 0;
 
+/* Whether sql_stats_snapshot is enabled. If a session exists with
+   sql_stats_snapshot set to ON this status var is ON, otherwise it's OFF. */
+my_bool sql_stats_snapshot_status = FALSE;
+
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
 Ne_creator ne_creator;
@@ -1072,6 +1076,8 @@ mysql_mutex_t LOCK_global_sql_plans;
 mysql_mutex_t LOCK_global_active_sql;
 /* Lock to protect global_sql_findings map structure */
 mysql_mutex_t LOCK_global_sql_findings;
+/* Lock to protect sql_stats_snapshot */
+mysql_rwlock_t LOCK_sql_stats_snapshot;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2618,6 +2624,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_sql_plans);
   mysql_mutex_destroy(&LOCK_global_active_sql);
   mysql_mutex_destroy(&LOCK_global_sql_findings);
+  mysql_rwlock_destroy(&LOCK_sql_stats_snapshot);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5604,6 +5611,7 @@ static int init_thread_environment()
                    &LOCK_global_active_sql, MY_MUTEX_INIT_ERRCHK);
   mysql_mutex_init(key_LOCK_global_sql_findings,
                    &LOCK_global_sql_findings, MY_MUTEX_INIT_ERRCHK);
+  mysql_rwlock_init(key_rwlock_sql_stats_snapshot, &LOCK_sql_stats_snapshot);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -6257,6 +6265,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   init_global_table_stats();
   init_global_db_stats();
   init_global_error_stats();
+  init_global_sql_stats();
 
   /* call ha_init_key_cache() on all key caches to init them */
   process_key_caches(&ha_init_key_cache);
@@ -10978,6 +10987,7 @@ SHOW_VAR status_vars[]= {
   {"Sort_range",               (char*) offsetof(STATUS_VAR, filesort_range_count), SHOW_LONGLONG_STATUS},
   {"Sort_rows",                (char*) offsetof(STATUS_VAR, filesort_rows), SHOW_LONGLONG_STATUS},
   {"Sort_scan",                (char*) offsetof(STATUS_VAR, filesort_scan_count), SHOW_LONGLONG_STATUS},
+  {"sql_stats_snapshot",       (char*) &sql_stats_snapshot_status, SHOW_BOOL},
 #ifdef HAVE_OPENSSL
 #ifndef EMBEDDED_LIBRARY
   {"Ssl_accept_renegotiates",  (char*) &show_ssl_ctx_sess_accept_renegotiate, SHOW_FUNC},
@@ -12930,7 +12940,8 @@ PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
   key_rwlock_LOCK_gap_lock_exceptions,
   key_rwlock_LOCK_legacy_user_name_pattern,
   key_rwlock_LOCK_admin_users_list_regex,
-  key_rwlock_NAME_ID_MAP_LOCK_name_id_map;
+  key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
+  key_rwlock_sql_stats_snapshot;
 
 PSI_rwlock_key key_rwlock_Trans_delegate_lock;
 PSI_rwlock_key key_rwlock_Binlog_storage_delegate_lock;
@@ -12965,6 +12976,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_Trans_delegate_lock, "Trans_delegate::lock", PSI_FLAG_GLOBAL},
   { &key_rwlock_Binlog_storage_delegate_lock, "Binlog_storage_delegate::lock", PSI_FLAG_GLOBAL},
   { &key_rwlock_hash_filo, "LOCK_key_hash_filo_rwlock", PSI_FLAG_GLOBAL},
+  { &key_rwlock_sql_stats_snapshot, "LOCK_sql_stats_snapshot", PSI_FLAG_GLOBAL},
 #if (defined(_WIN32) || defined(HAVE_SMEM)) && !defined(EMBEDDED_LIBRARY)
   { &key_rwlock_LOCK_named_pipe_full_access_group, "LOCK_named_pipe_full_access_group", PSI_FLAG_GLOBAL},
 #endif /* _WIN32 || HAVE_SMEM && !EMBEDDED_LIBRARY */

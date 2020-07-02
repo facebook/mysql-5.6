@@ -842,6 +842,8 @@ typedef struct system_variables
   my_bool block_create_no_primary_key;
 
   long thread_priority;
+
+  my_bool sql_stats_snapshot;
 } SV;
 
 

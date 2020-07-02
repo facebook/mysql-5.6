@@ -1,0 +1,193 @@
+set @@GLOBAL.sql_stats_control="ON";
+
+--echo ### Validate that snapshot is disabled.
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+
+--echo ### Flush SQL stats.
+flush sql_statistics;
+
+let $sql_stats_query = select s.execution_count, left(t.sql_text, 50) text
+from
+  (select * from information_schema.sql_text) t,
+  (select * from information_schema.sql_statistics) s,
+  (select * from information_schema.client_attributes) a
+where a.client_id=s.client_id and s.sql_id=t.sql_id
+order by 1 desc, 2;
+
+--echo ### Confirm that SQL stats are populated.
+disable_query_log;
+eval $sql_stats_query;
+
+--echo ### Check SQL stats from another connection.
+connect(con1, localhost, root,,);
+disable_query_log;
+eval $sql_stats_query;
+
+--echo ### 1. Test basic snapshot functionality.
+--echo ### Enable snapshot.
+connection default;
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+
+--echo ### Confirm that snapshot has all stats.
+eval $sql_stats_query;
+
+--echo ### Another connection should see snapshot + 2 statements.
+connection con1;
+eval $sql_stats_query;
+
+--echo ### Insert 'tt' statements into SQL stats.
+create temporary table tt (c1 int);
+insert into tt select * from (select 1) t where 0=1;
+insert into tt select * from (select 2 union select 1) t where 0=1;
+insert into tt select * from (select 3 union select 2 union select 1) t where 0=1;
+drop table tt;
+
+--echo ### Confirm that new statements are seen in stats.
+eval $sql_stats_query;
+
+--echo ### First connection should still see the snapshot.
+connection default;
+eval $sql_stats_query;
+
+--echo ### Enable snapshot on second connection. It should see the same one as first connection.
+connection con1;
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Turn off snapshot on first connection and confirm that live stats are seen (+1 new statement).
+connection default;
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Second connection should still see the snapshot.
+connection con1;
+eval $sql_stats_query;
+
+--echo ### Turn off snapshot on second connection and confirm that live stats are seen as well.
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### 2. Test snapshot flush.
+--echo ### Enable snapshot again on first connection and confirm that it incudes all new statements.
+connection default;
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Insert 'tt1' statements into SQL stats to show up in live stats.
+create temporary table tt1 (c1 int);
+drop table tt1;
+
+--echo ### Flush SQL stats on first connection to just drop the snapshot.
+flush sql_statistics;
+
+--echo ### Snapshot can still be seen on first connection because it's still in use.
+eval $sql_stats_query;
+
+--echo ### Second connection doesn't see snapshot but it sees tt1 statements so live stats were not flushed.
+connection con1;
+eval $sql_stats_query;
+
+--echo ### Enable snapshot on second connection. It should now see the snapshot.
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Disable snapshot on second connection. It should now be back to live stats.
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Disable snapshot on first connection. It should now be back to live stats as well.
+connection default;
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### 3. Test all stats flush.
+--echo ### Enable snapshot again on first connection and confirm that it incudes all new statements.
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Insert 'tt2' statements into SQL stats to show up in live stats.
+create temporary table tt2 (c1 int);
+drop table tt2;
+
+--echo ### Second connection sees combined snapshot and new tt2 statements.
+connection con1;
+eval $sql_stats_query;
+
+--echo ### Flush SQL stats on second connection to drop all stats.
+flush sql_statistics;
+
+--echo ### Second connection now sees just the flush statement in stats.
+eval $sql_stats_query;
+
+--echo ### First connection still sees the snapshot.
+connection default;
+eval $sql_stats_query;
+
+--echo ### Disable snapshot on first connection. It should now be back to live stats as well.
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### 4. Test release of snapshot by closing connection.
+--echo ### Enable snapshot again on first connection and confirm that it incudes all new statements.
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Insert 'tt3' statements into SQL stats to show up in live stats.
+create temporary table tt3 (c1 int);
+drop table tt3;
+
+--echo ### Enable snapshot on second connection.
+connection con1;
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+
+--echo ### Close second connection.
+disconnect con1;
+--source include/wait_until_disconnected.inc
+connection default;
+disable_query_log;
+show status like 'sql_stats_snapshot';
+
+--echo ### Disable snapshot on first connection. It should now be back to live stats and see tt3 statements.
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Enable snapshot again on first connection and confirm that it incudes all new statements.
+set @@session.sql_stats_snapshot = on;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+eval $sql_stats_query;
+
+--echo ### Cleanup
+connection default;
+set @@session.sql_stats_snapshot = off;
+select @@session.sql_stats_snapshot;
+show status like 'sql_stats_snapshot';
+enable_query_log;
+set @@GLOBAL.sql_stats_control="OFF_HARD";

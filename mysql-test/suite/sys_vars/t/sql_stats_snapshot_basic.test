@@ -1,0 +1,57 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of sql_stats_snapshot is OFF
+SELECT @@session.sql_stats_snapshot;
+
+####
+# Verify that this is not a global variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@global.sql_stats_snapshot;
+--echo Expected error 'Variable is a SESSION variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_stats_snapshot is a dynamic variable (change to "ON")
+set @@session.sql_stats_snapshot = on;
+SELECT @@session.sql_stats_snapshot;
+set @@session.sql_stats_snapshot = "on";
+SELECT @@session.sql_stats_snapshot;
+set @@session.sql_stats_snapshot = 1;
+SELECT @@session.sql_stats_snapshot;
+
+####
+## Verify that on another connection it is still default
+####
+--echo Verify that on another connection it is still set to default
+connect(con1, localhost, root, , );
+SELECT @@session.sql_stats_snapshot;
+disconnect con1;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+connection default;
+set @@session.sql_stats_snapshot = off;
+SELECT @@session.sql_stats_snapshot;
+set @@session.sql_stats_snapshot = "off";
+SELECT @@session.sql_stats_snapshot;
+set @@session.sql_stats_snapshot = 0;
+SELECT @@session.sql_stats_snapshot;
+
+####
+## Verify bool type
+####
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_snapshot = offline;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_snapshot = "offline";
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_stats_snapshot = 2;
+--error ER_WRONG_TYPE_FOR_VAR
+set @@session.sql_stats_snapshot = 1.0;

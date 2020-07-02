@@ -5,6 +5,14 @@
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
 
+let $sql_stats_query = select s.execution_count, left(t.sql_text, 50) text
+from
+  (select * from information_schema.sql_text) t,
+  (select * from information_schema.sql_statistics) s,
+  (select * from information_schema.client_attributes) a
+where a.client_id=s.client_id and s.sql_id=t.sql_id
+order by 1 desc, 2;
+
 connect (con13, localhost, user_super,su,test);
 
 ####################################################
@@ -127,6 +135,60 @@ select @@max_sql_stats_size;
 select 1;
 select * from information_schema.sql_text
 order by sql_id;
+
+####################################################
+### Case 9: sql_stats_snapshot is included in count accounting
+####################################################
+--echo Case 9: sql_stats_snapshot is included in count accounting
+set @@GLOBAL.sql_stats_control=ON;
+set @@GLOBAL.max_sql_stats_count=4;
+set @@GLOBAL.max_sql_stats_size=default;
+--echo ## Snapshot has 2 entries
+set sql_stats_snapshot=ON;
+show status like 'sql_stats_snapshot';
+--echo ## 2 more entries are in live stats now and limit is reached. Next queries will not be recorded.
+eval $sql_stats_query;
+set sql_stats_snapshot=OFF;
+eval $sql_stats_query;
+--echo ## Snapshot and live stats had distinct entries so after snapshot merge the limit is still reached.
+eval $sql_stats_query;
+
+####################################################
+### Case 10: sql_stats_snapshot merge avoids double accounting of identical entries
+####################################################
+--echo Case 10: sql_stats_snapshot merge avoids double accounting of identical entries
+flush sql_statistics;
+select 1;
+--echo ## Snapshot has 2 entries
+set sql_stats_snapshot=ON;
+select 1;
+--echo ## 2 more entries are in live stats now and limit is reached. Next queries will not be recorded.
+--echo ## However snapshot merged on the fly from another connection will show 3 entries.
+connection default;
+select @@sql_stats_snapshot;
+eval $sql_stats_query;
+--echo ## Turn off snapshot merges it with live stats which drops count to 3 entries. 1 more query will be recorded.
+connection con13;
+set sql_stats_snapshot=OFF;
+select 1 union select 2;
+eval $sql_stats_query;
+
+####################################################
+### Case 11: sql_stats_snapshot flush removes snapshot entries from accounting
+####################################################
+--echo Case 11: sql_stats_snapshot flush removes snapshot entries from accounting
+flush sql_statistics;
+select 1;
+--echo ## Snapshot has 2 entries
+set sql_stats_snapshot=ON;
+show status like 'sql_stats_snapshot';
+--echo ## 2 more entries are in live stats now and limit is reached. Next queries will not be recorded.
+eval $sql_stats_query;
+--echo ## Flush snapshot drops entry count back to 2 so next 2 queries will be recorded but not the rest.
+flush sql_statistics;
+set sql_stats_snapshot=OFF;
+select 1 union select 2;
+eval $sql_stats_query;
 
 ###########
 ### Cleanup

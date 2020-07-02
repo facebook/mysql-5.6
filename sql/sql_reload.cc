@@ -377,7 +377,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
   }
 
   if (options & REFRESH_SQL_STATISTICS)
-    free_global_sql_stats(false /*limits_updated*/);
+    flush_sql_statistics(thd);
 
  if (*write_to_binlog != -1)
    *write_to_binlog= tmp_write_to_binlog;

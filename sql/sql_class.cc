@@ -1626,6 +1626,9 @@ void THD::cleanup_connection(void)
 
   propagate_pending_global_disk_usage();
 
+  if (variables.sql_stats_snapshot)
+    toggle_sql_stats_snapshot(this);
+
   init();
   stmt_map.reset();
   my_hash_init(&user_vars, system_charset_info, USER_VARS_HASH_SIZE, 0, 0,
@@ -1770,6 +1773,9 @@ void THD::release_resources()
 {
   mutex_assert_not_owner_shard(SHARDED(&LOCK_thread_count), this);
   DBUG_ASSERT(m_release_resources_done == false);
+
+  if (variables.sql_stats_snapshot)
+    toggle_sql_stats_snapshot(this);
 
   /* Ensure that no one is using THD */
   mysql_mutex_lock(&LOCK_thd_data);

@@ -2,6 +2,7 @@
 #include "sql_base.h"
 #include "sql_show.h"
 #include "sql_string.h"
+#include "sql_stats.h"
 #include "tztime.h"                             // struct Time_zone
 #include <mysql/plugin_rim.h>
 
@@ -282,9 +283,6 @@ ST_FIELD_INFO sql_stats_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-/* Global sql stats hash map to track and update metrics in-memory */
-static std::unordered_map<md5_key, SQL_STATS*> global_sql_stats_map;
-
 /*
   SQL_TEXT
 
@@ -302,9 +300,6 @@ ST_FIELD_INFO sql_text_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-/* Global sql text hash map to track and update metrics in-memory */
-static std::unordered_map<md5_key, SQL_TEXT*> global_sql_text_map;
-
 /*
   CLIENT_ATTRIBUTES
 
@@ -318,7 +313,13 @@ ST_FIELD_INFO client_attrs_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-static std::unordered_map<md5_key, std::string> global_client_attrs_map;
+/* Global sql stats hash maps to track and update metrics in-memory */
+Sql_stats_maps global_sql_stats;
+
+/* Snapshot of SQL stats. */
+Sql_stats_maps sql_stats_snapshot;
+extern mysql_rwlock_t LOCK_sql_stats_snapshot;
+extern my_bool sql_stats_snapshot_status;
 
 /*
   SQL_FINDINGS
@@ -362,6 +363,7 @@ ulonglong sql_stats_count= 0;
 ulonglong sql_stats_size= 0;
 
 extern ulonglong sql_plans_size;
+ulonglong sql_findings_size = 0;
 
 
 /*
@@ -370,6 +372,15 @@ extern ulonglong sql_plans_size;
 */
 ulonglong current_max_sql_stats_count= 0;
 ulonglong current_max_sql_stats_size= 0;
+
+/**
+  @brief Create and initialize global objects storing SQL stats.
+*/
+void init_global_sql_stats()
+{
+  if (!global_sql_stats.init())
+    sql_print_error("Initialization of global_sql_stats failed.");
+}
 
 /*
   sql_cmd_type
@@ -732,6 +743,62 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
 }
 
 /*
+  free_sql_stats_maps
+    Clears out entries in the stats maps.
+*/
+static void free_sql_stats_maps(Sql_stats_maps &stats_maps)
+{
+  for (auto it= stats_maps.stats->begin(); it != stats_maps.stats->end(); ++it)
+  {
+    if (it->second)
+    {
+      my_free(it->second->query_sample_text);
+      my_free(it->second);
+    }
+  }
+  stats_maps.stats->clear();
+
+  for (auto it= stats_maps.text->begin(); it != stats_maps.text->end(); ++it)
+  {
+    if (it->second)
+      my_free(it->second);
+  }
+  stats_maps.text->clear();
+
+  stats_maps.client_attrs->clear();
+
+  stats_maps.count = 0;
+  stats_maps.size = 0;
+}
+
+/**
+  @brief If snapshot exists, mark it for deletion by the last session.
+*/
+static void mark_sql_stats_snapshot_for_deletion()
+{
+  mysql_rwlock_wrlock(&LOCK_sql_stats_snapshot);
+  if (sql_stats_snapshot.is_set())
+  {
+    sql_stats_snapshot.drop_maps = true;
+
+    /* Reduce stats size and count if needed. If everything is flushed
+       then they would be already reset to 0. */
+    if (sql_stats_count)
+    {
+      DBUG_ASSERT(sql_stats_count >= sql_stats_snapshot.count);
+      sql_stats_count -= sql_stats_snapshot.count;
+    }
+
+    if (sql_stats_size)
+    {
+      DBUG_ASSERT(sql_stats_size >= sql_stats_snapshot.size);
+      sql_stats_size -= sql_stats_snapshot.size;
+    }
+  }
+  mysql_rwlock_unlock(&LOCK_sql_stats_snapshot);
+}
+
+/*
   free_global_sql_stats
     Frees global_sql_stats_map, global_sql_text_map & global_client_attrs_map.
     Also resets the usage counters to 0.
@@ -753,20 +820,7 @@ void free_global_sql_stats(bool limits_updated)
     }
   }
 
-  for (auto it= global_sql_stats_map.begin(); it != global_sql_stats_map.end(); ++it)
-  {
-    my_free((char *) it->second->query_sample_text);
-    my_free((char*)(it->second));
-  }
-  global_sql_stats_map.clear();
-
-  for (auto it= global_sql_text_map.begin(); it != global_sql_text_map.end(); ++it)
-  {
-    my_free((char*)(it->second));
-  }
-  global_sql_text_map.clear();
-
-  global_client_attrs_map.clear();
+  free_sql_stats_maps(global_sql_stats);
 
   sql_stats_count = 0;
   sql_stats_size = 0;
@@ -775,6 +829,11 @@ void free_global_sql_stats(bool limits_updated)
   current_max_sql_stats_size = max_sql_stats_size;
 
   mt_unlock(lock_acquired, &LOCK_global_sql_stats);
+
+  /* Now that the stats lock is released, mark the snapshot for deletion. It
+     acquires the snapshot lock which is always taken first before the stats
+     lock, and acquiring in opposite order can deadlock. */
+  mark_sql_stats_snapshot_for_deletion();
 }
 
 /*
@@ -783,8 +842,9 @@ void free_global_sql_stats(bool limits_updated)
     SQL metrics (statistics, text, client attributes, plans)
 */
 bool is_sql_stats_collection_above_limit() {
-  return (sql_stats_count >= max_sql_stats_count ||
-          sql_stats_size + sql_plans_size  >= max_sql_stats_size);
+  return sql_stats_count >= max_sql_stats_count ||
+         sql_stats_size + sql_plans_size + sql_findings_size >=
+           max_sql_stats_size;
 }
 
 /***********************************************************************
@@ -802,6 +862,7 @@ void free_global_sql_findings(void)
     finding_iter.second.clear();
 
   global_sql_findings_map.clear();
+  sql_findings_size = 0;
 
   mt_unlock(lock_acquired, &LOCK_global_sql_findings);
 }
@@ -858,7 +919,7 @@ static void populate_sql_findings(
       sql_find.last_recorded = now;
       finding_vec.push_back(sql_find);
 
-      sql_stats_size += sizeof(SQL_FINDING);
+      sql_findings_size += sizeof(SQL_FINDING);
     }
     else
     {
@@ -902,7 +963,7 @@ void store_sql_findings(THD *thd, char *query_text)
         global_sql_findings_map.insert(
           std::make_pair(thd->mt_key_value(THD::SQL_ID), finding_vec));
 
-        sql_stats_size += MD5_HASH_SIZE;     // for SQL_ID
+        sql_findings_size += MD5_HASH_SIZE;     // for SQL_ID
       }
     }
     else
@@ -975,18 +1036,21 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   current_max_sql_stats_size = max_sql_stats_size;
 
   /* Get or create client attributes for this statement. */
-  auto client_id_iter = global_client_attrs_map.find(
+  auto client_id_iter = global_sql_stats.client_attrs->find(
       thd->mt_key_value(THD::CLIENT_ID));
-  if (client_id_iter == global_client_attrs_map.end()) {
-    global_client_attrs_map.emplace(thd->mt_key_value(THD::CLIENT_ID),
+  if (client_id_iter == global_sql_stats.client_attrs->end()) {
+    global_sql_stats.client_attrs->emplace(thd->mt_key_value(THD::CLIENT_ID),
                                     std::string(thd->client_attrs_string.ptr(),
                                                 thd->client_attrs_string.length()));
-    sql_stats_size += (MD5_HASH_SIZE + thd->client_attrs_string.length());
+
+    ulonglong entry_size = MD5_HASH_SIZE + thd->client_attrs_string.length();
+    global_sql_stats.size += entry_size;
+    sql_stats_size += entry_size;
   }
 
   /* Get or create the SQL_TEXT object for this sql statement. */
-  auto sql_text_iter= global_sql_text_map.find(thd->mt_key_value(THD::SQL_ID));
-  if (sql_text_iter == global_sql_text_map.end())
+  auto sql_text_iter= global_sql_stats.text->find(thd->mt_key_value(THD::SQL_ID));
+  if (sql_text_iter == global_sql_stats.text->end())
   {
     SQL_TEXT *sql_text;
     if (!(sql_text= ((SQL_TEXT*)my_malloc(sizeof(SQL_TEXT), MYF(MY_WME)))))
@@ -999,7 +1063,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
     set_sql_text_attributes(sql_text, thd->lex->sql_command,
                             &thd->m_digest->m_digest_storage);
 
-    auto ret= global_sql_text_map.emplace(thd->mt_key_value(THD::SQL_ID), sql_text);
+    auto ret= global_sql_stats.text->emplace(thd->mt_key_value(THD::SQL_ID), sql_text);
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_TEXT into the hash map.");
@@ -1007,14 +1071,17 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
       mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
-    sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_TEXT));
+
+    ulonglong entry_size = MD5_HASH_SIZE + sizeof(SQL_TEXT);
+    global_sql_stats.size += entry_size;
+    sql_stats_size += entry_size;
   }
 
   bool get_sample_query = false;
   /* Get or create the SQL_STATS object for this sql statement. */
   SQL_STATS *sql_stats = nullptr;
-  auto sql_stats_iter= global_sql_stats_map.find(sql_stats_cache_key);
-  if (sql_stats_iter == global_sql_stats_map.end())
+  auto sql_stats_iter= global_sql_stats.stats->find(sql_stats_cache_key);
+  if (sql_stats_iter == global_sql_stats.stats->end())
   {
     if (!(sql_stats= ((SQL_STATS*)my_malloc(sizeof(SQL_STATS), MYF(MY_WME)))))
     {
@@ -1031,7 +1098,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
                              db_id, user_id);
     sql_stats->reset();
 
-    auto ret= global_sql_stats_map.emplace(sql_stats_cache_key, sql_stats);
+    auto ret= global_sql_stats.stats->emplace(sql_stats_cache_key, sql_stats);
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_STATS into the hash table.");
@@ -1039,8 +1106,14 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
       mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
+
+    ulonglong entry_size = MD5_HASH_SIZE + sizeof(SQL_STATS);
+    global_sql_stats.size += entry_size;
+    sql_stats_size += entry_size;
+
+    global_sql_stats.count++;
     sql_stats_count++;
-    sql_stats_size += (MD5_HASH_SIZE + sizeof(SQL_STATS));
+
 		// Do not sample if max_digest_sample_age set to -1
     get_sample_query = max_digest_sample_age >= 0;
   } else {
@@ -1087,25 +1160,280 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }
 
+/**
+  Merge various stats values. Note that 'storage' is always a pointer to the
+  underlying value regardless of map storing pointer to value or value directly.
+
+  @param base     initial value
+  @param update   updated value
+  @param out      merged value to return
+  @param storage  storage for underlying merged struct if needed
+*/
+static void sql_stats_merge(SQL_STATS *base, SQL_STATS *update, SQL_STATS **out,
+                            SQL_STATS *storage)
+{
+  /* Aggregate counters in provided storage and return its pointer. */
+  if (storage != base)
+    *storage = *base;
+
+  /* Query sample text of the base is preserved to simplify the logic.
+     Otherwise when base is merged, the current one needs to be freed,
+     and the updated one needs to be moved here to make sure it's not
+     freed when the whole updated value is freed. */
+
+  storage->count += update->count;
+  storage->skipped_count += update->skipped_count;
+  storage->rows_sent += update->rows_sent;
+  storage->tmp_table_bytes_written += update->tmp_table_bytes_written;
+  storage->filesort_bytes_written += update->filesort_bytes_written;
+  storage->index_dive_count += update->index_dive_count;
+  storage->index_dive_cpu += update->index_dive_cpu;
+  storage->compilation_cpu += update->compilation_cpu;
+  storage->tmp_table_disk_usage += update->tmp_table_disk_usage;
+  storage->filesort_disk_usage += update->filesort_disk_usage;
+  storage->shared_stats.rows_inserted += update->shared_stats.rows_inserted;
+  storage->shared_stats.rows_updated += update->shared_stats.rows_updated;
+  storage->shared_stats.rows_deleted += update->shared_stats.rows_deleted;
+  storage->shared_stats.rows_read += update->shared_stats.rows_read;
+  storage->shared_stats.us_tot += update->shared_stats.us_tot;
+  *out = storage;
+}
+
+static void sql_stats_merge(SQL_TEXT *base, SQL_TEXT *update, SQL_TEXT **out,
+                            SQL_TEXT *storage)
+{
+  /* SQL_TEXT is the same so simply return the base value. */
+  *out = base;
+}
+
+static void sql_stats_merge(std::string base, std::string update, std::string *out,
+                            std::string *storage)
+{
+  /* Client attributes are the same so simply return the base value. */
+  *out = base;
+}
+
+/**
+  Update snapshot stats. Also increment size and count of merged values.
+
+  @param base     initial value in snapshot
+  @param update   updated value in global stats
+  @param count    count of merged entries to increment
+  @param size     size of merged entries to increment
+*/
+static void sql_stats_merge_base(SQL_STATS *base, SQL_STATS *update,
+                                 ulonglong &count, ulonglong &size)
+{
+  /* Use base as storage for the merge. */
+  SQL_STATS *out;
+  sql_stats_merge(base, update, &out, base);
+
+  size += MD5_HASH_SIZE + sizeof(SQL_STATS);
+  ++count;
+}
+
+static void sql_stats_merge_base(SQL_TEXT *base, SQL_TEXT *update,
+                                 ulonglong &count, ulonglong &size)
+{
+  /* SQL_TEXT is the same so nothing to merge. */
+  size += MD5_HASH_SIZE + sizeof(SQL_TEXT);
+}
+
+static void sql_stats_merge_base(std::string base, std::string update,
+                                 ulonglong &count, ulonglong &size)
+{
+  /* Client attributes are the same so nothing to merge. */
+  size += MD5_HASH_SIZE + update.length();
+}
+
+/**
+  @brief Iterator over both snapshot and global stats.
+
+  @details If sql_stats_snapshot is ON then
+             iterate over snapshot map;
+           else if snapshot doesn't exist or it's marked for drop then
+             iterate over global stats;
+           else merge snapshot and global stats
+             1. iterate over snapshot and look up entries in global map
+                  if found then return merged stats else return snapshot entry
+             2. swap iteration and lookup maps
+             3. iterate over global map and look up entries in snapshot
+                  if found then skip entry else return global entry.
+*/
+template<typename T>
+class Stats_iterator
+{
+  /* Map to iterate over. */
+  Stats_map<T> *iterator_map = nullptr;
+  
+  /* Map to lookup entries during iteration, optional. */
+  Stats_map<T> *lookup_map = nullptr;
+  
+  /* Underlying map iterator. */
+  typename Stats_map<T>::const_iterator iter;
+  
+  /* Merged stats entry. If entry is a pointer, it could point to storage
+     below. */
+  T merged_value;
+  
+  /* Storage for merged stats entry, needed in case the entry is a pointer
+     to a separately allocated memory. */
+  typename std::remove_pointer<T>::type merged_value_storage;
+
+  /* Has the caller already acquired global stats lock? Default is true
+     pretending that lock is already held, so it doesn't get released
+     in destructor. */
+  bool lock_acquired = true;
+
+  /* Have iterator and lookup maps been swapped for second pass? */
+  bool swapped = false;
+
+  /* Whether to return current iterator entry or merged entry. */
+  bool use_merged_value = false;
+
+public:
+  /* Constructor. */
+  Stats_iterator(Stats_map<T> *&snapshot_map, Stats_map<T> *&global_map,
+                 THD *thd)
+  {
+    /* Iterator always takes read lock on snapshot even if snapshot doesn't
+       exist. Since in that case it will also take the global stats mutex,
+       that would have blocked creation of new snapshot anyway. */
+    mysql_rwlock_rdlock(&LOCK_sql_stats_snapshot);
+
+    if (thd->variables.sql_stats_snapshot)
+      /* Snapshot is enabled so just iterate over snapshot. */
+      iterator_map = snapshot_map;
+    else
+    {
+      lock_acquired = mt_lock(&LOCK_global_sql_stats);
+
+      /* From outside snapshot can only be seen if not marked for deletion. */
+      if (snapshot_map && !sql_stats_snapshot.drop_maps)
+      {
+        /* Snapshot exists and is visible. So it's going to be a two pass
+           full join of two maps. See two_map_processing() for details. */
+        iterator_map = snapshot_map;
+        lookup_map = global_map;
+      }
+      else
+      {
+        /* Just iterate over the global stats. */
+        iterator_map = global_map;
+      }
+    }
+
+    iter = iterator_map->cbegin();
+    two_map_processing();
+  }
+
+  /* Destructor. */
+  ~Stats_iterator()
+  {
+    /* Unlock global stats if needed. */
+    mt_unlock(lock_acquired, &LOCK_global_sql_stats);
+    mysql_rwlock_unlock(&LOCK_sql_stats_snapshot);
+  }
+
+  /* Check if move_to_next() can be called. */
+  bool is_valid()
+  {
+    return iter != iterator_map->cend();
+  }
+
+  /* Move iterator to next entry. */
+  void move_to_next()
+  {
+    DBUG_ASSERT(is_valid());
+    ++iter;
+    two_map_processing();
+  }
+
+  /* Get key of current iterator position. */
+  const md5_key &get_key()
+  {
+    DBUG_ASSERT(is_valid());
+    return iter->first;
+  }
+
+  /* Get value of current iterator position. */
+  const T &get_value()
+  {
+    DBUG_ASSERT(is_valid());
+    return use_merged_value ? merged_value : iter->second;
+  }
+
+private:
+  /* Perform processing for two map join. It is called after the iterator has
+     changed position. The following conditions are checked:
+      - if still on first map, look up entry in second map and merge two stats
+        entries if needed;
+      - if reached end of first map, perform swap and start iterating over
+        second map;
+      - if on second map, skip all entries present in first map until non-dup
+        entry is found, or end of map is reached. */
+  void two_map_processing()
+  {
+    /* Extra processing is needed only for the case of two maps. */
+    if (lookup_map)
+    {
+      use_merged_value = false;
+      if (!swapped && !is_valid())
+      {
+        /* Reached the end of first map, swap maps to go through second. */
+        std::swap(iterator_map, lookup_map);
+        iter = iterator_map->cbegin();
+        swapped = true;
+      }
+
+      if (!swapped)
+      {
+        /* Merge duplicates on the first pass. */
+        auto update = lookup_map->find(iter->first);
+        if (update != lookup_map->end())
+        {
+          sql_stats_merge(iter->second, update->second, &merged_value,
+                          &merged_value_storage);
+          use_merged_value = true;
+        }
+      }
+      else
+      {
+        /* Exclude duplicates on the second pass.
+           Note: it is possible to mark entries in the second map as 'seen'
+           that were found on the first pass, and avoid the lookups on the
+           second pass. However if iteration was interrupted due to some
+           error, the 'seen' marks would remain and cause problems for next
+           iteration. Versioning marks would solve this problem at the expense
+           of more memory used per entry. Since iterating over two maps is
+           not frequent, optimizing for memory is more important. */
+        while (is_valid() && lookup_map->find(iter->first) != lookup_map->end())
+        {
+          ++iter;
+        }
+      }
+    }
+  }
+};
+
 /* Fills the SQL_STATISTICS table. */
 int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_stats");
+  int result = 0;
   TABLE* table= tables->table;
-
-  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
-  MYSQL_TIME time;
-
+  Stats_iterator<SQL_STATS *> iter(sql_stats_snapshot.stats,
+                                   global_sql_stats.stats, thd);
+	MYSQL_TIME time;
   ID_NAME_MAP db_map;
   ID_NAME_MAP user_map;
   fill_invert_map(DB_MAP_NAME, &db_map);
   fill_invert_map(USER_MAP_NAME, &user_map);
 
-  for (auto iter= global_sql_stats_map.cbegin();
-      iter != global_sql_stats_map.cend(); ++iter)
+  for (; iter.is_valid(); iter.move_to_next())
   {
     int f= 0;
-    SQL_STATS *sql_stats = iter->second;
+    SQL_STATS *sql_stats = iter.get_value();
 
     /* skip this one if the statistics are not valid */
     if (!valid_sql_stats(sql_stats))
@@ -1197,33 +1525,33 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
-      DBUG_RETURN(-1);
+      result = -1;
+      break;
     }
   }
-  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
-  DBUG_RETURN(0);
+  DBUG_RETURN(result);
 }
 
 /* Fills the SQL_TEXT table. */
 int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_text");
+  int result = 0;
   TABLE* table= tables->table;
+  Stats_iterator<SQL_TEXT *> iter(sql_stats_snapshot.text,
+                                   global_sql_stats.text, thd);
 
-  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
-
-  for (auto iter= global_sql_text_map.cbegin();
-      iter != global_sql_text_map.cend(); ++iter)
+  for (; iter.is_valid(); iter.move_to_next())
   {
     int f= 0;
-    SQL_TEXT *sql_text = iter->second;
+    SQL_TEXT *sql_text = iter.get_value();
 
     restore_record(table, s->default_values);
 
     char sql_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(sql_id_hex_string, iter->first.data(), iter->first.size());
+    array_to_hex(sql_id_hex_string, iter.get_key().data(),
+                 iter.get_key().size());
 
     /* SQL ID */
     table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
@@ -1245,50 +1573,49 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 
     if (schema_table_store_record(thd, table))
     {
-      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
-      DBUG_RETURN(-1);
+      result = -1;
+      break;
     }
   }
-  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
-  DBUG_RETURN(0);
+  DBUG_RETURN(result);
 }
 
 int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_client_attrs");
+  int result = 0;
   TABLE* table= tables->table;
+  Stats_iterator<std::string> iter(sql_stats_snapshot.client_attrs,
+                                   global_sql_stats.client_attrs, thd);
 
-  bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
-
-  for (auto iter= global_client_attrs_map.cbegin();
-       iter != global_client_attrs_map.cend(); ++iter)
+  for (; iter.is_valid(); iter.move_to_next())
   {
     int f= 0;
 
     restore_record(table, s->default_values);
 
     char client_id_hex_string[MD5_BUFF_LENGTH];
-    array_to_hex(client_id_hex_string, iter->first.data(), iter->first.size());
+    array_to_hex(client_id_hex_string, iter.get_key().data(),
+                 iter.get_key().size());
 
     /* CLIENT_ID */
     table->field[f++]->store(client_id_hex_string, MD5_BUFF_LENGTH,
                              system_charset_info);
 
     /* CLIENT_ATTRIBUTES */
-    table->field[f++]->store(iter->second.c_str(),
-                             std::min(4096, (int)iter->second.size()),
+    table->field[f++]->store(iter.get_value().c_str(),
+                             std::min(4096, (int)iter.get_value().size()),
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
     {
-      mt_unlock(lock_acquired, &LOCK_global_sql_stats);
-      DBUG_RETURN(-1);
+      result = -1;
+      break;
     }
   }
-  mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 
-  DBUG_RETURN(0);
+  DBUG_RETURN(result);
 }
 
 /*
@@ -1355,4 +1682,231 @@ int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond)
   mt_unlock(lock_acquired, &LOCK_global_sql_findings);
 
   DBUG_RETURN(0);
+}
+
+/**
+  @brief Merge current stats map into snapshot stats map.
+*/
+template<typename T>
+static void sql_stats_map_merge(Stats_map<T> *snapshot_map,
+                                Stats_map<T> *global_map,
+                                ulonglong &count, ulonglong &size)
+{
+  /* Iterate through updates that will be applied to snapshot. */
+  for (auto update = global_map->begin(); update != global_map->end();
+      ++update)
+  {
+    /* base is a pair to iterator and bool indicating insert result. */
+    auto base = snapshot_map->insert(*update);
+    if (base.second)
+    {
+      /* Update entry was not found in snapshot so it was inserted (shallow
+         copied) into snapshot map. Reset it to avoid pointing to the same
+         memory that snapshot entry is now using. This syntax allows both
+         setting pointers to nullptr, and also invoke default constructor on
+         non-pointer types. */
+      update->second = {};
+    }
+    else
+    {
+      /* Existing entry was found so merge update entry into snapshot entry. */
+      sql_stats_merge_base(base.first->second, update->second, count, size);
+    }
+  }
+}
+
+/**
+  @brief Notification that sql_stats_snapshot variable is about to change.
+
+  @retval false  success
+  @retval true   out of memory
+*/
+bool toggle_sql_stats_snapshot(THD *thd)
+{
+  /* Assume success. */
+  bool result = false;
+  Sql_stats_maps old_stats;
+  mysql_rwlock_wrlock(&LOCK_sql_stats_snapshot);
+
+  /* Validate snapshot state. */
+  DBUG_ASSERT(sql_stats_snapshot.is_set() == sql_stats_snapshot.ref_count > 0);
+
+  if (!thd->variables.sql_stats_snapshot)
+  {
+    /* OFF -> ON transition. If new ref_count is greater than 1 then snapshot
+       is already created so this session will just use it. */
+    if (++sql_stats_snapshot.ref_count == 1)
+    {
+      /* Take new snapshot. */
+      Sql_stats_maps new_maps;
+      if (new_maps.init())
+      {
+        bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
+
+        /* Move global stats to snapshot. */
+        sql_stats_snapshot.move_maps(global_sql_stats);
+
+        /* Set new empty stats maps. */
+        global_sql_stats.move_maps(new_maps);
+
+        mt_unlock(lock_acquired, &LOCK_global_sql_stats);
+
+        sql_stats_snapshot_status = TRUE;
+      }
+      else
+      {
+        /* We're OOM so cannot enable snapshot. */
+        --sql_stats_snapshot.ref_count;
+        result = true;
+      }
+    }
+  }
+  else
+  {
+    /* ON -> OFF transition. Only the last user of the snapshot cleans it up
+       by either deleting it or merging with global stats. */
+    if (--sql_stats_snapshot.ref_count == 0)
+    {
+      if (sql_stats_snapshot.drop_maps)
+        sql_stats_snapshot.cleanup();
+      else
+      {
+        ulonglong dup_count = 0;
+        ulonglong dup_size = 0;
+        bool lock_acquired = mt_lock(&LOCK_global_sql_stats);
+
+        /* Merge current stats into snapshot. */
+        sql_stats_map_merge(sql_stats_snapshot.stats, global_sql_stats.stats,
+                            dup_count, dup_size);
+        sql_stats_map_merge(sql_stats_snapshot.text, global_sql_stats.text,
+                            dup_count, dup_size);
+        sql_stats_map_merge(sql_stats_snapshot.client_attrs,
+                            global_sql_stats.client_attrs, dup_count, dup_size);
+
+        /* Now snapshot has new entries so add their count and size. */
+        sql_stats_snapshot.count += global_sql_stats.count - dup_count;
+        sql_stats_snapshot.size += global_sql_stats.size - dup_size;
+
+        /* Save snapshot counters as new counters. */
+        sql_stats_count = sql_stats_snapshot.count;
+        sql_stats_size = sql_stats_snapshot.size;
+
+        /* Move current stats to be cleaned up after locks are released. */
+        old_stats.move_maps(global_sql_stats);
+
+        /* Replace current stats with snapshot. */
+        global_sql_stats.move_maps(sql_stats_snapshot);
+
+        mt_unlock(lock_acquired, &LOCK_global_sql_stats);
+      }
+
+      sql_stats_snapshot_status = FALSE;
+    }
+  }
+
+  mysql_rwlock_unlock(&LOCK_sql_stats_snapshot);
+  return result;
+}
+
+/**
+  @brief Handler for FLUSH SQL_STATISTICS.
+*/
+void flush_sql_statistics(THD *thd)
+{
+  if (thd->variables.sql_stats_snapshot)
+  {
+    mark_sql_stats_snapshot_for_deletion();
+  }
+  else
+  {
+    free_global_sql_stats(false /*limits_updated*/);
+  }
+}
+
+/**
+  @brief Sql_stats_maps default constructor.
+*/
+Sql_stats_maps::Sql_stats_maps()
+{
+  reset_maps();
+  ref_count = 0;
+  drop_maps = false;
+}
+
+/**
+  @brief Sql_stats_maps destructor.
+*/
+Sql_stats_maps::~Sql_stats_maps()
+{
+  cleanup();
+}
+
+/**
+  @brief Create the maps.
+  @return true if all are successfully created, false otherwise.
+*/
+bool Sql_stats_maps::init()
+{
+  stats = new Sql_stats_map;
+  text = new Sql_text_map;
+  client_attrs = new Client_attrs_map;
+
+  if (!is_set())
+    cleanup();
+
+  return is_set();
+}
+
+/**
+  @brief Check if all maps are set.
+  @return true if all maps are set, false otherwise.
+*/
+bool Sql_stats_maps::is_set()
+{
+  return stats && text && client_attrs;
+}
+
+/**
+  @brief Reset map pointers and sizes.
+*/
+void Sql_stats_maps::reset_maps()
+{
+  stats = nullptr;
+  text = nullptr;
+  client_attrs = nullptr;
+  size = 0;
+  count = 0;
+}
+
+/**
+  @brief Free the content and delete the maps.
+*/
+void Sql_stats_maps::cleanup()
+{
+  if (is_set())
+    free_sql_stats_maps(*this);
+
+  delete stats;
+  delete text;
+  delete client_attrs;
+
+  reset_maps();
+  ref_count = 0;
+  drop_maps = false;
+}
+
+/**
+  @brief Move a set of maps into this one.
+*/
+void Sql_stats_maps::move_maps(Sql_stats_maps &other)
+{
+  DBUG_ASSERT(!is_set());
+
+  stats = other.stats;
+  text = other.text;
+  client_attrs = other.client_attrs;
+  size = other.size;
+  count = other.count;
+
+  other.reset_maps();
 }
