@@ -11,7 +11,7 @@
 
 --echo # Initialization
 SET @debug_save= @@GLOBAL.DEBUG;
-SET GLOBAL rpl_semi_sync_source_timeout= 6000000;
+SET GLOBAL rpl_semi_sync_source_timeout= 30000;
 
 --echo #
 --echo # Verify no deadlock at AFTER_SYNC

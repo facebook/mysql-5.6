@@ -13,6 +13,7 @@ while ($i < $n)
 --sync_slave_with_master
 
 --connection master
+CALL mtr.add_suppression("Timeout waiting for reply of binlog");
 SET GLOBAL debug= 'd,semi_sync_3-way_deadlock';
 SET GLOBAL debug= '+d,dump_thread_before_read_event';
 SET DEBUG_SYNC= "before_process_commit_stage_queue WAIT_FOR signal.continue no_clear_event";
@@ -46,7 +47,13 @@ while ($i < $n)
 
 --connection master1
 SET DEBUG_SYNC= "before_rotate_binlog SIGNAL signal.continue";
---sleep 3
+--let $_saved_pos= query_get_value(SHOW MASTER STATUS, Position, 1)
+# wait for binlog event INSERT INTO t1 VALUES(2) that starts at 2186
+while ($_saved_pos < 2200)
+{
+  --let $_saved_pos= query_get_value(SHOW MASTER STATUS, Position, 1)
+}
+
 --echo # Rotate binlog file
 FLUSH LOGS;
 

@@ -47,6 +47,7 @@
 #include "sql/rpl_context.h"
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_rli.h"
+#include "sql/rpl_source.h"
 #include "sql/rpl_transaction_write_set_ctx.h"
 #include "sql/session_tracker.h"
 #include "sql/sql_class.h"  // THD
@@ -121,7 +122,7 @@ bool trans_check_state(THD *thd) {
   @retval true   Failure
 */
 
-bool trans_begin(THD *thd, uint flags) {
+bool trans_begin(THD *thd, uint flags, bool *need_ok) {
   bool res = false;
   DBUG_TRACE;
 
@@ -190,7 +191,15 @@ bool trans_begin(THD *thd, uint flags) {
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT) {
     if (tst) tst->add_trx_state(thd, TX_WITH_SNAPSHOT);
-    res = ha_start_consistent_snapshot(thd);
+    res = ha_start_consistent_snapshot(thd, NULL, NULL);
+  } else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT) {
+    char binlog_file[FN_REFLEN];
+    ulonglong binlog_pos;
+
+    assert(need_ok != nullptr);
+
+    res = (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos) ||
+           show_master_offset(thd, binlog_file, binlog_pos, need_ok));
   }
 
   /*
