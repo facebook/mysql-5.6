@@ -5250,7 +5250,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   /*
     don't set LOG_EVENT_BINLOG_IN_USE_F for the relay log
   */
-  if (!is_relay_log) {
+  if (!is_relay_log || raft_specific_handling) {
     s.common_header->flags |= LOG_EVENT_BINLOG_IN_USE_F;
   }
 
@@ -6947,8 +6947,9 @@ void MYSQL_BIN_LOG::dec_non_xid_trxs(THD *thd) {
 */
 
 int MYSQL_BIN_LOG::new_file(
-    Format_description_log_event *extra_description_event) {
-  return new_file_impl(true /*need_lock_log=true*/, extra_description_event);
+    Format_description_log_event *extra_description_event, myf raft_flags) {
+  return new_file_impl(true /*need_lock_log=true*/, extra_description_event,
+                       raft_flags);
 }
 
 /*
@@ -6956,8 +6957,9 @@ int MYSQL_BIN_LOG::new_file(
     nonzero - error
 */
 int MYSQL_BIN_LOG::new_file_without_locking(
-    Format_description_log_event *extra_description_event) {
-  return new_file_impl(false /*need_lock_log=false*/, extra_description_event);
+    Format_description_log_event *extra_description_event, myf raft_flags) {
+  return new_file_impl(false /*need_lock_log=false*/, extra_description_event,
+                       raft_flags);
 }
 
 /*
