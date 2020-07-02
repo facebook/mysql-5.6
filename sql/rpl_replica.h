@@ -593,7 +593,8 @@ void delete_slave_info_objects(); /* clean up slave threads data */
 void set_slave_thread_options(THD *thd);
 void set_slave_thread_default_charset(THD *thd, Relay_log_info const *rli);
 int rotate_relay_log(Master_info *mi, bool log_master_fd = true,
-                     bool need_lock = true, bool need_log_space_lock = true);
+                     bool need_lock = true, bool need_log_space_lock = true,
+                     myf raft_flags = MYF(0));
 typedef enum {
   QUEUE_EVENT_OK = 0,
   QUEUE_EVENT_ERROR_QUEUING,

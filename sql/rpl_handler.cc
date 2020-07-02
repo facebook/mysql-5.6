@@ -1643,6 +1643,12 @@ extern "C" void *process_raft_queue(void *) {
         result.error = rotate_binlog_file(current_thd);
         break;
       }
+      case RaftListenerCallbackType::ROTATE_RELAYLOG: {
+        result.error = rotate_relay_log_for_raft(
+            element.arg.log_file_pos.first, element.arg.log_file_pos.second,
+            MYF(element.arg.val_uint));
+        break;
+      }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
         exit = true;
         result.error = 0;

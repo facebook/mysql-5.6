@@ -456,7 +456,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
     LOCK_log.
   */
   int new_file_without_locking(
-      Format_description_log_event *extra_description_event);
+      Format_description_log_event *extra_description_event,
+      myf raft_flags = MYF(0));
 
   /**
     Checks whether binlog caches are disabled (binlog does not cache data) or
@@ -1046,7 +1047,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
   /* Use this to start writing a new log file */
-  int new_file(Format_description_log_event *extra_description_event);
+  int new_file(Format_description_log_event *extra_description_event,
+               myf raft_flags = MYF(0));
 
   enum force_cache_type {
     FORCE_CACHE_DEFAULT,
@@ -1457,6 +1459,19 @@ extern bool rpl_semi_sync_source_enabled;
   @returns true if a problem occurs, false otherwise.
  */
 int rotate_binlog_file(THD *thd);
+
+/**
+  Rotates the relay log file. Helper method invoked by raft plugin through
+  raft listener queue.
+
+  @param new_log_iden  The new log name
+  @param pos the log position
+  @param raft_flags
+
+  @returns true if a problem occurs, false otherwise.
+ */
+int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
+                              myf raft_flags = MYF(0));
 
 /**
   Turns a relative log binary log path into a full path, based on the
