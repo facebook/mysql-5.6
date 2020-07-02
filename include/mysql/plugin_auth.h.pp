@@ -121,6 +121,10 @@ void thd_set_ha_data(void * thd, const struct handlerton *hton,
                      const void *ha_data);
 void remove_ssl_err_thread_state();
 unsigned int thd_get_num_vcpus();
+char mysql_bin_log_is_open(void);
+void mysql_bin_log_lock_commits(void);
+void mysql_bin_log_unlock_commits(char *binlog_file,
+                                  unsigned long long *binlog_pos);
 #include "plugin_auth_common.h"
 struct MYSQL_PLUGIN_VIO_INFO {
   enum {

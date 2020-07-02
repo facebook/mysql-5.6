@@ -626,6 +626,8 @@ static const uint MYSQL_START_TRANS_OPT_READ_ONLY = 2;
 static const uint MYSQL_START_TRANS_OPT_READ_WRITE = 4;
 // HIGH PRIORITY option
 static const uint MYSQL_START_TRANS_OPT_HIGH_PRIORITY = 8;
+// WITH CONSISTENT INNODB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT = 16;
 
 enum legacy_db_type {
   DB_TYPE_UNKNOWN = 0,
@@ -1313,7 +1315,9 @@ typedef void (*drop_database_t)(handlerton *hton, char *path);
 
 typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
-typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
+typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd,
+                                           char *binlog_file,
+                                           ulonglong *binlog_pos);
 
 /**
   Flush the log(s) of storage engine(s).
@@ -6750,7 +6754,8 @@ int ha_resize_key_cache(KEY_CACHE *key_cache);
 int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 
 /* transactions: interface to handlerton functions */
-int ha_start_consistent_snapshot(THD *thd);
+int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
+                                 ulonglong *binlog_pos);
 int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock = false);
 int ha_commit_attachable(THD *thd);
 int ha_rollback_trans(THD *thd, bool all);

@@ -4113,10 +4113,12 @@ int mysql_execute_command(THD *thd, bool first_level) {
         res = mysql_show_create_user(thd, show_user, are_both_users_same);
       break;
     }
-    case SQLCOM_BEGIN:
-      if (trans_begin(thd, lex->start_transaction_opt)) goto error;
-      my_ok(thd);
+    case SQLCOM_BEGIN: {
+      bool need_ok = true;
+      if (trans_begin(thd, lex->start_transaction_opt, &need_ok)) goto error;
+      if (need_ok) my_ok(thd);
       break;
+    }
     case SQLCOM_COMMIT: {
       DBUG_ASSERT(thd->lock == nullptr ||
                   thd->locked_tables_mode == LTM_LOCK_TABLES);

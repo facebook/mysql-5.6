@@ -8590,6 +8590,18 @@ start_transaction_option:
           {
             $$= MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
           }
+        | WITH CONSISTENT_SYM ident_or_text SNAPSHOT_SYM
+          {
+            Lex->create_info= YYTHD->alloc_typed<HA_CREATE_INFO>();
+            if (Lex->create_info == NULL)
+              MYSQL_YYABORT; // OOM
+
+            if (resolve_engine(YYTHD, to_lex_cstring($3), false, true,
+                              &Lex->create_info->db_type))
+              MYSQL_YYABORT;
+
+            $$= MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT;
+          }
         | READ_SYM ONLY_SYM
           {
             $$= MYSQL_START_TRANS_OPT_READ_ONLY;

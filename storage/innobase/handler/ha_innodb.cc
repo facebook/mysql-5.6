@@ -1392,10 +1392,12 @@ static void innodb_pre_dd_shutdown(handlerton *) {
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /* in: InnoDB handlerton */
-    THD *thd);        /* in: MySQL thread handle of the
-                      user for whom the transaction should
-                      be committed */
+    handlerton *hton,       /* in: InnoDB handlerton */
+    THD *thd,               /* in: MySQL thread handle of the
+                            user for whom the transaction should
+                            be committed */
+    char *binlog_file,      /* out: binlog file for last commit */
+    ulonglong *binlog_pos); /* out: binlog pos for last commit */
 /** Flush InnoDB redo logs to the file system.
 @param[in]	hton			InnoDB handlerton
 @param[in]	binlog_group_flush	true if we got invoked by binlog
@@ -5189,9 +5191,11 @@ void innobase_commit_low(trx_t *trx) /*!< in: transaction handle */
  have one.
  @return 0 */
 static int innobase_start_trx_and_assign_read_view(
-    handlerton *hton, /*!< in: InnoDB handlerton */
-    THD *thd)         /*!< in: MySQL thread handle of the user for
-                      whom the transaction should be committed */
+    handlerton *hton,      /*!< in: InnoDB handlerton */
+    THD *thd,              /*!< in: MySQL thread handle of the user for
+                           whom the transaction should be committed */
+    char *binlog_file,     /* out: binlog file for last commit */
+    ulonglong *binlog_pos) /* out: binlog pos for last commit */
 {
   DBUG_TRACE;
   DBUG_ASSERT(hton == innodb_hton_ptr);
@@ -5199,6 +5203,7 @@ static int innobase_start_trx_and_assign_read_view(
   /* Create a new trx struct for thd, if it does not yet have one */
 
   trx_t *trx = check_trx_exists(thd);
+  int error_result = 0;
 
   TrxInInnoDB trx_in_innodb(trx);
 
@@ -5209,6 +5214,23 @@ static int innobase_start_trx_and_assign_read_view(
   ut_ad(!trx_is_started(trx));
 
   trx_start_if_not_started_xa(trx, false);
+
+  if (binlog_file) {
+    /* When binlog_file is set, this code must return the current
+    binlog file and position for this snapshot. That can only
+    be done when the binlog is open and when the read view is
+    assigned now (not previously). Lock prepare_commit_mutex
+    to guarantee that InnoDB and the binlog agree on the current
+    commit -- otherwise, the commit may be done to the binlog
+    and in flight for InnoDB. */
+    if (!binlog_pos || MVCC::is_view_active(trx->read_view) ||
+        !mysql_bin_log_is_open()) {
+      error_result = 1;
+      goto cleanup;
+    }
+
+    mysql_bin_log_lock_commits();
+  }
 
   /* Assign a read view if the transaction does not have it yet.
   Do this only if transaction is using REPEATABLE READ isolation
@@ -5226,11 +5248,16 @@ static int innobase_start_trx_and_assign_read_view(
                         " REPEATABLE READ isolation level.");
   }
 
+  if (binlog_file) {
+    mysql_bin_log_unlock_commits(binlog_file, binlog_pos);
+  }
+
+cleanup:
   /* Set the MySQL flag to mark that there is an active transaction */
 
   innobase_register_trx(hton, current_thd, trx);
 
-  return 0;
+  return error_result;
 }
 
 /** Commits a transaction in an InnoDB database or marks an SQL statement

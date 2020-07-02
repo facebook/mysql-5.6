@@ -924,6 +924,35 @@ void remove_ssl_err_thread_state();
   Interface to get the number of VCPUs.
 */
 unsigned int thd_get_num_vcpus();
+
+/**
+  Determine if the bin log is open.
+*/
+char mysql_bin_log_is_open(void);
+
+/**
+  Block MYSQL_BIN_LOG::ordered_commit
+
+  @details
+  Acquires the necessary mysql_bin_log locks in order to block commits so that
+  START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT can return the correct
+  bin log filename and pos.
+*/
+void mysql_bin_log_lock_commits(void);
+
+/**
+  Unblock MYSQL_BIN_LOG::ordered_commit
+
+  @details
+  Releases the mysql_bin_log locks which blocked commits so that
+  START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT can return the correct
+  bin log filename and pos.
+  @param  binlog_file  the filename of the binlog
+  @param  binlog_pos   the pos in the binlog
+*/
+void mysql_bin_log_unlock_commits(char *binlog_file,
+                                  unsigned long long *binlog_pos);
+
 #ifdef __cplusplus
 }
 #endif

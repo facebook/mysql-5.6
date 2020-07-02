@@ -1198,6 +1198,45 @@ end:
 }
 
 /**
+  Output of START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT statement.
+
+  @param thd      Pointer to THD object for the client thread executing the
+                  statement.
+  @param file     Name of the current bin log.
+  @param pos      Position int he current bin log.
+  @param need_ok  [out] Whether caller needs to call my_ok vs it having been
+                  done in this function via my_eof.
+
+  @retval false success
+  @retval true failure
+*/
+bool show_master_offset(THD *thd, const char *file, ulonglong pos,
+                        bool *need_ok) {
+  Protocol *protocol = thd->get_protocol();
+  DBUG_ENTER("show_master_offset");
+  List<Item> field_list;
+  field_list.push_back(new Item_empty_string("File", FN_REFLEN));
+  field_list.push_back(
+      new Item_return_int("Position", 20, MYSQL_TYPE_LONGLONG));
+
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_RETURN(true);
+
+  protocol->start_row();
+
+  int dir_len = dirname_length(file);
+  protocol->store(file + dir_len, &my_charset_bin);
+
+  protocol->store(pos);
+  if (protocol->end_row()) DBUG_RETURN(true);
+
+  my_eof(thd);
+  if (need_ok) *need_ok = false;
+  DBUG_RETURN(false);
+}
+
+/**
   Execute a SHOW MASTER STATUS statement.
 
   @param thd Pointer to THD object for the client thread executing the

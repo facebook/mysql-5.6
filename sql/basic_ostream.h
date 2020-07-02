@@ -85,6 +85,12 @@ class Truncatable_ostream : public Basic_ostream {
      @retval true Error
   */
   virtual bool sync() = 0;
+  /**
+     Retrieves the current offset of the stream
+
+     @retval offset
+  */
+  virtual my_off_t get_my_b_tell() { return 0; }
 
   virtual ~Truncatable_ostream() {}
 };
@@ -143,6 +149,8 @@ class IO_CACHE_ostream : public Truncatable_ostream {
      @retval true  Error
   */
   bool sync() override;
+
+  my_off_t get_my_b_tell() override { return my_b_tell(&m_io_cache); }
 
  private:
   IO_CACHE m_io_cache;

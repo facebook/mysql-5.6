@@ -6,10 +6,11 @@ Note	####	Storing MySQL user name or password information in the master info rep
 include/install_semisync.inc
 # Initialization
 SET @debug_save= @@GLOBAL.DEBUG;
-SET GLOBAL rpl_semi_sync_master_timeout= 6000000;
+SET GLOBAL rpl_semi_sync_master_timeout= 30000;
 #
 # Verify no deadlock at AFTER_SYNC
 #
+CALL mtr.add_suppression("Timeout waiting for reply of binlog");
 SET GLOBAL debug= 'd,semi_sync_3-way_deadlock';
 SET GLOBAL debug= '+d,dump_thread_before_read_event';
 SET DEBUG_SYNC= "before_process_commit_stage_queue WAIT_FOR signal.continue no_clear_event";
@@ -22,6 +23,7 @@ FLUSH LOGS;
 # Verify no deadlock at AFTER_COMMIT
 #
 SET GLOBAL rpl_semi_sync_master_wait_point= AFTER_COMMIT;
+CALL mtr.add_suppression("Timeout waiting for reply of binlog");
 SET GLOBAL debug= 'd,semi_sync_3-way_deadlock';
 SET GLOBAL debug= '+d,dump_thread_before_read_event';
 SET DEBUG_SYNC= "before_process_commit_stage_queue WAIT_FOR signal.continue no_clear_event";
