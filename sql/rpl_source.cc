@@ -1201,6 +1201,8 @@ end:
                   statement.
   @param file     Name of the current bin log.
   @param pos      Position int he current bin log.
+  @param gtid_executed        Logged gtids in binlogs.
+  @param gtid_executed_length Length of gtid_executed string.
   @param need_ok  [out] Whether caller needs to call my_ok vs it having been
                   done in this function via my_eof.
 
@@ -1208,6 +1210,7 @@ end:
   @retval true failure
 */
 bool show_master_offset(THD *thd, const char *file, ulonglong pos,
+                        const char *gtid_executed, int gtid_executed_length,
                         bool *need_ok) {
   Protocol *protocol = thd->get_protocol();
   DBUG_ENTER("show_master_offset");
@@ -1215,6 +1218,8 @@ bool show_master_offset(THD *thd, const char *file, ulonglong pos,
   field_list.push_back(new Item_empty_string("File", FN_REFLEN));
   field_list.push_back(
       new Item_return_int("Position", 20, MYSQL_TYPE_LONGLONG));
+  field_list.push_back(
+      new Item_empty_string("Gtid_executed", gtid_executed_length));
 
   if (thd->send_result_metadata(field_list,
                                 Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
@@ -1226,6 +1231,9 @@ bool show_master_offset(THD *thd, const char *file, ulonglong pos,
   protocol->store(file + dir_len, &my_charset_bin);
 
   protocol->store(pos);
+
+  protocol->store(gtid_executed, &my_charset_bin);
+
   if (protocol->end_row()) DBUG_RETURN(true);
 
   my_eof(thd);

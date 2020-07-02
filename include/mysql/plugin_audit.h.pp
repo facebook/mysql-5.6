@@ -133,7 +133,9 @@ unsigned int thd_get_num_vcpus();
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos);
+                                  unsigned long long *binlog_pos,
+                                  char **gtid_executed,
+                                  int *gtid_executed_length);
 #include <mysql/components/services/bits/plugin_audit_connection_types.h>
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,
