@@ -5583,11 +5583,10 @@ static inline void rocksdb_register_tx(
 */
 static int rocksdb_start_tx_and_assign_read_view(
     handlerton *const hton, /*!< in: RocksDB handlerton */
-    THD *const thd,         /*!< in: MySQL thread handle of the
+    THD *const thd          /*!< in: MySQL thread handle of the
                             user for whom the transaction should
                             be committed */
-    char *binlog_file [[maybe_unused]],
-    ulonglong *binlog_pos [[maybe_unused]]) {
+) {
   ulong const tx_isolation = my_core::thd_tx_isolation(thd);
 
   if (tx_isolation != ISO_REPEATABLE_READ) {
