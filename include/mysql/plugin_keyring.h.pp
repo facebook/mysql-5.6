@@ -124,7 +124,9 @@ unsigned int thd_get_num_vcpus();
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos);
+                                  unsigned long long *binlog_pos,
+                                  char **gtid_executed,
+                                  int *gtid_executed_length);
 struct st_mysql_keyring {
   int interface_version;
   bool (*mysql_key_store)(const char *key_id, const char *key_type,

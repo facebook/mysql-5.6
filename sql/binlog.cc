@@ -7167,8 +7167,11 @@ extern "C" void mysql_bin_log_lock_commits(void) {
 }
 
 extern "C" void mysql_bin_log_unlock_commits(char *binlog_file,
-                                             unsigned long long *binlog_pos) {
-  mysql_bin_log.unlock_commits(binlog_file, binlog_pos);
+                                             unsigned long long *binlog_pos,
+                                             char **gtid_executed,
+                                             int *gtid_executed_length) {
+  mysql_bin_log.unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                               gtid_executed_length);
 }
 
 void MYSQL_BIN_LOG::lock_commits(void) {
@@ -7177,9 +7180,15 @@ void MYSQL_BIN_LOG::lock_commits(void) {
   mysql_mutex_lock(&LOCK_commit);
 }
 
-void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos) {
+void MYSQL_BIN_LOG::unlock_commits(char *binlog_file, ulonglong *binlog_pos,
+                                   char **gtid_executed,
+                                   int *gtid_executed_length) {
   strmake(binlog_file, log_file_name, FN_REFLEN);
   *binlog_pos = m_binlog_file->get_my_b_tell();
+  global_sid_lock->wrlock();
+  const Gtid_set *logged_gtids = gtid_state->get_executed_gtids();
+  *gtid_executed_length = logged_gtids->to_string(gtid_executed);
+  global_sid_lock->unlock();
   mysql_mutex_unlock(&LOCK_commit);
   mysql_mutex_unlock(&LOCK_sync);
   mysql_mutex_unlock(&LOCK_log);

@@ -1315,9 +1315,7 @@ typedef void (*drop_database_t)(handlerton *hton, char *path);
 
 typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
-typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd,
-                                           char *binlog_file,
-                                           ulonglong *binlog_pos);
+typedef int (*start_consistent_snapshot_t)(handlerton *hton, THD *thd);
 
 /**
   Flush the log(s) of storage engine(s).
@@ -6755,7 +6753,8 @@ int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 
 /* transactions: interface to handlerton functions */
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong *binlog_pos);
+                                 ulonglong *binlog_pos, char **gtid_executed,
+                                 int *gtid_executed_length);
 int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock = false);
 int ha_commit_attachable(THD *thd);
 int ha_rollback_trans(THD *thd, bool all);

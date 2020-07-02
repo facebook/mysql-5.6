@@ -133,7 +133,9 @@ unsigned int thd_get_num_vcpus();
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char *binlog_file,
-                                  unsigned long long *binlog_pos);
+                                  unsigned long long *binlog_pos,
+                                  char **gtid_executed,
+                                  int *gtid_executed_length);
 #include "my_command.h"
 enum enum_server_command {
   COM_SLEEP,
