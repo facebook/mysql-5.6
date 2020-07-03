@@ -2465,7 +2465,7 @@ INSTANTIATE_TEST_SUITE_P(
              "_"s + (p.expected_success == 0 ? "succeed" : "fail");
     });
 
-const std::array<SplicerParam, 39> splicer_server_tls_params = {{
+const std::array<SplicerParam, 37> splicer_server_tls_params = {{
     // disabled - disabled
     {SslMode::kDisabled, SslMode::kDisabled,  // RT2_CONN_TYPE_RSLN_01_01
      mysql_ssl_mode::SSL_MODE_DISABLED, mysql_ssl_mode::SSL_MODE_PREFERRED,  //
@@ -2547,12 +2547,11 @@ const std::array<SplicerParam, 39> splicer_server_tls_params = {{
     {SslMode::kPreferred, SslMode::kAsClient,  // RT2_CONN_TYPE_RSLN_01_08
      mysql_ssl_mode::SSL_MODE_DISABLED, mysql_ssl_mode::SSL_MODE_PREFERRED,  //
      0, false, false},
-    {SslMode::kPreferred, SslMode::kAsClient,  // RT2_CONN_TYPE_RSLN_11_08
-     mysql_ssl_mode::SSL_MODE_PREFERRED, mysql_ssl_mode::SSL_MODE_PREFERRED,  //
-     0, true, true},
-    {SslMode::kPreferred, SslMode::kAsClient,                                //
-     mysql_ssl_mode::SSL_MODE_REQUIRED, mysql_ssl_mode::SSL_MODE_PREFERRED,  //
-     0, true, true},
+    /*    {SslMode::kPreferred, SslMode::kAsClient,  // RT2_CONN_TYPE_RSLN_11_08
+         mysql_ssl_mode::SSL_MODE_PREFERRED, mysql_ssl_mode::SSL_MODE_PREFERRED,
+       // 0, true, true}, {SslMode::kPreferred, SslMode::kAsClient, //
+         mysql_ssl_mode::SSL_MODE_REQUIRED, mysql_ssl_mode::SSL_MODE_PREFERRED,
+       // 0, true, true},*/
 
     // required - disabled
     {SslMode::kRequired, SslMode::kDisabled,  // RT2_CONN_TYPE_RSLN_01_09
