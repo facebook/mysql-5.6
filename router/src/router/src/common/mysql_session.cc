@@ -192,6 +192,7 @@ void MySQLSession::connect(const std::string &host, unsigned int port,
   // for the user to change these values.
   set_option(ConnectTimeout(connect_timeout));
   set_option(ReadTimeout(read_timeout));
+  set_option(DefaultAuthentication("caching_sha2_password"));
 
   if (unix_socket.length() > 0) {
 #ifdef _WIN32
