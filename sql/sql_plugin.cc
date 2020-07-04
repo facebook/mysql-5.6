@@ -38,6 +38,7 @@
 #include "debug_sync.h"
 #include <mysql/plugin_multi_tenancy.h>
 #include <mysql/plugin_statistics.h>
+#include <mysql/plugin_rim.h>
 
 #include <algorithm>
 
@@ -67,7 +68,7 @@ I_List<i_string> *opt_plugin_load_list_ptr= &opt_plugin_load_list;
 char *opt_plugin_dir_ptr;
 char opt_plugin_dir[FN_REFLEN];
 /*
-  When you ad a new plugin type, add both a string and make sure that the
+  When you add a new plugin type, add both a string and make sure that the
   init and deinit array are correctly updated.
 */
 const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM]=
@@ -82,7 +83,8 @@ const LEX_STRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   { C_STRING_WITH_LEN("AUTHENTICATION") },
   { C_STRING_WITH_LEN("VALIDATE PASSWORD") },
   { C_STRING_WITH_LEN("MULTI TENANCY") },
-  { C_STRING_WITH_LEN("STATISTICS") }
+  { C_STRING_WITH_LEN("STATISTICS") },
+  { C_STRING_WITH_LEN("RIM") }
 };
 
 extern int initialize_schema_table(st_plugin_int *plugin);
@@ -111,6 +113,7 @@ plugin_type_init plugin_type_initialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   0,
   0,
   initialize_multi_tenancy_plugin,
+  0,
   0
 };
 
@@ -126,6 +129,7 @@ plugin_type_init plugin_type_deinitialize[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   0,
   0,
   finalize_multi_tenancy_plugin,
+  0,
   0
 };
 
@@ -155,7 +159,8 @@ static int min_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
   MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
 	MYSQL_MULTI_TENANCY_INTERFACE_VERSION,
-	MYSQL_STATISTICS_INTERFACE_VERSION
+	MYSQL_STATISTICS_INTERFACE_VERSION,
+  MYSQL_RIM_INTERFACE_VERSION
 };
 static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 {
@@ -169,7 +174,8 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
   MYSQL_AUTHENTICATION_INTERFACE_VERSION,
   MYSQL_VALIDATE_PASSWORD_INTERFACE_VERSION,
 	MYSQL_MULTI_TENANCY_INTERFACE_VERSION,
-	MYSQL_STATISTICS_INTERFACE_VERSION
+	MYSQL_STATISTICS_INTERFACE_VERSION,
+  MYSQL_RIM_INTERFACE_VERSION
 };
 
 /* support for Services */

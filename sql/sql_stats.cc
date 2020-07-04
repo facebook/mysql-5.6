@@ -3,6 +3,7 @@
 #include "sql_show.h"
 #include "sql_string.h"
 #include "tztime.h"                             // struct Time_zone
+#include <mysql/plugin_rim.h>
 
 /* Global map to track the number of active identical sql statements */
 static std::unordered_map<md5_key, uint> global_active_sql;
