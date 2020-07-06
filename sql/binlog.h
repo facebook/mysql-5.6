@@ -707,6 +707,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   HybridLogicalClock hlc;
 
+  /*
+     This is set when we have registered log entities with raft plugin
+     during ordered commit, after we have become master on step up.
+     Protected by LOCK_log. To prevent repeated re-registrations.
+   */
+  bool setup_flush_done;
+
   int open(const char *opt_name) { return open_binlog(opt_name); }
 
   /**
@@ -930,6 +937,22 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int wait_for_update(const struct timespec *timeout);
 
  public:
+  /** register binlog/relay (its IO_CACHE) and mutexes to plugin.
+      Sharing the pointers with the plugin enables the plugin to
+      flush transactions to the appropriate file when the Raft engine
+      calls back the log Wrapper.
+
+      @param thd - Thread descriptor
+      @param context - 0 for initial time, 1 for each time
+         When we pass in 1 for re-registration, we also validate on
+         the plugin side that the cached pointers have not shifted.
+         @param If true, take LOCK_log
+      @param is_relay_log register the relay log if true, otherwise binlog
+                          Different observers are used for different logs
+   */
+  int register_log_entities(THD *thd, int context, bool need_lock,
+                            bool is_relay_log);
+  void check_and_register_log_entities(THD *thd);
   void init_pthread_objects();
   void cleanup();
   /**
