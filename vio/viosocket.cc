@@ -870,7 +870,7 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, timeout_t timeout) {
 }
 
 #elif defined(_WIN32)
-int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
+int vio_io_wait(Vio *vio, enum enum_vio_io_event event, timeout_t timeout) {
   int ret;
   int retry_count = 0;
   struct timeval tm;
@@ -884,9 +884,10 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
   if (fd == INVALID_SOCKET) DBUG_RETURN(-1);
 
   /* Convert the timeout, in milliseconds, to seconds and microseconds. */
-  if (timeout >= 0) {
-    tm.tv_sec = timeout / 1000;
-    tm.tv_usec = (timeout % 1000) * 1000;
+  if (!timeout_is_infinite(timeout)) {
+    uint timeout_ms = timeout_to_millis(timeout);
+    tm.tv_sec = timeout_ms / 1000;
+    tm.tv_usec = (timeout_ms % 1000) * 1000;
   }
 
   FD_ZERO(&readfds);
@@ -946,7 +947,7 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
   DBUG_RETURN(ret);
 }
 #elif defined(HAVE_KQUEUE)
-int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
+int vio_io_wait(Vio *vio, enum enum_vio_io_event event, timeout_t timeout) {
   int nev;
   static const int MAX_EVENT = 2;
   struct kevent kev_set[MAX_EVENT];
@@ -974,8 +975,12 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
   MYSQL_START_SOCKET_WAIT(locker, &state, vio->mysql_socket, PSI_SOCKET_SELECT,
                           0);
 
-  timespec ts = {static_cast<long>(timeout / 1000),
-                 (static_cast<long>(timeout) % 1000) * 1000000};
+  timespec ts;
+  if (!timeout_is_infinite(timeout)) {
+    uint timeout_ms = timeout_to_millis(timeout);
+    ts = {static_cast<long>(timeout_ms / 1000),
+          (static_cast<long>(timeout_ms) % 1000) * 1000000};
+  }
 
   // Check if shutdown is in progress, if so return -1.
   if (vio->kevent_wakeup_flag.test_and_set()) DBUG_RETURN(-1);
@@ -983,7 +988,7 @@ int vio_io_wait(Vio *vio, enum enum_vio_io_event event, int timeout) {
   int retry_count = 0;
   do {
     nev = kevent(vio->kq_fd, kev_set, MAX_EVENT, kev_event, MAX_EVENT,
-                 timeout >= 0 ? &ts : nullptr);
+                 !timeout_is_infinite(timeout) ? &ts : nullptr);
   } while (nev < 0 && vio_should_retry(vio) &&
            (retry_count++ < vio->retry_count));
 
