@@ -589,7 +589,7 @@ enum net_async_status STDCALL mysql_reset_connection_nonblocking(MYSQL *mysql);
 unsigned long STDCALL cli_safe_read(MYSQL *mysql, bool *is_data_packet);
 enum net_async_status STDCALL cli_safe_read_nonblocking(MYSQL *mysql,
                                                         bool *is_data_packet,
-                                                        ulong *res);
+                                                        unsigned long *res);
 
 int STDCALL mysql_binlog_open(MYSQL *mysql, MYSQL_RPL *rpl);
 int STDCALL mysql_binlog_fetch(MYSQL *mysql, MYSQL_RPL *rpl);

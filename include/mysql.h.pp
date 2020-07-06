@@ -711,7 +711,7 @@ enum net_async_status mysql_reset_connection_nonblocking(MYSQL *mysql);
 unsigned long cli_safe_read(MYSQL *mysql, bool *is_data_packet);
 enum net_async_status cli_safe_read_nonblocking(MYSQL *mysql,
                                                         bool *is_data_packet,
-                                                        ulong *res);
+                                                        unsigned long *res);
 int mysql_binlog_open(MYSQL *mysql, MYSQL_RPL *rpl);
 int mysql_binlog_fetch(MYSQL *mysql, MYSQL_RPL *rpl);
 void mysql_binlog_close(MYSQL *mysql, MYSQL_RPL *rpl);
