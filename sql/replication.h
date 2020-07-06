@@ -871,6 +871,53 @@ int register_trans_observer(Trans_observer *observer, void *p);
 int unregister_trans_observer(Trans_observer *observer, void *p);
 
 /**
+   Register a Raft replication observer
+
+   @param observer The raft replication observer to register
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Sucess
+   @retval 1 Observer already exists
+*/
+int register_raft_replication_observer(Raft_replication_observer *observer,
+                                       void *p);
+
+/**
+   Unregister a raft replication observer
+
+   @param observer The raft observer to unregister
+   @param p pointer to the internal plugin structure
+
+   @retval 0 Sucess
+   @retval 1 Observer not exists
+*/
+int unregister_raft_replication_observer(Raft_replication_observer *observer,
+                                         void *p);
+
+/*
+ * An enum to control what kind of registrations the
+ * plugin needs from server.
+ * Currently only 2 exist.
+ * RAFT_REGISTER_LOCKS - BinlogWrapper related
+ * RAFT_REGISTER_PATHS - paths and ports for initial raft setup
+ */
+enum Raft_Registration_Item {
+  RAFT_REGISTER_LOCKS = 0,
+  RAFT_REGISTER_PATHS = 1
+};
+
+/**
+    Ask the mysqld server to immediately register the binlog and relay
+    log files.
+
+    Eventually instead of setup_flush in both these observers we will have
+    a Raft specific delegate and observer
+    @param item whether to register locks and io_caches for binlog wrapper
+           or register paths for initial setup
+*/
+int ask_server_to_register_with_raft(Raft_Registration_Item item);
+
+/**
    Register a binlog storage observer
 
    @param observer The binlog storage observer to register
