@@ -172,6 +172,8 @@ extern "C" uint32
 
 extern "C" void slave_info_free(void *s)
 {
+  if (s != nullptr && ((SLAVE_INFO *)s)->slave_stats != nullptr)
+    delete ((SLAVE_INFO *)s)->slave_stats;
   my_free(s);
 }
 
