@@ -18016,10 +18016,20 @@ static bool check_engine(THD *thd, const char *db_name, const char *table_name,
   }
   if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE) && !opt_initialize &&
       ha_check_user_table_blocked(thd, *new_engine, db_name)) {
-    my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db_name, table_name,
-             ha_resolve_storage_engine_name(*new_engine));
-    *new_engine = NULL;
-    return true;
+    handlerton *default_engine = ha_default_handlerton(thd);
+    if (no_substitution || default_engine == *new_engine) {
+      my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db_name, table_name,
+               ha_resolve_storage_engine_name(*new_engine));
+      *new_engine = NULL;
+      return true;
+    }
+
+    push_warning_printf(thd, Sql_condition::SL_NOTE,
+                        ER_WARN_USER_TABLE_BLOCKED_ENGINE,
+                        ER_THD(thd, ER_WARN_USER_TABLE_BLOCKED_ENGINE), db_name,
+                        table_name, ha_resolve_storage_engine_name(*new_engine),
+                        ha_resolve_storage_engine_name(default_engine));
+    *new_engine = default_engine;
   }
 
   /*

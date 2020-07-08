@@ -9645,6 +9645,8 @@ ER_ALLOW_DROP_PARTITION_PREVENTED
 ER_USER_TABLE_BLOCKED_ENGINE
   eng "User table creation [%s.%s] is blocked on Storage engine %s"
 
+ER_WARN_USER_TABLE_BLOCKED_ENGINE
+  eng "User table creation [%s.%s] is blocked on Storage engine %s. Using engine %s instead."
 
 #
 # End of 8.0 FB MySQL error messages.
