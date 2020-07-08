@@ -1,0 +1,26 @@
+SET @start_global_value = @@global.slave_compression_lib;
+SELECT @start_global_value;
+@start_global_value
+zlib
+SET @@global.slave_compression_lib='zlib';
+SELECT @@global.slave_compression_lib;
+@@global.slave_compression_lib
+zlib
+SET @@global.slave_compression_lib='zstd';
+SELECT @@global.slave_compression_lib;
+@@global.slave_compression_lib
+zstd
+SET @@global.slave_compression_lib=DEFAULT;
+SELECT @@global.slave_compression_lib;
+@@global.slave_compression_lib
+zlib
+SET @@global.slave_compression_lib='voodoo_compression';
+ERROR 42000: Variable 'slave_compression_lib' can't be set to the value of 'voodoo_compression'
+SELECT @@global.slave_compression_lib;
+@@global.slave_compression_lib
+zlib
+SET @new = @@global.slave_compression_lib;
+SELECT @new;
+@new
+zlib
+SET @@global.slave_compression_lib = @start_global_value;

@@ -1237,6 +1237,9 @@ The following options may be given as the first argument:
  after every #th milli-seconds.
  --slave-compressed-protocol 
  Use compression on master/slave protocol
+ --slave-compression-lib[=name] 
+ Compression library for replication stream. 0 is zlib, 1
+ is zstd.
  --slave-exec-mode=name 
  Modes for how replication events should be executed.
  Legal values are STRICT (default) and IDEMPOTENT. In
@@ -1432,6 +1435,9 @@ The following options may be given as the first argument:
  inversion optimization for moving window frames also for
  floating values.
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
+ --zstd-net-compression-level[=#] 
+ Compression level for compressed protocol when zstd
+ library is selected. Valid values 0-22.
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
@@ -1760,6 +1766,7 @@ slave-allow-batching FALSE
 slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE
+slave-compression-lib zlib
 slave-exec-mode STRICT
 slave-max-allowed-packet 1073741824
 slave-net-timeout 60
@@ -1810,6 +1817,7 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 windowing-use-high-precision TRUE
+zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type
 'mysqladmin variables' instead of 'mysqld --verbose --help'.

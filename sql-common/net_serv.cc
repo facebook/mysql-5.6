@@ -1606,8 +1606,7 @@ static net_async_status net_read_packet_header_nonblocking(NET *net,
   return NET_ASYNC_COMPLETE;
 }
 
-static bool my_uncompress(NET *net, uchar *packet, size_t len,
-                          size_t *complen) {
+static mysql_compress_context *get_compress_ctx(NET *net) {
   mysql_compress_context *mysql_compress_ctx = nullptr;
 #ifdef MYSQL_SERVER
   NET_SERVER *server_extension = static_cast<NET_SERVER *>(net->extension);
@@ -1618,7 +1617,7 @@ static bool my_uncompress(NET *net, uchar *packet, size_t len,
   NET_EXTENSION *ext = NET_EXTENSION_PTR(net);
   if (ext != nullptr) mysql_compress_ctx = &ext->compress_ctx;
 #endif
-  return my_uncompress(mysql_compress_ctx, packet, len, complen);
+  return mysql_compress_ctx;
 }
 
 /*
@@ -1713,7 +1712,7 @@ end:
 
   if (net->compress) {
     *complen = net_async->async_packet_uncompressed_length;
-    if (my_uncompress(net, net->buff + net->where_b,
+    if (my_uncompress(get_compress_ctx(net), net->buff + net->where_b,
                       net_async->async_packet_length, complen)) {
       net->error = 2;  // caller will close socket
       net->last_errno = ER_NET_UNCOMPRESS_ERROR;
@@ -2075,7 +2074,8 @@ ulong my_net_read(NET *net) {
       if ((packet_len = net_read_packet(net, &complen)) == packet_error) {
         return packet_error;
       }
-      if (my_uncompress(net, net->buff + net->where_b, packet_len, &complen)) {
+      if (my_uncompress(get_compress_ctx(net), net->buff + net->where_b,
+                        packet_len, &complen)) {
         net->error = 2; /* caller will close socket */
         net->last_errno = ER_NET_UNCOMPRESS_ERROR;
 #ifdef MYSQL_SERVER

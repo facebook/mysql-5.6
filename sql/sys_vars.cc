@@ -4316,6 +4316,20 @@ static Sys_var_uint Sys_net_compression_level(
     GLOBAL_VAR(net_compression_level), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(0, 9), DEFAULT(6), BLOCK_SIZE(1));
 
+const char *mysql_compression_lib_names[] = {"zlib", "zstd", nullptr};
+static Sys_var_enum slave_compression_lib_enum(
+    "slave_compression_lib",
+    "Compression library for replication stream. 0 is zlib, 1 is zstd.",
+    GLOBAL_VAR(opt_slave_compression_lib), CMD_LINE(OPT_ARG),
+    mysql_compression_lib_names, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_uint Sys_zstd_net_compression_level(
+    "zstd_net_compression_level",
+    "Compression level for compressed protocol when zstd library is"
+    " selected. Valid values 0-22.",
+    GLOBAL_VAR(zstd_net_compression_level), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 22), DEFAULT(3), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_sort_buffer(
     "sort_buffer_size",
     "Each thread that needs to do a sort allocates a buffer of this size",

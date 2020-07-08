@@ -1256,11 +1256,6 @@ IF(BUILD_BUNDLED_ZLIB)
 ENDIF()
 # Add bundled or system zstd.
 MYSQL_CHECK_ZSTD()
-IF(BUILD_BUNDLED_ZSTD)
-  INCLUDE_DIRECTORIES(BEFORE SYSTEM
-    ${CMAKE_SOURCE_DIR}/extra/zstd/lib)
-  ADD_SUBDIRECTORY(extra/zstd)
-ENDIF()
 
 IF(LINUX)
   # Look up patchelf(1) here, before doing SSL/KERBEROS/SASL/LDAP config.
