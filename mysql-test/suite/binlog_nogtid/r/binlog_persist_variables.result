@@ -179,6 +179,7 @@ SET PERSIST slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 Warnings:
 Warning	1287	'@@slave_compressed_protocol' is deprecated and will be removed in a future release. Please use replica_compressed_protocol instead.
 Warning	1287	'@@slave_compressed_protocol' is deprecated and will be removed in a future release. Please use replica_compressed_protocol instead.
+SET PERSIST slave_compression_lib = @@GLOBAL.slave_compression_lib;
 SET PERSIST slave_exec_mode = @@GLOBAL.slave_exec_mode;
 Warnings:
 Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
@@ -406,6 +407,7 @@ Warning	3615	Variable slave_checkpoint_period does not exist in persisted config
 RESET PERSIST IF EXISTS slave_compressed_protocol;
 Warnings:
 Warning	3615	Variable slave_compressed_protocol does not exist in persisted config file
+RESET PERSIST IF EXISTS slave_compression_lib;
 RESET PERSIST IF EXISTS slave_exec_mode;
 Warnings:
 Warning	3615	Variable slave_exec_mode does not exist in persisted config file

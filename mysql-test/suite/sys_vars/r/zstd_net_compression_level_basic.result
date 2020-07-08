@@ -1,0 +1,16 @@
+SET @orig = @@global.zstd_net_compression_level;
+SELECT @orig;
+@orig
+3
+SET @@global.zstd_net_compression_level = 2;
+SET @new = @@global.zstd_net_compression_level;
+SELECT @new;
+@new
+2
+SET @@global.zstd_net_compression_level = 50;
+Warnings:
+Warning	1292	Truncated incorrect zstd_net_compression_level value: '50'
+SELECT @@global.zstd_net_compression_level;
+@@global.zstd_net_compression_level
+22
+SET @@global.zstd_net_compression_level = @orig;

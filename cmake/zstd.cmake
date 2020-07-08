@@ -20,8 +20,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
-# cmake -DWITH_ZSTD=system|bundled
-# bundled is the default
+# cmake -DWITH_ZSTD=system|bundled|path_to_zstd
+# system is the default
 
 # With earier versions, several compression tests fail.
 # With version < 1.0.0 our source code does not build.
@@ -43,6 +43,7 @@ MACRO (FIND_ZSTD_VERSION)
     "${ZSTD_VERSION_MAJOR}.${ZSTD_VERSION_MINOR}.${ZSTD_VERSION_RELEASE}")
   SET(ZSTD_VERSION "${ZSTD_VERSION}" CACHE INTERNAL "ZSTD major.minor.step")
   MESSAGE(STATUS "ZSTD_VERSION (${WITH_ZSTD}) is ${ZSTD_VERSION}")
+  MESSAGE(STATUS "ZSTD_INCLUDE_DIR ${ZSTD_INCLUDE_DIR}")
 ENDMACRO()
 
 MACRO (FIND_SYSTEM_ZSTD)
@@ -75,18 +76,50 @@ ENDMACRO()
 
 MACRO (MYSQL_CHECK_ZSTD)
   IF(NOT WITH_ZSTD)
-    SET(WITH_ZSTD "bundled" CACHE STRING "By default use bundled zstd library")
+    SET(WITH_ZSTD "system" CACHE STRING "By default use bundled zstd library")
   ENDIF()
 
-  IF(WITH_ZSTD STREQUAL "bundled")
+  # See if WITH_ZSTD is of the form </path/to/custom/installation>
+  FILE(GLOB WITH_ZSTD_HEADER ${WITH_ZSTD}/include/zstd.h)
+  IF (WITH_ZSTD_HEADER)
+    SET(WITH_ZSTD_PATH ${WITH_ZSTD}
+      CACHE PATH "Path to custom ZSTD installation")
+  ENDIF()
+
+  IF (WITH_ZSTD STREQUAL "bundled")
     MYSQL_USE_BUNDLED_ZSTD()
   ELSEIF(WITH_ZSTD STREQUAL "system")
     FIND_SYSTEM_ZSTD()
     IF (NOT SYSTEM_ZSTD_FOUND)
       MESSAGE(FATAL_ERROR "Cannot find system zstd libraries.")
     ENDIF()
+  ELSEIF(WITH_ZSTD_PATH)
+    # First search in WITH_ZSTD_PATH.
+    FIND_PATH(ZSTD_ROOT_DIR
+      NAMES include/zstd.h
+      NO_CMAKE_PATH
+      NO_CMAKE_ENVIRONMENT_PATH
+      HINTS ${WITH_ZSTD_PATH}
+    )
+
+    # Then search in standard places (if not found above).
+    FIND_PATH(ZSTD_ROOT_DIR
+      NAMES include/zstd.h
+    )
+
+    FIND_PATH(ZSTD_INCLUDE_DIR
+      NAMES zstd.h
+      HINTS ${ZSTD_ROOT_DIR}/include
+    )
+
+    FIND_LIBRARY(ZSTD_LIBRARY
+      NAMES zstd_pic zstd
+      HINTS ${ZSTD_ROOT_DIR}/lib)
+    IF(NOT(ZSTD_INCLUDE_DIR AND ZSTD_LIBRARY))
+      MESSAGE(FATAL_ERROR "Cannot find appropriate libraries for zstd for WITH_ZSTD=${WITH_ZSTD}.")
+    ENDIF()
   ELSE()
-    MESSAGE(FATAL_ERROR "WITH_ZSTD must be bundled or system")
+    MESSAGE(FATAL_ERROR "Cannot find appropriate libraries for zstd.")
   ENDIF()
   FIND_ZSTD_VERSION()
   IF(ZSTD_VERSION VERSION_LESS MIN_ZSTD_VERSION_REQUIRED)

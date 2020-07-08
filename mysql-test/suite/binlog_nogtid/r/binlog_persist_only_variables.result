@@ -196,6 +196,7 @@ SET PERSIST_ONLY slave_compressed_protocol = @@GLOBAL.slave_compressed_protocol;
 Warnings:
 Warning	1287	'@@slave_compressed_protocol' is deprecated and will be removed in a future release. Please use replica_compressed_protocol instead.
 Warning	1287	'@@slave_compressed_protocol' is deprecated and will be removed in a future release. Please use replica_compressed_protocol instead.
+SET PERSIST_ONLY slave_compression_lib = @@GLOBAL.slave_compression_lib;
 SET PERSIST_ONLY slave_exec_mode = @@GLOBAL.slave_exec_mode;
 Warnings:
 Warning	1287	'@@slave_exec_mode' is deprecated and will be removed in a future release. Please use replica_exec_mode instead.
@@ -370,6 +371,7 @@ RESET PERSIST rpl_send_buffer_size;
 RESET PERSIST rpl_stop_replica_timeout;
 RESET PERSIST session_track_gtids;
 RESET PERSIST skip_replica_start;
+RESET PERSIST slave_compression_lib;
 RESET PERSIST slave_rows_search_algorithms;
 RESET PERSIST source_verify_checksum;
 RESET PERSIST sql_replica_skip_counter;

@@ -8172,10 +8172,14 @@ int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi, bool reconnect,
   mysql_options(mysql, MYSQL_OPT_SSL_MODE, &ssl_mode);
 
   mysql_options(mysql, MYSQL_OPT_COMPRESSION_ALGORITHMS,
-                opt_replica_compressed_protocol ? COMPRESSION_ALGORITHM_ZLIB
-                                                : mi->compression_algorithm);
+                opt_replica_compressed_protocol
+                    ? (opt_replica_compression_lib ? COMPRESSION_ALGORITHM_ZSTD
+                                                   : COMPRESSION_ALGORITHM_ZLIB)
+                    : mi->compression_algorithm);
   mysql_options(mysql, MYSQL_OPT_ZSTD_COMPRESSION_LEVEL,
-                &mi->zstd_compression_level);
+                opt_replica_compressed_protocol
+                    ? (int *)&zstd_net_compression_level
+                    : &mi->zstd_compression_level);
   /*
     If server's default charset is not supported (like utf16, utf32) as client
     charset, then set client charset to 'latin1' (default client charset).
