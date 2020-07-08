@@ -192,6 +192,7 @@ extern bool opt_initialize;
 extern bool opt_safe_user_create;
 extern bool opt_local_infile, opt_myisam_use_mmap;
 extern bool opt_replica_compressed_protocol;
+extern ulong opt_replica_compression_lib;
 extern ulong replica_exec_mode_options;
 extern Rpl_global_filter rpl_global_filter;
 extern Rpl_acf_configuration_handler *rpl_acf_configuration_handler;
@@ -377,6 +378,7 @@ extern ulonglong relay_io_bytes, relay_sql_bytes;
 extern ulonglong relay_sql_wait_time;
 
 extern uint net_compression_level;
+extern uint zstd_net_compression_level;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
