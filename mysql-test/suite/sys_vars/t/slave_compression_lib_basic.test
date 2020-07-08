@@ -1,0 +1,33 @@
+############## mysql-test\t\slave_compression_lib_basic.test ########
+#                                                                             #
+# Variable Name: slave_compression_lib                                        #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: enum                                                             #
+# Default Value: 'zlib'                                                       #
+# Values: zlib, zstd                                                          #
+# Description: Which compression algorithm to use for replication             #
+#                                                                             #
+###############################################################################
+--source include/load_sysvars.inc
+
+SET @start_global_value = @@global.slave_compression_lib;
+SELECT @start_global_value;
+
+SET @@global.slave_compression_lib='zlib';
+SELECT @@global.slave_compression_lib;
+
+SET @@global.slave_compression_lib='zstd';
+SELECT @@global.slave_compression_lib;
+
+SET @@global.slave_compression_lib=DEFAULT;
+SELECT @@global.slave_compression_lib;
+
+--error 1231
+SET @@global.slave_compression_lib='voodoo_compression';
+SELECT @@global.slave_compression_lib;
+
+SET @new = @@global.slave_compression_lib;
+SELECT @new;
+
+SET @@global.slave_compression_lib = @start_global_value;
