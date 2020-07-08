@@ -2555,6 +2555,19 @@ void clean_up(bool print_message)
     free_defaults(defaults_argv);
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
+
+  if (opt_apply_logname)
+  {
+    my_free(opt_apply_logname);
+    opt_apply_logname = nullptr;
+  }
+
+  if (opt_applylog_index_name)
+  {
+    my_free(opt_applylog_index_name);
+    opt_applylog_index_name = nullptr;
+  }
+
   bitmap_free(&temp_pool);
   free_global_table_stats();
   free_global_db_stats();
@@ -12150,13 +12163,13 @@ a file name for --apply-log-index option", opt_applylog_index_name);
   else
   {
     // Just point apply logs to binlogs
-    opt_apply_logname= opt_bin_logname;
+    opt_apply_logname= my_strdup(opt_bin_logname, MYF(0));
   }
 
   if (!opt_applylog_index_name && opt_apply_logname)
   {
-    opt_applylog_index_name= my_strdup(rpl_make_log_name(NULL,
-        opt_apply_logname, ".index"), MYF(0));
+    opt_applylog_index_name=
+      const_cast<char *>(rpl_make_log_name(NULL, opt_apply_logname, ".index"));
   }
 
   DBUG_RETURN(0);
