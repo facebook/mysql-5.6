@@ -21,6 +21,10 @@ let $value= stmt;
 eval set @@global.$var= $value;
 eval select @@global.$var;
 
+let $value= none;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
 #
 # incorrect value
 #

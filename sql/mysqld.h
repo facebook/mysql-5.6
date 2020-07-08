@@ -221,12 +221,9 @@ enum enum_slave_rows_search_algorithms {
 extern ulonglong slave_rows_search_algorithms_options;
 extern bool opt_require_secure_transport;
 
-extern bool opt_slave_preserve_commit_order;
-
 #ifndef DBUG_OFF
 extern uint slave_rows_last_search_algorithm_used;
 #endif
-extern ulong mts_parallel_option;
 #ifdef _WIN32
 extern bool opt_enable_named_pipe;
 extern char *named_pipe_full_access_group;
@@ -1065,4 +1062,15 @@ void prepare_latency_histogram_vars(latency_histogram *current_histogram,
    Frees old histogram bucket display strings before assigning new ones.
 */
 void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data);
+
+/**
+   Get parallel replication config
+*/
+ulong get_mts_parallel_option();
+
+/**
+   Returns whether slave commit order is preserved
+*/
+bool get_slave_preserve_commit_order();
+
 #endif /* MYSQLD_INCLUDED */

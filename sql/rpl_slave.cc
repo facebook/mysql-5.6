@@ -642,9 +642,10 @@ int init_slave() {
          * members */
         mi->rli->opt_slave_parallel_workers = opt_mts_slave_parallel_workers;
         mi->rli->checkpoint_group = opt_mts_checkpoint_group;
-        if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+        const auto parallel_option = get_mts_parallel_option();
+        if (parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-        else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+        else if (parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
         else
           mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
@@ -1253,9 +1254,10 @@ static inline int fill_mts_gaps_and_recover(Master_info *mi) {
   rli->set_until_option(until_mg);
   rli->until_condition = Relay_log_info::UNTIL_SQL_AFTER_MTS_GAPS;
   until_mg->init();
-  if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+  const auto parallel_option = get_mts_parallel_option();
+  if (parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
     rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-  else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+  else if (parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
     rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
   else
     rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
@@ -6935,7 +6937,8 @@ extern "C" void *handle_slave_sql(void *arg) {
   else
     rli->current_mts_submode = new Mts_submode_dependency();
 
-  if (opt_slave_preserve_commit_order && rli->opt_slave_parallel_workers > 0 &&
+  const auto slave_preserve_commit_order = get_slave_preserve_commit_order();
+  if (slave_preserve_commit_order && rli->opt_slave_parallel_workers > 0 &&
       opt_bin_log && opt_log_slave_updates)
     commit_order_mngr =
         new Commit_order_manager(rli->opt_slave_parallel_workers);
@@ -6959,7 +6962,7 @@ extern "C" void *handle_slave_sql(void *arg) {
   rli->mts_dependency_size = opt_mts_dependency_size;
   rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
   rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
-  rli->slave_preserve_commit_order = opt_slave_preserve_commit_order;
+  rli->slave_preserve_commit_order = slave_preserve_commit_order;
 
   if (is_mts_parallel_type_dependency(rli) &&
       !slave_use_idempotent_for_recovery_options) {
@@ -8799,9 +8802,10 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
         */
         if (set_mts_settings) {
           mi->rli->opt_slave_parallel_workers = opt_mts_slave_parallel_workers;
-          if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+          const auto parallel_option = get_mts_parallel_option();
+          if (parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-          else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+          else if (parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
           else
             mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;
@@ -10198,11 +10202,12 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
       When the slave is first initialized, we collect the values from the
       command line options
     */
-    channel_mts_submode = mts_parallel_option;
+    channel_mts_submode = get_mts_parallel_option();
     slave_parallel_workers = opt_mts_slave_parallel_workers;
   }
 
-  if (opt_slave_preserve_commit_order && slave_parallel_workers > 0) {
+  const auto slave_preserve_commit_order = get_slave_preserve_commit_order();
+  if (slave_preserve_commit_order && slave_parallel_workers > 0) {
     if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
       my_error(ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER, MYF(0),
                "when slave_parallel_type is DATABASE");
@@ -10222,7 +10227,7 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
     if (slave_parallel_workers > 0 &&
         (channel_mts_submode != MTS_PARALLEL_TYPE_LOGICAL_CLOCK ||
          (channel_mts_submode == MTS_PARALLEL_TYPE_LOGICAL_CLOCK &&
-          !opt_slave_preserve_commit_order)) &&
+          !slave_preserve_commit_order)) &&
         channel_map.is_group_replication_channel_name(channel, true)) {
       my_error(ER_SLAVE_CHANNEL_OPERATION_NOT_ALLOWED, MYF(0),
                "START SLAVE SQL_THREAD when SLAVE_PARALLEL_WORKERS > 0 "

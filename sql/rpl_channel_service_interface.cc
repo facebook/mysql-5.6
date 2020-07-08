@@ -118,9 +118,10 @@ static void set_mi_settings(Master_info *mi,
           : channel_info->channel_mts_parallel_workers;
 
   if (channel_info->channel_mts_parallel_type == RPL_SERVICE_SERVER_DEFAULT) {
-    if (mts_parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
+    const auto parallel_option = get_mts_parallel_option();
+    if (parallel_option == MTS_PARALLEL_TYPE_DB_NAME)
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DB_NAME;
-    else if (mts_parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
+    else if (parallel_option == MTS_PARALLEL_TYPE_LOGICAL_CLOCK)
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_LOGICAL_CLOCK;
     else
       mi->rli->channel_mts_submode = MTS_PARALLEL_TYPE_DEPENDENCY;

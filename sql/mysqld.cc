@@ -12190,3 +12190,23 @@ bool setup_datagram_socket(sys_var *self MY_ATTRIBUTE((unused)),
   }
   return false;
 }
+
+ulong get_mts_parallel_option() {
+  /* For compat with 5.6 so that you can turn off DP by setting to None */
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
+      opt_mts_dependency_replication == DEP_RPL_NONE) {
+    return MTS_PARALLEL_TYPE_DB_NAME;
+  }
+
+  return mts_parallel_option;
+}
+
+bool get_slave_preserve_commit_order() {
+  /* For compat with 5.6 so that you can turn off DP by setting to None */
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
+      opt_mts_dependency_replication == DEP_RPL_NONE) {
+    return false;
+  }
+
+  return opt_slave_preserve_commit_order;
+}
