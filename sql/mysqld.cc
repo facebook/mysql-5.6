@@ -1217,6 +1217,11 @@ ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
 bool disallow_raft = 1;  // raft is not allowed by default
 
+/* Apply log related variables for raft
+   "_ptr" variables are system variables that should not be free by us */
+char *opt_apply_logname = nullptr, *opt_apply_logname_ptr = nullptr;
+char *opt_applylog_index_name = nullptr, *opt_applylog_index_name_ptr = nullptr;
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
@@ -1784,6 +1789,8 @@ char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
 char *per_user_session_var_default_val_ptr = nullptr;
 char *per_user_session_var_user_name_delimiter_ptr = nullptr;
+
+static int generate_apply_file_gvars();
 /**
   Memory for allocating command line arguments, after load_defaults().
 */
@@ -2723,6 +2730,17 @@ static void clean_up(bool print_message) {
   query_logger.cleanup();
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
+
+  if (opt_apply_logname) {
+    my_free(opt_apply_logname);
+    opt_apply_logname = nullptr;
+  }
+
+  if (opt_applylog_index_name) {
+    my_free(opt_applylog_index_name);
+    opt_applylog_index_name = nullptr;
+  }
+
   free_max_user_conn();
   delete binlog_filter;
   rpl_channel_filters.clean_up();
@@ -6552,6 +6570,15 @@ static int init_server_components() {
     if (ln == buf) {
       my_free(opt_bin_logname);
       opt_bin_logname = my_strdup(key_memory_opt_bin_logname, buf, MYF(0));
+    }
+
+    if (generate_apply_file_gvars()) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to initialize apply log file names");
+        // Abort when raft is enabled
+        unireg_abort(1);
+      }
     }
 
     /*
@@ -10669,6 +10696,7 @@ static int mysql_init_variables() {
   binlog_bytes_written = 0;
   binlog_cache_use = binlog_cache_disk_use = 0;
   mysqld_user = mysqld_chroot = opt_init_file = opt_bin_logname = nullptr;
+  opt_apply_logname = opt_applylog_index_name = nullptr;
   prepared_stmt_count = 0;
   mysqld_unix_port = opt_mysql_tmpdir = my_bind_addr_str = NullS;
   new (&mysql_tmpdir_list) MY_TMPDIR;
@@ -11442,6 +11470,86 @@ static void *mysql_getopt_value(const char *keyname, size_t key_length,
     }
   }
   return option->value;
+}
+
+/**
+  Generate apply log file names and store them in opt_apply* variables
+
+  @return 0 on success, 1 on error
+*/
+static int generate_apply_file_gvars() {
+  DBUG_ENTER("generate_apply_file_gvars");
+
+  /* Reports an error and aborts, if the --apply-log's path is a directory */
+  if (opt_apply_logname_ptr &&
+      opt_apply_logname_ptr[strlen(opt_apply_logname_ptr) - 1] == FN_LIBCHAR) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a"
+        "file name for --apply-log option",
+        opt_apply_logname_ptr);
+    DBUG_RETURN(1);
+  }
+
+  /* Reports an error and aborts, if the --apply-log-index's path
+     is a directory.*/
+  if (opt_applylog_index_name_ptr &&
+      opt_applylog_index_name_ptr[strlen(opt_applylog_index_name_ptr) - 1] ==
+          FN_LIBCHAR) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a "
+        "file name for --apply-log-index option",
+        opt_applylog_index_name_ptr);
+    DBUG_RETURN(1);
+  }
+
+  if (opt_apply_logname_ptr && opt_applylog_index_name_ptr) {
+    opt_apply_logname =
+        my_strdup(PSI_NOT_INSTRUMENTED, opt_apply_logname_ptr, MYF(0));
+    opt_applylog_index_name =
+        my_strdup(PSI_NOT_INSTRUMENTED, opt_applylog_index_name_ptr, MYF(0));
+    DBUG_RETURN(0);
+  }
+
+  if (!opt_apply_logname_ptr) {
+    /* create the apply binlog name for Raft using some common
+     * rules. Replace binary with apply or -bin with -apply
+     * This handles the 2 common cases of naming convention without
+     * having to add these variables in all config files.
+     * PROD - binary-logs-3301
+     * mtr - master-bin, slave-bin
+     */
+    std::string tstr(opt_bin_logname);
+    std::string rep_from1("binary");
+    std::string rep_to1("apply");
+    std::string rep_from2("-bin");
+
+    size_t fpos = tstr.find(rep_from1);
+    if (fpos != std::string::npos) {
+      tstr.replace(fpos, rep_from1.length(), rep_to1);
+      opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
+    } else if ((fpos = tstr.find(rep_from2)) != std::string::npos) {
+      std::string rep_to2("-apply");
+      tstr.replace(fpos, rep_from2.length(), rep_to2);
+      opt_apply_logname = my_strdup(PSI_NOT_INSTRUMENTED, tstr.c_str(), MYF(0));
+    } else if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_information("apply log needs to be set or follow a pattern");
+      DBUG_RETURN(1);
+    }
+  } else {
+    // Just point apply logs to binlogs
+    opt_apply_logname =
+        my_strdup(PSI_NOT_INSTRUMENTED, opt_bin_logname, MYF(0));
+  }
+
+  if (!opt_applylog_index_name_ptr && opt_apply_logname) {
+    opt_applylog_index_name = const_cast<char *>(rpl_make_log_name(
+        PSI_NOT_INSTRUMENTED, NULL, opt_apply_logname, ".index"));
+  }
+
+  DBUG_RETURN(0);
 }
 
 /**

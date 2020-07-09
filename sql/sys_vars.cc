@@ -6564,6 +6564,18 @@ static Sys_var_bool Sys_log_replica_updates(
 static Sys_var_deprecated_alias Sys_log_slave_updates("log_slave_updates",
                                                       Sys_log_replica_updates);
 
+static Sys_var_charptr Sys_apply_log(
+    "apply_log", "The location and name to use for apply logs for raft",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_apply_logname_ptr),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0));
+
+static Sys_var_charptr Sys_apply_log_index(
+    "apply_log_index",
+    "The location and name to use for the file "
+    "that keeps a list of the last apply logs for raft",
+    READ_ONLY NON_PERSIST GLOBAL_VAR(opt_applylog_index_name_ptr),
+    CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT(0));
+
 static Sys_var_charptr Sys_relay_log(
     "relay_log", "The location and name to use for relay logs",
     READ_ONLY NON_PERSIST GLOBAL_VAR(opt_relay_logname), CMD_LINE(REQUIRED_ARG),

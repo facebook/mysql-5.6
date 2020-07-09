@@ -1,0 +1,21 @@
+select @@global.apply_log_index;
+@@global.apply_log_index
+applylogindex
+select @@session.apply_log_index;
+ERROR HY000: Variable 'apply_log_index' is a GLOBAL variable
+show global variables like 'apply_log_index';
+Variable_name	Value
+apply_log_index	applylogindex
+show session variables like 'apply_log_index';
+Variable_name	Value
+apply_log_index	applylogindex
+select * from performance_schema.global_variables where variable_name='apply_log_index';
+VARIABLE_NAME	VARIABLE_VALUE
+apply_log_index	applylogindex
+select * from performance_schema.session_variables where variable_name='apply_log_index';
+VARIABLE_NAME	VARIABLE_VALUE
+apply_log_index	applylogindex
+set global apply_log_index=1;
+ERROR HY000: Variable 'apply_log_index' is a read only variable
+set session apply_log_index=1;
+ERROR HY000: Variable 'apply_log_index' is a read only variable

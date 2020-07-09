@@ -1,0 +1,20 @@
+#
+# only global
+#
+select @@global.apply_log;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.apply_log;
+show global variables like 'apply_log';
+show session variables like 'apply_log';
+--disable_warnings
+select * from performance_schema.global_variables where variable_name='apply_log';
+select * from performance_schema.session_variables where variable_name='apply_log';
+--enable_warnings
+
+#
+# show that it's read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global apply_log=1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session apply_log=1;
