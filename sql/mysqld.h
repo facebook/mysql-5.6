@@ -430,6 +430,10 @@ extern ulonglong maximum_hlc_drift_ns;
 extern bool enable_raft_plugin;
 extern bool disallow_raft;
 
+/* Apply log related variables for raft */
+extern char *opt_apply_logname;
+extern char *opt_applylog_index_name;
+
 /* What should the server do when trxs fail inside ordered commit */
 extern ulong opt_commit_consensus_error_action;
 

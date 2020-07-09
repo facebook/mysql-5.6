@@ -1,0 +1,21 @@
+select @@global.apply_log;
+@@global.apply_log
+applylog
+select @@session.apply_log;
+ERROR HY000: Variable 'apply_log' is a GLOBAL variable
+show global variables like 'apply_log';
+Variable_name	Value
+apply_log	applylog
+show session variables like 'apply_log';
+Variable_name	Value
+apply_log	applylog
+select * from performance_schema.global_variables where variable_name='apply_log';
+VARIABLE_NAME	VARIABLE_VALUE
+apply_log	applylog
+select * from performance_schema.session_variables where variable_name='apply_log';
+VARIABLE_NAME	VARIABLE_VALUE
+apply_log	applylog
+set global apply_log=1;
+ERROR HY000: Variable 'apply_log' is a read only variable
+set session apply_log=1;
+ERROR HY000: Variable 'apply_log' is a read only variable

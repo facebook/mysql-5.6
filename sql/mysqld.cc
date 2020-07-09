@@ -1226,6 +1226,10 @@ ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
 bool disallow_raft = 1;  // raft is not allowed by default
 
+// Apply log related variables for raft
+char *opt_apply_logname = nullptr;
+char *opt_applylog_index_name = nullptr;
+
 #if defined(_WIN32)
 /*
   Thread handle of shutdown event handler thread.
@@ -1551,6 +1555,8 @@ const int index_ext_length = 6;
 const char *index_ext = ".index";
 const int relay_ext_length = 10;
 const char *relay_ext = "-relay-bin";
+const int apply_ext_length = 6;
+const char *apply_ext = "-apply";
 /* True if --log-bin option is used. */
 bool log_bin_supplied = false;
 
@@ -1571,6 +1577,9 @@ char default_binlogfile_name[FN_REFLEN];
 char default_binlog_index_name[FN_REFLEN + index_ext_length];
 char default_relaylogfile_name[FN_REFLEN + relay_ext_length];
 char default_relaylog_index_name[FN_REFLEN + relay_ext_length +
+                                 index_ext_length];
+char default_applylogfile_name[FN_REFLEN + apply_ext_length];
+char default_applylog_index_name[FN_REFLEN + apply_ext_length +
                                  index_ext_length];
 char *default_tz_name;
 static char errorlog_filename_buff[FN_REFLEN];
@@ -1796,6 +1805,8 @@ char *binlog_file_basedir_ptr;
 char *binlog_index_basedir_ptr;
 char *per_user_session_var_default_val_ptr = nullptr;
 char *per_user_session_var_user_name_delimiter_ptr = nullptr;
+
+static int generate_apply_file_gvars();
 /**
   Memory for allocating command line arguments, after load_defaults().
 */
@@ -2739,6 +2750,7 @@ static void clean_up(bool print_message) {
   query_logger.cleanup();
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
+
   free_max_user_conn();
   delete binlog_filter;
   rpl_channel_filters.clean_up();
@@ -6485,6 +6497,15 @@ static int init_server_components() {
     if (ln == buf) {
       my_free(opt_bin_logname);
       opt_bin_logname = my_strdup(key_memory_opt_bin_logname, buf, MYF(0));
+    }
+
+    if (generate_apply_file_gvars()) {
+      if (enable_raft_plugin) {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to initialize apply log file names");
+        // Abort when raft is enabled
+        unireg_abort(1);
+      }
     }
 
     /*
@@ -10754,6 +10775,7 @@ static int mysql_init_variables() {
   binlog_bytes_written = 0;
   binlog_cache_use = binlog_cache_disk_use = 0;
   mysqld_user = mysqld_chroot = opt_init_file = opt_bin_logname = nullptr;
+  opt_apply_logname = opt_applylog_index_name = nullptr;
   prepared_stmt_count = 0;
   mysqld_unix_port = opt_mysql_tmpdir = my_bind_addr_str = NullS;
   new (&mysql_tmpdir_list) MY_TMPDIR;
@@ -11552,6 +11574,87 @@ static void *mysql_getopt_value(const char *keyname, size_t key_length,
 }
 
 /**
+  Generate apply log file names and store them in opt_apply* variables
+
+  @return 0 on success, 1 on error
+*/
+static int generate_apply_file_gvars() {
+  DBUG_ENTER("generate_apply_file_gvars");
+
+  /* Reports an error and aborts, if the --apply-log's path is a directory */
+  if (opt_apply_logname &&
+      opt_apply_logname[strlen(opt_apply_logname) - 1] == FN_LIBCHAR) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a"
+        "file name for --apply-log option",
+        opt_apply_logname);
+    DBUG_RETURN(1);
+  }
+
+  /* Reports an error and aborts, if the --apply-log-index's path
+     is a directory.*/
+  if (opt_applylog_index_name &&
+      opt_applylog_index_name[strlen(opt_applylog_index_name) - 1] ==
+          FN_LIBCHAR) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a "
+        "file name for --apply-log-index option",
+        opt_applylog_index_name);
+    DBUG_RETURN(1);
+  }
+
+  if (opt_apply_logname && opt_applylog_index_name) DBUG_RETURN(0);
+
+  if (!opt_apply_logname) {
+    /* create the apply binlog name for Raft using some common
+     * rules. Replace binary with apply or -bin with -apply
+     * This handles the 2 common cases of naming convention without
+     * having to add these variables in all config files.
+     * PROD - binary-logs-3301
+     * mtr - master-bin, slave-bin
+     */
+    std::string tstr(opt_bin_logname);
+    std::string rep_from1("binary");
+    std::string rep_to1("apply");
+    std::string rep_from2("-bin");
+
+    size_t fpos = tstr.find(rep_from1);
+    if (fpos != std::string::npos) {
+      tstr.replace(fpos, rep_from1.length(), rep_to1);
+      strmake(default_applylogfile_name, tstr.c_str(),
+              FN_REFLEN + apply_ext_length - 1);
+      opt_apply_logname = default_applylogfile_name;
+    } else if ((fpos = tstr.find(rep_from2)) != std::string::npos) {
+      std::string rep_to2(apply_ext);
+      tstr.replace(fpos, rep_from2.length(), rep_to2);
+      strmake(default_applylogfile_name, tstr.c_str(),
+              FN_REFLEN + apply_ext_length - 1);
+      opt_apply_logname = default_applylogfile_name;
+    } else if (enable_raft_plugin) {
+      // NO_LINT_DEBUG
+      sql_print_information("apply log needs to be set or follow a pattern");
+      DBUG_RETURN(1);
+    }
+  } else {
+    // Just point apply logs to binlogs
+    strmake(default_applylogfile_name, opt_apply_logname,
+            FN_REFLEN + apply_ext_length - 1);
+    opt_apply_logname = default_applylogfile_name;
+  }
+
+  if (!opt_applylog_index_name && opt_apply_logname) {
+    // generate relate path for opt_applylog_index_name
+    fn_format(default_applylog_index_name, opt_apply_logname, mysql_data_home,
+              ".index", MY_UNPACK_FILENAME | MY_REPLACE_EXT);
+    opt_applylog_index_name = default_applylog_index_name;
+  }
+
+  DBUG_RETURN(0);
+}
+
+/**
   Get server options from the command line,
   and perform related server initializations.
   @param [in, out] argc_ptr       command line options (count)
@@ -11750,8 +11853,10 @@ static int get_options(int *argc_ptr, char ***argv_ptr) {
   global_system_variables.lock_wait_timeout_nsec =
       (ulonglong)(global_system_variables.lock_wait_timeout_double * 1e9);
 
-  global_system_variables.high_priority_lock_wait_timeout_nsec = (ulonglong)(
-      global_system_variables.high_priority_lock_wait_timeout_double * 1e9);
+  global_system_variables.high_priority_lock_wait_timeout_nsec =
+      (ulonglong)(global_system_variables
+                      .high_priority_lock_wait_timeout_double *
+                  1e9);
 
   if (opt_short_log_format) opt_specialflag |= SPECIAL_SHORT_LOG_FORMAT;
 

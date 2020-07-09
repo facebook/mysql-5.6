@@ -1,0 +1,37 @@
+--let $basename= `SELECT @@global.apply_log_index`
+
+#
+# Assert that the variable is indeed only global
+#
+# --replace_result $basename REPLACED
+select @@global.apply_log_index;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.apply_log_index;
+
+#
+# Assert that it is retrievable 
+# 
+# --replace_result $basename REPLACED
+show global variables like 'apply_log_index';
+
+# --replace_result $basename REPLACED
+show session variables like 'apply_log_index';
+
+--disable_warnings
+# --replace_result $basename REPLACED
+select * from performance_schema.global_variables where variable_name='apply_log_index';
+
+# --replace_result $basename REPLACED
+select * from performance_schema.session_variables where variable_name='apply_log_index';
+--enable_warnings
+
+#
+# Assert it is read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global apply_log_index=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session apply_log_index=1;
+
