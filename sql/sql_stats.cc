@@ -617,7 +617,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   if (!thd->m_digest || thd->m_digest->m_digest_storage.is_empty())
     return;
 
-  md5_key sql_stats_cache_key;
+  md5_key sql_stats_cache_key{};
   if (!set_sql_stats_cache_key(thd->sql_id.data(), thd->plan_id.data(),
                                thd->plan_id_set,
                                thd->client_id.data(), db_id, user_id,
@@ -646,7 +646,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   }
 
   /* Get or create the SQL_TEXT object for this sql statement. */
-  SQL_TEXT *sql_text;
+  SQL_TEXT *sql_text = nullptr;
   auto sql_text_iter= global_sql_text_map.find(thd->sql_id);
   if (sql_text_iter == global_sql_text_map.end())
   {
@@ -673,7 +673,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
 
   bool get_sample_query = false;
   /* Get or create the SQL_STATS object for this sql statement. */
-  SQL_STATS *sql_stats;
+  SQL_STATS *sql_stats = nullptr;
   auto sql_stats_iter= global_sql_stats_map.find(sql_stats_cache_key);
   if (sql_stats_iter == global_sql_stats_map.end())
   {

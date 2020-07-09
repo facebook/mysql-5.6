@@ -3543,14 +3543,14 @@ public:
   sql_digest_state m_digest_state;
 
   /** Plan ID = compute_md5_hash(sql plan) */
-  md5_key plan_id;
+  md5_key plan_id{};
   std::atomic_bool plan_id_set;
   bool    capture_sql_plan;
   /** Client ID = compute_md5_hash(client_attrs_string) */
-  md5_key client_id;
+  md5_key client_id{};
   std::atomic_bool client_id_set;
   /** SQL ID = compute_md5_hash(statement digest) */
-  md5_key sql_id;
+  md5_key sql_id{};
   std::atomic_bool sql_id_set;
 
   /** Current statement instrumentation. */
