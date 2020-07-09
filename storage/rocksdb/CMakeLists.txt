@@ -1,36 +1,54 @@
 # TODO: Copyrights
 
-IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/Makefile")
-  MESSAGE(SEND_ERROR "Missing Makefile in rocksdb directory. Try \"git submodule update\".")
-ENDIF()
-
 CHECK_FUNCTION_EXISTS(sched_getcpu  HAVE_SCHED_GETCPU)
 IF(HAVE_SCHED_GETCPU)
   ADD_DEFINITIONS(-DHAVE_SCHED_GETCPU=1 -DROCKSDB_SCHED_GETCPU_PRESENT)
 ENDIF()
 
-# use my_rocksdb for rocksdb namespace to avoid conflicts with other rocksdb
-# copies in plugins
-ADD_DEFINITIONS(-DROCKSDB_NAMESPACE=my_rocksdb)
-
-# get a list of rocksdb library source files
-# run with env -i to avoid passing variables
-EXECUTE_PROCESS(
-  COMMAND env -i ${CMAKE_SOURCE_DIR}/storage/rocksdb/get_rocksdb_files.sh
-  OUTPUT_VARIABLE SCRIPT_OUTPUT
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-# split the list into lines
-STRING(REGEX MATCHALL "[^\n]+" ROCKSDB_LIB_SOURCES ${SCRIPT_OUTPUT})
-
-INCLUDE_DIRECTORIES(
-  ${CMAKE_SOURCE_DIR}/rocksdb
-  ${CMAKE_SOURCE_DIR}/rocksdb/include
-  ${CMAKE_SOURCE_DIR}/rocksdb/third-party/gtest-1.8.1/fused-src
-)
-
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
+
+IF(ROCKSDB_CUSTOM_NAMESPACE)
+  ADD_DEFINITIONS(-DROCKSDB_NAMESPACE=${ROCKSDB_CUSTOM_NAMESPACE})
+  ADD_DEFINITIONS(-DROCKSDB_CUSTOM_NAMESPACE=${ROCKSDB_CUSTOM_NAMESPACE})
+ENDIF()
+
+IF(HAVE_EXTERNAL_ROCKSDB)
+  MESSAGE(STATUS "MyRocks: Using external RocksDB")
+  SET(ROCKSDB_ROOT ${ROCKSDB_SRC_PATH})
+ELSE()
+  MESSAGE(STATUS "MyRocks: Using local RocksDB")
+
+  IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/Makefile")
+    MESSAGE(SEND_ERROR "Missing Makefile in rocksdb directory. Try \"git submodule update\".")
+  ENDIF()
+
+  SET(ROCKSDB_ROOT ${CMAKE_SOURCE_DIR}/rocksdb)
+
+  # get a list of rocksdb library source files
+  # run with env -i to avoid passing variables
+  EXECUTE_PROCESS(
+    COMMAND env -i ${CMAKE_SOURCE_DIR}/storage/rocksdb/get_rocksdb_files.sh
+    OUTPUT_VARIABLE SCRIPT_OUTPUT
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  )
+
+  # split the list into lines
+  STRING(REGEX MATCHALL "[^\n]+" ROCKSDB_LIB_SOURCES ${SCRIPT_OUTPUT})
+
+  SET(ROCKSDB_ROOT ${CMAKE_SOURCE_DIR}/rocksdb)
+
+  # Statically include all RocksDB source
+  SET(ROCKSDB_SOURCES
+    ${ROCKSDB_LIB_SOURCES}
+  )
+ENDIF()
+
+INCLUDE_DIRECTORIES(
+  ${ROCKSDB_ROOT}
+  ${ROCKSDB_ROOT}/include
+  ${ROCKSDB_ROOT}/third-party/gtest-1.8.1/fused-src
+)
 
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -58,6 +76,7 @@ if(HAVE_THREAD_LOCAL)
 endif()
 
 SET(ROCKSDB_SOURCES
+  ${ROCKSDB_SOURCES}
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
   logger.h
   rdb_comparator.h
@@ -77,7 +96,6 @@ SET(ROCKSDB_SOURCES
   rdb_utils.cc rdb_utils.h rdb_buff.h
   rdb_threads.cc rdb_threads.h
   nosql_access.cc nosql_access.h
-  ${ROCKSDB_LIB_SOURCES}
 )
 
 IF(WITH_FB_TSAN)
@@ -86,7 +104,11 @@ ELSE()
   SET(PIC_EXT "")
 ENDIF()
 
-SET(rocksdb_static_libs )
+IF(HAVE_EXTERNAL_ROCKSDB)
+  SET(rocksdb_static_libs "${ROCKSDB_LIB_PATH}/${ROCKSDB_LIB_NAME}")
+ELSE()
+  SET(rocksdb_static_libs )
+ENDIF()
 
 IF (WITH_JEMALLOC)
   FIND_LIBRARY(JEMALLOC_LIBRARY
@@ -161,7 +183,7 @@ IF(WITH_EMBEDDED_SERVER)
   ADD_SUBDIRECTORY(unittest)
 ENDIF()
 
-IF (WITH_ROCKSDB_SE_STORAGE_ENGINE)
+IF (WITH_ROCKSDB_SE_STORAGE_ENGINE AND (NOT HAVE_EXTERNAL_ROCKSDB))
   # TODO: read this file list from src.mk:TOOL_SOURCES
   SET(ROCKSDB_TOOL_SOURCES
     ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_tool.cc
