@@ -1,0 +1,9 @@
+select variable_name from performance_schema.global_status where variable_name like "Jemalloc%" order by 1;
+variable_name
+Jemalloc_arenas_narenas
+Jemalloc_opt_narenas
+Jemalloc_opt_tcache
+Jemalloc_stats_active
+Jemalloc_stats_allocated
+Jemalloc_stats_mapped
+SHOW MEMORY STATUS;

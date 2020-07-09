@@ -36,6 +36,7 @@
 --source include/have_debug.inc
 --source include/not_windows.inc
 --source include/have_binlog_format_row.inc
+--source include/not_valgrind.inc
 call mtr.add_suppression("Failed to set up SSL because of the following SSL library error");
 call mtr.add_suppression("\\[Warning\\] .*MY-\\d+.* Changing innodb_extend_and_initialize not supported on this platform.");
 call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
