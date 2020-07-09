@@ -1889,6 +1889,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_grants_stmt
         show_keys_stmt
         show_master_status_stmt
+        show_memory_status_stmt
         show_open_tables_stmt
         show_plugins_stmt
         show_privileges_stmt
@@ -2385,6 +2386,7 @@ simple_statement:
         | show_grants_stmt
         | show_keys_stmt
         | show_master_status_stmt
+        | show_memory_status_stmt
         | show_open_tables_stmt
         | show_plugins_stmt
         | show_privileges_stmt
@@ -13623,6 +13625,13 @@ show_plugins_stmt:
           SHOW PLUGINS_SYM
           {
             $$ = NEW_PTN PT_show_plugins(@$);
+          }
+        ;
+
+show_memory_status_stmt:
+          SHOW MEMORY_SYM STATUS_SYM
+          {
+            $$ = NEW_PTN PT_show_memory_status(@$);
           }
         ;
 

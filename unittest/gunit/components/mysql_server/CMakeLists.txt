@@ -70,6 +70,15 @@ IF(NOT WITH_SHARED_UNITTEST_LIBRARY)
   TARGET_LINK_LIBRARIES(minimal_chassis_test_driver-t
     mysql_server_component_services)
 ENDIF()
+
+# Necessary to make sure that we can use the jemalloc API calls.
+GET_TARGET_PROPERTY(PREV_LINK_FLAGS minimal_chassis_test_driver-t LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(minimal_chassis_test_driver-t PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
 ADD_DEPENDENCIES(minimal_chassis_test_driver-t component_example_component1)
 
 IF(WIN32)

@@ -138,6 +138,10 @@
 #include "template_utils.h"
 #include "thr_lock.h"
 
+#ifdef HAVE_JEMALLOC
+#include "jemalloc/jemalloc.h"
+#endif
+
 /* @see dynamic_privileges_table.cc */
 bool iterate_all_dynamic_privileges(THD *thd,
                                     std::function<bool(const char *)> action);
@@ -558,6 +562,77 @@ bool Sql_cmd_show_master_status::execute_inner(THD *thd) {
   return show_master_status(thd);
 }
 
+typedef struct {
+  char *cur;
+  char *end;
+} malloc_status;
+
+#ifdef HAVE_JEMALLOC
+static void get_jemalloc_status(void *mstat_arg, const char *status) {
+  malloc_status *mstat = (malloc_status *)mstat_arg;
+  size_t status_len = status ? strlen(status) : 0;
+
+  if (!status_len || status_len > (size_t)(mstat->end - mstat->cur)) return;
+
+  strcpy(mstat->cur, status);
+  mstat->cur += status_len;
+}
+#endif
+
+static int show_memory_status(THD *thd) {
+  mem_root_deque<Item *> field_list(thd->mem_root);
+  Protocol *protocol = thd->get_protocol();
+  malloc_status mstat;
+  char *buf;
+  /*
+    Buffer size in bytes. Should be large enough for per-arena statistics not
+    to be truncated.
+  */
+  const uint MALLOC_STATUS_LEN = 10000000;
+
+  field_list.push_back(new Item_empty_string("Status", 10));
+  if (thd->send_result_metadata(field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+
+  protocol->start_row();
+
+  buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, MALLOC_STATUS_LEN + 1, MYF(0));
+  mstat.cur = buf;
+  mstat.end = buf + MALLOC_STATUS_LEN;
+  if (!buf) return true;
+
+#ifdef HAVE_JEMALLOC
+  /*
+    get_jemalloc_status will be called many times per call to
+    malloc_stats_print.
+  */
+  malloc_stats_print(get_jemalloc_status, &mstat, "");
+#else
+  strcpy(buf, "You should be using jemalloc");
+  mstat.cur += strlen(buf);
+#endif
+
+  protocol->store_string(buf, mstat.cur - buf, system_charset_info);
+  if (protocol->end_row()) {
+    my_free((void *)buf);
+    return true;
+  }
+
+  my_free((void *)buf);
+
+  my_eof(thd);
+  return false;
+}
+
+bool Sql_cmd_show_memory_status::check_privileges(THD *thd) {
+  return check_global_access(thd, PROCESS_ACL);
+}
+
+bool Sql_cmd_show_memory_status::execute_inner(THD *thd) {
+  return show_memory_status(thd);
+}
+
 bool Sql_cmd_show_profiles::execute_inner(THD *thd) {
 #if defined(ENABLED_PROFILING)
   thd->profiling->discard_current_query();
@@ -752,6 +827,13 @@ bool Sql_cmd_show_table_base::check_parameters(THD *thd) {
 bool Sql_cmd_show_status::execute(THD *thd) {
   System_status_var old_status_var = thd->status_var;
   thd->initial_status_var = &old_status_var;
+
+#ifdef HAVE_JEMALLOC
+#ifndef EMBEDDED_LIBRARY
+  extern std::atomic_bool need_update_malloc_status;
+  need_update_malloc_status = true;
+#endif
+#endif
 
   bool status = Sql_cmd_show::execute(thd);
 

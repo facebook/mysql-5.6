@@ -2322,6 +2322,13 @@ Sql_cmd *PT_show_master_status::make_cmd(THD *thd) {
   return &m_sql_cmd;
 }
 
+Sql_cmd *PT_show_memory_status::make_cmd(THD *thd) {
+  LEX *lex = thd->lex;
+  lex->sql_command = m_sql_command;
+
+  return &m_sql_cmd;
+}
+
 Sql_cmd *PT_show_open_tables::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;

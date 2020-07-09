@@ -446,6 +446,16 @@ class Sql_cmd_show_master_status : public Sql_cmd_show_noplan {
   bool execute_inner(THD *thd) override;
 };
 
+/// Represents SHOW MEMORY STATUS statement.
+
+class Sql_cmd_show_memory_status : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_memory_status()
+      : Sql_cmd_show_noplan(SQLCOM_SHOW_MEMORY_STATUS) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+};
+
 /// Represents SHOW OPEN TABLES statement.
 
 class Sql_cmd_show_open_tables : public Sql_cmd_show {

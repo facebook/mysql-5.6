@@ -346,6 +346,14 @@ MYSQL_ADD_EXECUTABLE(merge_large_tests-t ${ALL_LARGE_TESTS}
   LINK_LIBRARIES gunit_large server_unittest_library
   )
 
+# Necessary to make sure that we can use the jemalloc API calls.
+GET_TARGET_PROPERTY(PREV_LINK_FLAGS merge_large_tests-t LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(merge_large_tests-t PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
 FOREACH(test ${TESTS})
   MYSQL_ADD_EXECUTABLE(${test}-t ${test}-t.cc
     COMPILE_DEFINITIONS ${DISABLE_PSI_DEFINITIONS}
@@ -383,6 +391,14 @@ FOREACH(test ${SERVER_TESTS})
     LINK_LIBRARIES gunit_large server_unittest_library
     SKIP_INSTALL
     )
+
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS ${test}-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(${test}-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 ENDFOREACH()
 
 ADD_LIBRARY(rpl_channel_credentials_lib STATIC

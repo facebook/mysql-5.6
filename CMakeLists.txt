@@ -801,6 +801,7 @@ ENDIF()
 OPTION(WITH_JEMALLOC "Use jemalloc rather than builtin malloc/free etc." OFF)
 IF(WITH_JEMALLOC)
   FIND_MALLOC_LIBRARY(jemalloc)
+  SET(HAVE_JEMALLOC ON)
 ENDIF()
 
 IF(WITH_JEMALLOC AND (WITH_TCMALLOC OR WITH_TCMALLOC_DEBUG))
@@ -1969,7 +1970,9 @@ IF(NOT WITHOUT_SERVER)
     IF(WIN32)
       SET(WITH_SHARED_UNITTEST_LIBRARY_DEFAULT OFF)
     ELSE()
-      SET(WITH_SHARED_UNITTEST_LIBRARY_DEFAULT ON)
+      # FB - 8.0.28 - disable shared unittest library since it causes test
+      # crashes due to jemalloc/malloc mismatches
+      SET(WITH_SHARED_UNITTEST_LIBRARY_DEFAULT OFF)
     ENDIF()
     OPTION(WITH_SHARED_UNITTEST_LIBRARY
       "Build a shared library for unit tests which depend on the entire server"
