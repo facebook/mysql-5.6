@@ -1,0 +1,40 @@
+SET @start_global_value = @@GLOBAL.enable_jemalloc_hpp;
+SELECT @start_global_value;
+@start_global_value
+OFF
+SET @@GLOBAL.enable_jemalloc_hpp = on;
+SET @@GLOBAL.enable_jemalloc_hpp = DEFAULT;
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+OFF
+SET @@GLOBAL.enable_jemalloc_hpp = off;
+SET @@GLOBAL.enable_jemalloc_hpp = DEFAULT;
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+OFF
+SET @@GLOBAL.enable_jemalloc_hpp = on;
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+ON
+SET @@GLOBAL.enable_jemalloc_hpp = off;
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+OFF
+SET @@GLOBAL.enable_jemalloc_hpp = dump;
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+DUMP
+SET @@GLOBAL.enable_jemalloc_hpp = something;
+ERROR 42000: Variable 'enable_jemalloc_hpp' can't be set to the value of 'something'
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+DUMP
+SET @@GLOBAL.enable_jemalloc_hpp = somethingelse;
+ERROR 42000: Variable 'enable_jemalloc_hpp' can't be set to the value of 'somethingelse'
+select @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+DUMP
+SET @@GLOBAL.enable_jemalloc_hpp = @start_global_value;
+SELECT @@GLOBAL.enable_jemalloc_hpp;
+@@GLOBAL.enable_jemalloc_hpp
+OFF

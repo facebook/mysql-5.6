@@ -36,6 +36,7 @@
 --source include/have_debug.inc
 --source include/not_windows.inc
 --source include/have_binlog_format_row.inc
+--source include/not_valgrind.inc
 call mtr.add_suppression("Failed to set up SSL because of the following SSL library error");
 
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%'`;

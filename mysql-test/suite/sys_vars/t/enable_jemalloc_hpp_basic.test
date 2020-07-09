@@ -1,0 +1,63 @@
+################## mysql-test\t\enable_jemalloc_hpp_basic.test ###############
+#                                                                             #
+# Variable Name: enable_jemalloc_hpp                                          #
+# Scope: Global                                                               #
+#                                                                             #
+# Creation Date: 2018-03-02                                                   #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable enable_jemalloc_hpp       #
+#             that checks the behavior of this variable in the following ways #
+#              * Default Value                                                #
+#              * Valid Value                                                  #
+#              * Invalid value                                                #
+#                                                                             #
+###############################################################################
+--source include/have_jemalloc.inc
+
+SET @start_global_value = @@GLOBAL.enable_jemalloc_hpp;
+SELECT @start_global_value;
+
+########################################################################
+#          Display the DEFAULT value of enable_jemalloc_hpp            #
+########################################################################
+
+SET @@GLOBAL.enable_jemalloc_hpp = on;
+SET @@GLOBAL.enable_jemalloc_hpp = DEFAULT;
+select @@GLOBAL.enable_jemalloc_hpp;
+
+
+SET @@GLOBAL.enable_jemalloc_hpp = off;
+SET @@GLOBAL.enable_jemalloc_hpp = DEFAULT;
+select @@GLOBAL.enable_jemalloc_hpp;
+
+########################################################################
+#          change the value of enable_jemalloc_hpp to a valid value    #
+########################################################################
+
+SET @@GLOBAL.enable_jemalloc_hpp = on;
+select @@GLOBAL.enable_jemalloc_hpp;
+SET @@GLOBAL.enable_jemalloc_hpp = off;
+select @@GLOBAL.enable_jemalloc_hpp;
+SET @@GLOBAL.enable_jemalloc_hpp = dump;
+select @@GLOBAL.enable_jemalloc_hpp;
+
+
+########################################################################
+#        change the value of enable_jemalloc_hpp to an invalid value   #
+########################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_jemalloc_hpp = something;
+select @@GLOBAL.enable_jemalloc_hpp;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_jemalloc_hpp = somethingelse;
+select @@GLOBAL.enable_jemalloc_hpp;
+
+##############################
+##   Restore initial value    #
+###############################
+
+SET @@GLOBAL.enable_jemalloc_hpp = @start_global_value;
+SELECT @@GLOBAL.enable_jemalloc_hpp;

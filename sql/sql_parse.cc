@@ -24,6 +24,10 @@
 
 #include "my_config.h"
 
+#ifdef HAVE_JEMALLOC
+#include "jemalloc/jemalloc.h"
+#endif
+
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -547,6 +551,7 @@ void init_sql_command_flags(void) {
   sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_MEMORY_STATUS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_PROC] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_FUNC] = CF_STATUS_COMMAND;
@@ -2590,6 +2595,69 @@ err:
   return true;
 }
 
+typedef struct {
+  char *cur;
+  char *end;
+} malloc_status;
+
+#ifdef HAVE_JEMALLOC
+static void get_jemalloc_status(void *mstat_arg, const char *status) {
+  malloc_status *mstat = (malloc_status *)mstat_arg;
+  size_t status_len = status ? strlen(status) : 0;
+
+  if (!status_len || status_len > (size_t)(mstat->end - mstat->cur)) return;
+
+  strcpy(mstat->cur, status);
+  mstat->cur += status_len;
+}
+#endif
+
+static int show_memory_status(THD *thd) {
+  List<Item> field_list;
+  Protocol *protocol = thd->get_protocol();
+  malloc_status mstat;
+  char *buf;
+  /*
+    Buffer size in bytes. Should be large enough for per-arena statistics not
+    to be truncated.
+  */
+  const uint MALLOC_STATUS_LEN = 10000000;
+
+  field_list.push_back(new Item_empty_string("Status", 10));
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    return true;
+
+  protocol->start_row();
+
+  buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, MALLOC_STATUS_LEN + 1, MYF(0));
+  mstat.cur = buf;
+  mstat.end = buf + MALLOC_STATUS_LEN;
+  if (!buf) return true;
+
+#ifdef HAVE_JEMALLOC
+  /*
+    get_jemalloc_status will be called many times per call to
+    malloc_stats_print.
+  */
+  malloc_stats_print(get_jemalloc_status, &mstat, "");
+#else
+  strcpy(buf, "You should be using jemalloc");
+  mstat.cur += strlen(buf);
+#endif
+
+  protocol->store_string(buf, mstat.cur - buf, system_charset_info);
+  if (protocol->end_row()) {
+    my_free((void *)buf);
+    return true;
+  }
+
+  my_free((void *)buf);
+
+  my_eof(thd);
+  return false;
+}
+
 /**
   This is a wrapper for MYSQL_BIN_LOG::gtid_end_transaction. For normal
   statements, the function gtid_end_transaction is called in the commit
@@ -3080,6 +3148,13 @@ int mysql_execute_command(THD *thd, bool first_level) {
       System_status_var old_status_var = thd->status_var;
       thd->initial_status_var = &old_status_var;
 
+#ifdef HAVE_JEMALLOC
+#ifndef EMBEDDED_LIBRARY
+      extern std::atomic_bool need_update_malloc_status;
+      need_update_malloc_status = true;
+#endif
+#endif
+
       if (!(res = show_precheck(thd, lex, true)))
         res = execute_show(thd, all_tables);
 
@@ -3260,6 +3335,12 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_ENGINE_TRX: {
       if (check_global_access(thd, PROCESS_ACL)) goto error;
       res = ha_show_status(thd, lex->create_info->db_type, HA_ENGINE_TRX);
+      break;
+    }
+    case SQLCOM_SHOW_MEMORY_STATUS: {
+      if (check_global_access(thd, PROCESS_ACL)) goto error;
+
+      res = show_memory_status(thd);
       break;
     }
     case SQLCOM_START_GROUP_REPLICATION: {

@@ -337,4 +337,7 @@
 
 #define SO_EXT "@CMAKE_SHARED_MODULE_SUFFIX@"
 
+/* Jemalloc */
+#cmakedefine HAVE_JEMALLOC 1
+
 #endif

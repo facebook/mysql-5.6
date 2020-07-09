@@ -12814,6 +12814,8 @@ show_param:
             if (prepare_schema_table(YYTHD, lex, 0, SCH_PLUGINS))
               MYSQL_YYABORT;
           }
+        | MEMORY_SYM STATUS_SYM
+          { Lex->sql_command = SQLCOM_SHOW_MEMORY_STATUS; }
         | ENGINE_SYM ident_or_text show_engine_param
           {
             const bool is_temp_table=

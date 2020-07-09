@@ -145,6 +145,10 @@
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
 
+#ifdef HAVE_JEMALLOC
+#include <jemalloc/jemalloc.h>
+#endif
+
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
@@ -6924,3 +6928,66 @@ static Sys_var_bool Sys_var_require_row_format(
     "and DDLs with the exception of temporary table creation/deletion.",
     SESSION_ONLY(require_row_format), NO_CMD_LINE, DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_set_require_row_format));
+
+#ifdef HAVE_JEMALLOC
+ulong enable_jemalloc_hpp;
+
+static bool enable_jemalloc_heap_profiling(sys_var *, THD *, enum_var_type) {
+  const enum_enable_jemalloc enable_jemalloc =
+      static_cast<enum_enable_jemalloc>(enable_jemalloc_hpp);
+
+  if (enable_jemalloc == JEMALLOC_ON) {
+    bool enable_profiling = true;
+    const size_t val_sz = sizeof(enable_profiling);
+    const int ret =
+        mallctl("prof.active", nullptr, nullptr, &enable_profiling, val_sz);
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information(
+          "Unable to enable jemalloc heap profiling. Error:  %d", ret);
+      return true;
+    }
+    return false;
+  }
+  if (enable_jemalloc == JEMALLOC_OFF) {
+    bool disable_profiling = false;
+    const size_t val_sz = sizeof(disable_profiling);
+    const int ret =
+        mallctl("prof.active", nullptr, nullptr, &disable_profiling, val_sz);
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information(
+          "Unable to disable jemalloc heap profiling. Error: %d", ret);
+      return true;
+    }
+    return false;
+  }
+  if (enable_jemalloc == JEMALLOC_DUMP) {
+    const int ret =
+        mallctl("prof.dump", nullptr, nullptr, nullptr, sizeof(const char *));
+
+    if (ret != 0) {
+      /* NO_LINT_DEBUG */
+      sql_print_information("Unable to dump heap. Error:  %d", ret);
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
+static const char *enable_jemalloc_values[] = {"OFF", "ON", "DUMP", nullptr};
+
+static Sys_var_enum Sys_enable_jemalloc_hpp(
+    "enable_jemalloc_hpp",
+    "This will provide options for Jemalloc heap profiling."
+    "On: Activates profiling"
+    "Off: Deactivate profiling"
+    "Dump: Dump a profile",
+    GLOBAL_VAR(enable_jemalloc_hpp), CMD_LINE(OPT_ARG), enable_jemalloc_values,
+    DEFAULT(JEMALLOC_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(enable_jemalloc_heap_profiling));
+
+#endif

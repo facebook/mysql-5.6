@@ -321,6 +321,14 @@ TARGET_LINK_LIBRARIES(merge_large_tests-t
   server_unittest_library
   )
 
+# Necessary to make sure that we can use the jemalloc API calls.
+GET_TARGET_PROPERTY(PREV_LINK_FLAGS merge_large_tests-t LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(merge_large_tests-t PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
 FOREACH(test ${TESTS})
   MYSQL_ADD_EXECUTABLE(${test}-t ${test}-t.cc
     ENABLE_EXPORTS SKIP_INSTALL EXCLUDE_FROM_ALL)
@@ -347,6 +355,14 @@ FOREACH(test ${SERVER_TESTS})
   ENDIF()
   MYSQL_ADD_EXECUTABLE(${test}-t ${SRC_FILES}
     ENABLE_EXPORTS SKIP_INSTALL EXCLUDE_FROM_ALL)
+
+  # Necessary to make sure that we can use the jemalloc API calls.
+  GET_TARGET_PROPERTY(PREV_LINK_FLAGS ${test}-t LINK_FLAGS)
+  IF(NOT PREV_LINK_FLAGS)
+    SET(PREV_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(${test}-t PROPERTIES LINK_FLAGS
+  "${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
 
   TARGET_LINK_LIBRARIES(${test}-t
     gunit_large
