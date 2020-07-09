@@ -651,6 +651,7 @@ void init_sql_command_flags() {
   sql_command_flags[SQLCOM_SHOW_CREATE_DB] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_MASTER_STAT] = CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_MEMORY_STATUS] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_STAT] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_PROC] = CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_CREATE_FUNC] = CF_STATUS_COMMAND;
@@ -4738,6 +4739,7 @@ int mysql_execute_command(THD *thd, bool first_level) {
     case SQLCOM_SHOW_GRANTS:
     case SQLCOM_SHOW_KEYS:
     case SQLCOM_SHOW_MASTER_STAT:
+    case SQLCOM_SHOW_MEMORY_STATUS:
     case SQLCOM_SHOW_OPEN_TABLES:
     case SQLCOM_SHOW_PLUGINS:
     case SQLCOM_SHOW_PRIVILEGES:

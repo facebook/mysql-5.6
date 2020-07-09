@@ -2289,6 +2289,7 @@ uint sp_get_flags_for_command(LEX *lex) {
     case SQLCOM_SHOW_EVENTS:
     case SQLCOM_SHOW_KEYS:
     case SQLCOM_SHOW_MASTER_STAT:
+    case SQLCOM_SHOW_MEMORY_STATUS:
     case SQLCOM_SHOW_OPEN_TABLES:
     case SQLCOM_SHOW_PRIVILEGES:
     case SQLCOM_SHOW_PROCESSLIST:

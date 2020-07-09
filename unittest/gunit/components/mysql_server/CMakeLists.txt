@@ -69,6 +69,15 @@ IF(NOT WITH_SHARED_UNITTEST_LIBRARY)
     mysql_server_component_services)
 ENDIF()
 
+# Necessary to make sure that we can use the jemalloc API calls.
+GET_TARGET_PROPERTY(PREV_LINK_FLAGS minimal_chassis_test_driver-t LINK_FLAGS)
+IF(NOT PREV_LINK_FLAGS)
+  SET(PREV_LINK_FLAGS)
+ENDIF()
+SET_TARGET_PROPERTIES(minimal_chassis_test_driver-t PROPERTIES LINK_FLAGS
+"${PREV_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+
+
 IF(WIN32)
   ADD_DEPENDENCIES(minimal_chassis_test_driver-t "${PROTOBUF_LITE_LIBRARY}")
   # Copy dlls for libprotobuf-lite and libcrypto/libssl to plugin dir.

@@ -124,6 +124,13 @@ enum class Explain_format_type : ulong {
   JSON = 3
 };
 
+/** Values for enable_jemalloc_hpp sysvar. */
+enum enum_enable_jemalloc {
+  JEMALLOC_OFF = 0,
+  JEMALLOC_ON = 1,
+  JEMALLOC_DUMP = 2
+};
+
 /* Bits for different SQL modes modes (including ANSI mode) */
 #define MODE_REAL_AS_FLOAT 1
 #define MODE_PIPES_AS_CONCAT 2

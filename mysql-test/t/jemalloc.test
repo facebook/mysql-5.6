@@ -1,0 +1,7 @@
+--source include/have_jemalloc.inc
+
+select variable_name from performance_schema.global_status where variable_name like "Jemalloc%" order by 1;
+
+--disable_result_log
+SHOW MEMORY STATUS;
+--enable_result_log

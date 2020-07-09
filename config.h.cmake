@@ -363,4 +363,7 @@
 /* sasl_client_done support */
 #cmakedefine SASL_CLIENT_DONE_SUPPORTED @SASL_CLIENT_DONE_SUPPORTED@
 
+/* Jemalloc */
+#cmakedefine HAVE_JEMALLOC 1
+
 #endif

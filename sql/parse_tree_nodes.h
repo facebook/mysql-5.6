@@ -3503,6 +3503,19 @@ class PT_show_master_status final : public PT_show_base {
   Sql_cmd_show_master_status m_sql_cmd;
 };
 
+/// Parse tree node for SHOW MEMORY STATUS statement
+
+class PT_show_memory_status final : public PT_show_base {
+ public:
+  PT_show_memory_status(const POS &pos)
+      : PT_show_base(pos, SQLCOM_SHOW_MEMORY_STATUS) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_memory_status m_sql_cmd;
+};
+
 /// Parse tree node for SHOW OPEN TABLES statement
 
 class PT_show_open_tables final : public PT_show_schema_base {
