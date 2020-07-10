@@ -6926,8 +6926,13 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query) {
   uint error;
   if (!(error = kill_one_thread(thd, id, only_kill_query))) {
     if (!thd->killed) my_ok(thd);
-  } else
-    my_error(error, MYF(0), id);
+  } else {
+    if (error == ER_NO_SUCH_THREAD && thd->lex->is_ignore()) {
+      my_ok(thd);
+    } else {
+      my_error(error, MYF(0), id);
+    }
+  }
 }
 
 /**

@@ -13600,15 +13600,20 @@ purge_option:
 /* kill threads */
 
 kill:
-          KILL_SYM kill_option expr
+          KILL_SYM ignore_option kill_option expr
           {
-            ITEMIZE($3, &$3);
+            ITEMIZE($4, &$4);
 
             LEX *lex=Lex;
             lex->kill_value_list.empty();
-            lex->kill_value_list.push_front($3);
+            lex->kill_value_list.push_front($4);
             lex->sql_command= SQLCOM_KILL;
           }
+        ;
+
+ignore_option:
+          /* empty */ { Lex->set_ignore(false); }
+        | IGNORE_SYM { Lex->set_ignore(true); }
         ;
 
 kill_option:
