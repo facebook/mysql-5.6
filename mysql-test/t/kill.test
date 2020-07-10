@@ -143,9 +143,52 @@ connection con1;
 reap;
 SELECT 1;
 
+#
+# Test that KILL IGNORE called on valid thread works the same as KILL command. 
+# This test is the same as the previous test, except using KILL IGNORE instead of KILL.
+#
+connection con1;
+let $ID= `SELECT @id := CONNECTION_ID()`;
+connection con2;
+let $ignore= `SELECT @id := $ID`;
+
+connection con1;
+SET DEBUG_SYNC= 'thread_end SIGNAL con1_end';
+SET DEBUG_SYNC= 'before_acos_function SIGNAL in_sync';
+--source include/turn_off_only_full_group_by.inc
+# This is a very long running query. If this test start failing,
+# it may be necessary to change to an even longer query.
+send SELECT id FROM t1 WHERE id IN
+       (SELECT /*+ NO_BNL(a,b,c,d) */ DISTINCT a.id FROM t2 a, t2 b, t2 c, t2 d
+          GROUP BY ACOS(1/a.id), b.id, c.id, d.id
+          HAVING a.id BETWEEN 10 AND 20);
+
+connection con2;
+SET DEBUG_SYNC= 'now WAIT_FOR in_sync';
+KILL IGNORE @id;
+SET DEBUG_SYNC= 'now WAIT_FOR con1_end';
+
+connection con1;
+--error 1317,1053,2006,2013
+reap;
+SELECT 1;
+
 connection default;
 SET DEBUG_SYNC = 'RESET';
 DROP TABLE t1, t2;
+
+#
+# Test that KILL IGNORE called on invalid thread doesn't throw an error
+#
+KILL IGNORE 123;
+KILL IGNORE 456;
+KILL IGNORE 999;
+
+#
+# Test to make sure KILL IGNORE QUERY and KILL IGNORE CONNECTION syntax is valid
+#
+KILL IGNORE QUERY 123;
+KILL IGNORE CONNECTION 456;
 
 #
 # Test of blocking of sending ERROR after OK or EOF
