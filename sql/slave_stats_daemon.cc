@@ -23,7 +23,6 @@ mysql_cond_t COND_slave_stats_daemon;
 #ifdef HAVE_REPLICATION
 static bool abort_slave_stats_daemon;
 
-static MYSQL* mysql = NULL;
 static bool connected_to_master = false;
 
 /**
@@ -33,7 +32,7 @@ static bool connected_to_master = false;
   @retval true if connection successful
   @retval false otherwise.
 */
-static int safe_connect_slave_stats_thread_to_master()
+static int safe_connect_slave_stats_thread_to_master(MYSQL * &mysql)
 {
   if (mysql != NULL) {
     mysql_close(mysql);
@@ -69,7 +68,7 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
 
   slave_stats_daemon_thread = pthread_self();
   slave_stats_daemon_thread_in_use = 1;
-
+  MYSQL *mysql = nullptr;
   while(true) {
     mysql_mutex_lock(&LOCK_slave_stats_daemon);
     set_timespec(abstime, slave_stats_daemon_interval);
@@ -109,7 +108,7 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
       // If not connected to current master, try connection. If not
       // successful, try again in next cycle
       if (!connected_to_master) {
-        connected_to_master = safe_connect_slave_stats_thread_to_master();
+        connected_to_master = safe_connect_slave_stats_thread_to_master(mysql);
         if (connected_to_master) {
           sql_print_information(
               "Slave Stats Daemon: connected to master '%s@%s:%d'",
@@ -133,7 +132,10 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
       error = 0;
     }
   }
-  if(thd != NULL) {
+  mysql_close(mysql);
+  mysql = nullptr;
+  connected_to_master = false;
+  if (thd != NULL) {
     net_end(thd->get_net());
     thd->release_resources();
     delete (thd);
