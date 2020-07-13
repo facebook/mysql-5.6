@@ -2181,6 +2181,7 @@ class THD : public MDL_context_owner,
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
   std::string db_metadata;
+  std::string db_shard_id;
 #if defined(ENABLED_PROFILING)
   std::unique_ptr<PROFILING> profiling;
 #endif
@@ -3734,6 +3735,15 @@ class THD : public MDL_context_owner,
     set_db() or reset_db() are called.
   */
   void set_db_metadata();
+
+  /**
+    Extract and set the shard_id string for the thread.
+    The shard information is extracted from db_metadata, so that has to be set
+    first.
+    This is called within set_db_metadata() after metadata is set.
+  */
+  void set_shard_id();
+  std::string shard_id();
 
   /**
     Set the current database; use deep copy of C-string.

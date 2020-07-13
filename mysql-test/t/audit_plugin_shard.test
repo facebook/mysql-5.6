@@ -1,0 +1,38 @@
+--source include/have_null_audit_plugin.inc
+
+--source include/not_rpc_protocol.inc
+# Adjustment to the OS dependent extension of shared libraries.
+let $expected_extension= so;
+if(`SELECT CONVERT(@@version_compile_os USING latin1)
+           IN ("Win32","Win64","Windows")`)
+{
+   let $expected_extension= dll;
+}
+
+CREATE DATABASE db_rpc /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"xdb.db_rpc_test", "rs":"0"}' */;
+--replace_result $expected_extension <expected_extension>
+eval INSTALL PLUGIN null_audit SONAME 'adt_null.$expected_extension';
+
+USE db_rpc;
+SHOW STATUS LIKE 'Audit_null_shard';
+
+USE test;
+SHOW STATUS LIKE 'Audit_null_shard';
+
+connect(con2,localhost,root,,db_rpc);
+connection con2;
+SHOW STATUS LIKE 'Audit_null_shard';
+disconnect con2;
+
+connect(con3,localhost,root,,);
+connection con3;
+SHOW STATUS LIKE 'Audit_null_shard';
+disconnect con3;
+
+connection default;
+
+UNINSTALL PLUGIN null_audit;
+
+# cleanup
+DROP DATABASE db_rpc;
+--source include/restart_mysqld_no_echo.inc

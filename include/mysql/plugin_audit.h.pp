@@ -410,6 +410,7 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
   unsigned int port;
+  MYSQL_LEX_CSTRING shard;
 };
 typedef enum {
   MYSQL_AUDIT_CONNECTION_CONNECT = 1 << 0,
@@ -431,6 +432,7 @@ struct mysql_event_connection {
   int connection_type;
   MYSQL_LEX_CSTRING connection_certificate;
   unsigned int port;
+  MYSQL_LEX_CSTRING shard;
 };
 typedef enum {
   MYSQL_AUDIT_PARSE_PREPARSE = 1 << 0,

@@ -34,6 +34,8 @@
 
 #include <sstream>
 
+#include <rapidjson/document.h>
+
 #include "field_types.h"
 #include "m_ctype.h"
 #include "m_string.h"
@@ -604,6 +606,26 @@ void THD::set_transaction(Transaction_ctx *transaction_ctx) {
   m_transaction.reset(transaction_ctx);
 }
 
+static std::string get_shard_id(const std::string &db_metadata) {
+  try {
+    rapidjson::Document db_metadata_root;
+    // The local_db_metadata format should be:
+    // {"shard":"<shard_name>", "replicaset":"<replicaset_id>"}
+    if (db_metadata_root.Parse(db_metadata.c_str()).HasParseError() ||
+        !db_metadata_root.IsObject()) {
+      return {};
+    }
+    const auto iter = db_metadata_root.FindMember("shard");
+    std::string shard_id;
+    if (iter != db_metadata_root.MemberEnd()) {
+      shard_id = iter->value.GetString();
+    }
+    return shard_id;
+  } catch (const std::exception &) {
+    return {};
+  }
+}
+
 void THD::set_db_metadata() {
   if (m_db.length) {
     dd::Schema_MDL_locker mdl_handler(this);
@@ -641,12 +663,14 @@ void THD::set_db_metadata() {
     if (!dd_client()->acquire(m_db.str, &schema) && schema != nullptr) {
       mysql_mutex_lock(&LOCK_thd_db_metadata);
       db_metadata = schema->get_db_metadata().c_str();
+      this->db_shard_id = get_shard_id(this->db_metadata);
       mysql_mutex_unlock(&LOCK_thd_db_metadata);
       return;
     }
   }
   mysql_mutex_lock(&LOCK_thd_db_metadata);
   db_metadata.clear();
+  db_shard_id.clear();
   mysql_mutex_unlock(&LOCK_thd_db_metadata);
 }
 
@@ -3348,4 +3372,11 @@ int THD::parse_query_info_attr() {
     }
   }
   return 0;
+}
+
+std::string THD::shard_id() {
+  mysql_mutex_lock(&LOCK_thd_db_metadata);
+  std::string shard_id_copy = this->db_shard_id;
+  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+  return shard_id_copy;
 }

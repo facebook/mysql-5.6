@@ -391,6 +391,10 @@ int mysql_audit_notify(THD *thd, mysql_event_general_subclass_t subclass,
   event.affected_rows = thd->get_row_count_func();
   event.port = mysqld_port;
 
+  std::string shard_str = thd->shard_id();
+  event.shard.str = shard_str.c_str();
+  event.shard.length = shard_str.size();
+
   event.general_charset = const_cast<CHARSET_INFO *>(
       thd_get_audit_query(thd, &event.general_query));
 
@@ -447,6 +451,10 @@ int mysql_audit_notify(THD *thd, mysql_event_connection_subclass_t subclass,
   event.connection_certificate.length =
       thd->get_connection_certificate().size();
   event.port = mysqld_port;
+
+  std::string shard_str = thd->shard_id();
+  event.shard.str = shard_str.c_str();
+  event.shard.length = shard_str.size();
 
   if (subclass == MYSQL_AUDIT_CONNECTION_DISCONNECT) {
     Ignore_event_error_handler handler(thd, subclass_name);
