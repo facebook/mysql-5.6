@@ -419,6 +419,7 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
   unsigned int port;
+  MYSQL_LEX_CSTRING shard;
 };
 struct mysql_event_connection {
   mysql_event_connection_subclass_t event_subclass;
@@ -434,6 +435,7 @@ struct mysql_event_connection {
   int connection_type;
   MYSQL_LEX_CSTRING connection_certificate;
   unsigned int port;
+  MYSQL_LEX_CSTRING shard;
 };
 typedef enum {
   MYSQL_AUDIT_PARSE_PREPARSE = 1 << 0,

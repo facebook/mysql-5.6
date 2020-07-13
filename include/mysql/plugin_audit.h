@@ -44,7 +44,7 @@ typedef struct CHARSET_INTO CHARSET_INFO;
 #include "my_sqlcommand.h"
 #include "plugin_audit_message_types.h"
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0402
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0403
 
 /**
  @enum mysql_event_class_t
@@ -159,6 +159,8 @@ struct mysql_event_general {
   MYSQL_LEX_CSTRING database;
   long long affected_rows;
   unsigned int port;
+  /** Shard of the database if present in DB_METADATA */
+  MYSQL_LEX_CSTRING shard;
 };
 
 #define MYSQL_AUDIT_CONNECTION_ALL                                      \
@@ -202,6 +204,8 @@ struct mysql_event_connection {
   int connection_type;
   MYSQL_LEX_CSTRING connection_certificate;
   unsigned int port;
+  /** Shard of the database if present in DB_METADATA */
+  MYSQL_LEX_CSTRING shard;
 };
 
 /**

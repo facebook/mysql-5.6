@@ -66,7 +66,6 @@ rocksdb.rqg_transactions : BUG#0000 commit without prepare
 rocksdb.add_index_inplace : BUG#0000 : ALTER TABLE ALGORITHM=INPLACE fails
 
 # Rebase: not-yet-implemented bugs
-rocksdb.rqg_examples : BUG#0000 Rebase: not-yet-implemented
 rocksdb.bypass_select_range_pk_bloom : BUG#0000 Rebase: not-yet-implemented
 rocksdb.bypass_select_scenarios_bloom : BUG#0000 Rebase: not-yet-implemented
 rocksdb.verify_tbl_share_primary_idx : BUG#0000 Rebase: not-yet-implemented
