@@ -4898,6 +4898,13 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
       current_hlc= mysql_bin_log.get_current_hlc();
     }
     Metadata_log_event metadata_ev(current_hlc);
+    if (raft_rotate_info)
+    {
+      metadata_ev.set_raft_prev_opid(
+          raft_rotate_info->rotate_opid.first,
+          raft_rotate_info->rotate_opid.second);
+    }
+
     if (metadata_ev.write(&log_file))
       goto err;
     bytes_written+= metadata_ev.data_written;
@@ -7119,6 +7126,14 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
       current_thd->clear_error(); // Clear previous errors first
       my_error(ER_RAFT_FILE_ROTATION_FAILED, MYF(0), 1);
       goto end;
+    }
+    if (!error)
+    {
+      // Store the rotate op_id in the raft_rotate_info for
+      // open_binlog to use
+      int64_t r_term, r_index;
+      current_thd->get_trans_marker(&r_term, &r_index);
+      raft_rotate_info->rotate_opid= std::make_pair(r_term, r_index);
     }
   }
 

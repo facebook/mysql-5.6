@@ -5301,6 +5301,13 @@ public:
   Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
 
   /**
+   * Use this constructor to create a Metadata Log Event which
+   * will have multiple type's from below and you will use multiple
+   * set operations to populate the guts.
+   */
+  Metadata_log_event();
+
+  /**
    * Create a new metadata event which contains Previous HLC. Previous HLC is
    * max HLC that could have been potentially stored in all the previous binlog
    * for the instance. This can be easily extended later if we decide to
@@ -5419,11 +5426,25 @@ public:
   const std::string& get_raft_str() const;
 
   /**
+   * Get raft previous opid term
+   *
+   * @return prev_raft_term if present. -1 otherwise
+   */
+  int64_t get_raft_prev_opid_term() const;
+
+  /**
+   * Get raft previous opid index
+   *
+   * @return prev_raft_index if present. -1 otherwise
+   */
+  int64_t get_raft_prev_opid_index() const;
+
+  /**
    * Set raft_term and raft_index and update internal state needed later to
    * write this to stream
    *
-   * @param term - Raft term to sert
-   * @param index - Raft index to sert
+   * @param term - Raft term to set
+   * @param index - Raft index to set
    */
   void set_raft_term_and_index(int64_t term, int64_t index);
 
@@ -5433,6 +5454,15 @@ public:
    * @param str - the raft provided string
    */
   void set_raft_str(const std::string& str);
+
+  /**
+   * Set previous file's last raft_term and raft_index, i.e.
+   * the opid of the rotate event to the metadata event.
+   *
+   * @param term - Raft term to set
+   * @param index - Raft index to set
+   */
+  void set_raft_prev_opid(int64_t term, int64_t index);
 
   /**
    * The spec for different 'types' supported by this event
@@ -5452,6 +5482,8 @@ public:
     RAFT_TERM_INDEX_TYPE= 2,
     /* Config added by raft consensus plugin */
     RAFT_GENERIC_STR_TYPE= 3,
+    /* Raft term and index for the last file*/
+    RAFT_PREV_OPID_TYPE= 4,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -5497,7 +5529,7 @@ private:
   bool write_prev_hlc_time(IO_CACHE* file);
 
   /**
-   * Write praft term and index to file
+   * Write raft term and index to file
    *
    * @param file - file to write into
    *
@@ -5513,6 +5545,15 @@ private:
    * @returns - 0 on success, 1 on false
    */
   bool write_raft_str(IO_CACHE* file);
+
+  /**
+   * Write previous opid term and index to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_prev_opid(IO_CACHE* file);
 
   /**
    * Write type and length to file
@@ -5552,6 +5593,15 @@ private:
    * preceedes the RotateEvent.
    */
   std::string raft_str_;
+
+  /* Previous (term, index). Provided and interpreted by raft consensus plugin.
+   * Since rotate events are consensus sync point, prev term and prev index is
+   * committed
+   * The type corresponding to this is RAFT_PREV_OPID_TYPE */
+  int64_t prev_raft_term_= -1;
+  int64_t prev_raft_index_= -1;
+  static const uint32_t ENCODED_RAFT_PREV_OPID_SIZE=
+    sizeof(prev_raft_term_) + sizeof(prev_raft_index_);
 
   /* Total size of this event when encoded into the stream */
   uint32_t size_= 0;

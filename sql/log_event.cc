@@ -16365,6 +16365,12 @@ Metadata_log_event::Metadata_log_event(
   set_hlc_time(hlc_time_ns);
 }
 
+Metadata_log_event::Metadata_log_event()
+  : Log_event(Log_event::EVENT_NO_CACHE,
+            Log_event::EVENT_IMMEDIATE_LOGGING)
+{
+}
+
 Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
   : Log_event(Log_event::EVENT_NO_CACHE,
             Log_event::EVENT_IMMEDIATE_LOGGING)
@@ -16488,6 +16494,17 @@ void Metadata_log_event::set_raft_str(const std::string& raft_str)
     (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + raft_str_.size());
 }
 
+void Metadata_log_event::set_raft_prev_opid(int64_t term, int64_t index)
+{
+  prev_raft_term_= term;
+  prev_raft_index_= index;
+
+  set_exist(Metadata_log_event_types::RAFT_PREV_OPID_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+    (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_PREV_OPID_SIZE);
+}
+
 int64_t Metadata_log_event::get_raft_term() const
 {
   return raft_term_;
@@ -16503,6 +16520,16 @@ const std::string& Metadata_log_event::get_raft_str() const
   return raft_str_;
 }
 
+int64_t Metadata_log_event::get_raft_prev_opid_term() const
+{
+  return prev_raft_term_;
+}
+
+int64_t Metadata_log_event::get_raft_prev_opid_index() const
+{
+  return prev_raft_index_;
+}
+
 uint Metadata_log_event::read_type(
     Metadata_log_event_types type, char const* buffer)
 {
@@ -16513,6 +16540,7 @@ uint Metadata_log_event::read_type(
   uint value_length= uint2korr(buffer);
   int64_t term= -1, index= -1;
   std::string generic_str;
+  int64_t prev_term= -1, prev_index= -1;
 
   switch (type)
   {
@@ -16535,6 +16563,13 @@ uint Metadata_log_event::read_type(
     case MLET::RAFT_GENERIC_STR_TYPE:
       generic_str.assign(buffer + ENCODED_LENGTH_SIZE, value_length);
       set_raft_str(generic_str);
+      break;
+    case MLET::RAFT_PREV_OPID_TYPE:
+      DBUG_ASSERT(value_length == ENCODED_RAFT_PREV_OPID_SIZE);
+      prev_term= uint8korr(buffer + ENCODED_LENGTH_SIZE);
+      prev_index= uint8korr(buffer + ENCODED_LENGTH_SIZE
+                            + sizeof(prev_raft_term_));
+      set_raft_prev_opid(prev_term, prev_index);
       break;
     default:
       // This is a event which we do not know about. Just skip this
@@ -16566,6 +16601,9 @@ bool Metadata_log_event::write_data_body(IO_CACHE *file)
     DBUG_RETURN(1);
 
   if (write_raft_str(file))
+    DBUG_RETURN(1);
+
+  if (write_raft_prev_opid(file))
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
@@ -16675,6 +16713,36 @@ bool Metadata_log_event::write_raft_str(IO_CACHE* file)
   DBUG_RETURN(ret);
 }
 
+bool Metadata_log_event::write_raft_prev_opid(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_raft_prev_opid");
+
+  if (!does_exist(Metadata_log_event_types::RAFT_PREV_OPID_TYPE))
+    DBUG_RETURN(0); /* No need to write term and index */
+
+  char buffer[ENCODED_RAFT_PREV_OPID_SIZE];
+  char* ptr_buffer= buffer;
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::RAFT_PREV_OPID_TYPE,
+        sizeof(prev_raft_term_) + sizeof(prev_raft_index_)))
+  {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, prev_raft_term_);
+  ptr_buffer+= sizeof(prev_raft_term_);
+
+  int8store(ptr_buffer, prev_raft_index_);
+  ptr_buffer+= sizeof(prev_raft_index_);
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
 bool Metadata_log_event::write_type_and_length(
     IO_CACHE* file, Metadata_log_event_types type, uint32_t length)
 {
@@ -16764,6 +16832,10 @@ Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
           ", Raft Index: " + std::to_string(raft_index_));
     if (does_exist(Metadata_log_event_types::RAFT_GENERIC_STR_TYPE))
       buffer.append("\t Raft string: '" + raft_str_ + "'");
+    if (does_exist(Metadata_log_event_types::RAFT_PREV_OPID_TYPE))
+      buffer.append(
+          "\tRaft Prev OPID term: " + std::to_string(prev_raft_term_) +
+          ", Raft Prev OPID Index: " + std::to_string(prev_raft_index_));
 
 
     print_header(head, print_event_info, FALSE);
@@ -16808,9 +16880,13 @@ Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
 {
   /*
    * Metadata event containing previous hlc timestamp has no meaning for slave.
-   * hence slave should skip such events
+   * hence slave should skip such events.
+   * Same with raft previous opid types
    */
   if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  if (does_exist(Metadata_log_event_types::RAFT_PREV_OPID_TYPE))
     return Log_event::EVENT_SKIP_IGNORE;
 
   /*

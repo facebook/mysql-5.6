@@ -43,6 +43,7 @@ class RaftListenerCallbackArg
     std::pair<std::string, unsigned int> master_instance;
     std::string val_str;
     std::map<std::string, unsigned int> val_sys_var_uint;
+    std::pair<int64_t, int64_t> val_opid;
 };
 
 /* Result of the callback execution in the server. This will be set in the
