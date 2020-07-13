@@ -1,0 +1,20 @@
+CREATE DATABASE db_rpc /*!40100 DEFAULT CHARACTER SET latin1 DB_METADATA '{"shard":"xdb.db_rpc_test", "rs":"0"}' */;
+INSTALL PLUGIN null_audit SONAME 'adt_null.<expected_extension>';
+USE db_rpc;
+SHOW STATUS LIKE 'Audit_null_shard';
+Variable_name	Value
+Audit_null_shard	xdb.db_rpc_test
+USE test;
+SHOW STATUS LIKE 'Audit_null_shard';
+Variable_name	Value
+Audit_null_shard	
+SHOW STATUS LIKE 'Audit_null_shard';
+Variable_name	Value
+Audit_null_shard	xdb.db_rpc_test
+SHOW STATUS LIKE 'Audit_null_shard';
+Variable_name	Value
+Audit_null_shard	
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown
+DROP DATABASE db_rpc;

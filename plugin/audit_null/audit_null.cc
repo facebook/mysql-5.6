@@ -151,6 +151,11 @@ static char connect_event_response[event_response_buffer_len + 1] = {
 };
 #endif
 
+static const constexpr size_t shard_buffer_len = 1024;
+static char shard[shard_buffer_len + 1] = {
+    0,
+};
+
 /*
   Plugin status variables for SHOW STATUS
 */
@@ -175,6 +180,8 @@ static SHOW_VAR simple_status[] = {
     {"Audit_null_connect_event_response", (char *)connect_event_response,
      SHOW_CHAR, SHOW_SCOPE_GLOBAL},
 #endif
+
+    {"Audit_null_shard", (char *)shard, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
 
     {nullptr, nullptr, SHOW_UNDEF, SHOW_SCOPE_GLOBAL}};
 
@@ -497,6 +504,14 @@ static void log_connect_event(const mysql_event_connection *event) {
 #undef EVENT_PARAM_STR
 #endif
 
+static void log_shard(const mysql_event_general *event) {
+  strncpy(shard, event->shard.str, shard_buffer_len);
+}
+
+static void log_connect_shard(const mysql_event_connection *event) {
+  strncpy(shard, event->shard.str, shard_buffer_len);
+}
+
 /**
   @brief Plugin function handler.
 
@@ -530,7 +545,7 @@ static int audit_null_notify(MYSQL_THD thd, mysql_event_class_t event_class,
   if (event_class == MYSQL_AUDIT_GENERAL_CLASS) {
     const struct mysql_event_general *event_general =
         (const struct mysql_event_general *)event;
-
+    log_shard(event_general);
     switch (event_general->event_subclass) {
       case MYSQL_AUDIT_GENERAL_LOG:
         number_of_calls_general_log++;
@@ -563,7 +578,7 @@ static int audit_null_notify(MYSQL_THD thd, mysql_event_class_t event_class,
   } else if (event_class == MYSQL_AUDIT_CONNECTION_CLASS) {
     const struct mysql_event_connection *event_connection =
         (const struct mysql_event_connection *)event;
-
+    log_connect_shard(event_connection);
     switch (event_connection->event_subclass) {
       case MYSQL_AUDIT_CONNECTION_CONNECT: {
 #ifndef NDEBUG
