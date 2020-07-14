@@ -9274,7 +9274,8 @@ err:
   is void).
 */
 
-int rotate_relay_log(Master_info* mi, bool need_log_space_lock, myf raft_flags)
+int rotate_relay_log(Master_info* mi, bool need_log_space_lock,
+                     RaftRotateInfo *raft_rotate_info)
 {
   DBUG_ENTER("rotate_relay_log");
 
@@ -9320,7 +9321,7 @@ int rotate_relay_log(Master_info* mi, bool need_log_space_lock, myf raft_flags)
   }
   mysql_mutex_unlock(&mi->data_lock);
   /* If the relay log is closed, new_file() will do nothing. */
-  error= rli->relay_log.new_file(fde_copy, raft_flags);
+  error= rli->relay_log.new_file(fde_copy, raft_rotate_info);
   mysql_mutex_lock(&mi->data_lock);
   if (fde_copy)
     delete fde_copy;
@@ -9345,25 +9346,26 @@ end:
   DBUG_RETURN(error);
 }
 
-int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos, myf raft_flags)
+int rotate_relay_log_for_raft(RaftRotateInfo *rotate_info)
 {
   DBUG_ENTER("rotate_relay_log_for_raft");
   Master_info *mi= active_mi;
   int error= 0;
   mysql_mutex_lock(&mi->data_lock);
 
-  bool no_op = raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
-
   /* in case of no_op we would be starting the file name from the master
      so new_log_ident and pos wont be used */
-  if (!no_op)
+  if (!rotate_info->noop)
   {
-    memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
-           new_log_ident.length() + 1);
-    mi->set_master_log_pos(pos);
+    memcpy(const_cast<char *>(mi->get_master_log_name()),
+           rotate_info->new_log_ident.c_str(),
+           rotate_info->new_log_ident.length() + 1);
+    mi->set_master_log_pos(rotate_info->pos);
   }
 
-  error= rotate_relay_log(mi, /* need_log_space_lock= */ true, raft_flags);
+  // pass pointer, because the absence of pointer (nullptr)
+  // conveys non-raft flow.
+  error= rotate_relay_log(mi, /* need_space_lock= */ true, rotate_info);
 
   mysql_mutex_unlock(&active_mi->data_lock);
   DBUG_RETURN(error);

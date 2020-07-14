@@ -34,6 +34,7 @@ class Relay_log_info;
 class Master_info;
 
 class Format_description_log_event;
+struct RaftRotateInfo;
 
 /* The enum defining the server's action when a trx fails inside ordered commit
  * due to an error related to consensus (raft plugin) */
@@ -817,18 +818,14 @@ public:
   }
 
   /*
-   * @param raft_flags - In non-raft world, these flags can default to 0.
-   *   Raft listener queue handlers pass in various flags e.g.
-   *   NO_OP|POSTAPPEND
-   * @param config_change - This has the payload of the configuration change
-   *  operation (e.g. adding or removing an instance). The payload includes
-   *  the current config and the proposed new config. If this rotation is
-   *  not part of a config change, this should not be passed in.
+   * @param raft_rotate_info
+   *   Rotate related information passed in by listener callbacks.
+   *   Caters today to relay log rotates, no-op rotates and config
+   *   change rotates.
    */
   int new_file_impl(bool need_lock,
       Format_description_log_event *extra_description_event,
-      myf raft_flags= MYF(0),
-      const std::string *config_change= nullptr);
+      RaftRotateInfo *raft_rotate_info= nullptr);
 
 private:
   Gtid_set* previous_gtid_set;
@@ -943,7 +940,7 @@ public:
                    bool null_created,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
-                   bool raft_specific_handling = false);
+                   RaftRotateInfo *raft_rotate_info= nullptr);
 
   /**
     Open an existing binlog/relaylog file
@@ -968,11 +965,13 @@ public:
   int init_index_file();
 
   /* Use this to start writing a new log file.
-     @param raft_flags - Used by raft to optionally control
-     how file rotation happens
+   *
+     @param raft_rotate_info - Used by raft to optionally control
+     how file rotation happens. Caters to relay log rotates,
+     no-op rotates and config change rotates.
    */
   int new_file(Format_description_log_event *extra_description_event,
-               myf raft_flags=MYF(0));
+               RaftRotateInfo *raft_rotate_info= nullptr);
 
   bool write_event(Log_event* event_info,
                    int force_cache_type = Log_event::EVENT_INVALID_CACHE,
@@ -1380,8 +1379,7 @@ int binlog_change_to_apply();
    transactions via ORDERED COMMIT */
 int binlog_change_to_binlog();
 #ifdef HAVE_REPLICATION
-int rotate_relay_log_for_raft(const std::string& new_log_ident, ulonglong pos,
-                              myf raft_flags=MYF(0));
+int rotate_relay_log_for_raft(RaftRotateInfo *raft_rotate_info);
 #endif
 #endif
 

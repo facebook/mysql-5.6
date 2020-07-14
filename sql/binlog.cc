@@ -4101,7 +4101,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
                                 bool need_lock_index,
                                 bool need_sid_lock,
                                 Format_description_log_event *extra_description_event,
-                                bool raft_specific_handling)
+                                RaftRotateInfo *raft_rotate_info)
 {
   File file= -1;
 
@@ -4166,6 +4166,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   open_count++;
 
   bool write_file_name_to_index_file=0;
+  bool raft_noop= raft_rotate_info && raft_rotate_info->noop;
 
   /* This must be before goto err. */
   Format_description_log_event s(BINLOG_VERSION);
@@ -4189,7 +4190,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     don't set LOG_EVENT_BINLOG_IN_USE_F for SEQ_READ_APPEND io_cache
     as we won't be able to reset it later
   */
-  if (io_cache_type == WRITE_CACHE || raft_specific_handling)
+  if (io_cache_type == WRITE_CACHE || raft_noop)
     s.flags |= LOG_EVENT_BINLOG_IN_USE_F;
   s.checksum_alg= is_relay_log ?
     /* relay-log */
@@ -4207,7 +4208,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     goto err;
   s.dont_set_created= null_created_arg;
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
-  if (!raft_specific_handling && is_relay_log)
+  if (!raft_noop && is_relay_log)
     s.set_relay_log_event();
   if (s.write(&log_file))
     goto err;
@@ -4225,7 +4226,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (gtid_mode > 0 || !previous_gtid_set->is_empty())
   {
     Previous_gtids_log_event prev_gtids_ev(previous_gtid_set);
-    if (!raft_specific_handling && is_relay_log)
+    if (!raft_noop && is_relay_log)
       prev_gtids_ev.set_relay_log_event();
     prev_gtids_ev.checksum_alg= s.checksum_alg;
     if (prev_gtids_ev.write(&log_file))
@@ -6199,14 +6200,16 @@ bool MYSQL_BIN_LOG::is_active(const char *log_file_name_arg)
 
 */
 
-/* raft_flags | POSTAPPEND (append to log has already happened)
+/* raft_rotate_info | various flags and raft specific info encapsulated
+ *  into a struct
+ *            | POSTAPPEND (append to log has already happened)
               | NO_OP (use consensus but special hook)
 */
 int MYSQL_BIN_LOG::new_file(Format_description_log_event *extra_description_event,
-                            myf raft_flags)
+                            RaftRotateInfo *raft_rotate_info)
 {
   return new_file_impl(true/*need_lock_log=true*/, extra_description_event,
-                       raft_flags);
+                       raft_rotate_info);
 }
 
 /*
@@ -6241,7 +6244,7 @@ int MYSQL_BIN_LOG::new_file_without_locking(Format_description_log_event *extra_
 */
 int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     Format_description_log_event *extra_description_event,
-    myf raft_flags, const std::string *config_change)
+    RaftRotateInfo *raft_rotate_info)
 {
   int error= 0, close_on_error= FALSE;
   char new_name[FN_REFLEN], *new_name_ptr, *old_name, *file_to_open;
@@ -6251,6 +6254,14 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
   {
     DBUG_PRINT("info",("log is closed"));
     DBUG_RETURN(error);
+  }
+
+  // If this rotation is initiated from raft plugin, we
+  // expect raft to be enabled, otherwise we fail early
+  if (raft_rotate_info && !enable_raft_plugin)
+  {
+    DBUG_PRINT("info",("enable_raft_plugin is off"));
+    DBUG_RETURN(1);
   }
 
   if (need_lock_log)
@@ -6282,30 +6293,36 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     mysql_mutex_unlock(&LOCK_non_xid_trxs);
   }
 
-  // rotate events need to go through consensus so that we don't have
-  // to trim previous a rotate event, i.e. into a rotated file.
-  // Temporary raft cache for Rotate Event
-  IO_CACHE raft_io_cache;
-  bool no_op= raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
+  bool no_op= raft_rotate_info && raft_rotate_info->noop;
+  bool config_change_rotate= raft_rotate_info &&
+                             raft_rotate_info->config_change_rotate;
 
-  // if we are rotating a is_apply_log = true, then we are a slave
-  // trying to do FLUSH BINARY LOGS, which should not have to go
-  // through consensus
-  bool rotate_via_raft= enable_raft_plugin && (no_op || !is_relay_log)
-                        && (!is_apply_log);
-
-  // skip rotate event append
-  // We explicitly pass this flag today for keeping the control in Raft.
-  bool skip_re_append= raft_flags & RaftListenerQueue::RAFT_FLAGS_POSTAPPEND;
-  if (rotate_via_raft) {
-    DBUG_ASSERT(!skip_re_append);
-  }
-
+  // skip rotate event append implies rotate event has already
+  // been appended to relay log by plugin
+  bool skip_re_append= raft_rotate_info && raft_rotate_info->post_append;
   if (skip_re_append) {
     DBUG_ASSERT(is_relay_log);
   }
 
+  // Convenience struct to pass down call tree, e.g. open_binlog
+  RaftRotateInfo raft_rotate_info_tmp;
+  // Raft only Temporary IO cache for Rotate Event flushing
+  IO_CACHE raft_io_cache;
+  // rotate events need to go through consensus so that we don't have
+  // to trim previous a rotate event, i.e. into a rotated file.
+  // if we are rotating an is_apply_log = true, then we are a slave
+  // trying to do FLUSH BINARY LOGS, which should not have to go
+  // through consensus
+  bool rotate_via_raft= enable_raft_plugin && (no_op || !is_relay_log)
+                        && (!is_apply_log);
   if (rotate_via_raft) {
+    if (!raft_rotate_info)
+      raft_rotate_info= &raft_rotate_info_tmp;
+    raft_rotate_info->rotate_via_raft= rotate_via_raft; /* true */
+
+    // post append rotates - no flush and before commit stages required
+    // rotate_via_raft - flush and before commit of rotate event needs to happen
+    DBUG_ASSERT(!skip_re_append);
     init_io_cache(&raft_io_cache, -1, 4000, WRITE_CACHE, 0, 0, MYF(MY_WME));
   }
 
@@ -6359,10 +6376,10 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     if (rotate_via_raft)
     {
       r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
-      if (config_change)
+      if (config_change_rotate)
       {
         // write the metadata log event to the cache first
-        Metadata_log_event me(*config_change);
+        Metadata_log_event me(raft_rotate_info->config_change);
         // checksum has to be turned off, because the raft plugin
         // will patch the events and generate the final checksum.
         me.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
@@ -6399,7 +6416,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
         RaftReplicateMsgOpType::OP_TYPE_ROTATE;
     if (no_op)
       op_type= RaftReplicateMsgOpType::OP_TYPE_NOOP;
-    else if (config_change)
+    else if (config_change_rotate)
       op_type= RaftReplicateMsgOpType::OP_TYPE_CHANGE_CONFIG;
 
     error= RUN_HOOK(raft_replication, before_flush,
@@ -6464,7 +6481,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
                        false/*need_lock_index=false*/,
                        true/*need_sid_lock=true*/,
                        extra_description_event,
-                       rotate_via_raft && no_op);
+                       raft_rotate_info);
   }
 
   /* handle reopening errors */
@@ -7076,9 +7093,12 @@ int MYSQL_BIN_LOG::config_change_rotate(THD* thd,
   int error= 0;
   DBUG_ENTER("MYSQL_BIN_LOG::config_change_rotate");
 
+  RaftRotateInfo raft_rotate_info;
+  raft_rotate_info.config_change= std::move(config_change);
+  raft_rotate_info.config_change_rotate= true;
   // config change can only be initiated on master/mysql_bin_log
   DBUG_ASSERT(!is_relay_log);
-  error= new_file_impl(true /*need lock log*/, nullptr, MYF(0), &config_change);
+  error= new_file_impl(true /*need lock log*/, nullptr, &raft_rotate_info);
 
   DBUG_RETURN(error);
 }

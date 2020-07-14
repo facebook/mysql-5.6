@@ -69,6 +69,7 @@ typedef enum { SLAVE_THD_IO, SLAVE_THD_SQL, SLAVE_THD_WORKER } SLAVE_THD_TYPE;
 // Forward declarations
 class Relay_log_info;
 class Master_info;
+struct RaftRotateInfo;
 
 extern bool server_id_supplied;
 
@@ -338,7 +339,7 @@ void set_slave_thread_options(THD* thd);
 void set_slave_thread_default_charset(THD *thd, Relay_log_info const *rli);
 int apply_event_and_update_pos(Log_event* ev, THD* thd, Relay_log_info* rli);
 int rotate_relay_log(Master_info* mi, bool need_log_space_lock,
-                     myf raft_flags=MYF(0));
+                     RaftRotateInfo *rotate_info= nullptr);
 int raft_stop_sql_thread(THD *thd);
 int raft_stop_io_thread(THD *thd);
 
