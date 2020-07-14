@@ -5266,7 +5266,7 @@ int Rdb_dict_manager::commit(rocksdb::WriteBatch *const batch,
   if (!batch) return HA_ERR_ROCKSDB_COMMIT_FAILED;
   int res = HA_EXIT_SUCCESS;
   rocksdb::WriteOptions options;
-  options.sync = sync;
+  options.sync = (sync && rdb_sync_wal_supported());
   rocksdb::TransactionDBWriteOptimizations optimize;
   optimize.skip_concurrency_control = true;
   rocksdb::Status s = m_db->Write(options, optimize, batch);
@@ -5274,6 +5274,11 @@ int Rdb_dict_manager::commit(rocksdb::WriteBatch *const batch,
   if (res) {
     rdb_handle_io_error(s, RDB_IO_ERROR_DICT_COMMIT);
   }
+  if (!rdb_sync_wal_supported()) {
+    // If we don't support SyncWAL, do a flush at least
+    m_db->FlushWAL(false);
+  }
+
   batch->Clear();
   return res;
 }
