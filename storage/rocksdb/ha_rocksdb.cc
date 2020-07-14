@@ -43,6 +43,7 @@
 
 /* MySQL includes */
 #include <mysql/components/services/log_builtins.h>
+#include <mysql/psi/mysql_file.h>
 #include <mysql/psi/mysql_table.h>
 #include <mysql/thread_pool_priv.h>
 #include <mysys_err.h>
@@ -92,6 +93,10 @@
 #include "./rdb_mutex_wrapper.h"
 #include "./rdb_psi.h"
 #include "./rdb_threads.h"
+
+#ifdef FB_HAVE_WSENV
+#include "./ObjectFactory.h"
+#endif
 
 // Internal MySQL APIs not exposed in any header.
 extern "C" {
@@ -650,6 +655,7 @@ static unsigned long  // NOLINT(runtime/int)
 static uint64_t rocksdb_info_log_level;
 static char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
+static char *rocksdb_wsenv_path;
 static uint64_t rocksdb_index_type;
 static uint32_t rocksdb_flush_log_at_trx_commit;
 static uint32_t rocksdb_debug_optimizer_n_rows;
@@ -1457,6 +1463,10 @@ static MYSQL_SYSVAR_ULONG(
     "for RocksDB",
     nullptr, nullptr, rocksdb_persistent_cache_size_mb,
     /* min */ 0L, /* max */ ULONG_MAX, 0);
+
+static MYSQL_SYSVAR_STR(wsenv_path, rocksdb_wsenv_path,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                        "Path for RocksDB WSEnv", nullptr, nullptr, "");
 
 static MYSQL_SYSVAR_ULONG(
     delete_obsolete_files_period_micros,
@@ -2298,6 +2308,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(wal_dir),
     MYSQL_SYSVAR(persistent_cache_path),
     MYSQL_SYSVAR(persistent_cache_size_mb),
+    MYSQL_SYSVAR(wsenv_path),
     MYSQL_SYSVAR(delete_obsolete_files_period_micros),
     MYSQL_SYSVAR(max_background_jobs),
     MYSQL_SYSVAR(max_background_flushes),
@@ -3668,7 +3679,8 @@ class Rdb_transaction_impl : public Rdb_transaction {
         THDVAR(m_thd, commit_time_batch_for_recovery);
     tx_opts.max_write_batch_size = THDVAR(m_thd, write_batch_max_bytes);
 
-    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC) &&
+                      rdb_sync_wal_supported();
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -3945,7 +3957,8 @@ class Rdb_writebatch_impl : public Rdb_transaction {
 
   void start_tx() override {
     reset();
-    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+    write_opts.sync = (rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC) &&
+                      rdb_sync_wal_supported();
     write_opts.disableWAL = THDVAR(m_thd, write_disable_wal);
     write_opts.ignore_missing_column_families =
         THDVAR(m_thd, write_ignore_missing_column_families);
@@ -4240,14 +4253,17 @@ static bool rocksdb_flush_wal(handlerton *const hton MY_ATTRIBUTE((__unused__)),
   if ((!binlog_group_flush && !rocksdb_db_options->allow_mmap_writes) ||
       rocksdb_flush_log_at_trx_commit != FLUSH_LOG_NEVER) {
     rocksdb_wal_group_syncs++;
-    s = rdb->FlushWAL(!binlog_group_flush ||
-                      rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+    bool sync = rdb_sync_wal_supported() &&
+                (!binlog_group_flush ||
+                 rocksdb_flush_log_at_trx_commit == FLUSH_LOG_SYNC);
+    s = rdb->FlushWAL(sync);
   }
 
   if (!s.ok()) {
     rdb_log_status_error(s);
     return HA_EXIT_FAILURE;
   }
+
   return HA_EXIT_SUCCESS;
 }
 
@@ -5563,6 +5579,23 @@ static rocksdb::Status check_rocksdb_options_compatibility(
 
 static uint rocksdb_partition_flags() { return (HA_CANNOT_PARTITION_FK); }
 
+bool rdb_has_wsenv() {
+#if FB_HAVE_WSENV
+  return rocksdb_wsenv_path != nullptr && *rocksdb_wsenv_path;
+#else
+  return false;
+#endif
+}
+
+bool rdb_sync_wal_supported() {
+#if FB_HAVE_WSENV
+  // wsenv doesn't support SyncWAL=true yet
+  return !rdb_has_wsenv();
+#else
+  return true;
+#endif
+}
+
 /*
   Storage Engine initialization function, invoked when plugin is loaded.
 */
@@ -5598,6 +5631,26 @@ static int rocksdb_init_internal(void *const p) {
     // Simulate rdb_check_rocksdb_corruption failure
     DBUG_RETURN(HA_EXIT_FAILURE);
   });
+
+#ifdef FB_HAVE_WSENV
+  // Initialize WSEnv with rocksdb_ws_env_path
+  if (rdb_has_wsenv()) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "RocksDB: Initializing WSEnvironment: rocksdb_wsenv_path = %s",
+        rocksdb_wsenv_path);
+
+    RegisterCustomObjectsSimple();
+    rocksdb::Env *ws_env = nullptr;
+    auto s = rocksdb::Env::LoadEnv(rocksdb_wsenv_path, &ws_env);
+    if (s.ok()) {
+      rocksdb_db_options->env = ws_env;
+    } else {
+      rdb_log_status_error(s, "Can't initialize WSEnvironment");
+      DBUG_RETURN(HA_EXIT_FAILURE);
+    }
+  }
+#endif
 
   // Validate the assumption about the size of ROCKSDB_SIZEOF_HIDDEN_PK_COLUMN.
   static_assert(sizeof(longlong) == 8, "Assuming that longlong is 8 bytes.");
@@ -14283,7 +14336,8 @@ void Rdb_background_thread::run() {
     // background thread.
     if (rdb && (rocksdb_flush_log_at_trx_commit != FLUSH_LOG_SYNC) &&
         !rocksdb_db_options->allow_mmap_writes) {
-      const rocksdb::Status s = rdb->FlushWAL(true);
+      bool sync = rdb_sync_wal_supported();
+      const rocksdb::Status s = rdb->FlushWAL(sync);
       if (!s.ok()) {
         rdb_handle_io_error(s, RDB_IO_ERROR_BG_THREAD);
       }
