@@ -88,6 +88,12 @@ int rdb_dbug_set_ttl_read_filter_ts();
 bool rdb_dbug_set_ttl_ignore_pk();
 #endif
 
+/* Whether WSEnvironment is enabled */
+bool rdb_has_wsenv();
+
+/* Whether SyncWAL is supported in current scenario */
+bool rdb_sync_wal_supported();
+
 enum operation_type : int;
 void rdb_update_global_stats(const operation_type &type, uint count,
                              bool is_system_table = false);
