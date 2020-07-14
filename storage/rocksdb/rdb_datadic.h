@@ -389,6 +389,11 @@ class Rdb_key_def {
            m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE3;
   }
 
+  inline bool is_primary_key() const {
+    return m_index_type == INDEX_TYPE_PRIMARY ||
+           m_index_type == INDEX_TYPE_HIDDEN_PRIMARY;
+  }
+
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
   bool can_cover_lookup() const;
 
