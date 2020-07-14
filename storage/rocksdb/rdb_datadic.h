@@ -390,6 +390,16 @@ class Rdb_key_def {
   bool covers_lookup(const rocksdb::Slice *const unpack_info,
                      const MY_BITMAP *const map) const;
 
+  inline bool use_covered_bitmap_format() const {
+    return m_index_type == INDEX_TYPE_SECONDARY &&
+           m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE3;
+  }
+
+  inline bool is_primary_key() const {
+    return m_index_type == INDEX_TYPE_PRIMARY ||
+           m_index_type == INDEX_TYPE_HIDDEN_PRIMARY;
+  }
+
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
   bool can_cover_lookup() const;
 
