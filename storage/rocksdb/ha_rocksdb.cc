@@ -15556,7 +15556,8 @@ void Rdb_compaction_stats::record_start(rocksdb::CompactionJobInfo info) {
   time_t start_timestamp = time(nullptr /* tloc */);
   DBUG_ASSERT(start_timestamp != static_cast<time_t>(-1));
 
-  m_tid_to_pending_compaction[info.thread_id] = Rdb_compaction_stats_record{
+  const auto id = info.thread_id;
+  m_tid_to_pending_compaction[id] = Rdb_compaction_stats_record{
       start_timestamp, static_cast<time_t>(-1) /* end_timestamp */,
       std::move(info)};
 }
