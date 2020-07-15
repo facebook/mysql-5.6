@@ -5456,7 +5456,7 @@ static rocksdb::Status check_rocksdb_options_compatibility(
   Storage Engine initialization function, invoked when plugin is loaded.
 */
 
-static int rocksdb_init_func(void *const p) {
+static int rocksdb_init_internal(void *const p) {
   DBUG_ENTER_FUNC();
 
   if (rdb_check_rocksdb_corruption()) {
@@ -5675,6 +5675,10 @@ static int rocksdb_init_func(void *const p) {
   rocksdb::Status status;
   status = rocksdb::DB::ListColumnFamilies(*rocksdb_db_options, rocksdb_datadir,
                                            &cf_names);
+  DBUG_EXECUTE_IF("rocksdb_init_failure_list_cf", {
+    // Simulate ListColumnFamilies failure
+    status = rocksdb::Status::Corruption();
+  });
   if (!status.ok()) {
     /*
       When we start on an empty datadir, ListColumnFamilies returns IOError,
@@ -5855,14 +5859,17 @@ static int rocksdb_init_func(void *const p) {
 
   // NO_LINT_DEBUG
   sql_print_information("RocksDB: Opening TransactionDB...");
-
   status = rocksdb::TransactionDB::Open(
       main_opts, tx_db_options, rocksdb_datadir, cf_descr, &cf_handles, &rdb);
-
+  DBUG_EXECUTE_IF("rocksdb_init_failure_open_db", {
+    // Simulate opening TransactionDB failure
+    status = rocksdb::Status::Corruption();
+  });
   if (!status.ok()) {
     rdb_log_status_error(status, "Error opening instance");
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
+
   cf_manager.init(std::move(cf_options_map), &cf_handles);
 
   // NO_LINT_DEBUG
@@ -6050,6 +6057,27 @@ static int rocksdb_init_func(void *const p) {
 }
 
 /*
+  Cleanup rocksdb variables that need to be deleted even in case of
+  engine initialization failure. It's dangerous to clean them up
+  at process shutdown in __run_exit_handlers
+*/
+static void rocksdb_shutdown_safe() {
+  rocksdb_db_options = nullptr;
+  rocksdb_tbl_options = nullptr;
+  rocksdb_stats = nullptr;
+}
+
+static int rocksdb_init_func(void *const p) {
+  int ret = rocksdb_init_internal(p);
+  if (ret) {
+    // Ideally we should call rocksdb_done_func but we are not quite
+    // there yet so this only cleans up the safe ones
+    rocksdb_shutdown_safe();
+  }
+  return ret;
+}
+
+/*
   Storage Engine deinitialization function, invoked when plugin is unloaded.
 */
 
@@ -6166,9 +6194,7 @@ static int rocksdb_done_func(void *const p MY_ATTRIBUTE((__unused__))) {
   }
 #endif /* HAVE_purify */
 
-  rocksdb_db_options = nullptr;
-  rocksdb_tbl_options = nullptr;
-  rocksdb_stats = nullptr;
+  rocksdb_shutdown_safe();
 
   my_error_unregister(HA_ERR_ROCKSDB_FIRST, HA_ERR_ROCKSDB_LAST);
 
