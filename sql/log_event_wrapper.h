@@ -14,7 +14,7 @@ class Log_event_wrapper
   std::weak_ptr<Log_event_wrapper> begin_ev;
 
   // events that depend on us
-  std::vector<std::shared_ptr<Log_event_wrapper>> dependents;
+  std::vector<std::weak_ptr<Log_event_wrapper>> dependents;
   // number of events that we depend on
   ulonglong dependencies= 0;
 
@@ -108,7 +108,14 @@ public:
     if (likely(!is_finalized))
     {
       for (auto& dep : dependents)
-        dep->decr_dependency();
+      {
+        // case: If the dependent still exists we decrement its dependencies, if
+        // not that means the trx for this dependent has been aborted/destroyed
+        // (this usually happens when slave_stop_workers() is called, where we
+        // clear the dep queue).
+        if (auto ptr= dep.lock())
+          ptr->decr_dependency();
+      }
       is_finalized= true;
     }
     mysql_mutex_unlock(&mutex);
