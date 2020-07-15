@@ -288,6 +288,8 @@ typedef Sys_var_integer<ha_rows, GET_HA_ROWS, SHOW_HA_ROWS, FALSE>
 typedef Sys_var_integer<ulonglong, GET_ULL, SHOW_LONGLONG, FALSE>
   Sys_var_ulonglong;
 typedef Sys_var_integer<long, GET_LONG, SHOW_SIGNED_LONG, TRUE> Sys_var_long;
+typedef Sys_var_integer<longlong, GET_LL, SHOW_SIGNED_LONGLONG, TRUE>
+  Sys_var_longlong;
 
 /**
   Helper class for variables that take values from a TYPELIB

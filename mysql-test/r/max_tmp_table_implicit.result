@@ -70,7 +70,20 @@ Variable_name	Value
 tmp_table_max_file_size	0
 select i, c, count(*) from t1 group by i, c having count(*) > 1;
 i	c	count(*)
-Query is OK when session limit is reset
+Query fails on another session with global tmp disk usage limit
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	1000000
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+set global max_tmp_disk_usage = 50000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	50000
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query still fails when session limit is reset due to global tmp disk usage limit
 set session tmp_table_max_file_size=0;
 show variables like "tmp_table_max_file_size";
 Variable_name	Value
@@ -81,6 +94,13 @@ tmp_table_max_file_size	0
 show global variables like "tmp_table_max_file_size";
 Variable_name	Value
 tmp_table_max_file_size	0
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query is OK when global tmp disk usage limit is reset
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
 select i, c, count(*) from t1 group by i, c having count(*) > 1;
 i	c	count(*)
 Query fails when global limit is set after conversion to MyISAM
@@ -116,4 +136,27 @@ tmp_table_max_file_size	50000
 show global variables like "tmp_table_max_file_size";
 Variable_name	Value
 tmp_table_max_file_size	0
+Query is OK when individual tmp table and filesort limits are set
+set session filesort_max_file_size=2500000;
+set session tmp_table_max_file_size=5000000;
+show session variables like "filesort_max_file_size";
+Variable_name	Value
+filesort_max_file_size	2500000
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	5000000
+select i, c, count(*) from t1 group by i, c order by hex(c) limit 1 offset 4000;
+i	c	count(*)
+4000	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba	1
+Query fails when global tmp disk usage limit is set to less than the sum of other limits
+set global max_tmp_disk_usage=6000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	6000000
+select i, c, count(*) from t1 group by i, c order by hex(c) limit 1 offset 4000;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+set global max_tmp_disk_usage=0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
 drop table t1;

@@ -61,8 +61,34 @@ tmp_table_max_file_size	0
 show global variables like "tmp_table_max_file_size";
 Variable_name	Value
 tmp_table_max_file_size	0
-select i, c, count(*) from t1 group by i, c having count(*) > 1;
-i	c	count(*)
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+drop temporary table tm2;
+Query fails on another session with global tmp disk usage limit
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	1000000
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop temporary table tm2;
+Query is OK on another session with global tmp disk usage limit slightly raised
+set global max_tmp_disk_usage = 2000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	2000000
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+Query fails on first session while second session still has tmp table
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop temporary table tm2;
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
 
 Query fails when there is a global limit
 echo 

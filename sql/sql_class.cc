@@ -95,7 +95,6 @@ LEX_STRING NULL_STR=  { NULL, 0 };
 
 const char * const THD::DEFAULT_WHERE= "field list";
 
-
 /****************************************************************************
 ** User variables
 ****************************************************************************/
@@ -1607,6 +1606,8 @@ void THD::cleanup_connection(void)
   set_status_var_init();
   mysql_mutex_unlock(&LOCK_status);
 
+  propagate_pending_global_disk_usage();
+
   init();
   stmt_map.reset();
   my_hash_init(&user_vars, system_charset_info, USER_VARS_HASH_SIZE, 0, 0,
@@ -1803,6 +1804,8 @@ void THD::release_resources()
   add_to_status(&global_status_var, &status_var);
   set_status_var_init();
   mysql_mutex_unlock(&LOCK_status);
+
+  propagate_pending_global_disk_usage();
 
   m_release_resources_done= true;
 }
@@ -4171,12 +4174,25 @@ void thd_increment_bytes_received(ulong length)
   us->bytes_received.inc(length);
 }
 
-
+/**
+  Reinit session status vars for new or done session.
+*/
 void THD::set_status_var_init()
 {
   memset(&status_var, 0, sizeof(status_var));
 }
 
+/**
+  Set session status vars.
+*/
+void THD::set_status_var(system_status_var &src)
+{
+  memcpy(&status_var, &src, offsetof(STATUS_VAR, first_norefresh_status_var));
+}
+
+/**
+  Reset session status vars for FLUSH STATISTICS.
+*/
 void THD::refresh_status_vars()
 {
   memset(&status_var, 0, offsetof(STATUS_VAR, first_norefresh_status_var));
@@ -5948,7 +5964,65 @@ void THD::serialize_client_attrs()
   }
 }
 
-static void adjust_by(ulonglong& value, ulonglong& peak, longlong delta)
+/**
+  Helper function to adjust global usage/peak counters by accumulated delta.
+
+  @param unreported_delta   pending delta for global usage update
+  @param g_value            global usage value
+  @param g_peak             global usage peak
+*/
+static void adjust_global_by(longlong &unreported_delta, ulonglong &g_value,
+                             ulonglong &g_peak)
+{
+  /* Counters could be disabled at runtime, re-enable requires restart. */
+  if (max_tmp_disk_usage == TMP_DISK_USAGE_DISABLED)
+    return;
+
+  /*
+    This is where threads on the secondary could race to find which
+    one is doing global update. Only one will grab the whole unreported
+    amount.
+  */
+  longlong delta = my_atomic_fas64(&unreported_delta, 0);
+
+  /*
+    It's possible that delta now is less than the increment but it would
+    be very rare so just do the update regardless.
+  */
+  if (delta != 0)
+  {
+    ulonglong old_value = my_atomic_add64((int64 *)&g_value, delta);
+    ulonglong new_value = old_value + delta;
+
+    /* Check for over and underflow. */
+    DBUG_ASSERT(delta >= 0 ? new_value >= old_value : new_value < old_value);
+
+    /* Now update the global peak. */
+    ulonglong old_peak = my_atomic_load64((int64 *)&g_peak);
+    while (old_peak < new_value)
+    {
+      /* If Compare-And-Swap is unsuccessful then old_peak is updated. */
+      if (my_atomic_cas64((int64 *)&g_peak, (int64 *)&old_peak, new_value))
+        break;
+    }
+  }
+}
+
+/**
+  Helper function to adjust local session and global usage/peak counters
+  by specified delta. The global updates are batched to avoid frequent
+  updates.
+
+  @param value              session usage value
+  @param peak               session usage peak
+  @param delta              signed usage delta in bytes
+  @param unreported_delta   pending delta for global usage update
+  @param g_value            global usage value
+  @param g_peak             global usage peak
+*/
+static void adjust_by(ulonglong &value, ulonglong &peak, longlong delta,
+                      longlong &unreported_delta, ulonglong &g_value,
+                      ulonglong &g_peak)
 {
   /*
     Atomic operation is only needed for the secondary threads that steal
@@ -5963,6 +6037,16 @@ static void adjust_by(ulonglong& value, ulonglong& peak, longlong delta)
   /* Correct on primary, best effort on secondary. */
   if (peak < new_value)
     peak = new_value;
+  
+  /* Avoid frequent updates of global usage. */
+  const ulonglong DISK_USAGE_REPORTING_INCREMENT = 8192;
+  longlong new_delta = my_atomic_add64(&unreported_delta, delta) + delta;
+  ulonglong abs_delta = new_delta >= 0 ? new_delta : -new_delta;
+
+  if (abs_delta >= DISK_USAGE_REPORTING_INCREMENT)
+  {
+    adjust_global_by(unreported_delta, g_value, g_peak);
+  }
 }
 
 /**
@@ -5973,7 +6057,10 @@ static void adjust_by(ulonglong& value, ulonglong& peak, longlong delta)
 void THD::adjust_tmp_table_disk_usage(longlong delta)
 {
   adjust_by(status_var.tmp_table_disk_usage,
-            status_var.tmp_table_disk_usage_peak, delta);
+            status_var.tmp_table_disk_usage_peak, delta,
+            unreported_global_tmp_table_delta,
+            global_status_var.tmp_table_disk_usage,
+            global_status_var.tmp_table_disk_usage_peak);
 }
 
 /**
@@ -5984,5 +6071,22 @@ void THD::adjust_tmp_table_disk_usage(longlong delta)
 void THD::adjust_filesort_disk_usage(longlong delta)
 {
   adjust_by(status_var.filesort_disk_usage,
-            status_var.filesort_disk_usage_peak, delta);
+            status_var.filesort_disk_usage_peak, delta,
+            unreported_global_filesort_delta,
+            global_status_var.filesort_disk_usage,
+            global_status_var.filesort_disk_usage_peak);
+}
+
+/**
+  Propagate pending global disk usage at the end of session.
+*/
+void THD::propagate_pending_global_disk_usage()
+{
+  adjust_global_by(unreported_global_tmp_table_delta,
+                   global_status_var.tmp_table_disk_usage,
+                   global_status_var.tmp_table_disk_usage_peak);
+  adjust_global_by(unreported_global_filesort_delta,
+                   global_status_var.filesort_disk_usage,
+                   global_status_var.tmp_table_disk_usage_peak);
+
 }

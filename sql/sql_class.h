@@ -3514,7 +3514,15 @@ public:
   /* Adjust disk usage for current session. */
   void adjust_tmp_table_disk_usage(longlong delta);
   void adjust_filesort_disk_usage(longlong delta);
+  void propagate_pending_global_disk_usage();
 
+private:
+  /* Reporting of session disk usage to global counters is done in batches
+     to avoid contention on global variables. */
+  longlong unreported_global_tmp_table_delta = 0;
+  longlong unreported_global_filesort_delta = 0;
+
+public:
   /* local hash map of db opt */
   HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
@@ -4428,8 +4436,12 @@ public:
             (!transaction.stmt.cannot_safely_rollback() ||
              (variables.sql_mode & MODE_STRICT_ALL_TABLES)));
   }
+
+  /* Status vars should only be changed using these methods. */
   void set_status_var_init();
   void refresh_status_vars();
+  void set_status_var(system_status_var &src);
+
   void reset_n_backup_open_tables_state(Open_tables_backup *backup);
   void restore_backup_open_tables_state(Open_tables_backup *backup);
   void reset_sub_statement_state(Sub_statement_state *backup, uint new_state);

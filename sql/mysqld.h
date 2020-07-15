@@ -1225,6 +1225,11 @@ extern ulonglong tmp_table_rpl_max_file_size;
 extern ulong slave_tx_isolation;
 extern ulonglong object_stats_misses;
 
+/* Global tmp disk usage max and check. */
+extern ulonglong max_tmp_disk_usage;
+const ulonglong TMP_DISK_USAGE_DISABLED = -1;
+bool is_tmp_disk_usage_over_max();
+
 /** The size of the host_cache. */
 extern uint host_cache_size;
 void init_sql_statement_names();

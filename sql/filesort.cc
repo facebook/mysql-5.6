@@ -152,6 +152,11 @@ static int filesort_post_write(IO_CACHE *cache)
     my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
     cache->error = ER_FILESORT_MAX_FILE_SIZE_EXCEEDED;
   }
+  else if (is_tmp_disk_usage_over_max())
+  {
+    my_error(ER_MAX_TMP_DISK_USAGE_EXCEEDED, MYF(0));
+    cache->error = ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+  }
 
   if (current_usage > prior_usage)
   {

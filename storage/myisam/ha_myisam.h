@@ -45,13 +45,12 @@ class ha_myisam: public handler
   ulonglong int_table_flags;
   char    *data_file_name, *index_file_name;
   bool can_enable_indexes;
-  my_off_t recorded_disk_usage;
 
   int repair(THD *thd, MI_CHECK &param, bool optimize);
 
  public:
   ha_myisam(handlerton *hton, TABLE_SHARE *table_arg);
-  ~ha_myisam() {}
+  ~ha_myisam() { DBUG_ASSERT(recorded_disk_usage == 0); }
   handler *clone(const char *name, MEM_ROOT *mem_root);
   const char *table_type() const { return "MyISAM"; }
   const char *index_type(uint key_number);
@@ -167,8 +166,10 @@ private:
   my_off_t get_disk_usage();
   int check_disk_usage(my_off_t usage);
   static int record_disk_usage_change(void *arg, longlong proposed_delta);
+  my_off_t recorded_disk_usage;
+  bool detached_disk_usage;
 public:
-  void register_tmp_table_disk_usage(bool attach) const;
+  void register_tmp_table_disk_usage(bool attach);
 
 public:
   /**

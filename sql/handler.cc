@@ -572,6 +572,7 @@ int ha_init_errors(void)
   SETMSG(HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED,
          ER_DEFAULT(ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED));
   SETMSG(HA_ERR_QUERY_INTERRUPTED,      ER_DEFAULT(ER_QUERY_INTERRUPTED));
+  SETMSG(HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED, ER_DEFAULT(ER_MAX_TMP_DISK_USAGE_EXCEEDED));
 
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
@@ -4312,6 +4313,9 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_QUERY_INTERRUPTED:
     textno = ER_QUERY_INTERRUPTED;
+    break;
+  case HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED:
+    textno = ER_MAX_TMP_DISK_USAGE_EXCEEDED;
     break;
   default:
     {

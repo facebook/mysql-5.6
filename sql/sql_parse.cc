@@ -2671,6 +2671,10 @@ done:
   thd->set_command(COM_SLEEP);
   thd->proc_info= 0;
 
+  /* Propagate remaining disk usage to global status after the command so
+     that session and global status vars agree with each other. */
+  thd->propagate_pending_global_disk_usage();
+
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi= NULL;
@@ -3967,7 +3971,7 @@ mysql_execute_command(THD *thd,
     mysql_mutex_lock(&LOCK_status);
     add_diff_to_status(&global_status_var, &thd->status_var,
                        &old_status_var);
-    thd->status_var= old_status_var;
+    thd->set_status_var(old_status_var);
     mysql_mutex_unlock(&LOCK_status);
     break;
   }

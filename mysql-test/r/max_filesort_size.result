@@ -1,4 +1,5 @@
 set @save_filesort_max_file_size = @@global.filesort_max_file_size;
+set @save_max_tmp_disk_usage = @@global.max_tmp_disk_usage;
 create table t1 (i int, c char(255));
 insert into t1 values (0, lpad('a', 250, 'b'));
 insert into t1 select i+1,c from t1;
@@ -31,10 +32,16 @@ i	c
 576	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
 filesort usage is 0
 1
+global filesort usage is 0
+1
 filesort peak is above 2000000
+1
+original global peak is too high, or peak is same as session
 1
 flush status;
 filesort peak is reset to 0
+1
+global peak is not reset
 1
 Query fails with a limit
 set session filesort_max_file_size=1000000;
@@ -64,7 +71,14 @@ filesort_max_file_size	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 i	c
 576	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
-Query is OK when session limit is reset
+Query fails on another session with global tmp disk usage limit
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	1000000
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query still fails when session limit is reset due to global tmp disk usage limit
 set session filesort_max_file_size=0;
 show variables like "filesort_max_file_size";
 Variable_name	Value
@@ -75,6 +89,13 @@ filesort_max_file_size	0
 show global variables like "filesort_max_file_size";
 Variable_name	Value
 filesort_max_file_size	0
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query is OK when global tmp disk usage limit is reset
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 i	c
 576	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
@@ -93,3 +114,4 @@ select i, c from t1 order by hex(c) limit 1 offset 4000;
 ERROR HY000: Filesort file is too big
 drop table t1;
 set @@global.filesort_max_file_size = @save_filesort_max_file_size;
+set @@global.max_tmp_disk_usage = @save_max_tmp_disk_usage;

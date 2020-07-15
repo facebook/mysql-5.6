@@ -724,6 +724,11 @@ The following options may be given as the first argument:
  Maximum allowed number of SQL statistics
  --max-sql-stats-size[=#] 
  Maximum allowed memory for SQL statistics (in bytes)
+ --max-tmp-disk-usage[=#] 
+ The max disk usage for filesort and tmp tables. An error
+ is raised if this limit is exceeded. 0 means no limit. -1
+ disables global tmp disk usage accounting and can only be
+ re-enabled after restart.
  --max-tmp-tables=#  Maximum number of temporary tables a client can keep open
  at a time
  --max-user-connections=# 
@@ -2366,6 +2371,7 @@ max-sort-length 1024
 max-sp-recursion-depth 0
 max-sql-stats-count 100000
 max-sql-stats-size 104857600
+max-tmp-disk-usage 0
 max-tmp-tables 32
 max-user-connections 0
 max-waiting-queries 0

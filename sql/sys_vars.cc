@@ -6928,3 +6928,23 @@ static Sys_var_uint Sys_sql_maximum_duplicate_executions(
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(set_sql_max_dup_exe));
+
+static bool check_max_tmp_disk_usage(sys_var *self, THD *thd, set_var *var)
+{
+  if (max_tmp_disk_usage == TMP_DISK_USAGE_DISABLED &&
+      var->save_result.ulonglong_value != TMP_DISK_USAGE_DISABLED)
+    /* Enabling at runtime is not allowed. */
+    return true;
+
+  return false;
+}
+
+static Sys_var_longlong Sys_max_tmp_disk_usage(
+       "max_tmp_disk_usage",
+       "The max disk usage for filesort and tmp tables. An error is raised "
+       "if this limit is exceeded. 0 means no limit. -1 disables global "
+       "tmp disk usage accounting and can only be re-enabled after restart.",
+       GLOBAL_VAR(max_tmp_disk_usage), CMD_LINE(OPT_ARG),
+       VALID_RANGE(-1, LONGLONG_MAX), DEFAULT(0),
+       BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_max_tmp_disk_usage));

@@ -50,14 +50,31 @@ show variables like "tmp_table_max_file_size";
 show session variables like "tmp_table_max_file_size";
 show global variables like "tmp_table_max_file_size";
 select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query fails on another session with global tmp disk usage limit;
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+set global max_tmp_disk_usage = 50000;
+show variables like "max_tmp_disk_usage";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
 connection default;
 disconnect root;
 
-echo Query is OK when session limit is reset;
+echo Query still fails when session limit is reset due to global tmp disk usage limit;
 set session tmp_table_max_file_size=0;
 show variables like "tmp_table_max_file_size";
 show session variables like "tmp_table_max_file_size";
 show global variables like "tmp_table_max_file_size";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query is OK when global tmp disk usage limit is reset;
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
 select i, c, count(*) from t1 group by i, c having count(*) > 1;
 
 echo Query fails when global limit is set after conversion to MyISAM;
@@ -87,5 +104,20 @@ show global variables like "tmp_table_max_file_size";
 connection default;
 disconnect root;
 
-drop table t1;
+echo Query is OK when individual tmp table and filesort limits are set;
+set session filesort_max_file_size=2500000;
+set session tmp_table_max_file_size=5000000;
+show session variables like "filesort_max_file_size";
+show session variables like "tmp_table_max_file_size";
+select i, c, count(*) from t1 group by i, c order by hex(c) limit 1 offset 4000;
 
+echo Query fails when global tmp disk usage limit is set to less than the sum of other limits;
+set global max_tmp_disk_usage=6000000;
+show variables like "max_tmp_disk_usage";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+select i, c, count(*) from t1 group by i, c order by hex(c) limit 1 offset 4000;
+
+set global max_tmp_disk_usage=0;
+show variables like "max_tmp_disk_usage";
+
+drop table t1;

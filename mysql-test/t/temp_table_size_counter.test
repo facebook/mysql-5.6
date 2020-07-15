@@ -1,6 +1,8 @@
 --let $prevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_init = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $tmp_table_disk_usage_peak = 0 and $tmp_table_disk_usage = 0 as "usage and peak are 0"
 --enable_query_log
@@ -36,6 +38,8 @@ create temporary table tm(i int, c char(255)) engine=myisam;
 # The tmp table tm is empty now so its data file size is 0.
 --let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --let EXPECTED_FILE_SIZE = 0
 --let EXPECTED_TOTAL_FILE_SIZE = $tmp_table_disk_usage_new
 --source include/temp_table_size_counter_perl.inc
@@ -46,6 +50,8 @@ create temporary table tm(i int, c char(255)) engine=myisam;
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
 --eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage_new + $g_tmp_table_disk_usage_init as "global usage increased by session usage"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 insert into tm select * from t1;
@@ -55,9 +61,13 @@ insert into tm select * from t1;
 --let $tmp_table_disk_usage = $tmp_table_disk_usage_new
 --let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage_new + $g_tmp_table_disk_usage_init as "global usage increased by session usage"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 
@@ -96,9 +106,11 @@ create temporary table tm(i int, c varchar(255)) engine=myisam;
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
 --eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 insert into tm select * from t2;
@@ -106,9 +118,11 @@ insert into tm select * from t2;
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 --let EXPECTED_FILE_SIZE = `select $nextSize - $prevSize`
@@ -120,9 +134,11 @@ update tm set c = lpad('b', 250, 'a');
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 delete from tm where i < 100;
@@ -130,9 +146,11 @@ delete from tm where i < 100;
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is same as session"
 --enable_query_log
 
 # Test implicit tables.
@@ -141,9 +159,11 @@ select i, c, count(*) from t1 group by i, c having count(*) > 1;
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_peak_new > $tmp_table_disk_usage_peak as "peak increased"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new between $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init - 8192 and $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is within 8K of session"
 --enable_query_log
 
 select i, c, count(*) from t2 group by i, c having count(*) > 1;
@@ -153,9 +173,23 @@ select i, c, count(*) from t2 group by i, c having count(*) > 1;
 --let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = $tmp_table_disk_usage_peak_new
 --let $tmp_table_disk_usage_peak_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize > $prevSize as "increased"
 --eval select $tmp_table_disk_usage_peak_new = $tmp_table_disk_usage_peak as "peak is still the same"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage + $g_tmp_table_disk_usage_init as "global usage increased by session usage"
+--eval select $g_tmp_table_disk_usage_peak > $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init or $g_tmp_table_disk_usage_peak_new between $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init - 8192 and $tmp_table_disk_usage_peak_new + $g_tmp_table_disk_usage_init as "original global peak is too high, or it is within 8K of session"
+--enable_query_log
+
+# Test information_schema tables (system temp tables).
+--disable_result_log
+select * from information_schema.tables;
+--enable_result_log
+
+--let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--disable_query_log
+--eval select $tmp_table_disk_usage = $tmp_table_disk_usage_new as "usage is still the same after system temp table"
 --enable_query_log
 
 flush status;
@@ -163,10 +197,14 @@ flush status;
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new2 = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $nextSize = 0 as "written is reset to 0"
 --eval select $tmp_table_disk_usage = $tmp_table_disk_usage_new as "usage is still the same after flush"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage_new + $g_tmp_table_disk_usage_init as "global usage increased by session usage"
 --eval select $tmp_table_disk_usage_peak = 0 as "peak is reset to 0"
+--eval select $g_tmp_table_disk_usage_peak_new = $g_tmp_table_disk_usage_peak_new2 as "global peak is not reset"
 --enable_query_log
 
 drop table t1;
@@ -176,9 +214,11 @@ drop temporary table tm;
 --let $prevSize = $nextSize
 --let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --disable_query_log
 --eval select $nextSize = $prevSize as "no increase"
 --eval select $tmp_table_disk_usage = 0 as "usage dropped to 0"
+--eval select $g_tmp_table_disk_usage = $g_tmp_table_disk_usage_init as "global usage returned to init value"
 --enable_query_log
 
 # Test whether variable is session level.
@@ -197,8 +237,10 @@ insert into tm values (1, 'asdf');
 
 --let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --disable_query_log
 --eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage and $tmp_table_disk_usage_peak = $tmp_table_disk_usage_new as "peak increased to new usage"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage_new + $g_tmp_table_disk_usage_init as "global usage increased by session usage"
 --enable_query_log
 
 # Third, check variables on con1
@@ -213,14 +255,11 @@ connection con1;
 --eval select $con1_tmp_table_disk_usage_peak = 0 and $con1_tmp_table_disk_usage = 0 as "con1 usage and peak are 0"
 --enable_query_log
 
-connection default;
-drop temporary table tm;
-
-
 # Test whether the global variable is monotonically increasing even when
 # session go away.
 
 # Record global status in default connection.
+connection default;
 --let $globalPrevSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 
 # Do work in con1
@@ -230,15 +269,20 @@ insert into tm values (1, 'asdf');
 --let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --let $con1_tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage', Value, 1)
 --let $con1_tmp_table_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
+--let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage', Value, 1)
+--let $g_tmp_table_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'tmp_table_disk_usage_peak', Value, 1)
 --disable_query_log
 --eval select $globalNextSize > $globalPrevSize as "increased"
 --eval select $con1_tmp_table_disk_usage != 0 and $con1_tmp_table_disk_usage = $con1_tmp_table_disk_usage_peak as "con1 usage and peak are the same and not 0"
+--eval select $g_tmp_table_disk_usage = $tmp_table_disk_usage_new + $con1_tmp_table_disk_usage + $g_tmp_table_disk_usage_init as "global usage is same as two sessions + init usage"
 --enable_query_log
 
 disconnect con1;
 --source include/wait_until_disconnected.inc
 
 connection default;
+drop temporary table tm;
+
 --let $globalPrevSize = $globalNextSize
 --let $globalNextSize = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
 --disable_query_log

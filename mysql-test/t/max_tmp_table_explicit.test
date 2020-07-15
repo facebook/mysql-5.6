@@ -50,8 +50,35 @@ connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
 show variables like "tmp_table_max_file_size";
 show session variables like "tmp_table_max_file_size";
 show global variables like "tmp_table_max_file_size";
-select i, c, count(*) from t1 group by i, c having count(*) > 1;
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+drop temporary table tm2;
+
+echo Query fails on another session with global tmp disk usage limit;
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+create temporary table tm2(i int, c char(255)) engine=myisam;
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+insert into tm2 select * from t1;
+drop temporary table tm2;
+
+echo Query is OK on another session with global tmp disk usage limit slightly raised;
+set global max_tmp_disk_usage = 2000000;
+show variables like "max_tmp_disk_usage";
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+
 connection default;
+
+echo Query fails on first session while second session still has tmp table;
+create temporary table tm2(i int, c char(255)) engine=myisam;
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+insert into tm2 select * from t1;
+drop temporary table tm2;
+
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+
 disconnect root;
 
 echo ;
@@ -85,4 +112,3 @@ connection default;
 disconnect root;
 
 drop table t1;
-

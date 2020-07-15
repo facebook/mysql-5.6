@@ -7410,6 +7410,9 @@ ER_INVALID_CHECKSUM
 ER_DUPLICATE_STATEMENT_EXECUTION
   eng "Exceeded the maximum number of duplicate executions"
 
+ER_MAX_TMP_DISK_USAGE_EXCEEDED
+  eng "Disk usage for temp objects exceeds specified limit"
+
 #
 #  End of 5.6 error messages.
 #

@@ -489,7 +489,8 @@ is the global server default. */
 #define HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED 192 /* on-disk temp table too large */
 #define HA_ERR_FAILED_TO_LOCK_REC_NOWAIT 193 /* Failed to lock a record and didn't wait */
 #define HA_ERR_QUERY_INTERRUPTED 194  /* The query was interrupted */
-#define HA_ERR_LAST               194    /* Copy of last error nr */
+#define HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED 195 /* Tmp disk usage exceeded max */
+#define HA_ERR_LAST               195    /* Copy of last error nr */
 
 /* Number of different errors */
 #define HA_ERR_ERRORS            (HA_ERR_LAST - HA_ERR_FIRST + 1)

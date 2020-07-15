@@ -648,7 +648,8 @@ ha_myisam::ha_myisam(handlerton *hton, TABLE_SHARE *table_arg)
                   HA_CAN_INSERT_DELAYED | HA_CAN_BIT_FIELD | HA_CAN_RTREEKEYS |
                   HA_HAS_RECORDS | HA_STATS_RECORDS_IS_EXACT | HA_CAN_REPAIR),
    can_enable_indexes(1),
-   recorded_disk_usage(0)
+   recorded_disk_usage(0),
+   detached_disk_usage(false)
 {}
 
 handler *ha_myisam::clone(const char *name, MEM_ROOT *mem_root)
@@ -821,6 +822,12 @@ int ha_myisam::close(void)
   MI_INFO *tmp=file;
   file=0;
   int error = mi_close(tmp);
+
+  /* SYSTEM_TMP_TABLE is assigned after tmp table is already open and its
+     usage is recorded. Make sure that any recorded usage is gone. */
+  register_tmp_table_disk_usage(false /* detach */);
+  recorded_disk_usage = 0;
+
   return error;
 }
 
@@ -2611,6 +2618,10 @@ int ha_myisam::check_disk_usage(my_off_t usage)
   {
     error = HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED;
   }
+  else if (is_tmp_disk_usage_over_max())
+  {
+    error = HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED;
+  }
 
   my_errno = error;
   return error;
@@ -2643,7 +2654,13 @@ int ha_myisam::record_disk_usage_change(void *arg, longlong proposed_delta)
   if (table->s->tmp_table != NO_TMP_TABLE &&
       table->s->tmp_table != SYSTEM_TMP_TABLE)
   {
-    THD *thd = (THD *)table->in_use;
+    THD *thd = table->in_use;
+
+    /* Tmp tables should always be in use unless it's a detached tmp table
+       on secondary and it's getting closed. The global accounting is
+       already correct in that case so nothing else to do here. */
+    DBUG_ASSERT(thd || (h->detached_disk_usage && h->get_disk_usage() == 0));
+
     if (thd)
     {
       longlong delta = h->get_disk_usage() - h->recorded_disk_usage;
@@ -2661,15 +2678,25 @@ int ha_myisam::record_disk_usage_change(void *arg, longlong proposed_delta)
 
   @return void
 */
-void ha_myisam::register_tmp_table_disk_usage(bool attach) const
+void ha_myisam::register_tmp_table_disk_usage(bool attach)
 {
   if (recorded_disk_usage)
   {
-    THD *thd = (THD *)table->in_use;
+    THD *thd = table->in_use;
+
+    /* Tmp table should still be assigned to old or new thread. The
+       only exception is a detached tmp table on secondary and it's
+       getting closed. The global accounting is already correct in
+       that case so nothing else to do here. */
+    DBUG_ASSERT(thd || (detached_disk_usage && get_disk_usage() == 0));
+
     if (thd)
     {
       longlong delta = attach ? recorded_disk_usage : -recorded_disk_usage;
       thd->adjust_tmp_table_disk_usage(delta);
     }
   }
+
+  /* Remember current state to assert when table may not be in use. */
+  detached_disk_usage = !attach;
 }

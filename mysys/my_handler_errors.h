@@ -98,6 +98,7 @@ static const char *handler_error_messages[]=
   "tmp_table_max_file_size exceeded",
   "Failed to lock a record and didn't wait",
   "Query execution was interrupted",
+  "Disk usage for temp objects exceeds specified limit"
 };
 
 extern void my_handler_error_register(void);

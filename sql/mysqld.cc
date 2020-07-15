@@ -499,6 +499,7 @@ my_bool async_query_counter_enabled = 0;
 my_bool enable_acl_fast_lookup= 0;
 my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;
+ulonglong max_tmp_disk_usage;
 
 my_bool log_legacy_user;
 my_bool log_ddl;
@@ -1320,6 +1321,19 @@ uint get_thread_count()
   return global_thread_count.load();
 }
 
+/**
+  Check if global tmp disk usage exceeds max.
+
+  @return
+    @retval true   Usage exceeds max.
+    @retval false  Usage is below max, or max is not set.
+*/
+bool is_tmp_disk_usage_over_max()
+{
+  return static_cast<longlong>(max_tmp_disk_usage) > 0 &&
+    global_status_var.tmp_table_disk_usage +
+    global_status_var.filesort_disk_usage > max_tmp_disk_usage;
+}
 
 void set_remaining_args(int argc, char **argv)
 {

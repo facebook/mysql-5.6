@@ -1374,10 +1374,16 @@ void add_slave_skip_errors(const char* arg)
 static void set_thd_in_use_temporary_tables(Relay_log_info *rli)
 {
   TABLE *table;
+  bool attach = rli->info_thd != nullptr;
 
   for (table= rli->save_temporary_tables ; table ; table= table->next)
   {
-    table->in_use= rli->info_thd;
+    /* For attach in_use needs to point to new thread,
+       for detach it still needs to point to the old one
+       and will be set below. */
+    if (attach)
+      table->in_use= rli->info_thd;
+
     if (table->file != NULL)
     {
       /*
@@ -1387,8 +1393,11 @@ static void set_thd_in_use_temporary_tables(Relay_log_info *rli)
       */
       table->file->unbind_psi();
       table->file->rebind_psi();
-      table->file->register_tmp_table_disk_usage(true /* attach */);
+      table->file->register_tmp_table_disk_usage(attach);
     }
+
+    if (!attach)
+      table->in_use= rli->info_thd;
   }
 }
 
