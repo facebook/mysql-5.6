@@ -104,10 +104,15 @@
 #include "sql/system_variables.h"       // system_variables
 #include "sql/transaction_info.h"       // Ha_trx_info
 #include "sql/xa.h"
+#include "sql_db.h"
 #include "sql_string.h"
 #include "template_utils.h"
 #include "thr_lock.h"
 #include "violite.h"
+
+#include "my_rapidjson_size_t.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
 
 enum enum_check_fields : int;
 enum enum_tx_isolation : int;
@@ -1026,6 +1031,7 @@ class THD : public MDL_context_owner,
     Protects THD::db_read_only_hash.
   */
   mysql_mutex_t LOCK_thd_db_read_only_hash;
+  mysql_mutex_t LOCK_thd_db_metadata;
 
   /**
     Protects query plan (SELECT/UPDATE/DELETE's) from being freed/changed
@@ -1414,6 +1420,12 @@ class THD : public MDL_context_owner,
   int binlog_update_row(TABLE *table, bool is_transactional,
                         const uchar *old_data, const uchar *new_data,
                         const uchar *extra_row_info);
+
+  std::string gen_trx_metadata();
+
+  bool add_time_metadata(rapidjson::Document &meta_data_root);
+  bool add_db_metadata(rapidjson::Document &meta_data_root);
+
   void set_server_id(uint32 sid) { server_id = sid; }
 
   /*
@@ -2093,6 +2105,7 @@ class THD : public MDL_context_owner,
 
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
+  std::string db_metadata;
 #if defined(ENABLED_PROFILING)
   std::unique_ptr<PROFILING> profiling;
 #endif
@@ -3558,6 +3571,14 @@ class THD : public MDL_context_owner,
   const LEX_CSTRING &db() const { return m_db; }
 
   /**
+  Set the db_metadata string for the thread
+    If the current database is set for the thread, we get the db_metadata option
+    for the database and set it as a thd property. This is called whenever
+    set_db() or reset_db() are called.
+  */
+  void set_db_metadata();
+
+  /**
     Set the current database; use deep copy of C-string.
 
     @param new_db     the new database name.
@@ -3566,12 +3587,13 @@ class THD : public MDL_context_owner,
     length. If we run out of memory, we free the current database and
     return true.  This way the user will notice the error as there will be
     no current database selected (in addition to the error message set by
-    malloc).
+    malloc). Also, set the db_metadata string for the thd.
 
-    @note This operation just sets {db, db_length}. Switching the current
-    database usually involves other actions, like switching other database
-    attributes including security context. In the future, this operation
-    will be made private and more convenient interface will be provided.
+    @note This operation just sets {db, db_length} and updated db_metadata
+    string for the thd. Switching the current database usually involves other
+    actions, like switching other database attributes including security
+    context. In the future, this operation will be made private and more
+    convenient interface will be provided.
 
     @return Operation status
       @retval false Success
@@ -3583,18 +3605,32 @@ class THD : public MDL_context_owner,
     Set the current database; use shallow copy of C-string.
 
     @param new_db     the new database name.
+    @param lock_held_skip_metadata  whether LOCK_thd_data is held and skip
+    calling set_db_metadata()
 
-    @note This operation just sets {db, db_length}. Switching the current
-    database usually involves other actions, like switching other database
-    attributes including security context. In the future, this operation
-    will be made private and more convenient interface will be provided.
+    @note This operation just sets {db, db_length} and updated db_metadata
+    string for the thd. Switching the current database usually involves other
+    actions, like switching other database attributes including security
+    context. In the future, this operation will be made private and more
+    convenient interface will be provided.
   */
-  void reset_db(const LEX_CSTRING &new_db) {
+  void reset_db(const LEX_CSTRING &new_db,
+                bool lock_held_skip_metadata = false) {
     m_db.str = new_db.str;
     m_db.length = new_db.length;
 #ifdef HAVE_PSI_THREAD_INTERFACE
     PSI_THREAD_CALL(set_thread_db)(new_db.str, static_cast<int>(new_db.length));
 #endif
+    /*
+      Due to a recursive lock acquisition on the LOCK_thd_data in the
+      DD kill immunizer code, set_db_metadata() should only be called if the
+      LOCK_thd_data is not held. Once the immunizer code is removed, then this
+      parameter can be removed.
+
+      If the LOCK_thd_data is held when reset_db() is called, it is the
+      caller's responsibility to call set_db_metadata()
+     */
+    if (!lock_held_skip_metadata) set_db_metadata();
   }
   /*
     Copy the current database to the argument. Use the current arena to

@@ -7718,7 +7718,9 @@ static int write_locked_table_maps(THD *thd) {
     for (MYSQL_LOCK *lock : {thd->extra_lock, thd->lock}) {
       if (lock == nullptr) continue;
 
-      bool need_binlog_rows_query = thd->variables.binlog_rows_query_log_events;
+      bool need_binlog_rows_query =
+          thd->variables.binlog_rows_query_log_events ||
+          opt_binlog_trx_meta_data;
       TABLE **const end_ptr = lock->table + lock->table_count;
       for (TABLE **table_ptr = lock->table; table_ptr != end_ptr; ++table_ptr) {
         TABLE *const table = *table_ptr;

@@ -57,6 +57,7 @@ SET PERSIST binlog_transaction_compression = @@GLOBAL.binlog_transaction_compres
 SET PERSIST binlog_transaction_compression_level_zstd = @@GLOBAL.binlog_transaction_compression_level_zstd;
 SET PERSIST binlog_transaction_dependency_history_size = @@GLOBAL.binlog_transaction_dependency_history_size;
 SET PERSIST binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
+SET PERSIST binlog_trx_meta_data = @@GLOBAL.binlog_trx_meta_data;
 SET PERSIST enforce_gtid_consistency = @@GLOBAL.enforce_gtid_consistency;
 SET PERSIST gtid_executed = @@GLOBAL.gtid_executed;
 ERROR HY000: Variable 'gtid_executed' is a read only variable
@@ -184,6 +185,7 @@ RESET PERSIST IF EXISTS binlog_transaction_compression;
 RESET PERSIST IF EXISTS binlog_transaction_compression_level_zstd;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_history_size;
 RESET PERSIST IF EXISTS binlog_transaction_dependency_tracking;
+RESET PERSIST IF EXISTS binlog_trx_meta_data;
 RESET PERSIST IF EXISTS enforce_gtid_consistency;
 RESET PERSIST IF EXISTS gtid_executed;
 Warnings:

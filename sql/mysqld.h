@@ -154,6 +154,7 @@ enum_server_operational_state get_server_state();
 
 extern bool opt_large_files, server_id_supplied;
 extern bool opt_bin_log;
+extern bool opt_binlog_trx_meta_data;
 extern bool opt_log_slave_updates;
 extern bool opt_log_unsafe_statements;
 extern bool opt_log_global_var_changes;
@@ -478,6 +479,7 @@ extern PSI_mutex_key key_LOCK_thd_data;
 extern PSI_mutex_key key_LOCK_thd_sysvar;
 extern PSI_mutex_key key_LOCK_thd_protocol;
 extern PSI_mutex_key key_LOCK_thd_db_read_only_hash;
+extern PSI_mutex_key key_LOCK_thd_db_metadata;
 extern PSI_mutex_key key_LOG_LOCK_log;
 extern PSI_mutex_key key_master_info_data_lock;
 extern PSI_mutex_key key_master_info_run_lock;

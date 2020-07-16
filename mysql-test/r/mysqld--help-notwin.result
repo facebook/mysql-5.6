@@ -216,6 +216,10 @@ The following options may be given as the first argument:
  to assess which transactions can be executed in parallel
  by the slave's multi-threaded applier. Possible values
  are COMMIT_ORDER, WRITESET and WRITESET_SESSION.
+ --binlog-trx-meta-data 
+ Log meta data about every trx in the binary log. This
+ information is logged as a comment in a Rows_query_log
+ event in JSON format.
  --block-encryption-mode=name 
  mode for AES_ENCRYPT/AES_DECRYPT
  --bulk-insert-buffer-size=# 
@@ -1504,6 +1508,7 @@ binlog-transaction-compression FALSE
 binlog-transaction-compression-level-zstd 3
 binlog-transaction-dependency-history-size 25000
 binlog-transaction-dependency-tracking COMMIT_ORDER
+binlog-trx-meta-data FALSE
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 caching-sha2-password-private-key-path private_key.pem

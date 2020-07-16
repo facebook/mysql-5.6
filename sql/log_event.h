@@ -881,6 +881,10 @@ class Log_event {
                     bool is_more) const;
 #endif  // ifdef MYSQL_SERVER ... else
 
+  virtual ulonglong extract_last_timestamp() const { return 0; }
+
+  virtual bool has_trx_meta_data() const { return false; }
+
   void *operator new(size_t size);
 
   static void operator delete(void *ptr, size_t) { my_free(ptr); }
@@ -3671,9 +3675,46 @@ class Rows_query_log_event : public Ignorable_log_event,
   }
 #endif
 
+  std::string extract_trx_meta_data() const {
+    DBUG_ASSERT(has_trx_meta_data());
+
+    const char *comment_start = strstr(m_rows_query, "/*");
+    if (unlikely(comment_start == nullptr)) {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const char *comment_end = strstr(comment_start, "*/");
+    if (unlikely(comment_end == nullptr)) {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const char *json_start = comment_start + 2 + TRX_META_DATA_HEADER.length();
+    const char *json_end = comment_end - 1;
+    if (unlikely(json_start[0] != '{' || json_end[0] != '}' ||
+                 json_start >= json_end)) {
+      DBUG_ASSERT(false);
+      return std::string();
+    }
+
+    const size_t json_len = json_end - json_start + 1;
+    DBUG_ASSERT(json_len > 2);
+
+    return std::string(json_start, json_len);
+  }
+
+  virtual ulonglong extract_last_timestamp() const override;
+
 #ifdef MYSQL_SERVER
   int pack_info(Protocol *) override;
   virtual int do_apply_event(Relay_log_info const *rli) override;
+
+  virtual bool write(Basic_ostream *file) override {
+    // case: nothing to write
+    if (!*m_rows_query) return 0;
+    return Log_event::write(file);
+  }
   virtual bool write_data_body(Basic_ostream *ostream) override;
 #endif
 
@@ -3692,7 +3733,7 @@ class Rows_query_log_event : public Ignorable_log_event,
     return Binary_log_event::IGNORABLE_HEADER_LEN + 1 + strlen(m_rows_query);
   }
 
-  bool has_trx_meta_data() const {
+  virtual bool has_trx_meta_data() const override {
     std::string str(m_rows_query);
     if (str.length() < (2 + TRX_META_DATA_HEADER.length() + 2)) return false;
     // NOTE: Meta data comment format: /*::TRX_META_DATA::{.. JSON ..}*/

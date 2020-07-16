@@ -1,9 +1,5 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 
-#include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -16,8 +12,6 @@
 #include "table.h"
 
 namespace qutils {
-
-namespace pt = boost::property_tree;
 
 using cpu_and_num_queries = std::tuple<uint64_t, uint64_t>;
 static int64_t timespec_diff(const timespec &start, const timespec &stop);

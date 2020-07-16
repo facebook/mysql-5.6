@@ -1162,9 +1162,10 @@ int Binlog_sender::send_heartbeat_event(my_off_t log_pos, bool send_timestamp) {
   time_t ts = 0;
   if (send_timestamp) {
     ts = mysql_bin_log.last_master_timestamp.load();
-    if (ts == 0) ts = time(0);
+    if (ts == 0) ts = time(nullptr);
   }
   int4store(header, ts);
+
   header[EVENT_TYPE_OFFSET] = binary_log::HEARTBEAT_LOG_EVENT;
   int4store(header + SERVER_ID_OFFSET, server_id);
   int4store(header + EVENT_LEN_OFFSET, event_len);

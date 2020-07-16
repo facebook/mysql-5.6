@@ -816,6 +816,11 @@ class Relay_log_info : public Rpl_info {
   std::atomic<bool> sql_force_rotate_relay;
 
   time_t last_master_timestamp;
+  ulonglong last_master_timestamp_millis = 0;
+  // milli ts for the current group
+  ulonglong group_timestamp_millis = 0;
+
+  void set_last_master_timestamp(time_t ts, ulonglong ts_millis);
 
   void set_last_master_timestamp(time_t ts) {
     last_master_timestamp = ts;
@@ -989,6 +994,9 @@ class Relay_log_info : public Rpl_info {
   table_mapping m_table_map;      /* RBR: Mapping table-id to table */
   /* RBR: Record Rows_query log event */
   Rows_query_log_event *rows_query_ev;
+
+  /* Meta data about the current trx from the master */
+  std::string trx_meta_data_json;
 
   bool get_table_data(TABLE *table_arg, table_def **tabledef_var,
                       TABLE **conv_table_var) const {
@@ -1321,6 +1329,7 @@ class Relay_log_info : public Rpl_info {
      maintain a bitmap of executed group that is reset with a new checkpoint.
   */
   void reset_notified_checkpoint(ulong count, time_t new_ts,
+                                 ulonglong ts_millis,
                                  bool update_timestamp = false);
 
   /**

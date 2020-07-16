@@ -40,6 +40,9 @@
 #include <string>
 #include <utility>
 
+#include "my_rapidjson_size_t.h"
+#include "rapidjson/document.h"
+
 #include "base64.h"
 #include "decimal.h"
 #include "libbinlogevents/export/binary_log_funcs.h"  // my_timestamp_binary_length
@@ -3053,6 +3056,12 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli) {
     ptr_group->checkpoint_seqno = rli->rli_checkpoint_seqno;
     ptr_group->ts = common_header->when.tv_sec +
                     (time_t)exec_time;  // Seconds_behind_master related
+    ptr_group->ts_millis =
+        (rli->group_timestamp_millis ? rli->group_timestamp_millis
+                                     : common_header->when.tv_sec * 1000) +
+        exec_time * 1000;
+    // reset for next group
+    rli->group_timestamp_millis = 0;
     rli->rli_checkpoint_seqno++;
     /*
       Coordinator should not use the main memroot however its not
@@ -3309,6 +3318,14 @@ int Log_event::apply_event(Relay_log_info *rli) {
 
   worker = nullptr;
   rli->mts_group_status = Relay_log_info::MTS_IN_GROUP;
+
+  // milli-sec behind master related for MTS
+  // case: this event contains trx metadata, so save the ts in msec for the grp
+  if (opt_binlog_trx_meta_data &&
+      get_type_code() == binary_log::ROWS_QUERY_LOG_EVENT &&
+      has_trx_meta_data()) {
+    rli->group_timestamp_millis = extract_last_timestamp();
+  }
 
   worker =
       (Relay_log_info *)(rli->last_assigned_worker = get_slave_worker(rli));
@@ -4479,6 +4496,14 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
 
   DBUG_PRINT("info", ("query=%s, q_len_arg=%lu", query,
                       static_cast<unsigned long>(q_len_arg)));
+
+  // case: a rows query event containing trx metadata was encountered, we're
+  // going to clean that up here
+  if (rli->rows_query_ev && rli->rows_query_ev->has_trx_meta_data()) {
+    delete const_cast<Relay_log_info *>(rli)->rows_query_ev;
+    const_cast<Relay_log_info *>(rli)->rows_query_ev = NULL;
+    thd->set_query(NULL, 0);
+  }
 
   /*
     Colleagues: please never free(thd->catalog) in MySQL. This would
@@ -5704,7 +5729,7 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli) {
     if (rli->is_parallel_exec()) {
       bool real_event = server_id && !is_artificial_event();
       rli->reset_notified_checkpoint(
-          0, real_event ? common_header->when.tv_sec + (time_t)exec_time : 0,
+          0, 0, real_event ? common_header->when.tv_sec + (time_t)exec_time : 0,
           real_event);
     }
 
@@ -9718,7 +9743,6 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli) {
     thd_db.str = table->s->db.str;
     thd_db.length = table->s->db.length;
     thd->reset_db(thd_db);
-    thd->set_command(COM_QUERY);
     PSI_stage_info *stage = nullptr;
 
     /*
@@ -12671,6 +12695,27 @@ void Ignorable_log_event::print(FILE *,
 }
 #endif
 
+static const std::string ts_key{"ts"};
+
+ulonglong Rows_query_log_event::extract_last_timestamp() const {
+  rapidjson::Document pt;
+  std::string json = extract_trx_meta_data();
+  if (json.empty()) return 0;
+  if (pt.Parse(json.c_str()).HasParseError()) {
+    return 0;
+  }
+  const auto ts_iter = pt.FindMember(ts_key.c_str());
+  ulonglong timestamp = 0;
+  if (ts_iter != pt.MemberEnd() && ts_iter->value.IsArray()) {
+    const auto &arr = ts_iter->value.GetArray();
+    if (arr.Size() >= 1) {
+      const auto &value = arr[arr.Size() - 1];
+      timestamp = my_strtoull(value.GetString(), NULL, 10);
+    }
+  }
+  return timestamp;
+}
+
 Rows_query_log_event::Rows_query_log_event(
     const char *buf, const Format_description_event *descr_event)
     : binary_log::Ignorable_event(buf, descr_event),
@@ -12770,9 +12815,34 @@ bool Rows_query_log_event::write_data_body(Basic_ostream *ostream) {
 int Rows_query_log_event::do_apply_event(Relay_log_info const *rli) {
   DBUG_TRACE;
   DBUG_ASSERT(rli->info_thd == thd);
-  /* Set query for writing Rows_query log event into binlog later.*/
-  thd->set_query(m_rows_query, strlen(m_rows_query));
-  thd->set_query_for_display(m_rows_query, strlen(m_rows_query));
+
+  // case: this is not a regular rows query event, it contains meta data about
+  // the transaction
+  if (has_trx_meta_data()) {
+    const_cast<Relay_log_info *>(rli)->trx_meta_data_json =
+        extract_trx_meta_data();
+
+    DBUG_ASSERT(strstr(m_rows_query, "*/") != nullptr);
+    // actual query starts after the metadata
+    auto after_metadata = strstr(m_rows_query, "*/");
+
+    // invalid trx metadata comment
+    if (after_metadata == nullptr) {
+      return 0;
+    }
+
+    // Skip "*/"
+    after_metadata += 2;
+
+    auto len = strlen(after_metadata);
+    DBUG_PRINT("info", ("query: %s", after_metadata));
+    thd->set_query(after_metadata, (uint32)len);
+    thd->set_query_for_display(after_metadata, (uint32)len);
+  } else {
+    /* Set query for writing Rows_query log event into binlog later.*/
+    thd->set_query(m_rows_query, (uint32)strlen(m_rows_query));
+    thd->set_query_for_display(m_rows_query, (uint32)strlen(m_rows_query));
+  }
 
   DBUG_ASSERT(rli->rows_query_ev == nullptr);
 

@@ -725,7 +725,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /* Use this to start writing a new log file */
   int new_file(Format_description_log_event *extra_description_event);
 
-  bool write_event(Log_event *event_info);
+  bool write_event(Log_event *event_info, bool write_meta_data_event = false);
   bool write_cache(THD *thd, class binlog_cache_data *cache_data,
                    class Binlog_event_writer *writer);
   /**

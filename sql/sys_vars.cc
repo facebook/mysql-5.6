@@ -1612,6 +1612,12 @@ static Sys_var_bool Sys_log_query_comments(
     "in Rows_query_log_events.",
     GLOBAL_VAR(opt_log_only_query_comments), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_binlog_trx_meta_data(
+    "binlog_trx_meta_data",
+    "Log meta data about every trx in the binary log. This information is "
+    "logged as a comment in a Rows_query_log event in JSON format.",
+    GLOBAL_VAR(opt_binlog_trx_meta_data), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_bool Sys_log_column_names(
     "log_column_names",
     "Writes column name information in table map log events.",
