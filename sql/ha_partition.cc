@@ -6694,7 +6694,7 @@ int ha_partition::info(uint flag)
   //
   // These values get restored after if (flag & HA_STATUS_CONST).
   bool stats_on_metadata = current_thd->variables.innodb_stats_on_metadata;
-  bool old_flag = flag;
+  uint old_flag = flag;
   if (stats_on_metadata && m_innodb) {
     current_thd->variables.innodb_stats_on_metadata = false;
     if (flag & HA_STATUS_VARIABLE) {

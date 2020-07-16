@@ -2501,3 +2501,43 @@ let $query=SELECT c1 FROM t1 WHERE (c1 > 2 AND c1 < 15);
 --eval EXPLAIN FORMAT=JSON $query
 
 DROP TABLE t1;
+
+--echo #
+--echo # Test partitioning stats calculation with innodb_stats_metadata
+--echo #
+
+CREATE TABLE t1 (c1 int primary key, c2 int, key(c2))
+  ENGINE=InnoDB
+  PARTITION BY RANGE (c1)
+      (PARTITION a VALUES LESS THAN (10),
+       PARTITION b VALUES LESS THAN (100),
+       PARTITION c VALUES LESS THAN MAXVALUE);
+
+--disable_query_log
+let $t1_count= 1000;
+while ($t1_count)
+{
+  --eval INSERT INTO t1 VALUES ($t1_count, $t1_count);
+  dec $t1_count;
+}
+--enable_query_log
+
+analyze table t1;
+
+show index from t1;
+select count(distinct c2) from t1;
+
+set session innodb_stats_on_metadata=1;
+
+update t1 set c2 = 1;
+select count(distinct c2) from t1;
+
+# First call evaluates the statistics
+--disable_result_log
+show index from t1;
+--enable_result_log
+# Second call to show index displays the evaluated cardinality
+show index from t1;
+
+set session innodb_stats_on_metadata=0;
+DROP TABLE t1;

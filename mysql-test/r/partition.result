@@ -2528,3 +2528,34 @@ EXPLAIN
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c1` AS `c1` from `test`.`t1` where ((`test`.`t1`.`c1` > 2) and (`test`.`t1`.`c1` < 15))
 DROP TABLE t1;
+#
+# Test partitioning stats calculation with innodb_stats_metadata
+#
+CREATE TABLE t1 (c1 int primary key, c2 int, key(c2))
+ENGINE=InnoDB
+PARTITION BY RANGE (c1)
+(PARTITION a VALUES LESS THAN (10),
+PARTITION b VALUES LESS THAN (100),
+PARTITION c VALUES LESS THAN MAXVALUE);
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+show index from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	c1	A	1000	NULL	NULL		BTREE		
+t1	1	c2	1	c2	A	1000	NULL	NULL	YES	BTREE		
+select count(distinct c2) from t1;
+count(distinct c2)
+1000
+set session innodb_stats_on_metadata=1;
+update t1 set c2 = 1;
+select count(distinct c2) from t1;
+count(distinct c2)
+1
+show index from t1;
+show index from t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	c1	A	1000	NULL	NULL		BTREE		
+t1	1	c2	1	c2	A	2	NULL	NULL	YES	BTREE		
+set session innodb_stats_on_metadata=0;
+DROP TABLE t1;
