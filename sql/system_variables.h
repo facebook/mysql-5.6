@@ -500,6 +500,7 @@ struct System_variables {
   uint select_into_file_fsync_timeout;
   bool high_priority_ddl;
   bool kill_conflicting_connections;
+  ulong kill_conflicting_connections_timeout;
   long admission_control_queue_timeout;
   ulong dscp_on_socket;
 

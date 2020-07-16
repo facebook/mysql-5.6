@@ -1,0 +1,32 @@
+CREATE USER test_user;
+GRANT insert, update on test.* to test_user;
+create table t1 (id int auto_increment primary key, value int) engine=innodb;
+create table t2 like t1;
+insert into t2 select * from t1;
+SET GLOBAL DEBUG="+d,simulate_delay_in_rollback";
+update t1 set value=sleep(1);;
+update t2 set value=sleep(1);;
+set session kill_conflicting_connections=1;
+set session high_priority_ddl=on;
+set session kill_conflicting_connections_timeout=1;
+set global super_read_only=1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on global read
+set session kill_conflicting_connections_timeout=20;
+set global super_read_only=1;
+SET GLOBAL DEBUG="";
+select @@global.read_only;
+@@global.read_only
+1
+select @@global.super_read_only;
+@@global.super_read_only
+1
+select count(*), sum(value) from t1;
+count(*)	sum(value)
+1000	500500
+select count(*), sum(value) from t2;
+count(*)	sum(value)
+1000	500500
+set global read_only=0;
+set global super_read_only=0;
+drop table t1, t2;
+drop user test_user;
