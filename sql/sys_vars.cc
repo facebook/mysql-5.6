@@ -7577,6 +7577,14 @@ static Sys_var_bool Sys_kill_conflicting_connections(
     SESSION_ONLY(kill_conflicting_connections), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_ulong Sys_kill_conflicting_connections_timeout(
+    "kill_conflicting_connections_timeout",
+    "Timeout in seconds of holding lock after issuing killing conflicting "
+    "connections.",
+    SESSION_VAR(kill_conflicting_connections_timeout), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(1), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
+
 static Sys_var_bool Sys_slave_high_priority_ddl(
     "slave_high_priority_ddl",
     "Setting this flag will allow DDL commands to kill conflicting"
