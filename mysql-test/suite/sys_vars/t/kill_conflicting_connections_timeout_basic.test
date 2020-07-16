@@ -1,0 +1,59 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@session.kill_conflicting_connections_timeout;
+SELECT @start_value;
+
+
+SET @@session.kill_conflicting_connections_timeout = DEFAULT;
+SELECT @@session.kill_conflicting_connections_timeout = 1;
+
+
+SET @@session.kill_conflicting_connections_timeout = 100;
+SELECT @@session.kill_conflicting_connections_timeout;
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections_timeout;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.kill_conflicting_connections_timeout = TRUEF;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.kill_conflicting_connections_timeout = TRUE_F;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.kill_conflicting_connections_timeout = FALSE0;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.kill_conflicting_connections_timeout = " ";
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.kill_conflicting_connections_timeout = '';
+
+SELECT @@global.kill_conflicting_connections_timeout;
+
+SELECT IF(@@session.kill_conflicting_connections_timeout, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='kill_conflicting_connections_timeout';
+
+
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections;
+SET @@session.kill_conflicting_connections_timeout = 1000;
+SELECT @@session.kill_conflicting_connections;
+
+SET @@session.kill_conflicting_connections_timeout = 999;
+SELECT @@session.kill_conflicting_connections;
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections;
+
+SET @@session.kill_conflicting_connections_timeout = 1;
+SELECT @@kill_conflicting_connections = @@session.kill_conflicting_connections;
+
+--Error ER_PARSE_ERROR
+SET local.kill_conflicting_connections_timeout = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.kill_conflicting_connections_timeout;
+--Error ER_PARSE_ERROR
+SET session.kill_conflicting_connections_timeout_timeout = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT session.kill_conflicting_connections_timeout;
+--Error ER_BAD_FIELD_ERROR
+SELECT kill_conflicting_connections_timeout = @@global.kill_conflicting_connections_timeout;
+
+SET @@session.kill_conflicting_connections_timeout = @start_value;
+SELECT @@session.kill_conflicting_connections_timeout;
