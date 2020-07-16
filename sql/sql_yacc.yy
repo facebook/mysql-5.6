@@ -14002,13 +14002,18 @@ purge_option:
 /* kill threads */
 
 kill:
-          KILL_SYM kill_option expr
+          KILL_SYM ignore_option kill_option expr
           {
             LEX *lex=Lex;
             lex->value_list.empty();
-            lex->value_list.push_front($3);
+            lex->value_list.push_front($4);
             lex->sql_command= SQLCOM_KILL;
           }
+        ;
+
+ignore_option:
+          /* empty */ { Lex->ignore= false; }
+        | IGNORE_SYM { Lex->ignore= true; }
         ;
 
 kill_option:

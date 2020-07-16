@@ -9240,9 +9240,13 @@ void sql_kill(THD *thd, my_thread_id id, bool only_kill_query)
   {
     if (! thd->killed)
       my_ok(thd);
+  } else {
+    if (error == ER_NO_SUCH_THREAD && thd->lex->ignore) {
+      my_ok(thd);
+    } else {
+      my_error(error, MYF(0), id);
+    }
   }
-  else
-    my_error(error, MYF(0), id);
 }
 
 
