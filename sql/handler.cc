@@ -1954,6 +1954,8 @@ int ha_rollback_trans(THD *thd, bool all) {
 
   DBUG_ENTER("ha_rollback_trans");
 
+  DBUG_EXECUTE_IF("simulate_delay_in_rollback", sleep(5););
+
   /*
     We must not rollback the normal transaction if a statement
     transaction is pending.

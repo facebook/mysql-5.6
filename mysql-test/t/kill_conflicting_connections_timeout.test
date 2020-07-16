@@ -1,0 +1,54 @@
+--source include/have_debug.inc
+--source include/count_sessions.inc
+
+CREATE USER test_user;
+GRANT insert, update on test.* to test_user;
+connection default;
+
+create table t1 (id int auto_increment primary key, value int) engine=innodb;
+--disable_query_log
+let $i = 1;
+while ($i <= 1000) {
+  let $insert = INSERT INTO t1 VALUES($i, $i);
+  inc $i;
+  eval $insert;
+}
+--enable_query_log
+create table t2 like t1;
+insert into t2 select * from t1;
+SET GLOBAL DEBUG="+d,simulate_delay_in_rollback";
+
+connect (super_conn,localhost,root,,test,,);
+connection super_conn;
+--send update t1 set value=sleep(1);
+
+connect (no_super_conn,localhost,test_user,,test,,);
+connection no_super_conn;
+--send update t2 set value=sleep(1);
+
+connection default;
+let $wait_condition = select count(*) = 2 from information_schema.processlist where info like 'update%set value=sleep(1)%' and time >= 2;
+--source include/wait_condition.inc
+set session kill_conflicting_connections=1;
+set session high_priority_ddl=on;
+set session kill_conflicting_connections_timeout=1;
+--error ER_LOCK_WAIT_TIMEOUT
+set global super_read_only=1;
+
+set session kill_conflicting_connections_timeout=20;
+set global super_read_only=1;
+
+
+SET GLOBAL DEBUG="";
+select @@global.read_only;
+select @@global.super_read_only;
+select count(*), sum(value) from t1;
+select count(*), sum(value) from t2;
+
+#cleanup
+set global read_only=0;
+set global super_read_only=0;
+
+drop table t1, t2;
+drop user test_user;
+

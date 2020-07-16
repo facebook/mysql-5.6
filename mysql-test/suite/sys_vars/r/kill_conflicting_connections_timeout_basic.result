@@ -1,0 +1,68 @@
+SET @start_value = @@session.kill_conflicting_connections_timeout;
+SELECT @start_value;
+@start_value
+1
+SET @@session.kill_conflicting_connections_timeout = DEFAULT;
+SELECT @@session.kill_conflicting_connections_timeout = 1;
+@@session.kill_conflicting_connections_timeout = 1
+1
+SET @@session.kill_conflicting_connections_timeout = 100;
+SELECT @@session.kill_conflicting_connections_timeout;
+@@session.kill_conflicting_connections_timeout
+100
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections_timeout;
+@@session.kill_conflicting_connections_timeout
+0
+SET @@session.kill_conflicting_connections_timeout = TRUEF;
+ERROR 42000: Incorrect argument type to variable 'kill_conflicting_connections_timeout'
+SET @@session.kill_conflicting_connections_timeout = TRUE_F;
+ERROR 42000: Incorrect argument type to variable 'kill_conflicting_connections_timeout'
+SET @@session.kill_conflicting_connections_timeout = FALSE0;
+ERROR 42000: Incorrect argument type to variable 'kill_conflicting_connections_timeout'
+SET @@session.kill_conflicting_connections_timeout = " ";
+ERROR 42000: Incorrect argument type to variable 'kill_conflicting_connections_timeout'
+SET @@session.kill_conflicting_connections_timeout = '';
+ERROR 42000: Incorrect argument type to variable 'kill_conflicting_connections_timeout'
+SELECT @@global.kill_conflicting_connections_timeout;
+@@global.kill_conflicting_connections_timeout
+1
+SELECT IF(@@session.kill_conflicting_connections_timeout, "ON", "OFF") = VARIABLE_VALUE 
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='kill_conflicting_connections_timeout';
+IF(@@session.kill_conflicting_connections_timeout, "ON", "OFF") = VARIABLE_VALUE
+0
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections_timeout = 1000;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections_timeout = 999;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections_timeout = 0;
+SELECT @@session.kill_conflicting_connections;
+@@session.kill_conflicting_connections
+0
+SET @@session.kill_conflicting_connections_timeout = 1;
+SELECT @@kill_conflicting_connections = @@session.kill_conflicting_connections;
+@@kill_conflicting_connections = @@session.kill_conflicting_connections
+1
+SET local.kill_conflicting_connections_timeout = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'local.kill_conflicting_connections_timeout = OFF' at line 1
+SELECT local.kill_conflicting_connections_timeout;
+ERROR 42S02: Unknown table 'local' in field list
+SET session.kill_conflicting_connections_timeout_timeout = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'session.kill_conflicting_connections_timeout_timeout = ON' at line 1
+SELECT session.kill_conflicting_connections_timeout;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT kill_conflicting_connections_timeout = @@global.kill_conflicting_connections_timeout;
+ERROR 42S22: Unknown column 'kill_conflicting_connections_timeout' in 'field list'
+SET @@session.kill_conflicting_connections_timeout = @start_value;
+SELECT @@session.kill_conflicting_connections_timeout;
+@@session.kill_conflicting_connections_timeout
+1
