@@ -1,0 +1,59 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+Case 1: Enable trx meta data only in master
+set @@global.binlog_trx_meta_data= true;
+set @@global.binlog_rows_query_log_events=true;
+use test;
+create table t1 (a int primary key, b char(8));
+insert into t1 values(1, 'a');
+insert into t1 values(2, 'b');
+include/sync_slave_sql_with_master.inc
+Case 2: Enable trx meta data in master and slave
+set @@global.binlog_trx_meta_data= true;
+set @@global.binlog_rows_query_log_events=true;
+create table t2 (a int primary key, b char(8));
+insert into t2 values(1, 'a');
+insert into t2 values(2, 'b');
+include/sync_slave_sql_with_master.inc
+Case 3: Enable trx meta data in master and slave
+set @@global.binlog_trx_meta_data= false;
+set @@global.binlog_rows_query_log_events= false;
+set @@global.binlog_trx_meta_data= true;
+set @@global.binlog_rows_query_log_events= true;
+create table t3 (a int primary key, b char(8));
+insert into t3 values(1, 'a');
+insert into t3 values(2, 'b');
+include/sync_slave_sql_with_master.inc
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+# /*::TRX_META_DATA::{"ts":[ts]}*/
+use test;
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+include/sync_slave_sql_with_master.inc
+set global binlog_trx_meta_data= default;
+set global binlog_rows_query_log_events=default;
+set global binlog_trx_meta_data= default;
+set global binlog_rows_query_log_events=default;
+include/rpl_end.inc

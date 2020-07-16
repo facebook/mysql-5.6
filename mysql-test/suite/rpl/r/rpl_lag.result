@@ -6,6 +6,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+call mtr.add_suppression("Got fatal error 1236 from master when reading data from binary log");
+[connection slave]
 Should be ON
 show global variables like "reset_seconds_behind_master";
 Variable_name	Value
@@ -20,6 +22,7 @@ Should be ON
 show global variables like "reset_seconds_behind_master";
 Variable_name	Value
 reset_seconds_behind_master	ON
+[connection master]
 CREATE TABLE t1 (id INT, v int);
 include/sync_slave_sql_with_master.inc
 seconds_behind_master with reset should be 0 and is 0
@@ -28,6 +31,7 @@ Should be OFF
 show global variables like "reset_seconds_behind_master";
 Variable_name	Value
 reset_seconds_behind_master	OFF
+[connection master]
 insert into t1 values (1,0), (2,0);
 include/sync_slave_sql_with_master.inc
 seconds_behind_master without reset should be >0
@@ -38,6 +42,7 @@ Should be ON
 show global variables like "reset_seconds_behind_master";
 Variable_name	Value
 reset_seconds_behind_master	ON
+[connection master]
 insert into t1 values (3,0);
 include/sync_slave_sql_with_master.inc
 seconds_behind_master with reset should be 0 and is 0
@@ -45,10 +50,26 @@ include/stop_slave.inc
 include/start_slave.inc
 Should be 1
 1
+[connection slave]
+include/stop_slave.inc
+[connection master]
+flush logs;
+PURGE BINARY LOGS TO '<CURRENT_BINLOG>';
+[connection slave]
+reset replica all;
+set global reset_seconds_behind_master=0;
+change replication source to source_host='127.0.0.1', source_port=<MASTER_PORT>, source_user='root', source_log_file='<PURGED_BINLOG>', source_log_pos=0;
+start replica;
+seconds_behind_master with reset should be NULL and is NULL
+stop replica;
+change replication source to source_log_file='<CURRENT_BINLOG>', source_log_pos=0;
+include/start_slave.inc
 #
 # Cleanup
 #
+[connection master]
 DROP TABLE t1;
 include/sync_slave_sql_with_master.inc
+[connection slave]
 set global reset_seconds_behind_master=1;
 include/rpl_end.inc

@@ -1273,6 +1273,7 @@ bool clone_recovery_error = false;
 
 ulong binlog_row_event_max_size;
 bool opt_log_only_query_comments = false;
+bool opt_binlog_trx_meta_data = false;
 bool opt_log_column_names = false;
 ulong binlog_checksum_options;
 ulong binlog_row_metadata;
@@ -11231,6 +11232,7 @@ PSI_mutex_key key_LOCK_thd_data;
 PSI_mutex_key key_LOCK_thd_sysvar;
 PSI_mutex_key key_LOCK_thd_protocol;
 PSI_mutex_key key_LOCK_thd_db_read_only_hash;
+PSI_mutex_key key_LOCK_thd_db_metadata;
 PSI_mutex_key key_LOG_LOCK_log;
 PSI_mutex_key key_master_info_data_lock;
 PSI_mutex_key key_master_info_run_lock;
@@ -11320,6 +11322,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_thd_sysvar, "THD::LOCK_thd_sysvar", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
   { &key_LOCK_thd_protocol, "THD::LOCK_thd_protocol", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
   { &key_LOCK_thd_db_read_only_hash, "THD::LOCK_thd_db_read_only_hash", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
+  { &key_LOCK_thd_db_metadata, "THD::LOCK_thd_db_metadata", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
   { &key_LOCK_user_conn, "LOCK_user_conn", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_uuid_generator, "LOCK_uuid_generator", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_sql_rand, "LOCK_sql_rand", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},

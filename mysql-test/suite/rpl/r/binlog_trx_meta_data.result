@@ -1,0 +1,34 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+[connection master]
+set @@global.binlog_trx_meta_data= true;
+[connection slave]
+set @@global.binlog_trx_meta_data= true;
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+flush logs;
+include/sync_slave_sql_with_master.inc
+[connection master]
+purge binary logs to 'master-bin.000002';
+[connection slave]
+flush logs;
+purge binary logs to 'slave-bin.000002';
+[connection master]
+include/sync_slave_sql_with_master.inc
+[connection master]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts]}*/	31
+[connection slave]
+meta	count(*)
+# /*::TRX_META_DATA::{"ts":[ts,ts]}*/	31
+[connection master]
+drop table t1;
+[connection master]
+set @@global.binlog_trx_meta_data= 0;
+[connection slave]
+set @@global.binlog_trx_meta_data= 0;
+include/rpl_end.inc
