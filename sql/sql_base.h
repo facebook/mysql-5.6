@@ -398,6 +398,12 @@ void free_global_sql_plans(void);
 int  fill_sql_plans(THD *thd, TABLE_LIST *tables, Item *cond);
 void insert_sql_plan(THD *thd, String *json_plan);
 
+/* For information_schema.sql_findings */
+extern ST_FIELD_INFO sql_findings_fields_info[];
+extern mysql_mutex_t LOCK_global_sql_findings;
+int  fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond);
+void free_global_sql_findings(void);
+void store_sql_findings(THD *thd, char *query_text);
 
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];

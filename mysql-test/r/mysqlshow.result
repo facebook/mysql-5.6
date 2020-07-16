@@ -158,6 +158,7 @@ DROP TABLE t1, t2;
 | SESSION_VARIABLES                     |
 | SLAVE_DB_LOAD                         |
 | SOCKET_DIAG_SLAVES                    |
+| SQL_FINDINGS                          |
 | SQL_PLANS                             |
 | SQL_STATISTICS                        |
 | SQL_TEXT                              |
@@ -258,6 +259,7 @@ DROP TABLE t1, t2;
 | SESSION_VARIABLES                     |
 | SLAVE_DB_LOAD                         |
 | SOCKET_DIAG_SLAVES                    |
+| SQL_FINDINGS                          |
 | SQL_PLANS                             |
 | SQL_STATISTICS                        |
 | SQL_TEXT                              |

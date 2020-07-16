@@ -43,6 +43,9 @@ static void mt_unlock(bool acquired, mysql_mutex_t *mutex)
   mysql_mutex_unlock(mutex);
 }
 
+/***********************************************************************
+ Begin - Functions to support capping the number of duplicate executions
+************************************************************************/
 /*
   free_global_active_sql
     Frees global_active_sql
@@ -210,6 +213,10 @@ void remove_active_sql(THD *thd)
   mt_unlock(lock_acquired, &LOCK_global_active_sql);
 }
 
+/*********************************************************************
+ End - Functions to support capping the number of duplicate executions
+**********************************************************************/
+
 /*
   SQL_STATISTICS
 
@@ -305,6 +312,33 @@ ST_FIELD_INFO client_attrs_fields_info[]=
 };
 
 static std::unordered_map<md5_key, std::string> global_client_attrs_map;
+
+/*
+  SQL_FINDINGS
+
+  Associates a SQL ID with its findings (aka SQL conditions).
+*/
+const uint sf_max_level_size   =   64;          // max level text size
+const uint sf_max_message_size =  256;        // max message text size
+const uint sf_max_query_size   = 1024;          // max query text size
+ST_FIELD_INFO sql_findings_fields_info[]=
+{
+  {"SQL_ID", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"CODE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"LEVEL", sf_max_level_size, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"MESSAGE", sf_max_message_size, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"QUERY_TEXT", sf_max_query_size, MYSQL_TYPE_MEDIUM_BLOB, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"LAST_RECORDED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+/* Global SQL findings map to track findings for all SQL statements */
+std::unordered_map<md5_key, SQL_FINDING_VEC> global_sql_findings_map;
 
 /*
   These limits control the maximum accumulation of all sql statistics.
@@ -744,6 +778,135 @@ bool is_sql_stats_collection_above_limit() {
           sql_stats_size + sql_plans_size  >= max_sql_stats_size);
 }
 
+/***********************************************************************
+              Begin - Functions to support SQL findings
+************************************************************************/
+/*
+  free_global_sql_findings
+    Frees global_sql_findings
+*/
+void free_global_sql_findings(void)
+{
+  bool lock_acquired = mt_lock(&LOCK_global_sql_findings);
+
+  for (auto& finding_iter : global_sql_findings_map)
+    finding_iter.second.clear();
+
+  global_sql_findings_map.clear();
+
+  mt_unlock(lock_acquired, &LOCK_global_sql_findings);
+}
+
+/*
+  populate_sql_findings
+    Populate the findings for the SQL statement that just ended into
+    the specificed finding map
+
+  Input:
+    thd         in:  - THD
+    query_text  in:  - text of the SQL statement
+    finding_vec out: - vector that stores the findings of the statement
+                       (key is the warning code)
+*/
+static void populate_sql_findings(
+    THD                    *thd,
+    char                   *query_text,
+    SQL_FINDING_VEC&        finding_vec)
+{
+  Diagnostics_area::Sql_condition_iterator it=
+    thd->get_stmt_da()->sql_conditions();
+
+  const Sql_condition *err;
+  while ((err= it++))
+  {
+    ulonglong now = my_getsystime() / 10000000;
+    const uint err_no = err->get_sql_errno();
+
+    // Lookup the finding map of this statement for current condition
+    std::vector<SQL_FINDING>::iterator iter;
+    for(iter = finding_vec.begin(); iter != finding_vec.end(); iter++)
+      if (iter->code == err_no)
+        break;
+    if (iter == finding_vec.cend())
+    {
+      /* If we reached the SQL stats limits then skip adding new findings
+         i.e, keep updating the count and date of existing findings
+       */
+      if (is_sql_stats_collection_above_limit())
+        continue;
+
+      // First time this finding is reported for this statement
+      SQL_FINDING sql_find;
+      sql_find.code          = err_no;
+      sql_find.level         = err->get_level();
+      sql_find.message.append(err->get_message_text(),
+                              std::min((uint)err->get_message_octet_length(),
+                                       sf_max_message_size));
+      sql_find.query_text.append(query_text,
+                                 std::min((uint)strlen(query_text),
+                                          sf_max_query_size));
+      sql_find.count         = 1;
+      sql_find.last_recorded = now;
+      finding_vec.push_back(sql_find);
+
+      sql_stats_size += sizeof(SQL_FINDING);
+    }
+    else
+    {
+      // Increment the count and update the time
+      iter->count++;
+      iter->last_recorded = now;
+    }
+  }
+}
+
+/*
+  store_sql_findings
+    Store the findings for the SQL statement that just ended into
+    the corresponding findings map that is looked up in the global
+    map using the SQL ID of the statement. The bulk of the work is
+    done in populate_sql_findings()
+
+  Input:
+    thd         in:  - THD
+    query_text  in:  - text of the SQL statement
+*/
+void store_sql_findings(THD *thd, char *query_text)
+{
+  if (sql_findings_control == SQL_INFO_CONTROL_ON &&
+      thd->mt_key_is_set(THD::SQL_ID) &&
+      thd->lex->select_lex.table_list.elements > 0) // contains at least one table
+  {
+    bool lock_acquired = mt_lock(&LOCK_global_sql_findings);
+
+    // Lookup finding map for this statement
+    auto sql_find_it = global_sql_findings_map.find(thd->mt_key_value(THD::SQL_ID));
+    if (sql_find_it == global_sql_findings_map.end())
+    {
+      /* Check whether we reached the SQL stats limits  */
+      if (!is_sql_stats_collection_above_limit())
+      {
+        // First time a finding is reported for this statement
+        SQL_FINDING_VEC finding_vec;
+        populate_sql_findings(thd, query_text, finding_vec);
+
+        global_sql_findings_map.insert(
+          std::make_pair(thd->mt_key_value(THD::SQL_ID), finding_vec));
+
+        sql_stats_size += MD5_HASH_SIZE;     // for SQL_ID
+      }
+    }
+    else
+      populate_sql_findings(thd, query_text, sql_find_it->second);
+
+    mt_unlock(lock_acquired, &LOCK_global_sql_findings);
+  }
+}
+
+/***********************************************************************
+                End - Functions to support SQL findings
+************************************************************************/
+
 /*
   update_sql_stats_after_statement
     Updates the SQL stats after every SQL statement.
@@ -1062,7 +1225,7 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_text->sql_text_length, TRUE);
     /* SQL Text */
     table->field[f++]->store(digest_text.c_ptr(),
-                             MY_MIN(digest_text.length(), 4096),
+                             std::min(digest_text.length(), (uint)4096),
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
@@ -1099,7 +1262,7 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
 
     /* CLIENT_ATTRIBUTES */
     table->field[f++]->store(iter->second.c_str(),
-                             MY_MIN(4096, iter->second.size()),
+                             std::min(4096, (int)iter->second.size()),
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
@@ -1109,6 +1272,72 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
     }
   }
   mt_unlock(lock_acquired, &LOCK_global_sql_stats);
+
+  DBUG_RETURN(0);
+}
+
+/*
+  fill_sql_findings
+    Fills the rows returned for statements selecting from SQL_FINDINGS
+
+*/
+int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_sql_text");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = mt_lock(&LOCK_global_sql_findings);
+
+  for (auto sql_iter= global_sql_findings_map.cbegin();
+       sql_iter != global_sql_findings_map.cend(); ++sql_iter)
+  {
+    char sql_id_hex_string[MD5_BUFF_LENGTH];
+    array_to_hex(sql_id_hex_string, sql_iter->first.data(), sql_iter->first.size());
+
+    for(auto f_iter : sql_iter->second)
+    {
+      int f= 0;
+      restore_record(table, s->default_values);
+
+      /* SQL ID */
+      table->field[f++]->store(sql_id_hex_string, MD5_BUFF_LENGTH,
+                               system_charset_info);
+
+      /* CODE */
+      table->field[f++]->store(f_iter.code, TRUE);
+
+      /* LEVEL */
+      table->field[f++]->store(warning_level_names[f_iter.level].str,
+                               std::min((uint)warning_level_names[f_iter.level].length,
+                                        sf_max_level_size),
+                               system_charset_info);
+
+      /* MESSAGE */
+      table->field[f++]->store(f_iter.message.c_str(),
+                               std::min((uint)f_iter.message.length(),
+                                        sf_max_message_size),
+                               system_charset_info);
+
+      /* QUERY_TEXT */
+      table->field[f++]->store(f_iter.query_text.c_str(),
+                               std::min((uint)f_iter.query_text.length(),
+                                        sf_max_query_size),
+                               system_charset_info);
+
+      /* COUNT */
+      table->field[f++]->store(f_iter.count, TRUE);
+
+      /* LAST_RECORDED */
+      table->field[f++]->store(f_iter.last_recorded, TRUE);
+
+      if (schema_table_store_record(thd, table))
+      {
+        mt_unlock(lock_acquired, &LOCK_global_sql_findings);
+        DBUG_RETURN(-1);
+      }
+    }
+  }
+  mt_unlock(lock_acquired, &LOCK_global_sql_findings);
 
   DBUG_RETURN(0);
 }

@@ -110,7 +110,7 @@ where t.sql_id=s.sql_id and skipped_count > 0
 order by length(query_sample_text);
 
 # tidy up
-set @@GLOBAL.sql_stats_control=off_hard;
+set @@GLOBAL.sql_stats_control=DEFAULT;
 set @@GLOBAL.sql_maximum_duplicate_executions=0;
 set @@GLOBAL.max_digest_sample_age=-1;
 

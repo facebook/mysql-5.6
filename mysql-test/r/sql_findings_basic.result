@@ -1,0 +1,95 @@
+create user user1@localhost  identified by 'u1';
+grant alter, create, insert, select, drop on test.* to user1@localhost;
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+-> Case 1: both sql stats/findings are default (OFF_HARD)
+select @@sql_stats_control;
+@@sql_stats_control
+OFF_HARD
+select @@sql_findings_control;
+@@sql_findings_control
+OFF_HARD
+create table t1 (c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t1 values('momo');
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+select * from t1 where c1=1;
+c1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'mo'
+-> no findings captured
+select sql_id, code, message, query_text, count from information_schema.sql_Findings;
+sql_id	code	message	query_text	count
+drop table t1;
+-> Case 2: both sql stats/findings are ON
+set @@GLOBAL.sql_stats_control=ON;
+set @@GLOBAL.sql_findings_control=ON;
+select @@sql_stats_control;
+@@sql_stats_control
+ON
+select @@sql_findings_control;
+@@sql_findings_control
+ON
+create table t1 (c1 char(2) PRIMARY KEY, c2 int unsigned)
+engine=myisam;
+insert into t1 values('momo', -1);
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+4428540d2277d6c2b5f40b83d28195d7	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+4428540d2277d6c2b5f40b83d28195d7	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+select * from t1 where c1=1;
+c1	c2
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+4428540d2277d6c2b5f40b83d28195d7	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+4428540d2277d6c2b5f40b83d28195d7	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+d8767fc5a27c1c7018b06d9e6b4a9e89	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+create table t2 (c1 char(2) PRIMARY KEY) collate latin1_danish_ci
+engine=myisam;
+insert into t2 values('zoro');
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+4428540d2277d6c2b5f40b83d28195d7	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+4428540d2277d6c2b5f40b83d28195d7	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+6a27ad290846ca8699dca282fa3f10a3	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+d8767fc5a27c1c7018b06d9e6b4a9e89	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+select * from t2 where c1=2;
+c1
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+4428540d2277d6c2b5f40b83d28195d7	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+4428540d2277d6c2b5f40b83d28195d7	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+5893b4e4cef08a47bc308af586e316d5	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
+6a27ad290846ca8699dca282fa3f10a3	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+d8767fc5a27c1c7018b06d9e6b4a9e89	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+-> Case 3: multi-query scenario
+create table t3(c1 char(2) PRIMARY KEY)
+engine=myisam;
+insert into t3 values('case3');
+commit;
+select * from t3 where c1=1;
+drop table t3;
+||||
+c1
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+4428540d2277d6c2b5f40b83d28195d7	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+4428540d2277d6c2b5f40b83d28195d7	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+5893b4e4cef08a47bc308af586e316d5	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
+6a27ad290846ca8699dca282fa3f10a3	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+8421d90f7f24b29fdf539cfe384a8373	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t3 where c1=1;	1
+a0c59317e52f86c3d07d9d9348e183de	1265	Data truncated for column 'c1' at row 1	insert into t3 values('case3');	1
+d8767fc5a27c1c7018b06d9e6b4a9e89	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+-> Cleanup
+set @@GLOBAL.sql_stats_control=DEFAULT;
+set @@GLOBAL.sql_findings_control=DEFAULT;
+drop table t1;
+drop table t2;
+drop user user1@localhost;
+drop user user_super@localhost;

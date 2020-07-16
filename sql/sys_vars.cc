@@ -6675,7 +6675,7 @@ static Sys_var_mybool Sys_high_precision_processlist(
 
 #endif
 
-static const char *sql_stats_control_values[] =
+static const char *sql_info_control_values[] =
 { "OFF_HARD", "OFF_SOFT", "ON",
   /* Add new control before the following line */
   0
@@ -6683,7 +6683,7 @@ static const char *sql_stats_control_values[] =
 
 static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
 {
-  if (sql_stats_control == SQL_STATS_CONTROL_OFF_HARD) {
+  if (sql_stats_control == SQL_INFO_CONTROL_OFF_HARD) {
     free_global_sql_stats(false /*limits_updated*/);
   }
 
@@ -6702,7 +6702,7 @@ static Sys_var_enum Sys_sql_stats_control(
        "ON: Collect the statistics.",
        GLOBAL_VAR(sql_stats_control),
        CMD_LINE(REQUIRED_ARG),
-       sql_stats_control_values, DEFAULT(SQL_STATS_CONTROL_OFF_HARD),
+       sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_stats_control));
 
@@ -6710,23 +6710,8 @@ static bool update_max_sql_stats_limits(sys_var *, THD *, enum_var_type type)
 {
   // This will clear out all the stats collected so far if the limits are
   // decreased.
-  if (sql_stats_control != SQL_STATS_CONTROL_OFF_HARD) {
+  if (sql_stats_control != SQL_INFO_CONTROL_OFF_HARD) {
     free_global_sql_stats(true /*limits_updated*/);
-  }
-
-  return false; // success
-}
-
-static const char *column_stats_control_values[] =
-{ "OFF_HARD", "OFF_SOFT", "ON",
- /* Add new control before the following line */
- 0
-};
-
-static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
-{
-  if (column_stats_control == COLUMN_STATS_CONTROL_OFF_HARD) {
-    free_column_stats();
   }
 
   return false; // success
@@ -6748,6 +6733,15 @@ static Sys_var_ulonglong Sys_max_sql_stats_size(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(update_max_sql_stats_limits));
 
+static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
+{
+  if (column_stats_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_column_stats();
+  }
+
+  return false; // success
+}
+
 static Sys_var_enum Sys_column_stats_control(
        "column_stats_control",
        "Control the collection of column statistics from parse tree. "
@@ -6760,7 +6754,7 @@ static Sys_var_enum Sys_column_stats_control(
        "ON: Collect the statistics.",
         GLOBAL_VAR(column_stats_control),
         CMD_LINE(REQUIRED_ARG),
-        column_stats_control_values, DEFAULT(COLUMN_STATS_CONTROL_OFF_HARD),
+        sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
         NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
         ON_UPDATE(set_column_stats_control));
 
@@ -6812,15 +6806,9 @@ static Sys_var_long Sys_max_digest_sample_age(
 ** - OFF_HARD: Default value. Stop collecting the SQL plans and flush all SQL
 **             plans related data from memory
 */
-static const char *sql_plans_control_values[] =
-{ "OFF_HARD", "OFF_SOFT", "ON",
-  /* Add new control before the following line */
-  0
-};
-
 static bool set_sql_plans_control(sys_var *, THD *, enum_var_type type)
 {
-  if (sql_plans_control == SQL_PLANS_CONTROL_OFF_HARD) {
+  if (sql_plans_control == SQL_INFO_CONTROL_OFF_HARD) {
     free_global_sql_plans();
   }
 
@@ -6839,7 +6827,7 @@ static Sys_var_enum Sys_sql_plans_control(
        "ON: Collect the SQL plans.",
        GLOBAL_VAR(sql_plans_control),
        CMD_LINE(REQUIRED_ARG),
-       sql_plans_control_values, DEFAULT(SQL_PLANS_CONTROL_OFF_HARD),
+       sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
        ON_UPDATE(set_sql_plans_control));
 
@@ -6948,3 +6936,28 @@ static Sys_var_longlong Sys_max_tmp_disk_usage(
        VALID_RANGE(-1, LONGLONG_MAX), DEFAULT(0),
        BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_max_tmp_disk_usage));
+
+static bool set_sql_findings_control(sys_var *, THD *, enum_var_type type)
+{
+  if (sql_findings_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_global_sql_findings();
+  }
+
+  return false; // success
+}
+
+static Sys_var_enum Sys_sql_findings_control(
+       "sql_findings_control",
+       "Provides a control to store findings from optimizer/executing SQL "
+       "statements. This data is exposed through the SQL_FINDINGS table. "
+       "It accepts the following values: "
+       "OFF_HARD: Default value. Stop collecting the findings and flush "
+       "all SQL findings related data from memory. "
+       "OFF_SOFT: Stop collecting the findings, but retain any data "
+       "collected so far. "
+       "ON: Collect the SQL findings.",
+       GLOBAL_VAR(sql_findings_control),
+       CMD_LINE(REQUIRED_ARG),
+       sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+       ON_UPDATE(set_sql_findings_control));

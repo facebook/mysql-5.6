@@ -10408,6 +10408,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},
   {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info, create_schema_table,
    fill_ac_queue, NULL, NULL, -1, -1, false, 0},
+  {"SQL_FINDINGS", sql_findings_fields_info, create_schema_table,
+   fill_sql_findings, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 

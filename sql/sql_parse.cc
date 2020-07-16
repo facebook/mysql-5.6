@@ -1565,7 +1565,7 @@ static inline bool is_query(enum enum_server_command command) {
 */
 static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, char* sub_query)
 {
-  if (sql_stats_control == SQL_STATS_CONTROL_ON)
+  if (sql_stats_control == SQL_INFO_CONTROL_ON)
   {
     SHARED_SQL_STATS sql_stats;
     /*
@@ -1582,6 +1582,9 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
   }
+
+  if (sql_findings_control == SQL_INFO_CONTROL_ON)
+    store_sql_findings(thd, sub_query);
 
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::PLAN_ID);
@@ -3937,10 +3940,13 @@ mysql_execute_command(THD *thd,
       goto error;
   }
 
-  // Parsing out of column usage information right after the preparation phase.
-  // There are certain elements that may be required from the execution phase
-  // but for simple selects, all the information at this point suffices.
-  if (column_stats_control == COLUMN_STATS_CONTROL_ON)
+  /* Parse the column usage information right after the preparation phase.
+     There are certain elements that may be required from the execution phase
+     but for simple selects, all the information at this point suffices.
+     Check the feature is enabled and an entry does not already exist.
+  */
+  if (column_stats_control == SQL_INFO_CONTROL_ON &&
+      !exists_column_usage_info(thd))
   {
     parse_column_usage_info(thd, out_cus);
   }
@@ -10315,8 +10321,7 @@ bool parse_sql(THD *thd,
 
     if (parser_state->m_input.m_compute_digest ||
        (parser_state->m_digest_psi != NULL) ||
-       (sql_stats_control == SQL_STATS_CONTROL_ON) ||
-       (column_stats_control == COLUMN_STATS_CONTROL_ON))
+        sql_id_is_needed())
     {
       /*
         If either:
@@ -10377,10 +10382,10 @@ bool parse_sql(THD *thd,
   /* Compute SQL ID if parse was successful */
   if (ret_value == 0)
   {
-    /* check SQL stats is enabled, the digest has been populated and
-       not an internal explain to capture the sql plan
+    /* check that the SQL ID is needed, the digest has been populated
+       and not an internal explain (capture the sql plan)
      */
-    if (sql_stats_control == SQL_STATS_CONTROL_ON &&
+    if (sql_id_is_needed() &&
         !thd->in_capture_sql_plan() &&
         thd->m_digest && !thd->m_digest->m_digest_storage.is_empty())
       {

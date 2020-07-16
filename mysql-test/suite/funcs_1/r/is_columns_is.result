@@ -345,6 +345,13 @@ def	information_schema	SOCKET_DIAG_SLAVES	TOTAL_RETRANS	12	0	NO	bigint	NULL	NULL
 def	information_schema	SOCKET_DIAG_SLAVES	UID	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SOCKET_DIAG_SLAVES	USER	2		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SOCKET_DIAG_SLAVES	WQUEUE	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_FINDINGS	CODE	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_FINDINGS	COUNT	6	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_FINDINGS	LAST_RECORDED	7	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_FINDINGS	LEVEL	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	SQL_FINDINGS	MESSAGE	4		NO	varchar	256	768	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(256)			select	
+def	information_schema	SQL_FINDINGS	QUERY_TEXT	5	NULL	NO	blob	65535	65535	NULL	NULL	NULL	NULL	NULL	blob			select	
+def	information_schema	SQL_FINDINGS	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_PLANS	PLAN_DATA	3		NO	varchar	8192	24576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(8192)			select	
 def	information_schema	SQL_PLANS	PLAN_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_PLANS	PLAN_LENGTH	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
@@ -677,6 +684,7 @@ AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name 
 AND CHARACTER_OCTET_LENGTH / CHARACTER_MAXIMUM_LENGTH = 1
 ORDER BY CHARACTER_SET_NAME, COLLATION_NAME, COL_CML;
 COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
+1.0000	blob	NULL	NULL
 1.0000	longtext	utf8	utf8_general_ci
 SELECT DISTINCT
 CHARACTER_OCTET_LENGTH / CHARACTER_MAXIMUM_LENGTH AS COL_CML,
@@ -1066,6 +1074,13 @@ NULL	information_schema	SOCKET_DIAG_SLAVES	MASTER_ID	bigint	NULL	NULL	NULL	NULL	
 3.0000	information_schema	SOCKET_DIAG_SLAVES	SLAVE_UUID	varchar	36	108	utf8	utf8_general_ci	varchar(36)
 NULL	information_schema	SOCKET_DIAG_SLAVES	IS_SEMI_SYNC	int	NULL	NULL	NULL	NULL	int(7) unsigned
 3.0000	information_schema	SOCKET_DIAG_SLAVES	REPLICATION STATUS	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+3.0000	information_schema	SQL_FINDINGS	SQL_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+NULL	information_schema	SQL_FINDINGS	CODE	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+3.0000	information_schema	SQL_FINDINGS	LEVEL	varchar	64	192	utf8	utf8_general_ci	varchar(64)
+3.0000	information_schema	SQL_FINDINGS	MESSAGE	varchar	256	768	utf8	utf8_general_ci	varchar(256)
+1.0000	information_schema	SQL_FINDINGS	QUERY_TEXT	blob	65535	65535	NULL	NULL	blob
+NULL	information_schema	SQL_FINDINGS	COUNT	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	SQL_FINDINGS	LAST_RECORDED	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	SQL_PLANS	PLAN_ID	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 NULL	information_schema	SQL_PLANS	PLAN_LENGTH	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 3.0000	information_schema	SQL_PLANS	PLAN_DATA	varchar	8192	24576	utf8	utf8_general_ci	varchar(8192)

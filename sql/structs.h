@@ -31,6 +31,7 @@
 #include "hash.h"
 #include "sql_digest.h"
 #include <unordered_map>
+#include "sql_error.h"
 
 struct TABLE;
 class Field;
@@ -552,8 +553,8 @@ typedef struct st_sql_stats {
   unsigned char client_id[MD5_HASH_SIZE];
   uint32_t db_id;
   uint32_t user_id;
-	char * query_sample_text;  /* sample query, max length = [1024 + '\0'] */
-  uint query_sample_seen;  /* timestamp for last sampled */
+  char *query_sample_text;  /* sample query, max length = [1024 + '\0'] */
+  uint  query_sample_seen;  /* timestamp for last sampled */
 
   ulonglong count;   /* execution count of the normalized SQL */
                                   /* statement */
@@ -592,6 +593,22 @@ typedef struct st_sql_text {
   struct sql_digest_storage digest_storage;
   unsigned char token_array_storage[1024];
 } SQL_TEXT;
+
+/* SQL Finding - stores information about one SQL finding */
+typedef struct st_sql_finding {
+  uint        code;                                      /* error code */
+  Sql_condition::enum_warning_level level;            /* warning level */
+  std::string message;                                      /* message */
+  std::string query_text;                                /* query text */
+  ulonglong   count;       /* number of times the finding was recorded */
+  ulonglong   last_recorded;     /* last recorded, seconds since epoch */
+
+} SQL_FINDING;
+
+/* SQL_FINDING_VEC - stores all the findings for a SQL statement.
+   The lookup key is the code/error number
+ */
+typedef std::vector<SQL_FINDING> SQL_FINDING_VEC;
 
 /*
 ** enum_map_name

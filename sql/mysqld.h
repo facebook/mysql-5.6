@@ -1012,69 +1012,51 @@ extern char *admin_users_list;
   (user_table_stats_control != UTS_CONTROL_OFF)
 
 /*
-  Global variable to control collecting sql statistics and normalized sql text.
+  Possible values used for variables to control collection of MySQL stats
+  - sql_stats_control,
+  - sql_plans_control,
+  - column_stats_control,
+  - sql_findings_control
+  Values
+  - OFF_HARD: stop the collection and all data in the corresponding
+              in-memory structures is evicted
+  - OFF_SOFT: stop collecting the stats but keep the data collected so far
+  - ON:       (re-)start the collection
 
-  - Setting the control to "OFF_HARD" will stop the stats collection and all
-    data from sql-stats related in-memory structures is evicted.
-  - Setting the control to a "OFF_SOFT" will stop collecting the stats, but
-    any existing stats will continue to be in memory. The stats are not flushed.
-  - Setting the control to "ON" will (re-)start collecting the stats.
-
-  Keep the enum in the sync with sql_stats_control_values[] (sys_vars.cc)
+  Keep the enum in the sync with sql_info_control_values[] (sys_vars.cc)
 */
-enum enum_sql_stats_control
+enum enum_sql_info_control
 {
-  SQL_STATS_CONTROL_OFF_HARD   = 0,
-  SQL_STATS_CONTROL_OFF_SOFT   = 1,
-  SQL_STATS_CONTROL_ON         = 2,
+  SQL_INFO_CONTROL_OFF_HARD   = 0,
+  SQL_INFO_CONTROL_OFF_SOFT   = 1,
+  SQL_INFO_CONTROL_ON         = 2,
   /* Add new control before the following line */
-  SQL_STATS_CONTROL_INVALID
+  SQL_INFO_CONTROL_INVALID
 };
+/* Global variable to control collecting sql statistics and normalized sql text */
 extern ulong sql_stats_control;
 extern ulonglong max_sql_stats_count;
 extern ulonglong max_sql_stats_size;
 
-/*
-  Global variable to control collecting column statistics.
-
-  - Setting the control to "OFF_HARD" will stop the stats collection and all
-    data from column statistics related in-memory structures is evicted.
-  - Setting the control to a "OFF_SOFT" will stop collecting the stats, but
-    any existing stats will continue to be in memory. The stats are not flushed.
-  - Setting the control to "ON" will (re-)start collecting column stats.
-
-  Keep the enum in the sync with column_stats_control_values[] (sys_vars.cc)
-*/
-enum enum_column_stats_control
-{
-  COLUMN_STATS_CONTROL_OFF_HARD   = 0,
-  COLUMN_STATS_CONTROL_OFF_SOFT   = 1,
-  COLUMN_STATS_CONTROL_ON         = 2,
-  /* Add new control before the following line */
-  COLUMN_STATS_CONTROL_INVALID
-};
+/* Global variable to control collecting column statistics */
 extern ulong column_stats_control;
 
-/*
-  Global variable to control collecting sql plans for every SQL statement
-
-  - Setting the control to "OFF_HARD" will stop the plans collection and all
-    data from sql plans related in-memory structures is evicted.
-  - Setting the control to a "OFF_SOFT" will stop collecting the SQL plans, but
-    any existing stats will continue to be in memory. The plans are not flushed
-  - Setting the control to "ON" will start or resume collecting the plans.
-
-  Keep the enum in the sync with sql_plans_control_values[] (sys_vars.cc)
-*/
-enum enum_sql_plans_control
-{
-  SQL_PLANS_CONTROL_OFF_HARD   = 0,
-  SQL_PLANS_CONTROL_OFF_SOFT   = 1,
-  SQL_PLANS_CONTROL_ON         = 2,
-  /* Add new control before the following line */
-  SQL_PLANS_CONTROL_INVALID
-};
+/* Global variable to control collecting sql plans for every SQL statement */
 extern ulong sql_plans_control;
+
+/* Controls collecting MySQL findings (aka SQL conditions) */
+extern ulong sql_findings_control;
+
+/* sql_id_is_needed
+     Returns TRUE if SQL_ID is needed
+ */
+inline bool sql_id_is_needed()
+{
+  bool needed = (sql_stats_control    == SQL_INFO_CONTROL_ON ||
+                 column_stats_control == SQL_INFO_CONTROL_ON ||
+                 sql_findings_control == SQL_INFO_CONTROL_ON ? true : false);
+  return needed;
+}
 
 /*
   SQL plan capture enabled
@@ -1083,7 +1065,7 @@ extern ulong sql_plans_control;
   - not running in bootstrap mode
 */
 #define SQL_PLANS_ENABLED                                       \
-  (sql_plans_control == SQL_PLANS_CONTROL_ON && !in_bootstrap)
+  (sql_plans_control == SQL_INFO_CONTROL_ON && !in_bootstrap)
 
 /*
   Post parse checks when capturing sql plans: skip statements that
@@ -1305,6 +1287,7 @@ extern PSI_mutex_key
   key_LOCK_global_sql_stats,
   key_LOCK_global_sql_plans,
   key_LOCK_global_active_sql,
+  key_LOCK_global_sql_findings,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

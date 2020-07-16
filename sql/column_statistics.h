@@ -134,6 +134,15 @@ extern int parse_column_usage_info(
     THD *thd, std::set<ColumnUsageInfo>& out_cus);
 
 /*
+  exists_column_usage_info
+    Returns TRUE if we already collected column usage statistics for the SQL
+    statement
+  Input:
+    thd        in: THD
+*/
+extern bool exists_column_usage_info(THD *thd);
+
+/*
   populate_column_usage_info
     Populates column usage information into the temporary table data structures.
     This information was derived in `parse_column_usage_info`.

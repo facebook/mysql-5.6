@@ -405,27 +405,40 @@ void populate_column_usage_info(THD *thd, std::set<ColumnUsageInfo>& cus) {
     DBUG_VOID_RETURN;
   }
 
-  // Return early if the column usage info that were parsed were empty or if
-  // SQL_ID couldn't be computed.
-  if (cus.empty() || !thd->m_digest ||
-      thd->m_digest->m_digest_storage.is_empty())
+  /* Return early if any of the following true
+    - the column usage information is empty
+    - SQL_ID is not set
+  */
+  if (cus.empty() || !thd->mt_key_is_set(THD::SQL_ID))
   {
     DBUG_VOID_RETURN;
   }
 
-  md5_key sql_id;
-  compute_digest_md5(&thd->m_digest->m_digest_storage, sql_id.data());
-
   mysql_rwlock_wrlock(&LOCK_column_statistics);
-  auto iter= col_statistics_map.find(sql_id);
+  auto iter= col_statistics_map.find(thd->mt_key_value(THD::SQL_ID));
   if (iter == col_statistics_map.end())
   {
     col_statistics_map.insert(
-        std::make_pair<md5_key, std::set<ColumnUsageInfo> >(
-            std::move(sql_id), std::move(cus)));
+        std::make_pair(thd->mt_key_value(THD::SQL_ID), std::move(cus)));
   }
   mysql_rwlock_unlock(&LOCK_column_statistics);
   DBUG_VOID_RETURN;
+}
+
+bool exists_column_usage_info(THD *thd) {
+  DBUG_ENTER("exists_column_usage_info");
+  DBUG_ASSERT(thd);
+
+  // return now if the SQL ID was not set
+  if (!thd->mt_key_is_set(THD::SQL_ID))
+    DBUG_RETURN(true);
+
+  mysql_rwlock_rdlock(&LOCK_column_statistics);
+  bool exists = (col_statistics_map.find(thd->mt_key_value(THD::SQL_ID))
+                 == col_statistics_map.end() ? false : true);
+  mysql_rwlock_unlock(&LOCK_column_statistics);
+
+  DBUG_RETURN(exists);
 }
 
 int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond)

@@ -3574,12 +3574,12 @@ public:
   */
   void mt_mutex_lock(enum_mt_key key_name)
     {
-      if (key_name == SQL_ID || key_name == PLAN_ID)
+      if (key_name == SQL_ID || key_name == CLIENT_ID || key_name == PLAN_ID)
         mysql_mutex_lock(&LOCK_thd_data);
     }
   void mt_mutex_unlock(enum_mt_key key_name)
     {
-      if (key_name == SQL_ID || key_name == PLAN_ID)
+      if (key_name == SQL_ID || key_name == CLIENT_ID || key_name == PLAN_ID)
         mysql_mutex_unlock(&LOCK_thd_data);
     }
   void mt_key_set(enum_mt_key key_name, const unsigned char *key_val)

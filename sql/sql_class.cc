@@ -5892,7 +5892,7 @@ void THD::serialize_client_attrs()
 {
   DBUG_ASSERT(!in_capture_sql_plan());
 
-  if (sql_stats_control != SQL_STATS_CONTROL_ON)
+  if (sql_stats_control != SQL_INFO_CONTROL_ON)
     return;
 
   if (client_attrs_string.is_empty()) {

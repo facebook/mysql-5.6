@@ -83,7 +83,7 @@ SELECT 'Q1', sleep(2) from dual	6	1
 /*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from dual /*"D3"*/	2	1
 /*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from dual /*"D3"*/	2	1
 affected rows: 3
-set @@GLOBAL.sql_stats_control=off_hard;
+set @@GLOBAL.sql_stats_control=DEFAULT;
 affected rows: 0
 set @@GLOBAL.sql_maximum_duplicate_executions=0;
 affected rows: 0

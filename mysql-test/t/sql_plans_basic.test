@@ -240,25 +240,19 @@ order by plan_id;
 -- echo -> case 6: test processlist and transaction_list
 connect (con61, localhost, user1,u1,test);
 
-select pl.info, pl.sql_id,
-       ca.client_id, ca.client_attributes,
+select pl.info, pl.sql_id, pl.client_id,
        sp.plan_id, sp.plan_data
 from information_schema.processlist pl,
-     information_schema.sql_plans   sp,
-     information_schema.client_attributes ca
+     information_schema.sql_plans   sp
 where command='Query'
-  and pl.plan_id=sp.plan_id
-  and pl.client_id=ca.client_id;
+  and pl.plan_id=sp.plan_id;
 
-select tl.db, tl.user, tl.sql_id,
-       ca.client_id, ca.client_attributes,
+select tl.db, tl.user, tl.sql_id, tl.client_id,
        sp.plan_id, sp.plan_data
 from information_schema.transaction_list tl,
-     information_schema.sql_plans sp,
-     information_schema.client_attributes ca
+     information_schema.sql_plans sp
 where command='Query'
-  and tl.plan_id=sp.plan_id
-  and tl.client_id=ca.client_id;
+  and tl.plan_id=sp.plan_id;
 
 ##################################################
 ### Case 7: test with a I_S tables
