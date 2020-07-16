@@ -2050,6 +2050,8 @@ int ha_rollback_trans(THD *thd, bool all) {
 
   DBUG_TRACE;
 
+  DBUG_EXECUTE_IF("simulate_delay_in_rollback", sleep(5););
+
   /*
     We must not rollback the normal transaction if a statement
     transaction is pending.
