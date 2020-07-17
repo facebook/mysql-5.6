@@ -40,6 +40,7 @@ Warning	1612	Being purged log binlog.000001 was not found
 show binary logs;
 Log_name	File_size	Encrypted
 binlog.000004	#	#
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 reset master;
 flush logs;
 flush logs;
@@ -51,6 +52,7 @@ Level	Code	Message
 Warning	1377	a problem with deleting binlog.000001; consider examining correspondence of your binlog index file to the actual binlog files
 Error	1377	Fatal error during log purge
 reset master;
+SET GLOBAL binlog_error_action= ABORT_SERVER;
 # crash_purge_before_update_index
 flush logs;
 SET SESSION debug="+d,crash_purge_before_update_index";
