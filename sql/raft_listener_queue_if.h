@@ -17,11 +17,11 @@ enum class RaftReplicateMsgOpType {
 /* Type of callback that raft plugin wants to invoke in the server */
 enum class RaftListenerCallbackType {
   SET_READ_ONLY= 1,
-  UNSET_READ_ONLY= 2,
-  TRIM_LOGGED_GTIDS= 3,
-  ROTATE_BINLOG= 4,
-  ROTATE_RELAYLOG= 5,
-  RAFT_LISTENER_THREADS_EXIT= 6,
+  UNSET_READ_ONLY = 2,
+  TRIM_LOGGED_GTIDS = 3,
+  ROTATE_BINLOG = 4,
+  ROTATE_RELAYLOG = 5,
+  RAFT_LISTENER_THREADS_EXIT = 6,
   RLI_RELAY_LOG_RESET = 7,
   RESET_SLAVE = 8,
   BINLOG_CHANGE_TO_APPLY = 9,
