@@ -26,11 +26,13 @@ reset master;
 ERROR HY000: Target log not found in binlog index
 SET @@debug="";
 reset master;
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 SET @@debug="d,simulate_find_log_pos_error";
 purge binary logs to 'master-bin.000001';
 ERROR HY000: Target log not found in binlog index
 SET @@debug="";
 purge binary logs to 'master-bin.000001';
+SET GLOBAL binlog_error_action = ABORT_SERVER;;
 ==== clean up ====
 CHANGE MASTER TO MASTER_HOST = '127.0.0.1';
 include/rpl_end.inc

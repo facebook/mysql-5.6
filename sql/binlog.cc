@@ -3876,18 +3876,31 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
     goto end;
   }
 
-  /*
-    We need move crash_safe_index_file to index_file if the index_file
-    does not exist and crash_safe_index_file exists when mysqld server
-    restarts.
-  */
-  if (my_access(index_file_name, F_OK) &&
-      !my_access(crash_safe_index_file_name, F_OK) &&
-      my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME))) {
-    LogErr(ERROR_LEVEL, ER_BINLOG_CANT_MOVE_TMP_TO_INDEX,
-           "MYSQL_BIN_LOG::open_index_file");
-    error = true;
-    goto end;
+  // case: crash_safe_index_file exists
+  if (!my_access(crash_safe_index_file_name, F_OK)) {
+    /*
+      We need to move crash_safe_index_file to index_file if the index_file
+      does not exist or delete it if the index_file exists when mysqld server
+      restarts.
+    */
+
+    // case: index_file does not exist
+    if (my_access(index_file_name, F_OK)) {
+      if (my_rename(crash_safe_index_file_name, index_file_name, MYF(MY_WME))) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_CANT_MOVE_TMP_TO_INDEX,
+               "MYSQL_BIN_LOG::open_index_file");
+        error = true;
+        goto end;
+      }
+    } else {
+      if (close_crash_safe_index_file() ||
+          my_delete(crash_safe_index_file_name, MYF(MY_WME))) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_CANT_DELETE_TMP_INDEX,
+               "MYSQL_BIN_LOG::open_index_file");
+        error = true;
+        goto end;
+      }
+    }
   }
 
   if ((index_file_nr = mysql_file_open(m_key_file_log_index, index_file_name,
@@ -5318,6 +5331,9 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
   char gtid_set_length_buffer[11];
   DBUG_TRACE;
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+                  { DBUG_SET("+d,simulate_no_free_space_error"); });
+
   if (open_crash_safe_index_file()) {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_TMP_INDEX,
            "MYSQL_BIN_LOG::add_log_to_index");
@@ -5383,9 +5399,16 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
+                  { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   return 0;
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index", {
+    DBUG_SET("-d,simulate_no_free_space_error");
+    DBUG_SET("-d,simulate_file_write_error");
+  });
   return -1;
 }
 
@@ -5964,6 +5987,8 @@ int MYSQL_BIN_LOG::close_crash_safe_index_file() {
 */
 int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO *log_info,
                                           bool need_update_threads) {
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+                  { DBUG_SET("+d,simulate_no_free_space_error"); });
   if (open_crash_safe_index_file()) {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_TMP_INDEX,
            "MYSQL_BIN_LOG::remove_logs_from_index");
@@ -5991,12 +6016,19 @@ int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO *log_info,
     goto err;
   }
 
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index",
+                  { DBUG_SET("-d,simulate_no_free_space_error"); });
+
   // now update offsets in index file for running threads
   if (need_update_threads)
     adjust_linfo_offsets(log_info->index_file_start_offset);
   return 0;
 
 err:
+  DBUG_EXECUTE_IF("simulate_disk_full_remove_logs_from_index", {
+    DBUG_SET("-d,simulate_no_free_space_error");
+    DBUG_SET("-d,simulate_file_write_error");
+  });
   return LOG_INFO_IO;
 }
 
@@ -6122,6 +6154,12 @@ err:
     Then error codes from purging the index entry.
   */
   error = error ? error : error_index;
+  if (error && binlog_error_action == ABORT_SERVER) {
+    exec_binlog_error_action_abort(
+        "Either disk is full, file system is read only or "
+        "there was an encryption error while opening the binlog. "
+        "Aborting the server.");
+  }
   return error;
 }
 

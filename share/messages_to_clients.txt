@@ -9592,6 +9592,9 @@ ER_BINLOG_INDEX_PREV_GTID_OUTOFMEMORY
 ER_BINLOG_INDEX_PREV_GTID_CORRUPT
   eng "MYSQL_BINLOG::init_gtid_sets failed because previous gtid set of binlog %s is corrupted in the index file"
 
+ER_BINLOG_CANT_DELETE_TMP_INDEX
+  eng "%s failed to delete the crash safe index file."
+
 ER_BINLOG_CANT_READ_INDEX
   eng "%s failed while reading log index file."
 
