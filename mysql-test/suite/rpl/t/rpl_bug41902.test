@@ -61,6 +61,8 @@ reset master;
 
 reset master;
 
+let $saved_binlog_error_action=`SELECT @@GLOBAL.binlog_error_action`;
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 --let $debug_point= simulate_find_log_pos_error
 --source include/add_debug_point.inc
 
@@ -72,6 +74,7 @@ purge binary logs to 'master-bin.000001';
 
 purge binary logs to 'master-bin.000001';
 
+--eval SET GLOBAL binlog_error_action = $saved_binlog_error_action;
 --echo ==== clean up ====
 --connection slave
 CHANGE REPLICATION SOURCE TO SOURCE_HOST = '127.0.0.1';
