@@ -1,0 +1,51 @@
+source include/have_debug.inc;
+source include/have_binlog_format_row.inc;
+source include/not_valgrind.inc;
+
+call mtr.add_suppression("Binary logging not possible");
+call mtr.add_suppression("MYSQL_BIN_LOG::remove_logs_from_index");
+call mtr.add_suppression("MYSQL_BIN_LOG::purge_logs");
+call mtr.add_suppression("MYSQL_BIN_LOG::add_log_to_index");
+call mtr.add_suppression("Attempting backtrace");
+
+create table t1 (a int) engine = innodb;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+insert into t1 values(1);
+insert into t1 values(2);
+
+flush logs;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+flush logs;
+flush logs;
+
+source include/show_binary_logs.inc;
+
+set session debug="+d,simulate_disk_full_remove_logs_from_index";
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+replace_result $binlog binlog;
+error ER_BINLOG_LOGGING_IMPOSSIBLE;
+eval purge binary logs to '$binlog';
+enable_reconnect;
+source include/wait_until_connected_again.inc;
+
+source include/show_binary_logs.inc;
+
+set session debug="+d,simulate_disk_full_add_log_to_index";
+exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
+error ER_BINLOG_LOGGING_IMPOSSIBLE;
+flush logs;
+enable_reconnect;
+source include/wait_until_connected_again.inc;
+
+source include/show_binary_logs.inc;
+
+let $uuid= `select @@global.server_uuid`;
+replace_result $uuid uuid;
+select @@global.gtid_executed;
+
+drop table t1;

@@ -33,11 +33,13 @@ reset master;
 ERROR HY000: Target log not found in binlog index
 # Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 reset master;
+SET GLOBAL binlog_error_action = IGNORE_ERROR;
 # Adding debug point 'simulate_find_log_pos_error' to @@GLOBAL.debug
 purge binary logs to 'master-bin.000001';
 ERROR HY000: Target log not found in binlog index
 # Removing debug point 'simulate_find_log_pos_error' from @@GLOBAL.debug
 purge binary logs to 'master-bin.000001';
+SET GLOBAL binlog_error_action = ABORT_SERVER;;
 ==== clean up ====
 CHANGE REPLICATION SOURCE TO SOURCE_HOST = '127.0.0.1';
 include/rpl_end.inc
