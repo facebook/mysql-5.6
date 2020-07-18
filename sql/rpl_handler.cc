@@ -70,6 +70,9 @@
 
 /** start of raft related extern funtion declarations  **/
 extern int rotate_binlog_file(THD *thd);
+extern int raft_stop_sql_thread(THD *thd);
+extern int raft_stop_io_thread(THD *thd);
+extern int raft_start_sql_thread(THD *thd);
 /** end of raft related extern funtion declarations  **/
 
 Trans_delegate *transaction_delegate;
@@ -1304,6 +1307,18 @@ extern "C" void *process_raft_queue(void *) {
       }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_BINLOG: {
         result.error = binlog_change_to_binlog();
+        break;
+      }
+      case RaftListenerCallbackType::STOP_SQL_THREAD: {
+        result.error= raft_stop_sql_thread(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::START_SQL_THREAD: {
+        result.error= raft_start_sql_thread(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::STOP_IO_THREAD: {
+        result.error= raft_stop_io_thread(current_thd);
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
