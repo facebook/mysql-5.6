@@ -72,6 +72,9 @@
 
 /** start of raft related extern funtion declarations  **/
 extern int rotate_binlog_file(THD *thd);
+extern int raft_stop_sql_thread(THD *thd);
+extern int raft_stop_io_thread(THD *thd);
+extern int raft_start_sql_thread(THD *thd);
 /** end of raft related extern funtion declarations  **/
 
 Trans_delegate *transaction_delegate;
@@ -1694,6 +1697,18 @@ extern "C" void *process_raft_queue(void *) {
         result.error = rotate_relay_log_for_raft(
             element.arg.log_file_pos.first, element.arg.log_file_pos.second,
             MYF(element.arg.val_uint));
+        break;
+      }
+      case RaftListenerCallbackType::STOP_SQL_THREAD: {
+        result.error = raft_stop_sql_thread(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::START_SQL_THREAD: {
+        result.error = raft_start_sql_thread(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::STOP_IO_THREAD: {
+        result.error = raft_stop_io_thread(current_thd);
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:

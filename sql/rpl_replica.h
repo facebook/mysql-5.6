@@ -595,6 +595,10 @@ void set_slave_thread_default_charset(THD *thd, Relay_log_info const *rli);
 int rotate_relay_log(Master_info *mi, bool log_master_fd = true,
                      bool need_lock = true, bool need_log_space_lock = true,
                      myf raft_flags = MYF(0));
+int raft_stop_sql_thread(THD *thd);
+int raft_stop_io_thread(THD *thd);
+int raft_start_sql_thread(THD *thd);
+
 typedef enum {
   QUEUE_EVENT_OK = 0,
   QUEUE_EVENT_ERROR_QUEUING,
