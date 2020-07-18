@@ -146,6 +146,10 @@ my $opt_valgrind_mysqld    = 0;
 my $opt_valgrind_mysqltest = 0;
 my $opt_mtr_term_args = env_or_val(MTR_TERM => "xterm -title %title% -e");
 my $opt_lldb_cmd = env_or_val(MTR_LLDB => "lldb");
+my $opt_wsenv_path=$ENV{'MTR_WSENV_PATH'} || "";
+my $opt_wsenv_clean_cmd=$ENV{'MTR_WSENV_CLEAN_CMD'} || "";
+my $opt_wsenv_mv_cmd=$ENV{'MTR_WSENV_MV_CMD'} || "";
+my $opt_wsenv_mkdir_cmd=$ENV{'MTR_WSENV_MKDIR_CMD'} || "";
 
 # Options used when connecting to an already running server
 my %opts_extern;
@@ -1612,6 +1616,9 @@ sub command_line_setup {
     'verbose'               => \$opt_verbose,
     'verbose-restart'       => \&report_option,
     'wait-all'              => \$opt_wait_all,
+    'wsenv-path=s'          => \$opt_wsenv_path,
+    'wsenv-clean-cmd=s'     => \$opt_wsenv_clean_cmd,
+    'wsenv-mv-cmd=s'        => \$opt_wsenv_mv_cmd,
     'warnings!'             => \$opt_warnings,
 
     # list-options is internal, not listed in help
@@ -3908,7 +3915,24 @@ sub sql_to_bootstrap {
   return $result;
 }
 
+sub print_wsenv {
+  foreach my $mysqld (mysqlds()) {
+    my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+
+    if ($wsenv_path ne "") {
+      my $suffix = $mysqld->after('mysqld');
+      mtr_print("[WSEnv] mysqld$suffix: rocksdb_wsenv_path=$wsenv_path");
+    }
+  }
+}
+
 sub default_mysqld {
+  my $wsenv_mtr_path = $opt_wsenv_path;
+  if ($wsenv_mtr_path ne "") {
+    $wsenv_mtr_path = $wsenv_mtr_path . "/bootstrap";
+    mtr_print("[WSEnv] Default Config: Setting wsenv_path=$wsenv_mtr_path");
+  }
+
   # Generate new config file from template
   my $config =
     My::ConfigFactory->new_config({ basedir       => $basedir,
@@ -3919,6 +3943,7 @@ sub default_mysqld {
                                     baseport      => 0,
                                     user          => $opt_user,
                                     password      => '',
+                                    wsenv_path    => $wsenv_mtr_path,
                                   });
 
   my $mysqld = $config->group('mysqld.1') or
@@ -3970,6 +3995,9 @@ sub mysql_install_db {
   mtr_add_arg($args, "--loose-sha256_password_auto_generate_rsa_keys=OFF");
   mtr_add_arg($args,
               "--loose-caching_sha2_password_auto_generate_rsa_keys=OFF");
+
+  my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+  mtr_add_arg($args, "--rocksdb-wsenv-path=$wsenv_path");
 
   # Arguments to bootstrap process.
   my $init_file;
@@ -4651,6 +4679,15 @@ sub run_testcase ($) {
 
       mtr_verbose("Generating my.cnf from '$tinfo->{template_path}'");
 
+      my $wsenv_mtr_path = $opt_wsenv_path;
+      if ($wsenv_mtr_path ne "") {
+        $wsenv_mtr_path = $wsenv_mtr_path . "/mtr";
+        if (defined $tinfo->{worker}) {
+          $wsenv_mtr_path = $wsenv_mtr_path . "/$tinfo->{worker}";
+        }
+        mtr_print("[WSEnv] Config: Setting wsenv_path=$wsenv_mtr_path")
+      }
+
       # Generate new config file from template
       $config =
         My::ConfigFactory->new_config(
@@ -4664,7 +4701,9 @@ sub run_testcase ($) {
                            tmpdir              => $opt_tmpdir,
                            user                => $opt_user,
                            vardir              => $opt_vardir,
+                           wsenv_path          => $wsenv_mtr_path
                          });
+      print_wsenv();
 
       # Write the new my.cnf
       $config->save($path_config_file);
@@ -5676,6 +5715,16 @@ sub clean_dir {
     $dir);
 }
 
+sub clean_wsenv_data {
+  my ($mysqld) = @_;
+
+  my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+  if ($wsenv_path ne "" and $opt_wsenv_clean_cmd ne "") {
+    mtr_print("[WSEnv] Removing '$wsenv_path'");
+    `echo $wsenv_path | xargs $opt_wsenv_clean_cmd`
+  }
+}
+
 sub clean_datadir {
   my ($tinfo) = @_;
 
@@ -5702,6 +5751,7 @@ sub clean_datadir {
         !$bootstrap_opts) {
       mtr_verbose(" - removing '$mysqld_dir'");
       rmtree($mysqld_dir);
+      clean_wsenv_data($mysqld);
     }
   }
 
@@ -5769,10 +5819,28 @@ sub after_failure ($) {
       save_datadir_after_failure($cluster_dir, $save_dir);
     }
   } else {
+    my $wsenv_save_path;
+    if ($opt_wsenv_path ne "") {
+      $wsenv_save_path = $opt_wsenv_path . "/save/";
+      $wsenv_save_path .= $tinfo->{name};
+      $wsenv_save_path .= "-$tinfo->{combination}" if defined $tinfo->{combination};
+      if ($opt_wsenv_mkdir_cmd ne "") {
+        mtr_print("[WSEnv] mkdir '$wsenv_save_path'");
+        `echo $wsenv_save_path | xargs $opt_wsenv_mkdir_cmd`;
+      }
+    }
     foreach my $mysqld (mysqlds()) {
       my $data_dir = $mysqld->value('datadir');
       save_datadir_after_failure(dirname($data_dir), $save_dir);
       save_secondary_engine_logdir($save_dir) if $tinfo->{'secondary-engine'};
+
+      my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+      if ($wsenv_path ne "" and $opt_wsenv_mv_cmd ne "") {
+        my $cur_save_path = $wsenv_save_path;
+        $cur_save_path .= "/" . basename(dirname($data_dir));
+        mtr_print("[WSEnv] Saving '$wsenv_path' to '$cur_save_path'");
+        `echo $wsenv_path $cur_save_path | xargs $opt_wsenv_mv_cmd`;
+      }
     }
   }
 }
@@ -6549,6 +6617,7 @@ sub start_servers($) {
           !$bootstrap_opts) {
         mtr_verbose(" - removing '$datadir'");
         rmtree($datadir);
+        clean_wsenv_data($mysqld);
       }
     }
 
@@ -6583,6 +6652,7 @@ sub start_servers($) {
     # in the opt file.
     if ($mysqld->{need_reinitialization}) {
       clean_dir($datadir);
+      clean_wsenv_data($mysqld);
       mysql_install_db($mysqld, $datadir, $bootstrap_opts);
       $tinfo->{'reinitialized'} = 1;
       # Remove the bootstrap.sql file so that a duplicate set of

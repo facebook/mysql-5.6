@@ -201,6 +201,15 @@ sub fix_log {
   return "$dir/mysqld.log";
 }
 
+sub fix_wsenv_path {
+  my ($self, $config, $group_name) = @_;
+  my $wsenv_path = $self->{ARGS}->{wsenv_path};
+  if (!defined $wsenv_path or $wsenv_path eq "") {
+    return ""
+  }
+  return "$wsenv_path/$group_name/data";
+}
+
 sub fix_log_slow_queries {
   my ($self, $config, $group_name, $group) = @_;
   my $dir = dirname($group->value('datadir'));
@@ -285,6 +294,7 @@ my @mysqld_rules = (
   { 'ssl-cert'                                     => \&fix_ssl_server_cert },
   { 'ssl-key'                                      => \&fix_ssl_server_key },
   { 'tmpdir'                                       => \&fix_tmpdir },
+  { 'loose-rocksdb_wsenv_path'                     => \&fix_wsenv_path },
   { 'loose-sha256_password_auto_generate_rsa_keys' => "0" },
   { 'loose-caching_sha2_password_auto_generate_rsa_keys' => "0" },
 
