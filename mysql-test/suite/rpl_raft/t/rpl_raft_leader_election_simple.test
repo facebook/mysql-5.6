@@ -59,6 +59,18 @@ let $wait_condition= select @@global.read_only = 0;
 source include/wait_condition.inc;
 select * from t1;
 
+echo "Checking read_only and super_read_only on all instances";
+connection server_1;
+show variables like 'read_only';
+show variables like 'super_read_only';
+connection server_2;
+show variables like 'read_only';
+show variables like 'super_read_only';
+connection server_3;
+show variables like 'read_only';
+show variables like 'super_read_only';
+
+
 echo "Stopping slave applier on all peers";
 connection server_1;
 stop slave sql_thread;

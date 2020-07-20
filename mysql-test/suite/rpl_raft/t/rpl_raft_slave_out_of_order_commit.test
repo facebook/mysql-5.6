@@ -60,6 +60,8 @@ replace_result $s1_uuid s1_uuid;
 eval set @@global.rpl_raft_new_leader_uuid = '$s1_uuid';
 
 connection server_1;
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
 drop table d1.t1;
 drop table d2.t2;
 drop database d1;

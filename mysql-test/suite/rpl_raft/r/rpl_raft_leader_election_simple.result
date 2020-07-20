@@ -46,6 +46,25 @@ select * from t1;
 a
 1
 2
+"Checking read_only and super_read_only on all instances"
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show variables like 'read_only';
+Variable_name	Value
+read_only	ON
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
+show variables like 'read_only';
+Variable_name	Value
+read_only	OFF
+show variables like 'super_read_only';
+Variable_name	Value
+super_read_only	OFF
 "Stopping slave applier on all peers"
 stop slave sql_thread;
 stop slave sql_thread;

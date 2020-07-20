@@ -1351,9 +1351,6 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
                             NET *net, ulonglong wait_timeout_nsec);
 void signal_semi_sync_ack(const LOG_POS_COORD* const);
 void reset_semi_sync_last_acked();
-bool set_read_only(THD *thd, ulonglong read_only);
-bool before_set_read_only(THD *thd, ulonglong read_only);
-void print_read_only_change(THD *thd);
 int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 int get_committed_gtids(const std::vector<std::string>& gtids,
                         std::vector<std::string> *committed_gtids);

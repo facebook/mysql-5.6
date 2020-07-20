@@ -44,7 +44,6 @@ extern int raft_start_sql_thread(THD *thd);
 Raft_replication_delegate *raft_replication_delegate;
 
 RaftListenerQueue raft_listener_queue;
-extern bool set_read_only(THD *thd, ulonglong read_only);
 extern int trim_logged_gtid(const std::vector<std::string>& trimmed_gtids);
 extern int rotate_binlog_file(THD *thd);
 extern int binlog_change_to_apply();
@@ -679,6 +678,50 @@ static int update_sys_var(const char *var_name, uint name_len, Item& update_item
   return 1;
 }
 
+static int handle_read_only(
+    const std::map<std::string, unsigned int>& sys_var_map){
+  int error= 0;
+  auto read_only_it= sys_var_map.find("read_only");
+  auto super_read_only_it= sys_var_map.find("super_read_only");
+  if (read_only_it == sys_var_map.end() &&
+      super_read_only_it == sys_var_map.end())
+    return 1;
+
+  if (super_read_only_it != sys_var_map.end() &&
+      super_read_only_it->second == 1)
+  {
+    // Case 1: set super_read_only=1. This will implicitly set read_only.
+    Item_uint super_read_only_item(super_read_only_it->second);
+    error= update_sys_var(
+        STRING_WITH_LEN("super_read_only"), super_read_only_item);
+  }
+  else if (read_only_it != sys_var_map.end() && read_only_it->second == 0)
+  {
+    // Case 2: set read_only=0. This will implicitly unset super_read_only.
+    Item_uint read_only_item(read_only_it->second);
+    error= update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+  }
+  else
+  {
+    // Case 3: Need to set read_only=1 OR/AND set super_read_only=0
+    if (read_only_it != sys_var_map.end())
+    {
+      Item_uint read_only_item(read_only_it->second);
+      error= update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+    }
+
+    if (!error && super_read_only_it != sys_var_map.end())
+    {
+      Item_uint super_read_only_item(super_read_only_it->second);
+      error= update_sys_var(
+          STRING_WITH_LEN("super_read_only"), super_read_only_item);
+    }
+  }
+
+  return error;
+}
+
+
 static int set_durability(const std::map<std::string, unsigned int>& durability){
   auto sync_binlog_it= durability.find("sync_binlog");
   if (sync_binlog_it == durability.end())
@@ -828,11 +871,10 @@ pthread_handler_t process_raft_queue(void *arg)
     switch (element.type)
     {
       case RaftListenerCallbackType::SET_READ_ONLY:
-        result.error= set_read_only(thd, 1);
+      {
+        handle_read_only(element.arg.val_sys_var_uint);
         break;
-      case RaftListenerCallbackType::UNSET_READ_ONLY:
-        result.error= set_read_only(thd, 0);
-        break;
+      }
       case RaftListenerCallbackType::ROTATE_BINLOG:
       {
         result.error= rotate_binlog_file(current_thd);

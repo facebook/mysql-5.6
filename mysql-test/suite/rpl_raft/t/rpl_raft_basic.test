@@ -1,12 +1,18 @@
 source ../include/raft_3_node.inc;
 
 connection server_1;
+show variables like 'read_only';
+show variables like 'super_read_only';
 show status like 'rpl_raft_role';
 
 connection server_2;
+show variables like 'read_only';
+show variables like 'super_read_only';
 show status like 'rpl_raft_role';
 
 connection server_3;
+show variables like 'read_only';
+show variables like 'super_read_only';
 show status like 'rpl_raft_role';
 
 connection server_1;
