@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 from __future__ import division
 from optparse import OptionParser
@@ -17,7 +17,8 @@ import datetime
 import shutil
 import traceback
 import tempfile
-
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 import MySQLdb.connections
 from MySQLdb import OperationalError, ProgrammingError
