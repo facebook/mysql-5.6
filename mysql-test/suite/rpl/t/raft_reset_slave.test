@@ -1,0 +1,18 @@
+--source include/not_raft.inc
+--source include/master-slave.inc
+
+--connection slave
+--source include/stop_slave.inc
+--connection slave
+SET @@global.enable_raft_plugin=1;
+
+--error ER_RAFT_OPERATION_INCOMPATIBLE
+RESET SLAVE;
+
+SET @@global.enable_raft_plugin=0;
+RESET SLAVE;
+--source include/start_slave.inc
+
+# --sleep 60
+--connection master
+--source include/rpl_end.inc

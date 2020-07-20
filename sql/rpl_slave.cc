@@ -9886,6 +9886,16 @@ int reset_slave(THD *thd, Master_info* mi, bool purge)
   const char* errmsg= "Unknown error occured while reseting slave";
   DBUG_ENTER("reset_slave");
 
+  if (enable_raft_plugin && !override_enable_raft_check)
+  {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Did not allow reset_slave as enable_raft_plugin is ON");
+    my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+        "reset slave not allowed when enable_raft_plugin is ON");
+    DBUG_RETURN(1);
+  }
+
   lock_slave_threads(mi);
   init_thread_mask(&thread_mask,mi,0 /* not inverse */);
   if (thread_mask) // We refuse if any slave thread is running

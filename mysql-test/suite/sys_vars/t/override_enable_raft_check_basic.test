@@ -1,0 +1,12 @@
+-- source include/load_sysvars.inc
+
+# Verify default value
+--echo Default value of override_enable_raft_check is 0
+SELECT @@global.override_enable_raft_check;
+
+# Read-only
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global override_enable_raft_check=1;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session override_enable_raft_check=1;

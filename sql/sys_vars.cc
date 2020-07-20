@@ -7341,6 +7341,11 @@ static Sys_var_mybool Sys_disable_raft_log_repointing(
        READ_ONLY GLOBAL_VAR(disable_raft_log_repointing), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_override_enable_raft_check(
+       "override_enable_raft_check", "Disable some strict raft checks. Use with caution",
+       READ_ONLY GLOBAL_VAR(override_enable_raft_check), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
+
 static const char *commit_consensus_error_actions[]=
 {
   "ROLLBACK_TRXS_IN_GROUP",

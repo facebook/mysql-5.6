@@ -7428,6 +7428,9 @@ ER_SLAVE_IO_RAFT_CONFLICT
 ER_RAFT_BINLOG_ERROR_ACTION
   eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
 
+ER_RAFT_OPERATION_INCOMPATIBLE
+  eng "This operation is not allowed since raft is enabled"
+
 #
 #  End of 5.6 error messages.
 #
