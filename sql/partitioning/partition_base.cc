@@ -3900,8 +3900,7 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
   }
 
   if (ha_alter_info->alter_info->flags &
-      (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_DROP_PARTITION |
-       Alter_info::ALTER_COALESCE_PARTITION |
+      (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_COALESCE_PARTITION |
        Alter_info::ALTER_REORGANIZE_PARTITION |
        Alter_info::ALTER_EXCHANGE_PARTITION)) {
     push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
@@ -3956,6 +3955,10 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
     the partitions handlers.
   */
   ha_alter_info->group_commit_ctx = part_inplace_ctx->handler_ctx_array;
+
+  if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+    DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE);
+  }
 
   DBUG_RETURN(result);
 }
@@ -4045,6 +4048,31 @@ bool Partition_base::commit_inplace_alter_table(
   */
   if (ha_alter_info->alter_info->flags == Alter_info::ALTER_PARTITION)
     DBUG_RETURN(false);
+
+  std::string full_table_path = std::string("./") + altered_table->s->db.str +
+                                std::string("/") +
+                                altered_table->s->table_name.str;
+  if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+    handler **file = m_file;
+    partition_info *part_info = ha_alter_info->modified_part_info;
+    List_iterator_fast<partition_element> part_it(part_info->partitions);
+    partition_element *part_elem;
+    while ((part_elem = part_it++) != nullptr) {
+      partition_state state = part_elem->part_state;
+      switch (state) {
+        case PART_TO_BE_DROPPED:
+          char name[FN_REFLEN];
+          // TODO(luqun): add subpartition support
+          create_partition_name(name, full_table_path.c_str(),
+                                part_elem->partition_name, false);
+          (*file)->ha_external_lock(get_thd(), F_UNLCK);
+          (*file)->ha_delete_table(name, old_table_def);
+          break;
+        default:;
+      }
+      file++;
+    }
+  }
 
   part_inplace_ctx = static_cast<class Partition_base_inplace_ctx *>(
       ha_alter_info->handler_ctx);

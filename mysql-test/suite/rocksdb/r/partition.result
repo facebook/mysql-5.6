@@ -580,12 +580,8 @@ id	name	purchased
 3	TV set	1996-03-10
 10	lava lamp	1998-12-25
 ALTER TABLE tr DROP PARTITION p2;
-Warnings:
-Warning	138	Inplace partition altering is not supported
 SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '1999-12-31';
 id	name	purchased
-3	TV set	1996-03-10
-10	lava lamp	1998-12-25
 CREATE TABLE members_3 (
 id INT,
 fname VARCHAR(25),
