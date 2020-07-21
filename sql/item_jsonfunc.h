@@ -40,7 +40,7 @@ public:
   virtual enum Functype functype() const   { return DOC_EXTRACT_FUNC; }
 
 protected:
-  String *intern_val_str(String *str, bool val_only);
+  String *intern_val_str(String *str, bool val_only, bool audit_func);
 };
 
 class Item_func_json_extract_value :public Item_func_json_extract

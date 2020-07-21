@@ -69,7 +69,7 @@ ERROR HY000: Invalid JSON object: '', pos 0, error 'Input is not text type'.
 SELECT DOCUMENT('abc');
 ERROR HY000: Invalid JSON object: 'abc', pos 0, error 'Invalid document: document must be an object or an array'.
 SELECT DOCUMENT('"abc"');
-ERROR HY000: Invalid JSON object: '"abc"', pos 0, error 'Invalid document: document must be an object or an array'.
+ERROR HY000: Invalid JSON object: '"abc"', pos 5, error 'Invalid document: document must be an object or an array'.
 SELECT DOCUMENT('{"key"}');
 ERROR HY000: Invalid JSON object: '{"key"}', pos 7, error 'Invalid JSON object'.
 SELECT DOCUMENT('{1:value}');

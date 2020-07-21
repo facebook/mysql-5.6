@@ -1206,6 +1206,10 @@ extern my_atomic_rwlock_t write_query_running_lock;
 extern ulonglong tmp_table_rpl_max_file_size;
 extern ulong slave_tx_isolation;
 extern ulonglong object_stats_misses;
+extern ulonglong json_contains_count;
+extern ulonglong json_extract_count;
+extern ulonglong json_valid_count;
+extern ulonglong json_func_binary_count;
 
 /* Global tmp disk usage max and check. */
 extern ulonglong max_tmp_disk_usage;

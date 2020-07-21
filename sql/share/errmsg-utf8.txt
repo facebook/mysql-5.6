@@ -7413,6 +7413,9 @@ ER_DUPLICATE_STATEMENT_EXECUTION
 ER_MAX_TMP_DISK_USAGE_EXCEEDED
   eng "Disk usage for temp objects exceeds specified limit"
 
+ER_WARN_FB_JSON_FUNCTION_CALLED
+  eng "Json function called."
+
 #
 #  End of 5.6 error messages.
 #

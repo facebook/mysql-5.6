@@ -582,11 +582,11 @@ ERROR HY000: Incorrect arguments to KEY MUST BE STRING
 select json_contains('{}', false);
 ERROR HY000: Incorrect arguments to KEY MUST BE STRING
 select json_contains('foo', 'k');
-ERROR HY000: Invalid JSON object: 'foo', pos 0, error 'Invalid document: document must be an object or an array'.
+ERROR HY000: Invalid JSON object: 'foo', pos 2, error 'Invalid document: document must be an object or an array'.
 select json_contains(2, 'k');
-ERROR HY000: Invalid JSON object: '2', pos 0, error 'Invalid document: document must be an object or an array'.
+ERROR HY000: Invalid JSON object: '2', pos 1, error 'Invalid document: document must be an object or an array'.
 select json_contains(true, 'k');
-ERROR HY000: Invalid JSON object: '1', pos 0, error 'Invalid document: document must be an object or an array'.
+ERROR HY000: Invalid JSON object: '1', pos 1, error 'Invalid document: document must be an object or an array'.
 select json_contains(null, 'k');
 ERROR HY000: Invalid JSON object: '(null)', pos 0, error 'Invalid object value'.
 include/rpl_end.inc

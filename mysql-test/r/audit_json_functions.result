@@ -1,0 +1,506 @@
+INSTALL PLUGIN null_audit SONAME 'adt_null.<expected_extension>';
+select @@session.audit_fb_json_functions;
+@@session.audit_fb_json_functions
+audit_fb_json_contains=off,audit_fb_json_extract=off,audit_fb_json_valid=off
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1');
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1')
+1
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150);
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150)
+0
+SELECT JSON_EXTRACT('{"k1":"v1"}','k1');
+JSON_EXTRACT('{"k1":"v1"}','k1')
+"v1"
+SELECT JSON_EXTRACT('[1,2,3,4]',1);
+JSON_EXTRACT('[1,2,3,4]',1)
+2
+SELECT JSON_EXTRACT('{"$.k1":"v1"}','$.k1');
+JSON_EXTRACT('{"$.k1":"v1"}','$.k1')
+"v1"
+SELECT JSON_EXTRACT('{"$.k1":"v1","k1":{"k2":"v2"}}','$.k1','k2');
+JSON_EXTRACT('{"$.k1":"v1","k1":{"k2":"v2"}}','$.k1','k2')
+NULL
+SELECT JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1');
+JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1')
+"v1"
+SELECT JSON_VALID('123');
+JSON_VALID('123')
+0
+SELECT JSON_VALID('[1,2,3,4]');
+JSON_VALID('[1,2,3,4]')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	0
+set session audit_fb_json_functions="audit_fb_json_contains=on";
+select @@session.audit_fb_json_functions;
+@@session.audit_fb_json_functions
+audit_fb_json_contains=on,audit_fb_json_extract=off,audit_fb_json_valid=off
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	0
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1');
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	1
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150);
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150)
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('{"k1":"v1"}','k1');
+JSON_EXTRACT('{"k1":"v1"}','k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('{"$.k1":"v1"}','$.k1');
+JSON_EXTRACT('{"$.k1":"v1"}','$.k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+set session audit_fb_json_functions="audit_fb_json_contains=off,audit_fb_json_extract=on";
+select @@session.audit_fb_json_functions;
+@@session.audit_fb_json_functions
+audit_fb_json_contains=off,audit_fb_json_extract=on,audit_fb_json_valid=off
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150);
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150)
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+select JSON_CONTAINS_KEY('{"$.k1":{"k2":{"k3":12.345}}}','$.k1');
+JSON_CONTAINS_KEY('{"$.k1":{"k2":{"k3":12.345}}}','$.k1')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+select JSON_EXTRACT_VALUE('{"$.k1":{"k2":{"k3":12.345}}}','$.k1');
+JSON_EXTRACT_VALUE('{"$.k1":{"k2":{"k3":12.345}}}','$.k1')
+{"k2":{"k3":12.345}}
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('{"k1":"v1"}','k1');
+JSON_EXTRACT('{"k1":"v1"}','k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('[1,2,3,4]',1);
+JSON_EXTRACT('[1,2,3,4]',1)
+2
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('{"k3":"v3","k1":{"k2":"v2"}}','k1','k2');
+JSON_EXTRACT('{"k3":"v3","k1":{"k2":"v2"}}','k1','k2')
+"v2"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	2
+SELECT JSON_EXTRACT('{"$.k1":"v1"}','$.k1');
+JSON_EXTRACT('{"$.k1":"v1"}','$.k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	3
+SELECT JSON_EXTRACT('{"$.k1": {"k1":{"k2":"v2"}}}','$.k1','k1');
+JSON_EXTRACT('{"$.k1": {"k1":{"k2":"v2"}}}','$.k1','k1')
+{"k2":"v2"}
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	4
+SELECT JSON_EXTRACT('{"$.k1": {"k1":{"k2":"v2"}}}','$.k1','k2');
+JSON_EXTRACT('{"$.k1": {"k1":{"k2":"v2"}}}','$.k1','k2')
+NULL
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+SELECT JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}','k1','$.k1');
+JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}','k1','$.k1')
+{"k2":"v2"}
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+SELECT JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1');
+JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	5
+SELECT JSON_EXTRACT('{"$.k1" : [{"k2":"v2"}]}','$.k1','0');
+JSON_EXTRACT('{"$.k1" : [{"k2":"v2"}]}','$.k1','0')
+{"k2":"v2"}
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	6
+SELECT JSON_EXTRACT('{"$.k1" : {"$.k2":"v2"}}','$.k1','$.k2');
+JSON_EXTRACT('{"$.k1" : {"$.k2":"v2"}}','$.k1','$.k2')
+"v2"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	7
+SELECT JSON_EXTRACT('{"$$" : {"$$$":"v2"}}','$$','$$$');
+JSON_EXTRACT('{"$$" : {"$$$":"v2"}}','$$','$$$')
+"v2"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	8
+SELECT JSON_EXTRACT('{"k$1" : {"k2":"v2"}}','k$1');
+JSON_EXTRACT('{"k$1" : {"k2":"v2"}}','k$1')
+{"k2":"v2"}
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	8
+SELECT JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}','','$.k1');
+JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}','','$.k1')
+NULL
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	8
+SELECT JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}',NULL,'$.k1');
+JSON_EXTRACT('{"k1": {"$.k1":{"k2":"v2"}}}',NULL,'$.k1')
+NULL
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	8
+set session audit_fb_json_functions="audit_fb_json_extract=off,audit_fb_json_valid=on";
+select @@session.audit_fb_json_functions;
+@@session.audit_fb_json_functions
+audit_fb_json_contains=off,audit_fb_json_extract=off,audit_fb_json_valid=on
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	8
+SELECT JSON_VALID('123');
+JSON_VALID('123')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	9
+SELECT JSON_VALID('12.3');
+JSON_VALID('12.3')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	10
+SELECT JSON_VALID('-123');
+JSON_VALID('-123')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	11
+SELECT JSON_VALID('-123 12');
+JSON_VALID('-123 12')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	11
+SELECT JSON_VALID('-123 ');
+JSON_VALID('-123 ')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	12
+SELECT JSON_VALID('"abc"');
+JSON_VALID('"abc"')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	13
+SELECT JSON_VALID('"abc def"');
+JSON_VALID('"abc def"')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	14
+SELECT JSON_VALID('"abc');
+JSON_VALID('"abc')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	14
+SELECT JSON_VALID('abc');
+JSON_VALID('abc')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	14
+SELECT JSON_VALID('"abc" "def"');
+JSON_VALID('"abc" "def"')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	14
+SELECT JSON_VALID('"abc"    ');
+JSON_VALID('"abc"    ')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	15
+SELECT JSON_VALID('true');
+JSON_VALID('true')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	16
+SELECT JSON_VALID('t');
+JSON_VALID('t')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	16
+SELECT JSON_VALID('true ');
+JSON_VALID('true ')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	17
+SELECT JSON_VALID('true x');
+JSON_VALID('true x')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	17
+SELECT JSON_VALID('false');
+JSON_VALID('false')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	18
+SELECT JSON_VALID('False');
+JSON_VALID('False')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	18
+SELECT JSON_VALID('false ');
+JSON_VALID('false ')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	19
+SELECT JSON_VALID('false x');
+JSON_VALID('false x')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	19
+SELECT JSON_VALID('null');
+JSON_VALID('null')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	20
+SELECT JSON_VALID('null ');
+JSON_VALID('null ')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	21
+SELECT JSON_VALID('null x');
+JSON_VALID('null x')
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	21
+SELECT JSON_VALID('[1,2,3,4]');
+JSON_VALID('[1,2,3,4]')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	21
+SELECT JSON_VALID('{"k1" : "v1"}');
+JSON_VALID('{"k1" : "v1"}')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	21
+set session audit_fb_json_functions="audit_fb_json_contains=on,audit_fb_json_extract=on,audit_fb_json_valid=off";
+select @@session.audit_fb_json_functions;
+@@session.audit_fb_json_functions
+audit_fb_json_contains=on,audit_fb_json_extract=on,audit_fb_json_valid=off
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	21
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1');
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1')
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	22
+SELECT JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150);
+JSON_CONTAINS('{"k": {"k1":123}}', 'k1', 150)
+0
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	23
+SELECT JSON_EXTRACT('{"$.k1":"v1"}','$.k1');
+JSON_EXTRACT('{"$.k1":"v1"}','$.k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	24
+SELECT JSON_EXTRACT('{"$.k1":"v1","k1":{"k2":"v2"}}','$.k1','k2');
+JSON_EXTRACT('{"$.k1":"v1","k1":{"k2":"v2"}}','$.k1','k2')
+NULL
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	25
+SELECT JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1');
+JSON_EXTRACT('[{"$.k1":"v1"}]','0','$.k1')
+"v1"
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	25
+set session audit_fb_json_functions="audit_fb_json_contains=on,audit_fb_json_extract=on,audit_fb_json_valid=on";
+create table test_json(json text);
+insert into test_json values
+('{"$.k1": {"k1":{"k2":"v2"}}}'),
+('{"$.k1": {"k2":{"k3":"v3"}}}'),
+('{}'),
+('{}'),
+('{"$.k2": {"k1":{"k2":"v2"}}}');
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	25
+select json_extract(json, '$.k1') from test_json;
+json_extract(json, '$.k1')
+{"k1":{"k2":"v2"}}
+{"k2":{"k3":"v3"}}
+NULL
+NULL
+NULL
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	26
+select json_contains(json, 'k2') from test_json;
+json_contains(json, 'k2')
+1
+1
+0
+0
+1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	27
+select json_extract(json, '$.k1'), json_contains(json, 'k2'), json_valid(json) from test_json;
+json_extract(json, '$.k1')	json_contains(json, 'k2')	json_valid(json)
+{"k1":{"k2":"v2"}}	1	1
+{"k2":{"k3":"v3"}}	1	1
+NULL	0	1
+NULL	0	1
+NULL	1	1
+show status like 'Audit_null_general_warning';
+Variable_name	Value
+Audit_null_general_warning	29
+drop table test_json;
+create table test_json_blob(a blob);
+insert into test_json_blob values('{"$.k1": {"k1":{"k2":"v2"}}}');
+insert into test_json_blob values('{"k1": {"k1":{"k2":"v2"}}}');
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	0
+select json_valid(a) from test_json_blob;
+json_valid(a)
+1
+1
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	2
+truncate table test_json_blob;
+insert into test_json_blob values('123');
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	2
+select json_valid(a) from test_json_blob;
+json_valid(a)
+0
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	3
+truncate table test_json_blob;
+insert into test_json_blob values('{"k1": {"k1":{"k2":"v2"}}}');
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	3
+select json_contains_key(a, 'k1') from test_json_blob;
+json_contains_key(a, 'k1')
+1
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	4
+select json_contains(a, 'k1') from test_json_blob;
+json_contains(a, 'k1')
+1
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	5
+select json_extract(a, 'k1') from test_json_blob;
+json_extract(a, 'k1')
+{"k1":{"k2":"v2"}}
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	6
+select json_extract_value(a, 'k1') from test_json_blob;
+json_extract_value(a, 'k1')
+{"k1":{"k2":"v2"}}
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	7
+truncate table test_json_blob;
+insert into test_json_blob values('k1');
+insert into test_json_blob values('k2');
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	7
+select json_contains_key('{"k1":"v1"}', a) from test_json_blob;
+json_contains_key('{"k1":"v1"}', a)
+1
+0
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	9
+select json_contains_key('{"k1": {"k2":"v2"}}', 'k1', a) from test_json_blob;
+json_contains_key('{"k1": {"k2":"v2"}}', 'k1', a)
+0
+1
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	11
+select json_extract('{"k1":"v1"}', a) from test_json_blob;
+json_extract('{"k1":"v1"}', a)
+"v1"
+NULL
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	13
+select json_extract_value('{"k1":"v1"}', a) from test_json_blob;
+json_extract_value('{"k1":"v1"}', a)
+v1
+NULL
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	15
+truncate table test_json_blob;
+insert into test_json_blob values('[1,2,3]');
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	15
+select json_array_length(a) from test_json_blob;
+json_array_length(a)
+3
+show global status like 'Json_func_binary_count';
+Variable_name	Value
+Json_func_binary_count	16
+drop table test_json_blob;
+UNINSTALL PLUGIN null_audit;
+Warnings:
+Warning	1620	Plugin is busy and will be uninstalled on shutdown

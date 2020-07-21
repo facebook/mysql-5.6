@@ -1009,6 +1009,12 @@ ulong acl_fast_lookup_miss= 0;
     PRIVILEGES is issued */
 my_bool acl_fast_lookup_enabled= FALSE;
 
+/* Number of times fb style json functions are called */
+ulonglong json_extract_count = 0;
+ulonglong json_contains_count = 0;
+ulonglong json_valid_count = 0;
+ulonglong json_func_binary_count = 0;
+
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
 Ne_creator ne_creator;
@@ -10744,6 +10750,10 @@ SHOW_VAR status_vars[]= {
   {"Jemalloc_stats_metadata",  (char*) &show_jemalloc_metadata,         SHOW_FUNC},
 #endif
 #endif
+  {"Json_contains_count",      (char*) &json_contains_count,            SHOW_LONGLONG},
+  {"Json_extract_count",       (char*) &json_extract_count,             SHOW_LONGLONG},
+  {"Json_valid_count",         (char*) &json_valid_count,               SHOW_LONGLONG},
+  {"Json_func_binary_count",   (char*) &json_func_binary_count,         SHOW_LONGLONG},
   {"Key_blocks_not_flushed",   (char*) offsetof(KEY_CACHE, global_blocks_changed), SHOW_KEY_CACHE_LONG},
   {"Key_blocks_unused",        (char*) offsetof(KEY_CACHE, blocks_unused), SHOW_KEY_CACHE_LONG},
   {"Key_blocks_used",          (char*) offsetof(KEY_CACHE, blocks_used), SHOW_KEY_CACHE_LONG},

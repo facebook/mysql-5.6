@@ -651,6 +651,7 @@ typedef struct system_variables
   sql_mode_t sql_mode; ///< which non-standard SQL behaviour should be enabled
   my_bool   error_partial_strict;
   ulong audit_instrumented_event;
+  ulonglong audit_fb_json_functions;
   ulonglong option_bits; ///< OPTION_xxx constants, e.g. OPTION_PROFILING
   ha_rows select_limit;
   ha_rows max_join_size;
@@ -3902,6 +3903,12 @@ public:
     This is to prevent to log the same query multiple times.
   */
   bool m_gap_lock_log_written;
+
+  /**
+    flags to mark that SQL statement has already been audited calling
+    fb json functions.
+  */
+  uint m_fb_json_functions_audited;
 
   THD(bool enable_plugins= true);
 

@@ -31,9 +31,43 @@
 #include "set_var.h"
 #include "mysqld.h"
 #include "item_cmpfunc.h"
+#include "sql_audit.h"
 
 // error messages for JSON parsing errors
 const constexpr char* const fbson::FbsonErrMsg::err_msg_[];
+
+#define AUDIT_FB_JSON_CONTAINS_FLAG               (1ULL << 0)
+#define AUDIT_FB_JSON_EXTRACT_FLAG                (1ULL << 1)
+#define AUDIT_FB_JSON_VALID_FLAG                  (1ULL << 2)
+
+/*
+ * Processes the audit flag by auditing the message in case
+ * it is eligible.
+ * The auditing only happens once for every query and when
+ * audit_fb_json_functions session variable has been configured
+ * to audit the message.
+ */
+static void process_fb_json_audit_flag(uint flag, const char *msg) {
+  if ((current_thd->variables.audit_fb_json_functions & flag) &&
+      ((current_thd->m_fb_json_functions_audited & flag) == 0)) {
+    mysql_audit_general(current_thd, MYSQL_AUDIT_GENERAL_WARNING,
+                        ER_WARN_FB_JSON_FUNCTION_CALLED,
+                        msg);
+    /* Set the flag so that we do not have to audit the same query again */
+    current_thd->m_fb_json_functions_audited |= flag;
+  }
+}
+
+/*
+ * Checks if json function is being operated on a binary collation.
+ * 8.0 does not support binary collations on json functions, so
+ * collect statistics on these calls.
+ */
+static void check_binary_collation(String *pstr) {
+  if (pstr->charset() == &my_charset_bin) {
+    statistic_increment(json_func_binary_count, &LOCK_status);
+  }
+}
 
 /*
  * Note we assume the system charset is UTF8,
@@ -238,8 +272,18 @@ bool Item_func_json_valid::val_bool()
     if (pval)
       return true; // FBSON blob
 
+    check_binary_collation(json);
+
     fbson::FbsonJsonParser parser;
-    return parser.parse(json->c_ptr_safe());
+    int res = parser.parse(json->c_ptr_safe());
+    if (!res && parser.getErrorCode() ==
+        fbson::FbsonErrType::E_INVALID_DOCU_COMPAT) {
+      statistic_increment(json_valid_count, &LOCK_status);
+      process_fb_json_audit_flag(AUDIT_FB_JSON_VALID_FLAG,
+                                 "JSON_VALID called");
+    }
+
+    return res;
   }
 
   null_value = 1;
@@ -262,10 +306,11 @@ longlong Item_func_json_valid::val_int()
 static fbson::FbsonValue*
 json_extract_helper(Item **args,
                     uint arg_count,
-                    fbson::FbsonValue *pval) /* in: fbson value object */
+                    fbson::FbsonValue *pval, /* in: fbson value object */
+                    bool audit_func)
 {
   String buffer;
-  String *pstr;
+  String *pstr = nullptr;
   for (unsigned i = 1; i < arg_count && pval; ++i)
   {
     if (pval->isObject())
@@ -292,12 +337,26 @@ json_extract_helper(Item **args,
     }
     else
       pval = nullptr;
+
+    if (pstr)
+      check_binary_collation(pstr);
+
+    // In case the leading key contains the '$' as first character, log the
+    // audit warning.
+    if (i == 1 && audit_func) {
+      if (pstr && pstr->length() > 0 && *pstr->c_ptr_safe() == '$') {
+        statistic_increment(json_extract_count, &LOCK_status);
+        process_fb_json_audit_flag(AUDIT_FB_JSON_EXTRACT_FLAG,
+                                   "JSON_EXTRACT called");
+      }
+    }
   }
 
   return pval;
 }
 
-String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
+String *Item_func_json_extract::intern_val_str(String *str, bool json_text,
+                                               bool audit_func)
 {
   DBUG_ASSERT(fixed);
 
@@ -310,9 +369,10 @@ String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
 
   if (pstr)
   {
+    check_binary_collation(pstr);
     if (pval)
     {
-      pval = json_extract_helper(args, arg_count, pval);
+      pval = json_extract_helper(args, arg_count, pval, audit_func);
       if (pval && current_thd->variables.use_fbson_output_format)
       {
         // if we output FBSON, set the returning str to the underlying buffer
@@ -326,7 +386,7 @@ String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
     {
       fbson::FbsonOutStream os;
       pval = get_fbson_val(pstr->c_ptr_safe(), os);
-      pval = json_extract_helper(args, arg_count, pval);
+      pval = json_extract_helper(args, arg_count, pval, audit_func);
       if (pval && current_thd->variables.use_fbson_output_format)
       {
         str->copy((char*)pval, pval->numPackedBytes(), collation.collation);
@@ -356,7 +416,7 @@ String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
 
 String *Item_func_json_extract::val_str(String *str)
 {
-  return intern_val_str(str, true /* json_text */);
+  return intern_val_str(str, true /* json_text */, true /* audit_func */);
 }
 
 void Item_func_json_extract::fix_length_and_dec()
@@ -382,7 +442,8 @@ void Item_func_json_extract::fix_length_and_dec()
 
 String *Item_func_json_extract_value::val_str(String *str)
 {
-  return Item_func_json_extract::intern_val_str(str, false /* json_text */);
+  return Item_func_json_extract::intern_val_str(str, false /* json_text */,
+                                                false /* audit_func */);
 }
 
 /*
@@ -403,15 +464,16 @@ bool Item_func_json_contains_key::val_bool()
 
   if (pstr)
   {
+    check_binary_collation(pstr);
     if (pval)
     {
-      return json_extract_helper(args, arg_count, pval) != nullptr;
+      return json_extract_helper(args, arg_count, pval, false) != nullptr;
     }
     else
     {
       fbson::FbsonOutStream os;
       pval = get_fbson_val(pstr->c_ptr_safe(), os);
-      return json_extract_helper(args, arg_count, pval) != nullptr;
+      return json_extract_helper(args, arg_count, pval, false) != nullptr;
     }
   }
 
@@ -460,6 +522,7 @@ longlong Item_func_json_array_length::val_int()
 
   if (pstr)
   {
+    check_binary_collation(pstr);
     if (pval)
     {
       return json_array_length_helper(pval, pstr->c_ptr_safe());
@@ -628,6 +691,9 @@ bool Item_func_json_contains::val_bool()
   null_value = 0;
   String buffer;
   String *pstr = nullptr;
+  statistic_increment(json_contains_count, &LOCK_status);
+  process_fb_json_audit_flag(AUDIT_FB_JSON_CONTAINS_FLAG,
+                             "JSON_CONTAINS called");
 
   /* "pstr" is set to the binary or string value of the item
    * If "pstr" is the FBSON binary, "pval" will be the associated FbsonValue.
@@ -635,6 +701,7 @@ bool Item_func_json_contains::val_bool()
   fbson::FbsonValue *pval = get_fbson_val(args[0], pstr, &buffer);
   if (pstr)
   {
+    check_binary_collation(pstr);
     fbson::FbsonOutStream os;
     if (!pval)
       pval = get_fbson_val(pstr->c_ptr_safe(), os);

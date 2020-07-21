@@ -47,6 +47,7 @@ enum class FbsonErrType {
   E_INVALID_OPER,
   E_INVALID_FBSON_OBJ,
   E_NESTING_LVL_OVERFLOW,
+  E_INVALID_DOCU_COMPAT,
 
   // new error code should always be added above
   E_NUM_ERRORS
@@ -96,6 +97,7 @@ private:
     "Invalid update operation",
     "Invalid FBSON object (internal)",
     "Object or array has too many nesting levels",
+    "Invalid document: document must be an object or an array",
 
     nullptr /* E_NUM_ERRORS */
   };

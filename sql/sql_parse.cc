@@ -7874,6 +7874,7 @@ void THD::reset_for_next_command()
   thd->durability_property= HA_REGULAR_DURABILITY;
   thd->set_trans_pos(NULL, 0, NULL);
   thd->m_gap_lock_log_written= false;
+  thd->m_fb_json_functions_audited = 0;
 
   if (unlikely(!thd->prepared_engine))
     thd->prepared_engine= new engine_lsn_map();

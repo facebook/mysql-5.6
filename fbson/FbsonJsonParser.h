@@ -117,7 +117,7 @@ class FbsonJsonParserT {
       skipChar(in);
       res = parseArray(in, handler);
     } else {
-      err_ = FbsonErrType::E_INVALID_DOCU;
+      err_ = handle_parse_failure(in);
     }
 
     trim(in);
@@ -150,6 +150,63 @@ class FbsonJsonParserT {
   void clearErr() { err_ = FbsonErrType::E_NONE; }
 
  private:
+
+  FbsonErrType handle_parse_value_failure(bool parse_res, std::istream& in) {
+    if (parse_res) {
+      trim(in);
+      if (!in.good()) {
+        return FbsonErrType::E_INVALID_DOCU_COMPAT;
+      }
+    }
+    return FbsonErrType::E_INVALID_DOCU; ;
+  }
+
+  // In case json is determined to be invalid at top level,
+  // try to parse literal values.
+  // We return a different error code E_INVALID_DOCU_COMPAT
+  // in case the input json contains these values.
+  // Returning a different error code will cause an
+  // auditing on the caller.
+  // This is mainly done because 8.0 JSON_VALID considers
+  // this as a valid input.
+  FbsonErrType handle_parse_failure(std::istream& in) {
+    FbsonErrType error = FbsonErrType::E_INVALID_DOCU;
+    if (!writer_.writeStartArray()) {
+      return error;
+    }
+
+    switch (in.peek()) {
+      case 'n':
+        skipChar(in);
+        error = handle_parse_value_failure(parseNull(in), in);
+        break;
+      case 't':
+        skipChar(in);
+        error = handle_parse_value_failure(parseTrue(in), in);
+        break;
+      case 'f':
+        skipChar(in);
+        error = handle_parse_value_failure(parseFalse(in), in);
+        break;
+      case '"':
+        skipChar(in);
+        error = handle_parse_value_failure(parseString(in), in);
+        break;
+      default:
+        if (parseNumber(in)) {
+          trim(in);
+          if (in.eof()) {
+            error = FbsonErrType::E_INVALID_DOCU_COMPAT;
+          }
+        }
+    }
+    if (!writer_.writeEndArray()) {
+        return error;
+    }
+
+    return error;
+  }
+
   // parse a JSON object (comma-separated list of key-value pairs)
   bool parseObject(std::istream& in, hDictInsert handler) {
     if (!writer_.writeStartObject()) {
