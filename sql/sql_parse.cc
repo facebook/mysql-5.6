@@ -4094,8 +4094,37 @@ case SQLCOM_PREPARE:
   case SQLCOM_HELP:
     res= mysqld_help(thd,lex->help_arg);
     break;
-
 #ifndef EMBEDDED_LIBRARY
+  case SQLCOM_PURGE_RAFT_LOG:
+    if (check_global_access(thd, SUPER_ACL))
+      goto error;
+
+    res= purge_raft_logs(thd, lex->to_log);
+    break;
+  case SQLCOM_PURGE_RAFT_LOG_BEFORE:
+  {
+    Item *it;
+
+    if (check_global_access(thd, SUPER_ACL))
+      goto error;
+
+    /* PURGE RAFT LOGS BEFORE 'date' */
+    it= (Item *)lex->value_list.head();
+    if ((!it->fixed && it->fix_fields(lex->thd, &it)) ||
+        it->check_cols(1))
+    {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "PURGE RAFT LOGS BEFORE");
+      goto error;
+    }
+    it= new Item_func_unix_timestamp(it);
+    /*
+      it is OK only emulate fix_fieds, because we need only
+      value of constant
+    */
+    it->quick_fix_field();
+    res = purge_raft_logs_before_date(thd, (ulong)it->val_int());
+    break;
+  }
   case SQLCOM_PURGE:
   {
     if (check_global_access(thd, SUPER_ACL))
@@ -4721,6 +4750,22 @@ end_with_restore_list:
       /* if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
 	goto error; */
       res = show_binlogs(thd, lex->with_gtid);
+      break;
+    }
+#endif
+#endif /* EMBEDDED_LIBRARY */
+#ifndef EMBEDDED_LIBRARY
+  case SQLCOM_SHOW_RAFT_LOGS:
+#ifdef DONT_ALLOW_SHOW_COMMANDS
+    my_message(ER_NOT_ALLOWED_COMMAND, ER(ER_NOT_ALLOWED_COMMAND),
+               MYF(0)); /* purecov: inspected */
+    goto error;
+#else
+    {
+      /* db ops requested that this work for non-super */
+      /* if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
+	goto error; */
+      res = show_raft_logs(thd);
       break;
     }
 #endif

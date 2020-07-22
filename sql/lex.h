@@ -692,7 +692,8 @@ static SYMBOL symbols[] = {
   { "ZEROFILL",		SYM(ZEROFILL)},
   { "ZLIB", SYM(ZLIB_SYM)},
   { "ZLIB_STREAM", SYM(ZLIB_STREAM_SYM)},
-  { "||",		SYM(OR_OR_SYM)}
+  { "||",		SYM(OR_OR_SYM)},
+  { "RAFT",		SYM(RAFT_SYM)}
 };
 
 

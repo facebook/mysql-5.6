@@ -1575,6 +1575,7 @@ static std::string sql_cmd_type(enum_sql_command sql_command)
     case SQLCOM_SHOW_RELAYLOG_EVENTS:
     case SQLCOM_SHOW_ENGINE_TRX:
     case SQLCOM_SHOW_MEMORY_STATUS:
+    case SQLCOM_SHOW_RAFT_LOGS:
       return "SHOW";
 
     case SQLCOM_CHANGE_DB:
@@ -1601,6 +1602,8 @@ static std::string sql_cmd_type(enum_sql_command sql_command)
     case SQLCOM_PURGE:
     case SQLCOM_PURGE_BEFORE:
     case SQLCOM_PURGE_UUID:
+    case SQLCOM_PURGE_RAFT_LOG:
+    case SQLCOM_PURGE_RAFT_LOG_BEFORE:
     case SQLCOM_HA_OPEN:
     case SQLCOM_HA_CLOSE:
     case SQLCOM_HA_READ:

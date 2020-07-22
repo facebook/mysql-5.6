@@ -726,6 +726,12 @@ public:
     m_key_file_log_index= key_file_log_index;
   }
 #endif
+
+  mysql_mutex_t* get_lock_index()
+  {
+    return &LOCK_index;
+  }
+
   /**
     Find the oldest binary log that contains any GTID that
     is not in the given gtid set. This is done by scanning the map
@@ -1073,9 +1079,11 @@ public:
   void purge_apply_logs();
   int purge_logs(const char *to_log, bool included,
                  bool need_lock_index, bool need_update_threads,
-                 std::atomic_ullong *decrease_log_space, bool auto_purge);
+                 std::atomic_ullong *decrease_log_space, bool auto_purge,
+                 const char* max_log= nullptr);
   int purge_logs_before_date(
-      time_t purge_time, bool auto_purge, bool stop_purge= 0);
+      time_t purge_time, bool auto_purge, bool stop_purge= 0,
+      bool need_lock_index= true, const char* max_log= nullptr);
   int purge_first_log(Relay_log_info* rli, bool included);
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
@@ -1215,6 +1223,10 @@ File open_binlog_file(IO_CACHE *log, const char *log_file_name,
 int check_binlog_magic(IO_CACHE* log, const char** errmsg);
 bool purge_master_logs(THD* thd, const char* to_log);
 bool purge_master_logs_before_date(THD* thd, time_t purge_time);
+bool purge_raft_logs(THD* thd, const char* to_log);
+bool purge_raft_logs_before_date(THD* thd, time_t purge_time);
+bool update_relay_log_cordinates(Relay_log_info* rli);
+bool show_raft_logs(THD* thd);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool show_binlog_cache(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD* thd);

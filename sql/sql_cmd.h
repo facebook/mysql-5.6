@@ -104,7 +104,9 @@ enum enum_sql_command {
   SQLCOM_ATTACH_EXPLICIT_SNAPSHOT,
   SQLCOM_RELEASE_EXPLICIT_SNAPSHOT,
   SQLCOM_SHUTDOWN,
-
+  SQLCOM_PURGE_RAFT_LOG,
+  SQLCOM_PURGE_RAFT_LOG_BEFORE,
+  SQLCOM_SHOW_RAFT_LOGS,
   /*
     When a command is added here, be sure it's also added in mysqld.cc
     in "struct show_var_st status_vars[]= {" ...

@@ -1696,6 +1696,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  QUICKLZ_SYM
 %token  RANGE_SYM                     /* SQL-2003-R */
 %token  RBR_COLUMN_NAMES_SYM
+%token  RAFT_SYM
 %token  READS_SYM                     /* SQL-2003-R */
 %token  READ_ONLY_SYM
 %token  READ_SYM                      /* SQL-2003-N */
@@ -13438,6 +13439,10 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
+        | RAFT_SYM LOGS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_RAFT_LOGS;
+          }
         | SLAVE HOSTS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_HOSTS;
@@ -13994,6 +13999,8 @@ purge:
 
 purge_options:
           master_or_binary LOGS_SYM purge_option
+          | RAFT_SYM { Lex->sql_command = SQLCOM_PURGE_RAFT_LOG; }
+            LOGS_SYM purge_option
           | GTID_SYM TEXT_STRING_sys_nonewline
           {
             Lex->sql_command = SQLCOM_PURGE_UUID;
@@ -14011,7 +14018,10 @@ purge_option:
             LEX *lex= Lex;
             lex->value_list.empty();
             lex->value_list.push_front($2);
-            lex->sql_command= SQLCOM_PURGE_BEFORE;
+            if (lex->sql_command == SQLCOM_PURGE_RAFT_LOG)
+              lex->sql_command= SQLCOM_PURGE_RAFT_LOG_BEFORE;
+            else
+              lex->sql_command= SQLCOM_PURGE_BEFORE;
           }
         ;
 
@@ -15318,6 +15328,7 @@ keyword_sp:
         | QUARTER_SYM              {}
         | QUERY_SYM                {}
         | QUICK                    {}
+        | RAFT_SYM                 {}
         | READ_ONLY_SYM            {}
         | REBUILD_SYM              {}
         | RECOVER_SYM              {}

@@ -2570,6 +2570,301 @@ bool purge_master_logs_before_date(THD* thd, time_t purge_time)
                              mysql_bin_log.purge_logs_before_date(purge_time,
                                                                   false));
 }
+
+/**
+  Execute a PURGE RAFT LOGS TO <log-name> command.
+
+  @param thd Pointer to THD object for the client thread executing the
+  statement.
+
+  @param to_log Name of the last log to purge.
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool purge_raft_logs(THD* thd, const char* to_log)
+{
+  // This is no-op when raft is not enabled
+  if (!enable_raft_plugin)
+    return FALSE;
+
+  // If mysql_bin_log is not an apply log, then it represents the 'raft logs' on
+  // leader. Call purge_master_logs() to handle the purge correctly
+  if (!mysql_bin_log.is_apply_log)
+    return purge_master_logs(thd, to_log);
+
+  if (active_mi == NULL || active_mi->rli == NULL)
+    return FALSE;
+
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (active_mi->rli == NULL)
+  {
+    mysql_mutex_unlock(&LOCK_active_mi);
+    return FALSE;
+  }
+
+  Relay_log_info* rli = active_mi->rli;
+
+  // Lock requirement and ordering based on SQL appliers next_event loop
+  mysql_mutex_lock(&rli->data_lock);
+  mysql_mutex_lock(rli->relay_log.get_lock_index());
+
+  char search_file_name[FN_REFLEN];
+  mysql_bin_log.make_log_name(search_file_name, to_log);
+
+  // Note that we pass max_log as group_relay_log_name. This is because we
+  // should not purge anything that is still needed by sql appliers.
+  // group_relay_log_name should be captured by 'in_use' check in
+  // purge_logs(). However when sql_threads are stopped and a purge command is
+  // issued, then 'in_use' check will not be sufficient and we might end up
+  // deleting raft logs which are not yet applied. Hence we explicitly pass
+  // 'max_log' asking purge_logs() to not purge anything at or beyond 'max_log'
+  bool error= purge_error_message(
+      thd,
+      rli->relay_log.purge_logs(
+        search_file_name,
+        /*included=*/false,
+        /*need_lock_index=*/false,
+        /*need_update_threads=*/true,
+        /*decrease_log_space=*/nullptr,
+        /*auto_purge=*/false,
+        rli->get_group_relay_log_name()));
+
+  if (!error)
+    error= update_relay_log_cordinates(rli);
+
+  mysql_mutex_unlock(rli->relay_log.get_lock_index());
+  mysql_mutex_unlock(&rli->data_lock);
+  mysql_mutex_unlock(&LOCK_active_mi);
+
+  return error;
+}
+
+/**
+  Execute a PURGE RAFT LOGS BEFORE <date> command.
+
+  @param thd Pointer to THD object for the client thread executing the
+  statement.
+
+  @param purge_time Date before which logs should be purged.
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool purge_raft_logs_before_date(THD* thd, time_t purge_time)
+{
+  // This is no-op when raft is not enabled
+  if (!enable_raft_plugin)
+    return FALSE;
+
+  // If mysql_bin_log is not an apply log, then it represents the 'raft logs' on
+  // leader. Call purge_master_logs_before_date() to handle the purge
+  // correctly
+  if (!mysql_bin_log.is_apply_log)
+    return purge_master_logs_before_date(thd, purge_time);
+
+  if (active_mi == NULL || active_mi->rli == NULL)
+    return FALSE;
+
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (active_mi->rli == NULL)
+  {
+    mysql_mutex_unlock(&LOCK_active_mi);
+    return FALSE;
+  }
+
+  Relay_log_info* rli = active_mi->rli;
+
+  // Lock requirement and ordering based SQL appliers next_event loop
+  mysql_mutex_lock(&rli->data_lock);
+  mysql_mutex_lock(rli->relay_log.get_lock_index());
+
+  // Note that we pass max_log as group_relay_log_name. This is because we
+  // should not purge anything that is still needed by sql appliers.
+  // group_relay_log_name should be captured by 'in_use' check in
+  // purge_logs(). However, when sql_threads are stopped and a purge command is
+  // issued, then 'in_use' check will not be sufficient and we might end up
+  // deleting raft logs which are not yet applied. Hence, we explicitly pass
+  // 'max_log' asking purge_logs() to not purge anything at or beyond 'max_log'
+  auto error= purge_error_message(
+      thd, rli->relay_log.purge_logs_before_date(
+        purge_time,
+        /*auto_purge=*/false,
+        /*stop_purge=*/false,
+        /*need_lock_index=*/false,
+        rli->get_group_relay_log_name()));
+
+  if (!error)
+    error= update_relay_log_cordinates(rli);
+
+  mysql_mutex_unlock(rli->relay_log.get_lock_index());
+  mysql_mutex_unlock(&rli->data_lock);
+  mysql_mutex_unlock(&LOCK_active_mi);
+
+  return error;
+}
+
+/**
+  Updates the index file cordinates in relay log info. All required locks need
+  to be acquired by the caller
+
+  @param rli Relay log info that needs to be updated
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool update_relay_log_cordinates(Relay_log_info* rli)
+{
+  int error= 0;
+
+  error= rli->relay_log.find_log_pos(
+      &rli->linfo,
+      rli->get_event_relay_log_name(),
+      /*need_lock_index=*/false);
+
+  if (error)
+  {
+    // This is a fatal error. SQL threads wont be able to read relay logs to
+    // apply trxs.
+    char buff[22];
+    // NO_LINT_DEBUG
+    sql_print_error("find_log_pos error during purge_raft_logs: %d  "
+        "offset: %s, log: %s",
+        error,
+        llstr(rli->linfo.index_file_offset, buff),
+        rli->get_group_relay_log_name());
+
+    if (binlog_error_action == ABORT_SERVER ||
+        binlog_error_action == ROLLBACK_TRX)
+    {
+      exec_binlog_error_action_abort("Could not update relay log position "
+                                     "for applier threads. Aborting server");
+    }
+  }
+
+  return error;
+}
+
+/**
+  Implement 'show raft logs' sql command
+  @param thd Thread descriptor
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool show_raft_logs(THD* thd)
+{
+  uint length;
+  char file_name_and_gtid_set_length[FN_REFLEN + 22];
+  File file;
+  LOG_INFO cur;
+  bool exit_loop= false;
+
+  // Redirect to show_binlog() on leader instances
+  if (!mysql_bin_log.is_apply_log)
+    return show_binlogs(thd);
+
+  if (active_mi == NULL || active_mi->rli == NULL)
+    return FALSE;
+
+  mysql_mutex_lock(&LOCK_active_mi);
+  if (active_mi->rli == NULL)
+  {
+    mysql_mutex_unlock(&LOCK_active_mi);
+    return FALSE;
+  }
+
+  Relay_log_info* rli = active_mi->rli;
+
+  // Capture the current log
+  rli->relay_log.get_current_log(&cur, /*need_lock_log=*/true);
+
+  // Prevent new files from sneaking ino the index beyond this point. We only
+  // read in the index till cur.log_file_name
+  mysql_mutex_lock(rli->relay_log.get_lock_index());
+
+  IO_CACHE *index_file= rli->relay_log.get_index_file();
+  Protocol *protocol= thd->protocol;
+
+  List<Item> field_list;
+  field_list.push_back(new Item_empty_string("Log_name", 255));
+  field_list.push_back(
+      new Item_return_int("File_size", 20, MYSQL_TYPE_LONGLONG));
+
+  int error= 0;
+  if (protocol->send_result_set_metadata(
+        &field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+  {
+    error= 1;
+    goto err;
+  }
+
+  reinit_io_cache(index_file, READ_CACHE, (my_off_t) 0, 0, 0);
+
+  /* The file ends with EOF or empty line */
+  while ((length=my_b_gets(
+          index_file, file_name_and_gtid_set_length, FN_REFLEN + 22)) > 1 &&
+      !exit_loop)
+  {
+    int dir_len;
+    ulonglong file_length= 0;                   // Length if open fails
+
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_set_length =
+      split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_set_length)
+    {
+      my_b_seek(index_file,
+                my_b_tell(index_file) + gtid_set_length + 1);
+    }
+
+    char *fname = file_name_and_gtid_set_length;
+    length = strlen(fname);
+    dir_len= dirname_length(fname);
+    length-= dir_len;
+
+    protocol->prepare_for_resend();
+    protocol->store(fname + dir_len, length, &my_charset_bin);
+
+    if (!(strncmp(
+            fname + dir_len, cur.log_file_name + dir_len, length)))
+    {
+      /* Reached the position of the current file in the index. State the size
+         of this file as cur.pos and exit the loop */
+      file_length= cur.pos;
+      exit_loop= true;
+    }
+    else
+    {
+      /* this is an old log, open it and find the size */
+      if ((file= mysql_file_open(key_file_relaylog,
+                                 fname, O_RDONLY | O_SHARE | O_BINARY,
+                                 MYF(0))) >= 0)
+      {
+        file_length= (ulonglong) mysql_file_seek(file, 0L, MY_SEEK_END, MYF(0));
+        mysql_file_close(file, MYF(0));
+      }
+    }
+    protocol->store(file_length);
+
+    if (protocol->write())
+    {
+      error= 1;
+      goto err;
+    }
+  }
+
+  if (index_file->error == -1)
+    goto err;
+
+  my_eof(thd);
+
+err:
+  mysql_mutex_unlock(rli->relay_log.get_lock_index());
+  mysql_mutex_unlock(&LOCK_active_mi);
+
+  return error;
+}
 #endif /* EMBEDDED_LIBRARY */
 
 /*
@@ -5475,6 +5770,8 @@ void MYSQL_BIN_LOG::purge_apply_logs()
   @param freed_log_space     If not null, decrement this variable of
                              the amount of log space freed
   @param auto_purge          True if this is an automatic purge.
+  @param max_log             If max_log is found in the index before to_log,
+                             then do not purge anything beyond that point
 
   @note
     If any of the logs before the deleted one is in use,
@@ -5495,7 +5792,8 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
                               bool need_lock_index,
                               bool need_update_threads,
                               std::atomic_ullong *decrease_log_space,
-                              bool auto_purge)
+                              bool auto_purge,
+                              const char* max_log)
 {
   int error= 0, error_index= 0,
       no_of_log_files_to_purge= 0,
@@ -5532,9 +5830,10 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
   if ((error=find_log_pos(&log_info, NullS, false/*need_lock_index=false*/)))
     goto err;
 
-  thd->clear_safe_purge_file();
   if (enable_raft_plugin && !is_apply_log)
   {
+    thd->clear_safe_purge_file();
+
     // Consult the plugin for file that could be deleted safely.
     // This will also allow plugin to clean up its index files and other states
     // (if any)
@@ -5576,8 +5875,12 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
       break;
     }
 
-    if(is_active(log_info.log_file_name))
+    if(is_active(log_info.log_file_name) ||
+        (enable_raft_plugin && max_log &&
+         strcmp(max_log, log_info.log_file_name) == 0))
     {
+      // Either the file is active or in raft mode found 'max_log' in the index.
+      // Should not delete anything at or beyond 'max_log'
       if(!auto_purge)
         push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                             ER_WARN_PURGE_LOG_IS_ACTIVE,
@@ -5997,11 +6300,14 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<std::string>& delete_list,
   Remove all logs before the given file date from disk and from the
   index file.
 
-  @param thd		Thread pointer
-  @param purge_time	Delete all log files before given date.
-  @param auto_purge     True if this is an automatic purge.
-  @param stop_purge     True if this is purge of apply logs and we have to stop
-                        purging files based on apply_log_retention_num
+  @param thd		  Thread pointer
+  @param purge_time	  Delete all log files before given date.
+  @param auto_purge       True if this is an automatic purge.
+  @param stop_purge       True if this is purge of apply logs and we have to
+                          stop purging files based on apply_log_retention_num
+  @param need_lock_index  True if LOCK_index need to be acquired
+  @param max_log          If max_log is found in the index before to_log,
+                          then do not purge anything beyond that point
 
   @note
     If any of the logs before the deleted one is in use,
@@ -6016,7 +6322,11 @@ int MYSQL_BIN_LOG::purge_logs_in_list(std::list<std::string>& delete_list,
 */
 
 int MYSQL_BIN_LOG::purge_logs_before_date(
-    time_t purge_time, bool auto_purge, bool stop_purge)
+    time_t purge_time,
+    bool auto_purge,
+    bool stop_purge,
+    bool need_lock_index,
+    const char* max_log)
 {
   int error= 0;
   int no_of_threads_locking_log= 0;
@@ -6030,7 +6340,10 @@ int MYSQL_BIN_LOG::purge_logs_before_date(
 
   DBUG_ENTER("purge_logs_before_date");
 
-  mysql_mutex_lock(&LOCK_index);
+  if (need_lock_index)
+    mysql_mutex_lock(&LOCK_index);
+  else
+    mysql_mutex_assert_owner(&LOCK_index);
 
   if (enable_raft_plugin && is_apply_log && stop_purge)
   {
@@ -6047,6 +6360,10 @@ int MYSQL_BIN_LOG::purge_logs_before_date(
 
   while (!(log_is_active= is_active(log_info.log_file_name)))
   {
+    if (enable_raft_plugin && max_log &&
+        strcmp(max_log, log_info.log_file_name) == 0)
+      break;
+
     if ((no_of_threads_locking_log= log_in_use(log_info.log_file_name)))
     {
       if (!auto_purge)
@@ -6150,10 +6467,12 @@ int MYSQL_BIN_LOG::purge_logs_before_date(
   error= (to_log[0] ? purge_logs(to_log, true,
                                  false/*need_lock_index=false*/,
                                  true/*need_update_threads=true*/,
-                                 nullptr, auto_purge) : 0);
+                                 nullptr, auto_purge, max_log) : 0);
 
 err:
-  mysql_mutex_unlock(&LOCK_index);
+  if (need_lock_index)
+    mysql_mutex_unlock(&LOCK_index);
+
   DBUG_RETURN(error);
 }
 #endif /* HAVE_REPLICATION */
