@@ -1,0 +1,237 @@
+drop table if exists test_json;
+create table test_json(json JSON);
+#
+# json_valid
+#
+# test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select json_valid(json) as is_valid,json from test_json order by is_valid,json;
+is_valid	json
+NULL	NULL
+1	{}
+1	{"key": [1, 2, 3]}
+1	{"MySQL": "开源数据库"}
+1	{"k1": {"k2": "v2"}}
+1	{"k": {}}
+1	{"k": []}
+1	{"k": "v"}
+1	{"开源数据库": "MySQL"}
+1	{"k1": "v1", "k2": true, "k3": 3}
+1	[]
+1	[{}]
+1	[[[[[]]]]]
+1	[{"k1": "v1"}, 2, 3]
+1	[1, 2, 3]
+1	[[1, 2, 3], 2, 3]
+1	[1, false, "str", 1.2]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+#
+# json_array_length
+#
+# test on table
+insert into test_json values
+(null),
+('[]'),
+('[1]'),
+('["str"]'),
+('[null]'),
+('[true,false]'),
+('[1.234]'),
+('[1,"str",null,true,false,1.2345]'),
+('[[[[[[]]]]]]'),
+('[[],[],[],[],[]]'),
+('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]'),
+('[{"MySQL":"开源数据库"},"MySQL"]'),
+('[{"开源数据库":"MySQL"},"开源数据库"]');
+select json_array_length(json) as is_valid,json from test_json order by is_valid,json;
+is_valid	json
+NULL	NULL
+0	[]
+1	[null]
+1	[1]
+1	["str"]
+1	[1.234]
+1	[[[[[[]]]]]]
+2	[true, false]
+2	[{"MySQL": "开源数据库"}, "MySQL"]
+2	[{"开源数据库": "MySQL"}, "开源数据库"]
+4	[[1, 2, 3], {"k1": "v1"}, {"k2": 2}, [4, 5, 6]]
+5	[[], [], [], [], []]
+6	[1, "str", null, true, false, 1.2345]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+#
+# json_contains_key
+#
+# test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select json_contains_key(json,null) as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1',null) as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k2') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	[1, 2, 3, 4]
+1	{"k1": "v1"}
+1	{"k1": {"k2": "v2"}}
+1	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+1	{"k1": {"k2": {"k3": 12.345}}}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1','k2') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	[1, 2, 3, 4]
+1	{"k1": {"k2": "v2"}}
+1	{"k1": {"k2": {"k3": 12.345}}}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1','k2','k3') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	[1, 2, 3, 4]
+1	{"k1": {"k2": {"k3": 12.345}}}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,0) as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	{"k1": {"k2": {"k3": 12.345}}}
+1	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'1') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+0	{"k1": {"k2": {"k3": 12.345}}}
+1	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1',1) as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+1	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1',1,'k2') as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+1	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select json_contains_key(json,'k1',1,'k2',0) as json_contains_key,json from test_json order by json_contains_key,json;
+json_contains_key	json
+NULL	NULL
+0	{}
+0	{"k1": "v1"}
+0	{"k1": {"k2": "v2"}}
+0	{"k1": {"k2": {"k3": 12.345}}}
+0	[1, 2, 3, 4]
+1	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+# test multi-byte characters
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select length(json_contains_key(json,'MySQL')) as length,json_contains_key(json,'MySQL') as json_contains_key,json from test_json order by length,json_contains_key,json;
+length	json_contains_key	json
+1	0	{"开源数据库": "MySQL"}
+1	1	{"MySQL": "开源数据库"}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_contains_key(json,'开源数据库'))as length ,json_contains_key(json,'开源数据库') as json_contains_key,json from test_json order by length,json_contains_key,json;
+length	json_contains_key	json
+1	0	{"MySQL": "开源数据库"}
+1	1	{"开源数据库": "MySQL"}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+#
+# cleanup
+#
+drop table test_json;
