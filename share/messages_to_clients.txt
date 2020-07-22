@@ -9371,8 +9371,8 @@ ER_READ_ONLY_SLAVE
 ER_PLACEHOLDER_50008
   eng "Placeholder"
 
-ER_PLACEHOLDER_50009
-  eng "Placeholder"
+ER_INVALID_JSON_ARRAY
+  eng "Invalid JSON array: '%.64s', pos %u, error '%s'."
 
 ER_PLACEHOLDER_50010
   eng "Placeholder"

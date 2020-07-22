@@ -1,0 +1,173 @@
+# Description
+# -----------
+# Testing json functions on literal strings
+
+--echo #
+--echo # json_valid
+--echo #
+
+--echo # returns NULL
+select json_valid(null);
+
+--echo # valid json strings
+select json_valid('{}');
+select json_valid('{"k":"v"}');
+select json_valid('{"k":{}}');
+select json_valid('{"k":[]}');
+select json_valid('{"k1":"v1","k2":true,"k3":3}');
+select json_valid('{"k1":{"k2":"v2"}}');
+select json_valid('{"key":[1,2,3]}');
+
+select json_valid('[]');
+select json_valid('[[[[[]]]]]');
+select json_valid('[{}]');
+select json_valid('[1,2,3]');
+select json_valid('[1,false,"str",1.2]');
+select json_valid('[{"k1":"v1"},2,3]');
+select json_valid('[[1,2,3],2,3]');
+select json_valid(concat('{"k1":[', repeat('{},', 200), '{}]}'));
+select json_valid(concat('{"k2":[', repeat('[],', 200), '[]]}'));
+select json_valid(concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'));
+select json_valid(concat('[', repeat('[],', 200), '[]]'));
+
+--echo # utf-8 multi-byte character
+select json_valid('{"MySQL":"开源数据库"}');
+select json_valid('{"开源数据库":"MySQL"}');
+
+
+--echo # invalid json strings
+select json_valid('');
+select json_valid(123);
+select json_valid(1.23);
+select json_valid('abc');
+select json_valid('{"key"}');
+select json_valid('{1:value}');
+select json_valid('{"key":"value"');
+select json_valid('[1,2,3');
+select json_valid('{}}');
+select json_valid('[[]');
+select json_valid('{[]}');
+select json_valid(repeat('{"a":',100));
+--error ER_JSON_DOCUMENT_TOO_DEEP
+select json_valid(repeat('{"a":',101));
+--error ER_JSON_DOCUMENT_TOO_DEEP
+select json_valid(repeat('{"a":',10000));
+select json_valid(repeat('["a",',100));
+--error ER_JSON_DOCUMENT_TOO_DEEP
+select json_valid(repeat('["a",',101));
+--error ER_JSON_DOCUMENT_TOO_DEEP
+select json_valid(repeat('["a",',10000));
+
+--echo #
+--echo # json_array_length
+--echo #
+
+--echo # null result
+select json_array_length(null);
+
+--echo # valid arrays
+select json_array_length('[]');
+select json_array_length('[1]');
+select json_array_length('["str"]');
+select json_array_length('[null]');
+select json_array_length('[true,false]');
+select json_array_length('[1.234]');
+select json_array_length('[1,"str",null,true,false,1.2345]');
+
+select json_array_length('[[[[[[]]]]]]');
+select json_array_length('[[],[],[],[],[]]');
+select json_array_length('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]');
+--echo # utf-8 multi-byte character
+select json_array_length('[{"MySQL":"开源数据库"},"MySQL"]');
+select json_array_length('[{"开源数据库":"MySQL"},"开源数据库"]');
+
+--echo # not json array
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{}');
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{"key":"value"}');
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{"key":[]}');
+
+--echo # invalid json object (expecting error)
+--error ER_INVALID_JSON_TEXT_IN_PARAM
+select json_array_length('');
+
+--echo #
+--echo # nested function call
+--echo #
+
+select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', '$.k1'));
+
+--echo #
+--echo # json_contains_key
+--echo #
+
+--echo # null results
+select json_contains_key(null,null);
+select json_contains_key(null,'key');
+
+--echo # invalid key paths
+select json_contains_key('{}',null);
+select json_contains_key('{"k1":"v1"}','k1',null);
+select json_contains_key('{"k1":"v1"}','k1','k2');
+select json_contains_key('{"k1":"v1"}','k2');
+select json_contains_key('[]',1);
+select json_contains_key('[1]',1);
+select json_contains_key('[1]',-2);
+--echo # duplicate keys will be matched at the first occurrence
+select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
+
+--echo # valid key paths
+select json_contains_key('{"k1":"v1"}','k1');
+select json_contains_key('[1,2,3,4]',0);
+select json_contains_key('[1,2,3,4]',1);
+select json_contains_key('[1,2,3,4]',2);
+select json_contains_key('[1,2,3,4]',3);
+select json_contains_key('[1,2,3,4]','0');
+select json_contains_key('[1,2,3,4]','1');
+select json_contains_key('[1,2,3,4]','2');
+select json_contains_key('[1,2,3,4]','3');
+
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1');
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1','k2');
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1','k2','k3');
+--echo # test case sensitivity
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','K1');
+--echo # duplicate keys will be matched at the first occurrence
+select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1');
+--echo # utf-8 multi-byte character
+select json_contains_key('{"MySQL":"开源数据库"}','MySQL');
+select json_contains_key('{"开源数据库":"MySQL"}','开源数据库');
+
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
+
+select json_contains_key('{"$":"v1"}','$');
+select json_contains_key('{"$.k1":"v1"}','$.k1');
+select json_contains_key('{"k1":"v1"}','$.k1');
+select json_contains_key('{"$**.k1":"v1"}','$**.k1');
+select json_contains_key('{"k1":"v1"}','$**.k1');
+select json_contains_key('{"*":"v1"}','*');
+select json_contains_key('{"**":"v1"}','*');
+select json_contains_key('{"**":"v1"}','**');
+select json_contains_key('{"a": {"$":"v1"}}','a','$');
+select json_contains_key('{"a": {"*":"v1"}}','a','*');
+select json_contains_key('{"a": {"**":"v1"}}','a','*');
+select json_contains_key('{"a": {"**":"v1"}}','a','**');
+select json_contains_key('{"\\"a":"v1"}','a');
+select json_contains_key('{"\\"a":"v1"}','"a');
+select json_contains_key('{"\\"a":"v1"}','\"a');
+select json_contains_key('{"\\"a":"v1"}','\\"a');
+select json_contains_key('{"k.1" : "v"}', "k.1");
+
+--echo # invalid json object (expecting error)
+--error ER_INVALID_JSON_TEXT_IN_PARAM
+select json_contains_key('', 'k1');
