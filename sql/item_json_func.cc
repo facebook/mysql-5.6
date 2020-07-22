@@ -35,6 +35,7 @@
 #include <string>
 #include <utility>
 
+#include <boost/algorithm/string/replace.hpp>
 #include "decimal.h"
 #include "field_types.h"  // enum_field_types
 #include "lex_string.h"
@@ -351,16 +352,8 @@ static bool json_is_valid(Item **args, uint arg_idx, String *value,
   }
 }
 
-bool parse_path(const String &path_value, bool forbid_wildcards,
-                Json_path *json_path) {
-  const char *path_chars = path_value.ptr();
-  size_t path_length = path_value.length();
-  StringBuffer<STRING_BUFFER_USUAL_SIZE> res(&my_charset_utf8mb4_bin);
-
-  if (ensure_utf8mb4(path_value, &res, &path_chars, &path_length, true)) {
-    return true;
-  }
-
+bool parse_path_chars(const char *path_chars, size_t path_length,
+                      bool forbid_wildcards, Json_path *json_path) {
   // OK, we have a string encoded in utf-8. Does it parse?
   size_t bad_idx = 0;
   if (parse_path(path_length, path_chars, json_path, &bad_idx,
@@ -379,6 +372,19 @@ bool parse_path(const String &path_value, bool forbid_wildcards,
   }
 
   return false;
+}
+
+bool parse_path(const String &path_value, bool forbid_wildcards,
+                Json_path *json_path) {
+  const char *path_chars = path_value.ptr();
+  size_t path_length = path_value.length();
+  StringBuffer<STRING_BUFFER_USUAL_SIZE> res(&my_charset_utf8mb4_bin);
+
+  if (ensure_utf8mb4(path_value, &res, &path_chars, &path_length, true)) {
+    return true;
+  }
+
+  return parse_path_chars(path_chars, path_length, forbid_wildcards, json_path);
 }
 
 /**
@@ -496,6 +502,117 @@ bool Json_path_cache::parse_and_cache_path(const THD *thd, Item **args,
 
   cell.m_status = enum_path_status::OK_NOT_NULL;
   return false;
+}
+
+/*
+ * Generate path expression from key parts by applying the
+   format
+   $."<key1>"."<key2>"."<keyn>"
+   $."<key1>"[<key2>]."<keyn>"                ([] for array)
+
+   Array index is represented by integer. The integer value
+   might also represent the key in JSON string.
+   It cannot be pre-determined which of the possible expression
+   for JSON path is valid until the document is traversed.
+   Since it cannot be determined beforehand, generate both the
+   possible JSON path expressions.
+   Eg. Current JSON path syntax created is '$'."k1".
+   On encountering integer key part '0', we generate 2 paths
+   $."k1"."0" and $."k1"[0].
+ */
+bool Json_path_cache::generate_paths_from_key_parts(
+    Item **args, uint arg_idx, uint end_idx,
+    std::vector<std::string> &json_paths, bool *is_null) {
+  *is_null = false;
+  json_paths.push_back("$");
+
+  for (uint j = arg_idx; j <= end_idx; j++) {
+    Item *arg = args[j];
+    String *path_value = arg->val_str(&m_path_value);
+    if (path_value == nullptr) {
+      *is_null = true;
+      return false;
+    }
+
+    const char *path_chars = path_value->ptr();
+    size_t path_length = path_value->length();
+    StringBuffer<STRING_BUFFER_USUAL_SIZE> res(&my_charset_utf8mb4_bin);
+    if (ensure_utf8mb4(*path_value, &res, &path_chars, &path_length, true))
+      return true;
+
+    int old_vec_len = json_paths.size();
+    std::string check_str(path_value->ptr(), path_value->length());
+    if (!check_str.empty() &&
+        std::all_of(check_str.begin(), check_str.end(), ::isdigit)) {
+      for (int i = 0; i < old_vec_len; i++) {
+        json_paths.push_back(json_paths[i]);
+        json_paths.back().append("[");
+        json_paths.back().append(check_str);
+        json_paths.back().append("]");
+      }
+    } else {
+      // Add escape sequence to escape sequence and double quotes
+      // themselves in order to enable their parsing.
+      boost::replace_all(check_str, "\\", "\\\\");
+      boost::replace_all(check_str, "\"", "\\\"");
+    }
+
+    for (int i = 0; i < old_vec_len; i++) {
+      // Wrap the entire key in double quote now. This needs to be
+      // done so that parser does not confuses with presence of
+      // wildcard/special characters in the key.
+      json_paths[i].append(".\"");
+      json_paths[i].append(check_str);
+      json_paths[i].append("\"");
+    }
+  }
+  return false;
+}
+
+bool Json_path_cache::parse_key_parts_and_cache_path(Item **args, uint arg_idx,
+                                                     uint end_idx,
+                                                     uint *generated_paths) {
+  bool is_constant = true;
+  *generated_paths = 0;
+  for (uint i = arg_idx; i <= end_idx; i++) {
+    is_constant = is_constant && args[i]->const_for_execution();
+  }
+
+  Path_cell &cell = m_arg_idx_to_vector_idx[0];
+  if (is_constant && cell.m_status != enum_path_status::UNINITIALIZED) {
+    *generated_paths = m_paths.size();
+    assert(cell.m_status == enum_path_status::OK_NOT_NULL ||
+           cell.m_status == enum_path_status::OK_NULL);
+    return false;
+  }
+
+  /* Recreate all the paths since the key parts are not constant. */
+  reset_cache();
+  std::vector<std::string> paths;
+  bool is_null;
+  if (generate_paths_from_key_parts(args, arg_idx, end_idx, paths, &is_null)) {
+    return true;
+  }
+  if (is_null) {
+    cell.m_status = enum_path_status::OK_NULL;
+    return false;
+  }
+  // Resize m_arg_idx_to_vector_idx only if the new size is higher.
+  // m_arg_idx_to_vector_idx is used in parse_and_cache_path in non legacy mode
+  // which breaks some of assertions there.
+  if (m_arg_idx_to_vector_idx.size() < paths.size())
+    m_arg_idx_to_vector_idx.resize(paths.size());
+  for (size_t i = 0; i < paths.size(); i++) {
+    Json_path path(key_memory_JSON);
+    if (!parse_path_chars(paths[i].c_str(), paths[i].size(), true, &path)) {
+      m_arg_idx_to_vector_idx[i].m_index = m_paths.size();
+      m_arg_idx_to_vector_idx[i].m_status = enum_path_status::OK_NOT_NULL;
+      m_paths.push_back(std::move(path));
+    }
+  }
+
+  *generated_paths = m_paths.size();
+  return m_paths.size() == 0;
 }
 
 const Json_path *Json_path_cache::get_path(uint arg_idx) const {
@@ -1057,6 +1174,54 @@ longlong Item_func_json_contains_path::val_int() {
     handle_std_exception(func_name());
     return error_int();
     /* purecov: end */
+  }
+
+  return result;
+}
+
+longlong Item_func_json_contains_key::val_int() {
+  assert(fixed == 1);
+  longlong result = 0;
+  null_value = false;
+
+  try {
+    // arg 0 is the document
+    Json_wrapper wrapper;
+    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &wrapper) ||
+        args[0]->null_value) {
+      null_value = true;
+      return 0;
+    }
+
+    uint num_paths;
+    if (m_path_cache.parse_key_parts_and_cache_path(args, 1, arg_count - 1,
+                                                    &num_paths))
+      return error_int();
+    // Possible null JSON path syntax. Return not found.
+    if (num_paths == 0) {
+      return 0;
+    }
+
+    // Iterate over all the JSON path's created. Return found,
+    // if any of the path is found inside the json document.
+    bool failure = true;
+    Json_wrapper_vector hits(key_memory_JSON);
+    for (uint i = 0; i < num_paths; i++) {
+      hits.clear();
+      const Json_path *path = m_path_cache.get_path(i);
+      if (!wrapper.seek(*path, path->leg_count(), &hits, false, true)) {
+        failure = false;
+        if (hits.size() > 0) {
+          result = 1;
+          break;
+        }
+      }
+    }
+
+    if (failure) return error_int();
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_int();
   }
 
   return result;
@@ -1734,6 +1899,41 @@ longlong Item_func_json_length::val_int() {
   result = wrapper.length();
 
   null_value = false;
+  return result;
+}
+
+longlong Item_func_json_array_length::val_int() {
+  assert(fixed == 1);
+  longlong result = 0;
+
+  Json_wrapper wrapper;
+
+  try {
+    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &wrapper) ||
+        args[0]->null_value) {
+      null_value = true;
+      return 0;
+    }
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_int();
+  }
+
+  // Return failure in case array is not found in the
+  // json document.
+  if (wrapper.type() != enum_json_type::J_ARRAY) {
+    String value;
+    if (wrapper.to_string(&value, false, func_name(), JsonDocumentDefaultDepthHandler)) {
+      return error_int();
+    }
+    my_error(ER_INVALID_JSON_ARRAY, MYF(0), value.c_ptr_safe(), 0,
+             "Invalid array value");
+    return error_int();
+  }
+
+  result = wrapper.length();
+  null_value = false;
+
   return result;
 }
 

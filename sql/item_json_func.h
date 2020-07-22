@@ -128,6 +128,38 @@ class Json_path_cache {
                             bool forbid_wildcards);
 
   /**
+    Create combination of paths from key parts.Does nothing if the path
+    expression is constant and it has already been parsed. Raises an
+    error if the path expression is syntactically incorrect. Otherwise
+    puts the parsed paths onto the path vector.
+
+    @param[in]  args             Array of args to a JSON function
+    @param[in]  arg_idx          Index of the path_expression in args
+    @param[in]  end_idx          last index of the key parts in args
+    @param[out] generated_paths  Number of possible paths generated.
+
+    Return false on success, true on failure.
+   */
+  bool parse_key_parts_and_cache_path(Item **args, uint arg_idx, uint end_idx,
+                                      uint *generated_paths);
+
+  /**
+    Create combination of paths from key parts. Otherwise
+    puts the parsed paths onto the path vector.
+
+    @param[in]  args             Array of args to a JSON function
+    @param[in]  arg_idx          Index of the path_expression in args
+    @param[in]  end_idx          last index of the key parts in args
+    @param[out] json_paths       vector of Json paths generated.
+    @param[out] is_null          Set when any of the key part is null
+
+    Return flase on success, true on failure
+   */
+  bool generate_paths_from_key_parts(Item **args, uint arg_idx, uint end_idx,
+                                     std::vector<std::string> &json_paths,
+                                     bool *is_null);
+
+  /**
     Return an already parsed path expression.
 
     @param[in]  arg_idx   Index of the path_expression in the JSON function args
@@ -457,6 +489,31 @@ class Item_func_json_contains_path final : public Item_int_func {
 };
 
 /**
+  Represents the JSON function JSON_CONTAINS_KEY()
+*/
+class Item_func_json_contains_key final : public Item_int_func {
+  String m_doc_value;
+
+  // Cache for constant path expressions
+  Json_path_cache m_path_cache;
+
+ public:
+  Item_func_json_contains_key(THD *thd, const POS &pos, PT_item_list *a)
+      : Item_int_func(pos, a), m_path_cache(thd, 1) {}
+
+  const char *func_name() const override { return "json_contains_key"; }
+
+  bool is_bool_func() const override { return true; }
+
+  longlong val_int() override;
+
+  bool resolve_type(THD *) override {
+    set_nullable(true);
+    return false;
+  }
+};
+
+/**
   Represents the JSON function JSON_TYPE
 */
 class Item_func_json_type : public Item_str_func {
@@ -513,6 +570,26 @@ class Item_func_json_length final : public Item_int_func {
   const char *func_name() const override { return "json_length"; }
 
   longlong val_int() override;
+};
+
+/**
+  Represents the JSON function JSON_ARRAY_LENGTH()
+*/
+class Item_func_json_array_length final : public Item_int_func {
+  String m_doc_value;
+
+ public:
+  Item_func_json_array_length(const POS &pos, Item *a)
+      : Item_int_func(pos, a) {}
+
+  const char *func_name() const override { return "json_array_length"; }
+
+  longlong val_int() override;
+
+  bool resolve_type(THD *) override {
+    set_nullable(true);
+    return false;
+  }
 };
 
 /**

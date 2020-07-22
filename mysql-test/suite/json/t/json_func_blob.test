@@ -1,0 +1,48 @@
+--disable_warnings
+drop table if exists test_json;
+--enable_warnings
+create table test_json(json blob);
+
+--echo #
+--echo # json_valid
+--echo #
+
+--echo # test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+(''),
+(123),
+(1.23),
+('abc'),
+('{"key"}'),
+('{1:value}'),
+('{"key":"value"'),
+('[1,2,3'),
+('{}}'),
+('[[]'),
+('{[]}'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+
+select json_valid(json) is_valid, json from test_json order by is_valid, json;
+
+truncate test_json;
+
+--echo #
+--echo # cleanup
+--echo #
+drop table test_json;

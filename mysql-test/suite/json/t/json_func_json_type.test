@@ -1,0 +1,99 @@
+--disable_warnings
+drop table if exists test_json;
+--enable_warnings
+create table test_json(json JSON);
+
+--echo #
+--echo # json_valid
+--echo #
+
+--echo # test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+
+select json_valid(json) as is_valid,json from test_json order by is_valid,json;
+
+truncate test_json;
+
+--echo #
+--echo # json_array_length
+--echo #
+
+--echo # test on table
+insert into test_json values
+(null),
+('[]'),
+('[1]'),
+('["str"]'),
+('[null]'),
+('[true,false]'),
+('[1.234]'),
+('[1,"str",null,true,false,1.2345]'),
+('[[[[[[]]]]]]'),
+('[[],[],[],[],[]]'),
+('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]'),
+('[{"MySQL":"开源数据库"},"MySQL"]'),
+('[{"开源数据库":"MySQL"},"开源数据库"]');
+
+select json_array_length(json) as is_valid,json from test_json order by is_valid,json;
+
+truncate test_json;
+
+--echo #
+--echo # json_contains_key
+--echo #
+
+--echo # test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+
+select json_contains_key(json,null) as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1',null) as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k2') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1','k2') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1','k2','k3') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,0) as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'1') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1',1) as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1',1,'k2') as json_contains_key,json from test_json order by json_contains_key,json;
+select json_contains_key(json,'k1',1,'k2',0) as json_contains_key,json from test_json order by json_contains_key,json;
+
+truncate test_json;
+
+--echo # test multi-byte characters
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+
+select length(json_contains_key(json,'MySQL')) as length,json_contains_key(json,'MySQL') as json_contains_key,json from test_json order by length,json_contains_key,json;
+select length(json_contains_key(json,'开源数据库'))as length ,json_contains_key(json,'开源数据库') as json_contains_key,json from test_json order by length,json_contains_key,json;
+
+truncate test_json;
+
+--echo #
+--echo # cleanup
+--echo #
+drop table test_json;
