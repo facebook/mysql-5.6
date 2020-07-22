@@ -3558,7 +3558,7 @@ public:
     MT_KEY_MAX
   };
 
-  md5_key          mt_key_val[MT_KEY_MAX];
+  md5_key          mt_key_val[MT_KEY_MAX] = {};
   std::atomic_bool mt_key_val_set[MT_KEY_MAX];
 
   /* SQL_ID and SQL_PLAN may be accessed by another thread executing
