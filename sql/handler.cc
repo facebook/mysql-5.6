@@ -2819,6 +2819,7 @@ void handler::ha_statistic_increment(ulonglong SSV::*offset) const
   {
     status_var_increment(table->in_use->status_var.*offset);
     table->in_use->check_limit_rows_examined();
+    table->in_use->check_yield();
   }
 }
 
@@ -6208,6 +6209,8 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
   {
     if (unlikely(thd->killed != 0))
       return HA_POS_ERROR;
+
+    thd->check_yield();
 
     n_ranges++;
     key_range *min_endp, *max_endp;

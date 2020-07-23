@@ -74,7 +74,9 @@ typedef enum _thd_wait_type_e {
   THD_WAIT_BINLOG= 8,
   THD_WAIT_GROUP_COMMIT= 9,
   THD_WAIT_SYNC= 10,
-  THD_WAIT_LAST= 11
+  THD_WAIT_NET_IO= 11,
+  THD_WAIT_YIELD= 12,
+  THD_WAIT_LAST= 13
 } thd_wait_type;
 
 extern struct thd_wait_service_st {

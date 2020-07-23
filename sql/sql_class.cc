@@ -1763,9 +1763,7 @@ void THD::release_resources()
   /* if we are still in admission control, release it */
   if (is_in_ac)
   {
-    MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_map, db};
-    multi_tenancy_exit_query(this, &attrs);
-    is_in_ac = false;
+    multi_tenancy_exit_query(this);
   }
 
   /* Close connection */
@@ -4836,6 +4834,23 @@ extern "C" bool thd_is_strict_mode(const MYSQL_THD thd)
 extern "C" void thd_pool_wait_begin(MYSQL_THD thd, int wait_type);
 extern "C" void thd_pool_wait_end(MYSQL_THD thd);
 
+static bool filter_wait_type(int wait_type) {
+  switch (wait_type) {
+  case THD_WAIT_SLEEP:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_SLEEP;
+  case THD_WAIT_ROW_LOCK:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_ROW_LOCK;
+  case THD_WAIT_USER_LOCK:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_USER_LOCK;
+  case THD_WAIT_NET_IO:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_NET_IO;
+  case THD_WAIT_YIELD:
+    return admission_control_wait_events & ADMISSION_CONTROL_THD_WAIT_YIELD;
+  default:
+    return false;
+  }
+}
+
 /*
   Interface for MySQL Server, plugins and storage engines to report
   when they are going to sleep/stall.
@@ -4859,6 +4874,14 @@ extern "C" void thd_pool_wait_end(MYSQL_THD thd);
 */
 extern "C" void thd_wait_begin(MYSQL_THD thd, int wait_type)
 {
+  if (thd && thd->is_in_ac && filter_wait_type(wait_type)) {
+    multi_tenancy_exit_query(thd);
+    // For explicit yields, we want to send the query to the back of the queue
+    // to allow for other queries to run. For other yields, it's likely we
+    // want to finish the query as soon as possible.
+    thd->readmission_mode = (wait_type == THD_WAIT_YIELD)
+      ? AC_REQUEST_QUERY_READMIT_LOPRI : AC_REQUEST_QUERY_READMIT_HIPRI;
+  }
   MYSQL_CALLBACK(thread_scheduler, thd_wait_begin, (thd, wait_type));
 }
 
@@ -4871,6 +4894,14 @@ extern "C" void thd_wait_begin(MYSQL_THD thd, int wait_type)
 extern "C" void thd_wait_end(MYSQL_THD thd)
 {
   MYSQL_CALLBACK(thread_scheduler, thd_wait_end, (thd));
+  if (thd && thd->readmission_mode > AC_REQUEST_NONE) {
+    if (++thd->readmission_count % 1000 == 0) {
+      thd->readmission_mode = AC_REQUEST_QUERY_READMIT_LOPRI;
+    }
+
+    multi_tenancy_admit_query(thd, thd->readmission_mode);
+    thd->readmission_mode = AC_REQUEST_NONE;
+  }
 }
 #else
 extern "C" void thd_wait_begin(MYSQL_THD thd, int wait_type)
@@ -5173,6 +5204,17 @@ void THD::check_limit_rows_examined()
 {
   if (++m_accessed_rows_and_keys > lex->limit_rows_examined_cnt)
     killed= ABORT_QUERY;
+}
+
+void THD::check_yield()
+{
+  DBUG_ASSERT(last_yield_counter <= yield_counter);
+  yield_counter++;
+  if (last_yield_counter + admission_control_yield_freq < yield_counter) {
+    thd_wait_begin(this, THD_WAIT_YIELD);
+    thd_wait_end(this);
+    last_yield_counter = yield_counter;
+  }
 }
 
 void THD::inc_sent_row_count(ha_rows count)

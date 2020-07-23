@@ -184,6 +184,14 @@ enum enum_admission_control_filter {
   ADMISSION_CONTROL_END = 64
 };
 
+enum enum_admission_control_wait_events {
+  ADMISSION_CONTROL_THD_WAIT_SLEEP = (1U << 0),
+  ADMISSION_CONTROL_THD_WAIT_ROW_LOCK = (1U << 1),
+  ADMISSION_CONTROL_THD_WAIT_USER_LOCK = (1U << 2),
+  ADMISSION_CONTROL_THD_WAIT_NET_IO = (1U << 3),
+  ADMISSION_CONTROL_THD_WAIT_YIELD = (1U << 4),
+};
+
 enum enum_session_track_gtids {
   OFF= 0,
   OWN_GTID= 1,
@@ -2546,6 +2554,9 @@ public:
 
   /* whether the session is already in admission control for queries */
   bool is_in_ac = false;
+
+  enum enum_admission_control_request_mode readmission_mode = AC_REQUEST_NONE;
+
   /**
     @note
     Some members of THD (currently 'Statement::db',
@@ -3498,6 +3509,15 @@ public:
     LIMIT ROWS EXAMINED. If so, signal the query engine to stop execution.
   */
   void check_limit_rows_examined();
+
+  ulonglong last_yield_counter = 0;
+  ulonglong yield_counter = 0;
+  ulonglong readmission_count = 0;
+
+  /**
+    Check if we should exit and reenter admission control.
+  */
+  void check_yield();
 
   void inc_sent_row_count(ha_rows count);
   void inc_examined_row_count(ha_rows count);

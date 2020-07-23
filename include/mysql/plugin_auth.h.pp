@@ -44,7 +44,9 @@ typedef enum _thd_wait_type_e {
   THD_WAIT_BINLOG= 8,
   THD_WAIT_GROUP_COMMIT= 9,
   THD_WAIT_SYNC= 10,
-  THD_WAIT_LAST= 11
+  THD_WAIT_NET_IO= 11,
+  THD_WAIT_YIELD= 12,
+  THD_WAIT_LAST= 13
 } thd_wait_type;
 extern struct thd_wait_service_st {
   void (*thd_wait_begin_func)(void*, int);
@@ -257,6 +259,7 @@ void thd_binlog_pos(const void* thd,
 void thd_slave_gtid_info(const void* thd, void *slave_gtid_info);
 unsigned long thd_get_thread_id(const void* thd);
 void thd_get_xid(const void* thd, MYSQL_XID *xid);
+void* thd_get_current_thd();
 void mysql_query_cache_invalidate4(void* thd,
                                    const char *key, unsigned int key_length,
                                    int using_trx);

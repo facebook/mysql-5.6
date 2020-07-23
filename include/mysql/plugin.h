@@ -654,6 +654,13 @@ unsigned long thd_get_thread_id(const MYSQL_THD thd);
 void thd_get_xid(const MYSQL_THD thd, MYSQL_XID *xid);
 
 /**
+  Get current THD object from thread local data
+
+  @retval     The THD object for the thread, NULL if not connection thread
+*/
+MYSQL_THD thd_get_current_thd();
+
+/**
   Invalidate the query cache for a given table.
 
   @param thd         user thread connection handle

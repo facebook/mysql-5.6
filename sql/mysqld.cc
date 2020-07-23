@@ -739,6 +739,8 @@ ulong slave_run_triggers_for_rbr = 0;
 ulonglong slave_type_conversions_options;
 char *opt_rbr_column_type_mismatch_whitelist= nullptr;
 ulonglong admission_control_filter;
+ulonglong admission_control_wait_events;
+ulonglong admission_control_yield_freq;
 ulong opt_mts_slave_parallel_workers;
 ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
@@ -13228,6 +13230,7 @@ PSI_stage_info stage_user_sleep= { 0, "User sleep", 0};
 PSI_stage_info stage_verifying_table= { 0, "verifying table", 0};
 PSI_stage_info stage_waiting_for_commit= { 0, "waiting for commit", 0};
 PSI_stage_info stage_waiting_for_admission= { 0, "waiting for admission", 0};
+PSI_stage_info stage_waiting_for_readmission= { 0, "waiting for readmission", 0};
 PSI_stage_info stage_waiting_for_delay_list= { 0, "waiting for delay_list", 0};
 PSI_stage_info stage_waiting_for_gtid_to_be_written_to_binary_log= { 0, "waiting for GTID to be written to binary log", 0};
 PSI_stage_info stage_waiting_for_handler_insert= { 0, "waiting for handler insert", 0};
@@ -13343,6 +13346,7 @@ PSI_stage_info *all_server_stages[]=
   & stage_user_sleep,
   & stage_verifying_table,
   & stage_waiting_for_admission,
+  & stage_waiting_for_readmission,
   & stage_waiting_for_delay_list,
   & stage_waiting_for_handler_insert,
   & stage_waiting_for_handler_lock,

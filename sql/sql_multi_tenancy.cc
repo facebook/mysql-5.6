@@ -232,13 +232,23 @@ int multi_tenancy_close_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
  * Admit a query based on database entity
  *
  * @param thd THD structure
- * @param attrs Resource attributes
+ * @param mode how to re-enter admission control
  *
  * @return 0 if the query is admitted, 1 otherwise.
  */
-int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
+int multi_tenancy_admit_query(THD *thd,
+                              enum_admission_control_request_mode mode)
 {
-  bool admission_check= false;
+  bool admission_check = false;
+
+  if (thd->is_in_ac)
+    return 0;
+
+  MT_RESOURCE_ATTRS attrs = {
+    &thd->connection_attrs_map,
+    &thd->query_attrs_map,
+    thd->db
+  };
 
   /*
    * Admission control check will be enforced if ALL of the following
@@ -256,7 +266,7 @@ int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
       !thd->rli_slave && /* 2 */
       ((!opt_admission_control_by_trx || thd->is_real_trans) &&
        !thd->is_in_ac) && /* 3 */
-      attrs->database && /* 4 */
+      thd->db && /* 4 */
       db_ac->get_max_running_queries() && /* 5 */
       !filter_command(thd->lex->sql_command) /* 6 */
      )
@@ -265,7 +275,7 @@ int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
   }
 
   if (admission_check) {
-    Ac_result res = db_ac->admission_control_enter(thd, attrs);
+    Ac_result res = db_ac->admission_control_enter(thd, &attrs, mode);
     if (res == Ac_result::AC_ABORTED) {
       my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
                db_ac->get_max_waiting_queries(),
@@ -294,12 +304,22 @@ int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
  *
  * @return 0 if successful, 1 if otherwise
  */
-int multi_tenancy_exit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
+int multi_tenancy_exit_query(THD *thd)
 {
-  if (!attrs->database)
+  DBUG_ASSERT(thd->is_in_ac);
+  thd->is_in_ac = false;
+  thd->last_yield_counter = thd->yield_counter;
+
+  if (!thd->db)
     return 0; // no limiting
 
-  db_ac->admission_control_exit(thd, attrs);
+  MT_RESOURCE_ATTRS attrs = {
+    &thd->connection_attrs_map,
+    &thd->query_attrs_map,
+    thd->db
+  };
+
+  db_ac->admission_control_exit(thd, &attrs);
   return 0;
 }
 
@@ -438,12 +458,12 @@ int multi_tenancy_close_connection(THD *thd, const MT_RESOURCE_ATTRS *attrs)
   return 1;
 }
 
-int multi_tenancy_admit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
+int multi_tenancy_admit_query(THD *thd, enum_admission_control_request_mode)
 {
   return 1;
 }
 
-int multi_tenancy_exit_query(THD *thd, const MT_RESOURCE_ATTRS *attrs)
+int multi_tenancy_exit_query(THD *thd)
 {
   return 1;
 }
@@ -598,7 +618,7 @@ static ulong get_queue(THD * thd) {
 
 /**
  * @param thd THD structure.
- * @param attrs session resource attributes
+ * @param mode how to re-enter admission control
  *
  * Applies admission control checks for the entity. Outline of
  * the steps in this function:
@@ -617,7 +637,8 @@ static ulong get_queue(THD * thd) {
  *         AC_KILLED   - Killed while waiting for admission
  */
 Ac_result AC::admission_control_enter(THD *thd,
-                                      const MT_RESOURCE_ATTRS *attrs) {
+                                      const MT_RESOURCE_ATTRS *attrs,
+                                      enum_admission_control_request_mode mode) {
   Ac_result res = Ac_result::AC_ADMITTED;
   std::string entity = attrs->database;
   const char* prev_proc_info = thd->proc_info;
@@ -660,7 +681,8 @@ Ac_result AC::admission_control_enter(THD *thd,
         ret = MT_RETURN_TYPE::MULTI_TENANCY_RET_ACCEPT;
       else
       {
-        if (max_waiting_queries && ac_info->waiting_queries >= max_waiting_queries)
+        if (max_waiting_queries &&
+            ac_info->waiting_queries >= max_waiting_queries)
           ret = MT_RETURN_TYPE::MULTI_TENANCY_RET_REJECT;
         else
           ret = MT_RETURN_TYPE::MULTI_TENANCY_RET_WAIT;
@@ -680,7 +702,7 @@ Ac_result AC::admission_control_enter(THD *thd,
         break;
 
       case MT_RETURN_TYPE::MULTI_TENANCY_RET_WAIT:
-        enqueue(thd, ac_info);
+        enqueue(thd, ac_info, mode);
         /**
           Inserting or deleting in std::map will not invalidate existing
           iterators except of course if the current iterator is erased. If the
@@ -693,7 +715,7 @@ Ac_result AC::admission_control_enter(THD *thd,
         */
         while (true) {
           mysql_rwlock_unlock(&LOCK_ac);
-          timeout = wait_for_signal(thd, thd->ac_node, ac_info);
+          timeout = wait_for_signal(thd, thd->ac_node, ac_info, mode);
           // Retake locks in correct lock order.
           mysql_rwlock_rdlock(&LOCK_ac);
           mysql_mutex_lock(&ac_info->lock);
@@ -737,6 +759,7 @@ Ac_result AC::admission_control_enter(THD *thd,
         // We are below the max running limit.
         ++ac_info->running_queries;
         ++ac_info->queues[thd->ac_node->queue].running_queries;
+        DBUG_ASSERT(thd->ac_node->running == false);
         thd->ac_node->running = true;
         mysql_mutex_unlock(&ac_info->lock);
         break;
@@ -759,7 +782,7 @@ Ac_result AC::admission_control_enter(THD *thd,
 
 */
 bool AC::wait_for_signal(THD *thd, std::shared_ptr<st_ac_node> &ac_node,
-                         std::shared_ptr<Ac_info> ac_info) {
+                         std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode mode) {
   PSI_stage_info old_stage;
   int res = 0;
   mysql_mutex_lock(&ac_node->lock);
@@ -773,9 +796,12 @@ bool AC::wait_for_signal(THD *thd, std::shared_ptr<st_ac_node> &ac_node,
     this waiting thread miss the signal from admission_control_exit().
   */
   mysql_mutex_unlock(&ac_info->lock);
+
+  auto stage = (mode >= AC_REQUEST_QUERY_READMIT_LOPRI)
+    ? &stage_waiting_for_readmission : &stage_waiting_for_admission;
   thd->ENTER_COND(&ac_node->cond, &ac_node->lock,
-                  &stage_waiting_for_admission,
-                  &old_stage);
+                                  stage, &old_stage);
+
   if (thd->variables.admission_control_queue_timeout == 0) {
     // Don't bother waiting if timeout is 0.
     res = ETIMEDOUT;
@@ -881,16 +907,22 @@ void AC::admission_control_exit(THD* thd, const MT_RESOURCE_ATTRS *attrs) {
 /*
  * @param thd THD
  * @param ac_info AC info
+ * @param mode how to re-enter admission control
  *
  * Enqueues thd onto its queue. The queue is taken from thd->ac_node->queue.
  */
-void AC::enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info) {
+void AC::enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode mode) {
   mysql_mutex_assert_owner(&ac_info->lock);
   auto& ac_node = thd->ac_node;
 
   ulong queue = ac_node->queue;
-  ac_info->queues[queue].queue.push_back(ac_node);
-  ac_node->pos = --ac_info->queues[queue].queue.end();
+  if (mode == AC_REQUEST_QUERY_READMIT_HIPRI) {
+    ac_info->queues[queue].queue.push_front(ac_node);
+    ac_node->pos = ac_info->queues[queue].queue.begin();
+  } else {
+    ac_info->queues[queue].queue.push_back(ac_node);
+    ac_node->pos = --ac_info->queues[queue].queue.end();
+  }
   ac_node->queued = true;
   ++ac_info->waiting_queries;
 }

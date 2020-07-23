@@ -42,10 +42,18 @@
  * See sql_multi_tenancy.cc for implementation.
  */
 
+enum enum_admission_control_request_mode
+{
+  AC_REQUEST_NONE,
+  AC_REQUEST_QUERY,
+  AC_REQUEST_QUERY_READMIT_LOPRI,
+  AC_REQUEST_QUERY_READMIT_HIPRI,
+};
+
 extern int multi_tenancy_add_connection(THD *, const MT_RESOURCE_ATTRS *);
 extern int multi_tenancy_close_connection(THD *, const MT_RESOURCE_ATTRS *);
-extern int multi_tenancy_admit_query(THD *, const MT_RESOURCE_ATTRS *);
-extern int multi_tenancy_exit_query(THD *, const MT_RESOURCE_ATTRS *);
+extern int multi_tenancy_admit_query(THD *, enum_admission_control_request_mode mode = AC_REQUEST_QUERY);
+extern int multi_tenancy_exit_query(THD *);
 extern std::string multi_tenancy_get_entity(
     THD *, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *);
 extern std::string multi_tenancy_get_entity_counter(
@@ -295,11 +303,11 @@ public:
     return res;
   }
 
-  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *, enum_admission_control_request_mode);
   void admission_control_exit(THD*, const MT_RESOURCE_ATTRS *);
   bool wait_for_signal(THD *, std::shared_ptr<st_ac_node> &,
-                       std::shared_ptr<Ac_info> ac_info);
-  static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info);
+                       std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode);
+  static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode);
   static void dequeue(THD *thd, std::shared_ptr<Ac_info> ac_info);
   static void dequeue_and_run(THD *thd, std::shared_ptr<Ac_info> ac_info);
 

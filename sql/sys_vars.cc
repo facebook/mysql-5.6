@@ -725,6 +725,7 @@ static Sys_var_ulonglong Sys_binlog_rows_event_max_rows(
 
 static bool check_has_super(sys_var *self, THD *thd, set_var *var)
 {
+  DBUG_EXECUTE_IF("skip_super_check", { return false; });
   DBUG_ASSERT(self->scope() != sys_var::GLOBAL);// don't abuse check_has_super()
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   if (!(thd->security_ctx->master_access & SUPER_ACL))
@@ -3593,6 +3594,23 @@ static Sys_var_charptr Sys_admission_control_weights(
        CMD_LINE(OPT_ARG), IN_FS_CHARSET, DEFAULT(0),
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_admission_control_weights));
+
+const char *admission_control_wait_events_names[]=
+       {"SLEEP", "ROW_LOCK", "USER_LOCK", "NET_IO", "YIELD", 0};
+static Sys_var_set Sys_admission_control_wait_events(
+       "admission_control_wait_events",
+       "Determines events for which queries will exit admission control. After the wait event completes, the query will have to re-enter admission control.",
+       GLOBAL_VAR(admission_control_wait_events), CMD_LINE(REQUIRED_ARG),
+       admission_control_wait_events_names,
+       DEFAULT(0));
+
+static Sys_var_ulonglong Sys_admission_control_yield_freq(
+       "admission_control_yield_freq",
+       "Controls how frequently a query exits admission control to yield to "
+       "other queries.",
+       GLOBAL_VAR(admission_control_yield_freq),
+       CMD_LINE(OPT_ARG), VALID_RANGE(1, ULONGLONG_MAX), DEFAULT(1000),
+       BLOCK_SIZE(1));
 
 static Sys_var_mybool Sys_slave_sql_verify_checksum(
        "slave_sql_verify_checksum",

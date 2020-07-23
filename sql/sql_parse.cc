@@ -1514,8 +1514,7 @@ static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
       // if the thd is already in admission control for the previous
       // database, we need to release it before resetting the value.
       attrs.database = thd->db;
-      multi_tenancy_exit_query(thd, &attrs);
-      thd->is_in_ac = false;
+      multi_tenancy_exit_query(thd);
     }
     // now check resource if we can switch the connection to another database.
     // Since other attributes are null, this doesn't have any effect if the
@@ -2068,16 +2067,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     if (query_len > 1 && query_ptr[0] == '%')
     {
       general_log_write(thd, command, thd->query(), thd->query_length());
-      MT_RESOURCE_ATTRS attrs = {
-        &thd->connection_attrs_map,
-        &thd->query_attrs_map,
-        thd->db
-      };
-
-      if (!multi_tenancy_admit_query(thd, &attrs)) {
+      if (!multi_tenancy_admit_query(thd)) {
         native_procedure(thd, query_ptr + 1, query_len - 1);
-        multi_tenancy_exit_query(thd, &attrs);
-        thd->is_in_ac = false;
+        if (thd->is_in_ac)
+          multi_tenancy_exit_query(thd);
       }
       break;
     }
@@ -2254,13 +2247,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {
-      MT_RESOURCE_ATTRS attrs = {
-        &thd->connection_attrs_map,
-        &thd->query_attrs_map,
-        thd->db
-      };
-      multi_tenancy_exit_query(thd, &attrs);
-      thd->is_in_ac = false;
+      multi_tenancy_exit_query(thd);
     }
     /* Need to set error to true for graceful shutdown */
     if((thd->lex->sql_command == SQLCOM_SHUTDOWN)
@@ -8340,12 +8327,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             error= 1;
           }
           else {
-            MT_RESOURCE_ATTRS attrs = {
-              &thd->connection_attrs_map,
-              &thd->query_attrs_map,
-              thd->db
-            };
-            if (multi_tenancy_admit_query(thd, &attrs))
+            if (multi_tenancy_admit_query(thd))
             {
               error= 1;
             }

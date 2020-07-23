@@ -46,6 +46,7 @@
 #include <sys/uio.h>
 #include "probes_mysql.h"
 #include <openssl/ssl.h>
+#include <mysql/plugin.h>
 
 #include <algorithm>
 
@@ -92,6 +93,8 @@ extern void query_cache_insert(const char *packet, ulong length,
 #define lz4f_net_compression_level 0
 #define update_statistics(A)
 #define thd_increment_bytes_sent(N)
+#define thd_wait_begin(A, B)
+#define thd_wait_end(A)
 #endif
 
 #ifdef MYSQL_SERVER
@@ -921,7 +924,14 @@ net_write_raw_loop(NET *net, const uchar *buf, size_t count)
 
   while (count)
   {
+    thd_wait_begin(thd_get_current_thd(), THD_WAIT_NET_IO);
+    DBUG_EXECUTE_IF("simulate_net_write_delay",
+                    {
+                      // Sleep for 10 seconds.
+                      my_sleep(10 * 1000 * 1000);
+                    });
     size_t sentcnt= vio_write(net->vio, buf, count);
+    thd_wait_end(thd_get_current_thd());
 
     if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
         sentcnt == VIO_SOCKET_WRITE_TIMEOUT)
