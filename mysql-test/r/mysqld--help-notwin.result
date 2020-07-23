@@ -1244,6 +1244,12 @@ The following options may be given as the first argument:
  pair - 'hlc_ts' is the key and the value is the
  stringified HLC timestamp. Note that HLC should be
  enabled by setting enable_binlog_hlc
+ --response-attrs-contain-server-cpu 
+ If this is enabled, then the server CPU time of the query
+ is sent back to clients as part of OK packet in session
+ response attribute. Server CPU time is sent as a
+ key-value pair - 'server_cpu' is the key and the value is
+ the stringified server CPU time.
  --rocksdb[=name]    Enable or disable ROCKSDB plugin. Possible values are ON,
  OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-access-hint-on-compaction-start=# 
@@ -2528,6 +2534,7 @@ report-port 0
 report-user (No default value)
 reset-seconds-behind-master TRUE
 response-attrs-contain-hlc FALSE
+response-attrs-contain-server-cpu FALSE
 rocksdb ON
 rocksdb-access-hint-on-compaction-start 1
 rocksdb-advise-random-on-open TRUE

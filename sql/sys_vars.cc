@@ -6368,6 +6368,15 @@ static Sys_var_mybool Sys_response_attrs_contain_hlc(
     ON_CHECK(check_outside_transaction),
     ON_UPDATE(0));
 
+static Sys_var_mybool Sys_response_attrs_contain_server_cpu(
+    "response_attrs_contain_server_cpu",
+    "If this is enabled, then the server CPU time of the query is sent back "
+    "to clients as part of OK packet in session response attribute. Server "
+    "CPU time is sent as a key-value pair - 'server_cpu' is the key and the "
+    "value is the stringified server CPU time.",
+    SESSION_VAR(response_attrs_contain_server_cpu), CMD_LINE(OPT_ARG),
+    DEFAULT(FALSE));
+
 static bool update_session_track_state_change(sys_var *self, THD *thd,
                                               enum_var_type type)
 {

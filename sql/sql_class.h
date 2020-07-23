@@ -782,6 +782,11 @@ typedef struct system_variables
    */
   bool response_attrs_contain_hlc;
 
+  /*
+    Should we set the server CPU time in response attribute?
+   */
+  my_bool response_attrs_contain_server_cpu;
+
   /**
     Compatibility option to mark the pre MySQL-5.6.4 temporals columns using
     the old format using comments for SHOW CREATE TABLE and in I_S.COLUMNS

@@ -2225,6 +2225,18 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       my_query_len = length;
     }
 
+    /* Update session tracker with server CPU time */
+    auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+
+    if (thd->variables.response_attrs_contain_server_cpu &&
+        tracker->is_enabled())
+    {
+      static LEX_CSTRING key= { STRING_WITH_LEN("server_cpu") };
+      std::string value_str= std::to_string(thd->sql_cpu);
+      LEX_CSTRING value= { value_str.c_str(), value_str.length() };
+      tracker->mark_as_changed(thd, &key, &value);
+    }
+
     /*
       Update SQL stats.
       If multi-query: The stats updated here will be for the last statement
