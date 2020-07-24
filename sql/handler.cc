@@ -294,8 +294,8 @@ struct st_sys_tbl_chk_params {
 };
 
 struct st_usr_tbl_chk_params {
-  legacy_db_type db_type;      // IN param
-  bool is_user_table_blocked;  // OUT param
+  legacy_db_type db_type;              // IN param
+  bool is_user_table_blocked = false;  // OUT param
 };
 
 static plugin_ref ha_default_plugin(THD *thd) {
