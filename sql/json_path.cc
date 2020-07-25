@@ -545,7 +545,7 @@ static const char *find_end_of_member_name(const char *start, const char *end) {
 */
 static std::unique_ptr<Json_string> parse_name_with_rapidjson(const char *str,
                                                               size_t len) {
-  Json_dom_ptr dom = Json_dom::parse(str, len, nullptr, nullptr);
+  Json_dom_ptr dom = Json_dom::parse(str, len, false, nullptr, nullptr);
 
   if (dom == nullptr || dom->json_type() != enum_json_type::J_STRING)
     return nullptr;

@@ -62,8 +62,8 @@ class ItemJsonFuncTest : public ::testing::Test {
   @return a DOM representing the JSON document
 */
 static Json_dom_ptr parse_json(const char *json_text) {
-  auto dom =
-      Json_dom::parse(json_text, std::strlen(json_text), nullptr, nullptr);
+  auto dom = Json_dom::parse(json_text, std::strlen(json_text), false, nullptr,
+                             nullptr);
   EXPECT_NE(nullptr, dom);
   return dom;
 }

@@ -88,8 +88,8 @@ static std::string format(const Json_dom_ptr &ptr) { return format(*ptr); }
   @return a DOM representing the JSON document
 */
 static Json_dom_ptr parse_json(const char *json_text) {
-  auto dom =
-      Json_dom::parse(json_text, std::strlen(json_text), nullptr, nullptr);
+  auto dom = Json_dom::parse(json_text, std::strlen(json_text), false, nullptr,
+                             nullptr);
   EXPECT_FALSE(dom == nullptr);
   return dom;
 }
@@ -396,13 +396,13 @@ TEST_F(JsonDomTest, BasicTest) {
      Included so we test error recovery
   */
   const char *half_object_item = "{\"label\": ";
-  dom = Json_dom::parse(half_object_item, std::strlen(half_object_item),
+  dom = Json_dom::parse(half_object_item, std::strlen(half_object_item), false,
                         nullptr, nullptr);
   EXPECT_EQ(nullptr, dom);
 
   const char *half_array_item = "[1,";
-  dom = Json_dom::parse(half_array_item, std::strlen(half_array_item), nullptr,
-                        nullptr);
+  dom = Json_dom::parse(half_array_item, std::strlen(half_array_item), false,
+                        nullptr, nullptr);
   EXPECT_EQ(nullptr, dom);
 }
 

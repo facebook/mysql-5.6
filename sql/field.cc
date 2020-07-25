@@ -7555,7 +7555,7 @@ type_conversion_status Field_json::store(const char *from, size_t length,
   const char *parse_err;
   size_t err_offset;
   std::unique_ptr<Json_dom> dom(
-      Json_dom::parse(s, ss, &parse_err, &err_offset));
+      Json_dom::parse(s, ss, false, &parse_err, &err_offset));
 
   if (dom.get() == nullptr) {
     if (parse_err != nullptr) {

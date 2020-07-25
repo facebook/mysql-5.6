@@ -1685,6 +1685,9 @@ The following options may be given as the first argument:
  start the server, but skip upgrade steps that are not
  absolutely necessary; AUTO (default) to upgrade the
  server if required; FORCE to force upgrade server.
+ --use-fb-json-functions=name 
+ Use legacy behavior of FB json functions implemented in
+ 5.6
  -u, --user=name     Run mysqld daemon as user.
  --validate-config   Validate the server configuration specified by the user.
  --validate-user-plugins 
@@ -2148,6 +2151,7 @@ transaction-write-set-extraction XXHASH64
 trim-binlog-to-recover FALSE
 updatable-views-with-limit YES
 upgrade AUTO
+use-fb-json-functions 
 validate-config FALSE
 validate-user-plugins TRUE
 verbose TRUE
