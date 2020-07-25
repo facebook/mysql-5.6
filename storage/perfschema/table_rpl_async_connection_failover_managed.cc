@@ -130,8 +130,9 @@ int table_rpl_async_connection_failover_managed::rnd_init(bool) {
     json_str << "{\"Primary_weight\": " << std::get<3>(source_detail)
              << ", \"Secondary_weight\": " << std::get<4>(source_detail) << "}";
 
-    auto res_dom = Json_dom::parse(json_str.str().c_str(),
-                                   json_str.str().length(), nullptr, nullptr);
+    auto res_dom =
+        Json_dom::parse(json_str.str().c_str(), json_str.str().length(), false,
+                        nullptr, nullptr);
 
     if (res_dom == nullptr ||
         res_dom->json_type() != enum_json_type::J_OBJECT) {

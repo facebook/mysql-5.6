@@ -360,9 +360,10 @@ select json_length( '1.2' );
 json_length( '1.2' )
 1
 
-# invalid json path
+# valid json path
 select json_length( 'true', 'c$' );
-ERROR 42000: Invalid JSON path expression. The error is around character position 1.
+json_length( 'true', 'c$' )
+NULL
 
 # invalid json path
 select json_length( '{ "foo" : [ true, false ] }', '$.foo[bar]' );

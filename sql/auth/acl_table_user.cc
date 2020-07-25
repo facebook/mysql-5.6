@@ -2299,7 +2299,7 @@ bool replace_user_metadata(THD *thd, const std::string &json_blob,
     const char *errmsg;
     size_t offset;
     auto metadata_patch = Json_dom::parse(json_blob.c_str(), json_blob.length(),
-                                          &errmsg, &offset);
+                                          false, &errmsg, &offset);
     if (metadata_patch == nullptr ||
         metadata_patch->json_type() != enum_json_type::J_OBJECT) {
       my_error(ER_INVALID_USER_ATTRIBUTE_JSON, MYF(0));
@@ -2392,7 +2392,7 @@ bool read_user_application_user_metadata_from_table(
   const char *errmsg;
   size_t offset;
   auto attributes_dom = Json_dom::parse(
-      attributes_field, strlen(attributes_field), &errmsg, &offset);
+      attributes_field, strlen(attributes_field), false, &errmsg, &offset);
   table->file->ha_index_end();
   if (attributes_dom == nullptr ||
       attributes_dom->json_type() != enum_json_type::J_OBJECT) {

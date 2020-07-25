@@ -232,6 +232,284 @@ Warnings:
 Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
 truncate test_json;
 #
+# json_extract
+#
+# test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+insert into test_json values(json_extract('{"k1":{"k2": "v2", "k2" : "v3"}, "k1":{"k2": "v4", "k2" : "v5"}}', 'k1'));
+ERROR HY000: The JSON binary value contains invalid data.
+select length(json_extract(json,null)),json_extract(json,null),json from test_json order by 1,2,3;
+length(json_extract(json,null))	json_extract(json,null)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+NULL	NULL	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1')),json_extract(json,'k1'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1'))	json_extract(json,'k1')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	[1, 2, 3, 4]
+2	12	{"k1": 12}
+4	null	{"k1": null}
+4	1.23	{"k1": 1.23}
+4	"v1"	{"k1": "v1"}
+4	true	{"k1": true}
+5	false	{"k1": false}
+11	{"k2":"v2"}	{"k1": {"k2": "v2"}}
+20	{"k2":{"k3":12.345}}	{"k1": {"k2": {"k3": 12.345}}}
+32	[1,{"k2":["v1",2,true]},3,false]	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1','k2'))	json_extract(json,'k1','k2')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	[1, 2, 3, 4]
+4	"v2"	{"k1": {"k2": "v2"}}
+13	{"k3":12.345}	{"k1": {"k2": {"k3": 12.345}}}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1','k2','k3')),json_extract(json,'k1','k2','k3'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1','k2','k3'))	json_extract(json,'k1','k2','k3')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	[1, 2, 3, 4]
+6	12.345	{"k1": {"k2": {"k3": 12.345}}}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,0)),json_extract(json,0),json from test_json order by 1,2,3;
+length(json_extract(json,0))	json_extract(json,0)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+1	1	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'1')),json_extract(json,'1'),json from test_json order by 1,2,3;
+length(json_extract(json,'1'))	json_extract(json,'1')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+1	2	[1, 2, 3, 4]
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1',1)),json_extract(json,'k1',1),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',1))	json_extract(json,'k1',1)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+NULL	NULL	[1, 2, 3, 4]
+20	{"k2":["v1",2,true]}	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1',1,'k2')),json_extract(json,'k1',1,'k2'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',1,'k2'))	json_extract(json,'k1',1,'k2')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+NULL	NULL	[1, 2, 3, 4]
+13	["v1",2,true]	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'k1',1,'k2',0)),json_extract(json,'k1',1,'k2',0),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',1,'k2',0))	json_extract(json,'k1',1,'k2',0)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": {"k2": "v2"}}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+NULL	NULL	{"k1": {"k2": {"k3": 12.345}}}
+NULL	NULL	[1, 2, 3, 4]
+4	"v1"	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+# test create table...select
+truncate test_json;
+insert into test_json values ('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+create table test_json2 (json text) select json_extract(json,'k1',1,'k2',0) json from test_json;
+show columns from test_json2;
+Field	Type	Null	Key	Default	Extra
+json	text	YES		NULL	
+select * from test_json2;
+json
+"v1"
+drop table test_json2;
+truncate test_json;
+# test multi-byte characters
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select length(json_extract(json,'MySQL')),json_extract(json,'MySQL'),json from test_json order by 1,2,3;
+length(json_extract(json,'MySQL'))	json_extract(json,'MySQL')	json
+NULL	NULL	{"开源数据库": "MySQL"}
+17	"开源数据库"	{"MySQL": "开源数据库"}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract(json,'开源数据库')),json_extract(json,'开源数据库'),json from test_json order by 1,2,3;
+length(json_extract(json,'开源数据库'))	json_extract(json,'开源数据库')	json
+NULL	NULL	{"MySQL": "开源数据库"}
+7	"MySQL"	{"开源数据库": "MySQL"}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+# test special case: one key is prefix of another
+insert into test_json values ('{"k":1, "kk":2, "kkkk":4}');
+select json_extract(json, 'k') k,
+json_extract(json, 'kk') kk,
+json_extract(json, 'kkk') kkk,
+json_extract(json, 'kkkk') kkkk
+from test_json;
+k	kk	kkk	kkkk
+1	2	NULL	4
+truncate test_json;
+#
+# nested function call
+#
+# test on table
+insert into test_json values
+(null),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select json_array_length(json_extract(json, 'k1')),json
+from test_json where json_valid(json) is true order by 1,2;
+json_array_length(json_extract(json, 'k1'))	json
+4	{"k1": [1, {"k2": ["v1", 2, true]}, 3, false]}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+#
+# json_extract_value
+#
+# test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}');
+insert into test_json values(json_extract_value('{"k1":{"k2": "v2", "k2" : "v3"}, "k1":{"k2": "v4", "k2" : "v5"}}', 'k1'));
+select length(json_extract_value(json,null)),json_extract_value(json,null),json from test_json order by 1,2,3;
+length(json_extract_value(json,null))	json_extract_value(json,null)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k2": "v3"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract_value(json,'k1')),json_extract_value(json,'k1'),json from test_json order by 1,2,3;
+length(json_extract_value(json,'k1'))	json_extract_value(json,'k1')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k2": "v3"}
+NULL	NULL	{"k1": null}
+1	0	{"k1": false}
+1	1	{"k1": true}
+2	12	{"k1": 12}
+2	v1	{"k1": "v1"}
+4	1.23	{"k1": 1.23}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+select length(json_extract_value(json,'k1','k2')),json_extract_value(json,'k1','k2'),json from test_json order by 1,2,3;
+length(json_extract_value(json,'k1','k2'))	json_extract_value(json,'k1','k2')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1": "v1"}
+NULL	NULL	{"k2": "v3"}
+NULL	NULL	{"k1": 1.23}
+NULL	NULL	{"k1": 12}
+NULL	NULL	{"k1": null}
+NULL	NULL	{"k1": false}
+NULL	NULL	{"k1": true}
+Warnings:
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+# json_extract_value in where clause
+select json from test_json where json_extract_value(json,'k1') > 1 order by 1;
+json
+{"k1": 1.23}
+{"k1": 12}
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'v1'
+Warning	1235	This version of MySQL doesn't yet support 'sorting of non-scalar JSON values'
+truncate test_json;
+#
 # cleanup
 #
 drop table test_json;

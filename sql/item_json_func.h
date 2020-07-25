@@ -280,10 +280,12 @@ bool json_value(Item *arg, Json_wrapper *result, bool *has_value);
   @param[out] str           the string buffer
   @param[in]  func_name     the name of the function we are executing
   @param[out] wrapper       the JSON value wrapper
+  @param [opt] legacy_parsing If true, changes parsing to emulate fb 5.6 parsing
   @returns false if we found a value or NULL, true if not.
 */
 bool get_json_wrapper(Item **args, uint arg_idx, String *str,
-                      const char *func_name, Json_wrapper *wrapper);
+                      const char *func_name, Json_wrapper *wrapper,
+                      bool legacy_parsing = false);
 
 /**
   Convert Json values or MySQL values to JSON.
@@ -641,6 +643,7 @@ class Item_func_json_keys : public Item_json_func {
 */
 class Item_func_json_extract final : public Item_json_func {
   String m_doc_value;
+  String m_first_path_exp_value;
 
  public:
   Item_func_json_extract(THD *thd, const POS &pos, PT_item_list *a)
@@ -688,6 +691,31 @@ class Item_func_modify_json_in_path : public Item_json_func {
   /// Calculates the set of tables to return from not_used_tables(). The
   /// returned value is cached by resolve_type() and update_used_tables().
   table_map calculate_not_null_tables() const;
+};
+
+/**
+  Represents the JSON function JSON_EXTRACT_VALUE()
+*/
+class Item_func_json_extract_value final : public Item_str_func {
+  String m_doc_value;
+  String m_first_path_exp_value;
+
+  // Cache for constant path expressions
+  Json_path_cache m_path_cache;
+
+ public:
+  Item_func_json_extract_value(THD *thd, const POS &pos, PT_item_list *a)
+      : Item_str_func(pos, a), m_path_cache(thd, arg_count) {}
+
+  const char *func_name() const override { return "json_extract_value"; }
+
+  bool resolve_type(THD *) override {
+    set_nullable(true);
+    set_data_type_string(args[0]->max_char_length(), &my_charset_utf8mb4_bin);
+    return false;
+  }
+
+  String *val_str(String *str) override;
 };
 
 /**
@@ -1314,7 +1342,8 @@ bool get_json_object_member_name(const THD *thd, Item *arg_item, String *value,
 using Json_dom_ptr = std::unique_ptr<Json_dom>;
 
 bool parse_json(const String &res, uint arg_idx, const char *func_name,
-                Json_dom_ptr *dom, bool require_str_or_json, bool *parse_error);
+                bool legacy_parsing, Json_dom_ptr *dom,
+                bool require_str_or_json, bool *parse_error);
 
 typedef Prealloced_array<size_t, 16> Sorted_index_array;
 bool sort_and_remove_dups(const Json_wrapper &orig, Sorted_index_array *v);

@@ -76,7 +76,7 @@ static void do_check_json_compliance(const char *str, size_t length) {
   const char *errmsg = nullptr;
   size_t errpos = 0;
   Json_dom_ptr dom = Json_dom::parse(json_document.data(), json_document.size(),
-                                     &errmsg, &errpos);
+                                     false, &errmsg, &errpos);
   ASSERT_NE(nullptr, dom) << "Parse error: " << errmsg
                           << "\nError position: " << errpos << "\nDocument:\n"
                           << json_document;

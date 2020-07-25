@@ -1473,6 +1473,15 @@ int log_datagram_sock = -1;
 Deployed_components *g_deployed_components = nullptr;
 
 /**
+   Number of times JSON functions are called that emulate
+   5.6 fb json functions behavior
+ */
+ulonglong json_contains_key_count = 0;
+ulonglong json_array_length_count = 0;
+ulonglong json_extract_legacy_count = 0;
+ulonglong json_extract_value_count = 0;
+
+/**
   Limit of the total number of prepared statements in the server.
   Is necessary to protect the server against out-of-memory attacks.
 */
@@ -10543,6 +10552,15 @@ SHOW_VAR status_vars[] = {
     {"Uptime_since_flush_status", (char *)&show_flushstatustime, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
 #endif
+    {"Json_contains_key_count", (char *)&json_contains_key_count, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Json_array_length_count", (char *)&json_array_length_count, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Json_extract_legacy_count", (char *)&json_extract_legacy_count,
+     SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+    {"Json_extract_value_count", (char *)&json_extract_value_count,
+     SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {
