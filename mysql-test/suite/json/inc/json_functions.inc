@@ -3280,12 +3280,13 @@ EXPLAIN SELECT f1->>"$.t" FROM t1 WHERE f1->>"$.t" <> 'NULL';
 
 --error ER_PARSE_ERROR
 SELECT f1->>NULL FROM t1;
---error ER_INVALID_JSON_PATH
+let $start_json_extract = query_get_value(show global status like 'Json_extract_legacy_count', Value, 1);
 SELECT f1 ->> "NULL" FROM t1;
---error ER_INVALID_JSON_PATH
 SELECT f1->>"NULL" FROM t1;
---error ER_INVALID_JSON_PATH
 SELECT f1->>"!@#" FROM t1;
+let $end_json_extract = query_get_value(show global status like 'Json_extract_legacy_count', Value, 1);
+let $json_extract_calls = `select $end_json_extract - $start_json_extract`;
+--echo json_extract_calls = $json_extract_calls
 --error ER_PARSE_ERROR
 SELECT COUNT(*)->>"$.t" FROM t1;
 

@@ -345,9 +345,10 @@ static bool path_gives_duplicates(const Json_path_iterator &begin,
   });
 }
 
-Json_object::Json_object()
+Json_object::Json_object(bool legacy_object)
     : m_map(Json_object_map::key_compare(),
-            Json_object_map::allocator_type(key_memory_JSON)) {}
+            Json_object_map::allocator_type(key_memory_JSON)),
+      m_legacy_object(legacy_object) {}
 
 namespace {
 
@@ -390,14 +391,17 @@ class Rapid_json_handler {
   Json_dom *m_current_element;  ///< The current object/array being parsed.
   size_t m_depth;     ///< The depth at which parsing currently happens.
   std::string m_key;  ///< The name of the current member of an object.
+
  public:
-  explicit Rapid_json_handler(JsonDocumentDepthHandler m_depth_handler)
+  explicit Rapid_json_handler(JsonDocumentDepthHandler m_depth_handler,
+                              bool legacy_parsing = false)
       : m_state(expect_anything),
         m_dom_as_built(nullptr),
         m_current_element(nullptr),
         m_depth(0),
         m_key(),
-        m_depth_handler(std::move(m_depth_handler)) {}
+        m_depth_handler(std::move(m_depth_handler)),
+        m_legacy_parse(legacy_parsing) {}
 
   /**
     @returns The built JSON DOM object.
@@ -499,7 +503,7 @@ class Rapid_json_handler {
 
   bool StartObject() {
     DUMP_CALLBACK("start object {", state);
-    return start_object_or_array(create_dom_ptr<Json_object>(),
+    return start_object_or_array(create_dom_ptr<Json_object>(m_legacy_parse),
                                  expect_object_key);
   }
 
@@ -554,14 +558,17 @@ class Rapid_json_handler {
     }
   }
   JsonDocumentDepthHandler m_depth_handler{nullptr};
+  bool m_legacy_parse;  ///< Parse json document compatible with 5.6 fb json
+                        ///< API's >
 };
 
 }  // namespace
 
 Json_dom_ptr Json_dom::parse(const char *text, size_t length,
                              const JsonParseErrorHandler &error_handler,
-                             const JsonDocumentDepthHandler &depth_handler) {
-  Rapid_json_handler handler(depth_handler);
+                             const JsonDocumentDepthHandler &depth_handler,
+                             bool legacy_parsing) {
+  Rapid_json_handler handler(depth_handler, legacy_parsing);
   rapidjson::MemoryStream ss(text, length);
   rapidjson::Reader reader;
   bool success = reader.Parse<rapidjson::kParseDefaultFlags>(ss, handler);
@@ -798,7 +805,12 @@ bool Json_object::add_alias(const std::string &key, Json_dom_ptr value) {
 
     See WL-2048 Add function for Unicode normalization
   */
-  m_map.emplace(key, nullptr).first->second = std::move(value);
+  auto it = m_map.find(key);
+  if (it != m_map.end() && !m_legacy_object) {
+    it->second = std::move(value);
+  } else {
+    m_map.emplace(key, nullptr)->second = std::move(value);
+  }
   return false;
 }
 
@@ -870,7 +882,7 @@ uint32 Json_object::depth() const {
 }
 
 Json_dom_ptr Json_object::clone() const {
-  Json_object_ptr o = create_dom_ptr<Json_object>();
+  Json_object_ptr o = create_dom_ptr<Json_object>(m_legacy_object);
   if (o == nullptr) return nullptr; /* purecov: inspected */
 
   for (const auto &member : m_map) {
@@ -889,8 +901,11 @@ bool Json_object::merge_patch(Json_object_ptr patch) {
       continue;
     }
 
+    auto it = m_map.find(member.first);
     // See if the target has this member, add it if not.
-    Json_dom_ptr &target = m_map.emplace(member.first, nullptr).first->second;
+    Json_dom_ptr &target = it != m_map.end()
+                               ? it->second
+                               : m_map.emplace(member.first, nullptr)->second;
 
     /*
       If the value in the patch is not an object and not the null
@@ -1315,14 +1330,16 @@ void Json_wrapper_object_iterator::initialize_current_member() {
 }
 
 Json_wrapper::Json_wrapper(Json_dom *dom_value, bool alias)
-    : m_dom{dom_value, alias}, m_is_dom(true) {
+    : m_dom{dom_value, alias},
+      m_is_dom(true),
+      m_legacy_json(LEGACY_JSON_DISABLED) {
   if (!dom_value) {
     m_dom.m_alias = true;  //!< no deallocation, make us empty
   }
 }
 
 Json_wrapper::Json_wrapper(Json_wrapper &&old) noexcept
-    : m_is_dom(old.m_is_dom) {
+    : m_is_dom(old.m_is_dom), m_legacy_json(old.m_legacy_json) {
   if (m_is_dom) {
     m_dom.m_alias = old.m_dom.m_alias;
     m_dom.m_value = old.m_dom.m_value;
@@ -1334,9 +1351,10 @@ Json_wrapper::Json_wrapper(Json_wrapper &&old) noexcept
 }
 
 Json_wrapper::Json_wrapper(const json_binary::Value &value)
-    : m_value(value), m_is_dom(false) {}
+    : m_value(value), m_is_dom(false), m_legacy_json(LEGACY_JSON_DISABLED) {}
 
-Json_wrapper::Json_wrapper(const Json_wrapper &old) : m_is_dom(old.m_is_dom) {
+Json_wrapper::Json_wrapper(const Json_wrapper &old)
+    : m_is_dom(old.m_is_dom), m_legacy_json(old.m_legacy_json) {
   if (m_is_dom) {
     m_dom.m_alias = old.m_dom.m_alias;
     m_dom.m_value = m_dom.m_alias ? old.m_dom.m_value
@@ -1464,13 +1482,35 @@ static bool newline_and_indent(String *buffer, size_t level) {
 
   @param buffer the string buffer
   @param pretty true if pretty printing is enabled
+  @param print_space true if blank space can be appended.
   @return true on error, false on success
 */
-static bool append_comma(String *buffer, bool pretty) {
+static bool append_comma(String *buffer, bool pretty, bool print_space) {
   // Append a comma followed by a blank space. If pretty printing is
   // enabled, a newline will be added in front of the next element, so
   // the blank space can be omitted.
-  return buffer->append(',') || (!pretty && buffer->append(' '));
+  // Do not append blank space if its a legacy json format.
+  return buffer->append(',') || (!pretty && print_space && buffer->append(' '));
+}
+
+/**
+  Determine if blank spaces should be printed when printing json
+
+  @param legacy_json enum governing print behavior of json
+  @return true if blank space should be printed.
+*/
+static bool legacy_json_print_space(legacy_json_print_behavior legacy_json) {
+  return legacy_json == LEGACY_JSON_DISABLED;
+}
+
+/**
+  Determine if need to be printed in json_extract_value format
+
+  @param legacy_json enum governing print behavior of json
+  @return true if need to be in printed in json_extract_value format .
+*/
+static bool legacy_json_extract_value(legacy_json_print_behavior legacy_json) {
+  return legacy_json == LEGACY_JSON_EXTRACT_VALUE;
 }
 
 /**
@@ -1488,6 +1528,7 @@ static bool append_comma(String *buffer, bool pretty) {
   @param[in]     depth       the nesting level of @a wr
   @param[in]   depth_handler Pointer to a function that should handle error
                              occurred when depth is exceeded.
+  @param[in]     legacy_json printing behavior for 5.6 fb json functions.
 
   @retval false on success
   @retval true on error
@@ -1495,7 +1536,8 @@ static bool append_comma(String *buffer, bool pretty) {
 static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
                               bool json_quoted, bool pretty,
                               const char *func_name, size_t depth,
-                              const JsonDocumentDepthHandler &depth_handler) {
+                              const JsonDocumentDepthHandler &depth_handler,
+                              legacy_json_print_behavior legacy_json) {
   enum_json_type type = wr.type();
   // Treat strings saved in opaque as plain json strings
   // @see val_json_func_field_subselect()
@@ -1529,14 +1571,15 @@ static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
 
       size_t array_len = wr.length();
       for (uint32 i = 0; i < array_len; ++i) {
-        if (i > 0 && append_comma(buffer, pretty))
+        if (i > 0 &&
+            append_comma(buffer, pretty, legacy_json_print_space(legacy_json)))
           return true; /* purecov: inspected */
 
         if (pretty && newline_and_indent(buffer, depth))
           return true; /* purecov: inspected */
 
         if (wrapper_to_string(wr[i], buffer, true, pretty, func_name, depth,
-                              depth_handler))
+                              depth_handler, legacy_json))
           return true; /* purecov: inspected */
       }
 
@@ -1548,9 +1591,15 @@ static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
       break;
     }
     case enum_json_type::J_BOOLEAN:
-      if (wr.get_boolean() ? buffer->append(STRING_WITH_LEN("true"))
-                           : buffer->append(STRING_WITH_LEN("false")))
-        return true; /* purecov: inspected */
+      if (legacy_json_extract_value(legacy_json) && depth == 0) {
+        if (wr.get_boolean() ? buffer->append(STRING_WITH_LEN("1"))
+                             : buffer->append(STRING_WITH_LEN("0")))
+          return true;
+      } else {
+        if (wr.get_boolean() ? buffer->append(STRING_WITH_LEN("true"))
+                             : buffer->append(STRING_WITH_LEN("false")))
+          return true; /* purecov: inspected */
+      }
       break;
     case enum_json_type::J_DECIMAL: {
       int length = DECIMAL_MAX_STR_LENGTH + 1;
@@ -1590,8 +1639,13 @@ static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
       break;
     }
     case enum_json_type::J_NULL:
-      if (buffer->append(STRING_WITH_LEN("null")))
-        return true; /* purecov: inspected */
+      if (legacy_json_extract_value(legacy_json)) {
+        // Return empty buffer that will be translated as null
+        return false;
+      } else {
+        if (buffer->append(STRING_WITH_LEN("null")))
+          return true; /* purecov: inspected */
+      }
       break;
     case enum_json_type::J_OBJECT: {
       if (check_json_depth(++depth, depth_handler)) return true;
@@ -1600,7 +1654,8 @@ static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
 
       bool first = true;
       for (const auto &iter : Json_object_wrapper(wr)) {
-        if (!first && append_comma(buffer, pretty))
+        if (!first &&
+            append_comma(buffer, pretty, legacy_json_print_space(legacy_json)))
           return true; /* purecov: inspected */
 
         first = false;
@@ -1610,9 +1665,12 @@ static bool wrapper_to_string(const Json_wrapper &wr, String *buffer,
 
         const MYSQL_LEX_CSTRING &key = iter.first;
         if (print_string(buffer, true, key.str, key.length) ||
-            buffer->append(':') || buffer->append(' ') ||
+            buffer->append(':') ||
+            // Do not append blank space if the contained json is created by
+            // 5.6 json functions.
+            (legacy_json_print_space(legacy_json) && buffer->append(' ')) ||
             wrapper_to_string(iter.second, buffer, true, pretty, func_name,
-                              depth, depth_handler))
+                              depth, depth_handler, legacy_json))
           return true; /* purecov: inspected */
       }
 
@@ -1698,7 +1756,7 @@ bool Json_wrapper::to_string(
     const JsonDocumentDepthHandler &depth_handler) const {
   buffer->set_charset(&my_charset_utf8mb4_bin);
   return wrapper_to_string(*this, buffer, json_quoted, false, func_name, 0,
-                           depth_handler);
+                           depth_handler, m_legacy_json);
 }
 
 bool Json_wrapper::to_pretty_string(
@@ -1706,7 +1764,7 @@ bool Json_wrapper::to_pretty_string(
     const JsonDocumentDepthHandler &depth_handler) const {
   buffer->set_charset(&my_charset_utf8mb4_bin);
   return wrapper_to_string(*this, buffer, true, true, func_name, 0,
-                           depth_handler);
+                           depth_handler, m_legacy_json);
 }
 
 void Json_wrapper::dbug_print(const char *message [[maybe_unused]],

@@ -505,6 +505,9 @@ struct System_variables {
   long admission_control_queue;
   ulong dscp_on_socket;
 
+  /* A bitmap for switching 5.6 fb json functions behavior on/off */
+  ulonglong use_fb_json_functions;
+
   /**
     @sa Sys_select_into_buffer_size
   */

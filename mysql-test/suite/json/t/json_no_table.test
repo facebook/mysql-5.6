@@ -229,8 +229,7 @@ select json_length( '1.2' );
 
 # bad path expressions
 --echo
---echo # invalid json path
---error ER_INVALID_JSON_PATH
+--echo # valid json path
 select json_length( 'true', 'c$' );
 --echo
 --echo # invalid json path

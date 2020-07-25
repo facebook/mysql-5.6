@@ -353,6 +353,16 @@ static enum_serialization_result append_key_entries(const Json_object *object,
   const std::string *prev_key = nullptr;
 #endif
 
+  /*
+    Legacy json object is created by 5.6 json functions and can have
+    duplicate keys. Do not serialize the documents created by legacy
+    functions.
+   */
+  if (object->is_legacy_object()) {
+    my_error(ER_INVALID_JSON_BINARY_DATA, MYF(0));
+    return FAILURE;
+  }
+
   // Add the key entries.
   for (Json_object::const_iterator it = object->begin(); it != object->end();
        ++it) {

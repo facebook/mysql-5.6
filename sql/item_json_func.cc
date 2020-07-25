@@ -60,6 +60,7 @@
 #include "sql/json_diff.h"
 #include "sql/json_schema.h"
 #include "sql/my_decimal.h"
+#include "sql/mysqld.h"
 #include "sql/parser_yystype.h"
 #include "sql/psi_memory_key.h"  // key_memory_JSON
 #include "sql/sql_class.h"       // THD
@@ -73,6 +74,8 @@
 #include "sql/thd_raii.h"
 #include "sql/thr_malloc.h"
 #include "template_utils.h"  // down_cast
+
+#define USE_FB_JSON_EXTRACT (1ULL << 0)
 
 class PT_item_list;
 
@@ -131,7 +134,8 @@ bool ensure_utf8mb4(const String &val, String *buf, const char **resptr,
   */
 bool parse_json(const String &res, Json_dom_ptr *dom, bool require_str_or_json,
                 const JsonParseErrorHandler &error_handler,
-                const JsonDocumentDepthHandler &depth_handler) {
+                const JsonDocumentDepthHandler &depth_handler,
+                bool legacy_parsing) {
   char buff[MAX_FIELD_WIDTH];
   String utf8_res(buff, sizeof(buff), &my_charset_utf8mb4_bin);
 
@@ -149,7 +153,8 @@ bool parse_json(const String &res, Json_dom_ptr *dom, bool require_str_or_json,
                                  depth_handler);
   }
 
-  *dom = Json_dom::parse(safep, safe_length, error_handler, depth_handler);
+  *dom = Json_dom::parse(safep, safe_length, error_handler, depth_handler,
+                         legacy_parsing);
 
   return *dom == nullptr;
 }
@@ -292,6 +297,7 @@ static bool check_convertible_to_json(const Item *item, int argument_number,
   @param[in]     arg_idx    Index (0-based) of argument into the args array
   @param[out]    value      Alias for @code Item_func_json_*::m_value @endcode
   @param[in]     func_name  Name of the user-invoked JSON_ function
+  @param[in]     legacy_parsing  true if JSON is parsed in fb 5.6 json format.
   @param[in,out] dom        If non-null, we want any text parsed DOM
                             returned at the location pointed to
   @param[in]     require_str_or_json
@@ -303,8 +309,9 @@ static bool check_convertible_to_json(const Item *item, int argument_number,
   @returns true iff syntax error *and* dom != null, else false
 */
 static bool json_is_valid(Item **args, uint arg_idx, String *value,
-                          const char *func_name, Json_dom_ptr *dom,
-                          bool require_str_or_json, bool *valid) {
+                          const char *func_name, bool legacy_parsing,
+                          Json_dom_ptr *dom, bool require_str_or_json,
+                          bool *valid) {
   Item *const arg_item = args[arg_idx];
 
   enum_field_types field_type = get_normalized_field_type(arg_item);
@@ -346,7 +353,7 @@ static bool json_is_valid(Item **args, uint arg_idx, String *value,
                    func_name, parse_err, err_offset, "");
           parse_error = true;
         },
-        JsonDocumentDefaultDepthHandler);
+        JsonDocumentDefaultDepthHandler, legacy_parsing);
     *valid = !failure;
     return parse_error;
   }
@@ -541,14 +548,19 @@ bool Json_path_cache::generate_paths_from_key_parts(
       return true;
 
     int old_vec_len = json_paths.size();
-    std::string check_str(path_value->ptr(), path_value->length());
+    std::string check_str(path_chars, path_length);
     if (!check_str.empty() &&
         std::all_of(check_str.begin(), check_str.end(), ::isdigit)) {
-      for (int i = 0; i < old_vec_len; i++) {
-        json_paths.push_back(json_paths[i]);
-        json_paths.back().append("[");
-        json_paths.back().append(check_str);
-        json_paths.back().append("]");
+      long val;
+      // Paths where the integer index is too large are automatically
+      // failed, so skip if they're out of bounds
+      if (str2int(check_str.c_str(), 10, 0, INT_MAX, &val)) {
+        for (int i = 0; i < old_vec_len; i++) {
+          json_paths.push_back(json_paths[i]);
+          json_paths.back().append("[");
+          json_paths.back().append(check_str);
+          json_paths.back().append("]");
+        }
       }
     } else {
       // Add escape sequence to escape sequence and double quotes
@@ -644,7 +656,8 @@ longlong Item_func_json_valid::val_int() {
   assert(fixed == 1);
   try {
     bool ok;
-    if (json_is_valid(args, 0, &m_value, func_name(), nullptr, false, &ok)) {
+    if (json_is_valid(args, 0, &m_value, func_name(), false, nullptr, false,
+                      &ok)) {
       return error_int();
     }
 
@@ -1181,13 +1194,16 @@ longlong Item_func_json_contains_path::val_int() {
 
 longlong Item_func_json_contains_key::val_int() {
   assert(fixed == 1);
+  json_contains_key_count++;
+
   longlong result = 0;
   null_value = false;
 
   try {
     // arg 0 is the document
     Json_wrapper wrapper;
-    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &wrapper) ||
+    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &wrapper,
+                         true /* legacy json parsing*/) ||
         args[0]->null_value) {
       null_value = true;
       return 0;
@@ -1248,7 +1264,8 @@ bool json_value(Item *arg, Json_wrapper *result, bool *has_value) {
 }
 
 bool get_json_wrapper(Item **args, uint arg_idx, String *str,
-                      const char *func_name, Json_wrapper *wrapper) {
+                      const char *func_name, Json_wrapper *wrapper,
+                      bool legacy_parsing) {
   Item *const arg = args[arg_idx];
 
   bool has_value;
@@ -1268,7 +1285,8 @@ bool get_json_wrapper(Item **args, uint arg_idx, String *str,
   Json_dom_ptr dom;  //@< we'll receive a DOM here from a successful text parse
 
   bool valid;
-  if (json_is_valid(args, arg_idx, str, func_name, &dom, true, &valid))
+  if (json_is_valid(args, arg_idx, str, func_name, legacy_parsing, &dom, true,
+                    &valid))
     return true;
 
   if (!valid) {
@@ -1841,7 +1859,7 @@ bool Item_typecast_json::val_json(Json_wrapper *wr) {
   }
 
   bool valid;
-  if (json_is_valid(args, 0, &m_value, func_name(), &dom, false, &valid))
+  if (json_is_valid(args, 0, &m_value, func_name(), false, &dom, false, &valid))
     return error_json();
 
   if (valid) {
@@ -1904,6 +1922,8 @@ longlong Item_func_json_length::val_int() {
 
 longlong Item_func_json_array_length::val_int() {
   assert(fixed == 1);
+  json_array_length_count++;
+
   longlong result = 0;
 
   Json_wrapper wrapper;
@@ -2019,6 +2039,86 @@ bool Item_func_json_keys::val_json(Json_wrapper *wr) {
   return false;
 }
 
+static bool legacy_val_json(Item **args, uint arg_count, Json_wrapper &wrin,
+                            Json_path_cache &path_cache,
+                            legacy_json_print_behavior legacy_print,
+                            Json_wrapper *wrout, bool *null_value) {
+  uint num_paths;
+  // collect results here
+  Json_wrapper_vector v(key_memory_JSON);
+
+  if (path_cache.parse_key_parts_and_cache_path(args, 1, arg_count - 1,
+                                                &num_paths)) {
+    return true;
+  }
+
+  // Possible null JSON path syntax. Return not found.
+  if (num_paths == 0) {
+    *null_value = true;
+    return false;
+  }
+
+  // Iterate over all the JSON path's created. Return found,
+  // if any of the path is found inside the json document.
+  bool failure = true;
+  for (uint i = 0; i < num_paths; i++) {
+    v.clear();
+    const Json_path *path = path_cache.get_path(i);
+    if (!wrin.seek(*path, path->leg_count(), &v, false, true)) {
+      failure = false;
+      if (v.size() > 0) break;
+    }
+  }
+
+  if (failure) return true;
+
+  if (v.size() == 0) {
+    *null_value = true;
+    return false;
+  }
+
+  // there should only be one match
+  assert(v.size() == 1);
+  *wrout = std::move(v[0]);
+  wrout->set_legacy_json(legacy_print);
+
+  *null_value = false;
+  return false;
+}
+
+String *Item_func_json_extract_value::val_str(String *str) {
+  assert(fixed);
+  json_extract_value_count++;
+  try {
+    Json_wrapper wrin, wrout;
+    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &wrin, true))
+      return error_str();
+
+    null_value = args[0]->null_value;
+    if (null_value) return nullptr;
+
+    if (legacy_val_json(args, arg_count, wrin, m_path_cache,
+                        LEGACY_JSON_EXTRACT_VALUE, &wrout, &null_value))
+      return error_str();
+
+    if (null_value) return nullptr;
+
+    str->length(0);
+    // Do not add double quotes to string.
+    if (wrout.to_string(str, false /* json_quote */, func_name(),
+                        JsonDocumentDefaultDepthHandler))
+      return error_str();
+
+    null_value = (wrout.type() == enum_json_type::J_NULL);
+    if (null_value) return nullptr;
+
+    return str;
+  } catch (...) {
+    handle_std_exception(func_name());
+    return error_str();
+  }
+}
+
 bool Item_func_json_extract::val_json(Json_wrapper *wr) {
   assert(fixed == 1);
 
@@ -2031,11 +2131,44 @@ bool Item_func_json_extract::val_json(Json_wrapper *wr) {
     // collect results here
     Json_wrapper_vector v(key_memory_JSON);
 
-    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &w))
+    bool legacy_parsing =
+        current_thd->variables.use_fb_json_functions & USE_FB_JSON_EXTRACT;
+
+    if (!legacy_parsing) {
+      // Determine if this is a potential 5.6 json_extract call.
+      // First convert to UTF-8 to determine if the first character is '$'
+      String *pstr = args[1]->val_str(&m_first_path_exp_value);
+      if (pstr == nullptr) {
+        null_value = true;
+        return false;
+      }
+
+      const char *first_path_chars = pstr->ptr();
+      size_t first_path_length = pstr->length();
+      StringBuffer<STRING_BUFFER_USUAL_SIZE> res(&my_charset_utf8mb4_bin);
+      if (ensure_utf8mb4(*pstr, &res, &first_path_chars, &first_path_length,
+                         true))
+        return true;
+
+      legacy_parsing = (first_path_chars && first_path_length > 0 &&
+                        *first_path_chars != '$');
+    }
+
+    if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &w,
+                         legacy_parsing))
       return error_json();
 
     if (args[0]->null_value) {
       null_value = true;
+      return false;
+    }
+
+    if (legacy_parsing) {
+      json_extract_legacy_count++;
+      if (legacy_val_json(args, arg_count, w, m_path_cache,
+                          LEGACY_JSON_NOSPACES, wr, &null_value))
+        return error_json();
+
       return false;
     }
 
@@ -3517,7 +3650,7 @@ String *Item_func_json_unquote::val_str(String *str) {
     Json_dom_ptr dom;
     JsonParseDefaultErrorHandler parse_handler(func_name(), 0);
     if (parse_json(*utf8str, &dom, true, parse_handler,
-                   JsonDocumentDefaultDepthHandler)) {
+                   JsonDocumentDefaultDepthHandler, false)) {
       return error_str();
     }
 
@@ -4582,7 +4715,7 @@ Item_func_json_value::create_json_value_default(THD *thd, Item *item) {
       assert(string_value != nullptr);
       JsonParseDefaultErrorHandler parse_handler(func_name(), 0);
       if (parse_json(*string_value, &default_value->json_default, true,
-                     parse_handler, JsonDocumentDefaultDepthHandler)) {
+                     parse_handler, JsonDocumentDefaultDepthHandler, false)) {
         my_error(ER_INVALID_DEFAULT, MYF(0), func_name());
         return nullptr;
       }
@@ -4794,7 +4927,7 @@ bool Item_func_json_value::extract_json_value(
                            json_func_name, parse_err, err_offset, "");
                   parse_error = true;
                 },
-                JsonDocumentDefaultDepthHandler) &&
+                JsonDocumentDefaultDepthHandler, false) &&
             thd->is_error())
           return error_json();
       }

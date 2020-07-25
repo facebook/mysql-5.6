@@ -1448,6 +1448,8 @@ static const std::pair<const char *, Create_func *> func_array[] = {
     {"JSON_TYPE", SQL_FN(Item_func_json_type, 1)},
     {"JSON_KEYS", SQL_FN_V_THD(Item_func_json_keys, 1, 2)},
     {"JSON_EXTRACT", SQL_FN_V_THD(Item_func_json_extract, 2, MAX_ARGLIST_SIZE)},
+    {"JSON_EXTRACT_VALUE",
+     SQL_FN_V_THD(Item_func_json_extract_value, 2, MAX_ARGLIST_SIZE)},
     {"JSON_ARRAY_APPEND",
      SQL_FN_ODD(Item_func_json_array_append, 3, MAX_ARGLIST_SIZE)},
     {"JSON_INSERT", SQL_FN_ODD(Item_func_json_insert, 3, MAX_ARGLIST_SIZE)},
