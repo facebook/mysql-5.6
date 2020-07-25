@@ -1048,7 +1048,7 @@ int Persisted_variables_cache::read_persist_file() {
 
   /* parse the file contents to check if it is in json format or not */
   std::unique_ptr<Json_dom> json(Json_dom::parse(
-      parsed_value.c_str(), parsed_value.length(), &error, &offset));
+      parsed_value.c_str(), parsed_value.length(), false, &error, &offset));
   if (!json.get()) {
     LogErr(ERROR_LEVEL, ER_JSON_PARSE_ERROR);
     return 1;

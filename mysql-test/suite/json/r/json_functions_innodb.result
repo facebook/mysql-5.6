@@ -8869,11 +8869,39 @@ Note	1003	/* select#1 */ select json_unquote(json_extract(`test`.`t1`.`f1`,'$.t'
 SELECT f1->>NULL FROM t1;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NULL FROM t1' at line 1
 SELECT f1 ->> "NULL" FROM t1;
-ERROR 42000: Invalid JSON path expression. The error is around character position 1.
+f1 ->> "NULL"
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
 SELECT f1->>"NULL" FROM t1;
-ERROR 42000: Invalid JSON path expression. The error is around character position 1.
+f1->>"NULL"
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
 SELECT f1->>"!@#" FROM t1;
-ERROR 42000: Invalid JSON path expression. The error is around character position 1.
+f1->>"!@#"
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+json_extract_calls = 27
 SELECT COUNT(*)->>"$.t" FROM t1;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '->>"$.t" FROM t1' at line 1
 INSERT INTO t1(f1) VALUES

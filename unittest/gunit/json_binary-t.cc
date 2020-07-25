@@ -62,7 +62,8 @@ static my_decimal create_decimal(double d) {
 }
 
 static Json_dom_ptr parse_json(const char *json_text) {
-  auto dom = Json_dom::parse(json_text, strlen(json_text), nullptr, nullptr);
+  auto dom =
+      Json_dom::parse(json_text, strlen(json_text), false, nullptr, nullptr);
   EXPECT_NE(nullptr, dom);
   return dom;
 }
