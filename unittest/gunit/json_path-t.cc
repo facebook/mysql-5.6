@@ -340,8 +340,8 @@ void JsonPathTest::vet_wrapper_seek(const char *json_text,
                                     const char *path_text,
                                     const std::string &expected,
                                     bool expected_null) const {
-  Json_dom_ptr dom =
-      Json_dom::parse(json_text, std::strlen(json_text), nullptr, nullptr);
+  Json_dom_ptr dom = Json_dom::parse(json_text, std::strlen(json_text), false,
+                                     nullptr, nullptr);
 
   String serialized_form;
   EXPECT_FALSE(json_binary::serialize(thd(), dom.get(), &serialized_form));
@@ -358,8 +358,8 @@ void JsonPathTest::vet_wrapper_seek(const char *json_text,
 }
 
 void vet_dom_location(const char *json_text, const char *path_text) {
-  Json_dom_ptr dom =
-      Json_dom::parse(json_text, std::strlen(json_text), nullptr, nullptr);
+  Json_dom_ptr dom = Json_dom::parse(json_text, std::strlen(json_text), false,
+                                     nullptr, nullptr);
   Json_path path;
   good_path_common(path_text, &path);
   Json_dom_vector hits(PSI_NOT_INSTRUMENTED);
@@ -407,8 +407,8 @@ void vet_only_needs_one(Json_wrapper &wrapper, const Json_path &path,
 */
 void vet_only_needs_one(const char *json_text, const char *path_text,
                         uint expected_hits, const THD *thd) {
-  Json_dom_ptr dom =
-      Json_dom::parse(json_text, std::strlen(json_text), nullptr, nullptr);
+  Json_dom_ptr dom = Json_dom::parse(json_text, std::strlen(json_text), false,
+                                     nullptr, nullptr);
 
   String serialized_form;
   EXPECT_FALSE(json_binary::serialize(thd, dom.get(), &serialized_form));
@@ -1253,8 +1253,8 @@ TEST_F(JsonPathTest, RemoveDomTest) {
   {
     SCOPED_TRACE("");
     std::string json_text = "[100, 200, 300]";
-    Json_dom_ptr dom =
-        Json_dom::parse(json_text.data(), json_text.length(), nullptr, nullptr);
+    Json_dom_ptr dom = Json_dom::parse(json_text.data(), json_text.length(),
+                                       false, nullptr, nullptr);
     auto array = static_cast<Json_array *>(dom.get());
     EXPECT_TRUE(array->remove(1));
     EXPECT_EQ("[100, 300]", format(array));
@@ -1262,8 +1262,8 @@ TEST_F(JsonPathTest, RemoveDomTest) {
     EXPECT_EQ("[100, 300]", format(array));
 
     json_text = "{\"a\": 100, \"b\": 200, \"c\": 300}";
-    dom =
-        Json_dom::parse(json_text.data(), json_text.length(), nullptr, nullptr);
+    dom = Json_dom::parse(json_text.data(), json_text.length(), false, nullptr,
+                          nullptr);
     auto object = static_cast<Json_object *>(dom.get());
     EXPECT_TRUE(object->remove("b"));
     EXPECT_EQ("{\"a\": 100, \"c\": 300}", format(object));

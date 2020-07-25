@@ -2,6 +2,7 @@
 drop table if exists test_json;
 --enable_warnings
 create table test_json(json blob);
+create table test_utf32_json(json text CHARACTER SET utf32);
 
 --echo #
 --echo # json_valid
@@ -42,7 +43,131 @@ select json_valid(json) is_valid, json from test_json order by is_valid, json;
 
 truncate test_json;
 
+insert into test_utf32_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+(''),
+(123),
+(1.23),
+('abc'),
+('{"key"}'),
+('{1:value}'),
+('{"key":"value"'),
+('[1,2,3'),
+('{}}'),
+('[[]'),
+('{[]}'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+
+select json_valid(json),json from test_utf32_json order by 1,2;
+
+truncate test_utf32_json;
+
+--echo #
+--echo # json_contains_key
+--echo #
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+
+--error ER_INVALID_JSON_CHARSET
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+--error ER_INVALID_JSON_CHARSET
+select json_contains_key('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+select json_contains_key('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+
+--error ER_INVALID_JSON_CHARSET
+select json_contains_key(json, 'k1', 'k2') from test_json;
+select json_contains_key(json, 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
+--echo #
+--echo # json_extract
+--echo #
+
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+
+--error ER_INVALID_JSON_CHARSET
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+--error ER_INVALID_JSON_CHARSET
+select json_extract('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+select json_extract('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+
+--error ER_INVALID_JSON_CHARSET
+select json_extract(json, 'k1', 'k2') from test_json;
+select json_extract(json, 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
+--echo #
+--echo # json_extract_value
+--echo #
+
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+
+--error ER_INVALID_JSON_CHARSET
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+--error ER_INVALID_JSON_CHARSET
+select json_extract_value('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+select json_extract_value('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+
+--error ER_INVALID_JSON_CHARSET
+select json_extract_value(json, 'k1', 'k2') from test_json;
+select json_extract_value(json, 'k1', 'k2') from test_utf32_json;
+
+truncate test_json;
+truncate test_utf32_json;
+
 --echo #
 --echo # cleanup
 --echo #
 drop table test_json;
+drop table test_utf32_json;

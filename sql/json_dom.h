@@ -267,6 +267,7 @@ class Json_dom {
 
     @param[in]  text   the JSON text
     @param[in]  length the length of the text
+    @param[in]  legacy_parsing  True if JSON is parsed in fb 5.6 json format.
     @param[out] errmsg any syntax error message (will be ignored if it is NULL)
     @param[out] offset the position in the parsed string a syntax error was
                        found (will be ignored if it is NULL)
@@ -274,7 +275,8 @@ class Json_dom {
     @result the built DOM if JSON text was parseable, else NULL
   */
   static Json_dom_ptr parse(const char *text, size_t length,
-                            const char **errmsg, size_t *offset);
+                            bool legacy_parsing, const char **errmsg,
+                            size_t *offset);
 
   /**
     Construct a DOM object based on a binary JSON value. The ownership
@@ -357,8 +359,8 @@ struct Json_key_comparator {
   Json_object class.
 */
 using Json_object_map =
-    std::map<std::string, Json_dom_ptr, Json_key_comparator,
-             Malloc_allocator<std::pair<const std::string, Json_dom_ptr>>>;
+    std::multimap<std::string, Json_dom_ptr, Json_key_comparator,
+                  Malloc_allocator<std::pair<const std::string, Json_dom_ptr>>>;
 
 /**
   Represents a JSON container value of type "object" (ECMA), type
@@ -371,14 +373,20 @@ class Json_object final : public Json_container {
   */
   Json_object_map m_map;
 
+  /**
+     Is object created by 5.6 json functions.
+   */
+  bool m_legacy_object;
+
  public:
-  Json_object();
+  Json_object(bool m_legacy_object = false);
   enum_json_type json_type() const override { return enum_json_type::J_OBJECT; }
 
   /**
     Insert a clone of the value into the object. If the key already
     exists in the object, the existing value is replaced ("last value
     wins").
+    Keeps duplicate values of the key in multimap if legacy object.
 
     @param[in]  key    the JSON element key of to be added
     @param[in]  value  a JSON value: the element key's value
@@ -392,6 +400,7 @@ class Json_object final : public Json_container {
   /**
     Insert the value into the object. If the key already exists in the
     object, the existing value is replaced ("last value wins").
+    Keeps duplicate values of the key in multimap if legacy object.
 
     Ownership of the value is effectively transferred to the
     object and the value will be deallocated by the object so only add
@@ -413,6 +422,7 @@ class Json_object final : public Json_container {
   /**
     Insert the value into the object. If the key already exists in the
     object, the existing value is replaced ("last value wins").
+    Keeps duplicate values of the key in multimap if legacy object.
 
     The ownership of the value is transferred to the object.
 
@@ -510,6 +520,8 @@ class Json_object final : public Json_container {
     @retval true on memory allocation error
   */
   bool merge_patch(Json_object_ptr patch);
+
+  bool is_legacy_object() const { return m_legacy_object; }
 };
 
 /**
@@ -1126,6 +1138,15 @@ enum enum_coercion_error {
 };
 
 /**
+   Control legacy json print behavior by Json_wrapper.
+ */
+enum legacy_json_print_behavior {
+  LEGACY_JSON_DISABLED,
+  LEGACY_JSON_NOSPACES,
+  LEGACY_JSON_EXTRACT_VALUE
+};
+
+/**
   Abstraction for accessing JSON values irrespective of whether they
   are (started out as) binary JSON values or JSON DOM values. The
   purpose of this is to allow uniform access for callers. It allows us
@@ -1155,6 +1176,8 @@ class Json_wrapper {
     json_binary::Value m_value;
   };
   bool m_is_dom;  //!< Wraps a DOM iff true
+
+  legacy_json_print_behavior m_legacy_json;  //!< Emulates 5.6 fb json functions
  public:
   /**
     Get the wrapped datetime value in the packed format.
@@ -1169,7 +1192,10 @@ class Json_wrapper {
   /**
     Create an empty wrapper. Cf #empty().
   */
-  Json_wrapper() : m_dom_value(nullptr), m_is_dom(true) {
+  Json_wrapper()
+      : m_dom_value(nullptr),
+        m_is_dom(true),
+        m_legacy_json(LEGACY_JSON_DISABLED) {
     // Workaround for Solaris Studio, initialize in CTOR body.
     m_dom_alias = true;
   }
@@ -1736,6 +1762,17 @@ class Json_wrapper {
   */
   void remove_duplicates(const CHARSET_INFO *cs = nullptr);
 #endif
+
+  /**
+     Sets the json format of the json contained inside wrapper.
+     m_legacy_json inside Json_wrapper takes care of the printing behavior
+     of 5.6 json functions.
+
+     @param [in] legacy_json  enum governing print behavior of 5.6 json.
+   */
+  void set_legacy_json(legacy_json_print_behavior legacy_json) {
+    m_legacy_json = legacy_json;
+  }
 };
 
 /**

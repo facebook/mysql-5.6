@@ -7840,3 +7840,12 @@ static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
     "Enable interfaces and codepaths used by group replication plugin",
     READ_ONLY NON_PERSIST GLOBAL_VAR(opt_group_replication_plugin_hooks),
     CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static const char *use_fb_json_functions_names[] = {"use_fb_json_extract",
+                                                    "default", NullS};
+
+static Sys_var_flagset Sys_use_fb_json_functions(
+    "use_fb_json_functions",
+    "Use legacy behavior of FB json functions implemented in 5.6",
+    SESSION_VAR(use_fb_json_functions), CMD_LINE(REQUIRED_ARG),
+    use_fb_json_functions_names, DEFAULT(0));

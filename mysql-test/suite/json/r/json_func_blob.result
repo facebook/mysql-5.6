@@ -1,5 +1,6 @@
 drop table if exists test_json;
 create table test_json(json blob);
+create table test_utf32_json(json text CHARACTER SET utf32);
 #
 # json_valid
 #
@@ -64,7 +65,176 @@ NULL	NULL
 0	{}
 0	{}}
 truncate test_json;
+insert into test_utf32_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+(''),
+(123),
+(1.23),
+('abc'),
+('{"key"}'),
+('{1:value}'),
+('{"key":"value"'),
+('[1,2,3'),
+('{}}'),
+('[[]'),
+('{[]}'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select json_valid(json),json from test_utf32_json order by 1,2;
+json_valid(json)	json
+NULL	NULL
+0	
+0	abc
+0	[1,2,3
+0	[[]
+0	{"key":"value"
+0	{"key"}
+0	{1:value}
+0	{[]}
+0	{}}
+1	1.23
+1	123
+1	[1,2,3]
+1	[1,false,"str",1.2]
+1	[[1,2,3],2,3]
+1	[[[[[]]]]]
+1	[]
+1	[{"k1":"v1"},2,3]
+1	[{}]
+1	{"k":"v"}
+1	{"k":[]}
+1	{"k":{}}
+1	{"k1":"v1","k2":true,"k3":3}
+1	{"k1":{"k2":"v2"}}
+1	{"key":[1,2,3]}
+1	{"MySQL":"开源数据库"}
+1	{"开源数据库":"MySQL"}
+1	{}
+truncate test_utf32_json;
+#
+# json_contains_key
+#
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains_key('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+1
+1
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+json_contains_key('{"k1":{"k2":"v2"}}', 'k1', json)
+0
+1
+select json_contains_key('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+json_contains_key('{"k1":{"k2":"v2"}}', json, 'k2')
+1
+0
+select json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+json_contains_key('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+1
+1
+truncate test_json;
+truncate test_utf32_json;
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+select json_contains_key(json, 'k1', 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains_key(json, 'k1', 'k2') from test_utf32_json;
+json_contains_key(json, 'k1', 'k2')
+1
+truncate test_json;
+truncate test_utf32_json;
+#
+# json_extract
+#
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+"v2"
+"v2"
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+json_extract('{"k1":{"k2":"v2"}}', 'k1', json)
+NULL
+"v2"
+select json_extract('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+json_extract('{"k1":{"k2":"v2"}}', json, 'k2')
+"v2"
+NULL
+select json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+json_extract('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+"v2"
+"v2"
+truncate test_json;
+truncate test_utf32_json;
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+select json_extract(json, 'k1', 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract(json, 'k1', 'k2') from test_utf32_json;
+json_extract(json, 'k1', 'k2')
+"v2"
+truncate test_json;
+truncate test_utf32_json;
+#
+# json_extract_value
+#
+insert into test_json values ('k1'), ('k2');
+insert into test_utf32_json values ('k1'), ('k2');
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', json) from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract_value('{"k1":{"k2":"v2"}}', json, 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_json;
+json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+v2
+v2
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', json) from test_utf32_json;
+json_extract_value('{"k1":{"k2":"v2"}}', 'k1', json)
+NULL
+v2
+select json_extract_value('{"k1":{"k2":"v2"}}', json, 'k2') from test_utf32_json;
+json_extract_value('{"k1":{"k2":"v2"}}', json, 'k2')
+v2
+NULL
+select json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2') from test_utf32_json;
+json_extract_value('{"k1":{"k2":"v2"}}', 'k1', 'k2')
+v2
+v2
+truncate test_json;
+truncate test_utf32_json;
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+select json_extract_value(json, 'k1', 'k2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_extract_value(json, 'k1', 'k2') from test_utf32_json;
+json_extract_value(json, 'k1', 'k2')
+v2
+truncate test_json;
+truncate test_utf32_json;
 #
 # cleanup
 #
 drop table test_json;
+drop table test_utf32_json;
