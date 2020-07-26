@@ -19,6 +19,8 @@
   This engine need server classes (like THD etc.) which only is defined if
   MYSQL_SERVER define is set!
 */
+#include "my_base.h"
+#include "sql/partition_element.h"
 #include "sql/sql_partition.h"
 #define MYSQL_SERVER 1
 #define LOG_SUBSYSTEM_TAG "partition_base"
@@ -3901,14 +3903,19 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
   }
 
   if (ha_alter_info->alter_info->flags &
-      (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_COALESCE_PARTITION |
+      (Alter_info::ALTER_COALESCE_PARTITION |
        Alter_info::ALTER_REORGANIZE_PARTITION |
        Alter_info::ALTER_EXCHANGE_PARTITION)) {
     push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
                         "Inplace partition altering is not supported");
     DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
-
+  if ((ha_alter_info->alter_info->flags & Alter_info::ALTER_ADD_PARTITION) &&
+      (ha_alter_info->modified_part_info->part_type == partition_type::HASH)) {
+    push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
+                        "Inplace partition altering is not supported");
+    DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+  }
   /* We cannot allow INPLACE to change order of KEY partitioning fields! */
   if (ha_alter_info->handler_flags &
       Alter_inplace_info::ALTER_STORED_COLUMN_ORDER) {
@@ -3961,6 +3968,15 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
     DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE);
   }
 
+  if (ha_alter_info->handler_flags & Alter_inplace_info::ADD_PARTITION) {
+    switch (ha_alter_info->modified_part_info->part_type) {
+      case partition_type::RANGE:
+      case partition_type::LIST:
+        DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE);
+      default:
+        DBUG_RETURN(HA_ALTER_INPLACE_SHARED_LOCK_AFTER_PREPARE);
+    }
+  }
   DBUG_RETURN(result);
 }
 
@@ -4097,6 +4113,78 @@ bool Partition_base::commit_inplace_alter_table(
         }
         file += num_subparts;
       }
+    } else if (ha_alter_info->alter_info->flags &
+               Alter_info::ALTER_ADD_PARTITION) {
+      partition_info *part_info = ha_alter_info->modified_part_info;
+      List_iterator_fast<partition_element> part_it(part_info->partitions);
+      partition_element *part_elem;
+      int part_count = 0;
+      int orig_count = 0;
+      int num_subparts =
+          part_info->is_sub_partitioned() ? part_info->num_subparts : 1;
+      auto new_file = (handler **)sql_calloc(
+          sizeof(handler *) * (2 * (part_info->get_tot_partitions() + 1)));
+      while ((part_elem = part_it++) != nullptr) {
+        partition_state state = part_elem->part_state;
+        switch (state) {
+          case PART_TO_BE_ADDED:
+          case PART_CHANGED:
+            if (part_info->is_sub_partitioned()) {
+              List_iterator<partition_element> sub_part_it(
+                  part_elem->subpartitions);
+
+              partition_element *sub_part_elem;
+              int sub_index = 0;
+              while ((sub_part_elem = sub_part_it++) != nullptr) {
+                new_file[part_count + sub_index] = get_file_handler(
+                    altered_table->s, &(altered_table->s->mem_root));
+                new_file[part_count + sub_index]->set_ha_share_ref(
+                    &altered_table->s->ha_share);
+                char name[FN_REFLEN];
+                create_subpartition_name(name, table->s->normalized_path.str,
+                                         part_elem->partition_name,
+                                         sub_part_elem->partition_name);
+                new_file[part_count + sub_index]->ha_external_lock(get_thd(),
+                                                                   F_UNLCK);
+                error = new_file[part_count + sub_index]->ha_create(
+                    name, altered_table, ha_alter_info->create_info,
+                    new_table_def);
+                if (error) goto end;
+                error = new_file[part_count + sub_index]->ha_open(
+                    altered_table, name, m_mode, HA_OPEN_IGNORE_IF_LOCKED,
+                    new_table_def);
+                if (error) goto end;
+                sub_index++;
+              }
+            } else {
+              new_file[part_count] = get_file_handler(
+                  altered_table->s, &(altered_table->s->mem_root));
+              new_file[part_count]->set_ha_share_ref(
+                  &altered_table->s->ha_share);
+              char name[FN_REFLEN];
+              create_partition_name(name, table->s->normalized_path.str,
+                                    part_elem->partition_name, false);
+              new_file[part_count]->ha_external_lock(get_thd(), F_UNLCK);
+              error = new_file[part_count]->ha_create(
+                  name, altered_table, ha_alter_info->create_info,
+                  new_table_def);
+              if (error) goto end;
+              error = new_file[part_count]->ha_open(altered_table, name, m_mode,
+                                                    HA_OPEN_IGNORE_IF_LOCKED,
+                                                    new_table_def);
+              if (error) goto end;
+            }
+            part_count += num_subparts;
+            break;
+          default:
+            memcpy(&new_file[part_count], &m_file[orig_count],
+                   sizeof(handler *) * num_subparts);
+            orig_count += num_subparts;
+            part_count += num_subparts;
+            break;
+        }
+      }
+      m_file = new_file;
     }
 
     ha_alter_info->handler_ctx = part_inplace_ctx->handler_ctx_array[0];
