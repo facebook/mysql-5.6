@@ -22,3 +22,4 @@ report_host=::1
 read_only=1
 enable_raft_plugin=1
 rpl_raft_on=1
+override_enable_raft_check=1
