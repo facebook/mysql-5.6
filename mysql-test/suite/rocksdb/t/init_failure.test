@@ -1,7 +1,34 @@
 --source include/have_debug.inc
 
---let $_mysqld_option=--debug="+d,rocksdb_init_failure_open_db"
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_files_corruption"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_mutexes_initialized"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_reads"
 --source include/restart_mysqld_with_invalid_option.inc
 
 --let $_mysqld_option=--debug="+d,rocksdb_init_failure_list_cf"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_cache"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_cf_options"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_incompatible_options"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_open_db"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_managers"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_threads"
+--source include/restart_mysqld_with_invalid_option.inc
+
+--let $_mysqld_option=--debug="+d,rocksdb_init_failure_everything_initialized"
 --source include/restart_mysqld_with_invalid_option.inc
