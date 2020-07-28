@@ -34,6 +34,7 @@
 #include "./ha_rocksdb.h"
 #include "./properties_collector.h"
 #include "./rdb_buff.h"
+#include "./rdb_mutex_wrapper.h"
 #include "./rdb_utils.h"
 
 namespace myrocks {
@@ -1007,8 +1008,8 @@ struct Rdb_collation_codec {
   std::vector<std::array<uchar, 256>> m_dec_idx;
 };
 
-extern mysql_mutex_t rdb_collation_data_mutex;
-extern mysql_mutex_t rdb_mem_cmp_space_mutex;
+extern Rds_mysql_mutex rdb_collation_data_mutex;
+extern Rds_mysql_mutex rdb_mem_cmp_space_mutex;
 extern std::array<const Rdb_collation_codec *, MY_ALL_CHARSETS_SIZE>
     rdb_collation_data;
 
