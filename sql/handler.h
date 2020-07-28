@@ -6870,8 +6870,8 @@ int ha_find_files(THD *thd, const char *db, const char *path, const char *wild,
 int ha_table_exists_in_engine(THD *thd, const char *db, const char *name);
 bool ha_check_if_supported_system_table(handlerton *hton, const char *db,
                                         const char *table_name);
-bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db,
-                                 const char *table_name);
+bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db);
+bool is_mysql_builtin_database(const char *db);
 bool ha_rm_tmp_tables(THD *thd, List<LEX_STRING> *files);
 bool default_rm_tmp_tables(handlerton *hton, THD *thd, List<LEX_STRING> *files);
 

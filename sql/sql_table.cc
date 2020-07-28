@@ -17773,7 +17773,7 @@ static bool check_engine(THD *thd, const char *db_name, const char *table_name,
     *new_engine = myisam_hton;
   }
   if (!(create_info->options & HA_LEX_CREATE_TMP_TABLE) && !opt_initialize &&
-      ha_check_user_table_blocked(thd, *new_engine, db_name, table_name)) {
+      ha_check_user_table_blocked(thd, *new_engine, db_name)) {
     handlerton *default_engine = ha_default_handlerton(thd);
     if (no_substitution || default_engine == *new_engine) {
       my_error(ER_USER_TABLE_BLOCKED_ENGINE, MYF(0), db_name, table_name,

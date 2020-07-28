@@ -5633,6 +5633,14 @@ static bool check_engine_user_table_blocked_handlerton(THD *, plugin_ref plugin,
 }
 
 /**
+   Return true if database is any of mysql builtin schemas.
+ */
+bool is_mysql_builtin_database(const char *db) {
+  return !strcmp(db, "mysql") || !strcmp(db, "performance_schema") ||
+         !strcmp(db, "information_schema") || !strcmp(db, "sys");
+}
+
+/**
   @brief Check if a given user table can be created with a target SE..
 
   @details The primary purpose of introducing this function is to have the
@@ -5645,14 +5653,12 @@ static bool check_engine_user_table_blocked_handlerton(THD *, plugin_ref plugin,
   @param   thd                   Thread context.
   @param   hton                  Handlerton of target engine.
   @param   db                    Database name.
-  @param   table_name            Table name to be checked.
 
   @return Operation status
     @retval  true                If the table creation should be blocked.
     @retval  false               If its okay to create table with target SE.
 */
-bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db,
-                                 const char *table_name) {
+bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db) {
   DBUG_ENTER("ha_check_user_table_blocked");
   st_usr_tbl_chk_params check_params;
 
@@ -5660,8 +5666,7 @@ bool ha_check_user_table_blocked(THD *thd, handlerton *hton, const char *db,
     DBUG_RETURN(false);
   }
 
-  bool is_sql_layer_system_table = false;
-  if (check_if_system_table(db, table_name, &is_sql_layer_system_table)) {
+  if (is_mysql_builtin_database(db)) {
     DBUG_RETURN(false);  // It's a system table name
   }
 
