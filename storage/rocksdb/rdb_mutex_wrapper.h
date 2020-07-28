@@ -32,6 +32,7 @@
 
 /* MyRocks header files */
 #include "./rdb_global.h"
+#include "./rdb_psi.h"
 
 namespace myrocks {
 
@@ -140,6 +141,24 @@ class Rdb_mutex_factory : public rocksdb::TransactionDBMutexFactory {
   }
 
   virtual ~Rdb_mutex_factory() override {}
+};
+
+/// A wrapper around sql mutex that tracks initialization state.
+struct Rds_mysql_mutex : public mysql_mutex_t {
+  bool m_initialized = false;
+
+  void init(my_core::PSI_mutex_key &key, native_mutexattr_t *attr) {
+    mysql_mutex_init(key, this, attr);
+    m_initialized = true;
+  }
+
+  void destroy() {
+    if (!m_initialized) {
+      return;
+    }
+    mysql_mutex_destroy(this);
+    m_initialized = false;
+  }
 };
 
 }  // namespace myrocks
