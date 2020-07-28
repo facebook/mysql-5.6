@@ -3244,7 +3244,7 @@ class Rdb_transaction {
   virtual bool is_tx_started() const = 0;
   virtual void start_tx() = 0;
   virtual void start_stmt() = 0;
-  virtual void check_name() = 0;
+  virtual void set_name() = 0;
 
  protected:
   // Non-virtual functions with actions to be done on transaction start and
@@ -3376,7 +3376,6 @@ class Rdb_transaction {
 class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::Transaction *m_rocksdb_tx = nullptr;
   rocksdb::Transaction *m_rocksdb_reuse_tx = nullptr;
-  bool m_named = false;
 
  public:
   void set_lock_timeout(int timeout_sec_arg) override {
@@ -3409,24 +3408,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     DBUG_ASSERT(m_rocksdb_reuse_tx == nullptr);
     m_rocksdb_reuse_tx = m_rocksdb_tx;
     m_rocksdb_tx = nullptr;
-  }
-
-  void set_name() {
-    if (!m_named) {
-      DBUG_ASSERT(m_write_count == 0);
-#ifndef DBUG_OFF
-      auto name = m_rocksdb_tx->GetName();
-      DBUG_ASSERT(name.empty());
-#endif
-      XID xid;
-      thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
-      rocksdb::Status s = m_rocksdb_tx->SetName(rdb_xid_to_string(xid));
-      DBUG_ASSERT(s.ok());
-      if (!s.ok()) {
-        rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
-      }
-      m_named = true;
-    }
   }
 
   bool prepare() override {
@@ -3470,8 +3451,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     on_rollback();
     /* Save the transaction object to be reused */
     release_tx();
-    DBUG_ASSERT_IMP(m_tx_read_only, !m_named);
-    m_named = false;
 
     m_write_count = 0;
     m_insert_count = 0;
@@ -3500,8 +3479,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
       /* Save the transaction object to be reused */
       release_tx();
-      DBUG_ASSERT_IMP(m_tx_read_only, !m_named);
-      m_named = false;
 
       set_tx_read_only(false);
       m_rollback_only = false;
@@ -3552,18 +3529,9 @@ class Rdb_transaction_impl : public Rdb_transaction {
 
   bool has_snapshot() { return m_read_opts.snapshot != nullptr; }
 
-  void check_name() override {
-    DBUG_ASSERT(m_named);
-    XID xid;
-    thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
-    auto name = m_rocksdb_tx->GetName();
-    DBUG_ASSERT(name == rdb_xid_to_string(xid));
-  }
-
   rocksdb::Status put(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key, const rocksdb::Slice &value,
                       const bool assume_tracked) override {
-    set_name();
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks) {
@@ -3575,7 +3543,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::Status delete_key(rocksdb::ColumnFamilyHandle *const column_family,
                              const rocksdb::Slice &key,
                              const bool assume_tracked) override {
-    set_name();
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks) {
@@ -3587,7 +3554,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
   rocksdb::Status single_delete(
       rocksdb::ColumnFamilyHandle *const column_family,
       const rocksdb::Slice &key, const bool assume_tracked) override {
-    set_name();
     ++m_write_count;
     ++m_lock_count;
     if (m_write_count > m_max_row_locks || m_lock_count > m_max_row_locks) {
@@ -3614,7 +3580,6 @@ class Rdb_transaction_impl : public Rdb_transaction {
     transaction locking. The writes WILL be visible to the transaction.
   */
   rocksdb::WriteBatchBase *get_indexed_write_batch() override {
-    set_name();
     ++m_write_count;
     return m_rocksdb_tx->GetWriteBatch();
   }
@@ -3712,6 +3677,21 @@ class Rdb_transaction_impl : public Rdb_transaction {
     set_initial_savepoint();
 
     m_ddl_transaction = false;
+  }
+
+  void set_name() override {
+    XID xid;
+    thd_get_xid(m_thd, reinterpret_cast<MYSQL_XID *>(&xid));
+    auto name = m_rocksdb_tx->GetName();
+    if (!name.empty()) {
+      DBUG_ASSERT(name == rdb_xid_to_string(xid));
+      return;
+    }
+    rocksdb::Status s = m_rocksdb_tx->SetName(rdb_xid_to_string(xid));
+    DBUG_ASSERT(s.ok());
+    if (!s.ok()) {
+      rdb_handle_io_error(s, RDB_IO_ERROR_TX_COMMIT);
+    }
   }
 
   /* Implementations of do_*savepoint based on rocksdB::Transaction savepoints
@@ -3973,7 +3953,7 @@ class Rdb_writebatch_impl : public Rdb_transaction {
     set_initial_savepoint();
   }
 
-  void check_name() override {}
+  void set_name() override {}
 
   void start_stmt() override {}
 
@@ -4139,10 +4119,9 @@ static int rocksdb_prepare(handlerton *const hton, THD *const thd,
       if (thd->durability_property == HA_IGNORE_DURABILITY || async) {
         tx->set_sync(false);
       }
-#ifndef DBUG_OFF
-      // Call check_name to check that transaction name still matches.
-      tx->check_name();
-#endif
+      if (rocksdb_write_policy != rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
+        tx->set_name();
+      }
       if (!tx->prepare()) {
         return HA_EXIT_FAILURE;
       }
@@ -4924,6 +4903,16 @@ static inline void rocksdb_register_tx(handlerton *const hton, THD *const thd,
   DBUG_ASSERT(tx != nullptr);
 
   trans_register_ha(thd, FALSE, rocksdb_hton);
+  if (rocksdb_write_policy == rocksdb::TxnDBWritePolicy::WRITE_UNPREPARED) {
+    // Some internal operations will call trans_register_ha, but they do not
+    // go through 2pc. In this case, the xid is set with query_id == 0, which
+    // means that rocksdb will receive transactions with duplicate names.
+    //
+    // Skip setting name in these cases.
+    if (thd->query_id != 0) {
+      tx->set_name();
+    }
+  }
   if (my_core::thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
     tx->start_stmt();
     trans_register_ha(thd, TRUE, rocksdb_hton);
