@@ -43,6 +43,12 @@ DROP TABLE IF EXISTS clients;
 DROP TABLE IF EXISTS clients_lk;
 DROP TABLE IF EXISTS trb1;
 CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i)) ENGINE = ROCKSDB PARTITION BY KEY(i) PARTITIONS 4;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="t1" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
 Table	Op	Msg_type	Msg_text
@@ -51,6 +57,28 @@ Table	Op	Msg_type	Msg_text
 test.t1	repair	status	OK
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
+PARTITION_NAME
+p0
+p1
+p2
+p3
+PARTITION_NAME
+NULL
+PARTITION_NAME
+p0
+p1
+p2
+PARTITION_NAME
+p0
+p1
+p2
+p3
+p4
+p5
+p6
+p7
+p8
+p9
 SHOW TABLES;
 Tables_in_test
 TEMP0
@@ -306,6 +334,12 @@ PARTITION p1 VALUES LESS THAN ('m'),
 PARTITION p2 VALUES LESS THAN ('t'),
 PARTITION p3 VALUES LESS THAN (MAXVALUE)
 );
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="employees_by_lname" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
 ALTER TABLE employees_by_lname PARTITION BY RANGE COLUMNS (hired)  (
 PARTITION p0 VALUES LESS THAN ('1970-01-01'),
 PARTITION p1 VALUES LESS THAN ('1980-01-01'),
@@ -314,6 +348,14 @@ PARTITION p3 VALUES LESS THAN ('2000-01-01'),
 PARTITION p4 VALUES LESS THAN ('2010-01-01'),
 PARTITION p5 VALUES LESS THAN (MAXVALUE)
 );
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="employees_by_lname" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
+p4
+p5
 CREATE TABLE customers_1 (
 first_name VARCHAR(25),
 last_name VARCHAR(25),
@@ -328,6 +370,12 @@ PARTITION pRegion_2 VALUES IN('Vimmerby', 'Hultsfred', 'Västervik'),
 PARTITION pRegion_3 VALUES IN('Nässjö', 'Eksjö', 'Vetlanda'),
 PARTITION pRegion_4 VALUES IN('Uppvidinge', 'Alvesta', 'Växjo')
 );
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_1" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+pRegion_1
+pRegion_2
+pRegion_3
+pRegion_4
 CREATE TABLE customers_2 (
 first_name VARCHAR(25),
 last_name VARCHAR(25),
@@ -346,6 +394,12 @@ PARTITION pWeek_3 VALUES IN('2010-02-15', '2010-02-16', '2010-02-17',
 PARTITION pWeek_4 VALUES IN('2010-02-22', '2010-02-23', '2010-02-24',
 '2010-02-25', '2010-02-26', '2010-02-27', '2010-02-28')
 );
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_2" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+pWeek_1
+pWeek_2
+pWeek_3
+pWeek_4
 CREATE TABLE customers_3 (
 first_name VARCHAR(25),
 last_name VARCHAR(25),
@@ -360,6 +414,12 @@ PARTITION pWeek_2 VALUES LESS THAN('2010-02-15'),
 PARTITION pWeek_3 VALUES LESS THAN('2010-02-22'),
 PARTITION pWeek_4 VALUES LESS THAN('2010-03-01')
 );
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+pWeek_1
+pWeek_2
+pWeek_3
+pWeek_4
 CREATE TABLE employees_hash (
 id INT NOT NULL,
 fname VARCHAR(30),
@@ -553,6 +613,10 @@ PARTITION p2 VALUES LESS THAN (2000),
 PARTITION p3 VALUES LESS THAN (2005)
 );
 ALTER TABLE trb3 PARTITION BY KEY(id) PARTITIONS 2;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="trb3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
 CREATE TABLE tr (
 id INT,
 name VARCHAR(50),
@@ -580,6 +644,11 @@ id	name	purchased
 3	TV set	1996-03-10
 10	lava lamp	1998-12-25
 ALTER TABLE tr DROP PARTITION p2;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="tr" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p3
 SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '1999-12-31';
 id	name	purchased
 CREATE TABLE members_3 (
@@ -594,10 +663,20 @@ PARTITION p1 VALUES LESS THAN (1980),
 PARTITION p2 VALUES LESS THAN (1990)
 );
 ALTER TABLE members_3 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2000));
-Warnings:
-Warning	138	Inplace partition altering is not supported
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
 ALTER TABLE members_3 ADD PARTITION (PARTITION n VALUES LESS THAN (1960));
 ERROR HY000: VALUES LESS THAN value must be strictly increasing for each partition
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
 CREATE TABLE clients (
 id INT,
 fname VARCHAR(30),
@@ -609,6 +688,16 @@ PARTITIONS 12;
 ALTER TABLE clients COALESCE PARTITION 4;
 Warnings:
 Warning	138	Inplace partition altering is not supported
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="clients" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
+p4
+p5
+p6
+p7
 CREATE TABLE clients_lk (
 id INT,
 fname VARCHAR(30),
@@ -619,9 +708,35 @@ PARTITION BY LINEAR KEY(signed)
 PARTITIONS 12;
 ALTER TABLE clients COALESCE PARTITION 18;
 ERROR HY000: Cannot remove all partitions, use DROP TABLE instead
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="clients" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
+p4
+p5
+p6
+p7
 ALTER TABLE clients ADD PARTITION PARTITIONS 6;
 Warnings:
 Warning	138	Inplace partition altering is not supported
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="clients" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p10
+p11
+p12
+p13
+p2
+p3
+p4
+p5
+p6
+p7
+p8
+p9
 CREATE TABLE trb1 (
 id INT,
 name VARCHAR(50),
@@ -645,6 +760,12 @@ INSERT INTO trb1 VALUES
 (9, 'study desk', '1984-09-16'),
 (10, 'lava lamp', '1998-12-25');
 ALTER TABLE trb1 ADD PRIMARY KEY (id);
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="trb1" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+p3
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS VAR_POP;
 DROP TABLE IF EXISTS TEMP0;
