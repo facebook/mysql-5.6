@@ -2827,9 +2827,9 @@ bool get_table_from_cache(THD *thd, TABLE_LIST *table_list)
     table->next= thd->open_tables;
     thd->set_open_tables(table);
   }
+  tc->unlock();
 
 done:
-  tc->unlock();
   mysql_mutex_assert_not_owner(&LOCK_open);
   table_list->table= table;
   thd->clear_error();
