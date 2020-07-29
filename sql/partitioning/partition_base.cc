@@ -19,6 +19,7 @@
   This engine need server classes (like THD etc.) which only is defined if
   MYSQL_SERVER define is set!
 */
+#include "sql/sql_partition.h"
 #define MYSQL_SERVER 1
 #define LOG_SUBSYSTEM_TAG "partition_base"
 
@@ -4049,37 +4050,55 @@ bool Partition_base::commit_inplace_alter_table(
   if (ha_alter_info->alter_info->flags == Alter_info::ALTER_PARTITION)
     DBUG_RETURN(false);
 
-  std::string full_table_path = std::string("./") + altered_table->s->db.str +
-                                std::string("/") +
-                                altered_table->s->table_name.str;
-  if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
-    handler **file = m_file;
-    partition_info *part_info = ha_alter_info->modified_part_info;
-    List_iterator_fast<partition_element> part_it(part_info->partitions);
-    partition_element *part_elem;
-    while ((part_elem = part_it++) != nullptr) {
-      partition_state state = part_elem->part_state;
-      switch (state) {
-        case PART_TO_BE_DROPPED:
-          char name[FN_REFLEN];
-          // TODO(luqun): add subpartition support
-          create_partition_name(name, full_table_path.c_str(),
-                                part_elem->partition_name, false);
-          (*file)->ha_external_lock(get_thd(), F_UNLCK);
-          (*file)->ha_delete_table(name, old_table_def);
-          break;
-        default:;
-      }
-      file++;
-    }
-  }
-
   part_inplace_ctx = static_cast<class Partition_base_inplace_ctx *>(
       ha_alter_info->handler_ctx);
 
   if (commit) {
     DBUG_ASSERT(ha_alter_info->group_commit_ctx ==
                 part_inplace_ctx->handler_ctx_array);
+
+    // Call SE to drop partition/sub partitions
+    if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+      handler **file = m_file;
+      partition_info *part_info = ha_alter_info->modified_part_info;
+      List_iterator_fast<partition_element> part_it(part_info->partitions);
+      partition_element *part_elem;
+      int num_subparts =
+          part_info->is_sub_partitioned() ? part_info->num_subparts : 1;
+      while ((part_elem = part_it++) != nullptr) {
+        partition_state state = part_elem->part_state;
+        switch (state) {
+          case PART_TO_BE_DROPPED:
+            if (part_info->is_sub_partitioned()) {
+              List_iterator<partition_element> sub_part_it(
+                  part_elem->subpartitions);
+
+              partition_element *sub_part_elem;
+              while ((sub_part_elem = sub_part_it++) != nullptr) {
+                char name[FN_REFLEN];
+                create_subpartition_name(name, table->s->normalized_path.str,
+                                         part_elem->partition_name,
+                                         sub_part_elem->partition_name);
+                (*file)->ha_external_lock(get_thd(), F_UNLCK);
+                error = (*file)->ha_delete_table(name, old_table_def);
+                if (error) goto end;
+              }
+            } else {
+              char name[FN_REFLEN];
+              create_partition_name(name, table->s->normalized_path.str,
+                                    part_elem->partition_name, false);
+              (*file)->ha_external_lock(get_thd(), F_UNLCK);
+              error = (*file)->ha_delete_table(name, old_table_def);
+              if (error) goto end;
+            }
+            break;
+          default:
+            break;
+        }
+        file += num_subparts;
+      }
+    }
+
     ha_alter_info->handler_ctx = part_inplace_ctx->handler_ctx_array[0];
     error = m_file[0]->ha_commit_inplace_alter_table(
         altered_table, ha_alter_info, commit, old_table_def, new_table_def);

@@ -383,6 +383,8 @@ CREATE TABLE customers_1 (
     PARTITION pRegion_4 VALUES IN('Uppvidinge', 'Alvesta', 'Växjo')
   );
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_1" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="customers_1" ORDER by PARTITION_NAME;
 
 CREATE TABLE customers_2 (
   first_name VARCHAR(25),
@@ -403,6 +405,8 @@ CREATE TABLE customers_2 (
         '2010-02-25', '2010-02-26', '2010-02-27', '2010-02-28')
   );
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_2" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="customers_2" ORDER by PARTITION_NAME;
 
 CREATE TABLE customers_3 (
   first_name VARCHAR(25),
@@ -419,6 +423,8 @@ CREATE TABLE customers_3 (
     PARTITION pWeek_4 VALUES LESS THAN('2010-03-01')
   );
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="customers_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="customers_3" ORDER by PARTITION_NAME;
 
 CREATE TABLE employees_hash (
   id INT NOT NULL,
@@ -431,6 +437,9 @@ CREATE TABLE employees_hash (
 ) ENGINE=ROCKSDB
   PARTITION BY HASH(store_id)
   PARTITIONS 4;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="employees_hash" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="employees_hash" ORDER by PARTITION_NAME;
 
 CREATE TABLE employees_hash_1 (
   id INT NOT NULL,
@@ -471,6 +480,9 @@ CREATE TABLE t1_linear_hash (
 ) ENGINE=ROCKSDB
   PARTITION BY LINEAR HASH( YEAR(col3) )
   PARTITIONS 6;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="t1_linear_hash" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="t1_linear_hash" ORDER by PARTITION_NAME;
 
 CREATE TABLE k1 (
   id INT NOT NULL PRIMARY KEY,
@@ -513,6 +525,23 @@ CREATE TABLE ts (
       PARTITION p2 VALUES LESS THAN MAXVALUE
     );
 
+INSERT INTO ts VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts PARTITION (p0) ORDER by id;
+SELECT * FROM ts PARTITION (p1) ORDER by id;
+SELECT * FROM ts PARTITION (p2) ORDER by id;
+SELECT * FROM ts ORDER by id;
+
+ALTER table ts DROP PARTITION p1;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts" ORDER by PARTITION_NAME;
+SELECT * FROM ts PARTITION (p0) ORDER by id;
+SELECT * FROM ts PARTITION (p2) ORDER by id;
+SELECT * FROM ts ORDER by id;
+
 CREATE TABLE ts_1 (
   id INT,
   purchased DATE
@@ -532,6 +561,22 @@ CREATE TABLE ts_1 (
         SUBPARTITION s5
       )
     );
+
+INSERT INTO ts_1 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_1" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
+SELECT * FROM ts_1 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_1 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_1 ORDER by id;
+
+ALTER table ts_1 DROP PARTITION p1, p2;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_1" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
+SELECT * FROM ts_1 ORDER by id;
 
 --error 1064
 CREATE TABLE ts_2 (
@@ -570,6 +615,21 @@ CREATE TABLE ts_3 (
       SUBPARTITION s5
     )
   );
+INSERT INTO ts_3 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_3" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_3 PARTITION (p0) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_3 ORDER by id;
+
+ALTER table ts_3 DROP PARTITION p0, p2;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_3" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_3 ORDER by id;
 
 CREATE TABLE ts_4 (
   id INT,
@@ -590,6 +650,22 @@ CREATE TABLE ts_4 (
       SUBPARTITION s5
     )
   );
+INSERT INTO ts_4 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_4" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_4 PARTITION (p0) ORDER by id;
+SELECT * FROM ts_4 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_4 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_4 ORDER by id;
+
+ALTER table ts_4 DROP PARTITION p0;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="ts_4" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_4 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_4 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_4 ORDER by id;
 
 CREATE TABLE ts_5 (
   id INT,
@@ -659,9 +735,18 @@ SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="tr" 
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="tr" ORDER by PARTITION_NAME;
 SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '1999-12-31';
-SELECT * FROM tr PARTITION (p0);
-SELECT * FROM tr PARTITION (p1);
-SELECT * FROM tr PARTITION (p3);
+SELECT * FROM tr PARTITION (p0) ORDER by id;
+SELECT * FROM tr PARTITION (p1) ORDER by id;
+SELECT * FROM tr PARTITION (p3) ORDER by id;
+SELECT * FROM tr ORDER by id;
+
+ALTER TABLE tr DROP PARTITION p1,p3;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="tr" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="tr" ORDER by PARTITION_NAME;
+SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '2004-12-31';
+SELECT * FROM tr PARTITION (p0) ORDER by id;
+SELECT * FROM tr ORDER by id;
 
 CREATE TABLE members_3 (
   id INT,
@@ -746,10 +831,20 @@ ALTER TABLE trb1 ADD PRIMARY KEY (id);
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="trb1" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="trb1" ORDER by PARTITION_NAME;
-SELECT * FROM trb1 PARTITION (p0);
-SELECT * FROM trb1 PARTITION (p1);
-SELECT * FROM trb1 PARTITION (p2);
-SELECT * FROM trb1 PARTITION (p3);
+SELECT * FROM trb1 PARTITION (p0) ORDER by id;
+SELECT * FROM trb1 PARTITION (p1) ORDER by id;
+SELECT * FROM trb1 PARTITION (p2) ORDER by id;
+SELECT * FROM trb1 PARTITION (p3) ORDER by id;
+SELECT * FROM trb1 ORDER by id;
+
+ALTER TABLE trb1 DROP PARTITION p0;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="trb1" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions where TABLE_NAME="trb1" ORDER by PARTITION_NAME;
+SELECT * FROM trb1 PARTITION (p1) ORDER by id;
+SELECT * FROM trb1 PARTITION (p2) ORDER by id;
+SELECT * FROM trb1 PARTITION (p3) ORDER by id;
+SELECT * FROM trb1 ORDER by id;
 
 # Clean up.
 DROP TABLE IF EXISTS t1;
