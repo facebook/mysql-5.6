@@ -532,7 +532,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
             std::max(max_part_len, m_pack_info[dst_i].m_max_image_len);
 
         /*
-          Update the max_blob_length for secondary keys. 
+          Update the max_blob_length for secondary keys.
           This will be used later to allocate the blob buffer while
           unpacking secondary keys.
         */
@@ -1797,8 +1797,7 @@ int Rdb_key_def::skip_variable_space_pad(const Rdb_field_packing *const fpi,
     uchar encoded_byte = *(const uchar *)reader->read(1);
     // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
     // This indicates empty content and we can return prematurely.
-    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES)
-      return HA_EXIT_SUCCESS;
+    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) return HA_EXIT_SUCCESS;
   }
 
   /* Decode the length-emitted encoding here */
@@ -2683,10 +2682,12 @@ static const int RDB_TRIMMED_CHARS_OFFSET = 8;
 
   Example: if fpi->m_segment_size=5, and the collation is latin1_bin:
 
-  'abcd\0'   => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_LESS> ]['\0    ' <VARCHAR_CMP_EQUAL> ]
+  'abcd\0'   => [<VARCHAR_CMP_GREATER>]
+                [ 'abcd' <VARCHAR_CMP_LESS> ]['\0    ' <VARCHAR_CMP_EQUAL> ]
   'abcd'     => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_EQUAL>]
   'abcd   '  => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_EQUAL>]
-  'abcdZZZZ' => [<VARCHAR_CMP_GREATER>][ 'abcd' <VARCHAR_CMP_GREATER>][ 'ZZZZ' <VARCHAR_CMP_EQUAL>]
+  'abcdZZZZ' => [<VARCHAR_CMP_GREATER>]
+                [ 'abcd' <VARCHAR_CMP_GREATER>][ 'ZZZZ' <VARCHAR_CMP_EQUAL>]
   ''         => [<VARCHAR_CMP_EQUAL>]
 
   As mentioned above, the last chunk is padded with mem-comparable images of

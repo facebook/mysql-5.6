@@ -709,7 +709,7 @@ static long long rocksdb_compaction_sequential_deletes_window = 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size = 0l;
 static uint32_t rocksdb_validate_tables = 1;
 static char *rocksdb_datadir;
-static uint32_t rocksdb_max_bottom_pri_background_compactions=0;
+static uint32_t rocksdb_max_bottom_pri_background_compactions = 0;
 static uint32_t rocksdb_table_stats_sampling_pct;
 static uint32_t rocksdb_table_stats_recalc_threshold_pct = 10;
 static unsigned long long rocksdb_table_stats_recalc_threshold_count = 100ul;
@@ -1480,16 +1480,16 @@ static MYSQL_SYSVAR_INT(max_background_jobs,
 static MYSQL_SYSVAR_INT(max_background_flushes,
                         rocksdb_db_options->max_background_flushes,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-                        "DBOptions::max_background_flushes for RocksDB", nullptr,
-                        nullptr,
+                        "DBOptions::max_background_flushes for RocksDB",
+                        nullptr, nullptr,
                         rocksdb_db_options->max_background_flushes,
                         /* min */ -1, /* max */ 64, 0);
 
 static MYSQL_SYSVAR_INT(max_background_compactions,
                         rocksdb_db_options->max_background_compactions,
                         PLUGIN_VAR_RQCMDARG,
-                        "DBOptions::max_background_compactions for RocksDB", nullptr,
-                        rocksdb_set_max_background_compactions,
+                        "DBOptions::max_background_compactions for RocksDB",
+                        nullptr, rocksdb_set_max_background_compactions,
                         rocksdb_db_options->max_background_compactions,
                         /* min */ -1, /* max */ 64, 0);
 
@@ -1500,9 +1500,8 @@ static MYSQL_SYSVAR_UINT(max_bottom_pri_background_compactions,
                          "CPU priority, and letting compactions use them. "
                          "Maximum compaction concurrency is capped by "
                          "rocksdb_max_background_compactions or "
-                         "rocksdb_max_background_jobs.", nullptr,
-                         nullptr,
-                         0,
+                         "rocksdb_max_background_jobs.",
+                         nullptr, nullptr, 0,
                          /* min */ 0, /* max */ 64, 0);
 
 static MYSQL_SYSVAR_UINT(max_subcompactions,
@@ -2522,7 +2521,7 @@ class Rdb_transaction {
   bool m_is_delayed_snapshot = false;
   bool m_is_two_phase = false;
 
-  std::unordered_set<Rdb_tbl_def*> modified_tables;
+  std::unordered_set<Rdb_tbl_def *> modified_tables;
 
  private:
   /*
@@ -3216,13 +3215,10 @@ class Rdb_transaction {
     }
     modified_tables.clear();
   }
-  void on_rollback() {
-    modified_tables.clear();
-  }
+  void on_rollback() { modified_tables.clear(); }
+
  public:
-  void log_table_write_op(Rdb_tbl_def *tbl) {
-    modified_tables.insert(tbl);
-  }
+  void log_table_write_op(Rdb_tbl_def *tbl) { modified_tables.insert(tbl); }
 
   void set_initial_savepoint() {
     /*
@@ -3926,9 +3922,7 @@ class Rdb_ha_data {
   Rdb_ha_data()
       : checkpoint_dir(nullptr), trx(nullptr), disable_file_deletions(false) {}
 
-  ~Rdb_ha_data() {
-    clear_checkpoint_dir();
-  }
+  ~Rdb_ha_data() { clear_checkpoint_dir(); }
 
   const char *get_checkpoint_dir() const { return checkpoint_dir; }
 
@@ -5237,7 +5231,6 @@ static int rocksdb_start_tx_and_assign_read_view(
   rocksdb_register_tx(hton, thd, tx);
   tx->acquire_snapshot(true);
 
-
   return HA_EXIT_SUCCESS;
 }
 
@@ -5752,7 +5745,7 @@ static int rocksdb_init_internal(void *const p) {
     if (status.IsPathNotFound()) {
       // NO_LINT_DEBUG
       sql_print_information(
-        "RocksDB: Got kPathNotFound when listing column families");
+          "RocksDB: Got kPathNotFound when listing column families");
 
       // NO_LINT_DEBUG
       sql_print_information(
@@ -6108,12 +6101,14 @@ static int rocksdb_init_internal(void *const p) {
     // This creates background threads in rocksdb with BOTTOM priority pool.
     // Compactions for bottommost level use threads in the BOTTOM pool, and
     // the threads in the BOTTOM pool run with lower OS priority (19 in Linux).
-    rdb->GetEnv()->SetBackgroundThreads(rocksdb_max_bottom_pri_background_compactions,
-                                        rocksdb::Env::Priority::BOTTOM);
+    rdb->GetEnv()->SetBackgroundThreads(
+        rocksdb_max_bottom_pri_background_compactions,
+        rocksdb::Env::Priority::BOTTOM);
     rdb->GetEnv()->LowerThreadPoolCPUPriority(rocksdb::Env::Priority::BOTTOM);
-    sql_print_information("Set %d compaction thread(s) with "
-                          "lower scheduling priority.",
-                          rocksdb_max_bottom_pri_background_compactions);
+    sql_print_information(
+        "Set %d compaction thread(s) with "
+        "lower scheduling priority.",
+        rocksdb_max_bottom_pri_background_compactions);
   }
 
   DBUG_RETURN(HA_EXIT_SUCCESS);
@@ -8504,16 +8499,15 @@ int ha_rocksdb::read_row_from_secondary_key(uchar *const buf,
 */
 
 ulong ha_rocksdb::index_flags(bool &pk_can_be_decoded,
-                              const TABLE_SHARE *table_arg, uint inx,
-                              uint part, bool all_parts) {
+                              const TABLE_SHARE *table_arg, uint inx, uint part,
+                              bool all_parts) {
   DBUG_ENTER_FUNC();
 
   ulong base_flags = HA_READ_NEXT |  // doesn't seem to be used
                      HA_READ_ORDER | HA_READ_RANGE | HA_READ_PREV;
 
-  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx", {
-    DBUG_ASSERT(table_arg->primary_key == MAX_INDEXES);
-  };);
+  DBUG_EXECUTE_IF("myrocks_verify_tbl_share_primary_idx",
+                  { DBUG_ASSERT(table_arg->primary_key == MAX_INDEXES); };);
 
   if (check_keyread_allowed(pk_can_be_decoded, table_arg, inx, part,
                             all_parts)) {
@@ -9235,7 +9229,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
 
   DEBUG_SYNC(ha_thd(), "rocksdb.get_row_by_rowid");
   DBUG_EXECUTE_IF("dbug.rocksdb.get_row_by_rowid", {
-  THD *thd = ha_thd();
+    THD *thd = ha_thd();
     const char act[] =
         "now signal Reached "
         "wait_for signal.rocksdb.get_row_by_rowid_let_running";
@@ -11306,7 +11300,8 @@ int ha_rocksdb::info(uint flag) {
         if (records > 0) {
           if (k_stats.m_distinct_keys_per_prefix.size() > j &&
               k_stats.m_distinct_keys_per_prefix[j] > 0) {
-            x = (rec_per_key_t)k_stats.m_rows / k_stats.m_distinct_keys_per_prefix[j];
+            x = (rec_per_key_t)k_stats.m_rows /
+                k_stats.m_distinct_keys_per_prefix[j];
 
             /*
               If the number of rows is less than the number of prefixes (due to
@@ -11954,7 +11949,6 @@ void Rdb_drop_index_thread::run() {
       std::unordered_set<uint32> dropped_cf_ids;
       dict_manager.get_all_dropped_cfs(&dropped_cf_ids);
       if (dropped_cf_ids.empty()) {
-
         THD *thd = new THD();
         thd->thread_stack = reinterpret_cast<char *>(&(thd));
         thd->store_globals();
@@ -12426,7 +12420,8 @@ static int calculate_cardinality_table_scan(
                                    Rdb_key_def::INDEX_NUMBER_SIZE);
 
     uint64_t rows_scanned = 0ul;
-    cardinality_collector.Reset(); /* reset m_last_key for each key definition */
+    cardinality_collector
+        .Reset(); /* reset m_last_key for each key definition */
     for (it->Seek(first_index_key); is_valid(it.get()); it->Next()) {
       if (killed && *killed) {
         // NO_LINT_DEBUG
@@ -15230,8 +15225,8 @@ static void rocksdb_set_max_background_compactions(
 
   if (rocksdb_db_options->max_background_compactions != new_val) {
     rocksdb_db_options->max_background_compactions = new_val;
-    rocksdb::Status s =
-        rdb->SetDBOptions({{"max_background_compactions", std::to_string(new_val)}});
+    rocksdb::Status s = rdb->SetDBOptions(
+        {{"max_background_compactions", std::to_string(new_val)}});
 
     if (!s.ok()) {
       /* NO_LINT_DEBUG */
@@ -15627,8 +15622,8 @@ static void rocksdb_max_compaction_history_update(
     void *const var_ptr, const void *const save) {
   DBUG_ASSERT(rdb != nullptr);
 
-  uint64_t val = *static_cast<uint64_t*>(var_ptr) =
-      *static_cast<const uint64_t*>(save);
+  uint64_t val = *static_cast<uint64_t *>(var_ptr) =
+      *static_cast<const uint64_t *>(save);
   compaction_stats.resize_history(val);
 }
 
