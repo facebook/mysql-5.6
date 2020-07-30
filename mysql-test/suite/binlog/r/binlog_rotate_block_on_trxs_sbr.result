@@ -1,0 +1,45 @@
+CALL mtr.add_suppression("Timeout waiting for reply of binlog *");
+SET @save.rpl_semi_sync_master_timeout = @@global.rpl_semi_sync_master_timeout;
+SET @save.rpl_semi_sync_master_enabled = @@global.rpl_semi_sync_master_enabled;
+[connection default]
+CREATE TABLE t1(c1 INT PRIMARY KEY);
+CREATE TABLE blackhole(c1 INT PRIMARY KEY) ENGINE=blackhole;
+INSERT INTO t1 VALUES(1);
+COMMIT;
+# Create a 20 sec semisync timeout
+SET global rpl_semi_sync_master_timeout=20000;
+SET global rpl_semi_sync_master_enabled=1;
+[connection conn1]
+INSERT INTO blackhole VALUES (1);;
+[connection conn2]
+FLUSH LOGS;
+[connection conn2]
+[connection conn1]
+[connection default]
+INSERT INTO t1 VALUES (2);
+# The first binlog file should contain the trx on blackhole table since
+# the flush was blocked by the trx. The insert (of value 2) into t1
+# should be in the rotated file (second binlog file)
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Query	#	#	use `mtr`; INSERT INTO test_suppressions (pattern) VALUES ( NAME_CONST('pattern',_utf8mb4'Timeout waiting for reply of binlog *' COLLATE 'utf8mb4_0900_ai_ci'))
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	use `test`; CREATE TABLE t1(c1 INT PRIMARY KEY)
+master-bin.000001	#	Query	#	#	use `test`; CREATE TABLE blackhole(c1 INT PRIMARY KEY) ENGINE=blackhole
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Query	#	#	use `test`; INSERT INTO t1 VALUES(1)
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Query	#	#	use `test`; INSERT INTO blackhole VALUES (1)
+master-bin.000001	#	Query	#	#	COMMIT
+master-bin.000001	#	Rotate	#	#	master-bin.000002;pos=POS
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000002	#	Query	#	#	BEGIN
+master-bin.000002	#	Query	#	#	use `test`; INSERT INTO t1 VALUES (2)
+master-bin.000002	#	Xid	#	#	COMMIT /* XID */
+DROP TABLE t1;
+DROP TABLE blackhole;
+SET @@global.rpl_semi_sync_master_timeout = @save.rpl_semi_sync_master_timeout;
+SET @@global.rpl_semi_sync_master_enabled = @save.rpl_semi_sync_master_enabled;

@@ -33,6 +33,7 @@
 #include <chrono>
 #include <exception>
 #include <sstream>
+#include <string>
 
 #include "lex_string.h"
 #include "map_helpers.h"
@@ -193,7 +194,8 @@ static void exec_binlog_error_action_abort(const char *err_string);
 static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
-                           my_off_t *engine_binlog_pos);
+                           my_off_t *engine_binlog_pos,
+                           const std::string &cur_binlog_file);
 static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
@@ -3671,6 +3673,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       file_id(1),
       sync_period_ptr(sync_period),
       sync_counter(0),
+      non_xid_trxs(0),
       is_relay_log(relay_log),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
@@ -3704,8 +3707,10 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_mutex_destroy(&LOCK_sync);
     mysql_mutex_destroy(&LOCK_binlog_end_pos);
     mysql_mutex_destroy(&LOCK_xids);
+    mysql_mutex_destroy(&LOCK_non_xid_trxs);
     mysql_cond_destroy(&update_cond);
     mysql_cond_destroy(&m_prep_xids_cond);
+    mysql_cond_destroy(&non_xid_trxs_cond);
     if (!is_relay_log) {
       Commit_stage_manager::get_instance().deinit();
     }
@@ -3723,11 +3728,14 @@ void MYSQL_BIN_LOG::init_pthread_objects() {
   mysql_mutex_init(m_key_LOCK_index, &LOCK_index, MY_MUTEX_INIT_SLOW);
   mysql_mutex_init(m_key_LOCK_commit, &LOCK_commit, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_sync, &LOCK_sync, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_non_xid_trxs, &LOCK_non_xid_trxs,
+                   MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_binlog_end_pos, &LOCK_binlog_end_pos,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond);
+  mysql_cond_init(m_key_non_xid_trxs_cond, &non_xid_trxs_cond);
   if (!is_relay_log) {
     Commit_stage_manager::get_instance().init(
         m_key_LOCK_flush_queue, m_key_LOCK_sync_queue, m_key_LOCK_commit_queue,
@@ -6789,6 +6797,35 @@ void MYSQL_BIN_LOG::dec_prep_xids(THD *thd) {
   }
 }
 
+void MYSQL_BIN_LOG::inc_non_xid_trxs(THD *thd) {
+  DBUG_ENTER("MYSQL_BIN_LOG::inc_non_xid_trxs");
+  mysql_mutex_lock(&LOCK_non_xid_trxs);
+  ++non_xid_trxs;
+  thd->non_xid_trx = true;
+  mysql_mutex_unlock(&LOCK_non_xid_trxs);
+  DBUG_VOID_RETURN;
+}
+
+void MYSQL_BIN_LOG::dec_non_xid_trxs(THD *thd) {
+  DBUG_ENTER("MYSQL_BIN_LOG::dec_non_xid_trxs");
+
+  mysql_mutex_lock(&LOCK_non_xid_trxs);
+  DBUG_ASSERT(non_xid_trxs > 0);
+
+  if (non_xid_trxs > 0) --non_xid_trxs;
+
+  thd->non_xid_trx = false;
+
+  DBUG_PRINT("debug", ("non_xid_trxs: %d", non_xid_trxs));
+
+  /* Signal the threads that could be blocked in binlog rotation if the
+   * non_xid_trxs is zero*/
+  if (non_xid_trxs == 0) mysql_cond_signal(&non_xid_trxs_cond);
+
+  mysql_mutex_unlock(&LOCK_non_xid_trxs);
+  DBUG_VOID_RETURN;
+}
+
 /*
   Wrappers around new_file_impl to avoid using argument
   to control locking. The argument 1) less readable 2) breaks
@@ -6864,6 +6901,14 @@ int MYSQL_BIN_LOG::new_file_impl(
     mysql_cond_wait(&m_prep_xids_cond, &LOCK_xids);
   }
   mysql_mutex_unlock(&LOCK_xids);
+
+  if (opt_trim_binlog) {
+    /* Wait for all non-xid trxs to finish */
+    mysql_mutex_lock(&LOCK_non_xid_trxs);
+    while (get_non_xid_trxs() > 0)
+      mysql_cond_wait(&non_xid_trxs_cond, &LOCK_non_xid_trxs);
+    mysql_mutex_unlock(&LOCK_non_xid_trxs);
+  }
 
   mysql_mutex_lock(&LOCK_index);
 
@@ -8256,9 +8301,11 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       LogErr(INFORMATION_LEVEL, ER_BINLOG_RECOVERING_AFTER_CRASH_USING,
              opt_name);
       valid_pos = binlog_file_reader.position();
+      // Get the raw filename without dirname
+      const std::string cur_log_file = log_name + dirname_length(log_name);
       error = binlog_recover(&binlog_file_reader, &valid_pos,
                              &engine_binlog_max_gtid, engine_binlog_file,
-                             &engine_binlog_pos);
+                             &engine_binlog_pos, cur_log_file);
       binlog_size = binlog_file_reader.ifile()->length();
     } else
       error = 0;
@@ -8280,6 +8327,25 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
 
       /* Change binlog file size to valid_pos */
       if (valid_pos < binlog_size) {
+        if (opt_trim_binlog) {
+          char backup_file[FN_REFLEN];
+          myf opt = MY_REPLACE_DIR | MY_UNPACK_FILENAME | MY_APPEND_EXT;
+          fn_format(backup_file, "binlog_backup", opt_mysql_tmpdir, ".trunc",
+                    opt);
+
+          // NO_LINT_DEBUG
+          sql_print_error("Taking backup from %s to %s\n", log_name,
+                          backup_file);
+          /* MY_HOLD_ORIGINAL_MODES prevents attempts to chown the file */
+          if (my_copy(log_name, backup_file,
+                      MYF(MY_WME | MY_HOLD_ORIGINAL_MODES))) {
+            // NO_LINT_DEBUG
+            sql_print_error(
+                "Could not take backup of the truncated binlog file %s",
+                log_name);
+          }
+        }
+
         if (ofile->truncate(valid_pos)) {
           LogErr(ERROR_LEVEL, ER_BINLOG_CANT_TRIM_CRASHED_BINLOG);
           return -1;
@@ -8697,7 +8763,10 @@ std::pair<int, my_off_t> MYSQL_BIN_LOG::flush_thread_caches(THD *thd) {
       this function documentation for more info.
     */
     thd->set_trans_pos(log_file_name, m_binlog_file->position());
-    if (wrote_xid) inc_prep_xids(thd);
+    if (wrote_xid)
+      inc_prep_xids(thd);
+    else
+      inc_non_xid_trxs(thd);
   }
   DBUG_PRINT("debug", ("bytes: %llu", bytes));
   return std::make_pair(error, bytes);
@@ -8913,7 +8982,10 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
       flush error or session attach error for avoiding 3-way deadlock
       among user thread, rotate thread and dump thread.
     */
-    if (head->get_transaction()->m_flags.xid_written) dec_prep_xids(head);
+    if (head->get_transaction()->m_flags.xid_written)
+      dec_prep_xids(head);
+    else if (head->non_xid_trx)
+      dec_non_xid_trxs(head);
   }
 }
 
@@ -9078,7 +9150,10 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     /*
       Decrement the prepared XID counter after storage engine commit
     */
-    if (thd->get_transaction()->m_flags.xid_written) dec_prep_xids(thd);
+    if (thd->get_transaction()->m_flags.xid_written)
+      dec_prep_xids(thd);
+    else if (thd->non_xid_trx)
+      dec_non_xid_trxs(thd);
     /*
       If commit succeeded, we call the after_commit hook
 
@@ -9093,6 +9168,8 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
     }
   } else if (thd->get_transaction()->m_flags.xid_written)
     dec_prep_xids(thd);
+  else if (thd->non_xid_trx)
+    dec_non_xid_trxs(thd);
 
   /*
     If the ordered commit didn't updated the GTIDs for this thd yet
@@ -9501,6 +9578,89 @@ commit_stage:
   return thd->commit_error == THD::CE_COMMIT_ERROR;
 }
 
+// Given a file name of the form 'binlog-file-name.index', it extracts the
+// <binlog-file-name> and <index> and returns it as a pair
+// Example:
+// master-bin-3306.0001 ==> Returns (master-bin-3306, 1)
+// master-bin-3306.9999 ==> Returns (master-bin-3306, 9999)
+static std::pair<std::string, uint> extract_file_index(
+    const std::string &file_name) {
+  char *end;
+  size_t pos = file_name.find_last_of('.');
+  if (pos == string::npos) {
+    DBUG_ASSERT(0);  // never should happened
+    return std::make_pair(file_name, 1);
+  }
+  std::string prefix = file_name.substr(0, pos);
+  uint index = std::strtoul(file_name.substr(pos + 1).c_str(), &end, 10);
+
+  return std::make_pair(std::move(prefix), index);
+}
+
+/*
+ * Sets the valid position in the binlog file based on engine position (i.e
+ * engine binlog filename and file position)
+ *
+ * @param - valid_pos[out] - Valid position to set
+ * @param - cur_binlog_file - The current binlog file that is being recovered
+ * @param - first_gtid_start - The starting position of the first gtid event in
+ *                             cur_binlog_file
+ * @param - engine_binlog_file - The engine binlog file name
+ * @param - engine_binlog_pos  - The engine binlog file position
+ */
+static void set_valid_pos(my_off_t *valid_pos,
+                          const std::string &cur_binlog_file,
+                          my_off_t first_gtid_start, char *engine_binlog_file,
+                          my_off_t engine_binlog_pos) {
+  std::string position = "Engine pos: " + std::to_string(engine_binlog_pos) +
+                         ", Current binlog pos: " + std::to_string(*valid_pos) +
+                         ", Engine binlog file: " + engine_binlog_file +
+                         ", Current binlog file: " + cur_binlog_file;
+  // NO_LINT_DEBUG
+  sql_print_information("%s", position.c_str());
+
+  if (cur_binlog_file.compare(engine_binlog_file) == 0) {
+    // Case 1: Engine binlog file and current binlog files are the same.
+    // Compare based only on file position
+    if (*valid_pos > engine_binlog_pos) {
+      // Binlog will be truncated to this position
+      *valid_pos = engine_binlog_pos;
+    } else if (*valid_pos < engine_binlog_pos) {
+      // Engine is found to be ahead of the current binlog
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Engine is ahead of binlog. "
+          "Binlog will not be truncated to match engine.");
+    }
+  } else {
+    // Case 2: Engine and binlog file names are different. Compare based on file
+    // indexes.
+    const auto engine_file_pair = extract_file_index(engine_binlog_file);
+    const auto cur_file_pair = extract_file_index(cur_binlog_file);
+
+    if (engine_file_pair.first.compare(cur_file_pair.first) != 0) {
+      // The file prefix stored in engine is different than the current file
+      // prefix. We cannot trim. So give up. Note that server will fail to start
+      // in this case
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "The file prefix in engine does not match "
+          "the file prefix of the recovering binlog. There "
+          "will be no special trimming of the file");
+    } else if (engine_file_pair.second < cur_file_pair.second) {
+      // Engine file is lower than current binlog file. Truncate to the begin
+      // position of the first gtid in the current binlog file
+      *valid_pos = first_gtid_start;
+    } else {
+      // Engine is found to be ahead of the current binlog
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Engine is ahead of binlog. "
+          "Binlog will not be truncated to match engine.");
+    }
+  }
+}
+
 /**
   MYSQLD server recovers from last crashed binlog.
 
@@ -9508,6 +9668,7 @@ commit_stage:
   @param[out] valid_pos The position of the last valid transaction or
                         event(non-transaction) of the crashed binlog.
                         valid_pos must be non-NULL.
+  @param[in] cur_binlog_file The current binlog file that is being recovered
 
   After a crash, storage engines may contain transactions that are
   prepared but not committed (in theory any engine, in practice
@@ -9537,7 +9698,8 @@ commit_stage:
 static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
                            my_off_t *valid_pos, Gtid *binlog_max_gtid,
                            char *engine_binlog_file,
-                           my_off_t *engine_binlog_pos) {
+                           my_off_t *engine_binlog_pos,
+                           const std::string &cur_binlog_file) {
   bool res = false;
   binlog::tools::Iterator it(binlog_file_reader);
   it.set_copy_event_buffer();
@@ -9549,6 +9711,7 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
   */
   Gtid current_gtid;
   current_gtid.clear();
+  my_off_t first_gtid_start = 0;
   /*
     The flag is used for handling the case that a transaction
     is partially written to the binlog.
@@ -9610,6 +9773,9 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
             current_gtid.set(gev->get_sidno(true), gev->get_gno());
           else
             current_gtid.clear();
+          if (first_gtid_start == 0)
+            first_gtid_start =
+                ev->common_header->log_pos - ev->common_header->data_written;
         }
         default: {
           break;
@@ -9670,11 +9836,30 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
       will result in an assert. (Production builds would be safe since
       ha_recover returns right away if total_ha_2pc <= opt_log_bin.)
      */
-    res = res || (total_ha_2pc > 1 &&
-                  ha_recover(&xids, binlog_max_gtid, engine_binlog_file,
-                             engine_binlog_pos));
+    if (!res && total_ha_2pc > 1) {
+      res = ha_recover(&xids, binlog_max_gtid, engine_binlog_file,
+                       engine_binlog_pos);
+      if (res) goto fin1;
+      /*
+        If trim binlog on recover option is set, then we essentially trim
+        binlog to the position that the engine thinks it has committed. Note
+        that if opt_trim_binlog option is set, then engine recovery (called
+        through ha_recover() above) ensures that all prepared txns are rolled
+        back. There are a few things which need to be kept in mind:
+        1. txns never span across two binlogs, hence it is safe to recover only
+           the latest binlog file.
+        2. A binlog rotation ensures that the previous binlogs and engine's
+           transaction logs are flushed and made durable. Hence all previous
+           transactions are made durable.
+       */
+      if (opt_trim_binlog) {
+        set_valid_pos(valid_pos, cur_binlog_file, first_gtid_start,
+                      engine_binlog_file, *engine_binlog_pos);
+      }
+    }
   }
 
+fin1:
   if (res) LogErr(ERROR_LEVEL, ER_BINLOG_CRASH_RECOVERY_FAILED);
   return res;
 }

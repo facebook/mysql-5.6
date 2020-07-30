@@ -23,6 +23,7 @@ let $MYSQLD_BASEDIR= `select @@basedir`;
 let $MYSQLD_DATADIR1 = $MYSQL_TMP_DIR/datadir1/data;
 
 call mtr.add_suppression("ERROR 1118 \\(42000\\) at line 106: Row size too large \\(> 8126\\)");
+call mtr.add_suppression("Error reading GTIDs from binary log");
 
 # Stop the MTR default datadir, as it was started with default 16k page size
 --echo # Stop DB server which was created by MTR default

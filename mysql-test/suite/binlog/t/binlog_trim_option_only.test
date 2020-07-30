@@ -1,0 +1,23 @@
+# This test verifies that in relay log code path we have initialized all
+# member variables. We've seen an issue with non_xid_trxs not being initialized
+# and causing relay log rotation getting stuck. This test doesn't do anything
+# fancy (such as restart) and can be run in valgrind.
+# Note that mysql_bin_log doesn't have uninitialized variable problem as
+# all members are initialized to 0 so it's determinstic.
+--source include/have_log_bin.inc
+--source include/master-slave.inc
+
+# Exercise the inc/dec non_xid_trxs path in group commit
+CREATE TABLE t1 (pk int primary key);
+
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (3);
+INSERT INTO t1 VALUES (4);
+INSERT INTO t1 VALUES (5);
+
+DROP TABLE t1;
+
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_end.inc
+

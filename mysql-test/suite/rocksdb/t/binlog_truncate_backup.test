@@ -1,0 +1,75 @@
+#
+# verify that when a binlog gets truncated, a backup gets stored in the tmpdir
+#
+--source include/not_valgrind.inc
+--source include/have_log_bin.inc
+--source include/have_debug.inc
+--source include/have_rocksdb.inc
+
+CALL mtr.add_suppression("Taking backup from .*");
+CALL mtr.add_suppression("Error reading GTIDs from binary log");
+
+CREATE TABLE t1(c1 INT) ENGINE=rocksdb;
+INSERT INTO t1 VALUES(1);
+COMMIT;
+
+# Simulate after writing to binlog, but before commiting to engine
+# On restart the trx will be rolled back. binlog will be truncated and a backup
+# will be taken before truncating the binlog
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--echo # Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+# 2013 - CR_SERVER_LOST
+--error CR_SERVER_LOST
+INSERT INTO t1 VALUES(2);
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo # Verify that the trx was rolled back
+--let $assert_text = t1 should have 1 row
+--let $assert_cond = [SELECT COUNT(*) from t1] = 1
+--source include/assert.inc
+
+--echo
+--echo # Verify that binlog backup was taken before truncating
+--let $MY_TMPDIR= `select @@tmpdir`
+--exec ls -l $MY_TMPDIR/binlog_backup.trunc | wc -l
+
+INSERT INTO t1 VALUES(10);
+COMMIT;
+# Simulate after writing to binlog, but before commiting to engine
+# On restart the trx will be rolled back. binlog will be truncated and a backup
+# will be taken before truncating the binlog
+# Repeat the crash again to verify that the backup file is overwritten
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--echo # Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+# 2013 - CR_SERVER_LOST
+--error CR_SERVER_LOST
+INSERT INTO t1 VALUES(2);
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo # Verify that the trx was rolled back
+--let $assert_text = t1 should have 2 rows
+--let $assert_cond = [SELECT COUNT(*) from t1] = 2
+--source include/assert.inc
+
+--echo
+--echo # Verify that binlog backup was taken before truncating
+--let $MY_TMPDIR= `select @@tmpdir`
+--exec ls -l $MY_TMPDIR/binlog_backup.trunc | wc -l
+
+
+# Cleanup
+DROP TABLE t1;
