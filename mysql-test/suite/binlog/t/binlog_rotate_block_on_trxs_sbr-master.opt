@@ -1,0 +1,3 @@
+$SEMISYNC_MASTER_PLUGIN_OPT $SEMISYNC_MASTER_PLUGIN_LOAD
+--trim-binlog-to-recover --gtid_mode=ON --enforce_gtid_consistency --log_bin=master-bin
+--log_slave_updates

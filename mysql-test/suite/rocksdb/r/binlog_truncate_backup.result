@@ -1,0 +1,28 @@
+CALL mtr.add_suppression("Taking backup from .*");
+CALL mtr.add_suppression("Error reading GTIDs from binary log");
+CREATE TABLE t1(c1 INT) ENGINE=rocksdb;
+INSERT INTO t1 VALUES(1);
+COMMIT;
+# Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+INSERT INTO t1 VALUES(2);
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+# Verify that the trx was rolled back
+include/assert.inc [t1 should have 1 row]
+
+# Verify that binlog backup was taken before truncating
+1
+INSERT INTO t1 VALUES(10);
+COMMIT;
+# Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+INSERT INTO t1 VALUES(2);
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+# Verify that the trx was rolled back
+include/assert.inc [t1 should have 2 rows]
+
+# Verify that binlog backup was taken before truncating
+1
+DROP TABLE t1;

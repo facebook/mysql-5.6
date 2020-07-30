@@ -1,0 +1,72 @@
+#
+# Verify that a transaction can not be recovered during server
+# recovery from a crash, which happened after flushing it to
+# engine log and before flushing it to binary log.
+#
+#
+# Verify that transaction cannot be recovered during server recovery from
+# a crash, which happened after flushing it to binary log. This is because
+# we set trim-binlog-to-recover startup option which rollsback all prepared
+# transactions in the engine (even if it is marked commit in the binlog)
+# and truncates the binlog during recovery
+#
+
+--source include/not_valgrind.inc
+--source include/have_log_bin.inc
+--source include/have_debug.inc
+
+CALL mtr.add_suppression("Taking backup from .*");
+
+CREATE TABLE t1(c1 INT);
+INSERT INTO t1 VALUES(100);
+COMMIT;
+FLUSH LOGS;
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--echo # Crash right after flushing engine log
+SET SESSION DEBUG="+d,crash_after_flush_engine_log";
+BEGIN;
+INSERT INTO t1 VALUES(1);
+--error CR_SERVER_LOST
+COMMIT;
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo #
+--echo # Verify that a transaction can not be recovered during server
+--echo # recovery from a crash, which happened after flushing it to
+--echo # engine log and before flushing it to binary log.
+--echo #
+SELECT count(*) FROM t1 WHERE c1=1;
+
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--echo # Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+BEGIN;
+INSERT INTO t1 VALUES(2);
+--error CR_SERVER_LOST
+COMMIT;
+--source include/wait_until_disconnected.inc
+
+--enable_reconnect
+--echo # Restart the master server
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--echo #
+--echo # Verify that a transaction cannot be recovered during server
+--echo # recovery from a crash, which happened after flushing it
+--echo # to binary log. This is because the transaction is still marked
+--echo # as prepared in engine and will be rollbacked when
+--echo # trim-binlog-to-recover is set
+--echo #
+SELECT count(*) FROM t1 WHERE c1=2;
+
+# Cleanup
+DROP TABLE t1;
