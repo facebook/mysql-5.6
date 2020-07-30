@@ -1042,6 +1042,7 @@ static PSI_mutex_key key_BINLOG_LOCK_binlog_end_pos;
 static PSI_mutex_key key_BINLOG_LOCK_sync;
 static PSI_mutex_key key_BINLOG_LOCK_sync_queue;
 static PSI_mutex_key key_BINLOG_LOCK_xids;
+static PSI_mutex_key key_BINLOG_LOCK_non_xid_trxs;
 static PSI_rwlock_key key_rwlock_global_sid_lock;
 PSI_rwlock_key key_rwlock_gtid_mode_lock;
 static PSI_rwlock_key key_rwlock_LOCK_system_variables_hash;
@@ -1127,7 +1128,7 @@ LEX_STRING opt_init_connect, opt_init_slave;
 LEX_STRING opt_mandatory_roles;
 bool opt_mandatory_roles_cache = false;
 bool opt_always_activate_granted_roles = false;
-bool opt_bin_log;
+bool opt_bin_log, opt_trim_binlog;
 bool opt_general_log, opt_slow_log, opt_general_log_raw;
 ulonglong log_output_options;
 bool opt_log_queries_not_using_indexes = false;
@@ -4666,10 +4667,11 @@ int init_common_variables() {
       key_BINLOG_LOCK_commit_queue, key_BINLOG_LOCK_done,
       key_BINLOG_LOCK_flush_queue, key_BINLOG_LOCK_log,
       key_BINLOG_LOCK_binlog_end_pos, key_BINLOG_LOCK_sync,
-      key_BINLOG_LOCK_sync_queue, key_BINLOG_LOCK_xids, key_BINLOG_COND_done,
-      key_BINLOG_update_cond, key_BINLOG_prep_xids_cond, key_file_binlog,
-      key_file_binlog_index, key_file_binlog_cache,
-      key_file_binlog_index_cache);
+      key_BINLOG_LOCK_sync_queue, key_BINLOG_LOCK_xids,
+      key_BINLOG_LOCK_non_xid_trxs, key_BINLOG_COND_done,
+      key_BINLOG_update_cond, key_BINLOG_prep_xids_cond,
+      key_BINLOG_non_xid_trxs_cond, key_file_binlog, key_file_binlog_index,
+      key_file_binlog_cache, key_file_binlog_index_cache);
 #endif
 
   /*
@@ -8749,6 +8751,12 @@ struct my_option my_long_options[] = {
      &opt_upgrade_mode, &opt_upgrade_mode, &upgrade_mode_typelib, GET_ENUM,
      REQUIRED_ARG, UPGRADE_AUTO, 0, 0, nullptr, 0, nullptr},
 
+    {"trim-binlog-to-recover", OPT_TRIM_BINLOG_TO_RECOVER,
+     "Trim the last binlog (if required) to the position until which the "
+     "engine has successfully committed all transactions.",
+     &opt_trim_binlog, &opt_trim_binlog, 0, GET_BOOL, NO_ARG, 0, 0, 0, nullptr,
+     0, nullptr},
+
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -9964,6 +9972,7 @@ static int mysql_init_variables() {
   pidfile_name[0] = 0;
   binlog_file_basedir[0] = binlog_index_basedir[0] = 0;
   myisam_test_invalid_symlink = test_if_data_home_dir;
+  opt_trim_binlog = false;
   opt_general_log = opt_slow_log = false;
   opt_disable_networking = opt_skip_show_db = false;
   opt_skip_name_resolve = false;
@@ -10600,6 +10609,9 @@ bool mysqld_get_one_option(int optid,
       break;
     case OPT_SHOW_OLD_TEMPORALS:
       push_deprecated_warn_no_replacement(nullptr, "show_old_temporals");
+      break;
+    case OPT_TRIM_BINLOG_TO_RECOVER:
+      opt_trim_binlog = true;
       break;
     case 'p':
       if (argument) {
@@ -11515,6 +11527,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_log_end_pos;
 PSI_mutex_key key_RELAYLOG_LOCK_sync;
 PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
+PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_object_cache_mutex;  // TODO need to initialize
 PSI_cond_key key_object_loading_cond;  // TODO need to initialize
@@ -11539,6 +11552,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_BINLOG_LOCK_sync, "MYSQL_BIN_LOG::LOCK_sync", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_sync_queue, "MYSQL_BIN_LOG::LOCK_sync_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_LOCK_xids, "MYSQL_BIN_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
+  { &key_BINLOG_LOCK_non_xid_trxs, "MYSQL_BIN_LOG::LOCK_non_xid_trxs", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_commit, "MYSQL_RELAY_LOG::LOCK_commit", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_commit_queue, "MYSQL_RELAY_LOG::LOCK_commit_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_done, "MYSQL_RELAY_LOG::LOCK_done", 0, 0, PSI_DOCUMENT_ME},
@@ -11549,6 +11563,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_RELAYLOG_LOCK_sync, "MYSQL_RELAY_LOG::LOCK_sync", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_sync_queue, "MYSQL_RELAY_LOG::LOCK_sync_queue", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_LOCK_xids, "MYSQL_RELAY_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
+  { &key_RELAYLOG_LOCK_non_xid_trxs, "MYSQL_RELAY_LOG::LOCK_xids", 0, 0, PSI_DOCUMENT_ME},
   { &key_hash_filo_lock, "hash_filo::lock", 0, 0, PSI_DOCUMENT_ME},
   { &Gtid_set::key_gtid_executed_free_intervals_mutex, "Gtid_set::gtid_executed::free_intervals_mutex", 0, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_crypt, "LOCK_crypt", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -11682,6 +11697,8 @@ PSI_cond_key key_cond_mts_gaq;
 PSI_cond_key key_RELAYLOG_update_cond;
 PSI_cond_key key_RELAYLOG_COND_done;
 PSI_cond_key key_RELAYLOG_prep_xids_cond;
+PSI_cond_key key_BINLOG_non_xid_trxs_cond;
+PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 PSI_cond_key key_gtid_ensure_index_cond;
 PSI_cond_key key_COND_thr_lock;
 PSI_cond_key key_commit_order_manager_cond;
@@ -11697,9 +11714,11 @@ static PSI_cond_info all_server_conds[]=
   { &key_BINLOG_COND_done, "MYSQL_BIN_LOG::COND_done", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_update_cond, "MYSQL_BIN_LOG::update_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_BINLOG_prep_xids_cond, "MYSQL_BIN_LOG::prep_xids_cond", 0, 0, PSI_DOCUMENT_ME},
+  { &key_BINLOG_non_xid_trxs_cond, "MYSQL_BIN_LOG::non_xid_trxs_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_COND_done, "MYSQL_RELAY_LOG::COND_done", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_update_cond, "MYSQL_RELAY_LOG::update_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_RELAYLOG_prep_xids_cond, "MYSQL_RELAY_LOG::prep_xids_cond", 0, 0, PSI_DOCUMENT_ME},
+  { &key_RELAYLOG_non_xid_trxs_cond, "MYSQL_RELAY_LOG::non_xid_trxs_cond", 0, 0, PSI_DOCUMENT_ME},
 #if defined(_WIN32)
   { &key_COND_handler_count, "COND_handler_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #endif

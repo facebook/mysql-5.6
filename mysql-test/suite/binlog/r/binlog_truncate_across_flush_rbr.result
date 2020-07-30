@@ -1,0 +1,91 @@
+CALL mtr.add_suppression("Taking backup from .*");
+CREATE TABLE t1(c1 INT);
+CREATE TABLE blackhole (c1 INT PRIMARY KEY) ENGINE=BLACKHOLE;
+INSERT INTO t1 VALUES(1);
+INSERT INTO blackhole VALUES(1);
+COMMIT;
+INSERT INTO t1 VALUES(2);
+COMMIT;
+FLUSH LOGS;
+# Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+BEGIN;
+INSERT INTO t1 VALUES(3);
+COMMIT;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+#
+# Verify that a transaction cannot be recovered during server
+# recovery from a crash, which happened after flushing it
+# to binary log. This is because the transaction is still marked
+# as prepared in engine and will be rollbacked when
+# trim-binlog-to-recover is set
+#
+include/assert.inc [There should be 2 rows in table t1]
+INSERT INTO t1 VALUES(4);
+COMMIT;
+FLUSH ENGINE LOGS;
+#
+# verify that the latest binlog file is trimmed to the starting position
+# of the first gtid event
+#
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (mtr.test_suppressions)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	use `test`; CREATE TABLE t1(c1 INT)
+master-bin.000001	#	Query	#	#	use `test`; CREATE TABLE blackhole (c1 INT PRIMARY KEY) ENGINE=BLACKHOLE
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.blackhole)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Query	#	#	COMMIT
+master-bin.000001	#	Query	#	#	BEGIN
+master-bin.000001	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000001	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000001	#	Xid	#	#	COMMIT /* XID */
+master-bin.000001	#	Rotate	#	#	master-bin.000002;pos=POS
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+master-bin.000003	#	Query	#	#	use `test`; FLUSH ENGINE LOGS
+# Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+BEGIN;
+INSERT INTO blackhole VALUES(2);
+COMMIT;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+INSERT INTO t1 VALUES(5);
+COMMIT;
+FLUSH ENGINE LOGS;
+include/assert.inc [There should be 4 rows in table t1]
+#
+# verify that the latest binlog file is trimmed to the starting position
+# of the first gtid event
+#
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000003	#	Query	#	#	BEGIN
+master-bin.000003	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000003	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000003	#	Xid	#	#	COMMIT /* XID */
+include/show_binlog_events.inc
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+master-bin.000004	#	Query	#	#	BEGIN
+master-bin.000004	#	Table_map	#	#	table_id: # (test.t1)
+master-bin.000004	#	Write_rows	#	#	table_id: # flags: STMT_END_F
+master-bin.000004	#	Xid	#	#	COMMIT /* XID */
+master-bin.000004	#	Query	#	#	use `test`; FLUSH ENGINE LOGS
+DROP TABLE t1;
+DROP TABLE blackhole;

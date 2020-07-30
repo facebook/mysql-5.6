@@ -1,4 +1,5 @@
 call mtr.add_suppression("ERROR 1118 \\(42000\\) at line 106: Row size too large \\(> 8126\\)");
+call mtr.add_suppression("Error reading GTIDs from binary log");
 # Stop DB server which was created by MTR default
 # create bootstrap file
 # Run the bootstrap command with page size 32k

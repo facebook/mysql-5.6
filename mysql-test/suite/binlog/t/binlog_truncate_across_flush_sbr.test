@@ -1,0 +1,22 @@
+#
+# verify that binlog truncation to match engine position works correctly across
+# binlog file rotation. On binlog file rotation which is followed by a crash
+# before commiting new trx to engine, we should trim everything from the latest
+# binlog file. Without this, gtid_executed could show additional trxs that were
+# not committed to engine
+#
+# For example:
+# 1. To start with master-bin.000001 is the binlog file which gets rotated
+# 2. New trxs are started andmysqld crashes after flushing the trxs to binlog,
+# but before committing to engine
+# 3. On recovery wngine will say that the binlog file it last saw was
+# master-bin.000001. The current binlog file being recovered is
+# master-bin.000002 which should be truncated to the beginin of the first gtid
+# event in this file
+#
+--source include/not_valgrind.inc
+--source include/have_log_bin.inc
+--source include/have_debug.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+
+--source binlog_truncate_across_flush.inc
