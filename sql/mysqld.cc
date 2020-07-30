@@ -2216,6 +2216,18 @@ static void close_connections(void) {
 
   (void)RUN_HOOK(server_state, after_server_shutdown, (nullptr));
 
+  DBUG_EXECUTE_IF("commit_on_shutdown_testing", {
+    THD *thd = new THD();
+    thd->thread_stack = reinterpret_cast<char *>(&(thd));
+    thd->store_globals();
+
+    const char act[] = "now signal shutdown_started";
+    DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+
+    thd->restore_globals();
+    delete thd;
+  };);
+
   /*
     All threads have now been aborted. Stop event scheduler thread
     after aborting all client connections, otherwise user may

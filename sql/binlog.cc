@@ -9829,6 +9829,15 @@ int MYSQL_BIN_LOG::finish_commit(THD *thd) {
   DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d", thd->thread_id(),
                         thd->commit_error));
   /*
+    During shutdown, forcibly disconnect thd connections for
+    transactions that are in the commit pipeline
+  */
+  DEBUG_SYNC(thd, "commit_wait_for_shutdown");
+  if (!thd->slave_thread && thd->killed == THD::KILL_CONNECTION) {
+    thd->disconnect();
+  }
+
+  /*
     flush or sync errors are handled by the leader of the group
     (using binlog_error_action). Hence treat only COMMIT_ERRORs as errors.
   */
