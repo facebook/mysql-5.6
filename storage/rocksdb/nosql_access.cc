@@ -103,7 +103,6 @@ class select_parser {
     m_table = m_table_list->table;
     DBUG_ASSERT(ha_legacy_type(m_table->s->db_type()) == DB_TYPE_ROCKSDB);
     m_error_msg = "UNKNOWN";
-    m_has_unoptimized_field_type = false;
   }
 
   bool INLINE_ATTR parse() {
@@ -258,9 +257,6 @@ class select_parser {
   uint64_t get_select_limit() const { return m_select_limit; }
   uint64_t get_offset_limit() const { return m_offset_limit; }
   const char *get_error_msg() const { return m_error_msg; }
-  bool has_unoptimized_field_type() const {
-    return m_has_unoptimized_field_type;
-  }
 
  private:
   THD *m_thd;
@@ -276,7 +272,6 @@ class select_parser {
   uint m_cond_count = 0;
   uint64_t m_select_limit;
   uint64_t m_offset_limit;
-  bool m_has_unoptimized_field_type;
   const char *m_error_msg;
 
   // Buffer to store my_snprintf-ed error messages
@@ -355,24 +350,6 @@ class select_parser {
         m_error_msg =
             "only utf8_bin, latin1_bin is supported for varchar field";
         return true;
-      }
-
-      if (!m_has_unoptimized_field_type) {
-        switch (field_type) {
-          case MYSQL_TYPE_LONGLONG:
-          case MYSQL_TYPE_LONG:
-          case MYSQL_TYPE_INT24:
-          case MYSQL_TYPE_SHORT:
-          case MYSQL_TYPE_TINY:
-          case MYSQL_TYPE_VARCHAR:
-          case MYSQL_TYPE_BLOB:
-          case MYSQL_TYPE_STRING:
-            break;
-          default: {
-            // Unsupported in fast unpacking
-            m_has_unoptimized_field_type = true;
-          }
-        }
       }
 
       // This is needed so that we can use protocol->send_items and
@@ -745,10 +722,6 @@ class select_exec {
   void scan_value();
   bool run_query();
   bool run_range_query(txn_wrapper *txn);
-  bool unpack_fast(rocksdb::Slice rkey, rocksdb::Slice rvalue);
-  bool unpack_fast_index(Rdb_string_reader *reader,
-                         Rdb_string_reader *unp_reader);
-  bool unpack_fast_value(Rdb_string_reader *value_reader);
   bool unpack_for_sk(txn_wrapper *txn, rocksdb::Slice rkey,
                      rocksdb::Slice rvalue);
   bool unpack_for_pk(rocksdb::Slice rkey, rocksdb::Slice rvalue);
@@ -1592,349 +1565,6 @@ bool INLINE_ATTR select_exec::unpack_for_sk(txn_wrapper *txn,
   return false;
 }
 
-const int VARCHAR_CMP_LESS_THAN_SPACES = 1;
-const int VARCHAR_CMP_EQUAL_TO_SPACES = 2;
-const int VARCHAR_CMP_GREATER_THAN_SPACES = 3;
-
-int INLINE_ATTR myrocks_skip_key_field(Field *field, Rdb_field_packing *fpi,
-                                       Rdb_string_reader *reader,
-                                       Rdb_string_reader *unp_reader) {
-  auto field_type = field->real_type();
-  switch (field_type) {
-    case MYSQL_TYPE_LONGLONG:
-    case MYSQL_TYPE_LONG:
-    case MYSQL_TYPE_INT24:
-    case MYSQL_TYPE_SHORT:
-    case MYSQL_TYPE_TINY:
-    case MYSQL_TYPE_STRING: {
-      if (!reader->read(fpi->m_max_image_len)) {
-        return HA_EXIT_FAILURE;
-      }
-      break;
-    }
-    case MYSQL_TYPE_VARCHAR: {
-      Rdb_key_def::skip_variable_space_pad(fpi, field, reader);
-      if (!fpi->m_unpack_info_stores_value) {
-        unp_reader->read(fpi->m_unpack_info_uses_two_bytes ? 2 : 1);
-      }
-
-      break;
-    }
-    default:
-      // others type aren't support fast unpack yet
-      return ER_NOT_SUPPORTED_YET;
-  }
-  return 0;
-}
-
-int INLINE_ATTR myrocks_unpack_key_field(Field *f, Rdb_field_packing *fpi,
-                                         Rdb_string_reader *reader,
-                                         Rdb_string_reader *unp_reader,
-                                         uint *dst_len,
-                                         Rdb_string_writer *writer) {
-  auto field_type = f->real_type();
-  switch (field_type) {
-    case MYSQL_TYPE_LONGLONG:
-    case MYSQL_TYPE_LONG:
-    case MYSQL_TYPE_INT24:
-    case MYSQL_TYPE_SHORT:
-    case MYSQL_TYPE_TINY: {
-      uint64_t val = 0;
-      const char *from = reader->read(f->pack_length());
-      auto unsigned_flag = static_cast<Field_num *>(f)->unsigned_flag;
-      if (!unsigned_flag) {
-        std::array<uchar, 16> buf;
-        memcpy(buf.data(), from, f->pack_length());
-        const int sign_byte = from[0];
-        buf[0] = static_cast<char>(sign_byte ^ 128);
-        switch (field_type) {
-          case MYSQL_TYPE_LONGLONG:
-            val = rdb_netbuf_to_uint64(buf.data());
-            break;
-          case MYSQL_TYPE_LONG:
-          case MYSQL_TYPE_INT24:
-            val = rdb_netbuf_to_uint32(buf.data());
-            break;
-          case MYSQL_TYPE_SHORT:
-            val = rdb_netbuf_to_uint16(buf.data());
-            break;
-          case MYSQL_TYPE_TINY:
-            val = rdb_netbuf_to_byte(buf.data());
-            break;
-          default:
-            break;
-        }
-      } else {
-        switch (field_type) {
-          case MYSQL_TYPE_LONGLONG:
-            val = rdb_netbuf_to_uint64((const uchar *)from);
-            break;
-          case MYSQL_TYPE_LONG:
-          case MYSQL_TYPE_INT24:
-            val = rdb_netbuf_to_uint32((const uchar *)from);
-            break;
-          case MYSQL_TYPE_SHORT:
-            val = rdb_netbuf_to_uint16((const uchar *)from);
-            break;
-          case MYSQL_TYPE_TINY:
-            val = rdb_netbuf_to_byte((const uchar *)from);
-            break;
-          default:
-            break;
-        }
-      }
-      *dst_len = u64ToAsciiTable(val, writer);
-    } break;
-    case MYSQL_TYPE_STRING: {
-      const char *from = reader->read(fpi->m_max_image_len);
-      writer->write(reinterpret_cast<const uchar *>(from),
-                    fpi->m_max_image_len);
-      *dst_len = fpi->m_max_image_len;
-      break;
-    }
-    case MYSQL_TYPE_VARCHAR: {
-      const uchar *ptr;
-      size_t len = 0;
-      bool finished = false;
-      // uchar *d0 = dst;
-      const auto field_var = static_cast<const Field_varstring *>(f);
-      auto len_end = field_var->pack_length();
-      // dst += f->length_bytes;
-
-      uint space_padding_bytes = 0;
-      uint extra_spaces;
-      if (fpi->m_unpack_info_uses_two_bytes
-              ? unp_reader->read_uint16(&extra_spaces)
-              : unp_reader->read_uint8(&extra_spaces)) {
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-      }
-
-      if (extra_spaces <= 8) {
-        space_padding_bytes = -(static_cast<int>(extra_spaces) - 8);
-        extra_spaces = 0;
-      } else {
-        extra_spaces -= 8;
-      }
-
-      space_padding_bytes *= fpi->space_xfrm_len;
-
-      /* Decode the length-emitted encoding here */
-      while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
-        const char last_byte = ptr[fpi->m_segment_size - 1];
-        size_t used_bytes;
-        if (last_byte == VARCHAR_CMP_EQUAL_TO_SPACES) {
-          // this is the last segment
-          if (space_padding_bytes > (fpi->m_segment_size - 1)) {
-            return HA_ERR_ROCKSDB_CORRUPT_DATA;  // Cannot happen, corrupted
-                                                 // data
-          }
-          used_bytes = (fpi->m_segment_size - 1) - space_padding_bytes;
-          finished = true;
-        } else {
-          if (last_byte != VARCHAR_CMP_LESS_THAN_SPACES &&
-              last_byte != VARCHAR_CMP_GREATER_THAN_SPACES) {
-            return HA_ERR_ROCKSDB_CORRUPT_DATA;  // Invalid value
-          }
-          used_bytes = fpi->m_segment_size - 1;
-        }
-        if (len > len_end) {
-          return HA_ERR_ROCKSDB_CORRUPT_DATA;
-        }
-        writer->write(ptr, used_bytes);
-        len += used_bytes;
-
-        if (finished) {
-          if (extra_spaces) {
-            if (len + extra_spaces > len_end) {
-              return HA_ERR_ROCKSDB_CORRUPT_DATA;
-            }
-            writer->alloc_init(extra_spaces, field_var->charset()->pad_char);
-            len += extra_spaces;
-          }
-          break;
-        }
-      }
-
-      if (!finished) {
-        return HA_ERR_ROCKSDB_CORRUPT_DATA;
-      }
-      *dst_len = len;
-    } break;
-    default:
-      // others type aren't support fast unpack yet
-      return ER_NOT_SUPPORTED_YET;
-  }
-
-  return 0;
-}
-
-// index int fields are BE, value int fields are LE
-bool INLINE_ATTR
-select_exec::unpack_fast_value(Rdb_string_reader *value_reader) {
-  int err = HA_EXIT_SUCCESS;
-
-  Rdb_value_field_iterator<Rdb_protocol_value_decoder, Rdb_string_writer *>
-      value_field_iterator(m_table, value_reader, m_converter.get(),
-                           &m_row_buf);
-  while (!value_field_iterator.end_of_fields()) {
-    err = value_field_iterator.next();
-    if (err) {
-      m_handler->print_error(err, 0);
-      return true;
-    }
-    auto index = value_field_iterator.get_field_index();
-    DBUG_ASSERT(index < m_send_mapping.size());
-    if (value_field_iterator.is_null()) {
-      m_send_mapping[index].first = MAX_SIZE;
-      m_send_mapping[index].second = MAX_SIZE;
-    } else {
-      size_t len = value_field_iterator.get_length();
-      m_send_mapping[index].first = m_row_buf.get_current_pos() - len;
-      m_send_mapping[index].second = len;
-    }
-  }
-  return false;
-}
-
-bool INLINE_ATTR select_exec::unpack_fast_index(Rdb_string_reader *reader,
-                                                Rdb_string_reader *unp_reader) {
-  if (m_unpack_index || m_unpack_pk) {
-    uint len;
-    int error;
-
-    for (uint i = 0; i < m_index_info->actual_key_parts; ++i) {
-      Field *f = m_index_info->key_part[i].field;
-      auto fpi = m_key_def->get_pack_info(i);
-      auto index = f->field_index;
-      DBUG_ASSERT(index < m_send_mapping.size());
-
-      // Decode key parts required by read_set
-      // Skip if either it is not in the read set or it is part of the prefix
-      // that we've decoded earlier, in either case, we can skip
-      // For example, for the following statement:
-      // SELECT d, c, b, a FROM t FORCE INDEX key1 WHERE a=1 and b=2;
-      // Assuming key1 is (a, b, c, d), we only have to unpack a=1 and b=2
-      // once and rememeber the m_row_buf ends at "12" (note the strings
-      // aren't null terminated as we keep the offset+len), and next time
-      // truncate to "12" and start unpacking afterwards.
-      // The offset is saved in m_row_buf_prefix_end_pos.
-      // And m_send_mapping makes sure the actual order of d, c, b, a is
-      // preserved.
-      if (bitmap_is_set(m_table->read_set, f->field_index) &&
-          (m_send_mapping[index].first == MAX_SIZE ||
-           i >= m_prefix_key_count)) {
-        error = myrocks_unpack_key_field(f, fpi, reader, unp_reader, &len,
-                                         &m_row_buf);
-        if (error) {
-          m_handler->print_error(error, 0);
-          return true;
-        }
-        m_send_mapping[index].first = m_row_buf.get_current_pos() - len;
-        m_send_mapping[index].second = len;
-      } else {
-        error = myrocks_skip_key_field(f, fpi, reader, unp_reader);
-        if (error) {
-          m_handler->print_error(error, 0);
-          return true;
-        }
-      }
-
-      // This records the offset at which the common prefix keys end in
-      // m_row_buf. Given m_row_buf is laid down in index order, it's safe
-      // to always start unpacking next row at this offset.
-      if (i == m_prefix_key_count - 1 && m_row_buf_prefix_end_pos == 0) {
-        m_row_buf_prefix_end_pos = m_row_buf.get_current_pos();
-      }
-    }
-  }
-
-  if (m_debug_row_delay > 0) {
-    // Inject artificial delays for debugging/testing purposes
-    my_sleep(m_debug_row_delay * 1000000);
-  }
-
-  return false;
-}
-
-bool INLINE_ATTR select_exec::unpack_fast(rocksdb::Slice rkey,
-                                          rocksdb::Slice rvalue) {
-  // optimized implementation borrowed from prototype
-  Rdb_string_reader reader(&rkey);
-  Rdb_string_reader value_reader = Rdb_string_reader::read_or_empty(&rvalue);
-
-  if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
-    m_handler->print_error(HA_ERR_ROCKSDB_CORRUPT_DATA, 0);
-    return true;
-  }
-
-  m_protocol->prepare_for_resend();
-
-  // only keep the prefix data in m_row_buf to be reused
-  m_row_buf.truncate(m_row_buf_prefix_end_pos);
-
-  if (m_index_is_pk) {
-    // Decode unpacking header for primary key
-    rocksdb::Slice unpack_slice;
-    int err = m_converter->decode_value_header_for_pk(&value_reader, m_pk_def,
-                                                      &unpack_slice);
-    if (err != HA_EXIT_SUCCESS) {
-      return true;
-    }
-
-    Rdb_string_reader unp_reader =
-        Rdb_string_reader::read_or_empty(&unpack_slice);
-
-    // unpack PK
-    if (unpack_fast_index(&reader, &unp_reader)) {
-      m_protocol->remove_last_row();
-      return true;
-    }
-
-    // unpack value for PK
-    if (m_unpack_value && unpack_fast_value(&value_reader)) {
-      m_protocol->remove_last_row();
-      return true;
-    }
-  } else {
-    DBUG_ASSERT(!m_unpack_value);
-
-    // Decode unpacking header for secondary key
-    bool has_unpack_info;
-    const char *unpack_header;
-    if (m_key_def->decode_unpack_info(&value_reader, &has_unpack_info,
-                                      &unpack_header) != HA_EXIT_SUCCESS) {
-      return true;
-    }
-
-    if (unpack_fast_index(&reader, &value_reader)) {
-      m_protocol->remove_last_row();
-      return true;
-    }
-  }
-
-  // Send out in the right order
-  auto field_list = m_parser.get_field_list();
-  for (uint i = 0; i < m_parser.get_field_count(); ++i) {
-    auto index = field_list[i]->field_index;
-    DBUG_ASSERT(index < m_send_mapping.size());
-    if (m_send_mapping[index].first != MAX_SIZE) {
-      // TODO(yzha) - Handle charset conversion
-      m_protocol->store_string_aux(
-          reinterpret_cast<char *>(m_row_buf.ptr() +
-                                   m_send_mapping[index].first),
-          m_send_mapping[index].second, nullptr, nullptr);
-    } else {
-      m_protocol->store_null();
-    }
-  }
-
-  m_rows_sent++;
-  if (m_thd->vio_ok()) {
-    m_protocol->write();
-  }
-  return false;
-}
-
 int INLINE_ATTR select_exec::eval_and_send() {
   m_examined_rows++;
   if (eval_cond()) {
@@ -1965,18 +1595,6 @@ int INLINE_ATTR select_exec::eval_and_send() {
 
 bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
   bool reverse_seek = m_key_def->m_is_reverse_cf ^ m_parser.is_order_desc();
-
-  // We support fast unpacking if no filters are used (otherwise we'd need to
-  // unpack to intermediate non-text values for the filter which defeats the
-  // purpose unless we filter by text, which is much harder to do). Also,
-  // certain types are not supported (see use_unoptimized_field_type)
-  bool fast_unpacking =
-      m_filter_count == 0 && !m_parser.has_unoptimized_field_type();
-
-  // don't support fast unpack for secondary key unpack value
-  if (!m_index_is_pk && m_unpack_value) {
-    fast_unpacking = false;
-  }
 
   for (uint i = 0; i < m_key_index_tuples.size(); ++i) {
     if (handle_killed()) {
@@ -2051,39 +1669,27 @@ bool INLINE_ATTR select_exec::run_range_query(txn_wrapper *txn) {
         break;
       }
 
+      // TODO: We could skip unpacking if m_filter_count=0 and we are
+      // skipping the first N items in LIMIT, but this is low priority
+      // for now
       const rocksdb::Slice rvalue = m_scan_it->value();
-      if (fast_unpacking) {
-        m_examined_rows++;
-        m_row_count++;
-        if (m_row_count > m_select_limit) {
-          return false;
-        } else if (m_row_count > m_offset_limit) {
-          if (unpack_fast(rkey, rvalue)) {
-            return true;
-          }
-          if (m_row_count == m_select_limit) {
-            return false;
-          }
+      if (m_index_is_pk) {
+        if (unpack_for_pk(rkey, rvalue)) {
+          return true;
         }
       } else {
-        if (m_index_is_pk) {
-          if (unpack_for_pk(rkey, rvalue)) {
-            return true;
-          }
-        } else {
-          if (unpack_for_sk(txn, rkey, rvalue)) {
-            return true;
-          }
-        }
-
-        int ret = eval_and_send();
-        if (ret > 0) {
-          // failure
+        if (unpack_for_sk(txn, rkey, rvalue)) {
           return true;
-        } else if (ret < 0) {
-          // no more items
-          return false;
         }
+      }
+
+      int ret = eval_and_send();
+      if (ret > 0) {
+        // failure
+        return true;
+      } else if (ret < 0) {
+        // no more items
+        return false;
       }
 
       rocksdb_smart_next(reverse_seek, m_scan_it.get());
