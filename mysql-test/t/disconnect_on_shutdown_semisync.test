@@ -1,0 +1,64 @@
+source include/have_semisync_plugin.inc;
+source include/have_log_bin.inc;
+
+disable_query_log;
+let $value = query_get_value(show variables like 'rpl_semi_sync_master_enabled', Value, 1);
+if ($value == No such row)
+{
+    set sql_log_bin=0;
+    eval INSTALL PLUGIN rpl_semi_sync_master SONAME '$SEMISYNC_MASTER_PLUGIN';
+}
+set sql_log_bin=1;
+enable_query_log;
+
+call mtr.add_suppression("SEMISYNC: Forced shutdown. Some updates might not be replicated.");
+CREATE TABLE t1 (a INT) ENGINE = INNODB;
+INSERT INTO t1 VALUES (1), (2);
+
+echo [ enable semi-sync on master ];
+set global rpl_semi_sync_master_timeout= 600000 /* 600s */;
+set global rpl_semi_sync_master_enabled = 1;
+show variables like 'rpl_semi_sync_master_enabled';
+
+echo [ status of semi-sync on master should be ON even without any semi-sync slaves ];
+show status like 'Rpl_semi_sync_master_clients';
+show status like 'Rpl_semi_sync_master_status';
+show status like 'Rpl_semi_sync_master_yes_tx';
+
+connect (con1,localhost,root,,);
+connection con1;
+--echo Should wait for semisync ack
+--send INSERT INTO t1 VALUES (3)
+
+connection default;
+--echo Checking for thread to wait
+let $wait_condition=
+select count(*)>0 from information_schema.processlist where state='Waiting for semi-sync ACK from slave';
+source include/wait_condition.inc;
+
+--echo Shutting down the server
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQL -e "shutdown;" 2>&1
+--source include/wait_until_disconnected.inc
+
+connection con1;
+--error 2013
+--reap
+disconnect con1;
+
+--echo #
+--echo # Clean up
+--echo #
+
+connection default;
+
+--echo # restart the server
+--exec echo "restart:" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+disable_warnings;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+enable_warnings;
+
+DROP TABLE t1;

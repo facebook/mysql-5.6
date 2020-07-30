@@ -1,0 +1,32 @@
+Warnings:
+Note	1287	'rpl_semi_sync_master' is deprecated and will be removed in a future release. Please use rpl_semi_sync_source instead
+call mtr.add_suppression("SEMISYNC: Forced shutdown. Some updates might not be replicated.");
+CREATE TABLE t1 (a INT) ENGINE = INNODB;
+INSERT INTO t1 VALUES (1), (2);
+[ enable semi-sync on master ]
+set global rpl_semi_sync_master_timeout= 600000 /* 600s */;
+set global rpl_semi_sync_master_enabled = 1;
+show variables like 'rpl_semi_sync_master_enabled';
+Variable_name	Value
+rpl_semi_sync_master_enabled	ON
+[ status of semi-sync on master should be ON even without any semi-sync slaves ]
+show status like 'Rpl_semi_sync_master_clients';
+Variable_name	Value
+Rpl_semi_sync_master_clients	0
+show status like 'Rpl_semi_sync_master_status';
+Variable_name	Value
+Rpl_semi_sync_master_status	ON
+show status like 'Rpl_semi_sync_master_yes_tx';
+Variable_name	Value
+Rpl_semi_sync_master_yes_tx	0
+Should wait for semisync ack
+INSERT INTO t1 VALUES (3);
+Checking for thread to wait
+Shutting down the server
+ERROR HY000: Lost connection to MySQL server during query
+#
+# Clean up
+#
+# restart the server
+UNINSTALL PLUGIN rpl_semi_sync_master;
+DROP TABLE t1;
