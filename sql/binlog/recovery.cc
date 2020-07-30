@@ -22,6 +22,7 @@
 
 #include "sql/binlog/recovery.h"
 
+#include "sql/binlog.h"                  // set_valid_pos
 #include "sql/binlog/tools/iterators.h"  // binlog::tools::Iterator
 #include "sql/raii/sentry.h"             // raii::Sentry<>
 #include "sql/xa/xid_extract.h"          // xa::XID_extractor
@@ -56,13 +57,14 @@ std::string const &binlog::Binlog_recovery::get_failure_message() const {
 
 binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
     Gtid *binlog_max_gtid, char *engine_binlog_file,
-    my_off_t *engine_binlog_pos) {
+    my_off_t *engine_binlog_pos, const std::string &cur_binlog_file) {
   /*
     Flag to indicate if we have seen a gtid which is pending i.e the trx
     represented by this gtid has not yet ended
   */
   bool pending_gtid = false;
   m_current_gtid.clear();
+  my_off_t first_gtid_start = 0;
 
   binlog::tools::Iterator it{&this->m_reader};
   it.set_copy_event_buffer();
@@ -91,6 +93,9 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
           m_current_gtid.set(gev->get_sidno(true), gev->get_gno());
         else
           m_current_gtid.clear();
+        if (first_gtid_start == 0)
+          first_gtid_start =
+              ev->common_header->log_pos - ev->common_header->data_written;
       }
       default: {
         break;
@@ -120,6 +125,23 @@ binlog::Binlog_recovery &binlog::Binlog_recovery::recover(
                    engine_binlog_file, engine_binlog_pos);
     if (this->m_no_engine_recovery) {
       this->m_failure_message.assign("Recovery failed in storage engines");
+    } else {
+      /*
+        If trim binlog on recover option is set, then we essentially trim
+        binlog to the position that the engine thinks it has committed. Note
+        that if opt_trim_binlog option is set, then engine recovery (called
+        through ha_recover() above) ensures that all prepared txns are rolled
+        back. There are a few things which need to be kept in mind:
+        1. txns never span across two binlogs, hence it is safe to recover only
+           the latest binlog file.
+        2. A binlog rotation ensures that the previous binlogs and engine's
+           transaction logs are flushed and made durable. Hence all previous
+           transactions are made durable.
+      */
+      if (opt_trim_binlog) {
+        set_valid_pos(&this->m_valid_pos, cur_binlog_file, first_gtid_start,
+                      engine_binlog_file, *engine_binlog_pos);
+      }
     }
   }
 

@@ -380,7 +380,12 @@ void recover_one_internal_trx(xarecover_st const &info, handlerton &ht,
         tc_heuristic_recover == TC_HEURISTIC_RECOVER_COMMIT;
   }
 
-  if (recovery_mode_condition) {
+  // We roll-forward the txn only if the current prepared txn is present
+  // in the binlog's commit list and we have not been explicitly asked
+  // to trim binlog during recovery. If we are asked to trim binlogs
+  // during recovery (i.e if opt_trim_binlog is set), then we have to
+  // rollback all prepared txns in the engine.
+  if (recovery_mode_condition && !opt_trim_binlog) {
     // case: check if this prepared transaction's gtid is greater than
     // what we recovered before
     if (current_gtid != nullptr &&

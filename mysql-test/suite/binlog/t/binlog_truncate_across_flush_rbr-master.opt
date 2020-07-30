@@ -1,0 +1,2 @@
+--trim-binlog-to-recover --gtid_mode=ON --enforce_gtid_consistency --log_bin=master-bin
+--log_slave_updates --binlog_checksum=CRC32

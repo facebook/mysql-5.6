@@ -1,0 +1,38 @@
+CALL mtr.add_suppression("Taking backup from .*");
+CREATE TABLE t1(c1 INT);
+INSERT INTO t1 VALUES(100);
+COMMIT;
+FLUSH LOGS;
+# Crash right after flushing engine log
+SET SESSION DEBUG="+d,crash_after_flush_engine_log";
+BEGIN;
+INSERT INTO t1 VALUES(1);
+COMMIT;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+#
+# Verify that a transaction can not be recovered during server
+# recovery from a crash, which happened after flushing it to
+# engine log and before flushing it to binary log.
+#
+SELECT count(*) FROM t1 WHERE c1=1;
+count(*)
+0
+# Crash right after flushing binary log
+SET SESSION DEBUG="+d,crash_after_flush_binlog";
+BEGIN;
+INSERT INTO t1 VALUES(2);
+COMMIT;
+ERROR HY000: Lost connection to MySQL server during query
+# Restart the master server
+#
+# Verify that a transaction cannot be recovered during server
+# recovery from a crash, which happened after flushing it
+# to binary log. This is because the transaction is still marked
+# as prepared in engine and will be rollbacked when
+# trim-binlog-to-recover is set
+#
+SELECT count(*) FROM t1 WHERE c1=2;
+count(*)
+0
+DROP TABLE t1;

@@ -145,7 +145,8 @@ class Binlog_recovery {
     @return This instance's reference, for chaining purposes.
    */
   Binlog_recovery &recover(Gtid *binlog_max_gtid, char *engine_binlog_file,
-                           my_off_t *engine_binlog_pos);
+                           my_off_t *engine_binlog_pos,
+                           const std::string &cur_binlog_file);
 
  private:
   /** File reader for the last available binary log file */
