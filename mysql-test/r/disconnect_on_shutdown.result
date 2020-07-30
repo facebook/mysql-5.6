@@ -1,0 +1,14 @@
+SET GLOBAL DEBUG="+d,commit_on_shutdown_testing";
+CREATE TABLE t1 (pk INT, PRIMARY KEY (pk)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1);
+SET DEBUG_SYNC="commit_wait_for_shutdown SIGNAL here WAIT_FOR shutdown_started";
+INSERT INTO t1 values (2);;
+SET DEBUG_SYNC="now WAIT_FOR here";
+# start the sql client and run shutdown sql command.
+ERROR HY000: Lost connection to MySQL server during query
+# restart the server
+SELECT * FROM t1;
+pk
+1
+2
+DROP TABLE t1;
