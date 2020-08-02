@@ -486,14 +486,6 @@ class ha_rocksdb : public my_core::handler {
   */
   ulong index_flags(uint inx, uint part, bool all_parts) const override;
 
-  /* TODO(yzha) - This override is gone in 8.0
-  const Key_map *keys_to_use_for_scanning() override {
-    DBUG_ENTER_FUNC();
-
-    DBUG_RETURN(&key_map_full);
-  }
-  */
-
   bool primary_key_is_clustered() const override {
     DBUG_ENTER_FUNC();
 
