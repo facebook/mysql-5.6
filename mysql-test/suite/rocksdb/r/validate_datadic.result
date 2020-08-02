@@ -2,7 +2,7 @@ CALL mtr.add_suppression("Schema mismatch - Table test\.t.+ is registered in Roc
 CALL mtr.add_suppression("Schema mismatch - A DD table exists for table test\.t1, but that table is not registered in RocksDB");
 # restart
 CREATE TABLE t1 (pk int primary key) ENGINE=ROCKSDB;
-CREATE TABLE t2 (pk int primary key) ENGINE=ROCKSDB;
+CREATE TABLE t2 (pk int primary key) ENGINE=ROCKSDB PARTITION BY KEY(pk) PARTITIONS 4;
 # restart:--rocksdb_validate_tables=2
 include/assert_grep.inc [Expect 2 warnings that we are missing two DD tables]
 # restart:--rocksdb_validate_tables=2
