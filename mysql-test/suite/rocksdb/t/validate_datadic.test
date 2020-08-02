@@ -24,9 +24,7 @@ CALL mtr.add_suppression("Schema mismatch - A DD table exists for table test\.t1
 --source include/start_mysqld.inc
 
 CREATE TABLE t1 (pk int primary key) ENGINE=ROCKSDB;
-# TODO(yzha) - Turn on after native partitioning is merged
-# CREATE TABLE t2 (pk int primary key) ENGINE=ROCKSDB PARTITION BY KEY(pk) PARTITIONS 4;
-CREATE TABLE t2 (pk int primary key) ENGINE=ROCKSDB;
+CREATE TABLE t2 (pk int primary key) ENGINE=ROCKSDB PARTITION BY KEY(pk) PARTITIONS 4;
 
 # Shut down, save MySQL DD with t1 and t2 tables, and replace MySQL DD with no tables
 --source include/shutdown_mysqld.inc
