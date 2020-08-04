@@ -566,6 +566,8 @@ typedef struct st_sql_stats {
   uint      index_dive_count; /* index dive count */
   ulonglong index_dive_cpu; /* index dive CPU time in microseconds */
   ulonglong compilation_cpu; /* plan compilation CPU time in microseconds */
+  ulonglong tmp_table_disk_usage; /* peak disk usage by temp tables */
+  ulonglong filesort_disk_usage; /* peak disk usage by filesort */
 
   SHARED_SQL_STATS shared_stats;
 
@@ -578,6 +580,8 @@ typedef struct st_sql_stats {
     index_dive_count = 0;
     index_dive_cpu = 0;
     compilation_cpu = 0;
+    tmp_table_disk_usage = 0;
+    filesort_disk_usage = 0;
     shared_stats.reset();
   }
 } SQL_STATS;

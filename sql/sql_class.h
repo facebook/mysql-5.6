@@ -3331,14 +3331,24 @@ private:
   ulonglong m_accessed_rows_and_keys;
 
   /**
-    The number of bytes written into temp table space.
+    The number of bytes written into temp table space by current statement.
   */
   ulonglong m_tmp_table_bytes_written;
 
   /**
-     The number of bytes written into filesort space.
+    The number of bytes written into filesort space by current statement.
   */
   ulonglong m_filesort_bytes_written;
+
+  /**
+    Peak temp table disk usage by current statement.
+  */
+  ulonglong m_stmt_tmp_table_disk_usage_peak;
+
+  /**
+    Peak filesort disk usage by current statement.
+  */
+  ulonglong m_stmt_filesort_disk_usage_peak;
 
   /**
      The number of index dive queries executed during compilation.
@@ -3459,11 +3469,10 @@ public:
   void set_examined_row_count(ha_rows count);
   void set_accessed_rows_and_keys(ulonglong count);
 
+  void reset_stmt_stats();
+
   ulonglong get_tmp_table_bytes_written() const
   { return m_tmp_table_bytes_written; }
-
-  void set_tmp_table_bytes_written(ulonglong val)
-  { m_tmp_table_bytes_written = val; }
 
   void inc_tmp_table_bytes_written(ulonglong val)
   { m_tmp_table_bytes_written += val; }
@@ -3471,17 +3480,11 @@ public:
   ulonglong get_filesort_bytes_written() const
   { return m_filesort_bytes_written; }
 
-  void set_filesort_bytes_written(ulonglong val)
-  { m_filesort_bytes_written = val; }
-
   void inc_filesort_bytes_written(ulonglong val)
   { m_filesort_bytes_written += val; }
 
   uint get_index_dive_count() const
   { return m_index_dive_count; }
-
-  void set_index_dive_count(uint val)
-  { m_index_dive_count = val; }
 
   void inc_index_dive_count(uint val)
   { m_index_dive_count += val; }
@@ -3489,20 +3492,20 @@ public:
   ulonglong get_index_dive_cpu() const
   { return m_index_dive_cpu; }
 
-  void set_index_dive_cpu(ulonglong val)
-  { m_index_dive_cpu = val; }
-
   void inc_index_dive_cpu(ulonglong val)
   { m_index_dive_cpu += val; }
 
   ulonglong get_compilation_cpu() const
   { return m_compilation_cpu; }
 
-  void set_compilation_cpu(ulonglong val)
-  { m_compilation_cpu = val; }
-
   void inc_compilation_cpu(ulonglong val)
   { m_compilation_cpu += val; }
+
+  ulonglong get_stmt_tmp_table_disk_usage_peak()
+    { return m_stmt_tmp_table_disk_usage_peak; }
+
+  ulonglong get_stmt_filesort_disk_usage_peak()
+    { return m_stmt_filesort_disk_usage_peak; }
 
   /**
     Check if the number of rows accessed by a statement exceeded

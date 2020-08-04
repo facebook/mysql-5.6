@@ -103,7 +103,8 @@ order by 1;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -125,7 +126,8 @@ select 1 union select 2;
 select 1 union select 2 union select 3;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -137,7 +139,8 @@ set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -150,7 +153,8 @@ select @@sql_stats_control;
 select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -176,7 +180,8 @@ drop table t2;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -198,7 +203,8 @@ select 4;
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   query_sample_seen, execution_count, rows_inserted, rows_updated,
 	rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -219,7 +225,8 @@ select 4;
 select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -242,7 +249,8 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0 && CURRENT_TIMESTAMP - query_sample_seen < 10)
 	as is_query_sample_seen_valid, execution_count, rows_inserted,
 	rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
@@ -273,7 +281,8 @@ drop table t10;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -307,7 +316,8 @@ drop table t11;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -341,7 +351,8 @@ drop table t12;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -376,7 +387,8 @@ drop table t13;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -410,7 +422,8 @@ drop table t14;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -443,7 +456,8 @@ drop table t15;
 
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
-        tmp_table_bytes_written, filesort_bytes_written
+        tmp_table_bytes_written, filesort_bytes_written,
+        tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -502,7 +516,8 @@ select count(*) from (select * from t17) v;
 --enable_result_log
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
-       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
+       s.tmp_table_disk_usage, s.filesort_disk_usage
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -518,7 +533,8 @@ delete from tm_t17 where i < 100;
 drop temporary table tm_t17;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
-       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
+       s.tmp_table_disk_usage, s.filesort_disk_usage
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -526,7 +542,8 @@ order by 1,2,3,4,5,6,7,8;
 drop table t17;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
-       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
+       s.tmp_table_disk_usage, s.filesort_disk_usage
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -558,7 +575,8 @@ set session max_heap_table_size=16384;
 set global sql_stats_control = ON;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
-       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
+       s.tmp_table_disk_usage, s.filesort_disk_usage
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -592,7 +610,8 @@ drop table t18;
 --enable_result_log
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
-       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written
+       s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
+       s.tmp_table_disk_usage, s.filesort_disk_usage
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8||||

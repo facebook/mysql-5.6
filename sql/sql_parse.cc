@@ -7860,12 +7860,7 @@ void THD::reset_for_next_command()
   thd->set_sent_row_count(0);
   thd->set_examined_row_count(0);
   thd->set_accessed_rows_and_keys(0);
-  thd->set_tmp_table_bytes_written(0); /* reset temp table bytes written */
-  thd->set_filesort_bytes_written(0); /* reset filesort bytes written */
-  thd->set_index_dive_count(0); /* reset index dive count */
-  thd->set_index_dive_cpu(0); /* reset index dive cpu */
-  thd->set_compilation_cpu(0); /* reset compilation cpu */
-
+  thd->reset_stmt_stats();
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags= 0;
 

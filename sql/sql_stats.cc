@@ -272,6 +272,12 @@ ST_FIELD_INFO sql_stats_fields_info[]=
   {"COMPILATION_CPU", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
 
+  {"TMP_TABLE_DISK_USAGE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+
+  {"FILESORT_DISK_USAGE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -581,6 +587,8 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
       sql_stats->index_dive_count == 0 &&
       sql_stats->index_dive_cpu == 0 &&
       sql_stats->compilation_cpu == 0 &&
+      sql_stats->tmp_table_disk_usage == 0 &&
+      sql_stats->filesort_disk_usage == 0 &&
       sql_stats->shared_stats.rows_inserted == 0 &&
       sql_stats->shared_stats.rows_updated == 0 &&
       sql_stats->shared_stats.rows_deleted == 0 &&
@@ -1063,6 +1071,8 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   sql_stats->index_dive_count += thd->get_index_dive_count();
   sql_stats->index_dive_cpu += thd->get_index_dive_cpu();
   sql_stats->compilation_cpu += thd->get_compilation_cpu();
+  sql_stats->tmp_table_disk_usage += thd->get_stmt_tmp_table_disk_usage_peak();
+  sql_stats->filesort_disk_usage += thd->get_stmt_filesort_disk_usage_peak();
 
   // Update Row counts
   sql_stats->shared_stats.rows_inserted += stats->rows_inserted;
@@ -1179,6 +1189,10 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_stats->index_dive_cpu, TRUE);
     /* Compilation CPU */
     table->field[f++]->store(sql_stats->compilation_cpu, TRUE);
+    /* Tmp table disk usage */
+    table->field[f++]->store(sql_stats->tmp_table_disk_usage, TRUE);
+    /* Filesort disk usage */
+    table->field[f++]->store(sql_stats->filesort_disk_usage, TRUE);
 
     if (schema_table_store_record(thd, table))
     {

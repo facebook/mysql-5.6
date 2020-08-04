@@ -1540,12 +1540,7 @@ void THD::init(void)
   mt_key_clear(THD::PLAN_ID);
   mt_key_clear(THD::SQL_HASH);
   set_plan_capture(false);
-
-  m_tmp_table_bytes_written = 0; /* temp table space bytes written */
-  m_filesort_bytes_written  = 0; /* filesort space bytes written */
-  m_index_dive_count        = 0; /* index dive count */
-  m_index_dive_cpu          = 0; /* index dive cpu time in microseconds */
-  m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
+  reset_stmt_stats();
 }
 
 
@@ -1580,6 +1575,20 @@ void THD::init_for_queries(Relay_log_info *rli)
     DBUG_ASSERT(rli_slave->info_thd == this && slave_thread);
   }
 #endif
+}
+
+/**
+  Reset statement stats counters before next statement.
+*/
+void THD::reset_stmt_stats()
+{
+  m_tmp_table_bytes_written = 0; /* temp table space bytes written */
+  m_filesort_bytes_written  = 0; /* filesort space bytes written */
+  m_index_dive_count        = 0; /* index dive count */
+  m_index_dive_cpu          = 0; /* index dive cpu time in microseconds */
+  m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
+  m_stmt_tmp_table_disk_usage_peak = 0;
+  m_stmt_filesort_disk_usage_peak = 0;
 }
 
 
@@ -6064,7 +6073,7 @@ static void adjust_global_by(longlong &unreported_delta, ulonglong &g_value,
 */
 static void adjust_by(ulonglong &value, ulonglong &peak, longlong delta,
                       longlong &unreported_delta, ulonglong &g_value,
-                      ulonglong &g_peak)
+                      ulonglong &g_peak, ulonglong &stmt_peak)
 {
   /*
     Atomic operation is only needed for the secondary threads that steal
@@ -6079,7 +6088,9 @@ static void adjust_by(ulonglong &value, ulonglong &peak, longlong delta,
   /* Correct on primary, best effort on secondary. */
   if (peak < new_value)
     peak = new_value;
-  
+  if (stmt_peak < new_value)
+    stmt_peak = new_value;
+
   /* Avoid frequent updates of global usage. */
   const ulonglong DISK_USAGE_REPORTING_INCREMENT = 8192;
   longlong new_delta = my_atomic_add64(&unreported_delta, delta) + delta;
@@ -6102,7 +6113,8 @@ void THD::adjust_tmp_table_disk_usage(longlong delta)
             status_var.tmp_table_disk_usage_peak, delta,
             unreported_global_tmp_table_delta,
             global_status_var.tmp_table_disk_usage,
-            global_status_var.tmp_table_disk_usage_peak);
+            global_status_var.tmp_table_disk_usage_peak,
+            m_stmt_tmp_table_disk_usage_peak);
 }
 
 /**
@@ -6116,7 +6128,8 @@ void THD::adjust_filesort_disk_usage(longlong delta)
             status_var.filesort_disk_usage_peak, delta,
             unreported_global_filesort_delta,
             global_status_var.filesort_disk_usage,
-            global_status_var.filesort_disk_usage_peak);
+            global_status_var.filesort_disk_usage_peak,
+            m_stmt_filesort_disk_usage_peak);
 }
 
 /**
