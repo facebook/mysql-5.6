@@ -2157,6 +2157,12 @@ void kill_mysql(void)
       sql_print_error("Can't create thread to kill server (errno= %d).", error);
   }
 #endif
+  DBUG_EXECUTE_IF("commit_on_shutdown_testing", {
+    const char act[] = "now signal shutdown_started";
+    DBUG_ASSERT(opt_debug_sync_timeout > 0);
+    DBUG_ASSERT(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+  };);
+
   DBUG_VOID_RETURN;
 }
 

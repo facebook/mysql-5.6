@@ -8198,16 +8198,22 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
   DBUG_ASSERT(!thd_get_cache_mngr(thd)->dbug_any_finalized());
   DBUG_PRINT("return", ("Thread ID: %u, commit_error: %d",
                         thd->thread_id(), thd->commit_error));
+
   /*
-    During shutdown, always return an error since the
-    binlogged transaction may not have been acked externally.
+    During shutdown, forcibly disconnect thd connections for
+    transactions that are in the commit pipeline
   */
-  if (thd->killed == THD::KILL_CONNECTION)
-  {
-      thd->get_stmt_da()->set_overwrite_status(true);
-      my_error(ER_SERVER_SHUTDOWN, MYF(0));
-      thd->get_stmt_da()->set_overwrite_status(false);
+  DEBUG_SYNC(thd, "commit_wait_for_shutdown");
+  DBUG_EXECUTE_IF("commit_on_shutdown_testing", {
+    /* For testing, set killed flag if shutdown is in progress */
+    if (shutdown_in_progress)
+      thd->killed = THD::KILL_CONNECTION;
+  };);
+  if (shutdown_in_progress && !thd->slave_thread &&
+      thd->killed == THD::KILL_CONNECTION) {
+    thd->disconnect();
   }
+
   /*
     flush or sync errors are handled by the leader of the group
     (using binlog_error_action). Hence treat only COMMIT_ERRORs as errors.
