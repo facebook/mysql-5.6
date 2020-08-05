@@ -1,0 +1,31 @@
+# Test for replication slave threads
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create database db1;
+create database db2;
+use db1;
+create table t1(a int primary key);
+insert into t1 values(1),(2);
+use db2;
+create table t1(a int primary key);
+insert into t1 values(10), (11);
+use db1;
+insert into t1 values(3),(4);
+use db1;
+select * from t1;
+a
+1
+2
+3
+4
+use db2;
+select * from t1;
+a
+10
+11
+drop database db1;
+drop database db2;
+include/rpl_end.inc

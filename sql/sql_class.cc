@@ -416,6 +416,7 @@ THD::THD(bool enable_plugins)
       m_attachable_trx(nullptr),
       table_map_for_update(0),
       m_examined_row_count(0),
+      m_current_db_context(NULL),
 #if defined(ENABLED_PROFILING)
       profiling(new PROFILING),
 #endif
@@ -537,7 +538,7 @@ THD::THD(bool enable_plugins)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
                    MY_MUTEX_INIT_FAST);
-  mysql_mutex_init(key_LOCK_thd_db_metadata, &LOCK_thd_db_metadata,
+  mysql_mutex_init(key_LOCK_thd_db_context, &LOCK_thd_db_context,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
 
@@ -628,6 +629,15 @@ static std::string get_shard_id(const std::string &db_metadata) {
 
 void THD::set_db_metadata() {
   if (m_db.length) {
+    mysql_mutex_lock(&LOCK_thd_db_context);
+    auto it = m_db_context_hash.find(m_db.str);
+    if (it != m_db_context_hash.end()) {
+      m_current_db_context = &it->second;
+      mysql_mutex_unlock(&LOCK_thd_db_context);
+      return;
+    }
+    mysql_mutex_unlock(&LOCK_thd_db_context);
+
     dd::Schema_MDL_locker mdl_handler(this);
     dd::cache::Dictionary_client::Auto_releaser releaser(dd_client());
     const dd::Schema *schema = nullptr;
@@ -661,17 +671,18 @@ void THD::set_db_metadata() {
       found
     */
     if (!dd_client()->acquire(m_db.str, &schema) && schema != nullptr) {
-      mysql_mutex_lock(&LOCK_thd_db_metadata);
-      db_metadata = schema->get_db_metadata().c_str();
-      this->db_shard_id = get_shard_id(this->db_metadata);
-      mysql_mutex_unlock(&LOCK_thd_db_metadata);
+      mysql_mutex_lock(&LOCK_thd_db_context);
+      db_context_t &db_context_ref = m_db_context_hash[m_db.str];
+      db_context_ref.db_metadata = schema->get_db_metadata().c_str();
+      db_context_ref.db_shard_id = get_shard_id(db_context_ref.db_metadata);
+      m_current_db_context = &db_context_ref;
+      mysql_mutex_unlock(&LOCK_thd_db_context);
       return;
     }
   }
-  mysql_mutex_lock(&LOCK_thd_db_metadata);
-  db_metadata.clear();
-  db_shard_id.clear();
-  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+  mysql_mutex_lock(&LOCK_thd_db_context);
+  m_current_db_context = nullptr;
+  mysql_mutex_unlock(&LOCK_thd_db_context);
 }
 
 bool THD::set_db(const LEX_CSTRING &new_db) {
@@ -1281,7 +1292,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_protocol);
   mysql_mutex_destroy(&LOCK_current_cond);
   mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
-  mysql_mutex_destroy(&LOCK_thd_db_metadata);
+  mysql_mutex_destroy(&LOCK_thd_db_context);
   mysql_mutex_destroy(&LOCK_thd_audit_data);
   mysql_cond_destroy(&COND_thr_lock);
 #ifndef DBUG_OFF
@@ -3375,8 +3386,35 @@ int THD::parse_query_info_attr() {
 }
 
 std::string THD::shard_id() {
-  mysql_mutex_lock(&LOCK_thd_db_metadata);
-  std::string shard_id_copy = this->db_shard_id;
-  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+  mysql_mutex_lock(&LOCK_thd_db_context);
+  if (!m_current_db_context) {
+    mysql_mutex_unlock(&LOCK_thd_db_context);
+    return "";
+  }
+  std::string shard_id_copy = m_current_db_context->db_shard_id;
+  mysql_mutex_unlock(&LOCK_thd_db_context);
   return shard_id_copy;
+}
+
+void THD::update_db_metadata(const char *db_name, const std::string &metadata) {
+  mysql_mutex_lock(&LOCK_thd_data);
+  mysql_mutex_lock(&LOCK_thd_db_context);
+  auto it = m_db_context_hash.find(db_name);
+  if (it != m_db_context_hash.end()) {
+    it->second.db_metadata = metadata;
+  }
+  mysql_mutex_unlock(&LOCK_thd_db_context);
+  mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+void THD::remove_db_metadata(const char *db_name) {
+  const auto name_len = strlen(db_name);
+  mysql_mutex_lock(&LOCK_thd_data);
+  bool is_current_db =
+      (name_len == db().length) && (strncmp(db().str, db_name, name_len) == 0);
+  mysql_mutex_lock(&LOCK_thd_db_context);
+  m_db_context_hash.erase(db_name);
+  if (is_current_db) m_current_db_context = nullptr;
+  mysql_mutex_unlock(&LOCK_thd_db_context);
+  mysql_mutex_unlock(&LOCK_thd_data);
 }

@@ -1057,7 +1057,7 @@ class THD : public MDL_context_owner,
     Protects THD::db_read_only_hash.
   */
   mysql_mutex_t LOCK_thd_db_read_only_hash;
-  mysql_mutex_t LOCK_thd_db_metadata;
+  mysql_mutex_t LOCK_thd_db_context;
   mysql_mutex_t LOCK_thd_audit_data;
 
   /**
@@ -2136,6 +2136,13 @@ class THD : public MDL_context_owner,
 
   void update_global_binlog_max_gtid(void);
 
+  typedef struct {
+    std::string db_metadata;
+    std::string db_shard_id;
+  } db_context_t;
+  std::unordered_map<std::string, db_context_t> m_db_context_hash;
+  db_context_t *m_current_db_context;
+
  public:
   void set_user_connect(USER_CONN *uc);
   const USER_CONN *get_user_connect() const { return m_user_connect; }
@@ -2180,8 +2187,10 @@ class THD : public MDL_context_owner,
 
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
-  std::string db_metadata;
-  std::string db_shard_id;
+
+  void update_db_metadata(const char *db_name, const std::string &metadata);
+  void remove_db_metadata(const char *db_name);
+
 #if defined(ENABLED_PROFILING)
   std::unique_ptr<PROFILING> profiling;
 #endif

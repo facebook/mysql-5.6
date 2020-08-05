@@ -1,0 +1,32 @@
+# Save the initial number of concurrent sessions.
+--source include/count_sessions.inc
+
+--echo #Creating a new database
+create database db1;
+use db1;
+
+create table t1(a int primary key);
+insert into t1 values(1),(2);
+
+--echo # Start a new connection and use db1
+connect(con1,localhost,root,,);
+use db1;
+
+select * from t1;
+
+--echo # Now drop the database in new connection
+drop database db1;
+
+connection default;
+
+--error ER_BAD_DB_ERROR
+select * from t1;
+
+#
+# Clean-up
+#
+connection con1;
+disconnect con1;
+
+connection default;
+--source include/wait_until_count_sessions.inc
