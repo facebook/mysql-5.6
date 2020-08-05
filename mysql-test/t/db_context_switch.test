@@ -1,0 +1,41 @@
+# Test db context switch changes on master is replicated
+# correctly on the slave
+--echo # Test for replication slave threads
+--source include/master-slave.inc
+connection slave;
+connection master;
+
+create database db1;
+create database db2;
+
+use db1;
+
+create table t1(a int primary key);
+insert into t1 values(1),(2);
+
+use db2;
+create table t1(a int primary key);
+insert into t1 values(10), (11);
+
+use db1;
+insert into t1 values(3),(4);
+
+--sync_slave_with_master
+
+connection slave;
+use db1;
+select * from t1;
+
+use db2;
+select * from t1;
+
+connection master;
+
+#
+# Clean up
+#
+drop database db1;
+drop database db2;
+--sync_slave_with_master
+
+--source include/rpl_end.inc

@@ -11351,9 +11351,10 @@ bool THD::add_db_metadata(rapidjson::Document &meta_data_root) {
   DBUG_ENTER("THD::add_db_meta_data");
   assert(opt_binlog_trx_meta_data);
 
-  mysql_mutex_lock(&LOCK_thd_db_metadata);
-  std::string local_db_metadata = db_metadata;
-  mysql_mutex_unlock(&LOCK_thd_db_metadata);
+  mysql_mutex_lock(&LOCK_thd_db_context);
+  std::string local_db_metadata =
+      m_current_db_context ? m_current_db_context->db_metadata : "";
+  mysql_mutex_unlock(&LOCK_thd_db_context);
 
   if (!local_db_metadata.empty()) {
     rapidjson::Document db_metadata_root;

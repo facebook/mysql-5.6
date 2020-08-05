@@ -247,15 +247,7 @@ struct Update_thd_db_metadata : public Do_THD_Impl {
       : db_name(db_name), metadata(metadata) {}
 
   virtual void operator()(THD *thd) override {
-    const auto name_len = strlen(db_name);
-    mysql_mutex_lock(&thd->LOCK_thd_data);
-    if (name_len == thd->db().length &&
-        strncmp(thd->db().str, db_name, name_len) == 0) {
-      mysql_mutex_lock(&thd->LOCK_thd_db_metadata);
-      thd->db_metadata = metadata;
-      mysql_mutex_unlock(&thd->LOCK_thd_db_metadata);
-    }
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
+    thd->update_db_metadata(db_name, metadata);
   }
 };
 
@@ -268,6 +260,28 @@ static void update_thd_db_metadata(const char *db_name,
 
   Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
   thd_manager->do_for_all_thd(&updater);
+
+  DBUG_VOID_RETURN;
+}
+
+struct Remove_thd_db_metadata : public Do_THD_Impl {
+  const char *db_name;
+
+  Remove_thd_db_metadata(const char *db_name) : db_name(db_name) {}
+
+  virtual void operator()(THD *thd) override {
+    thd->remove_db_metadata(db_name);
+  }
+};
+
+/* Remove db_metadata in all threads using the specified database */
+static void remove_thd_db_metadata(const char *db_name) {
+  DBUG_ENTER("remove_db_metadata");
+
+  Remove_thd_db_metadata remover{db_name};
+
+  Global_THD_manager *thd_manager = Global_THD_manager::get_instance();
+  thd_manager->do_for_all_thd(&remover);
 
   DBUG_VOID_RETURN;
 }
@@ -1031,6 +1045,9 @@ bool mysql_rm_db(THD *thd, const LEX_CSTRING &db, bool if_exists) {
     thd->pop_internal_handler();
 
     if (!error) error = thd->dd_client()->drop(schema);
+
+    // Remove db_metadata entry from all the THD's
+    remove_thd_db_metadata(db.str);
 
     /*
       If database exists and there was no error we should
