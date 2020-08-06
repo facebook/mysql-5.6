@@ -115,8 +115,9 @@
 #include "sql/psi_memory_key.h"
 #include "sql/query_options.h"
 #include "sql/set_var.h"
-#include "sql/sp_head.h"   // sp_head
-#include "sql/sql_base.h"  // close_thread_tables
+#include "sql/sp_head.h"                // sp_head
+#include "sql/sql_admission_control.h"  // fill_ac_queue
+#include "sql/sql_base.h"               // close_thread_tables
 #include "sql/sql_bitmap.h"
 #include "sql/sql_check_constraint.h"
 #include "sql/sql_class.h"  // THD
@@ -4899,6 +4900,15 @@ ST_FIELD_INFO socket_diag_slaves_fields_info[] = {
     {"REPLICATION STATUS", 64, MYSQL_TYPE_STRING, 0, 0, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO admission_control_queue_fields_info[] = {
+    {"SCHEMA_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"QUEUE_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"WAITING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"RUNNING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"ABORTED_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"TIMEOUT_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -4947,6 +4957,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      fill_socket_diag_slaves, make_old_format, nullptr, false},
     {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, fill_db_applied_hlc,
      nullptr, nullptr, false},
+    {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info,
+     fill_ac_queue, nullptr, nullptr, false},
     {nullptr, nullptr, nullptr, nullptr, nullptr, false}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

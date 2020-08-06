@@ -1,0 +1,39 @@
+SELECT @@global.admission_control_queue;
+SET @@global.admission_control_queue=5;
+show global variables like 'admission_control_queue';
+select * from performance_schema.global_variables where variable_name='admission_control_queue';
+
+select @@session.admission_control_queue;
+show session variables like 'admission_control_queue';
+select * from performance_schema.session_variables where variable_name='admission_control_queue';
+
+#
+# show that it's writable
+#
+set session admission_control_queue=10;
+select @@session.admission_control_queue;
+show session variables like 'admission_control_queue';
+
+set session admission_control_queue=0;
+select @@session.admission_control_queue;
+show session variables like 'admission_control_queue';
+
+set session admission_control_queue=-100;
+select @@session.admission_control_queue;
+show session variables like 'admission_control_queue';
+
+set session admission_control_queue=default;
+select @@session.admission_control_queue;
+show session variables like 'admission_control_queue';
+
+set global admission_control_queue=default;
+select @@global.admission_control_queue;
+show global variables like 'admission_control_queue';
+
+#
+# incorrect assignments
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set admission_control_queue=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set admission_control_queue="foobar";

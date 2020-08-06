@@ -460,7 +460,7 @@ struct System_variables {
   bool kill_conflicting_connections;
   ulong kill_conflicting_connections_timeout;
   long admission_control_queue_timeout;
-
+  long admission_control_queue;
   ulong dscp_on_socket;
 
   bool enable_block_stale_hlc_read;
