@@ -1,0 +1,1 @@
+--innodb_lock_wait_timeout=4 --innodb_deadlock_detect=0 --max_running_queries=5 --max_waiting_queries=2000 --admission_control_weights=3,7

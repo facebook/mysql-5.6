@@ -15,6 +15,12 @@ def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	ROLE_HOST	6	NULL	YES	va
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	7		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	8	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
 def	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	9		NO	varchar	3	9	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(3)			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(192)			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	2		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	3		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	RUNNING_QUERIES	4		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	ABORTED_QUERIES	5		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
+def	information_schema	ADMISSION_CONTROL_QUEUE	TIMEOUT_QUERIES	6		NO	bigint	NULL	NULL	NULL	NULL	NULL	NULL	NULL	bigint unsigned			select			NULL
 def	information_schema	APPLICABLE_ROLES	USER	1	NULL	YES	varchar	241	723	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(241)			select			NULL
 def	information_schema	APPLICABLE_ROLES	HOST	2	NULL	YES	varchar	256	768	NULL	NULL	NULL	utf8mb3	utf8mb3_general_ci	varchar(256)			select			NULL
 def	information_schema	APPLICABLE_ROLES	GRANTEE	3	NULL	YES	varchar	241	964	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)			select			NULL
@@ -710,6 +716,12 @@ COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	C
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_GRANTABLE	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_DEFAULT	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
 3.0000	information_schema	ADMINISTRABLE_ROLE_AUTHORIZATIONS	IS_MANDATORY	varchar	3	9	utf8mb3	utf8mb3_general_ci	varchar(3)
+3.0000	information_schema	ADMISSION_CONTROL_QUEUE	SCHEMA_NAME	varchar	64	192	utf8mb3	utf8mb3_general_ci	varchar(192)
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	QUEUE_ID	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	WAITING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	RUNNING_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	ABORTED_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
+NULL	information_schema	ADMISSION_CONTROL_QUEUE	TIMEOUT_QUERIES	bigint	NULL	NULL	NULL	NULL	bigint unsigned
 3.0000	information_schema	APPLICABLE_ROLES	USER	varchar	241	723	utf8mb3	utf8mb3_general_ci	varchar(241)
 3.0000	information_schema	APPLICABLE_ROLES	HOST	varchar	256	768	utf8mb3	utf8mb3_general_ci	varchar(256)
 4.0000	information_schema	APPLICABLE_ROLES	GRANTEE	varchar	241	964	utf8mb4	utf8mb4_0900_ai_ci	varchar(241)
