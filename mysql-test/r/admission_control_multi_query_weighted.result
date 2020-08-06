@@ -1,0 +1,8 @@
+create database test_db;
+create user test_user@localhost identified with 'mysql_native_password' BY '';
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+use test_db;
+create table t1 (a int primary key, b int) engine=InnoDB;
+drop database test_db;
+drop user test_user@localhost;
