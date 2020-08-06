@@ -80,6 +80,7 @@
 #include "sql/partition_info.h"              // partition_info
 #include "sql/protocol.h"                    // Protocol
 #include "sql/sp_head.h"                     // sp_head
+#include "sql/sql_admission_control.h"       // fill_ac_queue
 #include "sql/sql_base.h"                    // close_thread_tables
 #include "sql/sql_class.h"                   // THD
 #include "sql/sql_db.h"                      // get_default_db_collation
@@ -4736,6 +4737,15 @@ ST_FIELD_INFO db_applied_hlc_fields_info[] = {
     {"APPLIED_HLC", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
     {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
 
+ST_FIELD_INFO admission_control_queue_fields_info[] = {
+    {"SCHEMA_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, 0},
+    {"QUEUE_ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"WAITING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"RUNNING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"ABORTED_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {"TIMEOUT_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, 0},
+    {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, 0}};
+
 /** For creating fields of information_schema.OPTIMIZER_TRACE */
 extern ST_FIELD_INFO optimizer_trace_info[];
 
@@ -4789,6 +4799,8 @@ ST_SCHEMA_TABLE schema_tables[] = {
      fill_socket_diag_slaves, make_old_format, 0, 0, -1, 0, 0},
     {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
      fill_db_applied_hlc, nullptr, nullptr, -1, -1, false, 0},
+    {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info,
+     create_schema_table, fill_ac_queue, NULL, NULL, -1, -1, false, 0},
     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 0, 0, false, 0}};
 
 int initialize_schema_table(st_plugin_int *plugin) {

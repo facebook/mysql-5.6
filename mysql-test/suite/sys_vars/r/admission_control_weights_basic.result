@@ -1,0 +1,64 @@
+Default value of admission_control_weights is empty string
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+NULL
+SELECT @@session.admission_control_weights;
+ERROR HY000: Variable 'admission_control_weights' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+admission_control_weights is a dynamic variable (changed to "1")
+set @@global.admission_control_weights = "1";
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1
+set @@global.admission_control_weights = "asdf";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of 'asdf'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1
+set @@global.admission_control_weights = ",,,";
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+,,,
+set @@global.admission_control_weights = "1,1,,";
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,1,asdf";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '1,1,asdf'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,1,3asdf";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '1,1,3asdf'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,-1,3asdf";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '1,-1,3asdf'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,0";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '1,0'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "-1";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '-1'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,1,1,1,1,1,1,1,1,1,1";
+ERROR 42000: Variable 'admission_control_weights' can't be set to the value of '1,1,1,1,1,1,1,1,1,1,1'
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,,
+set @@global.admission_control_weights = "1,1,1,1,1,1,1,1,1,1";
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+1,1,1,1,1,1,1,1,1,1
+restore the default value
+SET @@global.admission_control_weights = "";
+SELECT @@global.admission_control_weights;
+@@global.admission_control_weights
+

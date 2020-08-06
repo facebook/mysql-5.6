@@ -445,6 +445,7 @@ struct System_variables {
   bool kill_conflicting_connections;
   ulong kill_conflicting_connections_timeout;
   long admission_control_queue_timeout;
+  long admission_control_queue;
 
   bool enable_block_stale_hlc_read;
 

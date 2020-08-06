@@ -79,6 +79,7 @@ Database: information_schema
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
@@ -173,6 +174,7 @@ Database: INFORMATION_SCHEMA
 +---------------------------------------+
 |                Tables                 |
 +---------------------------------------+
+| ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
 | CHECK_CONSTRAINTS                     |
