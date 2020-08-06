@@ -925,7 +925,8 @@ enum enum_schema_tables : int {
   SCH_SLAVE_DB_LOAD,
   SCH_SOCKET_DIAG_SLAVE,
   SCH_DATABASE_APPLIED_HLC,
-  SCH_LAST = SCH_DATABASE_APPLIED_HLC
+  SCH_ADMISSION_CONTROL_QUEUE,
+  SCH_LAST = SCH_ADMISSION_CONTROL_QUEUE
 };
 
 enum ha_stat_type {
@@ -6994,5 +6995,7 @@ class ha_tablespace_statistics {
 
 std::unordered_set<std::string> split_into_set(const std::string &input,
                                                char delimiter);
+std::vector<std::string> split_into_vector(const std::string &input,
+                                           char delimiter);
 
 #endif /* HANDLER_INCLUDED */

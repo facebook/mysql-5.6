@@ -1,0 +1,60 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is empty string
+####
+--echo Default value of admission_control_weights is empty string
+SELECT @@global.admission_control_weights;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.admission_control_weights;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo admission_control_weights is a dynamic variable (changed to "1")
+set @@global.admission_control_weights = "1";
+SELECT @@global.admission_control_weights;
+
+####
+## Verify invalid values
+####
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "asdf";
+SELECT @@global.admission_control_weights;
+# Due to a quirk in implementation, consecutive delimiters are ignored.
+set @@global.admission_control_weights = ",,,";
+SELECT @@global.admission_control_weights;
+set @@global.admission_control_weights = "1,1,,";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "1,1,asdf";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "1,1,3asdf";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "1,-1,3asdf";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "1,0";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "-1";
+SELECT @@global.admission_control_weights;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.admission_control_weights = "1,1,1,1,1,1,1,1,1,1,1";
+SELECT @@global.admission_control_weights;
+set @@global.admission_control_weights = "1,1,1,1,1,1,1,1,1,1";
+SELECT @@global.admission_control_weights;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.admission_control_weights = "";
+SELECT @@global.admission_control_weights;

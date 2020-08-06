@@ -1,0 +1,62 @@
+SELECT @@global.admission_control_queue;
+@@global.admission_control_queue
+0
+SET @@global.admission_control_queue=5;
+show global variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	5
+select * from performance_schema.global_variables where variable_name='admission_control_queue';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_queue	5
+select @@session.admission_control_queue;
+@@session.admission_control_queue
+0
+show session variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	0
+select * from performance_schema.session_variables where variable_name='admission_control_queue';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_queue	0
+set session admission_control_queue=10;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_queue value: '10'
+select @@session.admission_control_queue;
+@@session.admission_control_queue
+9
+show session variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	9
+set session admission_control_queue=0;
+select @@session.admission_control_queue;
+@@session.admission_control_queue
+0
+show session variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	0
+set session admission_control_queue=-100;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_queue value: '-100'
+select @@session.admission_control_queue;
+@@session.admission_control_queue
+0
+show session variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	0
+set session admission_control_queue=default;
+select @@session.admission_control_queue;
+@@session.admission_control_queue
+5
+show session variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	5
+set global admission_control_queue=default;
+select @@global.admission_control_queue;
+@@global.admission_control_queue
+0
+show global variables like 'admission_control_queue';
+Variable_name	Value
+admission_control_queue	0
+set admission_control_queue=1.1;
+ERROR 42000: Incorrect argument type to variable 'admission_control_queue'
+set admission_control_queue="foobar";
+ERROR 42000: Incorrect argument type to variable 'admission_control_queue'
