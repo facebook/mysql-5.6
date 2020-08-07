@@ -1023,6 +1023,15 @@ static int binlog_close_connection(handlerton *hton, THD *thd)
 }
 
 static bool should_write_gtids(THD *thd) {
+  DBUG_EXECUTE_IF("dbug.should_write_gtids",
+  {
+     const char act[]=
+        "now signal should_write_gtids_begin.reached "
+        "wait_for should_write_gtids_begin.done";
+     DBUG_ASSERT(opt_debug_sync_timeout > 0);
+     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+  };);
+
   /*
     Return false in the situation where slave sql_thread is
     trying to generate gtid's for binlog events received from master. This
@@ -1044,7 +1053,18 @@ static bool should_write_gtids(THD *thd) {
 
     Return true in the scenario where a GTID_GROUP is being used.
   */
-  return (!read_only || thd->variables.gtid_next.type == GTID_GROUP);
+  bool ret= (!opt_readonly || thd->variables.gtid_next.type == GTID_GROUP);
+
+  DBUG_EXECUTE_IF("dbug.should_write_gtids",
+  {
+     const char act[]=
+        "now signal should_write_gtids_end.reached "
+        "wait_for should_write_gtids_end.done";
+     DBUG_ASSERT(opt_debug_sync_timeout > 0);
+     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+   };);
+
+  return ret;
 }
 
 int binlog_cache_data::write_event(THD *thd,

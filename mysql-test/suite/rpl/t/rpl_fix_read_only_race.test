@@ -1,0 +1,57 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug_sync.inc;
+source include/have_binlog_format_row.inc;
+
+# setup
+connection master;
+create table t1 (a int) engine = innodb;
+set @@global.debug= '+d,dbug.fix_read_only';
+set @@global.debug= '+d,dbug.should_write_gtids';
+
+# create new connections for read_only and trx
+connect (read_only, 127.0.0.1, root, ,test, $MASTER_MYPORT,);
+connect (should_write_gtids, 127.0.0.1, root, ,test, $MASTER_MYPORT,);
+
+# start a trx and block after reaching begining of should_write_gtids()
+connection should_write_gtids;
+send insert into t1 values(1);
+connection master;
+set debug_sync="now wait_for should_write_gtids_begin.reached";
+
+# wait to reach the beginning of fix_read_only and block
+connection read_only;
+send set @@global.super_read_only= 1;
+connection master;
+set debug_sync="now wait_for fix_read_only.reached";
+
+# reach the end of should_write_gtids()
+set debug_sync="now signal should_write_gtids_begin.done";
+set debug_sync="now wait_for should_write_gtids_end.reached";
+
+# move forward in both should_write_gtids() and fix_read_only()
+set debug_sync="now signal should_write_gtids_end.done";
+set debug_sync="now signal fix_read_only.done";
+
+# wait for insert to finish
+connection should_write_gtids;
+reap;
+
+# wait for super_read_only=1 to finish
+connection read_only;
+reap;
+
+# print the binlog events
+connection master;
+let $keep_gtid_events= 1;
+source include/show_binlog_events.inc;
+
+# cleanup
+set @@global.debug= '-d,dbug.fix_read_only';
+set @@global.debug= '-d,dbug.should_write_gtids';
+set @@global.super_read_only= 0;
+set @@global.read_only= 0;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

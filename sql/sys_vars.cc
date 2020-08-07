@@ -2952,6 +2952,14 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
       read_only = TRUE;
   }
 
+  DBUG_EXECUTE_IF("dbug.fix_read_only",
+  {
+     const char act[]=
+        "now signal fix_read_only.reached wait_for fix_read_only.done";
+     DBUG_ASSERT(opt_debug_sync_timeout > 0);
+     DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+   };);
+
   my_bool new_read_only= read_only; // make a copy before releasing a mutex
   my_bool new_super_read_only= super_read_only;
   DBUG_ENTER("sys_var_opt_readonly::update");
