@@ -8,7 +8,7 @@ select variable_name, variable_value from performance_schema.global_variables wh
 --exec find $MYSQLD_DATADIR/.rocksdb/OPTIONS* | sort -t- -k 2 -n | tail -1 | xargs -0 -I {} -t sh -c "echo hello=world>>{}"
 
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
---shutdown_server 10
+--shutdown_server
 --error 1
 --exec $MYSQLD_CMD --rocksdb_ignore_unknown_options=0 --loose-console > $error_log 2>&1
 
