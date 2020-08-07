@@ -667,6 +667,7 @@ static my_bool rocksdb_allow_to_start_after_corruption = 0;
 static uint64_t rocksdb_write_policy =
     rocksdb::TxnDBWritePolicy::WRITE_COMMITTED;
 char *rocksdb_read_free_rpl_tables;
+ulong rocksdb_max_row_locks;
 std::mutex rocksdb_read_free_rpl_tables_mutex;
 #if defined(HAVE_PSI_INTERFACE)
 Regex_list_handler rdb_read_free_regex_handler(key_rwlock_read_free_rpl_tables);
@@ -1172,7 +1173,8 @@ static MYSQL_THDVAR_BOOL(skip_bloom_filter_on_read, PLUGIN_VAR_RQCMDARG,
                          "Skip using bloom filter for reads", nullptr, nullptr,
                          FALSE);
 
-static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
+static MYSQL_SYSVAR_ULONG(max_row_locks, rocksdb_max_row_locks,
+                          PLUGIN_VAR_RQCMDARG,
                           "Maximum number of locks a transaction can have",
                           nullptr, nullptr,
                           /*default*/ RDB_DEFAULT_MAX_ROW_LOCKS,
@@ -4037,10 +4039,10 @@ static Rdb_transaction *get_or_create_tx(THD *const thd) {
     } else {
       tx = new Rdb_transaction_impl(thd);
     }
-    tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
+    tx->set_params(THDVAR(thd, lock_wait_timeout), rocksdb_max_row_locks);
     tx->start_tx();
   } else {
-    tx->set_params(THDVAR(thd, lock_wait_timeout), THDVAR(thd, max_row_locks));
+    tx->set_params(THDVAR(thd, lock_wait_timeout), rocksdb_max_row_locks);
     if (!tx->is_tx_started()) {
       tx->start_tx();
     }

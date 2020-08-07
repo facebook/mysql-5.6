@@ -81,7 +81,8 @@ END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 
 rollback;
 set session rocksdb_lock_scanned_rows=off;
-set session rocksdb_max_row_locks = 20;
+SET @start_rocksdb_max_row_locks = @@global.rocksdb_max_row_locks;
+set global rocksdb_max_row_locks = 20;
 select * from t1 where c3=1 for update;
 id1	id2	c1	c2	c3	c4	c5	c6	c7
 select * from t1 where c7 between 101 and 110 for update;
@@ -96,7 +97,7 @@ id1	id2	c1	c2	c3	c4	c5	c6	c7
 108	0	108	0	0	0	0	0	108
 109	0	109	0	0	0	0	0	109
 110	0	110	0	0	0	0	0	110
-set session rocksdb_max_row_locks = 5;
+set global rocksdb_max_row_locks = 5;
 select * from t1 where c3=1 for update;
 id1	id2	c1	c2	c3	c4	c5	c6	c7
 select * from t1 where c7 between 101 and 110 for update;
@@ -107,4 +108,5 @@ ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rock
 select * from t1 where c7 between 101 and 110 for update;
 ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rocksdb_max_row_locks limit' from ROCKSDB
 set session rocksdb_lock_scanned_rows=off;
+set @@global.rocksdb_max_row_locks = @start_rocksdb_max_row_locks;
 drop table t1;

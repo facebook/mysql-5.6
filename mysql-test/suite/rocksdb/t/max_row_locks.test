@@ -38,13 +38,13 @@ SHOW ENGINE rocksdb TRANSACTION STATUS;
 rollback;
 set session rocksdb_lock_scanned_rows=off;
 
-
+SET @start_rocksdb_max_row_locks = @@global.rocksdb_max_row_locks;
 # small max row locks should not hit errors if number of locked rows is smaller
-set session rocksdb_max_row_locks = 20;
+set global rocksdb_max_row_locks = 20;
 select * from t1 where c3=1 for update;
 select * from t1 where c7 between 101 and 110 for update;
 
-set session rocksdb_max_row_locks = 5;
+set global rocksdb_max_row_locks = 5;
 select * from t1 where c3=1 for update;
 --error 1296
 select * from t1 where c7 between 101 and 110 for update;
@@ -55,5 +55,5 @@ select * from t1 where c3=1 for update;
 --error 1296
 select * from t1 where c7 between 101 and 110 for update;
 set session rocksdb_lock_scanned_rows=off;
-
+set @@global.rocksdb_max_row_locks = @start_rocksdb_max_row_locks;
 drop table t1;

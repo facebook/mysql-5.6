@@ -77,6 +77,7 @@ class Rdb_writebatch_impl;
 class Rdb_field_encoder;
 
 extern char *rocksdb_read_free_rpl_tables;
+extern ulong rocksdb_max_row_locks;
 #if defined(HAVE_PSI_INTERFACE)
 extern PSI_rwlock_key key_rwlock_read_free_rpl_tables;
 #endif
