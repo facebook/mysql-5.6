@@ -35,7 +35,7 @@ SET NAMES utf8mb4;
 
 CREATE DATABASE IF NOT EXISTS sys DEFAULT CHARACTER SET utf8mb4;
 
-ALTER DATABASE sys CHARACTER SET utf8mb4;
+ALTER DATABASE sys CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 
 USE sys;
 
@@ -221,8 +221,7 @@ CREATE OR REPLACE ALGORITHM = MERGE DEFINER = 'mysql.sys'@'localhost' SQL SECURI
 
 CREATE OR REPLACE ALGORITHM = MERGE DEFINER = 'mysql.sys'@'localhost' SQL SECURITY INVOKER  VIEW x$schema_index_statistics ( table_schema, table_name, index_name, rows_selected, select_latency, rows_inserted, insert_latency, rows_updated, update_latency, rows_deleted, delete_latency ) AS SELECT OBJECT_SCHEMA AS table_schema, OBJECT_NAME AS table_name, INDEX_NAME as index_name, COUNT_FETCH AS rows_selected, SUM_TIMER_FETCH AS select_latency, COUNT_INSERT AS rows_inserted, SUM_TIMER_INSERT AS insert_latency, COUNT_UPDATE AS rows_updated, SUM_TIMER_UPDATE AS update_latency, COUNT_DELETE AS rows_deleted, SUM_TIMER_DELETE AS delete_latency FROM performance_schema.table_io_waits_summary_by_index_usage WHERE index_name IS NOT NULL ORDER BY sum_timer_wait DESC;
 
-CREATE OR REPLACE ALGORITHM = TEMPTABLE DEFINER = 'mysql.sys'@'localhost' SQL SECURITY INVOKER  VIEW x$ps_schema_table_statistics_io ( table_schema, table_name, count_read, sum_number_of_bytes_read, sum_timer_read, count_write, sum_number_of_bytes_write, sum_timer_write, count_misc, sum_timer_misc ) AS SELECT extract_schema_from_file_name(file_name) AS table_schema, extract_table_from_file_name(file_name) AS table_name, SUM(count_read) AS count_read, SUM(sum_number_of_bytes_read) AS sum_number_of_bytes_read, SUM(sum_timer_read) AS sum_timer_read, SUM(count_write) AS count_write, SUM(sum_number_of_bytes_write) AS sum_number_of_bytes_write, SUM(sum_timer_write) AS sum_timer_write, SUM(count_misc) AS count_misc, SUM(sum_timer_misc) AS sum_timer_misc FROM performance_schema.file_summary_by_instance GROUP BY table_schema, table_name;
-
+CREATE OR REPLACE ALGORITHM = TEMPTABLE DEFINER = 'mysql.sys'@'localhost' SQL SECURITY INVOKER  VIEW x$ps_schema_table_statistics_io ( table_schema, table_name, count_read, sum_number_of_bytes_read, sum_timer_read, count_write, sum_number_of_bytes_write, sum_timer_write, count_misc, sum_timer_misc ) AS SELECT extract_schema_from_file_name(file_name) COLLATE utf8mb4_0900_ai_ci AS table_schema, extract_table_from_file_name(file_name) COLLATE utf8mb4_0900_ai_ci AS table_name, SUM(count_read) AS count_read, SUM(sum_number_of_bytes_read) AS sum_number_of_bytes_read, SUM(sum_timer_read) AS sum_timer_read, SUM(count_write) AS count_write, SUM(sum_number_of_bytes_write) AS sum_number_of_bytes_write, SUM(sum_timer_write) AS sum_timer_write, SUM(count_misc) AS count_misc, SUM(sum_timer_misc) AS sum_timer_misc FROM performance_schema.file_summary_by_instance GROUP BY table_schema, table_name;
 --
 -- fb_ps_schema_table_statistics_io is a view used internally in Facebook. It only contains rocksdb and innodb io statistics
 -- fb_ps_schema_table_statistics_io view has these columns:
