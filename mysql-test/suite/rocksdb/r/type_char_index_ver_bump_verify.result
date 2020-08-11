@@ -1,5 +1,5 @@
 call mtr.add_suppression("RocksDB: you're trying to create an index with a multi-level collation");
-call mtr.add_suppression("MyRocks will handle this collation internally  as if it had a NO_PAD attribute.");
+call mtr.add_suppression("MyRocks will handle this collation internally as if it had a NO_PAD attribute.");
 #########
 # Begin upgrade testing with mysql_upgrade
 ###
