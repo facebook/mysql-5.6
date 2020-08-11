@@ -1,8 +1,7 @@
 --source include/have_rocksdb.inc
 --source include/have_debug.inc
 
-# Test if unknown collation works.
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
+# Test if storing copy of field in sk works.
 create table t (id int not null auto_increment primary key,
                 c varchar(8) CHARACTER SET utf8 COLLATE utf8_general_ci,
                 key sk (c));
@@ -11,7 +10,6 @@ insert into t (c) values ('☀'), ('ß');
 explain select c from t;
 select c from t;
 drop table t;
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
 
 # Testing if all characters in latin1 charset get restored correctly. This is
 # done by comparing results from a PK scan.
@@ -115,7 +113,7 @@ drop table t;
 set session rocksdb_verify_row_debug_checksums = on;
 create table t (id int primary key, email varchar(100), KEY email_i (email(30))) engine=rocksdb default charset=latin1;
 insert into t values (1, '                                  a');
---replace_column 9 #
+--replace_column 8 # 9 #
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 drop table t;
@@ -160,9 +158,7 @@ drop table t1;
 --let $COLLATION = "latin1_swedish_ci"
 --source suite/rocksdb/include/covering_index_query.inc
 
-set session debug= "+d,myrocks_enable_unknown_collation_index_only_scans";
 --let $FIELD_TYPE = varchar(256)
 --let $CHAR_SET = "utf8"
 --let $COLLATION = "utf8_general_ci"
 --source suite/rocksdb/include/covering_index_query.inc
-set session debug= "-d,myrocks_enable_unknown_collation_index_only_scans";
