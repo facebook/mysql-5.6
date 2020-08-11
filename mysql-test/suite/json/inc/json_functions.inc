@@ -2921,9 +2921,13 @@ DROP TABLE t1, t2;
 --echo #
 --echo # Bug#21147943 JSON_CONTAINS() RETURNS INCORRECT RESULT
 --echo #
+let $start_json_contains = query_get_value(show global status like 'Json_contains_legacy_count', Value, 1);
 SELECT JSON_CONTAINS('[1, 2, [4] ]', '{ "b" : 2 }');
 SELECT JSON_CONTAINS('[1, 2, [4,5] ]', '[1,2,3,4,5,6,7,8,9]');
 SELECT JSON_CONTAINS('[1, 2, [4,5] ]', '[111111111111111111]');
+let $end_json_contains = query_get_value(show global status like 'Json_contains_legacy_count', Value, 1);
+let $json_contains_calls = `select $end_json_contains - $start_json_contains`;
+--echo json_contains_calls = $json_contains_calls
 
 --echo #
 --echo # Bug#21169109 WL8249:WRONG RESULTS WHILE COMPARING A JSON COLUMN

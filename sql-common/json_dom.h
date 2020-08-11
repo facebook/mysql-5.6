@@ -1600,12 +1600,13 @@ class Json_wrapper {
     @param[in] other the other JSON value
     @param[in] cs    if given, this charset will be used in comparison of
                      string values
+    @param[in] legacy_val_cmp Use compare semantics of values in 5.6
     @retval -1 if this JSON value is less than the other JSON value
     @retval 0 if the two JSON values are equal
     @retval 1 if this JSON value is greater than the other JSON value
   */
-  int compare(const Json_wrapper &other,
-              const CHARSET_INFO *cs = nullptr) const;
+  int compare(const Json_wrapper &other, const CHARSET_INFO *cs = nullptr,
+              bool legacy_val_cmp = false) const;
 
   /**
     Extract an int (signed or unsigned) from the JSON if possible

@@ -76,6 +76,7 @@
 #include "template_utils.h"  // down_cast
 
 #define USE_FB_JSON_EXTRACT (1ULL << 0)
+#define USE_FB_JSON_CONTAINS (1ULL << 1)
 
 class PT_item_list;
 
@@ -129,6 +130,7 @@ bool ensure_utf8mb4(const String &val, String *buf, const char **resptr,
                              reporting of parsing error.
     @param[in] depth_handler Pointer to a function that should handle error
                              occurred when depth is exceeded.
+    @param[in]  legacy_parsing Parse in legacy 5.6 format
 
     @returns false if the arg parsed as valid JSON, true otherwise
   */
@@ -508,6 +510,37 @@ bool Json_path_cache::parse_and_cache_path(const THD *thd, Item **args,
     return true;
 
   cell.m_status = enum_path_status::OK_NOT_NULL;
+  return false;
+}
+
+bool Json_path_cache::parse_and_cache_path(const std::string &path,
+                                           uint arg_idx, bool is_constant) {
+  Path_cell &cell = m_arg_idx_to_vector_idx[arg_idx];
+
+  if (is_constant && cell.m_status != enum_path_status::UNINITIALIZED) {
+    // nothing to do if it has already been parsed
+    assert(cell.m_status == enum_path_status::OK_NOT_NULL ||
+           cell.m_status == enum_path_status::OK_NULL);
+    return false;
+  }
+
+  if (cell.m_status == enum_path_status::UNINITIALIZED) {
+    cell.m_index = m_paths.size();
+    if (m_paths.emplace_back(key_memory_JSON))
+      return true; /* purecov: inspected */
+  } else {
+    // re-parsing a non-constant path for the next row
+    m_paths[cell.m_index].clear();
+  }
+
+  if (parse_path_chars(path.c_str(), path.size(), false,
+                       &m_paths[cell.m_index])) {
+    // oops, parsing failed
+    return true;
+  }
+
+  cell.m_status = enum_path_status::OK_NOT_NULL;
+
   return false;
 }
 
@@ -1051,12 +1084,181 @@ void Item_func_json_contains::cleanup() {
   m_path_cache.reset_cache();
 }
 
+/**
+   Generate value so that it is parsed correctly by json parser.
+   5.6 implementation of json_contains accepts value in different format.
+   This function transforms the 5.6 val so that it is parsed correctly by 8.0
+   json parser.
+
+   @param[in,out] final_str stores the final value in case the value is
+               transformed.
+   @param[in,out] String pointing either to final_str or to memory area
+               allocated inside value_holder.
+   @param[out] ppValue The output string that points to the transformed
+               value.
+
+   @Return true if transformation failed. False on success.
+ */
+bool Item_func_json_contains::xform_legacy_value(std::string &final_str,
+                                                 String &value_holder,
+                                                 String **ppValue) {
+  Item *arg = args[2];
+  *ppValue = arg->val_str(&value_holder);
+  if (*ppValue == nullptr) {
+    final_str = "null";
+    value_holder.set(final_str.c_str(), final_str.size(),
+                     &my_charset_utf8mb4_bin);
+    *ppValue = &value_holder;
+  } else if (is_convertible_to_json(arg) &&
+             get_normalized_field_type(arg) != MYSQL_TYPE_JSON) {
+    const char *safep;   // contents of res, possibly converted
+    size_t safe_length;  // length of safep
+    StringBuffer<STRING_BUFFER_USUAL_SIZE> utf8res(&my_charset_utf8mb4_bin);
+    if (ensure_utf8mb4(**ppValue, &utf8res, &safep, &safe_length, true)) {
+      return true;
+    }
+
+    /*
+      Need to wrap string in braces for it to be parsed by
+      rapidjson parser. When doing that, need to take care
+      of double inverted and slashes already present inside the
+      string. We want these to be compared by their literal values.
+     */
+    std::string check_str(safep, safe_length);
+    boost::replace_all(check_str, "\\", "\\\\");
+    boost::replace_all(check_str, "\"", "\\\"");
+    final_str = "\"";
+    final_str.append(check_str);
+    final_str.append("\"");
+    value_holder.set(final_str.c_str(), final_str.size(),
+                     &my_charset_utf8mb4_bin);
+    *ppValue = &value_holder;
+  } else if (arg->is_bool_func()) {
+    /*
+      For boolean values, pass in true/false that are parsed
+      by rapidjson parser as boolean values.
+     */
+    final_str = arg->val_bool() ? "true" : "false";
+    value_holder.set(final_str.c_str(), final_str.size(),
+                     &my_charset_utf8mb4_bin);
+    *ppValue = &value_holder;
+  }
+
+  return false;
+}
+
+/**
+   Legacy json_contains impl.
+   Simulates 5.6 FB json_contains implementation. This is
+   called when system variable switch use_fb_json_contains
+   is enabled.
+ */
+longlong Item_func_json_contains::legacy_val_int() {
+  Json_wrapper doc_wrapper;
+  /* Check key is a string */
+  if (!is_convertible_to_json(args[1]) ||
+      get_normalized_field_type(args[1]) == MYSQL_TYPE_JSON ||
+      get_normalized_field_type(args[1]) == MYSQL_TYPE_NULL) {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "KEY MUST BE STRING");
+    return error_int();
+  }
+
+  // arg 0 is the document
+  if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &doc_wrapper,
+                       true) ||
+      args[0]->null_value) {
+    my_error(ER_INVALID_TYPE_FOR_JSON, MYF(0), 1, func_name());
+    return error_int();
+  }
+
+  String key_holder;
+  String *key_value = args[1]->val_str(&key_holder);
+  if (key_value == nullptr) {
+    null_value = true;
+    return 0;
+  }
+
+  const char *key_chars = key_value->ptr();
+  size_t key_length = key_value->length();
+  StringBuffer<STRING_BUFFER_USUAL_SIZE> res(&my_charset_utf8mb4_bin);
+  if (ensure_utf8mb4(*key_value, &res, &key_chars, &key_length, true))
+    return error_int();
+
+  std::string check_str(key_chars, key_length);
+  /*
+    Add escape sequence to escape sequence and double quotes
+    themselves in order to enable their parsing.
+  */
+  boost::replace_all(check_str, "\\", "\\\\");
+  boost::replace_all(check_str, "\"", "\\\"");
+
+  /*
+    Generate path of the format: $**."<key>"
+    This searches recursively across entire document
+    and find all the occurrences of the key.
+   */
+  std::string key_str;
+  key_str.append("$**.\"");
+  key_str.append(check_str);
+  key_str.append("\"");
+
+  if (m_path_cache.parse_and_cache_path(key_str, 1,
+                                        args[1]->const_for_execution()))
+    return error_int();
+
+  const Json_path *path = m_path_cache.get_path(1);
+  Json_wrapper_vector hits(key_memory_JSON);
+  if (doc_wrapper.seek(*path, path->leg_count(), &hits, false, false))
+    return error_int();
+
+  if (hits.size() == 0) {
+    null_value = false;
+    return 0;
+  }
+
+  longlong ret = 0;
+  if (arg_count == 3) {
+    // arg 2 is the expected value.
+    String value_holder;
+    std::string final_str;
+    String *value;
+    if (xform_legacy_value(final_str, value_holder, &value)) return error_int();
+
+    Json_dom_ptr dom;
+    JsonParseDefaultErrorHandler parse_handler(func_name(), 0);
+    if (parse_json(*value, &dom, true, parse_handler,
+                   JsonDocumentDefaultDepthHandler, true)) {
+      return error_int();
+    }
+
+    Json_wrapper containee_wr(std::move(dom));
+    for (uint i = 0; i < hits.size(); i++) {
+      if (!containee_wr.compare(hits[i], nullptr, true)) {
+        ret = 1;
+        break;
+      }
+    }
+  } else {
+    ret = 1;
+  }
+
+  null_value = false;
+  return ret;
+}
+
 longlong Item_func_json_contains::val_int() {
   assert(fixed);
   THD *const thd = current_thd;
 
   try {
     Json_wrapper doc_wrapper;
+    bool legacy_contains =
+        (current_thd->variables.use_fb_json_functions & USE_FB_JSON_CONTAINS);
+
+    if (legacy_contains) {
+      json_contains_legacy_count++;
+      return legacy_val_int();
+    }
 
     // arg 0 is the document
     if (get_json_wrapper(args, 0, &m_doc_value, func_name(), &doc_wrapper) ||

@@ -234,6 +234,50 @@ v2
 truncate test_json;
 truncate test_utf32_json;
 #
+# json_contains
+#
+set session use_fb_json_functions='use_fb_json_contains=on';
+insert into test_json values ('k2'), ('v2');
+insert into test_utf32_json values ('k2'), ('v2');
+select json_contains('{"k1":{"k2":"v2"}}', 'k2', json) from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains('{"k1":{"k2":"v2"}}', json, 'v2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains('{"k1":{"k2":"v2"}}', json) from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains('{"k1":{"k2":"v2"}}', 'k2', 'v2') from test_json;
+json_contains('{"k1":{"k2":"v2"}}', 'k2', 'v2')
+1
+1
+select json_contains('{"k1":{"k2":"v2"}}', 'k2', json) from test_utf32_json;
+json_contains('{"k1":{"k2":"v2"}}', 'k2', json)
+0
+1
+select json_contains('{"k1":{"k2":"v2"}}', json, 'v2') from test_utf32_json;
+json_contains('{"k1":{"k2":"v2"}}', json, 'v2')
+1
+0
+select json_contains('{"k1":{"k2":"v2"}}', json) from test_utf32_json;
+json_contains('{"k1":{"k2":"v2"}}', json)
+1
+0
+select json_contains('{"k1":{"k2":"v2"}}', 'k2', 'v2') from test_utf32_json;
+json_contains('{"k1":{"k2":"v2"}}', 'k2', 'v2')
+1
+1
+truncate test_json;
+truncate test_utf32_json;
+insert into test_json values ('{"k1":{"k2":"v2"}}');
+insert into test_utf32_json values ('{"k1":{"k2":"v2"}}');
+select json_contains(json, 'k2', 'v2') from test_json;
+ERROR 22032: Cannot create a JSON value from a string with CHARACTER SET 'binary'.
+select json_contains(json, 'k2', 'v2') from test_utf32_json;
+json_contains(json, 'k2', 'v2')
+1
+set session use_fb_json_functions='default';
+truncate test_json;
+truncate test_utf32_json;
+#
 # cleanup
 #
 drop table test_json;

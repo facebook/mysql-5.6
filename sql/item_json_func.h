@@ -128,6 +128,23 @@ class Json_path_cache {
                             bool forbid_wildcards);
 
   /**
+    Parse a path expression if necessary. Does nothing if the path
+    expression is constant and it has already been parsed. Assumes that
+    we've already verified that the path expression is not null. Raises an
+    error if the path expression is syntactically incorrect. Otherwise puts
+    the parsed path onto the path vector.
+
+    @param[in]  path             Path expression that needs to be parsed.
+    @param[in]  arg_idx          Index of the path_expression in path cache
+    vector
+    @paaram[in[ is_constant      Is the path expression constant.
+
+    @returns false on success (valid), true on error
+   */
+  bool parse_and_cache_path(const std::string &path, uint arg_idx,
+                            bool is_constant);
+
+  /**
     Create combination of paths from key parts.Does nothing if the path
     expression is constant and it has already been parsed. Raises an
     error if the path expression is syntactically incorrect. Otherwise
@@ -424,6 +441,10 @@ class Item_func_json_schema_validation_report final : public Item_json_func {
 class Item_func_json_contains final : public Item_int_func {
   String m_doc_value;
   Json_path_cache m_path_cache;
+
+  longlong legacy_val_int();
+  bool xform_legacy_value(std::string &final_str, String &value_holder,
+                          String **p_value);
 
  public:
   Item_func_json_contains(THD *thd, const POS &pos, PT_item_list *a)
