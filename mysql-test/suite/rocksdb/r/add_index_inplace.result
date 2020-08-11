@@ -290,8 +290,6 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_general_ci' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 ALTER TABLE t1 ADD KEY kb(b(10));
-ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8_bin, utf8mb4_bin).
-ALTER TABLE t1 ADD PRIMARY KEY(a);
 DROP TABLE t1;
 set global rocksdb_bulk_load=1;
 # Establish connection con1 (user=root)
