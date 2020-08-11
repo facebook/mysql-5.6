@@ -2587,6 +2587,19 @@ static int compare_json_strings(const char *str1, size_t str1_len,
 static constexpr int num_json_types =
     static_cast<int>(enum_json_type::J_ERROR) + 1;
 
+static bool legacy_value_type_number(enum_json_type type) {
+  switch (type) {
+    case enum_json_type::J_BOOLEAN:
+    case enum_json_type::J_UINT:
+    case enum_json_type::J_INT:
+    case enum_json_type::J_DOUBLE:
+    case enum_json_type::J_DECIMAL:
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
   The following matrix tells how two JSON values should be compared
   based on their types. If type_comparison[type_of_a][type_of_b] is
@@ -2614,8 +2627,8 @@ static constexpr int type_comparison[num_json_types][num_json_types] = {
 };
 // clang-format on
 
-int Json_wrapper::compare(const Json_wrapper &other,
-                          const CHARSET_INFO *cs) const {
+int Json_wrapper::compare(const Json_wrapper &other, const CHARSET_INFO *cs,
+                          bool legacy_val_cmp) const {
   const enum_json_type this_type = type();
   const enum_json_type other_type = other.type();
 
@@ -2625,6 +2638,10 @@ int Json_wrapper::compare(const Json_wrapper &other,
   // Check if the type tells us which value is bigger.
   int type_cmp = type_comparison[static_cast<int>(this_type)]
                                 [static_cast<int>(other_type)];
+  if (legacy_val_cmp && legacy_value_type_number(this_type) &&
+      legacy_value_type_number(other_type)) {
+    type_cmp = 0;
+  }
   if (type_cmp != 0) return type_cmp;
 
   // Same or similar type. Go on and inspect the values.
@@ -2724,6 +2741,9 @@ int Json_wrapper::compare(const Json_wrapper &other,
           if (other.get_decimal_data(&b_dec)) return 1; /* purecov: inspected */
           return -compare_json_decimal_int(b_dec, get_int());
         }
+        case enum_json_type::J_BOOLEAN:
+          DBUG_ASSERT(legacy_val_cmp);
+          return compare_numbers(get_int(), (longlong)other.get_boolean());
         default:;
       }
       break;
@@ -2741,6 +2761,9 @@ int Json_wrapper::compare(const Json_wrapper &other,
           if (other.get_decimal_data(&b_dec)) return 1; /* purecov: inspected */
           return -compare_json_decimal_uint(b_dec, get_uint());
         }
+        case enum_json_type::J_BOOLEAN:
+          DBUG_ASSERT(legacy_val_cmp);
+          return -compare_json_int_uint(other.get_boolean(), get_uint());
         default:;
       }
       break;
@@ -2759,6 +2782,9 @@ int Json_wrapper::compare(const Json_wrapper &other,
             return 1; /* purecov: inspected */
           return -compare_json_decimal_double(other_dec, get_double());
         }
+        case enum_json_type::J_BOOLEAN:
+          DBUG_ASSERT(legacy_val_cmp);
+          return compare_json_double_int(get_double(), other.get_boolean());
         default:;
       }
       break;
@@ -2785,13 +2811,36 @@ int Json_wrapper::compare(const Json_wrapper &other,
             return compare_json_decimal_uint(a_dec, other.get_uint());
           case enum_json_type::J_DOUBLE:
             return compare_json_decimal_double(a_dec, other.get_double());
+          case enum_json_type::J_BOOLEAN:
+            DBUG_ASSERT(legacy_val_cmp);
+            return compare_json_decimal_int(a_dec, other.get_boolean());
           default:;
         }
         break;
       }
     case enum_json_type::J_BOOLEAN:
       // Booleans are only equal to other booleans. false is less than true.
-      return compare_numbers(get_boolean(), other.get_boolean());
+      if (other_type == enum_json_type::J_BOOLEAN) {
+        return compare_numbers(get_boolean(), other.get_boolean());
+      } else {
+        DBUG_ASSERT(legacy_val_cmp);
+        switch (other_type) {
+          case enum_json_type::J_INT:
+            return compare_numbers((longlong)get_boolean(), other.get_int());
+          case enum_json_type::J_UINT:
+            return compare_json_int_uint(get_boolean(), other.get_uint());
+          case enum_json_type::J_DOUBLE:
+            return -compare_json_double_int(other.get_double(), get_boolean());
+          case enum_json_type::J_DECIMAL: {
+            my_decimal b_dec;
+            if (other.get_decimal_data(&b_dec)) return 1;
+            return -compare_json_decimal_int(b_dec, get_boolean());
+          }
+          default:
+            DBUG_ASSERT(false);
+        }
+      }
+      break;
     case enum_json_type::J_DATETIME:
     case enum_json_type::J_TIMESTAMP:
       // Timestamps and datetimes can be equal to each other.

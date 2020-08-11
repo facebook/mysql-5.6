@@ -1,61 +1,61 @@
 SET @start_global_value = @@global.use_fb_json_functions;
 SELECT @start_global_value;
 @start_global_value
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=off
 select @@global.use_fb_json_functions;
 @@global.use_fb_json_functions
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=off
 select @@session.use_fb_json_functions;
 @@session.use_fb_json_functions
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=off
 show global variables like 'use_fb_json_functions';
 Variable_name	Value
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=off
 show session variables like 'use_fb_json_functions';
 Variable_name	Value
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=off
 select * from performance_schema.global_variables where variable_name='use_fb_json_functions';
 VARIABLE_NAME	VARIABLE_VALUE
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=off
 select * from performance_schema.session_variables where variable_name='use_fb_json_functions';
 VARIABLE_NAME	VARIABLE_VALUE
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=off
 set global use_fb_json_functions=2;
 set session use_fb_json_functions=3;
 select @@global.use_fb_json_functions;
 @@global.use_fb_json_functions
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=on
 select @@session.use_fb_json_functions;
 @@session.use_fb_json_functions
-use_fb_json_extract=on
+use_fb_json_extract=on,use_fb_json_contains=on
 set global use_fb_json_functions="use_fb_json_extract=on";
 set session use_fb_json_functions="use_fb_json_extract=off";
 select @@global.use_fb_json_functions;
 @@global.use_fb_json_functions
-use_fb_json_extract=on
+use_fb_json_extract=on,use_fb_json_contains=on
 select @@session.use_fb_json_functions;
 @@session.use_fb_json_functions
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=on
 show global variables like 'use_fb_json_functions';
 Variable_name	Value
-use_fb_json_functions	use_fb_json_extract=on
+use_fb_json_functions	use_fb_json_extract=on,use_fb_json_contains=on
 show session variables like 'use_fb_json_functions';
 Variable_name	Value
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=on
 select * from performance_schema.global_variables where variable_name='use_fb_json_functions';
 VARIABLE_NAME	VARIABLE_VALUE
-use_fb_json_functions	use_fb_json_extract=on
+use_fb_json_functions	use_fb_json_extract=on,use_fb_json_contains=on
 select * from performance_schema.session_variables where variable_name='use_fb_json_functions';
 VARIABLE_NAME	VARIABLE_VALUE
-use_fb_json_functions	use_fb_json_extract=off
+use_fb_json_functions	use_fb_json_extract=off,use_fb_json_contains=on
 set session use_fb_json_functions="default";
 select @@session.use_fb_json_functions;
 @@session.use_fb_json_functions
-use_fb_json_extract=on
+use_fb_json_extract=on,use_fb_json_contains=on
 set global use_fb_json_functions=1.1;
 ERROR 42000: Incorrect argument type to variable 'use_fb_json_functions'
-set global use_fb_json_functions=7;
-ERROR 42000: Variable 'use_fb_json_functions' can't be set to the value of '7'
+set global use_fb_json_functions=8;
+ERROR 42000: Variable 'use_fb_json_functions' can't be set to the value of '8'
 set global use_fb_json_functions=1e1;
 ERROR 42000: Incorrect argument type to variable 'use_fb_json_functions'
 set session use_fb_json_functions="index_merge";
@@ -68,4 +68,4 @@ ERROR 42000: Variable 'use_fb_json_functions' can't be set to the value of 'e'
 SET @@global.use_fb_json_functions = @start_global_value;
 SELECT @@global.use_fb_json_functions;
 @@global.use_fb_json_functions
-use_fb_json_extract=off
+use_fb_json_extract=off,use_fb_json_contains=off
