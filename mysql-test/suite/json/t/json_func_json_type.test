@@ -196,6 +196,43 @@ select json from test_json where json_extract_value(json,'k1') > 1 order by 1;
 truncate test_json;
 
 --echo #
+--echo # json_contains
+--echo #
+
+--echo # test on table
+insert into test_json values
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":1}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}'),
+('{"1":"2"}'),
+('{"1":2}'),
+('[{"开源数据库":"MySQL"},"开源数据库"]'),
+('{"k1":true, "k2":false, "k3":null}');
+
+set session use_fb_json_functions='use_fb_json_contains=on';
+select json_contains(json,'k1','v1'),json from test_json order by 1,2;
+select json_contains(json,'k2','v2'),json from test_json order by 1,2;
+select json_contains(json,'k1',1),json from test_json order by 1,2;
+select json_contains(json,'1',2),json from test_json order by 1,2;
+select json_contains(json,'k2'),json from test_json order by 1,2;
+select json_contains(json,'1'),json from test_json order by 1,2;
+select json_contains(json,'1','2'),json from test_json order by 1,2;
+select json_contains(json,'开源数据库', 'MySQL'),json from test_json order by 1,2;
+select json_contains(json,'k1',true),json from test_json order by 1,2;
+select json_contains(json,'k2',false),json from test_json order by 1,2;
+select json_contains(json,'k3',null),json from test_json order by 1,2;
+select json_contains(json,'k2',CONVERT('{"k3":12.345}', JSON)),json from test_json order by 1,2;
+select json_contains(json,'k2',CONVERT('["v_",2,true]', JSON)),json from test_json order by 1,2;
+select json_contains(json,'k2',CONVERT('["%",2,true]', JSON)),json from test_json order by 1,2;
+set session use_fb_json_functions='default';
+
+truncate test_json;
+
+--echo #
 --echo # cleanup
 --echo #
 drop table test_json;

@@ -7841,8 +7841,8 @@ static Sys_var_bool Sys_enable_group_replication_plugin_hooks(
     READ_ONLY NON_PERSIST GLOBAL_VAR(opt_group_replication_plugin_hooks),
     CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static const char *use_fb_json_functions_names[] = {"use_fb_json_extract",
-                                                    "default", NullS};
+static const char *use_fb_json_functions_names[] = {
+    "use_fb_json_extract", "use_fb_json_contains", "default", NullS};
 
 static Sys_var_flagset Sys_use_fb_json_functions(
     "use_fb_json_functions",
