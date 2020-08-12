@@ -57,8 +57,17 @@ DROP TABLE xt123;
 --error ER_UNKNOWN_ERROR
 CREATE TABLE t123 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 
-# test multiple entries in the list
+# test multiple entries in the list with commas
 SET GLOBAL rocksdb_strict_collation_exceptions="s.*,t.*";
+CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE s1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+
+# test multiple entries in the list with vertical bar
+SET GLOBAL rocksdb_strict_collation_exceptions="s.*|t.*";
 CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 DROP TABLE s1;
 CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
@@ -75,8 +84,26 @@ DROP TABLE t1;
 --error ER_UNKNOWN_ERROR
 CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 
+# test multiple entries in the list and extra vertical bar at the front
+SET GLOBAL rocksdb_strict_collation_exceptions="|s.*|t.*";
+CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE s1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+
 # test multiple entries in the list and extra comma in the middle
 SET GLOBAL rocksdb_strict_collation_exceptions="s.*,,t.*";
+CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE s1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+
+# test multiple entries in the list and extra vertical bar in the middle
+SET GLOBAL rocksdb_strict_collation_exceptions="s.*||t.*";
 CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 DROP TABLE s1;
 CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
@@ -93,14 +120,56 @@ DROP TABLE t1;
 --error ER_UNKNOWN_ERROR
 CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 
-# test multiple entries in the list and tons of commas just for the fun of it
-SET GLOBAL rocksdb_strict_collation_exceptions=",,,,,,,,s.*,,,,,,,,t.*,,,,,,,,";
+# test multiple entries in the list and extra vertical bar at the end
+SET GLOBAL rocksdb_strict_collation_exceptions="s.*|t.*|";
 CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 DROP TABLE s1;
 CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
 DROP TABLE t1;
 --error ER_UNKNOWN_ERROR
 CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+
+# test multiple entries in the list and tons of commas and vertical bars just for the fun of it
+SET GLOBAL rocksdb_strict_collation_exceptions="||||,,,,s.*,,|,,||,t.*,,|||,,,";
+CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE s1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+--error ER_UNKNOWN_ERROR
+CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+
+# These tests have been temporarily removed because they fail when the server
+# is compiled using GCC 4.8 as full regular expression handling was added
+# in GCC 4.9.  We need to add the ability to detect if full regex is
+# available before re-enabling them.
+
+## test invalid regex (missing end bracket)
+#--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
+#SET GLOBAL rocksdb_strict_collation_exceptions="[a-b";
+#--exec grep -A 1 "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
+#--error ER_UNKNOWN_ERROR
+#CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#SET GLOBAL rocksdb_strict_collation_exceptions="[a-b]";
+#CREATE TABLE a (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#CREATE TABLE b (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#--error ER_UNKNOWN_ERROR
+#CREATE TABLE c (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#DROP TABLE a, b;
+
+## test invalid regex (trailing escape)
+#--exec echo "" >$MYSQLTEST_VARDIR/log/mysqld.1.err
+#SET GLOBAL rocksdb_strict_collation_exceptions="abc\\";
+#--exec grep -A 1 "Invalid pattern" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2
+#--error ER_UNKNOWN_ERROR
+#CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#SET GLOBAL rocksdb_strict_collation_exceptions="abc";
+#CREATE TABLE abc (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#--error ER_UNKNOWN_ERROR
+#CREATE TABLE abcd (id INT PRIMARY KEY, value varchar(50), index(value)) engine=rocksdb charset utf8;
+#DROP TABLE abc;
+
+# test bad regex (null caused a crash) - Issue 493
+SET GLOBAL rocksdb_strict_collation_exceptions=null;
 
 # cleanup
 SET GLOBAL rocksdb_strict_collation_exceptions=@start_global_value;

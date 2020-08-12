@@ -150,8 +150,7 @@ static Rdb_background_thread rdb_bg_thread;
 
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
-std::vector<std::string> collation_exception_list;
-mysql_rwlock_t collation_exception_list_rwlock;
+Regex_list_handler *rdb_collation_exceptions;
 
 static const char* const ERRSTR_ROLLBACK_ONLY
   = "This transaction was rolled back and cannot be "
@@ -365,6 +364,7 @@ rocksdb_set_rate_limiter_bytes_per_sec(THD*                     thd,
                                        void*                    var_ptr,
                                        const void*              save);
 
+static void rdb_set_collation_exception_list(const char *exception_list);
 static void
 rocksdb_set_collation_exception_list(THD*                     thd,
                                      struct st_mysql_sys_var* var,
@@ -2935,8 +2935,13 @@ static int rocksdb_init_func(void *p)
 #endif
   mysql_mutex_init(rdb_collation_data_mutex_key, &rdb_collation_data_mutex,
                    MY_MUTEX_INIT_FAST);
-  mysql_rwlock_init(key_rwlock_collation_exception_list,
-                   &collation_exception_list_rwlock);
+#if defined(HAVE_PSI_INTERFACE)
+  rdb_collation_exceptions = new Regex_list_handler(
+      key_rwlock_collation_exception_list);
+#else
+  rdb_collation_exceptions = new Regex_list_handler();
+#endif
+
   mysql_mutex_init(rdb_sysvars_psi_mutex_key, &rdb_sysvars_mutex,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(rdb_mem_cmp_space_mutex_key, &rdb_mem_cmp_space_mutex,
@@ -3248,8 +3253,7 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  collation_exception_list = my_core::split(rocksdb_strict_collation_exceptions,
-                                            ',');
+  rdb_set_collation_exception_list(rocksdb_strict_collation_exceptions);
 
   if (rocksdb_pause_background_work) {
     rdb->PauseBackgroundWork();
@@ -3310,11 +3314,13 @@ static int rocksdb_done_func(void *p)
   }
 
   rdb_open_tables.free_hash();
-  mysql_rwlock_destroy(&collation_exception_list_rwlock);
   mysql_mutex_destroy(&rdb_open_tables.m_mutex);
   mysql_mutex_destroy(&rdb_sysvars_mutex);
+
+  delete rdb_collation_exceptions;
   mysql_mutex_destroy(&rdb_collation_data_mutex);
   mysql_mutex_destroy(&rdb_mem_cmp_space_mutex);
+
   Rdb_transaction::term_mutex();
 
   for (auto& it : rdb_collation_data)
@@ -4645,9 +4651,7 @@ int ha_rocksdb::create_cfs(const TABLE *table_arg, const std::string& db_table,
       {
         if (!rdb_is_index_collation_supported(
             table_arg->key_info[i].key_part[part].field) &&
-            !my_core::is_table_in_list(tablename_sys,
-                                       collation_exception_list,
-                                       &collation_exception_list_rwlock))
+            !rdb_collation_exceptions->matches(tablename_sys))
         {
           std::string collation_err;
           for (auto coll : RDB_INDEX_COLLATIONS)
@@ -10089,6 +10093,17 @@ rocksdb_set_rate_limiter_bytes_per_sec(
   }
 }
 
+void rdb_set_collation_exception_list(const char *exception_list)
+{
+  DBUG_ASSERT(rdb_collation_exceptions != nullptr);
+
+  if (!rdb_collation_exceptions->set_patterns(exception_list))
+  {
+    my_core::warn_about_bad_patterns(rdb_collation_exceptions,
+                                     "strict_collation_exceptions");
+  }
+}
+
 void
 rocksdb_set_collation_exception_list(THD*                     thd,
                                      struct st_mysql_sys_var* var,
@@ -10097,14 +10112,7 @@ rocksdb_set_collation_exception_list(THD*                     thd,
 {
   const char* val = *static_cast<const char*const*>(save);
 
-  // Make sure we are not updating the list when it is being used elsewhere
-  mysql_rwlock_wrlock(&collation_exception_list_rwlock);
-
-  // Split the input string into a list of table names
-  collation_exception_list = my_core::split(val, ',');
-
-  // Release the mutex
-  mysql_rwlock_unlock(&collation_exception_list_rwlock);
+  rdb_set_collation_exception_list(val == nullptr ? "" : val);
 
   *static_cast<const char**>(var_ptr) = val;
 }
