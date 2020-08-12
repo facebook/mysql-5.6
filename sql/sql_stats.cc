@@ -933,7 +933,7 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   /* Get the schema and the user name */
   const char *schema= thd->db ? thd->db : "NULL";
   const USER_CONN* uc= thd->get_user_connect();
-  const char *user= uc->user ? uc->user : "NULL";
+  const char *user= (uc && uc->user) ? uc->user : "NULL";
 
   uint32_t db_id= get_id(DB_MAP_NAME, schema, strlen(schema));
   uint32_t user_id= get_id(USER_MAP_NAME, user, strlen(user));
