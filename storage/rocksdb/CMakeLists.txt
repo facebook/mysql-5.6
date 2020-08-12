@@ -2,6 +2,8 @@ RETURN() # MyRocks is disabled
 
 # TODO: Copyrights
 
+RETURN() # MyRocks is disabled
+
 IF (NOT EXISTS "${CMAKE_SOURCE_DIR}/rocksdb/Makefile")
   MESSAGE(SEND_ERROR "Missing Makefile in rocksdb directory. Try \"git submodule update\".")
 ENDIF()
