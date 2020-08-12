@@ -9491,6 +9491,11 @@ static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff) {
   update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
 }
+
+static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff) {
+  update_malloc_status();
+  return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
+}
 #endif /* HAVE_JEMALLOC */
 
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {
@@ -9978,6 +9983,8 @@ SHOW_VAR status_vars[] = {
     {"Jemalloc_stats_allocated", (char *)&show_jemalloc_allocated, SHOW_FUNC,
      SHOW_SCOPE_ALL},
     {"Jemalloc_stats_mapped", (char *)&show_jemalloc_mapped, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_stats_metadata", (char *)&show_jemalloc_metadata, SHOW_FUNC,
      SHOW_SCOPE_ALL},
 #endif
     {"Key_blocks_not_flushed",
