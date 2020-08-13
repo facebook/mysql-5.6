@@ -41,7 +41,7 @@ dt
 2011-08-27 21:33:56
 INSERT INTO t1 (d,dt,ts,t,y) VALUES
 ('2012-01-11', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000');
-ERROR 23000: Duplicate entry '2010-11-22 12:33:54' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '2010-11-22 12:33:54' for key 't1.PRIMARY'
 DROP TABLE t1;
 CREATE TABLE t1 (
 d DATE,

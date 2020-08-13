@@ -1,10 +1,6 @@
 # Save the initial number of concurrent sessions
 --source include/count_sessions.inc
 
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
-
 connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 
@@ -19,7 +15,7 @@ CREATE TABLE t1 (id1 INT NOT NULL, id2 INT NOT NULL, id3 VARCHAR(32),
                  INDEX (id1) ##CF##,
                  INDEX (id3, id1) ##CF##,
                  UNIQUE INDEX(id5) ##CF##, 
-                 INDEX (id2, id5)) ENGINE=ROCKSDB;
+                 INDEX (id2, id5)) ENGINE=rocksdb CHARSET=latin1;
 
 --disable_query_log
 let $max = 10;

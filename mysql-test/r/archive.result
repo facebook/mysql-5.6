@@ -4,7 +4,7 @@ SET default_storage_engine=ARCHIVE;
 CREATE TABLE t1 (
 Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
 Varor_period smallint(4) unsigned DEFAULT '0' NOT NULL
-) ENGINE=archive;
+) ENGINE=archive CHARSET=utf8mb4;
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -27,7 +27,7 @@ fld3 char(30) DEFAULT '' NOT NULL,
 fld4 char(35) DEFAULT '' NOT NULL,
 fld5 char(35) DEFAULT '' NOT NULL,
 fld6 char(4) DEFAULT '' NOT NULL
-) ENGINE=archive;
+) ENGINE=archive CHARSET=utf8mb4;
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -12726,7 +12726,7 @@ test.t1	analyze	note	The storage engine for the table doesn't support analyze
 SELECT DATA_LENGTH, AVG_ROW_LENGTH FROM
 INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
 DATA_LENGTH	AVG_ROW_LENGTH
-123	61
+122	61
 DROP TABLE t1;
 SET @save_join_buffer_size= @@join_buffer_size;
 SET @@join_buffer_size= 8192;

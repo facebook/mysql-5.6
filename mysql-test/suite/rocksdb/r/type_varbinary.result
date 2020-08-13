@@ -5,14 +5,14 @@ v1 VARBINARY(1) ,
 v64 VARBINARY(64) ,
 v65000 VARBINARY(65000) ,
 PRIMARY KEY (v64)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 v0	varbinary(0)	YES		NULL	
 v1	varbinary(1)	YES		NULL	
 v64	varbinary(64)	NO	PRI	NULL	
 v65000	varbinary(65000)	YES		NULL	
-CREATE TABLE t2 (v VARBINARY(65532) , PRIMARY KEY(v(255))) ENGINE=rocksdb;
+CREATE TABLE t2 (v VARBINARY(65532) , PRIMARY KEY(v(255))) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t2;
 Field	Type	Null	Key	Default	Extra
 v	varbinary(65532)	NO	PRI	NULL	

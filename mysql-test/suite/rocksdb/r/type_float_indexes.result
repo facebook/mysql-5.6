@@ -168,7 +168,7 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (4644,1422.22,466664.999,0.5,5);
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,0,0,0,6);
-ERROR 23000: Duplicate entry '1.2345' for key 'f'
+ERROR 23000: Duplicate entry '1.2345' for key 't1.f'
 EXPLAIN SELECT DISTINCT f FROM t1 ORDER BY f;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	NULL	index	f	f	5	NULL	#	#	Using index

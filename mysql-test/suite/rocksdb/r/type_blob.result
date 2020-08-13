@@ -11,10 +11,10 @@ b17m BLOB(17000000) ,
 t TINYBLOB ,
 m MEDIUMBLOB ,
 l LONGBLOB 
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
-pk	int(11)	NO	PRI	NULL	auto_increment
+pk	int	NO	PRI	NULL	auto_increment
 b	blob	YES		NULL	
 b0	tinyblob	YES		NULL	
 b1	tinyblob	YES		NULL	

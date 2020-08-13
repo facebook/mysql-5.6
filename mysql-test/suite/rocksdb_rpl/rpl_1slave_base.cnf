@@ -3,13 +3,11 @@
 !include include/default_client.cnf
 
 [mysqld.1]
-
 # Run the master.sh script before starting this process
 #!run-master-sh
 
+default-storage-engine=  rocksdb
 log-bin=                 master-bin
-
-loose-innodb
 
 [mysqld.2]
 # Run the slave.sh script before starting this process
@@ -20,6 +18,7 @@ loose-innodb
 #!use-slave-opt
 innodb_use_native_aio = 0
 
+default-storage-engine=     rocksdb
 log-bin=                    slave-bin
 relay-log=                  slave-relay-bin
 
@@ -38,8 +37,6 @@ skip-slave-start
 # on the server. The path need to have constant length otherwise
 # test results will vary, thus a relative path is used.
 slave-load-tmpdir=          ../../tmp
-
-loose-innodb
 
 
 [ENV]

@@ -10,7 +10,7 @@ id5 int not null,
 value bigint,
 value2 varchar(100),
 primary key (id1, id2, id3, id4) COMMENT 'rev:bf5_1'
-) engine=ROCKSDB;
+) ENGINE=RocksDB CHARSET=latin1;
 create table t2(a int);
 insert into t2 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t3(seq int);
@@ -58,7 +58,7 @@ kp1 int unsigned not null,
 kp2 int unsigned not null,
 col1 int unsigned,
 key(kp1, kp2) comment 'rev:bf5_2'
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t4 values (1, 0xFFFF, 0xFFF, 12345);
 # This must not fail an assert:
 select * from t4 force index(kp1) where kp1=0xFFFFFFFF and kp2<=0xFFFFFFFF order by  kp2 desc;
@@ -75,7 +75,7 @@ id5 int not null,
 value bigint,
 value2 varchar(100),
 primary key (id1, id2, id3, id4) COMMENT 'bf5_1'
-) engine=ROCKSDB;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t5 select * from t1;
 set global rocksdb_force_flush_memtable_now=1;
 # An index scan starting from the end of the table:

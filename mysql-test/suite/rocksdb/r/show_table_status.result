@@ -1,10 +1,10 @@
 DROP TABLE IF EXISTS t1, t2, t3;
-CREATE TABLE t1 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (100,'a'),(2,'foo');
-CREATE TABLE t2 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t2 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t2 (a,b) VALUES (1,'bar');
 set global rocksdb_force_flush_memtable_now = true;
-CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=rocksdb CHARACTER SET UTF8MB4;
+CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=RocksDB CHARSET=UTF8MB4;
 SHOW TABLE STATUS WHERE name IN ( 't1', 't2', 't3' );
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	10	Fixed	1000	#	#	0	0	0	NULL	#	#	NULL	latin1_swedish_ci	NULL		

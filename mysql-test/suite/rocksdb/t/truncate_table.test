@@ -16,7 +16,7 @@
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 
-CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=RocksDB CHARSET=latin1;
 TRUNCATE TABLE t1;
 INSERT INTO t1 (a,b) VALUES (1,'a'), (2,'b'), (3,'c');
 TRUNCATE TABLE t1;
@@ -26,7 +26,7 @@ DROP TABLE t1;
 
 # Truncate resets auto-increment value on the table
 
-CREATE TABLE t1 (a INT KEY AUTO_INCREMENT, c CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT KEY AUTO_INCREMENT, c CHAR(8)) ENGINE=RocksDB CHARSET=latin1;
 
 #--replace_column 2 # 3 # 4 # 5 # 6 # 7 # 8 # 9 # 10 # 12 # 13 # 14 # 15 # 16 # 17 # 18 #
 --replace_column 5 # 6 # 7 # 12 # 13 #
@@ -53,7 +53,7 @@ DROP TABLE t1;
 
 # Truncate closes handlers
 
-CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'c');
 
 --error ER_ILLEGAL_HA

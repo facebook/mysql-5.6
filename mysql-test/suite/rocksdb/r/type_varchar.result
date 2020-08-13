@@ -8,21 +8,20 @@ select * from t1;
 pk	col1
 a	1
 drop table t1;
-DROP TABLE IF EXISTS t1, t2;
 CREATE TABLE t1 (
 v0 VARCHAR(0) ,
 v1 VARCHAR(1) ,
 v64 VARCHAR(64) ,
 v65000 VARCHAR(65000) ,
 PRIMARY KEY (v64)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 v0	varchar(0)	YES		NULL	
 v1	varchar(1)	YES		NULL	
 v64	varchar(64)	NO	PRI	NULL	
 v65000	varchar(65000)	YES		NULL	
-CREATE TABLE t2 (v VARCHAR(65532), PRIMARY KEY (v(255))) ENGINE=rocksdb;
+CREATE TABLE t2 (v VARCHAR(65532), PRIMARY KEY (v(255))) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t2;
 Field	Type	Null	Key	Default	Extra
 v	varchar(65532)	NO	PRI	NULL	
@@ -150,10 +149,10 @@ primary key (pk)
 );
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
 insert into t1 values('b  ', 'b-2x-space');
 insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 select pk, hex(pk), col1 from t1;
 pk	hex(pk)	col1
 a	61	a
@@ -168,7 +167,7 @@ a	61	a
 b  	622020	b-2x-space
 # Try longer values
 insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
 insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
 select * from t1;
 pk	col1
@@ -244,7 +243,7 @@ pk	col1	hex(col1)	length(col1)
 23	                  	202020202020202020202020202020202020	18
 14	                a	2020202020202020202020202020202061	17
 drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 select pk,length(a) from t1 force index(a) where a < 'zz';
@@ -274,10 +273,10 @@ Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but wil
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
 insert into t1 values('b  ', 'b-2x-space');
 insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 select pk, hex(pk), col1 from t1;
 pk	hex(pk)	col1
 a	61	a
@@ -292,7 +291,7 @@ a	61	a
 b  	622020	b-2x-space
 # Try longer values
 insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
 insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
 select * from t1;
 pk	col1
@@ -371,7 +370,7 @@ pk	col1	hex(col1)	length(col1)
 23	                  	202020202020202020202020202020202020	18
 14	                a	2020202020202020202020202020202061	17
 drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 select pk,length(a) from t1 force index(a) where a < 'zz';
@@ -398,10 +397,10 @@ primary key (pk)
 );
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
 insert into t1 values('b  ', 'b-2x-space');
 insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 select pk, hex(pk), col1 from t1;
 pk	hex(pk)	col1
 a	0061	a
@@ -416,7 +415,7 @@ a	0061	a
 b  	006200200020	b-2x-space
 # Try longer values
 insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
 insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
 select * from t1;
 pk	col1
@@ -492,7 +491,7 @@ pk	col1	hex(col1)	length(col1)
 23	                  	002000200020002000200020002000200020002000200020002000200020002000200020	36
 14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 select pk,length(a) from t1 force index(a) where a < 'zz';
@@ -519,10 +518,10 @@ primary key (pk)
 );
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
 insert into t1 values('b  ', 'b-2x-space');
 insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 select pk, hex(pk), col1 from t1;
 pk	hex(pk)	col1
 a	61	a
@@ -537,7 +536,7 @@ a	61	a
 b  	622020	b-2x-space
 # Try longer values
 insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
 insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
 select * from t1;
 pk	col1
@@ -613,7 +612,7 @@ pk	col1	hex(col1)	length(col1)
 23	                  	202020202020202020202020202020202020	18
 14	                a	2020202020202020202020202020202061	17
 drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 select pk,length(a) from t1 force index(a) where a < 'zz';
@@ -640,10 +639,10 @@ primary key (pk)
 );
 insert into t1 values ('a','a');
 insert into t1 values ('a ', 'a-space');
-ERROR 23000: Duplicate entry 'a ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a ' for key 't1.PRIMARY'
 insert into t1 values('b  ', 'b-2x-space');
 insert into t1 values ('b', 'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 select pk, hex(pk), col1 from t1;
 pk	hex(pk)	col1
 a	0061	a
@@ -658,7 +657,7 @@ a	0061	a
 b  	006200200020	b-2x-space
 # Try longer values
 insert into t1 values (concat('a', repeat(' ',10)), 'a-10-x-space');
-ERROR 23000: Duplicate entry 'a          ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'a          ' for key 't1.PRIMARY'
 insert into t1 values (concat('c', repeat(' ',10)), 'c-10-x-space');
 select * from t1;
 pk	col1
@@ -734,7 +733,7 @@ pk	col1	hex(col1)	length(col1)
 23	                  	002000200020002000200020002000200020002000200020002000200020002000200020	36
 14	                a	00200020002000200020002000200020002000200020002000200020002000200061	34
 drop table t1;
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 select pk,length(a) from t1 force index(a) where a < 'zz';
@@ -755,7 +754,7 @@ pk int primary key,
 col1 varchar(10) collate utf8mb4_bin not null,
 col2 varchar(20),
 key(col1)
-) engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, 'ab','ab');
 insert into t1 values (2, 'ab\0','ab0');
 select pk, hex(col1), col2 from t1 force index(col1) order by col1;
@@ -767,7 +766,7 @@ pk	hex(col1)	col2
 2	616200	ab0
 1	6162	ab
 drop table t1;
-create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
+create table t (id int primary key, email varchar(100), KEY email_i (email(30))) CHARSET=latin1;
 insert into t values (1, 'abcabcabcabcabcabcabcabcabcabcabc  ');
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -782,7 +781,7 @@ set @save_rocksdb_checksums_pct = @@global.rocksdb_checksums_pct;
 set @save_rocksdb_verify_row_debug_checksums = @@session.rocksdb_verify_row_debug_checksums;
 set global rocksdb_checksums_pct = 100;
 set session rocksdb_verify_row_debug_checksums = on;
-create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
+create table t (id int primary key, email varchar(100), KEY email_i (email(30))) CHARSET=latin1;
 insert into t values (1, 'a');
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
@@ -798,7 +797,7 @@ set session rocksdb_verify_row_debug_checksums = @save_rocksdb_verify_row_debug_
 drop table if exists t;
 Warnings:
 Note	1051	Unknown table 'test.t'
-create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) engine=rocksdb;
+create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
@@ -814,13 +813,13 @@ drop table t;
 # PS-4971 : Setting utf8mb4 as a key in MyRocks table could lead to a server crash
 create table t1 (
 str varchar(255) character set utf8mb4,
-key str (str(2))) default character set utf8mb4 engine=rocksdb;
+key str (str(2))) ENGINE=rocksdb CHARSET=utf8mb4;
 insert INTO t1 values("1111111111111111111111111111111111111111111111111111");
 drop table t1;
 create table t1(
 t_vers varchar(4) not null,
 key ix_5 (t_vers)
-) charset latin1 engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values ('7.6 ');
 select t_vers from t1 where t_vers = '7.6';
 t_vers

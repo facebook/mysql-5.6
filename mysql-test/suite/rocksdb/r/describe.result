@@ -10,14 +10,14 @@ Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 DESCRIBE t1;
 Field	Type	Null	Key	Default	Extra
-a	int(11)	NO	PRI	NULL	
+a	int	NO	PRI	NULL	
 b	char(8)	YES		NULL	
 DESC t2 a;
 Field	Type	Null	Key	Default	Extra
-a	int(11)	YES		NULL	
+a	int	YES		NULL	
 DESCRIBE t3 '%';
 Field	Type	Null	Key	Default	Extra
-a	int(11)	YES		NULL	
+a	int	YES		NULL	
 b	char(8)	YES		NULL	
-pk	int(11)	NO	PRI	NULL	auto_increment
+pk	int	NO	PRI	NULL	auto_increment
 DROP TABLE t1, t2, t3;

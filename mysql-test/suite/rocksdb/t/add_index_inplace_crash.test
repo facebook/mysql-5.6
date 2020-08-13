@@ -10,7 +10,7 @@ drop table if exists t1;
 # test crash recovery
 #
 
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -38,7 +38,7 @@ DROP TABLE t1;
 #
 # Test crash recovery with partitioned tables
 #
-CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE = ROCKSDB PARTITION BY KEY(i) PARTITIONS 4;
+CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=rocksdb CHARSET=latin1 PARTITION BY KEY(i) PARTITIONS 4;
 
 --disable_query_log
 let $max = 100;
@@ -77,7 +77,7 @@ DROP TABLE t1;
 #
 # Test rollback on partitioned tables for inplace alter
 #
-CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE = ROCKSDB PARTITION BY KEY(i) PARTITIONS 4;
+CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=rocksdb CHARSET=latin1 PARTITION BY KEY(i) PARTITIONS 4;
 
 --disable_query_log
 let $max = 100;

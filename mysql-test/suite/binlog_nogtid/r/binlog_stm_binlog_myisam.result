@@ -211,6 +211,7 @@ c1
 SHOW SESSION VARIABLES LIKE "%_checks";
 Variable_name	Value
 foreign_key_checks	ON
+rocksdb_paranoid_checks	ON
 unique_checks	ON
 
 SET @@SESSION.foreign_key_checks= OFF;
@@ -229,6 +230,7 @@ c1
 SHOW SESSION VARIABLES LIKE "%_checks";
 Variable_name	Value
 foreign_key_checks	OFF
+rocksdb_paranoid_checks	ON
 unique_checks	OFF
 # INSERT INTO t1 VALUES(2)
 # foreign_key_checks=1 and unique_checks=1
@@ -247,5 +249,6 @@ c1
 SHOW SESSION VARIABLES LIKE "%_checks";
 Variable_name	Value
 foreign_key_checks	OFF
+rocksdb_paranoid_checks	ON
 unique_checks	OFF
 DROP TABLE t1;

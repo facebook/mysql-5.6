@@ -8,7 +8,7 @@ set session rocksdb_lock_wait_timeout=50;
 begin;
 insert into t1 values (1,2);
 commit;
-ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
 commit;
 select * from t1;
 id	value
@@ -19,7 +19,7 @@ insert into t2 values (1,1,1);
 begin;
 insert into t2 values (2,1,2);
 commit;
-ERROR 23000: Duplicate entry '1' for key 'id2'
+ERROR 23000: Duplicate entry '1' for key 't2.id2'
 commit;
 select * from t2;
 id	id2	value
@@ -59,9 +59,9 @@ ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on 
 set debug_sync='now SIGNAL go1';
 set debug_sync='now SIGNAL go2';
 insert into t1 values (1,2);
-ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
 insert into t2 values (2,1,2);
-ERROR 23000: Duplicate entry '1' for key 'id2'
+ERROR 23000: Duplicate entry '1' for key 't2.id2'
 select * from t1;
 id	value
 1	1
@@ -78,7 +78,7 @@ SET @old_val = @@session.unique_checks;
 set @@session.unique_checks = FALSE;
 insert into t1 values (1, 1), (1, 2);
 insert into t2 values (1, 1, 1), (1, 2, 1);
-ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '1' for key 't2.PRIMARY'
 insert into t3 values (1, 1), (1, 1);
 set @@session.unique_checks = @old_val;
 drop table t1, t2, t3;
@@ -102,6 +102,8 @@ insert into t1(a,b,c) values (10,'file_type','trx-a') on duplicate key update c=
 set debug_sync='now WAIT_FOR trx_a_sleep';
 begin;
 insert into t1(a,b,c) values (10,'file_type','trx-b') on duplicate key update c=values(c);
+Warnings:
+Warning	1287	'VALUES function' is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead
 commit;
 set debug_sync='now SIGNAL trx_a_cont';
 ERROR 40001: Deadlock found when trying to get lock; try restarting transaction (snapshot conflict)

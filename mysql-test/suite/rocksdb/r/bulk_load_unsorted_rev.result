@@ -1,7 +1,7 @@
 SET rocksdb_bulk_load_size=3;
 SET rocksdb_bulk_load_allow_unsorted=1;
 CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "rev:cf1")
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 SET rocksdb_bulk_load=1;
 SELECT * FROM t1 FORCE INDEX (PRIMARY);
 a	b
@@ -15,7 +15,7 @@ a	b
 -3	5
 DROP TABLE t1;
 CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "rev:cf1", KEY(b))
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 SET rocksdb_bulk_load=1;
 SELECT * FROM t1 FORCE INDEX (PRIMARY);
 a	b
@@ -29,9 +29,9 @@ a	b
 -3	5
 DROP TABLE t1;
 CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "rev:cf1")
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 CREATE TABLE t2(a INT, b INT, PRIMARY KEY(a) COMMENT "rev:cf1")
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (1,1);
 INSERT INTO t2 VALUES (1,1);
@@ -52,9 +52,9 @@ a	b
 1	1
 DROP TABLE t1, t2;
 CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "rev:cf1")
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 CREATE TABLE t2(a INT, b INT, PRIMARY KEY(b) COMMENT "rev:cf1")
-ENGINE=ROCKSDB;
+ENGINE=RocksDB CHARSET=latin1;
 set session transaction isolation level repeatable read;
 start transaction with consistent snapshot;
 select VALUE > 0 as 'Has opened snapshots' from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';

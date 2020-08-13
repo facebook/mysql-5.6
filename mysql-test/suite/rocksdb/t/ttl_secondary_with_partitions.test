@@ -1,6 +1,5 @@
 --source include/have_debug.inc
 --source include/have_rocksdb.inc
---source include/have_partition.inc
 
 #
 # Create a table with multiple partitions, but in the comment don't specify
@@ -18,7 +17,7 @@ CREATE TABLE t1 (
     c2 INT,
     PRIMARY KEY (`c1`),
     KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;"
 PARTITION BY LIST(c1) (
     PARTITION custom_p0 VALUES IN (1, 4, 7),
@@ -68,7 +67,7 @@ CREATE TABLE t1 (
     name VARCHAR(25) NOT NULL,
     PRIMARY KEY (`c1`, `c2`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=my_custom_cf;custom_p2_cfname=baz',
     KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;custom_p1_ttl_duration=7;"
 PARTITION BY LIST(c1) (
     PARTITION custom_p0 VALUES IN (1, 4, 7),
@@ -135,7 +134,7 @@ CREATE TABLE t1 (
     event DATE,
     PRIMARY KEY (`c1`, `c2`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;',
     KEY kc2 (c2)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=9999;custom_p2_ttl_duration=5;"
 PARTITION BY LIST(c1) (
     PARTITION custom_p0 VALUES IN (1, 2, 3),
@@ -206,7 +205,7 @@ CREATE TABLE t1 (
     event DATE,
     PRIMARY KEY (`c1`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;',
     KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="ttl_duration=1;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;"
 PARTITION BY LIST(c1) (
     PARTITION custom_p0 VALUES IN (1, 2, 3),
@@ -262,7 +261,7 @@ CREATE TABLE t1 (
     c1 INT,
     c2 INT,
     PRIMARY KEY (`c1`) COMMENT 'custom_p0_cfname=foo;'
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;"
 PARTITION BY LIST(c1) (
     PARTITION custom_p0 VALUES IN (1, 4, 7),

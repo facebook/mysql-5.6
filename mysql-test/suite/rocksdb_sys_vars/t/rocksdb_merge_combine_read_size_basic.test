@@ -7,7 +7,7 @@ drop table if exists t1;
 set session rocksdb_merge_buf_size=250;
 set session rocksdb_merge_combine_read_size=1000;
 
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 
 --disable_query_log
 let $max = 100;

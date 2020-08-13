@@ -5,7 +5,7 @@ CREATE TABLE t1 (b BINARY,
 b20 BINARY(20) PRIMARY KEY,
 v16 VARBINARY(16),
 v128 VARBINARY(128)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	b20	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL
@@ -39,7 +39,7 @@ v16 VARBINARY(16),
 v128 VARBINARY(128),
 pk VARBINARY(10) PRIMARY KEY,
 INDEX (v16(10))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL

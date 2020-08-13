@@ -26,9 +26,9 @@ INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
 INSERT INTO t1 (a,b) VALUES (100,'a'), (6,'f');
 INSERT INTO t1 (a,b) VALUES (30,'m'),(29,'n');
 INSERT INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
-ERROR 23000: Duplicate entry '1' for key 'a'
+ERROR 23000: Duplicate entry '1' for key 't1.a'
 INSERT INTO t1 (a,b) VALUES (3,'a'),(0,'');
-ERROR 23000: Duplicate entry '3' for key 'a'
+ERROR 23000: Duplicate entry '3' for key 't1.a'
 INSERT INTO t1 (a,b) VALUES (0,'');
 SELECT a,b FROM t1;
 a	b
@@ -44,7 +44,7 @@ a	b
 6	f
 INSERT IGNORE INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
 Warnings:
-Warning	1062	Duplicate entry '1' for key 'a'
+Warning	1062	Duplicate entry '1' for key 't1.a'
 INSERT INTO t1 (a,b) VALUES (3,'a'),(4,'d') ON DUPLICATE KEY UPDATE a = a+10;
 SELECT a,b FROM t1;
 a	b
@@ -66,7 +66,7 @@ INSERT INTO t1 (a,b) VALUES (100,'a'), (6,'f');
 INSERT INTO t1 (a,b) VALUES (30,'m'),(29,'n');
 INSERT INTO t1 (a,b) VALUES (100,'b'), (2,'c');
 INSERT INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
-ERROR 23000: Duplicate entry '1-a' for key 'a'
+ERROR 23000: Duplicate entry '1-a' for key 't1.a'
 SELECT a,b FROM t1;
 a	b
 1	a
@@ -82,8 +82,10 @@ a	b
 6	f
 INSERT IGNORE INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
 Warnings:
-Warning	1062	Duplicate entry '1-a' for key 'a'
+Warning	1062	Duplicate entry '1-a' for key 't1.a'
 INSERT INTO t1 (a,b) VALUES (1,'a'),(12345,'z') ON DUPLICATE KEY UPDATE a = a+VALUES(a);
+Warnings:
+Warning	1287	'VALUES function' is deprecated and will be removed in a future release. Please use an alias (INSERT INTO ... VALUES (...) AS alias) and replace VALUES(col) in the ON DUPLICATE KEY UPDATE clause with alias.col instead
 SELECT a,b FROM t1;
 a	b
 100	a
@@ -99,7 +101,7 @@ a	b
 5	e
 6	f
 INSERT INTO t1 (a,b) VALUES (101,'x'),(101,'x');
-ERROR 23000: Duplicate entry '101-x' for key 'a'
+ERROR 23000: Duplicate entry '101-x' for key 't1.a'
 SELECT a,b FROM t1;
 a	b
 100	a
@@ -120,9 +122,9 @@ INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e');
 INSERT INTO t1 (a,b) VALUES (100,'a'), (6,'f');
 INSERT INTO t1 (a,b) VALUES (30,'m'),(29,'n');
 INSERT INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
-ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '1' for key 't1.PRIMARY'
 INSERT INTO t1 (a,b) VALUES (3,'a'),(0,'');
-ERROR 23000: Duplicate entry '3' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '3' for key 't1.PRIMARY'
 INSERT INTO t1 (a,b) VALUES (0,'');
 SELECT a,b FROM t1;
 a	b
@@ -138,7 +140,7 @@ a	b
 6	f
 INSERT IGNORE INTO t1 (a,b) VALUES (1,'a'),(12345,'z');
 Warnings:
-Warning	1062	Duplicate entry '1' for key 'PRIMARY'
+Warning	1062	Duplicate entry '1' for key 't1.PRIMARY'
 INSERT INTO t1 (a,b) VALUES (1,'a'),(12345,'z') ON DUPLICATE KEY UPDATE b = CONCAT(b,b);
 SELECT a,b FROM t1;
 a	b

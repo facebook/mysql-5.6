@@ -17,7 +17,7 @@ let $MYSQLD_DATADIR= `SELECT @@datadir`;
 CREATE TABLE t1 (
   Period smallint(4) unsigned zerofill DEFAULT '0000' NOT NULL,
   Varor_period smallint(4) unsigned DEFAULT '0' NOT NULL
-) ENGINE=archive;
+) ENGINE=archive CHARSET=utf8mb4;
 
 INSERT INTO t1 VALUES (9410,9412);
   
@@ -37,7 +37,7 @@ CREATE TABLE t2 (
   fld4 char(35) DEFAULT '' NOT NULL,
   fld5 char(35) DEFAULT '' NOT NULL,
   fld6 char(4) DEFAULT '' NOT NULL
-) ENGINE=archive;  
+) ENGINE=archive CHARSET=utf8mb4;
 
 #
 # Populate table

@@ -40,7 +40,7 @@ create table t1 (
   col1 varchar(10) collate utf8mb4_bin not null,
   col2 varchar(20),
   key(col1)
-) engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 insert into t1 values (1, 'ab','ab');
 insert into t1 values (2, 'ab\0','ab0');
@@ -50,7 +50,7 @@ select pk, hex(col1), col2 from t1 ignore index(col1) order by col1;
 drop table t1;
 
 # Issue #306 - Do not store trailing spaces for prefixed keys.
-create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
+create table t (id int primary key, email varchar(100), KEY email_i (email(30))) CHARSET=latin1;
 insert into t values (1, 'abcabcabcabcabcabcabcabcabcabcabc  ');
 --replace_column 10 # 11 #
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
@@ -61,7 +61,7 @@ set @save_rocksdb_checksums_pct = @@global.rocksdb_checksums_pct;
 set @save_rocksdb_verify_row_debug_checksums = @@session.rocksdb_verify_row_debug_checksums;
 set global rocksdb_checksums_pct = 100;
 set session rocksdb_verify_row_debug_checksums = on;
-create table t (id int primary key, email varchar(100), KEY email_i (email(30)));
+create table t (id int primary key, email varchar(100), KEY email_i (email(30))) CHARSET=latin1;
 insert into t values (1, 'a');
 --replace_column 10 # 11 #
 explain select 'email_i' as index_name, count(*) AS count from t force index(email_i);
@@ -73,7 +73,7 @@ set session rocksdb_verify_row_debug_checksums = @save_rocksdb_verify_row_debug_
 # Issue #784 - Skip trailing space bytes for non-unpackable fields
 
 drop table if exists t;
-create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) engine=rocksdb;
+create table t (h varchar(31) character set utf8 collate utf8_bin not null, i varchar(19) collate latin1_bin not null, primary key(i), key(h)) ENGINE=rocksdb CHARSET=latin1;
 insert into t(i,h) values('a','b');
 check table t;
 alter table t modify h varchar(31) character set cp1257 collate cp1257_bin not null;
@@ -86,7 +86,7 @@ drop table t;
 # stored secondary key entry.
 create table t1 (
   str varchar(255) character set utf8mb4,
-  key str (str(2))) default character set utf8mb4 engine=rocksdb;
+  key str (str(2))) ENGINE=rocksdb CHARSET=utf8mb4;
 insert INTO t1 values("1111111111111111111111111111111111111111111111111111");
 drop table t1;
 
@@ -96,7 +96,7 @@ drop table t1;
 create table t1(
   t_vers varchar(4) not null,
   key ix_5 (t_vers)
-) charset latin1 engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values ('7.6 ');
 select t_vers from t1 where t_vers = '7.6';
 drop table t1;
