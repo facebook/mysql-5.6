@@ -7,7 +7,7 @@ let ddl= $MYSQL_TMP_DIR/unique_sec.sql;
 --echo #
 --echo # Issue #88: Creating unique index over column with duplicate values succeeds
 --echo #
-create table t1 (pk int primary key, a int) engine=rocksdb;
+create table t1 (pk int primary key, a int) ENGINE=rocksdb CHARSET=latin1;
 
 insert into t1 values 
 (1, 1),
@@ -16,8 +16,10 @@ insert into t1 values
 (4, 1),
 (5, 5);
 
+--disable_result_log
 --error ER_DUP_ENTRY
 alter table t1 add unique(a);
+--enable_result_log
 drop table t1;
 
 # Disable until partition support is added
@@ -25,7 +27,7 @@ drop table t1;
 --echo #
 --echo # Issue #111
 --echo #
-CREATE TABLE t2 (pk int, a int, PRIMARY KEY (pk, a), UNIQUE KEY (a)) ENGINE=ROCKSDB PARTITION BY KEY (a) PARTITIONS 16;
+CREATE TABLE t2 (pk int, a int, PRIMARY KEY (pk, a), UNIQUE KEY (a)) ENGINE=rocksdb CHARSET=latin1 PARTITION BY KEY (a) PARTITIONS 16;
 
 INSERT INTO t2 VALUES (1,1);
 --error ER_DUP_ENTRY
@@ -38,17 +40,17 @@ DROP TABLE t2;
 --echo #
 --echo # Issue #491 (https://github.com/facebook/mysql-5.6/issues/491)
 --echo #
-CREATE TABLE t (a BLOB, PRIMARY KEY(a(2)), UNIQUE KEY (a(1))) engine=rocksdb;
+CREATE TABLE t (a BLOB, PRIMARY KEY(a(2)), UNIQUE KEY (a(1))) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t VALUES('a');
 CHECK TABLE t EXTENDED;
 DROP TABLE t;
 
-CREATE TABLE t (a VARCHAR(255), PRIMARY KEY(a), UNIQUE KEY (a(1))) engine=rocksdb;
+CREATE TABLE t (a VARCHAR(255), PRIMARY KEY(a), UNIQUE KEY (a(1))) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t VALUES('a');
 CHECK TABLE t EXTENDED;
 DROP TABLE t;
 
-CREATE TABLE t (a VARCHAR(255), PRIMARY KEY(a(2)), UNIQUE KEY (a(1))) engine=rocksdb;
+CREATE TABLE t (a VARCHAR(255), PRIMARY KEY(a(2)), UNIQUE KEY (a(1))) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t VALUES('a');
 CHECK TABLE t EXTENDED;
 DROP TABLE t;
@@ -59,7 +61,7 @@ DROP TABLE t;
 --echo #
 --echo # Validate lock acquired on SK during delete
 --echo #
-CREATE TABLE t3 (pk INT PRIMARY KEY, sk INT, UNIQUE KEY (sk)) ENGINE=ROCKSDB;
+CREATE TABLE t3 (pk INT PRIMARY KEY, sk INT, UNIQUE KEY (sk)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t3 VALUES (1, 100);
 
 BEGIN;

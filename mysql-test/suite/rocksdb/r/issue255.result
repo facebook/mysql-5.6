@@ -1,4 +1,4 @@
-CREATE TABLE t1 (pk BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT);
+CREATE TABLE t1 (pk BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (5);
 SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
@@ -14,7 +14,7 @@ SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	#	Fixed	#	#	#	#	#	#	9223372036854775807	#	#	NULL	latin1_swedish_ci	NULL		
 INSERT INTO t1 VALUES ();
-ERROR 23000: Duplicate entry '9223372036854775807' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '9223372036854775807' for key 't1.PRIMARY'
 SELECT * FROM t1;
 pk
 5
@@ -23,7 +23,7 @@ SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	#	Fixed	#	#	#	#	#	#	9223372036854775807	#	#	NULL	latin1_swedish_ci	NULL		
 INSERT INTO t1 VALUES ();
-ERROR 23000: Duplicate entry '9223372036854775807' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '9223372036854775807' for key 't1.PRIMARY'
 SELECT * FROM t1;
 pk
 5
@@ -32,7 +32,7 @@ SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	#	Fixed	#	#	#	#	#	#	9223372036854775807	#	#	NULL	latin1_swedish_ci	NULL		
 DROP TABLE t1;
-CREATE TABLE t1 (pk TINYINT NOT NULL PRIMARY KEY AUTO_INCREMENT);
+CREATE TABLE t1 (pk TINYINT NOT NULL PRIMARY KEY AUTO_INCREMENT) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (5);
 SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
@@ -48,7 +48,7 @@ SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	#	Fixed	#	#	#	#	#	#	127	#	#	NULL	latin1_swedish_ci	NULL		
 INSERT INTO t1 VALUES ();
-ERROR 23000: Duplicate entry '127' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '127' for key 't1.PRIMARY'
 SELECT * FROM t1;
 pk
 5
@@ -57,7 +57,7 @@ SHOW TABLE STATUS LIKE 't1';
 Name	Engine	Version	Row_format	Rows	Avg_row_length	Data_length	Max_data_length	Index_length	Data_free	Auto_increment	Create_time	Update_time	Check_time	Collation	Checksum	Create_options	Comment
 t1	ROCKSDB	#	Fixed	#	#	#	#	#	#	127	#	#	NULL	latin1_swedish_ci	NULL		
 INSERT INTO t1 VALUES ();
-ERROR 23000: Duplicate entry '127' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '127' for key 't1.PRIMARY'
 SELECT * FROM t1;
 pk
 5

@@ -5,7 +5,7 @@ set @@global.debug = '+d,rocksdb_drop_cf';
 create table t1 (
 id1 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key'
-  ) engine=rocksdb;
+  ) ENGINE=RocksDB CHARSET=latin1;
 set debug_sync = "now wait_for ready_to_mark_cf_dropped_in_create_cfs";
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 set debug_sync = "now signal mark_cf_dropped_done_in_create_cfs";

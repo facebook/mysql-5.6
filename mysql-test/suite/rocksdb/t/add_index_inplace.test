@@ -9,7 +9,7 @@ drop table if exists t1;
 ##
 
 # test basic add
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -23,7 +23,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 DROP TABLE t1;
 
 # test add + drop (simultaneous)
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -37,7 +37,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 DROP TABLE t1;
 
 ## test multi-drop + multi-add
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -52,7 +52,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 DROP TABLE t1;
 
 # test multi add + drop (simultaneous)
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -66,7 +66,7 @@ SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 DROP TABLE t1;
 
 # test dropping and adding a key simultaneously w/ same name but different col
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 ALTER TABLE t1 DROP INDEX ka, ADD INDEX ka(b), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 CHECK TABLE t1;
@@ -81,7 +81,7 @@ DROP TABLE t1;
 ##
 
 # test basic add
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 SHOW CREATE TABLE t1;
 SHOW COLUMNS IN t1;
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
@@ -95,7 +95,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > '2' AND b < 3;
 DROP TABLE t1;
 
 ## test add + drop (simultaneous)
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 SHOW CREATE TABLE t1;
 SHOW COLUMNS IN t1;
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
@@ -110,7 +110,7 @@ SELECT * FROM t1 FORCE INDEX(ka) WHERE a > '2' AND b < 3;
 DROP TABLE t1;
 
 ### test multi-drop + multi-add
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 SHOW CREATE TABLE t1;
 SHOW COLUMNS IN t1;
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
@@ -127,7 +127,7 @@ DROP TABLE t1;
 ##
 ## test adding via CREATE/DROP index syntax
 ##
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -148,7 +148,7 @@ DROP TABLE t1;
 #
 # Create tables with partitions and try to update/select from them.
 #
-CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE = ROCKSDB PARTITION BY KEY(i) PARTITIONS 4;
+CREATE TABLE t1 (i INT, j INT, k INT, PRIMARY KEY (i), KEY(j)) ENGINE=RocksDB CHARSET=latin1 PARTITION BY KEY(i) PARTITIONS 4;
 
 --disable_query_log
 let $max = 100;
@@ -171,7 +171,7 @@ DROP TABLE t1;
 --enable_testcase
 
 # test failure in prepare phase (due to collation)
-CREATE TABLE t1 (a INT, b TEXT);
+CREATE TABLE t1 (a INT, b TEXT) CHARSET=utf8mb4;
 
 --error ER_UNSUPPORTED_COLLATION
 ALTER TABLE t1 ADD KEY kb(b(10));
@@ -192,7 +192,7 @@ connection con1;
 show global variables like 'rocksdb_bulk_load%';
 show session variables like 'rocksdb_bulk_load%';
 
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 VALUES (1,1);
 
@@ -227,7 +227,7 @@ connect (con2,localhost,root,,);
 --echo # Switch to connection con1
 connection con1;
 
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 
 set rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (1,1);
@@ -261,7 +261,7 @@ SET session rocksdb_merge_combine_read_size = 566;
 SET session rocksdb_merge_buf_size = 340;
 
 show variables like 'rocksdb_bulk_load%';
-CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB;
+CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
@@ -278,7 +278,7 @@ SET session rocksdb_merge_combine_read_size = @prior_rocksdb_merge_combine_read_
 SET global rocksdb_strict_collation_check = @prior_rocksdb_strict_collation_check;
 
 # Test to make sure index statistics are updating properly
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 
 --disable_query_log
 let $max = 100;
@@ -351,7 +351,7 @@ CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b INT,
 c INT,
-KEY kbc(b,c)) ENGINE = ROCKSDB;
+KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a,b,c) VALUES (1,1,1);
 INSERT INTO t1 (a,b,c) VALUES (2,2,2);
 INSERT INTO t1 (a,b,c) VALUES (3,3,3);
@@ -366,7 +366,7 @@ CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b varchar(10),
 index kb(b(5))
-) ENGINE = ROCKSDB charset utf8 collate utf8_bin;
+) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 
 INSERT INTO t1 (a,b) VALUES (1,'1111122222');
 INSERT INTO t1 (a,b) VALUES (2,'2222233333');
@@ -390,7 +390,7 @@ DROP TABLE t1;
 SET @prior_rocksdb_table_stats_sampling_pct = @@rocksdb_table_stats_sampling_pct;
 set global rocksdb_table_stats_sampling_pct = 100;
 
-CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 (a, b) VALUES (1, 10);
 INSERT INTO t1 (a, b) VALUES (2, 10);

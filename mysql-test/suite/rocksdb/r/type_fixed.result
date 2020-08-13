@@ -11,7 +11,7 @@ n1 NUMERIC(1) ,
 n20_4 NUMERIC(20,4) ,
 n65_4 NUMERIC(65,4) ,
 pk NUMERIC  PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 d	decimal(10,0)	YES		NULL	

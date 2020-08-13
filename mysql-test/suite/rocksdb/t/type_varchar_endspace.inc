@@ -73,7 +73,7 @@ select pk, col1, hex(col1), length(col1) from t1;
 select pk, col1, hex(col1), length(col1) from t1;
 drop table t1;
 
-create table t1 (pk int primary key, a varchar(512), key(a)) engine=rocksdb;
+create table t1 (pk int primary key, a varchar(512), key(a)) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1, concat('a', repeat(' ', 300)));
 insert into t1 values (2, concat('b', repeat(' ', 300)));
 

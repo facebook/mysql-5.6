@@ -134,8 +134,6 @@ insert into t4 values
 # Now, the test itself
 #
 call save_read_stats();
-Warnings:
-Note	1585	This function 'format_bytes' has the same name as a native function
 call get_read_stats();
 rows_fetched - @rf
 0

@@ -1,5 +1,5 @@
 drop table if exists t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -7,8 +7,8 @@ ALTER TABLE t1 ADD INDEX kb(b), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `ka` (`a`),
   KEY `kab` (`a`,`b`),
   KEY `kb` (`b`)
@@ -24,7 +24,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -32,8 +32,8 @@ ALTER TABLE t1 ADD INDEX kb(b), DROP INDEX ka, ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `kab` (`a`,`b`),
   KEY `kb` (`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -48,7 +48,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -57,8 +57,8 @@ ALTER TABLE t1 ADD INDEX kb(b), ADD INDEX kab(a,b), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `kb` (`b`),
   KEY `kab` (`a`,`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -73,7 +73,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -81,8 +81,8 @@ ALTER TABLE t1 ADD INDEX kb(b), DROP INDEX ka, ADD INDEX kba(b,a), DROP INDEX ka
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `kb` (`b`),
   KEY `kba` (`b`,`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -97,13 +97,13 @@ SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 ALTER TABLE t1 DROP INDEX ka, ADD INDEX ka(b), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `kab` (`a`,`b`),
   KEY `ka` (`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -115,7 +115,7 @@ a	b
 SELECT * FROM t1 FORCE INDEX(kab) WHERE a > 2;
 a	b
 DROP TABLE t1;
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
@@ -124,14 +124,14 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
 a	varchar(11)	YES		NULL	
-b	int(10) unsigned	YES		NULL	
+b	int unsigned	YES		NULL	
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
 INSERT INTO t1 VALUES ('bbb', '2222', 2);
 INSERT INTO t1 VALUES ('ccc', '3333', 3);
@@ -141,7 +141,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `kab` (`a`,`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
@@ -152,7 +152,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > '2' AND b < 3;
 pk	a	b
 bbb	2222	2
 DROP TABLE t1;
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
@@ -161,14 +161,14 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
 a	varchar(11)	YES		NULL	
-b	int(10) unsigned	YES		NULL	
+b	int unsigned	YES		NULL	
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
 INSERT INTO t1 VALUES ('bbb', '2222', 2);
 INSERT INTO t1 VALUES ('ccc', '3333', 3);
@@ -179,7 +179,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `ka` (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
@@ -190,7 +190,7 @@ SELECT * FROM t1 FORCE INDEX(ka) WHERE a > '2' AND b < 3;
 pk	a	b
 bbb	2222	2
 DROP TABLE t1;
-CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=rocksdb charset utf8 collate utf8_bin;
+CREATE TABLE t1 (pk CHAR(8) PRIMARY KEY, a VARCHAR(11), b INT UNSIGNED) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
@@ -199,14 +199,14 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 pk	char(8)	NO	PRI	NULL	
 a	varchar(11)	YES		NULL	
-b	int(10) unsigned	YES		NULL	
+b	int unsigned	YES		NULL	
 INSERT INTO t1 VALUES ('aaa', '1111', 1);
 INSERT INTO t1 VALUES ('bbb', '2222', 2);
 INSERT INTO t1 VALUES ('ccc', '3333', 3);
@@ -217,7 +217,7 @@ Table	Create Table
 t1	CREATE TABLE `t1` (
   `pk` char(8) COLLATE utf8_bin NOT NULL,
   `a` varchar(11) COLLATE utf8_bin DEFAULT NULL,
-  `b` int(10) unsigned DEFAULT NULL,
+  `b` int unsigned DEFAULT NULL,
   PRIMARY KEY (`pk`),
   KEY `kab` (`a`,`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin
@@ -228,7 +228,7 @@ SELECT * FROM t1 FORCE INDEX(kab) WHERE a > '2' AND b < 3;
 pk	a	b
 bbb	2222	2
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, KEY ka(a), KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -239,8 +239,8 @@ DROP INDEX kab on t1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
+  `b` int DEFAULT NULL,
   KEY `kb` (`b`),
   KEY `kba` (`b`,`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -255,7 +255,7 @@ SELECT * FROM t1 FORCE INDEX(kba) WHERE a > 2;
 a	b
 3	7
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b TEXT);
+CREATE TABLE t1 (a INT, b TEXT) CHARSET=utf8mb4;
 ALTER TABLE t1 ADD KEY kb(b(10));
 ERROR HY000: Unsupported collation on string indexed column test.t1.b Use binary collation (binary, latin1_bin, utf8_bin).
 ALTER TABLE t1 ADD PRIMARY KEY(a);
@@ -275,7 +275,7 @@ rocksdb_bulk_load	ON
 rocksdb_bulk_load_allow_sk	OFF
 rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_size	1000
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,1);
 # Disconnecting on con1
 # Establish connection con2 (user=root)
@@ -291,7 +291,7 @@ DROP TABLE t1;
 # Establish connection con1 (user=root)
 # Establish connection con2 (user=root)
 # Switch to connection con1
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 set rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (1,1);
 # Switch to connection con2
@@ -319,7 +319,7 @@ rocksdb_bulk_load	OFF
 rocksdb_bulk_load_allow_sk	OFF
 rocksdb_bulk_load_allow_unsorted	OFF
 rocksdb_bulk_load_size	1000
-CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB;
+CREATE TABLE t1 (a VARCHAR(80)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
 INSERT INTO t1 (a) VALUES (REPEAT("a", 80));
@@ -344,7 +344,7 @@ DROP TABLE t1;
 SET session rocksdb_merge_buf_size = @prior_rocksdb_merge_buf_size;
 SET session rocksdb_merge_combine_read_size = @prior_rocksdb_merge_combine_read_size;
 SET global rocksdb_strict_collation_check = @prior_rocksdb_strict_collation_check;
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 set global rocksdb_force_flush_memtable_now=1;
 ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
 larger
@@ -387,16 +387,16 @@ CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b INT,
 c INT,
-KEY kbc(b,c)) ENGINE = ROCKSDB;
+KEY kbc(b,c)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a,b,c) VALUES (1,1,1);
 INSERT INTO t1 (a,b,c) VALUES (2,2,2);
 INSERT INTO t1 (a,b,c) VALUES (3,3,3);
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
-  `b` int(11) DEFAULT NULL,
-  `c` int(11) DEFAULT NULL,
+  `a` int NOT NULL,
+  `b` int DEFAULT NULL,
+  `c` int DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `kbc` (`b`,`c`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
@@ -407,7 +407,7 @@ CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b varchar(10),
 index kb(b(5))
-) ENGINE = ROCKSDB charset utf8 collate utf8_bin;
+) ENGINE=RocksDB CHARSET=utf8 collate utf8_bin;
 Warnings:
 Warning	3719	'utf8' is currently an alias for the character set UTF8MB3, but will be an alias for UTF8MB4 in a future release. Please consider using UTF8MB4 in order to be unambiguous.
 Warning	3778	'utf8_bin' is a collation of the deprecated character set UTF8MB3. Please consider using UTF8MB4 with an appropriate collation instead.
@@ -423,7 +423,7 @@ a	b
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
+  `a` int NOT NULL,
   `b` varchar(10) COLLATE utf8_bin DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `kb` (`b`(8))
@@ -431,7 +431,7 @@ t1	CREATE TABLE `t1` (
 DROP TABLE t1;
 SET @prior_rocksdb_table_stats_sampling_pct = @@rocksdb_table_stats_sampling_pct;
 set global rocksdb_table_stats_sampling_pct = 100;
-CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 10);
 INSERT INTO t1 (a, b) VALUES (2, 10);
 INSERT INTO t1 (a, b) VALUES (3, 20);

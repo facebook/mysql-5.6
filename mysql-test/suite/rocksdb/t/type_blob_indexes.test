@@ -18,7 +18,7 @@ CREATE TABLE t1 (
   m MEDIUMBLOB,
   l LONGBLOB,
   PRIMARY KEY b (b(32))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW INDEX IN t1;
 
@@ -53,7 +53,7 @@ CREATE TABLE t1 (
   l LONGBLOB,
   pk INT AUTO_INCREMENT PRIMARY KEY,
   UNIQUE INDEX l_t (l(256),t(64))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 --replace_column 6 # 7 # 10 # 11 #
 SHOW INDEX IN t1;
@@ -89,7 +89,7 @@ CREATE TABLE t1 (
   l LONGBLOB,
   pk INT AUTO_INCREMENT PRIMARY KEY,
   INDEX (m(128))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW INDEX IN t1;
 

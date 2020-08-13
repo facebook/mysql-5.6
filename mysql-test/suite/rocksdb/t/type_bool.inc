@@ -10,7 +10,7 @@ eval CREATE TABLE t1 (
   pk INT AUTO_INCREMENT PRIMARY KEY,
   b1 BOOL $extra_col_opts,
   b2 BOOLEAN $extra_col_opts
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

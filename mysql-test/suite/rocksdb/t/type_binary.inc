@@ -15,7 +15,7 @@ eval CREATE TABLE t1 (
   b20 BINARY(20) $extra_col_opts,
   b255 BINARY(255) $extra_col_opts,
   pk BINARY PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

@@ -58,7 +58,7 @@ primary key (id),
 unique key sk2 (c2));
 insert into t (c2) values ('Asdf');
 insert into t (c2) values ('asdf ');
-ERROR 23000: Duplicate entry 'asdf' for key 'sk2'
+ERROR 23000: Duplicate entry 'asdf' for key 't.sk2'
 drop table t;
 create table t (id int not null auto_increment,
 c1 varchar(256) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
@@ -66,9 +66,9 @@ primary key (id),
 unique key sk1 (c1));
 insert into t (c1) values ('Asdf');
 insert into t (c1) values ('asdf ');
-ERROR 23000: Duplicate entry 'asdf ' for key 'sk1'
+ERROR 23000: Duplicate entry 'asdf ' for key 't.sk1'
 insert into t (c1) values ('asdf');
-ERROR 23000: Duplicate entry 'asdf' for key 'sk1'
+ERROR 23000: Duplicate entry 'asdf' for key 't.sk1'
 drop table t;
 create table t (id int not null auto_increment,
 c1 varchar(256) CHARACTER SET latin1 COLLATE latin1_swedish_ci,
@@ -77,7 +77,7 @@ unique key sk1 (c1(1)));
 insert into t (c1) values ('Asdf');
 insert into t (c1) values ('bbbb ');
 insert into t (c1) values ('a    ');
-ERROR 23000: Duplicate entry 'a' for key 'sk1'
+ERROR 23000: Duplicate entry 'a' for key 't.sk1'
 explain select c1 from t;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ALL	NULL	NULL	NULL	#	1000	100.00	NULL

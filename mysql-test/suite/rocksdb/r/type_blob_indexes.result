@@ -7,7 +7,7 @@ t TINYBLOB,
 m MEDIUMBLOB,
 l LONGBLOB,
 PRIMARY KEY b (b(32))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	b	A	1000	32	NULL		SE_SPECIFIC			YES	NULL
@@ -49,7 +49,7 @@ m MEDIUMBLOB,
 l LONGBLOB,
 pk INT AUTO_INCREMENT PRIMARY KEY,
 UNIQUE INDEX l_t (l(256),t(64))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	#	#	NULL	NULL	#	#			YES	NULL
@@ -109,7 +109,7 @@ m MEDIUMBLOB,
 l LONGBLOB,
 pk INT AUTO_INCREMENT PRIMARY KEY,
 INDEX (m(128))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		SE_SPECIFIC			YES	NULL

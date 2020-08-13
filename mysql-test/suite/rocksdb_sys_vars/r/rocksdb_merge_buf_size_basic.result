@@ -1,14 +1,14 @@
 drop table if exists t1;
 set session rocksdb_merge_buf_size=250;
 set session rocksdb_merge_combine_read_size=1000;
-CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE = ROCKSDB;
+CREATE TABLE t1 (i INT, j INT, PRIMARY KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 ALTER TABLE t1 ADD INDEX kj(j), ALGORITHM=INPLACE;
 ALTER TABLE t1 ADD INDEX kij(i,j), ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `i` int(11) NOT NULL,
-  `j` int(11) DEFAULT NULL,
+  `i` int NOT NULL,
+  `j` int DEFAULT NULL,
   PRIMARY KEY (`i`),
   KEY `kj` (`j`),
   KEY `kij` (`i`,`j`)
@@ -19,21 +19,21 @@ ALTER TABLE t1 ADD INDEX kj(j), ADD INDEX kij(i,j), ADD INDEX kji(j,i), ALGORITH
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `i` int(11) NOT NULL,
-  `j` int(11) DEFAULT NULL,
+  `i` int NOT NULL,
+  `j` int DEFAULT NULL,
   PRIMARY KEY (`i`),
   KEY `kj` (`j`),
   KEY `kij` (`i`,`j`),
   KEY `kji` (`j`,`i`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 DROP TABLE t1;
-CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE=RocksDB CHARSET=latin1;
 ALTER TABLE t1 ADD INDEX kb(b) comment 'rev:cf1', ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int NOT NULL,
+  `b` int DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `kb` (`b`) COMMENT 'rev:cf1'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
