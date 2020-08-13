@@ -3394,6 +3394,7 @@ int handler::ha_index_next(uchar *buf) {
     m_update_generated_read_fields = false;
   }
   table->set_row_status_from_handler(result);
+  DEBUG_SYNC(ha_thd(), "handler_ha_index_next_end");
   return result;
 }
 

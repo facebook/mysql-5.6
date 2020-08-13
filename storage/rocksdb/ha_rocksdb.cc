@@ -10049,7 +10049,7 @@ int ha_rocksdb::info(uint flag) {
     if (static_cast<longlong>(stats.data_file_length) < 0 ||
         static_cast<longlong>(stats.index_file_length) < 0 ||
         static_cast<longlong>(stats.records) < 0) {
-      if (analyze(nullptr, nullptr)) {
+      if (calculate_stats_for_table()) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
 
@@ -11166,6 +11166,19 @@ static int calculate_stats(
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
+int ha_rocksdb::calculate_stats_for_table() {
+  DBUG_ENTER_FUNC();
+
+  std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
+      ids_to_check;
+  for (uint i = 0; i < table->s->keys; i++) {
+    ids_to_check.insert(std::make_pair(m_key_descr_arr[i]->get_gl_index_id(),
+                                       m_key_descr_arr[i]));
+  }
+
+  DBUG_RETURN(calculate_stats(ids_to_check, true));
+}
+
 /*
   @return
     HA_ADMIN_OK      OK
@@ -11175,17 +11188,16 @@ int ha_rocksdb::analyze(THD *const thd, HA_CHECK_OPT *const check_opt) {
   DBUG_ENTER_FUNC();
 
   if (table) {
-    std::unordered_map<GL_INDEX_ID, std::shared_ptr<const Rdb_key_def>>
-        ids_to_check;
-    for (uint i = 0; i < table->s->keys; i++) {
-      ids_to_check.insert(std::make_pair(m_key_descr_arr[i]->get_gl_index_id(),
-                                         m_key_descr_arr[i]));
-    }
-
-    int res = calculate_stats(ids_to_check, true);
-    if (res != HA_EXIT_SUCCESS) {
+    if (calculate_stats_for_table() != HA_EXIT_SUCCESS) {
       DBUG_RETURN(HA_ADMIN_FAILED);
     }
+  }
+
+  // A call to ::info is needed to repopulate some SQL level structs. This is
+  // necessary for online analyze because we cannot rely on another ::open
+  // call to call info for us.
+  if (info(HA_STATUS_CONST | HA_STATUS_VARIABLE) != HA_EXIT_SUCCESS) {
+    DBUG_RETURN(HA_ADMIN_FAILED);
   }
 
   DBUG_RETURN(HA_ADMIN_OK);
