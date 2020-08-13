@@ -13,7 +13,7 @@ CREATE TABLE t1 (
   PRIMARY KEY (id),
   KEY bf (bigfield(32)),
   KEY fid (fake_id, bigfield(32))
-) ENGINE=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 VALUES (1, 1001, REPEAT('a', 1)),
                       (8, 1008, REPEAT('b', 8)),
@@ -87,7 +87,7 @@ CREATE TABLE t1 (
   a INT PRIMARY KEY,
   b VARCHAR(30) CHARACTER SET utf8 collate utf8_bin,
   KEY k (b(2))
-) ENGINE=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 VALUES
   (1, 'a'),

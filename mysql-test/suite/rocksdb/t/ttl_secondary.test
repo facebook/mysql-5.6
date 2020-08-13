@@ -397,7 +397,7 @@ CREATE TABLE t1 (
   a INT PRIMARY KEY,
   b INT NOT NULL,
   KEY kb (b)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=100;';
 
 INSERT INTO t1 values (1, 1);

@@ -3,3 +3,4 @@ no-defaults
 
 [mysqld.1]
 rocksdb_strict_collation_check=1
+default-storage-engine=rocksdb

@@ -46,7 +46,7 @@ t1	CREATE TABLE `t1` (
   KEY `kab` (`a`,`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
 DROP TABLE t1;
-CREATE TABLE t1 (a INT PRIMARY KEY, b INT, KEY kab(a,b)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT, KEY kab(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -55,8 +55,8 @@ ALTER TABLE t1 ADD INDEX kb(b) comment 'rev:cf1', ALGORITHM=INPLACE;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
-  `b` int(11) DEFAULT NULL,
+  `a` int NOT NULL,
+  `b` int DEFAULT NULL,
   PRIMARY KEY (`a`),
   KEY `kb` (`b`) COMMENT 'rev:cf1'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1

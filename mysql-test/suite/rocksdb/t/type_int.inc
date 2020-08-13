@@ -28,7 +28,7 @@ eval CREATE TABLE t1 (
   b1 BIGINT(1) $extra_col_opts,
   b20 BIGINT(20) $extra_col_opts,
   pk INT AUTO_INCREMENT PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

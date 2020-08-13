@@ -7,15 +7,17 @@ t TIME ,
 y YEAR ,
 y4 YEAR(4) ,
 pk DATETIME PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
+Warnings:
+Warning	1287	'YEAR(4)' is deprecated and will be removed in a future release. Please use YEAR instead
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 d	date	YES		NULL	
 dt	datetime	YES		NULL	
 ts	timestamp	YES		NULL	
 t	time	YES		NULL	
-y	year(4)	YES		NULL	
-y4	year(4)	YES		NULL	
+y	year	YES		NULL	
+y4	year	YES		NULL	
 pk	datetime	NO	PRI	NULL	
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y,y4,pk) VALUES

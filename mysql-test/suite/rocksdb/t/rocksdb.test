@@ -34,7 +34,7 @@ create table t1 (
   a int,
   b int,
   key(a)
-) engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 insert into t1 values
 (1,1,1), (2,2,2), (3,3,3), (4,4,4);
@@ -61,18 +61,18 @@ set @var3=(select variable_value
 select @var3 - @var2;
 drop table t1;
 
-create table t0 (a int primary key) engine=rocksdb;
+create table t0 (a int primary key) ENGINE=rocksdb CHARSET=latin1;
 show create table t0;
 drop table t0;
 
-create table t1 (a int primary key, b int) engine=rocksdb;
+create table t1 (a int primary key, b int) ENGINE=rocksdb CHARSET=latin1;
 insert into t1 values (1,1);
 insert into t1 values (2,2);
 
 select * from t1;
 
 --echo # Check that we can create another table and insert there
-create table t2 (a varchar(10) primary key, b varchar(10)) engine=rocksdb;
+create table t2 (a varchar(10) primary key, b varchar(10)) ENGINE=rocksdb CHARSET=latin1;
 insert into t2 value ('abc','def');
 insert into t2 value ('hijkl','mnopq');
 select * from t2;
@@ -91,7 +91,7 @@ create table t3 (
   pk2 varchar(10),
   col1 varchar(10),
   primary key(pk1, pk2)
-) engine=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 insert into t3 values (2,'two', 'row#2');
 insert into t3 values (3,'three', 'row#3');
@@ -106,7 +106,7 @@ drop table t1, t2, t3;
 --echo # Test blob values
 --echo #
 
-create table t4 (a int primary key, b blob) engine=rocksdb;
+create table t4 (a int primary key, b blob) ENGINE=rocksdb CHARSET=latin1;
 insert into t4 values (1, repeat('quux-quux', 60));
 insert into t4 values (10, repeat('foo-bar', 43));
 insert into t4 values (5, repeat('foo-bar', 200));
@@ -131,7 +131,7 @@ drop table t4;
 --echo # 
 
 --echo # TINYBLOB
-create table t5 (a int primary key, b tinyblob) engine=rocksdb;
+create table t5 (a int primary key, b tinyblob) ENGINE=rocksdb CHARSET=latin1;
 insert into t5 values (1, repeat('quux-quux', 6));
 insert into t5 values (10, repeat('foo-bar', 4));
 insert into t5 values (5, repeat('foo-bar', 2));
@@ -146,7 +146,7 @@ from t5;
 drop table t5;
 
 --echo # MEDIUMBLOB
-create table t6 (a int primary key, b mediumblob) engine=rocksdb;
+create table t6 (a int primary key, b mediumblob) ENGINE=rocksdb CHARSET=latin1;
 insert into t6 values (1, repeat('AB', 65000));
 insert into t6 values (10, repeat('bbb', 40000));
 insert into t6 values (5, repeat('foo-bar', 2));
@@ -161,7 +161,7 @@ from t6;
 drop table t6;
 
 --echo # LONGBLOB
-create table t7 (a int primary key, b longblob) engine=rocksdb;
+create table t7 (a int primary key, b longblob) ENGINE=rocksdb CHARSET=latin1;
 insert into t7 values (1, repeat('AB', 65000));
 insert into t7 values (10, repeat('bbb', 40000));
 insert into t7 values (5, repeat('foo-bar', 2));
@@ -179,7 +179,7 @@ drop table t7;
 --echo #
 --echo # Check if DELETEs work
 --echo # 
-create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) ENGINE=rocksdb CHARSET=latin1;
 
 insert into t8 values 
  ('one', 'eins'),
@@ -240,11 +240,11 @@ drop table t8;
 --echo #
 --echo # Check if DROP TABLE works
 --echo #
-create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) ENGINE=rocksdb CHARSET=latin1;
 select * from t8;
 insert into t8 values ('foo','foo');
 drop table t8;
-create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=rocksdb;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) ENGINE=rocksdb CHARSET=latin1;
 select * from t8;
 drop table t8;
 
@@ -252,14 +252,14 @@ drop table t8;
 --echo # MDEV-3961: Assertion ... on creating a TEMPORARY RocksDB table
 --echo #
 --error ER_ILLEGAL_HA_CREATE_OPTION
-CREATE TEMPORARY TABLE t10 (pk INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TEMPORARY TABLE t10 (pk INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 
 --echo #
 --echo # MDEV-3963: JOIN or WHERE conditions involving keys on RocksDB tables don't work
 --echo #
-CREATE TABLE t10 (i INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t10 (i INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t10 VALUES (1),(3);
-CREATE TABLE t11 (j INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t11 (j INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t11 VALUES (1),(4);
 
 select * from t10;
@@ -274,7 +274,7 @@ DROP TABLE t10,t11;
 --echo #
 --echo # MDEV-3962: SELECT with ORDER BY causes "ERROR 1030 (HY000): Got error 122
 --echo #
-CREATE TABLE t12 (pk INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t12 (pk INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t12 VALUES (2),(1);
 SELECT * FROM t12 ORDER BY pk;
 DROP TABLE t12;
@@ -284,7 +284,7 @@ DROP TABLE t12;
 --echo #
 --echo # MDEV-3964: Assertion `!pk_descr' fails in ha_rocksdb::open on adding partitions ...
 --echo #
-create table t14 (pk int primary key) engine=RocksDB partition by hash(pk) partitions 2;
+create table t14 (pk int primary key) ENGINE=rocksdb CHARSET=latin1 partition by hash(pk) partitions 2;
 #--error ER_GET_ERRNO
 #alter table t14 add partition partitions 2;
 # ^^ works, but causes weird warnings in error log.
@@ -294,7 +294,7 @@ drop table t14;
 --echo #
 --echo # MDEV-3960: Server crashes on running DISCARD TABLESPACE on a RocksDB table
 --echo #
-create table t9 (i int primary key) engine=rocksdb;
+create table t9 (i int primary key) ENGINE=rocksdb CHARSET=latin1;
 --error ER_ILLEGAL_HA
 alter table t9 discard tablespace;
 drop table t9;
@@ -303,7 +303,7 @@ drop table t9;
 --echo # MDEV-3959: Assertion `slice->size() == table->s->reclength' fails ...
 --echo #   on accessing a table after ALTER
 --echo #
-CREATE TABLE t15 (a INT, rocksdb_pk INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t15 (a INT, rocksdb_pk INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t15 VALUES (1,1),(5,2);
 #--error ER_ILLEGAL_HA
 ALTER TABLE t15 DROP COLUMN a;
@@ -312,7 +312,7 @@ DROP TABLE t15;
 --echo #
 --echo # MDEV-3968: UPDATE produces a wrong result while modifying a PK on a RocksDB table
 --echo #
-create table t16 (pk int primary key, a char(8)) engine=RocksDB;
+create table t16 (pk int primary key, a char(8)) ENGINE=rocksdb CHARSET=latin1;
 insert into t16 values (1,'a'),(2,'b'),(3,'c'),(4,'d');
 
 # 
@@ -346,7 +346,7 @@ drop table t_very_long_table_name;
 --echo #
 --echo # Test table locking and read-before-write checks.
 --echo #
-create table t17 (pk varchar(12) primary key, col1 varchar(12)) engine=rocksdb;
+create table t17 (pk varchar(12) primary key, col1 varchar(12)) ENGINE=rocksdb CHARSET=latin1;
 insert into t17 values ('row1', 'val1');
 
 --error ER_DUP_ENTRY
@@ -419,7 +419,7 @@ disconnect con1;
 --echo #
 --enable_connect_log
 
-create table t18 (pk int primary key, i int) engine=RocksDB;
+create table t18 (pk int primary key, i int) ENGINE=rocksdb CHARSET=latin1;
 begin;
 select * from t18;
 select * from t18 where pk = 1;
@@ -437,14 +437,14 @@ drop table t18;
 --echo #
 --echo # MDEV-4036: RocksDB: INSERT .. ON DUPLICATE KEY UPDATE does not work, produces ER_DUP_KEY
 --echo #
-create table t19 (pk int primary key, i int) engine=RocksDB;
+create table t19 (pk int primary key, i int) ENGINE=rocksdb CHARSET=latin1;
 insert into t19 values (1,1);
 insert into t19 values (1,100) on duplicate key update i = 102;
 select * from t19;
 drop table t19;
 
 --echo # MDEV-4037: RocksDB: REPLACE doesn't work, produces ER_DUP_KEY
-create table t20 (pk int primary key, i int) engine=RocksDB;
+create table t20 (pk int primary key, i int) ENGINE=rocksdb CHARSET=latin1;
 insert into t20 values (1,1);
 replace into t20 values (1,100);
 select * from t20;
@@ -453,7 +453,7 @@ drop table t20;
 --echo #
 --echo # MDEV-4041: Server crashes in Primary_key_comparator::get_hashnr on INSERT 
 --echo #
-create table t21 (v varbinary(16) primary key, i int) engine=RocksDB;
+create table t21 (v varbinary(16) primary key, i int) ENGINE=rocksdb CHARSET=latin1;
 insert into t21 values ('a',1);
 select * from t21;
 drop table t21;
@@ -462,9 +462,9 @@ drop table t21;
 --echo # MDEV-4047: RocksDB: Assertion `0' fails in Protocol::end_statement() on multi-table INSERT IGNORE
 --echo #
 
-CREATE TABLE t22 (a int primary key) ENGINE=RocksDB;
+CREATE TABLE t22 (a int primary key) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t22 VALUES (1),(2);
-CREATE TABLE t23 (b int primary key) ENGINE=RocksDB;
+CREATE TABLE t23 (b int primary key) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t23 SELECT * FROM t22;
 DELETE IGNORE t22.*, t23.* FROM t22, t23 WHERE b < a;
 DROP TABLE t22,t23;
@@ -472,7 +472,7 @@ DROP TABLE t22,t23;
 --echo #
 --echo # MDEV-4046: RocksDB: Multi-table DELETE locks itself and ends with ER_LOCK_WAIT_TIMEOUT
 --echo #
-CREATE TABLE t24 (pk int primary key) ENGINE=RocksDB;
+CREATE TABLE t24 (pk int primary key) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t24 VALUES (1),(2);
 
 CREATE TABLE t25 LIKE t24;
@@ -484,7 +484,7 @@ DROP TABLE t24,t25;
 --echo #
 --echo # MDEV-4044: RocksDB: UPDATE or DELETE with ORDER BY locks itself
 --echo #
-create table t26 (pk int primary key, c char(1)) engine=RocksDB;
+create table t26 (pk int primary key, c char(1)) engine=RocksDB CHARSET=latin1;
 insert into t26 values (1,'a'),(2,'b');
 update t26 set c = 'x' order by pk limit 1;
 delete from t26 order by pk limit 1;
@@ -495,7 +495,7 @@ drop table t26;
 --echo #
 --echo # Test whether SELECT ... FOR UPDATE puts locks
 --echo #
-create table t27(pk varchar(10) primary key, col1 varchar(20)) engine=RocksDB;
+create table t27(pk varchar(10) primary key, col1 varchar(20)) engine=RocksDB CHARSET=latin1;
 insert into t27 values 
   ('row1', 'row1data'),
   ('row2', 'row2data'),
@@ -520,7 +520,7 @@ drop table t27;
 --echo #
 --echo # MDEV-4060: RocksDB: Assertion `! trx->batch' fails in 
 --echo #
-create table t28 (pk int primary key, a int) engine=RocksDB;
+create table t28 (pk int primary key, a int) engine=RocksDB CHARSET=latin1;
 insert into t28 values (1,10),(2,20);
 begin;
 update t28 set a = 100 where pk = 3;
@@ -537,7 +537,7 @@ create table t30 (
   key1 varchar(16) not null, 
   col1 varchar(16) not null,
   key(key1)
-) engine=rocksdb;
+) engine=rocksdb CHARSET=latin1;
 
 insert into t30 values ('row1', 'row1-key', 'row1-data');
 insert into t30 values ('row2', 'row2-key', 'row2-data');
@@ -643,7 +643,7 @@ drop table t30;
 --echo #
 --echo # MDEV-3841: RocksDB: Reading by PK prefix does not work
 --echo #
-create table t31 (i int, j int, k int, primary key(i,j,k)) engine=RocksDB;
+create table t31 (i int, j int, k int, primary key(i,j,k)) engine=RocksDB CHARSET=latin1;
 insert into t31 values (1,10,100),(2,20,200);
 select * from t31 where i = 1;
 select * from t31 where j = 10;
@@ -657,7 +657,7 @@ drop table t31;
 --echo #
 --echo # MDEV-4055: RocksDB: UPDATE/DELETE by a multi-part PK does not work
 --echo #
-create table t32 (i int, j int, k int, primary key(i,j,k), a varchar(8)) engine=RocksDB;
+create table t32 (i int, j int, k int, primary key(i,j,k), a varchar(8)) engine=RocksDB CHARSET=latin1;
 insert into t32 values 
   (1,10,100,''),
   (2,20,200,'');
@@ -669,7 +669,7 @@ drop table t32;
 --echo #
 --echo # MDEV-3841: RocksDB: Assertion `0' fails in ha_rocksdb::index_read_map on range select with ORDER BY .. DESC
 --echo #
-CREATE TABLE t33 (pk INT PRIMARY KEY, a CHAR(1)) ENGINE=RocksDB;
+CREATE TABLE t33 (pk INT PRIMARY KEY, a CHAR(1)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t33 VALUES (1,'a'),(2,'b');
 SELECT * FROM t33 WHERE pk <= 10 ORDER BY pk DESC;
 DROP TABLE t33;
@@ -679,13 +679,13 @@ DROP TABLE t33;
 --echo #
 #--error ER_GET_ERRMSG
 --echo #  Unique indexes can be created, but uniqueness won't be enforced
-create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB;
+create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB CHARSET=latin1;
 drop table t33;
 
 --echo #
 --echo # MDEV-4077: RocksDB: Wrong result (duplicate row) on select with range 
 --echo #
-CREATE TABLE t34 (pk INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t34 (pk INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t34 VALUES (10),(11);
 SELECT pk FROM t34 WHERE pk > 5 AND pk < 15;
 SELECT pk FROM t34 WHERE pk BETWEEN 5 AND 15;
@@ -696,7 +696,7 @@ drop table t34;
 --echo #
 --echo # MDEV-4086: RocksDB does not allow a query with multi-part pk and index and ORDER BY .. DEC
 --echo #
-create table t35 (a int, b int, c int, d int, e int, primary key (a,b,c), key (a,c,d,e)) engine=RocksDB;
+create table t35 (a int, b int, c int, d int, e int, primary key (a,b,c), key (a,c,d,e)) engine=RocksDB CHARSET=latin1;
 insert into t35 values (1,1,1,1,1),(2,2,2,2,2);
 select * from t35 where a = 1 and c = 1 and d = 1 order by e desc;
 drop table t35;
@@ -704,7 +704,7 @@ drop table t35;
 --echo #
 --echo # MDEV-4084: RocksDB: Wrong result on IN subquery with index
 --echo #
-CREATE TABLE t36 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=RocksDB;
+CREATE TABLE t36 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t36 VALUES (1,10),(2,20);
 SELECT 3 IN ( SELECT a FROM t36 );
 drop table t36;
@@ -713,7 +713,7 @@ drop table t36;
 --echo # MDEV-4084: RocksDB: Wrong result on IN subquery with index
 --echo #
 CREATE TABLE t37 (pk INT PRIMARY KEY, a INT, b CHAR(1), KEY(a), KEY(a,b)) 
-  ENGINE=RocksDB;
+  ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t37 VALUES (1,10,'x'), (2,20,'y');
 SELECT MAX(a) FROM t37 WHERE a < 100;
 DROP TABLE t37;
@@ -721,7 +721,7 @@ DROP TABLE t37;
 --echo #
 --echo # MDEV-4090: RocksDB: Wrong result (duplicate rows) on range access with secondary key and ORDER BY DESC
 --echo #
-CREATE TABLE t38 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=RocksDB;
+CREATE TABLE t38 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t38 VALUES (1,10), (2,20);
 SELECT i FROM t38 WHERE i NOT IN (8) ORDER BY i DESC;
 drop table t38;
@@ -730,10 +730,10 @@ drop table t38;
 --echo # MDEV-4092: RocksDB: Assertion `in_table(pa, a_len)' fails in Rdb_key_def::cmp_full_keys 
 --echo #            with a multi-part key and ORDER BY .. DESC
 --echo #
-CREATE TABLE t40 (pk1 INT PRIMARY KEY, a INT, b VARCHAR(1), KEY(b,a)) ENGINE=RocksDB;
+CREATE TABLE t40 (pk1 INT PRIMARY KEY, a INT, b VARCHAR(1), KEY(b,a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t40 VALUES (1, 7,'x'),(2,8,'y');
 
-CREATE TABLE t41 (pk2 INT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t41 (pk2 INT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t41 VALUES (1),(2);
 
 SELECT * FROM t40, t41 WHERE pk1 = pk2 AND b = 'o' ORDER BY a DESC;
@@ -742,7 +742,7 @@ DROP TABLE t40,t41;
 --echo #
 --echo # MDEV-4093: RocksDB: IN subquery by secondary key with NULL among values returns true instead of NULL
 --echo #
-CREATE TABLE t42 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=RocksDB;
+CREATE TABLE t42 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t42 VALUES (1, NULL),(2, 8);
 SELECT ( 3 ) NOT IN ( SELECT a FROM t42 );
 DROP TABLE t42;
@@ -751,7 +751,7 @@ DROP TABLE t42;
 --echo # MDEV-4094: RocksDB: Wrong result on SELECT and ER_KEY_NOT_FOUND on 
 --echo #            DELETE with search by NULL-able secondary key ...
 --echo #
-CREATE TABLE t43 (pk INT PRIMARY KEY, a INT, b CHAR(1), KEY(a)) ENGINE=RocksDB;
+CREATE TABLE t43 (pk INT PRIMARY KEY, a INT, b CHAR(1), KEY(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t43 VALUES (1,8,'g'),(2,9,'x');
 UPDATE t43 SET pk = 10 WHERE a = 8;
 REPLACE INTO t43 ( a ) VALUES ( 8 );
@@ -763,7 +763,7 @@ DROP TABLE t43;
 --echo #
 --echo # Basic AUTO_INCREMENT tests
 --echo #
-create table t44(pk int primary key auto_increment, col1 varchar(12)) engine=rocksdb;
+create table t44(pk int primary key auto_increment, col1 varchar(12)) ENGINE=RocksDB CHARSET=latin1;
 insert into t44 (col1) values ('row1');
 insert into t44 (col1) values ('row2');
 insert into t44 (col1) values ('row3');
@@ -773,7 +773,7 @@ drop table t44;
 --echo #
 --echo # ALTER TABLE tests
 --echo #
-create table t45 (pk int primary key, col1 varchar(12)) engine=rocksdb;
+create table t45 (pk int primary key, col1 varchar(12)) ENGINE=RocksDB CHARSET=latin1;
 insert into t45 values (1, 'row1');
 insert into t45 values (2, 'row2');
 alter table t45 rename t46;
@@ -793,7 +793,7 @@ drop table t45;
 # the value of the servers open_file_limit and is expected to be different
 # across distros and installs
 show variables where variable_name like 'rocksdb%' and variable_name not like 'rocksdb_max_open_files';
-create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
+create table t47 (pk int primary key, col1 varchar(12)) ENGINE=RocksDB CHARSET=latin1;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
 set rocksdb_bulk_load=1;
@@ -820,7 +820,7 @@ drop table t47;
 --echo # Fix TRUNCATE over empty table (transaction is committed when it wasn't
 --echo # started)
 --echo #
-create table t48(pk int primary key auto_increment, col1 varchar(12)) engine=rocksdb;
+create table t48(pk int primary key auto_increment, col1 varchar(12)) ENGINE=RocksDB CHARSET=latin1;
 set autocommit=0;
 #--error ER_ILLEGAL_HA
 truncate table t48;
@@ -832,7 +832,7 @@ drop table t48;
 --echo #
 --enable_connect_log
 
-create table t49 (pk int primary key, a int) engine=RocksDB;
+create table t49 (pk int primary key, a int) ENGINE=RocksDB CHARSET=latin1;
 insert into t49 values (1,10),(2,20);
 begin;
 update t49 set a = 100 where pk = 1;
@@ -870,7 +870,7 @@ drop table t49;
 --echo #
 --echo # Index-only tests for INT-based columns
 --echo #
-create table t1 (pk int primary key, key1 int, col1 int, key(key1)) engine=rocksdb;
+create table t1 (pk int primary key, key1 int, col1 int, key(key1)) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values (1,1,1);
 insert into t1 values (2,2,2);
 insert into t1 values (-5,-5,-5);
@@ -883,7 +883,7 @@ select key1 from t1 where key1=-5;
 drop table t1;
 
 
-create table t2 (pk int primary key, key1 int unsigned, col1 int, key(key1)) engine=rocksdb;
+create table t2 (pk int primary key, key1 int unsigned, col1 int, key(key1)) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 values (1,1,1), (2,2,2);
 --echo # INT UNSIGNED column uses index-only:
 --replace_column 10 # 11 #
@@ -893,7 +893,7 @@ select key1 from t2 where key1=2;
 drop table t2;
 
 
-create table t3 (pk bigint primary key, key1 bigint, col1 int, key(key1)) engine=rocksdb;
+create table t3 (pk bigint primary key, key1 bigint, col1 int, key(key1)) ENGINE=RocksDB CHARSET=latin1;
 insert into t3 values (1,1,1), (2,2,2);
 --echo # BIGINT uses index-only:
 --replace_column 10 # 11 #
@@ -910,7 +910,7 @@ create table t1 (
   key1 char(10) character set binary,
   col1 int,
   key (key1)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values(1, 'one',11), (2,'two',22);
 --replace_column 10 # 11 #
 explain 
@@ -932,7 +932,7 @@ create table t2 (
   key1 char(10) collate latin1_bin,
   col1 int,
   key (key1)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 values(1, 'one',11), (2,'two',22);
 --replace_column 10 # 11 #
 explain 
@@ -946,7 +946,7 @@ create table t3 (
   key1 char(10) collate utf8_bin,
   col1 int,
   key (key1)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t3 values(1, 'one',11), (2,'two',22);
 --replace_column 10 # 11 #
 explain 
@@ -960,7 +960,7 @@ create table t4 (
   pk int primary key, 
   key1 varchar(10) collate latin1_bin, 
   key(key1)
-) engine=rocksdb; 
+) ENGINE=RocksDB CHARSET=latin1; 
 insert into t4 values(1, 'one'), (2,'two'),(3,'threee'),(55,'fifty-five');
 
 --replace_column 10 # 11 #
@@ -980,7 +980,7 @@ drop table t4;
 --echo # 
 --echo # MDEV-4305: RocksDB: Assertion `((keypart_map + 1) & keypart_map) == 0' fails in calculate_key_len
 --echo # 
-CREATE TABLE t1 (pk1 INT, pk2 CHAR(32), i INT, PRIMARY KEY(pk1,pk2), KEY(i)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk1 INT, pk2 CHAR(32), i INT, PRIMARY KEY(pk1,pk2), KEY(i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,'test1',6),(2,'test2',8);
 SELECT * FROM t1 WHERE i != 3 OR  pk1 > 9;
 DROP TABLE t1;
@@ -988,7 +988,7 @@ DROP TABLE t1;
 --echo # 
 --echo # MDEV-4298: RocksDB: Assertion `thd->is_error() || kill_errno' fails in ha_rows filesort
 --echo # 
-CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,1),(2,2);
 BEGIN;
 UPDATE t1 SET i = 100;
@@ -1006,7 +1006,7 @@ DROP TABLE t1;
 --echo # MDEV-4324: RocksDB: Valgrind "Use of uninitialised value" warnings on inserting value into varchar field
 --echo #  (testcase only)
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, c VARCHAR(4)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, c VARCHAR(4)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,'foo'), (2,'bar');
 DROP TABLE t1;
 
@@ -1022,7 +1022,7 @@ DROP TABLE t1;
 --echo #
 --echo # MDEV-4300: RocksDB: Server crashes in inline_mysql_mutex_lock on SELECT .. FOR UPDATE
 --echo #
-CREATE TABLE t2 (pk INT PRIMARY KEY, i INT, KEY (i)) ENGINE=RocksDB;
+CREATE TABLE t2 (pk INT PRIMARY KEY, i INT, KEY (i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t2 VALUES (1,4),(2,5);
 SELECT 1 FROM t2 WHERE i < 0 FOR UPDATE;
 DROP TABLE t2;
@@ -1030,7 +1030,7 @@ DROP TABLE t2;
 --echo #
 --echo # MDEV-4301: RocksDB: Assertion `pack_info != __null' fails in Rdb_key_def::unpack_record
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, c CHAR(1), KEY(c,i)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, c CHAR(1), KEY(c,i)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,4,'d'),(2,8,'e');
 SELECT MAX( pk ) FROM t1 WHERE i = 105 AND c = 'h';
 DROP TABLE t1;
@@ -1038,7 +1038,7 @@ DROP TABLE t1;
 --echo #
 --echo # MDEV-4337: RocksDB: Inconsistent results comparing a char field with an int field
 --echo #
-create table t1 (c char(1), i int, primary key(c), key(i)) engine=RocksDB;
+create table t1 (c char(1), i int, primary key(c), key(i)) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values ('2',2),('6',6);
 select * from t1 where c = i;
 select * from t1 ignore index (i) where c = i;
@@ -1048,10 +1048,10 @@ drop table t1;
 --echo #
 --echo # Test statement rollback inside a transaction
 --echo #
-create table t1 (pk varchar(12) primary key) engine=rocksdb;
+create table t1 (pk varchar(12) primary key) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values ('old-val1'),('old-val2');
 
-create table t2 (pk varchar(12) primary key) engine=rocksdb;
+create table t2 (pk varchar(12) primary key) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 values ('new-val2'),('old-val1');
 
 begin;
@@ -1067,8 +1067,8 @@ drop table t1, t2;
 --echo # MDEV-4383: RocksDB: Wrong result of DELETE .. ORDER BY .. LIMIT: 
 --echo #   rows that should be deleted remain in the table
 --echo #
-CREATE TABLE t2 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=RocksDB;
-CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=RocksDB;
+CREATE TABLE t2 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 (pk) VALUES (NULL),(NULL);
 BEGIN;
@@ -1087,7 +1087,7 @@ DROP TABLE t1,t2;
 --echo # MDEV-4374: RocksDB: Valgrind warnings 'Use of uninitialised value' on 
 --echo #   inserting into a varchar column
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, a VARCHAR(32)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, a VARCHAR(32)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES (1,'foo'),(2,'bar');
 DROP TABLE t1;
 
@@ -1098,7 +1098,7 @@ DROP TABLE t1;
 
 --enable_connect_log
 
-create table t1 (pk int primary key, a int) engine=RocksDB;
+create table t1 (pk int primary key, a int) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values (1,10),(2,20);
 
 --let $con_id = `select connection_id()`
@@ -1130,7 +1130,7 @@ drop table t1;
 --echo #
 --echo # MDEV-4099: RocksDB: Wrong results with index and range access after INSERT IGNORE or REPLACE
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, a SMALLINT, b INT, KEY (a)) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, a SMALLINT, b INT, KEY (a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT IGNORE INTO t1 VALUES (1, 157, 0), (2, 1898, -504403), (1, -14659,  0);
 SELECT * FROM t1;
 SELECT pk FROM t1;
@@ -1141,7 +1141,7 @@ DROP TABLE t1;
 --echo #
 --echo # Test @@rocksdb_max_row_locks
 --echo #
-CREATE TABLE t1 (pk INT PRIMARY KEY, a int) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, a int) ENGINE=RocksDB CHARSET=latin1;
 set @a=-1;
 insert into t1 select (@a:=@a+1), 1234 from performance_schema.session_variables limit 100;
 set @tmp1= @@rocksdb_max_row_locks;
@@ -1155,14 +1155,14 @@ DROP TABLE t1;
 --echo # Test AUTO_INCREMENT behavior problem,
 --echo #  "explicit insert into an auto-inc column is not noticed by RocksDB"
 --echo # 
-create table t1 (i int primary key auto_increment) engine=RocksDB;
+create table t1 (i int primary key auto_increment) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 values (null);
 insert into t1 values (null);
 select * from t1;
 drop table t1;
 
-create table t2 (i int primary key auto_increment) engine=RocksDB;
+create table t2 (i int primary key auto_increment) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t2 values (1);
 select * from t2;
@@ -1179,7 +1179,7 @@ drop table t2;
 --echo # 
 --echo # Fix Issue#2: AUTO_INCREMENT value doesn't survive server shutdown
 --echo # 
-create table t1 (i int primary key auto_increment) engine=RocksDB;
+create table t1 (i int primary key auto_increment) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 values (null);
 insert into t1 values (null);
@@ -1199,7 +1199,7 @@ drop table t1;
 --echo # 
 --echo # Fix Issue #3: SHOW TABLE STATUS shows Auto_increment=0
 --echo # 
-create table t1 (i int primary key auto_increment) engine=RocksDB;
+create table t1 (i int primary key auto_increment) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 values (null),(null);
 --replace_column 7 # 12 # 13 #
@@ -1217,7 +1217,7 @@ CREATE TABLE t1 (
   b BIGINT,
   pk MEDIUMINT AUTO_INCREMENT PRIMARY KEY,
   UNIQUE KEY b_t (b,t)
-) ENGINE=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 INSERT INTO t1 (i,t,s,m,b) VALUES (1,2,3,4,5),(1000,100,10000,1000000,1000000000000000000),(5,100,10000,1000000,100000000000000000),(2,3,4,5,6),(3,4,5,6,7),(101,102,103,104,105),(10001,103,10002,10003,10004),(10,11,12,13,14),(11,12,13,14,15),(12,13,14,15,16);
 
@@ -1230,7 +1230,7 @@ DROP TABLE t1;
 create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
-create table t1 (id int auto_increment primary key, value int) engine=rocksdb;
+create table t1 (id int auto_increment primary key, value int) ENGINE=RocksDB CHARSET=latin1;
 
 set autocommit=0;
 begin;
@@ -1269,7 +1269,7 @@ create table t1 (
   pk int primary key, 
   col1 varchar(255),
   key(col1)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
 select * from t1 where pk=3;
 drop table t0, t1;
@@ -1289,7 +1289,7 @@ CREATE TABLE t1 (
   time bigint(20) unsigned NOT NULL DEFAULT '0',
   version int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (link_type,id1,id2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 select a,a,a,1,a,a,a from t0;
 
@@ -1308,7 +1308,7 @@ create table t1 (
   col2 int,
   key(col1) comment 'cf3',
   key(col2) comment 'cf4'
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
 
@@ -1336,7 +1336,7 @@ create table t1 (
   key(col1) comment 'cf3',
   key(col2) comment 'cf4',
   primary key (pk) comment 'cf5'
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
 
 --replace_column 10 # 11 #
@@ -1372,7 +1372,7 @@ create table t1 (
   key1 int,
   PRIMARY KEY (id),
   index (key1) comment '$per_index_cf'
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 
 --echo #
@@ -1413,7 +1413,7 @@ drop table t0,t1;
 --echo #
 --echo # Issue #33: SELECT ... FROM rocksdb_table ORDER BY primary_key uses sorting
 --echo #
-create table t1 (id int primary key, value int) engine=rocksdb;
+create table t1 (id int primary key, value int) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values (1,1),(2,2),(3,3);
 --echo # The following must not use 'Using filesort':
 --replace_column 10 # 11 #
@@ -1433,7 +1433,7 @@ create table t1 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 (kp1,kp2) 
 select date_add('2015-01-01 12:34:56', interval a day), a from t0; 
 
@@ -1455,7 +1455,7 @@ create table t2 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
 --replace_column 10 # 11 #
@@ -1474,7 +1474,7 @@ create table t1 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 (kp1,kp2) 
 select date_add('2015-01-01', interval a day), a from t0; 
 
@@ -1496,7 +1496,7 @@ create table t2 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
 --replace_column 10 # 11 #
@@ -1517,7 +1517,7 @@ create table t1 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 (kp1,kp2) 
 select date_add('2015-01-01 12:34:56', interval a day), a from t0; 
 
@@ -1539,7 +1539,7 @@ create table t2 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
 --replace_column 10 # 11 #
@@ -1560,7 +1560,7 @@ create table t1 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 --disable_warnings
 insert into t1 (kp1,kp2) 
 select date_add('2015-01-01 09:00:00', interval a minute), a from t0; 
@@ -1584,7 +1584,7 @@ create table t2 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
 --replace_column 10 # 11 #
@@ -1605,7 +1605,7 @@ create table t1 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 --disable_warnings
 insert into t1 (kp1,kp2) select 2015+a, a from t0; 
 --enable_warnings
@@ -1628,7 +1628,7 @@ create table t2 (
   kp2 int,
   col1 int,
   key(kp1, kp2)
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 insert into t2 select * from t1;
 --echo # This must show 'Using index'
 --replace_column 10 # 11 #
@@ -1644,7 +1644,7 @@ drop table t1,t2;
 --echo #
 --echo # Issue #57: Release row locks on statement errors
 --echo #
-create table t1 (id int primary key) engine=rocksdb;
+create table t1 (id int primary key) ENGINE=RocksDB CHARSET=latin1;
 insert into t1 values (1), (2), (3);
 begin;
 insert into t1 values (4), (5), (6);
@@ -1669,10 +1669,10 @@ drop table t1;
 --echo #Index on blob column
 SET @old_mode = @@sql_mode;
 SET sql_mode = 'strict_all_tables';
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) ENGINE=rocksdb CHARSET=latin1;
 drop table t1;
 set global rocksdb_large_prefix=1;
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) ENGINE=rocksdb CHARSET=latin1;
 set global rocksdb_large_prefix=0;
 insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
 select * from t1;
@@ -1684,7 +1684,7 @@ update t1 set b= '12345' where b = '2abcde';
 select * from t1;
 drop table t1;
 --error ER_TOO_LONG_KEY
-create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) ENGINE=rocksdb CHARSET=latin1;
 SET sql_mode = @old_mode;
 
 drop table t0;
@@ -1697,7 +1697,7 @@ create table t1 (
   pk int primary key,
   col1 varchar(100),
   key (col1(10))
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 values (1, repeat('0123456789', 9));
 
@@ -1707,8 +1707,8 @@ drop table t1;
 --echo # Issue #76: Assertion `buf == table->record[0]' fails in virtual int ha_rocksdb::delete_row(const uchar*)
 --echo #
 
-CREATE TABLE t1 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB;
-CREATE TABLE t2 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB;
+CREATE TABLE t1 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB CHARSET=latin1;
+CREATE TABLE t2 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB CHARSET=latin1;
 
 CREATE TRIGGER tr AFTER DELETE ON t1 FOR EACH ROW DELETE FROM t2 WHERE pk = old.pk; 
 
@@ -1727,7 +1727,7 @@ insert into t1 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t2 (
   a varchar(32) primary key,
   col1 int
-) engine=rocksdb;
+) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t2
 select concat('v-', 100 + A.a*100 + B.a), 12345 from t1 A, t1 B;
@@ -1738,7 +1738,7 @@ drop table t1,t2;
 --echo #
 --echo # Issue #131: Assertion `v->cfd_->internal_comparator().Compare(start, end) <= 0' failed
 --echo #
-CREATE TABLE t2(c1 INTEGER UNSIGNED NOT NULL, c2 INTEGER NULL, c3 TINYINT, c4 SMALLINT , c5 MEDIUMINT, c6 INT, c7 BIGINT, PRIMARY KEY(c1,c6)) ENGINE=RocksDB;
+CREATE TABLE t2(c1 INTEGER UNSIGNED NOT NULL, c2 INTEGER NULL, c3 TINYINT, c4 SMALLINT , c5 MEDIUMINT, c6 INT, c7 BIGINT, PRIMARY KEY(c1,c6)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t2 VALUES (1,1,1,1,1,1,1);
 SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
 EXPLAIN SELECT * FROM t2 WHERE c1 > 4294967295 ORDER BY c1,c6;
@@ -1761,7 +1761,7 @@ DROP DATABASE test_db;
 --echo #
 --echo # Issue #143: Split rocksdb_bulk_load option into two
 --echo #
-CREATE TABLE t1 (id int primary key, value int) engine=RocksDB;
+CREATE TABLE t1 (id int primary key, value int) ENGINE=RocksDB CHARSET=latin1;
 SET unique_checks=0;
 INSERT INTO t1 VALUES(1, 1);
 INSERT INTO t1 VALUES(1, 2);
@@ -1797,9 +1797,9 @@ DROP TABLE t1;
 --echo #
 --echo # Issue #185 Assertion `BaseValid()' failed in void rocksdb::BaseDeltaIterator::Advance()
 --echo #
-CREATE TABLE t2(id INT NOT NULL PRIMARY KEY, data INT) Engine=MEMORY;
+CREATE TABLE t2(id INT NOT NULL PRIMARY KEY, data INT) Engine=MEMORY CHARSET=latin1;
 INSERT INTO t2 VALUES (100,NULL),(150,"long varchar"),(200,"varchar"),(250,"long long long varchar");
-create TABLE t1 (a int not null, b int not null, primary key(a,b));
+create TABLE t1 (a int not null, b int not null, primary key(a,b)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1  VALUES (1,1);
 SELECT a FROM t1, t2 WHERE a=b AND (b NOT IN (SELECT a FROM t1 WHERE a > 4));
 DROP TABLE t1, t2;
@@ -1808,7 +1808,7 @@ DROP TABLE t1, t2;
 --echo # Issue #189 ha_rocksdb::load_auto_incr_value() creates implicit snapshot and doesn't release
 --echo #
 --connect (con1,localhost,root,,)
-create table r1 (id int auto_increment primary key, value int);
+create table r1 (id int auto_increment primary key, value int) ENGINE=RocksDB CHARSET=latin1;
 insert into r1 (id) values (null), (null), (null), (null), (null);
 connection con1;
 create table r2 like r1;
@@ -1825,7 +1825,7 @@ connection default;
 drop table r1, r2;
 
 # hidden primary key
-create table r1 (id int auto_increment, value int, index i(id));
+create table r1 (id int auto_increment, value int, index i(id)) ENGINE=RocksDB CHARSET=latin1;
 insert into r1 (id) values (null), (null), (null), (null), (null);
 connection con1;
 create table r2 like r1;
@@ -1846,7 +1846,7 @@ disconnect con1;
 --echo #
 --echo # Issue#211 Crash on LOCK TABLES + START TRANSACTION WITH CONSISTENT SNAPSHOT
 --echo #
-CREATE TABLE t1(c1 INT);
+CREATE TABLE t1(c1 INT) ENGINE=RocksDB CHARSET=latin1;
 lock TABLE t1 read local;
 SELECT 1 FROM t1 GROUP BY TRIM(LEADING RAND()FROM'');
 set AUTOCOMMIT=0;
@@ -1861,7 +1861,7 @@ DROP TABLE t1;
 --echo #
 --echo # Issue#213 Crash on LOCK TABLES + partitions
 --echo #
-CREATE TABLE t1(a INT,b INT,KEY (b)) engine=rocksdb PARTITION BY HASH(a) PARTITIONS 2;
+CREATE TABLE t1(a INT,b INT,KEY (b)) ENGINE=RocksDB CHARSET=latin1 PARTITION BY HASH(a) PARTITIONS 2;
 INSERT INTO t1(a)VALUES (20010101101010.999949);
 lock tables t1 write,t1 as t0 write,t1 as t2 write;
 SELECT a FROM t1 ORDER BY a;
@@ -1883,7 +1883,7 @@ CREATE TABLE t1(
   c2 varchar(10) character set utf8 collate utf8_general_ci, 
   c3 INT, 
   INDEX idx(c1,c2)
-);
+) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES ('c1-val1','c2-val1',5);
 INSERT INTO t1 VALUES ('c1-val2','c2-val3',6);
 INSERT INTO t1 VALUES ('c1-val3','c2-val3',7);
@@ -1896,7 +1896,7 @@ drop table t1;
 --echo #
 --echo # Issue#267: MyRocks issue with no matching min/max row and count(*)
 --echo #
-CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2));
+CREATE TABLE t1(c1 INT UNSIGNED, c2 INT SIGNED, INDEX idx2(c2)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES(1,null);
 INSERT INTO t1 VALUES(2,null);
 SELECT count(*) as total_rows, min(c2) as min_value FROM t1;
@@ -1912,13 +1912,13 @@ DROP TABLE t1;
 # the values as needed, so only 2 values will be used.  This means that the
 # SHOW TABLE STATUS in InnoDB will indicate that the next auto-increment
 # value is 4 while MyRocks will show it as 3.
-CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES(0),(-1),(0);
 --replace_column 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
 SELECT * FROM t1;
 DROP TABLE t1;
-CREATE TABLE t1(a INT AUTO_INCREMENT KEY);
+CREATE TABLE t1(a INT AUTO_INCREMENT KEY) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 VALUES(0),(10),(0);
 --replace_column 12 # 13 #
 SHOW TABLE STATUS LIKE 't1';
@@ -1934,12 +1934,12 @@ CREATE TABLE t1 (id1 bigint(20),
                  id2 bigint(20),
                  id3 bigint(20),
                  PRIMARY KEY (id1, id2, id3))
-                 DEFAULT CHARSET=latin1;
+                 ENGINE=RocksDB CHARSET=latin1;
 
 CREATE TABLE t2 (id1 bigint(20),
                  id2 bigint(20),
                  PRIMARY KEY (id1, id2))
-                 DEFAULT CHARSET=latin1;
+                 ENGINE=RocksDB CHARSET=latin1;
 
 
 set rocksdb_commit_in_the_middle=1;

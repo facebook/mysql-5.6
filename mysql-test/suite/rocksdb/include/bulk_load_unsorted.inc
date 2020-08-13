@@ -7,7 +7,7 @@ SET rocksdb_bulk_load_allow_unsorted=1;
 
 # A table with only a PK won't have rows until the bulk load is finished
 eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 SET rocksdb_bulk_load=1;
 --disable_query_log
 let $sign = 1;
@@ -29,7 +29,7 @@ DROP TABLE t1;
 
 # A table with a PK and a SK shows rows immediately
 eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf", KEY(b))
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 SET rocksdb_bulk_load=1;
 --disable_query_log
 let $sign = 1;
@@ -52,9 +52,9 @@ DROP TABLE t1;
 
 # Inserting into another table finishes bulk load to the previous table
 eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 
 SET rocksdb_bulk_load=1;
 INSERT INTO t1 VALUES (1,1);
@@ -69,9 +69,9 @@ DROP TABLE t1, t2;
 
 ### Test bulk load from a file ###
 eval CREATE TABLE t1(a INT, b INT, PRIMARY KEY(a) COMMENT "$pk_cf")
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 eval CREATE TABLE t2(a INT, b INT, PRIMARY KEY(b) COMMENT "$pk_cf")
-     ENGINE=ROCKSDB;
+     ENGINE=RocksDB CHARSET=latin1;
 
 # Disable until partition support is added
 --disable_testcase BUG#888001

@@ -15,7 +15,7 @@ create table t1 (
   id2 int(10) unsigned not null default '0',
   primary key (id1) comment 'cf_primary_key',
   key `secondary_key` (id2) COMMENT 'cf_secondary_key'
-  ) engine=rocksdb;
+  ) ENGINE=RocksDB CHARSET=latin1;
 
 insert into t1 (id1, id2)
   values(1, 1);

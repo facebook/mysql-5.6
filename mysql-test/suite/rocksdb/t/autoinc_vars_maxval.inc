@@ -19,7 +19,7 @@ DROP TABLE IF EXISTS t1;
 
 SET auto_increment_increment = 1;
 SET auto_increment_offset = 1;
-eval CREATE TABLE t1 (a $col_type AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+eval CREATE TABLE t1 (a $col_type AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 eval INSERT INTO t1 VALUES ($col_value , 'a');
 SHOW CREATE TABLE t1;
 INSERT INTO t1 VALUES (NULL, 'b');
@@ -30,7 +30,7 @@ SELECT * FROM t1;
 DROP TABLE t1;
 
 SET auto_increment_increment = 200;
-eval CREATE TABLE t1 (a $col_type  AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+eval CREATE TABLE t1 (a $col_type  AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 eval INSERT INTO t1 VALUES ($col_value , 'a');
 SHOW CREATE TABLE t1;
 if($errorType)
@@ -45,7 +45,7 @@ SELECT * FROM t1;
 DROP TABLE t1;
 
 SET auto_increment_offset = 200;
-eval CREATE TABLE t1 (a $col_type  AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
+eval CREATE TABLE t1 (a $col_type  AUTO_INCREMENT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 eval INSERT INTO t1 VALUES ($col_value , 'a');
 SHOW CREATE TABLE t1;
 if($errorType)

@@ -384,7 +384,7 @@ CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b INT NOT NULL,
 KEY kb (b)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=100;';
 INSERT INTO t1 values (1, 1);
 SELECT * FROM t1 FORCE INDEX (kb);
@@ -396,8 +396,8 @@ set global rocksdb_debug_ttl_rec_ts = 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
-  `b` int(11) NOT NULL,
+  `a` int NOT NULL,
+  `b` int NOT NULL,
   PRIMARY KEY (`a`),
   KEY `kb` (`b`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COMMENT='ttl_duration=1'

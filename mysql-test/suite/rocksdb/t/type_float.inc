@@ -18,7 +18,7 @@ eval CREATE TABLE t1 (
   d53 DOUBLE(53,0) $extra_col_opts,
   d53_10 DOUBLE(53,10) $extra_col_opts,
   pk DOUBLE $extra_pk_col_opts PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

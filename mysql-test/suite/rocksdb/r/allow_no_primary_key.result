@@ -1,13 +1,13 @@
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
   `b` char(8) DEFAULT NULL
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
-a	int(11)	YES		NULL	
+a	int	YES		NULL	
 b	char(8)	YES		NULL	
 INSERT INTO t1 (a,b) VALUES (76,'bar');
 INSERT INTO t1 (a,b) VALUES (35,'foo');
@@ -81,15 +81,15 @@ a	b
 45	bob
 TRUNCATE TABLE t1;
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, c CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, c CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 VALUES (1,'a'),(5,'z');
 ALTER TABLE t1 ADD COLUMN b INT;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
   `c` char(8) DEFAULT NULL,
-  `b` int(11) DEFAULT NULL
+  `b` int DEFAULT NULL
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 SELECT * FROM t1;
 a	c	b
@@ -99,7 +99,7 @@ ALTER TABLE t1 DROP COLUMN b;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
   `c` char(8) DEFAULT NULL
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 SELECT * FROM t1;
@@ -107,17 +107,17 @@ a	c
 1	a
 5	z
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1;
 ALTER TABLE t1 DROP COLUMN pk;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
   `b` char(8) DEFAULT NULL
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
-a	int(11)	YES		NULL	
+a	int	YES		NULL	
 b	char(8)	YES		NULL	
 INSERT INTO t1 (a,b) VALUES (76,'bar');
 INSERT INTO t1 (a,b) VALUES (35,'foo');
@@ -192,9 +192,9 @@ a	b
 TRUNCATE TABLE t1;
 DROP TABLE t1;
 DROP TABLE IF EXISTS t1,t2;
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
-CREATE TABLE t2 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t2 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 CHECK TABLE t1;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
@@ -229,10 +229,10 @@ CHECK TABLE t1 CHANGED;
 Table	Op	Msg_type	Msg_text
 test.t1	check	status	OK
 DROP TABLE t1, t2;
-CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
 INSERT INTO t1 (a,b) VALUES (1,'c');
-ERROR 23000: Duplicate entry '1' for key 'a'
+ERROR 23000: Duplicate entry '1' for key 't1.a'
 SELECT * FROM t1;
 a	b
 1	a
@@ -246,16 +246,16 @@ id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered
 Warnings:
 Note	1003	/* select#1 */ select '2' AS `a`,'b' AS `b` from `test`.`t1` where true
 DROP TABLE t1;
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) DEFAULT NULL,
+  `a` int DEFAULT NULL,
   `b` char(8) DEFAULT NULL
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
-a	int(11)	YES		NULL	
+a	int	YES		NULL	
 b	char(8)	YES		NULL	
 # restart
 INSERT INTO t1 (a,b) VALUES (35,'foo');
@@ -270,9 +270,9 @@ DROP TABLE t1;
 # Issue #834/MDEV-15304 ALTER TABLE table_with_hidden_pk causes Can't
 #   write; duplicate key in table error and/or crash
 #
-CREATE TABLE t1 (a INT, KEY(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, KEY(a)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 VALUES (1),(1+1);
-create table t2 (a int);
+CREATE TABLE t2 (a INT) ENGINE=rocksdb CHARSET=latin1;
 insert into t2 values (10),(20),(30);
 BEGIN;
 select * from t2;

@@ -5,7 +5,7 @@ CREATE TABLE t1 (
 `ts` bigint(20) UNSIGNED NOT NULL,
 `value` mediumblob NOT NULL,
 PRIMARY KEY (`b`,`a`,`c`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -28,7 +28,7 @@ b int NOT NULL,
 ts bigint(20) UNSIGNED NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -52,7 +52,7 @@ b int NOT NULL,
 c int NOT NULL,
 ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -76,7 +76,7 @@ b int NOT NULL,
 c int NOT NULL,
 ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -100,7 +100,7 @@ b int,
 c int,
 ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -125,7 +125,7 @@ CREATE TABLE t1 (
 `ts` bigint(20) UNSIGNED NOT NULL,
 `value` mediumblob NOT NULL,
 PRIMARY KEY (`a`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -147,7 +147,7 @@ a bigint(20) NOT NULL,
 b int NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -168,7 +168,7 @@ CREATE TABLE t1 (
 a int,
 ts bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a, ts)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=5;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -197,7 +197,7 @@ b int NOT NULL,
 ts bigint(20) UNSIGNED NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a, ts)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -222,7 +222,7 @@ CREATE TABLE t1 (
 `ts` bigint(20) UNSIGNED NOT NULL,
 `value` mediumblob NOT NULL,
 PRIMARY KEY (`a`, `ts`)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -246,7 +246,7 @@ c varbinary(256) NOT NULL,
 ts bigint(20) UNSIGNED NOT NULL,
 value mediumblob NOT NULL,
 PRIMARY KEY (b,a,c)
-) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+) ENGINE=ROCKSDB CHARSET=latin1
 COMMENT='ttl_duration=10;ttl_col=ts;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -284,7 +284,7 @@ b int NOT NULL,
 c int NOT NULL,
 ts bigint(20),
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 ERROR HY000: TTL column (ts) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration.
 CREATE TABLE t1 (
@@ -293,7 +293,7 @@ b int NOT NULL,
 c int NOT NULL,
 ts int,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=ts;';
 ERROR HY000: TTL column (ts) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration.
 CREATE TABLE t1 (
@@ -301,7 +301,7 @@ a bigint(20) UNSIGNED NOT NULL,
 b int NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=abc;';
 ERROR HY000: TTL duration (abc) in MyRocks must be an unsigned non-null 64-bit integer.
 CREATE TABLE t1 (
@@ -309,7 +309,7 @@ a bigint(20) UNSIGNED NOT NULL,
 b int NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;ttl_col=abc;';
 ERROR HY000: TTL column (abc) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration.
 CREATE TABLE t1 (
@@ -317,13 +317,13 @@ a bigint(20) UNSIGNED NOT NULL,
 b int NOT NULL,
 c int NOT NULL,
 PRIMARY KEY (a,c)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_col=abc;';
 ERROR HY000: TTL column (abc) in MyRocks must be an unsigned non-null 64-bit integer, exist inside the table, and have an accompanying ttl duration.
 CREATE TABLE t1 (
 a bigint(20) NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=500;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -339,7 +339,7 @@ COUNT(*)
 DROP TABLE t1;
 CREATE TABLE t1 (
 a INT PRIMARY KEY
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=100;';
 INSERT INTO t1 values (1);
 SELECT * FROM t1;
@@ -351,7 +351,7 @@ set global rocksdb_debug_ttl_rec_ts = 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int(11) NOT NULL,
+  `a` int NOT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COMMENT='ttl_duration=1'
 set global rocksdb_force_flush_memtable_now=1;
@@ -363,7 +363,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b INT
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=100;';
 ALTER TABLE t1 DROP PRIMARY KEY;
 ERROR HY000: TTL support is currently disabled when table has a hidden PK.
@@ -371,7 +371,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (
 a INT PRIMARY KEY,
 b INT
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=5;';
 INSERT INTO t1 VALUES (1,1);
 INSERT INTO t1 VALUES (2,2);
@@ -394,7 +394,7 @@ CREATE TABLE t1 (
 a bigint(20) UNSIGNED NOT NULL,
 b int,
 PRIMARY KEY (a,b)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='asdadfasdfsadfadf ;ttl_duration=1; asfasdfasdfadfa';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -428,7 +428,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (
 a bigint(20) NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=5;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -459,7 +459,7 @@ CREATE TABLE t1 (
 a INT,
 b bigint(20) UNSIGNED NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=5;ttl_col=b;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -487,7 +487,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (
 a bigint(20) NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=1;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -512,7 +512,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (
 a bigint(20) NOT NULL,
 PRIMARY KEY (a)
-) ENGINE=rocksdb
+) ENGINE=rocksdb CHARSET=latin1
 COMMENT='ttl_duration=100;';
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.

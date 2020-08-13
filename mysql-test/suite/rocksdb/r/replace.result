@@ -22,7 +22,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (a INT, b CHAR(8), PRIMARY KEY (b)) ENGINE=rocksdb;
 REPLACE INTO t1 (a,b) VALUES (1,'a'),(2,'b'),(3,'c');
 INSERT INTO t1 (a,b) VALUES (4,'b');
-ERROR 23000: Duplicate entry 'b' for key 'PRIMARY'
+ERROR 23000: Duplicate entry 'b' for key 't1.PRIMARY'
 REPLACE INTO t1 (a,b) VALUES (4,'b');
 SELECT a,b FROM t1;
 a	b

@@ -3,7 +3,9 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-call mtr.add_suppression("Error_code: 1032");
+call mtr.add_suppression("Slave: Can't find record in '*'");
+call mtr.add_suppression("Could not execute Update_rows event on table test\.");
+call mtr.add_suppression("Slave before-image consistency check failed at position: master-bin\.000001");
 create table t1 (a int primary key, b int, c int) engine = rocksdb;
 create table t2 (a int unique, b int, c int) engine = rocksdb;
 create table t3 (a int, b int, c int, key(a)) engine = rocksdb;
@@ -82,6 +84,8 @@ drop table t4;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
 set @@global.slave_rows_search_algorithms = 'INDEX_SCAN,TABLE_SCAN,HASH_SCAN';
+Warnings:
+Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 include/start_slave.inc
 create table t1 (a int primary key, b int, c int) engine = rocksdb;
 create table t2 (a int unique, b int, c int) engine = rocksdb;
@@ -161,5 +165,7 @@ drop table t4;
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
 set @@global.slave_rows_search_algorithms = DEFAULT;
+Warnings:
+Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
 include/start_slave.inc
 include/rpl_end.inc

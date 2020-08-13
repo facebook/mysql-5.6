@@ -17,7 +17,7 @@ CREATE TABLE t1 (
   d2 DECIMAL(60,10),
   n1 NUMERIC,
   n2 NUMERIC(65,4)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW INDEX IN t1;
 
@@ -48,7 +48,7 @@ CREATE TABLE t1 (
   n2 NUMERIC(65,4),
   pk NUMERIC PRIMARY KEY,
   UNIQUE INDEX n1_n2 (n1,n2)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 # --disable_testcase BUG#0000
 
@@ -79,7 +79,7 @@ CREATE TABLE t1 (
   n2 NUMERIC(65,4),
   pk DECIMAL(20,10) PRIMARY KEY,
   INDEX (d2)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW INDEX IN t1;
 

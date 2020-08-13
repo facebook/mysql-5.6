@@ -14,7 +14,7 @@ n1 NUMERIC(1) ZEROFILL,
 n20_4 NUMERIC(20,4) ZEROFILL,
 n65_4 NUMERIC(65,4) ZEROFILL,
 pk NUMERIC ZEROFILL PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
@@ -201,7 +201,7 @@ d10_10 DOUBLE PRECISION (10,10) ZEROFILL,
 d53 DOUBLE(53,0) ZEROFILL,
 d53_10 DOUBLE(53,10) ZEROFILL,
 pk DOUBLE ZEROFILL PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
@@ -576,7 +576,7 @@ b0 BIGINT(0) ZEROFILL,
 b1 BIGINT(1) ZEROFILL,
 b20 BIGINT(20) ZEROFILL,
 pk INT AUTO_INCREMENT PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
 Warning	1681	The ZEROFILL attribute is deprecated and will be removed in a future release. Use the LPAD function to zero-pad numbers, or store the formatted numbers in a CHAR column.
@@ -635,7 +635,7 @@ b	bigint(20) unsigned zerofill	YES		NULL
 b0	bigint(20) unsigned zerofill	YES		NULL	
 b1	bigint(1) unsigned zerofill	YES		NULL	
 b20	bigint(20) unsigned zerofill	YES		NULL	
-pk	int(11)	NO	PRI	NULL	auto_increment
+pk	int	NO	PRI	NULL	auto_increment
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (2147483647,2147483647,2147483647,2147483647,127,127,127,127,32767,32767,32767,32767,8388607,8388607,8388607,8388607,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807);

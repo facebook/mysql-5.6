@@ -15,7 +15,7 @@ eval CREATE TABLE t1 (
   y YEAR $extra_col_opts,
   y4 YEAR(4) $extra_col_opts,
   pk DATETIME PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

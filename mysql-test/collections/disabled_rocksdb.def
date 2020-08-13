@@ -22,6 +22,7 @@ rocksdb.issue495 : BUG#888001 partition feature is missing in 8.0
 rocksdb.rocksdb_parts : BUG#888001 partition feature is missing in 8.0
 rocksdb.get_error_message : BUG#888001 partition feature is missing in 8.0
 rocksdb.autoinc_crash_safe_partition : BUG#888001 partition feature is missing in 8.0
+rocksdb.validate_datadic : BUG#0000 native partitioning not supported
 
 # Missing features
 rocksdb.explicit_snapshot : BUG#0000 missing patch 0b671a35cc7 SQL to create and manage explicit snapshots
@@ -62,4 +63,4 @@ rocksdb.persistent_cache : BUG#0000 only repros with other tests running
 rocksdb.index_merge_rocksdb2 : BUG#0000 query plan is different between 8.0 and 5.6
 rocksdb.rqg_runtime: BUG#0000 commit without prepare
 rocksdb.rqg_transactions : BUG#0000 commit without prepare
-
+rocksdb.add_index_inplace : BUG#0000 : ALTER TABLE ALGORITHM=INPLACE fails
