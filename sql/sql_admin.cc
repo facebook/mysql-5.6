@@ -1285,6 +1285,9 @@ static bool mysql_admin_table(
       }
     }
     if (table->table) {
+      const bool skip_flush =
+          (operator_func == &handler::ha_analyze) &&
+          (table->table->file->ha_table_flags() & HA_ONLINE_ANALYZE);
       if (table->table->s->tmp_table) {
         /*
           If the table was not opened successfully, do not try to get
@@ -1292,7 +1295,7 @@ static bool mysql_admin_table(
         */
         if (open_for_modify && !open_error)
           table->table->file->info(HA_STATUS_CONST);
-      } else if (open_for_modify || fatal_error) {
+      } else if ((!skip_flush && open_for_modify) || fatal_error) {
         if (operator_func == &handler::ha_analyze)
           /*
             Force update of key distribution statistics in rec_per_key array and
