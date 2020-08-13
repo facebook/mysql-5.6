@@ -8,12 +8,12 @@
 #
 
 # test CREATE
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 --source no_primary_key_basic_ops.inc
 DROP TABLE t1;
 
 ## test ALTER
-CREATE TABLE t1 (a INT, c CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, c CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 VALUES (1,'a'),(5,'z');
 ALTER TABLE t1 ADD COLUMN b INT;
 SHOW CREATE TABLE t1;
@@ -27,7 +27,7 @@ SELECT * FROM t1;
 DROP TABLE t1;
 
 ## test creating a table with primary and then dropping that key
-CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb CHARSET=latin1;
 ALTER TABLE t1 DROP COLUMN pk;
 --source no_primary_key_basic_ops.inc
 DROP TABLE t1;
@@ -44,10 +44,10 @@ DROP TABLE t1;
 DROP TABLE IF EXISTS t1,t2;
 --enable_warnings
 
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
 
-CREATE TABLE t2 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t2 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 
 CHECK TABLE t1;
 INSERT INTO t1 (a,b) VALUES (3,'c');
@@ -69,7 +69,7 @@ CHECK TABLE t1 CHANGED;
 DROP TABLE t1, t2;
 
 # test unique keys with no primary key
-CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8), UNIQUE INDEX(a)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
 --error ER_DUP_ENTRY
 INSERT INTO t1 (a,b) VALUES (1,'c');
@@ -80,7 +80,7 @@ EXPLAIN SELECT * FROM t1 WHERE a = 2;
 DROP TABLE t1;
 
 ## test restarting a table that has no data
-CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 SHOW CREATE TABLE t1;
 SHOW COLUMNS IN t1;
 --source include/restart_mysqld.inc
@@ -98,9 +98,9 @@ DROP TABLE t1;
 --echo # Issue #834/MDEV-15304 ALTER TABLE table_with_hidden_pk causes Can't
 --echo #   write; duplicate key in table error and/or crash
 --echo #
-CREATE TABLE t1 (a INT, KEY(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, KEY(a)) ENGINE=rocksdb CHARSET=latin1;
 INSERT INTO t1 VALUES (1),(1+1);
-create table t2 (a int);
+CREATE TABLE t2 (a INT) ENGINE=rocksdb CHARSET=latin1;
 insert into t2 values (10),(20),(30);
 
 BEGIN;

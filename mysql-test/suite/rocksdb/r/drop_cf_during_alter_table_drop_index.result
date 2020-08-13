@@ -4,7 +4,7 @@ id1 int(10) unsigned not null default '0',
 id2 int(10) unsigned not null default '0',
 primary key (id1) comment 'cf_primary_key',
 key `secondary_key` (id2) COMMENT 'cf_secondary_key'
-  ) engine=rocksdb;
+  ) ENGINE=RocksDB CHARSET=latin1;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -24,8 +24,8 @@ set debug_sync = "now signal mark_cf_dropped_done_after_commit_alter_table";
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `id1` int(10) unsigned NOT NULL DEFAULT '0',
-  `id2` int(10) unsigned NOT NULL DEFAULT '0',
+  `id1` int unsigned NOT NULL DEFAULT '0',
+  `id2` int unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id1`) COMMENT 'cf_primary_key'
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 select count(*) > 0 from information_schema.rocksdb_cfstats where cf_name = 'cf_secondary_key' ;

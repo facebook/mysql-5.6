@@ -48,9 +48,9 @@ c
 01,23,34,44
 50
 INSERT INTO t1 (a,b,c) VALUES ('Antarctica','test3','02');
-ERROR 23000: Duplicate entry '22' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '22' for key 't1.PRIMARY'
 INSERT INTO t1 (a,b,c) VALUES ('','test1','34,44');
-ERROR 23000: Duplicate entry '34,44' for key 'PRIMARY'
+ERROR 23000: Duplicate entry '34,44' for key 't1.PRIMARY'
 DROP TABLE t1;
 CREATE TABLE t1 (
 a SET('N.America','S.America','Africa','Antarctica','Australia','Europe','Asia'),

@@ -1,12 +1,8 @@
 --source include/have_rocksdb.inc
 --source include/have_debug.inc
 
---disable_warnings
-drop table if exists t1;
---enable_warnings
-
 # test adding duplicate value before unique index
-CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -14,21 +10,23 @@ INSERT INTO t1 (a, b) VALUES (3, 7);
 INSERT INTO t1 (a,b) VALUES (4,5);
 
 # should cause error here, duplicate value on b
---error 1062
+--disable_result_log
+--error ER_DUP_ENTRY
 ALTER TABLE t1 ADD UNIQUE INDEX kb(b), ALGORITHM=INPLACE;
+--enable_result_log
 
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
 
 # test dup value AFTER unique index
-CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
 ALTER TABLE t1 ADD UNIQUE INDEX kb(b), ALGORITHM=INPLACE;
 
 # should error here, duplicate value on b
---error 1062
+--error ER_DUP_ENTRY
 INSERT INTO t1 (a,b) VALUES (4,5);
 
 # should succeed
@@ -39,7 +37,7 @@ SELECT * FROM t1 FORCE INDEX(kb);
 DROP TABLE t1;
 
 # test what happens when duplicate nulls exist
-CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, NULL);
 INSERT INTO t1 (a, b) VALUES (3, NULL);
@@ -53,7 +51,7 @@ SELECT COUNT(*) FROM t1 FORCE INDEX(kb);
 DROP TABLE t1;
 
 ## test case with multi-part key with nulls
-CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY ka(a)) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT, c INT, PRIMARY KEY ka(a)) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a,b,c) VALUES (1,1,NULL);
 INSERT INTO t1 (a,b,c) VALUES (2,1,NULL);
 INSERT INTO t1 (a,b,c) VALUES (3,1,NULL);
@@ -67,7 +65,7 @@ SELECT COUNT(*) FROM t1 FORCE INDEX(kbc);
 DROP TABLE t1;
 
 ## test case with table w/ no primary key, and we try to add unique key
-CREATE TABLE t1 (a INT, b INT) ENGINE=RocksDB;
+CREATE TABLE t1 (a INT, b INT) ENGINE=RocksDB CHARSET=latin1;
 INSERT INTO t1 (a, b) VALUES (1, 5);
 INSERT INTO t1 (a, b) VALUES (2, 6);
 INSERT INTO t1 (a, b) VALUES (3, 7);
@@ -94,8 +92,9 @@ INSERT INTO t1 (a,b,c) VALUES (2,2,2);
 INSERT INTO t1 (a,b,c) VALUES (3,2,2);
 
 # should cause error here, duplicate value 2-2
---error 1062
+--disable_result_log
+--error ER_DUP_ENTRY
 ALTER TABLE t1 DROP INDEX kbc, ADD UNIQUE INDEX kbc(b,c), ALGORITHM=INPLACE;
+--enable_result_log
 
 DROP TABLE t1;
-

@@ -11,7 +11,7 @@ d10_10 DOUBLE PRECISION (10,10) ,
 d53 DOUBLE(53,0) ,
 d53_10 DOUBLE(53,10) ,
 pk DOUBLE  PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.
 Warning	1681	Specifying number of digits for floating point data types is deprecated and will be removed in a future release.

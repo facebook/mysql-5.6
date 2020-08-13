@@ -14,7 +14,7 @@ eval CREATE TABLE t1 (
   c BIT(64) $extra_pk_col_opts,
   d BIT(1) $extra_col_opts,
   PRIMARY KEY (c)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 
 SHOW COLUMNS IN t1;
 

@@ -9,7 +9,7 @@
 --let restart_parameters="restart: $io_option"
 --source include/restart_mysqld.inc
 
-CREATE TABLE t1 (pk INT PRIMARY KEY DEFAULT '0', a INT(11), b CHAR(8)) ENGINE=rocksdb;
+CREATE TABLE t1 (pk INT PRIMARY KEY DEFAULT '0', a INT(11), b CHAR(8)) ENGINE=rocksdb CHARSET=latin1;
 SHOW CREATE TABLE t1;
 INSERT INTO t1 VALUES (1, 1,'a');
 INSERT INTO t1 (a,b) VALUES (2,'b');

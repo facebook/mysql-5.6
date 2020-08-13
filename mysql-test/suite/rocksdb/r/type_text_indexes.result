@@ -1,13 +1,12 @@
 SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
 SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
-DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (
 t TEXT,
 tt TINYTEXT,
 m MEDIUMTEXT,
 l LONGTEXT,
 PRIMARY KEY t (t(32))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	t	A	1000	32	NULL		SE_SPECIFIC			YES	NULL
@@ -48,7 +47,7 @@ m MEDIUMTEXT,
 l LONGTEXT,
 pk TINYTEXT PRIMARY KEY,
 UNIQUE INDEX l_tt (l(256),tt(64))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 ERROR 42000: BLOB/TEXT column 'pk' used in key specification without a key length
 CREATE TABLE t1 (
 t TEXT,
@@ -58,7 +57,7 @@ l LONGTEXT,
 pk MEDIUMTEXT,
 PRIMARY KEY mt (pk(1)),
 INDEX (m(128))
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
 t1	0	PRIMARY	1	pk	A	1000	1	NULL		SE_SPECIFIC			YES	NULL
@@ -161,7 +160,7 @@ b LONGTEXT CHARACTER SET "latin1" COLLATE "latin1_bin",
 PRIMARY KEY b (b(32))
 ) ENGINE=rocksdb;
 INSERT INTO t1 (b) VALUES (''), (_binary 0x0), (' ');
-ERROR 23000: Duplicate entry ' ' for key 'PRIMARY'
+ERROR 23000: Duplicate entry ' ' for key 't1.PRIMARY'
 INSERT INTO t1 (b) VALUES (''), (_binary 0x0);
 SELECT hex(b) FROM t1;
 hex(b)
@@ -212,7 +211,7 @@ primary key (id),
 unique key sk2 (c2(255)));
 insert into t (c2) values ('Asdf');
 insert into t (c2) values ('asdf ');
-ERROR 23000: Duplicate entry 'asdf ' for key 'sk2'
+ERROR 23000: Duplicate entry 'asdf ' for key 't.sk2'
 drop table t;
 create table t (id int not null auto_increment,
 c1 text CHARACTER SET latin1 COLLATE latin1_swedish_ci,
@@ -220,9 +219,9 @@ primary key (id),
 unique key sk1 (c1(256)));
 insert into t (c1) values ('Asdf');
 insert into t (c1) values ('asdf ');
-ERROR 23000: Duplicate entry 'asdf ' for key 'sk1'
+ERROR 23000: Duplicate entry 'asdf ' for key 't.sk1'
 insert into t (c1) values ('asdf');
-ERROR 23000: Duplicate entry 'asdf' for key 'sk1'
+ERROR 23000: Duplicate entry 'asdf' for key 't.sk1'
 drop table t;
 create table t (id int not null auto_increment,
 c1 text CHARACTER SET latin1 COLLATE latin1_swedish_ci,
@@ -231,7 +230,7 @@ unique key sk1 (c1(1)));
 insert into t (c1) values ('Asdf');
 insert into t (c1) values ('bbbb ');
 insert into t (c1) values ('a    ');
-ERROR 23000: Duplicate entry 'a' for key 'sk1'
+ERROR 23000: Duplicate entry 'a' for key 't.sk1'
 explain select c1 from t;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t	NULL	ALL	NULL	NULL	NULL	#	1000	100.00	NULL

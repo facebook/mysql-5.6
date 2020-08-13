@@ -5,7 +5,7 @@ b BIT(20) ,
 c BIT(64) ,
 d BIT(1) ,
 PRIMARY KEY (c)
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
 a	bit(1)	YES		NULL	

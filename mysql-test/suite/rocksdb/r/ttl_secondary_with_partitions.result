@@ -3,7 +3,7 @@ c1 INT,
 c2 INT,
 PRIMARY KEY (`c1`),
 KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;"
 PARTITION BY LIST(c1) (
 PARTITION custom_p0 VALUES IN (1, 4, 7),
@@ -68,7 +68,7 @@ c2 INT,
 name VARCHAR(25) NOT NULL,
 PRIMARY KEY (`c1`, `c2`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=my_custom_cf;custom_p2_cfname=baz',
 KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;custom_p1_ttl_duration=7;"
 PARTITION BY LIST(c1) (
 PARTITION custom_p0 VALUES IN (1, 4, 7),
@@ -168,7 +168,7 @@ name VARCHAR(25) NOT NULL,
 event DATE,
 PRIMARY KEY (`c1`, `c2`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;',
 KEY kc2 (c2)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=9999;custom_p2_ttl_duration=5;"
 PARTITION BY LIST(c1) (
 PARTITION custom_p0 VALUES IN (1, 2, 3),
@@ -212,14 +212,14 @@ set global rocksdb_debug_ttl_rec_ts = 0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` int(11) NOT NULL DEFAULT '0',
-  `c2` int(11) NOT NULL DEFAULT '0',
+  `c1` int NOT NULL,
+  `c2` int NOT NULL,
   `name` varchar(25) NOT NULL,
   `event` date DEFAULT NULL,
   PRIMARY KEY (`c2`,`c1`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;',
   KEY `kc2` (`c2`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COMMENT='custom_p0_ttl_duration=9999;custom_p2_ttl_duration=5;'
-/*!50100 PARTITION BY LIST (c1)
+/*!50100 PARTITION BY LIST (`c1`)
 (PARTITION custom_p0 VALUES IN (1,2,3) ENGINE = ROCKSDB,
  PARTITION custom_p1 VALUES IN (4,5,6) ENGINE = ROCKSDB,
  PARTITION custom_p2 VALUES IN (7,8,9) ENGINE = ROCKSDB) */
@@ -279,7 +279,7 @@ name VARCHAR(25) NOT NULL,
 event DATE,
 PRIMARY KEY (`c1`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz;',
 KEY kc2 (`c2`)
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="ttl_duration=1;custom_p1_ttl_duration=100;custom_p1_ttl_col=c2;custom_p2_ttl_duration=5000;"
 PARTITION BY LIST(c1) (
 PARTITION custom_p0 VALUES IN (1, 2, 3),
@@ -337,7 +337,7 @@ CREATE TABLE t1 (
 c1 INT,
 c2 INT,
 PRIMARY KEY (`c1`) COMMENT 'custom_p0_cfname=foo;'
-) ENGINE=ROCKSDB
+) ENGINE=RocksDB CHARSET=latin1
 COMMENT="custom_p0_ttl_duration=1;"
 PARTITION BY LIST(c1) (
 PARTITION custom_p0 VALUES IN (1, 4, 7),

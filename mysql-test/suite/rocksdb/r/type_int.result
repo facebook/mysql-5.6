@@ -21,7 +21,7 @@ b0 BIGINT(0) ,
 b1 BIGINT(1) ,
 b20 BIGINT(20) ,
 pk INT AUTO_INCREMENT PRIMARY KEY
-) ENGINE=rocksdb;
+) ENGINE=rocksdb CHARSET=latin1;
 Warnings:
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
@@ -40,27 +40,27 @@ Warning	1681	Integer display width is deprecated and will be removed in a future
 Warning	1681	Integer display width is deprecated and will be removed in a future release.
 SHOW COLUMNS IN t1;
 Field	Type	Null	Key	Default	Extra
-i	int(11)	YES		NULL	
-i0	int(11)	YES		NULL	
-i1	int(1)	YES		NULL	
-i20	int(20)	YES		NULL	
-t	tinyint(4)	YES		NULL	
-t0	tinyint(4)	YES		NULL	
+i	int	YES		NULL	
+i0	int	YES		NULL	
+i1	int	YES		NULL	
+i20	int	YES		NULL	
+t	tinyint	YES		NULL	
+t0	tinyint	YES		NULL	
 t1	tinyint(1)	YES		NULL	
-t20	tinyint(20)	YES		NULL	
-s	smallint(6)	YES		NULL	
-s0	smallint(6)	YES		NULL	
-s1	smallint(1)	YES		NULL	
-s20	smallint(20)	YES		NULL	
-m	mediumint(9)	YES		NULL	
-m0	mediumint(9)	YES		NULL	
-m1	mediumint(1)	YES		NULL	
-m20	mediumint(20)	YES		NULL	
-b	bigint(20)	YES		NULL	
-b0	bigint(20)	YES		NULL	
-b1	bigint(1)	YES		NULL	
-b20	bigint(20)	YES		NULL	
-pk	int(11)	NO	PRI	NULL	auto_increment
+t20	tinyint	YES		NULL	
+s	smallint	YES		NULL	
+s0	smallint	YES		NULL	
+s1	smallint	YES		NULL	
+s20	smallint	YES		NULL	
+m	mediumint	YES		NULL	
+m0	mediumint	YES		NULL	
+m1	mediumint	YES		NULL	
+m20	mediumint	YES		NULL	
+b	bigint	YES		NULL	
+b0	bigint	YES		NULL	
+b1	bigint	YES		NULL	
+b20	bigint	YES		NULL	
+pk	int	NO	PRI	NULL	auto_increment
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20);
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
 INSERT INTO t1 (i,i0,i1,i20,t,t0,t1,t20,s,s0,s1,s20,m,m0,m1,m20,b,b0,b1,b20) VALUES (2147483647,2147483647,2147483647,2147483647,127,127,127,127,32767,32767,32767,32767,8388607,8388607,8388607,8388607,9223372036854775807,9223372036854775807,9223372036854775807,9223372036854775807);

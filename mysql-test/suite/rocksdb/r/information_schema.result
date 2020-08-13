@@ -16,7 +16,7 @@ set global rocksdb_force_flush_memtable_now = true;
 select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 TYPE	NAME	VALUE
 BINLOG	FILE	binlog.000001
-BINLOG	POS	1290
+BINLOG	POS	1291
 BINLOG	GTID	uuid:5
 MAX_INDEX_ID	MAX_INDEX_ID	max_index_id
 CF_FLAGS	0	default [0]
