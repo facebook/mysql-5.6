@@ -951,7 +951,7 @@ static MYSQL_THDVAR_STR(tmpdir, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
 static MYSQL_THDVAR_ULONG(parallel_read_threads, PLUGIN_VAR_RQCMDARG,
                           "Number of threads to do parallel read.", nullptr,
                           nullptr, 4,                   /* Default. */
-                          1,                            /* Minimum. */
+                          0,                            /* Minimum. */
                           Parallel_reader::MAX_THREADS, /* Maxumum. */
                           0);
 
