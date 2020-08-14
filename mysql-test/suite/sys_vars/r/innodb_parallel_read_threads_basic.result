@@ -44,14 +44,12 @@ select * from performance_schema.session_variables where variable_name='innodb_p
 VARIABLE_NAME	VARIABLE_VALUE
 innodb_parallel_read_threads	4
 set global innodb_parallel_read_threads=0;
-Warnings:
-Warning	1292	Truncated incorrect innodb_parallel_read_threads value: '0'
 select @@global.innodb_parallel_read_threads;
 @@global.innodb_parallel_read_threads
-1
+0
 select * from performance_schema.global_variables where variable_name='innodb_parallel_read_threads';
 VARIABLE_NAME	VARIABLE_VALUE
-innodb_parallel_read_threads	1
+innodb_parallel_read_threads	0
 select * from performance_schema.session_variables where variable_name='innodb_parallel_read_threads';
 VARIABLE_NAME	VARIABLE_VALUE
 innodb_parallel_read_threads	4
@@ -77,10 +75,10 @@ Warnings:
 Warning	1292	Truncated incorrect innodb_parallel_read_threads value: '-3'
 select @@global.innodb_parallel_read_threads;
 @@global.innodb_parallel_read_threads
-1
+0
 select * from performance_schema.global_variables where variable_name='innodb_parallel_read_threads';
 VARIABLE_NAME	VARIABLE_VALUE
-innodb_parallel_read_threads	1
+innodb_parallel_read_threads	0
 select * from performance_schema.session_variables where variable_name='innodb_parallel_read_threads';
 VARIABLE_NAME	VARIABLE_VALUE
 innodb_parallel_read_threads	3
