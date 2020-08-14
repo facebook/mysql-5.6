@@ -485,6 +485,13 @@ dberr_t Parallel_reader::Ctx::traverse() {
   auto index = m_scan_ctx->m_config.m_index;
 
   for (;;) {
+
+    if (trx_is_interrupted(m_scan_ctx->m_trx)) {
+      mtr.commit();
+      err = DB_INTERRUPTED;
+      break;
+    }
+
     auto pcur = from->m_pcur;
     auto cur = pcur->get_page_cur();
 

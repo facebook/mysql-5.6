@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #define ut0mpmcbq_h
 
 #include <atomic>
+#include "my_dbug.h"
 
 /** Multiple producer consumer, bounded queue
  Implementation of Dmitry Vyukov's MPMC algorithm
@@ -62,6 +63,8 @@ class mpmc_bq {
     capacity to convert the sequence to an array index. This is why the ring
     buffer must be a size which is a power of 2. This also allows the
     sequence to double as a ticket/lock. */
+
+    DBUG_EXECUTE_IF("simulate_queue_is_full", { return false; });
 
     size_t pos = m_enqueue_pos.load(std::memory_order_relaxed);
 
