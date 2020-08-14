@@ -700,7 +700,7 @@ ulong slave_gtid_info;
 bool enable_gtid_mode_on_new_slave_with_old_master;
 my_bool is_slave = false;
 /* Set to true when slave_stats_daemon thread is in use */
-bool slave_stats_daemon_thread_in_use;
+std::atomic<int> slave_stats_daemon_thread_counter(0);
 my_bool read_only_slave;
 const char *gtid_mode_names[]=
 {"OFF", "UPGRADE_STEP_1", "UPGRADE_STEP_2", "ON", NullS};

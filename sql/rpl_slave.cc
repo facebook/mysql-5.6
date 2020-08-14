@@ -3625,7 +3625,7 @@ bool show_slave_status(THD* thd, Master_info* mi)
     protocol->store(mi->ssl_master_issuer, &my_charset_bin);
     protocol->store(mi->ssl_master_subject, &my_charset_bin);
     // slave lag stats daemon running status
-    protocol->store(slave_stats_daemon_thread_in_use ? "Yes" : "No",
+    protocol->store(slave_stats_daemon_thread_counter > 0 ? "Yes" : "No",
                     &my_charset_bin);
     protocol->update_checksum();
 
@@ -5109,6 +5109,7 @@ pthread_handler_t handle_slave_io(void *arg)
   bool suppress_warnings;
   int ret;
   int binlog_version;
+  bool slave_stats_daemon_created= false;
 #ifndef DBUG_OFF
   uint retry_count_reg= 0, retry_count_dump= 0, retry_count_event= 0;
 #endif
@@ -5273,8 +5274,10 @@ connected:
         goto connected;
       });
   }
-  // start sending secondary lag stats to primary 
-  start_handle_slave_stats_daemon();
+  if (!slave_stats_daemon_created) {
+    // start sending secondary lag stats to primary 
+    slave_stats_daemon_created = start_handle_slave_stats_daemon();
+  }
 
   DBUG_PRINT("info",("Starting reading binary log from master"));
   while (!io_slave_killed(thd,mi))
@@ -5489,8 +5492,10 @@ log space");
 
   // error = 0;
 err:
-  // stop sending secondary lag stats to primary 
-  stop_handle_slave_stats_daemon();
+  if (slave_stats_daemon_created) {
+    // stop sending secondary lag stats to primary 
+    stop_handle_slave_stats_daemon();
+  }
 
   // print the current replication position
   sql_print_information("Slave I/O thread exiting, read up to log '%s', position %s",

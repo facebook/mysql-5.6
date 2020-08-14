@@ -69,6 +69,24 @@ sleep(2)
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
 less_than_1_sec_old_most_recent_stats
 1
+select @@slave_stats_daemon_interval;
+@@slave_stats_daemon_interval
+1
+set @@GLOBAL.slave_stats_daemon_interval=1;
+select sleep(2);
+sleep(2)
+0
+select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+select id from information_schema.processlist where command='Binlog Dump' into @id;
+kill @id;
+select sleep(2);
+sleep(2)
+0
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
+less_than_1_sec_old_most_recent_stats
+1
 set @@GLOBAL.slave_stats_daemon_interval=1;
 set @@GLOBAL.slave_stats_daemon_interval=1;
 select * from information_schema.replica_statistics;

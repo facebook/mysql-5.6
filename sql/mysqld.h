@@ -989,7 +989,7 @@ extern std::atomic<ulonglong> slave_high_priority_ddl_executed;
 extern my_bool log_gtid_unsafe_statements;
 extern char *mysqld_socket_umask;
 extern my_bool is_slave;
-extern bool slave_stats_daemon_thread_in_use;
+extern std::atomic<int> slave_stats_daemon_thread_counter;
 extern my_bool read_only_slave;
 extern ulonglong rbr_unsafe_queries;
 extern my_bool use_db_uuid;

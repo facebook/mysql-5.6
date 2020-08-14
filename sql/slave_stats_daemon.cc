@@ -67,7 +67,7 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
   pthread_detach_this_thread();
 
   slave_stats_daemon_thread = pthread_self();
-  slave_stats_daemon_thread_in_use = 1;
+
   MYSQL *mysql = nullptr;
   while(true) {
     mysql_mutex_lock(&LOCK_slave_stats_daemon);
@@ -110,22 +110,22 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
       if (!connected_to_master) {
         connected_to_master = safe_connect_slave_stats_thread_to_master(mysql);
         if (connected_to_master) {
-          sql_print_information(
-              "Slave Stats Daemon: connected to master '%s@%s:%d'",
-              active_mi->get_user(), active_mi->host, active_mi->port);
+          DBUG_PRINT("info",
+              ("Slave Stats Daemon: connected to master '%s@%s:%d'",
+              active_mi->get_user(), active_mi->host, active_mi->port));
         } else {
-          sql_print_information(
-              "Slave Stats Daemon: Couldn't connect to master '%s@%s:%d', "
+          DBUG_PRINT("info",
+              ("Slave Stats Daemon: Couldn't connect to master '%s@%s:%d', "
               "will try again during next cycle, (Error: %s)",
-              active_mi->get_user(), active_mi->host, active_mi->port, mysql_error(mysql));
+              active_mi->get_user(), active_mi->host, active_mi->port, mysql_error(mysql)));
         }
       }
       if (connected_to_master &&
           active_mi->slave_running == MYSQL_SLAVE_RUN_CONNECT) {
         if(send_replica_statistics_to_master(mysql, active_mi)) {
-          sql_print_warning("Slave Stats Daemon: Failed to send lag "
+          DBUG_PRINT("info", ("Slave Stats Daemon: Failed to send lag "
                             "statistics, resetting connection, (Error: %s)",
-                            mysql_error(mysql));
+                            mysql_error(mysql)));
           connected_to_master = false;
         }
       }
@@ -143,23 +143,31 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
   // DBUG_LEAVE; // Can't use DBUG_RETURN after my_thread_end
   my_thread_end();
   ERR_remove_state(0);
-  slave_stats_daemon_thread_in_use = 0;
+  DBUG_ASSERT(slave_stats_daemon_thread_counter > 0);
+  slave_stats_daemon_thread_counter--;
   pthread_exit(0);
   return (NULL);
 }
 
 /* Start handle Slave Stats Daemon thread */
-void start_handle_slave_stats_daemon() {
+bool start_handle_slave_stats_daemon() {
   DBUG_ENTER("start_handle_slave_stats_daemon");
-  abort_slave_stats_daemon = false;
   pthread_t hThread;
   int error;
-  if ((error = mysql_thread_create(key_thread_handle_slave_stats_daemon,
-                                   &hThread, &connection_attrib,
-                                   handle_slave_stats_daemon, 0)))
+  slave_stats_daemon_thread_counter++;
+  error = mysql_thread_create(key_thread_handle_slave_stats_daemon,
+                                    &hThread, &connection_attrib,
+                                    handle_slave_stats_daemon, 0);
+  if (error) {
     sql_print_warning(
-        "Can't create handle_slave_stats_daemon thread (errno= %d)", error);
-  DBUG_VOID_RETURN;
+        "Can't create Slave Stats Daemon thread (errno= %d)", error);
+    DBUG_ASSERT(slave_stats_daemon_thread_counter > 0);
+    slave_stats_daemon_thread_counter--;
+    DBUG_RETURN(false);
+  }
+  sql_print_information("Successfully created Slave Stats Daemon thread: 0x%lx",
+              (ulong)slave_stats_daemon_thread);
+  DBUG_RETURN(true);
 }
 
 /* Initiate shutdown of handle Slave Stats Daemon thread */
@@ -167,17 +175,16 @@ void stop_handle_slave_stats_daemon() {
   DBUG_ENTER("stop_handle_slave_stats_daemon");
   abort_slave_stats_daemon = true;
   mysql_mutex_lock(&LOCK_slave_stats_daemon);
-  if (slave_stats_daemon_thread_in_use) {
-    DBUG_PRINT("quit",
-               ("initiate shutdown of handle Slave Stats Daemon thread: 0x%lx",
-                (ulong)slave_stats_daemon_thread));
-    mysql_cond_signal(&COND_slave_stats_daemon);
-  }
+  sql_print_information("Shutting down Slave Stats Daemon thread: 0x%lx",
+              (ulong)slave_stats_daemon_thread);
+  mysql_cond_signal(&COND_slave_stats_daemon);
   mysql_mutex_unlock(&LOCK_slave_stats_daemon);
-  while(slave_stats_daemon_thread_in_use) {
+  while(slave_stats_daemon_thread_counter > 0) {
     // wait for the thread to finish, sleep for 10ms
     my_sleep(10000);
   }
+  // Reset abort_slave_stats_daemon so slave_stats_daemon can be spawned in future
+  abort_slave_stats_daemon = false;
   DBUG_VOID_RETURN;
 }
 
