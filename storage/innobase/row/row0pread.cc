@@ -537,6 +537,13 @@ dberr_t Parallel_reader::Ctx::traverse_recs(PCursor *pcursor, mtr_t *mtr) {
   dberr_t err{DB_SUCCESS};
 
   for (;;) {
+    if (trx_is_interrupted(m_scan_ctx->m_trx)) {
+      mtr->commit();
+      err = DB_INTERRUPTED;
+      ut_a(!mtr->is_active());
+      break;
+    }
+
     if (page_cur_is_after_last(cur)) {
       mem_heap_empty(heap);
 

@@ -1,0 +1,62 @@
+--source include/have_debug.inc
+
+--echo #
+--echo # Normal Case
+--echo #
+
+set global innodb_limit_optimistic_insert_debug = 2;
+
+CREATE TABLE t1 (a INT);
+INSERT INTO t1 VALUES (10), (20), (30), (40), (50), (60), (70), (80), (90),
+(100);
+
+SELECT COUNT(*) FROM t1;
+CHECK TABLE t1;
+
+DROP TABLE t1;
+
+set global innodb_limit_optimistic_insert_debug = 0;
+
+--echo #
+--echo # SELECT COUNTER: Error test case where read ahead queue is full and others is killing it 
+--echo #
+
+# create a connection to kill others query
+connect (conn1, localhost, root,,);
+connect (conn2, localhost, root,,);
+connection conn1;
+
+set global innodb_limit_optimistic_insert_debug = 2;
+
+CREATE TABLE t1 (a INT);
+INSERT INTO t1 VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9);
+CREATE TABLE t2 (a INT);
+INSERT Into t2 SELECT A.a + B.a * 10 + C.a * 100 + D.a * 1000 FROM t1 A, t1 B, t1 C, t1 D;
+
+# Check parallel read
+set global debug='+d,simulate_queue_is_full';
+SEND SELECT COUNT(*) FROM t2;
+
+# Select is going to take good time so let's kill query.
+connection conn2;
+let $wait_condition=
+	select * from information_schema.processlist where state = 'executing' and
+	info = 'SELECT COUNT(*) FROM t2';
+--source include/wait_condition.inc
+
+SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE 
+INFO = 'SELECT COUNT(*) FROM t2' INTO @thread_id;
+KILL QUERY @thread_id;
+
+# Query should be killed
+connection conn1;
+--error ER_QUERY_INTERRUPTED
+reap;
+SELECT count(*) FROM information_schema.processlist WHERE info = 'SELECT COUNT(*) FROM t2';
+
+# Clean up
+DROP TABLE t1;
+DROP TABLE t2;
+
+set global debug='-d,simulate_queue_is_full';
+set global innodb_limit_optimistic_insert_debug = 0;

@@ -52,6 +52,7 @@ struct dict_table_t;
 #include "os0event.h"
 #include "page0size.h"
 #include "rem0types.h"
+#include "trx0trx.h"
 #include "ut0mpmcbq.h"
 
 /** The core idea is to find the left and right paths down the B+Tree.These
@@ -593,6 +594,11 @@ class Parallel_reader::Scan_ctx {
     ut_ad(m_config.m_read_ahead);
 
     Read_ahead_request read_ahead_request(this, page_no);
+
+    DBUG_EXECUTE_IF("simulate_queue_is_full", {
+      while (!trx_is_interrupted(m_trx)) UT_RELAX_CPU();
+      set_error_state(DB_INTERRUPTED);
+    });
 
     while (!m_reader->m_read_aheadq.enqueue(read_ahead_request)) {
       UT_RELAX_CPU();
