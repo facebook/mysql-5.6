@@ -1150,7 +1150,9 @@ static int reset_transmit_packet(THD *thd, ushort flags,
   packet->set(packet_buffer, (uint32) packet_buffer_size, &my_charset_bin);
   packet->length(0);
   packet->append("\0", 1);
-  if (observe_transmission && semi_sync_slave &&
+
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && observe_transmission && semi_sync_slave &&
       RUN_HOOK(binlog_transmit, reserve_header, (thd, flags, packet)))
   {
     *errmsg= "Failed to run hook 'reserve_header'";
@@ -2169,7 +2171,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     sql_print_information("Start binlog_dump to master_thread_id(%u) slave_server(%u), pos(%s, %lu)",
                           thd->thread_id(), thd->server_id, log_ident, (ulong)pos);
   semi_sync_slave = is_semi_sync_slave(thd);
-  if (semi_sync_slave &&
+
+  // call into semi-sync only when raft is disabled
+  if (semi_sync_slave && !enable_raft_plugin &&
       RUN_HOOK(binlog_transmit, transmit_start,
                (thd, flags, log_ident, pos, &observe_transmission)))
   {
@@ -2555,7 +2559,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                  event_type, searching_first_gtid, skip_group, log_file_name,
                  my_b_tell(&log)));
       pos = my_b_tell(&log);
-      if (observe_transmission && semi_sync_slave &&
+
+      // semi-sync is called only when raft is disabled
+      if (!enable_raft_plugin && observe_transmission && semi_sync_slave &&
           RUN_HOOK(binlog_transmit, before_send_event,
                    (thd, flags, packet, log_file_name, pos)))
       {
@@ -2675,7 +2681,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 	}
       }
 
-      if (observe_transmission && semi_sync_slave &&
+      if (!enable_raft_plugin && observe_transmission && semi_sync_slave &&
           RUN_HOOK(binlog_transmit, after_send_event,
                    (thd, flags, packet, log_file_name, skip_group ? pos : 0)))
       {
@@ -3091,7 +3097,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
             THD_STAGE_INFO(thd, stage_sending_binlog_event_to_slave);
             pos = my_b_tell(&log);
-            if (observe_transmission && semi_sync_slave &&
+
+            // semi-sync is called only when raft is disabled
+            if (!enable_raft_plugin && observe_transmission &&
+                semi_sync_slave &&
                 RUN_HOOK(binlog_transmit, before_send_event,
                          (thd, flags, packet, log_file_name, pos)))
             {
@@ -3126,7 +3135,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
           if(!goto_next_binlog)
           {
-            if (observe_transmission && semi_sync_slave &&
+            // semi-sync is called only when raft is disabled
+            if (!enable_raft_plugin && observe_transmission &&
+                semi_sync_slave &&
                 RUN_HOOK(binlog_transmit, after_send_event,
                          (thd, flags, packet, log_file_name,
                           skip_group ? pos : 0)))
@@ -3234,8 +3245,10 @@ end:
   end_io_cache(&log);
   mysql_file_close(file, MYF(MY_WME));
 
-  if (has_transmit_started && semi_sync_slave)
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && has_transmit_started && semi_sync_slave)
     (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, flags));
+
   my_eof(thd);
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
@@ -3277,8 +3290,11 @@ err:
     error_text[sizeof(error_text) - 1]= '\0';
   }
   end_io_cache(&log);
-  if (has_transmit_started && semi_sync_slave)
+
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin && has_transmit_started && semi_sync_slave)
     (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, flags));
+
   /*
     Exclude  iteration through thread list
     this is needed for purge_logs() - it will iterate through
@@ -3489,7 +3505,11 @@ int reset_master(THD* thd)
 
   if (mysql_bin_log.reset_logs(thd))
     return 1;
-  (void) RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
+
+  // semi-sync is called only when raft is disabled
+  if (!enable_raft_plugin)
+    (void) RUN_HOOK(binlog_transmit, after_reset_master, (thd, 0 /* flags */));
+
   reset_semi_sync_last_acked();
   return 0;
 }

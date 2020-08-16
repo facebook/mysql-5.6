@@ -1625,7 +1625,7 @@ int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit)
              only one invocation of this hook in the code (in
              MYSQL_LOG_BIN::finish_commit).
     */
-    if (!error)
+    if (!error && !enable_raft_plugin)
       (void) RUN_HOOK(transaction, after_commit, (thd, all));
     thd->transaction.flags.run_hooks= false;
   }

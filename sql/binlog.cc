@@ -9276,8 +9276,12 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
       */
       excursion.try_to_attach_to(head);
       bool all= head->transaction.flags.real_commit;
-      (void) RUN_HOOK(transaction, after_commit, (head, all));
-      error = error || RUN_HOOK(raft_replication, after_commit, (head, all));
+
+      // Call semi-sync plugin only when raft is not enabled
+      if (!enable_raft_plugin)
+        (void) RUN_HOOK(transaction, after_commit, (head, all));
+      else
+        error = error || RUN_HOOK(raft_replication, after_commit, (head, all));
 
       /*
         When after_commit finished for the transaction, clear the run_hooks flag.
@@ -9336,13 +9340,17 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      // Since flush ordered is maintained even in the semisync stage
      // calling hook for the last valid thd is sufficient since it
      // will have the maximum binlog position.
-     (void) RUN_HOOK(transaction, before_commit,
-                     (last_thd, last_thd->transaction.flags.real_commit));
-
-     // TODO: Handle the error correctly once raft plugin has its own
-     // delegates/observers
-     error= RUN_HOOK(raft_replication, before_commit,
-                     (last_thd, last_thd->transaction.flags.real_commit));
+     if (!enable_raft_plugin)
+     {
+       // semi-sync hook to be called only when raft is not enabled
+       (void) RUN_HOOK(transaction, before_commit,
+                       (last_thd, last_thd->transaction.flags.real_commit));
+     }
+     else
+     {
+       error= RUN_HOOK(raft_replication, before_commit,
+                       (last_thd, last_thd->transaction.flags.real_commit));
+     }
      DBUG_EXECUTE_IF("simulate_before_commit_error", {error= 1;});
 
      if (error)
@@ -9636,8 +9644,13 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     */
     if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
     {
-      (void) RUN_HOOK(transaction, after_commit, (thd, all));
-      int error= RUN_HOOK(raft_replication, after_commit, (thd, all));
+      int error = 0;
+
+      // semi-sync plugin only called when raft is not enabled
+      if (!enable_raft_plugin)
+        (void) RUN_HOOK(transaction, after_commit, (thd, all));
+      else
+        error= RUN_HOOK(raft_replication, after_commit, (thd, all));
 
       if (!error &&
           opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
@@ -10126,7 +10139,10 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   {
     const char *file_name_ptr= log_file_name + dirname_length(log_file_name);
     DBUG_ASSERT(flush_end_pos != 0);
-    if (RUN_HOOK(binlog_storage, after_flush,
+
+    // semi-sync to be called only when raft is not enabled
+    if (!enable_raft_plugin &&
+        RUN_HOOK(binlog_storage, after_flush,
                  (thd, file_name_ptr, flush_end_pos)))
     {
       sql_print_error("Failed to run 'after_flush' hooks");
