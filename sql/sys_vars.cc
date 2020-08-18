@@ -2717,6 +2717,17 @@ static Sys_var_ulong Sys_range_optimizer_max_mem_size(
       DEFAULT(1536000),
       BLOCK_SIZE(1));
 
+static const char *range_optimizer_fail_mode_names[]=
+{
+  "WARN", "ERROR",
+  0
+};
+static Sys_var_enum Sys_range_optimizer_fail_mode(
+      "range_optimizer_fail_mode",
+      "Determines the behavior when range analysis fails due to memory limits.",
+      SESSION_VAR(range_optimizer_fail_mode),
+      CMD_LINE(OPT_ARG), range_optimizer_fail_mode_names, DEFAULT(0));
+
 static Sys_var_mybool Sys_optimizer_low_limit_heuristic(
       "optimizer_low_limit_heuristic",
       "Enable low limit heuristic.",

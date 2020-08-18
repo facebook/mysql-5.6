@@ -136,6 +136,11 @@ static uchar is_null_string[2]= {1,0};
 
 class RANGE_OPT_PARAM;
 
+enum enum_range_optimizer_mem_mode {
+  RANGE_OPT_MEM_WARN,
+  RANGE_OPT_MEM_ERROR
+};
+
 /**
   Error handling class for range optimizer. We handle only out of memory
   error here. This is to give a hint to the user to
@@ -165,14 +170,17 @@ public:
       if (sql_errno == EE_CAPACITY_EXCEEDED)
       {
         m_is_mem_error= true;
-        /* Convert the error into a warning. */
-        push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
-                            ER_CAPACITY_EXCEEDED,
-                            ER_THD(thd, ER_CAPACITY_EXCEEDED),
-                            (ulonglong)thd->variables.range_optimizer_max_mem_size,
-                            "range_optimizer_max_mem_size",
-                            ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER));
-        return true;
+        if (thd->variables.range_optimizer_fail_mode == RANGE_OPT_MEM_WARN)
+        {
+          /* Convert the error into a warning. */
+          push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+                              ER_CAPACITY_EXCEEDED,
+                              ER_THD(thd, ER_CAPACITY_EXCEEDED),
+                              (ulonglong)thd->variables.range_optimizer_max_mem_size,
+                              "range_optimizer_max_mem_size",
+                              ER_THD(thd, ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER));
+          return true;
+        }
       }
     }
     return false;
@@ -1040,7 +1048,7 @@ static SEL_ARG *key_and(RANGE_OPT_PARAM *param, SEL_ARG *key1, SEL_ARG *key2,
 static bool get_range(SEL_ARG **e1,SEL_ARG **e2,SEL_ARG *root1);
 bool get_quick_keys(PARAM *param,QUICK_RANGE_SELECT *quick,KEY_PART *key,
                     SEL_ARG *key_tree, uchar *min_key,uint min_key_flag,
-                    uchar *max_key,uint max_key_flag);
+                    uchar *max_key,uint max_key_flag, MEM_ROOT *parent_alloc);
 static bool eq_tree(SEL_ARG* a,SEL_ARG *b);
 static bool eq_ranges_exceeds_limit(SEL_ARG *keypart_root, uint* count, 
                                     uint limit);
@@ -1454,6 +1462,8 @@ QUICK_RANGE_SELECT::QUICK_RANGE_SELECT(THD *thd, TABLE *table, uint key_nr,
   {
     // Allocates everything through the internal memroot
     init_sql_alloc(&alloc, thd->variables.range_alloc_block_size, 0);
+    set_memroot_max_capacity(&alloc, thd->variables.range_optimizer_max_mem_size);
+    set_memroot_error_reporting(&alloc, true);
     thd->mem_root= &alloc;
   }
   else
@@ -1533,6 +1543,8 @@ QUICK_INDEX_MERGE_SELECT::QUICK_INDEX_MERGE_SELECT(THD *thd_param,
   head= table;
   memset(&read_record, 0, sizeof(read_record));
   init_sql_alloc(&alloc, thd->variables.range_alloc_block_size, 0);
+  set_memroot_max_capacity(&alloc, thd->variables.range_optimizer_max_mem_size);
+  set_memroot_error_reporting(&alloc, true);
   DBUG_VOID_RETURN;
 }
 
@@ -1594,7 +1606,11 @@ QUICK_ROR_INTERSECT_SELECT::QUICK_ROR_INTERSECT_SELECT(THD *thd_param,
   head= table;
   record= head->record[0];
   if (!parent_alloc)
+  {
     init_sql_alloc(&alloc, thd->variables.range_alloc_block_size, 0);
+    set_memroot_max_capacity(&alloc, thd->variables.range_optimizer_max_mem_size);
+    set_memroot_error_reporting(&alloc, true);
+  }
   else
     memset(&alloc, 0, sizeof(MEM_ROOT));
   last_rowid= (uchar*) alloc_root(parent_alloc? parent_alloc : &alloc,
@@ -1856,6 +1872,8 @@ QUICK_ROR_UNION_SELECT::QUICK_ROR_UNION_SELECT(THD *thd_param,
   rowid_length= table->file->ref_length;
   record= head->record[0];
   init_sql_alloc(&alloc, thd->variables.range_alloc_block_size, 0);
+  set_memroot_max_capacity(&alloc, thd->variables.range_optimizer_max_mem_size);
+  set_memroot_error_reporting(&alloc, true);
   thd_param->mem_root= &alloc;
 }
 
@@ -2008,7 +2026,7 @@ QUICK_RANGE::QUICK_RANGE()
   min_keypart_map(0), max_keypart_map(0)
 {}
 
-QUICK_RANGE::QUICK_RANGE(const uchar *min_key_arg, uint min_length_arg,
+QUICK_RANGE::QUICK_RANGE(MEM_ROOT *alloc, const uchar *min_key_arg, uint min_length_arg,
                          key_part_map min_keypart_map_arg,
                          const uchar *max_key_arg, uint max_length_arg,
                          key_part_map max_keypart_map_arg,
@@ -2021,8 +2039,8 @@ QUICK_RANGE::QUICK_RANGE(const uchar *min_key_arg, uint min_length_arg,
     min_keypart_map(min_keypart_map_arg),
     max_keypart_map(max_keypart_map_arg)
 {
-  min_key= static_cast<uchar*>(sql_memdup(min_key_arg, min_length_arg + 1));
-  max_key= static_cast<uchar*>(sql_memdup(max_key_arg, max_length_arg + 1));
+  min_key= static_cast<uchar*>(memdup_root(alloc, min_key_arg, min_length_arg + 1));
+  max_key= static_cast<uchar*>(memdup_root(alloc, max_key_arg, max_length_arg + 1));
   // If we get is_null_string as argument, the memdup is undefined behavior.
   DBUG_ASSERT(min_key_arg != is_null_string);
   DBUG_ASSERT(max_key_arg != is_null_string);
@@ -2950,6 +2968,12 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
       {
         Opt_trace_array trace_setup_cond(trace, "setup_range_conditions");
         tree= get_mm_tree(&param,cond);
+        if (param.has_errors()) {
+          trace_range.add_alnum("cause", "reached_tree_mem_limit");
+          if (thd->variables.range_optimizer_fail_mode == RANGE_OPT_MEM_ERROR) {
+            goto free_mem;
+          }
+        }
       }
       if (tree)
       {
@@ -3128,8 +3152,14 @@ force_plan:
     if (best_trp)
     {
       records= best_trp->records;
-      if (!(quick= best_trp->make_quick(&param, TRUE)) || quick->init())
+      bool has_errors_before = param.has_errors();
+      if (!(quick= best_trp->make_quick(&param, TRUE)) || quick->init()) {
         set_quick(NULL);
+        // Check if we've acquired errors during the make_quick call.
+        if (!has_errors_before && param.has_errors()) {
+          trace_range.add_alnum("cause", "reached_quick_ranges_mem_limit");
+        }
+      }
     }
 
 free_mem:
@@ -9901,7 +9931,7 @@ get_quick_select(PARAM *param,uint idx,SEL_ARG *key_tree, uint mrr_flags,
   {
     if (create_err ||
 	get_quick_keys(param,quick,param->key[idx],key_tree,param->min_key,0,
-		       param->max_key,0))
+		       param->max_key,0, parent_alloc))
     {
       delete quick;
       quick=0;
@@ -9928,17 +9958,18 @@ get_quick_select(PARAM *param,uint idx,SEL_ARG *key_tree, uint mrr_flags,
 bool
 get_quick_keys(PARAM *param,QUICK_RANGE_SELECT *quick,KEY_PART *key,
 	       SEL_ARG *key_tree, uchar *min_key,uint min_key_flag,
-	       uchar *max_key, uint max_key_flag)
+	       uchar *max_key, uint max_key_flag, MEM_ROOT *parent_alloc)
 {
   QUICK_RANGE *range;
   uint flag;
+  MEM_ROOT *alloc;
   int min_part= key_tree->part-1, // # of keypart values in min_key buffer
       max_part= key_tree->part-1; // # of keypart values in max_key buffer
 
   if (key_tree->left != &null_element)
   {
     if (get_quick_keys(param,quick,key,key_tree->left,
-		       min_key,min_key_flag, max_key, max_key_flag))
+		       min_key,min_key_flag, max_key, max_key_flag, parent_alloc))
       return 1;
   }
   uchar *tmp_min_key=min_key,*tmp_max_key=max_key;
@@ -9957,7 +9988,8 @@ get_quick_keys(PARAM *param,QUICK_RANGE_SELECT *quick,KEY_PART *key,
     {
       if (get_quick_keys(param,quick,key,key_tree->next_key_part,
 			 tmp_min_key, min_key_flag | key_tree->min_flag,
-			 tmp_max_key, max_key_flag | key_tree->max_flag))
+			 tmp_max_key, max_key_flag | key_tree->max_flag,
+                         parent_alloc))
 	return 1;
       goto end;					// Ugly, but efficient
     }
@@ -10023,15 +10055,21 @@ get_quick_keys(PARAM *param,QUICK_RANGE_SELECT *quick,KEY_PART *key,
     }
   }
 
+  alloc = parent_alloc ? parent_alloc : &quick->alloc;
   /* Get range for retrieving rows in QUICK_SELECT::get_next */
-  if (!(range= new QUICK_RANGE(param->min_key,
-			       (uint) (tmp_min_key - param->min_key),
-                               min_part >=0 ? make_keypart_map(min_part) : 0,
-			       param->max_key,
-			       (uint) (tmp_max_key - param->max_key),
-                               max_part >=0 ? make_keypart_map(max_part) : 0,
-			       flag)))
+  if (!(range= new (alloc)
+        QUICK_RANGE(alloc, param->min_key,
+                    (uint) (tmp_min_key - param->min_key),
+                    min_part >=0 ? make_keypart_map(min_part) : 0,
+                    param->max_key,
+                    (uint) (tmp_max_key - param->max_key),
+                    max_part >=0 ? make_keypart_map(max_part) : 0,
+                    flag)))
     return 1;			// out of memory
+
+  /* Check if we have run out of memory, and end the recursion early. */
+  if (param->has_errors())
+    return 1;
 
   set_if_bigger(quick->max_used_key_length, range->min_length);
   set_if_bigger(quick->max_used_key_length, range->max_length);
@@ -10043,7 +10081,8 @@ get_quick_keys(PARAM *param,QUICK_RANGE_SELECT *quick,KEY_PART *key,
   if (key_tree->right != &null_element)
     return get_quick_keys(param,quick,key,key_tree->right,
 			  min_key,min_key_flag,
-			  max_key,max_key_flag);
+			  max_key,max_key_flag,
+                          parent_alloc);
   return 0;
 }
 
@@ -10213,6 +10252,17 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
 
   if (!quick || create_err)
     return 0;			/* no ranges found */
+
+  /*
+    Similar to test_quick_select, we need to install
+    Range_optimizer_error_handler in order to cap the memory usage used by
+    this range plan.
+
+    get_quick_select_for_ref is only called when ref plans require filesort.
+  */
+  Range_optimizer_error_handler error_handler;
+  thd->push_internal_handler(&error_handler);
+
   if (quick->init())
     goto err;
   quick->records= records;
@@ -10254,8 +10304,8 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
     QUICK_RANGE *null_range;
 
     *ref->null_ref_key= 1;		// Set null byte then create a range
-    if (!(null_range= new (alloc)
-          QUICK_RANGE(ref->key_buff, ref->key_length,
+    if (!(null_range= new (&quick->alloc)
+          QUICK_RANGE(&quick->alloc, ref->key_buff, ref->key_length,
                       make_prev_keypart_map(ref->key_parts),
                       ref->key_buff, ref->key_length,
                       make_prev_keypart_map(ref->key_parts), EQ_RANGE)))
@@ -10282,8 +10332,10 @@ QUICK_RANGE_SELECT *get_quick_select_for_ref(THD *thd, TABLE *table,
                                          &quick->mrr_flags, &cost))
     goto err;
 
+  thd->pop_internal_handler();
   return quick;
 err:
+  thd->pop_internal_handler();
   delete quick;
   return 0;
 }
@@ -12899,6 +12951,8 @@ QUICK_SKIP_SCAN_SELECT(TABLE *table, JOIN *join, KEY *index_info,
   if (!parent_alloc)
   {
     init_sql_alloc(&alloc, join->thd->variables.range_alloc_block_size, 0);
+    set_memroot_max_capacity(&alloc, join->thd->variables.range_optimizer_max_mem_size);
+    set_memroot_error_reporting(&alloc, true);
     join->thd->mem_root= &alloc;
   }
   else
@@ -13047,7 +13101,7 @@ bool QUICK_SKIP_SCAN_SELECT::set_range(SEL_ARG *sel_range)
       range_flag|= EQ_RANGE;
   }
 
-  range_cond= QUICK_RANGE(sel_range->min_value,
+  range_cond= QUICK_RANGE(&alloc, sel_range->min_value,
                           range_key_part->store_length,
                           make_keypart_map(sel_range->part),
                           sel_range->max_value,
@@ -14020,6 +14074,8 @@ QUICK_GROUP_MIN_MAX_SELECT(TABLE *table, JOIN *join_arg, bool have_min_arg,
   if (!parent_alloc)
   {
     init_sql_alloc(&alloc, join->thd->variables.range_alloc_block_size, 0);
+    set_memroot_max_capacity(&alloc, join->thd->variables.range_optimizer_max_mem_size);
+    set_memroot_error_reporting(&alloc, true);
     join->thd->mem_root= &alloc;
   }
   else
@@ -14200,7 +14256,7 @@ bool QUICK_GROUP_MIN_MAX_SELECT::add_range(SEL_ARG *sel_range, int idx)
                     key_length) == 0)
       range_flag|= EQ_RANGE;  /* equality condition */
   }
-  range= new QUICK_RANGE(sel_range->min_value, key_length,
+  range= new QUICK_RANGE(&alloc, sel_range->min_value, key_length,
                          make_keypart_map(sel_range->part),
                          sel_range->max_value, key_length,
                          make_keypart_map(sel_range->part),

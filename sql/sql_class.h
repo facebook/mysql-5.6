@@ -691,6 +691,7 @@ typedef struct system_variables
   ulong optimizer_prune_level;
   ulong optimizer_search_depth;
   ulong range_optimizer_max_mem_size;
+  ulong range_optimizer_fail_mode;
   ulong preload_buff_size;
   ulong profiling_history_size;
   ulong read_buff_size;
