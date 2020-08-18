@@ -8,6 +8,7 @@ set @save_max_running_queries = @@max_running_queries;
 set @save_max_waiting_queries = @@max_waiting_queries;
 set @save_admission_control_wait_events = @@admission_control_wait_events;
 set @save_admission_control_filter = @@admission_control_filter;
+set @save_admission_control_yield_freq = @@admission_control_yield_freq;
 
 set global max_running_queries = 1;
 set global max_waiting_queries = 2000;
@@ -16,7 +17,7 @@ set global admission_control_filter = 'SET';
 --source include/count_sessions.inc
 --connect (con1,localhost,test_user,,test_db)
 --connect (con2,localhost,test_user,,test_db)
-set admission_control_queue_timeout = 100;
+set admission_control_queue_timeout = 500;
 
 --echo #
 --echo # Test admission_control_wait_events = SLEEP
@@ -220,6 +221,7 @@ select 1;
 # Test that query passes admission control with variable.
 --connection default
 set global admission_control_wait_events = 'YIELD';
+set global admission_control_yield_freq = 1;
 --connection con1
 --let $con1_id = `SELECT CONNECTION_ID()`
 --send select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;
@@ -254,6 +256,7 @@ set global max_running_queries = @save_max_running_queries;
 set global max_waiting_queries = @save_max_waiting_queries;
 set global admission_control_wait_events = @save_admission_control_wait_events;
 set global admission_control_filter = @save_admission_control_filter;
+set global admission_control_yield_freq = @save_admission_control_yield_freq;
 
 drop database test_db;
 drop user test_user@localhost;
