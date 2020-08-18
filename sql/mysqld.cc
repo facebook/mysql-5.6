@@ -2151,8 +2151,11 @@ static void close_connections(void)
 
 static void plugin_shutdown_prework()
 {
-  sql_print_information("Sending shutdown call to raft plugin");
-  RUN_HOOK(raft_replication, before_shutdown, (nullptr));
+  if (enable_raft_plugin)
+  {
+    sql_print_information("Sending shutdown call to raft plugin");
+    RUN_HOOK_STRICT(raft_replication, before_shutdown, (nullptr));
+  }
 }
 
 #ifdef HAVE_CLOSE_SERVER_SOCK

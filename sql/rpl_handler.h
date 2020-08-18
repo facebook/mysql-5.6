@@ -325,6 +325,13 @@ extern Raft_replication_delegate *raft_replication_delegate;
   (group ##_delegate->is_empty() ?              \
    0 : group ##_delegate->hook args)
 
+/*
+  This is same as RUN_HOOK, but return 1 if there are no observers
+*/
+#define RUN_HOOK_STRICT(group, hook, args)      \
+  (group ##_delegate->is_empty() ?              \
+   1 : group ##_delegate->hook args)
+
 #endif /* RPL_HANDLER_H */
 
 class RaftListenerQueue : public RaftListenerQueueIf

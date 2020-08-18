@@ -1506,8 +1506,8 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
     error= gtid_before_write_cache(thd, this);
 
     if (!error && enable_raft_plugin_save && !mysql_bin_log.is_apply_log) {
-      error= RUN_HOOK(raft_replication, before_flush,
-                      (thd, &cache_log));
+      error= RUN_HOOK_STRICT(raft_replication, before_flush,
+                             (thd, &cache_log));
 
       DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
 
@@ -5845,7 +5845,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
     if (!included && file_index_pair.second == 0)
       goto err;
 
-    error= RUN_HOOK(
+    error= RUN_HOOK_STRICT(
         raft_replication, purge_logs, (current_thd, file_index_pair.second));
 
     if (error)
@@ -6738,13 +6738,14 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     else if (config_change_rotate)
       op_type= RaftReplicateMsgOpType::OP_TYPE_CHANGE_CONFIG;
 
-    error= RUN_HOOK(raft_replication, before_flush,
-                    (current_thd, &raft_io_cache, op_type));
+    error= RUN_HOOK_STRICT(raft_replication, before_flush,
+                           (current_thd, &raft_io_cache, op_type));
 
     // time to safely readjust the cur_log_ext back to expected value
     cur_log_ext++;
     if (!error) {
-      error= RUN_HOOK(raft_replication, before_commit, (current_thd, false));
+      error= RUN_HOOK_STRICT(
+          raft_replication, before_commit, (current_thd, false));
     }
   }
 
@@ -6828,7 +6829,8 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
   if (!error && rotate_via_raft && !no_op) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
-    (void)RUN_HOOK(raft_replication, after_commit, (current_thd, false));
+    (void)RUN_HOOK_STRICT(
+        raft_replication, after_commit, (current_thd, false));
   }
 
 end:
@@ -9281,7 +9283,8 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
       if (!enable_raft_plugin)
         (void) RUN_HOOK(transaction, after_commit, (head, all));
       else
-        error = error || RUN_HOOK(raft_replication, after_commit, (head, all));
+        error = error || RUN_HOOK_STRICT(
+            raft_replication, after_commit, (head, all));
 
       /*
         When after_commit finished for the transaction, clear the run_hooks flag.
@@ -9348,8 +9351,9 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      }
      else
      {
-       error= RUN_HOOK(raft_replication, before_commit,
-                       (last_thd, last_thd->transaction.flags.real_commit));
+       error= RUN_HOOK_STRICT(
+           raft_replication, before_commit,
+           (last_thd, last_thd->transaction.flags.real_commit));
      }
      DBUG_EXECUTE_IF("simulate_before_commit_error", {error= 1;});
 
@@ -9644,13 +9648,13 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     */
     if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
     {
-      int error = 0;
+      int error= 0;
 
       // semi-sync plugin only called when raft is not enabled
       if (!enable_raft_plugin)
         (void) RUN_HOOK(transaction, after_commit, (thd, all));
       else
-        error= RUN_HOOK(raft_replication, after_commit, (thd, all));
+        error= RUN_HOOK_STRICT(raft_replication, after_commit, (thd, all));
 
       if (!error &&
           opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&
@@ -9848,10 +9852,10 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd,
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-  int err= RUN_HOOK(raft_replication, setup_flush,
-                    (thd, is_relay_log, &log_file, name, log_file_name,
-                     &LOCK_log, &LOCK_index, &update_cond, &cur_log_ext,
-                     context));
+  int err= RUN_HOOK_STRICT(raft_replication, setup_flush,
+                           (thd, is_relay_log, &log_file, name, log_file_name,
+                           &LOCK_log, &LOCK_index, &update_cond, &cur_log_ext,
+                           context));
   if (need_lock)
     mysql_mutex_unlock(&LOCK_log);
   return err;
@@ -9956,9 +9960,10 @@ int ask_server_to_register_with_raft(Raft_Registration_Item item)
         s_log_dir.assign(log_dir);
 
       THD *thd= current_thd;
-      err= RUN_HOOK(raft_replication, register_paths,
-                    (thd, server_uuid, s_wal_dir, s_log_dir,
-                     log_bin_basename, glob_hostname, (uint64_t)mysqld_port));
+      err= RUN_HOOK_STRICT(raft_replication, register_paths,
+                           (thd, server_uuid, s_wal_dir, s_log_dir,
+                            log_bin_basename, glob_hostname, 
+                            (uint64_t)mysqld_port));
       break;
     }
     default:
