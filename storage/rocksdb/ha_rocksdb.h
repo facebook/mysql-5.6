@@ -170,17 +170,10 @@ class ha_rocksdb : public my_core::handler {
                                     uint part, bool all_parts);
 
   /*
-    Number of key parts in PK. This is the same as
-      table->key_info[table->s->primary_key].keyparts
-  */
-  uint m_pk_key_parts;
-
-  /*
-    true <=> Primary Key columns can be decoded from the index
+    TRUE <=> Primary Key columns can be decoded from the index
   */
   mutable bool m_pk_can_be_decoded;
 
-  uchar *m_pk_tuple;        /* Buffer for storing PK in KeyTupleFormat */
   uchar *m_pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
   // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
 
@@ -334,9 +327,6 @@ class ha_rocksdb : public my_core::handler {
   int secondary_index_read(const int keyno, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   void setup_iterator_for_rnd_scan();
-  bool is_ascending(const Rdb_key_def &keydef,
-                    enum ha_rkey_function find_flag) const
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   static void setup_iterator_bounds(const Rdb_key_def &kd,
                                     const rocksdb::Slice &eq_cond,
                                     size_t bound_len, uchar *const lower_bound,
@@ -601,26 +591,13 @@ class ha_rocksdb : public my_core::handler {
     DBUG_RETURN(HA_POS_ERROR);
   }
 
-  /* At the moment, we're ok with default handler::index_init() implementation.
-   */
   int index_read_map(uchar *const buf, const uchar *const key,
                      key_part_map keypart_map,
                      enum ha_rkey_function find_flag) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
-  int index_read_map_impl(uchar *const buf, const uchar *const key,
-                          key_part_map keypart_map,
-                          enum ha_rkey_function find_flag,
-                          const key_range *end_key)
-      MY_ATTRIBUTE((__warn_unused_result__));
-
   int index_read_last_map(uchar *const buf, const uchar *const key,
                           key_part_map keypart_map) override
-      MY_ATTRIBUTE((__warn_unused_result__));
-
-  int read_range_first(const key_range *const start_key,
-                       const key_range *const end_key, bool eq_range,
-                       bool sorted) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
   virtual double scan_time() override {
@@ -856,7 +833,7 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int read_key_exact(const Rdb_key_def &kd, rocksdb::Iterator *const iter,
-                     const bool using_full_key, const rocksdb::Slice &key_slice,
+                     const rocksdb::Slice &key_slice,
                      const int64_t ttl_filter_ts)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(const Rdb_key_def &kd, const bool using_full_key,
@@ -885,8 +862,7 @@ class ha_rocksdb : public my_core::handler {
                        const enum ha_rkey_function &find_flag,
                        const rocksdb::Slice &slice,
                        const int bytes_changed_by_succ,
-                       const key_range *const end_key,
-                       uint *const end_key_packed_size)
+                       const key_range *const end_key)
       MY_ATTRIBUTE((__warn_unused_result__));
 
   Rdb_tbl_def *get_table_if_exists(const char *const tablename)

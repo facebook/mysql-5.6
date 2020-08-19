@@ -7311,7 +7311,6 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_pk_descr(nullptr),
       m_key_descr_arr(nullptr),
       m_pk_can_be_decoded(false),
-      m_pk_tuple(nullptr),
       m_pk_packed_tuple(nullptr),
       m_sk_packed_tuple(nullptr),
       m_end_key_packed_tuple(nullptr),
@@ -7547,28 +7546,15 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
                                   bool alloc_alter_buffers) {
   DBUG_ENTER_FUNC();
 
-  assert(m_pk_tuple == nullptr);
-
   std::shared_ptr<Rdb_key_def> *const kd_arr = tbl_def_arg->m_key_descr_arr;
 
-  uint key_len = 0;
   uint max_packed_sk_len = 0;
   uint pack_key_len = 0;
 
   m_pk_descr = kd_arr[pk_index(table_arg, tbl_def_arg)];
-  if (has_hidden_pk(table_arg)) {
-    m_pk_key_parts = 1;
-  } else {
-    m_pk_key_parts =
-        table->key_info[table->s->primary_key].user_defined_key_parts;
-    key_len = table->key_info[table->s->primary_key].key_length;
-  }
 
   // move this into get_table_handler() ??
   m_pk_descr->setup(table_arg, tbl_def_arg);
-
-  m_pk_tuple = reinterpret_cast<uchar *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, key_len, MYF(0)));
 
   pack_key_len = m_pk_descr->max_storage_fmt_length();
   m_pk_packed_tuple = reinterpret_cast<uchar *>(
@@ -7616,10 +7602,10 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
         my_malloc(PSI_NOT_INSTRUMENTED, max_packed_sk_len, MYF(0)));
   }
 
-  if (m_pk_tuple == nullptr || m_pk_packed_tuple == nullptr ||
-      m_sk_packed_tuple == nullptr || m_sk_packed_tuple_old == nullptr ||
-      m_end_key_packed_tuple == nullptr || m_pack_buffer == nullptr ||
-      m_scan_it_upper_bound == nullptr || m_scan_it_lower_bound == nullptr ||
+  if (m_pk_packed_tuple == nullptr || m_sk_packed_tuple == nullptr ||
+      m_sk_packed_tuple_old == nullptr || m_end_key_packed_tuple == nullptr ||
+      m_pack_buffer == nullptr || m_scan_it_upper_bound == nullptr ||
+      m_scan_it_lower_bound == nullptr ||
       (alloc_alter_buffers && (m_dup_sk_packed_tuple == nullptr ||
                                m_dup_sk_packed_tuple_old == nullptr))) {
     // One or more of the above allocations failed.  Clean up and exit
@@ -7632,9 +7618,6 @@ int ha_rocksdb::alloc_key_buffers(const TABLE *const table_arg,
 }
 
 void ha_rocksdb::free_key_buffers() {
-  my_free(m_pk_tuple);
-  m_pk_tuple = nullptr;
-
   my_free(m_pk_packed_tuple);
   m_pk_packed_tuple = nullptr;
 
@@ -8939,7 +8922,6 @@ bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
 
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
                                rocksdb::Iterator *const iter,
-                               const bool /* unused */,
                                const rocksdb::Slice &key_slice,
                                const int64_t ttl_filter_ts) {
   THD *thd = ha_thd();
@@ -9051,8 +9033,7 @@ int ha_rocksdb::position_to_correct_key(
 
   switch (find_flag) {
     case HA_READ_KEY_EXACT:
-      rc = read_key_exact(kd, m_scan_it, full_key_match, key_slice,
-                          ttl_filter_ts);
+      rc = read_key_exact(kd, m_scan_it, key_slice, ttl_filter_ts);
       break;
     case HA_READ_BEFORE_KEY:
       *move_forward = false;
@@ -9119,8 +9100,7 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
                                  const enum ha_rkey_function &find_flag,
                                  const rocksdb::Slice &slice,
                                  const int bytes_changed_by_succ,
-                                 const key_range *const end_key,
-                                 uint *const end_key_packed_size) {
+                                 const key_range *const end_key) {
   if (find_flag == HA_READ_KEY_EXACT) return slice.size();
 
   if (find_flag == HA_READ_PREFIX_LAST) {
@@ -9133,7 +9113,8 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
   }
 
   if (end_key) {
-    *end_key_packed_size =
+    uint end_key_packed_size = 0;
+    end_key_packed_size =
         kd.pack_index_tuple(table, m_pack_buffer, m_end_key_packed_tuple,
                             end_key->key, end_key->keypart_map);
 
@@ -9147,7 +9128,7 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
        WHERE id1 = 'AAA' and id2 < 3; => eq_cond_len=13 (varchar used 9 bytes)
     */
     rocksdb::Slice end_slice(reinterpret_cast<char *>(m_end_key_packed_tuple),
-                             *end_key_packed_size);
+                             end_key_packed_size);
     return slice.difference_offset(end_slice);
   }
 
@@ -9363,62 +9344,16 @@ int ha_rocksdb::secondary_index_read(const int keyno, uchar *const buf) {
 }
 
 /*
-  ha_rocksdb::read_range_first overrides handler::read_range_first.
-  The only difference from handler::read_range_first is that
-  ha_rocksdb::read_range_first passes end_key to
-  ha_rocksdb::index_read_map_impl function.
+   See storage/rocksdb/rocksdb-range-access.txt for description of how MySQL
+   index navigation commands are converted into RocksDB lookup commands.
 
-  @return
-    HA_EXIT_SUCCESS  OK
-    other            HA_ERR error code (can be SE-specific)
-*/
-int ha_rocksdb::read_range_first(const key_range *const start_key,
-                                 const key_range *const end_key,
-                                 bool eq_range_arg,
-                                 bool sorted MY_ATTRIBUTE((__unused__))) {
-  DBUG_ENTER_FUNC();
+   MyRocks needs to decide whether prefix bloom filter can be used or not.
+   To decide to use prefix bloom filter or not, calculating equal condition
+   length is needed. On equal lookups (find_flag == HA_READ_KEY_EXACT), equal
+   condition length is the same as rocksdb::Slice.size() of the start key.
+   On range scan, equal condition length is MIN(start_key, end_key) of the
+   rocksdb::Slice expression, where end_key is taken from end_range.
 
-  int result;
-
-  eq_range = eq_range_arg;
-  set_end_range(end_key, RANGE_SCAN_ASC);
-
-  range_key_part = table->key_info[active_index].key_part;
-
-  if (!start_key) {
-    // Read first record
-    result = ha_index_first(table->record[0]);
-  } else {
-    if (is_using_prohibited_gap_locks(
-            table,
-            is_using_full_unique_key(active_index, start_key->keypart_map,
-                                     start_key->flag))) {
-      DBUG_RETURN(HA_ERR_LOCK_DEADLOCK);
-    }
-
-    MYSQL_TABLE_IO_WAIT(PSI_TABLE_FETCH_ROW, active_index, 0, {
-      result =
-          index_read_map_impl(table->record[0], start_key->key,
-                              start_key->keypart_map, start_key->flag, end_key);
-    })
-  }
-  if (result) {
-    DBUG_RETURN((result == HA_ERR_KEY_NOT_FOUND) ? HA_ERR_END_OF_FILE : result);
-  }
-
-  if (compare_key(end_range) <= 0) {
-    DBUG_RETURN(HA_EXIT_SUCCESS);
-  } else {
-    /*
-      The last read row does not fall in the range. So request
-      storage engine to release row lock if possible.
-    */
-    unlock_row();
-    DBUG_RETURN(HA_ERR_END_OF_FILE);
-  }
-}
-
-/**
    @return
     HA_EXIT_SUCCESS  OK
     other            HA_ERR error code (can be SE-specific)
@@ -9426,32 +9361,6 @@ int ha_rocksdb::read_range_first(const key_range *const start_key,
 int ha_rocksdb::index_read_map(uchar *const buf, const uchar *const key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag) {
-  DBUG_ENTER_FUNC();
-
-  DBUG_RETURN(index_read_map_impl(buf, key, keypart_map, find_flag, nullptr));
-}
-
-/*
-   See storage/rocksdb/rocksdb-range-access.txt for description of how MySQL
-   index navigation commands are converted into RocksDB lookup commands.
-
-   This function takes end_key as an argument, and it is set on range scan.
-   MyRocks needs to decide whether prefix bloom filter can be used or not.
-   To decide to use prefix bloom filter or not, calculating equal condition
-   length
-   is needed. On equal lookups (find_flag == HA_READ_KEY_EXACT), equal
-   condition length is the same as rocksdb::Slice.size() of the start key.
-   On range scan, equal condition length is MIN(start_key, end_key) of the
-   rocksdb::Slice expression.
-
-   @return
-    HA_EXIT_SUCCESS  OK
-    other            HA_ERR error code (can be SE-specific)
-*/
-int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
-                                    key_part_map keypart_map,
-                                    enum ha_rkey_function find_flag,
-                                    const key_range *end_key) {
   DBUG_ENTER_FUNC();
 
   DBUG_EXECUTE_IF(
@@ -9471,8 +9380,6 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
   const Rdb_key_def &kd = *m_key_descr_arr[active_index];
   const uint actual_key_parts = kd.get_key_parts();
   bool using_full_key = is_using_full_key(keypart_map, actual_key_parts);
-
-  if (!end_key) end_key = end_range;
 
   /* By default, we don't need the retrieved records to match the prefix */
   m_sk_match_prefix = nullptr;
@@ -9567,10 +9474,8 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
   rocksdb::Slice slice(reinterpret_cast<const char *>(m_sk_packed_tuple),
                        packed_size);
 
-  uint end_key_packed_size = 0;
   const uint eq_cond_len =
-      calc_eq_cond_len(kd, find_flag, slice, bytes_changed_by_succ, end_key,
-                       &end_key_packed_size);
+      calc_eq_cond_len(kd, find_flag, slice, bytes_changed_by_succ, end_range);
 
   bool use_all_keys = false;
   if (find_flag == HA_READ_KEY_EXACT &&
@@ -10871,8 +10776,8 @@ int ha_rocksdb::check_and_lock_sk(
     in the transaction.
   */
   assert(row_info.tx->has_snapshot() && row_info.tx->m_snapshot_timestamp != 0);
-  *found = !read_key_exact(kd, iter, all_parts_used, new_slice,
-                           row_info.tx->m_snapshot_timestamp);
+  *found =
+      !read_key_exact(kd, iter, new_slice, row_info.tx->m_snapshot_timestamp);
 
   int rc = HA_EXIT_SUCCESS;
 
@@ -12095,7 +12000,6 @@ int ha_rocksdb::info(uint flag) {
       uniqueness violation.
     */
     errkey = m_dupp_errkey;
-    dup_ref = m_pk_tuple;  // TODO(?): this should store packed PK.
   }
 
   if (flag & HA_STATUS_AUTO) {
