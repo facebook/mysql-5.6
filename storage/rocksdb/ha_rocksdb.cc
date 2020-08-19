@@ -13541,7 +13541,8 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
         my_core::Alter_inplace_info::ADD_INDEX |
         my_core::Alter_inplace_info::ADD_UNIQUE_INDEX |
-        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) {
+        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION |
+        my_core::Alter_inplace_info::DROP_PARTITION)) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 

@@ -19,11 +19,12 @@
   This engine need server classes (like THD etc.) which only is defined if
   MYSQL_SERVER define is set!
 */
+#include "sql/sql_partition.h"
 #define MYSQL_SERVER 1
 #define LOG_SUBSYSTEM_TAG "partition_base"
 
-#include "partition_base.h"
 #include "mysql/psi/mysql_file.h"
+#include "partition_base.h"
 #include "pfs_file_provider.h"
 #include "sql/partition_info.h"  // partition_info
 #include "sql/sql_class.h"
@@ -101,6 +102,16 @@ static void create_partition_name(char *out, const char *in1, const char *in2,
   } else
     transl_part = in2;
   strxmov(out, in1, "#P#", transl_part, NullS);
+}
+
+static void create_subpartition_name(char *out, const char *in1,
+                                     const char *in2, const char *in3) {
+  char transl_part_name[FN_REFLEN], transl_subpart_name[FN_REFLEN];
+
+  tablename_to_filename(in2, transl_part_name, FN_REFLEN);
+  tablename_to_filename(in3, transl_subpart_name, FN_REFLEN);
+  strxmov(out, in1, "#P#", transl_part_name, "#SP#", transl_subpart_name,
+          NullS);
 }
 
 void part_name(char *out_buf, const char *path, const char *parent_elem_name,
@@ -3919,8 +3930,7 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
   }
 
   if (ha_alter_info->alter_info->flags &
-      (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_DROP_PARTITION |
-       Alter_info::ALTER_COALESCE_PARTITION |
+      (Alter_info::ALTER_ADD_PARTITION | Alter_info::ALTER_COALESCE_PARTITION |
        Alter_info::ALTER_REORGANIZE_PARTITION |
        Alter_info::ALTER_EXCHANGE_PARTITION)) {
     push_warning_printf(thd, Sql_condition::SL_WARNING, HA_ERR_UNSUPPORTED,
@@ -3975,6 +3985,10 @@ enum_alter_inplace_result Partition_base::check_if_supported_inplace_alter(
     the partitions handlers.
   */
   ha_alter_info->group_commit_ctx = part_inplace_ctx->handler_ctx_array;
+
+  if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+    DBUG_RETURN(HA_ALTER_INPLACE_NO_LOCK_AFTER_PREPARE);
+  }
 
   DBUG_RETURN(result);
 }
@@ -4071,6 +4085,53 @@ bool Partition_base::commit_inplace_alter_table(
   if (commit) {
     assert(ha_alter_info->group_commit_ctx ==
            part_inplace_ctx->handler_ctx_array);
+
+    // Call SE to drop partition/sub partitions
+    if (ha_alter_info->alter_info->flags & Alter_info::ALTER_DROP_PARTITION) {
+      handler **file = m_file;
+      partition_info *part_info = ha_alter_info->modified_part_info;
+      List_iterator_fast<partition_element> part_it(part_info->partitions);
+      partition_element *part_elem;
+      int num_subparts =
+          part_info->is_sub_partitioned() ? part_info->num_subparts : 1;
+      while ((part_elem = part_it++) != nullptr) {
+        partition_state state = part_elem->part_state;
+        switch (state) {
+          case PART_TO_BE_DROPPED:
+            if (part_info->is_sub_partitioned()) {
+              List_iterator<partition_element> sub_part_it(
+                  part_elem->subpartitions);
+
+              partition_element *sub_part_elem;
+              while ((sub_part_elem = sub_part_it++) != nullptr) {
+                char name[FN_REFLEN];
+                create_subpartition_name(name, table->s->normalized_path.str,
+                                         part_elem->partition_name,
+                                         sub_part_elem->partition_name);
+                error = (*file)->ha_external_lock(get_thd(), F_UNLCK);
+                if (error) goto end;
+                error = (*file)->ha_delete_table(name, old_table_def);
+                if (error) goto end;
+                file++;
+              }
+            } else {
+              char name[FN_REFLEN];
+              create_partition_name(name, table->s->normalized_path.str,
+                                    part_elem->partition_name, false);
+              error = (*file)->ha_external_lock(get_thd(), F_UNLCK);
+              if (error) goto end;
+              error = (*file)->ha_delete_table(name, old_table_def);
+              if (error) goto end;
+              file += num_subparts;
+            }
+            break;
+          default:
+            file += num_subparts;
+            break;
+        }
+      }
+    }
+
     ha_alter_info->handler_ctx = part_inplace_ctx->handler_ctx_array[0];
     error = m_file[0]->ha_commit_inplace_alter_table(
         altered_table, ha_alter_info, commit, old_table_def, new_table_def);
