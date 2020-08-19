@@ -108,11 +108,7 @@ ALTER TABLE t4 DROP PARTITION p1;
 ERROR HY000: Dropping partitions is not allowed due to parthandler_allow_drop_partition
 SET GLOBAL parthandler_allow_drop_partition = ON;
 ALTER TABLE t3 DROP PARTITION p1;
-Warnings:
-Warning	138	Inplace partition altering is not supported
 ALTER TABLE t4 DROP PARTITION p1;
-Warnings:
-Warning	138	Inplace partition altering is not supported
 DROP TABLE t1, t2, t3, t4;
 SET @@global.parthandler_allow_drop_partition = @start_value;
 SELECT @@global.parthandler_allow_drop_partition;
