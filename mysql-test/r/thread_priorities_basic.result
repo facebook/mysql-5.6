@@ -124,12 +124,12 @@ priority
 5
 0
 0
+connect default
 disconnect con5
 disconnect con6
 disconnect con7
 disconnect con8
 disconnect con9
-connect default
 select @@session.thread_priority;
 @@session.thread_priority
 0

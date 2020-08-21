@@ -42,6 +42,7 @@ select priority from information_schema.thread_priorities order by priority desc
 # the next connection to pick up.
 --echo disconnect con3
 disconnect con3;
+--source include/wait_until_disconnected.inc
 
 # check that there are no threads remaining with priority 5 (from previous connection)
 --echo connect default
@@ -63,6 +64,7 @@ select @priority;
 select priority from information_schema.thread_priorities order by priority desc;
 --echo disconnect con4
 disconnect con4;
+--source include/wait_until_disconnected.inc
 
 --echo connect default
 connection default;
@@ -129,6 +131,9 @@ eval select priority from information_schema.thread_priorities where id = $con9_
 select @priority;
 select priority from information_schema.thread_priorities order by priority desc;
 
+--echo connect default
+connection default;
+
 --echo disconnect con5
 disconnect con5;
 --echo disconnect con6
@@ -140,8 +145,9 @@ disconnect con8;
 --echo disconnect con9
 disconnect con9;
 
---echo connect default
-connection default;
+let $count_sessions = 1;
+--source include/wait_until_count_sessions.inc
+
 select @@session.thread_priority;
 --disable_query_log
 eval select priority from information_schema.thread_priorities where id = $default_con_id into @priority;
@@ -169,6 +175,7 @@ select @priority;
 select priority from information_schema.thread_priorities order by priority desc;
 --echo disconnect con9
 disconnect con9;
+--source include/wait_until_disconnected.inc
 
 --echo connect default
 connection default;
