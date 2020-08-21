@@ -1,0 +1,59 @@
+# Paritionion test for inplace add partitions
+
+--source include/have_debug.inc
+
+let $create_statement = CREATE TABLE t1 (
+    firstname VARCHAR(25) NOT NULL,
+    lastname VARCHAR(25) NOT NULL,
+    username VARCHAR(16) NOT NULL,
+    email VARCHAR(35),
+    joined DATE NOT NULL
+) CHARSET=latin1
+PARTITION BY RANGE(YEAR(joined)) (
+    PARTITION p0 VALUES LESS THAN (1960),
+    PARTITION p1 VALUES LESS THAN (1970),
+    PARTITION p2 VALUES LESS THAN (1980),
+    PARTITION p3 VALUES LESS THAN (1990)
+);
+
+let $insert_statement = INSERT INTO t1 VALUES 
+  ("a", "a","aa", "aa@a.com","1957-05-15"),
+  ("b", "b","bb", "bb@b.com","1967-06-16"),
+  ("c", "c","cc", "cc@c.com","1977-07-17");
+
+# Add One Parition
+let $fail_statement = ALTER TABLE t1 
+  ADD PARTITION (PARTITION p5 VALUES LESS THAN (2005));
+source partition_fail_add.inc;
+
+# Add Multiple Paritions
+let $fail_statement = ALTER TABLE t1 ADD PARTITION 
+  (PARTITION p6 VALUES LESS THAN (2006), PARTITION p7 VALUES LESS THAN (2007));
+source partition_fail_add.inc;
+
+
+#
+# SubPartition
+#
+let $create_statement =
+CREATE TABLE t1 (id INT, purchased DATE) CHARSET=latin1
+    PARTITION BY RANGE( YEAR(purchased) )
+    SUBPARTITION BY HASH( TO_DAYS(purchased) )
+    SUBPARTITIONS 2 (
+        PARTITION p0 VALUES LESS THAN (1990),
+        PARTITION p1 VALUES LESS THAN (2000),
+        PARTITION p2 VALUES LESS THAN (2002) 
+    );
+let $insert_statement = INSERT INTO t1 VALUES 
+  (1988, "1988-02-02"), 
+  (1999, "1999-02-02"),
+  (2001, "2001-02-02");
+
+# Add one sub parition
+let $fail_statement = ALTER TABLE t1 ADD PARTITION(PARTITION p3 VALUES LESS THAN (2005));
+source partition_fail_add.inc;
+
+# Add sub Parititions
+let $fail_statement = ALTER TABLE t1 ADD PARTITION (PARTITION p5 VALUES LESS THAN (2007), PARTITION p6 VALUES LESS THAN (2008));
+source partition_fail_add.inc;
+
