@@ -525,8 +525,15 @@ CREATE TABLE ts (
       PARTITION p2 VALUES LESS THAN MAXVALUE
     );
 
-INSERT INTO ts VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
+INSERT INTO ts VALUES
+  (1, '1988-01-01'),
+  (2, '1989-02-02'),
+  (3, '1998-03-03'),
+  (4, '1999-04-04'),
+  (5, '2001-05-05'),
+  (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="ts" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts PARTITION (p0) ORDER by id;
@@ -542,6 +549,9 @@ SELECT * FROM ts PARTITION (p0) ORDER by id;
 SELECT * FROM ts PARTITION (p2) ORDER by id;
 SELECT * FROM ts ORDER by id;
 
+#
+# Range Partition, Hash SubParition, Add/Drop Parition
+#
 CREATE TABLE ts_1 (
   id INT,
   purchased DATE
@@ -562,8 +572,15 @@ CREATE TABLE ts_1 (
       )
     );
 
-INSERT INTO ts_1 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+INSERT INTO ts_1 VALUES
+  (1, '1988-01-01'),
+  (2, '1989-02-02'),
+  (3, '1998-03-03'),
+  (4, '1999-04-04'),
+  (5, '2001-05-05'),
+  (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="ts_1" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
@@ -571,12 +588,29 @@ SELECT * FROM ts_1 PARTITION (p1) ORDER by id;
 SELECT * FROM ts_1 PARTITION (p2) ORDER by id;
 SELECT * FROM ts_1 ORDER by id;
 
+# Drop partition
 ALTER table ts_1 DROP PARTITION p1, p2;
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="ts_1" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
 SELECT * FROM ts_1 ORDER by id;
+
+# Add Parition
+ALTER TABLE ts_1 ADD PARTITION(PARTITION p2 VALUES LESS THAN (2005));
+INSERT INTO ts_1 VALUES (7, '2003-07-07');
+INSERT INTO ts_1 VALUES (8, '2004-08-08');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions
+  WHERE TABLE_NAME="ts_1" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
+SELECT * FROM ts_1 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_1 ORDER by id;
+# ERROR 1526 (HY000): Table has no partition for value
+--error 1526
+INSERT INTO ts_1 VALUES (9, "2010-09-09");
 
 --error 1064
 CREATE TABLE ts_2 (
@@ -596,6 +630,9 @@ CREATE TABLE ts_2 (
       )
     );
 
+#
+# Range Parition, Hash SubPartition, Add/Drop multiple Partitions#
+#
 CREATE TABLE ts_3 (
   id INT,
   purchased DATE
@@ -615,8 +652,15 @@ CREATE TABLE ts_3 (
       SUBPARTITION s5
     )
   );
-INSERT INTO ts_3 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+INSERT INTO ts_3 VALUES
+  (1, '1988-01-01'),
+  (2, '1989-02-02'),
+  (3, '1998-03-03'),
+  (4, '1999-04-04'),
+  (5, '2001-05-05'),
+  (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="ts_3" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts_3 PARTITION (p0) ORDER by id;
@@ -630,6 +674,40 @@ SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_3
 SELECT * from information_schema.partitions where TABLE_NAME="ts_3" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
 SELECT * FROM ts_3 ORDER by id;
+
+ALTER TABLE ts_3 ADD PARTITION
+  (partition p2 VALUES LESS THAN (2010), partition p4 VALUES LESS THAN (2020));
+INSERT INTO ts_3 VALUES
+  (4, '1998-04-04'),
+  (5, '1999-05-05'),
+  (6, '2005-06-06'),
+  (7, '2017-07-07'),
+  (8, '2018-08-08');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions WHERE TABLE_NAME="ts_3"
+  ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p4) ORDER by id;
+SELECT * FROM ts_3 ORDER by id;
+
+ALTER TABLE ts_3 ADD PARTITION(partition p5 VALUES LESS THAN (2030)
+  (SUBPARTITION s10 ENGINE = ROCKSDB, SUBPARTITION s11 ENGINE = ROCKSDB));
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions WHERE TABLE_NAME="ts_3"
+  ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+INSERT INTO ts_3 VALUES
+  (9, '2020-04-04');
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p2) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p4) ORDER by id;
+SELECT * FROM ts_3 PARTITION (p5) ORDER by id;
+SELECT * FROM ts_3 ORDER by id;
+
 
 CREATE TABLE ts_4 (
   id INT,
@@ -650,8 +728,15 @@ CREATE TABLE ts_4 (
       SUBPARTITION s5
     )
   );
-INSERT INTO ts_4 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
+INSERT INTO ts_4 VALUES
+  (1, '1988-01-01'),
+  (2, '1989-02-02'),
+  (3, '1998-03-03'),
+  (4, '1999-04-04'),
+  (5, '2001-05-05'),
+  (6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
 --replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
 SELECT * from information_schema.partitions where TABLE_NAME="ts_4" ORDER by SUBPARTITION_NAME;
 SELECT * FROM ts_4 PARTITION (p0) ORDER by id;
@@ -748,6 +833,9 @@ SELECT * FROM tr WHERE purchased BETWEEN '1995-01-01' AND '2004-12-31';
 SELECT * FROM tr PARTITION (p0) ORDER by id;
 SELECT * FROM tr ORDER by id;
 
+#
+# Range Partition, No SubPartition , Add Partition
+#
 CREATE TABLE members_3 (
   id INT,
   fname VARCHAR(25),
@@ -759,6 +847,20 @@ CREATE TABLE members_3 (
     PARTITION p1 VALUES LESS THAN (1980),
     PARTITION p2 VALUES LESS THAN (1990)
   );
+INSERT INTO members_3 VALUES
+  (1, "f1", "l1", '1961-01-01'),
+  (2, "f2", "l2", '1969-02-02'),
+  (3, 'f3', 'l3', "1971-03-03"),
+  (4, 'f4', 'l4', "1979-04-04"),
+  (5, 'f5', 'l5', "1981-05-05"),
+  (6, "f6", "l6", "1989-06-06");
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+SELECT * FROM members_3 ORDER by id;
+# ERROR 1526 (HY000): Table has no partition for value
+--error 1526
+INSERT INTO members_3 VALUES (7, "f7","l7","1991-07-07");
 
 ALTER TABLE members_3 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2000));
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
@@ -768,7 +870,30 @@ SELECT * from information_schema.partitions where TABLE_NAME="members_3" ORDER b
 # ERROR 1493 (HY000): VALUES LESS THAN value must be strictly increasing for each partition
 --error 1493
 ALTER TABLE members_3 ADD PARTITION (PARTITION n VALUES LESS THAN (1960));
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+
+INSERT INTO members_3 VALUES (7, "f7","l7","1991-07-07");
+
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+SELECT * FROM members_3 PARTITION (p3) ORDER by id;
+SELECT * FROM members_3 ORDER by id;
+
+# Drop just added partition
+ALTER TABLE members_3 DROP PARTITION p3;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+  WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+--replace_column 13 # 14 # 15 # 16 # 17 # 18 # 19 # 20 # 21 #
+SELECT * from information_schema.partitions WHERE TABLE_NAME="members_3"
+  ORDER by PARTITION_NAME;
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+SELECT * FROM members_3 ORDER by id;
+
+
 
 CREATE TABLE clients (
   id INT,
