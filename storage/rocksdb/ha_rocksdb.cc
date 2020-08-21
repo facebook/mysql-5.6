@@ -11732,6 +11732,7 @@ int ha_rocksdb::external_lock(THD *const thd, int lock_type) {
 
     if (tx) {
       tx->io_perf_end_and_record(&m_io_perf);
+      DBUG_ASSERT(tx->m_n_mysql_tables_in_use > 0);
       tx->m_n_mysql_tables_in_use--;
       if (tx->m_n_mysql_tables_in_use == 0 &&
           !my_core::thd_test_options(thd,
