@@ -568,8 +568,15 @@ PARTITION p0 VALUES LESS THAN (1990),
 PARTITION p1 VALUES LESS THAN (2000),
 PARTITION p2 VALUES LESS THAN MAXVALUE
 );
-INSERT INTO ts VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
+INSERT INTO ts VALUES
+(1, '1988-01-01'),
+(2, '1989-02-02'),
+(3, '1998-03-03'),
+(4, '1999-04-04'),
+(5, '2001-05-05'),
+(6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0#SP#p0sp0
 p0#SP#p0sp1
@@ -651,8 +658,15 @@ SUBPARTITION s4,
 SUBPARTITION s5
 )
 );
-INSERT INTO ts_1 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+INSERT INTO ts_1 VALUES
+(1, '1988-01-01'),
+(2, '1989-02-02'),
+(3, '1998-03-03'),
+(4, '1999-04-04'),
+(5, '2001-05-05'),
+(6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0#SP#s0
 p0#SP#s1
@@ -705,6 +719,39 @@ SELECT * FROM ts_1 ORDER by id;
 id	purchased
 1	1988-01-01
 2	1989-02-02
+ALTER TABLE ts_1 ADD PARTITION(PARTITION p2 VALUES LESS THAN (2005));
+INSERT INTO ts_1 VALUES (7, '2003-07-07');
+INSERT INTO ts_1 VALUES (8, '2004-08-08');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_1" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0#SP#s0
+p0#SP#s1
+p2#SP#p2sp0
+p2#SP#p2sp1
+SELECT * from information_schema.partitions
+WHERE TABLE_NAME="ts_1" ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	SUBPARTITION_NAME	PARTITION_ORDINAL_POSITION	SUBPARTITION_ORDINAL_POSITION	PARTITION_METHOD	SUBPARTITION_METHOD	PARTITION_EXPRESSION	SUBPARTITION_EXPRESSION	PARTITION_DESCRIPTION	TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH	MAX_DATA_LENGTH	INDEX_LENGTH	DATA_FREE	CREATE_TIME	UPDATE_TIME	CHECK_TIME	CHECKSUM	PARTITION_COMMENT	NODEGROUP	TABLESPACE_NAME
+def	test	ts_1	p0	s0	1	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	1990	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_1	p0	s1	1	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	1990	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_1	p2	p2sp0	2	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2005	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_1	p2	p2sp1	2	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2005	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+SELECT * FROM ts_1 PARTITION (p0) ORDER by id;
+id	purchased
+1	1988-01-01
+2	1989-02-02
+SELECT * FROM ts_1 PARTITION (p2) ORDER by id;
+id	purchased
+7	2003-07-07
+8	2004-08-08
+SELECT * FROM ts_1 ORDER by id;
+id	purchased
+1	1988-01-01
+2	1989-02-02
+7	2003-07-07
+8	2004-08-08
+INSERT INTO ts_1 VALUES (9, "2010-09-09");
+ERROR HY000: Table has no partition for value 2010
 CREATE TABLE ts_2 (
 id INT,
 purchased DATE
@@ -746,8 +793,15 @@ SUBPARTITION s4,
 SUBPARTITION s5
 )
 );
-INSERT INTO ts_3 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+INSERT INTO ts_3 VALUES
+(1, '1988-01-01'),
+(2, '1989-02-02'),
+(3, '1998-03-03'),
+(4, '1999-04-04'),
+(5, '2001-05-05'),
+(6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0#SP#s0
 p0#SP#s1
@@ -800,6 +854,106 @@ SELECT * FROM ts_3 ORDER by id;
 id	purchased
 3	1998-03-03
 4	1999-04-04
+ALTER TABLE ts_3 ADD PARTITION
+(partition p2 VALUES LESS THAN (2010), partition p4 VALUES LESS THAN (2020));
+INSERT INTO ts_3 VALUES
+(4, '1998-04-04'),
+(5, '1999-05-05'),
+(6, '2005-06-06'),
+(7, '2017-07-07'),
+(8, '2018-08-08');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p1#SP#s2
+p1#SP#s3
+p2#SP#p2sp0
+p2#SP#p2sp1
+p4#SP#p4sp0
+p4#SP#p4sp1
+SELECT * from information_schema.partitions WHERE TABLE_NAME="ts_3"
+  ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	SUBPARTITION_NAME	PARTITION_ORDINAL_POSITION	SUBPARTITION_ORDINAL_POSITION	PARTITION_METHOD	SUBPARTITION_METHOD	PARTITION_EXPRESSION	SUBPARTITION_EXPRESSION	PARTITION_DESCRIPTION	TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH	MAX_DATA_LENGTH	INDEX_LENGTH	DATA_FREE	CREATE_TIME	UPDATE_TIME	CHECK_TIME	CHECKSUM	PARTITION_COMMENT	NODEGROUP	TABLESPACE_NAME
+def	test	ts_3	p1	s2	1	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2000	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p1	s3	1	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2000	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p2	p2sp0	2	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2010	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p2	p2sp1	2	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2010	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p4	p4sp0	3	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2020	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p4	p4sp1	3	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2020	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+id	purchased
+3	1998-03-03
+4	1998-04-04
+4	1999-04-04
+5	1999-05-05
+SELECT * FROM ts_3 PARTITION (p2) ORDER by id;
+id	purchased
+6	2005-06-06
+SELECT * FROM ts_3 PARTITION (p4) ORDER by id;
+id	purchased
+7	2017-07-07
+8	2018-08-08
+SELECT * FROM ts_3 ORDER by id;
+id	purchased
+3	1998-03-03
+4	1998-04-04
+4	1999-04-04
+5	1999-05-05
+6	2005-06-06
+7	2017-07-07
+8	2018-08-08
+ALTER TABLE ts_3 ADD PARTITION(partition p5 VALUES LESS THAN (2030)
+(SUBPARTITION s10 ENGINE = ROCKSDB, SUBPARTITION s11 ENGINE = ROCKSDB));
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p1#SP#s2
+p1#SP#s3
+p2#SP#p2sp0
+p2#SP#p2sp1
+p4#SP#p4sp0
+p4#SP#p4sp1
+p5#SP#s10
+p5#SP#s11
+SELECT * from information_schema.partitions WHERE TABLE_NAME="ts_3"
+  ORDER by PARTITION_NAME, SUBPARTITION_NAME;
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	SUBPARTITION_NAME	PARTITION_ORDINAL_POSITION	SUBPARTITION_ORDINAL_POSITION	PARTITION_METHOD	SUBPARTITION_METHOD	PARTITION_EXPRESSION	SUBPARTITION_EXPRESSION	PARTITION_DESCRIPTION	TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH	MAX_DATA_LENGTH	INDEX_LENGTH	DATA_FREE	CREATE_TIME	UPDATE_TIME	CHECK_TIME	CHECKSUM	PARTITION_COMMENT	NODEGROUP	TABLESPACE_NAME
+def	test	ts_3	p1	s2	1	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2000	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p1	s3	1	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2000	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p2	p2sp0	2	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2010	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p2	p2sp1	2	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2010	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p4	p4sp0	3	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2020	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p4	p4sp1	3	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2020	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p5	s10	4	1	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2030	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	ts_3	p5	s11	4	2	RANGE	HASH	year(`purchased`)	to_days(`purchased`)	2030	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+INSERT INTO ts_3 VALUES
+(9, '2020-04-04');
+SELECT * FROM ts_3 PARTITION (p1) ORDER by id;
+id	purchased
+3	1998-03-03
+4	1998-04-04
+4	1999-04-04
+5	1999-05-05
+SELECT * FROM ts_3 PARTITION (p2) ORDER by id;
+id	purchased
+6	2005-06-06
+SELECT * FROM ts_3 PARTITION (p4) ORDER by id;
+id	purchased
+7	2017-07-07
+8	2018-08-08
+SELECT * FROM ts_3 PARTITION (p5) ORDER by id;
+id	purchased
+9	2020-04-04
+SELECT * FROM ts_3 ORDER by id;
+id	purchased
+3	1998-03-03
+4	1998-04-04
+4	1999-04-04
+5	1999-05-05
+6	2005-06-06
+7	2017-07-07
+8	2018-08-08
+9	2020-04-04
 CREATE TABLE ts_4 (
 id INT,
 purchased DATE
@@ -819,8 +973,15 @@ SUBPARTITION s4,
 SUBPARTITION s5
 )
 );
-INSERT INTO ts_4 VALUES (1, '1988-01-01'), (2,'1989-02-02'), (3, '1998-03-03'), (4, '1999-04-04'),(5, '2001-05-05'), (6, '2002-06-06');
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
+INSERT INTO ts_4 VALUES
+(1, '1988-01-01'),
+(2, '1989-02-02'),
+(3, '1998-03-03'),
+(4, '1999-04-04'),
+(5, '2001-05-05'),
+(6, '2002-06-06');
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="ts_4" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0#SP#s0
 p0#SP#s1
@@ -1015,9 +1176,36 @@ PARTITION p0 VALUES LESS THAN (1970),
 PARTITION p1 VALUES LESS THAN (1980),
 PARTITION p2 VALUES LESS THAN (1990)
 );
+INSERT INTO members_3 VALUES
+(1, "f1", "l1", '1961-01-01'),
+(2, "f2", "l2", '1969-02-02'),
+(3, 'f3', 'l3', "1971-03-03"),
+(4, 'f4', 'l4', "1979-04-04"),
+(5, 'f5', 'l5', "1981-05-05"),
+(6, "f6", "l6", "1989-06-06");
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+id	fname	lname	dob
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+id	fname	lname	dob
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
+SELECT * FROM members_3 ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
+INSERT INTO members_3 VALUES (7, "f7","l7","1991-07-07");
+ERROR HY000: Table has no partition for value 1991
 ALTER TABLE members_3 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2000));
-Warnings:
-Warning	138	Inplace partition altering is not supported
 SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0
@@ -1032,12 +1220,71 @@ def	test	members_3	p2	NULL	3	NULL	RANGE	NULL	year(`dob`)	NULL	1990	#	#	#	#	#	#	#
 def	test	members_3	p3	NULL	4	NULL	RANGE	NULL	year(`dob`)	NULL	2000	#	#	#	#	#	#	#	#	#	NULL		default	NULL
 ALTER TABLE members_3 ADD PARTITION (PARTITION n VALUES LESS THAN (1960));
 ERROR HY000: VALUES LESS THAN value must be strictly increasing for each partition
-SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
 PARTITION_NAME
 p0
 p1
 p2
 p3
+INSERT INTO members_3 VALUES (7, "f7","l7","1991-07-07");
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+id	fname	lname	dob
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+id	fname	lname	dob
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
+SELECT * FROM members_3 PARTITION (p3) ORDER by id;
+id	fname	lname	dob
+7	f7	l7	1991-07-07
+SELECT * FROM members_3 ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
+7	f7	l7	1991-07-07
+ALTER TABLE members_3 DROP PARTITION p3;
+SELECT PARTITION_NAME FROM information_schema.rocksdb_ddl
+WHERE TABLE_NAME="members_3" ORDER BY PARTITION_NAME;
+PARTITION_NAME
+p0
+p1
+p2
+SELECT * from information_schema.partitions WHERE TABLE_NAME="members_3"
+  ORDER by PARTITION_NAME;
+TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	SUBPARTITION_NAME	PARTITION_ORDINAL_POSITION	SUBPARTITION_ORDINAL_POSITION	PARTITION_METHOD	SUBPARTITION_METHOD	PARTITION_EXPRESSION	SUBPARTITION_EXPRESSION	PARTITION_DESCRIPTION	TABLE_ROWS	AVG_ROW_LENGTH	DATA_LENGTH	MAX_DATA_LENGTH	INDEX_LENGTH	DATA_FREE	CREATE_TIME	UPDATE_TIME	CHECK_TIME	CHECKSUM	PARTITION_COMMENT	NODEGROUP	TABLESPACE_NAME
+def	test	members_3	p0	NULL	1	NULL	RANGE	NULL	year(`dob`)	NULL	1970	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	members_3	p1	NULL	2	NULL	RANGE	NULL	year(`dob`)	NULL	1980	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+def	test	members_3	p2	NULL	3	NULL	RANGE	NULL	year(`dob`)	NULL	1990	#	#	#	#	#	#	#	#	#	NULL		default	NULL
+SELECT * FROM members_3 PARTITION (p0) ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+SELECT * FROM members_3 PARTITION (p1) ORDER by id;
+id	fname	lname	dob
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+SELECT * FROM members_3 PARTITION (p2) ORDER by id;
+id	fname	lname	dob
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
+SELECT * FROM members_3 ORDER by id;
+id	fname	lname	dob
+1	f1	l1	1961-01-01
+2	f2	l2	1969-02-02
+3	f3	l3	1971-03-03
+4	f4	l4	1979-04-04
+5	f5	l5	1981-05-05
+6	f6	l6	1989-06-06
 CREATE TABLE clients (
 id INT,
 fname VARCHAR(30),
