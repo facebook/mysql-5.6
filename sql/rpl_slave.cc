@@ -7788,8 +7788,6 @@ int update_rli_and_mi(
   }
 
   gtid.gno= gtid_ev.get_gno();
-  sql_print_information("proper gtid found: %u\n", gtid.sidno);
-  sql_print_information("proper gtid found: %lld\n", gtid.gno);
 
   // old_retrieved_gtid= *(mi->rli->get_last_retrieved_gtid());
   int ret= rli->add_logged_gtid(gtid.sidno, gtid.gno);
