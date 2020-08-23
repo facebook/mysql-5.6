@@ -9552,9 +9552,7 @@ int ha_rocksdb::index_first(uchar *const buf) {
 
   m_sk_match_prefix = nullptr;
   ha_statistic_increment(&System_status_var::ha_read_first_count);
-  int rc = m_key_descr_arr[active_index]->m_is_reverse_cf
-               ? index_last_intern(buf)
-               : index_first_intern(buf);
+  int rc = index_read_intern(buf, true /* first */);
   if (rc == HA_ERR_KEY_NOT_FOUND) rc = HA_ERR_END_OF_FILE;
 
   DBUG_RETURN(rc);
@@ -9570,46 +9568,75 @@ int ha_rocksdb::index_last(uchar *const buf) {
 
   m_sk_match_prefix = nullptr;
   ha_statistic_increment(&System_status_var::ha_read_last_count);
-  int rc = m_key_descr_arr[active_index]->m_is_reverse_cf
-               ? index_first_intern(buf)
-               : index_last_intern(buf);
+  int rc = index_read_intern(buf, false /* first */);
   if (rc == HA_ERR_KEY_NOT_FOUND) rc = HA_ERR_END_OF_FILE;
 
   DBUG_RETURN(rc);
 }
 
 /*
-  Start scanning from the "first" value.
+  There are four cases being handled in this function.
 
-  The 'first' here means "the first from start of the key space".
-  For reverse-ordered key spaces, the first value will be the biggest, 'zzzz'.
+  'first' refers to the logical seek direction in the table
+  'backwards' refers to the physical seek direction in the keyspace.
 
-  An picture of a forward-ordered keyspace (remember, the keys have form
-  'indexnr-keyval'. Suppose the index we are at has number n)
+  1. Seeking to first row of table with forwards cf (backwards=false):
 
-      (n-1) - ...
-      ( n )          <--- 1. (n) doesn't exist in the db but it would be here.
-      ( n ) - aaa       <--- 2. Seek("n") will put us here on the first index
-      ( n ) - bbb               record.
-      ( n ) - cc
+     An picture of a forward-ordered keyspace (remember, the keys have form
+     'indexnr-keyval'. Suppose the index we are at has number n)
 
-  So, need to do: Seek(n);
+     (n-1) - ...
+     ( n )          <--- 1. (n) doesn't exist in the db but it would be here.
+     ( n ) - aaa       <--- 2. Seek("n") will put us here on the first index
+     ( n ) - bbb               record.
+     ( n ) - cc
 
-  A backward-ordered keyspace:
+     So, need to do: Seek(n);
 
-      (n+1) - bbb
-      (n+1) - aaa
-      (n+1)        <--- (n+1) doesn't exist in the db but would be here.
-      ( n ) - ccc       <--- 1. We need to be here.
-      ( n ) - bbb
-      ( n ) - aaa
-      ( n )
+  2. Seeking to last row of table with reverse cf (backwards=false):
 
-  So, need to: Seek(n+1);
+     (n+1) - bbb
+     (n+1) - aaa
+     (n+1)        <--- (n+1) doesn't exist in the db but would be here.
+     ( n ) - ccc       <--- 1. We need to be here.
+     ( n ) - bbb
+     ( n ) - aaa
+     ( n )
 
+     So, need to: Seek(n+1);
+
+  3. Seeking to last row of table with forwards cf (backwards=true):
+
+     An picture of a forward-ordered keyspace (remember, the keys have form
+    'indexnr-keyval'. Suppose the we are at a key that has number n)
+
+     (n-1)-something
+     ( n )-aaa
+     ( n )-bbb
+     ( n )-ccc            <----------- Need to seek to here.
+     (n+1)      <---- Doesn't exist, but would be here.
+     (n+1)-smth, or no value at all
+
+     RocksDB's Iterator::SeekForPrev($val) seeks to "at $val or last value that's
+     smaller". We can't seek to "(n)-ccc" directly, because we don't know what
+     is the value of 'ccc' (the biggest record with prefix (n)). Instead, we seek
+     to "(n+1)", which is the least possible value that's greater than any value
+     in index #n.
+
+     So, need to:  it->SeekForPrev(n+1)
+
+  4. Seeking to first row of table with reverse cf (backwards=true):
+
+     (n+1)-something
+     ( n ) - ccc
+     ( n ) - bbb
+     ( n ) - aaa       <---------------- (*) Need to seek here.
+     ( n ) <--- Doesn't exist, but would be here.
+     (n-1)-smth, or no value at all
+
+     So, need to:  it->SeekForPrev(n)
 */
-
-int ha_rocksdb::index_first_intern(uchar *const buf) {
+int ha_rocksdb::index_read_intern(uchar *const buf, bool first) {
   DBUG_ENTER_FUNC();
 
   uchar *key;
@@ -9625,7 +9652,15 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   assert(key != nullptr);
 
   const Rdb_key_def &kd = *m_key_descr_arr[active_index];
-  int key_start_matching_bytes = kd.get_first_key(key, &key_size);
+  bool backwards =
+      (first && kd.m_is_reverse_cf) || (!first && !kd.m_is_reverse_cf);
+
+  int key_matching_bytes;
+  if (backwards) {
+    key_matching_bytes = kd.get_last_key(key, &key_size);
+  } else {
+    key_matching_bytes = kd.get_first_key(key, &key_size);
+  }
 
   rocksdb::Slice index_key((const char *)key, key_size);
 
@@ -9636,109 +9671,11 @@ int ha_rocksdb::index_first_intern(uchar *const buf) {
   // Loop as long as we get a deadlock error AND we end up creating the
   // snapshot here (i.e. it did not exist prior to this)
   for (;;) {
-    setup_scan_iterator(kd, &index_key, false, key_start_matching_bytes);
-    m_scan_it->Seek(index_key);
+    setup_scan_iterator(kd, &index_key, false, key_matching_bytes);
+    rocksdb_smart_seek(backwards, m_scan_it, index_key);
     m_skip_scan_it_next_call = true;
 
-    rc = index_next_with_direction(buf, true);
-    if (!should_recreate_snapshot(rc, is_new_snapshot)) {
-      break; /* exit the loop */
-    }
-
-    // release the snapshot and iterator so they will be regenerated
-    tx->release_snapshot();
-    release_scan_iterator();
-  }
-
-  if (!rc) {
-    /*
-      index_next is always incremented on success, so decrement if it is
-      index_first instead
-     */
-    /* TODO(yzha) - row stats are gone in 8.0
-    stats.rows_index_first++;
-    stats.rows_index_next--; */
-  }
-
-  DBUG_RETURN(rc);
-}
-
-/**
-  @details
-  Start scanning from the "last" value
-
-  The 'last' here means "the last from start of the key space".
-  For reverse-ordered key spaces, we will actually read the smallest value.
-
-  An picture of a forward-ordered keyspace (remember, the keys have form
-  'indexnr-keyval'. Suppose the we are at a key that has number n)
-
-     (n-1)-something
-     ( n )-aaa
-     ( n )-bbb
-     ( n )-ccc            <----------- Need to seek to here.
-     (n+1)      <---- Doesn't exist, but would be here.
-     (n+1)-smth, or no value at all
-
-   RocksDB's Iterator::SeekForPrev($val) seeks to "at $val or last value that's
-   smaller". We can't seek to "(n)-ccc" directly, because we don't know what
-   is the value of 'ccc' (the biggest record with prefix (n)). Instead, we seek
-   to "(n+1)", which is the least possible value that's greater than any value
-   in index #n.
-
-   So, need to:  it->SeekForPrev(n+1)
-
-   A backward-ordered keyspace:
-
-      (n+1)-something
-      ( n ) - ccc
-      ( n ) - bbb
-      ( n ) - aaa       <---------------- (*) Need to seek here.
-      ( n ) <--- Doesn't exist, but would be here.
-      (n-1)-smth, or no value at all
-
-   So, need to:  it->SeekForPrev(n)
-*/
-
-int ha_rocksdb::index_last_intern(uchar *const buf) {
-  DBUG_ENTER_FUNC();
-
-  uchar *key;
-  uint key_size;
-  int rc;
-
-  if (is_pk(active_index, table, m_tbl_def)) {
-    key = m_pk_packed_tuple;
-  } else {
-    key = m_sk_packed_tuple;
-  }
-
-  assert(key != nullptr);
-
-  const Rdb_key_def &kd = *m_key_descr_arr[active_index];
-  int key_end_matching_bytes = kd.get_last_key(key, &key_size);
-
-  rocksdb::Slice index_key((const char *)key, key_size);
-
-  Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-  assert(tx != nullptr);
-
-  bool is_new_snapshot = !tx->has_snapshot();
-  // Loop as long as we get a deadlock error AND we end up creating the
-  // snapshot here (i.e. it did not exist prior to this)
-  for (;;) {
-    setup_scan_iterator(kd, &index_key, false, key_end_matching_bytes);
-    m_scan_it->SeekForPrev(index_key);
-    m_skip_scan_it_next_call = false;
-
-    if (is_pk(active_index, table, m_tbl_def)) {
-      m_skip_scan_it_next_call = true;
-      rc = rnd_next_with_direction(buf, false);
-    } else {
-      rc = find_icp_matching_index_rec(false /*move_forward*/, buf);
-      if (!rc) rc = secondary_index_read(active_index, buf);
-    }
-
+    rc = index_next_with_direction(buf, !backwards);
     if (!should_recreate_snapshot(rc, is_new_snapshot)) {
       break; /* exit the loop */
     }
