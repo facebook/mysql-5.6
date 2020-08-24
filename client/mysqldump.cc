@@ -161,6 +161,7 @@ static uint my_end_arg;
 static char *opt_mysql_unix_port = 0;
 static char *opt_bind_addr = NULL;
 static int first_error = 0;
+static int opt_thread_priority = 0;
 #include "caching_sha2_passwordopt-vars.h"
 #include "sslopt-vars.h"
 
@@ -647,6 +648,10 @@ static struct my_option my_long_options[] = {
      "Sets the minimum HLC in the output file based on the snapshot HLC",
      &opt_set_minimum_hlc, &opt_set_minimum_hlc, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      0, 0, 0},
+    {"thread-priority", OPT_THREAD_PRIORITY,
+     "Thread Priority of the mysqldump session",
+     &opt_thread_priority, &opt_thread_priority, 0, GET_INT, REQUIRED_ARG, 0,
+     -20, 19, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
 static const char *load_default_groups[] = {"mysqldump", "client", 0};
@@ -1759,6 +1764,12 @@ static int connect_to_db(char *host, char *user, char *passwd) {
   if (opt_long_query_time) {
     snprintf(buff, sizeof(buff), "SET session long_query_time=%lu",
              opt_long_query_time);
+    if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
+  }
+
+  if (opt_thread_priority) {
+    snprintf(buff, sizeof(buff), "SET session thread_priority=%d",
+             opt_thread_priority);
     if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
   }
 
