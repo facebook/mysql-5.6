@@ -166,15 +166,17 @@ static void harvest_diffs(Rdb_atomic_perf_counters *const counters) {
   IO_PERF_RECORD(key_lock_wait_time);
   IO_PERF_RECORD(key_lock_wait_count);
 
-  IO_STAT_RECORD(thread_pool_id);
-  IO_STAT_RECORD(bytes_written);
-  IO_STAT_RECORD(bytes_read);
-  IO_STAT_RECORD(open_nanos);
-  IO_STAT_RECORD(allocate_nanos);
-  IO_STAT_RECORD(write_nanos);
-  IO_STAT_RECORD(read_nanos);
-  IO_STAT_RECORD(range_sync_nanos);
-  IO_STAT_RECORD(logger_nanos);
+  if (rocksdb::get_iostats_context() != nullptr) {
+    IO_STAT_RECORD(thread_pool_id);
+    IO_STAT_RECORD(bytes_written);
+    IO_STAT_RECORD(bytes_read);
+    IO_STAT_RECORD(open_nanos);
+    IO_STAT_RECORD(allocate_nanos);
+    IO_STAT_RECORD(write_nanos);
+    IO_STAT_RECORD(read_nanos);
+    IO_STAT_RECORD(range_sync_nanos);
+    IO_STAT_RECORD(logger_nanos);
+  }
 }
 
 #undef IO_PERF_DIFF
@@ -205,7 +207,12 @@ bool Rdb_io_perf::start(const uint32_t perf_context_level) {
   }
 
   rocksdb::get_perf_context()->Reset();
-  rocksdb::get_iostats_context()->Reset();
+
+  auto *io_stats_context = rocksdb::get_iostats_context();
+  if (io_stats_context != nullptr) {
+    io_stats_context->Reset();
+  }
+
   return true;
 }
 
