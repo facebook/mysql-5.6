@@ -176,6 +176,8 @@ static uint my_end_arg;
 static char *opt_mysql_unix_port = nullptr;
 static char *opt_bind_addr = nullptr;
 static int first_error = 0;
+static int opt_thread_priority = 0;
+
 #include "authentication_kerberos_clientopt-vars.h"
 #include "caching_sha2_passwordopt-vars.h"
 #include "multi_factor_passwordopt-vars.h"
@@ -756,6 +758,10 @@ static struct my_option my_long_options[] = {
      &opt_skip_gipk, &opt_skip_gipk, nullptr, GET_BOOL, NO_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
 #include "authentication_kerberos_clientopt-longopts.h"
+    {"thread-priority", OPT_THREAD_PRIORITY,
+     "Thread Priority of the mysqldump session", &opt_thread_priority,
+     &opt_thread_priority, 0, GET_INT, REQUIRED_ARG, 0, -20, 19, nullptr, 0,
+     nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -1902,6 +1908,12 @@ static int connect_to_db(char *host, char *user) {
           "/*!80030 SET SESSION "
           "show_gipk_in_create_table_and_information_schema = OFF */"))
     return 1;
+
+  if (opt_thread_priority) {
+    snprintf(buff, sizeof(buff), "SET session thread_priority=%d",
+             opt_thread_priority);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
 
   return 0;
 } /* connect_to_db */

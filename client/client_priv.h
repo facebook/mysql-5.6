@@ -203,6 +203,7 @@ enum options_client {
   OPT_PRINT_GTIDS,
   OPT_MINIMUM_HLC,
   OPT_CHECKSUM,
+  OPT_THREAD_PRIORITY,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
