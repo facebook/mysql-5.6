@@ -174,6 +174,7 @@ static uint my_end_arg;
 static char *opt_mysql_unix_port = nullptr;
 static char *opt_bind_addr = nullptr;
 static int first_error = 0;
+static int opt_thread_priority = 0;
 #include "caching_sha2_passwordopt-vars.h"
 #include "sslopt-vars.h"
 
@@ -717,6 +718,10 @@ static struct my_option my_long_options[] = {
      "Sets the minimum HLC in the output file based on the snapshot HLC",
      &opt_set_minimum_hlc, &opt_set_minimum_hlc, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      nullptr, 0, nullptr},
+    {"thread-priority", OPT_THREAD_PRIORITY,
+     "Thread Priority of the mysqldump session", &opt_thread_priority,
+     &opt_thread_priority, 0, GET_INT, REQUIRED_ARG, 0, -20, 19, nullptr, 0,
+     nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
@@ -1843,6 +1848,13 @@ static int connect_to_db(char *host, char *user, char *passwd) {
           mysql, nullptr,
           "/*!80018 SET SESSION show_create_table_skip_secondary_engine=1 */"))
     return 1;
+
+  if (opt_thread_priority) {
+    snprintf(buff, sizeof(buff), "SET session thread_priority=%d",
+             opt_thread_priority);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+
   return 0;
 } /* connect_to_db */
 
