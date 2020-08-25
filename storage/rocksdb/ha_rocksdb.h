@@ -295,8 +295,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   bool m_skip_scan_it_next_call;
 
-  /* true means we are accessing the first row after a snapshot was created */
-  bool m_rnd_scan_is_new_snapshot;
+  bool m_rnd_scan_started;
 
   /*
     true means INSERT ON DUPLICATE KEY UPDATE. In such case we can optimize by
@@ -344,7 +343,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       MY_ATTRIBUTE((__nonnull__(2, 3), __warn_unused_result__));
   int secondary_index_read(const int keyno, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  void setup_iterator_for_rnd_scan();
   static void setup_iterator_bounds(const Rdb_key_def &kd,
                                     const rocksdb::Slice &eq_cond,
                                     size_t bound_len, uchar *const lower_bound,
@@ -557,6 +555,8 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                        const Rdb_tbl_def *const tbl_def_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
+  uint active_index_pos() MY_ATTRIBUTE((__warn_unused_result__));
+
   static bool is_pk(const uint index, const TABLE *table_arg,
                     const Rdb_tbl_def *tbl_def_arg)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
@@ -660,6 +660,11 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   int index_first(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int index_last(uchar *const buf) override
+      MY_ATTRIBUTE((__warn_unused_result__));
+
+  int index_next_intern(uchar *const buf)
+      MY_ATTRIBUTE((__warn_unused_result__));
+  int index_prev_intern(uchar *const buf)
       MY_ATTRIBUTE((__warn_unused_result__));
 
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
