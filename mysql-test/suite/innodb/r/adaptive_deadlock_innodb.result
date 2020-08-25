@@ -1,0 +1,91 @@
+drop table if exists lockt;
+create table lockt(i int primary key) engine=innodb;
+insert into lockt values (1), (2);
+SET @start_max_deadlock_detection_steps = @@global.innodb_max_deadlock_detection_steps;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+@@global.innodb_max_deadlock_detection_steps
+0
+SET @start_innodb_deadlock_detect = @@global.innodb_deadlock_detect;
+SELECT @@global.innodb_deadlock_detect;
+@@global.innodb_deadlock_detect
+1
+set global innodb_deadlock_detect=1;
+set global innodb_max_deadlock_detection_steps=1;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+@@global.innodb_max_deadlock_detection_steps
+1
+
+Deadlock Detection bailed out early
+
+begin;
+select * from lockt where i=1 for update;
+i
+1
+begin;
+select * from lockt where i=2 for update;
+i
+2
+select * from lockt where i=1 for update;
+select * from lockt where i=2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/lockt.PRIMARY
+rollback;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on record in index: test/lockt.PRIMARY
+rollback;
+lock_time_outs	must be 2
+2	must be 2
+deadlocks_too_many_steps	must be 2
+2	must be 2
+
+Deadlock detection triggered
+
+set global innodb_max_deadlock_detection_steps=2;
+begin;
+select * from lockt where i=1 for update;
+i
+1
+begin;
+select * from lockt where i=2 for update;
+i
+2
+select * from lockt where i=1 for update;
+select * from lockt where i=2 for update;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+rollback;
+i
+1
+rollback;
+N_deadlocks	must be 1
+1	must be 1
+
+Deadlock detection triggered when max_deadlock_detection_steps = 0
+
+set global innodb_max_deadlock_detection_steps=0;
+begin;
+select * from lockt where i=1 for update;
+i
+1
+begin;
+select * from lockt where i=2 for update;
+i
+2
+select * from lockt where i=1 for update;
+select * from lockt where i=2 for update;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+rollback;
+i
+1
+rollback;
+N_deadlocks	must be 1
+1	must be 1
+
+Cleanup
+
+SET @@global.innodb_max_deadlock_detection_steps = @start_max_deadlock_detection_steps;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+@@global.innodb_max_deadlock_detection_steps
+0
+SET @@global.innodb_deadlock_detect = @start_innodb_deadlock_detect;
+SELECT @@global.innodb_deadlock_detect;
+@@global.innodb_deadlock_detect
+1
+drop table lockt;

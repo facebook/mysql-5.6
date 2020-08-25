@@ -18863,6 +18863,12 @@ static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
   "Enableds deadlock detection checking.",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_UINT(
+  max_deadlock_detection_steps, srv_max_deadlock_detection_steps,
+  PLUGIN_VAR_OPCMDARG,
+  "Maximum number of steps allowed in deadlock detection, 0 means this is turned off",
+  NULL, NULL, 0, 0, UINT_MAX32, 0);
+
 static MYSQL_SYSVAR_ULONG(lru_manager_max_sleep_time, srv_cleaner_max_lru_time,
   PLUGIN_VAR_RQCMDARG,
   "The maximum time limit for a single LRU tail flush iteration by the lru "
@@ -18968,6 +18974,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(data_file_path),
   MYSQL_SYSVAR(data_home_dir),
   MYSQL_SYSVAR(deadlock_detect),
+  MYSQL_SYSVAR(max_deadlock_detection_steps),
   MYSQL_SYSVAR(doublewrite),
   MYSQL_SYSVAR(stats_include_delete_marked),
   MYSQL_SYSVAR(api_enable_binlog),

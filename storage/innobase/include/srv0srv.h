@@ -643,6 +643,9 @@ extern atomic_stat<ulint>	srv_sec_rec_cluster_reads_avoided;
 /** Perform deadlock detection check. */
 extern my_bool srv_deadlock_detect;
 
+/** Maximum number of deadlock detection steps allowed */
+extern uint srv_max_deadlock_detection_steps;
+
 /* The maximum time limit for a single LRU tail flush iteration by the lru manager thread */
 extern ulint	srv_cleaner_max_lru_time;
 

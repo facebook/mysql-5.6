@@ -367,6 +367,8 @@ struct lock_deadlock_ctx_t {
 
 	ibool		too_deep;	/*!< TRUE if search was too deep and
 					was aborted */
+
+	uint 		deadlock_detection_steps; /*!< Deadlock detection steps */
 };
 
 /** DFS visited node information used during deadlock checking. */
@@ -3722,7 +3724,7 @@ static
 const lock_t*
 lock_get_next_lock(
 /*===============*/
-	const lock_deadlock_ctx_t*
+	lock_deadlock_ctx_t*
 				ctx,	/*!< in: deadlock context */
 	const lock_t*		lock,	/*!< in: lock in the queue */
 	ulint			heap_no)/*!< in: heap no if rec lock else
@@ -3742,7 +3744,8 @@ lock_get_next_lock(
 		}
 	} while (lock != NULL
 		 && lock->trx->lock.deadlock_mark > ctx->mark_start);
-
+	
+	ctx->deadlock_detection_steps++;
 	ut_ad(lock == NULL
 	      || lock_get_type_low(lock) == lock_get_type_low(ctx->wait_lock));
 
@@ -3760,7 +3763,7 @@ static
 const lock_t*
 lock_get_first_lock(
 /*================*/
-	const lock_deadlock_ctx_t*
+	lock_deadlock_ctx_t*
 				ctx,	/*!< in: deadlock context */
 	ulint*			heap_no)/*!< out: heap no if rec lock,
 					else ULINT_UNDEFINED */
@@ -3791,7 +3794,7 @@ lock_get_first_lock(
 		dict_table_t*   table = lock->un_member.tab_lock.table;
 		lock = UT_LIST_GET_FIRST(table->locks);
 	}
-
+	ctx->deadlock_detection_steps++;
 	ut_a(lock != NULL);
 	ut_a(lock != ctx->wait_lock);
 	ut_ad(lock_get_type_low(lock) == lock_get_type_low(ctx->wait_lock));
@@ -3917,6 +3920,17 @@ lock_deadlock_push(
 	return(NULL);
 }
 
+UNIV_INLINE
+bool
+lock_deadlock_too_many_steps(uint deadlock_detection_steps) {
+	if (srv_max_deadlock_detection_steps != 0 &&
+		deadlock_detection_steps > srv_max_deadlock_detection_steps) {
+		MONITOR_INC(MONITOR_DEADLOCK_TOO_MANY_STEPS);
+		return true;
+	}
+	return false;
+}
+
 /********************************************************************//**
 Looks iteratively for a deadlock. Note: the joining transaction may
 have been granted its lock by the deadlock checks.
@@ -3942,7 +3956,8 @@ lock_deadlock_search(
 	lock = lock_get_first_lock(ctx, &heap_no);
 
 	for (;;) {
-
+		if (lock_deadlock_too_many_steps(ctx->deadlock_detection_steps))
+			return 0;
 		/* We should never visit the same sub-tree more than once. */
 		ut_ad(lock == NULL
 		      || lock->trx->lock.deadlock_mark <= ctx->mark_start);
@@ -3959,6 +3974,8 @@ lock_deadlock_search(
 			ctx->wait_lock = stack->wait_lock;
 
 			lock = lock_get_next_lock(ctx, lock, heap_no);
+			if (lock_deadlock_too_many_steps(ctx->deadlock_detection_steps))
+				return 0;
 		}
 
 		if (lock == NULL) {
@@ -4112,7 +4129,7 @@ lock_deadlock_check_and_resolve(
 	ut_ad(lock != NULL);
 	ut_ad(lock_mutex_own());
 	assert_trx_in_list(trx);
-
+	uint previous_deadlock_detection_steps = 0;
 	/* Try and resolve as many deadlocks as possible. */
 	do {
 		lock_deadlock_ctx_t	ctx;
@@ -4124,6 +4141,8 @@ lock_deadlock_check_and_resolve(
 		ctx.too_deep = FALSE;
 		ctx.wait_lock = lock;
 		ctx.mark_start = lock_mark_counter;
+		ctx.deadlock_detection_steps = previous_deadlock_detection_steps;
+
 
 		victim_trx_id = lock_deadlock_search(&ctx);
 
@@ -4148,7 +4167,7 @@ lock_deadlock_check_and_resolve(
 
 			MONITOR_INC(MONITOR_DEADLOCK);
 		}
-
+		previous_deadlock_detection_steps = ctx.deadlock_detection_steps;
 	} while (victim_trx_id != 0 && victim_trx_id != trx->id);
 
 	/* If the joining transaction was selected as the victim. */
@@ -7324,4 +7343,3 @@ lock_trx_print_wait_and_mvcc_state(
 		fprintf(file, "------------------\n");
 	}
 }
-

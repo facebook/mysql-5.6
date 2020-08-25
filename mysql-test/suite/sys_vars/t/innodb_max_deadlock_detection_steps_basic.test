@@ -1,0 +1,62 @@
+--source include/have_innodb.inc
+
+SET @start_global_value = @@global.innodb_max_deadlock_detection_steps;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+select @@global.innodb_max_deadlock_detection_steps;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_max_deadlock_detection_steps;
+show global variables like 'innodb_max_deadlock_detection_steps';
+show session variables like 'innodb_max_deadlock_detection_steps';
+select * from information_schema.global_variables where variable_name='innodb_max_deadlock_detection_steps';
+select * from information_schema.session_variables where variable_name='innodb_max_deadlock_detection_steps';
+--Error ER_GLOBAL_VARIABLE
+SET @@session.innodb_max_deadlock_detection_steps = 0;
+SELECT @@innodb_max_deadlock_detection_steps;
+
+
+#
+# show that it's writable
+#
+set global innodb_max_deadlock_detection_steps=4;
+select @@global.innodb_max_deadlock_detection_steps;
+select * from information_schema.global_variables where variable_name='innodb_max_deadlock_detection_steps';
+select * from information_schema.session_variables where variable_name='innodb_max_deadlock_detection_steps';
+set @@global.innodb_max_deadlock_detection_steps=0;
+select @@global.innodb_max_deadlock_detection_steps;
+select * from information_schema.global_variables where variable_name='innodb_max_deadlock_detection_steps';
+select * from information_schema.session_variables where variable_name='innodb_max_deadlock_detection_steps';
+
+#
+# Invalid value
+#
+SET @@global.innodb_max_deadlock_detection_steps = -1;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+SET @@global.innodb_max_deadlock_detection_steps = 4294967296;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+SET @@global.innodb_max_deadlock_detection_steps = 10240022115;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_max_deadlock_detection_steps = 10000.01;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+SET @@global.innodb_max_deadlock_detection_steps = -1024;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+SET @@global.innodb_max_deadlock_detection_steps = 42949672950;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_max_deadlock_detection_steps = ON;
+SELECT @@global.innodb_max_deadlock_detection_steps;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_max_deadlock_detection_steps = 'test';
+SELECT @@global.innodb_max_deadlock_detection_steps;
+
+#
+# Cleanup
+#
+
+SET @@global.innodb_max_deadlock_detection_steps = @start_global_value;
+SELECT @@global.innodb_max_deadlock_detection_steps;

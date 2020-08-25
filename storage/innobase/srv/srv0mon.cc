@@ -104,6 +104,11 @@ static monitor_info_t	innodb_counter_info[] =
 	 MONITOR_DEFAULT_ON,
 	 MONITOR_DEFAULT_START, MONITOR_DEADLOCK},
 
+	{"lock_deadlocks_too_many_steps", "lock", 
+	"Number of times deadlock check exceeded max allowed steps",
+	 MONITOR_DEFAULT_ON,
+	 MONITOR_DEFAULT_START, MONITOR_DEADLOCK_TOO_MANY_STEPS},
+
 	{"lock_timeouts", "lock", "Number of lock timeouts",
 	 MONITOR_DEFAULT_ON,
 	 MONITOR_DEFAULT_START, MONITOR_TIMEOUT},
