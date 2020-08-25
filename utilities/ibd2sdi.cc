@@ -909,13 +909,18 @@ bool tablespace_creator::create() {
 
       DBUG_EXECUTE_IF("ib_partial_page", size++;);
 
-      if (pages * page_size.physical() != size) {
+      // cast to uint64_t to avoid multipy overflow
+      uint64_t computed_size =
+          (uint64_t)pages * (uint64_t)(page_size.physical());
+      if (computed_size != size) {
         ib::warn() << "There is a partial page at the"
-                   << " end, of size " << size - (pages * page_size.physical())
+                   << " end, of size " << size - computed_size
                    << ". This partial page is ignored";
       }
 
+      ib::dbug() << "Total Size in the file: " << size;
       ib::dbug() << "Total Number of pages in the file: " << pages;
+      ib::dbug() << "Page size in the file: " << page_size.physical();
 
       ib_file_t ibd_file;
       ibd_file.first_page_num = first_page_num;
