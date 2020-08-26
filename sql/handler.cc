@@ -7826,9 +7826,11 @@ int handler::index_read_idx_map(uchar *buf, uint index, const uchar *key,
   return error ? error : error1;
 }
 
-uint calculate_key_len(TABLE *table, uint key, key_part_map keypart_map) {
+uint calculate_key_len(TABLE *table, uint key, key_part_map keypart_map,
+                       uint *count) {
   /* works only with key prefixes */
   assert(((keypart_map + 1) & keypart_map) == 0);
+  if (count) *count = 0;
 
   KEY *key_info = table->key_info + key;
   KEY_PART_INFO *key_part = key_info->key_part;
@@ -7840,6 +7842,8 @@ uint calculate_key_len(TABLE *table, uint key, key_part_map keypart_map) {
     keypart_map >>= 1;
     key_part++;
   }
+  if (count) *count = key_part - key_info->key_part;
+
   return length;
 }
 

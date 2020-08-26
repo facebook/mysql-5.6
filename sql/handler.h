@@ -3777,7 +3777,8 @@ class ha_statistics {
 
   @return Length of used key parts.
 */
-uint calculate_key_len(TABLE *table, uint key, key_part_map keypart_map);
+uint calculate_key_len(TABLE *table, uint key, key_part_map keypart_map,
+                       uint *count = nullptr);
 /*
   bitmap with first N+1 bits set
   (keypart_map for a key prefix of [0..N] keyparts)
