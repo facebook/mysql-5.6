@@ -293,8 +293,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   /* We only iterate but don't need to decode anything */
   bool m_iteration_only;
 
-  bool m_skip_scan_it_next_call;
-
   bool m_rnd_scan_started;
 
   /*
@@ -814,6 +812,10 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                                    rocksdb::Iterator *const iter,
                                    bool seek_backward);
 
+  int index_read_intern(uchar *const buf, const uchar *const key,
+                        key_part_map keypart_map,
+                        enum ha_rkey_function find_flag)
+      MY_ATTRIBUTE((__warn_unused_result__));
   int index_read_intern(uchar *buf, bool first)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
@@ -873,8 +875,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int position_to_correct_key(const Rdb_key_def &kd,
                               const enum ha_rkey_function &find_flag,
-                              const bool full_key_match, const uchar *const key,
-                              const key_part_map &keypart_map,
+                              const bool full_key_match,
                               const rocksdb::Slice &key_slice,
                               bool *const move_forward,
                               const int64_t ttl_filter_ts)

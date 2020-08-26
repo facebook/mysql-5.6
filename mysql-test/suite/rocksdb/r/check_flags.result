@@ -34,7 +34,7 @@ KILL QUERY $conn1_id;
 set debug_sync='now SIGNAL go';
 ERROR 70100: Query execution was interrupted
 set debug_sync='RESET';
-set debug_sync='rocksdb.check_flags_ser SIGNAL parked WAIT_FOR go';
+set debug_sync='rocksdb.check_flags_rke SIGNAL parked WAIT_FOR go';
 SELECT kp1 FROM t3 ORDER BY kp1;
 set debug_sync='now WAIT_FOR parked';
 KILL QUERY $conn1_id;

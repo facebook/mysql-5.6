@@ -298,64 +298,6 @@ class Rdb_key_def {
     *size = INDEX_NUMBER_SIZE;
   }
 
-  /*
-    Get the first key that you need to position at to start iterating.
-    Stores into *key a "supremum" or "infimum" key value for the index.
-    @parameters key    OUT  Big Endian, value is m_index_number or
-                            m_index_number + 1
-    @parameters size   OUT  key size, value is INDEX_NUMBER_SIZE
-    @return Number of bytes in the key that are usable for bloom filter use.
-  */
-  inline int get_first_key(uchar *const key, uint *const size) const {
-    if (m_is_reverse_cf) {
-      get_supremum_key(key, size);
-      /* Find out how many bytes of infimum are the same as m_index_number */
-      uchar unmodified_key[INDEX_NUMBER_SIZE];
-      rdb_netbuf_store_index(unmodified_key, m_index_number);
-      int i;
-      for (i = 0; i < INDEX_NUMBER_SIZE; i++) {
-        if (key[i] != unmodified_key[i]) {
-          break;
-        }
-      }
-      return i;
-    } else {
-      get_infimum_key(key, size);
-      // For infimum key, its value will be m_index_number
-      // Thus return its own size instead.
-      return INDEX_NUMBER_SIZE;
-    }
-  }
-
-  /*
-    The same as get_first_key, but get the key for the last entry in the index
-    @parameters key    OUT  Big Endian, value is m_index_number or
-                            m_index_number + 1
-    @parameters size   OUT  key size, value is INDEX_NUMBER_SIZE
-
-    @return Number of bytes in the key that are usable for bloom filter use.
-  */
-  inline int get_last_key(uchar *const key, uint *const size) const {
-    if (m_is_reverse_cf) {
-      get_infimum_key(key, size);
-      // For infimum key, its value will be m_index_number
-      // Thus return its own size instead.
-      return INDEX_NUMBER_SIZE;
-    } else {
-      get_supremum_key(key, size);
-      /* Find out how many bytes are the same as m_index_number */
-      uchar unmodified_key[INDEX_NUMBER_SIZE];
-      rdb_netbuf_store_index(unmodified_key, m_index_number);
-      int i;
-      for (i = 0; i < INDEX_NUMBER_SIZE; i++) {
-        if (key[i] != unmodified_key[i]) {
-          break;
-        }
-      }
-      return i;
-    }
-  }
-
   /* Make a key that is right after the given key. */
   static int successor(uchar *const packed_tuple, const uint len);
 
