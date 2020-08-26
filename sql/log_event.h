@@ -2363,6 +2363,7 @@ public:        /* !!! Public in this patch to allow old usage */
   virtual void prepare_dep(Relay_log_info *rli,
                            std::shared_ptr<Log_event_wrapper> &ev);
   virtual int do_apply_event(Relay_log_info const *rli);
+  virtual int do_apply_event_worker(Slave_worker *w);
   virtual int do_update_pos(Relay_log_info *rli);
 
   int do_apply_event(Relay_log_info const *rli,

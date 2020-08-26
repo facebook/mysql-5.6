@@ -1335,8 +1335,11 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
   uchar ev_offset= packet->length();
   DBUG_ENTER("Log_event::read_log_event(IO_CACHE *, String *, mysql_mutex_t, uint8)");
 
+  DBUG_ASSERT(current_thd->get_command() == COM_BINLOG_DUMP ||
+              current_thd->get_command() == COM_BINLOG_DUMP_GTID);
+
   if (log_file_name_arg && is_binlog_active)
-    *is_binlog_active= mysql_bin_log.is_active(log_file_name_arg);
+    *is_binlog_active= dump_log.is_active(log_file_name_arg);
   /*
     If the log_file_name_arg is active and we have read up to
     binlog_end_pos, return LOG_READ_BINLOG_LAST_VALID_POS so that IO
@@ -1355,11 +1358,11 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
     read an event increases mutex contention. This corner case occurs
     rarely only during binlog is rotated.
 
-    mysql_bin_log.binlog_end_pos() == my_b_tell(file) ensures that we don't read
+    dump_log.binlog_end_pos() == my_b_tell(file) ensures that we don't read
     past the last valid position in binlog.
   */
-  if (mysql_bin_log.is_active(log_file_name_arg) &&
-      mysql_bin_log.get_binlog_end_pos_without_lock()
+  if (dump_log.is_active(log_file_name_arg) &&
+      dump_log.get_binlog_end_pos_without_lock()
         == my_b_tell(file))
   {
     result= LOG_READ_BINLOG_LAST_VALID_POS;
@@ -5321,7 +5324,19 @@ void Query_log_event::prepare_dep(Relay_log_info *rli,
 */
 int Query_log_event::do_apply_event(Relay_log_info const *rli)
 {
+  thd->set_trans_relay_log_pos(rli->get_event_relay_log_name(),
+                               future_event_relay_log_pos);
   return do_apply_event(rli, query, q_len);
+}
+
+int Query_log_event::do_apply_event_worker(Slave_worker *w)
+{
+  Slave_job_group *ptr_g= w->c_rli->gaq->get_job_group(mts_group_idx);
+  thd->set_trans_relay_log_pos(ptr_g->group_relay_log_name ?
+                               ptr_g->group_relay_log_name :
+                               w->get_group_relay_log_name(),
+                               future_event_relay_log_pos);
+  return do_apply_event(w, query, q_len);
 }
 
 /*
@@ -8284,6 +8299,9 @@ int Xid_log_event::do_apply_event_worker(Slave_worker *w)
                                   w->c_rli->is_transactional())))
     goto err;
 
+  thd->set_trans_relay_log_pos(w->get_group_relay_log_name(),
+                               w->get_group_relay_log_pos());
+
   DBUG_PRINT("mts", ("do_apply group master %s %llu  group relay %s %llu event %s %llu.",
                      w->get_group_master_log_name(),
                      w->get_group_master_log_pos(),
@@ -8403,6 +8421,8 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
   strmake(new_group_relay_log_name, rli_ptr->get_group_relay_log_name(),
           FN_REFLEN - 1);
   new_group_relay_log_pos= rli_ptr->get_group_relay_log_pos();
+  thd->set_trans_relay_log_pos(rli_ptr->get_group_relay_log_name(),
+                               rli_ptr->get_group_relay_log_pos());
   /*
     Rollback positions in memory just before commit. Position values will be
     reset to their new values only on successful commit operation.

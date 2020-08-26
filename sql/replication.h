@@ -434,6 +434,41 @@ typedef struct Raft_replication_param {
 typedef struct Raft_replication_observer {
   uint32 len;
 
+  // Arguments passed to setup_flush hooks, these will either correspond to
+  // binlog or relay log
+  struct st_setup_flush_arg {
+    // IO_CACHE for the log
+    IO_CACHE* log_file_cache = nullptr;
+
+    // Log prefix e.g. binary-log, apply-log
+    const char* log_prefix = nullptr;
+    // Log name
+    const char* log_name = nullptr;
+    // Log number
+    ulong* cur_log_ext = nullptr;
+
+    // Log name for the last log
+    char* endpos_log_name = nullptr;
+    // Last position of in the last log
+    unsigned long long* endpos = nullptr;
+    // Number of times changes to endpos was signalled
+    unsigned long* signal_cnt = nullptr;
+
+    // High level mutex protecting the log access
+    mysql_mutex_t* lock_log = nullptr;
+    // Mutex protecting index file access
+    mysql_mutex_t* lock_index = nullptr;
+    // Mutex protecting end pos
+    mysql_mutex_t* lock_end_pos = nullptr;
+    // Condition variable for signalling end pos update
+    mysql_cond_t* update_cond = nullptr;
+
+    // Is this a relay log?
+    bool is_relay_log = false;
+    // Extra context
+    int context = 0;
+  };
+
   /**
      This callback is called before transaction commit
      and after binlog sync.
@@ -478,11 +513,7 @@ typedef struct Raft_replication_observer {
      @retval 0 Sucess
      @retval 1 Failure
   */
-  int (*setup_flush)(bool is_relay_log, IO_CACHE* log_file_cache,
-                     const char *log_prefix, const char *log_name,
-                     mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-                     mysql_cond_t *update_cond, ulong *cur_log_ext,
-                     int context);
+  int (*setup_flush)(Raft_replication_observer::st_setup_flush_arg *arg);
 
   /**
    * This callback is invoked by the server to gracefully shutdown the

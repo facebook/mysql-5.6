@@ -325,7 +325,10 @@ int Trans_delegate::before_commit(THD *thd, bool all)
   if (is_real_trans)
     param.flags = true;
 
-  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
+  else
+    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
 
   DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu",
                        param.log_file, param.log_pos));
@@ -363,7 +366,10 @@ int Trans_delegate::after_rollback(THD *thd, bool all)
 
   if (is_real_trans)
     param.flags|= TRANS_IS_REAL_TRANS;
-  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&param.log_file, &param.log_pos);
+  else
+    thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
   int ret= 0;
   FOREACH_OBSERVER(ret, after_rollback, thd, (&param));
   return ret;
@@ -649,22 +655,15 @@ int Raft_replication_delegate::before_commit(THD *thd, bool all)
 }
 
 int Raft_replication_delegate::setup_flush(
-    THD *thd, bool is_relay_log,
-    IO_CACHE* log_file_cache,
-    const char *log_prefix,
-    const char *log_name,
-    mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-    mysql_cond_t *update_cond, ulong *cur_log_ext, int context)
+    THD *thd,
+    Raft_replication_observer::st_setup_flush_arg *arg)
 {
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   Raft_replication_param param;
 
   int ret= 0;
 
-  FOREACH_OBSERVER_STRICT(ret, setup_flush, thd,
-      (is_relay_log, log_file_cache, log_prefix, log_name,
-       lock_log, lock_index, update_cond, cur_log_ext, context)
-  );
+  FOREACH_OBSERVER_STRICT(ret, setup_flush, thd, (arg));
 
   DBUG_RETURN(ret);
 }

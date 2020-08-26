@@ -103,6 +103,7 @@ const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
 const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
 
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
+Dump_log dump_log;
 
 static int binlog_init(void *p);
 static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event);
@@ -3900,7 +3901,7 @@ int MYSQL_BIN_LOG::init_index_file()
   {
     // NO_LINT_DEBUG
     sql_print_information("Binlog apply index file exists. Recovering mysqld "
-                          "based on binlog apply index file");
+                          "based on binlog apply index file: %s", opt_applylog_index_name);
     index_file_name= opt_applylog_index_name;
     log_file_name= opt_apply_logname;
     is_apply_log= true;
@@ -3909,7 +3910,7 @@ int MYSQL_BIN_LOG::init_index_file()
   {
     // NO_LINT_DEBUG
     sql_print_information("Binlog apply index file does not exist. Recovering "
-                          "mysqld based on binlog index file");
+                          "mysqld based on binlog index file: %s", opt_binlog_index_name);
     index_file_name= opt_binlog_index_name;
     log_file_name= opt_bin_logname;
   }
@@ -4672,7 +4673,8 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
                                 bool need_lock_index,
                                 bool need_sid_lock,
                                 Format_description_log_event *extra_description_event,
-                                RaftRotateInfo *raft_rotate_info)
+                                RaftRotateInfo *raft_rotate_info,
+                                bool need_end_log_pos_lock)
 {
   File file= -1;
 
@@ -4865,7 +4867,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
 
-  update_binlog_end_pos();
+  update_binlog_end_pos(need_end_log_pos_lock);
 
   if (write_file_name_to_index_file)
   {
@@ -4950,8 +4952,10 @@ err:
     1	error
 */
 bool MYSQL_BIN_LOG::open_existing_binlog(
-    const char *log_name, enum cache_type io_cache_type_arg,
-    ulong max_size_arg)
+    const char *log_name,
+    enum cache_type io_cache_type_arg,
+    ulong max_size_arg,
+    bool need_end_log_pos_lock)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::open_existing_binlog(const char *, ...)");
   DBUG_PRINT("enter",("name: %s", log_name));
@@ -4995,7 +4999,7 @@ bool MYSQL_BIN_LOG::open_existing_binlog(
   max_size= max_size_arg;
   open_count++;
 
-  update_binlog_end_pos();
+  update_binlog_end_pos(need_end_log_pos_lock);
 
   log_state= LOG_OPENED;
   DBUG_RETURN(0);
@@ -7760,6 +7764,8 @@ int binlog_change_to_apply()
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   mysql_bin_log.lock_index();
+  dump_log.lock();
+  mysql_bin_log.lock_binlog_end_pos();
 
   mysql_bin_log.close(LOG_CLOSE_INDEX);
 
@@ -7781,18 +7787,27 @@ int binlog_change_to_apply()
     const_cast<Gtid_set*>(gtid_state->get_logged_gtids()));
 
   // HLC is TBD
-  if (mysql_bin_log.open_binlog(opt_apply_logname, 0,
-                                WRITE_CACHE, max_binlog_size, false,
-                                false/*need_lock_index=false*/,
-                                true/*need_sid_lock=true*/,
-                                NULL))
+  if (mysql_bin_log.open_binlog(opt_apply_logname,
+                                nullptr,
+                                WRITE_CACHE,
+                                max_binlog_size,
+                                false,
+                                false /*need_lock_index=false*/,
+                                true /*need_sid_lock=true*/,
+                                nullptr /*extra_description_event*/,
+                                nullptr /*raft_rotate_info*/,
+                                false /*need_end_lock_pos_lock*/))
   {
     error= 1;
     goto err;
   }
 
+  dump_log.switch_log(/* relay_log= */true, /* should_lock= */false);
+
 err:
 
+  mysql_bin_log.unlock_binlog_end_pos();
+  dump_log.unlock();
   mysql_bin_log.unlock_index();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
@@ -7814,6 +7829,10 @@ int binlog_change_to_binlog()
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   mysql_bin_log.lock_index();
+  dump_log.lock();
+#ifdef HAVE_REPLICATION
+  active_mi->rli->relay_log.lock_binlog_end_pos();
+#endif // HAVE_REPLICATION
 
   // Get the index file name
   std::string indexfn= mysql_bin_log.get_index_fname();
@@ -7872,8 +7891,10 @@ int binlog_change_to_binlog()
   // times of trx's in all previous binlog
   mysql_bin_log.update_hlc(prev_hlc);
 
-  if (mysql_bin_log.open_existing_binlog(opt_bin_logname, WRITE_CACHE,
-                                         max_binlog_size))
+  if (mysql_bin_log.open_existing_binlog(opt_bin_logname,
+                                         WRITE_CACHE,
+                                         max_binlog_size,
+                                         /* need_end_log_pos_lock= */ false))
   {
     error= 1;
     goto err;
@@ -7914,14 +7935,19 @@ int binlog_change_to_binlog()
   mysql_bin_log.is_apply_log = false;
   mysql_bin_log.apply_file_count.store(0);
 
+  dump_log.switch_log(/* relay_log= */false, /* should_lock= */false);
+
 err:
 
+#ifdef HAVE_REPLICATION
+  active_mi->rli->relay_log.unlock_binlog_end_pos();
+#endif // HAVE_REPLICATION
+  dump_log.unlock();
   mysql_bin_log.unlock_index();
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
 
   DBUG_RETURN(error);
 }
-
 
 std::pair<std::vector<std::string>, int>
 MYSQL_BIN_LOG::get_lognames_from_index(bool need_lock)
@@ -8851,22 +8877,17 @@ void MYSQL_BIN_LOG::signal_update()
 /*
  * Caller must hold LOCK_log mutex when the file is in use.
  */
-void MYSQL_BIN_LOG::update_binlog_end_pos()
+void MYSQL_BIN_LOG::update_binlog_end_pos(bool need_lock)
 {
-  /*
-    binlog_end_pos is used only on master's binlog right now. It is possible
-    to use it on relay log.
-  */
-  if (is_relay_log)
-    signal_update();
-  else
-  {
+  if (need_lock)
     lock_binlog_end_pos();
-    strmake(binlog_file_name, log_file_name, sizeof(binlog_file_name)-1);
-    binlog_end_pos = my_b_tell(&log_file);
-    signal_update();
+  mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+  strmake(binlog_file_name, log_file_name, sizeof(binlog_file_name)-1);
+  binlog_end_pos=
+    is_relay_log ? my_b_append_tell(&log_file) : my_b_tell(&log_file);
+  signal_update();
+  if (need_lock)
     unlock_binlog_end_pos();
-  }
 }
 
 /****** transaction coordinator log for 2pc - binlog() based solution ******/
@@ -9610,7 +9631,10 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
   {
     char* log_file= nullptr;
     my_off_t log_pos= 0;
-    last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+    if (mysql_bin_log.is_apply_log)
+      last_thd->get_trans_relay_log_pos((const char**) &log_file, &log_pos);
+    else
+      last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
     const LOG_POS_COORD coord= { log_file, log_pos };
     signal_semi_sync_ack(&coord);
   }
@@ -9675,7 +9699,10 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
      {
        char* log_file= nullptr;
        my_off_t log_pos= 0;
-       last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+       if (mysql_bin_log.is_apply_log)
+         last_thd->get_trans_relay_log_pos((const char**) &log_file, &log_pos);
+       else
+         last_thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
        const LOG_POS_COORD coord= { log_file, log_pos };
        signal_semi_sync_ack(&coord);
      }
@@ -9971,7 +9998,10 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
       {
         char* log_file= nullptr;
         my_off_t log_pos= 0;
-        thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
+        if (mysql_bin_log.is_apply_log)
+          thd->get_trans_relay_log_pos((const char**) &log_file, &log_pos);
+        else
+          thd->get_trans_fixed_pos((const char **) &log_file, &log_pos);
         const LOG_POS_COORD coord= { log_file, log_pos };
         signal_semi_sync_ack(&coord);
       }
@@ -10154,10 +10184,23 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd,
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-  int err= RUN_HOOK_STRICT(raft_replication, setup_flush,
-                           (thd, is_relay_log, &log_file, name, log_file_name,
-                           &LOCK_log, &LOCK_index, &update_cond, &cur_log_ext,
-                           context));
+
+  Raft_replication_observer::st_setup_flush_arg arg;
+  arg.log_file_cache= &log_file;
+  arg.log_prefix= name;
+  arg.log_name= log_file_name;
+  arg.cur_log_ext= &cur_log_ext;
+  arg.endpos_log_name= binlog_file_name;
+  arg.endpos= &binlog_end_pos;
+  arg.signal_cnt= &signal_cnt;
+  arg.lock_log= &LOCK_log;
+  arg.lock_index= &LOCK_index;
+  arg.lock_end_pos= &LOCK_binlog_end_pos;
+  arg.update_cond= &update_cond;
+  arg.context= context;
+  arg.is_relay_log= is_relay_log;
+
+  int err= RUN_HOOK_STRICT(raft_replication, setup_flush, (thd, &arg));
   if (need_lock)
     mysql_mutex_unlock(&LOCK_log);
   return err;
@@ -10860,6 +10903,30 @@ int MYSQL_BIN_LOG::set_valid_pos(
   }
 
   return error;
+}
+
+Dump_log::Dump_log()
+{
+#ifdef HAVE_REPLICATION
+  if (enable_raft_plugin && mysql_bin_log.is_apply_log)
+    log_= &active_mi->rli->relay_log;
+  else
+#endif
+    log_= &mysql_bin_log;
+}
+
+void Dump_log::switch_log(bool relay_log, bool should_lock)
+{
+#ifdef HAVE_REPLICATION
+  if (should_lock) log_mutex_.lock();
+  mysql_mutex_assert_owner(&log_->LOCK_binlog_end_pos);
+  log_->update_binlog_end_pos(/* need_lock= */false);
+  DBUG_ASSERT(active_mi && active_mi->rli);
+  sql_print_information(
+      "Switching dump log to %s", relay_log ? "relay log" : "binlog");
+  log_= relay_log ? &active_mi->rli->relay_log : &mysql_bin_log;
+  if (should_lock) log_mutex_.unlock();
+#endif
 }
 
 // Given a file name of the form 'binlog-file-name.index', it extracts the

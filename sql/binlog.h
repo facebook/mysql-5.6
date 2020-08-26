@@ -441,6 +441,7 @@ class HybridLogicalClock {
 
 class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
 {
+  friend class Dump_log;
 public:
   enum enum_read_gtids_from_binlog_status
   { GOT_GTIDS, GOT_PREVIOUS_GTIDS, NO_GTIDS, ERROR, TRUNCATED };
@@ -540,7 +541,7 @@ public:
   my_atomic_rwlock_t m_prep_xids_lock;
   mysql_cond_t m_prep_xids_cond;
   volatile int32 m_prep_xids;
-  volatile my_off_t binlog_end_pos;
+  my_off_t binlog_end_pos;
   // binlog_file_name is updated under LOCK_binlog_end_pos mutex
   // to match the latest log_file_name contents. This variable is used
   // in the execution of commands SHOW MASTER STATUS / SHOW BINARY LOGS
@@ -956,7 +957,7 @@ public:
   void harvest_bytes_written(Relay_log_info *rli, bool need_log_space_lock);
   void set_max_size(ulong max_size_arg);
   void signal_update();
-  void update_binlog_end_pos();
+  void update_binlog_end_pos(bool need_lock= true);
   int wait_for_update_relay_log(THD* thd, const struct timespec * timeout);
   int  wait_for_update_bin_log(THD* thd, const struct timespec * timeout);
 public:
@@ -1001,7 +1002,8 @@ public:
                    bool null_created,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
-                   RaftRotateInfo *raft_rotate_info= nullptr);
+                   RaftRotateInfo *raft_rotate_info= nullptr,
+                   bool need_end_log_pos_lock= true);
 
   /**
     Open an existing binlog/relaylog file
@@ -1012,7 +1014,8 @@ public:
   */
   bool open_existing_binlog(const char *log_name,
                             enum cache_type io_cache_type_arg,
-                            ulong max_size_arg);
+                            ulong max_size_arg,
+                            bool need_end_log_pos_lock= true);
 
   bool open_index_file(const char *index_file_name_arg,
                        const char *log_name, bool need_lock_index);
@@ -1259,6 +1262,96 @@ typedef struct st_xid_to_gtid
 extern my_bool opt_process_can_disable_bin_log;
 
 extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
+
+/**
+ * Encapsulation over binlog or relay log for dumping raft logs during
+ * COM_BINLOG_DUMP and COM_BINLOG_DUMP_GTID (see @mysql_binlog_send)
+ */
+class Dump_log
+{
+public:
+  Dump_log();
+
+  void switch_log(bool relay_log, bool should_lock= true);
+
+  MYSQL_BIN_LOG* get_log(bool should_lock= true)
+  {
+    if (should_lock) log_mutex_.lock();
+    auto ret= log_;
+    if (should_lock) log_mutex_.unlock();
+    return ret;
+  }
+
+  bool is_relay_log()
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return !(log_ == &mysql_bin_log);
+  }
+
+  bool is_open()
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->is_open();
+  }
+
+  bool is_active(const char* log_file_name)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->is_active(log_file_name);
+  }
+
+  my_off_t get_binlog_end_pos_without_lock()
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->get_binlog_end_pos_without_lock();
+  }
+
+  void make_log_name(char* buf, const char* log_ident)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    log_->make_log_name(buf, log_ident);
+  }
+
+  bool find_first_log_not_in_gtid_set(char *binlog_file_name,
+                                      const Gtid_set *gtid_set,
+                                      Gtid *first_gtid,
+                                      const char **errmsg)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->find_first_log_not_in_gtid_set(binlog_file_name, gtid_set,
+                                                first_gtid, errmsg);
+  }
+
+  int find_log_pos(LOG_INFO* linfo,
+                   const char* log_name,
+                   bool need_lock_index)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->find_log_pos(linfo, log_name, need_lock_index);
+  }
+
+  int find_next_log(LOG_INFO* linfo,
+                    bool need_lock_index)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    return log_->find_next_log(linfo, need_lock_index);
+  }
+
+  void lock()
+  {
+    log_mutex_.lock();
+  }
+
+  void unlock()
+  {
+    log_mutex_.unlock();
+  }
+
+private:
+  MYSQL_BIN_LOG *log_;
+  std::mutex log_mutex_;
+};
+extern MYSQL_PLUGIN_IMPORT Dump_log dump_log;
 
 bool is_binlog_cache_empty(const THD* thd);
 bool trans_has_updated_trans_table(const THD* thd);

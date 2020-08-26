@@ -840,7 +840,7 @@ public:
   int flush_current_log();
   void set_master_info(Master_info *info);
 
-  inline ulonglong get_future_event_relay_log_pos() { return future_event_relay_log_pos; }
+  inline ulonglong get_future_event_relay_log_pos() const { return future_event_relay_log_pos; }
   inline void set_future_event_relay_log_pos(ulonglong log_pos)
   {
     future_event_relay_log_pos= log_pos;
@@ -857,8 +857,8 @@ public:
     group_master_log_pos= log_pos;
   }
 
-  inline const char* get_group_relay_log_name() { return group_relay_log_name; }
-  inline ulonglong get_group_relay_log_pos() { return group_relay_log_pos; }
+  inline const char* get_group_relay_log_name() const { return group_relay_log_name; }
+  inline ulonglong get_group_relay_log_pos() const { return group_relay_log_pos; }
   inline void set_group_relay_log_name(const char *log_file_name)
   {
      strmake(group_relay_log_name,log_file_name, sizeof(group_relay_log_name)-1);
@@ -872,8 +872,14 @@ public:
     group_relay_log_pos= log_pos;
   }
 
-  inline const char* get_event_relay_log_name() { return event_relay_log_name; }
-  inline ulonglong get_event_relay_log_pos() { return event_relay_log_pos; }
+  inline const char* get_event_relay_log_name() const
+  {
+    return event_relay_log_name;
+  }
+  inline ulonglong get_event_relay_log_pos() const
+  {
+    return event_relay_log_pos;
+  }
   inline void set_event_relay_log_name(const char *log_file_name)
   {
      strmake(event_relay_log_name,log_file_name, sizeof(event_relay_log_name)-1);

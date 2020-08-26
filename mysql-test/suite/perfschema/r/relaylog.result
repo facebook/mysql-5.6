@@ -213,7 +213,7 @@ EVENT_NAME	COUNT_STAR
 wait/synch/cond/sql/MYSQL_RELAY_LOG::COND_done	NONE
 wait/synch/cond/sql/MYSQL_RELAY_LOG::non_xid_trxs_cond	NONE
 wait/synch/cond/sql/MYSQL_RELAY_LOG::prep_xids_cond	NONE
-wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_binlog_end_pos	NONE
+wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_binlog_end_pos	MANY
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_commit_queue	NONE
 wait/synch/mutex/sql/MYSQL_RELAY_LOG::LOCK_done	NONE

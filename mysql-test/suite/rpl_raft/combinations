@@ -1,8 +1,20 @@
-[row]
+[sts]
 binlog-format=row
 
-[stmt]
-binlog-format=statement
+[vanilla-mts]
+binlog-format=row
+slave_parallel_workers=4
 
-[mix]
-binlog-format=mixed
+[dep-tbl-mts]
+binlog-format=row
+slave_parallel_workers=4
+slave_use_idempotent_for_recovery=yes
+mts_dependency_replication=TBL
+slave_tx_isolation=READ-COMMITTED
+
+[dep-stmt-mts]
+binlog-format=row
+slave_parallel_workers=4
+slave_use_idempotent_for_recovery=yes
+mts_dependency_replication=STMT
+slave_tx_isolation=READ-COMMITTED

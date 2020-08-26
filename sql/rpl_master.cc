@@ -2016,7 +2016,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   }
 #endif
 
-  if (!mysql_bin_log.is_open())
+  if (!dump_log.is_open())
   {
     errmsg = "Binary log is not open";
     my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
@@ -2046,7 +2046,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   name= search_file_name;
   if (log_ident[0])
-    mysql_bin_log.make_log_name(search_file_name, log_ident);
+    dump_log.make_log_name(search_file_name, log_ident);
   else
   {
     if (using_gtid_protocol)
@@ -2114,10 +2114,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       }
       global_sid_lock->unlock();
       first_gtid.clear();
-      if (mysql_bin_log.find_first_log_not_in_gtid_set(name,
-                                                       slave_gtid_executed,
-                                                       &first_gtid,
-                                                       &errmsg))
+      if (dump_log.find_first_log_not_in_gtid_set(name,
+                                                  slave_gtid_executed,
+                                                  &first_gtid,
+                                                  &errmsg))
       {
          my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
          GOTO_ERR;
@@ -2129,7 +2129,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   linfo.index_file_offset= 0;
 
-  if (mysql_bin_log.find_log_pos(&linfo, name, 1))
+  if (dump_log.find_log_pos(&linfo, name, 1))
   {
     errmsg = "Could not find first log file name in binary log index file";
     my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
@@ -2239,7 +2239,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   thd->variables.max_allowed_packet= MAX_MAX_ALLOWED_PACKET;
 
   p_coord->pos= pos; // the first hb matches the slave's last seen value
-  log_cond= mysql_bin_log.get_log_cond();
   if (pos > BIN_LOG_HEADER_SIZE)
   {
     /* reset transmit packet for the event read from binary log
@@ -2827,7 +2826,20 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             usleep(dump_thread_wait_sleep_usec);
           }
 
-          mysql_bin_log.lock_binlog_end_pos();
+          // Note: This part is tricky and should be touched if you really know
+          // what you're doing. We're locking dump log to get the raw log
+          // pointer, then we're locking end log pos before unlocking the dump
+          // log. We're taking the lock in the same sequence as when log is
+          // switched in binlog_change_to_binlog() and binlog_change_to_apply()
+          // to avoid deadlocks. This locking pattern ensures that we're working
+          // with the correct raw log and that there is no race between getting
+          // the raw log and log switching. Log switching will be blocked until
+          // we release the binlog end pos lock before waiting for signal in
+          // wait_for_update_bin_log().
+          dump_log.lock();
+          MYSQL_BIN_LOG* raw_log= dump_log.get_log(false);
+          raw_log->lock_binlog_end_pos();
+          dump_log.unlock();
 
           /*
             No need to wait if the the current log is not active or
@@ -2839,10 +2851,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             unblock us and checking is_active() later in read_log_event() will
             give the valid value.
           */
-          if (!mysql_bin_log.is_active(log_file_name) ||
-              my_b_tell(&log) < mysql_bin_log.get_binlog_end_pos())
+          if (!raw_log->is_active(log_file_name) ||
+              my_b_tell(&log) < raw_log->get_binlog_end_pos())
           {
-            mysql_bin_log.unlock_binlog_end_pos();
+            raw_log->unlock_binlog_end_pos();
             break;
           }
 
@@ -2882,7 +2894,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           if (thd->server_id == 0 || ((flags & BINLOG_DUMP_NON_BLOCK) != 0))
 	  {
             DBUG_PRINT("info", ("stopping dump thread because server_id==0 or the BINLOG_DUMP_NON_BLOCK flag is set: server_id=%u flags=%d", thd->server_id, flags));
-            mysql_bin_log.unlock_binlog_end_pos();
+            raw_log->unlock_binlog_end_pos();
 	    goto end;
 	  }
 
@@ -2894,16 +2906,17 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           ulong hb_info_counter= 0;
 #endif
           PSI_stage_info old_stage;
-          signal_cnt= mysql_bin_log.signal_cnt;
+          signal_cnt= raw_log->signal_cnt;
 
-          do 
+          do
           {
             if (heartbeat_period != 0)
             {
               DBUG_ASSERT(heartbeat_ts);
               set_timespec_nsec(*heartbeat_ts, heartbeat_period);
             }
-            thd->ENTER_COND(log_cond, mysql_bin_log.get_binlog_end_pos_lock(),
+            log_cond= raw_log->get_log_cond();
+            thd->ENTER_COND(log_cond, raw_log->get_binlog_end_pos_lock(),
                             &stage_master_has_sent_all_binlog_to_slave,
                             &old_stage);
             /*
@@ -2940,7 +2953,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               last_skip_group= false; /*A HB for this pos has been sent. */
             }
 
-            ret= mysql_bin_log.wait_for_update_bin_log(thd, heartbeat_ts);
+            ret= raw_log->wait_for_update_bin_log(thd, heartbeat_ts);
             DBUG_ASSERT(ret == 0 || (heartbeat_period != 0));
             if (ret == ETIMEDOUT || ret == ETIME)
             {
@@ -2987,7 +3000,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             {
               DBUG_PRINT("wait",("binary log received update or a broadcast signal caught"));
             }
-          } while (signal_cnt == mysql_bin_log.signal_cnt && !thd->killed);
+          } while (signal_cnt == raw_log->signal_cnt && !thd->killed);
           thd->EXIT_COND(&old_stage);
         }
         break;
@@ -3173,7 +3186,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       binlog_has_previous_gtids_log_event= false;
 
       THD_STAGE_INFO(thd, stage_finished_reading_one_binlog_switching_to_next_binlog);
-      switch (mysql_bin_log.find_next_log(&linfo, 1)) {
+
+      DBUG_EXECUTE_IF("dump_wait_before_find_next_log",
+      {
+         const char act[]= "now signal signal.reached wait_for signal.done";
+         DBUG_ASSERT(opt_debug_sync_timeout > 0);
+         DBUG_ASSERT(!debug_sync_set_action(thd, STRING_WITH_LEN(act)));
+      };);
+
+      switch (dump_log.find_next_log(&linfo, 1)) {
       case 0:
         break;
       default:

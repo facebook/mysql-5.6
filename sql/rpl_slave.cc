@@ -1043,7 +1043,7 @@ err:
   DBUG_RETURN(recovery_error);
 }
 
-// TODO: currently we're only setting host port
+// TODO: sync this method with reset_slave()
 int raft_reset_slave(THD *thd)
 {
   DBUG_ENTER("raft_reset_slave");
@@ -1054,7 +1054,8 @@ int raft_reset_slave(THD *thd)
   active_mi->port = 0;
   active_mi->inited= false;
   active_mi->rli->inited= false;
-  active_mi->flush_info(true);
+
+  remove_info(active_mi);
 
   // no longer a slave. will be set again during change master
   is_slave = false;
@@ -8295,7 +8296,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       DBUG_ASSERT(rli->ign_master_log_name_end[0]);
       rli->ign_master_log_pos_end= mi->get_master_log_pos();
     }
-    rli->relay_log.signal_update(); // the slave SQL thread needs to re-check
+    rli->relay_log.update_binlog_end_pos(); // the slave SQL thread needs to re-check
     mysql_mutex_unlock(log_lock);
     DBUG_PRINT("info", ("master_log_pos: %lu, event originating from %u server, ignored",
                         (ulong) mi->get_master_log_pos(), uint4korr(buf + SERVER_ID_OFFSET)));
