@@ -203,6 +203,8 @@ static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
 
+extern int ha_sync_binlog_pos(const char *, my_off_t, Gtid *);
+
 bool normalize_binlog_name(char *to, const char *from, bool is_relay_log) {
   DBUG_TRACE;
   bool error = false;
@@ -3810,6 +3812,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       file_id(1),
       sync_period_ptr(sync_period),
       sync_counter(0),
+      ha_last_synced_binlog_pos(0),
       non_xid_trxs(0),
       is_relay_log(relay_log),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
@@ -9369,6 +9372,7 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
   thd->get_transaction()->m_flags.ready_preempt =
       true;  // formality by the leader
 #endif
+  THD *candidate = nullptr;
   for (THD *head = first; head; head = head->next_to_commit) {
     DBUG_PRINT("debug", ("Thread ID: %u, commit_error: %d, commit_pending: %s",
                          head->thread_id(), head->commit_error,
@@ -9416,6 +9420,7 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
       }
 
       if (!error) {
+        candidate = head;
         if (enable_binlog_hlc && maintain_database_hlc &&
             head->hlc_time_ns_next) {
           if (likely(!head->databases.empty())) {
@@ -9435,6 +9440,54 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     }
     DBUG_PRINT("debug", ("commit_error: %d, commit_pending: %s",
                          head->commit_error, YESNO(head->tx_commit_pending)));
+  }
+
+  /*
+     We only need to use binlog position of the last commit. This is
+     because it flushes last and hence will point to last entry in the
+     binlog wrt this group commit.
+  */
+  if (candidate) {
+    /*
+      Keep SE's binlog positions in sync.
+    */
+    const char *binlog_file;
+    my_off_t binlog_pos;
+    const char *max_gtid_var;
+
+    /*
+      Here we need to use thd local position info since the global one isn't
+      safe - LOCK_log is not held at this point and its possible other threads
+      are updating global binlog position by 'FLUSH LOGS' at the same time
+    */
+    thd_binlog_pos(candidate, &binlog_file, &binlog_pos, nullptr,
+                   &max_gtid_var);
+    /*
+     This is just a partial check (offset comparison without
+     checking the log file name) mainly as an optimization to
+     avoid the file name comparison. Two cases are handled here:
+     Case 1. When binlog rotates, the new position can be smaller.
+     Case 2. Normal case when the new offset has passed the threshold.
+     NOTE that the check here is not accurate - we could miss the case
+     where the file gets rotated and the new offset is larger than the
+     last pushed offset (based on the previous file), which could happen
+     for long running/large transactions. Since this case is rare and
+     it doesn't have to be updated exactly per 'threshold', we're ok with
+     ignoring this case.
+    */
+    if (binlog_pos >= (ha_last_synced_binlog_pos + sync_binlog_pos_threshold) ||
+        binlog_pos < ha_last_synced_binlog_pos) {
+      Gtid max_gtid{0, 0};
+      if (max_gtid_var != nullptr) {
+        global_sid_lock->rdlock();
+        max_gtid.parse(global_sid_map, max_gtid_var);
+        global_sid_lock->unlock();
+      }
+
+      if (!ha_sync_binlog_pos(binlog_file, binlog_pos, &max_gtid)) {
+        ha_last_synced_binlog_pos = binlog_pos;
+      }
+    }
   }
 
   /*
