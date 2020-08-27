@@ -258,6 +258,7 @@ Warnings:
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 SET PERSIST sync_binlog = @@GLOBAL.sync_binlog;
+SET PERSIST sync_binlog_pos_threshold = @@GLOBAL.sync_binlog_pos_threshold;
 SET PERSIST sync_master_info = @@GLOBAL.sync_master_info;
 Warnings:
 Warning	1287	'@@sync_master_info' is deprecated and will be removed in a future release. Please use sync_source_info instead.
@@ -497,6 +498,7 @@ RESET PERSIST IF EXISTS sql_slave_skip_counter;
 Warnings:
 Warning	3615	Variable sql_slave_skip_counter does not exist in persisted config file
 RESET PERSIST IF EXISTS sync_binlog;
+RESET PERSIST IF EXISTS sync_binlog_pos_threshold;
 RESET PERSIST IF EXISTS sync_master_info;
 RESET PERSIST IF EXISTS sync_relay_log;
 RESET PERSIST IF EXISTS sync_relay_log_info;

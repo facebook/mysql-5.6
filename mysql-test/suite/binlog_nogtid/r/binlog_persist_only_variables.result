@@ -278,6 +278,7 @@ Warnings:
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 Warning	1287	'@@sql_slave_skip_counter' is deprecated and will be removed in a future release. Please use sql_replica_skip_counter instead.
 SET PERSIST_ONLY sync_binlog = @@GLOBAL.sync_binlog;
+SET PERSIST_ONLY sync_binlog_pos_threshold = @@GLOBAL.sync_binlog_pos_threshold;
 SET PERSIST_ONLY sync_master_info = @@GLOBAL.sync_master_info;
 Warnings:
 Warning	1287	'@@sync_master_info' is deprecated and will be removed in a future release. Please use sync_source_info instead.
@@ -419,6 +420,7 @@ RESET PERSIST source_verify_checksum;
 RESET PERSIST sql_log_bin_triggers;
 RESET PERSIST sql_replica_skip_counter;
 RESET PERSIST sync_binlog;
+RESET PERSIST sync_binlog_pos_threshold;
 RESET PERSIST sync_relay_log;
 RESET PERSIST sync_relay_log_info;
 RESET PERSIST sync_source_info;
