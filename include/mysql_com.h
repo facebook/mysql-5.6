@@ -991,6 +991,24 @@ enum enum_mysql_set_option {
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
 
+/*
+  Describes the current state of Asynchronous connection phase state machine
+*/
+enum connect_stage {
+  CONNECT_STAGE_INVALID = 0,
+  CONNECT_STAGE_NOT_STARTED,
+  CONNECT_STAGE_NET_BEGIN_CONNECT,
+  CONNECT_STAGE_NET_COMPLETE_CONNECT,
+  CONNECT_STAGE_READ_GREETING,
+  CONNECT_STAGE_PARSE_HANDSHAKE,
+  CONNECT_STAGE_ESTABLISH_SSL,
+  CONNECT_STAGE_AUTHENTICATE,
+  CONNECT_STAGE_PREP_SELECT_DATABASE,
+  CONNECT_STAGE_PREP_INIT_COMMANDS,
+  CONNECT_STAGE_SEND_ONE_INIT_COMMAND,
+  CONNECT_STAGE_COMPLETE
+};
+
 /**
   Type of state change information that the server can include in the Ok
   packet.

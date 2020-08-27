@@ -518,6 +518,8 @@ int STDCALL mysql_session_track_get_next(MYSQL *mysql,
                                          const char **data, size_t *length);
 int STDCALL mysql_resp_attr_find(MYSQL *mysql, const char *lookup,
                                  const char **data, size_t *length);
+
+enum connect_stage STDCALL mysql_get_connect_stage(MYSQL *mysql);
 /* local infile support */
 
 #define LOCAL_INFILE_ERROR_LEN 512

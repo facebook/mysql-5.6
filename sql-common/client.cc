@@ -4720,6 +4720,44 @@ int STDCALL mysql_get_socket_descriptor(MYSQL *mysql) {
   return -1;
 }
 
+static const std::vector<std::pair<csm_function, connect_stage>> stages = {
+    {csm_begin_connect, CONNECT_STAGE_NET_BEGIN_CONNECT},
+    {csm_complete_connect, CONNECT_STAGE_NET_COMPLETE_CONNECT},
+    {csm_read_greeting, CONNECT_STAGE_READ_GREETING},
+    {csm_parse_handshake, CONNECT_STAGE_PARSE_HANDSHAKE},
+    {csm_establish_ssl, CONNECT_STAGE_ESTABLISH_SSL},
+    {csm_authenticate, CONNECT_STAGE_AUTHENTICATE},
+    {csm_prep_select_database, CONNECT_STAGE_PREP_SELECT_DATABASE},
+#if !defined(MYSQL_SERVER)
+    {csm_prep_init_commands, CONNECT_STAGE_PREP_INIT_COMMANDS},
+    {csm_send_one_init_command, CONNECT_STAGE_SEND_ONE_INIT_COMMAND},
+#endif
+};
+
+connect_stage STDCALL mysql_get_connect_stage(MYSQL *mysql) {
+  if (mysql) {
+    NET *net = &mysql->net;
+    if (!net->vio) {
+      /* Seems the first stage hasn't started yet or it was unsuccessful, and
+         needs to be restarted so return the 1st stage */
+      return CONNECT_STAGE_NOT_STARTED;
+    }
+
+    mysql_async_connect *ctx = ASYNC_DATA(mysql)->connect_context;
+    if (!ctx) {
+      // If context is null and vio->net is set, means connection is complete
+      return CONNECT_STAGE_COMPLETE;
+    }
+
+    for (const auto &stage_pair : stages) {
+      if (ctx->state_function == stage_pair.first) {
+        return stage_pair.second;
+      }
+    }
+  }
+  return CONNECT_STAGE_INVALID;
+}
+
 /* clang-format off */
 /**
   @page page_protocol_connection_phase_packets_protocol_handshake_response Protocol::HandshakeResponse:
