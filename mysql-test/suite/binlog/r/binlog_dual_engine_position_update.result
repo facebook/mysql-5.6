@@ -1,0 +1,52 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @save_sync_binlog_pos_threshold = @@global.sync_binlog_pos_threshold;
+set global sync_binlog_pos_threshold = 1;
+FLUSH LOGS;
+Test Case I: getting rocksdb binlog position before trx...
+include/assert.inc [RocksDB binlog position should not be initialized]
+Test Case I: getting innodb binlog position before trx...
+create table t1 (id int primary key) engine = innodb;
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+drop table t1;
+Test Case I: getting innodb binlog position after trx...
+Test Case I: getting rocksdb binlog position after trx...
+include/assert.inc [Innodb binlog position should've advanced]
+include/assert.inc [RocksDB binlog position should've advanced]
+FLUSH LOGS;
+Test Case II: getting rocksdb binlog position before trx...
+create table t1 (id int primary key) engine = rocksdb;
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+drop table t1;
+Test Case II: getting rocksdb binlog position after trx...
+Test Case II: getting innodb binlog position after trx...
+include/assert.inc [RocksDB binlog position should've advanced]
+include/assert.inc [Innodb binlog position should've advanced]
+include/assert.inc [InnoDB  and Rocksdb binlog position should be same]
+Test Case III: getting innodb binlog position before rotation...
+FLUSH LOGS;
+Test Case III: getting innodb binlog position after rotation...
+Test Case III: getting rocksdb binlog position after rotation...
+Test Case IV: setup blackhole table...
+create table bk_t (id int primary key) engine = blackhole;
+FLUSH LOGS;
+Test Case IV: getting innodb and rocksdb binlog position before trx...
+insert into bk_t values (1);
+insert into bk_t values (2);
+insert into bk_t values (3);
+Test Case IV: getting innodb and rocksdb binlog position after trx...
+include/assert.inc [RocksDB binlog position should've advanced]
+include/assert.inc [Innodb binlog position should've advanced]
+include/assert.inc [InnoDB and rocksdb binlog position should be same]
+Test Case IV: Cleanup testcase...
+drop table bk_t;
+**** Clean up ****
+set global sync_binlog_pos_threshold = @save_sync_binlog_pos_threshold;
+include/rpl_end.inc
