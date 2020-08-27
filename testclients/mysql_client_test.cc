@@ -22573,6 +22573,106 @@ static void test_bug32915973() {
   mysql_stmt_close(stmt);
 }
 
+static void test_get_connect_stage() {
+  MYSQL *mysql_async = NULL, *mysql_sync = NULL;
+  net_async_status status;
+
+  myheader("test_get_connect_stage");
+
+  enum connect_stage cs = mysql_get_connect_stage(mysql_async);
+  if (cs != CONNECT_STAGE_INVALID) {
+    fprintf(stdout,
+            "\n Expected connect_stage to be "
+            "CONNECT_STAGE_INVALID for uninitialized mysql");
+    exit(1);
+  }
+
+  /* test stages for a nonblocking conneciton */
+  if (!(mysql_async = mysql_client_init(NULL))) {
+    myerror("mysql_client_init() failed");
+    exit(1);
+  }
+  cs = mysql_get_connect_stage(mysql_async);
+  if (cs != CONNECT_STAGE_NOT_STARTED) {
+    fprintf(stdout,
+            "\n Expected connect_stage to be "
+            "CONNECT_STAGE_NET_BEGIN_CONNECT for just initialized connection"
+            "but its %d",
+            cs);
+    exit(1);
+  }
+
+  enum connect_stage cs_prev = cs;
+  do {
+    status = mysql_real_connect_nonblocking(
+        mysql_async, opt_host, opt_user, opt_password, current_db, opt_port,
+        opt_unix_socket, CLIENT_MULTI_STATEMENTS);
+    cs = mysql_get_connect_stage(mysql_async);
+    // Always expect state machine to make forward progress
+    if (cs < cs_prev) {
+      fprintf(stdout,
+              "\n Did not expect connect_stage to be %d, as previous was %d",
+              cs, cs_prev);
+      exit(1);
+    } else if (cs != cs_prev) {
+      if (!opt_silent)
+        fprintf(stdout,
+                "\n Nonblocking connect made transition from stage %d to %d",
+                cs_prev, cs);
+    }
+    cs_prev = cs;
+  } while (status == NET_ASYNC_NOT_READY);
+  if (status == NET_ASYNC_ERROR) {
+    fprintf(stdout, "\n mysql_real_connect_nonblocking() failed. stage:%d", cs);
+    exit(1);
+  }
+
+  cs = mysql_get_connect_stage(mysql_async);
+  if (cs != CONNECT_STAGE_COMPLETE) {
+    fprintf(stdout,
+            "\n Expected connect_stage as CONNECT_STAGE_COMPLETE, its %d", cs);
+    exit(1);
+  }
+  if (!opt_silent)
+    fprintf(stdout, "\n Nonblocking connect successful. Final stage %d", cs);
+
+  mysql_close(mysql_async);
+
+  /* test stages for a blocking conneciton */
+  if (!(mysql_sync = mysql_client_init(NULL))) {
+    myerror("mysql_client_init() failed");
+    exit(1);
+  }
+  cs = mysql_get_connect_stage(mysql_sync);
+  if (cs != CONNECT_STAGE_NOT_STARTED) {
+    fprintf(stdout,
+            "\n Sync:Expected connect_stage to be "
+            "CONNECT_STAGE_NOT_STARTED for just initialized connection"
+            "but its %d",
+            cs);
+    exit(1);
+  }
+
+  if (!opt_silent)
+    fprintf(stdout, "\n Starting blocking connect. Starting stage %d", cs);
+  if (!(mysql_real_connect(mysql_sync, opt_host, opt_user, opt_password,
+                           current_db, opt_port, opt_unix_socket, 0))) {
+    myerror("connection failed");
+    exit(1);
+  }
+  cs = mysql_get_connect_stage(mysql_sync);
+  if (cs != CONNECT_STAGE_COMPLETE) {
+    fprintf(stdout,
+            "\n Sync:Expected connect_stage as CONNECT_STAGE_COMPLETE, its %d",
+            cs);
+    exit(1);
+  }
+  if (!opt_silent)
+    fprintf(stdout, "\n Blocking connect successful. Final stage %d", cs);
+
+  mysql_close(mysql_sync);
+}
+
 static struct my_tests_st my_tests[] = {
     {"test_bug5194", test_bug5194},
     {"disable_query_logs", disable_query_logs},
@@ -22881,6 +22981,7 @@ static struct my_tests_st my_tests[] = {
     {"test_bug32892045", test_bug32892045},
     {"test_bug33164347", test_bug33164347},
     {"test_bug32915973", test_bug32915973},
+    {"test_get_connect_stage", test_get_connect_stage},
     {nullptr, nullptr}};
 
 static struct my_tests_st *get_my_tests() { return my_tests; }
