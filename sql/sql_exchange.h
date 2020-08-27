@@ -82,7 +82,7 @@ class sql_exchange final {
   enum enum_filetype filetype; /* load XML, Added by Arnold & Erik */
   const char *file_name;
   bool dumpfile;
-  bool compressed;
+  Item *compressed_chunk_expr;
   bool load_compressed;
   unsigned long skip_lines;
   const CHARSET_INFO *cs;

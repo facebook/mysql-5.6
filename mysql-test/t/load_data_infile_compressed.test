@@ -1,6 +1,6 @@
 --let $tmp_dir= `SELECT @@GLOBAL.secure_file_priv`
 --let $input_file=$tmp_dir/t1.txt
---let $input_file_zstd=$tmp_dir/t1.txt.zstd
+--let $input_file_zstd=$tmp_dir/t1.txt.0.zst
 
 
 CREATE TABLE t1(x VARCHAR(1000));
@@ -14,8 +14,8 @@ INSERT INTO t1 SELECT t1.* FROM t1, t1 t12, t1 t13, t1 t14;
 --let $checksum1= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
 
 # dump data into file, compressed
---replace_result $input_file_zstd INPUT_FILE_ZSTD
---eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+--replace_result $input_file INPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file' COMPRESSED;
 
 TRUNCATE TABLE t1;
 
@@ -44,8 +44,8 @@ TRUNCATE TABLE t1;
 --remove_file $input_file_zstd
 
 # dump data into file, compressed
---replace_result $input_file_zstd INPUT_FILE_ZSTD
---eval SELECT * FROM t1 INTO OUTFILE '$input_file_zstd' COMPRESSED;
+--replace_result $input_file INPUT_FILE
+--eval SELECT * FROM t1 INTO OUTFILE '$input_file' COMPRESSED;
 
 --let $checksum1= query_get_value("CHECKSUM TABLE t1", Checksum, 1)
 
