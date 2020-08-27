@@ -187,6 +187,21 @@ enum enum_mysql_set_option {
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
+enum connect_stage {
+  CONNECT_STAGE_INVALID = 0,
+  CONNECT_STAGE_NOT_STARTED,
+  CONNECT_STAGE_NET_BEGIN_CONNECT,
+  CONNECT_STAGE_NET_WAIT_CONNECT,
+  CONNECT_STAGE_NET_COMPLETE_CONNECT,
+  CONNECT_STAGE_READ_GREETING,
+  CONNECT_STAGE_PARSE_HANDSHAKE,
+  CONNECT_STAGE_ESTABLISH_SSL,
+  CONNECT_STAGE_AUTHENTICATE,
+  CONNECT_STAGE_PREP_SELECT_DATABASE,
+  CONNECT_STAGE_PREP_INIT_COMMANDS,
+  CONNECT_STAGE_SEND_ONE_INIT_COMMAND,
+  CONNECT_STAGE_COMPLETE
+};
 enum enum_session_state_type {
   SESSION_TRACK_SYSTEM_VARIABLES,
   SESSION_TRACK_SCHEMA,
@@ -681,6 +696,7 @@ int mysql_session_track_get_next(MYSQL *mysql,
                                          const char **data, size_t *length);
 int mysql_resp_attr_find(MYSQL *mysql, const char *lookup,
                                  const char **data, size_t *length);
+enum connect_stage mysql_get_connect_stage(MYSQL *mysql);
 void mysql_set_local_infile_handler(
     MYSQL *mysql, int (*local_infile_init)(void **, const char *, void *),
     int (*local_infile_read)(void *, char *, unsigned int),
