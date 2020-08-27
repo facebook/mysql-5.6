@@ -2871,7 +2871,7 @@ static const String my_empty_string("",default_charset_info);
 sql_exchange::sql_exchange(char *name, bool flag,
                            enum enum_filetype filetype_arg)
   :file_name(name), opt_enclosed(0), dumpfile(flag),
-	compressed(0), load_compressed(0), skip_lines(0)
+	compressed_chunk_expr(nullptr), load_compressed(0), skip_lines(0)
 {
   filetype= filetype_arg;
   field_term= &default_field_term;
@@ -3020,16 +3020,20 @@ bool select_to_file::send_eof()
   return error;
 }
 
-
-void select_to_file::cleanup()
+void select_to_file::close_file_handle()
 {
-  /* In case of error send_eof() may be not called: close the file here. */
   if (file >= 0)
   {
     (void) end_io_cache(&cache);
     mysql_file_close(file, MYF(0));
     file= -1;
   }
+}
+
+void select_to_file::cleanup()
+{
+  /* In case of error send_eof() may be not called: close the file here. */
+  close_file_handle();
   path[0]= '\0';
   row_count= 0;
 }
@@ -3037,12 +3041,7 @@ void select_to_file::cleanup()
 
 select_to_file::~select_to_file()
 {
-  if (file >= 0)
-  {					// This only happens in case of error
-    (void) end_io_cache(&cache);
-    mysql_file_close(file, MYF(0));
-    file= -1;
-  }
+  close_file_handle(); // This only happens in case of error
 }
 
 /***************************************************************************
@@ -3066,10 +3065,11 @@ select_export::~select_export()
 
   SYNOPSIS
     create_file()
-    thd			Thread handle
-    path		File name
-    exchange		Excange class
-    cache		IO cache
+    thd                 Thread handle
+    path                File name
+    file_name           File name in input
+    compressed          is file compressed
+    cache               IO cache
 
   RETURN
     >= 0 	File handle
@@ -3077,8 +3077,8 @@ select_export::~select_export()
 */
 
 
-static File create_file(THD *thd, char *path, sql_exchange *exchange,
-			IO_CACHE *cache)
+static File create_file(THD *thd, char *path, const char *file_name,
+                        my_bool compressed, IO_CACHE *cache)
 {
   File file= -1;
   bool new_file_created= false;
@@ -3090,14 +3090,14 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
   option|= MY_REPLACE_DIR;			// Force use of db directory
 #endif
 
-  if (!dirname_length(exchange->file_name))
+  if (!dirname_length(file_name))
   {
     strxnmov(path, FN_REFLEN-1, mysql_real_data_home, thd->db ? thd->db : "",
              NullS);
-    (void) fn_format(path, exchange->file_name, path, "", option);
+    (void) fn_format(path, file_name, path, "", option);
   }
   else
-    (void) fn_format(path, exchange->file_name, mysql_real_data_home, "", option);
+    (void) fn_format(path, file_name, mysql_real_data_home, "", option);
 
   if (!is_secure_file_path(path))
   {
@@ -3119,7 +3119,7 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
     }
     else
     {
-      my_error(ER_FILE_EXISTS_ERROR, MYF(0), exchange->file_name);
+      my_error(ER_FILE_EXISTS_ERROR, MYF(0), file_name);
       return -1;
     }
   }
@@ -3137,7 +3137,7 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
 #endif
   }
   if (init_io_cache_ex(cache, file, 0L, WRITE_CACHE, 0L, 1, MYF(MY_WME),
-      exchange->compressed))
+                       compressed))
   {
     mysql_file_close(file, MYF(0));
     /* Delete file on error, if it was just created */
@@ -3148,20 +3148,73 @@ static File create_file(THD *thd, char *path, sql_exchange *exchange,
   return file;
 }
 
+/*
+  Create a new compressed file of the form <filename>.<monotonic number>.zst.
+  This is used to assign unique names for files created by chunking.
+ */
+int select_export::open_new_compressed_file()
+{
+  char new_file_buff[FN_REFLEN];
+  int wr = snprintf(new_file_buff, sizeof(new_file_buff), "%s.%llu.zst",
+                    exchange->file_name, current_chunk_idx++);
+
+  if (wr >= FN_REFLEN || wr < 0)
+    return 1;
+
+  if ((file = create_file(thd, path, new_file_buff,
+                          true /* compressed */ , &cache)) < 0)
+    return 1;
+
+  return 0;
+}
 
 int
 select_export::prepare(List<Item> &list, SELECT_LEX_UNIT *u)
 {
   bool blob_flag=0;
   bool string_results= FALSE, non_string_results= FALSE;
+  uncompressed_chunk_size_limit = 0;
+  Item *chunk_expr = exchange->compressed_chunk_expr;
+  if (chunk_expr)
+  {
+    longlong chunk_size_mb;
+    if (chunk_expr->type() != Item::INT_ITEM ||
+        (chunk_size_mb = chunk_expr->val_int()) < 0 ||
+        chunk_size_mb > max_chunk_limit_mb)
+    {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0), "COMPRESSED");
+      return 1;
+    }
+    uncompressed_chunk_size_limit = chunk_size_mb * 1024 * 1024;
+  }
+
   unit= u;
   if ((uint) strlen(exchange->file_name) + NAME_LEN >= FN_REFLEN)
     strmake(path,exchange->file_name,FN_REFLEN-1);
 
   write_cs= exchange->cs ? exchange->cs : &my_charset_bin;
 
-  if ((file= create_file(thd, path, exchange, &cache)) < 0)
-    return 1;
+  if (chunk_expr)
+  {
+    /*
+      If compression was specified, create a new file with
+      name <filename>.0.zst.
+    */
+    if (open_new_compressed_file())
+      return 1;
+  }
+  else
+  {
+    /*
+      If compression was not specified, just create a single
+      file and dump data in it. There will be no chunking.
+    */
+    if ((file = create_file(thd, path, exchange->file_name,
+                            false /* compressed */,
+                            &cache)) < 0)
+      return 1;
+  }
+
   /* Check if there is any blobs in data */
   {
     List_iterator_fast<Item> li(list);
@@ -3241,6 +3294,12 @@ select_export::prepare(List<Item> &list, SELECT_LEX_UNIT *u)
   return 0;
 }
 
+int select_export::write_io_cache(const uchar *buf, size_t length)
+{
+  int write_err = my_b_write(&cache, buf, length);
+  uncompressed_chunk_size_current += (write_err == 0 ? length : 0);
+  return write_err;
+}
 
 #define NEED_ESCAPING(x) ((int) (uchar) (x) == escape_char    || \
                           (enclosed ? (int) (uchar) (x) == field_sep_char      \
@@ -3271,8 +3330,24 @@ bool select_export::send_data(List<Item> &items)
   uint used_length=0,items_left=items.elements;
   List_iterator_fast<Item> li(items);
 
-  if (my_b_write(&cache,(uchar*) exchange->line_start->ptr(),
-		 exchange->line_start->length()))
+  /*
+    Check if we have crossed the chunk size limit. Open a new file
+    if that is the case.
+    In case of special value of '0' to COMPRESSED, we do not implement
+    chunking.
+   */
+  if (uncompressed_chunk_size_limit > 0 &&
+      uncompressed_chunk_size_current >= uncompressed_chunk_size_limit)
+  {
+    /* close file handle of previous file */
+    close_file_handle();
+    uncompressed_chunk_size_current = 0;
+    if (open_new_compressed_file())
+      goto err;
+  }
+
+  if (write_io_cache((uchar*) exchange->line_start->ptr(),
+                     exchange->line_start->length()))
     goto err;
   while ((item=li++))
   {
@@ -3334,8 +3409,8 @@ bool select_export::send_data(List<Item> &items)
     }
     if (res && enclosed)
     {
-      if (my_b_write(&cache,(uchar*) exchange->enclosed->ptr(),
-		     exchange->enclosed->length()))
+      if (write_io_cache((uchar*) exchange->enclosed->ptr(),
+                         exchange->enclosed->length()))
 	goto err;
     }
     if (!res)
@@ -3346,10 +3421,10 @@ bool select_export::send_data(List<Item> &items)
 	{
 	  null_buff[0]=escape_char;
 	  null_buff[1]='N';
-	  if (my_b_write(&cache,(uchar*) null_buff,2))
+	  if (write_io_cache((uchar*) null_buff,2))
 	    goto err;
 	}
-	else if (my_b_write(&cache,(uchar*) "NULL",4))
+	else if (write_io_cache((uchar*) "NULL",4))
 	  goto err;
       }
       else
@@ -3440,16 +3515,16 @@ bool select_export::send_data(List<Item> &items)
                           is_ambiguous_field_sep) ?
                           field_sep_char : escape_char;
 	    tmp_buff[1]= *pos ? *pos : '0';
-	    if (my_b_write(&cache,(uchar*) start,(uint) (pos-start)) ||
-		my_b_write(&cache,(uchar*) tmp_buff,2))
+	    if (write_io_cache((uchar*) start,(uint) (pos-start)) ||
+		write_io_cache((uchar*) tmp_buff,2))
 	      goto err;
 	    start=pos+1;
 	  }
 	}
-	if (my_b_write(&cache,(uchar*) start,(uint) (pos-start)))
+	if (write_io_cache((uchar*) start,(uint) (pos-start)))
 	  goto err;
       }
-      else if (my_b_write(&cache,(uchar*) res->ptr(),used_length))
+      else if (write_io_cache((uchar*) res->ptr(),used_length))
 	goto err;
     }
     if (fixed_row_size)
@@ -3465,28 +3540,28 @@ bool select_export::send_data(List<Item> &items)
 	uint length=item->max_length-used_length;
 	for (; length > sizeof(space) ; length-=sizeof(space))
 	{
-	  if (my_b_write(&cache,(uchar*) space,sizeof(space)))
+	  if (write_io_cache((uchar*) space,sizeof(space)))
 	    goto err;
 	}
-	if (my_b_write(&cache,(uchar*) space,length))
+	if (write_io_cache((uchar*) space,length))
 	  goto err;
       }
     }
     if (res && enclosed)
     {
-      if (my_b_write(&cache, (uchar*) exchange->enclosed->ptr(),
-                     exchange->enclosed->length()))
+      if (write_io_cache((uchar*) exchange->enclosed->ptr(),
+                         exchange->enclosed->length()))
         goto err;
     }
     if (--items_left)
     {
-      if (my_b_write(&cache, (uchar*) exchange->field_term->ptr(),
-                     field_term_length))
+      if (write_io_cache((uchar*) exchange->field_term->ptr(),
+                         field_term_length))
         goto err;
     }
   }
-  if (my_b_write(&cache,(uchar*) exchange->line_term->ptr(),
-		 exchange->line_term->length()))
+  if (write_io_cache((uchar*) exchange->line_term->ptr(),
+		     exchange->line_term->length()))
     goto err;
 
   /* fsync the file after every select_into_file_fsync_size bytes
@@ -3524,7 +3599,8 @@ select_dump::prepare(List<Item> &list MY_ATTRIBUTE((unused)),
 		     SELECT_LEX_UNIT *u)
 {
   unit= u;
-  return (int) ((file= create_file(thd, path, exchange, &cache)) < 0);
+  return (int) ((file= create_file(thd, path, exchange->file_name,
+                                   0 /* compressed */, &cache)) < 0);
 }
 
 

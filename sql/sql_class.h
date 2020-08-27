@@ -5375,7 +5375,7 @@ public:
   const String *field_term, *enclosed, *line_term, *line_start, *escaped;
   bool opt_enclosed;
   bool dumpfile;
-  bool compressed;
+  Item *compressed_chunk_expr;
   bool load_compressed;
   ulong skip_lines;
   const CHARSET_INFO *cs;
@@ -5514,6 +5514,7 @@ protected:
   uint n_fsyncs;
 #endif
 
+  void close_file_handle();
 public:
   select_to_file(sql_exchange *ex)
     :exchange(ex),
@@ -5562,8 +5563,32 @@ class select_export :public select_to_file {
   bool is_unsafe_field_sep;
   bool fixed_row_size;
   const CHARSET_INFO *write_cs; // output charset
+
+  /*
+    Maximum 10 TB chunk size.
+   */
+  static constexpr uint32 max_chunk_limit_mb = 10 * 1024 * 1024;
+  /*
+    Soft limit on uncompressed bytes in compressed chunk.
+   */
+  uint64 uncompressed_chunk_size_limit;
+  /*
+    Number of uncompressed bytes in current chunk
+   */
+  uint64 uncompressed_chunk_size_current;
+  /*
+    Identifier used as suffix in chunk name to create unique
+    compressed chunk file names.
+   */
+  uint64 current_chunk_idx;
+  int write_io_cache(const uchar *buf, size_t length);
+  int open_new_compressed_file();
+
 public:
-  select_export(sql_exchange *ex) :select_to_file(ex) {}
+  select_export(sql_exchange *ex) :select_to_file(ex),
+                                   uncompressed_chunk_size_limit(0),
+                                   uncompressed_chunk_size_current(0),
+                                   current_chunk_idx(0) {}
   ~select_export();
   int prepare(List<Item> &list, SELECT_LEX_UNIT *u);
   bool send_data(List<Item> &items);

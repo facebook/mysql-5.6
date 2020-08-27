@@ -2022,6 +2022,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         signal_allowed_expr
         simple_target_specification
         condition_number
+        opt_compressed_clause_with_chunk
 
 %type <item_num>
         NUM_literal
@@ -12451,14 +12452,14 @@ into:
         ;
 
 into_destination:
-          OUTFILE TEXT_STRING_filesystem opt_compressed_clause
+          OUTFILE TEXT_STRING_filesystem opt_compressed_clause_with_chunk
           {
             LEX *lex= Lex;
             lex->uncacheable(UNCACHEABLE_SIDEEFFECT);
             if (!(lex->exchange= new sql_exchange($2.str, 0)) ||
                 !(lex->result= new select_export(lex->exchange)))
               MYSQL_YYABORT;
-            lex->exchange->compressed = $3;
+            lex->exchange->compressed_chunk_expr = $3;
           }
           opt_load_data_charset
           { Lex->exchange->cs= $5; }
@@ -12484,6 +12485,21 @@ into_destination:
 opt_compressed_clause:
           /*empty*/ { $$ = 0; }
         | COMPRESSED_SYM { $$ = 1; }
+        ;
+
+opt_compressed_clause_with_chunk:
+        COMPRESSED_SYM '(' expr ')' { $$ = $3; }
+        | opt_compressed_clause
+          {
+            if($1 == 1)
+            {
+              $$ = new (YYTHD->mem_root) Item_int((int32) 0LL);
+            }
+            else
+            {
+              $$ = NULL;
+            }
+          }
         ;
 
 /*
