@@ -1,0 +1,138 @@
+--exec export ZSTD=`command -v zstd`
+--let $zstd_exists=ZSTD
+if(!$zstd_exists)
+{
+  skip test requires zstd program to be installed in the system, skipping test;
+}
+
+# test compression of random data, 20000 rows 
+# select into creates 2 compressed files  
+CREATE TABLE t1(x VARCHAR(100));
+# test empty table
+CREATE TABLE t2(x VARCHAR(100));
+# test compression of random data, 200000 rows 
+# select into creates 16 compressed files  
+CREATE TABLE t3(x VARCHAR(100));
+# test compression of repeated data with many newlines 
+CREATE TABLE t4(x VARCHAR(1000));
+insert into t4 values (concat("<<<", REPLACE(REPEAT("abc.", 100), ".", "\n"), ">>>"));
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+insert into t4 select t4.* from t4, t4 t42, t4 t43, t4 t44;
+
+--let $tmp_dir=`SELECT @@GLOBAL.secure_file_priv`
+--let $generated_input_file=$tmp_dir/t1.txt
+--let $generated_big_input_file=$tmp_dir/t3.txt
+
+# generate input data
+--exec dd bs=20000000 count=1 if=/dev/urandom | base64 -w 80 > $tmp_dir/t1.tmp
+--exec head -n 20000  $tmp_dir/t1.tmp | tee $generated_input_file | wc
+--exec head -n 200000  $tmp_dir/t1.tmp | tee $generated_big_input_file | wc
+--remove_file $tmp_dir/t1.tmp
+
+# load input data
+--replace_result $generated_input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$generated_input_file' INTO TABLE t1
+--replace_result $generated_big_input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$generated_big_input_file' INTO TABLE t3
+
+# show data in tables
+select count(*) from t1;
+select count(*) from t2;
+select count(*) from t3;
+select count(*) from t4;
+
+# test passing invalid value for select into compressed
+--replace_result $tmp_dir TMP_DIR
+--error ER_WRONG_ARGUMENTS
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(-1000)
+--replace_result $tmp_dir TMP_DIR
+--error ER_WRONG_ARGUMENTS
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED('hello')
+--replace_result $tmp_dir TMP_DIR
+--error ER_WRONG_ARGUMENTS
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(NULL)
+--replace_result $tmp_dir TMP_DIR
+--error ER_WRONG_ARGUMENTS
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(100000000)
+
+# dump input compressed with zstd
+--replace_result $tmp_dir TMP_DIR
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(1)
+--replace_result $tmp_dir TMP_DIR
+--eval SELECT * FROM t2 INTO OUTFILE '$tmp_dir/t2.txt' COMPRESSED(1)
+--replace_result $tmp_dir TMP_DIR
+--eval SELECT * FROM t3 INTO OUTFILE '$tmp_dir/t3.txt' COMPRESSED(1)
+--replace_result $tmp_dir TMP_DIR
+--eval SELECT * FROM t4 INTO OUTFILE '$tmp_dir/t4.txt' COMPRESSED(1)
+
+# validate compressed output
+--exec zstd -dcq $tmp_dir/t1.txt.*.zst > $generated_input_file 
+--exec cat  $generated_input_file | wc
+--exec zstd -dcq $tmp_dir/t2.txt.*.zst | wc
+--exec zstd -dcq $tmp_dir/t3.txt.*.zst > $generated_big_input_file
+--exec cat  $generated_big_input_file | wc
+
+
+#load directly from compressed file and compare checksum 
+--let $checksum1=`CHECKSUM TABLE t1`
+DROP TABLE t1;
+CREATE TABLE t1(x VARCHAR(100));
+--replace_result $tmp_dir TMP_DIR
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t1.txt.0.zst' INTO TABLE t1 COMPRESSED;
+--replace_result $tmp_dir TMP_DIR
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t1.txt.1.zst' INTO TABLE t1 COMPRESSED;
+--let $checksum2=`CHECKSUM TABLE t1`
+if($checksum1 != $checksum2)
+{
+  --echo "table t1 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
+#load directly from compressed file and compare checksum 
+--let $checksum1=`CHECKSUM TABLE t2`
+DROP TABLE t2;
+CREATE TABLE t2(x VARCHAR(100));
+--replace_result $tmp_dir TMP_DIR
+--eval LOAD DATA LOCAL INFILE '$tmp_dir/t2.txt.0.zst' INTO TABLE t2 COMPRESSED;
+--let $checksum2=`CHECKSUM TABLE t2`
+if($checksum1 != $checksum2)
+{
+  --echo "table t2 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
+--let $checksum1=`CHECKSUM TABLE t3`
+DROP TABLE t3;
+CREATE TABLE t3(x VARCHAR(100));
+--replace_result $generated_big_input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$generated_big_input_file' INTO TABLE t3;
+--let $checksum2=`CHECKSUM TABLE t3`
+if($checksum1 != $checksum2)
+{
+  --echo "table t3 checksums do no not match: [$checksum1] != [$checksum2]"
+}
+
+
+#check compression do not divide row with newlines in the middle
+--exec zstd -dq $tmp_dir/t4.txt.1.zst 
+--exec head -n 1 $tmp_dir/t4.txt.1
+--exec tail -n 1 $tmp_dir/t4.txt.1
+
+# Verify that suitable error is thrown if any intermediate compressed
+# chunk name already exisis in file system.
+--replace_result $tmp_dir TMP_DIR
+--error ER_FILE_EXISTS_ERROR
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(1)
+--remove_file $tmp_dir/t1.txt.0.zst
+--replace_result $tmp_dir TMP_DIR
+--error ER_FILE_EXISTS_ERROR
+--eval SELECT * FROM t1 INTO OUTFILE '$tmp_dir/t1.txt' COMPRESSED(1)
+
+# cleanup
+--remove_files_wildcard $tmp_dir t*.txt.*.zst
+--remove_files_wildcard $tmp_dir t*.sql
+--remove_file $generated_input_file
+--remove_file $generated_big_input_file
+--remove_file $tmp_dir/t4.txt.1
+--remove_files_wildcard $tmp_dir t2.txt.*
+DROP TABLE t1, t2, t3, t4;
+
