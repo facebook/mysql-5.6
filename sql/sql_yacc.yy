@@ -1401,7 +1401,7 @@ void warn_about_deprecated_binary(THD *thd)
         opt_where_clause_expr
         opt_having_clause
         opt_simple_limit
-
+        opt_compressed_clause_with_chunk
 
 %type <item_string> window_name opt_existing_window_name
 
@@ -11874,7 +11874,7 @@ into_clause:
         ;
 
 into_destination:
-          OUTFILE TEXT_STRING_filesystem opt_compressed_clause
+          OUTFILE TEXT_STRING_filesystem opt_compressed_clause_with_chunk
           opt_load_data_charset
           opt_field_term opt_line_term
           {
@@ -11890,6 +11890,21 @@ into_destination:
 opt_compressed_clause:
           /*empty*/ { $$ = 0; }
         | COMPRESSED_SYM { $$ = 1; }
+        ;
+
+opt_compressed_clause_with_chunk:
+        COMPRESSED_SYM '(' expr ')' { $$ = $3; }
+        | opt_compressed_clause
+          {
+            if($1 == 1)
+            {
+              $$ = new (YYTHD->mem_root) Item_int((int32) 0LL);
+            }
+            else
+            {
+              $$ = NULL;
+            }
+          }
         ;
 
 /*

@@ -213,6 +213,8 @@ class Query_result_to_file : public Query_result_interceptor {
   ha_rows row_count;
   char path[FN_REFLEN];
 
+  void close_file_handle();
+
  public:
   explicit Query_result_to_file(sql_exchange *ex)
       : Query_result_interceptor(), exchange(ex), file(-1), row_count(0L) {
@@ -262,8 +264,33 @@ class Query_result_export final : public Query_result_to_file {
 #ifndef DBUG_OFF
   uint n_fsyncs = 0;
 #endif
+
+  /*
+    Maximum 10 TB chunk size.
+   */
+  static constexpr uint32 max_chunk_limit_mb = 10 * 1024 * 1024;
+  /*
+    Soft limit on uncompressed bytes in compressed chunk.
+   */
+  uint64 uncompressed_chunk_size_limit;
+  /*
+    Number of uncompressed bytes in current chunk
+   */
+  uint64 uncompressed_chunk_size_current;
+  /*
+    Identifier used as suffix in chunk name to create unique
+    compressed chunk file names.
+   */
+  uint64 current_chunk_idx;
+  int write_io_cache(const uchar *buf, size_t length);
+  bool open_new_compressed_file(THD *thd);
+
  public:
-  explicit Query_result_export(sql_exchange *ex) : Query_result_to_file(ex) {}
+  explicit Query_result_export(sql_exchange *ex)
+      : Query_result_to_file(ex),
+        uncompressed_chunk_size_limit(0),
+        uncompressed_chunk_size_current(0),
+        current_chunk_idx(0) {}
   bool prepare(THD *thd, List<Item> &list, SELECT_LEX_UNIT *u) override;
   bool start_execution(THD *thd) override;
   bool send_data(THD *thd, List<Item> &items) override;
