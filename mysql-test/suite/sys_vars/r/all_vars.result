@@ -222,6 +222,8 @@ terminology_use_previous
 terminology_use_previous
 tls_ciphersuites
 tls_ciphersuites
+update_binlog_pos_threshold
+update_binlog_pos_threshold
 use_secondary_engine
 xa_detach_on_prepare
 xa_detach_on_prepare

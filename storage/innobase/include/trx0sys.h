@@ -219,6 +219,20 @@ master binlog position up to which replication has proceeded.
 void trx_sys_update_mysql_binlog_offset(trx_t *trx, mtr_t *mtr,
                                         const char *max_gtid);
 
+/** Updates the offset information about the end of the MySQL binlog entry.
+    A mini transaction is used to update the offset.
+  @param[in]	file		current binary log file name
+  @param[in]	offset		current binary log file offset
+  @param[in]	Max Gtid seen so far */
+void trx_sys_update_mysql_binlog_offset(const char *file, uint64_t offset,
+                                        const char *max_gtid);
+
+/** Gets the max gtid info from system header.
+    @param[in, out] gtid info in system header
+    @return true on failure.
+    @return false on success */
+bool trx_sys_get_mysql_bin_log_max_gtid(char *gtid_buf);
+
 /** Prints to stderr the MySQL binlog offset info in the trx system header if
  *  the magic number shows it valid. */
 void trx_sys_print_mysql_binlog_offset(void);

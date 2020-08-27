@@ -34,6 +34,7 @@ struct xarecover_st {
   Xa_state_list *xa_list;
   bool dry_run;
   Gtid *binlog_max_gtid;
+  char *binlog_max_gtid_buf;
   char *binlog_file;
   my_off_t *binlog_pos;
 };

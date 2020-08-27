@@ -3137,6 +3137,124 @@ static void var_set_query_get_value(struct st_command *command, VAR *var) {
   mysql_free_result_wrapper(res);
 }
 
+/*
+  Set variable from the result of a field in a query
+
+  This function is useful when checking for a certain value
+  in the output from a query that can't be restricted to only
+  return some values. A very good example of that is most SHOW
+  commands.
+
+  SYNOPSIS
+  var_set_query_get_value_by_name()
+
+  DESCRIPTION
+  let $variable= query_get_value(<query to run>,<column name>,<first column
+  value>);
+
+  <query to run> -    The query that should be sent to the server
+  <column name> -     Name of the column that holds the field be compared
+                      against the expected value
+  <first column value> - The expected value of in the first column
+
+*/
+
+static void var_set_query_get_value_by_name(struct st_command *command,
+                                            VAR *var) {
+  int col_no = -1;
+  MYSQL_RES *res = nullptr;
+  MYSQL *mysql = &cur_con->mysql;
+
+  static DYNAMIC_STRING ds_query;
+  static DYNAMIC_STRING ds_col;
+  static DYNAMIC_STRING ds_row;
+  const struct command_arg query_get_value_args[] = {
+      {"query", ARG_STRING, true, &ds_query, "Query to run"},
+      {"column name", ARG_STRING, true, &ds_col, "Name of column"},
+      {"first column value>", ARG_STRING, true, &ds_row,
+       "Value of in the first column"}};
+
+  DBUG_TRACE;
+
+  strip_parentheses(command);
+  DBUG_PRINT("info", ("query: %s", command->query));
+  check_command_args(command, command->first_argument, query_get_value_args,
+                     sizeof(query_get_value_args) / sizeof(struct command_arg),
+                     ',');
+
+  DBUG_PRINT("info", ("query: %s", ds_query.str));
+  DBUG_PRINT("info", ("col: %s", ds_col.str));
+
+  /* Remove any surrounding "'s from the query - if there is any */
+  if (strip_surrounding(ds_query.str, '"', '"'))
+    die("Mismatched \"'s around query '%s'", ds_query.str);
+
+  /* Run the query */
+  if (mysql_real_query_wrapper(mysql, ds_query.str,
+                               static_cast<ulong>(ds_query.length))) {
+    handle_error(curr_command, mysql_errno(mysql), mysql_error(mysql),
+                 mysql_sqlstate(mysql), &ds_res);
+    /* If error was acceptable, return empty string */
+    dynstr_free(&ds_query);
+    dynstr_free(&ds_col);
+    dynstr_free(&ds_row);
+    eval_expr(var, "", nullptr);
+    return;
+  }
+
+  if (!(res = mysql_store_result_wrapper(mysql)))
+    die("Query '%s' didn't return a result set", ds_query.str);
+
+  {
+    /* Find column number from the given column name */
+    uint i;
+    uint num_fields = mysql_num_fields(res);
+    MYSQL_FIELD *fields = mysql_fetch_fields(res);
+
+    for (i = 0; i < num_fields; i++) {
+      if (std::strcmp(fields[i].name, ds_col.str) == 0 &&
+          std::strlen(fields[i].name) == ds_col.length) {
+        col_no = i;
+        break;
+      }
+    }
+    if (col_no == -1) {
+      mysql_free_result_wrapper(res);
+      die("Could not find column '%s' in the result of '%s'", ds_col.str,
+          ds_query.str);
+    }
+    DBUG_PRINT("info", ("Found column %d with name '%s'", i, fields[i].name));
+  }
+  dynstr_free(&ds_col);
+
+  {
+    /* Get the value */
+    MYSQL_ROW row;
+    long rows [[maybe_unused]] = 0;
+    const char *value = "No such row";
+
+    while ((row = mysql_fetch_row_wrapper(res))) {
+      ++rows;
+      if (row[0] && std::strcmp(row[0], ds_row.str) == 0 &&
+          std::strlen(row[0]) == ds_row.length) {
+        DBUG_PRINT("info", ("At row %ld, column %d is '%s'", rows, col_no,
+                            row[col_no]));
+        /* Found the row to get */
+        if (row[col_no])
+          value = row[col_no];
+        else
+          value = "NULL";
+
+        break;
+      }
+    }
+    eval_expr(var, value, nullptr, false, false);
+  }
+  dynstr_free(&ds_row);
+  dynstr_free(&ds_query);
+  mysql_free_result_wrapper(res);
+}
+
 static void var_copy(VAR *dest, VAR *src) {
   dest->int_val = src->int_val;
   dest->is_int = src->is_int;
@@ -3210,6 +3328,9 @@ void eval_expr(VAR *v, const char *p, const char **p_end, bool open_end,
       return false;
     };
 
+    if (parse_function("query_get_value_by_name",
+                       var_set_query_get_value_by_name))
+      return;
     if (parse_function("query_get_value", var_set_query_get_value)) return;
     if (parse_function("convert_error", var_set_convert_error)) return;
     if (parse_function("escape", var_set_escape)) return;

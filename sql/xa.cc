@@ -714,3 +714,85 @@ bool is_xa_prepare(THD *thd) {
 bool is_xa_rollback(THD *thd) {
   return thd->lex->sql_command == SQLCOM_XA_ROLLBACK;
 }
+
+
+/* Read the current binlog position from SE and synchronize
+ * it with the latest.
+ */
+static bool update_binlog_pos(THD *, plugin_ref plugin, void *arg) {
+  handlerton *hton = plugin_data<handlerton *>(plugin);
+  xarecover_st *info = (struct xarecover_st *)arg;
+
+  assert(info->binlog_file && info->binlog_max_gtid_buf);
+
+  if (hton->state != SHOW_OPTION_YES || !hton->update_binlog_pos ||
+      !hton->recover_binlog_pos) {
+    return false;
+  }
+
+  /*
+    Update SE's binlog position.
+  */
+  bool status = hton->update_binlog_pos(hton, info->binlog_file, info->binlog_pos,
+                                      info->binlog_max_gtid_buf);
+
+  if (status) {
+    /* SE is expected to do final check on updating binlog positions - it needs
+       to verify the binlog position hasn't already been updated by someone else
+       and it skips the updates in this case. Thus, we can simply log the
+       failure here */
+    DBUG_PRINT("info",
+               ("Plugin '%s': skipped binlog position (%s,%llu), max gtid %s",
+                plugin_name(plugin)->str, info->binlog_file, *info->binlog_pos,
+                info->binlog_max_gtid_buf));
+    return false;
+  }
+
+  DBUG_PRINT("info",
+             ("Plugin '%s': updated binlog position (%s,%llu), max gtid %s",
+              plugin_name(plugin)->str, info->binlog_file, *info->binlog_pos,
+              info->binlog_max_gtid_buf));
+
+  return false;
+}
+
+/* Keeps all SE's binlog positions in sync.
+ * This function is to be serialized during MYSQL_BIN_LOG
+ * group commit phase where LOCK_commit is taken.
+ */
+int ha_update_binlog_pos(const char *binlog_file, my_off_t binlog_pos,
+                       Gtid *max_gtid) {
+  xarecover_st info;
+  char max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  DBUG_ENTER("ha_update_binlog_pos");
+
+  if (binlog_file == nullptr || binlog_file[0] == '\0') {
+    DBUG_RETURN(1);
+  }
+
+  info.binlog_file =
+      const_cast<char *>(binlog_file) + dirname_length(binlog_file);
+  info.binlog_pos = &binlog_pos;
+  info.binlog_max_gtid = max_gtid;
+  info.binlog_max_gtid_buf = max_gtid_buf;
+
+  /*
+    Populate the gtid buffer in string format that will
+    be passed along to underlying SE's
+   */
+  if (max_gtid && !max_gtid->is_empty()) {
+    global_sid_lock->rdlock();
+    max_gtid->to_string(global_sid_map, info.binlog_max_gtid_buf);
+    global_sid_lock->unlock();
+  }
+
+  /*
+     Update binlog position of all SE that supports 2pc
+   */
+  if (plugin_foreach(nullptr, update_binlog_pos, MYSQL_STORAGE_ENGINE_PLUGIN,
+                     &info)) {
+    DBUG_RETURN(1);
+  }
+
+  DBUG_RETURN(0);
+}

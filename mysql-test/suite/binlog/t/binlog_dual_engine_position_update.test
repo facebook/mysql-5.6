@@ -1,0 +1,215 @@
+source include/have_rocksdb.inc;
+source include/master-slave.inc;
+
+--exec echo > $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+connection master;
+
+# set a smaller threshold to force position
+# update on every statement for both engines
+set @save_update_binlog_pos_threshold = @@global.update_binlog_pos_threshold;
+set global update_binlog_pos_threshold = 1;
+
+######################################################################################################
+#                                                                                                    #
+# Test Case I: InnoDB Trx -> Both InnoDB and RocksDB binlog position update                          #
+#                                                                                                    #
+######################################################################################################
+
+# flush everything.. so the next SQL statement won't cause binlog
+# to rotate (exceeds the max size)
+FLUSH LOGS;
+
+--echo Test Case I: getting rocksdb binlog position before trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_BEFORE=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$RDB_BINLOG_OFFSET_BEFORE'`
+
+--let $assert_text= RocksDB binlog position should not be initialized
+--let $assert_cond= $RDB_BINLOG_OFFSET_BEFORE_VALUE = 18446744073709551615
+--source include/assert.inc
+
+--echo Test Case I: getting innodb binlog position before trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_BEFORE= `SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_BEFORE'`
+
+create table t1 (id int primary key) engine = innodb;
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+drop table t1;
+
+--echo Test Case I: getting innodb binlog position after trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_AFTER=`SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_AFTER'`
+
+--echo Test Case I: getting rocksdb binlog position after trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_AFTER=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$RDB_BINLOG_OFFSET_AFTER'`
+
+--let $assert_text= Innodb binlog position should've advanced
+--let $assert_cond= $INNODB_BINLOG_OFFSET_AFTER_VALUE > $INNODB_BINLOG_OFFSET_BEFORE_VALUE
+--source include/assert.inc
+
+--let $assert_text= RocksDB binlog position should've advanced
+--let $assert_cond= $RDB_BINLOG_OFFSET_AFTER_VALUE = $INNODB_BINLOG_OFFSET_AFTER_VALUE
+--source include/assert.inc
+
+# flush everything.. so the next SQL statement won't cause binlog
+# to rotate (exceeds the max size)
+FLUSH LOGS;
+
+######################################################################################################
+#                                                                                                    #
+# Test Case II: RocksDB Trx -> Both InnoDB and RocksDB binlog position update                        #
+#                                                                                                    #
+######################################################################################################
+
+--echo Test Case II: getting rocksdb binlog position before trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_BEFORE=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$RDB_BINLOG_OFFSET_BEFORE'`
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_BEFORE= `SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_BEFORE'`
+
+create table t1 (id int primary key) engine = rocksdb;
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+drop table t1;
+
+--echo Test Case II: getting rocksdb binlog position after trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_AFTER=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$RDB_BINLOG_OFFSET_AFTER'`
+
+--echo Test Case II: getting innodb binlog position after trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_AFTER=`SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_AFTER'`
+
+--let $assert_text= RocksDB binlog position should've advanced
+--let $assert_cond= $RDB_BINLOG_OFFSET_AFTER_VALUE > $RDB_BINLOG_OFFSET_BEFORE_VALUE
+--source include/assert.inc
+
+--let $assert_text= Innodb binlog position should've advanced
+--let $assert_cond= $INNODB_BINLOG_OFFSET_AFTER_VALUE > $INNODB_BINLOG_OFFSET_BEFORE_VALUE
+--source include/assert.inc
+
+--let $assert_text= InnoDB  and Rocksdb binlog position should be same
+--let $assert_cond= $INNODB_BINLOG_OFFSET_AFTER_VALUE = $RDB_BINLOG_OFFSET_AFTER_VALUE
+--source include/assert.inc
+
+######################################################################################################
+#                                                                                                    #
+# Test Case III: Binlog rotation -> Both InnoDB and RocksDB binlog position update                   #
+#                                                                                                    #
+######################################################################################################
+
+--echo Test Case III: getting innodb binlog position before rotation...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG FILE[[:space:]]*(.+[0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_FILE_BEFORE=`SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_FILE_BEFORE_VALUE=`SELECT '$INNODB_BINLOG_FILE_BEFORE'`
+
+# flush everything again which causes the binlog to rotate
+# Make sure the binlog file is updated in both engines
+FLUSH LOGS;
+
+--echo Test Case III: getting innodb binlog position after rotation...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG FILE[[:space:]]*(.+[0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_FILE_AFTER=`SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_FILE_AFTER_VALUE=`SELECT '$INNODB_BINLOG_FILE_AFTER'`
+
+--echo Test Case III: getting rocksdb binlog position after rotation...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG FILE[[:space:]]*(.+[0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_FILE_AFTER=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_FILE_AFTER_VALUE=`SELECT '$RDB_BINLOG_FILE_AFTER'`
+
+--let $assert_text= Innodb binlog file should've been updated
+--let $assert_cond= "$INNODB_BINLOG_FILE_AFTER_VALUE" != "$INNODB_BINLOG_FILE_BEFORE_VALUE"
+#--source include/assert.inc
+--let $assert_text= RocksDB binlog file should've been updated
+--let $assert_cond= "$RDB_BINLOG_FILE_AFTER_VALUE" = "$INNODB_BINLOG_FILE_AFTER_VALUE"
+#--source include/assert.inc
+
+######################################################################################################
+#                                                                                                    #
+# Test Case IV: Blackhole trx -> Both InnoDB and RocksDB binlog position update                   #
+#                                                                                                    #
+######################################################################################################
+
+--echo Test Case IV: setup blackhole table...
+create table bk_t (id int primary key) engine = blackhole;
+
+# flush everything again which causes the binlog to rotate
+# Make sure the binlog file is updated in both engines
+FLUSH LOGS;
+
+--echo Test Case IV: getting innodb and rocksdb binlog position before trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_BEFORE= `SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_BEFORE'`
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_BEFORE=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_BEFORE_VALUE=`SELECT '$RDB_BINLOG_OFFSET_BEFORE'`
+
+insert into bk_t values (1);
+insert into bk_t values (2);
+insert into bk_t values (3);
+
+--echo Test Case IV: getting innodb and rocksdb binlog position after trx...
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $RDB_BINLOG_OFFSET_AFTER=query_get_value_by_name(SHOW ENGINE ROCKSDB STATUS, Status, BINLOG POSITION)
+--let $RDB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$RDB_BINLOG_OFFSET_AFTER'`
+
+--replace_regex /\n/<EOL>/ /.*<EOL>BINLOG OFFSET[[:space:]]*([0-9]+)<EOL>.*/\1/
+--let $INNODB_BINLOG_OFFSET_AFTER=`SHOW ENGINE INNODB STATUS`
+--replace_regex /InnoDB[[:space:]]*//
+--let $INNODB_BINLOG_OFFSET_AFTER_VALUE=`SELECT '$INNODB_BINLOG_OFFSET_AFTER'`
+
+--let $assert_text= RocksDB binlog position should've advanced
+--let $assert_cond= $RDB_BINLOG_OFFSET_AFTER_VALUE > $RDB_BINLOG_OFFSET_BEFORE_VALUE
+--source include/assert.inc
+
+--let $assert_text= Innodb binlog position should've advanced
+--let $assert_cond= $INNODB_BINLOG_OFFSET_AFTER_VALUE > $INNODB_BINLOG_OFFSET_BEFORE_VALUE
+--source include/assert.inc
+
+--let $assert_text= InnoDB and rocksdb binlog position should be same
+--let $assert_cond= $INNODB_BINLOG_OFFSET_AFTER_VALUE = $RDB_BINLOG_OFFSET_AFTER_VALUE
+--source include/assert.inc
+
+--echo Test Case IV: Cleanup testcase...
+drop table bk_t;
+
+--echo **** Clean up ****
+
+set global update_binlog_pos_threshold = @save_update_binlog_pos_threshold;
+
+--source include/rpl_end.inc
+

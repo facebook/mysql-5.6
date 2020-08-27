@@ -1462,6 +1462,8 @@ class Rdb_binlog_manager {
   void update(const char *const binlog_name, const my_off_t binlog_pos,
               const char *const binlog_max_gtid,
               rocksdb::WriteBatchBase *const batch);
+  int persist_pos(const char *file, const my_off_t offset,
+                  const char *const max_gtid, const bool sync);
   bool read(char *const binlog_name, my_off_t *const binlog_pos,
             char *const binlog_gtid) const;
 

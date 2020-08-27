@@ -4737,9 +4737,9 @@ static void rdb_xid_from_string(const std::string &src, XID *const dst) {
                 (dst->get_gtrid_length()) + (dst->get_bqual_length()));
 }
 
-static void rocksdb_recover_binlog_pos(
-    /*!< in: rocksdb handler */
-    handlerton *const hton MY_ATTRIBUTE((__unused__)),
+static void rocksdb_recover_binlog_pos_internal(
+    /*!< in: print stderr */
+    bool print_stderr,
     /*!< out: Max valid binlog gtid*/
     Gtid *binlog_max_gtid,
     /*!< out: Last valid binlog file */
@@ -4759,19 +4759,56 @@ static void rocksdb_recover_binlog_pos(
   memcpy(binlog_file, file_buf, FN_REFLEN + 1);
   *binlog_pos = pos;
 
-  // NO_LINT_DEBUG
-  fprintf(stderr,
-          "RocksDB: Last binlog file position %llu,"
-          " file name %s\n",
-          pos, file_buf);
+  if (print_stderr) {
+    // NO_LINT_DEBUG
+    fprintf(stderr,
+            "RocksDB: Last binlog file position %llu,"
+            " file name %s\n",
+            pos, file_buf);
+  }
 
   if (binlog_max_gtid && *gtid_buf) {
     global_sid_lock->rdlock();
     binlog_max_gtid->parse(global_sid_map, gtid_buf);
     global_sid_lock->unlock();
-    // NO_LINT_DEBUG
-    fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
+    if (print_stderr) {
+      // NO_LINT_DEBUG
+      fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
+    }
   }
+}
+
+static void rocksdb_recover_binlog_pos(
+    /*!< in: rocksdb handler */
+    handlerton *const hton MY_ATTRIBUTE((__unused__)),
+    /*!< out: Max valid binlog gtid*/
+    Gtid *binlog_max_gtid,
+    /*!< out: Last valid binlog file */
+    char *binlog_file,
+    /*!< out: Last valid binlog pos */
+    my_off_t *binlog_pos) {
+  rocksdb_recover_binlog_pos_internal(/* print_stderr */ true, binlog_max_gtid,
+                                      binlog_file, binlog_pos);
+}
+
+/** This function is used to sync binlog positions and Gtid.
+ * @return false on success. true on failure
+ */
+static bool rocksdb_update_binlog_pos(
+    handlerton *,             /*!< in: RocksDB handlerton */
+    const char *file,         /*!< in: Valid binlog file */
+    const my_off_t *offset,   /*!< in: Valid binlog offset */
+    const char *max_gtid_buf) /*!< in: Max valid binlog gtid in str format */
+{
+  assert(file && offset && max_gtid_buf);
+
+  bool sync = false;
+  DBUG_EXECUTE_IF("update_binlog_pos", sync = true;);
+
+  if (binlog_manager.persist_pos(file, *offset, max_gtid_buf, sync))
+    return true;
+
+  return false;
 }
 
 /**
@@ -5221,6 +5258,33 @@ static bool rocksdb_show_snapshot_status(
   return print_stats(thd, "rocksdb", "", showStatus.getResult(), stat_print);
 }
 
+/* Generate the binlog position status table */
+static bool rocksdb_show_binlog_position(THD *const thd,
+                                         stat_print_fn *const stat_print) {
+  std::ostringstream oss;
+
+  /* Get binlog position in SE */
+  char binlog_file[FN_REFLEN + 1] = {0};
+  my_off_t binlog_pos = ULLONG_MAX;
+  Gtid max_gtid{0, 0};
+  rocksdb_recover_binlog_pos_internal(/* print_stderr */ false, &max_gtid,
+                                      binlog_file, &binlog_pos);
+
+  char gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+  if (!max_gtid.is_empty()) {
+    global_sid_lock->rdlock();
+    max_gtid.to_string(global_sid_map, gtid_buf);
+    global_sid_lock->unlock();
+  }
+
+  oss << "\n"
+      << "BINLOG FILE " << binlog_file << "\n"
+      << "BINLOG OFFSET " << binlog_pos << "\n"
+      << "MAX GTID " << gtid_buf << "\n";
+
+  return print_stats(thd, "BINLOG POSITION", "rocksdb", oss.str(), stat_print);
+}
+
 /*
   This is called for SHOW ENGINE ROCKSDB STATUS | LOGS | etc.
 
@@ -5408,6 +5472,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
     if (!str.empty()) {
       res |= print_stats(thd, "EXPLICIT_SNAPSHOTS", "rocksdb", str, stat_print);
     }
+    /* Binlog position information */
+    res |= rocksdb_show_binlog_position(thd, stat_print);
   } else if (stat_type == HA_ENGINE_TRX) {
     /* Handle the SHOW ENGINE ROCKSDB TRANSACTION STATUS command */
     res |= rocksdb_show_snapshot_status(hton, thd, stat_print);
@@ -6000,6 +6066,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->commit_by_xid = rocksdb_commit_by_xid;
   rocksdb_hton->rollback_by_xid = rocksdb_rollback_by_xid;
   rocksdb_hton->recover_binlog_pos = rocksdb_recover_binlog_pos;
+  rocksdb_hton->update_binlog_pos = rocksdb_update_binlog_pos;
   rocksdb_hton->recover = rocksdb_recover;
   rocksdb_hton->commit = rocksdb_commit;
   rocksdb_hton->rollback = rocksdb_rollback;

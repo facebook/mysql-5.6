@@ -5123,6 +5123,28 @@ void Rdb_binlog_manager::update(const char *const binlog_name,
 }
 
 /**
+  Persists binlog name, pos and optionally gtid into RocksDB.
+  This function allocates a new batch that is independent from
+  any transaction and writes the batch into RocksDB.
+  @param[IN] file          Binlog file
+  @param[IN] offset        Binlog offset
+  @param[IN] binlog_gtid   Binlog max GTID
+  @param[IN] sync          Wait for flush when true
+  @return
+    non 0 value when write fails
+    0 for Success
+  */
+int Rdb_binlog_manager::persist_pos(const char *file, const my_off_t offset,
+                                    const char *const max_gtid,
+                                    const bool sync) {
+  assert(file);
+
+  auto wb = std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
+  update(file, offset, max_gtid, wb.get());
+  return m_dict->commit(wb.get(), sync);
+}
+
+/**
   Read binlog committed entry stored in RocksDB, then unpack
   @param[OUT] binlog_name  Binlog name
   @param[OUT] binlog_pos   Binlog pos
