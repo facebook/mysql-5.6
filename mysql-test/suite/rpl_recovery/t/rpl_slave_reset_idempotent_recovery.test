@@ -1,0 +1,59 @@
+source include/have_slave_use_idempotent_for_recovery.inc;
+source include/master-slave.inc;
+
+call mtr.add_suppression("Recovery from master pos");
+
+connection master;
+create table t1(a int primary key) engine=rocksdb charset=latin1;
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+flush logs;
+
+# Write some data
+connection master;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+insert into t1 values(5);
+source include/sync_slave_sql_with_master.inc;
+
+connection slave;
+echo "Table contents on the slave before crash:";
+select * from t1;
+
+let $MYSQLD_DATADIR = `select @@datadir`;
+let $slave_binlog_file = query_get_value("SHOW MASTER STATUS", "File", 1);
+let $slave_binlog_size = query_get_value("SHOW MASTER STATUS", "Position", 1);
+
+# Truncate the binlog
+let $half = `select ROUND($slave_binlog_size / 2)`;
+exec truncate -s $half $MYSQLD_DATADIR/$slave_binlog_file;
+flush engine logs;
+
+let $rpl_server_number = 2;
+let $rpl_force_stop = 1;
+--let $rpl_server_parameters=--skip_slave_start=TRUE
+source include/rpl_restart_server.inc;
+
+connection slave;
+echo "Table contents on the slave after crash:";
+select * from t1;
+
+reset slave all for channel '';
+--replace_result $MASTER_MYPORT MASTER_PORT
+eval CHANGE MASTER TO MASTER_HOST='localhost',MASTER_PORT=$MASTER_MYPORT,MASTER_USER='root' for CHANNEL '';
+
+start slave;
+connection master;
+source include/sync_slave_sql_with_master.inc;
+
+echo "Table contents on the slave after recovery fails:";
+select * from t1;
+
+connection master;
+drop table t1;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

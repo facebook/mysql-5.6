@@ -458,6 +458,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int generate_new_name(char *new_name, const char *log_name,
                         uint32 new_index_number = 0);
 
+  // Maximum gtid recovered after recovery from SE and binlog.
+  std::string recovery_binlog_max_gtid;
+
  public:
   const char *generate_name(const char *log_name, const char *suffix,
                             char *buff);
@@ -521,6 +524,14 @@ class MYSQL_BIN_LOG : public TC_LOG {
   Gtid engine_binlog_max_gtid;
   char engine_binlog_file[FN_REFLEN + 1];
   my_off_t engine_binlog_pos;
+
+  void set_recovery_binlog_max_gtid(const std::string &max_binlog_gtid) {
+    recovery_binlog_max_gtid = max_binlog_gtid;
+  }
+
+  const std::string &get_recovery_binlog_max_gtid() {
+    return recovery_binlog_max_gtid;
+  }
 
   // copy of Relay_log_info::last_master_timestamp
   std::atomic<time_t> last_master_timestamp;

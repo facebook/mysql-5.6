@@ -9648,6 +9648,9 @@ ER_USER_TABLE_BLOCKED_ENGINE
 ER_WARN_USER_TABLE_BLOCKED_ENGINE
   eng "User table creation [%s.%s] is blocked on Storage engine %s. Using engine %s instead."
 
+ER_RPL_SLAVE_MAX_GTID_RECOVERED
+  eng "Max GTID recovered at the end of recovery %s"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

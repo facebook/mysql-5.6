@@ -1622,6 +1622,12 @@ class Relay_log_info : public Rpl_info {
   virtual ~Relay_log_info();
 
   /*
+    Populate the max recovery gtid from binlog. This will be used to determine
+    whether transaction is eligible for idempotent recovery.
+   */
+  void populate_recovery_binlog_max_gtid();
+
+  /*
     Determines if a warning message on unsafe execution was
     already printed out to avoid clutering the error log
     with several warning messages.
