@@ -2675,6 +2675,16 @@ bool Relay_log_info::is_time_for_mts_checkpoint() {
   return false;
 }
 
+void Relay_log_info::populate_recovery_binlog_max_gtid() {
+  const std::string &max_binlog_gtid =
+      mysql_bin_log.get_recovery_binlog_max_gtid();
+  if (!max_binlog_gtid.empty()) {
+    recovery_sid_lock.rdlock();
+    recovery_max_engine_gtid.parse(&recovery_sid_map, max_binlog_gtid.c_str());
+    recovery_sid_lock.unlock();
+  }
+}
+
 MDL_lock_guard::MDL_lock_guard(THD *target) : m_target{target} { DBUG_TRACE; }
 
 MDL_lock_guard::MDL_lock_guard(THD *target,

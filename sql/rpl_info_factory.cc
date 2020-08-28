@@ -246,6 +246,8 @@ Relay_log_info *Rpl_info_factory::create_rli(uint rli_option,
     goto err;
   }
 
+  rli->populate_recovery_binlog_max_gtid();
+
   if (init_repositories(rli_table_data, rli_file_data, rli_option, &handler_src,
                         &handler_dest, &msg))
     goto err;
