@@ -9027,6 +9027,15 @@ int ha_rocksdb::index_read_intern(uchar *const buf, const uchar *const key,
             stats.rows_index_first++; */
           update_row_stats(ROWS_READ);
         }
+        /*
+          If the SQL layer calls index_read_map, it expects the iterator to be
+          positioned accordingly, so that next/prev can work as expected. In
+          this case, we calling DB::Get directly without positioning an
+          iterator, so it is incorrect for the SQL layer to be calling
+          next/prev anyway. To avoid correctness issues, just free the
+          iterator.
+        */
+        release_scan_iterator();
         DBUG_RETURN(rc);
       } else {
         /*
@@ -9605,6 +9614,12 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
       break;
     }
 
+    DBUG_ASSERT(m_scan_it);
+    if (m_scan_it == nullptr) {
+      rc = HA_ERR_INTERNAL_ERROR;
+      break;
+    }
+
     if (skip_next) {
       skip_next = false;
     } else {
@@ -9615,15 +9630,7 @@ int ha_rocksdb::index_next_with_direction_intern(uchar *const buf,
       }
     }
 
-    if (!m_scan_it || !is_valid_iterator(m_scan_it)) {
-      /*
-        We can get here when SQL layer has called
-
-        h->index_init(PRIMARY);
-        h->index_read_map(full index tuple, HA_READ_KEY_EXACT);
-
-        In this case, we should return EOF.
-      */
+    if (!is_valid_iterator(m_scan_it)) {
       rc = HA_ERR_END_OF_FILE;
       break;
     }
