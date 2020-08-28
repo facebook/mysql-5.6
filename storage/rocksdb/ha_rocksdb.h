@@ -233,9 +233,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   uchar *m_sk_match_prefix;
   uint m_sk_match_length;
 
-  /* Buffer space for the above */
-  uchar *m_sk_match_prefix_buf;
-
   /* Second buffers, used by UPDATE. */
   uchar *m_sk_packed_tuple_old;
   Rdb_string_writer m_sk_tails_old;
@@ -650,19 +647,12 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
 
   int index_next(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
-  int index_next_with_direction(uchar *const buf, bool move_forward)
-      MY_ATTRIBUTE((__warn_unused_result__));
   int index_prev(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int index_first(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
   int index_last(uchar *const buf) override
-      MY_ATTRIBUTE((__warn_unused_result__));
-
-  int index_next_intern(uchar *const buf)
-      MY_ATTRIBUTE((__warn_unused_result__));
-  int index_prev_intern(uchar *const buf)
       MY_ATTRIBUTE((__warn_unused_result__));
 
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
@@ -808,9 +798,6 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                            const rocksdb::Slice &ttl_rec_val,
                            const int64_t curr_ts)
       MY_ATTRIBUTE((__warn_unused_result__));
-  int rocksdb_skip_expired_records(const Rdb_key_def &kd,
-                                   rocksdb::Iterator *const iter,
-                                   bool seek_backward);
 
   int index_read_intern(uchar *const buf, const uchar *const key,
                         key_part_map keypart_map,
@@ -818,10 +805,11 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
       MY_ATTRIBUTE((__warn_unused_result__));
   int index_read_intern(uchar *buf, bool first)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  int index_next_with_direction_intern(uchar *const buf, bool forward,
+                                       bool skip_next)
+      MY_ATTRIBUTE((__warn_unused_result__));
 
   enum icp_result check_index_cond() const;
-  int find_icp_matching_index_rec(const bool move_forward, uchar *const buf)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   void calc_updated_indexes();
   int update_write_row(const uchar *const old_data, const uchar *const new_data,
@@ -867,25 +855,16 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
                      const int64_t ttl_filter_ts)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int read_before_key(const Rdb_key_def &kd, const bool using_full_key,
-                      const rocksdb::Slice &key_slice,
-                      const int64_t ttl_filter_ts)
+                      const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice,
-                     const int64_t ttl_filter_ts)
+  int read_after_key(const Rdb_key_def &kd, const rocksdb::Slice &key_slice)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   int position_to_correct_key(const Rdb_key_def &kd,
                               const enum ha_rkey_function &find_flag,
                               const bool full_key_match,
                               const rocksdb::Slice &key_slice,
-                              bool *const move_forward,
-                              const int64_t ttl_filter_ts)
+                              bool *const move_forward)
       MY_ATTRIBUTE((__warn_unused_result__));
-
-  int read_row_from_primary_key(uchar *const buf)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-  int read_row_from_secondary_key(uchar *const buf, const Rdb_key_def &kd,
-                                  bool move_forward)
-      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int calc_eq_cond_len(const Rdb_key_def &kd,
                        const enum ha_rkey_function &find_flag,
@@ -934,10 +913,7 @@ class ha_rocksdb : public my_core::handler, public blob_buffer {
   */
   int rnd_init(bool scan) override MY_ATTRIBUTE((__warn_unused_result__));
   int rnd_end() override MY_ATTRIBUTE((__warn_unused_result__));
-
   int rnd_next(uchar *const buf) override
-      MY_ATTRIBUTE((__warn_unused_result__));
-  int rnd_next_with_direction(uchar *const buf, bool move_forward)
       MY_ATTRIBUTE((__warn_unused_result__));
 
   int rnd_pos(uchar *const buf, uchar *const pos) override
@@ -1235,6 +1211,15 @@ inline void rocksdb_smart_next(bool seek_backward,
     iter->Prev();
   } else {
     iter->Next();
+  }
+}
+
+inline void rocksdb_smart_prev(bool seek_backward,
+                               rocksdb::Iterator *const iter) {
+  if (seek_backward) {
+    iter->Next();
+  } else {
+    iter->Prev();
   }
 }
 
