@@ -3841,6 +3841,7 @@ public:
   */
   bool       really_error_partial_strict;
   ulong      really_audit_instrumented_event;
+  bool       audited_event_for_command;
 
   /** Current SP-runtime context. */
   sp_rcontext *sp_runtime_ctx;

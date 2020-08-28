@@ -987,6 +987,7 @@ THD::THD(bool enable_plugins)
    derived_tables_processing(FALSE),
    really_error_partial_strict(false),
    really_audit_instrumented_event(0),
+    audited_event_for_command(false),
    sp_runtime_ctx(NULL),
    m_parser_state(NULL),
 #if defined(ENABLED_DEBUG_SYNC)
@@ -1338,12 +1339,17 @@ Sql_condition* THD::raise_condition(uint sql_errno,
   if (sqlstate == NULL)
    sqlstate= mysql_errno_to_sqlstate(sql_errno);
 
+  bool is_slave_thread = (system_thread == SYSTEM_THREAD_SLAVE_SQL) ||
+    (system_thread == SYSTEM_THREAD_SLAVE_WORKER);
+
   if ((level == Sql_condition::WARN_LEVEL_WARN) &&
       (really_abort_on_warning() ||
-       really_error_partial_strict))
+       (really_error_partial_strict && !is_slave_thread)))
   {
-    if (really_audit_instrumented_event > 1)
+    if (really_audit_instrumented_event > 1 &&
+        !audited_event_for_command)
     {
+      audited_event_for_command = true;
       mysql_audit_general(this, MYSQL_AUDIT_GENERAL_ERROR_INSTR,
                           sql_errno,
                           msg);
@@ -1357,8 +1363,11 @@ Sql_condition* THD::raise_condition(uint sql_errno,
     killed= THD::KILL_BAD_DATA;
   }
   else if ((level == Sql_condition::WARN_LEVEL_WARN) &&
-           really_audit_instrumented_event > 0)
+           really_audit_instrumented_event > 0 &&
+           !audited_event_for_command &&
+           !is_slave_thread)
   {
+    audited_event_for_command = true;
     mysql_audit_general(this, MYSQL_AUDIT_GENERAL_WARNING,
                         sql_errno,
                         msg);

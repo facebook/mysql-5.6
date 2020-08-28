@@ -49,6 +49,24 @@ insert into test_char values(4, 'xxxxx', 'yyyyy');
 show status like 'Audit_null_general_warning';
 show status like 'Audit_null_general_error_instrumented';
 
+####
+## Test LOAD DATA LOCAL INFILE only logs once
+#####
+--let $tmp_dir=`SELECT @@GLOBAL.secure_file_priv`
+--let $input_file=$tmp_dir/t1.txt
+
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+CREATE TABLE t1 (x varchar(10)) ENGINE=InnoDB;
+--exec dd bs=1024 count=1024 if=/dev/urandom | base64 -w 80 > $input_file
+--replace_result $input_file INPUT_FILE
+--eval LOAD DATA LOCAL INFILE '$input_file' INTO TABLE t1;
+show status like 'Audit_null_general_warning';
+show status like 'Audit_null_general_error_instrumented';
+
+drop table t1;
+--remove_file $input_file
+
 SET @@session.audit_instrumented_event='audit_off';
 SELECT @@session.audit_instrumented_event;
 SELECT @@global.audit_instrumented_event;

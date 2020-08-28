@@ -7863,6 +7863,7 @@ void THD::reset_for_next_command()
   thd->reset_stmt_stats();
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags= 0;
+  thd->audited_event_for_command = false;
 
   thd->commit_error= THD::CE_NONE;
   thd->durability_property= HA_REGULAR_DURABILITY;
