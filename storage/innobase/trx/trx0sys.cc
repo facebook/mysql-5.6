@@ -31,6 +31,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
  *******************************************************/
 
 #include <sys/types.h>
+#include <cinttypes>
 #include <new>
 
 #include "current_thd.h"
@@ -430,6 +431,13 @@ void trx_sys_print_mysql_binlog_offset(void) {
              TRX_SYS_MYSQL_GTID_LEN);
 
   ib::info() << "Last MySQL Gtid " << trx_sys_mysql_bin_log_max_gtid;
+
+  auto log_offset = static_cast<uint64_t>(trx_sys_mysql_bin_log_pos_high);
+  log_offset = (log_offset << 32);
+  log_offset |= static_cast<uint64_t>(trx_sys_mysql_bin_log_pos_low);
+  fprintf(
+      stderr, "InnoDB: Last binlog file position %" PRIu64 ", filename %s\n",
+      log_offset, sys_header + TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_NAME);
   fprintf(stderr, "InnoDB: Last MySQL Gtid %s\n",
           trx_sys_mysql_bin_log_max_gtid);
 
