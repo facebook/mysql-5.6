@@ -421,6 +421,7 @@ THD::THD(bool enable_plugins, bool is_slave)
       parsing_system_view(false),
       really_error_partial_strict(false),
       really_audit_instrumented_event(0),
+      audited_event_for_command(false),
       sp_runtime_ctx(NULL),
       m_parser_state(NULL),
       work_part_info(NULL),

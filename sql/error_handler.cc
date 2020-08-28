@@ -192,6 +192,9 @@ bool Strict_error_handler::handle_condition(
       return false;
   }
 
+  bool is_slave_thread = (thd->system_thread == SYSTEM_THREAD_SLAVE_SQL) ||
+                         (thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER);
+
   /*
     First check whether we need to error out because of
     error_partial_strict system variable. This has higher precedence
@@ -201,10 +204,12 @@ bool Strict_error_handler::handle_condition(
   switch (sql_errno) {
     case ER_DATA_TOO_LONG:
       if ((*level == Sql_condition::SL_WARNING) &&
-          thd->really_error_partial_strict) {
+          thd->really_error_partial_strict && !is_slave_thread) {
         (*level) = Sql_condition::SL_ERROR;
 
-        if (thd->variables.audit_instrumented_event > 1) {
+        if (thd->variables.audit_instrumented_event > 1 &&
+            !thd->audited_event_for_command) {
+          thd->audited_event_for_command = true;
           mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_ERROR_INSTR),
                              sql_errno, msg, strlen(msg));
         }
@@ -275,7 +280,9 @@ bool Strict_error_handler::handle_condition(
     case ER_TOO_LONG_TABLESPACE_COMMENT:
     case ER_BLOB_CANT_HAVE_DEFAULT:
       if ((*level == logging_level) &&
-          thd->variables.audit_instrumented_event > 0) {
+          thd->variables.audit_instrumented_event > 0 && !is_slave_thread &&
+          !thd->audited_event_for_command) {
+        thd->audited_event_for_command = true;
         mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_WARNING_INSTR),
                            sql_errno, msg, strlen(msg));
       }
@@ -289,7 +296,9 @@ bool Strict_error_handler::handle_condition(
         the warning.
        */
       if ((*level == logging_level) &&
-          thd->really_audit_instrumented_event > 0) {
+          thd->really_audit_instrumented_event > 0 &&
+          !thd->audited_event_for_command && !is_slave_thread) {
+        thd->audited_event_for_command = true;
         mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_GENERAL_WARNING_INSTR),
                            sql_errno, msg, strlen(msg));
       }

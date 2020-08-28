@@ -1,0 +1,28 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SET @@session.sql_mode='no_engine_substitution';
+set global error_partial_strict = ON;
+set session error_partial_strict = ON;
+set global error_partial_strict = ON;
+stop slave;
+start slave;
+create table t1(a char(3)) ENGINE=InnoDb;
+insert into t1 values('aaaaa');
+ERROR 22001: Data too long for column 'a' at row 1
+set session error_partial_strict = OFF;
+insert into t1 values('aaaaa');
+Warnings:
+Warning	1265	Data truncated for column 'a' at row 1
+select * from t1;
+a
+aaa
+select * from t1;
+a
+aaa
+set global error_partial_strict = OFF;
+drop table t1;
+set global error_partial_strict = OFF;
+include/rpl_end.inc

@@ -54,7 +54,7 @@ Warning	1265	Data truncated for column 'c' at row 1
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	0
@@ -73,7 +73,7 @@ Warning	1265	Data truncated for column 'c' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	0
@@ -95,7 +95,7 @@ ERROR 22001: Data too long for column 'b' at row 1
 verify that audit logging API Error is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -104,7 +104,7 @@ insert into test_char values(2, 'xxxx', 'yyyy');
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -120,7 +120,7 @@ ERROR 22001: Data too long for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -136,7 +136,7 @@ ERROR 22001: Data too long for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -149,7 +149,7 @@ ERROR 22003: Out of range value for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	4
+Audit_null_general_warning_instr	3
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -160,7 +160,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	5
+Audit_null_general_warning_instr	4
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -171,7 +171,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	6
+Audit_null_general_warning_instr	5
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -182,7 +182,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	6
+Audit_null_general_warning_instr	5
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -194,11 +194,23 @@ ERROR HY000: Column 'b' has duplicated value 'a' in ENUM
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	6
+Audit_null_general_warning_instr	5
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
 set @@session.sql_mode='no_engine_substitution';
+CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
+Warnings:
+Note	1291	Column 'b' has duplicated value 'a' in ENUM
+verify that audit logging API is called
+show status like 'Audit_null_general_warning_instr';
+Variable_name	Value
+Audit_null_general_warning_instr	6
+show status like 'Audit_null_general_error_instr';
+Variable_name	Value
+Audit_null_general_error_instr	1
+drop table test_enum;
+SET @@session.audit_instrumented_event='audit_warn';
 CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
 Warnings:
 Note	1291	Column 'b' has duplicated value 'a' in ENUM
@@ -210,18 +222,6 @@ show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
 drop table test_enum;
-SET @@session.audit_instrumented_event='audit_warn';
-CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
-Warnings:
-Note	1291	Column 'b' has duplicated value 'a' in ENUM
-verify that audit logging API is called
-show status like 'Audit_null_general_warning_instr';
-Variable_name	Value
-Audit_null_general_warning_instr	8
-show status like 'Audit_null_general_error_instr';
-Variable_name	Value
-Audit_null_general_error_instr	1
-drop table test_enum;
 SET @@session.audit_instrumented_event='audit_off';
 CREATE TABLE test_enum (a int primary key, b ENUM('a', 'a', 'b', 'c', 'd'));
 Warnings:
@@ -229,7 +229,7 @@ Note	1291	Column 'b' has duplicated value 'a' in ENUM
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	8
+Audit_null_general_warning_instr	7
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -241,7 +241,7 @@ ERROR 42000: BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	8
+Audit_null_general_warning_instr	7
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -252,7 +252,7 @@ Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	9
+Audit_null_general_warning_instr	8
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -264,7 +264,7 @@ Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	10
+Audit_null_general_warning_instr	9
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -276,7 +276,7 @@ Warning	1101	BLOB, TEXT, GEOMETRY or JSON column 'b' can't have a default value
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	10
+Audit_null_general_warning_instr	9
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -290,7 +290,7 @@ ERROR HY000: Comment for table 'test_max_comment' is too long (max = 2048)
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	10
+Audit_null_general_warning_instr	9
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -301,7 +301,7 @@ Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	11
+Audit_null_general_warning_instr	10
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -313,7 +313,7 @@ Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	12
+Audit_null_general_warning_instr	11
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -325,7 +325,7 @@ Warning	1628	Comment for table 'test_max_comment' is too long (max = 2048)
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	12
+Audit_null_general_warning_instr	11
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -341,7 +341,7 @@ ERROR 22007: Incorrect datetime value: '00/00/30000' for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	12
+Audit_null_general_warning_instr	11
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -355,7 +355,7 @@ Warning	1265	Data truncated for column 'b' at row 1
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	14
+Audit_null_general_warning_instr	13
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -369,7 +369,7 @@ Warning	1265	Data truncated for column 'b' at row 1
 verify that audit logging API is called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	16
+Audit_null_general_warning_instr	15
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
@@ -383,7 +383,7 @@ Warning	1265	Data truncated for column 'b' at row 1
 verify that audit logging API is not called
 show status like 'Audit_null_general_warning_instr';
 Variable_name	Value
-Audit_null_general_warning_instr	16
+Audit_null_general_warning_instr	15
 show status like 'Audit_null_general_error_instr';
 Variable_name	Value
 Audit_null_general_error_instr	1
