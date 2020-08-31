@@ -9,6 +9,11 @@
 #include "rpl_mi.h"
 #include "slave_stats_daemon.h"
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+// Function removed after OpenSSL 1.1.0
+#define ERR_remove_state(x)
+#endif
+
 /*
  * The Slave stats daemon thread is responsible for
  * continuously sending lag statistics from slaves to masters
