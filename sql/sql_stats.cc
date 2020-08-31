@@ -348,6 +348,203 @@ ST_FIELD_INFO sql_findings_fields_info[]=
 /* Global SQL findings map to track findings for all SQL statements */
 std::unordered_map<md5_key, SQL_FINDING_VEC> global_sql_findings_map;
 
+
+/*
+  WRITE_STATISTICS
+
+  Associates binlog bytes written and CPU write time to various 
+  dimensions such as user_id, client_id, sql_id, shard_id.
+*/
+
+ST_FIELD_INFO write_statistics_fields_info[]=
+{
+  {"TIMESTAMP", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"WRITE_DATA_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+    0, 0, 0, SKIP_OPEN_TABLE},
+  {"CPU_WRITE_TIME_MS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+    0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+#define WRITE_STATISTICS_DIMENSION_COUNT 4
+
+/*
+  Map integer representatin of write stats dimensions to string
+  constants. The integer value of these dimensions map to the 
+  index in TIME_BUCKET_STATS array
+*/
+const std::string WRITE_STATS_TYPE_STRING[] = {"USER", "CLIENT", "SHARD", "SQL_ID"};
+
+typedef std::array<
+  std::unordered_map<std::string, WRITE_STATS>,
+  WRITE_STATISTICS_DIMENSION_COUNT
+> TIME_BUCKET_STATS;
+
+/* Global write statistics map */
+std::list<std::pair<int, TIME_BUCKET_STATS>> global_write_statistics_map;
+
+/***********************************************************************
+              Begin - Functions to support WRITE_STATISTICS
+************************************************************************/
+
+/*
+  free_global_write_statistics
+    Frees global_write_statistics
+*/
+void free_global_write_statistics(void)
+{
+  bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
+  global_write_statistics_map.clear();
+  mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+}
+
+/*
+  populate_write_statistics
+    Populate the write statistics
+
+  Input:
+    thd                 in:  - THD
+    time_bucket_stats  out:  - Array structure containing write stats populated.
+*/	
+static void populate_write_statistics(
+  THD *thd, 
+  TIME_BUCKET_STATS& time_bucket_stats) 
+{
+  ulonglong binlog_bytes_written = thd->get_row_binlog_bytes_written();
+  ulonglong total_write_time = thd->get_stmt_total_write_time();
+  
+  // Get keys for all the target dimensions to update write stats for
+  char md5_hex_buffer[MD5_BUFF_LENGTH];
+  std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
+  // USER
+  keys[0] = thd->get_user_name();
+  // CLIENT ID
+  array_to_hex(md5_hex_buffer, thd->mt_key_value(THD::CLIENT_ID).data(), MD5_HASH_SIZE);
+  keys[1].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
+  // SHARD
+  keys[2] = thd->get_db_name();
+  // SQL ID
+  array_to_hex(md5_hex_buffer, thd->mt_key_value(THD::SQL_ID).data(), MD5_HASH_SIZE);
+  keys[3].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
+  
+  // Add/Update the write stats
+  for (int i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
+  {
+    auto iter = time_bucket_stats[i].find(keys[i]);
+    if (iter == time_bucket_stats[i].end()) 
+    {
+      WRITE_STATS ws;
+      ws.binlog_bytes_written = binlog_bytes_written;
+      ws.cpu_write_time_ms = total_write_time;
+      time_bucket_stats[i].insert(std::make_pair(keys[i], ws));
+    } else 
+    {
+      WRITE_STATS & ws = iter->second;
+      ws.binlog_bytes_written += binlog_bytes_written;
+      ws.cpu_write_time_ms += total_write_time;
+    }
+  }
+}
+	
+/*
+  store_write_statistics
+    Store the write statistics for the executed statement. 
+    The bulk of the work is done in populate_write_stats()
+
+  Input:
+    thd         in:  - THD
+*/
+void store_write_statistics(THD *thd)
+{ 
+  bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
+  time_t timestamp = my_time(0);
+  int time_bucket_key = timestamp - (timestamp % write_stats_frequency);
+
+  auto time_bucket_iter = global_write_statistics_map.begin();
+  if (time_bucket_iter == global_write_statistics_map.end() 
+    ||  time_bucket_key > time_bucket_iter->first)
+  {
+    // time_bucket is newer than last registered bucket. need to insert a new one
+    while((uint)global_write_statistics_map.size() >= write_stats_count) 
+    {
+      // reached max time bucket count. Erase the oldest time bucket stats
+      global_write_statistics_map.pop_back();
+    }
+    TIME_BUCKET_STATS time_bucket_stats;
+    populate_write_statistics(thd, time_bucket_stats);
+    global_write_statistics_map.push_front(std::make_pair(time_bucket_key, time_bucket_stats));
+  } else 
+  {
+    populate_write_statistics(thd, time_bucket_iter->second);
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+}
+
+/*
+  fill_write_statistics
+    Fills the rows returned for statements selecting from WRITE_STATISTICS
+
+*/
+int fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_write_statistics");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
+  MYSQL_TIME time;
+  std::string type_string;
+
+  for (auto time_bucket_iter= global_write_statistics_map.cbegin();
+       time_bucket_iter != global_write_statistics_map.cend(); ++time_bucket_iter)
+  {
+    const TIME_BUCKET_STATS & time_bucket = time_bucket_iter->second;
+
+    for(int type = 0; type != (int)time_bucket.size(); ++type) 
+    {
+      for(auto stats_iter = time_bucket[type].begin(); stats_iter != time_bucket[type].end(); ++stats_iter) 
+      {
+        int f= 0;
+        restore_record(table, s->default_values);
+        
+        // timestamp
+        thd->variables.time_zone->gmt_sec_to_TIME(
+            &time, (my_time_t)time_bucket_iter->first);
+        table->field[f]->set_notnull();
+        table->field[f++]->store_time(&time);
+
+        // type
+        type_string = WRITE_STATS_TYPE_STRING[type];
+        table->field[f++]->store(type_string.c_str(), type_string.length(), system_charset_info);
+
+        // value
+        table->field[f++]->store(stats_iter->first.c_str(), stats_iter->first.length(), system_charset_info);
+
+        // binlog_bytes_written
+        table->field[f++]->store(stats_iter->second.binlog_bytes_written, TRUE);
+
+        // cpu_write_time_ms
+        table->field[f++]->store(stats_iter->second.cpu_write_time_ms, TRUE);
+
+        if (schema_table_store_record(thd, table))
+        {
+          mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+          DBUG_RETURN(-1);
+        }
+      }
+    }
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+
+  DBUG_RETURN(0);
+}
+
+/***********************************************************************
+              End - Functions to support WRITE_STATISTICS
+************************************************************************/
+
 /*
   These limits control the maximum accumulation of all sql statistics.
   They are controlled by setting the respective system variables.
@@ -993,9 +1190,8 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   if (is_sql_stats_collection_above_limit()) return;
 
   /* Get the schema and the user name */
-  const char *schema= thd->db ? thd->db : "NULL";
-  const USER_CONN* uc= thd->get_user_connect();
-  const char *user= (uc && uc->user) ? uc->user : "NULL";
+  const char *schema= thd->get_db_name();
+  const char *user= thd->get_user_name();
 
   uint32_t db_id= get_id(DB_MAP_NAME, schema, strlen(schema));
   uint32_t user_id= get_id(USER_MAP_NAME, user, strlen(user));

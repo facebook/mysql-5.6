@@ -6750,6 +6750,8 @@ static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
 {
   if (sql_stats_control == SQL_INFO_CONTROL_OFF_HARD) {
     free_global_sql_stats(false /*limits_updated*/);
+    // Write stats cannot be collected without sql_id and client_id dimensions.
+    free_global_write_statistics();
   }
 
   return false; // success
@@ -6936,31 +6938,53 @@ static Sys_var_mybool Sys_sql_plans_capture_apply_filter(
        GLOBAL_VAR(sql_plans_capture_apply_filter),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
-/* Update the time interval for sending the slave lag stats to master. Signal
- * the thread if it is blocked on interval update */
-static bool update_slave_stats_daemon_interval(sys_var *self, THD *thd,
+/* Update the time interval for collecting write statistics. Signal
+ * the thread to send replica lag stats if it is blocked on interval update */
+static bool update_write_stats_frequency(sys_var *self, THD *thd,
                                                enum_var_type type) {
   mysql_mutex_lock(&LOCK_slave_stats_daemon);
   mysql_cond_signal(&COND_slave_stats_daemon);
   mysql_mutex_unlock(&LOCK_slave_stats_daemon);
 
+  if (write_stats_frequency == 0) 
+  {
+    free_global_write_statistics();
+  }
+
   return false; // success
 }
 
 /*
-** slave_stats_daemon_interval
-** Controls the time interval for running slave_stats_daemon (in seconds)
+** write_stats_frequency
+** Controls the time interval(in seconds) for collected write stats and replica lag stats 
 ** Default = 0 i.e. slave stats are not sent to master.
 */
-static Sys_var_ulong Sys_slave_stats_daemon_interval(
-       "slave_stats_daemon_interval",
-       "Period(seconds) for the background thread responsible "
-       "for sending slave lag statistics to master."
-       "New period is applied after the current period finishes.",
-       GLOBAL_VAR(slave_stats_daemon_interval),
+static Sys_var_ulong Sys_write_stats_frequency(
+       "write_stats_frequency",
+       "This variable determines the frequency(seconds) at which write "
+       "stats and replica lag stats are collected on primaries",
+       GLOBAL_VAR(write_stats_frequency),
        CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(nullptr), ON_UPDATE(update_slave_stats_daemon_interval));
+       ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));
+
+/* Free global_write_statistics if sys_var is set to 0 */
+static bool update_write_stats_count(sys_var *self, THD *thd,
+                                               enum_var_type type) {
+  if (write_stats_count == 0) 
+  {
+    free_global_write_statistics();
+  }
+  return false; // success
+}	
+static Sys_var_uint Sys_write_stats_count(
+      "write_stats_count",
+      "Maximum number of most recent data points to be collected for "
+      "information_schema.write_statistics time series.",
+      GLOBAL_VAR(write_stats_count), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1), 
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      ON_UPDATE(update_write_stats_count));
 
 /*
 ** sql_maximum_duplicate_executions

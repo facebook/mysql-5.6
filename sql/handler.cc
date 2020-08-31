@@ -8064,6 +8064,12 @@ int handler::ha_write_row(uchar *buf)
   DBUG_EXECUTE_IF("inject_error_ha_write_row",
                   DBUG_RETURN(HA_ERR_INTERNAL_ERROR); );
 
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled())
+  {
+    thd->set_stmt_start_write_time();
+  }
+  
   MYSQL_INSERT_ROW_START(table_share->db.str, table_share->table_name.str);
   mark_trx_read_write();
 
@@ -8101,6 +8107,12 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data)
    */
   DBUG_ASSERT(new_data == table->record[0]);
   DBUG_ASSERT(old_data == table->record[1]);
+  
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled())
+  {
+    thd->set_stmt_start_write_time();
+  }
 
   MYSQL_UPDATE_ROW_START(table_share->db.str, table_share->table_name.str);
   mark_trx_read_write();
@@ -8128,7 +8140,6 @@ int handler::ha_delete_row(const uchar *buf)
               m_lock_type == F_WRLCK);
   Log_func *log_func= Delete_rows_log_event::binlog_row_logging_function;
   THD *thd = table->in_use;
-
   /*
     Normally table->record[0] is used, but sometimes table->record[1] is used.
   */
@@ -8136,6 +8147,12 @@ int handler::ha_delete_row(const uchar *buf)
               buf == table->record[1]);
   DBUG_EXECUTE_IF("inject_error_ha_delete_row",
                   return HA_ERR_INTERNAL_ERROR; );
+
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled()) 
+  {
+    thd->set_stmt_start_write_time();
+  }
 
   MYSQL_DELETE_ROW_START(table_share->db.str, table_share->table_name.str);
   mark_trx_read_write();

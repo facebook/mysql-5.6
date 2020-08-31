@@ -1598,6 +1598,9 @@ void THD::reset_stmt_stats()
   m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
   m_stmt_tmp_table_disk_usage_peak = 0;
   m_stmt_filesort_disk_usage_peak = 0;
+  m_binlog_bytes_written    = 0; /* binlog bytes written */
+  m_stmt_total_write_time   = 0;
+  m_stmt_start_write_time_is_set = false;
 }
 
 
@@ -6194,6 +6197,13 @@ void THD::set_dml_start_time()
   /* if the dml_start_time is already initialized then do nothing */
   if (dml_start_time_is_set)
     return;
+  
+  /* if stmt_start_write_time is set, use that value */
+  if (m_stmt_start_write_time_is_set)
+  {
+    dml_start_time = m_stmt_start_write_time;
+  }
+
 
 #if HAVE_CLOCK_GETTIME
   dml_start_result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &dml_start_time);
@@ -6350,4 +6360,55 @@ ulonglong THD::get_dml_row_count(ha_statistics* stats)
   }
 
   return dml_rows_processed;
+}
+
+/*
+  Start the timer for CPU write time to be collected for write_statistics 
+ */
+void THD::set_stmt_start_write_time()
+{
+  if (m_stmt_start_write_time_is_set) 
+    return;
+
+  int result;
+  #if HAVE_CLOCK_GETTIME
+    result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &m_stmt_start_write_time);
+  #elif HAVE_GETRUSAGE
+    result = getrusage(RUSAGE_THREAD, &stmt_start_write_time);
+  #endif
+
+  m_stmt_start_write_time_is_set = result == 0;
+}
+
+/*
+  Capture the total cpu time(ms) spent to write the rows for stmt
+ */
+void THD::set_stmt_total_write_time()
+{
+#if HAVE_CLOCK_GETTIME
+    timespec time_end;
+
+    if (m_stmt_start_write_time_is_set &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0))
+    {
+      /* diff_timespec returns nanoseconds */
+      m_stmt_total_write_time = diff_timespec(time_end, m_stmt_start_write_time);
+      m_stmt_total_write_time /= 1000000; /* convert to milliseconds */
+    }
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_end;
+
+    if (m_stmt_start_write_time_is_set &&
+        (getrusage(RUSAGE_THREAD, &rusage_end) == 0))
+    {
+      ulonglong val_utime =
+        RUSAGE_DIFF_USEC(rusage_end.ru_utime, stmt_start_write_time.ru_utime);
+      ulonglong val_stime =
+        RUSAGE_DIFF_USEC(rusage_end.ru_stime, stmt_start_write_time.ru_stime);
+      m_stmt_total_write_time = val_utime + val_stime; /* Units: microseconds */
+      m_stmt_total_write_time /= 1000; /* convert to milliseconds */
+    }
+#else
+#error implement getting current thread CPU time on this platform
+#endif
 }

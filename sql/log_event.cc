@@ -1308,6 +1308,12 @@ bool Log_event::write_header(IO_CACHE* file, ulong event_data_length)
                                     sizeof(header)
                                     - (FLAGS_OFFSET + sizeof(flags))) != 0);
   }
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  // For RBR events, capture the binlog bytes written
+  if (ret == 0 && is_row_log_event()){
+    thd->inc_row_binlog_bytes_written(data_written);
+  }
+#endif
   DBUG_RETURN( ret);
 }
 

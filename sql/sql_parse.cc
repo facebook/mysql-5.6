@@ -1580,6 +1580,14 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
 
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
+
+    /* Update write statistics if stats collection is turned on and 
+      this stmt wrote binlog bytes 
+    */
+    if (write_stats_capture_enabled() && thd->get_row_binlog_bytes_written() > 0) {
+      thd->set_stmt_total_write_time();
+      store_write_statistics(thd);
+    }
   }
 
   if (sql_findings_control == SQL_INFO_CONTROL_ON)

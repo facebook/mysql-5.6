@@ -998,7 +998,8 @@ extern my_bool separate_conn_handling_thread;
 extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
-extern ulong slave_stats_daemon_interval;
+extern ulong write_stats_frequency;
+extern uint write_stats_count;
 
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
@@ -1109,6 +1110,15 @@ inline bool sql_id_is_needed()
                  column_stats_control == SQL_INFO_CONTROL_ON ||
                  sql_findings_control == SQL_INFO_CONTROL_ON ? true : false);
   return needed;
+}
+
+/* write_stats_capture_enabled
+     Returns TRUE if capturing of write statistics is enabled
+ */
+inline bool write_stats_capture_enabled() 
+{ 
+  return sql_stats_control == SQL_INFO_CONTROL_ON 
+    && write_stats_count > 0 && write_stats_frequency > 0; 
 }
 
 /*
@@ -1345,6 +1355,7 @@ extern PSI_mutex_key
   key_LOCK_global_sql_plans,
   key_LOCK_global_active_sql,
   key_LOCK_global_sql_findings,
+  key_LOCK_global_write_statistics,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

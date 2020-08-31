@@ -709,6 +709,10 @@ my_bool sql_plans_capture_apply_filter;
 my_bool normalized_plan_id;
 /* Controls whether MySQL send an error when running duplicate statements */
 uint sql_maximum_duplicate_executions;
+/* Controls num most recent data points to collect for information_schema.write_statistics */
+uint write_stats_count;
+/* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
+ulong write_stats_frequency;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1093,6 +1097,8 @@ mysql_mutex_t LOCK_global_active_sql;
 mysql_mutex_t LOCK_global_sql_findings;
 /* Lock to protect sql_stats_snapshot */
 mysql_rwlock_t LOCK_sql_stats_snapshot;
+/* Lock to protect global_write_statistics map structure */
+mysql_mutex_t LOCK_global_write_statistics;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2499,6 +2505,7 @@ void clean_up(bool print_message)
   free_global_sql_plans();
   free_global_active_sql();
   free_global_sql_findings();
+  free_global_write_statistics();
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   free_aux_user_table_stats();
 #endif
@@ -2640,6 +2647,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_active_sql);
   mysql_mutex_destroy(&LOCK_global_sql_findings);
   mysql_rwlock_destroy(&LOCK_sql_stats_snapshot);
+  mysql_mutex_destroy(&LOCK_global_write_statistics);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5627,6 +5635,8 @@ static int init_thread_environment()
   mysql_mutex_init(key_LOCK_global_sql_findings,
                    &LOCK_global_sql_findings, MY_MUTEX_INIT_ERRCHK);
   mysql_rwlock_init(key_rwlock_sql_stats_snapshot, &LOCK_sql_stats_snapshot);
+  mysql_mutex_init(key_LOCK_global_write_statistics,
+                   &LOCK_global_write_statistics, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -12809,6 +12819,7 @@ PSI_mutex_key
   key_LOCK_global_sql_plans,
   key_LOCK_global_active_sql,
   key_LOCK_global_sql_findings,
+  key_LOCK_global_write_statistics,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12936,6 +12947,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_sql_plans, "LOCK_global_sql_plans", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_active_sql, "LOCK_global_active_sql", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_sql_findings, "LOCK_global_sql_findings", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_write_statistics, "LOCK_global_write_statistics", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

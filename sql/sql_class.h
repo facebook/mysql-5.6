@@ -3373,6 +3373,30 @@ private:
   */
   ulonglong m_compilation_cpu;
 
+  /**
+     Total binlog bytes written per stmt.
+  */
+  ulonglong m_binlog_bytes_written;
+
+  /**
+     Captures the time when we start writing rows for a stmt.
+  */
+#if HAVE_CLOCK_GETTIME
+  timespec m_stmt_start_write_time;
+#elif HAVE_GETRUSAGE
+  struct rusage m_stmt_start_write_time;
+#endif
+
+  /**
+     Whether we set the value of m_stmt_start_write_time.
+  */
+  bool m_stmt_start_write_time_is_set;
+
+  /**
+     Total time spent writing rows for stmt.
+  */
+  ulonglong m_stmt_total_write_time;
+
 private:
   std::shared_ptr<explicit_snapshot> m_explicit_snapshot;
 
@@ -3461,6 +3485,15 @@ public:
 
   void time_out_user_resource_limits();
 
+  const char* get_user_name()
+  { 
+    return (m_user_connect && m_user_connect->user) 
+      ? m_user_connect->user : "NULL"; 
+  }
+
+  const char* get_db_name()
+  { return db ? db : "NULL"; }
+
   ulonglong sql_cpu = 0;
 
 public:
@@ -3508,6 +3541,22 @@ public:
 
   void inc_compilation_cpu(ulonglong val)
   { m_compilation_cpu += val; }
+
+  ulonglong get_row_binlog_bytes_written() const
+  { return m_binlog_bytes_written; }
+
+  void set_row_binlog_bytes_written(ulonglong val)
+  { m_binlog_bytes_written = val; }
+
+  void inc_row_binlog_bytes_written(ulonglong val)
+  { m_binlog_bytes_written += val; }
+
+  ulonglong get_stmt_total_write_time() const
+  { return m_stmt_total_write_time; }
+
+  void set_stmt_total_write_time();
+
+  void set_stmt_start_write_time();
 
   ulonglong get_stmt_tmp_table_disk_usage_peak()
     { return m_stmt_tmp_table_disk_usage_peak; }

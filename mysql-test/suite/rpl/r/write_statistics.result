@@ -1,0 +1,228 @@
+Case 1: Write stats are not collected by default since the feature is turned off.
+SELECT @@SQL_STATS_CONTROL;
+@@SQL_STATS_CONTROL
+OFF_HARD
+SELECT @@WRITE_STATS_COUNT;
+@@WRITE_STATS_COUNT
+0
+SELECT @@WRITE_STATS_FREQUENCY;
+@@WRITE_STATS_FREQUENCY
+0
+select count(*) from information_schema.write_statistics;
+count(*)
+0
+Case 2: Write stats are not collected if WRITE_STATS_COUNT is 0.
+SET @@GLOBAL.SQL_STATS_CONTROL="ON";
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
+SELECT @@SQL_STATS_CONTROL;
+@@SQL_STATS_CONTROL
+ON
+SELECT @@WRITE_STATS_COUNT;
+@@WRITE_STATS_COUNT
+0
+SELECT @@WRITE_STATS_FREQUENCY;
+@@WRITE_STATS_FREQUENCY
+1
+select count(*) from information_schema.write_statistics;
+count(*)
+0
+Case 3: Write stats are not collected if WRITE_STATS_FREQUENCY is 0.
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=0;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+SELECT @@SQL_STATS_CONTROL;
+@@SQL_STATS_CONTROL
+ON
+SELECT @@WRITE_STATS_COUNT;
+@@WRITE_STATS_COUNT
+2
+SELECT @@WRITE_STATS_FREQUENCY;
+@@WRITE_STATS_FREQUENCY
+0
+select count(*) from information_schema.write_statistics;
+count(*)
+0
+reset 
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 4: Write stats are collected for stmts that write to binary log but not for read stmts
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+SELECT @@SQL_STATS_CONTROL;
+@@SQL_STATS_CONTROL
+ON
+SELECT @@WRITE_STATS_COUNT;
+@@WRITE_STATS_COUNT
+2
+SELECT @@WRITE_STATS_FREQUENCY;
+@@WRITE_STATS_FREQUENCY
+10000
+select count(*) from information_schema.write_statistics;
+count(*)
+0
+Create table t(id int not null) ENGINE=InnoDB;
+insert into t values(1);
+This should have inserted 4 rows, 1 row per dimension into write_statistics 
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	1
+USER	1
+Doing another insert should add metrics to the existing rows
+select max(write_data_bytes) from information_schema.write_statistics into @bbw;
+insert into t values(2);
+select type, count(*) from information_schema.write_statistics where write_data_bytes > @bbw group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	1
+USER	1
+Update & Delete statements should insert one new row each for new sql ids
+update t set id = 3 where id = 1;
+delete from t where id in (2, 3);
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	3
+USER	1
+Select statements should add anything to write_statistics
+select id from t;
+id
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	3
+USER	1
+reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 5: Write stats are collected for each sql_id in a transaction
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+START TRANSACTION;
+insert into t values(1);
+update t set id = 2 where id = 1;
+update t set id = 3 where id = 2;
+delete from t where id = 3;
+COMMIT;
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	3
+USER	1
+reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 6: Only upto WRITE_STATS_COUNT most recent data point are collected
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+insert into t values(1);
+select sleep(1);
+sleep(1)
+0
+select max(timestamp) from information_schema.write_statistics into @ts;
+insert into t values(2);
+select sleep(1);
+sleep(1)
+0
+insert into t values(3);
+select sleep(1);
+sleep(1)
+0
+insert into t values(4);
+select count(distinct timestamp) from information_schema.write_statistics;
+count(distinct timestamp)
+2
+select min(timestamp) > @ts as must_be_1 from information_schema.write_statistics;
+must_be_1
+1
+reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 6.5: CPU write time test
+Insert 2000 rows into t
+CREATE PROCEDURE bulkInsert()
+BEGIN
+DECLARE v1 INT DEFAULT 2000;
+WHILE v1 > 0 DO
+INSERT INTO t VALUES(1);
+SET v1 = v1 - 1;
+END WHILE;
+END//
+Call bulkInsert();
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+long running update, insert and delete
+insert into t (select * from t limit 2000);
+update t set id = 2 where id = 1;
+delete from t where id = 2;
+select count(*) from information_schema.write_statistics where cpu_write_time_ms > 0 and type = 'sql_id';
+count(*)
+3
+reset 
+DROP PROCEDURE bulkInsert;
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 6.6: Dynamically change write_stats_count
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
+SET @@GLOBAL.WRITE_STATS_COUNT=1;
+insert into t values(1);
+select sleep(1);
+sleep(1)
+0
+insert into t values(1);
+select sleep(1);
+sleep(1)
+0
+select count(distinct timestamp) = 1 as must_be_true from information_schema.write_statistics;
+must_be_true
+1
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+insert into t values(1);
+select sleep(1);
+sleep(1)
+0
+select count(distinct timestamp) = 2 as must_be_true from information_schema.write_statistics;
+must_be_true
+1
+SET @@GLOBAL.WRITE_STATS_COUNT=1;
+insert into t values(1);
+select count(distinct timestamp) = 1 as must_be_true from information_schema.write_statistics;
+must_be_true
+1
+reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Case 7: Stats for multiple users are stored
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+insert into t values(1);
+create user user_super1@localhost identified by 'su1';
+grant all on *.* to user_super1@localhost with grant option;
+insert into t values(2);
+select type, count(*) from information_schema.write_statistics group by type;
+type	count(*)
+CLIENT	1
+SHARD	1
+SQL_ID	1
+USER	2
+reset 
+TRUNCATE t;
+drop user user_super1@localhost;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+Cleanup
+DROP TABLE t;
+SET @@GLOBAL.SQL_STATS_CONTROL="OFF_HARD";
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=0;

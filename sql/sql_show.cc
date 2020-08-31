@@ -10430,6 +10430,8 @@ ST_SCHEMA_TABLE schema_tables[]=
     create_schema_table, fill_rbr_bi_inconsistencies, 0, 0, -1, -1, 0, 0},
   {"REPLICA_STATISTICS", replica_statistics_fields_info, create_schema_table,
    fill_replica_statistics, NULL, NULL, -1, -1, false, 0},
+  {"WRITE_STATISTICS", write_statistics_fields_info, create_schema_table,
+  fill_write_statistics, NULL, NULL, -1, -1, false, 0},
 #endif
   {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
    fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},

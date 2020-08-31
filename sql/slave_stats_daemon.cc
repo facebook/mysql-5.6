@@ -19,8 +19,6 @@
  * continuously sending lag statistics from slaves to masters
  */
 
-ulong slave_stats_daemon_interval;
-
 pthread_t slave_stats_daemon_thread;
 mysql_mutex_t LOCK_slave_stats_daemon;
 mysql_cond_t COND_slave_stats_daemon;
@@ -76,18 +74,18 @@ pthread_handler_t handle_slave_stats_daemon(void *arg MY_ATTRIBUTE((unused)))
   MYSQL *mysql = nullptr;
   while(true) {
     mysql_mutex_lock(&LOCK_slave_stats_daemon);
-    set_timespec(abstime, slave_stats_daemon_interval);
+    set_timespec(abstime, write_stats_frequency);
     while ((!error || error == EINTR) && !abort_slave_stats_daemon) {
       /*
-       slave_stats_daemon_interval is set to 0. Do not send stats to master.
+       write_stats_frequency is set to 0. Do not send stats to master.
        Wait until a signal is received either for aborting the thread or for
-       updating slave_stats_daemon_interval.
+       updating write_stats_frequency.
       */
-      if (slave_stats_daemon_interval == 0) {
+      if (write_stats_frequency == 0) {
         error = mysql_cond_wait(&COND_slave_stats_daemon, &LOCK_slave_stats_daemon);
       } else {
         /*
-        wait for slave_stats_daemon_interval seconds before sending next set
+        wait for write_stats_frequency seconds before sending next set
         of slave lag statistics
         */
         error = mysql_cond_timedwait(&COND_slave_stats_daemon, &LOCK_slave_stats_daemon, &abstime);

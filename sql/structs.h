@@ -614,6 +614,12 @@ typedef struct st_sql_finding {
  */
 typedef std::vector<SQL_FINDING> SQL_FINDING_VEC;
 
+/* WRITE_STATS - stores write statistics for a sql statement, shard, client or user */
+typedef struct st_write_stats {
+  ulonglong binlog_bytes_written;         /* Bytes written into binlog */
+  ulonglong cpu_write_time_ms;            /* CPU write time spent in ms */
+} WRITE_STATS;
+
 /*
 ** enum_map_name
 **

@@ -177,6 +177,7 @@ DROP TABLE t1, t2;
 | USER_STATISTICS                       |
 | USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
+| WRITE_STATISTICS                      |
 | ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
@@ -279,6 +280,7 @@ DROP TABLE t1, t2;
 | USER_STATISTICS                       |
 | USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
+| WRITE_STATISTICS                      |
 Wildcard: inf_rmation_schema
 +--------------------+
 |     Databases      |

@@ -1956,10 +1956,6 @@ The following options may be given as the first argument:
  network before writing them to the relay log. Enabled by
  default.
  (Defaults to on; use --skip-slave-sql-verify-checksum to disable.)
- --slave-stats-daemon-interval=# 
- Period(seconds) for the background thread responsible for
- sending slave lag statistics to master.New period is
- applied after the current period finishes.
  --slave-transaction-retries=# 
  Number of times the slave SQL thread will retry a
  transaction in case it failed with a deadlock or elapsed
@@ -2198,6 +2194,13 @@ The following options may be given as the first argument:
  equal to 0. The value 0 disables enforcing the limit.
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
+ --write-stats-count[=#] 
+ Maximum number of most recent data points to be collected
+ for information_schema.write_statistics time series.
+ --write-stats-frequency=# 
+ This variable determines the frequency(seconds) at which
+ write stats and replica lag stats are collected on
+ primaries
  --write-time-check-batch[=#] 
  Frequency (specified in number of rows) of checking
  whether the CPU time of DML queries exceeded the limit
@@ -2791,7 +2794,6 @@ slave-rows-search-algorithms TABLE_SCAN,INDEX_SCAN
 slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
-slave-stats-daemon-interval 0
 slave-transaction-retries 10
 slave-tx-isolation REPEATABLE-READ
 slave-type-conversions 
@@ -2855,6 +2857,8 @@ working-duration 3600
 write-control-level OFF
 write-cpu-limit-milliseconds 0
 write-query-throttling-limit 0
+write-stats-count 0
+write-stats-frequency 0
 write-time-check-batch 0
 zstd-net-compression-level 3
 

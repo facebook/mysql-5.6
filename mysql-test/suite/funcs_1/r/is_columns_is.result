@@ -675,6 +675,11 @@ def	information_schema	VIEWS	TABLE_CATALOG	1		NO	varchar	512	1536	NULL	NULL	NULL
 def	information_schema	VIEWS	TABLE_NAME	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	VIEWS	TABLE_SCHEMA	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	VIEWS	VIEW_DEFINITION	4	NULL	NO	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8	utf8_general_ci	longtext			select	
+def	information_schema	WRITE_STATISTICS	CPU_WRITE_TIME_MS	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	WRITE_STATISTICS	TIMESTAMP	1	0000-00-00 00:00:00	NO	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
+def	information_schema	WRITE_STATISTICS	TYPE	2		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
+def	information_schema	WRITE_STATISTICS	VALUE	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
+def	information_schema	WRITE_STATISTICS	WRITE_DATA_BYTES	4	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 ##########################################################################
 # Show the quotient of CHARACTER_OCTET_LENGTH and CHARACTER_MAXIMUM_LENGTH
 ##########################################################################
@@ -1409,3 +1414,8 @@ NULL	information_schema	USER_TABLE_STATISTICS	QUERIES_EMPTY	bigint	NULL	NULL	NUL
 3.0000	information_schema	VIEWS	SECURITY_TYPE	varchar	7	21	utf8	utf8_general_ci	varchar(7)
 3.0000	information_schema	VIEWS	CHARACTER_SET_CLIENT	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	VIEWS	COLLATION_CONNECTION	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+NULL	information_schema	WRITE_STATISTICS	TIMESTAMP	datetime	NULL	NULL	NULL	NULL	datetime
+3.0000	information_schema	WRITE_STATISTICS	TYPE	varchar	16	48	utf8	utf8_general_ci	varchar(16)
+3.0000	information_schema	WRITE_STATISTICS	VALUE	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+NULL	information_schema	WRITE_STATISTICS	WRITE_DATA_BYTES	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	WRITE_STATISTICS	CPU_WRITE_TIME_MS	bigint	NULL	NULL	NULL	NULL	bigint(21)

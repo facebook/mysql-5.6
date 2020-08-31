@@ -407,6 +407,13 @@ int  fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_sql_findings(void);
 void store_sql_findings(THD *thd, char *query_text);
 
+/* For information_schema.write_statistics */
+extern ST_FIELD_INFO write_statistics_fields_info[];
+extern mysql_mutex_t LOCK_global_write_statistics;
+int  fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
+void free_global_write_statistics(void);
+void store_write_statistics(THD *thd);
+
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];
 int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
