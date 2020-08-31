@@ -6568,6 +6568,9 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
   int error= 0, close_on_error= FALSE;
   char new_name[FN_REFLEN], *new_name_ptr, *old_name, *file_to_open;
 
+  // Indicates if an error occured inside raft plugin
+  int consensus_error= 0;
+
   DBUG_ENTER("MYSQL_BIN_LOG::new_file_impl");
   if (!is_open())
   {
@@ -6730,7 +6733,8 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
   }
 
   // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
-  if (rotate_via_raft) {
+  if (rotate_via_raft)
+  {
     RaftReplicateMsgOpType op_type=
         RaftReplicateMsgOpType::OP_TYPE_ROTATE;
     if (no_op)
@@ -6738,14 +6742,27 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     else if (config_change_rotate)
       op_type= RaftReplicateMsgOpType::OP_TYPE_CHANGE_CONFIG;
 
-    error= RUN_HOOK_STRICT(raft_replication, before_flush,
-                           (current_thd, &raft_io_cache, op_type));
+    DBUG_EXECUTE_IF("simulate_before_flush_error_on_new_file", error= 1;);
+
+    if (!error)
+      error= RUN_HOOK_STRICT(raft_replication, before_flush,
+                            (current_thd, &raft_io_cache, op_type));
 
     // time to safely readjust the cur_log_ext back to expected value
-    cur_log_ext++;
-    if (!error) {
+    if (!error)
+    {
+      cur_log_ext++;
       error= RUN_HOOK_STRICT(
           raft_replication, before_commit, (current_thd, false));
+    }
+
+    if (error)
+    {
+      sql_print_error("Failed to rotate binary log");
+      consensus_error= 1;
+      current_thd->clear_error(); // Clear previous errors first
+      my_error(ER_RAFT_FILE_ROTATION_FAILED, MYF(0), 1);
+      goto end;
     }
   }
 
@@ -6853,9 +6870,14 @@ end:
     if (binlog_error_action == ABORT_SERVER ||
         binlog_error_action == ROLLBACK_TRX)
     {
-      exec_binlog_error_action_abort("Either disk is full or file system is"
-                                     " read only while rotating the binlog."
-                                     " Aborting the server.");
+      // Abort the server only if this is not a consensus error. Aborting the
+      // server for consensus error is not good since it might lead to crashing
+      // all instances in the ring on failure to propagate
+      // rotate/no-op/config-change events
+      if (!consensus_error)
+        exec_binlog_error_action_abort("Either disk is full or file system is"
+                                       " read only while rotating the binlog."
+                                       " Aborting the server.");
     }
     else
       sql_print_error("Could not open %s for logging (error %d). "
