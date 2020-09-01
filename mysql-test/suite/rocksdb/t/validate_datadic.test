@@ -77,3 +77,11 @@ DROP TABLE IF EXISTS t1;
 --let $assert_text = The "test" database should have no tables in MySQL DD
 --let $assert_cond = [SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = "test"] = 0
 --source include/assert.inc
+
+# db/table contains special character
+CREATE DATABASE `a-b`;
+CREATE TABLE `548eea1a-277f-414b-915d-913dc5ae5f3a` (a int) ENGINE=ROCKSDB;
+--let $restart_parameters=
+--source include/restart_mysqld.inc
+DROP TABLE `548eea1a-277f-414b-915d-913dc5ae5f3a`;
+DROP DATABASE `a-b`;

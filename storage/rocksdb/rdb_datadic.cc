@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#include <openssl/ssl.h>
 #ifdef USE_PRAGMA_IMPLEMENTATION
 #pragma implementation  // gcc: Class implementation
 #endif
@@ -4308,13 +4309,27 @@ bool Rdb_validate_tbls::validate(void) {
     if (tables.size() == 0) continue;
 
     const std::string dbname = schema->name().c_str();
+    // convert DD db/table name to my_charset_filename CHARSET_INFO
+    // db/table name in MyRocks DD use my_charset_filename CHARSET_INFO
+    // db/table name in DD use system_charset_info CHARSET_INFO
+    char dbbuff[FN_REFLEN];
+    tablename_to_filename(dbname.c_str(), dbbuff, sizeof(dbbuff));
+    std::string expected_db_name(dbbuff);
     for (const dd::String_type &table_name : tables) {
       const std::string tablename = table_name.c_str();
+
+      // convert DD db/table name to my_charset_filename CHARSET_INFO
+      // db/table name in MyRocks DD use my_charset_filename CHARSET_INFO
+      // db/table name in DD use system_charset_info CHARSET_INFO
+      char tbbuff[FN_REFLEN];
+      tablename_to_filename(tablename.c_str(), tbbuff, sizeof(tbbuff));
+      std::string expected_tbl_name(tbbuff);
       /*
         Attempt to remove the table entry from the list of tables.  If this
         fails then we know we had a DD table that wasn't registered in RocksDB.
       */
-      if (m_list.count(dbname) == 0 || m_list[dbname].erase(tablename) == 0) {
+      if (m_list.count(expected_db_name) == 0 ||
+          m_list[expected_db_name].erase(expected_tbl_name) == 0) {
         sql_print_warning(
             "RocksDB: Schema mismatch - "
             "A DD table exists for table %s.%s, "
@@ -4325,8 +4340,9 @@ bool Rdb_validate_tbls::validate(void) {
     }
 
     /* Remove any databases which have no more tables listed */
-    if (m_list.count(dbname) == 1 && m_list[dbname].size() == 0) {
-      m_list.erase(dbname);
+    if (m_list.count(expected_db_name) == 1 &&
+        m_list[expected_db_name].size() == 0) {
+      m_list.erase(expected_db_name);
     }
   }
 
