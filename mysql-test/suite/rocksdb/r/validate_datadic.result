@@ -12,3 +12,8 @@ include/assert_grep.inc [Expect 1 warning that we are missing one RocksDB table]
 DROP TABLE t2;
 DROP TABLE IF EXISTS t1;
 include/assert.inc [The "test" database should have no tables in MySQL DD]
+CREATE DATABASE `a-b`;
+CREATE TABLE `548eea1a-277f-414b-915d-913dc5ae5f3a` (a int) ENGINE=ROCKSDB;
+# restart
+DROP TABLE `548eea1a-277f-414b-915d-913dc5ae5f3a`;
+DROP DATABASE `a-b`;
