@@ -8250,59 +8250,20 @@ int ha_rocksdb::create(const char *const name, TABLE *const table_arg,
 */
 
 bool ha_rocksdb::check_keyread_allowed(bool &pk_can_be_decoded,
-#ifndef DBUG_OFF
-                                       const TABLE_SHARE *table_arg, uint inx,
-                                       uint part, bool all_parts
-#else  /* DBUG_OFF */
-                                       const TABLE_SHARE *, uint, uint, bool
-#endif /* DBUG_OFF */
-) {
-
+                                       const TABLE_SHARE *, uint, uint, bool) {
   /*
-    (TODO) This code should be removed once the old formats are no longer
-    supported or used. Once this code is removed, Rdb_field_packing::setup()
-    should be updated, and '[mysql80] Issue #108: Index-only scans do not work
-    for partitioned tables and extended keys' should also be dropped.
+    (TODO) Remove this function and index version checks, Also remove return
+    code from Rdb_field_packing:setup() and remove the changes for '[mysql80]
+    Issue #108: Index-only scans do not work for partitioned tables and
+    extended keys'.
+
+    For the cases of `create table t1 (a varchar(64), key (a(32)))`
+    and text/blob key columns, the sql layer seems to handle them
+    correctly regarding using index. InnoDB also seems to return
+    HA_KEYREAD_ONLY for these cases.
   */
-#ifndef DBUG_OFF
-  /*
-    Check to see if changes from SQL causes breaks our assumption that
-    keyreads are allowed
-  */
-  bool res = true;
-  KEY *const key_info = &table_arg->key_info[inx];
-
-  Rdb_field_packing dummy1;
-  res = dummy1.setup(nullptr, key_info->key_part[part].field, inx, part,
-                     key_info->key_part[part].length);
-
-  if (res && all_parts) {
-    for (uint i = 0; i < part; i++) {
-      Field *field;
-      if ((field = key_info->key_part[i].field)) {
-        Rdb_field_packing dummy;
-        if (!dummy.setup(nullptr, field, inx, i,
-                         key_info->key_part[i].length)) {
-          /* Cannot do index-only reads for this column */
-          res = false;
-          break;
-        }
-      }
-    }
-  }
-
-  const uint pk = table_arg->primary_key;
-  if (inx == pk && all_parts &&
-      part + 1 == table_arg->key_info[pk].user_defined_key_parts) {
-    pk_can_be_decoded = res;
-  }
-
-  DBUG_ASSERT(res);
-  return res;
-#else  /* DBUG_OFF */
   pk_can_be_decoded = true;
   return true;
-#endif /* DBUG_OFF */
 }
 
 int ha_rocksdb::read_key_exact(const Rdb_key_def &kd,
