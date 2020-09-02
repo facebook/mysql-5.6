@@ -122,5 +122,7 @@ class RaftListenerQueueIf {
    */
   virtual QueueElement get() = 0;
 
+  virtual int init() = 0;
+
   virtual void deinit() = 0;
 };
