@@ -118,7 +118,10 @@ ha_rows table_statistics_by_table::get_row_count(void) {
 }
 
 table_statistics_by_table::table_statistics_by_table()
-    : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {}
+    : PFS_engine_table(&m_share, &m_pos),
+      m_pos(0),
+      m_next_pos(0),
+      m_stats_inited(false) {}
 
 void table_statistics_by_table::reset_position(void) {
   m_pos.m_index = 0;
@@ -187,8 +190,104 @@ int table_statistics_by_table::index_next(void) {
   return HA_ERR_END_OF_FILE;
 }
 
+/**
+  Populate aggregate stats container for table share.
+ */
+void table_statistics_by_table::populate_stats_for_share(PFS_table_share *pfs) {
+  pfs_optimistic_state lock;
+  pfs->m_lock.begin_optimistic_lock(&lock);
+
+  PFS_table_query_stat_visitor visitor;
+  visitor.visit_table_share(pfs);
+
+  /*
+    Check if table share has mutated since we took the optimistic
+    lock. In case it was mutated, it is not safe to use stats for this
+    share. Return in that case.
+   */
+  if (!pfs->m_lock.end_optimistic_lock(&lock)) {
+    return;
+  }
+
+  m_aggregate_stats[pfs] = visitor.m_stat;
+}
+
+/**
+  Populate aggregate stats container for table handle.
+ */
+void table_statistics_by_table::populate_stats_for_table(PFS_table *table) {
+  pfs_optimistic_state lock;
+  table->m_lock.begin_optimistic_lock(&lock);
+
+  PFS_table_query_stat_visitor visitor;
+  visitor.visit_table(table);
+
+  PFS_table_share *share = sanitize_table_share(table->m_share);
+  if (share == NULL) {
+    return;
+  }
+
+  /*
+    Return in case table share entry is not present in aggregate
+    stats container.
+   */
+  if (m_aggregate_stats.find(share) == m_aggregate_stats.end()) {
+    return;
+  }
+
+  /*
+    Check if table handle has mutated since we took the optimistic
+    lock. In case it was mutated, it is not safe to use stats for this
+    table. Return in that case.
+   */
+  if (!table->m_lock.end_optimistic_lock(&lock)) {
+    return;
+  }
+
+  m_aggregate_stats[share].aggregate(&visitor.m_stat);
+}
+
+/**
+   Popualate aggregate stats for all the table shares. This is evaluated
+   when making the first row of the scan. Evaluating aggregate stats
+   ensures that the full table and index scan of the table becomes
+   extremely efficient. This ensures that no iteration happens through all the
+   table handles in case of every call to rnd_next, index_next.
+ */
+void table_statistics_by_table::evaluate_aggregate_stats(void) {
+  PFS_table_share *pfs;
+  uint index = 0;
+  PFS_table_share_iterator pfs_it = global_table_share_container.iterate(index);
+  do {
+    pfs = pfs_it.scan_next(&index);
+    if (pfs != NULL) {
+      populate_stats_for_share(pfs);
+    }
+  } while (pfs != NULL);
+
+  index = 0;
+  PFS_table *table;
+  PFS_table_iterator table_it = global_table_container.iterate(index);
+  do {
+    table = table_it.scan_next(&index);
+    if (table != NULL) {
+      populate_stats_for_table(table);
+    }
+  } while (table != NULL);
+}
+
 int table_statistics_by_table::make_row(PFS_table_share *share) {
   pfs_optimistic_state lock;
+  PFS_table_query_stat query_stat;
+  if (!m_stats_inited) {
+    /*
+      Evaluate aggregate stats when returning the first row
+      of index and full table scan.
+     */
+    evaluate_aggregate_stats();
+    m_stats_inited = true;
+  }
+  auto it = m_aggregate_stats.find(share);
 
   share->m_lock.begin_optimistic_lock(&lock);
 
@@ -196,14 +295,24 @@ int table_statistics_by_table::make_row(PFS_table_share *share) {
     return HA_ERR_RECORD_DELETED;
   }
 
-  PFS_table_query_stat_visitor visitor;
-  PFS_object_iterator::visit_tables(share, &visitor);
+  /*
+    First look if the table share is present in aggregate stats
+    evaluated at beginning of the scan. If table share is absent,
+    evaluate stats dynamically
+   */
+  if (it == m_aggregate_stats.end()) {
+    PFS_table_query_stat_visitor visitor;
+    PFS_object_iterator::visit_tables(share, &visitor);
+    query_stat.aggregate(&visitor.m_stat);
+  } else {
+    query_stat.aggregate(&it->second);
+  }
 
   if (!share->m_lock.end_optimistic_lock(&lock)) {
     return HA_ERR_RECORD_DELETED;
   }
 
-  m_row.m_stat.set(&visitor.m_stat);
+  m_row.m_stat.set(&query_stat);
 
   return 0;
 }
