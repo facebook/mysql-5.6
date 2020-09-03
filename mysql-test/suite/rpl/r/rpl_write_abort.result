@@ -1,0 +1,1719 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table test(a int, b int, c int) engine=innodb;
+create table staging(a int, b int, c int) engine=innodb;
+insert into staging values (1, 1, 1), (2, 2, 2), (3, 3, 3);
+insert into staging values (4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into staging values (7, 7, 7), (8, 8, 8), (9, 9, 9);
+insert into staging values (10, 10, 10), (11, 11, 11), (12, 12, 12);
+insert into staging values (13, 13, 13), (14, 14, 14), (15, 15, 15);
+Set CPU limit for milliseconds to 1
+set @@GLOBAL.write_cpu_limit_milliseconds=1;
+include/sync_slave_sql_with_master.inc
+Test 1: Single Statement Tests
+connect to master
+Test 1.1: Insert Query
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 1.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 1.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 1.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+this query raises warning
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 1.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+this query raises warning
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 1.2: Update Query
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 1.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+update test set b=-1 where a <= 1;
+update test set b=-2 where a <= 2;
+this query raises warning
+update test set b=-3 where a <= 3;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-3 where a <= 3	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 1.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+update test set b=-11 where a <= 1;
+update test set b=-12 where a <= 2;
+this query raises warning
+update test set b=-13 where a <= 3;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-13 where a <= 3	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 1.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+update test set b=-21 where a <= 1;
+update test set b=-22 where a <= 2;
+update test set b=-23 where a <= 3;
+update test set b=-24 where a <= 4;
+this query raises warning
+update test set b=-25 where a <= 5;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-25 where a <= 5	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 1.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+update test set b=-31 where a <= 1;
+update test set b=-32 where a <= 2;
+update test set b=-33 where a <= 3;
+update test set b=-34 where a <= 4;
+this query raises warning
+update test set b=-35 where a <= 5;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-35 where a <= 5	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 1.3: Delete Query
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 1.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+this query raises warning
+delete from test where a in (4, 5, 6);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 1.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+this query raises warning
+delete from test where a in (4, 5, 6);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 1.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+delete from test where a in (4, 5, 6);
+delete from test where a in (7, 8, 9, 10);
+this query raises warning
+delete from test where a in (11, 12, 13, 14, 15);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 1.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+delete from test where a in (4, 5, 6);
+delete from test where a in (7, 8, 9, 10);
+this query raises warning
+delete from test where a in (11, 12, 13, 14, 15);
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+Test 2: Multi-Statement Tests
+connect to master
+Test 2.1: Insert Query - Multi-statement
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 2.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3);	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+Test 2.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3);	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 2.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+Test 2.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 2.2: Update Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 2.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2;	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+Test 2.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2;	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 2.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-23 where a <= 3;	3
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+Test 2.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-23 where a <= 3;	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 2.3: Delete Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 2.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3);	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 2.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3);	2
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	2
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 2.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 2.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 2.4: Mixed Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 2.4.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+e636733e8eacdd0931857413899194b5	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5);	2
+9b22f91fa30dc07f7f2bfa05e1a5d381	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (3);	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 2.4.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+e636733e8eacdd0931857413899194b5	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5);	2
+9b22f91fa30dc07f7f2bfa05e1a5d381	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (3);	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	3
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 2.4.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+154198f840d5f713f2b8943691a4a8b6	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17);	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 2.4.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+154198f840d5f713f2b8943691a4a8b6	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17);	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+Test 3: Transaction Tests
+connect to master
+Test 3.1: Insert Query - Multi-statement
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 3.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values(1, 1, 1);
+select 2;
+2
+2
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+3
+3
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 3.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values(1, 1, 1);
+select 2;
+2
+2
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+3
+3
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 3.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values(1, 1, 1);
+select 2;
+2
+2
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+3
+3
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+4
+4
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+5
+5
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 3.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values(1, 1, 1);
+select 2;
+2
+2
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+3
+3
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+4
+4
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+5
+5
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 3.2: Update Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 3.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+update test set b=-1 where a <= 1;
+select 2;
+2
+2
+update test set b=-2 where a <= 2;
+select 3;
+3
+3
+update test set b=-3 where a <= 3;
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 3.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+update test set b=-1 where a <= 1;
+select 2;
+2
+2
+update test set b=-2 where a <= 2;
+select 3;
+3
+3
+update test set b=-3 where a <= 3;
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 3.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+update test set b=-21 where a <= 1;
+select 2;
+2
+2
+update test set b=-22 where a <= 2;
+select 3;
+3
+3
+update test set b=-23 where a <= 3;
+select 4;
+4
+4
+update test set b=-24 where a <= 4;
+select 5;
+5
+5
+update test set b=-25 where a <= 5;
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-23 where a <= 3	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Test 3.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+update test set b=-21 where a <= 1;
+select 2;
+2
+2
+update test set b=-22 where a <= 2;
+select 3;
+3
+3
+update test set b=-23 where a <= 3;
+select 4;
+4
+4
+update test set b=-24 where a <= 4;
+select 5;
+5
+5
+update test set b=-25 where a <= 5;
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-23 where a <= 3	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 3.3: Delete Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 3.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+delete from test where a = 1;
+select 2;
+2
+2
+delete from test where a in (2, 3);
+select 3;
+3
+3
+delete from test where a in (4, 5, 6);
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 3.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+delete from test where a = 1;
+select 2;
+2
+2
+delete from test where a in (2, 3);
+select 3;
+3
+3
+delete from test where a in (4, 5, 6);
+select 4;
+4
+4
+select 5;
+5
+5
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 3.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+delete from test where a = 1;
+select 2;
+2
+2
+delete from test where a in (2, 3);
+select 3;
+3
+3
+delete from test where a in (4, 5, 6);
+select 4;
+4
+4
+delete from test where a in (7, 8, 9, 10);
+select 5;
+5
+5
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 3.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+delete from test where a = 1;
+select 2;
+2
+2
+delete from test where a in (2, 3);
+select 3;
+3
+3
+delete from test where a in (4, 5, 6);
+select 4;
+4
+4
+delete from test where a in (7, 8, 9, 10);
+select 5;
+5
+5
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+6
+6
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+connect to master
+Test 3.4: Mixed Query - Multi-statement
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+setting dbug.force_long_running_query which will
+make the query long running after processing number
+of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+Test 3.4.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values (16, 16, 16);
+select 2;
+2
+2
+delete from test where a in (2);
+select 3;
+3
+3
+update test set b=-1 where a in (4, 5);
+select 4;
+4
+4
+insert into test values (17, 17, 17);
+select 5;
+5
+5
+delete from test where a in (3);
+select 6;
+6
+6
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+7
+7
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+e636733e8eacdd0931857413899194b5	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 3.4.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values (16, 16, 16);
+select 2;
+2
+2
+delete from test where a in (2);
+select 3;
+3
+3
+update test set b=-1 where a in (4, 5);
+select 4;
+4
+4
+insert into test values (17, 17, 17);
+select 5;
+5
+5
+delete from test where a in (3);
+select 6;
+6
+6
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+7
+7
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+e636733e8eacdd0931857413899194b5	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+Test 3.4.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values (16, 16, 16);
+select 2;
+2
+2
+delete from test where a in (2);
+select 3;
+3
+3
+update test set b=-1 where a in (4, 5);
+select 4;
+4
+4
+insert into test values (17, 17, 17);
+select 5;
+5
+5
+delete from test where a in (3);
+select 6;
+6
+6
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+7
+7
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+154198f840d5f713f2b8943691a4a8b6	50091	Note	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+Test 3.4.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+this query raises warning
+start transaction;
+select 1;
+1
+1
+insert into test values (16, 16, 16);
+select 2;
+2
+2
+delete from test where a in (2);
+select 3;
+3
+3
+update test set b=-1 where a in (4, 5);
+select 4;
+4
+4
+insert into test values (17, 17, 17);
+select 5;
+5
+5
+delete from test where a in (3);
+select 6;
+6
+6
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+7
+7
+commit;
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+sql_id	code	level	message	query_text	count
+154198f840d5f713f2b8943691a4a8b6	50091	Warning	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
+select error_code, error_name, errors_total
+from information_schema.ERROR_STATISTICS
+where error_code = 50091;
+error_code	error_name	errors_total
+50091	ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS	1
+flush statistics;
+set @@global.debug= '-d,dbug.force_long_running_query';
+include/sync_slave_sql_with_master.inc
+set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_cpu_limit_milliseconds=0;
+set @@GLOBAL.write_time_check_batch=0;
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+drop table test;
+drop table staging;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

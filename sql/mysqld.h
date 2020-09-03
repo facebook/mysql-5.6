@@ -688,7 +688,7 @@ bool set_current_thread_priority();
 
 /**
  * Set the priority of an OS thread.
- * 
+ *
  * @param tid  The OS thread id.
  * @param pri  The priority to set the thread to.
  * @return     true on success, false otherwise.
@@ -1003,6 +1003,38 @@ extern ulong slave_stats_daemon_interval;
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
 extern uint max_db_stats_entries;
+
+/* write_control_level:
+ * Global variable to control write throttling for short running queries and
+ * abort for long running queries.
+ */
+/* values of write_control_level
+ * WRITE_CONTROL_LEVEL_OFF: write abort is disabled
+ * WRITE_CONTROL_LEVEL_NOTE: write abort warning is raised as a note
+ * WRITE_CONTROL_LEVEL_WARN: write abort warning is raised
+ */
+enum enum_write_control_level
+{
+  WRITE_CONTROL_LEVEL_OFF   = 0,
+  WRITE_CONTROL_LEVEL_NOTE  = 1,
+  WRITE_CONTROL_LEVEL_WARN  = 2,
+  /* add new control before the following line */
+  WRITE_CONTROL_LEVEL_INVALID
+};
+
+/* Global variable: write_control_level */
+extern ulong write_control_level;
+
+/* Global variable to denote the maximum CPU time (specified in milliseconds)
+ * limit for DML queries.
+ */
+extern uint write_cpu_limit_milliseconds;
+
+/* Global variable to denote the frequency (specified in number of rows) of
+ * checking whether DML queries exceeded the CPU time limit enforced by
+ * 'write_time_check_batch'
+ */
+extern uint write_time_check_batch;
 
 /*
   Global variable to control the implementation to get statistics per

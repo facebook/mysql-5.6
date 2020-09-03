@@ -7416,6 +7416,9 @@ ER_MAX_TMP_DISK_USAGE_EXCEEDED
 ER_WARN_FB_JSON_FUNCTION_CALLED
   eng "Json function called."
 
+ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
+
 #
 #  End of 5.6 error messages.
 #

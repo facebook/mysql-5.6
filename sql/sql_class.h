@@ -2552,6 +2552,11 @@ public:
   /* record the engine commit time */
   ulonglong engine_commit_time = 0;
 
+  /* record the number of rows affected by the transaction */
+  ulonglong trx_dml_row_count = 0;
+  /* record that a warning that a DML cpu time exceeded the limit was raised */
+  bool trx_dml_cpu_time_limit_warning = false;
+
   /* semi-sync whitelist version number for this thread */
   ulonglong semisync_whitelist_ver = 0;
 
@@ -5157,6 +5162,30 @@ public:
     variables.collation_connection= other->variables.collation_connection;
     variables.character_set_results= other->variables.character_set_results;
   }
+
+  /* DML start time */
+#if HAVE_CLOCK_GETTIME
+  timespec dml_start_time;
+#elif HAVE_GETRUSAGE
+  struct rusage dml_start_time;
+#endif
+  /* Stores the return value for 'clock_gettime' or 'getrusage' called to
+   * register the start time for DML stored in 'dml_start_time'
+   * */
+  int dml_start_result;
+
+  /* remember that dml_start_time is already initialized to avoid multiple
+   * starts of the clocks
+   * */
+  bool dml_start_time_is_set = false;
+
+  void set_dml_start_time();
+
+  ulonglong get_dml_cpu_time();
+
+  void dml_execution_cpu_limit_exceeded(ha_statistics* stats);
+
+  ulonglong get_dml_row_count(ha_statistics* stats);
 
 private:
   // Priority (nice value) of the system thread associated with this THD.

@@ -8056,6 +8056,7 @@ int handler::ha_write_row(uchar *buf)
 {
   int error;
   Log_func *log_func= Write_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type == F_WRLCK);
 
@@ -8070,6 +8071,11 @@ int handler::ha_write_row(uchar *buf)
     { error= write_row(buf); })
 
   MYSQL_INSERT_ROW_DONE(error);
+
+  /* check if the cpu execution time limit for DML is exceeded */
+  if (!error)
+    thd->dml_execution_cpu_limit_exceeded(&stats);
+
   if (unlikely(error))
     DBUG_RETURN(error);
 
@@ -8087,6 +8093,7 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data)
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type == F_WRLCK);
   Log_func *log_func= Update_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
 
   /*
     Some storage engines require that the new record is in record[0]
@@ -8102,6 +8109,11 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data)
     { error= update_row(old_data, new_data);})
 
   MYSQL_UPDATE_ROW_DONE(error);
+
+  /* check if the cpu execution time limit for DML is exceeded */
+  if (!error)
+    thd->dml_execution_cpu_limit_exceeded(&stats);
+
   if (unlikely(error))
     return error;
   if (unlikely(error= binlog_log_row(table, old_data, new_data, log_func)))
@@ -8115,6 +8127,8 @@ int handler::ha_delete_row(const uchar *buf)
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type == F_WRLCK);
   Log_func *log_func= Delete_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
+
   /*
     Normally table->record[0] is used, but sometimes table->record[1] is used.
   */
@@ -8130,6 +8144,11 @@ int handler::ha_delete_row(const uchar *buf)
     { error= delete_row(buf);})
 
   MYSQL_DELETE_ROW_DONE(error);
+
+  /* check if the cpu execution time limit for DML is exceeded */
+  if (!error)
+    thd->dml_execution_cpu_limit_exceeded(&stats);
+
   if (unlikely(error))
     return error;
   if (unlikely(error= binlog_log_row(table, buf, 0, log_func)))

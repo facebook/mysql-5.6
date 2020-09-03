@@ -504,6 +504,21 @@ my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;
 ulonglong max_tmp_disk_usage;
 
+/* write_control_level:
+ * Global variable to control write throttling for short running queries and
+ * abort for long running queries.
+ */
+ulong write_control_level;
+/* Global variable to denote the maximum CPU time (specified in milliseconds)
+ * limit for DML queries.
+ */
+uint write_cpu_limit_milliseconds;
+/* Global variable to denote the frequency (specified in number of rows) of
+ * checking whether DML queries exceeded the CPU time limit enforced by
+ * 'write_time_check_batch'
+ */
+uint write_time_check_batch;
+
 my_bool log_legacy_user;
 my_bool log_ddl;
 const char *opt_legacy_user_name_pattern;

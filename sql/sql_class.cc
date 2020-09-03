@@ -6185,3 +6185,169 @@ bool THD::set_thread_priority(int pri)
 
   DBUG_RETURN(ret);
 }
+
+/*
+  Set DML monitoring start time to measure resource usage
+ */
+void THD::set_dml_start_time()
+{
+  /* if the dml_start_time is already initialized then do nothing */
+  if (dml_start_time_is_set)
+    return;
+
+#if HAVE_CLOCK_GETTIME
+  dml_start_result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &dml_start_time);
+#elif HAVE_GETRUSAGE
+  dml_start_result = getrusage(RUSAGE_THREAD, &dml_start_time);
+#else
+#error implement getting current thread CPU time on this platform
+#endif
+
+  /* remember that we have initialized dml_start_time */
+  dml_start_time_is_set = true;
+}
+
+/*
+  Get DML CPU time
+    - Returns the CPU time elapsed from the time DML monitoring
+      has started
+ */
+ulonglong THD::get_dml_cpu_time()
+{
+#if HAVE_CLOCK_GETTIME
+    timespec time_end;
+
+    if (dml_start_result == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0))
+    {
+      /* diff_timespec returns nanoseconds */
+      ulonglong dml_cpu_time = diff_timespec(time_end, dml_start_time);
+
+      dml_cpu_time /= 1000000; /* convert to milliseconds */
+
+      return dml_cpu_time;
+    }
+
+#elif HAVE_GETRUSAGE
+    struct rusage rusage_end;
+
+    if (dml_start_result == 0 &&
+        (getrusage(RUSAGE_THREAD, &rusage_end) == 0))
+    {
+      ulonglong val_utime =
+        RUSAGE_DIFF_USEC(rusage_end.ru_utime, dml_start_time.ru_utime);
+      ulonglong val_stime =
+        RUSAGE_DIFF_USEC(rusage_end.ru_stime, dml_start_time.ru_stime);
+      ulonglong dml_cpu_time = val_utime + val_stime; /* Units: microseconds */
+      dml_cpu_time /= 1000; /* convert to milliseconds */
+
+      return dml_cpu_time;
+    }
+
+#else
+#error implement getting current thread CPU time on this platform
+#endif
+
+    return 0;
+}
+
+/**
+  check if CPU execution time limit has exceeded
+
+  @param stats  statistics obtained from handler
+  @return       none
+
+  Note: The function will register a warning as note if the variable
+        'write_control_level' is set to 'NOTE'. If the variable is set
+        to 'WARN' then a regular warning is raised.
+*/
+void THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
+{
+  /* enforcing DML execution time limit is disabled if
+   * - write_control_level is set to 'OFF' or
+   * - write_cpu_limit_milliseconds is set to 0 or
+   * - write_time_check_batch is set to 0
+   */
+  if (write_control_level == WRITE_CONTROL_LEVEL_OFF ||
+      write_cpu_limit_milliseconds == 0 ||
+      write_time_check_batch == 0)
+    return;
+
+  /* if the variable 'write_control_level' is set to 'NOTE' or 'WARN'
+   * then stop checking for CPU execution time limit any further
+   * because the warning needs to be raised only once per statement/transaction
+   */
+  if ((write_control_level == WRITE_CONTROL_LEVEL_NOTE || /* NOTE */
+       write_control_level == WRITE_CONTROL_LEVEL_WARN) &&/* WARN */
+      trx_dml_cpu_time_limit_warning)
+    return;
+
+  ulonglong dml_rows_processed = trx_dml_row_count + rows_inserted
+                                 + rows_updated + rows_deleted
+                                 + get_dml_row_count(stats);
+
+  /* bail out if there are no rows processed for DML */
+  if (dml_rows_processed == 0)
+    return;
+
+  /* first row processed */
+  if (dml_rows_processed == 1)
+    set_dml_start_time();
+  else if (dml_rows_processed % write_time_check_batch == 0)
+  {
+    ulonglong dml_cpu_time = get_dml_cpu_time();
+    DBUG_EXECUTE_IF("dbug.force_long_running_query",
+                    dml_cpu_time=write_cpu_limit_milliseconds;);
+
+    if (dml_cpu_time >= (ulonglong) write_cpu_limit_milliseconds)
+    {
+      /* raise warning */
+      push_warning_printf(this,
+                          (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
+                          Sql_condition::WARN_LEVEL_NOTE :
+                          Sql_condition::WARN_LEVEL_WARN,
+                          ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS,
+                          ER(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
+
+      /* remember that the warning has been raised so that further
+       * warnings will not be raised for the same statement/transaction
+       */
+      trx_dml_cpu_time_limit_warning = true;
+    }
+  }
+}
+
+/**
+  get DML row count
+    - sum of the rows deleted, rows inserted and rows updated
+
+  @param stats  statistics obtained from handler
+  @return       returns the DML row count
+ */
+ulonglong THD::get_dml_row_count(ha_statistics* stats)
+{
+  ulonglong dml_rows_processed = 0;
+
+  if (!lex)
+    return dml_rows_processed;
+
+  /* delete statement */
+  if (lex->sql_command == SQLCOM_DELETE ||
+      lex->sql_command == SQLCOM_DELETE_MULTI)
+    dml_rows_processed += stats->rows_deleted;
+  /* update statement */
+  else if (lex->sql_command == SQLCOM_UPDATE ||
+           lex->sql_command == SQLCOM_UPDATE_MULTI)
+    dml_rows_processed += stats->rows_updated;
+  /* insert statement */
+  else if (lex->sql_command == SQLCOM_INSERT ||
+           lex->sql_command == SQLCOM_INSERT_SELECT)
+  {
+    dml_rows_processed += stats->rows_inserted;
+    /* INSERT ... ON DUPLICATE KEY UPDATE */
+    if (lex->duplicates == DUP_UPDATE)
+      dml_rows_processed += stats->rows_updated;
+  }
+
+  return dml_rows_processed;
+}

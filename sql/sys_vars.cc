@@ -7059,3 +7059,38 @@ static Sys_var_mybool Sys_sql_stats_snapshot(
        SESSION_ONLY(sql_stats_snapshot), NO_CMD_LINE,
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_sql_stats_snapshot));
+
+static const char *write_control_level_values[] =
+{ "OFF", "NOTE", "WARN",
+  /* Add new control before the following line */
+  0
+};
+
+static Sys_var_enum Sys_write_control_level(
+       "write_control_level",
+       "Controls write throttle for short queries and write abort for long "
+       "running queries. It can take the following values: "
+       "OFF: Default value. Disable write throttle and aborting. "
+       "NOTE: Raise warnings as note. "
+       "WARN: Raise warning. "
+       "ON: Enable write throttle and write abort.",
+       GLOBAL_VAR(write_control_level), CMD_LINE(OPT_ARG),
+       write_control_level_values, DEFAULT(WRITE_CONTROL_LEVEL_OFF),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+       ON_UPDATE(NULL));
+
+static Sys_var_uint Sys_write_cpu_limit_milliseconds(
+      "write_cpu_limit_milliseconds",
+      "Maximum CPU time (specified in milliseconds) limit for DML queries. It "
+      "can take integer values greater than or equal to 0. The value 0 disables "
+      "enforcing the limit.",
+      GLOBAL_VAR(write_cpu_limit_milliseconds), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_write_time_check_batch(
+      "write_time_check_batch",
+      "Frequency (specified in number of rows) of checking whether the CPU "
+      "time of DML queries exceeded the limit enforced by "
+      "write_cpu_limit_milliseconds.",
+      GLOBAL_VAR(write_time_check_batch), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));

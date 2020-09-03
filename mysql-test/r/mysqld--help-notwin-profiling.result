@@ -2186,8 +2186,22 @@ The following options may be given as the first argument:
  --working-duration=# 
  The period of time for which we want working set size
  statistics
+ --write-control-level[=name] 
+ Controls write throttle for short queries and write abort
+ for long running queries. It can take the following
+ values: OFF: Default value. Disable write throttle and
+ aborting. NOTE: Raise warnings as note. WARN: Raise
+ warning. ON: Enable write throttle and write abort.
+ --write-cpu-limit-milliseconds[=#] 
+ Maximum CPU time (specified in milliseconds) limit for
+ DML queries. It can take integer values greater than or
+ equal to 0. The value 0 disables enforcing the limit.
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
+ --write-time-check-batch[=#] 
+ Frequency (specified in number of rows) of checking
+ whether the CPU time of DML queries exceeded the limit
+ enforced by write_cpu_limit_milliseconds.
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
  library is selected.
@@ -2838,7 +2852,10 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 working-duration 3600
+write-control-level OFF
+write-cpu-limit-milliseconds 0
 write-query-throttling-limit 0
+write-time-check-batch 0
 zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type

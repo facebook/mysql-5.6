@@ -1,0 +1,1539 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug_sync.inc;
+
+--disable_warnings
+
+####################################################
+### Write Abort Tests
+####################################################
+
+### Setup
+connection master;
+
+create table test(a int, b int, c int) engine=innodb;
+
+create table staging(a int, b int, c int) engine=innodb;
+
+insert into staging values (1, 1, 1), (2, 2, 2), (3, 3, 3);
+insert into staging values (4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into staging values (7, 7, 7), (8, 8, 8), (9, 9, 9);
+insert into staging values (10, 10, 10), (11, 11, 11), (12, 12, 12);
+insert into staging values (13, 13, 13), (14, 14, 14), (15, 15, 15);
+
+--echo Set CPU limit for milliseconds to 1
+set @@GLOBAL.write_cpu_limit_milliseconds=1;
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 1: Single Statement Tests
+####################################################
+
+--echo Test 1: Single Statement Tests
+
+####################################################
+### Test 1.1: Insert Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 1.1: Insert Query
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 1.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 1.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+--echo this query raises warning
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 1.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+--echo this query raises warning
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 1.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+insert into test values(1, 1, 1);
+insert into test values(2, 2, 2), (3, 3, 3);
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+--echo this query raises warning
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 1.2: Update Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 1.2: Update Query
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 1.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+update test set b=-1 where a <= 1;
+update test set b=-2 where a <= 2;
+--echo this query raises warning
+update test set b=-3 where a <= 3;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 1.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+update test set b=-11 where a <= 1;
+update test set b=-12 where a <= 2;
+--echo this query raises warning
+update test set b=-13 where a <= 3;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 1.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+update test set b=-21 where a <= 1;
+update test set b=-22 where a <= 2;
+update test set b=-23 where a <= 3;
+update test set b=-24 where a <= 4;
+--echo this query raises warning
+update test set b=-25 where a <= 5;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 1.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+update test set b=-31 where a <= 1;
+update test set b=-32 where a <= 2;
+update test set b=-33 where a <= 3;
+update test set b=-34 where a <= 4;
+--echo this query raises warning
+update test set b=-35 where a <= 5;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 1.3: Delete Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 1.3: Delete Query
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 1.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+--echo this query raises warning
+delete from test where a in (4, 5, 6);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 1.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+--echo this query raises warning
+delete from test where a in (4, 5, 6);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 1.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+delete from test where a in (4, 5, 6);
+delete from test where a in (7, 8, 9, 10);
+--echo this query raises warning
+delete from test where a in (11, 12, 13, 14, 15);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 1.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+delete from test where a = 1;
+delete from test where a in (2, 3);
+delete from test where a in (4, 5, 6);
+delete from test where a in (7, 8, 9, 10);
+--echo this query raises warning
+delete from test where a in (11, 12, 13, 14, 15);
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 2: Multi-Statement Tests
+####################################################
+
+--echo Test 2: Multi-Statement Tests
+
+####################################################
+### Test 2.1: Insert Query - Multi-statement with multiple values
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 2.1: Insert Query - Multi-statement
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 2.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 2.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 2.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 2.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 2.2: Update Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 2.2: Update Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 2.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 2.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 2.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 2.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 2.3: Delete Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 2.3: Delete Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 2.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 2.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 2.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 2.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 2.4: Mixed Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 2.4: Mixed Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 2.4.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 2.4.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 2.4.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 2.4.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+delimiter ||||;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+||||
+delimiter ;||||
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 3: Transaction Tests
+####################################################
+
+--echo Test 3: Transaction Tests
+
+####################################################
+### Test 3.1: Insert Query for Transaction Tests
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 3.1: Insert Query - Multi-statement
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 3.1.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 3.1.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 3.1.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 3.1.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values(1, 1, 1);
+select 2;
+insert into test values(2, 2, 2), (3, 3, 3);
+select 3;
+insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
+select 4;
+insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
+select 5;
+insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 3.2: Update Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 3.2: Update Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 3.2.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 3.2.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+update test set b=-1 where a <= 1;
+select 2;
+update test set b=-2 where a <= 2;
+select 3;
+update test set b=-3 where a <= 3;
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 3.2.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Test 3.2.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+update test set b=-21 where a <= 1;
+select 2;
+update test set b=-22 where a <= 2;
+select 3;
+update test set b=-23 where a <= 3;
+select 4;
+update test set b=-24 where a <= 4;
+select 5;
+update test set b=-25 where a <= 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 3.3: Delete Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 3.3: Delete Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 3.3.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 3.3.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+select 5;
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 3.3.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 3.3.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+delete from test where a = 1;
+select 2;
+delete from test where a in (2, 3);
+select 3;
+delete from test where a in (4, 5, 6);
+select 4;
+delete from test where a in (7, 8, 9, 10);
+select 5;
+delete from test where a in (11, 12, 13, 14, 15);
+select 6;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Test 3.4: Mixed Query
+####################################################
+
+--echo connect to master
+connection master;
+
+--echo Test 3.4: Mixed Query - Multi-statement
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo setting dbug.force_long_running_query which will
+--echo make the query long running after processing number
+--echo of rows determined by write_time_check_batch
+set @@global.debug= '+d,dbug.force_long_running_query';
+flush statistics;
+
+--echo Set the batch size for checking CPU time to 3
+set @@GLOBAL.write_time_check_batch=3;
+
+--echo Test 3.4.1: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 3.4.2: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Set the batch size for checking CPU time to 5
+set @@GLOBAL.write_time_check_batch=5;
+
+--echo Test 3.4.3: Raise warning as note
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=NOTE;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+--echo Reset table test and insert 15 rows
+set @@GLOBAL.write_control_level=OFF;
+delete from test;
+insert into test select * from staging;
+
+--echo Test 3.4.4: Raise warning
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+set @@GLOBAL.sql_findings_control=ON;
+set @@GLOBAL.write_control_level=WARN;
+--echo this query raises warning
+start transaction;
+select 1;
+insert into test values (16, 16, 16);
+select 2;
+delete from test where a in (2);
+select 3;
+update test set b=-1 where a in (4, 5);
+select 4;
+insert into test values (17, 17, 17);
+select 5;
+delete from test where a in (3);
+select 6;
+update test set b=-1 where a in (7, 8, 9);
+select 7;
+commit;
+
+select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
+
+select error_code, error_name, errors_total
+  from information_schema.ERROR_STATISTICS
+ where error_code = 50091;
+
+flush statistics;
+
+set @@global.debug= '-d,dbug.force_long_running_query';
+
+--source include/sync_slave_sql_with_master.inc
+
+####################################################
+### Clean Up
+####################################################
+connection master;
+
+set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_cpu_limit_milliseconds=0;
+set @@GLOBAL.write_time_check_batch=0;
+set @@GLOBAL.sql_findings_control=OFF_HARD;
+drop table test;
+drop table staging;
+
+--source include/sync_slave_sql_with_master.inc
+
+--source include/rpl_end.inc

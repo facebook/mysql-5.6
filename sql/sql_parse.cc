@@ -1591,6 +1591,20 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
 }
 
 /**
+  update_thd_stats
+    Update thread statistics, The function updates the dml row count
+    by aggregating the rows deleted, rows updated and rows inserted.
+
+  @param       thd           Current thread
+*/
+static void update_thd_stats(THD *thd)
+{
+  if (!thd->is_real_trans)
+    thd->trx_dml_row_count += thd->rows_deleted + thd->rows_updated
+                              + thd->rows_inserted;
+}
+
+/**
   Capture SQL Plan
 
   @param       thd           Current thread
@@ -2118,6 +2132,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
+      /* update transaction DML rows */
+      update_thd_stats(thd);
+
+
       /* Check to see if any state changed */
       if (!state_changed && srv_session) {
         state_changed = srv_session->session_state_changed();
@@ -2244,6 +2262,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     sub_query[sub_query_byte_length] = '\0';
 
     update_sql_stats(thd, &cumulative_sql_stats, sub_query);
+
+    /* update transaction DML rows */
+    update_thd_stats(thd);
 
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {
@@ -6752,9 +6773,16 @@ finish:
   // temporary table. `out_cus` cannot be used any further after this.
   populate_column_usage_info(thd, out_cus);
 
-  // reset trx timer at the end of a transaction
+  // reset trx timer, dml rows and trx dml cpu time limit warning flag
+  // at the end of a transaction
   if (thd->is_real_trans)
+  {
     thd->trx_time = 0;
+    thd->trx_dml_row_count = 0;
+    thd->trx_dml_cpu_time_limit_warning = false;
+    thd->dml_start_time_is_set = false; /* reset flag dml_start_time_is_set */
+  }
+
   // Reset statement start time
   thd->stmt_start = 0;
   lex->unit.cleanup();

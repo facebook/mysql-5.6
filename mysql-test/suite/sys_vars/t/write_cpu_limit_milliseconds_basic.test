@@ -1,0 +1,38 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: write_cpu_limit_milliseconds
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of write_cpu_limit_milliseconds
+SELECT @@global.write_cpu_limit_milliseconds;
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_cpu_limit_milliseconds is set to 10 seconds
+set @@global.write_cpu_limit_milliseconds = 10000;
+SELECT @@global.write_cpu_limit_milliseconds;
+
+--echo write_cpu_limit_milliseconds is set to 1000 seconds
+set @@global.write_cpu_limit_milliseconds = 1000000;
+SELECT @@global.write_cpu_limit_milliseconds;
+
+-- echo setting write_control to a negative number throws warning
+set @@global.write_cpu_limit_milliseconds = -10000;
+SELECT @@global.write_cpu_limit_milliseconds;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.write_cpu_limit_milliseconds = 'XYZ';
+SELECT @@global.write_cpu_limit_milliseconds;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.write_cpu_limit_milliseconds = 0;
+SELECT @@global.write_cpu_limit_milliseconds;
