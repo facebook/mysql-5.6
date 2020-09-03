@@ -10,44 +10,54 @@ create table t1 (a int primary key, b int);
 create table t2 (a int primary key, b int);
 
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
-
+# Verify that the index in used for the plan
+explain select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 select * from t1;
 
 --echo empty_queries for t1 should be 1 now
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 create user 'table_statistics_by_table_test';
 grant all on *.* to 'table_statistics_by_table_test'@'%' with grant option;
 connect (c1, localhost, table_statistics_by_table_test,,);
 
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 insert into t1 values (0, 1);
 insert into t1 values (1, 2);
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 
 replace into t1 values (0, 2);
 replace into t1 values (2, 3);
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 delete from t1 where a=0;
 delete from t1 where a=1;
 delete from t1 where a=7;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 --echo t1 isn't marked as used because t2 is empty
 select count(*) from t1, t2 where t1.a = t2.a;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 insert into t2 values (2,0);
 select count(*) from t1, t2 where t1.a = t2.a;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 --echo flush to move query_stat from PFS_table to PFS_shared_table, query_stat should remain the same
 flush table t1;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 
 connection default;
 drop table t1;

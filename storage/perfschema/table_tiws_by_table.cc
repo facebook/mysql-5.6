@@ -219,6 +219,14 @@ int table_tiws_by_table::index_next(void) {
 
 int table_tiws_by_table::make_row(PFS_table_share *share) {
   pfs_optimistic_state lock;
+  PFS_table_io_stat io_stat;
+
+  /*
+    Evaluate aggregate stats when returning the first row
+    of index and full table scan.
+  */
+  m_aggregate_stats.build_stats_if_needed();
+  auto stat = m_aggregate_stats.get_stat(share);
 
   share->m_lock.begin_optimistic_lock(&lock);
 
@@ -226,14 +234,24 @@ int table_tiws_by_table::make_row(PFS_table_share *share) {
     return HA_ERR_RECORD_DELETED;
   }
 
-  PFS_table_io_stat_visitor visitor;
-  PFS_object_iterator::visit_tables(share, &visitor);
+  /*
+    First look if the table share is present in aggregate stats
+    evaluated at beginning of the scan. If table share is absent,
+    evaluate stats dynamically
+   */
+  if (stat == NULL) {
+    PFS_table_io_stat_visitor visitor;
+    PFS_object_iterator::visit_tables(share, &visitor);
+    io_stat.aggregate(&visitor.m_stat);
+  } else {
+    io_stat.aggregate(stat);
+  }
 
   if (!share->m_lock.end_optimistic_lock(&lock)) {
     return HA_ERR_RECORD_DELETED;
   }
 
-  m_row.m_stat.set(m_normalizer, &visitor.m_stat);
+  m_row.m_stat.set(m_normalizer, &io_stat);
 
   return 0;
 }

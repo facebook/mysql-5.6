@@ -33,6 +33,7 @@
 
 #include "my_base.h"
 #include "storage/perfschema/pfs_engine_table.h"
+#include "storage/perfschema/pfs_table_stat_aggregator.h"
 #include "storage/perfschema/table_helper.h"
 
 class Field;
@@ -116,6 +117,9 @@ class table_tiws_by_table : public PFS_engine_table {
   PFS_simple_index m_pos;
   /** Next position. */
   PFS_simple_index m_next_pos;
+
+  /* Container holding aggregated stats for faster iteration */
+  table_io_stat_aggregator m_aggregate_stats;
 
  protected:
   PFS_index_tiws_by_table *m_opened_index;
