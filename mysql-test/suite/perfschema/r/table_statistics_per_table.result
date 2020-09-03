@@ -8,10 +8,23 @@ select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_st
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	0	0
 t2	0	0
+explain select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	table_statistics_by_table	NULL	range	OBJECT	OBJECT	777	NULL	2	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `performance_schema`.`table_statistics_by_table`.`OBJECT_NAME` AS `OBJECT_NAME`,`performance_schema`.`table_statistics_by_table`.`QUERIES_USED` AS `QUERIES_USED`,`performance_schema`.`table_statistics_by_table`.`EMPTY_QUERIES` AS `EMPTY_QUERIES` from `performance_schema`.`table_statistics_by_table` where ((`performance_schema`.`table_statistics_by_table`.`OBJECT_TYPE` = 'TABLE') and (`performance_schema`.`table_statistics_by_table`.`OBJECT_SCHEMA` = database()) and (`performance_schema`.`table_statistics_by_table`.`OBJECT_NAME` in ('t1','t2')))
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	0	0
+t2	0	0
 select * from t1;
 a	b
 empty_queries for t1 should be 1 now
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	1	1
+t2	0	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	1	1
 t2	0	0
@@ -21,9 +34,17 @@ select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_st
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	1	1
 t2	0	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	1	1
+t2	0	0
 insert into t1 values (0, 1);
 insert into t1 values (1, 2);
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	3	1
+t2	0	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	3	1
 t2	0	0
@@ -33,10 +54,18 @@ select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_st
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	5	1
 t2	0	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	5	1
+t2	0	0
 delete from t1 where a=0;
 delete from t1 where a=1;
 delete from t1 where a=7;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	8	1
+t2	0	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	8	1
 t2	0	0
@@ -48,6 +77,10 @@ select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_st
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	9	1
 t2	1	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	9	1
+t2	1	0
 insert into t2 values (2,0);
 select count(*) from t1, t2 where t1.a = t2.a;
 count(*)
@@ -56,9 +89,17 @@ select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_st
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	10	1
 t2	3	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	10	1
+t2	3	0
 flush to move query_stat from PFS_table to PFS_shared_table, query_stat should remain the same
 flush table t1;
 select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2');
+OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
+t1	10	1
+t2	3	0
+select OBJECT_NAME, QUERIES_USED, EMPTY_QUERIES from performance_schema.table_statistics_by_table where OBJECT_NAME in ('t1', 't2') and OBJECT_SCHEMA=database() and OBJECT_TYPE='TABLE';
 OBJECT_NAME	QUERIES_USED	EMPTY_QUERIES
 t1	10	1
 t2	3	0
