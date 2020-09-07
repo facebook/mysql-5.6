@@ -13443,6 +13443,10 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_RAFT_LOGS;
           }
+        | RAFT_SYM STATUS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_RAFT_STATUS;
+          }
         | SLAVE HOSTS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_HOSTS;

@@ -2745,6 +2745,59 @@ bool update_relay_log_cordinates(Relay_log_info* rli)
   return error;
 }
 
+bool show_raft_status(THD* thd)
+{
+  Protocol *protocol= thd->protocol;
+  List<Item> field_list;
+  size_t max_var= 0;
+  size_t max_value= 0;
+  const char *errmsg = 0;
+  std::vector<std::pair<std::string, std::string>> var_value_pairs;
+  std::vector<std::pair<std::string, std::string>>::const_iterator itr;
+
+  int error= RUN_HOOK_STRICT(
+      raft_replication, show_raft_status, (current_thd, &var_value_pairs));
+  if (error)
+  {
+    errmsg= "Failure to run plugin hook";
+    goto err;
+  }
+
+  for (itr= var_value_pairs.begin(); itr != var_value_pairs.end(); ++itr)
+  {
+    max_var= std::max(max_var, itr->first.length() + 10);
+    max_value= std::max(max_value, itr->second.length() + 10);
+  }
+
+  field_list.push_back(new Item_empty_string("VARIABLE_NAME", max_var));
+  field_list.push_back(new Item_empty_string("VARIABLE_VALUE", max_value));
+  if (protocol->send_result_set_metadata(
+        &field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+  {
+    errmsg= "Failure during protocol send metadata";
+    goto err;
+  }
+
+  for (itr= var_value_pairs.begin(); itr != var_value_pairs.end(); ++itr)
+  {
+    protocol->prepare_for_resend();
+    protocol->store(itr->first.c_str(), itr->first.length(), &my_charset_bin);
+    protocol->store(itr->second.c_str(), itr->second.length(), &my_charset_bin);
+    if (protocol->write())
+    {
+      errmsg= "Failure during protocol write";
+      goto err;
+    }
+  }
+
+  my_eof(thd);
+  return 0;
+
+err:
+  my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW RAFT STATUS", errmsg);
+  return 1;
+}
+
 /**
   Implement 'show raft logs' sql command
   @param thd Thread descriptor

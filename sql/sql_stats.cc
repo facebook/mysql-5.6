@@ -1576,6 +1576,7 @@ static std::string sql_cmd_type(enum_sql_command sql_command)
     case SQLCOM_SHOW_ENGINE_TRX:
     case SQLCOM_SHOW_MEMORY_STATUS:
     case SQLCOM_SHOW_RAFT_LOGS:
+    case SQLCOM_SHOW_RAFT_STATUS:
       return "SHOW";
 
     case SQLCOM_CHANGE_DB:

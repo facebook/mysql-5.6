@@ -725,6 +725,17 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext)
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::show_raft_status(
+    THD *thd,
+    std::vector<std::pair<std::string, std::string>> *var_value_pairs)
+{
+  DBUG_ENTER("Raft_replication_delegate::show_raft_status");
+  Raft_replication_param param;
+  int ret= 0;
+  FOREACH_OBSERVER_STRICT(ret, show_raft_status, thd, (var_value_pairs));
+  DBUG_RETURN(ret);
+}
+
 static int update_sys_var(const char *var_name, uint name_len, Item& update_item)
 {
   // find_sys_var will take a mutex on LOCK_plugin, and a read lock on

@@ -534,6 +534,16 @@ typedef struct Raft_replication_observer {
      @retval 1 Failure
   */
   int (*purge_logs)(Raft_replication_param *param);
+
+  /**
+     This callback is called to get a comprehensive status of RAFT
+     @param var_value_pairs vector of status vars value pairs
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*show_raft_status)(
+      std::vector<std::pair<std::string, std::string>>* var_value_pairs);
 } Raft_replication_observer;
 
 // Finer grained error code during deregister of observer

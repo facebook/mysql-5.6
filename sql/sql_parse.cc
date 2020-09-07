@@ -4769,6 +4769,19 @@ end_with_restore_list:
       break;
     }
 #endif
+  case SQLCOM_SHOW_RAFT_STATUS:
+#ifdef DONT_ALLOW_SHOW_COMMANDS
+    my_message(ER_NOT_ALLOWED_COMMAND, ER(ER_NOT_ALLOWED_COMMAND),
+               MYF(0)); /* purecov: inspected */
+    goto error;
+#else
+    {
+      if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
+        goto error;
+      res= show_raft_status(thd);
+      break;
+    }
+#endif
 #endif /* EMBEDDED_LIBRARY */
   case SQLCOM_SHOW_CREATE:
     DBUG_ASSERT(first_table == all_tables && first_table != 0);

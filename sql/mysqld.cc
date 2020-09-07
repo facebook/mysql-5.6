@@ -5011,7 +5011,10 @@ SHOW_VAR com_status_vars[]= {
   {"xa_start",             (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_XA_START]),SHOW_LONG_STATUS},
   {"purge_raft_log",       (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_PURGE_RAFT_LOG]), SHOW_LONG_STATUS},
   {"purge_raft_log_before_date", (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_PURGE_RAFT_LOG_BEFORE]), SHOW_LONG_STATUS},
-  {"show_raftlogs",         (char*) offsetof(STATUS_VAR, com_stat[(uint) SQLCOM_SHOW_RAFT_LOGS]), SHOW_LONG_STATUS},
+  {"show_raftlogs",        (char*) offsetof(STATUS_VAR,
+      com_stat[(uint) SQLCOM_SHOW_RAFT_LOGS]), SHOW_LONG_STATUS},
+  {"show_raftstatus",      (char*) offsetof(STATUS_VAR,
+      com_stat[(uint) SQLCOM_SHOW_RAFT_STATUS]), SHOW_LONG_STATUS},
   {NullS, NullS, SHOW_LONG}
 };
 
