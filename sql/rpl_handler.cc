@@ -1310,15 +1310,15 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::STOP_SQL_THREAD: {
-        result.error= raft_stop_sql_thread(current_thd);
+        result.error = raft_stop_sql_thread(current_thd);
         break;
       }
       case RaftListenerCallbackType::START_SQL_THREAD: {
-        result.error= raft_start_sql_thread(current_thd);
+        result.error = raft_start_sql_thread(current_thd);
         break;
       }
       case RaftListenerCallbackType::STOP_IO_THREAD: {
-        result.error= raft_stop_io_thread(current_thd);
+        result.error = raft_stop_io_thread(current_thd);
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:

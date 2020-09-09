@@ -41,8 +41,7 @@ class Admin_command_index {
   using Command_arguments = iface::Admin_command_arguments;
   using Argument_appearance = Command_arguments::Appearance_type;
 
-  explicit Admin_command_index(iface::Session *session)
-      : m_session(session) {}
+  explicit Admin_command_index(iface::Session *session) : m_session(session) {}
   ngs::Error_code create(Command_arguments *args);
   ngs::Error_code drop(Command_arguments *args);
 

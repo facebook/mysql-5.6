@@ -129,8 +129,8 @@ Table_map_event::Table_map_event(const char *buf,
 
         m_column_names_size = READER_CALL(available_to_read);
         if (m_column_names_size) {
-          READER_TRY_CALL(alloc_and_memcpy, &m_column_names, m_column_names_size,
-                          0);
+          READER_TRY_CALL(alloc_and_memcpy, &m_column_names,
+                          m_column_names_size, 0);
         }
       }
     } else {

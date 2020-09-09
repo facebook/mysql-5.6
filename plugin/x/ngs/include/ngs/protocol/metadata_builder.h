@@ -25,8 +25,8 @@
 #ifndef PLUGIN_X_NGS_INCLUDE_NGS_PROTOCOL_METADATA_BUILDER_H_
 #define PLUGIN_X_NGS_INCLUDE_NGS_PROTOCOL_METADATA_BUILDER_H_
 
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 #include "m_ctype.h"  // NOLINT(build/include_subdir)
 

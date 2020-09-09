@@ -39,8 +39,7 @@ class Sql_user_require {
   std::string ssl_x509_issuer;
   std::string ssl_x509_subject;
 
-  ngs::Error_code validate(
-      const iface::Ssl_session_options &options) const;
+  ngs::Error_code validate(const iface::Ssl_session_options &options) const;
 
  private:
   const static std::string SSL_TYPE_NONE;
@@ -48,10 +47,8 @@ class Sql_user_require {
   const static std::string SSL_TYPE_X509;
   const static std::string SSL_TYPE_SPECIFIC;
 
-  ngs::Error_code check_ssl(
-      const iface::Ssl_session_options &options) const;
-  ngs::Error_code check_x509(
-      const iface::Ssl_session_options &options) const;
+  ngs::Error_code check_ssl(const iface::Ssl_session_options &options) const;
+  ngs::Error_code check_x509(const iface::Ssl_session_options &options) const;
   ngs::Error_code check_specific(
       const iface::Ssl_session_options &options) const;
 };

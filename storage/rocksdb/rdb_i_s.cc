@@ -22,10 +22,10 @@
 #include <vector>
 
 /* MySQL header files */
+#include "mysql/plugin.h"
+#include "sql/debug_sync.h"
 #include "sql/field.h"
 #include "sql/sql_show.h"
-#include "sql/debug_sync.h"
-#include "mysql/plugin.h"
 
 /* RocksDB header files */
 #include "rocksdb/compaction_filter.h"

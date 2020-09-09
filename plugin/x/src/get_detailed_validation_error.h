@@ -39,8 +39,7 @@ inline ngs::Error_code get_detailed_validation_error(
   sql_result.query(
       "GET DIAGNOSTICS CONDITION 1 @$internal_validation_error_message = "
       "MESSAGE_TEXT;");
-  sql_result.query(
-      "SELECT @$internal_validation_error_message");
+  sql_result.query("SELECT @$internal_validation_error_message");
 
   std::string error_text;
   sql_result.get(&error_text);

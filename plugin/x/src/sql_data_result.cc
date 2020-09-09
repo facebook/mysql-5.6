@@ -24,8 +24,8 @@
 
 #include "plugin/x/src/sql_data_result.h"
 
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
 
 #include "plugin/x/ngs/include/ngs/memory.h"
 

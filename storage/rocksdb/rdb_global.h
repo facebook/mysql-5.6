@@ -24,8 +24,8 @@
 #include <vector>
 
 /* MySQL header files */
-#include "sql/handler.h"   /* handler */
 #include "./sql_string.h"
+#include "sql/handler.h" /* handler */
 
 /* MyRocks headers */
 #include "./ut0counter.h"
