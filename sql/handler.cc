@@ -3424,22 +3424,18 @@ int handler::ha_index_first(uchar *buf) {
 }
 
 bool handler::is_using_full_key(key_part_map keypart_map,
-                                uint actual_key_parts)
-{
+                                uint actual_key_parts) {
   return (keypart_map == HA_WHOLE_KEY) ||
-         (keypart_map == ((key_part_map(1) << actual_key_parts)
-                        - 1));
+         (keypart_map == ((key_part_map(1) << actual_key_parts) - 1));
 }
 
-bool handler::is_using_full_unique_key(uint index,
-                                        key_part_map keypart_map,
-                                        enum ha_rkey_function find_flag)
-{
-  return (is_using_full_key(keypart_map,
-                            table->key_info[index].actual_key_parts)
-          && find_flag == HA_READ_KEY_EXACT
-          && (index == table->s->primary_key
-              || (table->key_info[index].flags & HA_NOSAME)));
+bool handler::is_using_full_unique_key(uint index, key_part_map keypart_map,
+                                       enum ha_rkey_function find_flag) {
+  return (
+      is_using_full_key(keypart_map, table->key_info[index].actual_key_parts) &&
+      find_flag == HA_READ_KEY_EXACT &&
+      (index == table->s->primary_key ||
+       (table->key_info[index].flags & HA_NOSAME)));
 }
 
 /**
@@ -8825,13 +8821,12 @@ bool is_index_access_error(int error) {
   be stored in m_bad_patterns and the result will be false, otherwise the
   result will be true.
 */
-bool Regex_list_handler::set_patterns(const std::string& pattern_str)
-{
-  bool pattern_valid= true;
+bool Regex_list_handler::set_patterns(const std::string &pattern_str) {
+  bool pattern_valid = true;
 
   // Create a normalized version of the pattern string with all delimiters
   // replaced by the '|' character
-  std::string norm_pattern= pattern_str;
+  std::string norm_pattern = pattern_str;
   std::replace(norm_pattern.begin(), norm_pattern.end(), m_delimiter, '|');
 
   // Make sure no one else is accessing the list while we are changing it.
@@ -8840,21 +8835,18 @@ bool Regex_list_handler::set_patterns(const std::string& pattern_str)
   // Clear out any old error information
   m_bad_pattern_str.clear();
 
-  try
-  {
+  try {
     // Replace all delimiters with the '|' operator and create the regex
     // Note that this means the delimiter can not be part of a regular
     // expression.  This is currently not a problem as we are using the comma
     // character as a delimiter and commas are not valid in table names.
     m_pattern.reset(new std::regex(norm_pattern));
-  }
-  catch (const std::regex_error& e)
-  {
+  } catch (const std::regex_error &e) {
     // This pattern is invalid.
-    pattern_valid= false;
+    pattern_valid = false;
 
     // Put the bad pattern into a member variable so it can be retrieved later.
-    m_bad_pattern_str= pattern_str;
+    m_bad_pattern_str = pattern_str;
   }
 
   // Release the lock
@@ -8863,15 +8855,14 @@ bool Regex_list_handler::set_patterns(const std::string& pattern_str)
   return pattern_valid;
 }
 
-bool Regex_list_handler::matches(const std::string& str) const
-{
+bool Regex_list_handler::matches(const std::string &str) const {
   DBUG_ASSERT(m_pattern != nullptr);
 
   // Make sure no one else changes the list while we are accessing it.
   mysql_rwlock_rdlock(&m_rwlock);
 
   // See if the table name matches the regex we have created
-  bool found= std::regex_match(str, *m_pattern);
+  bool found = std::regex_match(str, *m_pattern);
 
   // Release the lock
   mysql_rwlock_unlock(&m_rwlock);
@@ -8879,9 +8870,8 @@ bool Regex_list_handler::matches(const std::string& str) const
   return found;
 }
 
-void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
-                             const char *name)
-{
+void warn_about_bad_patterns(const Regex_list_handler *regex_list_handler,
+                             const char *name) {
   // There was some invalid regular expression data in the patterns supplied
 
   // NO_LINT_DEBUG

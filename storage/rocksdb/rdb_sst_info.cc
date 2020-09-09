@@ -18,16 +18,16 @@
 #include "./rdb_sst_info.h"
 
 /* C++ standard header files */
+#include <inttypes.h>
 #include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
-#include <inttypes.h>
 
 /* MySQL header files */
-#include "sql/log.h"
 #include "./my_dir.h"
 #include "mysqld_error.h"
+#include "sql/log.h"
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
@@ -499,7 +499,8 @@ void Rdb_sst_info::set_error_msg(const std::string &sst_file_name,
 void Rdb_sst_info::report_error_msg(const rocksdb::Status &s,
                                     const char *sst_file_name) {
   if (s.IsInvalidArgument() &&
-      strcmp(s.getState(), "Keys must be added in strict ascending order.") == 0) {
+      strcmp(s.getState(), "Keys must be added in strict ascending order.") ==
+          0) {
     my_printf_error(ER_KEYS_OUT_OF_ORDER,
                     "Rows must be inserted in primary key order "
                     "during bulk load operation",

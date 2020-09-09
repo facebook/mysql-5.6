@@ -19,11 +19,11 @@
 
 /* MySQL header files */
 
-#include <mysql/psi/mysql_thread.h>
-#include <mysql/psi/mysql_rwlock.h>
-#include <mysql/psi/mysql_stage.h>
 #include <mysql/psi/mysql_cond.h>
 #include <mysql/psi/mysql_mutex.h>
+#include <mysql/psi/mysql_rwlock.h>
+#include <mysql/psi/mysql_stage.h>
+#include <mysql/psi/mysql_thread.h>
 
 /* MyRocks header files */
 #include "./rdb_utils.h"

@@ -9199,13 +9199,15 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
  * @retval A pointer to default channel's mi. nullptr if the mi is not
  * configured correctly or if there are more than one channel
  */
-static Master_info* raft_get_default_mi() {
-  Master_info* mi = nullptr;
+static Master_info *raft_get_default_mi() {
+  Master_info *mi = nullptr;
 
   if (channel_map.get_num_instances() != 1) {
     // NO_LINT_DEBUG
-    sql_print_error("Number of channels = %lu. There should be only one channel"
-        " with raft.", channel_map.get_num_instances());
+    sql_print_error(
+        "Number of channels = %lu. There should be only one channel"
+        " with raft.",
+        channel_map.get_num_instances());
     goto end;
   }
 
@@ -9225,7 +9227,7 @@ end:
 
 int raft_stop_io_thread(THD *thd) {
   int res = 0;
-  Master_info* mi = nullptr;
+  Master_info *mi = nullptr;
   bool push_temp_table_warning = false;
 
   thd->lex->slave_thd_opt = SLAVE_IO;
@@ -9240,12 +9242,9 @@ int raft_stop_io_thread(THD *thd) {
     goto end;
   }
 
-  res = stop_slave(
-      thd,
-      mi,
-      /*net_report=*/0,
-      /*for_one_channel=*/true,
-      &push_temp_table_warning);
+  res = stop_slave(thd, mi,
+                   /*net_report=*/0,
+                   /*for_one_channel=*/true, &push_temp_table_warning);
 
 end:
   channel_map.unlock();
@@ -9253,8 +9252,8 @@ end:
 }
 
 int raft_stop_sql_thread(THD *thd) {
-  int res= 0;
-  Master_info* mi = nullptr;
+  int res = 0;
+  Master_info *mi = nullptr;
   bool push_temp_table_warning = false;
 
   thd->lex->slave_thd_opt = SLAVE_SQL;
@@ -9268,12 +9267,9 @@ int raft_stop_sql_thread(THD *thd) {
     goto end;
   }
 
-  res = stop_slave(
-      thd,
-      mi,
-      /*net_report=*/0,
-      /*for_one_channel=*/true,
-      &push_temp_table_warning);
+  res = stop_slave(thd, mi,
+                   /*net_report=*/0,
+                   /*for_one_channel=*/true, &push_temp_table_warning);
 
 end:
   channel_map.unlock();
@@ -9282,7 +9278,7 @@ end:
 
 int raft_start_sql_thread(THD *thd) {
   int res = 0;
-  Master_info* mi = nullptr;
+  Master_info *mi = nullptr;
   LEX_SLAVE_CONNECTION lex_connection;
   LEX_MASTER_INFO lex_mi;
 
@@ -9298,19 +9294,13 @@ int raft_start_sql_thread(THD *thd) {
     goto end;
   }
 
-  res = start_slave(
-      thd,
-      &lex_connection,
-      &lex_mi,
-      thd->lex->slave_thd_opt,
-      mi,
-      /*set_mts_settings=*/true);
+  res = start_slave(thd, &lex_connection, &lex_mi, thd->lex->slave_thd_opt, mi,
+                    /*set_mts_settings=*/true);
 
 end:
   channel_map.unlock();
   return res;
 }
-
 
 /**
   Execute a STOP SLAVE statement.

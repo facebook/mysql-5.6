@@ -32,21 +32,17 @@
 
 #include <atomic>
 
-template < typename TYPE >
+template <typename TYPE>
 class atomic_stat {
-public:
+ public:
   // Initialize value to the default for the type
-  atomic_stat() : value_(TYPE()) {};
+  atomic_stat() : value_(TYPE()){};
 
   // This enforces a strict order, as all absolute sets should
-  void clear() {
-    value_.store(TYPE(), std::memory_order_seq_cst);
-  };
+  void clear() { value_.store(TYPE(), std::memory_order_seq_cst); };
 
   // Reads can get any valid value, it doesn't matter which, exactly
-  TYPE load() const {
-    return value_.load(std::memory_order_relaxed);
-  };
+  TYPE load() const { return value_.load(std::memory_order_relaxed); };
 
   // This only supplies relative arithmetic operations
   // These are all done atomically, and so can show up in any order
@@ -58,13 +54,9 @@ public:
     value_.fetch_sub(other, std::memory_order_relaxed);
   };
 
-  void inc() {
-    value_.fetch_add(1, std::memory_order_relaxed);
-  };
+  void inc() { value_.fetch_add(1, std::memory_order_relaxed); };
 
-  void dec() {
-    value_.fetch_sub(1, std::memory_order_relaxed);
-  };
+  void dec() { value_.fetch_sub(1, std::memory_order_relaxed); };
 
   // This will make one attempt to set the value to the max of
   // the current value, and the passed-in value.  It can fail
@@ -72,8 +64,7 @@ public:
   void set_max_maybe(const TYPE &new_val) {
     TYPE old_val = value_;
     if (new_val > old_val) {
-      value_.compare_exchange_weak(old_val, new_val,
-                                   std::memory_order_relaxed,
+      value_.compare_exchange_weak(old_val, new_val, std::memory_order_relaxed,
                                    std::memory_order_relaxed);
     }
   };
@@ -82,13 +73,12 @@ public:
   // value.  It can fail for any reason, and we only try it once.
   void set_maybe(const TYPE &new_val) {
     TYPE old_val = value_;
-    value_.compare_exchange_weak(old_val, new_val,
-                                 std::memory_order_relaxed,
+    value_.compare_exchange_weak(old_val, new_val, std::memory_order_relaxed,
                                  std::memory_order_relaxed);
   };
 
-private:
+ private:
   std::atomic<TYPE> value_;
 };
 
-#endif // _atomic_stat_h_
+#endif  // _atomic_stat_h_

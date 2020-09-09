@@ -133,8 +133,8 @@ const char *rdb_check_next_token(const struct CHARSET_INFO *const cs,
 /*
   Parse id
 */
-const char *rdb_parse_id(const struct CHARSET_INFO *const cs,
-                         const char *str, std::string *const id) {
+const char *rdb_parse_id(const struct CHARSET_INFO *const cs, const char *str,
+                         std::string *const id) {
   // Move past any spaces
   str = rdb_skip_spaces(cs, str);
 
@@ -192,8 +192,7 @@ const char *rdb_parse_id(const struct CHARSET_INFO *const cs,
 /*
   Skip id
 */
-const char *rdb_skip_id(const struct CHARSET_INFO *const cs,
-                        const char *str) {
+const char *rdb_skip_id(const struct CHARSET_INFO *const cs, const char *str) {
   return rdb_parse_id(cs, str, nullptr);
 }
 

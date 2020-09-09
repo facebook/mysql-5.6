@@ -689,7 +689,7 @@ class Rdb_key_def {
   static int unpack_unsigned(Rdb_field_packing *const fpi, Field *const field,
                              uchar *const to, Rdb_string_reader *const reader,
                              Rdb_string_reader *const unp_reader
-                             MY_ATTRIBUTE((__unused__)));
+                                 MY_ATTRIBUTE((__unused__)));
 
   static void pack_double(Rdb_field_packing *const fpi, Field *const field,
                           uchar *buf MY_ATTRIBUTE((__unused__)), uchar **dst,
@@ -1327,7 +1327,7 @@ class Rdb_seq_generator {
 
 interface Rdb_tables_scanner {
   virtual int add_table(Rdb_tbl_def * tdef) = 0;
-  virtual ~Rdb_tables_scanner() {};
+  virtual ~Rdb_tables_scanner(){};
 };
 
 /*

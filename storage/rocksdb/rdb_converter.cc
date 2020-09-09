@@ -24,10 +24,10 @@
 #include <vector>
 
 /* MySQL header files */
-#include "sql/log.h"
 #include "./my_stacktrace.h"
-#include "sql/sql_array.h"
 #include "sql/field.h"
+#include "sql/log.h"
+#include "sql/sql_array.h"
 
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
@@ -428,7 +428,8 @@ void Rdb_converter::setup_field_encoders() {
   uchar cur_null_mask = 0x1;
 
   m_encoder_arr = static_cast<Rdb_field_encoder *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, m_table->s->fields * sizeof(Rdb_field_encoder), MYF(0)));
+      my_malloc(PSI_NOT_INSTRUMENTED,
+                m_table->s->fields * sizeof(Rdb_field_encoder), MYF(0)));
   if (m_encoder_arr == nullptr) {
     return;
   }
@@ -641,7 +642,7 @@ int Rdb_converter::verify_row_debug_checksum(
         my_core::my_checksum(0, rdb_slice_to_uchar_ptr(key), key->size());
     const ha_checksum computed_val_chksum =
         my_core::my_checksum(0, rdb_slice_to_uchar_ptr(value),
-                       value->size() - RDB_CHECKSUM_CHUNK_SIZE);
+                             value->size() - RDB_CHECKSUM_CHUNK_SIZE);
 
     DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1", stored_key_chksum++;);
 
@@ -813,7 +814,7 @@ int Rdb_converter::encode_value_slice(
         0, rdb_slice_to_uchar_ptr(&pk_packed_slice), pk_packed_slice.size());
     const ha_checksum val_crc32 =
         my_core::my_checksum(0, rdb_mysql_str_to_uchar_str(&m_storage_record),
-                       m_storage_record.length());
+                             m_storage_record.length());
     uchar key_crc_buf[RDB_CHECKSUM_SIZE];
     uchar val_crc_buf[RDB_CHECKSUM_SIZE];
     rdb_netbuf_store_uint32(key_crc_buf, key_crc32);

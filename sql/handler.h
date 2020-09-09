@@ -4216,7 +4216,7 @@ class handler {
   std::mt19937 m_random_number_engine;
   double m_sampling_percentage;
 
- /* TODO(yzha) - we needed these to be public for MYSQL_TABLE_IO_WAIT */
+  /* TODO(yzha) - we needed these to be public for MYSQL_TABLE_IO_WAIT */
  public:
   /** Internal state of the batch instrumentation. */
   enum batch_mode_t {
@@ -7032,10 +7032,9 @@ class ha_tablespace_statistics {
   dd::String_type m_extra;  // NDB only
 };
 
-class Regex_list_handler
-{
+class Regex_list_handler {
  private:
-  const PSI_rwlock_key& m_key;
+  const PSI_rwlock_key &m_key;
 
   char m_delimiter;
   std::string m_bad_pattern_str;
@@ -7043,40 +7042,31 @@ class Regex_list_handler
 
   mutable mysql_rwlock_t m_rwlock;
 
-  Regex_list_handler(const Regex_list_handler& other)= delete;
-  Regex_list_handler& operator=(const Regex_list_handler& other)= delete;
+  Regex_list_handler(const Regex_list_handler &other) = delete;
+  Regex_list_handler &operator=(const Regex_list_handler &other) = delete;
 
  public:
-  Regex_list_handler(const PSI_rwlock_key& key,
-                     char delimiter= ',') :
-    m_key(key),
-    m_delimiter(delimiter),
-    m_bad_pattern_str(""),
-    m_pattern(nullptr)
-  {
+  Regex_list_handler(const PSI_rwlock_key &key, char delimiter = ',')
+      : m_key(key),
+        m_delimiter(delimiter),
+        m_bad_pattern_str(""),
+        m_pattern(nullptr) {
     mysql_rwlock_init(key, &m_rwlock);
   }
 
-
-  ~Regex_list_handler()
-  {
-    mysql_rwlock_destroy(&m_rwlock);
-  }
+  ~Regex_list_handler() { mysql_rwlock_destroy(&m_rwlock); }
 
   // Set the list of patterns
-  bool set_patterns(const std::string& patterns);
+  bool set_patterns(const std::string &patterns);
 
   // See if a string matches at least one pattern
-  bool matches(const std::string& str) const;
+  bool matches(const std::string &str) const;
 
   // See the list of bad patterns
-  const std::string& bad_pattern() const
-  {
-    return m_bad_pattern_str;
-  }
+  const std::string &bad_pattern() const { return m_bad_pattern_str; }
 };
 
-void warn_about_bad_patterns(const Regex_list_handler* regex_list_handler,
+void warn_about_bad_patterns(const Regex_list_handler *regex_list_handler,
                              const char *name);
 
 extern Regex_list_handler *gap_lock_exceptions;
