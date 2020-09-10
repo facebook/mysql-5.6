@@ -3602,12 +3602,13 @@ public:
    */
   virtual bool use_read_free_rpl() const { return false; }
   /**
-     Whether the storage engine table has a TTL column
+     Whether the table or last access partition has TTL column
+     Only used in replication error checking
 
-     @return true if the table contains ttl col
+     @return true if the table or last access partition contains ttl col
              false otherwise
    */
-  virtual bool has_ttl_column() const { return false; }
+  virtual bool last_part_has_ttl_column() const { return false; }
   /*
      Storage engine hooks to be called before and after row write, delete, and
      update events

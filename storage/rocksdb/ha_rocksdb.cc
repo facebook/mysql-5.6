@@ -15374,9 +15374,12 @@ bool ha_rocksdb::use_read_free_rpl() const {
 
 /**
   @brief
-  The table has a TTL enabled column or not
+  Whether the table or last access partition has TTL column
+  Only used in replication error checking
 */
-bool ha_rocksdb::has_ttl_column() const { return m_tbl_def->has_ttl_col(); }
+bool ha_rocksdb::last_part_has_ttl_column() const { 
+  return m_tbl_def->has_ttl_col(); 
+}
 
 double ha_rocksdb::read_time(uint index, uint ranges, ha_rows rows) {
   DBUG_ENTER_FUNC();

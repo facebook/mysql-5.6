@@ -5876,6 +5876,31 @@ int ha_partition::read_range_next()
   DBUG_RETURN(error);
 }
 
+/*
+  Whether the table or last access partition has TTL column
+  Only used in replication error checking
+
+  SYNOPSIS
+    last_part_has_ttl_column
+
+  RETURN VALUE
+    true                    The table or last access partition contains TTL
+                            column
+    false                   Otherwise
+*/
+bool ha_partition::last_part_has_ttl_column() const
+{
+  DBUG_ENTER("ha_partition::last_part_has_ttl_column");
+
+  /* 
+    This is only used in replication idempotent error check to see if the
+    last error may be caused by TTL - this means we should be able to rely
+    on the saved last partition being where the error is happening and
+    only check that partition.
+   */
+  handler *file= m_file[m_last_part];
+  DBUG_RETURN(file->last_part_has_ttl_column());
+}
 
 /*
   Common routine to set up index scans

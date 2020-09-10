@@ -11227,7 +11227,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(Relay_log_info const *r
                            (slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT ||
                             rli->is_table_idempotent(
                               m_table->s->table_name.str) ||
-                            m_table->file->has_ttl_column()));
+                            m_table->file->last_part_has_ttl_column()));
     bool ignore_delete_error =
       (slave_exec_mode == SLAVE_EXEC_MODE_SEMI_STRICT &&
        (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));
