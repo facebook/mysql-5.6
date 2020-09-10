@@ -4540,9 +4540,17 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
    * function (open_binlog()) should be called during server restart only after
    * initializing the local instance's HLC clock (by reading the previous binlog
    * file) */
-  if (enable_binlog_hlc && !is_relay_log)
+  /*
+   * In Raft mode, to keep consistent sizes of raft log files, we write a dummy HLC
+   * to relay logs.
+   */
+  if (enable_binlog_hlc && (!is_relay_log || raft_rotate_info))
   {
-    uint64_t current_hlc= mysql_bin_log.get_current_hlc();
+    uint64_t current_hlc= 0;
+    if (!is_relay_log)
+    {
+      current_hlc= mysql_bin_log.get_current_hlc();
+    }
     Metadata_log_event metadata_ev(current_hlc);
     if (metadata_ev.write(&log_file))
       goto err;
