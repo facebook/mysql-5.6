@@ -15838,9 +15838,12 @@ bool ha_rocksdb::use_read_free_rpl() const {
 
 /**
   @brief
-  The table has a TTL enabled column or not
+  Whether the table or last access partition has TTL column
+  Only used in replication error checking
 */
-bool ha_rocksdb::has_ttl_column() const { return m_tbl_def->has_ttl_col(); }
+bool ha_rocksdb::last_part_has_ttl_column() const {
+  return m_tbl_def->has_ttl_col();
+}
 
 uchar *ha_rocksdb::get_blob_buffer(uint current_size) {
   auto output = m_blob_buffer_current;
