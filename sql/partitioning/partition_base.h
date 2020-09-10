@@ -433,6 +433,8 @@ class Partition_base : public handler,
     return Partition_helper::ph_read_range_next();
   }
 
+  virtual bool last_part_has_ttl_column() const override;
+
  public:
   /*
     -------------------------------------------------------------------------

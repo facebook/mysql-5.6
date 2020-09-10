@@ -1033,7 +1033,7 @@ class ha_rocksdb : public my_core::handler {
 
   virtual bool use_read_free_rpl() const override;
 
-  virtual bool has_ttl_column() const override;
+  virtual bool last_part_has_ttl_column() const override;
 
   /*
     Returns the buffer of size(current_size) which will be used
