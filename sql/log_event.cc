@@ -9013,7 +9013,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(
     int actual_error = convert_handler_error(error, thd, m_table);
     bool idempotent_error = (idempotent_error_code(error) &&
                              (rbr_exec_mode == RBR_EXEC_MODE_IDEMPOTENT ||
-                              m_table->file->has_ttl_column()));
+                              m_table->file->last_part_has_ttl_column()));
     bool ignore_delete_error =
         (rbr_exec_mode == RBR_EXEC_MODE_SEMI_STRICT &&
          (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));

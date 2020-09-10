@@ -6547,12 +6547,13 @@ class handler {
   int get_lock_type() const { return m_lock_type; }
 
   /**
-     Whether the storage engine table has a TTL column
+     Whether the table or last access partition has TTL column
+     Only used in replication error checking
 
-     @return true if the table contains ttl col
+     @return true if the table or last access partition contains ttl col
              false otherwise
    */
-  virtual bool has_ttl_column() const { return false; }
+  virtual bool last_part_has_ttl_column() const { return false; }
 
   /**
     Callback function that will be called by my_prepare_gcolumn_template

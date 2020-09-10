@@ -1,0 +1,81 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+"Creating a TTL enabled table on master and slave"
+CREATE TABLE t1 (
+a BIGINT UNSIGNED,
+b INT,
+PRIMARY KEY (`a`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=my_custom_cf;custom_p2_cfname=baz;custom_p3_cfname=blah'
+) ENGINE=ROCKSDB
+COMMENT="custom_p0_ttl_duration=1;custom_p1_ttl_duration=1;custom_p2_ttl_duration=1"
+PARTITION BY RANGE(a) (
+PARTITION custom_p0 VALUES LESS THAN (10),
+PARTITION custom_p1 VALUES LESS THAN (20),
+PARTITION custom_p2 VALUES LESS THAN (30),
+PARTITION custom_p3 VALUES LESS THAN (100)
+);
+"Replacing the TTL table with long TTL table on the master"
+set @@sql_log_bin= 0;
+drop table t1;
+CREATE TABLE t1 (
+a BIGINT UNSIGNED,
+b INT,
+PRIMARY KEY (`a`) COMMENT 'custom_p0_cfname=foo;custom_p1_cfname=bar;custom_p2_cfname=baz'
+) ENGINE=ROCKSDB
+PARTITION BY RANGE(a) (
+PARTITION custom_p0 VALUES LESS THAN (10),
+PARTITION custom_p1 VALUES LESS THAN (20),
+PARTITION custom_p2 VALUES LESS THAN (30),
+PARTITION custom_p3 VALUES LESS THAN (100)
+);
+set @@sql_log_bin= 1;
+"Inserting some rows into TTL partition on the master, these rows will disappear immediately on the slave"
+insert into t1 values(1, 1);
+insert into t1 values(2, 2);
+include/sync_slave_sql_with_master.inc
+"Force compaction on the slave"
+set global rocksdb_debug_ttl_snapshot_ts = 3600;
+set global rocksdb_force_flush_memtable_now=1;
+set global rocksdb_compact_cf='foo';
+"Rows on the slave (should be empty)"
+"Executing update in TTL partition on the master"
+update t1 set a = a + 10;
+"The slave should be able to execute the update"
+include/sync_slave_sql_with_master.inc
+"Restarting the slave"
+include/rpl_restart_server.inc [server_number=2]
+include/start_slave.inc
+"Executing another update in TTL partition on master"
+update t1 set a = a + 10;
+"The slave should be able to execute the update"
+include/sync_slave_sql_with_master.inc
+"Delete all rows in t1"
+delete from t1;
+include/sync_slave_sql_with_master.inc
+"Inserting some rows into non-TTL partition on the master"
+insert into t1 values(40, 1);
+include/sync_slave_sql_with_master.inc
+set @@sql_log_bin= 0;
+"Deleting rows in non-TTL partition in slave"
+delete from t1 where a=40;
+set @@sql_log_bin= 1;
+"Executing another update in non-TTL partition on master"
+update t1 set a = a + 10;
+"The slave should fail to update"
+call mtr.add_suppression("handler error HA_ERR_KEY_NOT_FOUND");
+call mtr.add_suppression("Slave: Can't find record in 't1' Error_code: MY-001032");
+include/wait_for_slave_sql_error.inc [errno=1032]
+Last_SQL_Error = 'Could not execute Update_rows event on table test.t1; Can't find record in 't1', Error_code: 1032; handler error HA_ERR_KEY_NOT_FOUND; the event's master log master-bin.000001, end_log_pos 2890'
+"Repairing..."
+connection slave
+stop slave;
+set @@sql_log_bin= 0;
+insert into t1 values(40, 1);
+set @@sql_log_bin= 1;
+start slave;
+"Cleaning up..."
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
