@@ -222,6 +222,177 @@ disconnect con14;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 
 ########################################################################################################
+### Case 8: Manual Throttling - SQL_ID 
+########################################################################################################
+--echo Case 8: Manual Throttling - SQL_ID 
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+
+insert into t values(1);
+
+select value from information_schema.write_statistics where type = 'SQL_ID' into @sql_id;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+SQL_ID=', @sql_id);
+select mode, value from information_schema.write_throttling_rules where type = 'SQL_ID';
+
+--echo Should throttle insert queries
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+select count from information_schema.write_throttling_log where type = 'SQL_ID' and mode = 'MANUAL';
+
+--echo Other queries should not be throttled
+update t set id = 2 where id = 1;
+delete from t where id = 2;
+
+--echo Stop throttling, query should be successful
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('-SQL_ID=', @sql_id);
+insert into t values(1);
+select * from t;
+
+--echo reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+
+########################################################################################################
+### Case 9: Manual Throttling - CLIENT 
+########################################################################################################
+--echo Case 9: Manual Throttling - CLIENT 
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+
+insert into t values(1);
+
+select value from information_schema.write_statistics where type = 'CLIENT' into @client;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+CLIENT=', @client);
+select mode, value from information_schema.write_throttling_rules where type = 'CLIENT';
+
+--echo Should throttle insert queries
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+
+--echo All write queries from this client should be throttled
+--error ER_WRITE_QUERY_THROTTLED
+update t set id = 2 where id = 1;
+--error ER_WRITE_QUERY_THROTTLED
+delete from t where id = 2;
+select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+
+--echo All read queries from this client should be fine
+select count(*) from t;
+
+--echo Stop throttling, query should be successful
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('-CLIENT=', @client);
+update t set id = 2 where id = 1;
+delete from t where id = 2;
+insert into t values(1);
+select * from t;
+
+--echo reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+
+########################################################################################################
+### Case 10: Manual Throttling - SHARD 
+########################################################################################################
+--echo Case 10: Manual Throttling - SHARD 
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+
+insert into t values(1);
+
+select value from information_schema.write_statistics where type = 'SHARD' into @shard;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+SHARD=', @shard);
+select mode, value from information_schema.write_throttling_rules where type = 'SHARD';
+
+--echo Should throttle insert queries
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+
+--echo All write queries to this shard should be throttled
+--error ER_WRITE_QUERY_THROTTLED
+update t set id = 2 where id = 1;
+--error ER_WRITE_QUERY_THROTTLED
+delete from t where id = 2;
+select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+
+--echo All read queries to this shard should be fine
+select count(*) from t;
+
+--echo Stop throttling, query should be successful
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('-SHARD=', @shard);
+update t set id = 2 where id = 1;
+delete from t where id = 2;
+insert into t values(1);
+select * from t;
+
+--echo reset 
+TRUNCATE t;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+
+########################################################################################################
+### Case 11: Manual Throttling - USER 
+########################################################################################################
+--echo Case 11: Manual Throttling - USER 
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=10000;
+SET @@GLOBAL.WRITE_STATS_COUNT=2;
+
+insert into t values(1);
+
+select value from information_schema.write_statistics where type = 'USER' into @user;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('+USER=', @user);
+select mode, value from information_schema.write_throttling_rules where type = 'USER';
+
+--echo Should throttle insert queries
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+--error ER_WRITE_QUERY_THROTTLED
+insert into t values(1);
+select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+
+--echo All write queries from this user should be throttled
+--error ER_WRITE_QUERY_THROTTLED
+update t set id = 2 where id = 1;
+--error ER_WRITE_QUERY_THROTTLED
+delete from t where id = 2;
+select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+
+--echo All read queries from this user should be fine
+select count(*) from t;
+
+--echo other users should be able to run write queries
+create user user_super1@localhost identified by 'su1';
+grant all on *.* to user_super1@localhost with grant option;
+connect (con14, localhost, user_super1,su1,test);
+insert into t values(2);
+select * from t;
+delete from t where id = 2;
+
+--echo Stop throttling, query should be successful
+connection default;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS=CONCAT('-USER=', @user);
+update t set id = 2 where id = 1;
+delete from t where id = 2;
+insert into t values(1);
+select * from t;
+
+--echo reset 
+TRUNCATE t;
+drop user user_super1@localhost;
+disconnect con14;
+SET @@GLOBAL.WRITE_STATS_COUNT=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
+
+########################################################################################################
 ### Cleanup
 ########################################################################################################
 --echo Cleanup
@@ -229,3 +400,4 @@ DROP TABLE t;
 SET @@GLOBAL.SQL_STATS_CONTROL="OFF_HARD";
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=0;
+SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';

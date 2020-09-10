@@ -6412,3 +6412,23 @@ void THD::set_stmt_total_write_time()
 #error implement getting current thread CPU time on this platform
 #endif
 }
+
+/*
+  Returns all MT keys for the current write query
+ */
+void THD::get_mt_keys_for_write_query(
+  std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys
+){
+  // Get keys for all the target dimensions to update write stats for
+  char md5_hex_buffer[MD5_BUFF_LENGTH];
+  // USER
+  keys[0] = get_user_name();
+  // CLIENT ID
+  array_to_hex(md5_hex_buffer, mt_key_value(THD::CLIENT_ID).data(), MD5_HASH_SIZE);
+  keys[1].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
+  // SHARD
+  keys[2] = get_db_name();
+  // SQL ID
+  array_to_hex(md5_hex_buffer, mt_key_value(THD::SQL_ID).data(), MD5_HASH_SIZE);
+  keys[3].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
+}

@@ -10432,6 +10432,10 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_replica_statistics, NULL, NULL, -1, -1, false, 0},
   {"WRITE_STATISTICS", write_statistics_fields_info, create_schema_table,
   fill_write_statistics, NULL, NULL, -1, -1, false, 0},
+  {"WRITE_THROTTLING_RULES", write_throttling_rules_fields_info, create_schema_table,
+  fill_write_throttling_rules, NULL, NULL, -1, -1, false, 0},
+  {"WRITE_THROTTLING_LOG", write_throttling_log_fields_info, create_schema_table,
+  fill_write_throttling_log, NULL, NULL, -1, -1, false, 0},
 #endif
   {"SCHEMATA_EXT", schema_ext_fields_info, create_schema_table,
    fill_schema_schemata_ext, NULL, 0, 1, -1, 0, 0},

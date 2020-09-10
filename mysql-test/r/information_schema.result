@@ -101,6 +101,8 @@ SLAVE_DB_LOAD
 RBR_BI_INCONSISTENCIES
 REPLICA_STATISTICS
 WRITE_STATISTICS
+WRITE_THROTTLING_RULES
+WRITE_THROTTLING_LOG
 SCHEMATA_EXT
 SOCKET_DIAG_SLAVES
 USER_TABLE_STATISTICS
@@ -898,6 +900,8 @@ TABLES	CHECK_TIME	datetime
 TRIGGERS	CREATED	datetime
 REPLICA_STATISTICS	TIMESTAMP	datetime
 WRITE_STATISTICS	TIMESTAMP	datetime
+WRITE_THROTTLING_RULES	CREATION_TIME	datetime
+WRITE_THROTTLING_LOG	LAST_RECORDED	datetime
 SQL_STATISTICS	QUERY_SAMPLE_SEEN	datetime
 event	execute_at	datetime
 event	last_executed	datetime
@@ -966,7 +970,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	60
+information_schema	62
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1340,12 +1344,12 @@ DROP PROCEDURE p1;
 DROP USER mysql_bug20230@localhost;
 SELECT MAX(table_name) FROM information_schema.tables WHERE table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test');
 MAX(table_name)
-WRITE_STATISTICS
+WRITE_THROTTLING_RULES
 SELECT table_name from information_schema.tables
 WHERE table_name=(SELECT MAX(table_name)
 FROM information_schema.tables WHERE table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test'));
 table_name
-WRITE_STATISTICS
+WRITE_THROTTLING_RULES
 DROP TABLE IF EXISTS bug23037;
 DROP FUNCTION IF EXISTS get_value;
 SELECT COLUMN_NAME, MD5(COLUMN_DEFAULT), LENGTH(COLUMN_DEFAULT) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='bug23037';
@@ -1466,6 +1470,8 @@ USER_STATISTICS	information_schema.USER_STATISTICS	1
 USER_TABLE_STATISTICS	information_schema.USER_TABLE_STATISTICS	1
 VIEWS	information_schema.VIEWS	1
 WRITE_STATISTICS	information_schema.WRITE_STATISTICS	1
+WRITE_THROTTLING_LOG	information_schema.WRITE_THROTTLING_LOG	1
+WRITE_THROTTLING_RULES	information_schema.WRITE_THROTTLING_RULES	1
 create table t1(f1 int);
 create view v1 as select f1+1 as a from t1;
 create table t2 (f1 int, f2 int);

@@ -621,6 +621,44 @@ typedef struct st_write_stats {
 } WRITE_STATS;
 
 /*
+** enum_wtr_mode
+**
+** Different modes for write_throttling_rules
+*/
+enum enum_wtr_mode
+{
+  WTR_MANUAL =0,
+  WTR_AUTO =1,
+};
+
+/*
+** enum_wtr_dimension
+**
+** Different dimensions(shard, user, client id, sql_id) for write statistics 
+** throttling rules
+*/
+enum enum_wtr_dimension
+{
+  WTR_DIM_UNKNOWN =-1,
+  WTR_DIM_USER =0,
+  WTR_DIM_CLIENT =1,
+  WTR_DIM_SHARD =2,
+  WTR_DIM_SQL_ID =3,
+};
+
+/* WRITE_THROTTLING_RULE - Stores metadata for a throttling rule for write workload */
+struct WRITE_THROTTLING_RULE {
+  time_t create_time;         /* creation time */
+  enum_wtr_mode mode;                  /* Auto or manual */
+};
+
+/* WRITE_THROTTLING_LOG - Stores metadata for an event when a write query was throttled */
+struct WRITE_THROTTLING_LOG {
+  time_t last_time;           /* last time this rule was used to throttle a query */
+  ulonglong count;            /* Number of times this rule has been used to throttle */
+};
+
+/*
 ** enum_map_name
 **
 ** Types of names that we encode using an ID in the statistics structures

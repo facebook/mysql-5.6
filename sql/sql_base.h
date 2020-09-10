@@ -414,6 +414,19 @@ int  fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_write_statistics(void);
 void store_write_statistics(THD *thd);
 
+/* For information_schema.write_throttling_rules */
+extern ST_FIELD_INFO write_throttling_rules_fields_info[];
+extern mysql_mutex_t LOCK_global_write_throttling_rules;
+int  fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond);
+void free_global_write_throttling_rules(void);
+bool store_write_throttling_rules(THD *thd);
+
+/* For information_schema.write_throttling_log */
+extern ST_FIELD_INFO write_throttling_log_fields_info[];
+extern mysql_mutex_t LOCK_global_write_throttling_log;
+int  fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond);
+void store_write_throttling_log(THD *thd, int type, std::string value, WRITE_THROTTLING_RULE &rule_meta);
+
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];
 int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond);

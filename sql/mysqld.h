@@ -59,6 +59,12 @@ extern my_bool plugins_are_initialized;
 
 extern std::unique_ptr<HHWheelTimer> hhWheelTimer;
 
+const uint WRITE_STATISTICS_DIMENSION_COUNT = 4;
+const uint WRITE_THROTTLING_MODE_COUNT = 2;
+struct WRITE_THROTTLING_RULE;
+struct WRITE_THROTTLING_LOG;
+typedef std::array<std::unordered_map<std::string, WRITE_THROTTLING_RULE>, WRITE_STATISTICS_DIMENSION_COUNT> GLOBAL_WRITE_THROTTLING_RULES_MAP;
+
 typedef struct lsn_map
 {
   int       db_type; /* The engine type. */
@@ -1000,6 +1006,9 @@ extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
 extern ulong write_stats_frequency;
 extern uint write_stats_count;
+extern char *latest_write_throttling_rule;
+extern GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
+
 
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
@@ -1356,6 +1365,8 @@ extern PSI_mutex_key
   key_LOCK_global_active_sql,
   key_LOCK_global_sql_findings,
   key_LOCK_global_write_statistics,
+  key_LOCK_global_write_throttling_rules,
+  key_LOCK_global_write_throttling_log,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

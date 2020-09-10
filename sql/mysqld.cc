@@ -713,6 +713,10 @@ uint sql_maximum_duplicate_executions;
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
 ulong write_stats_frequency;
+/* Stores the (latest)value for sys_var write_throttle_patterns  */
+char *latest_write_throttling_rule;
+/* Patterns to throttle queries in case of replication lag */
+GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1099,6 +1103,10 @@ mysql_mutex_t LOCK_global_sql_findings;
 mysql_rwlock_t LOCK_sql_stats_snapshot;
 /* Lock to protect global_write_statistics map structure */
 mysql_mutex_t LOCK_global_write_statistics;
+/* Lock to protect global_write_throttling_rules map structure */
+mysql_mutex_t LOCK_global_write_throttling_rules;
+/* Lock to protect global_write_throttling_log map structure */
+mysql_mutex_t LOCK_global_write_throttling_log;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2506,6 +2514,7 @@ void clean_up(bool print_message)
   free_global_active_sql();
   free_global_sql_findings();
   free_global_write_statistics();
+  free_global_write_throttling_rules();
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   free_aux_user_table_stats();
 #endif
@@ -2648,6 +2657,8 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_sql_findings);
   mysql_rwlock_destroy(&LOCK_sql_stats_snapshot);
   mysql_mutex_destroy(&LOCK_global_write_statistics);
+  mysql_mutex_destroy(&LOCK_global_write_throttling_rules);
+  mysql_mutex_destroy(&LOCK_global_write_throttling_log);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5637,6 +5648,10 @@ static int init_thread_environment()
   mysql_rwlock_init(key_rwlock_sql_stats_snapshot, &LOCK_sql_stats_snapshot);
   mysql_mutex_init(key_LOCK_global_write_statistics,
                    &LOCK_global_write_statistics, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_global_write_throttling_rules,
+                   &LOCK_global_write_throttling_rules, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_global_write_throttling_log,
+                   &LOCK_global_write_throttling_log, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -12820,6 +12835,8 @@ PSI_mutex_key
   key_LOCK_global_active_sql,
   key_LOCK_global_sql_findings,
   key_LOCK_global_write_statistics,
+  key_LOCK_global_write_throttling_rules,
+  key_LOCK_global_write_throttling_log,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12948,6 +12965,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_active_sql, "LOCK_global_active_sql", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_sql_findings, "LOCK_global_sql_findings", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_write_statistics, "LOCK_global_write_statistics", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_write_throttling_rules, "LOCK_global_write_throttling_rules", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

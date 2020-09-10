@@ -369,8 +369,6 @@ ST_FIELD_INFO write_statistics_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-#define WRITE_STATISTICS_DIMENSION_COUNT 4
-
 /*
   Map integer representatin of write stats dimensions to string
   constants. The integer value of these dimensions map to the 
@@ -417,21 +415,11 @@ static void populate_write_statistics(
   ulonglong total_write_time = thd->get_stmt_total_write_time();
   
   // Get keys for all the target dimensions to update write stats for
-  char md5_hex_buffer[MD5_BUFF_LENGTH];
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
-  // USER
-  keys[0] = thd->get_user_name();
-  // CLIENT ID
-  array_to_hex(md5_hex_buffer, thd->mt_key_value(THD::CLIENT_ID).data(), MD5_HASH_SIZE);
-  keys[1].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
-  // SHARD
-  keys[2] = thd->get_db_name();
-  // SQL ID
-  array_to_hex(md5_hex_buffer, thd->mt_key_value(THD::SQL_ID).data(), MD5_HASH_SIZE);
-  keys[3].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
+  thd->get_mt_keys_for_write_query(keys);
   
   // Add/Update the write stats
-  for (int i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
+  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
   {
     auto iter = time_bucket_stats[i].find(keys[i]);
     if (iter == time_bucket_stats[i].end()) 
@@ -544,6 +532,262 @@ int fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
 /***********************************************************************
               End - Functions to support WRITE_STATISTICS
 ************************************************************************/
+
+/***********************************************************************
+              Begin - Functions to support WRITE_THROTTLING_RULES
+************************************************************************/
+
+/*
+  WRITE_THROTTLING_RULES
+
+  This table is used to display the write throttling rules used to mitigate
+  replication lag
+*/
+
+ST_FIELD_INFO write_throttling_rules_fields_info[]=
+{
+  {"MODE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"CREATION_TIME", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+/*
+  Map integer representation of write throttling rules mode to string
+  constants.
+*/
+const std::string WRITE_THROTTLING_MODE_STRING[] = {"MANUAL", "AUTO"};
+
+/*
+  free_global_write_throttling_rules
+    Frees global_write_throttling_rules data structure
+*/
+void free_global_write_throttling_rules() {
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
+  for(uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) {
+    global_write_throttling_rules[i].clear();
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
+}
+
+/*
+  Utility method to convert a dimension(client, sql_id, user, shard) 
+  string to integer index. These indices are used in global_write_throttling_rules 
+  data structure.
+  If the string doesn't represent a dimension, WTR_DIM_UNKNOWN is returned. 
+*/
+enum_wtr_dimension get_wtr_dimension_from_str(std::string type_str) {
+  int type = WRITE_STATISTICS_DIMENSION_COUNT - 1;
+  
+  while(type >= 0 && WRITE_STATS_TYPE_STRING[type] != type_str)
+    type--;
+
+  return static_cast<enum_wtr_dimension>(type);
+}
+
+/*
+  Stores a user specified throttling rule from write_throttling_patterns 
+  sys_var into global_write_throttling_rules
+*/
+bool store_write_throttling_rules(THD *thd) {
+  char * wtr_string_cur_pos;
+  std::string type_str;
+  std::string value_str;
+  enum_wtr_dimension wtr_dim;
+
+  char op = latest_write_throttling_rule[0];
+
+  // first character is + or -
+  if (op == '+' || op == '-') {
+    wtr_string_cur_pos = latest_write_throttling_rule;
+    wtr_string_cur_pos++;
+
+    type_str = strtok(wtr_string_cur_pos, "=");
+    wtr_dim = get_wtr_dimension_from_str(type_str);
+    value_str = strtok(nullptr, "");
+    if (wtr_dim == WTR_DIM_UNKNOWN || value_str == "") {
+      return true;
+    }
+    WRITE_THROTTLING_RULE rule;
+    rule.mode = WTR_MANUAL; // manual
+    rule.create_time = my_time(0);
+    auto & rules_map = global_write_throttling_rules[wtr_dim];
+    auto iter = rules_map.find(value_str);
+    if (op == '+') {
+      if (iter != rules_map.end()) 
+        rules_map[value_str] = rule;
+      else 
+        rules_map.insert(std::make_pair(value_str, rule));              
+    } else { // op == '-'
+      if (iter != rules_map.end())
+        rules_map.erase(iter);  
+    }
+    return false; // success
+  }
+  return true; // failure
+}
+
+/*
+  fill_write_throttling_rules
+    Fills the rows returned for statements selecting from WRITE_THROTTLING_RULES
+*/
+int fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_write_throttling_rules");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
+  MYSQL_TIME time;
+  std::string type_string, mode_string;
+
+  for(int type = 0; type != (int)global_write_throttling_rules.size(); ++type) 
+  {
+    for(auto rules_iter = global_write_throttling_rules[type].begin(); 
+        rules_iter != global_write_throttling_rules[type].end(); ++rules_iter) 
+    {
+      int f= 0;
+      restore_record(table, s->default_values);
+      
+      // mode
+      mode_string = WRITE_THROTTLING_MODE_STRING[rules_iter->second.mode];
+      table->field[f++]->store(mode_string.c_str(), mode_string.length(), system_charset_info);
+
+      // creation_time
+      thd->variables.time_zone->gmt_sec_to_TIME(
+          &time, (my_time_t)rules_iter->second.create_time);
+      table->field[f++]->store_time(&time);
+
+      // type
+      type_string = WRITE_STATS_TYPE_STRING[type];
+      table->field[f++]->store(type_string.c_str(), type_string.length(), system_charset_info);
+
+      // value
+      table->field[f++]->store(rules_iter->first.c_str(), rules_iter->first.length(), system_charset_info);
+
+      if (schema_table_store_record(thd, table))
+      {
+        mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
+        DBUG_RETURN(-1);
+      }
+    }
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
+
+  DBUG_RETURN(0);
+}
+
+/***********************************************************************
+              End - Functions to support WRITE_THROTTLING_RULES
+************************************************************************/
+
+/***********************************************************************
+              Begin - Functions to support WRITE_THROTTLING_LOG
+************************************************************************/
+#define WRITE_THROTTLING_MODE_COUNT 2
+
+ST_FIELD_INFO write_throttling_log_fields_info[]=
+{
+  {"MODE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"LAST_RECORDED", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME, 0, 0, 0,
+    SKIP_OPEN_TABLE},
+  {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+    0, 0, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+std::array<
+  std::array<
+    std::unordered_map<std::string, WRITE_THROTTLING_LOG>, 
+    WRITE_THROTTLING_MODE_COUNT
+  >,
+  WRITE_STATISTICS_DIMENSION_COUNT
+> global_write_throttling_log;
+
+/*
+  fill_write_throttling_log
+    Fills the rows returned for statements selecting from WRITE_THROTTLING_LOG
+*/
+int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_write_throttling_log");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
+  MYSQL_TIME time;
+  std::string type_string, mode_string;
+
+  for(size_t type = 0; type != global_write_throttling_log.size(); ++type) 
+  {
+    for(size_t mode = 0; mode != global_write_throttling_log[type].size(); ++mode) 
+    {
+      for(auto log_iter = global_write_throttling_log[type][mode].begin();
+        log_iter != global_write_throttling_log[type][mode].end(); ++log_iter) 
+      {
+        WRITE_THROTTLING_LOG & log = log_iter->second;
+        int f= 0;
+        restore_record(table, s->default_values);
+        
+        // mode
+        mode_string = WRITE_THROTTLING_MODE_STRING[mode];
+        table->field[f++]->store(mode_string.c_str(), mode_string.length(), system_charset_info);
+
+        // last_recorded
+        thd->variables.time_zone->gmt_sec_to_TIME(
+            &time, (my_time_t)log.last_time);
+        table->field[f++]->store_time(&time);
+
+        // type
+        type_string = WRITE_STATS_TYPE_STRING[type];
+        table->field[f++]->store(type_string.c_str(), type_string.length(), system_charset_info);
+
+        // value
+        table->field[f++]->store(log_iter->first.c_str(), log_iter->first.length(), system_charset_info);
+
+        // count
+        table->field[f++]->store(log.count, TRUE);
+
+        if (schema_table_store_record(thd, table))
+        {
+          mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+          DBUG_RETURN(-1);
+        }
+      }
+    }
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+
+  DBUG_RETURN(0);
+}
+
+/*
+  store_write_throttling_log
+    Stores a log for when a query was throttled due to a throttling 
+    rule in I_S.WRITE_THROTTLING_RULES
+*/
+void store_write_throttling_log(
+  THD *thd, 
+  int type, 
+  std::string value, 
+  WRITE_THROTTLING_RULE &rule) 
+{ 
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
+  WRITE_THROTTLING_LOG log{};
+  time_t timestamp = my_time(0);
+  auto &log_map = global_write_throttling_log[type][rule.mode];
+  auto &inserted_log = log_map.insert(std::make_pair(value, log)).first->second;
+  inserted_log.last_time = timestamp;
+  inserted_log.count++;
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+}
+
+/***********************************************************************
+              End - Functions to support WRITE_THROTTLING_LOG
+************************************************************************/
+
 
 /*
   These limits control the maximum accumulation of all sql statistics.

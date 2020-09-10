@@ -6986,6 +6986,32 @@ static Sys_var_uint Sys_write_stats_count(
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
       ON_UPDATE(update_write_stats_count));
 
+/* 
+  Update global_write_throttling_rules data structure with the 
+  new value specified in write_throttling_patterns
+*/
+static bool update_write_throttling_patterns(sys_var *self, THD *thd,
+                                               enum_var_type type) {
+  // value must be at least 3 characters long. 
+  if (strlen(latest_write_throttling_rule) < 3)
+       return true; //failure
+  
+  if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
+       free_global_write_throttling_rules();
+       return false; // success
+  }
+  return store_write_throttling_rules(thd);
+}	
+static Sys_var_charptr Sys_write_throttling_patterns(
+      "write_throttle_patterns",
+      "This variable is used to throttle write requests based on user name, client id, "
+      "sql_id or shard. It is used to manually mitigate replication lag related issues."
+      "Check out I_S.write_throttling_rules for all active rules."
+      "Valid values - OFF, [+-][CLIENT|USER|SHARD|SQL_ID]=<value>",
+      GLOBAL_VAR(latest_write_throttling_rule), CMD_LINE(OPT_ARG),
+      IN_SYSTEM_CHARSET, DEFAULT("OFF"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+      ON_CHECK(nullptr), ON_UPDATE(update_write_throttling_patterns));
+
 /*
 ** sql_maximum_duplicate_executions
 */

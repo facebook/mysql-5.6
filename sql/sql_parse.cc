@@ -8181,6 +8181,51 @@ static bool throttle_query_if_needed(THD* thd)
 }
 
 /*
+  Check if we should throttle a write query if a matching throttling 
+  rule is present 
+*/
+static bool mt_check_throttle_write_query(THD* thd)
+{
+  DBUG_ENTER("mt_check_throttle_write_query");
+
+  // skip if it is a secondary or sql_log_bin is off
+  if (is_slave || !thd->variables.sql_log_bin) 
+    DBUG_RETURN(false);
+
+  // skip if not a write query
+  if(thd->lex->sql_command != SQLCOM_INSERT 
+      && thd->lex->sql_command != SQLCOM_UPDATE 
+      && thd->lex->sql_command != SQLCOM_DELETE 
+      && thd->lex->sql_command != SQLCOM_UPDATE_MULTI 
+      && thd->lex->sql_command != SQLCOM_DELETE_MULTI
+      && thd->lex->sql_command != SQLCOM_REPLACE
+      && thd->lex->sql_command != SQLCOM_REPLACE_SELECT
+      && thd->lex->sql_command != SQLCOM_INSERT_SELECT) {
+    DBUG_RETURN(false);
+  }
+
+  std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
+  thd->get_mt_keys_for_write_query(keys);
+  
+  mysql_mutex_lock(&LOCK_global_write_throttling_rules);
+  // Check if any part of the key match any of the throttling rules
+  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
+  {
+    auto iter = global_write_throttling_rules[i].find(keys[i]);
+    if (iter != global_write_throttling_rules[i].end()) 
+    {
+      WRITE_THROTTLING_RULE &rule = iter->second;
+      store_write_throttling_log(thd, i, iter->first, rule);
+      my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
+      mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+      DBUG_RETURN(true);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+  DBUG_RETURN(false);
+}
+
+/*
   When you modify mysql_parse(), you may need to mofify
   mysql_test_parse_for_slave() in this same file.
 */
@@ -8263,8 +8308,10 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 
     /* We throttle certain type of queries based on the current state
     of the system. This function will check if we need to throttle and
-    if so, it will set the appropriate error and return true. */
-    bool query_throttled= throttle_query_if_needed(thd);
+    if so, it will set the appropriate error and return true.
+    Also, throttle, if needed, to avoid replication lag */
+    bool query_throttled= throttle_query_if_needed(thd) || 
+      mt_check_throttle_write_query(thd);
 
     if (!err && !query_throttled && !skip_dup_exec)
     {

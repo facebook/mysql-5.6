@@ -178,6 +178,8 @@ DROP TABLE t1, t2;
 | USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
 | WRITE_STATISTICS                      |
+| WRITE_THROTTLING_LOG                  |
+| WRITE_THROTTLING_RULES                |
 | ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
@@ -281,6 +283,8 @@ DROP TABLE t1, t2;
 | USER_TABLE_STATISTICS                 |
 | VIEWS                                 |
 | WRITE_STATISTICS                      |
+| WRITE_THROTTLING_LOG                  |
+| WRITE_THROTTLING_RULES                |
 Wildcard: inf_rmation_schema
 +--------------------+
 |     Databases      |

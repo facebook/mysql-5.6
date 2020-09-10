@@ -2212,6 +2212,12 @@ The following options may be given as the first argument:
  This variable determines the frequency(seconds) at which
  write stats and replica lag stats are collected on
  primaries
+ --write-throttle-patterns[=name] 
+ This variable is used to throttle write requests based on
+ user name, client id, sql_id or shard. It is used to
+ manually mitigate replication lag related issues.Check
+ out I_S.write_throttling_rules for all active rules.Valid
+ values - OFF, [+-][CLIENT|USER|SHARD|SQL_ID]=<value>
  --write-time-check-batch[=#] 
  Frequency (specified in number of rows) of checking
  whether the CPU time of DML queries exceeded the limit
@@ -2870,6 +2876,7 @@ write-cpu-limit-milliseconds 0
 write-query-throttling-limit 0
 write-stats-count 0
 write-stats-frequency 0
+write-throttle-patterns OFF
 write-time-check-batch 0
 zstd-net-compression-level 3
 

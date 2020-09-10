@@ -3558,6 +3558,8 @@ public:
 
   void set_stmt_start_write_time();
 
+  void get_mt_keys_for_write_query(std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys);
+
   ulonglong get_stmt_tmp_table_disk_usage_peak()
     { return m_stmt_tmp_table_disk_usage_peak; }
 
