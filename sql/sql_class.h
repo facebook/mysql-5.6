@@ -796,6 +796,11 @@ typedef struct system_variables
    */
   my_bool response_attrs_contain_server_cpu;
 
+  /*
+    Size of the warnings that can be included in response attribute
+  */
+  uint response_attrs_contain_warnings_bytes;
+
   /**
     Compatibility option to mark the pre MySQL-5.6.4 temporals columns using
     the old format using comments for SHOW CREATE TABLE and in I_S.COLUMNS

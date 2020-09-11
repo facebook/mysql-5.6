@@ -1,0 +1,103 @@
+
+# Test server_cpu query response attribute
+
+use test;
+create table mytbl (c1 char(2) PRIMARY KEY, c2 int unsigned);
+# Test 1: session level variable is default, i.e. 0
+There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = default;
+insert into mytbl values('m1m1', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+[X] Did not find warnings in query response attributes
+# Test 2: session level variable is 1 MB
+There should be two warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 1048576;
+insert into mytbl values('m2m2', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+[^] Warnings in query response attributes: (1265,Data truncated for column 'c1' at row 1),(1264,Out of range value for column 'c2' at row 1)
+# Test 5: session level variable is 5 bytes
+Warnings should be truncated to just message codes in the
+response since they exceed the bytes limit
+set @@session.response_attrs_contain_warnings_bytes = 5;
+insert into mytbl values('m4m4', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+[^] Warnings in query response attributes: (1265,),(1264,)
+# Test 6: session level variable is 0, i.e., disabled
+There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 0;
+insert into mytbl values('m5m5', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+[X] Did not find warnings in query response attributes
+Set variables to raise an additional warning for long running queries
+set @@GLOBAL.write_cpu_limit_milliseconds=1;
+set @@GLOBAL.write_control_level=NOTE;
+set @@GLOBAL.write_time_check_batch=3;
+set @@global.debug= '+d,dbug.force_long_running_query';
+# Test 7: session level variable is default, i.e. 0
+There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = default;
+insert into mytbl values('a1a1', -1), ('a2a2', -1), ('a3a3', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+Warning	1265	Data truncated for column 'c1' at row 2
+Warning	1264	Out of range value for column 'c2' at row 2
+Warning	1265	Data truncated for column 'c1' at row 3
+Warning	1264	Out of range value for column 'c2' at row 3
+Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+[X] Did not find warnings in query response attributes
+# Test 8: session level variable is 1 MB
+There should be two warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 1048576;
+insert into mytbl values('b1b1', -1), ('b2b2', -1), ('b3b3', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+Warning	1265	Data truncated for column 'c1' at row 2
+Warning	1264	Out of range value for column 'c2' at row 2
+Warning	1265	Data truncated for column 'c1' at row 3
+Warning	1264	Out of range value for column 'c2' at row 3
+Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+[^] Warnings in query response attributes: (1265,Data truncated for column 'c1' at row 1),(1264,Out of range value for column 'c2' at row 1),(1265,Data truncated for column 'c1' at row 2),(1264,Out of range value for column 'c2' at row 2),(1265,Data truncated for column 'c1' at row 3),(1264,Out of range value for column 'c2' at row 3),(50091,Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds))
+# Test 9: session level variable is 5 bytes
+Warnings should be truncated to just message codes in the
+response since they exceed the bytes limit
+set @@session.response_attrs_contain_warnings_bytes = 5;
+insert into mytbl values('c1c1', -1), ('c2c2', -1), ('c3c3', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+Warning	1265	Data truncated for column 'c1' at row 2
+Warning	1264	Out of range value for column 'c2' at row 2
+Warning	1265	Data truncated for column 'c1' at row 3
+Warning	1264	Out of range value for column 'c2' at row 3
+Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+[^] Warnings in query response attributes: (1265,),(1264,),(1265,),(1264,),(1265,),(1264,),(50091,)
+# Test 10: session level variable is 0, i.e., disabled
+There should be no warnings present in the response
+set @@session.response_attrs_contain_warnings_bytes = 0;
+insert into mytbl values('d1d1', -1), ('d2d2', -1), ('d3d3', -1);
+Warnings:
+Warning	1265	Data truncated for column 'c1' at row 1
+Warning	1264	Out of range value for column 'c2' at row 1
+Warning	1265	Data truncated for column 'c1' at row 2
+Warning	1264	Out of range value for column 'c2' at row 2
+Warning	1265	Data truncated for column 'c1' at row 3
+Warning	1264	Out of range value for column 'c2' at row 3
+Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+[X] Did not find warnings in query response attributes
+set @@global.debug= '-d,dbug.force_long_running_query';
+set @@GLOBAL.write_control_level=OFF;
+set @@GLOBAL.write_cpu_limit_milliseconds=0;
+set @@GLOBAL.write_time_check_batch=0;
+set @@session.response_attrs_contain_warnings_bytes = default;
+use test;
+drop table if exists mytbl;

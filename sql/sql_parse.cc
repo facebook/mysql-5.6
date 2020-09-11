@@ -173,6 +173,7 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
 static bool check_show_access(THD *thd, TABLE_LIST *table);
 static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
+static void store_warnings_in_resp_attrs(THD *thd);
 
 const char *any_db="*any*";	// Special symbol for check_access
 const char *hlc_ts_lower_bound="hlc_ts_lower_bound";
@@ -1592,6 +1593,13 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
 
   if (sql_findings_control == SQL_INFO_CONTROL_ON)
     store_sql_findings(thd, sub_query);
+
+  /* check if should we include warnings in the response attributes */
+  if (thd->variables.response_attrs_contain_warnings_bytes > 0 &&
+      !thd->is_error() && /* there is no error generated */
+      thd->get_stmt_da()->cond_count() > 0 && /* # errors, warnings & notes */
+      thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER)->is_enabled())
+    store_warnings_in_resp_attrs(thd);
 
   thd->mt_key_clear(THD::SQL_ID);
   thd->mt_key_clear(THD::PLAN_ID);
@@ -10612,4 +10620,87 @@ std::string get_user_query_info_from_thd(THD* thd) {
   }
 
   return user_info;
+}
+
+/**
+  Include warnings in the query response attributes
+
+  @param pointer to thread
+
+  This function iterate through all the warnings and includes them
+  in the query response attributes. The query response attribute
+  is identified by the key 'warnings' and the value is a list of
+  pairs where the first value of the pair is the error code and the
+  second value is the message text of the warning. Warnings corresponding
+  to errors are skipped and only warnings that are either regular warnings
+  or notes are included.
+
+  The variable 'response_attrs_contain_warnings_bytes' controls the above.
+  It takes a value >= 0 where 0 indicates that the feature is disabled. A
+  non zero value indicates the maximum number of bytes that can be used for
+  warnings included. If the length of the message to be included is more than
+  this limit then the message text of the warnings is truncated and only the
+  error codes are included with empty message texts.
+*/
+
+static void store_warnings_in_resp_attrs(THD *thd)
+{
+  unsigned long long warnings_length = 0; /* total length of warnings */
+
+  Diagnostics_area::Sql_condition_iterator it =
+    thd->get_stmt_da()->sql_conditions();
+  /* this indicates the length of the delimiters added in the warnings
+   * message that will be included in the response attributes. The delimiters
+   * are '(', ')', ','.
+   */
+
+  const ulonglong WARNINGS_DELIMITER_LENGTH = 3;
+
+  /* first compute the length of the warnings message
+   * used to enforce the limit
+   */
+  const Sql_condition *err;
+  while ((err= it++)) /* iterate through all the warnings */
+  {
+    const uint err_no = err->get_sql_errno();
+
+    /* update the length of warnings message */
+    warnings_length += std::to_string(err_no).length() +
+                       strlen(err->get_message_text()) +
+                       WARNINGS_DELIMITER_LENGTH;
+  }
+
+  if (warnings_length > 0) /* there are warnings to included */
+  {
+    /* included the message text also if it is within the limit */
+    bool include_mesg_text
+      = (warnings_length <=
+         thd->variables.response_attrs_contain_warnings_bytes);
+    std::string resp_attrs_value; /* warnings text */
+
+    /* create the string that will be made part of the response attributes */
+    it = thd->get_stmt_da()->sql_conditions();
+    while ((err= it++))
+    {
+      const uint err_no = err->get_sql_errno();
+
+      /* add the warnings as "(error_no, message_text)" if within in limit
+       * otherwise just include "(error_no,)"
+       */
+      if (resp_attrs_value.length() > 0)
+        resp_attrs_value.append(",");
+      resp_attrs_value.append("(");
+      resp_attrs_value.append(std::to_string(err_no));
+      resp_attrs_value.append(",");
+      if (include_mesg_text)
+        resp_attrs_value.append(err->get_message_text());
+      resp_attrs_value.append(")");
+    }
+
+    /* add the warnings to response attributes */
+    auto tracker= thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+    static LEX_CSTRING key= { STRING_WITH_LEN("warnings") };
+    LEX_CSTRING value= { resp_attrs_value.c_str(), resp_attrs_value.length() };
+    tracker->mark_as_changed(thd, &key, &value);
+  }
 }

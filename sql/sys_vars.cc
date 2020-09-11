@@ -7144,3 +7144,15 @@ static Sys_var_uint Sys_write_time_check_batch(
       "write_cpu_limit_milliseconds.",
       GLOBAL_VAR(write_time_check_batch), CMD_LINE(OPT_ARG),
       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
+    "response_attrs_contain_warnings_bytes",
+    "Specifies the size of the warnings information (specified in bytes) "
+    " that can be included in the query response attributes. The warnings "
+    "are sent as a key-value pair - 'warnings' is the key and the "
+    "value is a list of pairs included with in brackets separated by commas."
+    " The first value of the pair is the error number (code) and the second value "
+    " of the pair is the message text and these are separated by a comma. The "
+    "default value is 0 which disables this feature",
+    SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
