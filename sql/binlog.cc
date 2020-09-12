@@ -9512,8 +9512,9 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
             // Successfully committed the trx to engine. Update applied hlc for
             // all databases that this trx touches
             hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
-          } else if (log_error_verbosity >= 3) {
+          } else if (log_error_verbosity >= 4) {
             // Log a error line if databases are empty. This could happen in SBR
+            // and for blackhole engine statements
             // NO_LINT_DEBUG
             sql_print_error("Databases were empty for this trx. HLC= %lu",
                             head->hlc_time_ns_next);

@@ -4359,6 +4359,8 @@ dberr_t row_mysql_parallel_select_count_star(
 
   dberr_t err{DB_SUCCESS};
 
+  ib::debug() << "Parallel scan: " << n_threads;
+
   for (auto index : indexes) {
     Parallel_reader::Config config(FULL_SCAN, index);
 
@@ -4390,6 +4392,7 @@ dberr_t row_mysql_parallel_select_count_star(
     Counter::for_each(n_recs, [=](const Counter::Type n) {
       if (n > 0) {
         *n_rows += n;
+        ib::debug() << "n: " << n;
       }
     });
   }
