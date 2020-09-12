@@ -2182,11 +2182,14 @@ ALTER TABLE t5 DROP PRIMARY KEY, ADD CONSTRAINT PRIMARY KEY (j);
 # Restriction also applies to temporary tables
 CREATE TEMPORARY TABLE t6(i INT);
 ERROR HY000: Unable to create or change a table without a primary key, when the system variable 'sql_require_primary_key' is set. Add a primary key to the table or unset this variable to avoid this message. Note that tables without a primary key can cause performance problems in row-based replication, so please consult your DBA before changing this setting.
+# BLACKHOLE table should be excluded
+CREATE TABLE tb (`i` int) ENGINE=BLACKHOLE DEFAULT CHARSET=latin1;
 # Cleanup
 DROP TABLE t5;
 DROP TABLE t4;
 DROP TABLE t3;
 DROP TABLE t1;
+DROP TABLE tb;
 # Create user without SUPER privilege.
 CREATE USER subuser@localhost;
 REVOKE SUPER ON *.* FROM subuser@localhost;
