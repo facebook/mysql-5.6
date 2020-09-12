@@ -1196,6 +1196,7 @@ bool log_item_set_cstring(log_item_data *lid, const char *s) {
   @retval  "Error"    for prio of ERROR_LEVEL
   @retval  "Warning"  for prio of WARNING_LEVEL
   @retval  "Note"     for prio of INFORMATION_LEVEL
+  @retval  "Debug"    for prio of DEBUG_LEVEL
 */
 const char *log_label_from_prio(int prio) {
   switch (prio) {
@@ -1207,6 +1208,8 @@ const char *log_label_from_prio(int prio) {
       return "Warning";
     case INFORMATION_LEVEL:
       return "Note";
+    case DEBUG_LEVEL:
+      return "Debug";
     default:
       DBUG_ASSERT(false);
       return "";

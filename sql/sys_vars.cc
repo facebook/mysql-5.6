@@ -2687,8 +2687,9 @@ static Sys_var_ulong Sys_log_error_verbosity(
     "1, log errors only. "
     "2, log errors and warnings. "
     "3, log errors, warnings, and notes. "
+    "4, log errors, warnings, notes, and debug. "
     "Messages sent to the client are unaffected by this setting.",
-    GLOBAL_VAR(log_error_verbosity), CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 3),
+    GLOBAL_VAR(log_error_verbosity), CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 4),
     DEFAULT(2), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
     ON_UPDATE(update_log_error_verbosity));
 

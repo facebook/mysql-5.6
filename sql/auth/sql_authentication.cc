@@ -1185,7 +1185,7 @@ bool auth_plugin_supports_expiration(const char *plugin_name) {
 static void login_failed_error(THD *thd, MPVIO_EXT *mpvio, int passwd_used) {
   if (thd->is_error()) {
     LogEvent()
-        .prio(INFORMATION_LEVEL)
+        .prio(DEBUG_LEVEL)
         .errcode(ER_ABORTING_USER_CONNECTION)
         .subsys(LOG_SUBSYSTEM_TAG)
         .verbatim(thd->get_stmt_da()->message_text());

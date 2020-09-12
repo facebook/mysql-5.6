@@ -657,7 +657,8 @@ The following options may be given as the first argument:
  --log-error-verbosity=# 
  How detailed the error log should be. 1, log errors only.
  2, log errors and warnings. 3, log errors, warnings, and
- notes. Messages sent to the client are unaffected by this
+ notes. 4, log errors, warnings, notes, and debug.
+ Messages sent to the client are unaffected by this
  setting.
  --log-global-var-changes 
  All the value changes of global variables will be logged
