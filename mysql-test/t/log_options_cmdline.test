@@ -628,7 +628,7 @@ UNINSTALL COMPONENT "file://component_log_filter_dragnet";
      if ($line =~ /\[Note\]/) {
        $result=0;
        }
-     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 3/) {
+     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 4/) {
        $verbosity_adjust_message_logged= 1;
        }
      }

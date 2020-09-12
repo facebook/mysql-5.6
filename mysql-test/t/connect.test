@@ -451,7 +451,7 @@ DROP USER wl6587@localhost;
 --let LOG_ERR=$MYSQLTEST_VARDIR/tmp/myerror.err
 --let SEARCH_FILE=$MYSQLTEST_VARDIR/tmp/myerror.err
 
---let restart_parameters="restart: --log-error=$LOG_ERR --log-error-verbosity=3"
+--let restart_parameters="restart: --log-error=$LOG_ERR --log-error-verbosity=4"
 --replace_result $LOG_ERR LOG_ERR
 --source include/restart_mysqld.inc
 
