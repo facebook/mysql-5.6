@@ -797,7 +797,7 @@ void end_connection(THD *thd) {
       Security_context *sctx = thd->security_context();
       LEX_CSTRING sctx_user = sctx->user();
       LogErr(
-          INFORMATION_LEVEL, ER_ABORTING_USER_CONNECTION, thd->thread_id(),
+          DEBUG_LEVEL, ER_ABORTING_USER_CONNECTION, thd->thread_id(),
           (thd->db().str ? thd->db().str : "unconnected"),
           sctx_user.str ? sctx_user.str : "unauthenticated",
           sctx->host_or_ip().str,

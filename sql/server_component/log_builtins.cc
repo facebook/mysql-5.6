@@ -984,6 +984,8 @@ const char *log_label_from_prio(int prio) {
       return "Warning";
     case INFORMATION_LEVEL:
       return "Note";
+    case DEBUG_LEVEL:
+      return "Debug";
     default:
       assert(false);
       return "";

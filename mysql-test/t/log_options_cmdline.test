@@ -780,7 +780,7 @@ SET GLOBAL log_error_services= DEFAULT;
      if ($line =~ /\[Note\]/) {
        $result=0;
        }
-     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 3/) {
+     if ($line =~ /\[Warning\].*'log_error_verbosity': unsigned value 7 adjusted to 4/) {
        $verbosity_adjust_message_logged= 1;
        }
      }

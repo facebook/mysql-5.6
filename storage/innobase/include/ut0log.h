@@ -203,6 +203,27 @@ class info : public logger {
 #endif /* !UNIV_NO_ERR_MSGS */
 };
 
+/** The class debug is used to emit debug logs.  Refer to the documentation of
+class info for further details. */
+class debug : public logger {
+ public:
+#ifndef UNIV_NO_ERR_MSGS
+  /** Default constructor uses ER_IB_MSG_0 */
+  debug() : logger(DEBUG_LEVEL) {}
+
+  /** Constructor.
+  @param[in]  err   Error code from errmsg-*.txt.
+  @param[in]  args    Variable length argument list */
+  template <class... Args>
+  explicit debug(int err, Args &&...args)
+      : logger(DEBUG_LEVEL, err, std::forward<Args>(args)...) {}
+
+#else
+  /** Destructor */
+  ~debug() override;
+#endif /* !UNIV_NO_ERR_MSGS */
+};
+
 /** The class warn is used to emit warnings.  Refer to the documentation of
 class info for further details. */
 class warn : public logger {

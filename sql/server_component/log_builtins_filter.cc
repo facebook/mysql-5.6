@@ -763,8 +763,8 @@ done:
   Only one of "log_filter_internal" and "log_filter_dragnet"
   should be used at a time.
 
-  @param verbosity  log_error_verbosity style, range(1,3)
-                    1:errors,   2:+=warnings,  3:+=notes
+  @param verbosity  log_error_verbosity style, range(1,4)
+                    1:errors,   2:+=warnings,  3:+=notes,  4:+=debug
 
   @retval            0: success
   @retval           !0: failure
