@@ -1062,6 +1062,10 @@ dberr_t Parallel_reader::Scan_ctx::create_contexts(const Ranges &ranges) {
     split_point = max_threads();
   }
 
+  ib::debug() << "ranges: " << ranges.size()
+              << " max_threads: " << max_threads() << " split: " << split_point
+              << " depth: " << m_depth;
+
   size_t i{};
 
   for (auto range : ranges) {

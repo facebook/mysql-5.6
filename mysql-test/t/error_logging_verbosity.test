@@ -47,8 +47,8 @@ SELECT @@global.log_error_verbosity;
 
 --echo
 --echo # Spec 4c "range"
-# there is nothing beyond Notes, so there is no level higher than 3.
-SET GLOBAL log_error_verbosity=4;
+# there is nothing beyond Debug, so there is no level higher than 4.
+SET GLOBAL log_error_verbosity=5;
 SELECT @@global.log_error_verbosity;
 
 --echo

@@ -41,7 +41,8 @@ enum loglevel {
   SYSTEM_LEVEL = 0,
   ERROR_LEVEL = 1,
   WARNING_LEVEL = 2,
-  INFORMATION_LEVEL = 3
+  INFORMATION_LEVEL = 3,
+  DEBUG_LEVEL = 4
 };
 
 #endif  // MY_LOGLEVEL_H
