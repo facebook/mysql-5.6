@@ -2026,12 +2026,16 @@ ALTER TABLE t5 DROP PRIMARY KEY, ADD CONSTRAINT PRIMARY KEY (j);
 --echo # Restriction also applies to temporary tables
 --error ER_TABLE_WITHOUT_PK
 CREATE TEMPORARY TABLE t6(i INT);
- 
+
+--echo # BLACKHOLE table should be excluded
+CREATE TABLE tb (`i` int) ENGINE=BLACKHOLE DEFAULT CHARSET=latin1;
+
 --echo # Cleanup
 DROP TABLE t5;
 DROP TABLE t4;
 DROP TABLE t3;
 DROP TABLE t1;
+DROP TABLE tb;
 
 disconnect con1;
 connection default;
