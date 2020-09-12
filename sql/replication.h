@@ -21,7 +21,7 @@
 #include <mysql.h>
 #include <queue>
 // For RaftReplicateMsgOpType
-#include "raft_listener_queue_if.h"
+#include "raft_optype.h"
 
 typedef struct st_mysql MYSQL;
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER

@@ -6,14 +6,6 @@
 #include <vector>
 #include <map>
 
-enum class RaftReplicateMsgOpType {
-  OP_TYPE_INVALID = 0,
-  OP_TYPE_TRX = 1,
-  OP_TYPE_ROTATE = 2,
-  OP_TYPE_NOOP = 3,
-  OP_TYPE_CHANGE_CONFIG = 4,
-};
-
 /* Type of callback that raft plugin wants to invoke in the server */
 enum class RaftListenerCallbackType
 {

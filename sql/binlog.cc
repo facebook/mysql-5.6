@@ -2812,19 +2812,28 @@ bool show_raft_logs(THD* thd)
   File file;
   LOG_INFO cur;
   bool exit_loop= false;
+  const char *errmsg= 0;
 
   // Redirect to show_binlog() on leader instances
   if (!mysql_bin_log.is_apply_log)
     return show_binlogs(thd);
 
   if (active_mi == NULL || active_mi->rli == NULL)
-    return FALSE;
+  {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),
+             "SHOW RAFT LOGS",
+             "No master info or relay log info present");
+    return TRUE;
+  }
 
   mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi->rli == NULL)
   {
     mysql_mutex_unlock(&LOCK_active_mi);
-    return FALSE;
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),
+             "SHOW RAFT LOGS",
+             "No relay log info present");
+    return TRUE;
   }
 
   Relay_log_info* rli = active_mi->rli;
@@ -2849,6 +2858,7 @@ bool show_raft_logs(THD* thd)
         &field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
   {
     error= 1;
+    errmsg= "Protocol failed to send metadata";
     goto err;
   }
 
@@ -2903,18 +2913,29 @@ bool show_raft_logs(THD* thd)
     if (protocol->write())
     {
       error= 1;
+      errmsg= "Failure in protocol write";
       goto err;
     }
   }
 
   if (index_file->error == -1)
+  {
+    error= 1;
+    errmsg= "Index file error";
     goto err;
-
-  my_eof(thd);
+  }
 
 err:
   mysql_mutex_unlock(rli->relay_log.get_lock_index());
   mysql_mutex_unlock(&LOCK_active_mi);
+  if (errmsg)
+  {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),
+        "SHOW RAFT LOGS", errmsg);
+  } else
+  {
+    my_eof(thd);
+  }
 
   return error;
 }
