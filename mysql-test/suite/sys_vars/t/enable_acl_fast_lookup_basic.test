@@ -1,0 +1,76 @@
+################ mysql-test\t\enable_acl_fast_lookup_basic.test ###############
+#                                                                             #
+# Variable Name: enable_acl_fast_lookup                                       #
+# Scope: Global                                                               #
+#                                                                             #
+# Creation Date: 2019-08-05                                                   #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable enable_acl_fast_lookup    #
+#             that checks the behavior of this variable in the following ways #
+#              * Default Value                                                #
+#              * Valid Value                                                  #
+#              * Invalid value                                                #
+#                                                                             #
+###############################################################################
+SET @start_global_value = @@GLOBAL.enable_acl_fast_lookup;
+SELECT @start_global_value;
+
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+
+########################################################################
+#          Display the DEFAULT value of enable_acl_fast_lookup         #
+########################################################################
+
+SET @@GLOBAL.enable_acl_fast_lookup = on;
+SET @@GLOBAL.enable_acl_fast_lookup = DEFAULT;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+
+SET @@GLOBAL.enable_acl_fast_lookup = off;
+SET @@GLOBAL.enable_acl_fast_lookup = DEFAULT;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+
+########################################################################
+#    change the value of enable_acl_fast_lookup to a valid value       #
+########################################################################
+
+SET @@GLOBAL.enable_acl_fast_lookup = on;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+
+SET @@GLOBAL.enable_acl_fast_lookup = off;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+
+########################################################################
+#    change the value of enable_acl_fast_lookup to an invalid value    #
+########################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_acl_fast_lookup = something;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.enable_acl_fast_lookup = somethingelse;
+select @@GLOBAL.enable_acl_fast_lookup;
+
+###############################
+#    Restore initial value    #
+###############################
+
+SET @@GLOBAL.enable_acl_fast_lookup = @start_global_value;
+SELECT @@GLOBAL.enable_acl_fast_lookup;

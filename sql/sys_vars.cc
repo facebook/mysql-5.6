@@ -7850,3 +7850,37 @@ static Sys_var_flagset Sys_use_fb_json_functions(
     "Use legacy behavior of FB json functions implemented in 5.6",
     SESSION_VAR(use_fb_json_functions), CMD_LINE(REQUIRED_ARG),
     use_fb_json_functions_names, DEFAULT(0));
+
+static bool check_enable_acl_fast_lookup(sys_var * /*self*/, THD *thd, set_var * /*var*/) {
+  /*
+    Any change to this variable would need to trigger ACL reloading -
+    we need to make sure if the user has access to reload ACL
+   */
+  return check_global_access(thd,RELOAD_ACL);
+}
+
+static bool check_enable_acl_db_cache(sys_var * /*self*/, THD *thd, set_var * /*var*/) {
+  /*
+    Any change to this variable would need to trigger ACL reloading -
+    we need to make sure if the user has access to reload ACL
+   */
+  return check_global_access(thd,RELOAD_ACL);
+}
+
+static Sys_var_bool Sys_enable_acl_fast_lookup(
+       "enable_acl_fast_lookup",
+       "Enable ACL fast lookup on exact user/db pairs. Please issue "
+       "FLUSH PRIVILEGES for the changes to take effect.",
+       NON_PERSIST GLOBAL_VAR(enable_acl_fast_lookup),
+       CMD_LINE(OPT_ARG), DEFAULT(false),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_enable_acl_fast_lookup));
+
+static Sys_var_bool Sys_enable_acl_db_cache(
+       "enable_acl_db_cache",
+       "Enable ACL db_cache lookup on (ip, user, db). Please issue "
+       "FLUSH PRIVILEGES for the changes to take effect.",
+       NON_PERSIST GLOBAL_VAR(enable_acl_db_cache),
+       CMD_LINE(OPT_ARG), DEFAULT(true),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_enable_acl_db_cache));

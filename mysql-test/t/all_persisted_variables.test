@@ -68,6 +68,18 @@ if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_nam
   --dec $total_persistent_vars
 }
 
+# enable_acl_fast_lookup was added, but it cannot be persisted
+if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name = 'enable_acl_fast_lookup'`)
+{
+  --dec $total_persistent_vars
+}
+
+# enable_acl_db_cache was added, but it cannot be persisted
+if (`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name = 'enable_acl_db_cache'`)
+{
+  --dec $total_persistent_vars
+}
+
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
 --echo * variables are actually global variables and can be set using

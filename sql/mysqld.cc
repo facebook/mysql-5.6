@@ -1037,10 +1037,12 @@ bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 char *default_collation_for_utf8mb4_init = NULL;
 bool enable_blind_replace = false;
+bool enable_acl_fast_lookup = false;
+bool enable_acl_db_cache = true;
 
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
-bool disallow_raft = 1; // raft is not allowed by default
+bool disallow_raft = 1;  // raft is not allowed by default
 
 /* Apply log related variables for raft */
 char *opt_apply_logname = 0;
@@ -1158,7 +1160,7 @@ ulonglong maximum_hlc_drift_ns = 0;
 bool enable_query_checksum = false;
 
 /*
- * Enable resultset checksum for resultsets of queries with the checksum 
+ * Enable resultset checksum for resultsets of queries with the checksum
  * query attr set
  */
 bool enable_resultset_checksum = false;
@@ -1202,8 +1204,8 @@ ulong opt_slave_check_before_image_consistency = 0;
 const char *binlog_format_names[] = {"MIXED", "STATEMENT", "ROW", NullS};
 bool binlog_gtid_simple_recovery;
 ulong binlog_error_action;
-const char *binlog_error_action_list[] =
-  {"IGNORE_ERROR", "ABORT_SERVER", "ROLLBACK_TRX", NullS};
+const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",
+                                          "ROLLBACK_TRX", NullS};
 uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
@@ -1445,6 +1447,19 @@ std::atomic<ulong> connection_errors_net_ER_NET_READ_INTERRUPTED{0};
 std::atomic<ulong> connection_errors_net_ER_NET_UNCOMPRESS_ERROR{0};
 /** Number of connection errors due to write timeout */
 std::atomic<ulong> connection_errors_net_ER_NET_WRITE_INTERRUPTED{0};
+
+/** Number of slow path linear lookup for acl_cache */
+std::atomic<ulong> acl_db_cache_slow_lookup{0};
+
+/** ACL cache size */
+ulong acl_db_cache_size = 0;
+
+/** Number of cache miss in acl_fast_lookup */
+std::atomic<ulong> acl_fast_lookup_miss{0};
+
+/** Whether acl_fast_lookup is enabled - it only gets updated when FLUSH
+    PRIVILEGES is issued */
+bool acl_fast_lookup_enabled = false;
 
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
@@ -5281,8 +5296,8 @@ static int init_thread_environment() {
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_connect, &LOCK_sys_init_connect);
   mysql_rwlock_init(key_rwlock_LOCK_sys_init_slave, &LOCK_sys_init_slave);
 #if defined(HAVE_PSI_INTERFACE)
-  gap_lock_exceptions = new Regex_list_handler(
-     key_rwlock_LOCK_gap_lock_exceptions);
+  gap_lock_exceptions =
+      new Regex_list_handler(key_rwlock_LOCK_gap_lock_exceptions);
 #else
   gap_lock_exceptions = new Regex_list_handler();
 #endif
@@ -5331,7 +5346,7 @@ static int init_thread_environment() {
 }
 
 #if !defined(HAVE_WOLFSSL) && defined(HAVE_OPENSSL) && !defined(__sun) && \
-  !defined(OPENSSL_IS_BORINGSSL)
+    !defined(OPENSSL_IS_BORINGSSL)
 /* TODO: remove the !defined(__sun) when bug 23285559 is out of the picture */
 
 static PSI_memory_key key_memory_openssl = PSI_NOT_INSTRUMENTED;
@@ -8603,8 +8618,7 @@ static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff) {
   return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
 }
 
-static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff)
-{
+static int show_jemalloc_metadata(THD *thd, SHOW_VAR *var, char *buff) {
   update_malloc_status();
   return show_jemalloc_sizet(thd, var, buff, "stats.metadata");
 }
@@ -9229,6 +9243,15 @@ static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
 */
 
 SHOW_VAR status_vars[] = {
+
+    {"acl_db_cache_slow_lookup", (char *)&acl_db_cache_slow_lookup, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_db_cache_size", (char *)&acl_db_cache_size, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_fast_lookup_enabled", (char *)&acl_fast_lookup_enabled, SHOW_BOOL,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_fast_lookup_miss", (char *)&acl_fast_lookup_miss, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Aborted_clients", (char *)&aborted_threads, SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Aborted_connects", (char *)&show_aborted_connects, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
@@ -9406,7 +9429,7 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_ALL},
     {"Jemalloc_stats_mapped", (char *)&show_jemalloc_mapped, SHOW_FUNC,
      SHOW_SCOPE_ALL},
-    {"Jemalloc_stats_metadata",  (char*) &show_jemalloc_metadata, SHOW_FUNC,
+    {"Jemalloc_stats_metadata", (char *)&show_jemalloc_metadata, SHOW_FUNC,
      SHOW_SCOPE_ALL},
 #endif
     {"Key_blocks_not_flushed",
@@ -10587,24 +10610,27 @@ static int generate_apply_file_gvars() {
   if (opt_apply_logname &&
       opt_apply_logname[strlen(opt_apply_logname) - 1] == FN_LIBCHAR) {
     // NO_LINT_DEBUG
-    sql_print_information("Path '%s' is a directory name, please specify a"
-        "file name for --apply-log option", opt_apply_logname);
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a"
+        "file name for --apply-log option",
+        opt_apply_logname);
     DBUG_RETURN(1);
   }
 
   /* Reports an error and aborts, if the --apply-log-index's path
      is a directory.*/
   if (opt_applylog_index_name &&
-      opt_applylog_index_name[strlen(opt_applylog_index_name) - 1]
-      == FN_LIBCHAR) {
+      opt_applylog_index_name[strlen(opt_applylog_index_name) - 1] ==
+          FN_LIBCHAR) {
     // NO_LINT_DEBUG
-    sql_print_information("Path '%s' is a directory name, please specify a "
-        "file name for --apply-log-index option", opt_applylog_index_name);
+    sql_print_information(
+        "Path '%s' is a directory name, please specify a "
+        "file name for --apply-log-index option",
+        opt_applylog_index_name);
     DBUG_RETURN(1);
   }
 
-  if (opt_apply_logname && opt_applylog_index_name)
-    DBUG_RETURN(0);
+  if (opt_apply_logname && opt_applylog_index_name) DBUG_RETURN(0);
 
   if (!opt_apply_logname) {
     /* create the apply binlog name for Raft using some common
@@ -10635,13 +10661,12 @@ static int generate_apply_file_gvars() {
   } else {
     // Just point apply logs to binlogs
     opt_apply_logname =
-      my_strdup(PSI_NOT_INSTRUMENTED, opt_bin_logname, MYF(0));
+        my_strdup(PSI_NOT_INSTRUMENTED, opt_bin_logname, MYF(0));
   }
 
   if (!opt_applylog_index_name && opt_apply_logname) {
-    opt_applylog_index_name =
-          const_cast<char *>(rpl_make_log_name(
-            PSI_NOT_INSTRUMENTED, NULL, opt_apply_logname, ".index"));
+    opt_applylog_index_name = const_cast<char *>(rpl_make_log_name(
+        PSI_NOT_INSTRUMENTED, NULL, opt_apply_logname, ".index"));
   }
 
   DBUG_RETURN(0);
