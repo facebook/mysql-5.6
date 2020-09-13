@@ -186,6 +186,222 @@ void init_acl_memory() {
   init_sql_alloc(key_memory_acl_mem, &global_acl_memory, ACL_ALLOC_BLOCK_SIZE);
 }
 
+struct acl_lookup_entry {
+  /*
+    List of hosts sorted in the order of specific -> less specific
+    so that more specific ACL entry wins - see get_sort for details
+   */
+  Prealloced_array<ACL_ACCESS, ACL_PREALLOC_SIZE> *hosts;
+
+  acl_lookup_entry() {
+    hosts = new Prealloced_array<ACL_ACCESS, ACL_PREALLOC_SIZE>(
+        key_memory_acl_cache);
+  }
+
+  ~acl_lookup_entry() {
+    delete hosts;
+    hosts = nullptr;
+  }
+
+  struct deleter {
+    void operator()(acl_lookup_entry *entry) {
+      entry->~acl_lookup_entry();
+      my_free(entry);
+    }
+  };
+
+  bool find(const char *host, const char *ip, ulong *access) {
+    /*
+      List of hosts sorted in the order of specific -> less specific
+      so that more specific ACL entry wins - see get_sort for details
+    */
+    for (auto it = hosts->begin(); it < hosts->end(); ++it) {
+      if (it->host.compare_hostname(host, ip)) {
+        *access = it->access;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void update(ACL_DB *acl_db) {
+    assert(acl_db != NULL);
+
+    for (auto it = hosts->begin(); it < hosts->end(); ++it) {
+      if (it != hosts->end() && it->host.is_same(&acl_db->host)) {
+        it->access = acl_db->access;
+#ifndef NDEBUG
+        validate();
+#endif
+        return;
+      }
+    }
+  }
+
+  void remove(ACL_DB *acl_db) {
+    assert(acl_db != NULL);
+
+    for (auto it = hosts->begin(); it < hosts->end(); ++it) {
+      if (it != hosts->end() && it->host.is_same(&acl_db->host)) {
+        hosts->erase(it);
+#ifndef NDEBUG
+        validate();
+#endif
+        return;
+      }
+    }
+  }
+
+  void insert(ACL_DB *acl_db) {
+    ACL_ACCESS new_entry;
+
+    new_entry.host = acl_db->host;
+    new_entry.access = acl_db->access;
+
+    /* Generate sort key so that more specific host pattern wins */
+    new_entry.sort = get_sort(1, acl_db->host.get_host());
+
+    /* Find the location to insert in descending order */
+    auto it = hosts->begin();
+    for (; it < hosts->end(); ++it) {
+      if (new_entry.sort > it->sort) break;
+    }
+
+    hosts->insert(it, new_entry);
+
+#ifndef NDEBUG
+    validate();
+#endif
+  }
+
+#ifndef NDEBUG
+  void validate() {
+    if (hosts->empty()) {
+      return;
+    }
+    auto it = hosts->begin() + 1;
+    for (; it < hosts->end(); ++it) {
+      assert((it - 1)->sort >= it->sort);
+    }
+    std::sort(hosts->begin(), hosts->end(), ACL_compare());
+    it = hosts->begin() + 1;
+    for (; it < hosts->end(); ++it) {
+      assert((it - 1)->sort >= it->sort);
+    }
+  }
+#endif
+};
+
+#define ACL_LOOKUP_KEY_LENGTH (NAME_LEN + 1 + USERNAME_LENGTH + 1)
+#define ACL_LOOKUP_TBL_SIZE 1024
+
+/*
+  Simple ACL lookup table that only looks up exact (user, db) pairs and do a
+  linear scan over the hosts. This is much faster than a linear scan over the
+  entire acl_dbs table and in many cases there is only one item for each
+  (user, db) pair anyway
+ */
+class acl_lookup_tbl {
+ private:
+  /* Build the key (user, db) */
+  std::string build_key(ACL_DB *acl_db) {
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = my_stpcpy(my_stpcpy(key, acl_db->user ? acl_db->user : "") + 1,
+                    acl_db->db);
+    size_t key_length = (size_t)(end - key);
+    assert(key_length <= sizeof(key));
+    return std::string(key, key_length);
+  }
+
+  std::string build_key(const char *user, const char *db) {
+    char key[ACL_LOOKUP_KEY_LENGTH], *end;
+    end = my_stpcpy(my_stpcpy(key, user ? user : "") + 1, db);
+    size_t key_length = (size_t)(end - key);
+    assert(key_length <= sizeof(key));
+    return std::string(key, key_length);
+  }
+
+ public:
+  void insert(ACL_DB *acl_db) {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    std::string cache_key = build_key(acl_db);
+    auto it = _cache.find(cache_key);
+    if (it != _cache.end()) {
+      /* Insert the host into array of hosts for this (user, db) pair */
+      it->second->insert(acl_db);
+    } else {
+      /* First one - create a new entry */
+      auto new_entry = (acl_lookup_entry *)my_malloc(
+          key_memory_acl_cache, sizeof(acl_lookup_entry), MYF(0));
+
+      /* Call the ctor */
+      new (new_entry) acl_lookup_entry();
+
+      /* Insert the host into array of hosts for this (user, db) pair */
+      new_entry->insert(acl_db);
+
+      /* Insert into the top level (user, db) -> (hosts) */
+      _cache[cache_key] =
+          unique_ptr<acl_lookup_entry, acl_lookup_entry::deleter>(new_entry);
+    }
+  }
+
+  void update(ACL_DB *acl_db) {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    std::string cache_key = build_key(acl_db);
+    auto it = _cache.find(cache_key);
+    if (it != _cache.end()) {
+      it->second->update(acl_db);
+    }
+  }
+
+  void remove(ACL_DB *acl_db) {
+    /* We don't support wildcard in db in this lookup table */
+    if (!acl_db->db || contains_wildcard(acl_db->db)) return;
+
+    std::string cache_key = build_key(acl_db);
+    auto it = _cache.find(cache_key);
+    if (it != _cache.end()) {
+      auto &entry = it->second;
+      entry->remove(acl_db);
+      if (entry->hosts->empty()) {
+        /* Last entry - delete the (user, db) hash entry */
+        _cache.erase(it);
+      }
+    }
+  }
+
+  bool find(const char *user, const char *db, const char *host, const char *ip,
+            ulong *access) {
+    /* Just in case */
+    if (contains_wildcard(db)) {
+      return false;
+    }
+
+    std::string cache_key = build_key(user, db);
+    auto it = _cache.find(cache_key);
+    if (it != _cache.end()) {
+      return it->second->find(host, ip, access);
+    }
+
+    return false;
+  }
+
+  void clear() { _cache.clear(); }
+
+ private:
+  malloc_unordered_map<std::string,
+                       unique_ptr<acl_lookup_entry, acl_lookup_entry::deleter>>
+      _cache{key_memory_acl_cache};
+};
+
+static acl_lookup_tbl *acl_fast_lookup = nullptr;
+
 /**
   Add an internal schema to the registry.
   @param name the schema name
@@ -328,6 +544,12 @@ bool ACL_HOST_AND_IP::compare_hostname(const char *host_arg,
            !wild_case_compare(system_charset_info, host_arg, hostname)) ||
           (ip_arg && !wild_compare(ip_arg, strlen(ip_arg), hostname,
                                    strlen(hostname), false)));
+}
+
+bool ACL_HOST_AND_IP::is_same(const ACL_HOST_AND_IP *host) {
+  return hostname == host->hostname &&
+         hostname_length == host->hostname_length && ip == host->ip &&
+         ip_mask == host->ip_mask;
 }
 
 ACL_USER::ACL_USER() {
@@ -1318,6 +1540,7 @@ static void insert_entry_in_db_cache(THD *thd, acl_entry *entry) {
   if (!acl_cache_lock.lock(false)) return;
   db_cache.emplace(std::string(entry->key, entry->length),
                    std::move(entry_ptr));
+  acl_db_cache_size = db_cache.size();
 }
 
 /**
@@ -1348,7 +1571,7 @@ ulong acl_get(THD *thd, const char *host, const char *ip, const char *user,
   copy_length =
       (strlen(ip ? ip : "") + strlen(user ? user : "") + strlen(db ? db : "")) +
       2; /* Added 2 at the end to avoid
-            buffer overflow at strmov()*/
+            buffer overflow at my_stpcpy()*/
   /*
     Make sure that my_stpcpy() operations do not result in buffer overflow.
   */
@@ -1363,7 +1586,26 @@ ulong acl_get(THD *thd, const char *host, const char *ip, const char *user,
     db = tmp_db;
   }
   key_length = (size_t)(end - key);
-  if (!db_is_pattern) {
+
+  if (!db_is_pattern && acl_fast_lookup) {
+    /*
+      First lookup for exact (user, db) -> (hosts) hash table
+      Note that db that has patterns won't be here but >99% of db entries
+      are exact so this works out pretty well in practice
+     */
+    if (acl_fast_lookup->find(user, db, host, ip, &db_access)) {
+      DBUG_PRINT("exit", ("access: 0x%lx", db_access));
+      return db_access;
+    }
+
+    /*
+      Count the number of misses - useful to detect cases where there is
+      a large number of unsupported patterns showing up
+     */
+    acl_fast_lookup_miss++;
+  }
+
+  if (!db_is_pattern && enable_acl_db_cache) {
     const auto it = db_cache.find(std::string(key, key_length));
     if (it != db_cache.end()) {
       db_access = it->second->access;
@@ -1375,6 +1617,7 @@ ulong acl_get(THD *thd, const char *host, const char *ip, const char *user,
   /*
     Check if there are some access rights for database and user
   */
+  acl_db_cache_slow_lookup++;
   for (ACL_DB *acl_db = acl_dbs->begin(); acl_db != acl_dbs->end(); ++acl_db) {
     if (!acl_db->user || !strcmp(user, acl_db->user)) {
       if (acl_db->host.compare_hostname(host, ip)) {
@@ -1399,7 +1642,7 @@ ulong acl_get(THD *thd, const char *host, const char *ip, const char *user,
 
 exit:
   /* Save entry in cache for quick retrieval */
-  if (!db_is_pattern &&
+  if (!db_is_pattern && enable_acl_db_cache &&
       (entry = (acl_entry *)my_malloc(
            key_memory_acl_cache, sizeof(acl_entry) + key_length, MYF(0)))) {
     entry->access = (db_access & host_access);
@@ -1861,6 +2104,9 @@ static bool acl_load(THD *thd, Table_ref *tables) {
   if (iterator == nullptr) goto end;
   table->use_all_columns();
   acl_dbs->clear();
+  if (acl_fast_lookup) {
+    acl_fast_lookup->clear();
+  }
   int read_rec_errcode;
   while (!(read_rec_errcode = iterator->Read())) {
     /* Reading record in mysql.db */
@@ -1900,6 +2146,9 @@ static bool acl_load(THD *thd, Table_ref *tables) {
         db.access |= REFERENCES_ACL | INDEX_ACL | ALTER_ACL;
     }
     acl_dbs->push_back(db);
+    if (acl_fast_lookup) {
+      acl_fast_lookup->insert(&db);
+    }
   }  // END reading records from mysql.db tables
 
   iterator.reset();
@@ -1981,12 +2230,15 @@ void acl_free(bool end /*= false*/) {
   acl_proxy_users = nullptr;
   delete acl_check_hosts;
   acl_check_hosts = nullptr;
+  delete acl_fast_lookup;
+  acl_fast_lookup = nullptr;
   if (!end)
     clear_and_init_db_cache();
   else {
     shutdown_acl_cache();
     if (acl_cache_initialized == true) {
       db_cache.clear();
+      acl_db_cache_size = 0;
       delete g_cached_authentication_plugins;
       g_cached_authentication_plugins = nullptr;
       delete unknown_accounts;
@@ -2162,6 +2414,7 @@ bool acl_reload(THD *thd, bool mdl_locked) {
   Granted_roles_graph *old_granted_roles = nullptr;
   Default_roles *old_default_roles = nullptr;
   Role_index_map *old_authid_to_vertex = nullptr;
+  acl_lookup_tbl *old_acl_fast_lookup = nullptr;
   Acl_cache_lock_guard acl_cache_lock(thd, Acl_cache_lock_mode::WRITE_MODE);
   User_to_dynamic_privileges_map *old_dyn_priv_map;
   unique_ptr<Acl_restrictions> old_acl_restrictions = nullptr;
@@ -2235,6 +2488,7 @@ bool acl_reload(THD *thd, bool mdl_locked) {
   old_acl_dbs = acl_dbs;
   old_acl_proxy_users = acl_proxy_users;
   old_acl_restrictions = std::move(acl_restrictions);
+  old_acl_fast_lookup = acl_fast_lookup;
   swap_role_cache();
   roles_init();
 
@@ -2244,6 +2498,11 @@ bool acl_reload(THD *thd, bool mdl_locked) {
   acl_proxy_users = new Prealloced_array<ACL_PROXY_USER, ACL_PREALLOC_SIZE>(
       key_memory_acl_mem);
   acl_restrictions = make_unique<Acl_restrictions>();
+  if (enable_acl_fast_lookup) {
+    acl_fast_lookup = new acl_lookup_tbl();
+  } else {
+    acl_fast_lookup = nullptr;
+  }
 
   // acl_load() overwrites global_acl_memory, so we need to free it.
   // However, we can't do that immediately, because acl_load() might fail,
@@ -2269,6 +2528,7 @@ bool acl_reload(THD *thd, bool mdl_locked) {
     acl_users = old_acl_users;
     acl_dbs = old_acl_dbs;
     acl_proxy_users = old_acl_proxy_users;
+    acl_fast_lookup = old_acl_fast_lookup;
     global_acl_memory = std::move(old_mem);
     acl_restrictions = std::move(old_acl_restrictions);
     // Revert to the old role caches
@@ -2285,6 +2545,8 @@ bool acl_reload(THD *thd, bool mdl_locked) {
     delete old_acl_dbs;
     delete old_acl_proxy_users;
     delete old_dyn_priv_map;
+    acl_fast_lookup_enabled = (acl_fast_lookup != nullptr);
+    delete old_acl_fast_lookup;
     // Delete the old role caches
     delete_old_role_cache();
     old_mem.Clear();
@@ -3039,6 +3301,16 @@ void acl_update_proxy_user(ACL_PROXY_USER *new_value, bool is_revoke) {
   }
 }
 
+/*
+  Remove acl_db from acl_dbs and return the next element
+ */
+ACL_DB *acl_remove_db(ACL_DB *acl_db) {
+  if (acl_fast_lookup) {
+    acl_fast_lookup->remove(acl_db);
+  }
+  return acl_dbs->erase(acl_db);
+}
+
 void acl_update_db(const char *user, const char *host, const char *db,
                    ulong privileges) {
   assert(assert_acl_cache_write_lock(current_thd));
@@ -3050,10 +3322,13 @@ void acl_update_db(const char *user, const char *host, const char *db,
           (acl_db->host.get_host() && !strcmp(host, acl_db->host.get_host()))) {
         if ((!acl_db->db && !db[0]) ||
             (acl_db->db && !strcmp(db, acl_db->db))) {
-          if (privileges)
+          if (privileges) {
             acl_db->access = privileges;
-          else {
-            acl_db = acl_dbs->erase(acl_db);
+            if (acl_fast_lookup) {
+              acl_fast_lookup->update(acl_db);
+            }
+          } else {
+            acl_db = acl_remove_db(acl_db);
             // Don't increment loop variable.
             continue;
           }
@@ -3087,6 +3362,7 @@ void acl_insert_db(const char *user, const char *host, const char *db,
   acl_db.db = strdup_root(&global_acl_memory, db);
   acl_db.access = privileges;
   acl_db.sort = get_sort(3, acl_db.host.get_host(), acl_db.db, acl_db.user);
+  if (acl_fast_lookup) acl_fast_lookup->insert(&acl_db);
   auto upper_bound =
       std::upper_bound(acl_dbs->begin(), acl_dbs->end(), acl_db, ACL_compare());
   acl_dbs->insert(upper_bound, acl_db);

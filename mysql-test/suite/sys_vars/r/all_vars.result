@@ -32,6 +32,8 @@ default_collation_for_utf8mb4
 default_collation_for_utf8mb4
 disabled_storage_engines
 disabled_storage_engines
+enable_acl_db_cache
+enable_acl_db_cache
 explain_format
 explain_format
 generated_random_password_length

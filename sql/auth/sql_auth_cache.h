@@ -153,6 +153,8 @@ class ACL_HOST_AND_IP {
   void update_hostname(const char *host_arg);
 
   bool compare_hostname(const char *host_arg, const char *ip_arg);
+
+  bool is_same(const ACL_HOST_AND_IP *host);
 };
 
 class ACL_ACCESS {
@@ -814,5 +816,7 @@ class Acl_restrictions {
  private:
   malloc_unordered_map<std::string, Restrictions> m_restrictions_map;
 };
+
+ACL_DB *acl_remove_db(ACL_DB *acl_db);
 
 #endif /* SQL_USER_CACHE_INCLUDED */
