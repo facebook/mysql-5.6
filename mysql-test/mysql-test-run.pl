@@ -272,15 +272,9 @@ our @DEFAULT_SUITES = qw(
   parts
   perfschema
   query_rewrite_plugins
-  rocksdb
-  rocksdb_rpl
-  rocksdb_stress
-  rocksdb_sys_vars
-  rpl_mts
   rpl
   rpl_gtid
   rpl_nogtid
-  rpl_recovery
   secondary_engine
   service_status_var_registration
   service_sys_var_registration
@@ -290,6 +284,14 @@ our @DEFAULT_SUITES = qw(
   test_service_sql_api
   test_services
   x
+
+  grant
+  rocksdb
+  rocksdb_rpl
+  rocksdb_stress
+  rocksdb_sys_vars
+  rpl_mts
+  rpl_recovery
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;
