@@ -1,0 +1,11 @@
+[acl_fast_lookup_on]
+enable_acl_fast_lookup=true
+enable_acl_db_cache=true
+
+[acl_fast_lookup_off]
+enable_acl_fast_lookup=false
+enable_acl_db_cache=true
+
+[acl_fast_lookup_on_acl_cache_off]
+enable_acl_fast_lookup=true
+enable_acl_db_cache=false

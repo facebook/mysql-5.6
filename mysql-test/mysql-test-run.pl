@@ -283,7 +283,6 @@ our @DEFAULT_SUITES = qw(
   rpl
   rpl_gtid
   rpl_nogtid
-  rpl_recovery
   secondary_engine
   service_status_var_registration
   service_sys_var_registration
@@ -296,11 +295,13 @@ our @DEFAULT_SUITES = qw(
   component_keyring_file
 
   funcs_1
+  grant
   rocksdb
   rocksdb_rpl
   rocksdb_stress
   rocksdb_sys_vars
   rpl_mts
+  rpl_recovery
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

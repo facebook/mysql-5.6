@@ -1212,6 +1212,8 @@ bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
 char *default_collation_for_utf8mb4_init = nullptr;
 bool enable_blind_replace = false;
+bool enable_acl_fast_lookup = false;
+bool enable_acl_db_cache = true;
 
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
@@ -1646,6 +1648,19 @@ std::atomic<ulong> connection_errors_net_ER_NET_READ_INTERRUPTED{0};
 std::atomic<ulong> connection_errors_net_ER_NET_UNCOMPRESS_ERROR{0};
 /** Number of connection errors due to write timeout */
 std::atomic<ulong> connection_errors_net_ER_NET_WRITE_INTERRUPTED{0};
+
+/** Number of slow path linear lookup for acl_cache */
+std::atomic<ulong> acl_db_cache_slow_lookup{0};
+
+/** ACL cache size */
+ulong acl_db_cache_size = 0;
+
+/** Number of cache miss in acl_fast_lookup */
+std::atomic<ulong> acl_fast_lookup_miss{0};
+
+/** Whether acl_fast_lookup is enabled - it only gets updated when FLUSH
+    PRIVILEGES is issued */
+bool acl_fast_lookup_enabled = false;
 
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
@@ -10213,6 +10228,15 @@ static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
 */
 
 SHOW_VAR status_vars[] = {
+
+    {"acl_db_cache_slow_lookup", (char *)&acl_db_cache_slow_lookup, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_db_cache_size", (char *)&acl_db_cache_size, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_fast_lookup_enabled", (char *)&acl_fast_lookup_enabled, SHOW_BOOL,
+     SHOW_SCOPE_GLOBAL},
+    {"acl_fast_lookup_miss", (char *)&acl_fast_lookup_miss, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Aborted_clients", (char *)&aborted_threads, SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Aborted_connects", (char *)&show_aborted_connects, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},

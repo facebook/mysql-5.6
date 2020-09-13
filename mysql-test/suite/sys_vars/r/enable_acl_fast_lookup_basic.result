@@ -1,0 +1,67 @@
+SET @start_global_value = @@GLOBAL.enable_acl_fast_lookup;
+SELECT @start_global_value;
+@start_global_value
+0
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+SET @@GLOBAL.enable_acl_fast_lookup = on;
+SET @@GLOBAL.enable_acl_fast_lookup = DEFAULT;
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+SET @@GLOBAL.enable_acl_fast_lookup = off;
+SET @@GLOBAL.enable_acl_fast_lookup = DEFAULT;
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+SET @@GLOBAL.enable_acl_fast_lookup = on;
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+1
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	ON
+SET @@GLOBAL.enable_acl_fast_lookup = off;
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	ON
+FLUSH PRIVILEGES;
+SHOW STATUS LIKE 'acl_fast_lookup_enabled';
+Variable_name	Value
+acl_fast_lookup_enabled	OFF
+SET @@GLOBAL.enable_acl_fast_lookup = something;
+ERROR 42000: Variable 'enable_acl_fast_lookup' can't be set to the value of 'something'
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
+SET @@GLOBAL.enable_acl_fast_lookup = somethingelse;
+ERROR 42000: Variable 'enable_acl_fast_lookup' can't be set to the value of 'somethingelse'
+select @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
+SET @@GLOBAL.enable_acl_fast_lookup = @start_global_value;
+SELECT @@GLOBAL.enable_acl_fast_lookup;
+@@GLOBAL.enable_acl_fast_lookup
+0
