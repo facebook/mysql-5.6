@@ -92,4 +92,6 @@ int wild_compare_full(const char *str, int strlen, const char *wildstr,
 int wild_compare(const char *str, int strlen, const char *wildstr, int wildlen,
                  bool str_is_pattern);
 
+bool contains_wildcard(const char *str);
+
 #endif /* !MF_WCOMP_INCLUDED */

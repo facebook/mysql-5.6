@@ -122,3 +122,16 @@ int wild_compare(const char *str, int strlen, const char *wildstr, int wildlen,
   return wild_compare_full(str, strlen, wildstr, wildlen, str_is_pattern,
                            wild_prefix, wild_one, wild_many);
 }
+
+bool contains_wildcard(const char *str) {
+  while (*str) {
+    if (*str == wild_one || *str == wild_many) return true;
+    /* Skip \_ or \% */
+    if (*str == wild_prefix && str[1])
+      str += 2;
+    else
+      str++;
+  }
+
+  return false;
+}

@@ -360,6 +360,13 @@ The following options may be given as the first argument:
  before storage engine initialization, where each plugin
  is identified as name=library, where name is the plugin
  name and library is the plugin library in plugin_dir.
+ --enable-acl-db-cache 
+ Enable ACL db_cache lookup on (ip, user, db). Please
+ issue FLUSH PRIVILEGES for the changes to take effect.
+ (Defaults to on; use --skip-enable-acl-db-cache to disable.)
+ --enable-acl-fast-lookup 
+ Enable ACL fast lookup on exact user/db pairs. Please
+ issue FLUSH PRIVILEGES for the changes to take effect.
  --enable-binlog-hlc Enable logging HLC timestamp as part of Metadata log
  event
  --enable-blind-replace 
@@ -2380,6 +2387,8 @@ disallow-raft TRUE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-acl-db-cache TRUE
+enable-acl-fast-lookup FALSE
 enable-binlog-hlc FALSE
 enable-blind-replace FALSE
 enable-block-stale-hlc-read FALSE

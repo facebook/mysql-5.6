@@ -1735,17 +1735,19 @@ static int handle_grant_struct(enum enum_acl_lists struct_no, bool drop,
       break;
 
     case DB_ACL:
-      for (uint idx = 0; idx < acl_dbs->size(); idx++) {
-        ACL_DB *acl_db = &acl_dbs->at(idx);
-        if (!matches(acl_db->user, acl_db->host.get_host())) continue;
+      for (ACL_DB *acl_db = acl_dbs->begin(); acl_db < acl_dbs->end();) {
+        if (!matches(acl_db->user, acl_db->host.get_host())) {
+          acl_db++;
+          continue;
+        }
 
         if (drop) {
-          acl_dbs->erase(idx);
-          idx--;
+          acl_db = acl_remove_db(acl_db);
         } else if (user_to) {
           acl_db->user = strdup_root(&global_acl_memory, user_to->user.str);
           acl_db->host.update_hostname(
               strdup_root(&global_acl_memory, user_to->host.str));
+          acl_db++;
         } else {
           /* If search is requested, we do not need to search further. */
           break;

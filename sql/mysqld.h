@@ -270,6 +270,8 @@ extern uint protocol_version, mysqld_port;
 extern bool enable_binlog_hlc;
 extern bool maintain_database_hlc;
 extern char *default_collation_for_utf8mb4_init;
+extern bool enable_acl_fast_lookup;
+extern bool enable_acl_db_cache;
 
 enum enum_delay_key_write {
   DELAY_KEY_WRITE_NONE,
@@ -523,6 +525,10 @@ extern std::atomic<ulong> connection_errors_net_ER_NET_READ_ERROR;
 extern std::atomic<ulong> connection_errors_net_ER_NET_READ_INTERRUPTED;
 extern std::atomic<ulong> connection_errors_net_ER_NET_UNCOMPRESS_ERROR;
 extern std::atomic<ulong> connection_errors_net_ER_NET_WRITE_INTERRUPTED;
+extern std::atomic<ulong> acl_db_cache_slow_lookup;
+extern ulong acl_db_cache_size;
+extern std::atomic<ulong> acl_fast_lookup_miss;
+extern bool acl_fast_lookup_enabled;
 extern char *opt_log_error_suppression_list;
 extern char *opt_log_error_services;
 extern char *opt_protocol_compression_algorithms;
