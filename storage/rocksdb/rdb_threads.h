@@ -34,7 +34,7 @@
 
 namespace myrocks {
 
-class Rdb_thread {
+class Rdb_thread : public Ensure_initialized {
  private:
   // Disable Copying
   Rdb_thread(const Rdb_thread &);
@@ -44,6 +44,7 @@ class Rdb_thread {
   std::atomic_bool m_run_once;
 
   my_thread_handle m_handle;
+  bool m_thread_created;
 
   std::string m_name;
 
@@ -59,7 +60,8 @@ class Rdb_thread {
   virtual void on_uninit() {}
 
  public:
-  Rdb_thread() : m_run_once(false), m_killed(THD::NOT_KILLED) {}
+  Rdb_thread()
+      : m_run_once(false), m_thread_created(false), m_killed(THD::NOT_KILLED) {}
 
 #ifdef HAVE_PSI_INTERFACE
   void init(my_core::PSI_mutex_key stop_bg_psi_mutex_key,
@@ -75,7 +77,10 @@ class Rdb_thread {
 
   void signal(const bool stop_thread = false);
 
-  int join() { return pthread_join(m_handle.thread, nullptr); }
+  int join() {
+    if (!m_run_once) return EINVAL;
+    return pthread_join(m_handle.thread, nullptr);
+  }
 
   void setname() {
     /*

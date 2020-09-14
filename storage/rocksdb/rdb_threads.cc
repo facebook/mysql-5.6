@@ -52,6 +52,7 @@ void Rdb_thread::init(
   mysql_cond_init(stop_bg_psi_cond_key, &m_signal_cond);
 
   on_init();
+  initialized = true;
 }
 
 void Rdb_thread::uninit() {
@@ -71,11 +72,15 @@ int Rdb_thread::create_thread(const std::string &thread_name
   // caller will free the memory
   m_name = thread_name;
 
-  return mysql_thread_create(background_psi_thread_key, &m_handle, nullptr,
-                             thread_func, this);
+  int ret = mysql_thread_create(background_psi_thread_key, &m_handle, nullptr,
+                                thread_func, this);
+  if (!ret) m_thread_created = true;
+  return ret;
 }
 
 void Rdb_thread::signal(const bool stop_thread) {
+  if (!initialized) return;
+
   RDB_MUTEX_LOCK_CHECK(m_signal_mutex);
 
   if (stop_thread) {
