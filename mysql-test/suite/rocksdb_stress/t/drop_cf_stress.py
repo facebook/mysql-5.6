@@ -1,6 +1,3 @@
-import cStringIO
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
 from MySQLdb.constants import CR
 from MySQLdb.constants import ER
@@ -256,7 +253,7 @@ class WorkerThread(threading.Thread):
         except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
             return
-        except Exception, e:
+        except Exception as e:
             if is_table_exists_error(e):
                 self.rollback_and_sleep()
                 return
@@ -307,7 +304,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("DROP TABLE %s" % table_name)
             execute(self.cur, stmt)
-        except Exception, e:
+        except Exception as e:
             if is_table_not_found_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -379,7 +376,7 @@ class WorkerThread(threading.Thread):
         except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
             self.rollback_and_sleep()
             return
-        except Exception, e:
+        except Exception as e:
             if is_no_such_table_error(e) or is_dup_key_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -431,7 +428,7 @@ class WorkerThread(threading.Thread):
             stmt = ("ALTER TABLE %s "
                     "DROP INDEX secondary_key" % table_name)
             execute(self.cur, stmt)
-        except Exception, e:
+        except Exception as e:
             if is_no_such_table_error(e) or is_cant_drop_key_error(e) :
                 self.rollback_and_sleep()
                 return
@@ -567,7 +564,7 @@ class WorkerThread(threading.Thread):
             logging.info("Started")
             self.runme()
             logging.info("Completed successfully")
-        except Exception, e:
+        except Exception as e:
             self.exception = traceback.format_exc()
             logging.error(self.exception)
             TEST_STOP = True
@@ -668,7 +665,7 @@ if  __name__ == '__main__':
     WEIGHTS.append(TOTAL_WEIGHT)
 
     workers = []
-    for i in xrange(OPTIONS.num_workers):
+    for i in range(OPTIONS.num_workers):
         workers.append(WorkerThread(i))
 
     workers_failed = 0

@@ -1,7 +1,4 @@
-import cStringIO
 import hashlib
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
 import os
 import random
@@ -11,16 +8,18 @@ import threading
 import time
 import string
 
-CHARS = string.letters + string.digits
+CHARS = string.ascii_letters + string.digits
 
 def sha1(x):
-  return hashlib.sha1(str(x)).hexdigest()
+  if type(x) == str:
+    x = x.encode('ascii')
+  return hashlib.sha1(x).hexdigest()
 
 def get_msg():
   blob_length = random.randint(1, 255)
   if random.randint(1, 2) == 1:
     # blob that cannot be compressed (well, compresses to 85% of original size)
-    return ''.join([random.choice(CHARS) for x in xrange(blob_length)])
+    return ''.join([random.choice(CHARS) for x in range(blob_length)])
   else:
     # blob that can be compressed
     return random.choice(CHARS) * blob_length
@@ -46,14 +45,14 @@ class Inserter(threading.Thread):
   def run(self):
     try:
       self.runme()
-      print "Inserter OK."
-    except Exception, e:
-      print "caught (%s)" % e
+      print("Inserter OK.")
+    except Exception as e:
+      print("caught (%s)" % e)
     finally:
       self.finish()
   def runme(self):
     cur = self.con.cursor()
-    for i in xrange(self.num_inserts):
+    for i in range(self.num_inserts):
       idx = self.rand.randint(0, self.max_id)
       try:
         cur.execute(get_insert(idx))
@@ -68,7 +67,7 @@ class Inserter(threading.Thread):
     except:
       pass
   def finish(self):
-    print "Inserter thread quitting."
+    print("Inserter thread quitting.")
     self.finished = True
 
 class Deleter(threading.Thread):
@@ -82,9 +81,9 @@ class Deleter(threading.Thread):
   def run(self):
     try:
       self.runme()
-      print "Deleter OK."
-    except Exception, e:
-      print "caught (%s)" % e
+      print("Deleter OK.")
+    except Exception as e:
+      print("caught (%s)" % e)
     finally:
       self.finish()
   def runme(self):
@@ -105,7 +104,7 @@ class Deleter(threading.Thread):
     except:
       pass
   def finish(self):
-    print "Deleter thread quitting."
+    print("Deleter thread quitting.")
 
 if __name__ == '__main__':
   user = sys.argv[1]

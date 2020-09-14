@@ -1,15 +1,14 @@
 import time
 import sys
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
+from MySQLdb.constants import *
 import argparse
 import random
 import threading
 import traceback
 
 NUM_WORKERS = 50
-NUM_TRANSACTIONS = 2500
+NUM_TRANSACTIONS = 10000
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -57,18 +56,18 @@ def generate_load(args, worker_id):
                           db=args.database)
     if args.weighted_queues:
         queue_id = worker_id % 2
-        print "WORKER %d: Using queue %d" % (worker_id, queue_id)
+        print("WORKER %d: Using queue %d" % (worker_id, queue_id))
         cursor = con.cursor()
         cursor.execute('set admission_control_queue = %d;' % queue_id)
         cursor.close()
 
-    for i in xrange(NUM_TRANSACTIONS):
+    for i in range(NUM_TRANSACTIONS):
         try:
-            print "WORKER %d: Executing iteration %d" % (worker_id, i)
+            print("WORKER %d: Executing iteration %d" % (worker_id, i))
             cursor = con.cursor()
             cursor.execute('begin;')
             values = []
-            for j in xrange(3):
+            for j in range(3):
                 val = random.randrange(1, 10000)
                 values.append(val)
             values = sorted(values)
@@ -90,7 +89,7 @@ def run_reads(args):
                           host=args.host,
                           port=args.port,
                           db=args.database)
-    for i in xrange(NUM_TRANSACTIONS / 10):
+    for i in range(int(NUM_TRANSACTIONS / 10)):
         cursor = con.cursor()
         cursor.execute("select * from t1")
         cursor.execute("select repeat('X', @@max_allowed_packet)")
@@ -107,7 +106,7 @@ def run_admin_checks(args):
     cursor.execute("select @@global.max_running_queries")
     rows = cursor.fetchone()
     max_running_queries = int(rows[0])
-    for i in xrange(NUM_TRANSACTIONS):
+    for i in range(NUM_TRANSACTIONS):
         cursor=con.cursor()
         cursor.execute("show status like '%admission%'")
         rows = cursor.fetchall()
@@ -134,13 +133,13 @@ class worker_thread(threading.Thread):
                 run_reads(self.args)
             else:
                 generate_load(self.args, self.worker_id)
-        except Exception, e:
+        except Exception as e:
             self.exception = traceback.format_exc()
 
 def main():
     args = parse_args()
     workers = []
-    for i in xrange(NUM_WORKERS):
+    for i in range(NUM_WORKERS):
         worker = worker_thread(args, i, False, False)
         workers.append(worker)
 
@@ -154,7 +153,7 @@ def main():
     for w in workers:
         w.join()
         if w.exception:
-            print "worker hit an exception:\n%s\n'" % w.exception
+            print("worker hit an exception:\n%s\n'" % w.exception)
             worker_failed = True
 
     if worker_failed:

@@ -10,20 +10,20 @@ def get_doublewrite(f):
   return doublewrite
 
 def mach_read_from_4(b):
-  return (ord(b[0]) << 24) | (ord(b[1]) << 16) | (ord(b[2]) << 8) | ord(b[3])
+  return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]
 
 def mach_read_from_2(b):
-  return (ord(b[0]) << 8) | ord(b[1])
+  return (b[0] << 8) | b[1]
 
 def mach_write_to_4(f, val):
-  f.write(chr((val >> 24) & 0xff) +
-          chr((val >> 16) & 0xff) +
-          chr((val >> 8) & 0xff) +
-          chr(val &0xff))
+  f.write(bytes([(val >> 24) & 0xff,
+          (val >> 16) & 0xff,
+          (val >> 8) & 0xff,
+          val &0xff]))
 
 def mach_write_to_2(f, val):
-  f.write(chr((val >> 8) & 0xff) +
-          chr(val &0xff))
+  f.write(bytes([(val >> 8) & 0xff,
+          val &0xff]))
 
 def get_ibd_map(data_dir):
   arr = glob.glob('%s/*/*.ibd' % data_dir)
@@ -45,7 +45,7 @@ def corrupt_page_no(ibd_map, space_id, page_no):
     # Corrupt a byte somewhere in the middle of the page
     offset = random.randint(256, 768)
     new_page = page[:offset] + \
-               chr(ord(page[offset]) ^ 1) + \
+               bytes([page[offset] ^ 1]) + \
                page[offset + 1:]
     # Write the corrupted page
     table_file.seek(UNIV_PAGE_SIZE * page_no)
@@ -206,11 +206,11 @@ def main():
   # reduced-doublewrite mode was used.
   cmd = Command(mysqld_cmd, 30)
   ret = cmd.run()
-  #print "cmd returned ", ret
+  #print("cmd returned ", ret)
   if innodb_doublewrite == 1:
     contents = open(log_file).read()
     if ret is not None:
-      print contents
+      print(contents)
       raise Exception('MySQL failed to recover in full doublewrite mode.')
       exit(1)
     #Check here that the data page was indeed restored from the doublewrite buffer
@@ -218,24 +218,24 @@ def main():
     if ind == -1:
       ind = contents.find(DBLWR_SUCCESS0_MESSAGE)
       if ind == -1:
-        print contents
+        print(contents)
         raise Exception('Doublewrite buffer was not used even though the following page was corrupt space_id=%d page_no=%d (doublewrite=1)'  % (space_id, page_no))
         exit(1)
-    print DBLWR_SUCCESS_MESSAGE
+    print(DBLWR_SUCCESS_MESSAGE)
   if innodb_doublewrite == 2:
     contents = open(log_file).read()
     if ret is None:
-      print contents
+      print(contents)
       raise Exception('MySQL did not fail to recover even though reduced durability was used, and the following page was corrupt space_id=%d page_no=%d' % (space_id, page_no))
       exit(1)
     ind = contents.find(DBLWR_FAIL_MESSAGE)
     if ind == -1:
       ind = contents.find(DBLWR_FAIL0_MESSAGE)
       if ind == -1:
-        print contents
+        print(contents)
         raise Exception('Doublewrite did not fail to recover as expected on space_id=%d page_no=%d (doublewrite=2)'  % (space_id, page_no))
         exit(1)
-    print DBLWR_FAIL_MESSAGE
+    print(DBLWR_FAIL_MESSAGE)
     # undo the change to the page.
     uncorrupt_page(space_id, page_no, page, ibd_map)
 

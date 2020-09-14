@@ -4,10 +4,7 @@ This script stress tests deadlock detection.
 Usage: rocksdb_deadlock_stress.py user host port db_name table_name
        num_iters num_threads
 """
-import cStringIO
 import hashlib
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
 from MySQLdb.constants import ER
 import os
@@ -49,18 +46,16 @@ class Worker(threading.Thread):
   def run(self):
     try:
       self.runme()
-    except Exception, e:
+    except Exception as e:
       self.exception = traceback.format_exc()
   def runme(self):
     cur = self.con.cursor()
-    for x in xrange(self.num_iters):
+    for x in range(self.num_iters):
       try:
-        for i in random.sample(xrange(100), 10):
+        for i in random.sample(range(100), 10):
           cur.execute(get_query(self.table_name, i))
         self.con.commit()
-      # Different versions of PyMySQL may raise deadlock error as
-      # either of these two exceptions
-      except (MySQLdb.InternalError, MySQLdb.OperationalError) as e:
+      except MySQLdb.OperationalError as e:
         self.con.rollback()
         cur = self.con.cursor()
         if not is_deadlock_error(e):
@@ -68,8 +63,8 @@ class Worker(threading.Thread):
 
 if __name__ == '__main__':
   if len(sys.argv) != 8:
-    print "Usage: rocksdb_deadlock_stress.py user host port db_name " \
-          "table_name num_iters num_threads"
+    print("Usage: rocksdb_deadlock_stress.py user host port db_name " \
+          "table_name num_iters num_threads")
     sys.exit(1)
 
   user = sys.argv[1]
@@ -82,7 +77,7 @@ if __name__ == '__main__':
 
   worker_failed = False
   workers = []
-  for i in xrange(num_workers):
+  for i in range(num_workers):
     w = Worker(
       MySQLdb.connect(user=user, host=host, port=port, db=db), table_name,
       num_iters)
@@ -91,7 +86,7 @@ if __name__ == '__main__':
   for w in workers:
     w.join()
     if w.exception:
-      print "Worker hit an exception:\n%s\n" % w.exception
+      print("Worker hit an exception:\n%s\n" % w.exception)
       worker_failed = True
 
   if worker_failed:

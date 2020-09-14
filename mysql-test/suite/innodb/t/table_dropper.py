@@ -1,7 +1,4 @@
-import cStringIO
 import hashlib
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
 import os
 import random
@@ -48,23 +45,23 @@ def fill_table(con, table_name, count, rng, log):
   else:
     max_len = 250
 
-  for i in xrange(count):
+  for i in range(count):
     cur.execute("""
 INSERT INTO %s(id,msg) VALUES (NULL, LPAD(%d, %d, 'x'))
 """ % (table_name, rng.randint(1,100000), rng.randint(1, max_len)))
 
-  print >> log, "inserted %d rows to %s" % (count, table_name)
+  print("inserted %d rows to %s" % (count, table_name), file=log)
   cur.execute("select count(*) from %s" % table_name)
   row = cur.fetchone()
-  print >> log, "...then read %d rows of %d" % (row[0], count)
+  print("...then read %d rows of %d" % (row[0], count), file=log)
   cur.close()
 
 def create_table(con, table_name, log):
   assert table_name in table_ddl
-  print >> log, "creating %s with %s" % (table_name, table_ddl[table_name])
+  print("creating %s with %s" % (table_name, table_ddl[table_name]), file=log)
   cur = con.cursor()
   cur.execute(table_ddl[table_name])
-  print >> log, "created %s" % table_name
+  print("created %s" % table_name, file=log)
   cur.close()
 
 def create_tables(con, min_records, rng, log):
@@ -78,8 +75,8 @@ def drop_tables(con, log):
       cur = con.cursor()
       cur.execute("drop table %s" % table_name)
       cur.close()
-    except MySQLdb.Error, e:
-      print >> log, "drop_tables: mysql error for %s, %s" % (table_name, e)
+    except MySQLdb.Error as e:
+      print("drop_tables: mysql error for %s, %s" % (table_name, e), file=log)
 
 class Dropper(threading.Thread):
   global LG_TMP_DIR
@@ -97,10 +94,10 @@ class Dropper(threading.Thread):
   def run(self):
     self.start_time = time.time()
     try:
-      print >> self.log, "dropper started"
+      print("dropper started", file=self.log)
       self.runme()
-    except Exception, e:
-      print >> self.log, "caught (%s)" % e
+    except Exception as e:
+      print("caught (%s)" % e, file=self.log)
     finally:
       self.finish()
 
@@ -115,14 +112,14 @@ class Dropper(threading.Thread):
           cur.execute(stmt)
           row = cur.fetchone()
           cur.close()
-          print >> self.log, "Read %d rows from %s" % (row[0], table_name)
+          print("Read %d rows from %s" % (row[0], table_name), file=self.log)
 
           if row[0] >= self.max_records:
             cur = self.con.cursor()
             stmt = "drop table %s" % table_name
             cur.execute(stmt)
             cur.close()
-            print >> self.log, "dropped %s" % table_name
+            print("dropped %s" % table_name, file=self.log)
 
             done = False
             loop = 0
@@ -132,18 +129,18 @@ class Dropper(threading.Thread):
                 loop += 1
                 create_table(self.con, table_name, self.log)
                 done = True
-              except MySQLdb.Error, e:
-                print >> self.log, "mysql error for create %s, loop %d, %s" % (table_name, loop, e)
+              except MySQLdb.Error as e:
+                print("mysql error for create %s, loop %d, %s" % (table_name, loop, e), file=self.log)
 
             stmt = "filling %s" % table_name
             fill_table(self.con, table_name, self.min_records, self.rng, self.log)
             self.num_drops += 1
-      except MySQLdb.Error, e:
-        print >> self.log, "mysql error for stmt(%s) %s" % (stmt, e)
+      except MySQLdb.Error as e:
+        print("mysql error for stmt(%s) %s" % (stmt, e), file=self.log)
 
   def finish(self):
-    print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
-    print >> self.log, "dropped %d" % self.num_drops
+    print("total time: %.2f s" % (time.time() - self.start_time), file=self.log)
+    print("dropped %d" % self.num_drops, file=self.log)
     self.log.close()
 
 class Worker(threading.Thread):
@@ -164,23 +161,23 @@ class Worker(threading.Thread):
     self.log = open('/%s/worker%02d.log' % (LG_TMP_DIR, self.xid), 'a')
 
   def finish(self):
-    print >> self.log, "loop_num:%d, total time: %.2f s" % (
-        self.loop_num, time.time() - self.start_time)
-    print >> self.log, "%d inserts, %d deletes, %d updates" % (
-        self.num_inserts, self.num_deletes, self.num_updates)
+    print("loop_num:%d, total time: %.2f s" % (
+        self.loop_num, time.time() - self.start_time), file=self.log)
+    print("%d inserts, %d deletes, %d updates" % (
+        self.num_inserts, self.num_deletes, self.num_updates), file=self.log)
     self.log.close()
 
   def run(self):
     try:
       self.runme()
-    except Exception, e:
-      print >> self.log, "caught (%s)" % e
+    except Exception as e:
+      print("caught (%s)" % e, file=self.log)
     finally:
       self.finish()
 
   def runme(self):
     self.start_time = time.time()
-    print >> self.log, "thread %d started" % self.xid
+    print("thread %d started" % self.xid, file=self.log)
 
     while not shutdown_now:
       table_name = self.rng.choice(tables)
@@ -196,7 +193,7 @@ class Worker(threading.Thread):
         if not num_rows:
           time.sleep(1)
           cur.close()
-          print >> self.log, "sleep after 0 rows found in %s" % table_name
+          print("sleep after 0 rows found in %s" % table_name, file=self.log)
           continue
 
         if table_name in ['t3', 't4']:
@@ -223,8 +220,8 @@ class Worker(threading.Thread):
         cur.execute(stmt)
         cur.close()
 
-      except MySQLdb.Error, e:
-        print >> self.log, "mysql error for stmt(%s) %s" % (stmt, e)
+      except MySQLdb.Error as e:
+        print("mysql error for stmt(%s) %s" % (stmt, e), file=self.log)
 
 if  __name__ == '__main__':
   global LG_TMP_DIR
@@ -261,8 +258,8 @@ if  __name__ == '__main__':
   con.close()
   log.flush()
 
-  print >> log, "start %d threads" % num_workers
-  for i in xrange(num_workers):
+  print("start %d threads" % num_workers, file=log)
+  for i in range(num_workers):
     worker = Worker(i,
                     MySQLdb.connect(user=user, host=host, port=port, db=db),
                     server_pid)
@@ -275,16 +272,16 @@ if  __name__ == '__main__':
                     min_records, max_records, rng)
   dropper.start()
 
-  print >> log, "wait for %d seconds" % test_seconds
+  print("wait for %d seconds" % test_seconds, file=log)
   time.sleep(test_seconds)
   shutdown_now = True
   dropper.join()
 
-  print >> log, "wait for threads"
+  print("wait for threads", file=log)
   for w in workers:
     w.join()
 
-  print >> log, "all threads done"
+  print("all threads done", file=log)
 
   con = MySQLdb.connect(user=user, host=host, port=port, db=db)
   con.autocommit(True)
