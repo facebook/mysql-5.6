@@ -39,7 +39,7 @@ if ($do_checksum)
 {
     # populate the table and store its checksum before any load.
     let $exec =
-python2 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
+/usr/bin/python3 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records 0 0 $user $master_host $MASTER_MYPORT
 $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 0 0;
     exec $exec;
@@ -68,14 +68,14 @@ while ($num_crashes)
   if ($use_blob)
   {
     let $exec =
-python2 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
+/usr/bin/python3 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
 $table 1 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks;
   }
   if (!$use_blob)
   {
     let $exec =
-python2 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
+/usr/bin/python3 $MYSQL_TEST_DIR/suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
 $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks;
   }

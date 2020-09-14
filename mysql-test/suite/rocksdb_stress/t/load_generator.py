@@ -1,8 +1,5 @@
-import cStringIO
 import array
 import hashlib
-import pymysql
-pymysql.install_as_MySQLdb()
 import MySQLdb
 from MySQLdb.constants import CR
 from MySQLdb.constants import ER
@@ -83,7 +80,7 @@ class TestError(Exception):
   """Raised when the test cannot make forward progress"""
   pass
 
-CHARS = string.letters + string.digits
+CHARS = string.ascii_letters + string.digits
 OPTIONS = {}
 
 # max number of rows per transaction
@@ -114,15 +111,17 @@ def roll_d100(p):
   return p >= random.randint(1, 100)
 
 def sha1(x):
-  return hashlib.sha1(str(x)).hexdigest()
+  if type(x) == str:
+    x = x.encode('ascii')
+  return hashlib.sha1(x).hexdigest()
 
 def is_connection_error(exc):
   error_code = exc.args[0]
   # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
-  return (error_code == MySQLdb.constants.CR.CR_CONNECTION_ERROR or
-          error_code == MySQLdb.constants.CR.CR_CONN_HOST_ERROR or
-          error_code == MySQLdb.constants.CR.CR_SERVER_LOST or
-          error_code == MySQLdb.constants.CR.CR_SERVER_GONE_ERROR or
+  return (error_code == MySQLdb.constants.CR.CONNECTION_ERROR or
+          error_code == MySQLdb.constants.CR.CONN_HOST_ERROR or
+          error_code == MySQLdb.constants.CR.SERVER_LOST or
+          error_code == MySQLdb.constants.CR.SERVER_GONE_ERROR or
           error_code == MySQLdb.constants.ER.QUERY_INTERRUPTED or
           error_code == MySQLdb.constants.ER.SERVER_SHUTDOWN)
 
@@ -139,7 +138,7 @@ def gen_msg(idx, thread_id, request_id):
 
   if roll_d100(50):
     # blob that cannot be compressed (well, compresses to 85% of original size)
-    msg = ''.join([random.choice(CHARS) for x in xrange(blob_length)])
+    msg = ''.join([random.choice(CHARS) for x in range(blob_length)])
   else:
     # blob that can be compressed
     msg = random.choice(CHARS) * blob_length
@@ -148,12 +147,12 @@ def gen_msg(idx, thread_id, request_id):
   return ''.join([msg, ' tid: %d req: %d' % (thread_id, request_id)])
 
 def execute(cur, stmt):
-  ROW_COUNT_ERROR = 18446744073709551615L
+  ROW_COUNT_ERROR = 18446744073709551615
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
     # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
-    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
+    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
                                    "Possible connection error, rowcount is %d"
                                    % cur.rowcount)
 
@@ -168,7 +167,7 @@ def wait_for_workers(workers, min_active = 0):
   try:
     while threading.active_count() > min_active:
       time.sleep(1)
-  except KeyboardInterrupt, e:
+  except KeyboardInterrupt as e:
     os._exit(1)
 
   num_failures = 0
@@ -200,7 +199,7 @@ class WorkerThread(threading.Thread):
       logging.info("Started")
       self.runme()
       logging.info("Completed successfully")
-    except Exception, e:
+    except Exception as e:
       self.exception = traceback.format_exc()
       logging.error(self.exception)
       TEST_STOP = True
@@ -226,7 +225,7 @@ class WorkerThread(threading.Thread):
           self.set_isolation_level(self.isolation_level)
           logging.info("Connection successful after attempt %d" % attempts)
           break
-      except MySQLdb.Error, e:
+      except MySQLdb.Error as e:
         logging.debug(traceback.format_exc())
       time.sleep(SECONDS_BETWEEN_RETRY)
       timeout -= SECONDS_BETWEEN_RETRY
@@ -303,7 +302,7 @@ class PopulateWorker(WorkerThread):
       raise Exception("Unable to connect to MySQL server")
 
     stmt = None
-    for i in xrange(self.start_id, self.start_id + self.num_to_add):
+    for i in range(self.start_id, self.start_id + self.num_to_add):
       stmt = gen_insert(self.table, i, 0, 0, 0)
       execute(self.cur, stmt)
       if i % 101 == 0:
@@ -327,12 +326,12 @@ def populate_table(num_records):
   if num_records == 0:
     return False
 
-  num_workers = min(10, num_records / 100)
+  num_workers = min(10, int(num_records / 100))
   workers = []
 
-  N = num_records / num_workers
+  N = int(num_records / num_workers)
   start_id = 0
-  for i in xrange(num_workers):
+  for i in range(num_workers):
      workers.append(PopulateWorker(i, start_id, N))
      start_id += N
   if num_records > start_id:
@@ -443,11 +442,11 @@ class LoadGenWorker(WorkerThread):
 
     self.cur_txn = {idx:request_id}
     self.cur_txn_state = self.TXN_COMMITTED
-    for i in xrange(OPTIONS.committed_txns):
+    for i in range(OPTIONS.committed_txns):
       self.prev_txn.append(self.cur_txn)
 
     # fetch the rest of the row for the id space owned by this thread
-    for idx in xrange(self.start_id + 1, self.start_id + self.num_id):
+    for idx in range(self.start_id + 1, self.start_id + self.num_id):
       execute(self.cur, stmt % (self.table, idx))
       if self.cur.rowcount == 0:
         # Negative number is used to indicated a missing row
@@ -590,7 +589,7 @@ class LoadGenWorker(WorkerThread):
     idx = random.randint(self.start_id, self.start_id + self.num_id - 1)
     ids.append(idx)
 
-    for i in xrange(1, num_rows):
+    for i in range(1, num_rows):
       # The valid ranges for ids is from start_id to start_id + num_id and from
       # start_share_id to max_id. The randint() uses the range from
       # start_share_id to max_id + num_id - 1. start_share_id to max_id covers
@@ -616,7 +615,7 @@ class LoadGenWorker(WorkerThread):
     # the row. MyRocks will prevent any updates to this row until the
     # snapshot is released and re-acquired.
     NUM_RETRIES = 100
-    for i in xrange(NUM_RETRIES):
+    for i in range(NUM_RETRIES):
       ids_found = {}
       try:
         for idx in ids:
@@ -706,7 +705,7 @@ class LoadGenWorker(WorkerThread):
       self.con.commit()
       check_id(self.con.insert_id())
       if not self.con.get_server_info():
-        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
+        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
                                        "Possible connection error on commit")
       self.apply_cur_txn_changes()
 
@@ -794,7 +793,7 @@ class CheckerWorker(WorkerThread):
         if self.cur.rowcount == 0:
           break
 
-        for i in xrange(self.cur.rowcount - 1):
+        for i in range(self.cur.rowcount - 1):
           sum += self.cur.fetchone()[ZERO_SUM_COL]
 
         last_row = self.cur.fetchone()
@@ -822,7 +821,7 @@ class CheckerWorker(WorkerThread):
     #  2. range scan
     if roll_d100(90):
       ids = []
-      for i in xrange(random.randint(1, MAX_ROWS_PER_REQ)):
+      for i in range(random.randint(1, MAX_ROWS_PER_REQ)):
         ids.append(random.randint(0, self.max_id - 1))
       stmt += "id in (%s)" % ','.join(str(x) for x in ids)
     else:
@@ -1015,12 +1014,12 @@ if  __name__ == '__main__':
 
   logging.info("Starting %d loaders" % OPTIONS.num_loaders)
   loaders = []
-  for i in xrange(OPTIONS.num_loaders):
+  for i in range(OPTIONS.num_loaders):
     loaders.append(LoadGenWorker(i))
 
   logging.info("Starting %d checkers" % OPTIONS.num_checkers)
   checkers = []
-  for i in xrange(OPTIONS.num_checkers):
+  for i in range(OPTIONS.num_checkers):
     checkers.append(CheckerWorker(i))
 
   while LOADERS_READY < OPTIONS.num_loaders:
