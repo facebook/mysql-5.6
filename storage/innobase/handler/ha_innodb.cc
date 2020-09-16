@@ -18046,7 +18046,7 @@ static int innodb_show_status(handlerton *hton, THD *thd,
     srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
   }
 
-  srv_printf_innodb_binlog_position(hton, srv_monitor_file);
+  srv_printf_innodb_binlog_position(srv_monitor_file);
 
   os_file_set_eof(srv_monitor_file);
 
@@ -19146,6 +19146,8 @@ static void innobase_recover_binlog_pos(
     my_off_t *binlog_pos)  /*!< out: Last valid binlog pos */
 {
   DBUG_ASSERT(hton == innodb_hton_ptr);
+
+  trx_sys_print_mysql_binlog_offset();
 
   if (binlog_file && binlog_pos) {
     uint64_t offset = 0;

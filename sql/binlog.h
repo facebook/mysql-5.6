@@ -401,6 +401,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   /* binlog offset tracker for the last update done on SE's. */
   my_off_t ha_last_updated_binlog_pos;
+  char ha_last_updated_binlog_file; /* Only need the last char */
 
   /**
     Increment the prepared XID counter.

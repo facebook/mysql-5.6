@@ -5,13 +5,16 @@
 
 call mtr.add_suppression("Master's binlog format is not ROW but rpl_skip_tx_api is enabled on the slave");
 
+set local rocksdb_unsafe_for_binlog=1;
+create table t1(a int);
+
+--source include/sync_slave_sql_with_master.inc
+
 --source include/rpl_connection_slave.inc
 set @save.rpl_skip_tx_api = @@global.rpl_skip_tx_api;
 set global rpl_skip_tx_api=ON;
 
 --source include/rpl_connection_master.inc
-set local rocksdb_unsafe_for_binlog=1;
-create table t1(a int);
 set session binlog_format=STATEMENT;
 insert into t1 values(1);
 
@@ -23,7 +26,6 @@ insert into t1 values(1);
 
 # Print table
 --source include/rpl_connection_slave.inc
---error ER_NO_SUCH_TABLE
 select * from t1;
 
 --source include/rpl_connection_slave.inc
