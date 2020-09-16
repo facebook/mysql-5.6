@@ -245,8 +245,9 @@ struct xarecover_st {
   XA_recover_txn *list;
   const xid_to_gtid_container *commit_list;
   bool dry_run;
-  Gtid *binlog_max_gtid;
+  Gtid *binlog_max_gtid; /* max gtid across all engines */
   char *binlog_max_gtid_buf;
+  Gtid *binlog_smallest_max_gtid; /* smallest max gtid for engine */
   char *binlog_file;
   my_off_t *binlog_pos;
 };
@@ -408,7 +409,8 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
   my_off_t binlog_pos = ULLONG_MAX;
   Gtid max_gtid{0, 0};
 
-  DBUG_ASSERT(info->binlog_file && info->binlog_max_gtid);
+  DBUG_ASSERT(info->binlog_file && info->binlog_max_gtid &&
+              info->binlog_smallest_max_gtid);
 
   hton->recover_binlog_pos(hton, &max_gtid, binlog_file, &binlog_pos);
 
@@ -432,6 +434,7 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
     DBUG_ASSERT(info->binlog_max_gtid->is_empty());
 
     *(info->binlog_max_gtid) = max_gtid;
+    *(info->binlog_smallest_max_gtid) = max_gtid;
     memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
     *info->binlog_pos = binlog_pos;
 
@@ -460,6 +463,16 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
                          *info->binlog_pos)) {
     memcpy(info->binlog_file, binlog_file, FN_REFLEN + 1);
     *info->binlog_pos = binlog_pos;
+
+    // Track the smallest max gtid found so far.
+    //
+    // The engine's actual committed max_gtid might be higher than this because
+    // prepared transactions may be rolled forward. However, idempotent
+    // recovery allows the transactions that are being rolled forward to be
+    // replayed. In the case where the binlog is trimmed on a primary instance,
+    // nothing is rolled forward, so this value will be the smallest max_gtid
+    // committed to an engine, and can be used as the executed_gtid base value.
+    *(info->binlog_smallest_max_gtid) = max_gtid;
   }
 }
 
@@ -490,9 +503,13 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
         global_sid_lock->unlock();
       }
 
-      sql_print_information(
-          "Current chosen binlog position (%s,%llu), max gtid %s",
-          info->binlog_file, *info->binlog_pos, gtid_buf);
+      if (info->binlog_file[0]) {
+        sql_print_information(
+            "Plugin '%s': Current chosen binlog position (%s,%llu), max gtid "
+            "%s",
+            plugin_name(plugin)->str, info->binlog_file, *info->binlog_pos,
+            gtid_buf);
+      }
     }
 
     while (
@@ -599,6 +616,10 @@ int ha_recover(const xid_to_gtid_container *commit_list, Gtid *binlog_max_gtid,
   info.binlog_file = binlog_file;
   info.binlog_pos = binlog_pos;
 
+  Gtid binlog_smallest_max_gtid;
+  binlog_smallest_max_gtid.clear();
+  info.binlog_smallest_max_gtid = &binlog_smallest_max_gtid;
+
   /* commit_list and tc_heuristic_recover cannot be set both */
   DBUG_ASSERT(info.commit_list == nullptr ||
               tc_heuristic_recover == TC_HEURISTIC_NOT_USED);
@@ -647,6 +668,29 @@ int ha_recover(const xid_to_gtid_container *commit_list, Gtid *binlog_max_gtid,
                      &info)) {
     return 1;
   }
+
+  /* Print the max gtid and smallest max gtid found for recovery */
+  if (info.binlog_max_gtid && !info.binlog_max_gtid->is_empty()) {
+    char max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+    char smallest_max_gtid_buf[Gtid::MAX_TEXT_LENGTH + 1] = {0};
+
+    global_sid_lock->rdlock();
+    info.binlog_max_gtid->to_string(global_sid_map, max_gtid_buf);
+    info.binlog_smallest_max_gtid->to_string(global_sid_map,
+                                             smallest_max_gtid_buf);
+    global_sid_lock->unlock();
+
+    /*
+      The output of this line is parsed by other applications, so should
+      not be changed.
+    */
+    fprintf(stderr,
+            "Gtid recovery info: Largest MySQL Gtid %s, "
+            "Smallest MySQL Gtid %s\n",
+            max_gtid_buf, smallest_max_gtid_buf);
+  }
+
+  info.binlog_smallest_max_gtid = nullptr;
 
   delete[] info.list;
 

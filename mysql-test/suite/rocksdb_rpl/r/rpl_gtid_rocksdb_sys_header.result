@@ -12,5 +12,6 @@ include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 include/start_slave.inc
 RocksDB: Last MySQL Gtid master_uuid:2
+Gtid recovery info: Largest MySQL Gtid master_uuid:3, Smallest MySQL Gtid master_uuid:2
 drop table t1;
 include/rpl_end.inc
