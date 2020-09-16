@@ -3820,6 +3820,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
       sync_period_ptr(sync_period),
       sync_counter(0),
       ha_last_updated_binlog_pos(0),
+      ha_last_updated_binlog_file(0),
       non_xid_trxs(0),
       is_relay_log(0),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
@@ -8749,9 +8750,16 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
        * coordinates in init_slave().
        */
       int memory_page_size = my_getpagesize();
+      char tmp_binlog_file[FN_REFLEN + 1];
+      my_off_t tmp_binlog_pos;
       MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
       xid_to_gtid_container xids(&mem_root);
-      error= ha_recover(&xids, &engine_binlog_max_gtid);
+      /*
+        Temp variables help trigger fetching the file/offset info even
+        during a clean recovery.
+      */
+      error = ha_recover(&xids, &engine_binlog_max_gtid, tmp_binlog_file,
+                         &tmp_binlog_pos);
     }
 
     delete ev;
@@ -9445,6 +9453,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     const char *binlog_file;
     my_off_t binlog_pos;
     const char *max_gtid_var;
+    int len;
+    char last_char = ha_last_updated_binlog_file;
 
     /*
       Here we need to use thd local position info since the global one isn't
@@ -9453,6 +9463,11 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     */
     thd_binlog_pos(candidate, &binlog_file, &binlog_pos, nullptr,
                    &max_gtid_var);
+
+    /* Compare the last character of the filename to detect log rotation */
+    len = strlen(binlog_file);
+    if (len > 0) last_char = binlog_file[len - 1];
+
     /*
      This is just a partial check (offset comparison without
      checking the log file name) mainly as an optimization to
@@ -9468,7 +9483,8 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     */
     if (binlog_pos >=
             (ha_last_updated_binlog_pos + update_binlog_pos_threshold) ||
-        binlog_pos < ha_last_updated_binlog_pos) {
+        binlog_pos < ha_last_updated_binlog_pos ||
+        ha_last_updated_binlog_file != last_char) {
       Gtid max_gtid{0, 0};
       if (max_gtid_var != nullptr) {
         global_sid_lock->rdlock();
@@ -9478,6 +9494,7 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
 
       if (!ha_update_binlog_pos(binlog_file, binlog_pos, &max_gtid)) {
         ha_last_updated_binlog_pos = binlog_pos;
+        ha_last_updated_binlog_file = last_char;
       }
     }
   }
