@@ -24,6 +24,10 @@ while ($i<1000)
   {
     eval update r1 set id2=id2+10000 where id1=500;
   }
+  if ($delete_row)
+  {
+    eval delete from r1 where type=$i and id1=$i and id2=$i;
+  }
 }
 --enable_query_log
 set global rocksdb_force_flush_memtable_now=1;
@@ -37,7 +41,7 @@ let $wait_condition = select count(*) = 0
 --source include/wait_condition.inc
 --enable_query_log
 
---exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR $MYSQL_SST_DUMP $no_more_deletes
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR $MYSQL_SST_DUMP $no_more_deletes $no_more_rows
 eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
 eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
 eval SET GLOBAL rocksdb_compaction_sequential_deletes_window= $save_rocksdb_compaction_sequential_deletes_window;

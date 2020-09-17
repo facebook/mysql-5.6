@@ -14287,6 +14287,8 @@ static SHOW_VAR rocksdb_status_vars[] = {
                        SHOW_LONGLONG),
     DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
                        SHOW_LONGLONG),
+    DEF_STATUS_VAR_PTR("additional_compaction_triggers",
+                       &rocksdb_additional_compaction_triggers, SHOW_LONGLONG),
 #ifndef NDEBUG
     DEF_STATUS_VAR_PTR("num_get_for_update_calls",
                        &rocksdb_num_get_for_update_calls, SHOW_LONGLONG),
