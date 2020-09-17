@@ -10,4 +10,6 @@ DELETE FROM t1;
 set @@global.rocksdb_compact_cf = 'default';
 Bottom thread priority:
 19
+Bottom thread counts:
+1
 drop table t1;
