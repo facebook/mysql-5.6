@@ -39,6 +39,7 @@ std::atomic<uint64_t> rocksdb_num_sst_entry_delete(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_merge(0);
 std::atomic<uint64_t> rocksdb_num_sst_entry_other(0);
+std::atomic<uint64_t> rocksdb_additional_compaction_triggers(0);
 bool rocksdb_compaction_sequential_deletes_count_sd = false;
 
 Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
@@ -48,10 +49,14 @@ Rdb_tbl_prop_coll::Rdb_tbl_prop_coll(Rdb_ddl_manager *const ddl_manager,
     : m_cf_id(cf_id),
       m_ddl_manager(ddl_manager),
       m_last_stats(nullptr),
-      m_rows(0l),
       m_window_pos(0l),
       m_deleted_rows(0l),
       m_max_deleted_rows(0l),
+      m_total_puts(0l),
+      m_total_merges(0l),
+      m_total_deletes(0l),
+      m_total_singledeletes(0l),
+      m_total_others(0l),
       m_file_size(0),
       m_params(params),
       m_cardinality_collector(table_stats_sampling_pct),
@@ -71,8 +76,6 @@ rocksdb::Status Rdb_tbl_prop_coll::AddUserKey(
     uint64_t file_size) {
   if (key.size() >= 4) {
     AdjustDeletedRows(type);
-
-    m_rows++;
 
     CollectStatsForRow(key, value, type, file_size);
   }
@@ -196,41 +199,39 @@ const char *Rdb_tbl_prop_coll::INDEXSTATS_KEY = "__indexstats__";
 */
 rocksdb::Status Rdb_tbl_prop_coll::Finish(
     rocksdb::UserCollectedProperties *const properties) {
-  uint64_t num_sst_entry_put = 0;
-  uint64_t num_sst_entry_delete = 0;
-  uint64_t num_sst_entry_singledelete = 0;
-  uint64_t num_sst_entry_merge = 0;
-  uint64_t num_sst_entry_other = 0;
-
   assert(properties != nullptr);
 
-  for (auto it = m_stats.begin(); it != m_stats.end(); it++) {
-    num_sst_entry_put += it->m_rows;
-    num_sst_entry_delete += it->m_entry_deletes;
-    num_sst_entry_singledelete += it->m_entry_single_deletes;
-    num_sst_entry_merge += it->m_entry_merges;
-    num_sst_entry_other += it->m_entry_others;
-  }
-
   if (!m_recorded) {
-    if (num_sst_entry_put > 0) {
-      rocksdb_num_sst_entry_put += num_sst_entry_put;
+    m_total_puts = 0;
+    m_total_deletes = 0;
+    m_total_singledeletes = 0;
+    m_total_merges = 0;
+    m_total_others = 0;
+    for (auto it = m_stats.begin(); it != m_stats.end(); it++) {
+      m_total_puts += it->m_rows;
+      m_total_deletes += it->m_entry_deletes;
+      m_total_singledeletes += it->m_entry_single_deletes;
+      m_total_merges += it->m_entry_merges;
+      m_total_others += it->m_entry_others;
+    }
+    if (m_total_puts > 0) {
+      rocksdb_num_sst_entry_put += m_total_puts;
     }
 
-    if (num_sst_entry_delete > 0) {
-      rocksdb_num_sst_entry_delete += num_sst_entry_delete;
+    if (m_total_deletes > 0) {
+      rocksdb_num_sst_entry_delete += m_total_deletes;
     }
 
-    if (num_sst_entry_singledelete > 0) {
-      rocksdb_num_sst_entry_singledelete += num_sst_entry_singledelete;
+    if (m_total_singledeletes > 0) {
+      rocksdb_num_sst_entry_singledelete += m_total_singledeletes;
     }
 
-    if (num_sst_entry_merge > 0) {
-      rocksdb_num_sst_entry_merge += num_sst_entry_merge;
+    if (m_total_merges > 0) {
+      rocksdb_num_sst_entry_merge += m_total_merges;
     }
 
-    if (num_sst_entry_other > 0) {
-      rocksdb_num_sst_entry_other += num_sst_entry_other;
+    if (m_total_merges > 0) {
+      rocksdb_num_sst_entry_other += m_total_merges;
     }
 
     for (Rdb_index_stats &stat : m_stats) {
@@ -258,9 +259,30 @@ rocksdb::Status Rdb_tbl_prop_coll::Finish(
 }
 
 bool Rdb_tbl_prop_coll::NeedCompact() const {
-  return m_params.m_deletes && (m_params.m_window > 0) &&
-         (m_file_size > m_params.m_file_size) &&
-         (m_max_deleted_rows > m_params.m_deletes);
+  if (m_params.m_deletes && (m_params.m_window > 0) &&
+      (m_file_size > m_params.m_file_size) &&
+      ((m_max_deleted_rows > m_params.m_deletes) || FilledWithDeletions())) {
+    rocksdb_additional_compaction_triggers++;
+    return true;
+  }
+  return false;
+}
+
+bool Rdb_tbl_prop_coll::FilledWithDeletions() const {
+  uint64_t total_entries = m_total_puts + m_total_deletes +
+                           m_total_singledeletes + m_total_merges +
+                           m_total_others;
+  uint64_t total_deletes = m_total_deletes;
+  if (rocksdb_compaction_sequential_deletes_count_sd) {
+    total_deletes += m_total_singledeletes;
+  }
+
+  if (total_entries > 0 &&
+      (static_cast<double>(total_deletes / total_entries) >
+       static_cast<double>(m_params.m_deletes / m_params.m_window))) {
+    return true;
+  }
+  return false;
 }
 
 /*
