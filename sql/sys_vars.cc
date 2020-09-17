@@ -7180,3 +7180,27 @@ static Sys_var_uint Sys_transaction_size_histogram_width(
       VALID_RANGE(1, 1024), DEFAULT(10), BLOCK_SIZE(1),
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(update_transaction_size_histogram));
+
+/* update_write_statistics_histogram
+   Called when write_statistics_histogram_width is updated
+ */
+static bool update_write_statistics_histogram(sys_var *self, THD *thd,
+                                              enum_var_type type)
+{
+  reset_write_stat_histogram();
+
+  return false; // success
+}
+
+/* write_statistics_histogram_width
+   Controls the width of the histgram bucket (unit: kilo-bytes)
+   Valid range: 1-2000
+   Default: 100
+ */
+static Sys_var_uint Sys_write_statistics_histogram_width(
+      "write_statistics_histogram_width",
+      "Width of buckets (unit is KB) in the WRITE_STATISTICS_HISTOGRAM",
+      GLOBAL_VAR(write_statistics_histogram_width), CMD_LINE(OPT_ARG),
+      VALID_RANGE(1, 2000), DEFAULT(100), BLOCK_SIZE(1),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+      ON_UPDATE(update_write_statistics_histogram));

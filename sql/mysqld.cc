@@ -719,6 +719,7 @@ char *latest_write_throttling_rule;
 GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 /* Controls the width of the histogram bucket (unit: kilo-bytes) */
 uint transaction_size_histogram_width;
+uint write_statistics_histogram_width;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1111,6 +1112,8 @@ mysql_mutex_t LOCK_global_write_throttling_rules;
 mysql_mutex_t LOCK_global_write_throttling_log;
 /* Lock to provide exclusion in access to global_tx_size_histogram */
 mysql_mutex_t LOCK_global_tx_size_histogram;
+/* Lock to provide exclusion in access to global_write_stat_histogram */
+mysql_mutex_t LOCK_global_write_stat_histogram;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2666,6 +2669,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_write_throttling_rules);
   mysql_mutex_destroy(&LOCK_global_write_throttling_log);
   mysql_mutex_destroy(&LOCK_global_tx_size_histogram);
+  mysql_mutex_destroy(&LOCK_global_write_stat_histogram);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5661,6 +5665,8 @@ static int init_thread_environment()
                    &LOCK_global_write_throttling_log, MY_MUTEX_INIT_ERRCHK);
   mysql_mutex_init(key_LOCK_global_tx_size_histogram,
                    &LOCK_global_tx_size_histogram, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_global_write_stat_histogram,
+                   &LOCK_global_write_stat_histogram, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -6315,6 +6321,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
   init_global_db_stats();
   init_global_error_stats();
   init_global_sql_stats();
+  reset_write_stat_histogram();
 
   /* call ha_init_key_cache() on all key caches to init them */
   process_key_caches(&ha_init_key_cache);
@@ -12847,6 +12854,7 @@ PSI_mutex_key
   key_LOCK_global_write_throttling_rules,
   key_LOCK_global_write_throttling_log,
   key_LOCK_global_tx_size_histogram,
+  key_LOCK_global_write_stat_histogram,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12978,6 +12986,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_write_throttling_rules, "LOCK_global_write_throttling_rules", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_tx_size_histogram, "LOCK_global_tx_size_histogram", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_write_stat_histogram, "LOCK_global_write_stat_histogram", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

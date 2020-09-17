@@ -10466,6 +10466,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_thread_priorities, NULL, NULL, -1, -1, false, 0},
   {"TRANSACTION_SIZE_HISTOGRAM", tx_size_histogram_fields_info, create_schema_table,
    fill_tx_size_histogram, NULL, NULL, -1, -1, false, 0},
+  {"WRITE_STATISTICS_HISTOGRAM", write_stat_histogram_fields_info, create_schema_table,
+   fill_write_stat_histogram, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 

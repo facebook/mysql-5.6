@@ -2218,6 +2218,9 @@ The following options may be given as the first argument:
  equal to 0. The value 0 disables enforcing the limit.
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
+ --write-statistics-histogram-width[=#] 
+ Width of buckets (unit is KB) in the
+ WRITE_STATISTICS_HISTOGRAM
  --write-stats-count[=#] 
  Maximum number of most recent data points to be collected
  for information_schema.write_statistics time series.
@@ -2889,6 +2892,7 @@ working-duration 3600
 write-control-level OFF
 write-cpu-limit-milliseconds 0
 write-query-throttling-limit 0
+write-statistics-histogram-width 100
 write-stats-count 0
 write-stats-frequency 0
 write-throttle-patterns OFF

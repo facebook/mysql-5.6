@@ -1,0 +1,25 @@
+Default value of write_statistics_histogram_width is 100
+SELECT @@global.write_statistics_histogram_width;
+@@global.write_statistics_histogram_width
+100
+SELECT @@session.write_statistics_histogram_width;
+ERROR HY000: Variable 'write_statistics_histogram_width' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_statistics_histogram_width is a dynamic variable (change to 200)
+set @@global.write_statistics_histogram_width = 200;
+SELECT @@global.write_statistics_histogram_width;
+@@global.write_statistics_histogram_width
+200
+restore the default value
+SET @@global.write_statistics_histogram_width = 100;
+SELECT @@global.write_statistics_histogram_width;
+@@global.write_statistics_histogram_width
+100
+restart the server with non default value (300)
+SELECT @@global.write_statistics_histogram_width;
+@@global.write_statistics_histogram_width
+300
+restart the server with the default value (100)
+SELECT @@global.write_statistics_histogram_width;
+@@global.write_statistics_histogram_width
+100

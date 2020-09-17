@@ -443,6 +443,12 @@ int  fill_tx_size_histogram(THD *thd, TABLE_LIST *tables, Item *cond);
 void free_global_tx_size_histogram();
 void update_tx_size_histogram(THD *thd);
 
+/* For information_schema.WRITE_STATISTICS_HISTOGRAM */
+extern ST_FIELD_INFO write_stat_histogram_fields_info[];
+extern mysql_mutex_t LOCK_global_write_stat_histogram;
+int  fill_write_stat_histogram(THD *thd, TABLE_LIST *tables, Item *cond);
+void reset_write_stat_histogram();
+
 /* For information_schema.user_latency_histograms */
 extern char *histogram_step_size_connection_create;
 extern char *histogram_step_size_update_command;

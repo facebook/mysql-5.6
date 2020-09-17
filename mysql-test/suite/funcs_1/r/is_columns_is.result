@@ -687,6 +687,12 @@ def	information_schema	WRITE_STATISTICS	TIMESTAMP	1	0000-00-00 00:00:00	NO	datet
 def	information_schema	WRITE_STATISTICS	TYPE	2		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
 def	information_schema	WRITE_STATISTICS	VALUE	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	WRITE_STATISTICS	WRITE_DATA_BYTES	4	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_NUMBER	1	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(11) unsigned			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_QUANTILE	6	0	NO	double	NULL	NULL	22	NULL	NULL	NULL	NULL	double			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_WRITE_HIGH	3	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_WRITE_LOW	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	COUNT_BUCKET	4	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	WRITE_STATISTICS_HISTOGRAM	COUNT_BUCKET_AND_LOWER	5	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	WRITE_THROTTLING_LOG	COUNT	6	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	WRITE_THROTTLING_LOG	LAST_RECORDED	2	0000-00-00 00:00:00	NO	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	WRITE_THROTTLING_LOG	MODE	1		NO	varchar	16	48	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(16)			select	
@@ -1443,6 +1449,12 @@ NULL	information_schema	WRITE_STATISTICS	TIMESTAMP	datetime	NULL	NULL	NULL	NULL	
 3.0000	information_schema	WRITE_STATISTICS	VALUE	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 NULL	information_schema	WRITE_STATISTICS	WRITE_DATA_BYTES	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	WRITE_STATISTICS	CPU_WRITE_TIME_MS	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_NUMBER	bigint	NULL	NULL	NULL	NULL	bigint(11) unsigned
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_WRITE_LOW	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_WRITE_HIGH	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	COUNT_BUCKET	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	COUNT_BUCKET_AND_LOWER	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	WRITE_STATISTICS_HISTOGRAM	BUCKET_QUANTILE	double	NULL	NULL	NULL	NULL	double
 3.0000	information_schema	WRITE_THROTTLING_LOG	MODE	varchar	16	48	utf8	utf8_general_ci	varchar(16)
 NULL	information_schema	WRITE_THROTTLING_LOG	LAST_RECORDED	datetime	NULL	NULL	NULL	NULL	datetime
 3.0000	information_schema	WRITE_THROTTLING_LOG	TYPE	varchar	16	48	utf8	utf8_general_ci	varchar(16)

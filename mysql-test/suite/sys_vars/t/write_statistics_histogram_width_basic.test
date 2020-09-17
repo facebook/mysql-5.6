@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 100
+####
+--echo Default value of write_statistics_histogram_width is 100
+SELECT @@global.write_statistics_histogram_width;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_statistics_histogram_width;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_statistics_histogram_width is a dynamic variable (change to 200)
+set @@global.write_statistics_histogram_width = 200;
+SELECT @@global.write_statistics_histogram_width;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_statistics_histogram_width = 100;
+SELECT @@global.write_statistics_histogram_width;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (300)
+--let $_mysqld_option=--write_statistics_histogram_width=300
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.write_statistics_histogram_width;
+
+--echo restart the server with the default value (100)
+--source include/restart_mysqld.inc
+
+# check value is default (100)
+SELECT @@global.write_statistics_histogram_width;

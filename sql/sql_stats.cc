@@ -416,6 +416,34 @@ typedef std::array<ulonglong, TX_SIZE_HIST_COUNT> TX_SIZE_HIST;
 /* we need per database hence using a map */
 std::unordered_map<std::string, TX_SIZE_HIST> global_tx_size_histogram;
 
+/*
+  WRITE_STATISTICS_HISTOGRAM
+
+  Histogram for write throughput distribution
+*/
+
+ST_FIELD_INFO write_stat_histogram_fields_info[]=
+{
+  {"BUCKET_NUMBER", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_WRITE_LOW", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_WRITE_HIGH", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"COUNT_BUCKET", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"COUNT_BUCKET_AND_LOWER", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_QUANTILE", MAX_DOUBLE_STR_LENGTH, MYSQL_TYPE_DOUBLE,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+#define WRITE_STAT_HIST_COUNT   20
+
+/* histogram is represented as an array of counters */
+std::array<ulonglong, WRITE_STAT_HIST_COUNT> global_write_stat_histogram;
+
 /***********************************************************************
               Begin - Functions to support TRANSACTION_SIZE_HISTOGRAM
 ************************************************************************/
@@ -547,9 +575,112 @@ int fill_tx_size_histogram(THD *thd, TABLE_LIST *tables, Item *cond)
 ************************************************************************/
 
 /***********************************************************************
-              Begin - Functions to support WRITE_STATISTICS
+              Begin - Functions to support WRITE_STATISTICS_HISTOGRAM
+************************************************************************/
+void reset_write_stat_histogram()
+{
+  bool lock_acquired = mt_lock(&LOCK_global_write_stat_histogram);
+  global_write_stat_histogram.fill(0);
+  mt_unlock(lock_acquired, &LOCK_global_write_stat_histogram);
+}
+
+/*
+  update_write_stat_histogram
+    Increment the count in the bucket corresponding to the specified
+    write throughput
+ */
+static void update_write_stat_histogram(TIME_BUCKET_STATS& time_bucket)
+{
+  ulonglong total_writes_in_interval = 0;
+  /* Aggregate the bytes written into binlog on the USER dimension
+     during the time interval as defined by write_stats_frequency.
+     We expect the same result if we aggregate on other dimensions
+   */
+  for(auto stats_iter = time_bucket[0].begin();
+      stats_iter != time_bucket[0].end();
+      ++stats_iter)
+    total_writes_in_interval += stats_iter->second.binlog_bytes_written;
+
+  /* Convert into kilo-bytes/second and map to histogram bucket */
+  ulong bucket_number = total_writes_in_interval
+    / (write_stats_frequency ? write_stats_frequency : 1)
+    / (write_statistics_histogram_width*1024);
+
+  if (bucket_number >= WRITE_STAT_HIST_COUNT)
+    bucket_number = WRITE_STAT_HIST_COUNT-1;
+
+  bool lock_acquired = mt_lock(&LOCK_global_write_stat_histogram);
+  global_write_stat_histogram[bucket_number]++;
+  mt_unlock(lock_acquired, &LOCK_global_write_stat_histogram);
+}
+
+/*
+  fill_write_stat_histogram
+    Fills the rows returned for statements selecting from
+    WRITE_STATISTICS_HISTOGRAM
+
+*/
+int fill_write_stat_histogram(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_write_stat_histogram");
+  TABLE* table= tables->table;
+  ulonglong rolling_count = 0, total_count = 0;
+
+  bool lock_acquired = mt_lock(&LOCK_global_write_stat_histogram);
+
+  for (auto bucket_iter= 0; bucket_iter < WRITE_STAT_HIST_COUNT; bucket_iter++)
+    total_count += global_write_stat_histogram[bucket_iter];
+
+  for (auto bucket_iter= 0; bucket_iter < WRITE_STAT_HIST_COUNT; bucket_iter++)
+  {
+    int f= 0;
+    restore_record(table, s->default_values);
+
+    /* BUCKET_NUMBER */
+    table->field[f++]->store(bucket_iter, TRUE);
+
+    /* BUCKET_WRITE_LOW */
+    table->field[f++]->store(bucket_iter*write_statistics_histogram_width, TRUE);
+
+    /* BUCKET_WRITE_HIGH */
+    uint high_value;
+    if (bucket_iter == WRITE_STAT_HIST_COUNT-1) // use max for the last bucket
+      high_value = UINT_MAX;
+    else
+      high_value = (bucket_iter+1)*write_statistics_histogram_width;
+
+    table->field[f++]->store(high_value, TRUE);
+
+    /* COUNT_BUCKET */
+    table->field[f++]->store(global_write_stat_histogram[bucket_iter], TRUE);
+
+    /* COUNT_BUCKET_AND_LOWER */
+    rolling_count += global_write_stat_histogram[bucket_iter];
+    table->field[f++]->store(rolling_count, TRUE);
+
+    /* BUCKET_QUANTILE */
+    double bucket_quantile = (double)rolling_count / total_count;
+    table->field[f++]->store(bucket_quantile);
+
+    if (schema_table_store_record(thd, table))
+    {
+      mt_unlock(lock_acquired, &LOCK_global_write_stat_histogram);
+      DBUG_RETURN(-1);
+    }
+  }
+
+  mt_unlock(lock_acquired, &LOCK_global_write_stat_histogram);
+
+  DBUG_RETURN(0);
+}
+
+/***********************************************************************
+              End   - Functions to support WRITE_STATISTICS_HISTOGRAM
 ************************************************************************/
 
+/***********************************************************************
+              Begin - Functions to support WRITE_STATISTICS
+************************************************************************/
 /*
   free_global_write_statistics
     Frees global_write_statistics
@@ -617,7 +748,11 @@ void store_write_statistics(THD *thd)
   if (time_bucket_iter == global_write_statistics_map.end()
     ||  time_bucket_key > time_bucket_iter->first)
   {
-    // time_bucket is newer than last registered bucket
+    // time_bucket is newer than last registered bucket...
+
+    // update the write throughput histogram with last bucket
+    update_write_stat_histogram(time_bucket_iter->second);
+
     // need to insert a new one
     while((uint)global_write_statistics_map.size() >= write_stats_count)
     {
