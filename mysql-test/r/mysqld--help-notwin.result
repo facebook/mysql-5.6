@@ -1675,10 +1675,21 @@ The following options may be given as the first argument:
  DBOptions::max_background_jobs for RocksDB
  --rocksdb-max-bottom-pri-background-compactions=# 
  Creating specified number of threads, setting lower CPU
- priority, and letting compactions use them. Maximum
- compaction concurrency is capped by
+ priority, and letting Lmax compactions use them. Maximum
+ total compaction concurrency continues to be capped to
  rocksdb_max_background_compactions or
- rocksdb_max_background_jobs.
+ rocksdb_max_background_jobs. In addition to that, Lmax
+ compaction concurrency is capped to
+ rocksdb_max_bottom_pri_background_compactions. Default
+ value is 0, which means all compactions are under
+ concurrency of rocksdb_max_background_compactions|jobs.
+ If you set very low
+ rocksdb_max_bottom_pri_background_compactions (e.g. 1 or
+ 2), compactions may not be able to keep up. Since Lmax
+ normally has 90 percent of data, it is recommended to set
+ closer number to rocksdb_max_background_compactions|jobs.
+ This option is helpful to give more CPU resources to
+ other threads (e.g. query processing).
  --rocksdb-max-compaction-history[=#] 
  Track history for at most this many completed
  compactions. The history is in the
