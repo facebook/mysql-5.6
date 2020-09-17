@@ -171,6 +171,7 @@ DROP TABLE t1, t2;
 | TABLE_STATISTICS                      |
 | THREAD_PRIORITIES                     |
 | TRANSACTION_LIST                      |
+| TRANSACTION_SIZE_HISTOGRAM            |
 | TRIGGERS                              |
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
@@ -276,6 +277,7 @@ DROP TABLE t1, t2;
 | TABLE_STATISTICS                      |
 | THREAD_PRIORITIES                     |
 | TRANSACTION_LIST                      |
+| TRANSACTION_SIZE_HISTOGRAM            |
 | TRIGGERS                              |
 | USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |

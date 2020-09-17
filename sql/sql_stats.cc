@@ -352,7 +352,7 @@ std::unordered_map<md5_key, SQL_FINDING_VEC> global_sql_findings_map;
 /*
   WRITE_STATISTICS
 
-  Associates binlog bytes written and CPU write time to various 
+  Associates binlog bytes written and CPU write time to various
   dimensions such as user_id, client_id, sql_id, shard_id.
 */
 
@@ -362,16 +362,16 @@ ST_FIELD_INFO write_statistics_fields_info[]=
     SKIP_OPEN_TABLE},
   {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"WRITE_DATA_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+  {"WRITE_DATA_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
     0, 0, 0, SKIP_OPEN_TABLE},
-  {"CPU_WRITE_TIME_MS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+  {"CPU_WRITE_TIME_MS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
     0, 0, 0, SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
 /*
   Map integer representatin of write stats dimensions to string
-  constants. The integer value of these dimensions map to the 
+  constants. The integer value of these dimensions map to the
   index in TIME_BUCKET_STATS array
 */
 const std::string WRITE_STATS_TYPE_STRING[] = {"USER", "CLIENT", "SHARD", "SQL_ID"};
@@ -383,6 +383,168 @@ typedef std::array<
 
 /* Global write statistics map */
 std::list<std::pair<int, TIME_BUCKET_STATS>> global_write_statistics_map;
+
+/*
+  TRANSACTION_SIZE_HISTOGRAM
+
+  Histogram of data written in binlogs by all transactions
+*/
+
+ST_FIELD_INFO tx_size_histogram_fields_info[]=
+{
+  {"DB", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_NUMBER", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_WRITE_LOW", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_WRITE_HIGH", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"COUNT_BUCKET", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"COUNT_BUCKET_AND_LOWER", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"BUCKET_QUANTILE", MAX_DOUBLE_STR_LENGTH, MYSQL_TYPE_DOUBLE,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+/* Number of buckets in the histogram */
+#define TX_SIZE_HIST_COUNT   20
+
+/* histogram is represented as an array of counters (e.g 20 elements) */
+typedef std::array<ulonglong, TX_SIZE_HIST_COUNT> TX_SIZE_HIST;
+/* we need per database hence using a map */
+std::unordered_map<std::string, TX_SIZE_HIST> global_tx_size_histogram;
+
+/***********************************************************************
+              Begin - Functions to support TRANSACTION_SIZE_HISTOGRAM
+************************************************************************/
+/*
+  free_global_tx_size_histogram
+   Free the global_tx_size_histogram map
+*/
+void free_global_tx_size_histogram(void)
+{
+  bool lock_acquired = mt_lock(&LOCK_global_tx_size_histogram);
+
+  global_tx_size_histogram.clear();
+
+  mt_unlock(lock_acquired, &LOCK_global_tx_size_histogram);
+}
+
+/*
+  update_tx_size_histogram
+   Updates the transaction_size_histogram with current txn info
+*/
+
+void update_tx_size_histogram(THD *thd)
+{
+  if (!thd->trx_bytes_written || !thd->db)
+    return;
+
+  ulong bucket_number = thd->trx_bytes_written
+                      / (transaction_size_histogram_width*1024);
+  if (bucket_number >= TX_SIZE_HIST_COUNT)
+    bucket_number = TX_SIZE_HIST_COUNT-1;
+
+  std::string db_name = thd->db;
+
+  bool lock_acquired = mt_lock(&LOCK_global_tx_size_histogram);
+
+  auto hist_iter = global_tx_size_histogram.find(db_name);
+  /* check if this is the first time we record a txn for this db */
+  if (hist_iter == global_tx_size_histogram.end())
+  {
+    TX_SIZE_HIST hist;
+    hist.fill(0);
+    hist[bucket_number] = 1;
+    global_tx_size_histogram.insert(std::make_pair(db_name, hist));
+  }
+  else
+  {
+    hist_iter->second[bucket_number] ++;
+  }
+
+  mt_unlock(lock_acquired, &LOCK_global_tx_size_histogram);
+}
+
+/*
+  fill_tx_size_histogram
+    Fills the rows returned for statements selecting from
+    TRANSACTION_SIZE_HISTOGRAM
+
+*/
+int fill_tx_size_histogram(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_tx_size_histogram");
+  TABLE* table= tables->table;
+
+  bool lock_acquired = mt_lock(&LOCK_global_tx_size_histogram);
+
+  for (auto hist_iter= global_tx_size_histogram.cbegin();
+       hist_iter != global_tx_size_histogram.cend(); ++hist_iter)
+  {
+    ulonglong rolling_count = 0, total_count = 0;
+    const TX_SIZE_HIST & hist = hist_iter->second;
+
+    for(int bucket_iter = 0;
+        bucket_iter < TX_SIZE_HIST_COUNT;
+        bucket_iter++)
+      total_count += hist[bucket_iter];
+
+    for(int bucket_iter = 0;
+        bucket_iter < TX_SIZE_HIST_COUNT;
+        bucket_iter++)
+    {
+      int f= 0;
+      restore_record(table, s->default_values);
+
+      /* DB */
+      table->field[f++]->store(hist_iter->first.c_str(),
+                               hist_iter->first.length(),
+                               system_charset_info);
+
+      /* BUCKET_NUMBER */
+      table->field[f++]->store(bucket_iter, TRUE);
+
+      /* BUCKET_WRITE_LOW */
+      table->field[f++]->store(bucket_iter*transaction_size_histogram_width, TRUE);
+
+      uint high_value;
+      /* BUCKET_WRITE_HIGH */
+      if (bucket_iter == TX_SIZE_HIST_COUNT -1)
+        high_value = UINT_MAX;
+      else
+        high_value = (bucket_iter+1)*transaction_size_histogram_width;
+      table->field[f++]->store(high_value, TRUE);
+
+      /* COUNT_BUCKET */
+      table->field[f++]->store(hist[bucket_iter], TRUE);
+
+      /* COUNT_BUCKET_AND_LOWER */
+      rolling_count += hist[bucket_iter];
+      table->field[f++]->store(rolling_count, TRUE);
+
+      /* BUCKET_QUANTILE */
+      double bucket_quantile = (double)rolling_count / total_count;
+      table->field[f++]->store(bucket_quantile);
+
+      if (schema_table_store_record(thd, table))
+      {
+        mt_unlock(lock_acquired, &LOCK_global_tx_size_histogram);
+        DBUG_RETURN(-1);
+      }
+    }
+  }
+
+  mt_unlock(lock_acquired, &LOCK_global_tx_size_histogram);
+
+  DBUG_RETURN(0);
+}
+
+/***********************************************************************
+              End   - Functions to support TRANSACTION_SIZE_HISTOGRAM
+************************************************************************/
 
 /***********************************************************************
               Begin - Functions to support WRITE_STATISTICS
@@ -406,29 +568,29 @@ void free_global_write_statistics(void)
   Input:
     thd                 in:  - THD
     time_bucket_stats  out:  - Array structure containing write stats populated.
-*/	
+*/
 static void populate_write_statistics(
-  THD *thd, 
-  TIME_BUCKET_STATS& time_bucket_stats) 
+  THD *thd,
+  TIME_BUCKET_STATS& time_bucket_stats)
 {
   ulonglong binlog_bytes_written = thd->get_row_binlog_bytes_written();
   ulonglong total_write_time = thd->get_stmt_total_write_time();
-  
+
   // Get keys for all the target dimensions to update write stats for
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
   thd->get_mt_keys_for_write_query(keys);
-  
+
   // Add/Update the write stats
-  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
+  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++)
   {
     auto iter = time_bucket_stats[i].find(keys[i]);
-    if (iter == time_bucket_stats[i].end()) 
+    if (iter == time_bucket_stats[i].end())
     {
       WRITE_STATS ws;
       ws.binlog_bytes_written = binlog_bytes_written;
       ws.cpu_write_time_ms = total_write_time;
       time_bucket_stats[i].insert(std::make_pair(keys[i], ws));
-    } else 
+    } else
     {
       WRITE_STATS & ws = iter->second;
       ws.binlog_bytes_written += binlog_bytes_written;
@@ -436,27 +598,28 @@ static void populate_write_statistics(
     }
   }
 }
-	
+
 /*
   store_write_statistics
-    Store the write statistics for the executed statement. 
+    Store the write statistics for the executed statement.
     The bulk of the work is done in populate_write_stats()
 
   Input:
     thd         in:  - THD
 */
 void store_write_statistics(THD *thd)
-{ 
+{
   bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
   time_t timestamp = my_time(0);
   int time_bucket_key = timestamp - (timestamp % write_stats_frequency);
 
   auto time_bucket_iter = global_write_statistics_map.begin();
-  if (time_bucket_iter == global_write_statistics_map.end() 
+  if (time_bucket_iter == global_write_statistics_map.end()
     ||  time_bucket_key > time_bucket_iter->first)
   {
-    // time_bucket is newer than last registered bucket. need to insert a new one
-    while((uint)global_write_statistics_map.size() >= write_stats_count) 
+    // time_bucket is newer than last registered bucket
+    // need to insert a new one
+    while((uint)global_write_statistics_map.size() >= write_stats_count)
     {
       // reached max time bucket count. Erase the oldest time bucket stats
       global_write_statistics_map.pop_back();
@@ -464,11 +627,19 @@ void store_write_statistics(THD *thd)
     TIME_BUCKET_STATS time_bucket_stats;
     populate_write_statistics(thd, time_bucket_stats);
     global_write_statistics_map.push_front(std::make_pair(time_bucket_key, time_bucket_stats));
-  } else 
+  } else
   {
     populate_write_statistics(thd, time_bucket_iter->second);
   }
   mt_unlock(lock_acquired, &LOCK_global_write_statistics);
+
+  /* update txn binlog bytes written */
+  thd->trx_bytes_written += thd->get_row_binlog_bytes_written();
+  /* update txn size histogram now if single statement transaction
+     update for multi-statements transaction happens during commit
+   */
+  if (!thd->in_active_multi_stmt_transaction())
+    update_tx_size_histogram(thd);
 }
 
 /*
@@ -490,13 +661,15 @@ int fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
   {
     const TIME_BUCKET_STATS & time_bucket = time_bucket_iter->second;
 
-    for(int type = 0; type != (int)time_bucket.size(); ++type) 
+    for(int type = 0; type != (int)time_bucket.size(); ++type)
     {
-      for(auto stats_iter = time_bucket[type].begin(); stats_iter != time_bucket[type].end(); ++stats_iter) 
+      for(auto stats_iter = time_bucket[type].begin();
+          stats_iter != time_bucket[type].end();
+          ++stats_iter)
       {
         int f= 0;
         restore_record(table, s->default_values);
-        
+
         // timestamp
         thd->variables.time_zone->gmt_sec_to_TIME(
             &time, (my_time_t)time_bucket_iter->first);
@@ -505,10 +678,13 @@ int fill_write_statistics(THD *thd, TABLE_LIST *tables, Item *cond)
 
         // type
         type_string = WRITE_STATS_TYPE_STRING[type];
-        table->field[f++]->store(type_string.c_str(), type_string.length(), system_charset_info);
+        table->field[f++]->store(type_string.c_str(), type_string.length(),
+                                 system_charset_info);
 
         // value
-        table->field[f++]->store(stats_iter->first.c_str(), stats_iter->first.length(), system_charset_info);
+        table->field[f++]->store(stats_iter->first.c_str(),
+                                 stats_iter->first.length(),
+                                 system_charset_info);
 
         // binlog_bytes_written
         table->field[f++]->store(stats_iter->second.binlog_bytes_written, TRUE);
@@ -573,14 +749,14 @@ void free_global_write_throttling_rules() {
 }
 
 /*
-  Utility method to convert a dimension(client, sql_id, user, shard) 
-  string to integer index. These indices are used in global_write_throttling_rules 
+  Utility method to convert a dimension(client, sql_id, user, shard)
+  string to integer index. These indices are used in global_write_throttling_rules
   data structure.
-  If the string doesn't represent a dimension, WTR_DIM_UNKNOWN is returned. 
+  If the string doesn't represent a dimension, WTR_DIM_UNKNOWN is returned.
 */
 enum_wtr_dimension get_wtr_dimension_from_str(std::string type_str) {
   int type = WRITE_STATISTICS_DIMENSION_COUNT - 1;
-  
+
   while(type >= 0 && WRITE_STATS_TYPE_STRING[type] != type_str)
     type--;
 
@@ -588,7 +764,7 @@ enum_wtr_dimension get_wtr_dimension_from_str(std::string type_str) {
 }
 
 /*
-  Stores a user specified throttling rule from write_throttling_patterns 
+  Stores a user specified throttling rule from write_throttling_patterns
   sys_var into global_write_throttling_rules
 */
 bool store_write_throttling_rules(THD *thd) {
@@ -616,13 +792,13 @@ bool store_write_throttling_rules(THD *thd) {
     auto & rules_map = global_write_throttling_rules[wtr_dim];
     auto iter = rules_map.find(value_str);
     if (op == '+') {
-      if (iter != rules_map.end()) 
+      if (iter != rules_map.end())
         rules_map[value_str] = rule;
-      else 
-        rules_map.insert(std::make_pair(value_str, rule));              
+      else
+        rules_map.insert(std::make_pair(value_str, rule));
     } else { // op == '-'
       if (iter != rules_map.end())
-        rules_map.erase(iter);  
+        rules_map.erase(iter);
     }
     return false; // success
   }
@@ -642,14 +818,14 @@ int fill_write_throttling_rules(THD *thd, TABLE_LIST *tables, Item *cond)
   MYSQL_TIME time;
   std::string type_string, mode_string;
 
-  for(int type = 0; type != (int)global_write_throttling_rules.size(); ++type) 
+  for(int type = 0; type != (int)global_write_throttling_rules.size(); ++type)
   {
-    for(auto rules_iter = global_write_throttling_rules[type].begin(); 
-        rules_iter != global_write_throttling_rules[type].end(); ++rules_iter) 
+    for(auto rules_iter = global_write_throttling_rules[type].begin();
+        rules_iter != global_write_throttling_rules[type].end(); ++rules_iter)
     {
       int f= 0;
       restore_record(table, s->default_values);
-      
+
       // mode
       mode_string = WRITE_THROTTLING_MODE_STRING[rules_iter->second.mode];
       table->field[f++]->store(mode_string.c_str(), mode_string.length(), system_charset_info);
@@ -720,7 +896,7 @@ const std::string WRITE_THRLOG_TXN_TYPE[] = {"SHORT", "LONG"};
 
 std::array<
   std::array<
-    std::unordered_map<std::string, WRITE_THROTTLING_LOG>, 
+    std::unordered_map<std::string, WRITE_THROTTLING_LOG>,
     WRITE_THROTTLING_MODE_COUNT
   >,
   WRITE_STATISTICS_DIMENSION_COUNT
@@ -750,15 +926,15 @@ int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
   /* populate rows from throttling short running queries */
   for(size_t type = 0; type != global_write_throttling_log.size(); ++type)
   {
-    for(size_t mode = 0; mode != global_write_throttling_log[type].size(); ++mode) 
+    for(size_t mode = 0; mode != global_write_throttling_log[type].size(); ++mode)
     {
       for(auto log_iter = global_write_throttling_log[type][mode].begin();
-        log_iter != global_write_throttling_log[type][mode].end(); ++log_iter) 
+        log_iter != global_write_throttling_log[type][mode].end(); ++log_iter)
       {
         WRITE_THROTTLING_LOG & log = log_iter->second;
         int f= 0;
         restore_record(table, s->default_values);
-        
+
         // mode
         mode_string = WRITE_THROTTLING_MODE_STRING[mode];
         table->field[f++]->store(mode_string.c_str(), mode_string.length(), system_charset_info);
@@ -838,15 +1014,15 @@ int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
 
 /*
   store_write_throttling_log
-    Stores a log for when a query was throttled due to a throttling 
+    Stores a log for when a query was throttled due to a throttling
     rule in I_S.WRITE_THROTTLING_RULES
 */
 void store_write_throttling_log(
-  THD *thd, 
-  int type, 
-  std::string value, 
-  WRITE_THROTTLING_RULE &rule) 
-{ 
+  THD *thd,
+  int type,
+  std::string value,
+  WRITE_THROTTLING_RULE &rule)
+{
   bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
   WRITE_THROTTLING_LOG log{};
   time_t timestamp = my_time(0);
@@ -1799,17 +1975,17 @@ class Stats_iterator
 {
   /* Map to iterate over. */
   Stats_map<T> *iterator_map = nullptr;
-  
+
   /* Map to lookup entries during iteration, optional. */
   Stats_map<T> *lookup_map = nullptr;
-  
+
   /* Underlying map iterator. */
   typename Stats_map<T>::const_iterator iter;
-  
+
   /* Merged stats entry. If entry is a pointer, it could point to storage
      below. */
   T merged_value;
-  
+
   /* Storage for merged stats entry, needed in case the entry is a pointer
      to a separately allocated memory. */
   typename std::remove_pointer<T>::type merged_value_storage;

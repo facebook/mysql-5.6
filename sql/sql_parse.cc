@@ -1582,10 +1582,11 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
     /* Update the cumulative_sql_stats with the stats from THD */
     reset_sql_stats_from_thd(thd, cumulative_sql_stats);
 
-    /* Update write statistics if stats collection is turned on and 
-      this stmt wrote binlog bytes 
+    /* Update write statistics if stats collection is turned on and
+      this stmt wrote binlog bytes
     */
-    if (write_stats_capture_enabled() && thd->get_row_binlog_bytes_written() > 0) {
+    if (write_stats_capture_enabled() &&
+        thd->get_row_binlog_bytes_written() > 0) {
       thd->set_stmt_total_write_time();
       store_write_statistics(thd);
     }
@@ -2166,7 +2167,6 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
       /* update transaction DML row count */
       update_thd_dml_row_count(thd, &cumulative_sql_stats);
-
 
       /* Check to see if any state changed */
       if (!state_changed && srv_session) {
@@ -5941,6 +5941,8 @@ end_with_restore_list:
     if (tx_release)
       thd->killed= THD::KILL_CONNECTION;
     my_ok(thd);
+    update_tx_size_histogram(thd);
+
     break;
   }
   case SQLCOM_ROLLBACK:
@@ -6811,6 +6813,7 @@ finish:
   {
     thd->trx_time = 0;
     thd->trx_dml_row_count = 0;
+    thd->trx_bytes_written = 0;
     thd->trx_dml_cpu_time_limit_warning = false;
     thd->dml_start_time_is_set = false; /* reset flag dml_start_time_is_set */
   }
@@ -8205,22 +8208,22 @@ static bool throttle_query_if_needed(THD* thd)
 }
 
 /*
-  Check if we should throttle a write query if a matching throttling 
-  rule is present 
+  Check if we should throttle a write query if a matching throttling
+  rule is present
 */
 static bool mt_check_throttle_write_query(THD* thd)
 {
   DBUG_ENTER("mt_check_throttle_write_query");
 
   // skip if it is a secondary or sql_log_bin is off
-  if (is_slave || !thd->variables.sql_log_bin) 
+  if (is_slave || !thd->variables.sql_log_bin)
     DBUG_RETURN(false);
 
   // skip if not a write query
-  if(thd->lex->sql_command != SQLCOM_INSERT 
-      && thd->lex->sql_command != SQLCOM_UPDATE 
-      && thd->lex->sql_command != SQLCOM_DELETE 
-      && thd->lex->sql_command != SQLCOM_UPDATE_MULTI 
+  if(thd->lex->sql_command != SQLCOM_INSERT
+      && thd->lex->sql_command != SQLCOM_UPDATE
+      && thd->lex->sql_command != SQLCOM_DELETE
+      && thd->lex->sql_command != SQLCOM_UPDATE_MULTI
       && thd->lex->sql_command != SQLCOM_DELETE_MULTI
       && thd->lex->sql_command != SQLCOM_REPLACE
       && thd->lex->sql_command != SQLCOM_REPLACE_SELECT
@@ -8230,13 +8233,13 @@ static bool mt_check_throttle_write_query(THD* thd)
 
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
   thd->get_mt_keys_for_write_query(keys);
-  
+
   mysql_mutex_lock(&LOCK_global_write_throttling_rules);
   // Check if any part of the key match any of the throttling rules
-  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++) 
+  for (uint i = 0; i<WRITE_STATISTICS_DIMENSION_COUNT; i++)
   {
     auto iter = global_write_throttling_rules[i].find(keys[i]);
-    if (iter != global_write_throttling_rules[i].end()) 
+    if (iter != global_write_throttling_rules[i].end())
     {
       WRITE_THROTTLING_RULE &rule = iter->second;
       store_write_throttling_log(thd, i, iter->first, rule);
@@ -8334,7 +8337,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     of the system. This function will check if we need to throttle and
     if so, it will set the appropriate error and return true.
     Also, throttle, if needed, to avoid replication lag */
-    bool query_throttled= throttle_query_if_needed(thd) || 
+    bool query_throttled= throttle_query_if_needed(thd) ||
       mt_check_throttle_write_query(thd);
 
     if (!err && !query_throttled && !skip_dup_exec)

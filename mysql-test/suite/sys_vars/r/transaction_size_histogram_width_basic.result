@@ -1,0 +1,25 @@
+Default value of transaction_size_histogram_width is 10
+SELECT @@global.transaction_size_histogram_width;
+@@global.transaction_size_histogram_width
+10
+SELECT @@session.transaction_size_histogram_width;
+ERROR HY000: Variable 'transaction_size_histogram_width' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+transaction_size_histogram_width is a dynamic variable (change to 100)
+set @@global.transaction_size_histogram_width = 100;
+SELECT @@global.transaction_size_histogram_width;
+@@global.transaction_size_histogram_width
+100
+restore the default value
+SET @@global.transaction_size_histogram_width = 10;
+SELECT @@global.transaction_size_histogram_width;
+@@global.transaction_size_histogram_width
+10
+restart the server with non default value (200)
+SELECT @@global.transaction_size_histogram_width;
+@@global.transaction_size_histogram_width
+200
+restart the server with the default value (10)
+SELECT @@global.transaction_size_histogram_width;
+@@global.transaction_size_histogram_width
+10

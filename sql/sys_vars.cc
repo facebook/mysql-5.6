@@ -6946,7 +6946,7 @@ static bool update_write_stats_frequency(sys_var *self, THD *thd,
   mysql_cond_signal(&COND_slave_stats_daemon);
   mysql_mutex_unlock(&LOCK_slave_stats_daemon);
 
-  if (write_stats_frequency == 0) 
+  if (write_stats_frequency == 0)
   {
     free_global_write_statistics();
   }
@@ -6956,7 +6956,7 @@ static bool update_write_stats_frequency(sys_var *self, THD *thd,
 
 /*
 ** write_stats_frequency
-** Controls the time interval(in seconds) for collected write stats and replica lag stats 
+** Controls the time interval(in seconds) for collected write stats and replica lag stats
 ** Default = 0 i.e. slave stats are not sent to master.
 */
 static Sys_var_ulong Sys_write_stats_frequency(
@@ -6971,37 +6971,37 @@ static Sys_var_ulong Sys_write_stats_frequency(
 /* Free global_write_statistics if sys_var is set to 0 */
 static bool update_write_stats_count(sys_var *self, THD *thd,
                                                enum_var_type type) {
-  if (write_stats_count == 0) 
+  if (write_stats_count == 0)
   {
     free_global_write_statistics();
   }
   return false; // success
-}	
+}
 static Sys_var_uint Sys_write_stats_count(
       "write_stats_count",
       "Maximum number of most recent data points to be collected for "
       "information_schema.write_statistics time series.",
       GLOBAL_VAR(write_stats_count), CMD_LINE(OPT_ARG),
-      VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1), 
-      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(update_write_stats_count));
 
-/* 
-  Update global_write_throttling_rules data structure with the 
+/*
+  Update global_write_throttling_rules data structure with the
   new value specified in write_throttling_patterns
 */
 static bool update_write_throttling_patterns(sys_var *self, THD *thd,
                                                enum_var_type type) {
-  // value must be at least 3 characters long. 
+  // value must be at least 3 characters long.
   if (strlen(latest_write_throttling_rule) < 3)
        return true; //failure
-  
+
   if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
        free_global_write_throttling_rules();
        return false; // success
   }
   return store_write_throttling_rules(thd);
-}	
+}
 static Sys_var_charptr Sys_write_throttling_patterns(
       "write_throttle_patterns",
       "This variable is used to throttle write requests based on user name, client id, "
@@ -7156,3 +7156,27 @@ static Sys_var_uint Sys_response_attrs_contain_warnings_bytes(
     "default value is 0 which disables this feature",
     SESSION_VAR(response_attrs_contain_warnings_bytes), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+/* update_transaction_size_histogram
+   Called when transaction_size_histogram_width is updated
+ */
+static bool update_transaction_size_histogram(sys_var *self, THD *thd,
+                                              enum_var_type type)
+{
+  free_global_tx_size_histogram();
+
+  return false; // success
+}
+
+/* transaction_size_histogram_width
+   Controls the width of the histogram bucket (unit: kilo-bytes)
+   Valid range: 10-1024
+   Default: 10
+ */
+static Sys_var_uint Sys_transaction_size_histogram_width(
+      "transaction_size_histogram_width",
+      "Width of buckets (unit is KB) in the TRANSACTION_SIZE_HISTOGRAM",
+      GLOBAL_VAR(transaction_size_histogram_width), CMD_LINE(OPT_ARG),
+      VALID_RANGE(1, 1024), DEFAULT(10), BLOCK_SIZE(1),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+      ON_UPDATE(update_transaction_size_histogram));

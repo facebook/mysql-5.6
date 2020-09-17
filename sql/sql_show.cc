@@ -10464,6 +10464,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_sql_findings, NULL, NULL, -1, -1, false, 0},
   {"THREAD_PRIORITIES", thread_priorities_fields_info, create_schema_table,
    fill_thread_priorities, NULL, NULL, -1, -1, false, 0},
+  {"TRANSACTION_SIZE_HISTOGRAM", tx_size_histogram_fields_info, create_schema_table,
+   fill_tx_size_histogram, NULL, NULL, -1, -1, false, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 

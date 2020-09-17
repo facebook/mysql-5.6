@@ -1008,6 +1008,7 @@ extern ulong write_stats_frequency;
 extern uint write_stats_count;
 extern char *latest_write_throttling_rule;
 extern GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
+extern uint transaction_size_histogram_width;
 
 
 /* This field dictates the maximum number of entries in the
@@ -1126,10 +1127,10 @@ inline bool sql_id_is_needed()
 /* write_stats_capture_enabled
      Returns TRUE if capturing of write statistics is enabled
  */
-inline bool write_stats_capture_enabled() 
-{ 
-  return sql_stats_control == SQL_INFO_CONTROL_ON 
-    && write_stats_count > 0 && write_stats_frequency > 0; 
+inline bool write_stats_capture_enabled()
+{
+  return sql_stats_control == SQL_INFO_CONTROL_ON
+    && write_stats_count > 0 && write_stats_frequency > 0;
 }
 
 /*
@@ -1369,6 +1370,7 @@ extern PSI_mutex_key
   key_LOCK_global_write_statistics,
   key_LOCK_global_write_throttling_rules,
   key_LOCK_global_write_throttling_log,
+  key_LOCK_global_tx_size_histogram,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,

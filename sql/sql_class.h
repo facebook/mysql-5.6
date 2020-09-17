@@ -2557,6 +2557,8 @@ public:
   /* record the engine commit time */
   ulonglong engine_commit_time = 0;
 
+  /* record the bytes written into binlog by the transaction */
+  ulonglong trx_bytes_written = 0;
   /* record the number of rows affected by the transaction */
   ulonglong trx_dml_row_count = 0;
   /* record that a warning that a DML cpu time exceeded the limit was raised */
@@ -3491,9 +3493,9 @@ public:
   void time_out_user_resource_limits();
 
   const char* get_user_name()
-  { 
-    return (m_user_connect && m_user_connect->user) 
-      ? m_user_connect->user : "NULL"; 
+  {
+    return (m_user_connect && m_user_connect->user)
+      ? m_user_connect->user : "NULL";
   }
 
   const char* get_db_name()
@@ -3549,9 +3551,6 @@ public:
 
   ulonglong get_row_binlog_bytes_written() const
   { return m_binlog_bytes_written; }
-
-  void set_row_binlog_bytes_written(ulonglong val)
-  { m_binlog_bytes_written = val; }
 
   void inc_row_binlog_bytes_written(ulonglong val)
   { m_binlog_bytes_written += val; }

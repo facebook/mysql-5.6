@@ -39,6 +39,7 @@ innodb_histogram_step_size_log_write	16us
 innodb_histogram_step_size_sync_read	16us
 innodb_histogram_step_size_sync_write	16us
 rpl_semi_sync_master_histogram_trx_wait_step_size	500us
+transaction_size_histogram_width	10
 SET @@GLOBAL.innodb_histogram_step_size_async_read='16ms';
 SET @@GLOBAL.innodb_histogram_step_size_async_write='16us';
 SET @@GLOBAL.innodb_histogram_step_size_sync_read='32ms';
@@ -80,6 +81,7 @@ innodb_histogram_step_size_log_write	64ms
 innodb_histogram_step_size_sync_read	32ms
 innodb_histogram_step_size_sync_write	32us
 rpl_semi_sync_master_histogram_trx_wait_step_size	128us
+transaction_size_histogram_width	10
 SET @@GLOBAL.innodb_histogram_step_size_async_read = @start_global_value_step_size_async_read;
 SET @@GLOBAL.innodb_histogram_step_size_async_write = @start_global_value_step_size_async_write;
 SET @@GLOBAL.innodb_histogram_step_size_sync_read = @start_global_value_step_size_sync_read;
@@ -121,4 +123,5 @@ innodb_histogram_step_size_log_write	16us
 innodb_histogram_step_size_sync_read	16us
 innodb_histogram_step_size_sync_write	16us
 rpl_semi_sync_master_histogram_trx_wait_step_size	500us
+transaction_size_histogram_width	10
 Done

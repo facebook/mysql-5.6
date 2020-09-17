@@ -436,6 +436,13 @@ int fill_column_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
 extern ST_FIELD_INFO replica_statistics_fields_info[];
 int fill_replica_statistics(THD *thd, TABLE_LIST *tables, Item *cond);
 
+/* For information_schema.TRANSACTION_SIZE_HISTOGRAM */
+extern ST_FIELD_INFO tx_size_histogram_fields_info[];
+extern mysql_mutex_t LOCK_global_tx_size_histogram;
+int  fill_tx_size_histogram(THD *thd, TABLE_LIST *tables, Item *cond);
+void free_global_tx_size_histogram();
+void update_tx_size_histogram(THD *thd);
+
 /* For information_schema.user_latency_histograms */
 extern char *histogram_step_size_connection_create;
 extern char *histogram_step_size_update_command;

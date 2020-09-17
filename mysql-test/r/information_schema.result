@@ -115,6 +115,7 @@ DATABASE_APPLIED_HLC
 ADMISSION_CONTROL_QUEUE
 SQL_FINDINGS
 THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM
 columns_priv
 db
 event
@@ -160,6 +161,7 @@ TABLE_PRIVILEGES	TABLE_PRIVILEGES
 TABLE_STATISTICS	TABLE_STATISTICS
 TRIGGERS	TRIGGERS
 THREAD_PRIORITIES	THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM	TRANSACTION_SIZE_HISTOGRAM
 tables_priv	tables_priv
 time_zone	time_zone
 time_zone_leap_second	time_zone_leap_second
@@ -183,6 +185,7 @@ TABLE_PRIVILEGES	TABLE_PRIVILEGES
 TABLE_STATISTICS	TABLE_STATISTICS
 TRIGGERS	TRIGGERS
 THREAD_PRIORITIES	THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM	TRANSACTION_SIZE_HISTOGRAM
 tables_priv	tables_priv
 time_zone	time_zone
 time_zone_leap_second	time_zone_leap_second
@@ -206,6 +209,7 @@ TABLE_PRIVILEGES	TABLE_PRIVILEGES
 TABLE_STATISTICS	TABLE_STATISTICS
 TRIGGERS	TRIGGERS
 THREAD_PRIORITIES	THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM	TRANSACTION_SIZE_HISTOGRAM
 tables_priv	tables_priv
 time_zone	time_zone
 time_zone_leap_second	time_zone_leap_second
@@ -702,6 +706,7 @@ TABLE_PRIVILEGES
 TABLE_STATISTICS
 TRIGGERS
 THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM
 create database information_schema;
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
 use information_schema;
@@ -715,6 +720,7 @@ TABLE_PRIVILEGES	SYSTEM VIEW
 TABLE_STATISTICS	SYSTEM VIEW
 TRIGGERS	SYSTEM VIEW
 THREAD_PRIORITIES	SYSTEM VIEW
+TRANSACTION_SIZE_HISTOGRAM	SYSTEM VIEW
 create table t1(a int);
 ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
 use test;
@@ -731,6 +737,7 @@ TABLE_PRIVILEGES
 TABLE_STATISTICS
 TRIGGERS
 THREAD_PRIORITIES
+TRANSACTION_SIZE_HISTOGRAM
 select table_name from tables where table_name='user';
 table_name
 user
@@ -970,7 +977,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	62
+information_schema	63
 mysql	27
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1463,6 +1470,7 @@ TABLE_PRIVILEGES	information_schema.TABLE_PRIVILEGES	1
 TABLE_STATISTICS	information_schema.TABLE_STATISTICS	1
 THREAD_PRIORITIES	information_schema.THREAD_PRIORITIES	1
 TRANSACTION_LIST	information_schema.TRANSACTION_LIST	1
+TRANSACTION_SIZE_HISTOGRAM	information_schema.TRANSACTION_SIZE_HISTOGRAM	1
 TRIGGERS	information_schema.TRIGGERS	1
 USER_LATENCY_HISTOGRAMS	information_schema.USER_LATENCY_HISTOGRAMS	1
 USER_PRIVILEGES	information_schema.USER_PRIVILEGES	1
