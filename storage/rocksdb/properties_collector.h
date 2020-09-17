@@ -38,6 +38,7 @@ extern std::atomic<uint64_t> rocksdb_num_sst_entry_delete;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_singledelete;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_merge;
 extern std::atomic<uint64_t> rocksdb_num_sst_entry_other;
+extern std::atomic<uint64_t> rocksdb_additional_compaction_triggers;
 extern bool rocksdb_compaction_sequential_deletes_count_sd;
 
 struct Rdb_compact_params {
@@ -172,6 +173,7 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
  private:
   static std::string GetReadableStats(const Rdb_index_stats &it);
 
+  bool FilledWithDeletions() const;
   bool ShouldCollectStats();
   void CollectStatsForRow(const rocksdb::Slice &key,
                           const rocksdb::Slice &value,
@@ -193,7 +195,9 @@ class Rdb_tbl_prop_coll : public rocksdb::TablePropertiesCollector {
 
   // floating window to count deleted rows
   std::vector<bool> m_deleted_rows_window;
-  uint64_t m_rows, m_window_pos, m_deleted_rows, m_max_deleted_rows;
+  uint64_t m_window_pos, m_deleted_rows, m_max_deleted_rows;
+  uint64_t m_total_puts, m_total_merges;
+  uint64_t m_total_deletes, m_total_singledeletes, m_total_others;
   uint64_t m_file_size;
   Rdb_compact_params m_params;
   Rdb_tbl_card_coll m_cardinality_collector;
