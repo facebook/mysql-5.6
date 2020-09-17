@@ -1,0 +1,75 @@
+--source include/have_rocksdb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS r1;
+--enable_warnings
+
+create table r1 (
+ id1 int,
+ id2 int,
+ type int,
+ value varchar(100),
+ value2 int,
+ value3 int,
+ primary key (type, id1, id2),
+ index id1_type (id1, type, value2, value, id2)
+) engine=rocksdb collate latin1_bin;
+
+
+--source compact_deletes2_load.inc
+--exec echo Test 1: Do a bunch of deletions
+--exec echo Expect: compaction
+let $window = 10;
+let $deletes = 9;
+let $file_size = 0;
+let $secondary_only = 0;
+let $primary = 0;
+let $delete_row = 1;
+let $no_more_deletes = 1;
+let $no_more_rows = 1;
+SET @save_rocksdb_compaction_sequential_deletes_count_sd = @@global.rocksdb_compaction_sequential_deletes_count_sd;
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= ON;
+select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+--source compact_deletes_test.inc
+select case when variable_value-@a > 0 then 'true' else 'false' end as additional_compaction from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= @save_rocksdb_compaction_sequential_deletes_count_sd;
+
+
+--source compact_deletes2_load.inc
+
+# in this test, sst file size is small so entries are fewer than window
+--exec echo Test 2: Do a bunch of deletions
+--exec echo Expect: compaction
+let $window = 10000;
+let $deletes = 9999;
+let $file_size = 0;
+let $secondary_only = 0;
+let $primary = 0;
+let $delete_row = 1;
+let $no_more_deletes = 1;
+let $no_more_rows = 1;
+SET @save_rocksdb_compaction_sequential_deletes_count_sd = @@global.rocksdb_compaction_sequential_deletes_count_sd;
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= ON;
+select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+--source compact_deletes_test.inc
+select case when variable_value-@a > 0 then 'true' else 'false' end as additional_compaction from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+SET GLOBAL rocksdb_compaction_sequential_deletes_count_sd= @save_rocksdb_compaction_sequential_deletes_count_sd;
+
+
+# in this test, sst file size is small so entries are fewer than window
+--source compact_deletes2_load.inc
+--exec echo Test 3: Do a bunch of deletions with save_rocksdb_compaction_sequential_deletes_count_sd=OFF
+--exec echo Expect: compaction
+let $window = 10000;
+let $deletes = 9999;
+let $file_size = 0;
+let $secondary_only = 0;
+let $primary = 0;
+let $delete_row = 1;
+let $no_more_deletes = 0;
+let $no_more_rows = 1;
+select variable_value into @a from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+--source compact_deletes_test.inc
+select case when variable_value-@a > 0 then 'true' else 'false' end as additional_compaction from performance_schema.global_status where variable_name='rocksdb_additional_compaction_triggers';
+
+drop table r1;
