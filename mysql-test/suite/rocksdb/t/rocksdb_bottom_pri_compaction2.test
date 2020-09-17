@@ -1,0 +1,24 @@
+--source include/have_rocksdb.inc
+--source include/linux.inc
+
+--exec grep "Set 5 compaction thread(s) with lower scheduling priority." $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1 | wc -l
+
+--let $pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+--exec perl suite/rocksdb/t/rocksdb_bottom_pri_compaction_check.pl $pid_file 0 5
+
+--echo "Increasing bottom pri compaction threads online."
+SET GLOBAL rocksdb_max_bottom_pri_background_compactions=10;
+--exec grep "Set 10 compaction thread(s) with lower scheduling priority." $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1 | wc -l
+--exec perl suite/rocksdb/t/rocksdb_bottom_pri_compaction_check.pl $pid_file 0 10
+
+
+--echo "Decreasing bottom pri compaction threads online."
+SET GLOBAL rocksdb_max_bottom_pri_background_compactions=2;
+--exec grep "Set 2 compaction thread(s) with lower scheduling priority." $MYSQLTEST_VARDIR/log/mysqld.1.err | tail -n 1 | wc -l
+--exec perl suite/rocksdb/t/rocksdb_bottom_pri_compaction_check.pl $pid_file 0 2
+
+
+--error ER_ERROR_WHEN_EXECUTING_COMMAND
+SET GLOBAL rocksdb_max_bottom_pri_background_compactions=0;
+
+SET GLOBAL rocksdb_max_bottom_pri_background_compactions=5;
