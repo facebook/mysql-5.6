@@ -143,6 +143,12 @@ enum enum_mts_dependency_replication {
   DEP_RPL_STATEMENT,
 };
 
+enum enum_mts_dependency_order_commits {
+  DEP_RPL_ORDER_NONE,
+  DEP_RPL_ORDER_DB,
+  DEP_RPL_ORDER_GLOBAL,
+};
+
 enum enum_slave_use_idempotent_for_recovery {
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_NO,
   SLAVE_USE_IDEMPOTENT_FOR_RECOVERY_YES};

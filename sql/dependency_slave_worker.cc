@@ -43,7 +43,9 @@ Dependency_slave_worker::get_begin_event(Commit_order_manager *co_mngr)
   if (ret && co_mngr != NULL)
   {
     DBUG_ASSERT(c_rli->mts_dependency_order_commits);
-    set_current_db(ret->get_db());
+    // case: if we need to order commits by DB we set current DB
+    if (c_rli->mts_dependency_order_commits == DEP_RPL_ORDER_DB)
+      set_current_db(ret->get_db());
     co_mngr->register_trx(this);
   }
 
