@@ -61,7 +61,7 @@ typedef struct st_slave_info
   char user[USERNAME_LENGTH+1];
   char password[MAX_PASSWORD_LENGTH+1];
   uint16 port;
-  std::set<SLAVE_STATS> *slave_stats;
+  std::list<SLAVE_STATS> *slave_stats;
   THD* thd;
 } SLAVE_INFO;
 
@@ -72,6 +72,7 @@ void clear_compressed_event_cache();
 void free_compressed_event_cache();
 bool is_semi_sync_slave(THD *thd);
 int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
+int get_current_replication_lag();
 int register_slave(THD* thd, uchar* packet, uint packet_length);
 void unregister_slave(THD* thd, bool only_mine, bool need_lock_slave_list);
 bool show_slave_hosts(THD* thd);

@@ -6964,7 +6964,7 @@ static Sys_var_ulong Sys_write_stats_frequency(
        "This variable determines the frequency(seconds) at which write "
        "stats and replica lag stats are collected on primaries",
        GLOBAL_VAR(write_stats_frequency),
-       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));
 
@@ -6980,7 +6980,8 @@ static bool update_write_stats_count(sys_var *self, THD *thd,
 static Sys_var_uint Sys_write_stats_count(
       "write_stats_count",
       "Maximum number of most recent data points to be collected for "
-      "information_schema.write_statistics time series.",
+      "information_schema.write_statistics & information_schema.replica_statistics "
+      "time series.",
       GLOBAL_VAR(write_stats_count), CMD_LINE(OPT_ARG),
       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1),
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
@@ -7011,6 +7012,59 @@ static Sys_var_charptr Sys_write_throttling_patterns(
       GLOBAL_VAR(latest_write_throttling_rule), CMD_LINE(OPT_ARG),
       IN_SYSTEM_CHARSET, DEFAULT("OFF"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
       ON_CHECK(nullptr), ON_UPDATE(update_write_throttling_patterns));
+
+static Sys_var_ulong Sys_write_start_throttle_lag_milliseconds(
+      "write_start_throttle_lag_milliseconds",
+      "A replication lag higher than the value of this variable will enable throttling "
+      "of write workload",
+      GLOBAL_VAR(write_start_throttle_lag_milliseconds),
+      CMD_LINE(OPT_ARG), VALID_RANGE(1, 86400000),
+      DEFAULT(86400000), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+      ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_write_stop_throttle_lag_milliseconds(
+      "write_stop_throttle_lag_milliseconds",
+      "A replication lag lower than the value of this variable will disable throttling "
+      "of write workload",
+      GLOBAL_VAR(write_stop_throttle_lag_milliseconds),
+      CMD_LINE(OPT_ARG), VALID_RANGE(1, 86400000),
+      DEFAULT(86400000), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+      ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_double Sys_write_throttle_min_ratio(
+       "write_throttle_min_ratio",
+       "Minimum value of the ratio (1st entity)/(2nd entity) for replication lag "
+       "throttling to kick in",
+       GLOBAL_VAR(write_throttle_min_ratio), CMD_LINE(OPT_ARG),
+       VALID_RANGE(1, 1000), DEFAULT(1000), NO_MUTEX_GUARD, NOT_IN_BINLOG, 
+       ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_write_throttle_monitor_cycles(
+      "write_throttle_monitor_cycles",
+      "Number of consecutive cycles to monitor an entity for replication lag throttling "
+      "before taking action",
+      GLOBAL_VAR(write_throttle_monitor_cycles), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, 1000), DEFAULT(1000), BLOCK_SIZE(1), 
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
+      "write_throttle_lag_pct_min_secondaries",
+      "Percent of secondaries that need to lag for overall replication topology "
+      "to be considered lagging",
+      GLOBAL_VAR(write_throttle_lag_pct_min_secondaries), CMD_LINE(OPT_ARG),
+      VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1), 
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_write_auto_throttle_frequency(
+       "write_auto_throttle_frequency",
+       "The frequency (seconds) at which auto throttling checks are run on a primary. "
+       "Default value is 0 which means auto throttling is turned off.",
+       GLOBAL_VAR(write_auto_throttle_frequency),
+       CMD_LINE(OPT_ARG), VALID_RANGE(0, LONG_TIMEOUT),
+       DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 /*
 ** sql_maximum_duplicate_executions

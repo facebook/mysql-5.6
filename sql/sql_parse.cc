@@ -8208,8 +8208,9 @@ static bool throttle_query_if_needed(THD* thd)
 }
 
 /*
-  Check if we should throttle a write query if a matching throttling
-  rule is present
+  Check if we should throttle a write query if a matching throttling 
+  rule is present.
+  Also, it triggers replication lag check for auto throttling.
 */
 static bool mt_check_throttle_write_query(THD* thd)
 {
@@ -8231,6 +8232,26 @@ static bool mt_check_throttle_write_query(THD* thd)
     DBUG_RETURN(false);
   }
 
+// check if its time to check replication lag
+#ifdef HAVE_REPLICATION
+  if(write_stats_capture_enabled() && write_auto_throttle_frequency > 0) {
+    time_t time_now = my_time(0);
+    if (time_now - last_replication_lag_check_time >= (long)write_auto_throttle_frequency)
+    {
+      mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+      // double check after locking
+      if (time_now - last_replication_lag_check_time >= (long)write_auto_throttle_frequency)
+      {
+        // check replication lag and throttle, if needed
+        check_lag_and_throttle();
+        // update last check time
+        last_replication_lag_check_time = time_now;
+      }
+      mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+    }
+  }
+#endif
+
   std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
   thd->get_mt_keys_for_write_query(keys);
 
@@ -8243,9 +8264,23 @@ static bool mt_check_throttle_write_query(THD* thd)
     {
       WRITE_THROTTLING_RULE &rule = iter->second;
       store_write_throttling_log(thd, i, iter->first, rule);
-      my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
-      mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
-      DBUG_RETURN(true);
+      if (iter->second.mode == WTR_MANUAL || 
+        write_control_level == WRITE_CONTROL_LEVEL_ERROR) 
+      {
+        my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
+        mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+        DBUG_RETURN(true);
+      } 
+      else if (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
+        write_control_level == WRITE_CONTROL_LEVEL_WARN)
+      {
+        push_warning_printf(thd, 
+                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
+                              Sql_condition::WARN_LEVEL_NOTE :
+                              Sql_condition::WARN_LEVEL_WARN,
+                            ER_WRITE_QUERY_THROTTLED, 
+                            ER(ER_WRITE_QUERY_THROTTLED));
+      }
     }
   }
   mysql_mutex_unlock(&LOCK_global_write_throttling_rules);

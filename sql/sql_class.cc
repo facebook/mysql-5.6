@@ -6481,7 +6481,7 @@ void THD::set_stmt_total_write_time()
     {
       /* diff_timespec returns nanoseconds */
       m_stmt_total_write_time = diff_timespec(time_end, m_stmt_start_write_time);
-      m_stmt_total_write_time /= 1000000; /* convert to milliseconds */
+      m_stmt_total_write_time /= 1000; /* convert to microseconds */
     }
 #elif HAVE_GETRUSAGE
     struct rusage rusage_end;
@@ -6494,7 +6494,6 @@ void THD::set_stmt_total_write_time()
       ulonglong val_stime =
         RUSAGE_DIFF_USEC(rusage_end.ru_stime, stmt_start_write_time.ru_stime);
       m_stmt_total_write_time = val_utime + val_stime; /* Units: microseconds */
-      m_stmt_total_write_time /= 1000; /* convert to milliseconds */
     }
 #else
 #error implement getting current thread CPU time on this platform

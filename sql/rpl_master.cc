@@ -42,7 +42,6 @@
 #pragma GCC diagnostic error "-Wunused-value"
 #endif
 
-#define MAX_LAG_DATAPOINT_PER_SLAVE 10
 /*
   REPLICA_STATISTICS
   Associates a Slave ID to its replication statistics for last
@@ -310,17 +309,62 @@ int store_replica_stats(THD *thd, uchar *packet, uint packet_length)
   {
     if (si->slave_stats == nullptr) 
     {
-      si->slave_stats = new std::set<SLAVE_STATS>();
+      si->slave_stats = new std::list<SLAVE_STATS>();
     }
-    // Erase oldest entry for this slave if needed and insert the new data
-    if (si->slave_stats->size() > MAX_LAG_DATAPOINT_PER_SLAVE) 
+    // We are over the configured size. Erase older entries first. 
+    while (!si->slave_stats->empty() && si->slave_stats->size() >= write_stats_count) 
     {
-      si->slave_stats->erase(si->slave_stats->begin());
+      si->slave_stats->pop_back();
     }
-    si->slave_stats->insert(std::move(stats));
+    if (write_stats_count > 0)
+      si->slave_stats->push_front(std::move(stats));
   }
   mysql_mutex_unlock(&LOCK_slave_list);
   return 0;
+}
+
+/**
+  Scans through the replication lag reported by individual secondaries and 
+  returns replication lag for the entire topology. Replication lag for the 
+  topology is defined as kth largest replication lag reported by individual 
+  secondaries where k = write_throttle_lag_min_secondaries. 
+  This method is used for auto throttling write workload to avoid replication lag
+
+  @retval replication_lag
+*/
+int get_current_replication_lag() {
+  if (write_throttle_lag_pct_min_secondaries == 0)
+    return 0;
+  
+  // find the lag
+  std::vector<int> replica_lags;
+  mysql_mutex_lock(&LOCK_slave_list);
+  for (uint slaveIter = 0; slaveIter < slave_list.records; ++slaveIter)
+  {
+    SLAVE_INFO* si = (SLAVE_INFO*) my_hash_element(&slave_list, slaveIter);
+    if (si->slave_stats != nullptr && !si->slave_stats->empty()) {
+      // collect the most recent(front) lag by this secondary
+      replica_lags.push_back(si->slave_stats->front().milli_sec_behind_master);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
+
+  DBUG_EXECUTE_IF("dbug.simulate_lag_above_start_throttle_threshold",
+    {return write_start_throttle_lag_milliseconds + 1;});
+  DBUG_EXECUTE_IF("dbug.simulate_lag_below_end_throttle_threshold",
+    {return write_stop_throttle_lag_milliseconds - 1;});
+  DBUG_EXECUTE_IF("dbug.simulate_lag_between_start_end_throttle_threshold",
+    {return (write_start_throttle_lag_milliseconds + write_stop_throttle_lag_milliseconds)/2;});
+
+  int min_secondaries_to_lag = ceil(replica_lags.size() * (double)write_throttle_lag_pct_min_secondaries / 100);
+  if (min_secondaries_to_lag == 0) {
+    // not enough secondaries(registered so far) in replication topology to qualify for lag 
+    return 0;
+  }
+
+  // return the kth largest lag value where k = min_secondaries_to_lag
+  std::sort(replica_lags.begin(), replica_lags.end(), std::greater<int>());
+  return replica_lags[min_secondaries_to_lag - 1];
 }
 
 /**

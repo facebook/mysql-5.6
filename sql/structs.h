@@ -617,7 +617,7 @@ typedef std::vector<SQL_FINDING> SQL_FINDING_VEC;
 /* WRITE_STATS - stores write statistics for a sql statement, shard, client or user */
 typedef struct st_write_stats {
   ulonglong binlog_bytes_written;         /* Bytes written into binlog */
-  ulonglong cpu_write_time_ms;            /* CPU write time spent in ms */
+  ulonglong cpu_write_time_us;            /* CPU write time spent in micro-seconds */
 } WRITE_STATS;
 
 /*
@@ -631,21 +631,6 @@ enum enum_wtr_mode
   WTR_AUTO =1,
 };
 
-/*
-** enum_wtr_dimension
-**
-** Different dimensions(shard, user, client id, sql_id) for write statistics 
-** throttling rules
-*/
-enum enum_wtr_dimension
-{
-  WTR_DIM_UNKNOWN =-1,
-  WTR_DIM_USER =0,
-  WTR_DIM_CLIENT =1,
-  WTR_DIM_SHARD =2,
-  WTR_DIM_SQL_ID =3,
-};
-
 /* WRITE_THROTTLING_RULE - Stores metadata for a throttling rule for write workload */
 struct WRITE_THROTTLING_RULE {
   time_t create_time;         /* creation time */
@@ -656,6 +641,23 @@ struct WRITE_THROTTLING_RULE {
 struct WRITE_THROTTLING_LOG {
   time_t last_time;           /* last time this rule was used to throttle a query */
   ulonglong count;            /* Number of times this rule has been used to throttle */
+};
+
+/* WRITE_MONITORED_ENTITY - Stores metadata for the currently monitored entity for replication lag */
+struct WRITE_MONITORED_ENTITY {
+  std::string name;
+  enum_wtr_dimension dimension;
+  uint hits;
+
+  void reset() {
+    name = "";
+    dimension = WTR_DIM_UNKNOWN;
+    hits = 0;
+  } 
+
+  WRITE_MONITORED_ENTITY() {
+    reset();
+  }          
 };
 
 /*

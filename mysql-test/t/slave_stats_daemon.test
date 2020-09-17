@@ -9,6 +9,7 @@
 ########################################################################################################
 connection slave;
 select @@write_stats_frequency;
+select @@write_stats_count;
 
 connection master;
 select sleep(2);
@@ -23,8 +24,29 @@ set @@GLOBAL.write_stats_frequency=1;
 select @@write_stats_frequency;
 
 connection master;
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
+
+########################################################################################################
+### Case 2.1: Dynamically updating write_stats_count updates the number of data points in replica_statistics
+########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection master;
+set @@GLOBAL.write_stats_count=1;
+select sleep(2);
+select count(*) = 1 as stats_samples_collected from information_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=0;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from information_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=2;
+select sleep(3);
+select count(*) = 2 as stats_samples_collected from information_schema.replica_statistics;
 
 ########################################################################################################
 ### Case 2.5: Connection is restored and stats are sent to master after it stops and restarts
@@ -34,6 +56,7 @@ set @@GLOBAL.write_stats_frequency=1;
 select @@write_stats_frequency;
 
 connection master;
+set @@GLOBAL.write_stats_count=10;
 select sleep(1);
 select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
 let $rpl_server_number= 1
@@ -60,6 +83,7 @@ start slave;
 -- source include/show_slave_status.inc
 
 connection master;
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 
 # No stats should have been received in last 2 seconds
@@ -87,6 +111,7 @@ select @@write_stats_frequency;
 set @@GLOBAL.write_stats_frequency=1;
 
 connection master;
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
 
@@ -108,6 +133,7 @@ select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from
 ### stats to new master(old slave)
 ########################################################################################################
 connection master;
+set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
 
 # get slave port and store it for later use
@@ -115,6 +141,7 @@ set @@GLOBAL.write_stats_frequency=1;
 --let $old_slave_port= query_get_value(SHOW SLAVE HOSTS, Port, 1)
 
 connection slave;
+set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
 
 # get master port and store it for later use during cleanup
@@ -146,12 +173,14 @@ select count(*) > 0 as stats_samples_collected from information_schema.replica_s
 ########################################################################################################
 # reset original master
 connection master;
+set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
 Stop slave;
 reset slave all;
 
 # reset original slave
 connection slave;
+set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
 --replace_result $old_master_host MASTER_HOST $old_master_port MASTER_PORT
 --eval CHANGE MASTER TO MASTER_HOST= '$old_master_host', MASTER_USER= 'root', MASTER_PORT= $old_master_port;

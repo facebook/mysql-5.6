@@ -6,6 +6,9 @@ Note	####	Storing MySQL user name or password information in the master info rep
 select @@write_stats_frequency;
 @@write_stats_frequency
 0
+select @@write_stats_count;
+@@write_stats_count
+0
 select sleep(2);
 sleep(2)
 0
@@ -16,6 +19,7 @@ set @@GLOBAL.write_stats_frequency=1;
 select @@write_stats_frequency;
 @@write_stats_frequency
 1
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 sleep(2)
 0
@@ -26,6 +30,32 @@ set @@GLOBAL.write_stats_frequency=1;
 select @@write_stats_frequency;
 @@write_stats_frequency
 1
+set @@GLOBAL.write_stats_count=1;
+select sleep(2);
+sleep(2)
+0
+select count(*) = 1 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_count=0;
+select sleep(2);
+sleep(2)
+0
+select count(*) = 0 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_count=2;
+select sleep(3);
+sleep(3)
+0
+select count(*) = 2 as stats_samples_collected from information_schema.replica_statistics;
+stats_samples_collected
+1
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+@@write_stats_frequency
+1
+set @@GLOBAL.write_stats_count=10;
 select sleep(1);
 sleep(1)
 0
@@ -49,6 +79,7 @@ Note	1760	Storing MySQL user name or password information in the master info rep
 start slave;
 Master_User = 'test'
 Master_Host = '127.0.0.1'
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 sleep(2)
 0
@@ -73,6 +104,7 @@ select @@write_stats_frequency;
 @@write_stats_frequency
 1
 set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
 select sleep(2);
 sleep(2)
 0
@@ -87,7 +119,9 @@ sleep(2)
 select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from information_schema.replica_statistics;
 less_than_1_sec_old_most_recent_stats
 1
+set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
+set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
 select * from information_schema.replica_statistics;
 SERVER_ID	TIMESTAMP	MILLI_SEC_BEHIND_MASTER
@@ -107,9 +141,11 @@ sleep(2)
 select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
 stats_samples_collected
 1
+set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
 Stop slave;
 reset slave all;
+set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
 CHANGE MASTER TO MASTER_HOST= 'MASTER_HOST', MASTER_USER= 'root', MASTER_PORT= MASTER_PORT;;
 Warnings:

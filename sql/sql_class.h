@@ -3400,7 +3400,7 @@ private:
   bool m_stmt_start_write_time_is_set;
 
   /**
-     Total time spent writing rows for stmt.
+     Total time(micro-secs) spent writing rows for stmt.
   */
   ulonglong m_stmt_total_write_time;
 

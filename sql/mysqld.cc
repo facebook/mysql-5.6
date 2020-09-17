@@ -713,6 +713,18 @@ uint sql_maximum_duplicate_executions;
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
 ulong write_stats_frequency;
+/* A replication lag higher than the value of this variable will enable throttling of write workload */
+ulong write_start_throttle_lag_milliseconds;
+/* A replication lag lower than the value of this variable will disable throttling of write workload */
+ulong write_stop_throttle_lag_milliseconds;
+/* Minimum value of the ratio (1st entity)/(2nd entity) for replication lag throttling to kick in */
+double write_throttle_min_ratio;
+/* Number of consecutive cycles to monitor an entity for replication lag throttling before taking action */
+uint write_throttle_monitor_cycles;
+/* Percent of secondaries that need to lag for overall replication topology to be considered lagging */
+uint write_throttle_lag_pct_min_secondaries;
+/* The frequency (seconds) at which auto throttling checks are run on a primary */
+ulong write_auto_throttle_frequency;
 /* Stores the (latest)value for sys_var write_throttle_patterns  */
 char *latest_write_throttling_rule;
 /* Patterns to throttle queries in case of replication lag */
@@ -720,6 +732,13 @@ GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 /* Controls the width of the histogram bucket (unit: kilo-bytes) */
 uint transaction_size_histogram_width;
 uint write_statistics_histogram_width;
+/* timestamp when replication lag check was last done */
+std::atomic<time_t> last_replication_lag_check_time(0);
+/* Queue to store all the entities being currently auto throttled. It is used to release entities in order 
+they were throttled when replication lag goes below safe threshold  */
+std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entities;
+/* Stores the info about the entity that is currently being monitored for replication lag */
+WRITE_MONITORED_ENTITY currently_monitored_entity;
 
 ulong gtid_mode;
 ulong slave_gtid_info;
@@ -1114,6 +1133,8 @@ mysql_mutex_t LOCK_global_write_throttling_log;
 mysql_mutex_t LOCK_global_tx_size_histogram;
 /* Lock to provide exclusion in access to global_write_stat_histogram */
 mysql_mutex_t LOCK_global_write_stat_histogram;
+/* Lock to be used for auto throttling based on replication lag */
+mysql_mutex_t LOCK_replication_lag_auto_throttling;
 
 #ifdef SHARDED_LOCKING
 std::vector<mysql_mutex_t> LOCK_thread_count_sharded;
@@ -2670,6 +2691,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_write_throttling_log);
   mysql_mutex_destroy(&LOCK_global_tx_size_histogram);
   mysql_mutex_destroy(&LOCK_global_write_stat_histogram);
+  mysql_mutex_destroy(&LOCK_replication_lag_auto_throttling);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
   mysql_rwlock_destroy(&LOCK_use_ssl);
@@ -5667,6 +5689,8 @@ static int init_thread_environment()
                    &LOCK_global_tx_size_histogram, MY_MUTEX_INIT_ERRCHK);
   mysql_mutex_init(key_LOCK_global_write_stat_histogram,
                    &LOCK_global_write_stat_histogram, MY_MUTEX_INIT_ERRCHK);
+  mysql_mutex_init(key_LOCK_replication_lag_auto_throttling,
+                   &LOCK_replication_lag_auto_throttling, MY_MUTEX_INIT_ERRCHK);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -12855,6 +12879,7 @@ PSI_mutex_key
   key_LOCK_global_write_throttling_log,
   key_LOCK_global_tx_size_histogram,
   key_LOCK_global_write_stat_histogram,
+  key_LOCK_replication_lag_auto_throttling,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -12987,6 +13012,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_tx_size_histogram, "LOCK_global_tx_size_histogram", PSI_FLAG_GLOBAL},
   { &key_LOCK_global_write_stat_histogram, "LOCK_global_write_stat_histogram", PSI_FLAG_GLOBAL},
+  { &key_LOCK_replication_lag_auto_throttling, "LOCK_replication_lag_auto_throttling", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

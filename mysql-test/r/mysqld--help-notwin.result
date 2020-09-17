@@ -2204,6 +2204,10 @@ The following options may be given as the first argument:
  --working-duration=# 
  The period of time for which we want working set size
  statistics
+ --write-auto-throttle-frequency[=#] 
+ The frequency (seconds) at which auto throttling checks
+ are run on a primary. Default value is 0 which means auto
+ throttling is turned off.
  --write-control-level[=name] 
  Controls write throttle for short queries and write abort
  for long running queries. It can take the following
@@ -2216,16 +2220,32 @@ The following options may be given as the first argument:
  equal to 0. The value 0 disables enforcing the limit.
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
+ --write-start-throttle-lag-milliseconds[=#] 
+ A replication lag higher than the value of this variable
+ will enable throttling of write workload
  --write-statistics-histogram-width[=#] 
  Width of buckets (unit is KB) in the
  WRITE_STATISTICS_HISTOGRAM
  --write-stats-count[=#] 
  Maximum number of most recent data points to be collected
- for information_schema.write_statistics time series.
- --write-stats-frequency=# 
+ for information_schema.write_statistics &
+ information_schema.replica_statistics time series.
+ --write-stats-frequency[=#] 
  This variable determines the frequency(seconds) at which
  write stats and replica lag stats are collected on
  primaries
+ --write-stop-throttle-lag-milliseconds[=#] 
+ A replication lag lower than the value of this variable
+ will disable throttling of write workload
+ --write-throttle-lag-pct-min-secondaries[=#] 
+ Percent of secondaries that need to lag for overall
+ replication topology to be considered lagging
+ --write-throttle-min-ratio[=#] 
+ Minimum value of the ratio (1st entity)/(2nd entity) for
+ replication lag throttling to kick in
+ --write-throttle-monitor-cycles[=#] 
+ Number of consecutive cycles to monitor an entity for
+ replication lag throttling before taking action
  --write-throttle-patterns[=name] 
  This variable is used to throttle write requests based on
  user name, client id, sql_id or shard. It is used to
@@ -2886,12 +2906,18 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 working-duration 3600
+write-auto-throttle-frequency 0
 write-control-level OFF
 write-cpu-limit-milliseconds 0
 write-query-throttling-limit 0
+write-start-throttle-lag-milliseconds 86400000
 write-statistics-histogram-width 100
 write-stats-count 0
 write-stats-frequency 0
+write-stop-throttle-lag-milliseconds 86400000
+write-throttle-lag-pct-min-secondaries 100
+write-throttle-min-ratio 1000
+write-throttle-monitor-cycles 1000
 write-throttle-patterns OFF
 write-time-check-batch 0
 zstd-net-compression-level 3

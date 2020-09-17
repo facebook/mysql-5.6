@@ -34,6 +34,7 @@
 #include "my_rdtsc.h"                      /* my_timer* */
 #include "hh_wheel_timer.h"                /* hhWheelTimer */
 #include <set>
+#include <list>
 #include "sql_priv.h"                      /* enum_var_type */
 // for unix sockets
 #include <sys/socket.h>
@@ -63,7 +64,22 @@ const uint WRITE_STATISTICS_DIMENSION_COUNT = 4;
 const uint WRITE_THROTTLING_MODE_COUNT = 2;
 struct WRITE_THROTTLING_RULE;
 struct WRITE_THROTTLING_LOG;
+struct WRITE_MONITORED_ENTITY;
 typedef std::array<std::unordered_map<std::string, WRITE_THROTTLING_RULE>, WRITE_STATISTICS_DIMENSION_COUNT> GLOBAL_WRITE_THROTTLING_RULES_MAP;
+/*
+** enum_wtr_dimension
+**
+** Different dimensions(shard, user, client id, sql_id) for write statistics 
+** throttling rules
+*/
+enum enum_wtr_dimension
+{
+  WTR_DIM_UNKNOWN   = -1,
+  WTR_DIM_USER      = 0,
+  WTR_DIM_CLIENT    = 1,
+  WTR_DIM_SHARD     = 2,
+  WTR_DIM_SQL_ID    = 3,
+};
 
 typedef struct lsn_map
 {
@@ -1005,11 +1021,20 @@ extern uint num_sharded_sockets;
 extern uint num_conn_handling_threads;
 extern my_bool gl_socket_sharding;
 extern ulong write_stats_frequency;
+extern ulong write_start_throttle_lag_milliseconds;
+extern ulong write_stop_throttle_lag_milliseconds;
+extern double write_throttle_min_ratio;
+extern uint write_throttle_monitor_cycles;
+extern uint write_throttle_lag_pct_min_secondaries;
+extern ulong write_auto_throttle_frequency;
 extern uint write_stats_count;
 extern char *latest_write_throttling_rule;
 extern GLOBAL_WRITE_THROTTLING_RULES_MAP global_write_throttling_rules;
 extern uint transaction_size_histogram_width;
 extern uint write_statistics_histogram_width;
+extern std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entities;
+extern WRITE_MONITORED_ENTITY currently_monitored_entity;
+extern std::atomic<time_t> last_replication_lag_check_time;
 
 /* This field dictates the maximum number of entries in the
    information_schema.DB_STATISTICS table */
@@ -1027,9 +1052,9 @@ extern uint max_db_stats_entries;
  */
 enum enum_write_control_level
 {
-  WRITE_CONTROL_LEVEL_OFF    = 0,
-  WRITE_CONTROL_LEVEL_NOTE   = 1,
-  WRITE_CONTROL_LEVEL_WARN   = 2,
+  WRITE_CONTROL_LEVEL_OFF   = 0,
+  WRITE_CONTROL_LEVEL_NOTE  = 1,
+  WRITE_CONTROL_LEVEL_WARN  = 2,
   WRITE_CONTROL_LEVEL_ERROR  = 3,
   /* add new control before the following line */
   WRITE_CONTROL_LEVEL_INVALID
@@ -1372,6 +1397,7 @@ extern PSI_mutex_key
   key_LOCK_global_write_throttling_log,
   key_LOCK_global_tx_size_histogram,
   key_LOCK_global_write_stat_histogram,
+  key_LOCK_replication_lag_auto_throttling,
   key_LOCK_log_throttle_qni,
   key_LOCK_log_throttle_legacy,
   key_LOCK_log_throttle_ddl,
@@ -1661,7 +1687,7 @@ extern mysql_mutex_t
        LOCK_log_throttle_legacy, LOCK_log_throttle_ddl,
        LOCK_prepared_stmt_count, LOCK_error_messages, LOCK_connection_count,
        LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout,
-       LOCK_log_throttle_sbr_unsafe;
+       LOCK_log_throttle_sbr_unsafe, LOCK_replication_lag_auto_throttling;
 
 #ifdef HAVE_OPENSSL
 extern char* des_key_file;
