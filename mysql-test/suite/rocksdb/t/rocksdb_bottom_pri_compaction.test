@@ -23,25 +23,7 @@ let $table = t1;
 set @@global.rocksdb_compact_cf = 'default';
 
 --let $pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
---let PIDFILE= $pid_file
-perl;
-
-my $pid_file = $ENV{'PIDFILE'} or die "PIDFILE not set";
-
-# Get PID of mysqld
-open(my $fh, '<', $pid_file) || die "Cannot open pid file $pid_file\n";
-my $pid = <$fh>;
-$pid =~ s/\s//g;
-close($fh);
-
-if ($pid eq "") {
-  die "Couldn't retrieve PID from PID file.\n";
-}
-
-print "Bottom thread priority:\n";
-system("cat /proc/$pid/task/*/stat | grep bottom | awk '{print \$19}'");
-
-EOF
+--exec perl suite/rocksdb/t/rocksdb_bottom_pri_compaction_check.pl $pid_file 1 1
 
 drop table t1;
 

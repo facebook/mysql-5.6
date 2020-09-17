@@ -8,7 +8,7 @@ CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
 INSERT INTO invalid_values VALUES('\'abc\'');
 
 --let $sys_var=ROCKSDB_MAX_BOTTOM_PRI_BACKGROUND_COMPACTIONS
---let $read_only=1
+--let $read_only=0
 --let $session=0
 --source ../include/rocksdb_sys_var.inc
 
