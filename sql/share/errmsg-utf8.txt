@@ -7417,7 +7417,7 @@ ER_WARN_FB_JSON_FUNCTION_CALLED
   eng "Json function called."
 
 ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
-  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
+  eng "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)"
 
 ER_WRITE_QUERY_THROTTLED
   eng "Exceeded write workload limit. Try again later"

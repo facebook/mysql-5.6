@@ -239,7 +239,7 @@ select mode, value from information_schema.write_throttling_rules where type = '
 insert into t values(1);
 --error ER_WRITE_QUERY_THROTTLED
 insert into t values(1);
-select count from information_schema.write_throttling_log where type = 'SQL_ID' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'SQL_ID' and mode = 'MANUAL';
 
 --echo Other queries should not be throttled
 update t set id = 2 where id = 1;
@@ -273,14 +273,14 @@ select mode, value from information_schema.write_throttling_rules where type = '
 insert into t values(1);
 --error ER_WRITE_QUERY_THROTTLED
 insert into t values(1);
-select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
 
 --echo All write queries from this client should be throttled
 --error ER_WRITE_QUERY_THROTTLED
 update t set id = 2 where id = 1;
 --error ER_WRITE_QUERY_THROTTLED
 delete from t where id = 2;
-select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
 
 --echo All read queries from this client should be fine
 select count(*) from t;
@@ -315,14 +315,14 @@ select mode, value from information_schema.write_throttling_rules where type = '
 insert into t values(1);
 --error ER_WRITE_QUERY_THROTTLED
 insert into t values(1);
-select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
 
 --echo All write queries to this shard should be throttled
 --error ER_WRITE_QUERY_THROTTLED
 update t set id = 2 where id = 1;
 --error ER_WRITE_QUERY_THROTTLED
 delete from t where id = 2;
-select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
 
 --echo All read queries to this shard should be fine
 select count(*) from t;
@@ -357,14 +357,14 @@ select mode, value from information_schema.write_throttling_rules where type = '
 insert into t values(1);
 --error ER_WRITE_QUERY_THROTTLED
 insert into t values(1);
-select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
 
 --echo All write queries from this user should be throttled
 --error ER_WRITE_QUERY_THROTTLED
 update t set id = 2 where id = 1;
 --error ER_WRITE_QUERY_THROTTLED
 delete from t where id = 2;
-select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+select transaction_type, count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
 
 --echo All read queries from this user should be fine
 select count(*) from t;

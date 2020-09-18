@@ -694,10 +694,29 @@ ST_FIELD_INFO write_throttling_log_fields_info[]=
     SKIP_OPEN_TABLE},
   {"TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"VALUE", MD5_BUFF_LENGTH, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
+  {"TRANSACTION_TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COUNT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
     0, 0, 0, SKIP_OPEN_TABLE},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
+
+/*
+** enum_wtr_thrlog_txn_type
+**
+** valid values for the COLUMN I_S.write_throttling_log."TRANSACTION_TYPE"
+*/
+enum enum_wtr_thrlog_txn_type
+{
+  WTR_THRLOG_TXN_TYPE_SHORT = 0,
+  WTR_THRLOG_TXN_TYPE_LONG  = 1,
+};
+
+/*
+** WRITE_THRLOG_TXN_TYPE
+**
+** valid values for the COLUMN I_S.write_throttling_log."TRANSACTION_TYPE"
+*/
+const std::string WRITE_THRLOG_TXN_TYPE[] = {"SHORT", "LONG"};
 
 std::array<
   std::array<
@@ -706,6 +725,14 @@ std::array<
   >,
   WRITE_STATISTICS_DIMENSION_COUNT
 > global_write_throttling_log;
+
+/*
+** global_long_qry_abort_log
+**
+** global map that stores the long queries information to populate
+** the table I_S.write_throttling_log
+*/
+std::unordered_map<std::string, WRITE_THROTTLING_LOG> global_long_qry_abort_log;
 
 /*
   fill_write_throttling_log
@@ -720,7 +747,8 @@ int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
   MYSQL_TIME time;
   std::string type_string, mode_string;
 
-  for(size_t type = 0; type != global_write_throttling_log.size(); ++type) 
+  /* populate rows from throttling short running queries */
+  for(size_t type = 0; type != global_write_throttling_log.size(); ++type)
   {
     for(size_t mode = 0; mode != global_write_throttling_log[type].size(); ++mode) 
     {
@@ -747,6 +775,11 @@ int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
         // value
         table->field[f++]->store(log_iter->first.c_str(), log_iter->first.length(), system_charset_info);
 
+        // transaction_type: SHORT
+        table->field[f++]->store(WRITE_THRLOG_TXN_TYPE[WTR_THRLOG_TXN_TYPE_SHORT].c_str(),
+                                 WRITE_THRLOG_TXN_TYPE[WTR_THRLOG_TXN_TYPE_SHORT].length(),
+                                 system_charset_info);
+
         // count
         table->field[f++]->store(log.count, TRUE);
 
@@ -758,6 +791,46 @@ int fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond)
       }
     }
   }
+
+  /* populate rows from aborting long running queries */
+  for(auto log_iter = global_long_qry_abort_log.begin();
+      log_iter != global_long_qry_abort_log.end(); ++log_iter)
+  {
+    WRITE_THROTTLING_LOG & log = log_iter->second;
+    int f= 0;
+    restore_record(table, s->default_values);
+
+    // mode: AUTO
+    mode_string = WRITE_THROTTLING_MODE_STRING[WTR_AUTO];
+    table->field[f++]->store(mode_string.c_str(), mode_string.length(), system_charset_info);
+
+    // last_recorded
+    thd->variables.time_zone->gmt_sec_to_TIME(
+        &time, (my_time_t)log.last_time);
+    table->field[f++]->store_time(&time);
+
+    // type: SQL_ID
+    type_string = WRITE_STATS_TYPE_STRING[WTR_DIM_SQL_ID];
+    table->field[f++]->store(type_string.c_str(), type_string.length(), system_charset_info);
+
+    // value
+    table->field[f++]->store(log_iter->first.c_str(), log_iter->first.length(), system_charset_info);
+
+    // transaction_type: LONG
+    table->field[f++]->store(WRITE_THRLOG_TXN_TYPE[WTR_THRLOG_TXN_TYPE_LONG].c_str(),
+                             WRITE_THRLOG_TXN_TYPE[WTR_THRLOG_TXN_TYPE_LONG].length(),
+                             system_charset_info);
+
+    // count
+    table->field[f++]->store(log.count, TRUE);
+
+    if (schema_table_store_record(thd, table))
+    {
+      mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+      DBUG_RETURN(-1);
+    }
+  }
+
   mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
 
   DBUG_RETURN(0);
@@ -779,6 +852,27 @@ void store_write_throttling_log(
   time_t timestamp = my_time(0);
   auto &log_map = global_write_throttling_log[type][rule.mode];
   auto &inserted_log = log_map.insert(std::make_pair(value, log)).first->second;
+  inserted_log.last_time = timestamp;
+  inserted_log.count++;
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+}
+
+/*
+  store_long_qry_abort_log
+    Stores a log for a query that is aborted due to it being identified
+    as long running query. This will be added to I_S.write_throttling_log.
+*/
+void store_long_qry_abort_log(THD *thd)
+{
+  char md5_hex_buffer[MD5_BUFF_LENGTH];
+  /* generate SQL_ID value */
+  array_to_hex(md5_hex_buffer, thd->mt_key_value(THD::SQL_ID).data(),
+               MD5_HASH_SIZE);
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
+  WRITE_THROTTLING_LOG log{};
+  time_t timestamp = my_time(0);
+  auto &inserted_log
+    = global_long_qry_abort_log.insert(std::make_pair(md5_hex_buffer, log)).first->second;
   inserted_log.last_time = timestamp;
   inserted_log.count++;
   mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);

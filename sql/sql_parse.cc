@@ -1607,17 +1607,33 @@ static void update_sql_stats(THD *thd, SHARED_SQL_STATS *cumulative_sql_stats, c
 }
 
 /**
-  update_thd_stats
-    Update thread statistics, The function updates the dml row count
+  update_thd_dml_row_count
+    Update thread DML row count. The function updates the dml row count
     by aggregating the rows deleted, rows updated and rows inserted.
 
-  @param       thd           Current thread
+  @param  thd                       Current thread
+  @param  cumulative_sql_stats      Cumulative stats for the multi-query
+                                    statement executed so far
 */
-static void update_thd_stats(THD *thd)
+static void update_thd_dml_row_count(THD *thd,
+                                     SHARED_SQL_STATS *cumulative_sql_stats)
 {
   if (!thd->is_real_trans)
-    thd->trx_dml_row_count += thd->rows_deleted + thd->rows_updated
-                              + thd->rows_inserted;
+  {
+    SHARED_SQL_STATS sql_stats;
+    /*
+      THD will contain the cumulative stats for the multi-query statement
+      executed so far. To get the stats only for the current SQL statement,
+      previous cumulative stats should be subtracted from the current THD
+      stats.
+      sql_stats = thd-stats - cumulative_sql_stats
+    */
+    reset_sql_stats_from_diff(thd, cumulative_sql_stats, &sql_stats);
+
+    /* increment the dml row count for the thread */
+    thd->trx_dml_row_count += sql_stats.rows_deleted + sql_stats.rows_updated
+                              + sql_stats.rows_inserted;
+  }
 }
 
 /**
@@ -2148,8 +2164,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
       */
       update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
-      /* update transaction DML rows */
-      update_thd_stats(thd);
+      /* update transaction DML row count */
+      update_thd_dml_row_count(thd, &cumulative_sql_stats);
 
 
       /* Check to see if any state changed */
@@ -2279,8 +2295,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
 
     update_sql_stats(thd, &cumulative_sql_stats, sub_query);
 
-    /* update transaction DML rows */
-    update_thd_stats(thd);
+    /* update transaction DML row count */
+    update_thd_dml_row_count(thd, &cumulative_sql_stats);
 
     if (thd->is_in_ac && (!opt_admission_control_by_trx || thd->is_real_trans))
     {

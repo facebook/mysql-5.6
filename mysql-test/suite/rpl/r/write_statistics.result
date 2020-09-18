@@ -235,9 +235,9 @@ insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
 insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'SQL_ID' and mode = 'MANUAL';
-count
-2
+select transaction_type, count from information_schema.write_throttling_log where type = 'SQL_ID' and mode = 'MANUAL';
+transaction_type	count
+SHORT	2
 Other queries should not be throttled
 update t set id = 2 where id = 1;
 delete from t where id = 2;
@@ -265,17 +265,17 @@ insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
 insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
-count
-2
+select transaction_type, count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+transaction_type	count
+SHORT	2
 All write queries from this client should be throttled
 update t set id = 2 where id = 1;
 ERROR HY000: Exceeded write workload limit. Try again later
 delete from t where id = 2;
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
-count
-4
+select transaction_type, count from information_schema.write_throttling_log where type = 'CLIENT' and mode = 'MANUAL';
+transaction_type	count
+SHORT	4
 All read queries from this client should be fine
 select count(*) from t;
 count(*)
@@ -306,17 +306,17 @@ insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
 insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
-count
-2
+select transaction_type, count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+transaction_type	count
+SHORT	2
 All write queries to this shard should be throttled
 update t set id = 2 where id = 1;
 ERROR HY000: Exceeded write workload limit. Try again later
 delete from t where id = 2;
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
-count
-4
+select transaction_type, count from information_schema.write_throttling_log where type = 'SHARD' and mode = 'MANUAL';
+transaction_type	count
+SHORT	4
 All read queries to this shard should be fine
 select count(*) from t;
 count(*)
@@ -347,17 +347,17 @@ insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
 insert into t values(1);
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
-count
-2
+select transaction_type, count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+transaction_type	count
+SHORT	2
 All write queries from this user should be throttled
 update t set id = 2 where id = 1;
 ERROR HY000: Exceeded write workload limit. Try again later
 delete from t where id = 2;
 ERROR HY000: Exceeded write workload limit. Try again later
-select count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
-count
-4
+select transaction_type, count from information_schema.write_throttling_log where type = 'USER' and mode = 'MANUAL';
+transaction_type	count
+SHORT	4
 All read queries from this user should be fine
 select count(*) from t;
 count(*)

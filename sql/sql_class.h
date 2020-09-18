@@ -5239,7 +5239,7 @@ public:
 
   ulonglong get_dml_cpu_time();
 
-  void dml_execution_cpu_limit_exceeded(ha_statistics* stats);
+  bool dml_execution_cpu_limit_exceeded(ha_statistics* stats);
 
   ulonglong get_dml_row_count(ha_statistics* stats);
 

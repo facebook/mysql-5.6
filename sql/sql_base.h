@@ -425,7 +425,8 @@ bool store_write_throttling_rules(THD *thd);
 extern ST_FIELD_INFO write_throttling_log_fields_info[];
 extern mysql_mutex_t LOCK_global_write_throttling_log;
 int  fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond);
-void store_write_throttling_log(THD *thd, int type, std::string value, WRITE_THROTTLING_RULE &rule_meta);
+void store_write_throttling_log(THD *thd, int type, std::string value, WRITE_THROTTLING_RULE &rule);
+void store_long_qry_abort_log(THD *thd);
 
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];

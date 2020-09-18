@@ -573,6 +573,8 @@ int ha_init_errors(void)
          ER_DEFAULT(ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED));
   SETMSG(HA_ERR_QUERY_INTERRUPTED,      ER_DEFAULT(ER_QUERY_INTERRUPTED));
   SETMSG(HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED, ER_DEFAULT(ER_MAX_TMP_DISK_USAGE_EXCEEDED));
+  SETMSG(HA_ERR_WRITE_CPU_LIMIT_EXCEEDED,
+         ER_DEFAULT(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
 
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
@@ -4317,6 +4319,9 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED:
     textno = ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+    break;
+  case HA_ERR_WRITE_CPU_LIMIT_EXCEEDED:
+    textno = ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS;
     break;
   default:
     {
@@ -8079,8 +8084,15 @@ int handler::ha_write_row(uchar *buf)
   MYSQL_INSERT_ROW_DONE(error);
 
   /* check if the cpu execution time limit for DML is exceeded */
-  if (!error)
-    thd->dml_execution_cpu_limit_exceeded(&stats);
+  if (!error && thd->dml_execution_cpu_limit_exceeded(&stats))
+  {
+    /* raise error */
+    error = HA_ERR_WRITE_CPU_LIMIT_EXCEEDED;
+    /* log the abort query details into I_S.write_throttling_log */
+    store_long_qry_abort_log(thd);
+    /* rollback the transaction */
+    thd->mark_transaction_to_rollback(true);
+  }
 
   if (unlikely(error))
     DBUG_RETURN(error);
@@ -8123,8 +8135,15 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data)
   MYSQL_UPDATE_ROW_DONE(error);
 
   /* check if the cpu execution time limit for DML is exceeded */
-  if (!error)
-    thd->dml_execution_cpu_limit_exceeded(&stats);
+  if (!error && thd->dml_execution_cpu_limit_exceeded(&stats))
+  {
+    /* raise error */
+    error = HA_ERR_WRITE_CPU_LIMIT_EXCEEDED;
+    /* log the abort query details into I_S.write_throttling_log */
+    store_long_qry_abort_log(thd);
+    /* rollback the transaction */
+    thd->mark_transaction_to_rollback(true);
+  }
 
   if (unlikely(error))
     return error;
@@ -8163,8 +8182,15 @@ int handler::ha_delete_row(const uchar *buf)
   MYSQL_DELETE_ROW_DONE(error);
 
   /* check if the cpu execution time limit for DML is exceeded */
-  if (!error)
-    thd->dml_execution_cpu_limit_exceeded(&stats);
+  if (!error && thd->dml_execution_cpu_limit_exceeded(&stats))
+  {
+    /* raise error */
+    error = HA_ERR_WRITE_CPU_LIMIT_EXCEEDED;
+    /* log the abort query details into I_S.write_throttling_log */
+    store_long_qry_abort_log(thd);
+    /* rollback the transaction */
+    thd->mark_transaction_to_rollback(true);
+  }
 
   if (unlikely(error))
     return error;

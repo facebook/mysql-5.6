@@ -1022,12 +1022,14 @@ extern uint max_db_stats_entries;
  * WRITE_CONTROL_LEVEL_OFF: write abort is disabled
  * WRITE_CONTROL_LEVEL_NOTE: write abort warning is raised as a note
  * WRITE_CONTROL_LEVEL_WARN: write abort warning is raised
+ * WRITE_CONTROL_LEVEL_ERROR: error is raised and query is aborted
  */
 enum enum_write_control_level
 {
-  WRITE_CONTROL_LEVEL_OFF   = 0,
-  WRITE_CONTROL_LEVEL_NOTE  = 1,
-  WRITE_CONTROL_LEVEL_WARN  = 2,
+  WRITE_CONTROL_LEVEL_OFF    = 0,
+  WRITE_CONTROL_LEVEL_NOTE   = 1,
+  WRITE_CONTROL_LEVEL_WARN   = 2,
+  WRITE_CONTROL_LEVEL_ERROR  = 3,
   /* add new control before the following line */
   WRITE_CONTROL_LEVEL_INVALID
 };

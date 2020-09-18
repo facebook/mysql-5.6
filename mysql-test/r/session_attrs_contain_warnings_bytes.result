@@ -52,7 +52,7 @@ Warning	1265	Data truncated for column 'c1' at row 2
 Warning	1264	Out of range value for column 'c2' at row 2
 Warning	1265	Data truncated for column 'c1' at row 3
 Warning	1264	Out of range value for column 'c2' at row 3
-Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 [X] Did not find warnings in query response attributes
 # Test 8: session level variable is 1 MB
 There should be two warnings present in the response
@@ -65,8 +65,8 @@ Warning	1265	Data truncated for column 'c1' at row 2
 Warning	1264	Out of range value for column 'c2' at row 2
 Warning	1265	Data truncated for column 'c1' at row 3
 Warning	1264	Out of range value for column 'c2' at row 3
-Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
-[^] Warnings in query response attributes: (1265,Data truncated for column 'c1' at row 1),(1264,Out of range value for column 'c2' at row 1),(1265,Data truncated for column 'c1' at row 2),(1264,Out of range value for column 'c2' at row 2),(1265,Data truncated for column 'c1' at row 3),(1264,Out of range value for column 'c2' at row 3),(50091,Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds))
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
+[^] Warnings in query response attributes: (1265,Data truncated for column 'c1' at row 1),(1264,Out of range value for column 'c2' at row 1),(1265,Data truncated for column 'c1' at row 2),(1264,Out of range value for column 'c2' at row 2),(1265,Data truncated for column 'c1' at row 3),(1264,Out of range value for column 'c2' at row 3),(50091,Write CPU time exceeded (controlled by write_cpu_limit_milliseconds))
 # Test 9: session level variable is 5 bytes
 Warnings should be truncated to just message codes in the
 response since they exceed the bytes limit
@@ -79,7 +79,7 @@ Warning	1265	Data truncated for column 'c1' at row 2
 Warning	1264	Out of range value for column 'c2' at row 2
 Warning	1265	Data truncated for column 'c1' at row 3
 Warning	1264	Out of range value for column 'c2' at row 3
-Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 [^] Warnings in query response attributes: (1265,),(1264,),(1265,),(1264,),(1265,),(1264,),(50091,)
 # Test 10: session level variable is 0, i.e., disabled
 There should be no warnings present in the response
@@ -92,7 +92,7 @@ Warning	1265	Data truncated for column 'c1' at row 2
 Warning	1264	Out of range value for column 'c2' at row 2
 Warning	1265	Data truncated for column 'c1' at row 3
 Warning	1264	Out of range value for column 'c2' at row 3
-Note	50091	Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)
+Note	50091	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)
 [X] Did not find warnings in query response attributes
 set @@global.debug= '-d,dbug.force_long_running_query';
 set @@GLOBAL.write_control_level=OFF;

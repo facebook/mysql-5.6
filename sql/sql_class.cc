@@ -6265,13 +6265,18 @@ ulonglong THD::get_dml_cpu_time()
   check if CPU execution time limit has exceeded
 
   @param stats  statistics obtained from handler
-  @return       none
+  @return       true if the CPU execution time limit has exceeded and the
+                query needs to be errored out. Returns false otherwise.
 
   Note: The function will register a warning as note if the variable
         'write_control_level' is set to 'NOTE'. If the variable is set
         to 'WARN' then a regular warning is raised.
+        The function will return TRUE if the CPU execution time limt
+        has exceeded only if the variable 'write_control_level' is set to ERROR
+        and if the variables 'write_cpu_limit_milliseconds' and
+        'write_time_check_batch' are set to non-zero values.
 */
-void THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
+bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
 {
   /* enforcing DML execution time limit is disabled if
    * - write_control_level is set to 'OFF' or
@@ -6281,7 +6286,7 @@ void THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
   if (write_control_level == WRITE_CONTROL_LEVEL_OFF ||
       write_cpu_limit_milliseconds == 0 ||
       write_time_check_batch == 0)
-    return;
+    return false;
 
   /* if the variable 'write_control_level' is set to 'NOTE' or 'WARN'
    * then stop checking for CPU execution time limit any further
@@ -6290,15 +6295,13 @@ void THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
   if ((write_control_level == WRITE_CONTROL_LEVEL_NOTE || /* NOTE */
        write_control_level == WRITE_CONTROL_LEVEL_WARN) &&/* WARN */
       trx_dml_cpu_time_limit_warning)
-    return;
+    return false;
 
-  ulonglong dml_rows_processed = trx_dml_row_count + rows_inserted
-                                 + rows_updated + rows_deleted
-                                 + get_dml_row_count(stats);
+  ulonglong dml_rows_processed = trx_dml_row_count + get_dml_row_count(stats);
 
   /* bail out if there are no rows processed for DML */
   if (dml_rows_processed == 0)
-    return;
+    return false;
 
   /* first row processed */
   if (dml_rows_processed == 1)
@@ -6311,20 +6314,29 @@ void THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
 
     if (dml_cpu_time >= (ulonglong) write_cpu_limit_milliseconds)
     {
-      /* raise warning */
-      push_warning_printf(this,
-                          (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
-                          Sql_condition::WARN_LEVEL_NOTE :
-                          Sql_condition::WARN_LEVEL_WARN,
-                          ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS,
-                          ER(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
+      /* raise warning if 'write_control_level' is 'NOTE' or 'WARN' */
+      if (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
+          write_control_level == WRITE_CONTROL_LEVEL_WARN)
+      {
+        /* raise warning */
+        push_warning_printf(this,
+                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
+                            Sql_condition::WARN_LEVEL_NOTE :
+                            Sql_condition::WARN_LEVEL_WARN,
+                            ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS,
+                            ER(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
 
-      /* remember that the warning has been raised so that further
-       * warnings will not be raised for the same statement/transaction
-       */
-      trx_dml_cpu_time_limit_warning = true;
+        /* remember that the warning has been raised so that further
+         * warnings will not be raised for the same statement/transaction
+         */
+        trx_dml_cpu_time_limit_warning = true;
+      }
+      else if (write_control_level == WRITE_CONTROL_LEVEL_ERROR)
+        return true;
     }
   }
+
+  return false;
 }
 
 /**

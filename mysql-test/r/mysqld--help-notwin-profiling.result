@@ -2206,9 +2206,9 @@ The following options may be given as the first argument:
  --write-control-level[=name] 
  Controls write throttle for short queries and write abort
  for long running queries. It can take the following
- values: OFF: Default value. Disable write throttle and
- aborting. NOTE: Raise warnings as note. WARN: Raise
- warning. ON: Enable write throttle and write abort.
+ values: OFF: Default value (disable write throttling).
+ NOTE: Raise warning as note. WARN: Raise warning. ERROR:
+ Raise error and abort query.
  --write-cpu-limit-milliseconds[=#] 
  Maximum CPU time (specified in milliseconds) limit for
  DML queries. It can take integer values greater than or
