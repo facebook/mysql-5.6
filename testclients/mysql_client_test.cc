@@ -20502,14 +20502,6 @@ static void test_get_connect_stage() {
     fprintf(stdout, "\n Nonblocking connect successful. Final stage %d", cs);
 
   mysql_close(mysql_async);
-  cs = mysql_get_connect_stage(mysql_async);
-  if (cs != CONNECT_STAGE_NOT_STARTED) {
-    fprintf(stdout,
-            "\n Expected connect_stage to be reset to "
-            "CONNECT_STAGE_NOT_STARTED after close, but its %d",
-            cs);
-    exit(1);
-  }
 
   /* test stages for a blocking conneciton */
   if (!(mysql_sync = mysql_client_init(NULL))) {
@@ -20544,14 +20536,6 @@ static void test_get_connect_stage() {
     fprintf(stdout, "\n Blocking connect successful. Final stage %d", cs);
 
   mysql_close(mysql_sync);
-  cs = mysql_get_connect_stage(mysql_sync);
-  if (cs != CONNECT_STAGE_NOT_STARTED) {
-    fprintf(stdout,
-            "\n Sync:Expected connect_stage to be reset to "
-            "CONNECT_STAGE_NOT_STARTED after close, but its %d",
-            cs);
-    exit(1);
-  }
 }
 
 static struct my_tests_st my_tests[] = {
