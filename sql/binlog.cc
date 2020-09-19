@@ -4436,6 +4436,74 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
   DBUG_RETURN(true);
 }
 
+/*
+ * This is a limited version of init_gtid_sets which is only
+ * called from binlog_change_to_apply.
+ * Needs to be called under LOCK_log and LOCK_index held.
+ * The previous_gtid_set_map is cleared and reinitialized from
+ * the index file contents.
+ */
+bool MYSQL_BIN_LOG::init_prev_gtid_sets_map()
+{
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
+  uchar *previous_gtid_set_in_file = NULL;
+  int error = 0, length;
+  std::pair<Gtid_set_map::iterator, bool> iterator;
+  DBUG_ENTER("MYSQL_BIN_LOG::init_prev_gtid_sets_map");
+
+  mysql_mutex_assert_owner(&LOCK_log);
+  mysql_mutex_assert_owner(&LOCK_index);
+
+  // clear the map as it is being reset
+  previous_gtid_set_map.clear();
+
+  my_b_seek(&index_file, 0);
+  while ((length=my_b_gets(&index_file, file_name_and_gtid_set_length,
+                           sizeof(file_name_and_gtid_set_length))) >= 1)
+  {
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length =
+      split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0)
+    {
+      // Allocate gtid_string_length + 1 to include the '\n' also.
+      previous_gtid_set_in_file =
+        (uchar *) my_malloc(gtid_string_length + 1, MYF(MY_WME));
+      if (previous_gtid_set_in_file == NULL)
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("MYSQL_BIN_LOG::init_prev_gtid_sets_map failed allocating "
+                        "%u bytes", gtid_string_length + 1);
+        error = 2;
+        goto end;
+      }
+      if (my_b_read(&index_file, previous_gtid_set_in_file,
+                    gtid_string_length + 1))
+      {
+        // NO_LINT_DEBUG
+        sql_print_error("MYSQL_BINLOG::init_prev_gtid_sets_map failed because "
+                        "previous gtid set of binlog %s is corrupted in "
+                        "the index file", file_name_and_gtid_set_length);
+        error= !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
+        my_free(previous_gtid_set_in_file);
+        goto end;
+      }
+    }
+
+    iterator = previous_gtid_set_map.insert(
+      std::pair<string, string>(string(file_name_and_gtid_set_length),
+                                string((char*)previous_gtid_set_in_file,
+                                       gtid_string_length)));
+
+    my_free(previous_gtid_set_in_file);
+    previous_gtid_set_in_file = NULL;
+  }
+
+end:
+  DBUG_PRINT("info", ("returning %d", error));
+  DBUG_RETURN(error != 0 ? true : false);
+}
+
 bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    Gtid *last_gtid, bool verify_checksum,
                                    bool need_lock, uint64_t *max_prev_hlc,
@@ -7761,6 +7829,7 @@ int binlog_change_to_apply()
   }
 
   int error= 0;
+  LOG_INFO linfo;
 
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   mysql_bin_log.lock_index();
@@ -7803,6 +7872,30 @@ int binlog_change_to_apply()
   }
 
   dump_log.switch_log(/* relay_log= */true, /* should_lock= */false);
+
+  // Purge all apply logs before the last log, because they
+  // are from the previous epoch of being a FOLLOWER, and they
+  // don't have proper Rotate events at the end.
+  mysql_bin_log.raw_get_current_log(&linfo);
+
+#ifndef EMBEDDED_LIBRARY
+  if (mysql_bin_log.purge_logs(linfo.log_file_name,
+                           false /* included */,
+                           false /*need_lock_index=false*/,
+                           true /*need_update_threads=true*/,
+                           NULL /* decrease space */,
+                           true /* auto purge */))
+  {
+    error= 1;
+    goto err;
+  }
+#endif
+
+  if (mysql_bin_log.init_prev_gtid_sets_map())
+  {
+    error= 1;
+    goto err;
+  }
 
 err:
 
