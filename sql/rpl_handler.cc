@@ -1357,16 +1357,11 @@ int Raft_replication_delegate::before_commit(THD *thd) {
 }
 
 int Raft_replication_delegate::setup_flush(
-    THD * /* thd */, bool is_relay_log, IO_CACHE *log_file_cache,
-    const char *log_prefix, const char *log_name, mysql_mutex_t *lock_log,
-    mysql_mutex_t *lock_index, mysql_cond_t *update_cond, ulong *cur_log_ext,
-    int context) {
+    THD * /* thd */, Raft_replication_observer::st_setup_flush_arg *arg) {
   DBUG_ENTER("Raft_replication_delegate::setup_flush");
   int ret = 0;
 
-  FOREACH_OBSERVER(ret, setup_flush,
-                   (is_relay_log, log_file_cache, log_prefix, log_name,
-                    lock_log, lock_index, update_cond, cur_log_ext, context));
+  FOREACH_OBSERVER(ret, setup_flush, (arg));
 
   DBUG_RETURN(ret);
 }

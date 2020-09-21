@@ -6,33 +6,25 @@
 #include <map>
 #include <vector>
 
-enum class RaftReplicateMsgOpType {
-  OP_TYPE_INVALID = 0,
-  OP_TYPE_TRX = 1,
-  OP_TYPE_ROTATE = 2,
-  OP_TYPE_NOOP = 3,
-  OP_TYPE_CHANGE_CONFIG = 4,
-};
-
 /* Type of callback that raft plugin wants to invoke in the server */
 enum class RaftListenerCallbackType {
   SET_READ_ONLY = 1,
-  UNSET_READ_ONLY = 2,
-  TRIM_LOGGED_GTIDS = 3,
-  ROTATE_BINLOG = 4,
-  ROTATE_RELAYLOG = 5,
-  RAFT_LISTENER_THREADS_EXIT = 6,
-  RLI_RELAY_LOG_RESET = 7,
-  RESET_SLAVE = 8,
-  BINLOG_CHANGE_TO_APPLY = 9,
-  BINLOG_CHANGE_TO_BINLOG = 10,
-  STOP_SQL_THREAD = 11,
-  START_SQL_THREAD = 12,
-  STOP_IO_THREAD = 13,
-  CHANGE_MASTER = 14,
-  GET_COMMITTED_GTIDS = 15,
-  GET_EXECUTED_GTIDS = 16,
-  SET_BINLOG_DURABILITY = 17,
+  TRIM_LOGGED_GTIDS = 2,
+  ROTATE_BINLOG = 3,
+  ROTATE_RELAYLOG = 4,
+  RAFT_LISTENER_THREADS_EXIT = 5,
+  RLI_RELAY_LOG_RESET = 6,
+  RESET_SLAVE = 7,
+  BINLOG_CHANGE_TO_APPLY = 8,
+  BINLOG_CHANGE_TO_BINLOG = 9,
+  STOP_SQL_THREAD = 10,
+  START_SQL_THREAD = 11,
+  STOP_IO_THREAD = 12,
+  CHANGE_MASTER = 13,
+  GET_COMMITTED_GTIDS = 14,
+  GET_EXECUTED_GTIDS = 15,
+  SET_BINLOG_DURABILITY = 16,
+  RAFT_CONFIG_CHANGE = 17,
 };
 
 /* Callback argument, each type would just populate the fields needed for its
@@ -40,14 +32,15 @@ enum class RaftListenerCallbackType {
 class RaftListenerCallbackArg {
  public:
   explicit RaftListenerCallbackArg() {}
-
   std::vector<std::string> trim_gtids = {};
   std::pair<std::string, unsigned long long> log_file_pos = {};
   bool val_bool;
   uint32_t val_uint;
   std::pair<std::string, unsigned int> master_instance;
+  std::string master_uuid;
   std::string val_str;
   std::map<std::string, unsigned int> val_sys_var_uint;
+  std::pair<int64_t, int64_t> val_opid;
 };
 
 /* Result of the callback execution in the server. This will be set in the
@@ -115,6 +108,8 @@ class RaftListenerQueueIf {
    * @return QueueElement to be processed next
    */
   virtual QueueElement get() = 0;
+
+  virtual int init() = 0;
 
   virtual void deinit() = 0;
 };

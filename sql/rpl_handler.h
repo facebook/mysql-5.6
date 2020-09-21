@@ -27,6 +27,7 @@
 #include <atomic>
 #include <map>
 
+#include <mysql_version.h>
 #include "my_alloc.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
@@ -35,7 +36,9 @@
 #include "mysql/components/services/bits/mysql_rwlock_bits.h"
 #include "mysql/components/services/bits/psi_rwlock_bits.h"
 #include "mysql/psi/mysql_rwlock.h"
-#include "raft_listener_queue_if.h"
+#include "mysql/raft_listener_queue_if.h"
+#include "mysql/raft_optype.h"  // RaftReplicateMsgOpType
+#include "mysql/raft_replication.h"
 #include "replication.h"
 #include "sql/locks/shared_spin_lock.h"  // Shared_spin_lock
 #include "sql/psi_memory_key.h"
@@ -445,10 +448,7 @@ class Raft_replication_delegate : public Delegate {
 
   int before_commit(THD *thd);
 
-  int setup_flush(THD *thd, bool is_relay_log, IO_CACHE *log_file_cache,
-                  const char *log_prefix, const char *log_name,
-                  mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-                  mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
+  int setup_flush(THD *thd, Observer::st_setup_flush_arg *arg);
 
   int before_shutdown(THD *thd);
   int register_paths(THD *thd, const std::string &s_uuid,
@@ -509,7 +509,7 @@ class RaftListenerQueue : public RaftListenerQueueIf {
    *
    * @return 0 on success, 1 on error
    */
-  int init();
+  int init() override;
 
   /* Deinit the queue. This will add an exit event into the queue which will
    * be picked up by any listening thread and it will stop listening */

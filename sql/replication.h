@@ -25,17 +25,12 @@
 
 #include "my_thread_local.h"         // my_thread_id
 #include "mysql/psi/mysql_thread.h"  // mysql_mutex_t
-#include "raft_listener_queue_if.h"  // RaftReplicateMsgOpType
 #include "rpl_context.h"
 #include "sql/handler.h"  // enum_tx_isolation
 
 #include <queue>
 
 struct MYSQL;
-#ifdef INCL_DEFINED_IN_MYSQL_SERVER
-extern bool enable_raft_plugin;
-#endif
-class RaftListenerQueueIf;
 
 #ifdef __cplusplus
 class THD;
@@ -737,118 +732,6 @@ typedef struct Binlog_relay_IO_observer {
 } Binlog_relay_IO_observer;
 
 /**
-  Raft replication observer parameter
-*/
-typedef struct Raft_replication_param {
-  uint32 server_id = 0;
-  const char *host_or_ip = nullptr;
-  int64_t term = -1;
-  int64_t index = -1;
-  uchar *gtid_buffer = nullptr;
-  uchar *metadata_buffer = nullptr;
-} Raft_replication_param;
-
-/**
-   Observe special events for Raft replication to work
-*/
-typedef struct Raft_replication_observer {
-  uint32 len;
-
-  /**
-     This callback is called before transaction commit
-     and after binlog sync.
-
-     For both non-transactional tables and transactional
-     tables this is called after binlog sync.
-
-     @param param The parameter for transaction observers
-
-     @retval 0 Sucess
-     @retval 1 Failure
-  */
-  int (*before_commit)(Raft_replication_param *param);
-
-  /**
-     This callback is called before events of a txn are written to binlog file
-
-     @param param Observer common parameter
-     @param cache IO_CACHE containing binlog events for the txn
-     @param op_type The type of operation for which before_flush is called
-
-     @retval 0 Sucess
-     @retval 1 Failure
-  */
-  int (*before_flush)(Raft_replication_param *param, IO_CACHE *cache,
-                      RaftReplicateMsgOpType op_type);
-
-  /**
-     This callback is called once upfront to setup the appropriate
-     binlog file, io_cache and its mutexes
-
-     @param is_relay_log whether the file being registered is relay or binlog
-     @param log_file_cache  the IO_CACHE pointer
-     @param log_prefix the prefix of logs e.g. /binlogs/binary-logs-3306
-     @param log_name the pointer to current log name
-     @param lock_log the mutex that protects the current log
-     @param lock_index the mutex that protects the index file
-     @param update_cond the condvar that is fired after writing to log
-     @param cur_log_ext a pointer the number of the file.
-     @param context context of the call (0 for 1st run, 1 for next time)
-
-     @retval 0 Sucess
-     @retval 1 Failure
-  */
-  int (*setup_flush)(bool is_relay_log, IO_CACHE *log_file_cache,
-                     const char *log_prefix, const char *log_name,
-                     mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-                     mysql_cond_t *update_cond, ulong *cur_log_ext,
-                     int context);
-
-  /**
-   * This callback is invoked by the server to gracefully shutdown the
-   * Raft threads
-   */
-  int (*before_shutdown)();
-
-  /**
-   * @param raft_listener_queue - the listener queue in which to add requests
-   * @param s_uuid - the uuid of the server to be used as the INSTANCE UUID
-   *                 in Raft
-   * @param wal_dir_parent - the parent directory under which raft will create
-   * config metadata
-   * @param log_dir_parent - the parent directory under which raft will create
-   * metric logs
-   * @param raft_log_path_prefix - the prefix with the dirname path which tells
-   * @param s_hostname - the proper hostname of server which can be used in
-   *                     SMC and logging
-   * @param port - the port of the server
-   * raft where to find raft binlogs.
-   */
-  int (*register_paths)(RaftListenerQueueIf *raft_listener_queue,
-                        const std::string &s_uuid,
-                        const std::string &wal_dir_parent,
-                        const std::string &log_dir_parent,
-                        const std::string &raft_log_path_prefix,
-                        const std::string &s_hostname, uint64_t port);
-
-  /**
-     This callback is called after transaction commit to engine
-
-     @param param The parameter for the observers
-
-     @retval 0 Sucess
-     @retval 1 Failure
-  */
-  int (*after_commit)(Raft_replication_param *param);
-} Raft_replication_observer;
-
-// Finer grained error code during deregister of observer
-// Observer was not present in delegate (i.e. not
-// previously added to delegate ), and should be safe
-// to ignore.
-#define MYSQL_REPLICATION_OBSERVER_NOT_FOUND 2
-
-/**
    Register a transaction observer
 
    @param observer The transaction observer to register
@@ -869,53 +752,6 @@ int register_trans_observer(Trans_observer *observer, void *p);
    @retval 1 Observer not exists
 */
 int unregister_trans_observer(Trans_observer *observer, void *p);
-
-/**
-   Register a Raft replication observer
-
-   @param observer The raft replication observer to register
-   @param p pointer to the internal plugin structure
-
-   @retval 0 Sucess
-   @retval 1 Observer already exists
-*/
-int register_raft_replication_observer(Raft_replication_observer *observer,
-                                       void *p);
-
-/**
-   Unregister a raft replication observer
-
-   @param observer The raft observer to unregister
-   @param p pointer to the internal plugin structure
-
-   @retval 0 Sucess
-   @retval 1 Observer not exists
-*/
-int unregister_raft_replication_observer(Raft_replication_observer *observer,
-                                         void *p);
-
-/*
- * An enum to control what kind of registrations the
- * plugin needs from server.
- * Currently only 2 exist.
- * RAFT_REGISTER_LOCKS - BinlogWrapper related
- * RAFT_REGISTER_PATHS - paths and ports for initial raft setup
- */
-enum Raft_Registration_Item {
-  RAFT_REGISTER_LOCKS = 0,
-  RAFT_REGISTER_PATHS = 1
-};
-
-/**
-    Ask the mysqld server to immediately register the binlog and relay
-    log files.
-
-    Eventually instead of setup_flush in both these observers we will have
-    a Raft specific delegate and observer
-    @param item whether to register locks and io_caches for binlog wrapper
-           or register paths for initial setup
-*/
-int ask_server_to_register_with_raft(Raft_Registration_Item item);
 
 /**
    Register a binlog storage observer

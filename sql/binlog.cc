@@ -9787,15 +9787,32 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
 
 int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
                                          bool is_relay_log) {
+  assert(!mysql_bin_log.is_apply_log);
   if (need_lock)
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
 
-  int err = RUN_HOOK(raft_replication, setup_flush,
-                     (thd, is_relay_log, m_binlog_file->get_io_cache(), name,
-                      log_file_name, &LOCK_log, &LOCK_index, &update_cond,
-                      0 /* TODO: &cur_log_ext does not exist */, context));
+  // TODO(luqun): assign correct values
+  ulong cur_log_ext = 0;
+  ulong signal_cnt = 0;
+
+  Raft_replication_observer::st_setup_flush_arg arg;
+  arg.log_file_cache = m_binlog_file->get_io_cache();
+  arg.log_prefix = name;
+  arg.log_name = log_file_name;
+  arg.cur_log_ext = &cur_log_ext;
+  arg.endpos_log_name = binlog_file_name;
+  arg.endpos = &atomic_binlog_end_pos;
+  arg.signal_cnt = &signal_cnt;
+  arg.lock_log = &LOCK_log;
+  arg.lock_index = &LOCK_index;
+  arg.lock_end_pos = &LOCK_binlog_end_pos;
+  arg.update_cond = &update_cond;
+  arg.context = context;
+  arg.is_relay_log = is_relay_log;
+
+  int err = RUN_HOOK(raft_replication, setup_flush, (thd, &arg));
 
   if (need_lock) mysql_mutex_unlock(&LOCK_log);
 
