@@ -65,13 +65,19 @@ typedef intptr_t intptr;
 // These are not defined as [u]int64_t, since we have code that assumes that
 // [u]int64 == [unsigned] long long. This is also legacy behavior; use
 // [u]int64_t when possible.
+#if !defined(HAVE_INT64)
 typedef long long int64;
+#endif
+#if !defined(HAVE_UINT64)
 typedef unsigned long long uint64;
+#endif
 
 // We have both ulonglong and my_ulonglong, which can be different. Don't use
 // any of them in new code; use [u]int64_t.
 typedef long long int longlong;
+#if !defined(HAVE_ULONGLONG)
 typedef unsigned long long int ulonglong;
+#endif
 #if defined(_WIN32)
 typedef unsigned __int64 my_ulonglong;
 #else
