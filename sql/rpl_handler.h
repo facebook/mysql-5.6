@@ -36,7 +36,7 @@
 #include "sql/sql_list.h"        // List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
 #include "replication.h"
-#include "raft_listener_queue_if.h"
+#include "mysql/raft_plugin.h" // RaftReplicateMsgOpType
 
 class Master_info;
 class String;
