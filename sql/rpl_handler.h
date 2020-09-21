@@ -35,7 +35,7 @@
 #include "mysql/components/services/mysql_rwlock_bits.h"
 #include "mysql/components/services/psi_rwlock_bits.h"
 #include "mysql/psi/mysql_rwlock.h"
-#include "raft_listener_queue_if.h"
+#include "mysql/raft_plugin.h"  // RaftReplicateMsgOpType
 #include "replication.h"
 #include "sql/locks/shared_spin_lock.h"  // Shared_spin_lock
 #include "sql/sql_list.h"                // List
