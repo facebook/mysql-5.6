@@ -38,7 +38,26 @@ SET(HEADERS
   mysql_time.h
   ${CMAKE_CURRENT_BINARY_DIR}/mysql_version.h
   ${CMAKE_CURRENT_BINARY_DIR}/mysqld_error.h
+  ${CMAKE_CURRENT_BINARY_DIR}/my_config.h
+  m_string.h
+  my_sys.h
   field_types.h
+  lex_string.h
+  my_inttypes.h
+  my_macros.h
+  my_compiler.h
+  my_loglevel.h
+  my_sharedlib.h
+  my_psi_config.h
+  thr_mutex.h
+  my_dbug.h
+  my_thread.h
+  thr_cond.h
+  my_io.h
+  my_byteorder.h
+  little_endian.h
+  big_endian.h
+  template_utils.h
 )
 SET(HEADERS_MYSQL_DIR
   mysql/client_plugin.h
@@ -49,6 +68,31 @@ SET(HEADERS_MYSQL_DIR
   mysql/plugin_audit_message_types.h
   mysql/status_var.h
   mysql/udf_registration_types.h
+  mysql/raft_plugin.h
+  mysql/service_mysql_alloc.h
+)
+SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
+  mysql/components/services/my_io_bits.h
+  mysql/components/services/mysql_cond_bits.h
+  mysql/components/services/mysql_mutex_bits.h
+  mysql/components/services/psi_file_bits.h
+  mysql/components/services/psi_memory_bits.h
+  mysql/components/services/psi_stage_bits.h
+  mysql/components/services/thr_cond_bits.h
+  mysql/components/services/thr_mutex_bits.h
+  mysql/components/services/psi_mutex_bits.h
+  mysql/components/services/my_thread_bits.h
+  mysql/components/services/psi_cond_bits.h
+)
+SET(HEADERS_MYSQL_PSI_DIR
+  mysql/psi/psi_base.h
+  mysql/psi/mysql_mutex.h
+  mysql/psi/psi_mutex.h
+  mysql/psi/mysql_cond.h
+  mysql/psi/psi_cond.h
+)
+SET(HEADERS_SQL_DIR
+  ../sql/stream_cipher.h
 )
 
 INSTALL(FILES ${HEADERS}
@@ -60,6 +104,18 @@ INSTALL(FILES ${HEADERS_MYSQL_DIR}
   DESTINATION ${INSTALL_INCLUDEDIR}/mysql
   COMPONENT Development
   )
+
+INSTALL(FILES ${HEADERS_MYSQL_COMPONENTS_SERVICES_DIR}
+  DESTINATION ${INSTALL_INCLUDEDIR}/mysql/components/services
+  COMPONENT Development)
+
+INSTALL(FILES ${HEADERS_MYSQL_PSI_DIR}
+  DESTINATION ${INSTALL_INCLUDEDIR}/mysql/psi
+  COMPONENT Development)
+
+INSTALL(FILES ${HEADERS_SQL_DIR}
+  DESTINATION ${INSTALL_INCLUDEDIR}/sql
+  COMPONENT Development)
 
 # openssl/applink.c must be built into applications linking with libmysql.dll
 IF (WIN32 AND OPENSSL_APPLINK_C)
