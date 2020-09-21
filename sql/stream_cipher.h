@@ -28,6 +28,15 @@
 #include <string>
 
 /**
+ openssl/aes.h define a macro:
+  # define AES_BLOCK_SIZE 16
+  This macro conflict with AES_BLOCK_SIZE variable definition in this file
+ */
+#if defined(AES_BLOCK_SIZE)
+#pragma push_macro("AES_BLOCK_SIZE")
+#undef AES_BLOCK_SIZE
+#endif
+/**
   @file stream_cipher.h
 
   @brief This file includes core components for encrypting/decrypting
@@ -228,4 +237,8 @@ class Aes_ctr_cipher : public Stream_cipher {
 
 typedef class Aes_ctr_cipher<Cipher_type::ENCRYPT> Aes_ctr_encryptor;
 typedef class Aes_ctr_cipher<Cipher_type::DECRYPT> Aes_ctr_decryptor;
+
+#if defined(AES_BLOCK_SIZE)
+#pragma pop_macro("AES_BLOCK_SIZE")
+#endif
 #endif  // STREAM_CIPHER_INCLUDED

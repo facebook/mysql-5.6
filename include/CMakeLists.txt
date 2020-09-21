@@ -30,6 +30,7 @@ DISABLE_MISSING_PROFILE_WARNING()
 # automatically generated.
 SET(HEADERS
   errmsg.h
+  my_checksum.h
   my_command.h
   my_compress.h
   my_sqlcommand.h
@@ -40,7 +41,25 @@ SET(HEADERS
   mysql_time.h
   ${CMAKE_CURRENT_BINARY_DIR}/mysql_version.h
   ${CMAKE_CURRENT_BINARY_DIR}/mysqld_error.h
+  ${CMAKE_CURRENT_BINARY_DIR}/my_config.h
+  m_string.h
+  my_sys.h
   field_types.h
+  lex_string.h
+  my_inttypes.h
+  my_macros.h
+  my_compiler.h
+  my_loglevel.h
+  my_sharedlib.h
+  my_psi_config.h
+  thr_mutex.h
+  my_dbug.h
+  my_thread.h
+  thr_cond.h
+  my_io.h
+  my_byteorder.h
+  template_utils.h
+  typelib.h
 )
 SET(HEADERS_MYSQL_DIR
   mysql/client_plugin.h
@@ -51,6 +70,29 @@ SET(HEADERS_MYSQL_DIR
   mysql/plugin_audit_message_types.h
   mysql/status_var.h
   mysql/udf_registration_types.h
+  mysql/service_mysql_alloc.h
+)
+SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
+  mysql/components/services/bits/my_io_bits.h
+  mysql/components/services/bits/mysql_cond_bits.h
+  mysql/components/services/bits/mysql_mutex_bits.h
+  mysql/components/services/bits/psi_file_bits.h
+  mysql/components/services/bits/psi_memory_bits.h
+  mysql/components/services/bits/psi_stage_bits.h
+  mysql/components/services/bits/thr_cond_bits.h
+  mysql/components/services/bits/thr_mutex_bits.h
+  mysql/components/services/bits/psi_mutex_bits.h
+  mysql/components/services/bits/my_thread_bits.h
+  mysql/components/services/bits/psi_cond_bits.h
+)
+SET(HEADERS_MYSQL_PSI_DIR
+  mysql/psi/mysql_mutex.h
+  mysql/psi/psi_mutex.h
+  mysql/psi/mysql_cond.h
+  mysql/psi/psi_cond.h
+)
+SET(HEADERS_SQL_DIR
+  ../sql/stream_cipher.h
 )
 
 OPTION(INSTALL_EXTRA_HEADERS "Install additional headers" OFF)
@@ -232,6 +274,7 @@ INSTALL(FILES ${HEADERS_SQL_CONN_HANDLER_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/
 INSTALL(FILES ${HEADERS_SQL_DD_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql/dd COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_DD_TYPES_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql/dd/types COMPONENT Development)
 INSTALL(FILES ${HEADERS_SQL_GIS_DIR} DESTINATION ${INSTALL_INCLUDEDIR}/sql/gis COMPONENT Development)
+
 
 # openssl/applink.c must be built into applications linking with libmysql.dll
 IF (WIN32 AND OPENSSL_APPLINK_C)

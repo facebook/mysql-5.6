@@ -52,7 +52,9 @@ typedef unsigned char uchar; /* Short for unsigned char */
 
 // Don't use these in new code; use [u]int64_t.
 typedef long long int longlong;
+#if !defined(HAVE_ULONGLONG)
 typedef unsigned long long int ulonglong;
+#endif
 
 // Legacy typedefs. Prefer the standard intXX_t (or std::intXX_t) to these.
 // Note that the Google C++ style guide says you should generally not use
@@ -64,8 +66,12 @@ typedef int16_t int16;
 typedef uint16_t uint16;
 typedef int32_t int32;
 typedef uint32_t uint32;
+#if !defined(HAVE_INT64)
 typedef int64_t int64;
+#endif
+#if !defined(HAVE_UINT64)
 typedef uint64_t uint64;
+#endif
 typedef intptr_t intptr;
 
 typedef ulonglong my_off_t;
