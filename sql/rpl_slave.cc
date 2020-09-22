@@ -325,11 +325,11 @@ static void set_thd_tx_priority(THD *thd, int priority) {
   DBUG_VOID_RETURN;
 }
 
-static void log_slave_command(THD *thd, const char *cmd) {
+static void log_slave_command(THD *thd) {
   Security_context *sctx = thd->security_context();
   if (!sctx) return;
   sql_print_information("Executing slave command '%s' by user %s from host %s",
-                        (cmd), sctx->user().str, sctx->host().str);
+                        thd->query().str, sctx->user().str, sctx->host().str);
 }
 
 /*
@@ -8749,7 +8749,7 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
     }
   }
 
-  log_slave_command(thd, "START SLAVE");
+  log_slave_command(thd);
 
   lock_slave_threads(mi);  // this allows us to cleanly read slave_running
   // Get a mask of _stopped_ threads
@@ -9032,7 +9032,7 @@ int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
     DBUG_RETURN(1);
   }
 
-  log_slave_command(thd, "STOP SLAVE");
+  log_slave_command(thd);
 
   mi->channel_wrlock();
 
@@ -9126,7 +9126,7 @@ int reset_slave(THD *thd) {
   Master_info *mi = nullptr;
   int result = 0;
   mi_map::iterator it, gr_channel_map_it;
-  log_slave_command(thd, "RESET SLAVE");
+  log_slave_command(thd);
   if (thd->lex->reset_slave_info.all) {
     /* First do reset_slave for default channel */
     mi = channel_map.get_default_channel_mi();
@@ -9755,7 +9755,7 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
   my_off_t saved_log_pos = 0;
 
   DBUG_ENTER("change_master");
-  log_slave_command(thd, "CHANGE MASTER");
+  log_slave_command(thd);
 
   /*
     CHANGE MASTER command should ignore 'read-only' and 'super_read_only'
