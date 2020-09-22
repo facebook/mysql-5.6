@@ -302,7 +302,7 @@ int slave_worker_exec_job(Slave_worker * w, Relay_log_info *rli);
 static int mts_event_coord_cmp(LOG_POS_COORD *id1, LOG_POS_COORD *id2);
 
 
-static void log_slave_command(THD *thd, const char *cmd)
+static void log_slave_command(THD *thd)
 {
   if (!thd->security_ctx || !thd->security_ctx->user)
     return;
@@ -311,9 +311,10 @@ static void log_slave_command(THD *thd, const char *cmd)
   const char *host = thd->security_ctx->host_or_ip[0] ?
     thd->security_ctx->host_or_ip :
     (char *)thd->security_ctx->get_host()->ptr();
+  const char *query = thd->query();
 
   sql_print_information("Executing slave command '%s' by user %s from host %s",
-                        (cmd), user , host);
+                        query, user , host);
 }
 
 /*
@@ -9248,7 +9249,7 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
 #endif
   }
 
-  log_slave_command(thd, "START SLAVE");
+  log_slave_command(thd);
 
   lock_slave_threads(mi);  // this allows us to cleanly read slave_running
   // Get a mask of _stopped_ threads
@@ -9477,7 +9478,7 @@ int stop_slave(THD* thd, Master_info* mi, bool net_report )
   if (check_access(thd, SUPER_ACL, any_db, NULL, NULL, 0, 0))
     DBUG_RETURN(1);
 
-  log_slave_command(thd, "STOP SLAVE");
+  log_slave_command(thd);
 
   THD_STAGE_INFO(thd, stage_killing_slave);
   int thread_mask;
@@ -9554,7 +9555,7 @@ int reset_slave(THD *thd, Master_info* mi)
     goto err;
   }
 
-  log_slave_command(thd, "RESET SLAVE");
+  log_slave_command(thd);
   ha_reset_slave(thd);
 
   // delete relay logs, clear relay log coordinates
@@ -9626,7 +9627,7 @@ bool change_master(THD* thd, Master_info* mi)
     goto err;
   }
   thread_mask= SLAVE_IO | SLAVE_SQL;
-  log_slave_command(thd, "CHANGE MASTER");
+  log_slave_command(thd);
 
   THD_STAGE_INFO(thd, stage_changing_master);
   /*
