@@ -1411,7 +1411,7 @@ ulonglong max_sql_stats_size;
   (statistics, text, client attributes, plans)
 */
 ulonglong sql_stats_count= 0;
-ulonglong sql_stats_size= 0;
+ulonglong sql_stats_size= 0; // extern from mysqld.h
 
 extern ulonglong sql_plans_size;
 ulonglong sql_findings_size = 0;

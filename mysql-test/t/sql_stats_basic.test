@@ -15,6 +15,8 @@ select @@sql_stats_control;
 select 42;
 select sql_id, plan_id, table_schema, user_name, execution_count
 from information_schema.sql_statistics;
+--echo Zero sql_stats_size initially/when-disabled
+SHOW STATUS LIKE 'sql_stats_size';
 
 ####################################################
 ### Case 2: sql_stats_control=ON, Data will be stored in sql_statistics.
@@ -115,7 +117,9 @@ from information_schema.sql_statistics, information_schema.sql_text
 where information_schema.sql_statistics.sql_id=information_schema.sql_text.sql_id
 order by sql_id;
 
-
+# Final since this select can also update the ctrs we check earlier
+--echo Check if nonzero sql_stats_size
+select case when VARIABLE_VALUE > 0 then "NON-ZERO" else "ZERO" end as zerocheck from information_schema.global_status where variable_name = 'SQL_STATS_SIZE';
 ####################################################
 ### Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
 ####################################################

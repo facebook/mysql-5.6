@@ -11067,6 +11067,7 @@ SHOW_VAR status_vars[]= {
   {"Sort_range",               (char*) offsetof(STATUS_VAR, filesort_range_count), SHOW_LONGLONG_STATUS},
   {"Sort_rows",                (char*) offsetof(STATUS_VAR, filesort_rows), SHOW_LONGLONG_STATUS},
   {"Sort_scan",                (char*) offsetof(STATUS_VAR, filesort_scan_count), SHOW_LONGLONG_STATUS},
+  {"sql_stats_size",           (char*) &sql_stats_size, SHOW_LONGLONG},
   {"sql_stats_snapshot",       (char*) &sql_stats_snapshot_status, SHOW_BOOL},
 #ifdef HAVE_OPENSSL
 #ifndef EMBEDDED_LIBRARY

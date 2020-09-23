@@ -1128,6 +1128,7 @@ enum enum_sql_info_control
 extern ulong sql_stats_control;
 extern ulonglong max_sql_stats_count;
 extern ulonglong max_sql_stats_size;
+extern ulonglong sql_stats_size;
 
 /* Global variable to control collecting column statistics */
 extern ulong column_stats_control;

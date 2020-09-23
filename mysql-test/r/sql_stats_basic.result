@@ -10,6 +10,10 @@ select 42;
 select sql_id, plan_id, table_schema, user_name, execution_count
 from information_schema.sql_statistics;
 sql_id	plan_id	table_schema	user_name	execution_count
+Zero sql_stats_size initially/when-disabled
+SHOW STATUS LIKE 'sql_stats_size';
+Variable_name	Value
+sql_stats_size	0
 Case 2: sql_stats_control=ON
 set @@GLOBAL.sql_stats_control="ON";
 select @@sql_stats_control;
@@ -165,6 +169,10 @@ b0d1c8aef69877d3fd8ccbcf92a899f3	test	user_super	5	INSERT INTO `t1` VALUES (?)
 b83dc7fc415c9cbdb49b1bdf3f8272e1	test	user_super	1	SELECT @@`sql_plans_control` 
 e27c5cdf6a99b5400d5394fed7999a27	test	user_super	1	SELECT @@`sql_stats_control` 
 f3923e96b3200fb797805a1622d50fce	test	user_super	1	SET @@GLOBAL . `sql_plans_control` = ON 
+Check if nonzero sql_stats_size
+select case when VARIABLE_VALUE > 0 then "NON-ZERO" else "ZERO" end as zerocheck from information_schema.global_status where variable_name = 'SQL_STATS_SIZE';
+zerocheck
+NON-ZERO
 Case 3: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
 set @@GLOBAL.sql_stats_control="OFF_SOFT";
 select @@sql_stats_control;
@@ -186,6 +194,7 @@ tmp_table_disk_usage, filesort_disk_usage
 from information_schema.sql_statistics
 order by sql_id;
 sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
+002b749cf87f06601805cad525c9460a	4747e34c854d3849c6d4422b9a38ab68	test	user_super	1	0	0	0	0	1	0	0	0	0
 01e7397e2cdbee57e94c0ca56c396aa7	2eea1bb868964e5a66a4f786e40cfbf3	test	user_super	1	0	0	0	0	16	0	0	0	0
 0448f3d24e4d02752389c951b6da98b1	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
 0660aff6405a986b61bcf96e3c9c0eeb	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3	0	0	0	0
