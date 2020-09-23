@@ -77,44 +77,4 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
     }
   }
 
-  // Hook into arcanist lifecycle to resolve to a custom workflow.
-  public function buildWorkflow($command) {
-    $workflow_name = self::resolveTrueWorkflowName($command);
-    return parent::buildWorkflow($workflow_name);
-  }
-
-  // Maps user-facing workflow names to the underlying workflows
-  public static function resolveTrueWorkflowName($command) {
-    $argv = idx($_SERVER, 'argv');
-    // This is a map of available commands and any flags the actually map to a
-    // different workflow. Your own project may have more complicated needs.
-    $flag_map = array(
-      'land' => array(
-        '--async' => 'landcastle',
-      ),
-    );
-
-    if ($argv && isset($flag_map[$command])) {
-      foreach ($flag_map[$command] as $flag => $workflow) {
-        if (in_array($flag, $argv)) {
-          return $workflow;
-        }
-      }
-    }
-
-    // All other commands should just map directly. Your project may have more
-    // complicated needs.
-    return $command;
-  }
-
-  public function getCustomArgumentsForCommand($command) {
-    if ($command === 'land') {
-      return array(
-        'async' => array(
-          'help' => 'Land revision via Landcastle.'
-        ),
-      );
-    }
-    return array();
-  }
 }
