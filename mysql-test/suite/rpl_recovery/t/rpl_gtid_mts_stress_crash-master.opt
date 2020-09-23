@@ -1,2 +1,3 @@
 --gtid-mode=ON --enforce-gtid-consistency
 --binlog-rows-query-log-events=TRUE
+--skip-rocksdb

@@ -503,9 +503,13 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
         global_sid_lock->unlock();
       }
 
-      sql_print_information(
-          "Current chosen binlog position (%s,%llu), max gtid %s",
-          info->binlog_file, *info->binlog_pos, gtid_buf);
+      if (info->binlog_file[0]) {
+        sql_print_information(
+            "Plugin '%s': Current chosen binlog position (%s,%llu), max gtid "
+            "%s",
+            plugin_name(plugin)->str, info->binlog_file, *info->binlog_pos,
+            gtid_buf);
+      }
     }
 
     while (
@@ -513,7 +517,6 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
              hton, info->list, info->len,
              Recovered_xa_transactions::instance().get_allocated_memroot())) >
         0) {
-
       LogErr(INFORMATION_LEVEL, ER_XA_RECOVER_FOUND_TRX_IN_SE, got,
              ha_resolve_storage_engine_name(hton));
       for (int i = 0; i < got; i++) {

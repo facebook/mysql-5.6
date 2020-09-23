@@ -8750,8 +8750,8 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
        * coordinates in init_slave().
        */
       int memory_page_size = my_getpagesize();
-      char tmp_binlog_file[FN_REFLEN + 1];
-      my_off_t tmp_binlog_pos;
+      char tmp_binlog_file[FN_REFLEN + 1] = {0};
+      my_off_t tmp_binlog_pos = 0;
       MEM_ROOT mem_root(key_memory_binlog_recover_exec, memory_page_size);
       xid_to_gtid_container xids(&mem_root);
       /*
@@ -9453,7 +9453,6 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
     const char *binlog_file;
     my_off_t binlog_pos;
     const char *max_gtid_var;
-    int len;
     char last_char = ha_last_updated_binlog_file;
 
     /*
@@ -9465,8 +9464,10 @@ void MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first) {
                    &max_gtid_var);
 
     /* Compare the last character of the filename to detect log rotation */
-    len = strlen(binlog_file);
-    if (len > 0) last_char = binlog_file[len - 1];
+    if (binlog_file) {
+      int len = strlen(binlog_file);
+      if (len > 0) last_char = binlog_file[len - 1];
+    }
 
     /*
      This is just a partial check (offset comparison without
