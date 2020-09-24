@@ -1,0 +1,253 @@
+# Description
+# -----------
+# Testing json functions comparison on literal strings
+
+--echo #
+--echo # json_extract comparison semantics
+--echo #
+
+--echo # test string returned by json_extract
+select json_extract('{"locale": "zh_HK"}', "locale") = 'zh_HK';
+select json_extract('{"locale": "zh_HK"}', "locale") = '"zh_HK"';
+select json_extract('{"locale": "zh_HK"}', "locale") = '\"zh_HK\"';
+select 'zh_HK' = json_extract('{"locale": "zh_HK"}', "locale");
+select '"zh_HK"' = json_extract('{"locale": "zh_HK"}', "locale");
+select '\"zh_HK\"' = json_extract('{"locale": "zh_HK"}', "locale");
+
+--echo # test string containing integers returned by json_extract
+select json_extract('{"k1":"5432"}', "k1") = '5432';
+select json_extract('{"k1":"5432"}', "k1") = '"5432"';
+select json_extract('{"k1":"5432"}', "k1") = '\"5432\"';
+select json_extract('{"k1":"5432"}', "k1") = 5432;
+select '5432' = json_extract('{"k1":"5432"}', "k1");
+select '"5432"' = json_extract('{"k1":"5432"}', "k1");
+select '\"5432\"' = json_extract('{"k1":"5432"}', "k1");
+select 5432 = json_extract('{"k1":"5432"}', "k1");
+select json_extract('{"k1":"43210"}', "k1") < '"5432"';
+select json_extract('{"k1":"631"}', "k1") < '"5432"';
+select '"5432"' > json_extract('{"k1":"43210"}', "k1");
+select '"5432"' > json_extract('{"k1":"631"}', "k1");
+select json_extract('{"k1":"1"}', "k1") < 5432;
+select json_extract('{"k1":"9999"}', "k1") < 5432;
+select 5432 > json_extract('{"k1":"1"}', "k1");
+select 5432 > json_extract('{"k1":"9999"}', "k1");
+
+--echo # test integer returned by json_extract
+select json_extract('{"k1":5432}', "k1") = '5432';
+select json_extract('{"k1":5432}', "k1") = 5432;
+select json_extract('{"k1":5432}', "k1") = '"5432"';
+select '5432' = json_extract('{"k1":5432}', "k1");
+select 5432 = json_extract('{"k1":5432}', "k1");
+select '"5432"' = json_extract('{"k1":5432}', "k1");
+select json_extract('{"k1":43210}', "k1") < 5432;
+select json_extract('{"k1":631}', "k1") < 5432;
+select 5432 > json_extract('{"k1":43210}', "k1");
+select 5432 > json_extract('{"k1":631}', "k1");
+select json_extract('{"k1":43210}', "k1") < '5432';
+select json_extract('{"k1":631}', "k1") < '5432';
+select '5432' > json_extract('{"k1":43210}', "k1");
+select '5432' > json_extract('{"k1":631}', "k1");
+
+--echo # test null returned by json_extract
+select json_extract('{"k1":null}', "k1") = null;
+select json_extract('{"k1":null}', "k1") = 'null';
+select json_extract('{"k1":null}', "k1") = '"null"';
+select json_extract('{"k1":"null"}', "k1") = '"null"';
+select null = json_extract('{"k1":null}', "k1");
+select 'null' = json_extract('{"k1":null}', "k1");
+select '"null"' = json_extract('{"k1":null}', "k1");
+select '"null"' = json_extract('{"k1":"null"}', "k1");
+select null > json_extract('{"k1":"null"}', "k1");
+select json_extract('{"k1":"null"}', "k1") < null;
+
+--echo # test Boolean returned by json_extract
+select json_extract('{"k1":true}', "k1") = true;
+select json_extract('{"k1":true}', "k1") = false;
+select json_extract('{"k1":false}', "k1") = true;
+select json_extract('{"k1":false}', "k1") = false;
+select json_extract('{"k1":true}', "k1") = 'true';
+select json_extract('{"k1":true}', "k1") = 'false';
+select json_extract('{"k1":false}', "k1") = 'true';
+select json_extract('{"k1":false}', "k1") = 'false';
+select json_extract('{"k1":true}', "k1") = '"true"';
+select json_extract('{"k1":true}', "k1") = '"false"';
+select json_extract('{"k1":false}', "k1") = '"true"';
+select json_extract('{"k1":false}', "k1") = '"false"';
+select true = json_extract('{"k1":true}', "k1");
+select false = json_extract('{"k1":true}', "k1");
+select true = json_extract('{"k1":false}', "k1");
+select false = json_extract('{"k1":false}', "k1");
+select 'true' = json_extract('{"k1":true}', "k1");
+select 'false' = json_extract('{"k1":true}', "k1");
+select 'true' = json_extract('{"k1":false}', "k1");
+select 'false' = json_extract('{"k1":false}', "k1");
+select '"true"' = json_extract('{"k1":true}', "k1");
+select '"false"' = json_extract('{"k1":true}', "k1");
+select '"true"' = json_extract('{"k1":false}', "k1");
+select '"false"' = json_extract('{"k1":false}', "k1");
+select true = json_extract('{"k1":"true"}', "k1");
+select false = json_extract('{"k1":"false"}', "k1");
+select json_extract('{"k1":"false"}', "k1") = false;
+select json_extract('{"k1":"true"}', "k1") = true;
+
+--echo # test double returned by json_extract
+select json_extract('{"k1":5432.123}', "k1") = '5432.123';
+select json_extract('{"k1":5432.123}', "k1") = 5432.123;
+select json_extract('{"k1":5432.123}', "k1") = '"5432.123"';
+select '5432.123' = json_extract('{"k1":5432.123}', "k1");
+select 5432.123 = json_extract('{"k1":5432.123}', "k1");
+select '"5432.123"' = json_extract('{"k1":5432.123}', "k1");
+select json_extract('{"k1":43210.123}', "k1") < 5432;
+select json_extract('{"k1":631.123}', "k1") < 5432;
+select 5432 > json_extract('{"k1":43210.123}', "k1");
+select 5432 > json_extract('{"k1":631.123}', "k1");
+select json_extract('{"k1":43210.123}', "k1") < '5432';
+select json_extract('{"k1":631.123}', "k1") < '5432';
+select '5432' > json_extract('{"k1":43210.123}', "k1");
+select '5432' > json_extract('{"k1":631.123}', "k1");
+select json_extract('{"k1":"1.1"}', "k1") < 5432.123;
+select json_extract('{"k1":"9999.1"}', "k1") < 5432.123;
+select 5432.123 > json_extract('{"k1":"1.1"}', "k1");
+select 5432.123 > json_extract('{"k1":"9999.1"}', "k1");
+
+--echo # test json object returned by json_extract
+select json_extract('{"k1":{"k2":"v2"}}', "k1") = '{"k2":"v2"}';
+select json_extract('{"k1":{"k2":"v2"}}', "k1") = '{\"k2\":\"v2\"}';
+select json_extract('{"k1":{"k2":"v2"}}', "k1") = '\"{\"k2\":\"v2\"}\"';
+select json_extract('{"k1":{"k2":"v2"}}', "k1") = '{"k2" :"v2"}';
+select '{"k2":"v2"}' = json_extract('{"k1":{"k2":"v2"}}', "k1");
+select '{\"k2\":\"v2\"}' = json_extract('{"k1":{"k2":"v2"}}', "k1");
+select '\"{\"k2\":\"v2\"}\"' = json_extract('{"k1":{"k2":"v2"}}', "k1");
+select '{"k2" :"v2"}' = json_extract('{"k1":{"k2":"v2"}}', "k1");
+select json_extract('{"k1":{"k3":"v3"}}', "k1") = json_extract('{"k1":{"k2":{"k3":"v3"}}}', "k1", "k2");
+select json_extract('{"k1":{"k3":"v3"}}', "k1") = json_extract('{"k1":{"k2":{"k4":"v4"}}}', "k1", "k2");
+select json_extract('{"k1":[1,{"k3":"v3"}]}', "k1") = '[1,{"k3":"v3"}]';
+select json_extract('{"k1":[1,{"k3":"v3"}]}', "k1") = '[1,{"k3": "v3"}]';
+select '[1,{"k3":"v3"}]' = json_extract('{"k1":[1,{"k3":"v3"}]}', "k1");
+select '[1,{"k3": "v3"}]' = json_extract('{"k1":[1,{"k3":"v3"}]}', "k1");
+select json_extract('{"k1":[1,2]}', "k1") = json_extract('{"k1":{"k2":[1,2]}}', "k1", "k2");
+select json_extract('{"k1":[1,2]}', "k1") = json_extract('{"k1":{"k2":[1,3]}}', "k1", "k2");
+
+--echo #
+--echo # json_extract_value comparison semantics
+--echo #
+
+--echo # test string returned by json_extract_value
+select json_extract_value('{"locale": "zh_HK"}', "locale") = 'zh_HK';
+select json_extract_value('{"locale": "zh_HK"}', "locale") = '"zh_HK"';
+select 'zh_HK' = json_extract_value('{"locale": "zh_HK"}', "locale");
+select '"zh_HK"' = json_extract_value('{"locale": "zh_HK"}', "locale");
+
+--echo # test string containing integers returned by json_extract_value
+select json_extract_value('{"k1":"5432"}', "k1") = '5432';
+select json_extract_value('{"k1":"5432"}', "k1") = 5432;
+select json_extract_value('{"k1":"5432"}', "k1") = '\"5432\"';
+select '5432' = json_extract_value('{"k1":"5432"}', "k1");
+select 5432 = json_extract_value('{"k1":"5432"}', "k1");
+select '\"5432\"' = json_extract_value('{"k1":"5432"}', "k1");
+select json_extract_value('{"k1":"43210"}', "k1") < 5432;
+select json_extract_value('{"k1":"631"}', "k1") < 5432;
+select json_extract_value('{"k1":"43210"}', "k1") < '"5432"';
+select json_extract_value('{"k1":"631"}', "k1") < '"5432"';
+select json_extract_value('{"k1":"43210"}', "k1") < '5432';
+select json_extract_value('{"k1":"631"}', "k1") < '5432';
+
+--echo # test string containing double returned by json_extract_value
+select json_extract_value('{"k1":"5432.123"}', "k1") = '5432.123';
+select json_extract_value('{"k1":"5432.123"}', "k1") = 5432.123;
+select json_extract_value('{"k1":"5432.123"}', "k1") = '\"5432.123\"';
+select '5432.123' = json_extract_value('{"k1":"5432.123"}', "k1");
+select 5432.123 = json_extract_value('{"k1":"5432.123"}', "k1");
+select '\"5432.123\"' = json_extract_value('{"k1":"5432.123"}', "k1");
+select json_extract_value('{"k1":"43210.123"}', "k1") < 5432.123;
+select json_extract_value('{"k1":"631.123"}', "k1") < 5432.123;
+select json_extract_value('{"k1":"43210.123"}', "k1") < '"5432.123"';
+select json_extract_value('{"k1":"631.123"}', "k1") < '"5432.123"';
+select json_extract_value('{"k1":"43210.123"}', "k1") < '5432.123';
+select json_extract_value('{"k1":"631.123"}', "k1") < '5432.123';
+
+--echo # test integers returned by json_extract_value
+select json_extract_value('{"k1":5432}', "k1") = '5432';
+select json_extract_value('{"k1":5432}', "k1") = 5432;
+select json_extract_value('{"k1":5432}', "k1") = '\"5432\"';
+select '5432' = json_extract_value('{"k1":5432}', "k1");
+select 5432 = json_extract_value('{"k1":5432}', "k1");
+select '\"5432\"' = json_extract_value('{"k1":5432}', "k1");
+select json_extract_value('{"k1":43210}', "k1") < 5432;
+select json_extract_value('{"k1":631}', "k1") < 5432;
+select json_extract_value('{"k1":43210}', "k1") < '"5432"';
+select json_extract_value('{"k1":631}', "k1") < '"5432"';
+select json_extract_value('{"k1":43210}', "k1") < '5432';
+select json_extract_value('{"k1":631}', "k1") < '5432';
+
+--echo # test double returned by json_extract_value
+select json_extract_value('{"k1":5432.123}', "k1") = '5432.123';
+select json_extract_value('{"k1":5432.123}', "k1") = 5432.123;
+select json_extract_value('{"k1":5432.123}', "k1") = '\"5432.123\"';
+select '5432.123' = json_extract_value('{"k1":5432.123}', "k1");
+select 5432.123 = json_extract_value('{"k1":5432.123}', "k1");
+select '\"5432.123\"' = json_extract_value('{"k1":5432.123}', "k1");
+select json_extract_value('{"k1":43210.123}', "k1") < 5432.123;
+select json_extract_value('{"k1":631.123}', "k1") < 5432.123;
+select json_extract_value('{"k1":43210.123}', "k1") < '"5432.123"';
+select json_extract_value('{"k1":631.123}', "k1") < '"5432.123"';
+select json_extract_value('{"k1":43210.123}', "k1") < '5432.123';
+select json_extract_value('{"k1":631.123}', "k1") < '5432.123';
+
+--echo # test null  and null literal value returned by json_extract_value
+select json_extract_value('{"k1":null}', "k1") = null;
+select json_extract_value('{"k1":null}', "k1") = 'null';
+select json_extract_value('{"k1":null}', "k1") = '"null"';
+select json_extract_value('{"k1":null}', "k1") < null;
+select json_extract_value('{"k1":"null"}', "k1") = null;
+select json_extract_value('{"k1":"null"}', "k1") = 'null';
+select json_extract_value('{"k1":"null"}', "k1") = '"null"';
+select json_extract_value('{"k1":"null"}', "k1") < null;
+
+--echo # test Boolean returned by json_extract_value
+select json_extract_value('{"k1":true}', "k1") = true;
+select json_extract_value('{"k1":true}', "k1") = false;
+select json_extract_value('{"k1":false}', "k1") = true;
+select json_extract_value('{"k1":false}', "k1") = false;
+select json_extract_value('{"k1":true}', "k1") = 'true';
+select json_extract_value('{"k1":true}', "k1") = 'false';
+select json_extract_value('{"k1":false}', "k1") = 'true';
+select json_extract_value('{"k1":false}', "k1") = 'false';
+select json_extract_value('{"k1":true}', "k1") = 1;
+select json_extract_value('{"k1":true}', "k1") = 0;
+select json_extract_value('{"k1":false}', "k1") = 1;
+select json_extract_value('{"k1":false}', "k1") = 0;
+select json_extract_value('{"k1":true}', "k1") = '1';
+select json_extract_value('{"k1":true}', "k1") = '0';
+select json_extract_value('{"k1":false}', "k1") = '1';
+select json_extract_value('{"k1":false}', "k1") = '0';
+select json_extract_value('{"k1":"true"}', "k1") = '1';
+select json_extract_value('{"k1":"true"}', "k1") = '0';
+select json_extract_value('{"k1":"false"}', "k1") = '1';
+select json_extract_value('{"k1":"false"}', "k1") = '0';
+select json_extract_value('{"k1":"false"}', "k1") = false;
+select json_extract_value('{"k1":"true"}', "k1") = true;
+select json_extract_value('{"k1":"false"}', "k1") = 0;
+select json_extract_value('{"k1":"true"}', "k1") = 1;
+select json_extract_value('{"k1":true}', "k1") > '01234';
+select json_extract_value('{"k1":true}', "k1") > 01234;
+
+--echo # test json object returned by json_extract_value
+select json_extract_value('{"k1":{"k2":"v2"}}', "k1") = '{"k2":"v2"}';
+select json_extract_value('{"k1":{"k2":"v2"}}', "k1") = '{\"k2\":\"v2\"}';
+select json_extract_value('{"k1":{"k2":"v2"}}', "k1") = '\"{\"k2\":\"v2\"}\"';
+select json_extract_value('{"k1":{"k2":"v2"}}', "k1") = '{"k2" :"v2"}';
+select json_extract_value('{"k1":{"k3":"v3"}}', "k1") = json_extract_value('{"k1":{"k2":{"k3":"v3"}}}', "k1", "k2");
+select json_extract_value('{"k1":{"k3":"v3"}}', "k1") = json_extract_value('{"k1":{"k2":{"k4":"v4"}}}', "k1", "k2");
+select json_extract_value('{"k1":{"k3":"v3"}}', "k1") = json_extract('{"k1":{"k2":{"k3":"v3"}}}', "k1", "k2");
+select json_extract_value('{"k1":{"k3":"v3"}}', "k1") = json_extract('{"k1":{"k2":{"k4":"v4"}}}', "k1", "k2");
+select json_extract('{"k1":{"k2":{"k3":"v3"}}}', "k1", "k2") = json_extract_value('{"k1":{"k3":"v3"}}', "k1");
+select json_extract('{"k1":{"k2":{"k4":"v4"}}}', "k1", "k2") = json_extract_value('{"k1":{"k3":"v3"}}', "k1");
+select json_extract_value('{"k1":[1,{"k3":"v3"}]}', "k1") = '[1,{"k3":"v3"}]';
+select json_extract_value('{"k1":[1,{"k3":"v3"}]}', "k1") = '[1,{"k3": "v3"}]';
+select json_extract_value('{"k1":[1,2]}', "k1") = json_extract_value('{"k1":{"k2":[1,2]}}', "k1", "k2");
+select json_extract_value('{"k1":[1,2]}', "k1") = json_extract_value('{"k1":{"k2":[1,3]}}', "k1", "k2");
+select json_extract_value('{"k1":[1,2]}', "k1") = json_extract('{"k1":{"k2":[1,2]}}', "k1", "k2");
+select json_extract_value('{"k1":[1,2]}', "k1") = json_extract('{"k1":{"k2":[1,3]}}', "k1", "k2");
+select json_extract('{"k1":{"k2":[1,2]}}', "k1", "k2") = json_extract_value('{"k1":[1,2]}', "k1");
+select json_extract('{"k1":{"k2":[1,3]}}', "k1", "k2") = json_extract_value('{"k1":[1,2]}', "k1");
