@@ -31,6 +31,7 @@ use mtr_match;
 our $start_from;
 our $print_testcases;
 our $skip_rpl;
+our $skip_raft;
 our $do_test;
 our $skip_test;
 our $skip_combinations;
@@ -274,6 +275,12 @@ sub collect_one_suite($)
 
   mtr_verbose("Collecting: $suite");
 
+  if ( $skip_raft and $suite eq "rpl_raft" )
+  {
+    print " - skipping suite $suite because --skip-raft is enabled\n";
+    return @cases;
+  }
+
   my $suitedir= "$::glob_mysql_test_dir"; # Default
   if ( $suite ne "main" )
   {
@@ -510,6 +517,11 @@ sub collect_one_suite($)
       {
 	foreach my $test (@cases)
 	{
+          if ( $skip_raft and $comb->{name} eq "raft" )
+          {
+            $test->{'skip'}= 1;
+            $test->{'comment'}= "No raft tests(--skip-raft)";
+          }
 
 	  next if ( $test->{'skip'} );
 

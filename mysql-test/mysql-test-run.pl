@@ -1122,6 +1122,7 @@ sub command_line_setup {
              'skip-ndbcluster|skip-ndb' => \$opt_skip_ndbcluster,
              'suite|suites=s'           => \$opt_suites,
              'skip-rpl'                 => \&collect_option,
+             'skip-raft'                => \&collect_option,
              'skip-test=s'              => \&collect_option,
              'do-test=s'                => \&collect_option,
              'start-from=s'             => \&collect_option,
@@ -6776,6 +6777,7 @@ Options to control what test suites or cases to run
                         list of suite names.
                         The default is: "$DEFAULT_SUITES"
   skip-rpl              Skip the replication test cases.
+  skip-raft             Skip raft test cases.
   big-test              Also run tests marked as "big"
   enable-disabled       Run also tests marked as disabled
   print-testcases       Don't run the tests but print details about all the
