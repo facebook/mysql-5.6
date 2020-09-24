@@ -2367,8 +2367,8 @@ bool Item_func_json_extract::val_json(Json_wrapper *wr) {
 
     if (legacy_parsing) {
       json_extract_legacy_count++;
-      if (legacy_val_json(args, arg_count, w, m_path_cache,
-                          LEGACY_JSON_NOSPACES, wr, &null_value))
+      if (legacy_val_json(args, arg_count, w, m_path_cache, LEGACY_JSON_EXTRACT,
+                          wr, &null_value))
         return error_json();
 
       return false;

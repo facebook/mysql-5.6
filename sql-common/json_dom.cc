@@ -2511,6 +2511,10 @@ int Json_wrapper::compare(const Json_wrapper &other, const CHARSET_INFO *cs,
   assert(this_type != enum_json_type::J_ERROR);
   assert(other_type != enum_json_type::J_ERROR);
 
+  if (use_legacy_json_extract_comparison(other)) {
+    return legacy_json_extract_compare(other, cs);
+  }
+
   // Check if the type tells us which value is bigger.
   int type_cmp = type_comparison[static_cast<int>(this_type)]
                                 [static_cast<int>(other_type)];
@@ -2772,6 +2776,212 @@ int Json_wrapper::compare(const Json_wrapper &other, const CHARSET_INFO *cs,
 
   assert(false); /* purecov: inspected */
   return 1;      /* purecov: inspected */
+}
+
+/*
+  Use legacy json_extract comparison semantics if either of the object
+  is created by legacy json_extract and one of the operand is string
+  type. In case none, of the objects are string type, we will
+  let Json_wrapper::compare do the comparison.
+
+  5.6 json_extract returns a string type and this string type is then used to
+  compare against other operands.
+  8.0 version of json_extract however return a json type. If any operand
+  is compared against json_extract, the operand itself is converted to
+  json type, eventually calling into Json_wrapper::compare.
+
+  In case any of the operands is a string, it is not safe to use
+  Json_wrapper::compare since it stores string differently (without
+  quotes). Also Json_wrapper::compare does not compare string with
+  any other types. However 5.6 implementation did. This function is
+  used to detect this anamoly.
+ */
+bool Json_wrapper::use_legacy_json_extract_comparison(
+    const Json_wrapper &other) const {
+  if (legacy_json_extract() != other.legacy_json_extract()) {
+    return other.type() == enum_json_type::J_STRING ||
+           other.type() == enum_json_type::J_OPAQUE ||
+           type() == enum_json_type::J_STRING ||
+           type() == enum_json_type::J_OPAQUE;
+  }
+
+  return false;
+}
+
+/*
+  Implementation of comparison semantics for legacy json_extract object
+  against other json type. This assumes that atleast one of the
+  json operands is string type.
+
+  The function converts both the operands into string in 5.6 compatible
+  way and compares them. This causes the behavior similar to 5.6 json_extract
+  comparison semantics.
+
+  The reasoning for converting both operands to string if any of the operand
+  is string is as follows:
+
+  1. In case the string object was in json object created by legacy
+     json_extract, then it must necessarily be wrapped under quotes for
+     comparison. Now that the string represenation of json object contains
+     quotes, the other operand must necessarily be converted to a string.
+
+  2. In case non json_extract json object is a string type, we convert legacy
+     object created by 5.6 json_extract into string type. This is because
+     5.6 json_extract used to return a string type. In case the other operand
+     is string, 5.6 type comparison would have done string comparison on
+     both the operands.
+ */
+int Json_wrapper::legacy_json_extract_compare(const Json_wrapper &other,
+                                              const CHARSET_INFO *cs) const {
+  const enum_json_type this_type = type();
+  const enum_json_type other_type = other.type();
+
+  switch (this_type) {
+    case enum_json_type::J_ARRAY:
+    case enum_json_type::J_OBJECT:
+    case enum_json_type::J_INT:
+    case enum_json_type::J_UINT:
+    case enum_json_type::J_DOUBLE:
+    case enum_json_type::J_DECIMAL:
+    case enum_json_type::J_BOOLEAN:
+    case enum_json_type::J_DATETIME:
+    case enum_json_type::J_TIMESTAMP:
+    case enum_json_type::J_TIME:
+    case enum_json_type::J_DATE:
+    case enum_json_type::J_NULL: {
+      /*
+        For all the types here, convert this object to string and do
+        the comparison. The other json object is guaranteed to be
+        either string or opaque type.
+       */
+      if (other_type == enum_json_type::J_OPAQUE) {
+        // String might be stored as J_OPAQUE, check this case
+        if (other.field_type() != MYSQL_TYPE_VARCHAR &&
+            other.field_type() != MYSQL_TYPE_VAR_STRING) {
+          return -1;
+        }
+      }
+
+      String this_value;
+      this_value.length(0);
+      if (to_string(&this_value, true /* json_quoted */,
+                    "legacy_json_extract_compare",
+                    JsonDocumentDefaultDepthHandler)) {
+        return type_comparison[static_cast<int>(this_type)]
+                              [static_cast<int>(other_type)];
+      }
+
+      String other_value;
+      other_value.length(0);
+      const char *other_data = other.get_data();
+      size_t other_data_length = other.get_data_length();
+      /*
+        In case the other object was created by legacy json_extact,
+        convert into string that will encapsulate the string
+        value in double quotes.
+       */
+      if (other.legacy_json_extract()) {
+        if (other.to_string(&other_value, true /* json_quoted */,
+                            "legacy_json_extract_compare",
+                            JsonDocumentDefaultDepthHandler)) {
+          return type_comparison[static_cast<int>(this_type)]
+                                [static_cast<int>(other_type)];
+        }
+        other_data = other_value.ptr();
+        other_data_length = other_value.length();
+      }
+
+      return compare_json_strings(this_value.ptr(), this_value.length(),
+                                  other_data, other_data_length, cs);
+    } break;
+    case enum_json_type::J_OPAQUE: {
+      if (other_type == enum_json_type::J_OPAQUE) {
+        /*
+          Opaque values are equal to other opaque values with the same
+          field type and the same binary representation.
+        */
+
+        int cmp = compare_numbers(field_type(), other.field_type());
+        if (cmp == 0)
+          cmp = compare_json_strings(get_data(), get_data_length(),
+                                     other.get_data(), other.get_data_length());
+
+        return cmp;
+      }
+
+      if (field_type() != MYSQL_TYPE_VARCHAR &&
+          field_type() != MYSQL_TYPE_VAR_STRING) {
+        return 1;
+      }
+    }
+      [[fallthrough]];
+    case enum_json_type::J_STRING: {
+      if (other_type == enum_json_type::J_OPAQUE) {
+        // String might be stored as J_OPAQUE, check this case
+        if (other.field_type() != MYSQL_TYPE_VARCHAR &&
+            other.field_type() != MYSQL_TYPE_VAR_STRING) {
+          return -1;
+        }
+      }
+
+      String this_value;
+      this_value.length(0);
+      const char *this_data = get_data();
+      size_t this_data_length = get_data_length();
+      if (legacy_json_extract()) {
+        /*
+          Here this object is created by legacy json_extract.
+          So we need to explicitly convert this json object to string. This
+          ensures that current json object encapsulates the string in double
+          quotes and does the comparison similar to 5.6.
+         */
+        if (to_string(&this_value, true /* json_quoted */,
+                      "legacy_json_extract_compare",
+                      JsonDocumentDefaultDepthHandler)) {
+          return type_comparison[static_cast<int>(this_type)]
+                                [static_cast<int>(other_type)];
+        }
+
+        this_data = this_value.ptr();
+        this_data_length = this_value.length();
+      }
+
+      String other_value;
+      other_value.length(0);
+      const char *other_data;
+      size_t other_data_length;
+      /*
+        Convert the other object to string for comparison. In
+        case the other json object is already string, check if
+        it is created by legacy json extract. If so, we need to
+        encapsulated the other json object into quotes. So
+        convert it into string.
+       */
+      if ((other_type != enum_json_type::J_OPAQUE &&
+           other_type != enum_json_type::J_STRING) ||
+          other.legacy_json_extract()) {
+        if (other.to_string(&other_value, true /* json_quoted */,
+                            "legacy_json_extract_compare",
+                            JsonDocumentDefaultDepthHandler)) {
+          return type_comparison[static_cast<int>(this_type)]
+                                [static_cast<int>(other_type)];
+        }
+        other_data = other_value.ptr();
+        other_data_length = other_value.length();
+      } else {
+        other_data = other.get_data();
+        other_data_length = other.get_data_length();
+      }
+
+      return compare_json_strings(this_data, this_data_length, other_data,
+                                  other_data_length, cs);
+    }
+
+    default:
+      break;
+  }
+
+  return -1;
 }
 
 /**

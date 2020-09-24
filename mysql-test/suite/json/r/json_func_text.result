@@ -709,6 +709,158 @@ ERROR 22032: Invalid JSON text in argument 1 to function json_contains: "The doc
 set session use_fb_json_functions='default';
 truncate test_json;
 #
+# json_extract compare semantics
+#
+insert into test_json values
+('Hello'),
+('"Hello"'),
+(123),
+('123'),
+('"123"'),
+(true),
+('true'),
+('"true"'),
+(false),
+('false'),
+('"false"'),
+(null),
+('null'),
+('"null"');
+select json from test_json where json_extract('{"k1":"Hello"}', 'k1') = json order by json;
+json
+"Hello"
+select json from test_json where json_extract('{"k1":123}', 'k1') = json order by json;
+json
+123
+123
+select json from test_json where json_extract('{"k1":"123"}', 'k1') = json order by json;
+json
+"123"
+select json from test_json where json_extract('{"k1":true}', 'k1') = json order by json;
+json
+true
+select json from test_json where json_extract('{"k1":"true"}', 'k1') = json order by json;
+json
+"true"
+select json from test_json where json_extract('{"k1":false}', 'k1') = json order by json;
+json
+false
+select json from test_json where json_extract('{"k1":"false"}', 'k1') = json order by json;
+json
+"false"
+select json from test_json where json_extract('{"k1":null}', 'k1') = json order by json;
+json
+null
+select json from test_json where json_extract('{"k1":"null"}', 'k1') = json order by json;
+json
+"null"
+select json from test_json where json = json_extract('{"k1":"Hello"}', 'k1') order by json;
+json
+"Hello"
+select json from test_json where json = json_extract('{"k1":123}', 'k1') order by json;
+json
+123
+123
+select json from test_json where json = json_extract('{"k1":"123"}', 'k1') order by json;
+json
+"123"
+select json from test_json where json = json_extract('{"k1":true}', 'k1') order by json;
+json
+true
+select json from test_json where json = json_extract('{"k1":"true"}', 'k1') order by json;
+json
+"true"
+select json from test_json where json = json_extract('{"k1":false}', 'k1') order by json;
+json
+false
+select json from test_json where json = json_extract('{"k1":"false"}', 'k1') order by json;
+json
+"false"
+select json from test_json where json = json_extract('{"k1":null}', 'k1') order by json;
+json
+null
+select json from test_json where json = json_extract('{"k1":"null"}', 'k1') order by json;
+json
+"null"
+truncate test_json;
+#
+# json_extract_value compare semantics
+#
+insert into test_json values
+('Hello'),
+('"Hello"'),
+(123),
+('123'),
+('"123"'),
+(1),
+('1'),
+('"1"'),
+(0),
+('0'),
+('"0"'),
+(true),
+('true'),
+('"true"'),
+(false),
+('false'),
+('"false"'),
+(null),
+('null'),
+('"null"');
+select json from test_json where json_extract_value('{"k1":"Hello"}', 'k1') = json order by json;
+json
+Hello
+select json from test_json where json_extract_value('{"k1":123}', 'k1') = json order by json;
+json
+123
+123
+select json from test_json where json_extract_value('{"k1":"123"}', 'k1') = json order by json;
+json
+123
+123
+select json from test_json where json_extract_value('{"k1":true}', 'k1') = json order by json;
+json
+1
+1
+1
+select json from test_json where json_extract_value('{"k1":"true"}', 'k1') = json order by json;
+json
+true
+select json from test_json where json_extract_value('{"k1":false}', 'k1') = json order by json;
+json
+0
+0
+0
+select json from test_json where json_extract_value('{"k1":"false"}', 'k1') = json order by json;
+json
+false
+select json from test_json where json_extract_value('{"k1":null}', 'k1') = json order by json;
+json
+select json from test_json where json_extract_value('{"k1":"null"}', 'k1') = json order by json;
+json
+null
+select json from test_json where json_extract_value('{"k1":1}', 'k1') = json order by json;
+json
+1
+1
+1
+select json from test_json where json_extract_value('{"k1":"1"}', 'k1') = json order by json;
+json
+1
+1
+1
+select json from test_json where json_extract_value('{"k1":0}', 'k1') = json order by json;
+json
+0
+0
+0
+select json from test_json where json_extract_value('{"k1":"0"}', 'k1') = json order by json;
+json
+0
+0
+0
+truncate test_json;
+#
 # cleanup
 #
 drop table test_json;

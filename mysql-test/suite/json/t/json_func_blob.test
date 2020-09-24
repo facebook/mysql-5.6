@@ -136,6 +136,16 @@ select json_extract(json, 'k1', 'k2') from test_utf32_json;
 truncate test_json;
 truncate test_utf32_json;
 
+insert into test_utf32_json values('"Hello"'), ('Hello');
+select json, json_extract('{"k1":"Hello"}', 'k1') = convert(json using utf8mb4), json = json_extract('{"k1":"Hello"}', 'k1') from test_utf32_json;
+
+truncate test_utf32_json;
+
+insert into test_utf32_json values('"开源数据库"'), ('开源数据库');
+select json, json_extract('{"k1":"开源数据库"}', 'k1') = convert(json using utf8mb4), json = json_extract('{"k1":"开源数据库"}', 'k1') from test_utf32_json;
+
+truncate test_utf32_json;
+
 --echo #
 --echo # json_extract_value
 --echo #

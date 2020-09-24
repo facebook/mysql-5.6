@@ -1161,7 +1161,7 @@ enum enum_coercion_error {
  */
 enum legacy_json_print_behavior {
   LEGACY_JSON_DISABLED,
-  LEGACY_JSON_NOSPACES,
+  LEGACY_JSON_EXTRACT,
   LEGACY_JSON_EXTRACT_VALUE
 };
 
@@ -1197,6 +1197,38 @@ class Json_wrapper {
   bool m_is_dom;  //!< Wraps a DOM iff true
 
   legacy_json_print_behavior m_legacy_json;  //!< Emulates 5.6 fb json functions
+
+  /**
+    Is json object created by legacy implementation of json_extract
+
+    @return true if object created by legacy json_extract.
+   */
+  bool legacy_json_extract() const {
+    return m_legacy_json == LEGACY_JSON_EXTRACT;
+  }
+
+  /**
+     Should legacy json_extract comparion logic be used.
+
+     @param[in] other Other json object used for comparison.
+     @return true if legacy json_extract comparison function needs to be called.
+   */
+  bool use_legacy_json_extract_comparison(const Json_wrapper &other) const;
+
+  /**
+     Compare this JSON value to another JSON value using legacy json_extract
+     semantics.
+
+     @param[in] other the other JSON value
+     @param[in] cs    if given, this charset will be used in comparison of
+                     string values
+     @retval -1 if this JSON value is less than the other JSON value
+     @retval 0 if the two JSON values are equal
+     @retval 1 if this JSON value is greater than the other JSON value
+   */
+  int legacy_json_extract_compare(const Json_wrapper &other,
+                                  const CHARSET_INFO *cs) const;
+
  public:
   /**
     Get the wrapped datetime value in the packed format.
