@@ -51,6 +51,8 @@ truncate test_json;
 
 --source suite/json/inc/fb_json_common_2.inc
 
+--source suite/json/inc/fb_json_common_3.inc
+
 --echo #
 --echo # cleanup
 --echo #
