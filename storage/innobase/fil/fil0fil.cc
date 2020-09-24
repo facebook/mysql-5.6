@@ -1435,9 +1435,10 @@ parse_db_and_table(
 			}
 
 			// Do not attempt to convert if this is a temp file.
+			// The length of sizeof(string) includes '\0'
 			if (strncmp(table_name_file,
 				    TEMP_FILE_PREFIX_INNODB,
-				    sizeof(TEMP_FILE_PREFIX_INNODB)) == 0) {
+				    sizeof(TEMP_FILE_PREFIX_INNODB) - 1) == 0) {
 				strcpy(table_name, table_name_file);
 			} else {
 				innobase_convert_to_system_charset(table_name,
