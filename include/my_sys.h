@@ -335,6 +335,17 @@ struct IO_CACHE_SHARE {
   int error;           /* Last error. */
 };
 
+/**
+some include file, such as
+https://github.com/hyperic/sigar/blob/master/include/sigar.h#L524
+#define disk_writes disk.writes
+which cause build conflict with IO_CACHE member variable name "disk_writes"
+*/
+#if defined(disk_writes)
+#pragma push_macro("disk_writes")
+#undef disk_writes
+#endif
+
 struct IO_CACHE /* Used when cacheing files */
 {
   /* Offset in file corresponding to the first byte of uchar* buffer. */
@@ -459,6 +470,9 @@ struct IO_CACHE /* Used when cacheing files */
   class compressor *compressor{nullptr};
   class decompressor *decompressor{nullptr};
 };
+#if defined(disk_writes)
+#pragma pop_macro("disk_writes")
+#endif
 
 typedef int (*qsort2_cmp)(const void *, const void *, const void *);
 
