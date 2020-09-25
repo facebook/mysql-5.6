@@ -80,7 +80,7 @@ class TestError(Exception):
   """Raised when the test cannot make forward progress"""
   pass
 
-CHARS = string.letters + string.digits
+CHARS = string.ascii_letters + string.digits
 OPTIONS = {}
 
 # max number of rows per transaction
@@ -111,15 +111,17 @@ def roll_d100(p):
   return p >= random.randint(1, 100)
 
 def sha1(x):
-  return hashlib.sha1(str(x)).hexdigest()
+  if type(x) == str:
+    x = x.encode('ascii')
+  return hashlib.sha1(x).hexdigest()
 
 def is_connection_error(exc):
   error_code = exc.args[0]
   # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
-  return (error_code == MySQLdb.constants.CR.CR_CONNECTION_ERROR or
-          error_code == MySQLdb.constants.CR.CR_CONN_HOST_ERROR or
-          error_code == MySQLdb.constants.CR.CR_SERVER_LOST or
-          error_code == MySQLdb.constants.CR.CR_SERVER_GONE_ERROR or
+  return (error_code == MySQLdb.constants.CR.CONNECTION_ERROR or
+          error_code == MySQLdb.constants.CR.CONN_HOST_ERROR or
+          error_code == MySQLdb.constants.CR.SERVER_LOST or
+          error_code == MySQLdb.constants.CR.SERVER_GONE_ERROR or
           error_code == MySQLdb.constants.ER.QUERY_INTERRUPTED or
           error_code == MySQLdb.constants.ER.SERVER_SHUTDOWN)
 
@@ -145,12 +147,12 @@ def gen_msg(idx, thread_id, request_id):
   return ''.join([msg, ' tid: %d req: %d' % (thread_id, request_id)])
 
 def execute(cur, stmt):
-  ROW_COUNT_ERROR = 18446744073709551615L
+  ROW_COUNT_ERROR = 18446744073709551615
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
     # PyMySQL CR codes has CR prefixes while MySQLdb doesn't
-    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
+    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
                                    "Possible connection error, rowcount is %d"
                                    % cur.rowcount)
 
@@ -165,7 +167,7 @@ def wait_for_workers(workers, min_active = 0):
   try:
     while threading.active_count() > min_active:
       time.sleep(1)
-  except KeyboardInterrupt, e:
+  except KeyboardInterrupt as e:
     os._exit(1)
 
   num_failures = 0
@@ -223,7 +225,7 @@ class WorkerThread(threading.Thread):
           self.set_isolation_level(self.isolation_level)
           logging.info("Connection successful after attempt %d" % attempts)
           break
-      except MySQLdb.Error, e:
+      except MySQLdb.Error as e:
         logging.debug(traceback.format_exc())
       time.sleep(SECONDS_BETWEEN_RETRY)
       timeout -= SECONDS_BETWEEN_RETRY
@@ -324,10 +326,10 @@ def populate_table(num_records):
   if num_records == 0:
     return False
 
-  num_workers = min(10, num_records / 100)
+  num_workers = min(10, int(num_records / 100))
   workers = []
 
-  N = num_records / num_workers
+  N = int(num_records / num_workers)
   start_id = 0
   for i in range(num_workers):
      workers.append(PopulateWorker(i, start_id, N))
@@ -703,7 +705,7 @@ class LoadGenWorker(WorkerThread):
       self.con.commit()
       check_id(self.con.insert_id())
       if not self.con.get_server_info():
-        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
+        raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
                                        "Possible connection error on commit")
       self.apply_cur_txn_changes()
 
