@@ -279,8 +279,14 @@ enum select_bypass_policy_type {
   MyRocks specific error codes. NB! Please make sure that you will update
   HA_ERR_ROCKSDB_LAST when adding new ones.  Also update the strings in
   rdb_error_messages to include any new error messages.
+
+  NOTE: Given that Oracle/Us keeps bumping up HA_ERR_LAST, we don't want to
+  start strictly from HA_ERR_LAST and instead we start from 500 and asserts
+  it is large
 */
-#define HA_ERR_ROCKSDB_FIRST (HA_ERR_LAST + 1)
+#define HA_ERR_ROCKSDB_FIRST (500)
+static_assert(HA_ERR_ROCKSDB_FIRST > HA_ERR_LAST,
+              "ROCKSDB err need to be larger than HA_ERR_LAST");
 #define HA_ERR_ROCKSDB_PK_REQUIRED (HA_ERR_ROCKSDB_FIRST + 0)
 #define HA_ERR_ROCKSDB_TABLE_DATA_DIRECTORY_NOT_SUPPORTED \
   (HA_ERR_ROCKSDB_FIRST + 1)
