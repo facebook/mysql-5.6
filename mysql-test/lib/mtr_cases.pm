@@ -74,6 +74,7 @@ our $opt_with_ndbcluster_only;
 our $print_testcases;
 our $quick_collect;
 our $skip_rpl;
+our $skip_raft;
 our $skip_test;
 our $start_from;
 
@@ -738,6 +739,9 @@ sub create_test_combinations($$) {
   my @new_cases;
 
   foreach my $comb (@{$combinations}) {
+    if ($skip_raft and $comb->{name} eq "raft") {
+      next;
+    }
     # Skip this combination if the values it provides already are set
     # in master_opt or slave_opt.
     if (My::Options::is_set($test->{master_opt}, $comb->{comb_opt}) ||
@@ -795,6 +799,12 @@ sub collect_one_suite($$$$) {
   my @cases;                         # Array of hash
 
   mtr_verbose("Collecting: $suite");
+
+  if ( $skip_raft and $suite eq "rpl_raft" )
+  {
+    print " - skipping suite $suite because --skip-raft is enabled\n";
+    return @cases;
+  }
 
   # Default suite(i.e main suite) directory location
   my $suitedir = "$::glob_mysql_test_dir";
