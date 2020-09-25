@@ -1781,6 +1781,7 @@ sub command_line_setup {
     'skip-combinations'                  => \$opt_skip_combinations,
     'skip-im'                            => \&ignore_option,
     'skip-ndbcluster|skip-ndb'           => \$opt_skip_ndbcluster,
+    'skip-raft'                          => \&collect_option,
     'skip-rpl'                           => \&collect_option,
     'skip-sys-schema'                    => \$opt_skip_sys_schema,
     'skip-test=s'                        => \&collect_option,
@@ -8169,6 +8170,7 @@ Options to control what test suites or cases to run
   skip-ndb[cluster]     Skip all tests that need cluster. This setting is
                         enabled by default.
   skip-rpl              Skip the replication test cases.
+  skip-raft             Skip raft test cases.
   skip-sys-schema       Skip loading of the sys schema, and running the
                         sysschema test suite. An empty sys database is
                         still created.
