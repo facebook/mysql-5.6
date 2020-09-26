@@ -12,7 +12,6 @@ import traceback
 import logging
 import argparse
 import array as arr
-from sets import Set
 
 # This is a stress rest for the drop cf feature. This test sends the following
 # commands to mysqld server in parallel: create table, drop table, add index,
@@ -103,12 +102,11 @@ def roll_d100(p):
   return p >= random.randint(1, 100)
 
 def execute(cur, stmt):
-  ROW_COUNT_ERROR = 18446744073709551615L
+  ROW_COUNT_ERROR = 18446744073709551615
   logging.debug("Executing %s" % stmt)
   cur.execute(stmt)
   if cur.rowcount < 0 or cur.rowcount == ROW_COUNT_ERROR:
-    # PyMySQL CR codes has CR prefix while MySQLdb doesn't
-    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CR_CONNECTION_ERROR,
+    raise MySQLdb.OperationalError(MySQLdb.constants.CR.CONNECTION_ERROR,
                                    "Possible connection error, rowcount is %d"
                                    % cur.rowcount)
 
@@ -141,7 +139,7 @@ def wait_for_workers(workers):
   try:
     while threading.active_count() > 1:
       time.sleep(1)
-  except KeyboardInterrupt, e:
+  except KeyboardInterrupt as e:
     os._exit(1)
 
   num_failures = 0
@@ -249,8 +247,7 @@ class WorkerThread(threading.Thread):
                     "PRIMARY KEY (id1) COMMENT '%s'"
                     ") ENGINE=ROCKSDB" % (table_name, primary_cf_name))
             execute(self.cur, stmt)
-        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
-        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
         except Exception as e:
@@ -372,8 +369,7 @@ class WorkerThread(threading.Thread):
                     "ADD INDEX secondary_key (id2) "
                     "COMMENT '%s'" % (table_name, secondary_cf_name))
             execute(self.cur, stmt)
-        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
-        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
         except Exception as e:
@@ -472,8 +468,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_compact_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
-        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
 
         self.con.commit()
@@ -508,8 +503,7 @@ class WorkerThread(threading.Thread):
         try:
             stmt = ("SET @@global.rocksdb_delete_cf = '%s'" % cf_name)
             execute(self.cur, stmt)
-        # PyMySQL may throw InternalError instead of InterfaceError in MySQLdb
-        except (MySQLdb.InterfaceError, MySQLdb.InternalError) as e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             self.rollback_and_sleep()
             return
 
