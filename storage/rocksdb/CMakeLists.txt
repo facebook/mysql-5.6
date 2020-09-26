@@ -149,7 +149,7 @@ ELSE()
 ENDIF()
 
 IF (WITH_JEMALLOC)
-  SET(rocksdb_static_libs ${rocksdb_static_libs}
+  SET(rocksdb_static_libs ${rocksdb_static_libs} -Wl,-rpath=$ORIGIN
     ${JEMALLOC_LIBRARY})
   ADD_DEFINITIONS(-DROCKSDB_JEMALLOC)
   ADD_DEFINITIONS(-DROCKSDB_MALLOC_USABLE_SIZE)
