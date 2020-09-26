@@ -91,8 +91,8 @@ insert into test_json values
 ('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]'),
 ('[{"MySQL":"开源数据库"},"MySQL"]'),
 ('[{"开源数据库":"MySQL"},"开源数据库"]');
-select json_array_length(json) as is_valid,json from test_json order by is_valid,json;
-is_valid	json
+select json_array_length(json) as json_array_length,json from test_json order by json_array_length,json;
+json_array_length	json
 NULL	NULL
 0	[]
 1	["str"]
@@ -443,6 +443,7 @@ insert into test_json values
 ('{"k1":null}'),
 ('{"k1":12}'),
 ('{"k1":1.23}');
+insert into test_json values(json_extract_value('{"k1":{"k2": "v2", "k2" : "v3"}, "k1":{"k2": "v4", "k2" : "v5"}}', 'k1'));
 select length(json_extract_value(json,null)),json_extract_value(json,null),json from test_json order by 1,2,3;
 length(json_extract_value(json,null))	json_extract_value(json,null)	json
 NULL	NULL	NULL
@@ -452,11 +453,13 @@ NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":false}
 NULL	NULL	{"k1":null}
 NULL	NULL	{"k1":true}
+NULL	NULL	{"k2":"v2","k2":"v3"}
 NULL	NULL	{}
 select length(json_extract_value(json,'k1')),json_extract_value(json,'k1'),json from test_json order by 1,2,3;
 length(json_extract_value(json,'k1'))	json_extract_value(json,'k1')	json
 NULL	NULL	NULL
 NULL	NULL	{"k1":null}
+NULL	NULL	{"k2":"v2","k2":"v3"}
 NULL	NULL	{}
 1	0	{"k1":false}
 1	1	{"k1":true}
@@ -472,6 +475,7 @@ NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":false}
 NULL	NULL	{"k1":null}
 NULL	NULL	{"k1":true}
+NULL	NULL	{"k2":"v2","k2":"v3"}
 NULL	NULL	{}
 # json_extract_value in where clause
 select json from test_json where json_extract_value(json,'k1') > 1 order by 1;
