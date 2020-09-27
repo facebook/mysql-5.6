@@ -5863,7 +5863,7 @@ static int rocksdb_init_internal(void *const p) {
     } else {
       std::unique_ptr<rocksdb::WritableFile> file;
       soptions.use_direct_writes = true;
-      check_status = env->ReopenWritableFile(fname, &file, soptions);
+      check_status = env->NewWritableFile(fname, &file, soptions);
       if (file != nullptr) {
         file->Close();
       }
@@ -5875,7 +5875,7 @@ static int rocksdb_init_internal(void *const p) {
       sql_print_error(
           "RocksDB: Unable to use direct io in rocksdb-datadir:"
           "(%s)",
-          check_status.getState());
+          check_status.ToString().c_str());
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
   }
