@@ -28,7 +28,15 @@ if (`SELECT @@server_id <> 0`) {
 if ($tmp) {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
   --echo Replica_IO_State	
-  --echo Source_Host	127.0.0.1
+  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
+  if ($rpl_enable_raft)
+  {
+   --echo Source_Host	::1
+  }
+  if (!$rpl_enable_raft)
+  {
+   --echo Source_Host	127.0.0.1
+  }
   --echo Source_User	root
   --echo Source_Port	#
   --echo Connect_Retry	#
