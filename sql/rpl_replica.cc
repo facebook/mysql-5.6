@@ -7674,6 +7674,61 @@ int heartbeat_queue_event(bool is_valid, Master_info *&mi,
 }
 
 /**
+ * Mark this GTID as logged in the rli and set the master_log_file_name and
+ * master_log_file_pos in mi. Finally,  flushes the master.info file
+ *
+ * @retval 0 Success
+ * @retval 1 Some failure
+ */
+int update_rli_and_mi(
+    const std::string &gtid_s,
+    const std::pair<const std::string, unsigned long long> &master_log_pos) {
+  assert(channel_map.get_num_instances() == 1);
+  Master_info *mi = channel_map.get_default_channel_mi();
+  assert(mi != nullptr);
+  Relay_log_info *rli = mi->rli;
+  assert(rli != nullptr);
+
+  mysql_mutex_lock(&mi->data_lock);
+  // Update the master log file name in mi, if provided
+  if (!master_log_pos.first.empty()) {
+    mi->set_master_log_name(master_log_pos.first.c_str());
+  }
+  // Update the master log file pos in mi
+  mi->set_master_log_pos(master_log_pos.second);
+  // Flush the master.info file
+  mi->flush_info(/*force*/ false);
+  mysql_mutex_unlock(&mi->data_lock);
+
+  // It is possible that this call was only done to update the master_log_pos
+  // in which case an empty gtid would have been passed
+  if (!gtid_s.length()) {
+    return 0;
+  }
+
+  const char *buf = gtid_s.c_str();
+  Gtid_log_event gtid_ev(buf, mi->get_mi_description_event());
+  Gtid gtid = {0, 0};
+  rli->get_sid_lock()->rdlock();
+  gtid.sidno = gtid_ev.get_sidno(rli->get_gtid_set()->get_sid_map());
+  rli->get_sid_lock()->unlock();
+  if (gtid.sidno < 0) {
+    sql_print_information("could not get proper sid: %s", buf);
+    return 1;
+  }
+
+  gtid.gno = gtid_ev.get_gno();
+  DBUG_PRINT("info", ("update_rli_and_mi: Found Gtid : Gtid(%d, %ld).",
+                      gtid.sidno, gtid.gno));
+
+  rli->get_sid_lock()->rdlock();
+  rli->add_logged_gtid(gtid.sidno, gtid.gno);
+  rli->get_sid_lock()->unlock();
+
+  return 0;
+}
+
+/**
   Store an event received from the master connection into the relay
   log.
 
