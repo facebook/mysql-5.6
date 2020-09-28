@@ -349,7 +349,10 @@ my @mysqld_rules = (
 
   # By default, prevent the started mysqld to access files outside of vardir
   { 'secure-file-priv' => sub { return shift->{ARGS}->{vardir}; }
-  },);
+  },
+  { 'loose-rpl_raft_log_dir' => \&fix_tmpdir },
+  { 'loose-rpl_raft_wal_dir' => \&fix_datadir },
+);
 
 if (IS_WINDOWS) {
   # For simplicity, we use the same names for shared memory and

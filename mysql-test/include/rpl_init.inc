@@ -68,6 +68,7 @@
 #    [--let $rpl_require_table_primary_key_check= *:STREAM,1:ON,2:OFF,3:GENERATE]
 #    [--let $rpl_gtid_only= *:0,1:0,2:1]
 #    [--let $rpl_shallow_reset_slave= 1]
+#    [--let $rpl_enable_raft= 1]
 #    --source include/rpl_init.inc
 #
 #    Parameters:
@@ -168,6 +169,9 @@
 #
 #   $rpl_shallow_reset_slave
 #      If in the setup we shall only use RESET REPLICA and not RESET REPLICA ALL
+#
+#   $rpl_enable_raft
+#      Enable raft plugin on the servers
 #
 # ==== Side effects ====
 #
@@ -497,6 +501,11 @@ if($rpl_group_replication)
   }
 }
 
+if (!$rpl_enable_raft)
+{
+  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
+}
+
 if (!$rpl_skip_start_slave)
 {
   if(!$rpl_group_replication)
@@ -505,6 +514,10 @@ if (!$rpl_skip_start_slave)
   }
 }
 
+if ($rpl_enable_raft)
+{
+  --source include/rpl_init_raft.inc
+}
 
 --let $rpl_connection_name= server_1
 --source include/rpl_connection.inc

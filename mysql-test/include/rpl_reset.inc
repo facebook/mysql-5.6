@@ -63,6 +63,11 @@ if (!$rpl_skip_sync)
   --source include/rpl_sync.inc
 }
 
+if ($rpl_enable_raft)
+{
+  --source include/rpl_end_raft.inc
+}
+
 # STOP REPLICA
 --source include/rpl_stop_slaves.inc
 
