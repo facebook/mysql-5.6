@@ -987,6 +987,13 @@ have_sleep=1
 while true
 do
   start_time=`date +%M%S`
+  # We need to add these paths, so that we can place our
+  # compiled sasl plugins in the directory.
+  # This is temporary till we figure out why some plugins
+  # although present in installed paths are not discovered
+  if [ -d "/usr/local/fbprojects/packages/mysql_raft.sasl_plain/latest/sasl2" ]; then
+    export SASL_PATH=/usr/local/fbprojects/packages/mysql_raft.sasl_plain/latest/sasl2
+  fi
   eval_log_error "$cmd"
   if [ $? -eq 16 ] ; then
     dont_restart_mysqld=false

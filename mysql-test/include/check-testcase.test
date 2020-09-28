@@ -28,7 +28,15 @@ if (`SELECT @@server_id <> 0`) {
 if ($tmp) {
   # Note: after WL#5177, fields 13-18 shall not be filtered-out.
   --echo Slave_IO_State	
-  --echo Master_Host	127.0.0.1
+  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
+  if ($rpl_enable_raft)
+  {
+   --echo Master_Host	::1
+  }
+  if (!$rpl_enable_raft)
+  {
+   --echo Master_Host	127.0.0.1
+  }
   --echo Master_User	root
   --echo Master_Port	#
   --echo Connect_Retry	#

@@ -147,6 +147,11 @@ if ($rpl_group_replication)
   }
 }
 
+if ($rpl_enable_raft)
+{
+  --source include/rpl_end_raft.inc
+}
+
 if (!$rpl_group_replication)
 {
   if (!$rpl_skip_stop_slave)
