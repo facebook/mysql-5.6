@@ -13,6 +13,9 @@ extern bool enable_raft_plugin;
 #endif
 class RaftListenerQueueIf;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // Finer grained error code during deregister of observer
 // Observer was not present in delegate (i.e. not
 // previously added to delegate ), and should be safe
@@ -262,8 +265,18 @@ int register_raft_replication_observer(
    @retval 0 Sucess
    @retval 1 Observer not exists
 */
-int unregister_raft_replication_observer(
-    Raft_replication_observer *observer, void *p);
+int unregister_raft_replication_observer(Raft_replication_observer *observer,
+                                         void *p);
+
+/**
+ * Mark this GTID as logged in the rli and sets the master_log_file and
+ * master_log_pos in mi. Also, flushes the master.info file.
+ * @retval 0 Success
+ * @retval 1 Some failure
+ */
+int update_rli_and_mi(
+    const std::string &gtid_s,
+    const std::pair<const std::string, unsigned long long> &master_log_pos);
 
 /*
  * An enum to control what kind of registrations the
@@ -288,4 +301,6 @@ enum Raft_Registration_Item {
 */
 int ask_server_to_register_with_raft(Raft_Registration_Item item);
 
-
+#ifdef __cplusplus
+}
+#endif
