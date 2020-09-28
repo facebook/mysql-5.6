@@ -62,6 +62,7 @@
 #    [--let $rpl_gtid_utils= 1]
 #    [--let $rpl_set_gtid_next_anonymous_in_new_connection= 1]
 #    [--let $rpl_skip_log_bin= 1]
+#    [--let $rpl_enable_raft= 1]
 #    --source include/rpl_init.inc
 #
 #    Parameters:
@@ -144,6 +145,9 @@
 #    $rpl_skip_log_bin
 #      Bypasses the binlog related checking to allow testing --skip-log-bin
 #      servers.
+#
+#    $rpl_enable_raft
+#      Enable raft plugin on the servers
 #
 # ==== Side effects ====
 #
@@ -469,14 +473,20 @@ if($rpl_group_replication)
   }
 }
 
-if (!$rpl_skip_start_slave)
+if (!$rpl_enable_raft)
 {
-  if(!$rpl_group_replication)
-  {
-    --source include/rpl_start_slaves.inc
-  }
+  let $rpl_enable_raft= `SELECT COUNT(*) FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME = 'RPL_RAFT'`;
 }
 
+if (!$rpl_skip_start_slave)
+{
+  --source include/rpl_start_slaves.inc
+}
+
+if ($rpl_enable_raft)
+{
+  --source include/rpl_init_raft.inc
+}
 
 --let $rpl_connection_name= server_1
 --source include/rpl_connection.inc
