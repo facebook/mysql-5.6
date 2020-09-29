@@ -5761,11 +5761,6 @@ static int rocksdb_init_internal(void *const p) {
       rocksdb_tbl_options->block_cache = block_cache;
     }
   }
-  // Using newer BlockBasedTable format version for better compression
-  // and better memory allocation.
-  // See:
-  // https://github.com/facebook/rocksdb/commit/9ab5adfc59a621d12357580c94451d9f7320c2dd
-  rocksdb_tbl_options->format_version = 2;
 
   if (rocksdb_collect_sst_properties) {
     properties_collector_factory =
