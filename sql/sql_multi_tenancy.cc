@@ -310,9 +310,6 @@ int multi_tenancy_exit_query(THD *thd)
   thd->is_in_ac = false;
   thd->last_yield_counter = thd->yield_counter;
 
-  if (!thd->db)
-    return 0; // no limiting
-
   MT_RESOURCE_ATTRS attrs = {
     &thd->connection_attrs_map,
     &thd->query_attrs_map,
@@ -719,7 +716,12 @@ Ac_result AC::admission_control_enter(THD *thd,
           // Retake locks in correct lock order.
           mysql_rwlock_rdlock(&LOCK_ac);
           mysql_mutex_lock(&ac_info->lock);
-          if (timeout || thd->killed || thd->ac_node->running)
+          // Break out if query has timed out, was killed, or has started running.
+          // KILLs will also signal our condition variable (see THD::enter_cond
+          // for how a cv is installed and THD::awake for how it is signaled).
+          //
+          // ac_info being populated implies query is running.
+          if (timeout || thd->killed || thd->ac_node->ac_info)
             break;
         }
 
@@ -735,12 +737,12 @@ Ac_result AC::admission_control_enter(THD *thd,
         if (timeout || thd->killed) {
           // It's possible that we've gotten an error after this thread was
           // passed admission control. If so, reset the running counters.
-          if (thd->ac_node->running) {
+          if (thd->ac_node->ac_info) {
             DBUG_ASSERT(ac_info->running_queries > 0);
             --ac_info->running_queries;
             DBUG_ASSERT(ac_info->queues[thd->ac_node->queue].running_queries > 0);
             --ac_info->queues[thd->ac_node->queue].running_queries;
-            thd->ac_node->running = false;
+            thd->ac_node->ac_info = nullptr;
           }
 
           mysql_mutex_unlock(&ac_info->lock);
@@ -759,8 +761,8 @@ Ac_result AC::admission_control_enter(THD *thd,
         // We are below the max running limit.
         ++ac_info->running_queries;
         ++ac_info->queues[thd->ac_node->queue].running_queries;
-        DBUG_ASSERT(thd->ac_node->running == false);
-        thd->ac_node->running = true;
+        DBUG_ASSERT(thd->ac_node->ac_info == nullptr);
+        thd->ac_node->ac_info = ac_info;
         mysql_mutex_unlock(&ac_info->lock);
         break;
 
@@ -828,78 +830,80 @@ bool AC::wait_for_signal(THD *thd, std::shared_ptr<st_ac_node> &ac_node,
   Signals one waiting thread. Pops out the first THD in the queue.
 */
 void AC::admission_control_exit(THD* thd, const MT_RESOURCE_ATTRS *attrs) {
-  std::string entity = attrs->database;
+  if (thd->ac_node == nullptr || thd->ac_node->ac_info == nullptr) {
+    return;
+  }
+
   const char* prev_proc_info = thd->proc_info;
   THD_STAGE_INFO(thd, stage_admission_control_exit);
+
+  auto ac_info = thd->ac_node->ac_info;
   mysql_rwlock_rdlock(&LOCK_ac);
-  auto it = ac_map.find(entity);
-  if (it != ac_map.end()) {
-    auto ac_info = it->second;
-    st_mysql_multi_tenancy *data= NULL;
-    mysql_mutex_lock(&ac_info->lock);
-    // If a multi_tenancy plugin exists, check plugin for per-entity limit
-    if (thd->variables.multi_tenancy_plugin)
-    {
-      data = plugin_data(thd->variables.multi_tenancy_plugin,
-                         struct st_mysql_multi_tenancy *);
-      data->release_resource(
-          thd,
-          MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY,
-          attrs);
-    }
-
-    if (thd->ac_node->running) {
-      DBUG_ASSERT(ac_info->running_queries > 0);
-      --ac_info->running_queries;
-      DBUG_ASSERT(ac_info->queues[thd->ac_node->queue].running_queries > 0);
-      --ac_info->queues[thd->ac_node->queue].running_queries;
-      thd->ac_node->running = false;
-    }
-
-    // We determine here which queue to pick from. For every queue, we
-    // calculate a score based on the number of running queries, and its
-    // weight. Inituitively, the weight determines how much of the running
-    // pool a queue is allowed to occupy. For example, if queue A has weight 3
-    // and queue B has weight 7, the we expect 30% of the pool to have queries
-    // running from A.
-    //
-    // We calculate a score for all queues that have waiting queries, and pick
-    // the queue with the minimum score. In case of ties, we arbitrarily pick
-    // the first encountered queue.
-    if (max_running_queries && ac_info->waiting_queries > 0) {
-      double min_score = std::numeric_limits<double>::max();
-      ulong min_queue = 0;
-#ifndef DBUG_OFF
-      ulong running_queries_sum = 0;
-      ulong waiting_queries_sum = 0;
-#endif
-
-      for (ulong i = 0; i < MAX_AC_QUEUES; i++) {
-        const auto& queue = ac_info->queues[i];
-#ifndef DBUG_OFF
-        running_queries_sum += queue.running_queries;
-        waiting_queries_sum += queue.waiting_queries();
-#endif
-        // Skip queues that don't have waiting queries.
-        if (queue.waiting_queries() == 0) continue;
-
-        double score = queue.running_queries / (weights[i] ? weights[i] : 1);
-
-        if (score < min_score) {
-          min_queue = i;
-          min_score = score;
-        }
-      }
-
-      DBUG_ASSERT(ac_info->waiting_queries == waiting_queries_sum);
-      DBUG_ASSERT(ac_info->running_queries == running_queries_sum);
-
-      auto& candidate = ac_info->queues[min_queue].queue.front();
-      dequeue_and_run(candidate->thd, ac_info);
-    }
-
-    mysql_mutex_unlock(&ac_info->lock);
+  mysql_mutex_lock(&ac_info->lock);
+  st_mysql_multi_tenancy *data= NULL;
+  // If a multi_tenancy plugin exists, check plugin for per-entity limit
+  if (thd->variables.multi_tenancy_plugin)
+  {
+    data = plugin_data(thd->variables.multi_tenancy_plugin,
+                       struct st_mysql_multi_tenancy *);
+    data->release_resource(
+                           thd,
+                           MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_QUERY,
+                           attrs);
   }
+
+  DBUG_ASSERT(ac_info->running_queries > 0);
+  --ac_info->running_queries;
+  DBUG_ASSERT(ac_info->queues[thd->ac_node->queue].running_queries > 0);
+  --ac_info->queues[thd->ac_node->queue].running_queries;
+  thd->ac_node->ac_info = nullptr;
+
+  // Assert that max_running_queries == 0 implies no waiting queries.
+  DBUG_ASSERT(max_running_queries != 0 || ac_info->waiting_queries == 0);
+
+  // We determine here which queue to pick from. For every queue, we
+  // calculate a score based on the number of running queries, and its
+  // weight. Inituitively, the weight determines how much of the running
+  // pool a queue is allowed to occupy. For example, if queue A has weight 3
+  // and queue B has weight 7, the we expect 30% of the pool to have queries
+  // running from A.
+  //
+  // We calculate a score for all queues that have waiting queries, and pick
+  // the queue with the minimum score. In case of ties, we arbitrarily pick
+  // the first encountered queue.
+  if (ac_info->waiting_queries > 0 && ac_info->running_queries < max_running_queries) {
+    double min_score = std::numeric_limits<double>::max();
+    ulong min_queue = 0;
+#ifndef DBUG_OFF
+    ulong running_queries_sum = 0;
+    ulong waiting_queries_sum = 0;
+#endif
+
+    for (ulong i = 0; i < MAX_AC_QUEUES; i++) {
+      const auto& queue = ac_info->queues[i];
+#ifndef DBUG_OFF
+      running_queries_sum += queue.running_queries;
+      waiting_queries_sum += queue.waiting_queries();
+#endif
+      // Skip queues that don't have waiting queries.
+      if (queue.waiting_queries() == 0) continue;
+
+      double score = queue.running_queries / (weights[i] ? weights[i] : 1);
+
+      if (score < min_score) {
+        min_queue = i;
+        min_score = score;
+      }
+    }
+
+    DBUG_ASSERT(ac_info->waiting_queries == waiting_queries_sum);
+    DBUG_ASSERT(ac_info->running_queries == running_queries_sum);
+
+    auto& candidate = ac_info->queues[min_queue].queue.front();
+    dequeue_and_run(candidate->thd, ac_info);
+  }
+
+  mysql_mutex_unlock(&ac_info->lock);
   mysql_rwlock_unlock(&LOCK_ac);
   thd->proc_info = prev_proc_info;
 }
@@ -957,7 +961,8 @@ void AC::dequeue_and_run(THD *thd, std::shared_ptr<Ac_info> ac_info) {
 
   ++ac_info->running_queries;
   ++ac_info->queues[thd->ac_node->queue].running_queries;
-  thd->ac_node->running = true;
+  DBUG_ASSERT(thd->ac_node->ac_info == nullptr);
+  thd->ac_node->ac_info = ac_info;
 
   signal(thd->ac_node);
 }

@@ -68,6 +68,7 @@ int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
 /**
   Per-thread information used in admission control.
 */
+class Ac_info;
 struct st_ac_node;
 struct st_ac_node {
 #ifdef HAVE_PSI_INTERFACE
@@ -84,14 +85,14 @@ struct st_ac_node {
 #endif
   mysql_mutex_t lock;
   mysql_cond_t cond;
-  // Note that running/queued cannot be simultaneously true.
-  bool running; // whether we need to decrement from running_queries
   bool queued;  // whether current node is queued. pos is valid iff queued.
   std::list<std::shared_ptr<st_ac_node>>::iterator pos;
   // The queue that this node belongs to.
   long queue;
   // The THD owning this node.
   THD *thd;
+  // The ac_info this node belongs to.
+  std::shared_ptr<Ac_info> ac_info;
   st_ac_node(THD *thd_arg) {
 #ifdef HAVE_PSI_INTERFACE
     mysql_mutex_register("sql", key_lock_info,
@@ -101,7 +102,6 @@ struct st_ac_node {
 #endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
     mysql_cond_init(key_cond, &cond, NULL);
-    running = false;
     queued = false;
     queue = 0;
     thd = thd_arg;
