@@ -389,18 +389,6 @@ class Rdb_key_def {
   bool covers_lookup(const rocksdb::Slice *const unpack_info,
                      const MY_BITMAP *const map) const;
 
-  inline bool use_covered_bitmap_format() const {
-    return m_index_type == INDEX_TYPE_SECONDARY &&
-           m_kv_format_version >= SECONDARY_FORMAT_VERSION_UPDATE4;
-  }
-
-  inline bool supports_index_only_collation_scans() const {
-    return (m_index_type == INDEX_TYPE_SECONDARY &&
-            m_kv_format_version >= SECONDARY_FORMAT_VERSION_COLL) ||
-           (m_index_type == INDEX_TYPE_PRIMARY &&
-            m_kv_format_version >= PRIMARY_FORMAT_VERSION_COLL);
-  }
-
   /* Indicates that all key parts can be unpacked to cover a secondary lookup */
   bool can_cover_lookup() const;
 
@@ -850,11 +838,6 @@ class Rdb_key_def {
            c == RDB_UNPACK_DATA_WITHOUT_LEN_TAG;
   }
 
-  inline bool use_varchar_v2_encoding_format() const {
-    return index_format_min_check(PRIMARY_FORMAT_VERSION_UPDATE3,
-                                  SECONDARY_FORMAT_VERSION_UPDATE3);
-  }
-
   /*
     Returns true if the type of variable length.
     Currently returns true for varchar, blob and text.
@@ -1061,15 +1044,7 @@ class Rdb_field_packing {
   */
   const CHARSET_INFO *m_varlength_charset;
 
-  /*
-    Use leading space byte in varchar encoding.
-  */
-  bool m_use_space_pad_lead_byte;
-
-  /*
-    Use bitmap format for prefix indexes.
-  */
-  bool m_use_covered_bitmap_format;
+  bool m_is_secondary_key;
 
   // (Valid when Variable Length Space Padded Encoding is used):
   uint m_segment_size;  // size of segment used
