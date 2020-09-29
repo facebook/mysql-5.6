@@ -6086,18 +6086,24 @@ void THD::serialize_client_attrs()
 
   if (client_attrs_string.is_empty()) {
     std::vector<std::pair<String, String>> client_attrs;
+    bool found_async_id = false;
 
-    // Populate caller
-    static const std::string caller = "caller";
-    auto it = query_attrs_map.find(caller);
-    if (it != query_attrs_map.end()) {
-      client_attrs.emplace_back(String(it->first.data(), it->first.size(),
-                                       &my_charset_bin),
-                                String(it->second.data(), it->second.size(),
-                                       &my_charset_bin));
-    } else {
-      auto it = connection_attrs_map.find(caller);
-      if (it != connection_attrs_map.end()) {
+    // Populate caller, async_id
+    for (const auto& s : { "caller", "async_id" }) {
+      bool found = false;
+      auto it = query_attrs_map.find(s);
+
+      if (it != query_attrs_map.end()) {
+        found = true;
+      } else if ((it = connection_attrs_map.find(s)) != connection_attrs_map.end()) {
+        found = true;
+      }
+
+      if (found) {
+        if (strcmp(s, "async_id") == 0) {
+          found_async_id = true;
+        }
+
         client_attrs.emplace_back(String(it->first.data(), it->first.size(),
                                          &my_charset_bin),
                                   String(it->second.data(), it->second.size(),
@@ -6109,20 +6115,24 @@ void THD::serialize_client_attrs()
     //
     // Search only in first 100 characters to avoid scanning the whole query.
     // The async id is usually near the beginning.
-    String query100(query(), MY_MIN(100, query_length()), &my_charset_bin);
-    String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
+    //
+    // Only look if async_id was not passed down.
+    if (!found_async_id) {
+      String query100(query(), MY_MIN(100, query_length()), &my_charset_bin);
+      String async_word(C_STRING_WITH_LEN("async-"), &my_charset_bin);
 
-    int pos = query100.strstr(async_word);
+      int pos = query100.strstr(async_word);
 
-    if (pos != -1) {
-      pos += async_word.length();
-      int epos = pos;
+      if (pos != -1) {
+        pos += async_word.length();
+        int epos = pos;
 
-      while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
-        epos++;
+        while(epos < (int)query100.length() && std::isdigit(query100[epos])) {
+          epos++;
+        }
+        client_attrs.emplace_back(String("async_id", &my_charset_bin),
+                                  String(&query100[pos], epos - pos, &my_charset_bin));
       }
-      client_attrs.emplace_back(String("async_id", &my_charset_bin),
-                                String(&query100[pos], epos - pos, &my_charset_bin));
     }
 
     // Serialize into JSON

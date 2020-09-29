@@ -51,12 +51,36 @@ where stats.client_id = ca.client_id
 and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
 order by client_id;
 
+--echo #
+--echo # Verify with query attrs = qa_test1 and async id using query attrs
+--echo #
+query_attrs_add async_id 56789;
+select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+
+--echo #
+--echo # Verify with query attrs = qa_test1 and async id using query attrs (and query comments)
+--echo #
+/* async-12345 */ select 1;
+
+select stats.client_id, table_schema, user_name, execution_count, sql_id, client_attributes
+from sql_statistics stats, client_attributes ca
+where stats.client_id = ca.client_id
+and sql_id = "db1589f429c8f6fbba750f47fbc7c130"
+order by client_id;
+
 # change user command to re-send connection attributes
 create user user@localhost identified by 'su';
 grant all on *.* to user@localhost with grant option;
 
 connect (con1, localhost, user, su, test);
 conn_attrs_add caller ca_test2;
+conn_attrs_add async_id 56789;
 # change_user is needed just to set the correct connection attributes.
 change_user user,su,test;
 use information_schema;
