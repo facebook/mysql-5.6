@@ -277,8 +277,7 @@ int Rdb_key_field_iterator::next() {
       break;
     } else {
       status = Rdb_convert_to_record_key_decoder::skip(
-          m_fpi, m_field, m_reader, m_unp_reader,
-          this->m_key_def->use_covered_bitmap_format());
+          m_fpi, m_field, m_reader, m_unp_reader, m_secondary_key);
       if (status) {
         return status;
       }
@@ -323,12 +322,6 @@ Rdb_key_def::Rdb_key_def(
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
   m_total_index_flags_length =
       calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
-  assert_IMP(m_index_type == INDEX_TYPE_SECONDARY &&
-                      m_kv_format_version <= SECONDARY_FORMAT_VERSION_UPDATE2,
-                  m_total_index_flags_length == 0);
-  assert_IMP(m_index_type == INDEX_TYPE_PRIMARY &&
-                      m_kv_format_version <= PRIMARY_FORMAT_VERSION_UPDATE2,
-                  m_total_index_flags_length == 0);
   assert(m_cf_handle);
 }
 
@@ -355,12 +348,6 @@ Rdb_key_def::Rdb_key_def(const Rdb_key_def &k)
   rdb_netbuf_store_index(m_index_number_storage_form, m_index_number);
   m_total_index_flags_length =
       calculate_index_flag_offset(m_index_flags_bitmap, MAX_FLAG);
-  assert_IMP(m_index_type == INDEX_TYPE_SECONDARY &&
-                      m_kv_format_version <= SECONDARY_FORMAT_VERSION_UPDATE2,
-                  m_total_index_flags_length == 0);
-  assert_IMP(m_index_type == INDEX_TYPE_PRIMARY &&
-                      m_kv_format_version <= PRIMARY_FORMAT_VERSION_UPDATE2,
-                  m_total_index_flags_length == 0);
   if (k.m_pack_info) {
     const size_t size = sizeof(Rdb_field_packing) * k.m_key_parts;
     void *buf = my_malloc(PSI_NOT_INSTRUMENTED, size, MYF(0));
@@ -578,8 +565,7 @@ void Rdb_key_def::setup(const TABLE *const tbl,
 
     m_key_parts = dst_i;
     m_max_blob_length = max_blob_length;
-    m_store_covered_bitmap =
-        store_covered_bitmap && use_covered_bitmap_format();
+    m_store_covered_bitmap = store_covered_bitmap && secondary_key;
     /* Initialize the memory needed by the stats structure */
     m_stats.m_distinct_keys_per_prefix.resize(get_key_parts());
 
@@ -1151,7 +1137,8 @@ void Rdb_key_def::get_lookup_bitmap(const TABLE *table, MY_BITMAP *map) const {
 bool Rdb_key_def::covers_lookup(const rocksdb::Slice *const unpack_info,
                                 const MY_BITMAP *const lookup_bitmap) const {
   assert(lookup_bitmap != nullptr);
-  if (!use_covered_bitmap_format() || lookup_bitmap->bitmap == nullptr) {
+  if (m_index_type != INDEX_TYPE_SECONDARY ||
+      lookup_bitmap->bitmap == nullptr) {
     return false;
   }
 
@@ -1288,8 +1275,7 @@ uint Rdb_key_def::pack_record(const TABLE *const tbl, uchar *const pack_buffer,
   if (n_null_fields) *n_null_fields = 0;
 
   char tag = RDB_UNPACK_DATA_TAG;
-
-  if (use_covered_bitmap_format()) {
+  if (m_index_type == INDEX_TYPE_SECONDARY) {
     tag = m_store_covered_bitmap ? RDB_UNPACK_COVERED_DATA_TAG
                                  : RDB_UNPACK_DATA_WITHOUT_LEN_TAG;
   }
@@ -1819,12 +1805,10 @@ int Rdb_key_def::skip_variable_space_pad(const Rdb_field_packing *const fpi,
     dst_len = fpi->m_max_field_bytes;
   }
 
-  if (fpi->m_use_space_pad_lead_byte) {
-    uchar encoded_byte = *(const uchar *)reader->read(1);
-    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
-    // This indicates empty content and we can return prematurely.
-    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) return HA_EXIT_SUCCESS;
-  }
+  uchar encoded_byte = *(const uchar *)reader->read(1);
+  // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+  // This indicates empty content and we can return prematurely.
+  if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) return HA_EXIT_SUCCESS;
 
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
@@ -2792,15 +2776,14 @@ void Rdb_key_def::pack_with_varlength_space_pad(
   size_t encoded_size = 0;
   uchar *ptr = *dst;
   size_t padding_bytes = 0;
-  if (fpi->m_use_space_pad_lead_byte) {
-    // In new varchar format, we encode the lead segment byte. In
-    // can we reach end of buffer, we are done.
-    // This can happen in case of empty data or data containing
-    // only spaces.
-    *ptr = rdb_get_segment_terminator(buf, buf_end, fpi->space_xfrm);
-    encoded_size++;
-    if (*(ptr++) == VARCHAR_CMP_EQUAL_TO_SPACES) goto unpack_info;
-  }
+
+  // In new varchar format, we encode the lead segment byte. In
+  // can we reach end of buffer, we are done.
+  // This can happen in case of empty data or data containing
+  // only spaces.
+  *ptr = rdb_get_segment_terminator(buf, buf_end, fpi->space_xfrm);
+  encoded_size++;
+  if (*(ptr++) == VARCHAR_CMP_EQUAL_TO_SPACES) goto unpack_info;
 
   while (true) {
     const size_t copy_len =
@@ -2833,7 +2816,7 @@ unpack_info:
    covered and this is only used if m_use_covered_bitmap_format.
   */
   if (unpack_info && !fpi->m_unpack_info_stores_value &&
-      (max_allowed_len >= value_length || !fpi->m_use_covered_bitmap_format)) {
+      (max_allowed_len >= value_length || !fpi->m_is_secondary_key)) {
     // (value_length - trimmed_len) is the number of trimmed space *characters*
     // then, padding_bytes is the number of *bytes* added as padding
     // then, we add 8, because we don't store negative values.
@@ -3112,13 +3095,11 @@ int Rdb_key_def::unpack_binary_or_utf8_varlength_space_pad(
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
-  if (fpi->m_use_space_pad_lead_byte) {
-    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
-    // This indicates empty content or just spaces. We can bypass
-    // the main loop and check for spaces to be appended.
-    uchar encoded_byte = *(const uchar *)reader->read(1);
-    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
-  }
+  // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+  // This indicates empty content or just spaces. We can bypass
+  // the main loop and check for spaces to be appended.
+  uchar encoded_byte = *(const uchar *)reader->read(1);
+  if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
 
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
@@ -3406,13 +3387,11 @@ int Rdb_key_def::unpack_simple_varlength_space_pad(
 
   space_padding_bytes *= fpi->space_xfrm_len;
 
-  if (fpi->m_use_space_pad_lead_byte) {
-    // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
-    // This indicates empty content or just spaces. We can bypass
-    // the main loop and check for spaces to be appended.
-    uchar encoded_byte = *(const uchar *)reader->read(1);
-    if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
-  }
+  // Check if lead segment byte is VARCHAR_CMP_EQUAL_TO_SPACES.
+  // This indicates empty content or just spaces. We can bypass
+  // the main loop and check for spaces to be appended.
+  uchar encoded_byte = *(const uchar *)reader->read(1);
+  if (encoded_byte == VARCHAR_CMP_EQUAL_TO_SPACES) goto finished;
 
   /* Decode the length-emitted encoding here */
   while ((ptr = (const uchar *)reader->read(fpi->m_segment_size))) {
@@ -3722,6 +3701,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                               const Field *const field, const uint keynr_arg,
                               const uint key_part_arg,
                               const uint16 key_length) {
+  assert(key_descr != nullptr);
+
   enum_field_types type = field ? field->real_type() : MYSQL_TYPE_LONGLONG;
 
   m_keynr = keynr_arg;
@@ -3733,20 +3714,8 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
   m_unpack_data_len = 0;
   space_xfrm = nullptr;  // safety
 
-  // whether to use lead byte in space padded varchar encoding.
-  // ha_rocksdb::index_flags() will pass key_descr == null to
-  // see whether field(column) can be read-only reads through return value,
-  // but the legacy vs. new varchar format doesn't affect return value.
-  // Just change m_use_space_pad_lead_byte to true if key_descr isn't given.
-  m_use_space_pad_lead_byte =
-      key_descr && key_descr->use_varchar_v2_encoding_format();
-
-  m_use_covered_bitmap_format =
-      key_descr && key_descr->use_covered_bitmap_format();
-
-  // Force index-only scans with SK for all collations
-  bool index_only_collation_scans =
-      key_descr && key_descr->supports_index_only_collation_scans();
+  m_is_secondary_key =
+      key_descr->m_index_type == Rdb_key_def::INDEX_TYPE_SECONDARY;
 
   /* Calculate image length. By default, is is pack_length() */
   m_max_image_len =
@@ -3965,7 +3934,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_max_image_len =
             (max_image_len_before_chunks / (m_segment_size - 1) + 1) *
                 m_segment_size +
-            (m_use_space_pad_lead_byte ? 1 : 0);
+            1;
         rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
                                      &space_mb_len);
       } else {
@@ -3998,7 +3967,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         // Currently we handle these collations as NO_PAD, even if they have
         // PAD_SPACE attribute.
         if (cs->levels_for_compare == 1) {
-          if (index_only_collation_scans && cs->pad_attribute == NO_PAD) {
+          if (cs->pad_attribute == NO_PAD) {
             m_pack_func = Rdb_key_def::pack_with_varlength_encoding;
             m_skip_func = Rdb_key_def::skip_variable_length_encoding;
           } else {
@@ -4009,7 +3978,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
           m_max_image_len =
               (max_image_len_before_chunks / (m_segment_size - 1) + 1) *
                   m_segment_size +
-              (m_use_space_pad_lead_byte ? 1 : 0);
+              1;
           rdb_get_mem_comparable_space(cs, &space_xfrm, &space_xfrm_len,
                                        &space_mb_len);
         } else {
@@ -4032,7 +4001,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
         m_make_unpack_info_func = codec->m_make_unpack_info_func[idx];
         m_unpack_func = codec->m_unpack_func[idx];
         m_charset_codec = codec;
-      } else if (index_only_collation_scans) {
+      } else {
         // We have no clue about how this collation produces mem-comparable
         // form. Our way of restoring the original value is to keep a copy of
         // the original value in unpack_info.
@@ -4042,14 +4011,6 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
                          : Rdb_key_def::make_unpack_unknown;
         m_unpack_func = is_varlength ? Rdb_key_def::unpack_unknown_varlength
                                      : Rdb_key_def::unpack_unknown;
-      } else {
-        // Same as above: we don't know how to restore the value from its
-        // mem-comparable form.
-        // Here, we just indicate to the SQL layer we can't do it.
-        assert(m_unpack_func == nullptr);
-        m_unpack_info_stores_value = false;
-        m_covered = Rdb_key_def::KEY_NOT_COVERED;  // Indicate that index-only
-                                                   // reads are not possible
       }
     }
 
@@ -4074,7 +4035,7 @@ bool Rdb_field_packing::setup(const Rdb_key_def *const key_descr,
       // need to perform this step. However, to preserve the behavior before
       // this change, we'll only skip this step if we have an index which
       // supports covered bitmaps.
-      if (!key_descr || !key_descr->use_covered_bitmap_format()) {
+      if (!m_is_secondary_key) {
         m_unpack_func = nullptr;
         m_make_unpack_info_func = nullptr;
         m_unpack_info_stores_value = true;
@@ -5432,35 +5393,6 @@ bool Rdb_dict_manager::get_index_info(
         index_info->m_index_flags = rdb_netbuf_to_uint32(ptr);
         ptr += RDB_SIZEOF_INDEX_FLAGS;
         index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
-        found = true;
-        break;
-
-      case Rdb_key_def::INDEX_INFO_VERSION_TTL:
-        /* Sanity check to prevent reading bogus into TTL record. */
-        if (value.size() != RDB_SIZEOF_INDEX_INFO_VERSION +
-                                RDB_SIZEOF_INDEX_TYPE + RDB_SIZEOF_KV_VERSION +
-                                ROCKSDB_SIZEOF_TTL_RECORD) {
-          error = true;
-          break;
-        }
-        index_info->m_index_type = rdb_netbuf_to_byte(ptr);
-        ptr += RDB_SIZEOF_INDEX_TYPE;
-        index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
-        ptr += RDB_SIZEOF_KV_VERSION;
-        index_info->m_ttl_duration = rdb_netbuf_to_uint64(ptr);
-        if ((index_info->m_kv_version >=
-             Rdb_key_def::PRIMARY_FORMAT_VERSION_TTL) &&
-            index_info->m_ttl_duration > 0) {
-          index_info->m_index_flags = Rdb_key_def::TTL_FLAG;
-        }
-        found = true;
-        break;
-
-      case Rdb_key_def::INDEX_INFO_VERSION_VERIFY_KV_FORMAT:
-      case Rdb_key_def::INDEX_INFO_VERSION_GLOBAL_ID:
-        index_info->m_index_type = rdb_netbuf_to_byte(ptr);
-        ptr += RDB_SIZEOF_INDEX_TYPE;
-        index_info->m_kv_version = rdb_netbuf_to_uint16(ptr);
         found = true;
         break;
 
