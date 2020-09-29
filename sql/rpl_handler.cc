@@ -1276,6 +1276,7 @@ extern "C" void *process_raft_queue(void *) {
   // thd->thr_create_utime = thd->start_utime = my_micro_time();
   thd->m_security_ctx->skip_grants();
 
+  thd->set_new_thread_id();
   thd_manager->add_thd(thd);
   thd_added = true;
 
