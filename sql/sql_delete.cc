@@ -35,6 +35,7 @@
                                                 // end_read_record
 #include "sql_optimizer.h"                      // remove_eq_conds
 #include "sql_resolver.h"                       // setup_order, fix_inner_refs
+#include "column_statistics.h"
 
 /**
   Implement DELETE SQL word.
@@ -103,6 +104,9 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, Item *conds,
       DBUG_RETURN(TRUE);
     }
   }
+
+  // Parse column usage statistics and store it into THD.
+  parse_column_usage_info(thd);
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   /*
@@ -191,7 +195,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, Item *conds,
     COND_EQUAL *cond_equal= NULL;
     Item::cond_result result;
 
-    conds= optimize_cond(thd, conds, &cond_equal, select_lex->join_list, 
+    conds= optimize_cond(thd, conds, &cond_equal, select_lex->join_list,
                          true, &result);
     if (result == Item::COND_FALSE)             // Impossible where
     {
@@ -297,7 +301,7 @@ bool mysql_delete(THD *thd, TABLE_LIST *table_list, Item *conds,
   {
     ha_rows examined_rows;
     ha_rows found_rows;
-    
+
     {
       Filesort fsort(order, HA_POS_ERROR, select);
       DBUG_ASSERT(usable_index == MAX_KEY);
@@ -448,7 +452,7 @@ cleanup:
 
   if (!transactional_table && deleted > 0)
     thd->transaction.stmt.mark_modified_non_trans_table();
-  
+
   /* See similar binlogging code in sql_update.cc, for comments */
   if ((error < 0) || thd->transaction.stmt.cannot_safely_rollback())
   {
@@ -479,7 +483,7 @@ cleanup:
   }
   DBUG_ASSERT(transactional_table || !deleted || thd->transaction.stmt.cannot_safely_rollback());
   free_underlaid_joins(thd, select_lex);
-  if (error < 0 || 
+  if (error < 0 ||
       (thd->lex->ignore && !thd->is_error() && !thd->is_fatal_error))
   {
     my_ok(thd, deleted);
@@ -529,8 +533,8 @@ int mysql_prepare_delete(THD *thd, TABLE_LIST *table_list, Item **conds)
   thd->lex->allow_sum_func= 0;
   if (setup_tables_and_check_access(thd, &thd->lex->select_lex.context,
                                     &thd->lex->select_lex.top_join_list,
-                                    table_list, 
-                                    &select_lex->leaf_tables, FALSE, 
+                                    table_list,
+                                    &select_lex->leaf_tables, FALSE,
                                     DELETE_ACL, SELECT_ACL) ||
       setup_conds(thd, table_list, select_lex->leaf_tables, conds) ||
       setup_ftfuncs(select_lex))
@@ -559,7 +563,7 @@ int mysql_prepare_delete(THD *thd, TABLE_LIST *table_list, Item **conds)
 
 
 /***************************************************************************
-  Delete multiple tables from join 
+  Delete multiple tables from join
 ***************************************************************************/
 
 #define MEM_STRIP_BUF_SIZE current_thd->variables.sortbuff_size
@@ -596,7 +600,7 @@ int mysql_multi_delete_prepare(THD *thd, uint *table_count)
   if (setup_tables_and_check_access(thd, &thd->lex->select_lex.context,
                                     &thd->lex->select_lex.top_join_list,
                                     lex->query_tables,
-                                    &lex->select_lex.leaf_tables, FALSE, 
+                                    &lex->select_lex.leaf_tables, FALSE,
                                     DELETE_ACL, SELECT_ACL))
     DBUG_RETURN(TRUE);
 
@@ -884,10 +888,10 @@ void multi_delete::abort_result_set()
     DBUG_ASSERT(error_handled);
     DBUG_VOID_RETURN;
   }
-  
+
   if (thd->transaction.stmt.cannot_safely_rollback())
   {
-    /* 
+    /*
        there is only side effects; to binlog with the error
     */
     if (mysql_bin_log.is_open())
@@ -926,15 +930,15 @@ int multi_delete::do_deletes()
 
   table_being_deleted= (delete_while_scanning ? delete_tables->next_local :
                         delete_tables);
- 
+
   for (uint counter= 0; table_being_deleted;
        table_being_deleted= table_being_deleted->next_local, counter++)
-  { 
+  {
     TABLE *table = table_being_deleted->table;
     if (tempfiles[counter]->get(table))
       DBUG_RETURN(1);
 
-    int local_error= 
+    int local_error=
       do_table_deletes(table, thd->lex->current_select->no_error);
 
     if (thd->killed && !local_error)
@@ -988,14 +992,14 @@ int multi_delete::do_table_deletes(TABLE *table, bool ignore)
       local_error= 1;
       break;
     }
-      
+
     local_error= table->file->ha_delete_row(table->record[0]);
     if (local_error && !ignore)
     {
       table->file->print_error(local_error, MYF(0));
       break;
     }
-      
+
     /*
       Increase the reported number of deleted rows only if no error occurred
       during ha_delete_row.

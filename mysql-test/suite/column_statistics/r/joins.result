@@ -1,0 +1,98 @@
+DROP TABLE IF EXISTS tbl1;
+DROP TABLE IF EXISTS tbl2;
+DROP DATABASE IF EXISTS cus_test;
+CREATE DATABASE cus_test;
+USE cus_test;
+CREATE TABLE tbl1 (
+col1_1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col1_2 INT(6) NOT NULL,
+col1_3 INT(6) NOT NULL,
+col1_4 INT(6) NOT NULL);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (2, 3, 4);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (3, 4, 5);
+INSERT INTO tbl1 (col1_2, col1_3, col1_4) VALUES (4, 5, 6);
+CREATE TABLE tbl2 (col2_1 INT(6) NOT NULL, col2_2 INT(6) NOT NULL);
+INSERT INTO tbl2 (col2_1, col2_2) VALUES (2, 3);
+CREATE TABLE tbl3 (
+col1_1 INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+col1_2 INT(6) NOT NULL,
+col3_3 INT(6) NOT NULL);
+INSERT INTO tbl3 (col1_2, col3_3) VALUES (2, 83);
+INSERT INTO tbl3 (col1_2, col3_3) VALUES (3, 84);
+INSERT INTO tbl3 (col1_2, col3_3) VALUES (4, 85);
+set global column_stats_control = ON;
+SELECT col1_1, col2_2 FROM tbl1 INNER JOIN tbl2 ON col1_2 = col2_2 WHERE col1_1 IN (1, 2, 3);
+col1_1	col2_2
+2	3
+SELECT * FROM tbl1 NATURAL JOIN tbl3;
+col1_1	col1_2	col1_3	col1_4	col3_3
+1	2	3	4	83
+2	3	4	5	84
+3	4	5	6	85
+SELECT col1_1, col2_2 FROM tbl1 STRAIGHT_JOIN tbl2 ON col1_2 = col2_2;
+col1_1	col2_2
+2	3
+SELECT * FROM tbl1 JOIN tbl3 USING (col1_2);
+col1_2	col1_1	col1_3	col1_4	col1_1	col3_3
+2	1	3	4	1	83
+3	2	4	5	2	84
+4	3	5	6	3	85
+SELECT tbl1.col1_1, tbl2.col2_2 FROM tbl1, tbl2 WHERE tbl1.col1_2 IN (1, 2, 3);
+col1_1	col2_2
+1	3
+2	3
+SELECT tbl1.col1_1, tbl2.col2_2 FROM tbl1 JOIN tbl2 ON tbl1.col1_2 = col2_2 WHERE tbl1.col1_2 IN (1, 2, 3);
+col1_1	col2_2
+2	3
+SELECT tbl1.col1_1, tbl2.col2_2 FROM tbl1 JOIN tbl2 ON tbl1.col1_2 > col2_2;
+col1_1	col2_2
+3	3
+SELECT * FROM (tbl1, tbl2) JOIN tbl3 ON (tbl1.col1_1 = tbl3.col1_1);
+col1_1	col1_2	col1_3	col1_4	col2_1	col2_2	col1_1	col1_2	col3_3
+1	2	3	4	2	3	1	2	83
+2	3	4	5	2	3	2	3	84
+3	4	5	6	2	3	3	4	85
+SELECT tbl1.col1_1, col2_2 FROM tbl1, (SELECT * FROM tbl2 WHERE col2_2 = 3) t2 WHERE col2_1 = 2 AND col1_2 > 0;
+col1_1	col2_2
+1	3
+2	3
+3	3
+SELECT tbl1.col1_1, t.col2_2 FROM tbl1 INNER JOIN (SELECT col2_1, col2_2 FROM tbl2 WHERE col2_1 > 0) t ON col1_2 = col2_2
+WHERE tbl1.col1_2 IN (1,2,3) AND t.col2_2 <> 0;
+col1_1	col2_2
+2	3
+SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
+COUNT(DISTINCT SQL_ID)
+10
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+FROM information_schema.COLUMN_STATISTICS;
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+11d4adeabcc218f2619deebbaf6188b8	cus_test	tbl1	col1_2	FILTER	SET_MEMBERSHIP
+11d4adeabcc218f2619deebbaf6188b8	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+11d4adeabcc218f2619deebbaf6188b8	cus_test	tbl2	col2_2	TABLE_JOIN	EQUAL
+1ce621e769113332d3aa499ed01f74ed	cus_test	tbl1	col1_2	FILTER	SET_MEMBERSHIP
+712e346aa4e80a161cab1804a49d2f06	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+712e346aa4e80a161cab1804a49d2f06	cus_test	tbl3	col1_2	TABLE_JOIN	EQUAL
+884beb5fd05fb87a1e9141d571c9912d	cus_test	tbl1	col1_1	TABLE_JOIN	EQUAL
+884beb5fd05fb87a1e9141d571c9912d	cus_test	tbl3	col1_1	TABLE_JOIN	EQUAL
+8a13912db511140ba4538eeb5aa22416	cus_test	tbl1	col1_2	FILTER	SET_MEMBERSHIP
+8a13912db511140ba4538eeb5aa22416	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+8a13912db511140ba4538eeb5aa22416	cus_test	tbl2	col2_1	FILTER	GREATER_THAN
+916fd3fc054aee76ed773b5217697a08	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+916fd3fc054aee76ed773b5217697a08	cus_test	tbl2	col2_2	TABLE_JOIN	EQUAL
+a74086769193cbaf04188dd80e9dad1f	cus_test	tbl1	col1_1	FILTER	SET_MEMBERSHIP
+a74086769193cbaf04188dd80e9dad1f	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+a74086769193cbaf04188dd80e9dad1f	cus_test	tbl2	col2_2	TABLE_JOIN	EQUAL
+a90849fd16c9ad5637fbb03773e1f11e	cus_test	tbl1	col1_2	TABLE_JOIN	GREATER_THAN
+a90849fd16c9ad5637fbb03773e1f11e	cus_test	tbl2	col2_2	TABLE_JOIN	GREATER_THAN
+e41302359b4619ea56a3bbcf10b327f7	cus_test	tbl1	col1_1	TABLE_JOIN	EQUAL
+e41302359b4619ea56a3bbcf10b327f7	cus_test	tbl1	col1_2	TABLE_JOIN	EQUAL
+e41302359b4619ea56a3bbcf10b327f7	cus_test	tbl3	col1_1	TABLE_JOIN	EQUAL
+e41302359b4619ea56a3bbcf10b327f7	cus_test	tbl3	col1_2	TABLE_JOIN	EQUAL
+e8b6d080be7e0c4e6c1d282c03e37354	cus_test	tbl1	col1_2	FILTER	GREATER_THAN
+e8b6d080be7e0c4e6c1d282c03e37354	cus_test	tbl2	col2_2	FILTER	EQUAL
+set global column_stats_control = OFF_HARD;
+DROP TABLE tbl1;
+DROP TABLE tbl2;
+DROP TABLE tbl3;
+DROP DATABASE cus_test;

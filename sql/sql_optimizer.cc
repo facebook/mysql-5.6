@@ -291,8 +291,8 @@ JOIN::optimize()
         measure_compilation_cpu(thd, cpu_res, beginning_id);
       DBUG_RETURN(1);
     }
-    if (select_lex->cond_value == Item::COND_FALSE || 
-        select_lex->having_value == Item::COND_FALSE || 
+    if (select_lex->cond_value == Item::COND_FALSE ||
+        select_lex->having_value == Item::COND_FALSE ||
         (!unit->select_limit_cnt && !(select_options & OPTION_FOUND_ROWS)))
     {						/* Impossible cond */
       zero_result_cause=  select_lex->having_value == Item::COND_FALSE ?
@@ -317,11 +317,11 @@ JOIN::optimize()
 
   optimize_fts_limit_query();
 
-  /* 
+  /*
      Try to optimize count(*), min() and max() to const fields if
      there is implicit grouping (aggregate functions but no
      group_list). In this case, the result set shall only contain one
-     row. 
+     row.
   */
   if (tables_list && implicit_grouping)
   {
@@ -503,7 +503,7 @@ JOIN::optimize()
 
   /*
     Perform the same optimization on field evaluation for all join conditions.
-  */ 
+  */
   for (JOIN_TAB *tab= join_tab + const_tables; tab < join_tab + tables ; tab++)
   {
     if (tab->on_expr_ref && *tab->on_expr_ref)
@@ -599,7 +599,7 @@ JOIN::optimize()
       !tmp_table_param.sum_func_count &&
       (!join_tab[const_tables].select ||
        !join_tab[const_tables].select->quick ||
-       join_tab[const_tables].select->quick->get_type() != 
+       join_tab[const_tables].select->quick->get_type() !=
        QUICK_SELECT_I::QS_TYPE_GROUP_MIN_MAX))
   {
     if (group_list && rollup.state == ROLLUP::STATE_NONE &&
@@ -632,7 +632,7 @@ JOIN::optimize()
           order= group_list;
       }
       /*
-        If we have an IGNORE INDEX FOR GROUP BY(fields) clause, this must be 
+        If we have an IGNORE INDEX FOR GROUP BY(fields) clause, this must be
         rewritten to IGNORE INDEX FOR ORDER BY(fields).
       */
       join_tab->table->keys_in_use_for_order_by=
@@ -997,14 +997,14 @@ JOIN::optimize()
         DBUG_RETURN(1);
       }
     }
-    
+
     /*
       Investigate whether we may use an ordered index as part of either
       DISTINCT, GROUP BY or ORDER BY execution. An ordered index may be
       used for only the first of any of these terms to be executed. This
       is reflected in the order which we check for test_if_skip_sort_order()
       below. However we do not check for DISTINCT here, as it would have
-      been transformed to a GROUP BY at this stage if it is a candidate for 
+      been transformed to a GROUP BY at this stage if it is a candidate for
       ordered index optimization.
       If a decision was made to use an ordered index, the availability
       if such an access path is stored in 'ordered_index_usage' for later
@@ -1033,12 +1033,12 @@ JOIN::optimize()
           /*
             Calculate a possible 'limit' of table rows for 'GROUP BY':
             A specified 'LIMIT' is relative to the final resultset.
-            'need_tmp' implies that there will be more postprocessing 
+            'need_tmp' implies that there will be more postprocessing
             so the specified 'limit' should not be enforced yet.
            */
           const ha_rows limit = need_tmp ? HA_POS_ERROR : m_select_limit;
 
-          if (test_if_skip_sort_order(tab, group_list, limit, false, 
+          if (test_if_skip_sort_order(tab, group_list, limit, false,
                                       &tab->table->keys_in_use_for_group_by,
                                       "GROUP BY"))
           {
@@ -1054,8 +1054,8 @@ JOIN::optimize()
 	  TODO: Explain the quick_group part of the test below.
 	 */
         if ((ordered_index_usage != ordered_index_group_by) &&
-            (tmp_table_param.quick_group || 
-	     (tab->emb_sj_nest && 
+            (tmp_table_param.quick_group ||
+	     (tab->emb_sj_nest &&
 	      tab->position->sj_strategy == SJ_OPT_LOOSE_SCAN)))
         {
           need_tmp=1;
@@ -1066,7 +1066,7 @@ JOIN::optimize()
     else if (order &&                      // ORDER BY wo/ preceeding GROUP BY
              (simple_order || skip_sort_order)) // which is possibly skippable
     {
-      if (test_if_skip_sort_order(tab, order, m_select_limit, false, 
+      if (test_if_skip_sort_order(tab, order, m_select_limit, false,
                                   &tab->table->keys_in_use_for_order_by,
                                   "ORDER BY"))
       {
@@ -1158,10 +1158,10 @@ bool JOIN::prune_table_partitions(THD *thd)
 
   for (TABLE_LIST *tbl= select_lex->leaf_tables; tbl; tbl= tbl->next_leaf)
   {
-    /* 
+    /*
       If tbl->embedding!=NULL that means that this table is in the inner
       part of the nested outer join, and we can't do partition pruning
-      (TODO: check if this limitation can be lifted. 
+      (TODO: check if this limitation can be lifted.
              This also excludes semi-joins.  Is that intentional?)
       This will try to prune non-static conditions, which can
       be used after the tables are locked.
@@ -1327,7 +1327,7 @@ Item_field *get_best_field(Item_field *item_field, COND_EQUAL *cond_equal)
     the check_equality will be called for the following equality
     predicates a=b, b=c, b=2 and f=e.
     - For a=b it will be called with *cond_equal=(0,[]) and will transform
-      *cond_equal into (0,[Item_equal(a,b)]). 
+      *cond_equal into (0,[Item_equal(a,b)]).
     - For b=c it will be called with *cond_equal=(0,[Item_equal(a,b)])
       and will transform *cond_equal into CE=(0,[Item_equal(a,b,c)]).
     - For b=2 it will be called with *cond_equal=(ptr(CE),[])
@@ -1340,8 +1340,8 @@ Item_field *get_best_field(Item_field *item_field, COND_EQUAL *cond_equal)
     the Field::eq_def method) are placed to the same multiple equalities.
     Because of this some equality predicates are not eliminated and
     can be used in the constant propagation procedure.
-    We could weeken the equlity test as soon as at least one of the 
-    equal fields is to be equal to a constant. It would require a 
+    We could weeken the equlity test as soon as at least one of the
+    equal fields is to be equal to a constant. It would require a
     more complicated implementation: we would have to store, in
     general case, its own constant for each fields from the multiple
     equality. But at the same time it would allow us to get rid
@@ -1359,7 +1359,7 @@ Item_field *get_best_field(Item_field *item_field, COND_EQUAL *cond_equal)
     containing just field1 and field2 is added to the existing
     multiple equalities.
     If the function processes the predicate of the form field1=const,
-    it looks for a multiple equality containing field1. If found, the 
+    it looks for a multiple equality containing field1. If found, the
     function checks the constant of the multiple equality. If the value
     is unknown, it is setup to const. Otherwise the value is compared with
     const and the evaluation of the equality predicate is performed.
@@ -1417,16 +1417,16 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
     bool left_copyfl, right_copyfl;
     Item_equal *left_item_equal=
                find_item_equal(cond_equal, left_field, &left_copyfl);
-    Item_equal *right_item_equal= 
+    Item_equal *right_item_equal=
                find_item_equal(cond_equal, right_field, &right_copyfl);
 
     /* As (NULL=NULL) != TRUE we can't just remove the predicate f=f */
     if (left_field->eq(right_field)) /* f = f */
-      return (!(left_field->maybe_null() && !left_item_equal)); 
+      return (!(left_field->maybe_null() && !left_item_equal));
 
     if (left_item_equal && left_item_equal == right_item_equal)
     {
-      /* 
+      /*
         The equality predicate is inference of one of the existing
         multiple equalities, i.e the condition is already covered
         by upper level equalities
@@ -1449,7 +1449,7 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
     }
 
     if (left_item_equal)
-    { 
+    {
       /* left item was found in the current or one of the upper levels */
       if (! right_item_equal)
         left_item_equal->add((Item_field *) right_item);
@@ -1464,13 +1464,13 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
       }
     }
     else
-    { 
+    {
       /* left item was not found neither the current nor in upper levels  */
       if (right_item_equal)
       {
         right_item_equal->add((Item_field *) left_item);
       }
-      else 
+      else
       {
         /* None of the fields was found in multiple equalities */
         Item_equal *item_equal= new Item_equal((Item_field *) left_item,
@@ -1516,7 +1516,7 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
             return FALSE;
           eq_item->quick_fix_field();
           item= eq_item;
-        }  
+        }
         if ((cs != ((Item_func *) item)->compare_collation()) ||
             !cs->coll->propagate(cs, 0, 0))
           return FALSE;
@@ -1531,7 +1531,7 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
       }
       if (item_equal)
       {
-        /* 
+        /*
           The flag cond_false will be set to 1 after this, if item_equal
           already contains a constant and its value is  not equal to
           the value of const_item.
@@ -1575,10 +1575,10 @@ static bool check_simple_equality(Item *left_item, Item *right_item,
   @retval
     FALSE   otherwise
 */
- 
+
 static bool check_row_equality(THD *thd, Item *left_row, Item_row *right_row,
                                COND_EQUAL *cond_equal, List<Item>* eq_list)
-{ 
+{
   uint n= left_row->cols();
   for (uint i= 0 ; i < n; i++)
   {
@@ -1588,19 +1588,19 @@ static bool check_row_equality(THD *thd, Item *left_row, Item_row *right_row,
     if (left_item->type() == Item::ROW_ITEM &&
         right_item->type() == Item::ROW_ITEM)
     {
-      is_converted= check_row_equality(thd, 
+      is_converted= check_row_equality(thd,
                                        (Item_row *) left_item,
                                        (Item_row *) right_item,
 			               cond_equal, eq_list);
       if (!is_converted)
-        thd->lex->current_select->cond_count++;      
+        thd->lex->current_select->cond_count++;
     }
     else
-    { 
+    {
       is_converted= check_simple_equality(left_item, right_item, 0, cond_equal);
       thd->lex->current_select->cond_count++;
-    }  
- 
+    }
+
     if (!is_converted)
     {
       Item_func_eq *eq_item;
@@ -1683,25 +1683,25 @@ static bool check_equality(THD *thd, Item *item, COND_EQUAL *cond_equal,
   return FALSE;
 }
 
-                          
+
 /**
   Replace all equality predicates in a condition by multiple equality items.
 
     At each 'and' level the function detects items for equality predicates
     and replaced them by a set of multiple equality items of class Item_equal,
-    taking into account inherited equalities from upper levels. 
+    taking into account inherited equalities from upper levels.
     If an equality predicate is used not in a conjunction it's just
     replaced by a multiple equality predicate.
     For each 'and' level the function set a pointer to the inherited
     multiple equalities in the cond_equal field of the associated
-    object of the type Item_cond_and.   
+    object of the type Item_cond_and.
     The function also traverses the cond tree and and for each field reference
     sets a pointer to the multiple equality item containing the field, if there
     is any. If this multiple equality equates fields to a constant the
-    function replaces the field reference by the constant in the cases 
+    function replaces the field reference by the constant in the cases
     when the field is not of a string type or when the field reference is
     just an argument of a comparison predicate.
-    The function also determines the maximum number of members in 
+    The function also determines the maximum number of members in
     equality lists of each Item_cond_and object assigning it to
     thd->lex->current_select->max_equal_elems.
 
@@ -1715,7 +1715,7 @@ static bool check_equality(THD *thd, Item *item, COND_EQUAL *cond_equal,
     in a conjuction for a minimal set of multiple equality predicates.
     This set can be considered as a canonical representation of the
     sub-conjunction of the equality predicates.
-    E.g. (t1.a=t2.b AND t2.b>5 AND t1.a=t3.c) is replaced by 
+    E.g. (t1.a=t2.b AND t2.b>5 AND t1.a=t3.c) is replaced by
     (=(t1.a,t2.b,t3.c) AND t2.b>5), not by
     (=(t1.a,t2.b) AND =(t1.a,t3.c) AND t2.b>5);
     while (t1.a=t2.b AND t2.b>5 AND t3.c=t4.d) is replaced by
@@ -1726,16 +1726,16 @@ static bool check_equality(THD *thd, Item *item, COND_EQUAL *cond_equal,
     The function performs the substitution in a recursive descent by
     the condtion tree, passing to the next AND level a chain of multiple
     equality predicates which have been built at the upper levels.
-    The Item_equal items built at the level are attached to other 
+    The Item_equal items built at the level are attached to other
     non-equality conjucts as a sublist. The pointer to the inherited
     multiple equalities is saved in the and condition object (Item_cond_and).
-    This chain allows us for any field reference occurence easyly to find a 
+    This chain allows us for any field reference occurence easyly to find a
     multiple equality that must be held for this occurence.
     For each AND level we do the following:
     - scan it for all equality predicate (=) items
     - join them into disjoint Item_equal() groups
-    - process the included OR conditions recursively to do the same for 
-      lower AND levels. 
+    - process the included OR conditions recursively to do the same for
+      lower AND levels.
 
     We need to do things in this order as lower AND levels need to know about
     all possible Item_equal objects in upper levels.
@@ -1767,7 +1767,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
     bool and_level= ((Item_cond*) cond)->functype() ==
       Item_func::COND_AND_FUNC;
     List<Item> *args= ((Item_cond*) cond)->argument_list();
-    
+
     List_iterator<Item> li(*args);
     Item *item;
 
@@ -1776,9 +1776,9 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
       /*
          Retrieve all conjuncts of this level detecting the equality
          that are subject to substitution by multiple equality items and
-         removing each such predicate from the conjunction after having 
+         removing each such predicate from the conjunction after having
          found/created a multiple equality whose inference the predicate is.
-     */      
+     */
       while ((item= li++))
       {
         /*
@@ -1794,8 +1794,8 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
         Check if we eliminated all the predicates of the level, e.g.
         (a=a AND b=b AND a=a).
       */
-      if (!args->elements && 
-          !cond_equal.current_level.elements && 
+      if (!args->elements &&
+          !cond_equal.current_level.elements &&
           !eq_list.elements)
         return new Item_int((longlong) 1, 1);
 
@@ -1805,7 +1805,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
         item_equal->fix_length_and_dec();
         item_equal->update_used_tables();
         set_if_bigger(thd->lex->current_select->max_equal_elems,
-                      item_equal->members());  
+                      item_equal->members());
       }
 
       ((Item_cond_and*)cond)->cond_equal= cond_equal;
@@ -1817,7 +1817,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
     */
     li.rewind();
     while ((item= li++))
-    { 
+    {
       Item *new_item=
         build_equal_items_for_cond(thd, item, inherited, do_inherit);
       if (new_item != item)
@@ -1848,7 +1848,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
       (b=5) and (a=c) are standalone equalities.
       In general we can't leave alone standalone eqalities:
       for WHERE a=b AND c=d AND (b=c OR d=5)
-      b=c is replaced by =(a,b,c,d).  
+      b=c is replaced by =(a,b,c,d).
      */
     if (check_equality(thd, cond, &cond_equal, &eq_list))
     {
@@ -1862,7 +1862,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
           item_equal->fix_length_and_dec();
           item_equal->update_used_tables();
           set_if_bigger(thd->lex->current_select->max_equal_elems,
-                        item_equal->members());  
+                        item_equal->members());
           return item_equal;
 	}
 
@@ -1870,7 +1870,7 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
       }
       else
       {
-        /* 
+        /*
           Here a new AND level must be created. It can happen only
           when a row equality is processed as a standalone predicate.
 	*/
@@ -1883,11 +1883,11 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
           item_equal->fix_length_and_dec();
           item_equal->update_used_tables();
           set_if_bigger(thd->lex->current_select->max_equal_elems,
-                        item_equal->members());  
+                        item_equal->members());
         }
         and_cond->cond_equal= cond_equal;
         args->concat((List<Item> *)&cond_equal.current_level);
-        
+
         return and_cond;
       }
     }
@@ -1957,15 +1957,15 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
       SELECT * FROM (t1,t2) LEFT JOIN (t3,t4) ON t2.a=t4.a AND t3.a=t4.a
         WHERE t1.a=t2.a
     @endcode
-    that is equivalent to:   
+    that is equivalent to:
     @code
       SELECT * FROM (t2 LEFT JOIN (t3,t4)ON t2.a=t4.a AND t3.a=t4.a), t1
         WHERE t1.a=t2.a
     @endcode
     Thus, applying equalities from the where condition we basically
     can get more freedom in performing join operations.
-    Althogh we don't use this property now, it probably makes sense to use 
-    it in the future.    
+    Althogh we don't use this property now, it probably makes sense to use
+    it in the future.
   @param thd		      Thread handler
   @param cond                condition to build the multiple equalities for
   @param inherited           path to all inherited multiple equality items
@@ -1979,14 +1979,14 @@ static Item *build_equal_items_for_cond(THD *thd, Item *cond,
   @return
     pointer to the transformed condition containing multiple equalities
 */
-   
+
 Item *build_equal_items(THD *thd, Item *cond, COND_EQUAL *inherited,
                         bool do_inherit, List<TABLE_LIST> *join_list,
                         COND_EQUAL **cond_equal_ref)
 {
   COND_EQUAL *cond_equal= 0;
 
-  if (cond) 
+  if (cond)
   {
     cond= build_equal_items_for_cond(thd, cond, inherited, do_inherit);
     cond->update_used_tables();
@@ -2031,14 +2031,14 @@ Item *build_equal_items(THD *thd, Item *cond, COND_EQUAL *inherited,
   }
 
   return cond;
-}    
+}
 
 
 /**
   Compare field items by table order in the execution plan.
 
     field1 considered as better than field2 if the table containing
-    field1 is accessed earlier than the table containing field2.   
+    field1 is accessed earlier than the table containing field2.
     The function finds out what of two fields is better according
     this criteria.
 
@@ -2061,7 +2061,7 @@ static int compare_fields_by_table_order(Item_field *field1,
   int cmp= 0;
   bool outer_ref= 0;
   if (field1->used_tables() & OUTER_REF_TABLE_BIT)
-  {  
+  {
     outer_ref= 1;
     cmp= -1;
   }
@@ -2134,7 +2134,7 @@ static Item *eliminate_item_equal(Item *cond, COND_EQUAL *upper_levels,
   List<Item> eq_list;
   Item_func_eq *eq_item= NULL;
   if (((Item *) item_equal)->const_item() && !item_equal->val_int())
-    return new Item_int((longlong) 0,1); 
+    return new Item_int((longlong) 0,1);
   Item *const item_const= item_equal->get_const();
   Item_equal_iterator it(*item_equal);
   if (!item_const)
@@ -2252,7 +2252,7 @@ static Item *eliminate_item_equal(Item *cond, COND_EQUAL *upper_levels,
 
   cond->quick_fix_field();
   cond->update_used_tables();
-   
+
   return cond;
 }
 
@@ -2265,7 +2265,7 @@ static Item *eliminate_item_equal(Item *cond, COND_EQUAL *upper_levels,
     multiple equality predicate it sorts the field references in it
     according to the order of tables specified by the table_join_idx
     parameter. Then it eliminates the multiple equality predicate it
-    replacing it by the conjunction of simple equality predicates 
+    replacing it by the conjunction of simple equality predicates
     equating every field from the multiple equality to the first
     field in it, or to the constant, if there is any.
     After this the function retrieves all other conjuncted
@@ -2303,13 +2303,13 @@ Item* substitute_for_best_equal_field(Item *cond,
       cond_equal= &((Item_cond_and *) cond)->cond_equal;
       cond_list->disjoin((List<Item> *) &cond_equal->current_level);
 
-      List_iterator_fast<Item_equal> it(cond_equal->current_level);      
+      List_iterator_fast<Item_equal> it(cond_equal->current_level);
       while ((item_equal= it++))
       {
         item_equal->sort(&compare_fields_by_table_order, table_join_idx);
       }
     }
-    
+
     List_iterator<Item> li(*cond_list);
     Item *item;
     while ((item= li++))
@@ -2344,7 +2344,7 @@ Item* substitute_for_best_equal_field(Item *cond,
       cond= new Item_int((int32)cond->val_bool());
 
   }
-  else if (cond->type() == Item::FUNC_ITEM && 
+  else if (cond->type() == Item::FUNC_ITEM &&
            ((Item_cond*) cond)->functype() == Item_func::MULT_EQUAL_FUNC)
   {
     item_equal= (Item_equal *) cond;
@@ -2510,7 +2510,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
     It also moves the join conditions for the converted outer joins
     and from inner joins to conds.
     The function also calculates some attributes for nested joins:
-    - used_tables    
+    - used_tables
     - not_null_tables
     - dep_tables.
     - on_expr_dep_tables
@@ -2533,7 +2533,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
     or the join condition for an embedding nested join contains a conjunctive
     predicate rejecting null values for some attribute of the inner tables.
 
-    E.g. in the query:    
+    E.g. in the query:
     @code
       SELECT * FROM t1 LEFT JOIN t2 ON t2.a=t1.a WHERE t2.b < 5
     @endcode
@@ -2551,11 +2551,11 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
     Similarly the following query:
     @code
       SELECT * from t1 LEFT JOIN (t2, t3) ON t2.a=t1.a t3.b=t1.b
-        WHERE t2.c < 5  
+        WHERE t2.c < 5
     @endcode
     is converted to:
     @code
-      SELECT * FROM t1, (t2, t3) WHERE t2.c < 5 AND t2.a=t1.a t3.b=t1.b 
+      SELECT * FROM t1, (t2, t3) WHERE t2.c < 5 AND t2.a=t1.a t3.b=t1.b
 
     @endcode
 
@@ -2565,7 +2565,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
                        LEFT JOIN t3 ON t3.b=t2.b
         WHERE t3 IS NOT NULL =>
       SELECT * FROM t1 LEFT JOIN t2 ON t2.a=t1.a, t3
-        WHERE t3 IS NOT NULL AND t3.b=t2.b => 
+        WHERE t3 IS NOT NULL AND t3.b=t2.b =>
       SELECT * FROM t1, t2, t3
         WHERE t3 IS NOT NULL AND t3.b=t2.b AND t2.a=t1.a
   @endcode
@@ -2576,7 +2576,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
     @code
       SELECT * FROM t1, (t2, t3) WHERE t2.c < 5 AND t2.a=t1.a AND t3.b=t1.b
     @endcode
-    finally is converted to: 
+    finally is converted to:
     @code
       SELECT * FROM t1, t2, t3 WHERE t2.c < 5 AND t2.a=t1.a AND t3.b=t1.b
 
@@ -2589,7 +2589,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
       SELECT * from (t1, (t2,t3)) WHERE t1.a=t2.a AND t2.b=t3.b.
     @endcode
 
-    The benefit of this simplification procedure is that it might return 
+    The benefit of this simplification procedure is that it might return
     a query for which the optimizer can evaluate execution plan with more
     join orders. With a left join operation the optimizer does not
     consider any plan where one of the inner tables is before some of outer
@@ -2609,7 +2609,7 @@ propagate_cond_constants(THD *thd, I_List<COND_CMP> *save_list,
   EXAMPLES
     Here is an example of a join query with invalid cross references:
     @code
-      SELECT * FROM t1 LEFT JOIN t2 ON t2.a=t3.a LEFT JOIN t3 ON t3.b=t1.b 
+      SELECT * FROM t1 LEFT JOIN t2 ON t2.a=t3.a LEFT JOIN t3 ON t3.b=t1.b
     @endcode
 
   @param join        reference to the query info
@@ -2653,9 +2653,9 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
   bool straight_join= MY_TEST(join->select_options & SELECT_STRAIGHT_JOIN);
   DBUG_ENTER("simplify_joins");
 
-  /* 
+  /*
     Try to simplify join operations from join_list.
-    The most outer join operation is checked for conversion first. 
+    The most outer join operation is checked for conversion first.
   */
   while ((table= li++))
   {
@@ -2664,21 +2664,21 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
 
     if ((nested_join= table->nested_join))
     {
-      /* 
+      /*
          If the element of join_list is a nested join apply
          the procedure to its nested join list first.
       */
       if (table->join_cond())
       {
         Item *join_cond= table->join_cond();
-        /* 
-           If a join condition JC is attached to the table, 
+        /*
+           If a join condition JC is attached to the table,
            check all null rejected predicates in this condition.
            If such a predicate over an attribute belonging to
            an inner table of an embedded outer join is found,
            the outer join is converted to an inner join and
-           the corresponding join condition is added to JC. 
-	*/ 
+           the corresponding join condition is added to JC.
+	      */
         if (simplify_joins(join, &nested_join->join_list,
                            join_cond, false, in_sj || table->sj_on_expr,
                            &join_cond, changelog))
@@ -2697,7 +2697,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
                          in_sj || table->sj_on_expr, &conds, changelog))
         DBUG_RETURN(true);
       used_tables= nested_join->used_tables;
-      not_null_tables= nested_join->not_null_tables;  
+      not_null_tables= nested_join->not_null_tables;
     }
     else
     {
@@ -2705,7 +2705,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
       if (conds)
         not_null_tables= conds->not_null_tables();
     }
-      
+
     if (table->embedding)
     {
       table->embedding->nested_join->used_tables|= used_tables;
@@ -2714,7 +2714,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
 
     if (!table->outer_join || (used_tables & not_null_tables))
     {
-      /* 
+      /*
         For some of the inner tables there are conjunctive predicates
         that reject nulls => the outer join can be replaced by an inner join.
       */
@@ -2759,29 +2759,29 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
         }
         else
         {
-          conds= table->join_cond(); 
+          conds= table->join_cond();
           /* If join condition has a pending rollback in THD::change_list */
           join->thd->change_item_tree_place(table->join_cond_ref(), &conds);
         }
         table->set_join_cond(NULL);
       }
     }
-    
+
     if (!top)
       continue;
 
-    /* 
+    /*
       Only inner tables of non-convertible outer joins remain with
       the join condition.
-    */ 
+    */
     if (table->join_cond())
     {
-      table->dep_tables|= table->join_cond()->used_tables(); 
+      table->dep_tables|= table->join_cond()->used_tables();
       if (table->embedding)
       {
         table->dep_tables&= ~table->embedding->nested_join->used_tables;
 
-        // Embedding table depends on tables used in embedded join conditions. 
+        // Embedding table depends on tables used in embedded join conditions.
         table->embedding->on_expr_dep_tables|=
           table->join_cond()->used_tables();
       }
@@ -2800,7 +2800,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
         table_map prev_used_tables= prev_table->nested_join ?
 	                            prev_table->nested_join->used_tables :
 	                            prev_table->table->map;
-        /* 
+        /*
           If join condition contains only references to inner tables
           we still make the inner tables dependent on the outer tables.
           It would be enough to set dependency only on one outer table
@@ -2810,7 +2810,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
           prevents update of inner table dependences.
           For example it might happen if RAND() function
           is used in JOIN ON clause.
-	*/  
+	*/
         if (!((prev_table->join_cond()->used_tables() & ~RAND_TABLE_BIT) &
               ~prev_used_tables))
           prev_table->dep_tables|= used_tables;
@@ -2830,7 +2830,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
     if (table->sj_on_expr && !in_sj)
     {
        /*
-         If this is a semi-join that is not contained within another semi-join, 
+         If this is a semi-join that is not contained within another semi-join,
          leave it intact (otherwise it is flattened)
        */
       *changelog|= SEMIJOIN;
@@ -2884,7 +2884,7 @@ simplify_joins(JOIN *join, List<TABLE_LIST> *join_list, Item *conds, bool top,
   After simplification of inner join, outer join and semi-join structures:
    - record the remaining semi-join structures in the enclosing query block.
    - record transformed join conditions in TABLE_LIST objects.
-  
+
   This function is called recursively for each join nest and/or table
   in the query block.
 
@@ -2945,7 +2945,7 @@ static bool record_join_nest_info(st_select_lex *select,
     First unused bit in nested_join_map after the call.
 */
 
-static uint build_bitmap_for_nested_joins(List<TABLE_LIST> *join_list, 
+static uint build_bitmap_for_nested_joins(List<TABLE_LIST> *join_list,
                                           uint first_unused)
 {
   List_iterator<TABLE_LIST> li(*join_list);
@@ -3172,7 +3172,7 @@ void JOIN::set_prefix_tables()
     JOIN_TAB *const tab= join_tab + i;
     if (!tab->table)
       continue;
-    /* 
+    /*
       Tables that are within SJ-Materialization nests cannot have their
       conditions referring to preceding non-const tables.
        - If we're looking at the first SJM table, reset current_tables_map
@@ -3223,9 +3223,9 @@ void JOIN::set_prefix_tables()
   Calculate best possible join order and initialize the join structure.
 
   @param  join          Join object that is populated with statistics data
-  @param  tables_arg    List of tables that is referenced by this query 
+  @param  tables_arg    List of tables that is referenced by this query
   @param  conds         Where condition of query
-  @param  keyuse_array[out] Populated with key_use information  
+  @param  keyuse_array[out] Populated with key_use information
   @param  first_optimization True if first optimization of this query
 
   @return true if success, false if error
@@ -3244,7 +3244,7 @@ void JOIN::set_prefix_tables()
   - Extract tables with zero or one rows as const tables.
 
   - Read contents of const tables, substitute columns from these tables with
-    actual data. Also keep track of empty tables vs. one-row tables. 
+    actual data. Also keep track of empty tables vs. one-row tables.
 
   - After const table extraction based on row count, more tables may
     have become functionally dependent. Extract these as const tables.
@@ -3375,7 +3375,7 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables_arg, Item *conds,
 
   if (join->outer_join)
   {
-    /* 
+    /*
        Complete the dependency analysis.
        Build transitive closure for relation 'to be dependent on'.
        This will speed up the plan search for many cases with outer joins,
@@ -3526,7 +3526,7 @@ make_join_statistics(JOIN *join, TABLE_LIST *tables_arg, Item *conds,
          1. are dependent upon other tables, or
          2. have no exact statistics, or
          3. are full-text searched
-      */ 
+      */
       if ((table->s->system ||
            table->file->stats.records <= 1 ||
            all_partitions_pruned_away) &&
@@ -3577,23 +3577,23 @@ const_table_extraction_done:
     {
       TABLE *const table= s->table;
       TABLE_LIST *const tl= table->pos_in_table_list;
-      /* 
+      /*
         If equi-join condition by a key is null rejecting and after a
         substitution of a const table the key value happens to be null
         then we can state that there are no matches for this equi-join.
-      */  
+      */
       if ((keyuse= s->keyuse) && *s->on_expr_ref && !s->embedding_map)
       {
-        /* 
+        /*
           When performing an outer join operation if there are no matching rows
           for the single row of the outer table all the inner tables are to be
           null complemented and thus considered as constant tables.
-          Here we apply this consideration to the case of outer join operations 
+          Here we apply this consideration to the case of outer join operations
           with a single inner table only because the case with nested tables
           would require a more thorough analysis.
           TODO. Apply single row substitution to null complemented inner tables
-          for nested outer join operations. 
-	*/              
+          for nested outer join operations.
+	*/
         while (keyuse->table == table)
         {
           if (!(keyuse->val->used_tables() & ~join->const_table_map) &&
@@ -3717,10 +3717,10 @@ const_table_extraction_done:
       }
     }
   } while (join->const_table_map & found_ref && ref_changed);
- 
-  /* 
+
+  /*
     Update info on indexes that can be used for search lookups as
-    reading const tables may has added new sargable predicates. 
+    reading const tables may has added new sargable predicates.
   */
   if (const_count && sargables)
   {
@@ -3914,7 +3914,7 @@ error:
     Need to clean up join_tab from TABLEs in case of error.
     They won't get cleaned up by JOIN::cleanup() because JOIN::join_tab
     may not be assigned yet by this function (which is building join_tab).
-    Dangling TABLE::reginfo.join_tab may cause part_of_refkey to choke. 
+    Dangling TABLE::reginfo.join_tab may cause part_of_refkey to choke.
   */
   for (tables= tables_arg; tables; tables= tables->next_leaf)
     tables->table->reginfo.join_tab= NULL;
@@ -3966,10 +3966,10 @@ void JOIN::set_semijoin_embedding()
 
   @details
     This is a temporary fix for BUG#36752.
-    
+
     There are two subquery materialization strategies for semijoin:
 
-    1. Materialize and do index lookups in the materialized table. See 
+    1. Materialize and do index lookups in the materialized table. See
        BUG#36752 for description of restrictions we need to put on the
        compared expressions.
 
@@ -3985,7 +3985,7 @@ void JOIN::set_semijoin_embedding()
        BLOB/GEOMETRY columns are allowed.
 */
 
-static 
+static
 void semijoin_types_allow_materialization(TABLE_LIST *sj_nest)
 {
   DBUG_ENTER("semijoin_types_allow_materialization");
@@ -4083,10 +4083,10 @@ static ha_rows get_quick_record_count(THD *thd, SQL_SELECT *select,
   if (!tl->uses_materialization())
   {
     select->head=table;
-    int error= select->test_quick_select(thd, 
-                                         *keys, 
+    int error= select->test_quick_select(thd,
+                                         *keys,
                                          0,      //empty table_map
-                                         limit, 
+                                         limit,
                                          false,  //don't force quick range
                                          ORDER::ORDER_NOT_RELEVANT);
     if (error == 1)
@@ -4107,7 +4107,7 @@ static ha_rows get_quick_record_count(THD *thd, SQL_SELECT *select,
 
 /*
   Get estimated record length for semi-join materialization temptable
-  
+
   SYNOPSIS
     get_tmp_table_rec_length()
       items  IN subquery's select list.
@@ -4212,7 +4212,7 @@ static void trace_table_dependencies(Opt_trace_context * trace,
     add "t1.field IS NOT NULL" to t1's table condition. @n
 
     Description of the optimization:
-    
+
       We look through equalities choosen to perform ref/eq_ref access,
       pick equalities that have form "tbl.part_of_key = othertbl.field"
       (where othertbl is a non-const table and othertbl.field may be NULL)
@@ -4240,7 +4240,7 @@ static void trace_table_dependencies(Opt_trace_context * trace,
       This optimization doesn't affect the choices that ref, range, or join
       optimizer make. This was intentional because this was added after 4.1
       was GA.
-      
+
     Implementation overview
       1. update_ref_and_keys() accumulates info about null-rejecting
          predicates in in Key_field::null_rejecting
@@ -4256,7 +4256,7 @@ static void add_not_null_conds(JOIN *join)
   for (uint i=join->const_tables ; i < join->tables ; i++)
   {
     JOIN_TAB *tab=join->join_tab+i;
-    if ((tab->type == JT_REF || tab->type == JT_EQ_REF || 
+    if ((tab->type == JT_REF || tab->type == JT_EQ_REF ||
          tab->type == JT_REF_OR_NULL) &&
         !tab->table->maybe_null)
     {
@@ -4281,8 +4281,8 @@ static void add_not_null_conds(JOIN *join)
             DBUG_VOID_RETURN;
           /*
             We need to do full fix_fields() call here in order to have correct
-            notnull->const_item(). This is needed e.g. by test_quick_select 
-            when it is called from make_join_select after this function is 
+            notnull->const_item(). This is needed e.g. by test_quick_select
+            when it is called from make_join_select after this function is
             called.
           */
           if (notnull->fix_fields(join->thd, &notnull))
@@ -4299,7 +4299,7 @@ static void add_not_null_conds(JOIN *join)
 }
 
 
-/* 
+/*
   Check if given expression uses only table fields covered by the given index
 
   SYNOPSIS
@@ -4312,8 +4312,8 @@ static void add_not_null_conds(JOIN *join)
   DESCRIPTION
     Check if given expression only uses fields covered by index #keyno in the
     table tbl. The expression can use any fields in any other tables.
-    
-    The expression is guaranteed not to be AND or OR - those constructs are 
+
+    The expression is guaranteed not to be AND or OR - those constructs are
     handled outside of this function.
 
   RETURN
@@ -4321,7 +4321,7 @@ static void add_not_null_conds(JOIN *join)
     FALSE  No
 */
 
-bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno, 
+bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno,
                             bool other_tbls_ok)
 {
   if (item->const_item())
@@ -4348,7 +4348,7 @@ bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno,
           execution code may need to evaluate a condition several times
           (both triggered and untriggered).
           TODO: Consider cloning the triggered condition and using the
-                copies for: 
+                copies for:
                  1. push the first copy down, to have most restrictive
                     index condition possible.
                  2. Put the second copy into tab->m_condition.
@@ -4362,7 +4362,7 @@ bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno,
 
       /* This is a function, apply condition recursively to arguments */
       if (item_func->argument_count() > 0)
-      {        
+      {
         Item **item_end= (item_func->arguments()) + item_func->argument_count();
         for (Item **child= item_func->arguments(); child != item_end; child++)
         {
@@ -4392,7 +4392,7 @@ bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno,
   case Item::FIELD_ITEM:
     {
       Item_field *item_field= (Item_field*)item;
-      if (item_field->field->table != tbl) 
+      if (item_field->field->table != tbl)
         return other_tbls_ok;
       /*
         The below is probably a repetition - the first part checks the
@@ -4422,7 +4422,7 @@ bool uses_index_fields_only(Item *item, TABLE *tbl, uint keyno,
      - Generate the best join order for this "sub-join" and remember it;
      - Remember the sub-join execution cost (it's part of materialization
        cost);
-     - Calculate other costs that will be incurred if we decide 
+     - Calculate other costs that will be incurred if we decide
        to use materialization strategy for this semi-join nest.
 
     All obtained information is saved and will be used by the main join
@@ -4457,7 +4457,7 @@ static bool optimize_semijoin_nests_for_materialization(JOIN *join)
       /*
         Try semijoin materialization if the semijoin is classified as
         non-trivially-correlated.
-      */ 
+      */
       if (sj_nest->nested_join->sj_corr_tables)
         continue;
       /*
@@ -4584,19 +4584,19 @@ static bool find_eq_ref_candidate(TABLE *table, table_map sj_inner_tables)
        The semi-join nest is also marked as correlated, and
        sj_corr_tables and sj_depends_on are adjusted if necessary.
      * Semi-join nests' sj_inner_tables is set equal to used_tables
-    
+
     NOTE
     Table pullout may make uncorrelated subquery correlated. Consider this
     example:
-    
-     ... WHERE oe IN (SELECT it1.primary_key WHERE p(it1, it2) ... ) 
-    
+
+     ... WHERE oe IN (SELECT it1.primary_key WHERE p(it1, it2) ... )
+
     here table it1 can be pulled out (we have it1.primary_key=oe which gives
     us functional dependency). Once it1 is pulled out, all references to it1
     from p(it1, it2) become references to outside of the subquery and thus
     make the subquery (i.e. its semi-join nest) correlated.
     Making the subquery (i.e. its semi-join nest) correlated prevents us from
-    using Materialization or LooseScan to execute it. 
+    using Materialization or LooseScan to execute it.
 */
 
 static bool pull_out_semijoin_tables(JOIN *join)
@@ -4613,7 +4613,7 @@ static bool pull_out_semijoin_tables(JOIN *join)
 
   /* Try pulling out tables from each semi-join nest */
   while ((sj_nest= sj_list_it++))
-  {    
+  {
     table_map pulled_tables= 0;
     List_iterator<TABLE_LIST> child_li(sj_nest->nested_join->join_list);
     TABLE_LIST *tbl;
@@ -4636,7 +4636,7 @@ static bool pull_out_semijoin_tables(JOIN *join)
       other tables too.
     */
     bool pulled_a_table;
-    do 
+    do
     {
       pulled_a_table= FALSE;
       child_li.rewind();
@@ -4646,8 +4646,8 @@ static bool pull_out_semijoin_tables(JOIN *join)
             !(pulled_tables & tbl->table->map) &&
             !(dep_tables & tbl->table->map))
         {
-          if (find_eq_ref_candidate(tbl->table, 
-                                    sj_nest->nested_join->used_tables & 
+          if (find_eq_ref_candidate(tbl->table,
+                                    sj_nest->nested_join->used_tables &
                                     ~pulled_tables))
           {
             pulled_a_table= TRUE;
@@ -4656,7 +4656,7 @@ static bool pull_out_semijoin_tables(JOIN *join)
               add("functionally_dependent", true);
             /*
               Pulling a table out of uncorrelated subquery in general makes
-              makes it correlated. See the NOTE to this function. 
+              makes it correlated. See the NOTE to this function.
             */
             sj_nest->nested_join->sj_corr_tables|= tbl->table->map;
             sj_nest->nested_join->sj_depends_on|= tbl->table->map;
@@ -4664,7 +4664,7 @@ static bool pull_out_semijoin_tables(JOIN *join)
         }
       }
     } while (pulled_a_table);
- 
+
     child_li.rewind();
     /*
       Move the pulled out TABLE_LIST elements to the parents.
@@ -4678,7 +4678,7 @@ static bool pull_out_semijoin_tables(JOIN *join)
     if (pulled_tables)
     {
       List<TABLE_LIST> *upper_join_list= (sj_nest->embedding != NULL) ?
-          &sj_nest->embedding->nested_join->join_list : 
+          &sj_nest->embedding->nested_join->join_list :
           &join->select_lex->top_join_list;
 
       Prepared_stmt_arena_holder ps_arena_holder(join->thd);
@@ -4771,7 +4771,7 @@ struct Key_field {
   that are internally transformed to something like:.
 
   @code
-  SELECT * FROM t1 WHERE t1.key=outer_ref_field or t1.key IS NULL 
+  SELECT * FROM t1 WHERE t1.key=outer_ref_field or t1.key IS NULL
   @endcode
 
   Key_field::null_rejecting is processed as follows: @n
@@ -4806,10 +4806,10 @@ merge_key_fields(Key_field *start, Key_field *new_fields, Key_field *end,
         /*
           NOTE: below const_item() call really works as "!used_tables()", i.e.
           it can return FALSE where it is feasible to make it return TRUE.
-          
+
           The cause is as follows: Some of the tables are already known to be
           const tables (the detection code is in make_join_statistics(),
-          above the update_ref_and_keys() call), but we didn't propagate 
+          above the update_ref_and_keys() call), but we didn't propagate
           information about this: TABLE::const_table is not set to TRUE, and
           Item::update_used_tables() hasn't been called for each item.
           The result of this is that we're missing some 'ref' accesses.
@@ -4833,7 +4833,7 @@ merge_key_fields(Key_field *start, Key_field *new_fields, Key_field *end,
 	  }
 	}
 	else if (old->eq_func && new_fields->eq_func &&
-                 old->val->eq_by_collation(new_fields->val, 
+                 old->val->eq_by_collation(new_fields->val,
                                            old->field->binary(),
                                            old->field->charset()))
 
@@ -4847,7 +4847,7 @@ merge_key_fields(Key_field *start, Key_field *new_fields, Key_field *end,
                                 new_fields->null_rejecting);
 	}
 	else if (old->eq_func && new_fields->eq_func &&
-		 ((old->val->const_item() && old->val->is_null()) || 
+		 ((old->val->const_item() && old->val->is_null()) ||
                   new_fields->val->is_null()))
 	{
 	  /* field = expression OR field IS NULL */
@@ -4859,7 +4859,7 @@ merge_key_fields(Key_field *start, Key_field *new_fields, Key_field *end,
           */
 	  if (!old->val->used_tables() && old->val->is_null())
 	    old->val= new_fields->val;
-          /* The referred expression can be NULL: */ 
+          /* The referred expression can be NULL: */
           old->null_rejecting= 0;
 	}
 	else
@@ -4929,7 +4929,7 @@ static uint get_semi_join_select_list_index(Field *field)
 }
 
 /**
-   @brief 
+   @brief
    If EXPLAIN EXTENDED, add warning that an index cannot be used for
    ref access
 
@@ -4952,15 +4952,15 @@ static uint get_semi_join_select_list_index(Field *field)
    @param field              Field used in comparision
    @param cant_use_indexes   Indexes that cannot be used for lookup
  */
-static void 
-warn_index_not_applicable(THD *thd, const Field *field, 
-                          const key_map cant_use_index) 
+static void
+warn_index_not_applicable(THD *thd, const Field *field,
+                          const key_map cant_use_index)
 {
   if (thd->lex->describe & DESCRIBE_EXTENDED)
     for (uint j=0 ; j < field->table->s->keys ; j++)
       if (cant_use_index.is_set(j))
         push_warning_printf(thd,
-                            Sql_condition::WARN_LEVEL_WARN, 
+                            Sql_condition::WARN_LEVEL_WARN,
                             ER_WARN_INDEX_NOT_APPLICABLE,
                             ER(ER_WARN_INDEX_NOT_APPLICABLE),
                             "ref",
@@ -5135,11 +5135,11 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
         stat[0].const_keys.merge(possible_keys);
       else if (!eq_func)
       {
-        /* 
-          Save info to be able check whether this predicate can be 
+        /*
+          Save info to be able check whether this predicate can be
           considered as sargable for range analisis after reading const tables.
           We do not save info about equalities as update_const_equal_items
-          will take care of updating info on keys from sargable equalities. 
+          will take care of updating info on keys from sargable equalities.
         */
         (*sargables)--;
         (*sargables)->field= field;
@@ -5206,8 +5206,8 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
   */
   DBUG_ASSERT(eq_func);
   /*
-    If the condition has form "tbl.keypart = othertbl.field" and 
-    othertbl.field can be NULL, there will be no matches if othertbl.field 
+    If the condition has form "tbl.keypart = othertbl.field" and
+    othertbl.field can be NULL, there will be no matches if othertbl.field
     has NULL value.
     We use null_rejecting in add_not_null_conds() to add
     'othertbl.field IS NOT NULL' to tab->m_condition, if this is not an outer
@@ -5246,7 +5246,7 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
     @param  field          Field used in comparision
     @param  eq_func        True if we used =, <=> or IS NULL
     @param  value          Value used for comparison with field
-                           Is NULL for BETWEEN and IN    
+                           Is NULL for BETWEEN and IN
     @param  usable_tables  Tables which can be used for key optimization
     @param  sargables      IN/OUT Array of found sargable candidates
 
@@ -5273,7 +5273,7 @@ add_key_equal_fields(Key_field **key_fields, uint and_level,
                 : nullptr);
   Item_equal *item_equal= field_item->item_equal;
   if (item_equal)
-  { 
+  {
     /*
       Add to the set of possible key values every substitution of
       the field for an equal field included into item_equal
@@ -5354,7 +5354,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
     return;
   }
 
-  /* 
+  /*
     Subquery optimization: Conditions that are pushed down into subqueries
     are wrapped into Item_func_trig_cond. We process the wrapped condition
     but need to set cond_guard for Key_use elements generated from it.
@@ -5365,7 +5365,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
     {
       Item *cond_arg= ((Item_func*)cond)->arguments()[0];
       if (!join->group_list && !join->order &&
-          join->unit->item && 
+          join->unit->item &&
           join->unit->item->substype() == Item_subselect::IN_SUBS &&
           !join->unit->is_union())
       {
@@ -5392,7 +5392,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
     Item **values;
     /*
       Build list of possible keys for 'a BETWEEN low AND high'.
-      It is handled similar to the equivalent condition 
+      It is handled similar to the equivalent condition
       'a >= low AND a <= high':
     */
     if (cond_func->functype() == Item_func::BETWEEN)
@@ -5458,7 +5458,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
                   cond_func->argument_count() != 2);
       add_key_equal_fields(key_fields, *and_level, cond_func,
                            (Item_field*) (cond_func->key_item()->real_item()),
-                           0, values, 
+                           0, values,
                            cond_func->argument_count()-1,
                            usable_tables, sargables);
     }
@@ -5480,7 +5480,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
     if (is_local_field (cond_func->arguments()[1]) &&
 	cond_func->functype() != Item_func::LIKE_FUNC)
     {
-      add_key_equal_fields(key_fields, *and_level, cond_func, 
+      add_key_equal_fields(key_fields, *and_level, cond_func,
                        (Item_field*) (cond_func->arguments()[1])->real_item(),
 		           equal_func,
                            cond_func->arguments(),1,usable_tables,
@@ -5510,10 +5510,10 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
     if (const_item)
     {
       /*
-        For each field field1 from item_equal consider the equality 
+        For each field field1 from item_equal consider the equality
         field1=const_item as a condition allowing an index access of the table
         with field1 by the keys value of field1.
-      */   
+      */
       while ((item= it++))
       {
         add_key_field(key_fields, *and_level, cond_func, item->field, TRUE,
@@ -5522,14 +5522,14 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
                       : nullptr);
       }
     }
-    else 
+    else
     {
       /*
         Consider all pairs of different fields included into item_equal.
-        For each of them (field1, field1) consider the equality 
+        For each of them (field1, field1) consider the equality
         field1=field2 as a condition allowing an index access of the table
         with field1 by the keys value of field2.
-      */   
+      */
       Item_equal_iterator fi(*item_equal);
       while ((item= fi++))
       {
@@ -5556,7 +5556,7 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
   Add all keys with uses 'field' for some keypart
   If field->and_level != and_level then only mark key_part as const_part
 
-  RETURN 
+  RETURN
    0 - OK
    1 - Out of memory.
 */
@@ -5696,8 +5696,8 @@ static int sort_keyuse(Key_use *a, Key_use *b)
 /*
   Add to Key_field array all 'ref' access candidates within nested join.
 
-    This function populates Key_field array with entries generated from the 
-    ON condition of the given nested join, and does the same for nested joins 
+    This function populates Key_field array with entries generated from the
+    ON condition of the given nested join, and does the same for nested joins
     contained within this nested join.
 
   @param[in]      nested_join_table   Nested join pseudo-table to process
@@ -5707,10 +5707,10 @@ static int sort_keyuse(Key_use *a, Key_use *b)
 
 
   @note
-    We can add accesses to the tables that are direct children of this nested 
+    We can add accesses to the tables that are direct children of this nested
     join (1), and are not inner tables w.r.t their neighbours (2).
-    
-    Example for #1 (outer brackets pair denotes nested join this function is 
+
+    Example for #1 (outer brackets pair denotes nested join this function is
     invoked for):
     @code
      ... LEFT JOIN (t1 LEFT JOIN (t2 ... ) ) ON cond
@@ -5719,7 +5719,7 @@ static int sort_keyuse(Key_use *a, Key_use *b)
     @code
      ... LEFT JOIN (t1 LEFT JOIN t2 ) ON cond
     @endcode
-    In examples 1-2 for condition cond, we can add 'ref' access candidates to 
+    In examples 1-2 for condition cond, we can add 'ref' access candidates to
     t1 only.
     Example #3:
     @code
@@ -5749,7 +5749,7 @@ static void add_key_fields_for_nj(JOIN *join, TABLE_LIST *nested_join_table,
         /* It's a semi-join nest. Walk into it as if it wasn't a nest */
         have_another= TRUE;
         li2= li;
-        li= List_iterator<TABLE_LIST>(table->nested_join->join_list); 
+        li= List_iterator<TABLE_LIST>(table->nested_join->join_list);
       }
       else
         add_key_fields_for_nj(join, table, end, and_level, sargables);
@@ -5822,11 +5822,11 @@ is_indexed_agg_distinct(JOIN *join, List<Item_field> *out_args)
       case Item_sum::MIN_FUNC:
       case Item_sum::MAX_FUNC:
         continue;
-      case Item_sum::COUNT_DISTINCT_FUNC: 
+      case Item_sum::COUNT_DISTINCT_FUNC:
         break;
       case Item_sum::AVG_DISTINCT_FUNC:
       case Item_sum::SUM_DISTINCT_FUNC:
-        if (sum_item->get_arg_count() == 1) 
+        if (sum_item->get_arg_count() == 1)
           break;
         /* fall through */
       default: return false;
@@ -5954,7 +5954,7 @@ add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab)
   else if (join->tmp_table_param.sum_func_count &&
            is_indexed_agg_distinct(join, &indexed_fields))
   {
-    /* 
+    /*
       SELECT list with AGGFN(distinct col). The query qualifies for
       loose index scan, and is_indexed_agg_distinct() has already
       collected all referenced fields into indexed_fields.
@@ -6013,8 +6013,8 @@ add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab)
 
 /**
   Update keyuse array with all possible keys we can use to fetch rows.
-  
-  @param       thd 
+
+  @param       thd
   @param[out]  keyuse         Put here ordered array of Key_use structures
   @param       join_tab       Array in tablenr_order
   @param       tables         Number of tables in join
@@ -6025,7 +6025,7 @@ add_group_and_distinct_keys(JOIN *join, JOIN_TAB *join_tab)
                               clause)
   @param       select_lex     current SELECT
   @param[out]  sargables      Array of found sargable candidates
-      
+
    @retval
      0  OK
    @retval
@@ -6042,17 +6042,17 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
   Key_field *key_fields, *end, *field;
   uint sz;
   uint m= max(select_lex->max_equal_elems, 1U);
-  
-  /* 
-    We use the same piece of memory to store both  Key_field 
+
+  /*
+    We use the same piece of memory to store both  Key_field
     and SARGABLE_PARAM structure.
     Key_field values are placed at the beginning this memory
     while  SARGABLE_PARAM values are put at the end.
     All predicates that are used to fill arrays of Key_field
     and SARGABLE_PARAM structures have at most 2 arguments
-    except BETWEEN predicates that have 3 arguments and 
+    except BETWEEN predicates that have 3 arguments and
     IN predicates.
-    This any predicate if it's not BETWEEN/IN can be used 
+    This any predicate if it's not BETWEEN/IN can be used
     directly to fill at most 2 array elements, either of Key_field
     or SARGABLE_PARAM type. For a BETWEEN predicate 3 elements
     can be filled as this predicate is considered as
@@ -6061,9 +6061,9 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
     it is considered as sargable only for its first argument.
     Multiple equality can add  elements that are filled after
     substitution of field arguments by equal fields. There
-    can be not more than select_lex->max_equal_elems such 
+    can be not more than select_lex->max_equal_elems such
     substitutions.
-  */ 
+  */
   sz= max(sizeof(Key_field), sizeof(SARGABLE_PARAM)) *
       (((select_lex->cond_count + 1) * 2 +
 	select_lex->between_count) * m + 1);
@@ -6071,10 +6071,10 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
     return TRUE; /* purecov: inspected */
   and_level= 0;
   field= end= key_fields;
-  *sargables= (SARGABLE_PARAM *) key_fields + 
+  *sargables= (SARGABLE_PARAM *) key_fields +
                 (sz - sizeof((*sargables)[0].field))/sizeof(SARGABLE_PARAM);
   /* set a barrier for the array of SARGABLE_PARAM */
-  (*sargables)[0].field= 0; 
+  (*sargables)[0].field= 0;
 
   if (cond)
   {
@@ -6106,9 +6106,9 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
       In the future when we introduce conditional accesses
       for inner tables in outer joins these keys will be taken
       into account as well.
-    */ 
+    */
     if (*join_tab[i].on_expr_ref)
-      add_key_fields(join_tab->join, &end, &and_level, 
+      add_key_fields(join_tab->join, &end, &and_level,
                      *join_tab[i].on_expr_ref,
                      join_tab[i].table->map, sargables);
   }
@@ -6120,7 +6120,7 @@ update_ref_and_keys(THD *thd, Key_use_array *keyuse,JOIN_TAB *join_tab,
     while ((table= li++))
     {
       if (table->nested_join)
-        add_key_fields_for_nj(join_tab->join, table, &end, &and_level, 
+        add_key_fields_for_nj(join_tab->join, table, &end, &and_level,
                               sargables);
     }
   }
@@ -6297,7 +6297,7 @@ set_position(JOIN *join, uint idx, JOIN_TAB *table, Key_use *key)
     corresponding first inner table through the field t0->on_expr_ref.
     Here ti are structures of the JOIN_TAB type.
 
-  EXAMPLE. For the query: 
+  EXAMPLE. For the query:
   @code
         SELECT * FROM t1
                       LEFT JOIN
@@ -6310,7 +6310,7 @@ set_position(JOIN *join, uint idx, JOIN_TAB *table, Key_use *key)
     is selected, the following references will be set;
     t4->last_inner=[t4], t4->first_inner=[t4], t4->first_upper=[t2]
     t2->last_inner=[t4], t2->first_inner=t3->first_inner=[t2],
-    on expression (t1.a=t2.a AND t1.b=t3.b) will be attached to 
+    on expression (t1.a=t2.a AND t1.b=t3.b) will be attached to
     *t2->on_expr_ref, while t3.a=t4.a will be attached to *t4->on_expr_ref.
 
   @param join   reference to the info fully describing the query
@@ -6341,7 +6341,7 @@ make_outerjoin_info(JOIN *join)
 
     if (tbl->outer_join)
     {
-      /* 
+      /*
         Table tab is the only one inner table for outer join.
         (Like table t4 for the table reference t3 LEFT JOIN t4 ON t3.a=t4.a
         is in the query above.)
@@ -6356,7 +6356,7 @@ make_outerjoin_info(JOIN *join)
       TABLE_LIST *const outer_join_nest= tbl->outer_join_nest();
       if (outer_join_nest)
         tab->first_upper= outer_join_nest->nested_join->first_nested;
-    }    
+    }
     for (TABLE_LIST *embedding= tbl->embedding;
          embedding;
          embedding= embedding->embedding)
@@ -6367,10 +6367,10 @@ make_outerjoin_info(JOIN *join)
       NESTED_JOIN *const nested_join= embedding->nested_join;
       if (!nested_join->nj_counter)
       {
-        /* 
+        /*
           Table tab is the first inner table for nested_join.
           Save reference to it in the nested join structure.
-        */ 
+        */
         nested_join->first_nested= tab;
         tab->on_expr_ref= embedding->join_cond_ref();
         tab->cond_equal= tbl->cond_equal;
@@ -6379,7 +6379,7 @@ make_outerjoin_info(JOIN *join)
         if (outer_join_nest)
           tab->first_upper= outer_join_nest->nested_join->first_nested;
       }
-      if (!tab->first_inner)  
+      if (!tab->first_inner)
         tab->first_inner= nested_join->first_nested;
       if (++nested_join->nj_counter < nested_join->nj_total)
         break;
@@ -6434,7 +6434,7 @@ add_found_match_trig_cond(JOIN_TAB *tab, Item *cond, JOIN_TAB *root_tab)
    outer joins is formed. Thus, the condition from an
    'on expression' are guaranteed not to be checked for
    the null complemented row.
-*/ 
+*/
 static bool pushdown_on_conditions(JOIN* join, JOIN_TAB *last_tab)
 {
   DBUG_ENTER("pushdown_on_conditions");
@@ -6460,18 +6460,18 @@ static bool pushdown_on_conditions(JOIN* join, JOIN_TAB *last_tab)
 
       if (cond_tab->and_with_jt_and_sel_condition(tmp_cond, __LINE__))
         DBUG_RETURN(true);
-    }       
+    }
   }
 
-  JOIN_TAB *first_inner_tab= last_tab->first_inner; 
+  JOIN_TAB *first_inner_tab= last_tab->first_inner;
 
   /* Push down non-constant conditions from on expressions */
   while (first_inner_tab && first_inner_tab->last_inner == last_tab)
-  {  
-    /* 
+  {
+    /*
        Table last_tab is the last inner table of an outer join.
        An on expression is always attached to it.
-    */     
+    */
     Item *on_expr= *first_inner_tab->on_expr_ref;
 
     for (JOIN_TAB *join_tab= join->join_tab+join->const_tables;
@@ -6507,10 +6507,10 @@ static bool pushdown_on_conditions(JOIN* join, JOIN_TAB *last_tab)
                                                 tmp_cond,
                                                 first_inner_tab)))
         DBUG_RETURN(1);
-      /* 
-         Now add the guard turning the predicate off for 
+      /*
+         Now add the guard turning the predicate off for
          the null complemented row.
-      */ 
+      */
       tmp_cond=
         new Item_func_trig_cond(tmp_cond, &first_inner_tab->not_null_compl,
                                 first_inner_tab,
@@ -6523,7 +6523,7 @@ static bool pushdown_on_conditions(JOIN* join, JOIN_TAB *last_tab)
       if (cond_tab->and_with_jt_and_sel_condition(tmp_cond, __LINE__))
         DBUG_RETURN(true);
     }
-    first_inner_tab= first_inner_tab->first_upper;       
+    first_inner_tab= first_inner_tab->first_upper;
   }
   DBUG_RETURN(0);
 }
@@ -6569,7 +6569,7 @@ part_of_refkey(TABLE *table,Field *field)
   usage/modifications of test_if_ref().
 */
 
-static bool test_if_ref(Item *root_cond, 
+static bool test_if_ref(Item *root_cond,
                         Item_field *left_item,Item *right_item)
 {
   Field *field=left_item->field;
@@ -6652,7 +6652,7 @@ static bool test_if_ref(Item *root_cond,
    @note
      make_cond_for_info_schema() uses an algorithm similar to
      make_cond_for_table().
-*/ 
+*/
 
 /**
    Destructively replaces a sub-condition inside a condition tree. The
@@ -6660,9 +6660,9 @@ static bool test_if_ref(Item *root_cond,
 
    @note Because of current requirements for semijoin flattening, we do not
    need to recurse here, hence this function will only examine the top-level
-   AND conditions. (see JOIN::prepare, comment starting with "Check if the 
+   AND conditions. (see JOIN::prepare, comment starting with "Check if the
    subquery predicate can be executed via materialization".)
-   
+
    @param join The top-level query.
 
    @param tree Must be the handle to the top level condition. This is needed
@@ -6681,7 +6681,7 @@ static bool test_if_ref(Item *root_cond,
    @retval false If successful.
 */
 
-static bool replace_subcondition(JOIN *join, Item **tree, 
+static bool replace_subcondition(JOIN *join, Item **tree,
                                  Item *old_cond, Item *new_cond,
                                  bool do_fix_fields)
 {
@@ -6693,13 +6693,13 @@ static bool replace_subcondition(JOIN *join, Item **tree,
     join->select_lex->where= *tree;
     return FALSE;
   }
-  else if ((*tree)->type() == Item::COND_ITEM) 
+  else if ((*tree)->type() == Item::COND_ITEM)
   {
     List_iterator<Item> li(*((Item_cond*)(*tree))->argument_list());
     Item *item;
     while ((item= li++))
     {
-      if (item == old_cond) 
+      if (item == old_cond)
       {
         li.replace(new_cond);
         if (do_fix_fields && new_cond->fix_fields(join->thd, li.ref()))
@@ -6716,7 +6716,7 @@ static bool replace_subcondition(JOIN *join, Item **tree,
 }
 
 
-static int subq_sj_candidate_cmp(Item_exists_subselect* const *el1, 
+static int subq_sj_candidate_cmp(Item_exists_subselect* const *el1,
                                  Item_exists_subselect* const *el2)
 {
   /*
@@ -6724,7 +6724,7 @@ static int subq_sj_candidate_cmp(Item_exists_subselect* const *el1,
   */
   DBUG_ASSERT((*el1)->substype() == Item_subselect::IN_SUBS &&
               (*el2)->substype() == Item_subselect::IN_SUBS);
-  return ((*el1)->sj_convert_priority < (*el2)->sj_convert_priority) ? 1 : 
+  return ((*el1)->sj_convert_priority < (*el2)->sj_convert_priority) ? 1 :
          ( ((*el1)->sj_convert_priority == (*el2)->sj_convert_priority)? 0 : -1);
 }
 
@@ -6786,7 +6786,7 @@ static void fix_list_after_tbl_changes(st_select_lex *parent_select,
   Prepared Statements: the transformation is permanent:
    - Changes in TABLE_LIST structures are naturally permanent
    - Item tree changes are performed on statement MEM_ROOT:
-      = we activate statement MEM_ROOT 
+      = we activate statement MEM_ROOT
       = this function is called before the first fix_prepare_information call.
 
   This is intended because the criteria for subquery-to-sj conversion remain
@@ -6841,7 +6841,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
     }
     else if (!subq_pred->embedding_join_nest->nested_join)
     {
-      TABLE_LIST *outer_tbl= subq_pred->embedding_join_nest;      
+      TABLE_LIST *outer_tbl= subq_pred->embedding_join_nest;
       /*
         We're dealing with
 
@@ -6852,7 +6852,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
           ... LEFT JOIN ( tbl SJ (subq_tables) ) ON (on_expr AND subq_pred) ...
                         |                      |
                         |<----- wrap_nest ---->|
-        
+
         Q:  other subqueries may be pointing to this element. What to do?
         A1: simple solution: copy *subq_pred->embedding_join_nest= *parent_nest.
             But we'll need to fix other pointers.
@@ -6908,7 +6908,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
       }
 
       /*
-        Ok now wrap_nest 'contains' outer_tbl and we're ready to add the 
+        Ok now wrap_nest 'contains' outer_tbl and we're ready to add the
         semi-join nest into it
       */
       emb_join_list= &wrap_nest->nested_join->join_list;
@@ -6928,12 +6928,12 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
   /* sj_nest->next_leaf= sj_nest->next_local= sj_nest->next_global == NULL*/
   emb_join_list->push_back(sj_nest);
 
-  /* 
+  /*
     nested_join->used_tables and nested_join->not_null_tables are
     initialized in simplify_joins().
   */
-  
-  /* 
+
+  /*
     2. Walk through subquery's top list and set 'embedding' to point to the
        sj-nest.
   */
@@ -6948,7 +6948,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
     tl->join_list= &nested_join->join_list;
     nested_join->join_list.push_back(tl);
   }
-  
+
   /*
     Reconnect the next_leaf chain.
     TODO: Do we have to put subquery's tables at the end of the chain?
@@ -6983,7 +6983,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
     tl->table->tablenr= table_no;
     tl->table->map= ((table_map)1) << table_no;
     SELECT_LEX *old_sl= tl->select_lex;
-    tl->select_lex= parent_join->select_lex; 
+    tl->select_lex= parent_join->select_lex;
     for (TABLE_LIST *emb= tl->embedding;
          emb && emb->select_lex == old_sl;
          emb= emb->embedding)
@@ -7040,8 +7040,8 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
        (TODO: can we just create a list of pointers and hope the expressions
        will not substitute themselves on fix_fields()? or we need to wrap
        them into Item_direct_view_refs and store pointers to those. The
-       pointers to Item_direct_view_refs are guaranteed to be stable as 
-       Item_direct_view_refs doesn't substitute itself with anything in 
+       pointers to Item_direct_view_refs are guaranteed to be stable as
+       Item_direct_view_refs doesn't substitute itself with anything in
        Item_direct_view_ref::fix_fields.
     */
 
@@ -7078,8 +7078,8 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
                                               element_index(i));
         nested_join->sj_inner_exprs.push_back(subq_lex->ref_pointer_array[i]);
 
-        Item_func_eq *item_eq= 
-          new Item_func_eq(in_subq_pred->left_expr->element_index(i), 
+        Item_func_eq *item_eq=
+          new Item_func_eq(in_subq_pred->left_expr->element_index(i),
                            subq_lex->ref_pointer_array[i]);
         if (item_eq == NULL)
           DBUG_RETURN(TRUE);
@@ -7125,7 +7125,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
   if (emb_tbl_nest)
   {
     /* Inject sj_on_expr into the parent's ON condition */
-    emb_tbl_nest->set_join_cond(and_items(emb_tbl_nest->join_cond(), 
+    emb_tbl_nest->set_join_cond(and_items(emb_tbl_nest->join_cond(),
                                           sj_nest->sj_on_expr));
     if (emb_tbl_nest->join_cond() == NULL)
       DBUG_RETURN(true);
@@ -7164,12 +7164,12 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
 
   SYNOPSIS
     JOIN::flatten_subqueries()
- 
+
   DESCRIPTION
 
-    Convert candidate subquery predicates into semi-join join nests. This 
+    Convert candidate subquery predicates into semi-join join nests. This
     transformation is performed once in query lifetime and is irreversible.
-    
+
     Conversion of one subquery predicate
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     We start with a join that has a semi-join subquery:
@@ -7184,7 +7184,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
       FROM ot SEMI JOIN (it1 ... itN), ...
       WHERE outer_where AND subq_where AND oe=ie
 
-    that is, in order to do the conversion, we need to 
+    that is, in order to do the conversion, we need to
 
      * Create the "SEMI JOIN (it1 .. itN)" part and add it into the parent
        query's FROM structure.
@@ -7203,7 +7203,7 @@ static bool convert_subquery_to_semijoin(JOIN *parent_join,
     then using a heuristic rule to determine each subquery predicate's
     "priority".
 
-  RETURN 
+  RETURN
     FALSE  OK
     TRUE   Error
 */
@@ -7220,7 +7220,7 @@ bool JOIN::flatten_subqueries()
     DBUG_RETURN(FALSE);
 
   /* First, convert child join's subqueries. We proceed bottom-up here */
-  for (subq= sj_subselects.begin(), subq_end= sj_subselects.end(); 
+  for (subq= sj_subselects.begin(), subq_end= sj_subselects.end();
        subq < subq_end;
        subq++)
   {
@@ -7243,13 +7243,13 @@ bool JOIN::flatten_subqueries()
     if (child_join->flatten_subqueries())
       DBUG_RETURN(TRUE);
 
-    (*subq)->sj_convert_priority= 
+    (*subq)->sj_convert_priority=
       (((*subq)->unit->uncacheable & UNCACHEABLE_DEPENDENT) ? MAX_TABLES : 0) +
       child_join->tables;
   }
 
   //dump_TABLE_LIST_struct(select_lex, select_lex->leaf_tables);
-  /* 
+  /*
     2. Pick which subqueries to convert:
       sort the subquery array
       - prefer correlated subqueries over uncorrelated;
@@ -7294,7 +7294,7 @@ bool JOIN::flatten_subqueries()
     if (convert_subquery_to_semijoin(this, *subq))
       DBUG_RETURN(TRUE);
   }
-  /* 
+  /*
     3. Finalize the subqueries that we did not convert,
        ie. perform IN->EXISTS rewrite.
   */
@@ -7337,7 +7337,7 @@ bool JOIN::flatten_subqueries()
     if (replace_subcondition(this, tree, *subq, substitute, do_fix_fields))
       DBUG_RETURN(TRUE);
     (*subq)->substitution= NULL;
-     
+
     if (!thd->stmt_arena->is_conventional())
     {
       if (subquery_in_join_clause)
@@ -7400,7 +7400,7 @@ bool JOIN::flatten_subqueries()
     TODO: We can remove the equalities that will be guaranteed to be true by the
     fact that subquery engine will be using index lookup. This must be done only
     for cases where there are no conversion errors of significance, e.g. 257
-    that is searched in a byte. But this requires homogenization of the return 
+    that is searched in a byte. But this requires homogenization of the return
     codes of all Field*::store() methods.
 */
 void JOIN::remove_subq_pushed_predicates(Item **where)
@@ -7409,7 +7409,7 @@ void JOIN::remove_subq_pushed_predicates(Item **where)
       ((Item_func *)this->conds)->functype() == Item_func::EQ_FUNC &&
       ((Item_func *)conds)->arguments()[0]->type() == Item::REF_ITEM &&
       ((Item_func *)conds)->arguments()[1]->type() == Item::FIELD_ITEM &&
-      test_if_ref (this->conds, 
+      test_if_ref (this->conds,
                    (Item_field *)((Item_func *)conds)->arguments()[1],
                    ((Item_func *)conds)->arguments()[0]))
   {
@@ -7560,7 +7560,7 @@ void JOIN::replace_item_field(const char* field_name, Item* new_item)
 {
   if (conds)
   {
-    conds= conds->compile(&Item::item_field_by_name_analyzer, 
+    conds= conds->compile(&Item::item_field_by_name_analyzer,
                           (uchar **)&field_name,
                           &Item::item_field_by_name_transformer,
                           (uchar *)new_item);
@@ -7583,10 +7583,10 @@ void JOIN::replace_item_field(const char* field_name, Item* new_item)
 
 /**
   Extract a condition that can be checked after reading given table
-  
+
   @param cond       Condition to analyze
   @param tables     Tables for which "current field values" are available
-  @param used_table Table(s) that we are extracting the condition for (may 
+  @param used_table Table(s) that we are extracting the condition for (may
                     also include PSEUDO_TABLE_BITS, and may be zero)
   @param exclude_expensive_cond  Do not push expensive conditions
 
@@ -7620,7 +7620,7 @@ void JOIN::replace_item_field(const char* field_name, Item* new_item)
 
     The call order will ensure that conditions covering tables in @c tables
     minus those in @c used_table, have already been checked.
-        
+
     The function takes into account that some parts of the condition are
     guaranteed to be true by employed 'ref' access methods (the code that
     does this is located at the end, search down for "EQ_FUNC").
@@ -7668,7 +7668,7 @@ make_cond_for_table_from_pred(Item *root_cond, Item *cond,
       Item *item;
       while ((item= li++))
       {
-        Item *fix= make_cond_for_table_from_pred(root_cond, item, 
+        Item *fix= make_cond_for_table_from_pred(root_cond, item,
                                                  tables, used_table,
                                                  exclude_expensive_cond);
         if (fix)
@@ -7712,7 +7712,7 @@ make_cond_for_table_from_pred(Item *root_cond, Item *cond,
      1. It has been marked as omittable before, or
      2. Some tables referred by the condition are not available, or
      3. We are extracting conditions for all tables, the condition is
-        considered 'expensive', and we want to delay evaluation of such 
+        considered 'expensive', and we want to delay evaluation of such
         conditions to the execution phase.
   */
   if (cond->marker == 3 ||                                             // 1
@@ -7729,7 +7729,7 @@ make_cond_for_table_from_pred(Item *root_cond, Item *cond,
       cond->eq_cmp_result() == Item::COND_OK)                          // 2
     return cond;
 
-  /* 
+  /*
     Remove equalities that are guaranteed to be true by use of 'ref' access
     method.
     Note that ref access implements "table1.field1 <=> table2.indexed_field2",
@@ -7769,7 +7769,7 @@ make_cond_for_table_from_pred(Item *root_cond, Item *cond,
 
 
 /**
-  Separates the predicates in a join condition and pushes them to the 
+  Separates the predicates in a join condition and pushes them to the
   join step where all involved tables are available in the join prefix.
   ON clauses from JOIN expressions are also pushed to the most appropriate step.
 
@@ -7794,12 +7794,12 @@ static bool make_join_select(JOIN *join, Item *cond)
     add_not_null_conds(join);
     /*
       Step #1: Extract constant condition
-       - Extract and check the constant part of the WHERE 
-       - Extract constant parts of ON expressions from outer 
+       - Extract and check the constant part of the WHERE
+       - Extract constant parts of ON expressions from outer
          joins and attach them appropriately.
     */
     if (cond)                /* Because of QUICK_GROUP_MIN_MAX_SELECT */
-    {                        /* there may be a select without a cond. */    
+    {                        /* there may be a select without a cond. */
       if (join->primary_tables > 1)
         cond->update_used_tables();		// Tablenr may have changed
       if (join->plan_is_const() &&
@@ -7811,7 +7811,7 @@ static bool make_join_select(JOIN *join, Item *cond)
         Extract expressions that depend on constant tables
         1. Const part of the join's WHERE clause can be checked immediately
            and if it is not satisfied then the join has empty result
-        2. Constant parts of outer joins' ON expressions must be attached 
+        2. Constant parts of outer joins' ON expressions must be attached
            there inside the triggers.
       */
       {
@@ -7825,7 +7825,7 @@ static bool make_join_select(JOIN *join, Item *cond)
           if (and_conditions(&const_cond, join->join_tab[i].condition()))
             DBUG_RETURN(true);
         }
-          
+
         DBUG_EXECUTE("where",print_where(const_cond,"constants", QT_ORDINARY););
         for (JOIN_TAB *tab= join->join_tab+join->const_tables;
              tab < join->join_tab+join->tables ; tab++)
@@ -7847,7 +7847,7 @@ static bool make_join_select(JOIN *join, Item *cond)
             tmp->quick_fix_field();
             if (cond_tab->and_with_condition(tmp, __LINE__))
               DBUG_RETURN(true);
-          }       
+          }
         }
         if (const_cond != NULL)
         {
@@ -7892,7 +7892,7 @@ static bool make_join_select(JOIN *join, Item *cond)
 
       /// See if you need to switch to range access
       const char *switch_reason;
-      if (tab->type == JT_REF && 
+      if (tab->type == JT_REF &&
           (switch_reason= can_switch_from_ref_to_range(thd, tab)))
       {
         Opt_trace_object wrapper(trace);
@@ -7909,7 +7909,7 @@ static bool make_join_select(JOIN *join, Item *cond)
         tab->ref.key= -1;
 	tab->ref.key_parts=0;		// Don't use ref key.
 	tab->position->records_read= rows2double(tab->quick->records);
-        /* 
+        /*
           We will use join cache here : prevent sorting of the first
           table only and sort at the end.
         */
@@ -7963,7 +7963,7 @@ static bool make_join_select(JOIN *join, Item *cond)
           add a match guard to the pushed down predicate.
           The guard will turn the predicate on only after
           the first match for outer tables is encountered.
-	*/        
+	*/
         if (cond && tmp)
         {
           /*
@@ -7979,7 +7979,7 @@ static bool make_join_select(JOIN *join, Item *cond)
 	  if (thd->optimizer_switch_flag(OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN) &&
               !first_inner_tab)
           {
-            Item *push_cond= 
+            Item *push_cond=
               make_cond_for_table(tmp, tab->table->map, tab->table->map, 0);
             if (push_cond)
             {
@@ -8240,7 +8240,7 @@ static bool make_join_select(JOIN *join, Item *cond)
 	  }
 	}
       }
-      
+
       if (pushdown_on_conditions(join, tab))
         DBUG_RETURN(1);
     }
@@ -8524,7 +8524,7 @@ static const char* can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab)
 
   @returns true if possible_dup is a duplicate, false otherwise
 */
-static bool duplicate_order(const ORDER *first_order, 
+static bool duplicate_order(const ORDER *first_order,
                             const ORDER *possible_dup)
 {
   const ORDER *order;
@@ -8535,7 +8535,7 @@ static bool duplicate_order(const ORDER *first_order,
       // all expressions preceding possible_dup have been checked.
       return false;
     }
-    else 
+    else
     {
       const Item *it1= order->item[0]->real_item();
       const Item *it2= possible_dup->item[0]->real_item();
@@ -8631,7 +8631,7 @@ remove_const(JOIN *join,ORDER *first_order, Item *cond,
       *simple_order=0;				// Must do a temp table to sort
     else if (!(order_tables & not_const_tables))
     {
-      if (order->item[0]->has_subquery() && 
+      if (order->item[0]->has_subquery() &&
           !(join->select_lex->options & SELECT_DESCRIBE))
       {
         Opt_trace_array trace_subselect(trace, "subselect_evaluation");
@@ -8642,7 +8642,7 @@ remove_const(JOIN *join,ORDER *first_order, Item *cond,
     }
     else if (duplicate_order(first_order, order))
     {
-      /* 
+      /*
         If 'order' is a duplicate of an expression earlier in the
         ORDER/GROUP BY sequence, it can be removed from the ORDER BY
         or GROUP BY clause.
@@ -8710,21 +8710,21 @@ remove_const(JOIN *join,ORDER *first_order, Item *cond,
 
 
 /**
-  Optimize conditions by 
+  Optimize conditions by
 
      a) applying transitivity to build multiple equality predicates
-        (MEP): if x=y and y=z the MEP x=y=z is built. 
+        (MEP): if x=y and y=z the MEP x=y=z is built.
      b) apply constants where possible. If the value of x is known to be
         42, x is replaced with a constant of value 42. By transitivity, this
         also applies to MEPs, so the MEP in a) will become 42=x=y=z.
      c) remove conditions that are impossible or always true
-  
+
   @param      join         pointer to the structure providing all context info
                            for the query
   @param      conds        conditions to optimize
   @param      join_list    list of join tables to which the condition
                            refers to
-  @param[out] cond_value   Not changed if conds was empty 
+  @param[out] cond_value   Not changed if conds was empty
                            COND_TRUE if conds is always true
                            COND_FALSE if conds is impossible
                            COND_OK otherwise
@@ -8732,7 +8732,7 @@ remove_const(JOIN *join,ORDER *first_order, Item *cond,
   @return optimized conditions
 */
 Item *
-optimize_cond(THD *thd, Item *conds, COND_EQUAL **cond_equal, 
+optimize_cond(THD *thd, Item *conds, COND_EQUAL **cond_equal,
               List<TABLE_LIST> *join_list,
               bool build_equalities, Item::cond_result *cond_value)
 {
@@ -8747,7 +8747,7 @@ optimize_cond(THD *thd, Item *conds, COND_EQUAL **cond_equal,
     trace_cond.add("original_condition", conds);
     Opt_trace_array trace_steps(trace, "steps");
 
-    /* 
+    /*
       Build all multiple equality predicates and eliminate equality
       predicates that can be inferred from these multiple equalities.
       For each reference of a field included into a multiple equality
@@ -8905,7 +8905,7 @@ internal_remove_eq_conds(THD *thd, Item *cond, Item::cond_result *cond_value)
       /*
         Consider reenabling the line below when the optimizer has been
         split into properly separated phases.
- 
+
         ((Item_cond*) cond)->argument_list()->empty();
       */
       return item;
@@ -9081,7 +9081,7 @@ remove_eq_conds(THD *thd, Item *cond, Item::cond_result *cond_value)
     of the table are referenced by a list : either the select list
     through find_field_in_item_list or GROUP BY list through
     find_field_in_order_list.
-    If the above holds and the key parts cannot contain NULLs then we 
+    If the above holds and the key parts cannot contain NULLs then we
     can safely remove the GROUP BY/DISTINCT,
     as no result set can be more distinct than an unique key.
 
@@ -9120,7 +9120,7 @@ list_contains_unique_index(JOIN_TAB *tab,
            key_part < key_part_end;
            key_part++)
       {
-        if (key_part->field->real_maybe_null() || 
+        if (key_part->field->real_maybe_null() ||
             !find_func(key_part->field, data))
           break;
       }
@@ -9243,15 +9243,15 @@ create_distinct_group(THD *thd, Ref_ptr_array ref_pointer_array,
   {
     if (!item->const_item() && !item->with_sum_func && !item->marker)
     {
-      /* 
-        Don't put duplicate columns from the SELECT list into the 
+      /*
+        Don't put duplicate columns from the SELECT list into the
         GROUP BY list.
       */
       ORDER *ord_iter;
       for (ord_iter= group; ord_iter; ord_iter= ord_iter->next)
         if ((*ord_iter->item)->eq(item, 1))
           goto next_item;
-      
+
       ORDER *ord=(ORDER*) thd->calloc(sizeof(ORDER));
       if (!ord)
 	return 0;
@@ -9470,8 +9470,8 @@ static Item *remove_additional_cond(Item* conds)
 
   DESCRIPTION
     For index lookup-based subquery (subselect_indexsubquery_engine),
-    check its EXPLAIN output row should contain 
-      "Using index" (TAB_INFO_FULL_SCAN_ON_NULL) 
+    check its EXPLAIN output row should contain
+      "Using index" (TAB_INFO_FULL_SCAN_ON_NULL)
       "Using Where" (TAB_INFO_USING_WHERE)
       "Full scan on NULL key" (TAB_INFO_FULL_SCAN_ON_NULL)
     and set appropriate flags in join_tab->packed_info.
@@ -9576,19 +9576,19 @@ void JOIN::optimize_fts_query()
   /* If we are ordering on the rank of the same result as is used for access,
      and the table engine deliver result ordered by rank, we can drop ordering.
    */
-  if (order != NULL 
-      && order->next == NULL &&             
-      order->direction == ORDER::ORDER_DESC && 
+  if (order != NULL
+      && order->next == NULL &&
+      order->direction == ORDER::ORDER_DESC &&
       fts_result->eq(*(order->item), true))
   {
-    Item_func_match* fts_item= 
-      static_cast<Item_func_match*>(*(order->item)); 
+    Item_func_match* fts_item=
+      static_cast<Item_func_match*>(*(order->item));
 
     /* If we applied the LIMIT optimization @see optimize_fts_limit_query,
        check that the number of matching rows is sufficient.
        Otherwise, revert this optimization and use table scan instead.
     */
-    if (min_ft_matches != HA_POS_ERROR && 
+    if (min_ft_matches != HA_POS_ERROR &&
         min_ft_matches > fts_item->get_count())
     {
       // revert to table scan, do things make_join_readinfo would have done
@@ -9612,7 +9612,7 @@ void JOIN::optimize_fts_query()
     else if (fts_item->ordered_result())
       order= NULL;
   }
-  
+
   /* Check whether the FTS result is covering.  If only document id
      and rank is needed, there is no need to access table rows.
   */
@@ -9639,7 +9639,7 @@ void JOIN::optimize_fts_query()
     case Item::FUNC_ITEM:
       if (static_cast<Item_func*>(item)->functype() == Item_func::FT_FUNC)
       {
-        Item_func_match* fts_item= static_cast<Item_func_match*>(item); 
+        Item_func_match* fts_item= static_cast<Item_func_match*>(item);
         if (fts_item->eq(fts_result, true))
           break;
       }
@@ -9649,15 +9649,15 @@ void JOIN::optimize_fts_query()
     }
   }
 
-  if (covering) 
+  if (covering)
   {
     if (docid_found)
     {
-      replace_item_field(FTS_DOC_ID_COL_NAME, 
+      replace_item_field(FTS_DOC_ID_COL_NAME,
                          new Item_func_docid(reinterpret_cast<FT_INFO_EXT*>
                                              (fts_result->ft_handler)));
     }
-    
+
     // Tell storage engine that row access is not necessary
     fts_result->table->set_keyread(true);
     fts_result->table->covering_keys.set_bit(fts_result->key);
@@ -9677,15 +9677,15 @@ void JOIN::optimize_fts_query()
 
      @note This optimization will only be applied to single table
            queries with no existing WHERE clause.
-     @note This transformation is not correct if number of matches 
+     @note This transformation is not correct if number of matches
            is less than the number of rows requested by limit.
            If this turns out to be the case, the transformation will
            be reverted @see optimize_fts_query()
    */
-void 
+void
 JOIN::optimize_fts_limit_query()
 {
-  /* 
+  /*
      Only do this optimization if
      1. It is a single table query
      2. There is no WHERE condition

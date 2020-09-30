@@ -3575,8 +3575,6 @@ mysql_execute_command(THD *thd,
   TABLE_LIST *all_tables;
   /* most outer SELECT_LEX_UNIT of query */
   SELECT_LEX_UNIT *unit= &lex->unit;
-  // Column usage information set for the transaction.
-  std::set<ColumnUsageInfo> out_cus;
 
 #ifdef HAVE_REPLICATION
   /* have table map for update for multi-update statement (BUG#37051) */
@@ -3961,17 +3959,6 @@ mysql_execute_command(THD *thd,
   {
     if (open_temporary_tables(thd, all_tables))
       goto error;
-  }
-
-  /* Parse the column usage information right after the preparation phase.
-     There are certain elements that may be required from the execution phase
-     but for simple selects, all the information at this point suffices.
-     Check the feature is enabled and an entry does not already exist.
-  */
-  if (column_stats_control == SQL_INFO_CONTROL_ON &&
-      !exists_column_usage_info(thd))
-  {
-    parse_column_usage_info(thd, out_cus);
   }
 
   switch (lex->sql_command) {
@@ -6836,8 +6823,8 @@ finish:
   }
 
   // Populates the internal data structures for the COLUMN_STATISTICS
-  // temporary table. `out_cus` cannot be used any further after this.
-  populate_column_usage_info(thd, out_cus);
+  // temporary table.
+  populate_column_usage_info(thd);
 
   // reset trx timer, dml rows and trx dml cpu time limit warning flag
   // at the end of a transaction
@@ -8241,7 +8228,7 @@ static bool throttle_query_if_needed(THD* thd)
 }
 
 /*
-  Check if we should throttle a write query if a matching throttling 
+  Check if we should throttle a write query if a matching throttling
   rule is present.
   Also, it triggers replication lag check for auto throttling.
 */
@@ -8299,7 +8286,7 @@ static bool mt_check_throttle_write_query(THD* thd)
       store_write_throttling_log(thd, i, iter->first, rule);
       int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
 
-      if (iter->second.mode == WTR_MANUAL || 
+      if (iter->second.mode == WTR_MANUAL ||
         (!thd->variables.write_throttle_tag_only &&
         write_control_level == WRITE_CONTROL_LEVEL_ERROR) ||
         mt_throttle_tag_level == WRITE_CONTROL_LEVEL_ERROR)
@@ -8307,17 +8294,17 @@ static bool mt_check_throttle_write_query(THD* thd)
         my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
         mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
         DBUG_RETURN(true);
-      } 
+      }
       else if ((!thd->variables.write_throttle_tag_only &&
         (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
         write_control_level == WRITE_CONTROL_LEVEL_WARN)) ||
         mt_throttle_tag_level == WRITE_CONTROL_LEVEL_WARN)
       {
-        push_warning_printf(thd, 
+        push_warning_printf(thd,
                             (write_control_level == WRITE_CONTROL_LEVEL_NOTE || mt_throttle_tag_level != WRITE_CONTROL_LEVEL_WARN) ?
                               Sql_condition::WARN_LEVEL_NOTE :
                               Sql_condition::WARN_LEVEL_WARN,
-                            ER_WRITE_QUERY_THROTTLED, 
+                            ER_WRITE_QUERY_THROTTLED,
                             ER(ER_WRITE_QUERY_THROTTLED));
       }
     }

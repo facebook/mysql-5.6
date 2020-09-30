@@ -12,7 +12,6 @@ using md5_key = std::array<unsigned char, MD5_HASH_SIZE>;
  * have been useful.
  */
 enum sql_operation: int {
-  UPDATE,
   FILTER,
   TABLE_JOIN,
   ORDER_BY,
@@ -24,12 +23,15 @@ enum sql_operation: int {
  * across a variety of queries - update, select, delete etc.
  */
 enum operator_type: int {
+  BETWEEN,
   EQUAL,
+  NULLSAFE_EQUAL,
   LESS_THAN,
   LESS_THAN_EQUAL,
   GREATER_THAN,
   GREATER_THAN_EQUAL,
   NOT_EQUAL,
+  NULL_CHECK,
   SET_MEMBERSHIP,
   PATTERN_MATCH,
   SORT_ASCENDING,

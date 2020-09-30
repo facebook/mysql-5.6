@@ -49,8 +49,6 @@ bool ColumnUsageInfo::operator<(const ColumnUsageInfo& other) const {
 
 std::string sql_operation_string(const sql_operation& sql_op) {
   switch (sql_op) {
-    case sql_operation::UPDATE:
-      return "UPDATE";
     case sql_operation::FILTER:
       return "FILTER";
     case sql_operation::TABLE_JOIN:
@@ -69,12 +67,18 @@ std::string sql_operation_string(const sql_operation& sql_op) {
 
 std::string operator_type_string(const operator_type& op_type) {
   switch (op_type) {
+    case operator_type::BETWEEN:
+      return "BETWEEN";
     case operator_type::EQUAL:
       return "EQUAL";
+    case operator_type::NULLSAFE_EQUAL:
+      return "NULLSAFE_EQUAL";
     case operator_type::LESS_THAN:
       return "LESS_THAN";
     case operator_type::LESS_THAN_EQUAL:
       return "LESS_THAN_EQUAL";
+    case operator_type::NULL_CHECK:
+      return "NULL_CHECK";
     case operator_type::GREATER_THAN:
       return "GREATER_THAN";
     case operator_type::GREATER_THAN_EQUAL:
@@ -100,16 +104,27 @@ std::string operator_type_string(const operator_type& op_type) {
 
 operator_type match_op(Item_func::Functype fitem_type) {
   switch (fitem_type) {
+    case Item_func::BETWEEN:
+      return operator_type::BETWEEN;
     case Item_func::EQ_FUNC:
       return operator_type::EQUAL;
+    case Item_func::EQUAL_FUNC:
+      return operator_type::NULLSAFE_EQUAL;
+    case Item_func::LIKE_FUNC:
+      return operator_type::PATTERN_MATCH;
     case Item_func::LT_FUNC:
       return operator_type::LESS_THAN;
     case Item_func::LE_FUNC:
       return operator_type::LESS_THAN_EQUAL;
+    case Item_func::ISNULL_FUNC:
+    case Item_func::ISNOTNULL_FUNC:
+      return operator_type::NULL_CHECK;
     case Item_func::GT_FUNC:
       return operator_type::GREATER_THAN;
     case Item_func::GE_FUNC:
       return operator_type::GREATER_THAN_EQUAL;
+    case Item_func::NE_FUNC:
+      return operator_type::NOT_EQUAL;
     default:
       // Asserting in debug mode since this code path implies that we've missed
       // some operator.
@@ -131,22 +146,38 @@ operator_type match_op(ORDER::enum_order direction) {
   }
 }
 
-std::string parse_field_name(Item_field *field_arg)
+void populate_field_info(
+    const sql_operation& op, const operator_type& op_type,
+    Item_field *field_arg, std::set<ColumnUsageInfo>& out_cus)
 {
+  // This is a helper to parse column usage information for one Item_field.
+  // It relies on the prepare stage to resolve column names to their respective
+  // tables and database. Derived and temporary tables do NOT have db_name.
+
+  DBUG_ENTER("populate_field_info");
   DBUG_ASSERT(field_arg);
 
-  // This guard protects against predicates like
-  // function(field_name) op literal
-  if (field_arg->field_name == nullptr) {
-    return "";
+  // We do not populate column usage information if we weren't able to resolve
+  // the table_schema (database). This is particularly true for derived tables
+  // where indexing cannot help.
+  std::string db_name = (field_arg->db_name) ? field_arg->db_name : "";
+  if (db_name == "") {
+    DBUG_VOID_RETURN;
   }
-  std::string fn(field_arg->field_name);
-  return fn;
+
+  ColumnUsageInfo cui;
+  cui.sql_op = op;
+  cui.op_type = op_type;
+  cui.table_schema = db_name;
+  cui.table_name = (field_arg->table_name) ? field_arg->table_name : "";
+  cui.column_name = (field_arg->field_name) ? field_arg->field_name : "";
+  out_cus.insert(cui);
+
+  DBUG_VOID_RETURN;
 }
 
 int parse_column_from_func_item(
-    const std::string& db_name, const std::string& table_name, Item_func *fitem,
-    std::set<ColumnUsageInfo>& out_cus) {
+    sql_operation op, Item_func *fitem, std::set<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_column_from_func_item");
   DBUG_ASSERT(fitem);
 
@@ -157,58 +188,41 @@ int parse_column_from_func_item(
     {
       const auto args = fitem->arguments();
 
-      // If a field item is present in the item function, it has to be the first
-      // arg in the IN operator.
+      // If a field item is present in the item function, it has to be the
+      // first arg in the IN operator.
       if (args[0]->type() == Item::FIELD_ITEM)
       {
         Item_field *field_arg = static_cast<Item_field *>(args[0]);
 
         // Populating ColumnUsageInfo struct
-        ColumnUsageInfo info;
-        info.table_schema= db_name;
-        info.table_name= table_name;
-        info.sql_op= sql_operation::FILTER;
-        info.op_type= operator_type::SET_MEMBERSHIP;
-        info.column_name= parse_field_name(field_arg);
-
-        out_cus.insert(info);
+        populate_field_info(
+            op, operator_type::SET_MEMBERSHIP, field_arg, out_cus);
       }
       break;
     }
+    case Item_func::BETWEEN:
     case Item_func::EQ_FUNC:
+    case Item_func::EQUAL_FUNC:
+    case Item_func::ISNULL_FUNC:
+    case Item_func::ISNOTNULL_FUNC:
+    case Item_func::LIKE_FUNC:
     case Item_func::LT_FUNC:
     case Item_func::LE_FUNC:
     case Item_func::GE_FUNC:
     case Item_func::GT_FUNC:
+    case Item_func::NE_FUNC:
     {
       const auto args = fitem->arguments();
 
-      int field_index= 0;
-      if (args[0]->type() == Item::FIELD_ITEM)
-      {
-        field_index= 0;
-      } else if (args[1]->type() == Item::FIELD_ITEM)
-      {
-        field_index= 1;
-      } else
-      {
-        field_index= -1;
+      // Populating ColumnUsageInfo structs
+      for (uint i = 0; i < fitem->argument_count(); i++) {
+        if (args[i]->type() == Item::FIELD_ITEM)
+        {
+          Item_field *field_arg = static_cast<Item_field *>(args[i]);
+          populate_field_info(op, match_op(type), field_arg, out_cus);
+        }
       }
 
-      if (field_index >= 0)
-      {
-        Item_field *field_arg = static_cast<Item_field *>(args[field_index]);
-
-        // Populating ColumnUsageInfo struct
-        ColumnUsageInfo info;
-        info.table_schema= db_name;
-        info.table_name= table_name;
-        info.sql_op= sql_operation::FILTER;
-        info.op_type= match_op(type);
-        info.column_name= parse_field_name(field_arg);
-
-        out_cus.insert(info);
-      }
       break;
     }
     default:
@@ -223,8 +237,8 @@ int parse_column_from_func_item(
 }
 
 int parse_column_from_cond_item(
-    const std::string& db_name, const std::string& table_name, Item_cond *citem,
-    std::set<ColumnUsageInfo>& out_cus, int recursion_depth) {
+    sql_operation op, Item_cond *citem, std::set<ColumnUsageInfo>& out_cus,
+    int recursion_depth) {
   DBUG_ENTER("parse_column_from_cond_item");
   DBUG_ASSERT(citem);
 
@@ -238,7 +252,7 @@ int parse_column_from_cond_item(
       List_iterator_fast<Item> li(*arg_list);
       while ((item = li++)) {
         parse_column_from_item(
-            db_name, table_name, item, out_cus, recursion_depth + 1);
+            op, item, out_cus, recursion_depth + 1);
       }
       break;
     }
@@ -254,8 +268,8 @@ int parse_column_from_cond_item(
 }
 
 int parse_column_from_item(
-    const std::string& db_name, const std::string& table_name, Item *item,
-    std::set<ColumnUsageInfo>& out_cus, int recursion_depth) {
+    sql_operation op, Item *item, std::set<ColumnUsageInfo>& out_cus,
+    int recursion_depth) {
   DBUG_ENTER("parse_column_from_item");
   DBUG_ASSERT(item);
 
@@ -277,14 +291,51 @@ int parse_column_from_item(
     case Item::COND_ITEM:
     {
       Item_cond *citem = static_cast<Item_cond *>(item);
-      parse_column_from_cond_item(
-          db_name, table_name, citem, out_cus, recursion_depth);
+      parse_column_from_cond_item(op, citem, out_cus, recursion_depth);
       break;
     }
     case Item::FUNC_ITEM:
     {
       Item_func* fitem= static_cast<Item_func *>(item);
-      parse_column_from_func_item(db_name, table_name, fitem, out_cus);
+      parse_column_from_func_item(op, fitem, out_cus);
+      break;
+    }
+    case Item::SUBSELECT_ITEM:
+    {
+      /**
+       * The case of SUBSELECT_ITEM is special. Simple usage of the
+       * IN operator results in a FUNC_ITEM which is an instatiation of
+       * IN_FUNC. Example of simple usage is as follows.
+       *   SELECT * FROM tbl1 WHERE col1 IN (2, 5, 7)
+       * However, for cases where a subselect is involved like,
+       *   SELECT * FROM tbl1 WHERE col1 IN (SELECT col2 FROM tbl2)
+       * the parser treats it slightly differently and it results in an item
+       * of type SUBSELECT_ITEM. Since we are only interested in parsing
+       * columns from the IN operator, we only consider SUBSELECT_ITEM of
+       * subtype IN_SUBS. Only the left expression for it is parsed, provided
+       * it's a field item.
+       * MySQL treats this differently for non-select statements
+       * (like UPDATE, DELETE etc.) wherein the prepare stage replaces
+       * Item_subselect by an UNKNOWN_FUNC item. More details:
+       * 1. bug#17766653
+       * 2. https://fburl.com/8qnjbage
+       */
+      Item_subselect* ssitem= static_cast<Item_subselect*>(item);
+      if (ssitem->substype() == Item_subselect::IN_SUBS) {
+        // Only parse subselects of type IN_SUBS which denotes usage of IN
+        // operator.
+        Item_in_subselect* in_predicate=
+            static_cast<Item_in_subselect *>(ssitem);
+        // The left expression if only parse if it is a single field and not a
+        // complex expression.
+        if (in_predicate->left_expr &&
+            in_predicate->left_expr->type() == Item::FIELD_ITEM) {
+          Item_field *field_arg= static_cast<Item_field *>(
+              in_predicate->left_expr);
+          populate_field_info(
+              op, operator_type::SET_MEMBERSHIP, field_arg, out_cus);
+        }
+      }
       break;
     }
     default:
@@ -294,7 +345,6 @@ int parse_column_from_item(
 }
 
 int parse_columns_from_order_list(
-    const std::string& db_name, const std::string& table_name,
     sql_operation op, ORDER* first_col, std::set<ColumnUsageInfo>& out_cus) {
   DBUG_ENTER("parse_columns_from_order_list");
 
@@ -317,37 +367,36 @@ int parse_columns_from_order_list(
     Item_field *field_arg = static_cast<Item_field *>(*(order_obj->item));
 
     // Populating ColumnUsageInfo struct
-    ColumnUsageInfo info;
-    info.table_schema= db_name;
-    info.table_name= table_name;
-    info.sql_op= op;
-    info.op_type= match_op(order_obj->direction);
-    info.column_name= parse_field_name(field_arg);
-
-    out_cus.insert(info);
+    populate_field_info(
+        op, match_op(order_obj->direction), field_arg, out_cus);
   }
   DBUG_RETURN(0);
 }
 
-int parse_column_usage_info(
-    THD *thd, std::set<ColumnUsageInfo>& out_cus) {
+int parse_column_usage_info(THD *thd) {
   DBUG_ENTER("parse_column_usage_info");
   DBUG_ASSERT(thd);
 
-  out_cus.clear();
-
-  // `m_digest` is needed for computation of sql_id
-  if (!thd->m_digest || thd->m_digest->m_digest_storage.is_empty())
+  // Return early without doing anything if
+  // 1. COLUMN_STATS switch is not ON
+  // 2. The SQL_ID was already processed
+  if (column_stats_control != SQL_INFO_CONTROL_ON ||
+      exists_column_usage_info(thd))
+  {
     DBUG_RETURN(0);
+  }
+
+  thd->column_usage_info.clear();
 
   LEX *lex= thd->lex;
-  SELECT_LEX *select_lex= &lex->select_lex;
 
   // List of supported commands for the collection of COLUMN_STATISTICS.
   static const std::set<enum_sql_command> supported_commands = {
     SQLCOM_SELECT,
     SQLCOM_UPDATE,
-    SQLCOM_DELETE
+    SQLCOM_DELETE,
+    SQLCOM_INSERT_SELECT,
+    SQLCOM_REPLACE_SELECT
   };
 
   // Check statement type - only commands featuring SIMPLE SELECTs.
@@ -355,46 +404,56 @@ int parse_column_usage_info(
     DBUG_RETURN(0);
   }
 
-  if (select_lex->type(thd) != st_select_lex::SLT_SIMPLE ||
-      select_lex->table_list.elements != 1)
+  // There is a SELECT_LEX for each SELECT statement in a query. We iterate
+  // over all of them and process them sequentially, extracting column usage
+  // information from each such select / subselect.
+  for (SELECT_LEX *select_lex= lex->all_selects_list;
+      select_lex;
+      select_lex= select_lex->next_select_in_list())
   {
-    DBUG_RETURN(0);
+    if (select_lex->where != nullptr) {
+      // Parsing column statistics from the WHERE clause.
+      parse_column_from_item(
+          sql_operation::FILTER, select_lex->where, thd->column_usage_info,
+          0 /* recursion_depth */);
+    }
+
+    // Parsing column statistics from the ON clause in joins.
+    for (TABLE_LIST *table= select_lex->leaf_tables;
+        table;
+        table= table->next_leaf)
+    {
+      TABLE_LIST *embedded; /* The table at the current level of nesting. */
+      TABLE_LIST *embedding= table; /* The parent nested table reference. */
+      do
+      {
+        embedded= embedding;
+        if (embedded->join_cond())
+        {
+          parse_column_from_item(
+              sql_operation::TABLE_JOIN, embedded->join_cond(),
+              thd->column_usage_info, 0 /* recursion_depth */);
+        }
+        embedding= embedded->embedding;
+      }
+      while (embedding &&
+            embedding->nested_join->join_list.head() == embedded);
+    }
+
+    // Parsing column statistics from the GROUP BY clause.
+    parse_columns_from_order_list(
+        sql_operation::GROUP_BY, select_lex->group_list.first,
+        thd->column_usage_info);
+
+    // Parsing column statistics from the ORDER BY clause.
+    parse_columns_from_order_list(
+        sql_operation::ORDER_BY, select_lex->order_list.first,
+        thd->column_usage_info);
   }
-
-  TABLE_LIST *table_list= select_lex->table_list.first;
-
-  // Since for simple select, we only have a single table, table resolution
-  // is easier. For more complex queries, we might have to wait until the
-  // field_name(s) are actually resolved.
-  if (!table_list ||
-      (table_list->db == nullptr) || (table_list->table_name == nullptr))
-  {
-    DBUG_RETURN(-1);
-  }
-
-  std::string db(table_list->db);
-  std::string tn(table_list->table_name);
-
-  if (select_lex->where == nullptr) {
-    DBUG_RETURN(0);
-  }
-
-  // Parsing column statistics from the WHERE clause.
-  parse_column_from_item(
-      db, tn, select_lex->where, out_cus, 0 /* recursion_depth */);
-
-  // Parsing column statistics from the GROUP BY clause.
-  parse_columns_from_order_list(
-      db, tn, sql_operation::GROUP_BY, select_lex->group_list.first, out_cus);
-
-  // Parsing column statistics from the ORDER BY clause.
-  parse_columns_from_order_list(
-      db, tn, sql_operation::ORDER_BY, select_lex->order_list.first, out_cus);
-
   DBUG_RETURN(0);
 }
 
-void populate_column_usage_info(THD *thd, std::set<ColumnUsageInfo>& cus) {
+void populate_column_usage_info(THD *thd) {
   DBUG_ENTER("populate_column_usage_info");
   DBUG_ASSERT(thd);
 
@@ -409,7 +468,7 @@ void populate_column_usage_info(THD *thd, std::set<ColumnUsageInfo>& cus) {
     - the column usage information is empty
     - SQL_ID is not set
   */
-  if (cus.empty() || !thd->mt_key_is_set(THD::SQL_ID))
+  if (thd->column_usage_info.empty() || !thd->mt_key_is_set(THD::SQL_ID))
   {
     DBUG_VOID_RETURN;
   }
@@ -419,7 +478,7 @@ void populate_column_usage_info(THD *thd, std::set<ColumnUsageInfo>& cus) {
   if (iter == col_statistics_map.end())
   {
     col_statistics_map.insert(
-        std::make_pair(thd->mt_key_value(THD::SQL_ID), std::move(cus)));
+        std::make_pair(thd->mt_key_value(THD::SQL_ID), thd->column_usage_info));
   }
   mysql_rwlock_unlock(&LOCK_column_statistics);
   DBUG_VOID_RETURN;
@@ -430,12 +489,14 @@ bool exists_column_usage_info(THD *thd) {
   DBUG_ASSERT(thd);
 
   // return now if the SQL ID was not set
-  if (!thd->mt_key_is_set(THD::SQL_ID))
+  if (!thd->mt_key_is_set(THD::SQL_ID)) {
     DBUG_RETURN(true);
+  }
 
   mysql_rwlock_rdlock(&LOCK_column_statistics);
-  bool exists = (col_statistics_map.find(thd->mt_key_value(THD::SQL_ID))
-                 == col_statistics_map.end() ? false : true);
+  bool exists =
+      (col_statistics_map.find(thd->mt_key_value(THD::SQL_ID)) ==
+          col_statistics_map.end()) ? false : true;
   mysql_rwlock_unlock(&LOCK_column_statistics);
 
   DBUG_RETURN(exists);

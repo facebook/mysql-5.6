@@ -58,6 +58,7 @@
 #include "sql_db.h"
 #include "rpl_master.h"
 #include "md5_dt.h"
+#include "column_statistics_dt.h"
 
 #ifdef HAVE_RAPIDJSON
 #include "rapidjson/document.h"
@@ -2464,6 +2465,9 @@ public:
   uint64_t hlc_time_ns_next= 0;
   bool should_update_hlc= false;
   std::unordered_set<std::string> databases;
+
+  /* Column usage statistics for the SQL statements */
+  std::set<ColumnUsageInfo> column_usage_info;
 
   void reset_for_next_command();
   /*

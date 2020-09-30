@@ -46,6 +46,7 @@
 #include "sql_tmp_table.h"                      // tmp tables
 #include "sql_optimizer.h"                      // remove_eq_conds
 #include "sql_resolver.h"                       // setup_order, fix_inner_refs
+#include "column_statistics.h"
 
 /**
    True if the table's input and output record buffers are comparable using
@@ -80,7 +81,7 @@ bool compare_records(const TABLE *table)
       Storage engine may not have read all columns of the record.  Fields
       (including NULL bits) not in the write_set may not have been read and
       can therefore not be compared.
-    */ 
+    */
     for (Field **ptr= table->field ; *ptr != NULL; ptr++)
     {
       Field *field= *ptr;
@@ -89,7 +90,7 @@ bool compare_records(const TABLE *table)
         if (field->real_maybe_null())
         {
           uchar null_byte_index= field->null_offset();
-          
+
           if (((table->record[0][null_byte_index]) & field->null_bit) !=
               ((table->record[1][null_byte_index]) & field->null_bit))
             return TRUE;
@@ -100,14 +101,14 @@ bool compare_records(const TABLE *table)
     }
     return FALSE;
   }
-  
-  /* 
+
+  /*
      The storage engine has read all columns, so it's safe to compare all bits
      including those not in the write_set. This is cheaper than the field-by-field
      comparison done above.
-  */ 
+  */
   if (table->s->blob_fields + table->s->varchar_fields == 0)
-    // Fixed-size record: do bitwise comparison of the records 
+    // Fixed-size record: do bitwise comparison of the records
     return cmp_record(table,record[1]);
   /* Compare null bits */
   if (memcmp(table->null_flags,
@@ -319,6 +320,9 @@ int mysql_update(THD *thd,
     fix_inner_refs(thd, all_fields, select_lex, select_lex->ref_pointer_array))
     DBUG_RETURN(1);
 
+  // Parse column usage statistics and store it into THD.
+  parse_column_usage_info(thd);
+
   if ((table->file->ha_table_flags() & HA_PARTIAL_COLUMN_READ) != 0 &&
       update.function_defaults_apply(table))
     /*
@@ -509,7 +513,7 @@ int mysql_update(THD *thd,
 
   table->update_const_key_parts(conds);
   order= simple_remove_const(order, conds);
-        
+
   used_index= get_index_for_order(order, table, select, limit,
                                   &need_sort, &reverse);
   if (need_sort)
@@ -671,7 +675,7 @@ int mysql_update(THD *thd,
       limit= tmp_limit;
       table->file->try_semi_consistent_read(0);
       end_read_record(&info);
-     
+
       /* Change select to use tempfile */
       if (select)
       {
@@ -697,7 +701,7 @@ int mysql_update(THD *thd,
 
   if (ignore)
     table->file->extra(HA_EXTRA_IGNORE_DUP_KEY);
-  
+
   if (select && select->quick && (error= select->quick->reset()))
   {
     table->file->print_error(error, MYF(0));
@@ -783,7 +787,7 @@ int mysql_update(THD *thd,
 
             1) is covered by exec_bulk_update calls.
             2) and 3) is handled by the bulk_update_row method.
-            
+
             bulk_update_row can execute the updates including the one
             defined in the bulk_update_row or not including the row
             in the call. This is up to the handler implementation and can
@@ -917,17 +921,17 @@ int mysql_update(THD *thd,
     The cached value can not change whereas the killed status can
     (externally) since this point and change of the latter won't affect
     binlogging.
-    It's assumed that if an error was set in combination with an effective 
+    It's assumed that if an error was set in combination with an effective
     killed status then the error is due to killing.
   */
-  killed_status= thd->killed; // get the status of the volatile 
+  killed_status= thd->killed; // get the status of the volatile
   // simulated killing after the loop must be ineffective for binlogging
   DBUG_EXECUTE_IF("simulate_kill_bug27571",
                   {
                     thd->killed= THD::KILL_QUERY;
                   };);
   error= (killed_status == THD::NOT_KILLED)?  error : 1;
-  
+
   if (error &&
       will_batch &&
       (loc_error= table->file->exec_bulk_update(&dup_key_found)))
@@ -975,7 +979,7 @@ int mysql_update(THD *thd,
   {
     query_cache_invalidate3(thd, table_list, 1);
   }
-  
+
   /*
     error < 0 means really no error at all: we processed all rows until the
     last one without error. error > 0 means an error (e.g. unique key
@@ -1062,14 +1066,14 @@ bool mysql_prepare_update(THD *thd, TABLE_LIST *table_list,
   DBUG_ENTER("mysql_prepare_update");
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
-  table_list->grant.want_privilege= table->grant.want_privilege= 
+  table_list->grant.want_privilege= table->grant.want_privilege=
     (SELECT_ACL & ~table->grant.privilege);
   table_list->register_want_access(SELECT_ACL);
 #endif
 
   thd->lex->allow_sum_func= 0;
 
-  if (setup_tables_and_check_access(thd, &select_lex->context, 
+  if (setup_tables_and_check_access(thd, &select_lex->context,
                                     &select_lex->top_join_list,
                                     table_list,
                                     &select_lex->leaf_tables,
@@ -1096,7 +1100,7 @@ bool mysql_prepare_update(THD *thd, TABLE_LIST *table_list,
 
 
 /***************************************************************************
-  Update multiple tables from join 
+  Update multiple tables from join
 ***************************************************************************/
 
 /*
@@ -1109,7 +1113,7 @@ static table_map get_table_map(List<Item> *items)
   Item_field *item;
   table_map map= 0;
 
-  while ((item= (Item_field *) item_it++)) 
+  while ((item= (Item_field *) item_it++))
     map|= item->used_tables();
   DBUG_PRINT("info", ("table_map: 0x%08lx", (long) map));
   return map;
@@ -1614,9 +1618,9 @@ int multi_update::prepare(List<Item> &not_used_values,
       bitmap_union(table->read_set, &table->tmp_set);
     }
   }
-  
+
   if (error)
-    DBUG_RETURN(1);    
+    DBUG_RETURN(1);
 
   /*
     Save tables beeing updated in update_tables
@@ -1826,7 +1830,7 @@ multi_update::initialize_tables(JOIN *join)
    For an updatable view first_table_for_update indicates this
    table.
    For a regular multi-update it refers to some updated table.
-  */ 
+  */
   TABLE *first_table_for_update= ((Item_field *) fields->head())->field->table;
 
   /* Create a temporary table for keys to all tables, except main table */
@@ -1945,7 +1949,7 @@ loop_end:
     tmp_param->group_parts=1;
     tmp_param->group_length= table->file->ref_length;
     /* small table, ignore SQL_BIG_TABLES */
-    my_bool save_big_tables= thd->variables.big_tables; 
+    my_bool save_big_tables= thd->variables.big_tables;
     thd->variables.big_tables= FALSE;
     tmp_tables[cnt]=create_tmp_table(thd, tmp_param, temp_fields,
                                      (ORDER*) &group, 0, 0,
@@ -2185,7 +2189,7 @@ void multi_update::abort_result_set()
     if (do_update && table_count > 1)
     {
       /* Add warning here */
-      /* 
+      /*
          todo/fixme: do_update() is never called with the arg 1.
          should it change the signature to become argless?
       */
@@ -2288,7 +2292,7 @@ int multi_update::do_updates()
       Setup copy functions to copy fields from temporary table
     */
     List_iterator_fast<Item> field_it(*fields_for_table[offset]);
-    Field **field= tmp_table->field + 
+    Field **field= tmp_table->field +
                    1 + unupdated_check_opt_tables.elements; // Skip row pointers
     Copy_field *copy_field_ptr= copy_field, *copy_field_end;
     for ( ; *field ; field++)
@@ -2434,7 +2438,7 @@ bool multi_update::send_eof()
   DBUG_ENTER("multi_update::send_eof");
   THD_STAGE_INFO(thd, stage_updating_reference_tables);
 
-  /* 
+  /*
      Does updates for the last n - 1 tables, returns 0 if ok;
      error takes into account killed status gained in do_updates()
   */
@@ -2459,7 +2463,7 @@ bool multi_update::send_eof()
     Write the SQL statement to the binlog if we updated
     rows and we succeeded or if we updated some non
     transactional tables.
-    
+
     The query has to binlog because there's a modified non-transactional table
     either from the query's list or via a stored routine: bug#13270,23333
   */
@@ -2481,7 +2485,7 @@ bool multi_update::send_eof()
       }
     }
   }
-  DBUG_ASSERT(trans_safe || !updated || 
+  DBUG_ASSERT(trans_safe || !updated ||
               thd->transaction.stmt.cannot_safely_rollback());
 
   if (local_error != 0)

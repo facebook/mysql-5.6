@@ -13,6 +13,8 @@ INSERT INTO MyGuests (firstname, lastname, email)
 VALUES ('John', 'Doe', 'john@example.com');
 INSERT INTO MyGuests (firstname, lastname, email)
 VALUES ('Johnny', 'Doe', 'john2@example.com');
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Mohandas', 'Gandhi', NULL);
 set global column_stats_control = ON;
 SELECT firstname, lastname, email FROM MyGuests WHERE id = 1;
 firstname	lastname	email
@@ -24,31 +26,69 @@ Johnny	john2@example.com
 SELECT email FROM MyGuests WHERE id > 1;
 email
 john2@example.com
+NULL
 SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
 firstname	email
 John	john@example.com
 SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
 firstname	email
 John	john@example.com
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+firstname	lastname	email
+John	Doe	john@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+2	Johnny	Doe	john2@example.com
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
+id	firstname	lastname	email
+1	John	Doe	john@example.com
+SELECT firstname FROM MyGuests WHERE email IS NULL;
+firstname
+Mohandas
+SELECT firstname, lastname, email FROM MyGuests WHERE id >= 1 AND email IS NOT NULL;
+firstname	lastname	email
+John	Doe	john@example.com
+Johnny	Doe	john2@example.com
+SELECT firstname, lastname, email FROM MyGuests WHERE id BETWEEN 2 AND 5;
+firstname	lastname	email
+Johnny	Doe	john2@example.com
+Mohandas	Gandhi	NULL
+SELECT firstname, lastname, email FROM MyGuests WHERE id NOT BETWEEN 2 AND 5;
+firstname	lastname	email
+John	Doe	john@example.com
+SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
+firstname	email
+Mohandas	NULL
 SELECT email FROM MyGuests WHERE fake_column = 1;
 ERROR 42S22: Unknown column 'fake_column' in 'where clause'
 SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
 COUNT(DISTINCT SQL_ID)
-5
-SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+12
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM information_schema.COLUMN_STATISTICS;
-TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
-cus_test	MyGuests	firstname	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	EQUAL
-cus_test	MyGuests	id	FILTER	GREATER_THAN
-cus_test	MyGuests	id	FILTER	GREATER_THAN
-cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
-cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
-cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
-cus_test	MyGuests	lastname	FILTER	EQUAL
-cus_test	MyGuests	lastname	FILTER	EQUAL
-cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
+SQL_ID	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	SQL_OPERATION	OPERATOR_TYPE
+04c3c8490bd7a2f686d22cf4c3ff5d71	cus_test	MyGuests	id	FILTER	GREATER_THAN
+10582630af76192f8c76240216ca2705	cus_test	MyGuests	id	FILTER	EQUAL
+10582630af76192f8c76240216ca2705	cus_test	MyGuests	id	FILTER	GREATER_THAN
+10582630af76192f8c76240216ca2705	cus_test	MyGuests	id	ORDER_BY	SORT_ASCENDING
+10582630af76192f8c76240216ca2705	cus_test	MyGuests	lastname	FILTER	EQUAL
+10582630af76192f8c76240216ca2705	cus_test	MyGuests	lastname	ORDER_BY	SORT_ASCENDING
+2e62e4d83d74013b531a5208c96c9446	cus_test	MyGuests	email	FILTER	NULL_CHECK
+33f0ec14946d677892d8cfe699bddc91	cus_test	MyGuests	email	FILTER	NULL_CHECK
+33f0ec14946d677892d8cfe699bddc91	cus_test	MyGuests	id	FILTER	GREATER_THAN_EQUAL
+3f65c5c1596ddb5c4c9476b6da45eaf1	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+3f65c5c1596ddb5c4c9476b6da45eaf1	cus_test	MyGuests	lastname	FILTER	EQUAL
+776df19cf9ebc68d308a2a6266943aaa	cus_test	MyGuests	firstname	FILTER	EQUAL
+776df19cf9ebc68d308a2a6266943aaa	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+7ea0e2592ecfce1d83bbff61641ae544	cus_test	MyGuests	id	FILTER	SET_MEMBERSHIP
+851f77cb9350780e35d31906f329710d	cus_test	MyGuests	id	FILTER	BETWEEN
+abd6649ce37c9f1cb14aa86586750c55	cus_test	MyGuests	id	FILTER	BETWEEN
+d0018fd7b2e9aefd1cd3d617d9517240	cus_test	MyGuests	id	FILTER	EQUAL
+e4dc3a754f86592ca9bf04b79ce7a595	cus_test	MyGuests	email	FILTER	PATTERN_MATCH
+e80503d217f7d6f85a27e04430322188	cus_test	MyGuests	email	FILTER	NULLSAFE_EQUAL
+e80503d217f7d6f85a27e04430322188	cus_test	MyGuests	firstname	FILTER	NOT_EQUAL
+e80503d217f7d6f85a27e04430322188	cus_test	MyGuests	id	FILTER	NOT_EQUAL
 set global column_stats_control = OFF_HARD;
 DROP TABLE MyGuests;
 DROP DATABASE cus_test;

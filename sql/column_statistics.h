@@ -50,28 +50,48 @@ operator_type match_op(Item_func::Functype fitem_type);
 operator_type match_op(ORDER::enum_order direction);
 
 /*
+  populate_field_info
+    Helper to parse column usage information corresponding to a single
+    function item.
+  Input:
+    op            in: sql_operation
+                      The SQL operation FILTER, TABLE_JOIN etc.
+                      in which the field was used.
+    op_type       in: operator_type
+    field_arg     in: Item_field
+                      The field argument to parse the column usage info
+                      struct from.
+    out_cus       out: std::set<ColumnUsageInfo>
+                       Column usage information parsed from field_arg.
+*/
+void populate_field_info(
+    const sql_operation& op, const operator_type& op_type,
+    Item_field *field_arg, std::set<ColumnUsageInfo>& out_cus);
+
+/*
   parse_column_from_func_item
     Helper to parse column usage information corresponding to a single
     function item.
   Input:
-    db_name       in: std::string
-    table_name    in: std::string
+    op            in: sql_operation
+                      The SQL operation FILTER, TABLE_JOIN etc.
+                      corresponding to the functional item.
     fitem         in: Item_func
                       The functional item to be parsed.
     out_cus       out: std::set<ColumnUsageInfo>
                        Column usage information parsed from fitem.
 */
 int parse_column_from_func_item(
-    const std::string& db_name, const std::string& table_name,
-    Item_func *fitem, std::set<ColumnUsageInfo>& out_cus);
+    sql_operation op, Item_func *fitem, std::set<ColumnUsageInfo>& out_cus);
 
 /*
   parse_column_from_cond_item
     Helper to parse column usage information corresponding to a single
     conditional item.
   Input:
-    db_name            in: std::string
-    table_name         in: std::string
+    op                 in: sql_operation
+                           The SQL operation FILTER, TABLE_JOIN etc.
+                           corresponding to the conditional item.
     citem              in: Item_cond
                            The conditional item to be parsed.
     out_cus            out: std::set<ColumnUsageInfo>
@@ -81,15 +101,16 @@ int parse_column_from_func_item(
                            To be removed later.
 */
 int parse_column_from_cond_item(
-    const std::string& db_name, const std::string& table_name, Item_cond *citem,
-    std::set<ColumnUsageInfo>& out_cus, int recursion_depth);
+    sql_operation op, Item_cond *citem, std::set<ColumnUsageInfo>& out_cus,
+    int recursion_depth);
 
 /*
   parse_column_from_item
     Helper to parse column usage information corresponding to a single item.
   Input:
-    db_name            in: std::string
-    table_name         in: std::string
+    op                 in: sql_operation
+                           The SQL operation FILTER, TABLE_JOIN etc.
+                           corresponding to the generic item being parsed.
     item               in: Item
                            The item to be parsed.
     out_cus            out: std::set<ColumnUsageInfo>
@@ -99,16 +120,14 @@ int parse_column_from_cond_item(
                            To be removed later.
 */
 int parse_column_from_item(
-    const std::string& db_name, const std::string& table_name, Item *item,
-    std::set<ColumnUsageInfo>& out_cus, int recursion_depth);
+    sql_operation op, Item *item, std::set<ColumnUsageInfo>& out_cus,
+    int recursion_depth);
 
 /*
   parse_columns_from_order_list
     Helper to parse column usage information corresponding to an ordered list
     of columns. This is used for ORDER BY and GROUP BY clauses.
   Input:
-    db_name            in: std::string
-    table_name         in: std::string
     op                 in: sql_operation
                            The operation GROUP BY or ORDER_BY which corresponds
                            to the list being processed.
@@ -118,7 +137,6 @@ int parse_column_from_item(
                             Column usage information parsed from fitem.
 */
 int parse_columns_from_order_list(
-    const std::string& db_name, const std::string& table_name,
     sql_operation op, ORDER* first_col, std::set<ColumnUsageInfo>& out_cus);
 
 /*
@@ -130,8 +148,7 @@ int parse_columns_from_order_list(
     out_cus    out: std::set<ColumnUsageInfo>
                     Column usage info derived from the parse tree.
 */
-extern int parse_column_usage_info(
-    THD *thd, std::set<ColumnUsageInfo>& out_cus);
+extern int parse_column_usage_info(THD *thd);
 
 /*
   exists_column_usage_info
@@ -154,8 +171,7 @@ extern bool exists_column_usage_info(THD *thd);
                    NOTE: This parameter is acquired by the callee and cannot
                    be used any further by the caller.
 */
-extern void populate_column_usage_info(
-    THD *thd, std::set<ColumnUsageInfo>& cus);
+extern void populate_column_usage_info(THD *thd);
 
 /*
   fill_column_statistics

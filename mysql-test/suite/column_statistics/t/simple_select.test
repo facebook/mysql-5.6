@@ -19,6 +19,9 @@ VALUES ('John', 'Doe', 'john@example.com');
 INSERT INTO MyGuests (firstname, lastname, email)
 VALUES ('Johnny', 'Doe', 'john2@example.com');
 
+INSERT INTO MyGuests (firstname, lastname, email)
+VALUES ('Mohandas', 'Gandhi', NULL);
+
 set global column_stats_control = ON;
 
 # Executing queries that would populate COLUMN_STATISTICS
@@ -33,6 +36,24 @@ SELECT firstname, email FROM MyGuests WHERE id IN (1, -2) OR firstname = 'Doe';
 
 SELECT firstname, email FROM MyGuests WHERE (id = 1 AND ((id > -1) OR (id > 2 AND lastname = 'Doe'))) ORDER BY id, lastname LIMIT 2;
 
+SELECT firstname, lastname, email FROM MyGuests WHERE email <=> 'john@example.com' AND id <> 1000 AND firstname != 'gandhi';
+
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email LIKE 'john%';
+
+# NOT LIKE is treated as a combination of two operators NOT and LIKE and is not expected to show up in
+# COLUMN_STATISTICS.
+SELECT id, firstname, lastname, email FROM MyGuests WHERE email NOT LIKE 'john2%';
+
+SELECT firstname FROM MyGuests WHERE email IS NULL;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id >= 1 AND email IS NOT NULL;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id BETWEEN 2 AND 5;
+
+SELECT firstname, lastname, email FROM MyGuests WHERE id NOT BETWEEN 2 AND 5;
+
+SELECT firstname, email FROM MyGuests WHERE id NOT IN (1, 2);
+
 --error 1054
 SELECT email FROM MyGuests WHERE fake_column = 1;
 
@@ -41,7 +62,7 @@ SELECT email FROM MyGuests WHERE fake_column = 1;
 SELECT COUNT(DISTINCT SQL_ID) FROM information_schema.COLUMN_STATISTICS;
 
 SORTED_RESULT;
-SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
+SELECT SQL_ID, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, SQL_OPERATION, OPERATOR_TYPE
 FROM information_schema.COLUMN_STATISTICS;
 
 set global column_stats_control = OFF_HARD;

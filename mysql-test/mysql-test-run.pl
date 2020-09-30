@@ -166,7 +166,7 @@ our $opt_vs_config = $ENV{'MTR_VS_CONFIG'};
 
 # If you add a new suite, please check TEST_DIRS in Makefile.am.
 #
-my $DEFAULT_SUITES= "main,sys_vars,binlog,federated,grant,rpl,rpl_recovery,rpl_mts,innodb,innodb_fts,innodb_zip,perfschema,funcs_1,opt_trace,parts,auth_sec,connection_control,innodb_stress,json";
+my $DEFAULT_SUITES= "main,sys_vars,binlog,federated,grant,rpl,rpl_recovery,rpl_mts,innodb,innodb_fts,innodb_zip,perfschema,funcs_1,opt_trace,parts,auth_sec,connection_control,innodb_stress,json,column_statistics";
 my $opt_suites;
 
 our $opt_verbose= 0;  # Verbose output, enable with --verbose
@@ -518,7 +518,7 @@ sub main {
   # Send Ctrl-C to any children still running
   kill("INT", keys(%children));
 
-  if (!IS_WINDOWS) { 
+  if (!IS_WINDOWS) {
     # Wait for children to exit
     foreach my $pid (keys %children)
     {
@@ -1311,11 +1311,11 @@ sub command_line_setup {
   {
     $basedir= dirname($basedir);
   }
-  
-  # Respect MTR_BINDIR variable, which is typically set in to the 
+
+  # Respect MTR_BINDIR variable, which is typically set in to the
   # build directory in out-of-source builds.
   $bindir=$ENV{MTR_BINDIR}||$basedir;
-  
+
   # Look for the client binaries directory
   if ($path_client_bindir)
   {
@@ -1379,7 +1379,7 @@ sub command_line_setup {
       mtr_report("Using experimental file: $exp_file");
       while(<FILE>) {
 	chomp;
-	# remove comments (# foo) at the beginning of the line, or after a 
+	# remove comments (# foo) at the beginning of the line, or after a
 	# blank at the end of the line
 	s/(\s+|^)#.*$//;
 	# If @ platform specifier given, use this entry only if it contains
@@ -1685,8 +1685,8 @@ sub command_line_setup {
       $opt_debugger= undef;
     }
 
-    if ( $opt_gdb || $opt_ddd || $opt_manual_gdb || $opt_manual_lldb || 
-         $opt_manual_ddd || $opt_manual_debug || $opt_debugger || $opt_dbx || 
+    if ( $opt_gdb || $opt_ddd || $opt_manual_gdb || $opt_manual_lldb ||
+         $opt_manual_ddd || $opt_manual_debug || $opt_debugger || $opt_dbx ||
          $opt_manual_dbx)
     {
       mtr_error("You need to use the client debug options for the",
@@ -1713,9 +1713,9 @@ sub command_line_setup {
   # --------------------------------------------------------------------------
   # Check debug related options
   # --------------------------------------------------------------------------
-  if ( $opt_gdb || $opt_client_gdb || $opt_ddd || $opt_client_ddd || 
-       $opt_manual_gdb || $opt_manual_lldb || $opt_manual_ddd || 
-       $opt_manual_debug || $opt_dbx || $opt_client_dbx || $opt_manual_dbx || 
+  if ( $opt_gdb || $opt_client_gdb || $opt_ddd || $opt_client_ddd ||
+       $opt_manual_gdb || $opt_manual_lldb || $opt_manual_ddd ||
+       $opt_manual_debug || $opt_dbx || $opt_client_dbx || $opt_manual_dbx ||
        $opt_debugger || $opt_client_debugger )
   {
     # Indicate that we are using debugger
@@ -1860,10 +1860,10 @@ sub command_line_setup {
 
     mtr_report("Running valgrind with options \"",
 	       join(" ", @valgrind_args), "\"");
-    
+
     # Turn off check testcases to save time
     mtr_report("Turning off --check-testcases to save time when valgrinding");
-    $opt_check_testcases = 0; 
+    $opt_check_testcases = 0;
   }
 
   if ($opt_debug_common)
@@ -2354,9 +2354,9 @@ sub find_plugin($$)
 
   if (IS_WINDOWS)
   {
-     $plugin_filename = $plugin.".dll"; 
+     $plugin_filename = $plugin.".dll";
   }
-  else 
+  else
   {
      $plugin_filename = $plugin.".so";
   }
@@ -2464,7 +2464,7 @@ sub environment_setup {
   # --------------------------------------------------------------------------
   if ( $ndbcluster_enabled )
   {
-    push(@ld_library_paths,  
+    push(@ld_library_paths,
 	 "$basedir/storage/ndb/src/.libs",
 	 "$basedir/storage/ndb/src");
   }
@@ -2538,7 +2538,7 @@ sub environment_setup {
   $ENV{'MYSQL_BINDIR'}=       "$bindir";
   $ENV{'MYSQL_SHAREDIR'}=     $path_language;
   $ENV{'MYSQL_CHARSETSDIR'}=  $path_charsetsdir;
-  
+
   if (IS_WINDOWS)
   {
     $ENV{'SECURE_LOAD_PATH'}= $glob_mysql_test_dir."\\std_data";
@@ -2551,7 +2551,7 @@ sub environment_setup {
     $ENV{'MYSQL_TEST_LOGIN_FILE'}=
                               $opt_tmpdir . "/.mylogin.cnf";
   }
-    
+
 
   # ----------------------------------------------------
   # Setup env for NDB
@@ -3746,7 +3746,7 @@ sub mysql_install_db {
   mtr_add_arg($args, "--secure-file-priv=%s", "$opt_vardir");
   mtr_add_arg($args, "--innodb-log-file-size=5M");
   mtr_add_arg($args, "--core-file");
-  # over writing innodb_autoextend_increment to 8 for reducing the ibdata1 file size 
+  # over writing innodb_autoextend_increment to 8 for reducing the ibdata1 file size
   mtr_add_arg($args, "--innodb_autoextend_increment=8");
 
   if ( $opt_debug )
@@ -3763,8 +3763,8 @@ sub mysql_install_db {
   # server process.
   foreach my $extra_opt ( @opt_extra_mysqld_opt ) {
     (my $temp_extra_opt=$extra_opt) =~ s/_/-/g;
-    if ($temp_extra_opt =~ /--innodb-page-size/ || 
-        $temp_extra_opt =~ /--innodb-log-file-size/ || 
+    if ($temp_extra_opt =~ /--innodb-page-size/ ||
+        $temp_extra_opt =~ /--innodb-log-file-size/ ||
         $temp_extra_opt =~ /--skip-innodb/ ||
         $temp_extra_opt =~ /--rocksdb/ ||
         $temp_extra_opt =~ /--allow-multiple-engines/ ||
@@ -5392,7 +5392,7 @@ sub mysqld_arguments ($$$) {
   {
     # Skip --defaults-file option since it's handled above.
     next if $arg =~ /^--defaults-file/;
-   
+
 
     if ($arg eq "--log-error")
     {
@@ -6517,7 +6517,7 @@ sub debugger_arguments {
 }
 
 #
-# Modify the exe and args so that program is run in strace 
+# Modify the exe and args so that program is run in strace
 #
 sub strace_server_arguments {
   my $args= shift;
@@ -6790,7 +6790,7 @@ Options to control what engine/variation to run
                         tests
   defaults-extra-file=<config template> Extra config template to add to
                         all generated configs
-  combination=<opt>     Use at least twice to run tests with specified 
+  combination=<opt>     Use at least twice to run tests with specified
                         options to mysqld
   skip-combinations     Ignore combination file (or options)
   new-tests             Run tests that are added/modified in the current
@@ -6839,7 +6839,7 @@ Options to control what test suites or cases to run
   print-testcases       Don't run the tests but print details about all the
                         selected tests, in the order they would be run.
   skip-test-list=FILE   Skip the tests listed in FILE. Each line in the file
-                        is an entry and should be formatted as: 
+                        is an entry and should be formatted as:
                         <TESTNAME> : <COMMENT>
 
 Options that specify ports
@@ -6903,10 +6903,10 @@ Options for debugging the product
                         test(s)
   manual-dbx            Let user manually start mysqld in dbx, before running
                         test(s)
-  manual-lldb           Let user manually start mysqld in lldb, before running 
+  manual-lldb           Let user manually start mysqld in lldb, before running
                         test(s)
-  strace-client         Create strace output for mysqltest client, 
-  strace-server         Create strace output for mysqltest server, 
+  strace-client         Create strace output for mysqltest client,
+  strace-server         Create strace output for mysqltest server,
   max-save-core         Limit the number of core files saved (to avoid filling
                         up disks for heavily crashing server). Defaults to
                         $opt_max_save_core, set to 0 for no limit. Set
