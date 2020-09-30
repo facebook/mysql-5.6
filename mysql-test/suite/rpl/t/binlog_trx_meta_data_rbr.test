@@ -36,6 +36,21 @@ set @@global.log_only_query_comments= OFF;
 
 --source suite/rpl/include/binlog_trx_meta_data.inc
 
+# Ensure multiple queries are not logged to the same event
+create table test_multi_stmt_query (a int primary key, b char(32));
+delimiter |;
+insert into test_multi_stmt_query values(1, 'THESE');
+insert into test_multi_stmt_query values(2, 'SHOULD');
+insert into test_multi_stmt_query values(3, 'BE');
+insert into test_multi_stmt_query values(4, 'SEPARATE');
+|
+delimiter ;|
+let $MYSQLD_DATADIR = `select @@datadir`;
+--echo Should be 1 ::TRX_META_DATA::.*THESE
+exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep -E '::TRX_META_DATA::.*THESE' | wc -l;
+--echo Should be 0 ::TRX_META_DATA::.*THESE.*SHOULD.*BE.*SEPARATE
+exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.0* | grep -E '::TRX_META_DATA::.*THESE.*SHOULD.*BE.*SEPARATE' | wc -l;
+drop table test_multi_stmt_query;
 
 # Case 3: binlog_rows_query_log_events= ON and log_only_query_comments= ON
 --source include/rpl_connection_master.inc

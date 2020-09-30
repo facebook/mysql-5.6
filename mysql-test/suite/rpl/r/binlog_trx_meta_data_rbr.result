@@ -67,6 +67,17 @@ meta	count(*)
 # /*::TRX_META_DATA::{"ts":[ts,ts]}*//*delete { }*/delete from t1	10
 [connection master]
 drop table t1;
+create table test_multi_stmt_query (a int primary key, b char(32));
+insert into test_multi_stmt_query values(1, 'THESE');
+insert into test_multi_stmt_query values(2, 'SHOULD');
+insert into test_multi_stmt_query values(3, 'BE');
+insert into test_multi_stmt_query values(4, 'SEPARATE');
+|
+Should be 1 ::TRX_META_DATA::.*THESE
+1
+Should be 0 ::TRX_META_DATA::.*THESE.*SHOULD.*BE.*SEPARATE
+0
+drop table test_multi_stmt_query;
 [connection master]
 set @@session.binlog_rows_query_log_events= ON;
 set @@global.log_only_query_comments= ON;
