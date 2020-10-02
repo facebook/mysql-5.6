@@ -253,6 +253,8 @@ my @mysqld_rules=
  { 'ssl-ca' => \&fix_ssl_ca },
  { 'ssl-cert' => \&fix_ssl_server_cert },
  { 'ssl-key' => \&fix_ssl_server_key },
+ { 'loose-rpl_raft_log_dir' => \&fix_tmpdir },
+ { 'loose-rpl_raft_wal_dir' => \&fix_tmpdir },
   );
 
 if (IS_WINDOWS)
