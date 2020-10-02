@@ -26,8 +26,8 @@ select 100;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
 create table t1(c int, cname varchar(20));
 insert into t1 values(1, "one");
 insert into t1 values(2, "two");
@@ -42,13 +42,13 @@ delete from t1 where c=903;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-08e928aa02a78202f8ccb70ac99ab932	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
-4428540d2277d6c2b5f40b83d28195d7	INSERT	30	INSERT INTO `t1` VALUES (...) 
-5d297aa0bf23bdacb24771b08a2039d2	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
-a41d29f30d2b12c6cf1d3c1fa212bc98	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
-e79fb581276a985734dab4cc0885b77e	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+0b3d55ac53dfc17f83def9dabdefd0e5	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+26d79ac84a23fc12af52b90ef72eb512	INSERT	30	INSERT INTO `t1` VALUES (...) 
+4ddac7e6d0ed47a9bd5b69b5e3bb4e42	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+b388daf460febe301d460e185b127bcd	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e76bf3c9366a101ff8e7277e4d934e41	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
 Case 3a: sql_stats_control=ON, big queries, around 800 chars
 select cname from t1 where c=901
 union
@@ -352,15 +352,15 @@ two
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-08e928aa02a78202f8ccb70ac99ab932	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
-4428540d2277d6c2b5f40b83d28195d7	INSERT	30	INSERT INTO `t1` VALUES (...) 
-5d297aa0bf23bdacb24771b08a2039d2	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
-a41d29f30d2b12c6cf1d3c1fa212bc98	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
-abd5e60fd36be97e8d95d6033a4f7382	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
-e49b9027cadae5e06e0f9aab919c7ae2	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
-e79fb581276a985734dab4cc0885b77e	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+0b3d55ac53dfc17f83def9dabdefd0e5	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+26d79ac84a23fc12af52b90ef72eb512	INSERT	30	INSERT INTO `t1` VALUES (...) 
+4ddac7e6d0ed47a9bd5b69b5e3bb4e42	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+b388daf460febe301d460e185b127bcd	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+d666763e3fc7ffa6b2afa6ef2aa8edb0	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e76bf3c9366a101ff8e7277e4d934e41	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
+f7b5c91b149aa754aaedc1aceda649f7	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
 Case 4: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
 set @@GLOBAL.sql_stats_control="OFF_SOFT";
 select @@sql_stats_control;
@@ -378,15 +378,15 @@ select 1 union select 2 union select 3;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-08e928aa02a78202f8ccb70ac99ab932	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
-4428540d2277d6c2b5f40b83d28195d7	INSERT	30	INSERT INTO `t1` VALUES (...) 
-5d297aa0bf23bdacb24771b08a2039d2	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
-a41d29f30d2b12c6cf1d3c1fa212bc98	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
-abd5e60fd36be97e8d95d6033a4f7382	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
-e49b9027cadae5e06e0f9aab919c7ae2	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
-e79fb581276a985734dab4cc0885b77e	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+0b3d55ac53dfc17f83def9dabdefd0e5	UPDATE	30	UPDATE `t1` SET `c` = `c` + ? 
+26d79ac84a23fc12af52b90ef72eb512	INSERT	30	INSERT INTO `t1` VALUES (...) 
+4ddac7e6d0ed47a9bd5b69b5e3bb4e42	SELECT	66	SELECT * FROM `information_schema` . `sql_text` ORDER BY `sql_id` 
+b388daf460febe301d460e185b127bcd	CREATE	61	CREATE TABLE `t1` ( `c` INTEGER , `cname` VARCHARACTER (?) ) 
+d666763e3fc7ffa6b2afa6ef2aa8edb0	SELECT	1440	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e76bf3c9366a101ff8e7277e4d934e41	DELETE	31	DELETE FROM `t1` WHERE `c` = ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
+f7b5c91b149aa754aaedc1aceda649f7	SELECT	894	SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? UNION SELECT `cname` FROM `t1` WHERE `c` = ? 
 Case 5: sql_stats_control=OFF_HARD. Disable, and check if all data is deleted.
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 select @@sql_stats_control;
@@ -405,8 +405,8 @@ select 101;
 select * from information_schema.sql_text
 order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
 Case 7: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -434,14 +434,14 @@ c
 select * from information_schema.sql_text
 order by sql_id||||
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
-0448f3d24e4d02752389c951b6da98b1	SELECT	9	SELECT ? 
-08e2e1aa05ce79fab18802903ff52353	UPDATE	30	UPDATE `t2` SET `c` = `c` + ? 
-3899758cccb9d26c0134dd59cca080c5	DELETE	31	DELETE FROM `t2` WHERE `c` = ? 
-6a27ad290846ca8699dca282fa3f10a3	INSERT	28	INSERT INTO `t2` VALUES (?) 
-b7f7406ebf52639736c0b3dfbaf63bb3	DROP	16	DROP TABLE `t2` 
-d8dfdc1dc9c54e97f5a09cd3687f6bf7	CREATE	34	CREATE TABLE `t2` ( `c` INTEGER ) 
-e27c5cdf6a99b5400d5394fed7999a27	SELECT	29	SELECT @@`sql_stats_control` 
-f8845f2e23dc354f349819ec2a3c70e1	SELECT	19	SELECT * FROM `t2` 
+139dd37d45cdf132ea1ad78f5cccbc7f	DELETE	31	DELETE FROM `t2` WHERE `c` = ? 
+5b11e48a826ef2c149f75cfa7894a20d	SELECT	19	SELECT * FROM `t2` 
+b1cf248bbe9c0f226de01543a95800d5	CREATE	34	CREATE TABLE `t2` ( `c` INTEGER ) 
+b5d74033813edd43b779ba064ef58e0e	INSERT	28	INSERT INTO `t2` VALUES (?) 
+ba1090d799fb93c155a3fb2f7cfb2a55	DROP	16	DROP TABLE `t2` 
+db1589f429c8f6fbba750f47fbc7c130	SELECT	9	SELECT ? 
+e774a92c71899fc36599c5b7c754d556	SELECT	29	SELECT @@`sql_stats_control` 
+faca5788f5e48b7a41c386beb1f3da25	UPDATE	30	UPDATE `t2` SET `c` = `c` + ? 
 Cleanup
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 drop table t1;

@@ -1021,7 +1021,7 @@ sp.plan_id, sp.plan_data
 from information_schema.processlist pl,
 information_schema.sql_plans   sp
 where command='Query'
-  and pl.plan_id=sp.plan_id	b82b976cb95b064c459d5686221bfe75	99914b932bd37a50b983c5e7c90ae93b	c96139d29a73ddda07db6e9eabed1175	{
+  and pl.plan_id=sp.plan_id	9bae9f3899104e43bcd529d7a814fff5	99914b932bd37a50b983c5e7c90ae93b	c96139d29a73ddda07db6e9eabed1175	{
   "query_block": {
     "select_id": 1,
     "nested_loop": [
@@ -1050,7 +1050,7 @@ information_schema.sql_plans sp
 where command='Query'
   and tl.plan_id=sp.plan_id;
 db	user	sql_id	client_id	plan_id	plan_data
-test	user1	a15df1536f6568c51ef5fd355e4524a0	99914b932bd37a50b983c5e7c90ae93b	5f3a50d923275a26ec89f16a4a2e3d2e	{
+test	user1	3a53b8afe3d418121c006166b6122bfa	99914b932bd37a50b983c5e7c90ae93b	5f3a50d923275a26ec89f16a4a2e3d2e	{
   "query_block": {
     "select_id": 1,
     "nested_loop": [

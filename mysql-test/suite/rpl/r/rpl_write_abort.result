@@ -33,7 +33,7 @@ this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -50,7 +50,7 @@ this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -75,7 +75,7 @@ a	b	c
 3	3	3
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -96,7 +96,7 @@ this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -115,7 +115,7 @@ this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -149,7 +149,7 @@ a	b	c
 10	10	10
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -181,7 +181,7 @@ this query raises warning
 update test set b=-3 where a <= 3;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-3 where a <= 3	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-3 where a <= 3	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -198,7 +198,7 @@ this query raises warning
 update test set b=-13 where a <= 3;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-13 where a <= 3	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-13 where a <= 3	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -232,8 +232,8 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	2
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	2
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -254,7 +254,7 @@ this query raises warning
 update test set b=-35 where a <= 5;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-35 where a <= 5	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-35 where a <= 5	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -273,7 +273,7 @@ this query raises warning
 update test set b=-45 where a <= 5;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-45 where a <= 5	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-45 where a <= 5	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -309,8 +309,8 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	2
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	2
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -342,7 +342,7 @@ this query raises warning
 delete from test where a in (4, 5, 6);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -363,7 +363,7 @@ this query raises warning
 delete from test where a in (4, 5, 6);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -398,9 +398,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	2
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	2
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	2
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	2
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -425,7 +425,7 @@ this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -448,7 +448,7 @@ this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (11, 12, 13, 14, 15)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -478,9 +478,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	2
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	2
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	2
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	2
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -530,7 +530,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -568,7 +568,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -608,9 +608,9 @@ a	b	c
 3	3	3
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	3
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	2
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	3
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	2
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -658,7 +658,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -704,7 +704,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -759,9 +759,9 @@ a	b	c
 10	10	10
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	2
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	2
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -814,7 +814,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-3 where a <= 3;	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-3 where a <= 3;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -852,7 +852,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-13 where a <= 3;	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-13 where a <= 3;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -901,9 +901,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	3
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	3
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -951,7 +951,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-35 where a <= 5;	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-35 where a <= 5;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -997,7 +997,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-45 where a <= 5;	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-45 where a <= 5;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1054,9 +1054,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	2
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1109,7 +1109,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1151,7 +1151,7 @@ select 6;
 6
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1201,9 +1201,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	3
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1256,7 +1256,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1307,7 +1307,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6);	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1358,9 +1358,9 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1421,8 +1421,8 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-89d7bec8bb9caca7bdeecf4c7e63c6e8	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
-e636733e8eacdd0931857413899194b5	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5, 6);	2
+8a12b6b68295bc5bfd5c82803c5245a7	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
+afa896cfa3efe5448dd8620088cbd5fd	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5, 6);	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1472,8 +1472,8 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-89d7bec8bb9caca7bdeecf4c7e63c6e8	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
-e636733e8eacdd0931857413899194b5	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5, 6);	2
+8a12b6b68295bc5bfd5c82803c5245a7	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
+afa896cfa3efe5448dd8620088cbd5fd	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5, 6);	2
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1530,10 +1530,10 @@ a	b	c
 16	16	16
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1585,7 +1585,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-89d7bec8bb9caca7bdeecf4c7e63c6e8	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
+8a12b6b68295bc5bfd5c82803c5245a7	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1635,7 +1635,7 @@ select 8;
 8
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-89d7bec8bb9caca7bdeecf4c7e63c6e8	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
+8a12b6b68295bc5bfd5c82803c5245a7	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a >= 10 and a <15;	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1697,11 +1697,11 @@ a	b	c
 17	17	17
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	4
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	4
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1752,7 +1752,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1791,7 +1791,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(2, 2, 2), (3, 3, 3)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1837,12 +1837,12 @@ select * from test;
 a	b	c
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	1
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	6
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	6
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	1
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1891,7 +1891,7 @@ select 8;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1938,7 +1938,7 @@ select 8;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-3a5abdfeadb0675b9f6410ae5049c022	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
+3d46c333ff94a51faf346ae18d3706d4	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -1993,12 +1993,12 @@ a	b	c
 17	17	17
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	4
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	4
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2052,7 +2052,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-2 where a <= 2	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2091,7 +2091,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-12 where a <= 2	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-12 where a <= 2	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2152,12 +2152,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	6
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	6
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2202,7 +2202,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-33 where a <= 3	1
+9015fe35aa57dca35616f9ceea068e79	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-33 where a <= 3	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2245,7 +2245,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-4ef67363e58356d13fff1b87c0e2612b	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-43 where a <= 3	1
+9015fe35aa57dca35616f9ceea068e79	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-43 where a <= 3	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2310,12 +2310,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	8
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	4
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	8
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	4
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2369,7 +2369,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2412,7 +2412,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (2, 3)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2474,12 +2474,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	8
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	7
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	8
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	7
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2524,7 +2524,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+9e1e0856986739780e160849c857a240	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2567,7 +2567,7 @@ select 6;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-ce5e4d6654b04af102cf54d534375ecf	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
+9e1e0856986739780e160849c857a240	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	delete from test where a in (4, 5, 6)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2628,12 +2628,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	8
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	9
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	1
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	8
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	9
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2691,7 +2691,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-e636733e8eacdd0931857413899194b5	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
+afa896cfa3efe5448dd8620088cbd5fd	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2738,7 +2738,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-e636733e8eacdd0931857413899194b5	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
+afa896cfa3efe5448dd8620088cbd5fd	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	update test set b=-1 where a in (4, 5)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2803,12 +2803,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	2
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	8
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	9
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	3
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	8
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	9
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	2
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2857,7 +2857,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-154198f840d5f713f2b8943691a4a8b6	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
+ae57df4615192dfdac5e1590abbd3f85	50091	Note	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2904,7 +2904,7 @@ select 7;
 commit;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 sql_id	code	level	message	query_text	count
-154198f840d5f713f2b8943691a4a8b6	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
+ae57df4615192dfdac5e1590abbd3f85	50091	Warning	Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)	insert into test values (17, 17, 17)	1
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;
@@ -2967,12 +2967,12 @@ a	b	c
 15	15	15
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 type	mode	value	transaction_type	count
-SQL_ID	AUTO	154198f840d5f713f2b8943691a4a8b6	LONG	3
-SQL_ID	AUTO	3a5abdfeadb0675b9f6410ae5049c022	LONG	7
-SQL_ID	AUTO	4ef67363e58356d13fff1b87c0e2612b	LONG	8
-SQL_ID	AUTO	89d7bec8bb9caca7bdeecf4c7e63c6e8	LONG	1
-SQL_ID	AUTO	ce5e4d6654b04af102cf54d534375ecf	LONG	9
-SQL_ID	AUTO	e636733e8eacdd0931857413899194b5	LONG	3
+SQL_ID	AUTO	3d46c333ff94a51faf346ae18d3706d4	LONG	7
+SQL_ID	AUTO	8a12b6b68295bc5bfd5c82803c5245a7	LONG	1
+SQL_ID	AUTO	9015fe35aa57dca35616f9ceea068e79	LONG	8
+SQL_ID	AUTO	9e1e0856986739780e160849c857a240	LONG	9
+SQL_ID	AUTO	ae57df4615192dfdac5e1590abbd3f85	LONG	3
+SQL_ID	AUTO	afa896cfa3efe5448dd8620088cbd5fd	LONG	3
 select error_code, error_name, errors_total
 from information_schema.ERROR_STATISTICS
 where error_code = 50091;

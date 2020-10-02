@@ -11,6 +11,8 @@
 --source include/have_innodb.inc
 --source include/have_binlog_format_row.inc
 
+let $show_metadata_event= 1;
+
 # Cleanup old binlog
 connection master;
 flush logs;
