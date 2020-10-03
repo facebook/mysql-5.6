@@ -59,8 +59,10 @@ insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -76,8 +78,10 @@ insert into test values(2, 2, 2), (3, 3, 3);
 --echo this query raises warning
 insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -99,8 +103,10 @@ insert into test values(4, 4, 4), (5, 5, 5), (6, 6, 6);
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -121,8 +127,10 @@ insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
 --echo this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -140,8 +148,10 @@ insert into test values(7, 7, 7), (8, 8, 8), (9, 9, 9), (10, 10, 10);
 --echo this query raises warning
 insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (15, 15, 15);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -165,8 +175,10 @@ insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -209,8 +221,10 @@ update test set b=-2 where a <= 2;
 --echo this query raises warning
 update test set b=-3 where a <= 3;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -226,8 +240,10 @@ update test set b=-12 where a <= 2;
 --echo this query raises warning
 update test set b=-13 where a <= 3;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -245,8 +261,10 @@ update test set b=-23 where a <= 3;
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -267,8 +285,10 @@ update test set b=-34 where a <= 4;
 --echo this query raises warning
 update test set b=-35 where a <= 5;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -286,8 +306,10 @@ update test set b=-44 where a <= 4;
 --echo this query raises warning
 update test set b=-45 where a <= 5;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -307,8 +329,10 @@ update test set b=-55 where a <= 5;
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -351,8 +375,10 @@ delete from test where a in (2, 3);
 --echo this query raises warning
 delete from test where a in (4, 5, 6);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -373,8 +399,10 @@ delete from test where a in (2, 3);
 --echo this query raises warning
 delete from test where a in (4, 5, 6);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -397,8 +425,10 @@ delete from test where a in (4, 5, 6);
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -424,8 +454,10 @@ delete from test where a in (7, 8, 9, 10);
 --echo this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -448,8 +480,10 @@ delete from test where a in (7, 8, 9, 10);
 --echo this query raises warning
 delete from test where a in (11, 12, 13, 14, 15);
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -474,8 +508,10 @@ delete from test where a in (11, 12, 13, 14, 15);
 --echo verify that the last statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -530,8 +566,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -558,8 +596,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -592,8 +632,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -627,8 +669,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -659,8 +703,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -697,8 +743,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -752,8 +800,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -780,8 +830,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -810,8 +862,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -845,8 +899,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -877,8 +933,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -911,8 +969,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -966,8 +1026,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -999,8 +1061,10 @@ select 6;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1034,8 +1098,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1075,8 +1141,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1113,8 +1181,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1152,8 +1222,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1211,8 +1283,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1248,8 +1322,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1287,8 +1363,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1327,8 +1405,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1364,8 +1444,10 @@ select 8;
 ||||
 delimiter ;||||
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1403,8 +1485,10 @@ delimiter ;||||
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1458,8 +1542,10 @@ insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1485,8 +1571,10 @@ insert into test values(11, 11, 11), (12, 12, 12), (13, 13, 13), (14, 14, 14), (
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1520,8 +1608,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1554,8 +1644,10 @@ insert into test values(17, 17, 17);
 select 8;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1585,8 +1677,10 @@ insert into test values(17, 17, 17);
 select 8;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1623,8 +1717,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1677,8 +1773,10 @@ update test set b=-5 where a = 5;
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1704,8 +1802,10 @@ update test set b=-15 where a = 5;
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1739,8 +1839,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1771,8 +1873,10 @@ update test set b=-36 where a = 6;
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1800,8 +1904,10 @@ update test set b=-46 where a = 6;
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1837,8 +1943,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1891,8 +1999,10 @@ delete from test where a in (10, 11, 12, 13);
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1923,8 +2033,10 @@ delete from test where a in (10, 11, 12, 13);
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1959,8 +2071,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -1994,8 +2108,10 @@ delete from test where a in (11, 12, 13, 14, 15);
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2026,8 +2142,10 @@ delete from test where a in (11, 12, 13, 14, 15);
 select 6;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2061,8 +2179,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2117,8 +2237,10 @@ update test set b=-1 where a in (7, 8, 9);
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2151,8 +2273,10 @@ update test set b=-1 where a in (7, 8, 9);
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2188,8 +2312,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2225,8 +2351,10 @@ update test set b=-1 where a in (7, 8, 9);
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2259,8 +2387,10 @@ update test set b=-1 where a in (7, 8, 9);
 select 7;
 commit;
 
+sorted_result;
 select sql_id, code, level, message, query_text, count from information_schema.sql_findings;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
@@ -2295,8 +2425,10 @@ commit;
 --echo verify that the statement failed
 select * from test;
 
+sorted_result;
 select type, mode, value, transaction_type, count from information_schema.write_throttling_log;
 
+sorted_result;
 select error_code, error_name, errors_total
   from information_schema.ERROR_STATISTICS
  where error_code = 50091;
