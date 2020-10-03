@@ -248,3 +248,29 @@ extern "C" sig_handler handle_fatal_signal(int sig)
   _exit(1);  // Using _exit(), since exit() is not async signal safe
 #endif
 }
+
+/**
+ * Extended handler for fatal signals.
+ *
+ * @param sig  Signal number
+ * @param info Detailed signal information
+ * @param ctx  Signal context including registers in uc_mcontext
+*/
+extern "C" sig_handler handle_fatal_signal_ex(int sig, siginfo_t *info,
+                                              void *ctx)
+{
+  /* Save detailed information on stack in volatile variables to make sure
+     they are not optimized out. For reference on Intel,
+     ucontext->uc_mcontext.gregs is an array of registers:
+       R8 - R15   0 - 7   RAX        13
+       RDI        8       RCX        14
+       RSI        9       RSP        15
+       RBP        10      RIP        16
+       RBX        11      EFL        17
+       RDX        12
+  */
+  siginfo_t * volatile MY_ATTRIBUTE((unused)) siginfo = info;
+  ucontext_t * volatile MY_ATTRIBUTE((unused)) ucontext =
+    reinterpret_cast<ucontext_t *>(ctx);
+  return handle_fatal_signal(sig);
+}

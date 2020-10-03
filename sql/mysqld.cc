@@ -332,6 +332,8 @@ extern "C" int gethostname(char *name, int namelen);
 #endif
 
 extern "C" sig_handler handle_fatal_signal(int sig);
+extern "C" sig_handler handle_fatal_signal_ex(int sig, siginfo_t *info,
+                                              void *ctx);
 
 #if defined(__linux__)
 #define ENABLE_TEMP_POOL 1
@@ -4395,7 +4397,8 @@ void my_init_signals(void)
 #if defined(__amiga__)
     sa.sa_handler=(void(*)())handle_fatal_signal;
 #else
-    sa.sa_handler=handle_fatal_signal;
+    sa.sa_flags |= SA_SIGINFO;
+    sa.sa_sigaction=handle_fatal_signal_ex;
 #endif
     sigaction(SIGSEGV, &sa, NULL);
     sigaction(SIGABRT, &sa, NULL);
