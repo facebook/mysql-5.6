@@ -2962,8 +2962,8 @@ bool show_raft_status(THD* thd)
     max_value= std::max(max_value, itr->second.length() + 10);
   }
 
-  field_list.push_back(new Item_empty_string("VARIABLE_NAME", max_var));
-  field_list.push_back(new Item_empty_string("VARIABLE_VALUE", max_value));
+  field_list.push_back(new Item_empty_string("Variable_name", max_var));
+  field_list.push_back(new Item_empty_string("Value", max_value));
   if (protocol->send_result_set_metadata(
         &field_list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
   {
