@@ -108,6 +108,8 @@ const char *client_errors[] = {
     "Compression protocol not supported with asynchronous protocol",
     "Read timeout is reached",
     "Write timeout is reached",
+    "Server rejected the ssl handshake for specified sni servername, sslerror: "
+    "%-.100s",
     ""};
 
 static const char *get_client_errmsg(int nr) {

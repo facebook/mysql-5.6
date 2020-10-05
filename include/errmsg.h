@@ -126,7 +126,8 @@ extern const char *client_errors[]; /* Error messages */
 #define CR_COMPRESSION_NOT_SUPPORTED 2065
 #define CR_NET_READ_INTERRUPTED 2066
 #define CR_NET_WRITE_INTERRUPTED 2067
-#define CR_ERROR_LAST /*Copy last error nr:*/ 2067
+#define CR_TLS_SERVER_NOT_FOUND 2068
+#define CR_ERROR_LAST /*Copy last error nr:*/ 2068
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
 /* Visual Studio requires '__inline' for C code */
