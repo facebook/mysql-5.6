@@ -16,6 +16,9 @@
 
 /* C++ standard header files */
 #include <array>
+#include <atomic>
+#include <deque>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -29,10 +32,22 @@
 
 #pragma once
 
+struct REJECTED_ITEM {
+  // Timestamp of rejected query
+  timeval rejected_bypass_query_timestamp;
+  // Rejected query
+  std::string rejected_bypass_query;
+  // Error message
+  std::string error_msg;
+};
+
 class SELECT_LEX;
 
 namespace myrocks {
 
 bool rocksdb_handle_single_table_select(THD *thd, SELECT_LEX *select_lex);
+
+extern std::deque<REJECTED_ITEM> rejected_bypass_queries;
+extern std::mutex rejected_bypass_query_lock;
 
 }  // namespace myrocks

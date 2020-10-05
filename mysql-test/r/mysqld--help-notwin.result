@@ -1431,6 +1431,10 @@ The following options may be given as the first argument:
  only when bulk load is disabled.
  --rocksdb-bulk-load-size=# 
  Max #records in a batch for bulk-load mode
+ --rocksdb-bypass-rejected-query-history[=name] 
+ Enable or disable ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY
+ plugin. Possible values are ON, OFF, FORCE (don't start
+ if the plugin fails to load).
  --rocksdb-bytes-per-sync=# 
  DBOptions::bytes_per_sync for RocksDB
  --rocksdb-cache-dump 
@@ -1813,6 +1817,10 @@ The following options may be given as the first argument:
  Change bypass SELECT related policy and allow directly
  talk to RocksDB. Valid values include 'always_off',
  'always_on', 'opt_in', 'opt_out'. 
+ --rocksdb-select-bypass-rejected-query-history-size=# 
+ History size of rejected bypass queries in
+ information_schema.bypass_rejected_query_history. Set to
+ 0 to turn off
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
  --rocksdb-sim-cache-size=# 
@@ -2688,6 +2696,7 @@ rocksdb-bulk-load FALSE
 rocksdb-bulk-load-allow-sk FALSE
 rocksdb-bulk-load-allow-unsorted FALSE
 rocksdb-bulk-load-size 1000
+rocksdb-bypass-rejected-query-history ON
 rocksdb-bytes-per-sync 0
 rocksdb-cache-dump TRUE
 rocksdb-cache-high-pri-pool-ratio 0
@@ -2807,6 +2816,7 @@ rocksdb-select-bypass-log-failed FALSE
 rocksdb-select-bypass-log-rejected TRUE
 rocksdb-select-bypass-multiget-min 18446744073709551615
 rocksdb-select-bypass-policy always_off
+rocksdb-select-bypass-rejected-query-history-size 0
 rocksdb-signal-drop-index-thread FALSE
 rocksdb-sim-cache-size 0
 rocksdb-skip-bloom-filter-on-read FALSE

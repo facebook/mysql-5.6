@@ -139,6 +139,7 @@ Database: information_schema
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_COMPACTION_HISTORY            |
@@ -240,6 +241,7 @@ Database: INFORMATION_SCHEMA
 | REFERENTIAL_CONSTRAINTS               |
 | RESOURCE_GROUPS                       |
 | ROCKSDB_ACTIVE_COMPACTION_STATS       |
+| ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY |
 | ROCKSDB_CFSTATS                       |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_COMPACTION_HISTORY            |
