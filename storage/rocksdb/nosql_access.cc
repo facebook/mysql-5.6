@@ -22,6 +22,7 @@
 /* C++ standard header files */
 #include <algorithm>
 #include <array>
+#include <deque>
 #include <limits>
 #include <memory>
 #include <string>
@@ -1719,7 +1720,10 @@ bool inline is_bypass_on(st_select_lex *select_lex) {
   return (select_lex->select_bypass_hint == SELECT_LEX::SELECT_BYPASS_HINT_ON);
 }
 
-bool rocksdb_handle_single_table_select(THD *thd, st_select_lex *select_lex) {
+std::deque<REJECTED_ITEM> rejected_bypass_queries;
+std::mutex rejected_bypass_query_lock;
+
+bool rocksdb_handle_single_table_select(THD *thd, SELECT_LEX *select_lex) {
   // Checks for hint and policy
   if (!is_bypass_on(select_lex)) {
     // Fallback to MySQL
@@ -1732,9 +1736,30 @@ bool rocksdb_handle_single_table_select(THD *thd, st_select_lex *select_lex) {
     rocksdb_select_bypass_rejected++;
 
     if (should_log_rejected_select_bypass()) {
-      // NO_LINT_DEBUG
-      sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
-                            thd->query(), select_stmt.get_error_msg());
+      // Record the rejected query into the error log if rejected query history
+      // size equals zero
+      if (get_select_bypass_rejected_query_history_size() == 0) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n", thd->query(),
+            select_stmt.get_error_msg());
+      } else {
+        // Otherwise, record the rejected query into information_schema
+        const std::lock_guard<std::mutex> lock(rejected_bypass_query_lock);
+
+        while (rejected_bypass_queries.size() >=
+               get_select_bypass_rejected_query_history_size()) {
+          rejected_bypass_queries.pop_back();
+        }
+
+        REJECTED_ITEM rejected_query_record;
+        rejected_query_record.rejected_bypass_query_timestamp =
+            thd->query_start_timeval_trunc(0);
+        rejected_query_record.rejected_bypass_query = thd->query();
+        rejected_query_record.error_msg = select_stmt.get_error_msg();
+
+        rejected_bypass_queries.push_front(rejected_query_record);
+      }
     }
 
     // During parse you can just let unsupported scenario fallback to MySQL
