@@ -188,6 +188,7 @@ struct st_mysql_options_extention {
   bool connection_compressed;
   char *load_data_dir;
   struct client_authentication_info client_auth_info[MAX_AUTHENTICATION_FACTOR];
+  char *tls_sni_servername; /* TLS sni server name */
   void *ssl_session_data; /** the session serialization to use */
   void *ssl_context;
 };

@@ -19039,7 +19039,8 @@ static void test_wl6791() {
                                    MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
                                    MYSQL_OPT_OPTIONAL_RESULTSET_METADATA},
                     const_char_opts[] =
-  { MYSQL_READ_DEFAULT_FILE,
+  {
+    MYSQL_READ_DEFAULT_FILE,
     MYSQL_READ_DEFAULT_GROUP,
     MYSQL_SET_CHARSET_DIR,
     MYSQL_SET_CHARSET_NAME,
@@ -19056,9 +19057,11 @@ static void test_wl6791() {
     MYSQL_OPT_SSL_CAPATH,
     MYSQL_OPT_SSL_CIPHER,
     MYSQL_OPT_TLS_CIPHERSUITES,
+    MYSQL_OPT_TLS_SNI_SERVERNAME,
     MYSQL_OPT_SSL_CRL,
     MYSQL_OPT_SSL_CRLPATH,
-    MYSQL_SERVER_PUBLIC_KEY },
+    MYSQL_SERVER_PUBLIC_KEY
+  },
                     err_opts[] = {
                         MYSQL_OPT_NAMED_PIPE, MYSQL_OPT_CONNECT_ATTR_RESET,
                         MYSQL_OPT_CONNECT_ATTR_DELETE, MYSQL_INIT_COMMAND};
