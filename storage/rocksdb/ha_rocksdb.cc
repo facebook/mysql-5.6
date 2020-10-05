@@ -494,6 +494,10 @@ static bool parse_fault_injection_params(bool *retryable,
                                          uint32_t *failure_ratio,
                                          std::vector<rocksdb::FileType> *types);
 
+static void rocksdb_select_bypass_rejected_query_history_size_update(
+    my_core::THD *const thd, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save);
+
 static void rocksdb_force_flush_memtable_now_stub(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
@@ -788,6 +792,7 @@ static ulong rocksdb_select_bypass_policy =
 static bool rocksdb_select_bypass_fail_unsupported = true;
 static bool rocksdb_select_bypass_log_rejected = true;
 static bool rocksdb_select_bypass_log_failed = false;
+static uint32_t rocksdb_select_bypass_rejected_query_history_size = 0;
 static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
@@ -2358,6 +2363,15 @@ static MYSQL_SYSVAR_BOOL(select_bypass_log_failed,
                          false);
 
 static MYSQL_SYSVAR_UINT(
+    select_bypass_rejected_query_history_size,
+    rocksdb_select_bypass_rejected_query_history_size, PLUGIN_VAR_RQCMDARG,
+    "History size of rejected bypass queries in "
+    "information_schema.bypass_rejected_query_history. "
+    "Set to 0 to turn off",
+    nullptr, rocksdb_select_bypass_rejected_query_history_size_update, 0,
+    /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(
     select_bypass_debug_row_delay, rocksdb_select_bypass_debug_row_delay,
     PLUGIN_VAR_RQCMDARG,
     "Test only to inject delays in bypass select to simulate long queries "
@@ -2553,6 +2567,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_policy),
     MYSQL_SYSVAR(select_bypass_fail_unsupported),
     MYSQL_SYSVAR(select_bypass_log_failed),
+    MYSQL_SYSVAR(select_bypass_rejected_query_history_size),
     MYSQL_SYSVAR(select_bypass_log_rejected),
     MYSQL_SYSVAR(select_bypass_debug_row_delay),
     MYSQL_SYSVAR(select_bypass_multiget_min),
@@ -15891,6 +15906,20 @@ std::string rdb_corruption_marker_file_name() {
   return ret;
 }
 
+static void rocksdb_select_bypass_rejected_query_history_size_update(
+    my_core::THD *const /* unused */, my_core::SYS_VAR *const /* unused */,
+    void *const var_ptr, const void *const save) {
+  assert(rdb != nullptr);
+
+  uint32_t val = *static_cast<uint32_t *>(var_ptr) =
+      *static_cast<const uint32_t *>(save);
+
+  const std::lock_guard<std::mutex> lock(myrocks::rejected_bypass_query_lock);
+  if (myrocks::rejected_bypass_queries.size() > val) {
+    myrocks::rejected_bypass_queries.resize(val);
+  }
+}
+
 static void rocksdb_max_compaction_history_update(
     my_core::THD *const /* unused */, my_core::SYS_VAR *const /* unused */,
     void *const var_ptr, const void *const save) {
@@ -16060,6 +16089,10 @@ bool should_log_failed_select_bypass() {
   return rocksdb_select_bypass_log_failed;
 }
 
+uint32_t get_select_bypass_rejected_query_history_size() {
+  return rocksdb_select_bypass_rejected_query_history_size;
+}
+
 uint32_t get_select_bypass_debug_row_delay() {
   return rocksdb_select_bypass_debug_row_delay;
 }
@@ -16132,4 +16165,5 @@ mysql_declare_plugin(rocksdb_se){
     myrocks::rdb_i_s_global_info, myrocks::rdb_i_s_ddl,
     myrocks::rdb_i_s_sst_props, myrocks::rdb_i_s_index_file_map,
     myrocks::rdb_i_s_lock_info, myrocks::rdb_i_s_trx_info,
-    myrocks::rdb_i_s_deadlock_info mysql_declare_plugin_end;
+    myrocks::rdb_i_s_deadlock_info,
+    myrocks::rdb_i_s_bypass_rejected_query_history mysql_declare_plugin_end;

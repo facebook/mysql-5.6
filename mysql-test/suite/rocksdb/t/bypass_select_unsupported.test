@@ -23,6 +23,8 @@ SELECT @@rocksdb_select_bypass_fail_unsupported into @save_fail_unsupported;
 set global rocksdb_select_bypass_fail_unsupported=true;
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 
+SELECT @@rocksdb_select_bypass_rejected_query_history_size; 
+
 # Interesting SELECT patterns that are not supported
 # Use https://dev.mysql.com/doc/refman/5.7/en/select.html as reference
 
@@ -30,95 +32,173 @@ SELECT @@rocksdb_select_bypass_fail_unsupported;
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk=1 having pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+set global rocksdb_select_bypass_rejected_query_history_size=3;  
+SELECT @@rocksdb_select_bypass_rejected_query_history_size; 
 
 # Unsupported group by
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk=1 group by pk;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # * is supported in 8.0 through PT_query_specification::contextualize
 SELECT /*+ bypass */ * from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ 1 from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ 1+2 from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ COUNT(*) from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ COUNT(pk) from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk+1 from t1 WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Unsupported index
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 USE INDEX (PRIMARY) WHERE pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Unsupported WHERE
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk=1 or pk=2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+--error ER_NOT_SUPPORTED_YET
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk<=>1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_OPERAND_COLUMNS
 SELECT /*+ bypass */ pk from t1 WHERE pk=(1,2,3);
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+set global rocksdb_select_bypass_rejected_query_history_size=4;  
+SELECT @@rocksdb_select_bypass_rejected_query_history_size;
 
 # DATE/TIME/TIMESTAMP are constant functions
 #--error ER_OPERAND_COLUMNS
 SELECT /*+ bypass */ pk from t1 WHERE pk=DATE '2019-03-25';
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 #--error ER_OPERAND_COLUMNS
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIME '18:01:00';
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 #--error ER_OPERAND_COLUMNS
 SELECT /*+ bypass */ pk from t1 WHERE pk=TIMESTAMP '2019-03-25 18:01:00';
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+
+SELECT /*+ bypass */ pk from t1 WHERE pk=ANY (SELECT pk FROM t1);
+SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ pk from t1 WHERE pk>ALL (SELECT pk FROM t1);
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Select modifiers
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ DISTINCT a from t1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ ALL a, b from t1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
+set global rocksdb_select_bypass_rejected_query_history_size=1;  
+SELECT @@rocksdb_select_bypass_rejected_query_history_size;
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Joins
 SELECT /*+ bypass */ t1.pk, t2.pk from t1, t2;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 SELECT /*+ bypass */ t1.pk FROM t1 LEFT JOIN t2 using (pk)
 WHERE t1.pk=1;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Subselect
 SELECT /*+ bypass */ pk, a from (SELECT pk, a FROM t1) AS t1_temp;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Union
 SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION DISTINCT
@@ -126,6 +206,7 @@ SELECT pk FROM t2 WHERE pk=3;
 SELECT /*+ bypass */ pk FROM t1 WHERE pk=3 UNION ALL
 SELECT pk FROM t2 WHERE pk=3;
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Index order
 --error ER_NOT_SUPPORTED_YET
@@ -155,6 +236,7 @@ SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
 SELECT /*+ bypass */ a, b, c FROM t3 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
 
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Unrecognized index
 --error ER_KEY_DOES_NOT_EXITS
@@ -188,6 +270,7 @@ SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE SKIP LOCKED;
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 FOR UPDATE NOWAIT;
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a, b, c FROM t3 WHERE pk=1 LOCK IN SHARE MODE;
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # HIGH PRIORITY
 --error ER_NOT_SUPPORTED_YET
@@ -200,6 +283,7 @@ CREATE TABLE t5 (pk int primary key,
 
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a FROM t5 WHERE pk=1;
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Too many WHERE expressions
 --error ER_NOT_SUPPORTED_YET
@@ -207,10 +291,12 @@ SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
                                      a=1 AND a=1;
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # NULL fields not supported
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a FROM t4 WHERE a=1;
+SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
 
 # Restore rocksdb_select_bypass_policy
 SELECT @@rocksdb_select_bypass_policy;
@@ -224,13 +310,27 @@ SELECT @@rocksdb_select_bypass_fail_unsupported;
 
 SELECT /*+ bypass */ * from t1;
 
+# Unsupported range query patterns
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2 AND pk > 3;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk > 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk >= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk >= 1 AND pk > 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk > 1 AND pk >= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk < 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk <= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk < 1 AND pk <= 2;
+SELECT /*+ bypass */ pk from t1 WHERE pk <= 1 AND pk < 2;
+
 SELECT @@rocksdb_select_bypass_fail_unsupported;
 set global rocksdb_select_bypass_fail_unsupported=@save_fail_unsupported;
 SELECT @@rocksdb_select_bypass_fail_unsupported;
+
+set global rocksdb_select_bypass_rejected_query_history_size=0;  
+SELECT @@rocksdb_select_bypass_rejected_query_history_size; 
 
 drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
 drop table t5;
-

@@ -655,9 +655,14 @@ class select_exec {
 
     memset(reinterpret_cast<char *>(m_field_index_to_where.data()), 0xff,
            sizeof(m_field_index_to_where));
+    m_unsupported = false;
+    m_error_msg = "UNKNOWN";
   }
 
   bool run();
+
+  bool is_unsupported() { return m_unsupported; }
+  const char *get_error_msg() { return m_error_msg; }
 
  private:
   /*
@@ -774,6 +779,10 @@ class select_exec {
   uint m_index;
   KEY *m_index_info;
   KEY *m_pk_info;
+
+  // Current query is not supported
+  bool m_unsupported;
+  const char *m_error_msg;
 
   // All filters (such as A=1)
   uint m_filter_list[MAX_NOSQL_COND_COUNT];
@@ -953,7 +962,8 @@ bool INLINE_ATTR select_exec::scan_where() {
       // We have multiple sql_cond for the same field
       if (index_pair.second != -1) {
         // We've already seen 2 of conditions already - fail
-        m_handler->print_error(ER_NOT_SUPPORTED_YET, 0);
+        m_unsupported = true;
+        m_error_msg = "Unsupported range query pattern";
         return true;
       }
 
@@ -1075,16 +1085,16 @@ bool INLINE_ATTR select_exec::scan_where() {
         if (second_cond.op_type == Item_func::GT_FUNC ||
             second_cond.op_type == Item_func::GE_FUNC) {
           if (begin_id != -1) {
-            // TODO(yzha) - we have two GT/GE - choose the smaller one
-            assert(false);
+            m_unsupported = true;
+            m_error_msg = "Unsupported range query pattern";
             return true;
           } else {
             begin_id = index_pair.second;
           }
         } else {
           if (end_id != -1) {
-            // TODO(yzha) - we have two LT/LE - choose the bigger one
-            assert(false);
+            m_unsupported = true;
+            m_error_msg = "Unsupported range query pattern";
             return true;
           } else {
             end_id = index_pair.second;
@@ -1720,6 +1730,56 @@ bool inline is_bypass_on(Query_block *select_lex) {
   return (select_lex->select_bypass_hint == Query_block::SELECT_BYPASS_HINT_ON);
 }
 
+std::deque<REJECTED_ITEM> rejected_bypass_queries;
+std::mutex rejected_bypass_query_lock;
+
+bool handle_unsupported_bypass(THD *thd, const char *error_msg) {
+  rocksdb_select_bypass_rejected++;
+
+  if (should_log_rejected_select_bypass()) {
+    // Record the rejected query into the error log if rejected query history
+    // size equals zero
+    if (get_select_bypass_rejected_query_history_size() == 0) {
+      // NO_LINT_DEBUG
+      sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
+                            thd->query().str, error_msg);
+    } else {
+      // Otherwise, record the rejected query into information_schema
+      const std::lock_guard<std::mutex> lock(rejected_bypass_query_lock);
+
+      while (rejected_bypass_queries.size() >=
+             get_select_bypass_rejected_query_history_size()) {
+        rejected_bypass_queries.pop_back();
+      }
+
+      REJECTED_ITEM rejected_query_record;
+      rejected_query_record.rejected_bypass_query_timestamp =
+          thd->query_start_timeval_trunc(0);
+      // Normalize rejected query
+      String normalized_query_text;
+      compute_digest_text(&thd->m_digest->m_digest_storage,
+                          &normalized_query_text);
+      rejected_query_record.rejected_bypass_query =
+          normalized_query_text.c_ptr_safe();
+      rejected_query_record.error_msg = error_msg;
+
+      rejected_bypass_queries.push_front(rejected_query_record);
+    }
+  }
+
+  // During parse you can just let unsupported scenario fallback to MySQL
+  // implementation - but keep in mind it may regress performance
+  // Default is TRUE - let unsupported SELECT scenario just fail
+  if (should_fail_unsupported_select_bypass()) {
+    my_printf_error(ER_NOT_SUPPORTED_YET,
+                    "SELECT statement pattern not supported: %s", MYF(0),
+                    error_msg);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   // Checks for hint and policy
   if (!is_bypass_on(select_lex)) {
@@ -1730,31 +1790,15 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
   // Parse the SELECT statement
   sql_select_parser select_stmt(thd, select_lex);
   if (select_stmt.parse()) {
-    rocksdb_select_bypass_rejected++;
-
-    if (should_log_rejected_select_bypass()) {
-      // NO_LINT_DEBUG
-      sql_print_information("[REJECTED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
-                            thd->query().str, select_stmt.get_error_msg());
-    }
-
-    // During parse you can just let unsupported scenario fallback to MySQL
-    // implementation - but keep in mind it may regress performance
-    // Default is TRUE - let unsupported SELECT scenario just fail
-    if (should_fail_unsupported_select_bypass()) {
-      const char *error_msg = select_stmt.get_error_msg();
-      my_printf_error(ER_NOT_SUPPORTED_YET,
-                      "SELECT statement pattern not supported: %s", MYF(0),
-                      error_msg);
-      return true;
-    } else {
-      return false;
-    }
+    return handle_unsupported_bypass(thd, select_stmt.get_error_msg());
   }
 
   // Execute SELECT statement
   select_exec exec(select_stmt);
   if (exec.run()) {
+    if (exec.is_unsupported()) {
+      return handle_unsupported_bypass(thd, exec.get_error_msg());
+    }
     if (!thd->is_error()) {
       // The contract is that any booleaning return function should do its
       // best to report an error before return true, otherwise we'll report
@@ -1762,7 +1806,7 @@ bool rocksdb_handle_single_table_select(THD *thd, Query_block *select_lex) {
       // error code in all layers but that is not the case
       my_printf_error(ER_UNKNOWN_ERROR, "Unknown error", 0);
     }
-    if (should_log_rejected_select_bypass()) {
+    if (should_log_failed_select_bypass()) {
       // NO_LINT_DEBUG
       sql_print_information("[FAILED_BYPASS_QUERY] Query='%s', Reason='%s'\n",
                             thd->query().str,
