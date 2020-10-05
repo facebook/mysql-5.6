@@ -402,7 +402,7 @@ void init_client_errs(void);
 void finish_client_errs(void);
 extern const char *client_errors[];
 static inline const char *ER_CLIENT(int client_errno) {
-  if (client_errno >= 2000 && client_errno <= 2069)
+  if (client_errno >= 2000 && client_errno <= 2070)
     return client_errors[client_errno - 2000];
   return client_errors[2000];
 }
@@ -499,6 +499,7 @@ enum mysql_option {
   MYSQL_OPT_CONNECT_TIMEOUT_MS,
   MYSQL_OPT_READ_TIMEOUT_MS,
   MYSQL_OPT_WRITE_TIMEOUT_MS,
+  MYSQL_OPT_TLS_SNI_SERVERNAME,
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

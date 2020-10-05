@@ -272,7 +272,8 @@ struct st_VioSSLFd {
 int sslaccept(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
               unsigned long *errptr);
 int sslconnect(struct st_VioSSLFd *, MYSQL_VIO, long timeout,
-               SSL_SESSION *ssl_session, unsigned long *errptr, SSL **ssl);
+               SSL_SESSION *ssl_session, unsigned long *errptr, SSL **ssl,
+               const char *sni_servername = nullptr);
 
 struct st_VioSSLFd *new_VioSSLConnectorFdFromContext(
     SSL_CTX *context, enum enum_ssl_init_error *error);

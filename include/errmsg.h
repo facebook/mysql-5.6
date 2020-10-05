@@ -128,7 +128,8 @@ extern const char *client_errors[]; /* Error messages */
 #define CR_KERBEROS_USER_NOT_FOUND 2067
 #define CR_NET_READ_INTERRUPTED 2068
 #define CR_NET_WRITE_INTERRUPTED 2069
-#define CR_ERROR_LAST /*Copy last error nr:*/ 2069
+#define CR_TLS_SERVER_NOT_FOUND 2070
+#define CR_ERROR_LAST /*Copy last error nr:*/ 2070
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
 /* Visual Studio requires '__inline' for C code */

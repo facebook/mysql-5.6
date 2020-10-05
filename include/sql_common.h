@@ -146,6 +146,7 @@ struct st_mysql_options_extention {
   unsigned int total_configured_compression_algorithms;
   unsigned int zstd_compression_level;
   bool connection_compressed;
+  char *tls_sni_servername; /* TLS sni server name */
   void *ssl_session;
   void *ssl_context;
 };
