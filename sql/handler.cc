@@ -7577,7 +7577,7 @@ void update_shared_table_stats(
 */
 void handler::update_global_table_stats(THD *thd)
 {
-  if (!stats.has_table_stats())
+  if (!stats.has_table_stats() || !thd)
     return;
 
   if (!table_stats || !use_cached_table_stats_ptr)
