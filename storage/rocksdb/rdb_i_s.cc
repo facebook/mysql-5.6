@@ -39,6 +39,7 @@
 /* MyRocks header files */
 #include "./ha_rocksdb.h"
 #include "./ha_rocksdb_proto.h"
+#include "./nosql_access.h"
 #include "./rdb_cf_manager.h"
 #include "./rdb_datadic.h"
 #include "./rdb_utils.h"
@@ -1071,6 +1072,42 @@ static int rdb_i_s_compact_history_fill_table(
   DBUG_RETURN(ret);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY dynamic
+  table
+ */
+static int rdb_i_s_bypass_rejected_query_history_fill_table(
+    my_core::THD *thd, my_core::TABLE_LIST *tables,
+    my_core::Item *cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+
+  DBUG_ENTER_FUNC();
+
+  int ret = 0;
+  const std::lock_guard<std::mutex> lock(myrocks::rejected_bypass_query_lock);
+  for (const REJECTED_ITEM &entry : myrocks::rejected_bypass_queries) {
+    Field **field = tables->table->field;
+    DBUG_ASSERT(field != nullptr);
+
+    // Timestamp of rejected query
+    field[0]->store_timestamp(&entry.rejected_bypass_query_timestamp);
+    // Rejected query
+    field[1]->store(entry.rejected_bypass_query.c_str(),
+                    entry.rejected_bypass_query.size(), system_charset_info);
+    // Error message
+    field[2]->store(entry.error_msg.c_str(), entry.error_msg.size(),
+                    system_charset_info);
+
+    int ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+    if (ret != 0) {
+      break;
+    }
+  }
+  DBUG_RETURN(ret);
+}
+
 static ST_FIELD_INFO rdb_i_s_compact_stats_fields_info[] = {
     ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("LEVEL", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
@@ -1099,6 +1136,12 @@ static ST_FIELD_INFO rdb_i_s_compact_history_fields_info[] = {
     ROCKSDB_FIELD_INFO("START_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG,
                        0),
     ROCKSDB_FIELD_INFO("END_TIMESTAMP", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO_END};
+
+static ST_FIELD_INFO rdb_i_s_bypass_rejected_query_history_fields_info[] = {
+    ROCKSDB_FIELD_INFO("CREATE_TIME", 0, MYSQL_TYPE_TIMESTAMP, 0),
+    ROCKSDB_FIELD_INFO("QUERY", 100, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("ERROR_MSG", 100, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
 
 namespace  // anonymous namespace = not visible outside this source file
@@ -1321,6 +1364,20 @@ static int rdb_i_s_compact_history_init(void *p) {
 
   schema->fields_info = rdb_i_s_compact_history_fields_info;
   schema->fill_table = rdb_i_s_compact_history_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int rdb_i_s_bypass_rejected_query_history_init(void *p) {
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER_FUNC();
+  DBUG_ASSERT(p != nullptr);
+
+  schema = reinterpret_cast<my_core::ST_SCHEMA_TABLE *>(p);
+
+  schema->fields_info = rdb_i_s_bypass_rejected_query_history_fields_info;
+  schema->fill_table = rdb_i_s_bypass_rejected_query_history_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -2264,6 +2321,23 @@ struct st_mysql_plugin rdb_i_s_deadlock_info = {
     rdb_i_s_deadlock_info_init,
     nullptr, /* uninstall */
     nullptr,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_bypass_rejected_query_history = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY",
+    "Facebook",
+    "RocksDB history size of rejected bypass queries",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_bypass_rejected_query_history_init,
+    nullptr, /* uninstall */
+    rdb_i_s_deinit,
     0x0001,  /* version number (0.1) */
     nullptr, /* status variables */
     nullptr, /* system variables */
