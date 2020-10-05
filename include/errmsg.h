@@ -261,7 +261,8 @@ extern const char *client_errors[]; /* Error messages */
 // Facebook client errors
 #define CR_NET_READ_INTERRUPTED 2200
 #define CR_NET_WRITE_INTERRUPTED 2201
-#define CR_ERROR_LAST /*Copy last error nr:*/ 2201
+#define CR_TLS_SERVER_NOT_FOUND 2202
+#define CR_ERROR_LAST /*Copy last error nr:*/ 2202
 /* Add error numbers before CR_ERROR_LAST and change it accordingly. */
 
 #define CR_PLACEHOLDER_FIRST CR_PLACEHOLDER_2073
