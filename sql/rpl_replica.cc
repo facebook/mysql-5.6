@@ -7683,6 +7683,7 @@ int heartbeat_queue_event(bool is_valid, Master_info *&mi,
 int update_rli_and_mi(
     const std::string &gtid_s,
     const std::pair<const std::string, unsigned long long> &master_log_pos) {
+  channel_map.rdlock();
   assert(channel_map.get_num_instances() == 1);
   Master_info *mi = channel_map.get_default_channel_mi();
   assert(mi != nullptr);
@@ -7703,17 +7704,24 @@ int update_rli_and_mi(
   // It is possible that this call was only done to update the master_log_pos
   // in which case an empty gtid would have been passed
   if (!gtid_s.length()) {
+    channel_map.unlock();
     return 0;
   }
 
+  mysql_mutex_t *log_lock = mi->rli->relay_log.get_log_lock();
+  mysql_mutex_assert_not_owner(log_lock);
+  mysql_mutex_lock(log_lock);
   const char *buf = gtid_s.c_str();
   Gtid_log_event gtid_ev(buf, mi->get_mi_description_event());
+  mysql_mutex_unlock(log_lock);
+
   Gtid gtid = {0, 0};
   rli->get_sid_lock()->rdlock();
   gtid.sidno = gtid_ev.get_sidno(rli->get_gtid_set()->get_sid_map());
   rli->get_sid_lock()->unlock();
   if (gtid.sidno < 0) {
     sql_print_information("could not get proper sid: %s", buf);
+    channel_map.unlock();
     return 1;
   }
 
@@ -7724,6 +7732,7 @@ int update_rli_and_mi(
   rli->get_sid_lock()->rdlock();
   rli->add_logged_gtid(gtid.sidno, gtid.gno);
   rli->get_sid_lock()->unlock();
+  channel_map.unlock();
 
   return 0;
 }

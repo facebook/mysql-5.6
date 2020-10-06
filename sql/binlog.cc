@@ -9871,6 +9871,7 @@ static int register_entities_with_raft() {
         "Number of slave channels connected: %d. Cannot register "
         "with raft",
         channel_map.get_num_instances());
+    channel_map.unlock();
     return 1;  // error
   }
 
@@ -9878,6 +9879,7 @@ static int register_entities_with_raft() {
 
   if (!mi) {
     // degenerate case returns SUCCESS [ TODO ]
+    channel_map.unlock();
     return 0;
   }
 
@@ -9886,6 +9888,7 @@ static int register_entities_with_raft() {
   if (/*mi->host[0] || */ !mi->rli) {
     // degenerate case returns SUCCESS [ TODO ]
     mi->channel_unlock();
+    channel_map.unlock();
     return 0;
   }
 
