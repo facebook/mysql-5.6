@@ -1598,8 +1598,17 @@ void THD::reset_stmt_stats()
   m_index_dive_count        = 0; /* index dive count */
   m_index_dive_cpu          = 0; /* index dive cpu time in microseconds */
   m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
-  m_stmt_tmp_table_disk_usage_peak = 0;
-  m_stmt_filesort_disk_usage_peak = 0;
+
+  /* The disk usage of a single statement is the difference between the peak
+     session usage during the statement execution and the session usage at
+     the start of the statement. So between statements the peak and offset
+     are set to the current usage, and the peak can only go up during the
+     statement execution (see adjust_by()). */
+  m_stmt_tmp_table_disk_usage_peak = status_var.tmp_table_disk_usage;
+  m_stmt_tmp_table_disk_usage_offset = status_var.tmp_table_disk_usage;
+  m_stmt_filesort_disk_usage_peak = status_var.filesort_disk_usage;
+  m_stmt_filesort_disk_usage_offset = status_var.filesort_disk_usage;
+
   m_binlog_bytes_written    = 0; /* binlog bytes written */
   m_stmt_total_write_time   = 0;
   m_stmt_start_write_time_is_set = false;

@@ -532,6 +532,11 @@ insert into tm_t17 select * from t17;
 
 update tm_t17 set c = lpad('b', 250, 'a');
 
+# Make sure stats for tm2_t17 are the same as for tm_t17.
+create temporary table tm2_t17(i int, c char(255)) engine=myisam;
+insert into tm2_t17 select * from t17;
+drop temporary table tm2_t17;
+
 delete from tm_t17 where i < 100;
 
 drop temporary table tm_t17;
@@ -603,6 +608,10 @@ create temporary table tm_t18(i int, c char(255)) engine=myisam;
 insert into tm_t18 select * from t18;
 
 update tm_t18 set c = lpad('b', 250, 'a');
+
+create temporary table tm2_t18(i int, c char(255)) engine=myisam;
+insert into tm2_t18 select * from t18;
+drop temporary table tm2_t18;
 
 delete from tm_t18 where i < 100;
 

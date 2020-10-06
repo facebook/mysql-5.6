@@ -831,6 +831,9 @@ SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
 create temporary table tm_t17(i int, c char(255)) engine=myisam;
 insert into tm_t17 select * from t17;
 update tm_t17 set c = lpad('b', 250, 'a');
+create temporary table tm2_t17(i int, c char(255)) engine=myisam;
+insert into tm2_t17 select * from t17;
+drop temporary table tm2_t17;
 delete from tm_t17 where i < 100;
 drop temporary table tm_t17;
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
@@ -841,13 +844,16 @@ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
 sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
 CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
+CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
+DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0
 DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0
 INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0
 INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0
 INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	267264	0
+INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
+INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
 SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
 SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0
 SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
@@ -866,14 +872,17 @@ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
 sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
 CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
+CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
 DROP TABLE `t17` 	0	0	0	0	0	0	0	0	0
+DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0
 DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0
 INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0
 INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0
 INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	267264	0
+INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
+INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
 SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
 SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0
 SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
@@ -926,6 +935,9 @@ select count(*) from (select * from t18) v;
 create temporary table tm_t18(i int, c char(255)) engine=myisam;
 insert into tm_t18 select * from t18;
 update tm_t18 set c = lpad('b', 250, 'a');
+create temporary table tm2_t18(i int, c char(255)) engine=myisam;
+insert into tm2_t18 select * from t18;
+drop temporary table tm2_t18;
 delete from tm_t18 where i < 100;
 drop temporary table tm_t18;
 drop table t18;
@@ -938,14 +950,17 @@ where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8||||
 sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
 CREATE TABLE `t18` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
+CREATE TEMPORARY TABLE `tm2_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 CREATE TEMPORARY TABLE `tm_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
 DELETE FROM `tm_t18` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
 DROP TABLE `t18` 	0	0	0	0	0	0	0	0	0
+DROP TEMPORARY TABLE `tm2_t18` 	1024	0	0	0	0	0	0	0	0
 DROP TEMPORARY TABLE `tm_t18` 	1024	1024	100	2048	0	0	0	0	0
 INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1	0	0	2	0	0	0	0	0
 INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1022	0	0	1022	0	253440	0	257536	0
 INSERT INTO `t18` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	267264	0
+INSERT INTO `tm2_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0
+INSERT INTO `tm_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0
 SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
 SELECT COUNT ( * ) FROM ( SELECT * FROM `t18` ) `v` 	0	0	0	1024	1	266240	0	267264	0
 SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960

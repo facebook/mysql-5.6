@@ -3377,14 +3377,16 @@ private:
   ulonglong m_filesort_bytes_written;
 
   /**
-    Peak temp table disk usage by current statement.
+    Peak and offset temp table disk usage by current statement.
   */
   ulonglong m_stmt_tmp_table_disk_usage_peak;
+  ulonglong m_stmt_tmp_table_disk_usage_offset;
 
   /**
-    Peak filesort disk usage by current statement.
+    Peak and offset filesort disk usage by current statement.
   */
   ulonglong m_stmt_filesort_disk_usage_peak;
+  ulonglong m_stmt_filesort_disk_usage_offset;
 
   /**
      The number of index dive queries executed during compilation.
@@ -3586,10 +3588,20 @@ public:
   void get_mt_keys_for_write_query(std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys);
 
   ulonglong get_stmt_tmp_table_disk_usage_peak()
-    { return m_stmt_tmp_table_disk_usage_peak; }
+  {
+    DBUG_ASSERT(m_stmt_tmp_table_disk_usage_peak >=
+                m_stmt_tmp_table_disk_usage_offset);
+    return m_stmt_tmp_table_disk_usage_peak -
+           m_stmt_tmp_table_disk_usage_offset;
+  }
 
   ulonglong get_stmt_filesort_disk_usage_peak()
-    { return m_stmt_filesort_disk_usage_peak; }
+  {
+    DBUG_ASSERT(m_stmt_filesort_disk_usage_peak >=
+                m_stmt_filesort_disk_usage_offset);
+    return m_stmt_filesort_disk_usage_peak -
+           m_stmt_filesort_disk_usage_offset;
+  }
 
   /**
     Check if the number of rows accessed by a statement exceeded
