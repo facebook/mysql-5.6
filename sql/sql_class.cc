@@ -2173,6 +2173,14 @@ void THD::set_trans_marker(int64_t term, int64_t index) {
   index_ = index;
 }
 
+void THD::clear_safe_purge_file() { safe_purge_file.clear(); }
+
+void THD::set_safe_purge_file(std::string purge_file) {
+  safe_purge_file = std::move(purge_file);
+}
+
+std::string THD::get_safe_purge_file() const { return safe_purge_file; }
+
 /****************************************************************************
   Handling of statement states in functions and triggers.
 

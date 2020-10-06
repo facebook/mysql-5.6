@@ -1684,6 +1684,8 @@ class THD : public MDL_context_owner,
   int64_t term_ = -1;
   int64_t index_ = -1;
 
+  std::string safe_purge_file;
+
  public:
   bool has_net_vio() const noexcept { return net.vio != nullptr; }
   const Vio *get_net_vio() const noexcept { return net.vio; }
@@ -2491,6 +2493,15 @@ class THD : public MDL_context_owner,
 
   /* Stash the trans marker i.e (term, index) tuple in this THD */
   void set_trans_marker(int64_t term, int64_t index);
+
+  /* Returns the file that is considered safe to be deleted */
+  std::string get_safe_purge_file() const;
+
+  /* Sets the file that is considered safe to be deleted  */
+  void set_safe_purge_file(std::string purge_file);
+
+  /* Clear the safe purge file */
+  void clear_safe_purge_file();
 
   /*
     Error code from committing or rolling back the transaction.

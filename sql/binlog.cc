@@ -202,6 +202,8 @@ static bool binlog_recover(Binlog_file_reader *binlog_file_reader,
 static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static bool is_loggable_xa_prepare(THD *thd);
+static std::pair<std::string, uint> extract_file_index(
+    const std::string &file_name);
 
 extern int ha_update_binlog_pos(const char *, my_off_t, Gtid *);
 
@@ -6553,9 +6555,12 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   int error = 0, error_index = 0, no_of_log_files_to_purge = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = false;
+  bool found_last_safe_file = false;
   LOG_INFO log_info;
   THD *thd = current_thd;
   log_file_name_container delete_list;
+  std::pair<std::string, uint> file_index_pair;
+  std::string safe_purge_file;
 
   DBUG_TRACE;
   DBUG_PRINT("info", ("to_log= %s", to_log));
@@ -6580,8 +6585,45 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   if ((error = find_log_pos(&log_info, NullS, false /*need_lock_index=false*/)))
     goto err;
 
+  if (enable_raft_plugin) thd->clear_safe_purge_file();
+  if (enable_raft_plugin && !is_apply_log) {
+    // Consult the plugin for file that could be deleted safely.
+    // This will also allow plugin to clean up its index files and other states
+    // (if any)
+    file_index_pair = extract_file_index(std::string(to_log));
+    if (!included && file_index_pair.second > 0) file_index_pair.second -= 1;
+
+    // Nothing to purge if file index is 0
+    if (!included && file_index_pair.second == 0) goto err;
+
+    error = RUN_HOOK(raft_replication, purge_logs,
+                     (current_thd, file_index_pair.second));
+
+    if (error) {
+      // NO_LINT_DEBUG
+      sql_print_error(
+          "MYSQL_BIN_LOG::purge_logs raft plugin failed in "
+          "purge_logs(). file-name: %s",
+          to_log);
+      goto err;
+    }
+
+    safe_purge_file = thd->get_safe_purge_file();
+  }
+
   while ((compare_log_name(to_log, log_info.log_file_name) ||
           (exit_loop = included))) {
+    if (enable_raft_plugin && found_last_safe_file) {
+      // It is not safe to delete any more files since raft needs it for
+      // durability or there are peers trying to read from this file
+      if (!auto_purge)
+        // TODO: Converge on raft specific error codes here
+        push_warning_printf(
+            thd, Sql_condition::SL_WARNING, ER_WARN_PURGE_LOG_IS_ACTIVE,
+            ER_THD(thd, ER_WARN_PURGE_LOG_IS_ACTIVE), log_info.log_file_name);
+
+      break;
+    }
     if (is_active(log_info.log_file_name)) {
       if (!auto_purge)
         push_warning_printf(
@@ -6601,6 +6643,10 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
     }
 
     delete_list.emplace_back(log_info.log_file_name);
+
+    if (enable_raft_plugin && !is_apply_log && safe_purge_file.length() > 0 &&
+        !strcmp(safe_purge_file.c_str(), log_info.log_file_name))
+      found_last_safe_file = true;
 
     if (find_next_log(&log_info, false /*need_lock_index=false*/) || exit_loop)
       break;
