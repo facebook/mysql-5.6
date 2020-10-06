@@ -2067,7 +2067,7 @@ void THD::get_trans_marker(int64_t *term, int64_t *index) const {
 }
 
 void THD::set_trans_marker(int64_t term, int64_t index) {
-  term_= term;
+  term_ = term;
   index_ = index;
 }
 

@@ -197,7 +197,6 @@ static void binlog_prepare_row_images(const THD *thd, TABLE *table,
                                       bool is_update);
 static std::pair<std::string, uint> extract_file_index(
     const std::string &file_name);
-
 static inline bool has_commit_order_manager(THD *thd) {
   return is_mts_worker(thd) &&
          thd->rli_slave->get_commit_order_manager() != nullptr;
@@ -6585,7 +6584,6 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
   log_file_name_container delete_list;
   std::pair<std::string, uint> file_index_pair;
   std::string safe_purge_file;
-
   DBUG_ENTER("purge_logs");
   DBUG_PRINT("info", ("to_log= %s", to_log));
 
@@ -11239,6 +11237,53 @@ void register_binlog_handler(THD *thd, bool trx) {
     thd->get_ha_data(binlog_hton->slot)->ha_info[0].set_trx_read_write();
   }
   DBUG_VOID_RETURN;
+}
+
+bool show_raft_status(THD *thd) {
+  Protocol *protocol = thd->get_protocol();
+  List<Item> field_list;
+  size_t max_var = 0;
+  size_t max_value = 0;
+  const char *errmsg = 0;
+  std::vector<std::pair<std::string, std::string>> var_value_pairs;
+  std::vector<std::pair<std::string, std::string>>::const_iterator itr;
+
+  int error = RUN_HOOK(raft_replication, show_raft_status,
+                       (current_thd, &var_value_pairs));
+  if (error) {
+    errmsg = "Failure to run plugin hook";
+    goto err;
+  }
+
+  for (itr = var_value_pairs.begin(); itr != var_value_pairs.end(); ++itr) {
+    max_var = std::max(max_var, itr->first.length() + 10);
+    max_value = std::max(max_value, itr->second.length() + 10);
+  }
+
+  field_list.push_back(new Item_empty_string("VARIABLE_NAME", max_var));
+  field_list.push_back(new Item_empty_string("VARIABLE_VALUE", max_value));
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF)) {
+    errmsg = "Failure during protocol send metadata";
+    goto err;
+  }
+
+  for (itr = var_value_pairs.begin(); itr != var_value_pairs.end(); ++itr) {
+    protocol->start_row();
+    protocol->store(itr->first.c_str(), itr->first.length(), &my_charset_bin);
+    protocol->store(itr->second.c_str(), itr->second.length(), &my_charset_bin);
+    if (protocol->end_row()) {
+      errmsg = "Failure during protocol write";
+      goto err;
+    }
+  }
+
+  my_eof(thd);
+  return 0;
+
+err:
+  my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW RAFT STATUS", errmsg);
+  return 1;
 }
 
 /**
