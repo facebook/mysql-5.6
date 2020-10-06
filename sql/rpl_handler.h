@@ -457,6 +457,7 @@ class Raft_replication_delegate : public Delegate {
                      const std::string &raft_log_path_prefix,
                      const std::string &s_hostname, uint64_t port);
   int after_commit(THD *thd);
+  int purge_logs(THD *thd, uint64_t file_ext);
 };
 
 int delegates_init();

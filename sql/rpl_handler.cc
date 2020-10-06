@@ -1406,6 +1406,19 @@ int Raft_replication_delegate::after_commit(THD *thd) {
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
+  DBUG_ENTER("Raft_replication_delegate::purge_logs");
+  Raft_replication_param param;
+  param.purge_file_ext = file_ext;
+  int ret = 0;
+  FOREACH_OBSERVER(ret, purge_logs, (&param));
+
+  // Set the safe purge file that was sent back by the plugin
+  thd->set_safe_purge_file(param.purge_file);
+
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }
