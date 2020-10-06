@@ -43,6 +43,10 @@ Check status variables
 aborted_queries = 3
 running_queries = 10
 waiting_queries = 5
+select * from information_schema.admission_control_entities;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test	0	0	0	0
+test_db	5	10	3	0
 Filled up queues on one db doesn't affect queries on other db.
 use test;
 set @@global.max_waiting_queries=6;
@@ -92,6 +96,10 @@ both running_queries and waiting_queries resources should be 0 (released)
 aborted_queries = 5
 running_queries = 0
 waiting_queries = 0;
+select * from information_schema.admission_control_entities;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test	0	0	0	0
+test_db	0	0	5	0
 set @@global.admission_control_by_trx = @save_admission_control_by_trx;
 select @@global.admission_control_by_trx;
 @@global.admission_control_by_trx
@@ -125,6 +133,10 @@ timeout_queries should be 1
 timeout_queries = 1
 waiting_queries should be 0
 waiting_queries = 0
+select * from information_schema.admission_control_entities;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test	0	0	0	0
+test_db	0	0	5	1
 reset global.max_running_queries and global.max_waiting_queries
 set @@global.max_running_queries=10;
 set @@global.max_waiting_queries=5;
@@ -135,6 +147,9 @@ Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)
 0
+select * from information_schema.admission_control_entities;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+test	0	0	0	0
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;

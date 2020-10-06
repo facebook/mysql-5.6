@@ -692,6 +692,7 @@ Ac_result AC::admission_control_enter(THD *thd,
     {
       case MT_RETURN_TYPE::MULTI_TENANCY_RET_REJECT:
         ++ac_info->queues[thd->ac_node->queue].aborted_queries;
+        ++ac_info->aborted_queries;
         ++total_aborted_queries;
         // We reached max waiting limit. Error out
         mysql_mutex_unlock(&ac_info->lock);
@@ -745,15 +746,14 @@ Ac_result AC::admission_control_enter(THD *thd,
             thd->ac_node->ac_info = nullptr;
           }
 
-          mysql_mutex_unlock(&ac_info->lock);
           if (timeout) {
             ++total_timeout_queries;
             ++ac_info->queues[thd->ac_node->queue].timeout_queries;
+            ++ac_info->timeout_queries;
             res = Ac_result::AC_TIMEOUT;
           } else {
             res = Ac_result::AC_KILLED;
           }
-          break;
         }
         mysql_mutex_unlock(&ac_info->lock);
         break;
@@ -1038,14 +1038,12 @@ ST_FIELD_INFO admission_control_queue_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
-/*
+/**
+ * @brief Populate admission_control_queue table.
  * @param thd THD
  * @param tables contains the TABLE struct to populate
- *
- * Removes a dropped entity info from the global map.
- *
- * @return 0 on success
- *         1 on failure
+ * @retval 0 on success
+ * @retval 1 on failure
  */
 int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_ENTER("fill_ac_queue");
@@ -1099,4 +1097,66 @@ int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *) {
   mysql_rwlock_unlock(&db_ac->LOCK_ac);
 
   DBUG_RETURN(0);
+}
+
+ST_FIELD_INFO admission_control_entities_fields_info[]=
+{
+  {"SCHEMA_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"WAITING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"RUNNING_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"ABORTED_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {"TIMEOUT_QUERIES", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+/**
+ * @brief Populate admission_control_entities table.
+ * @param thd THD
+ * @param tables contains the TABLE struct to populate
+ * @retval 0 on success
+ * @retval 1 on failure
+ */
+int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *) {
+  DBUG_ENTER("fill_ac_entities");
+  TABLE* table= tables->table;
+  int result = 0;
+
+  mysql_rwlock_rdlock(&db_ac->LOCK_ac);
+  for (const auto& pair : db_ac->ac_map) {
+    const std::string& db = pair.first;
+    const auto& ac_info = pair.second;
+
+    mysql_mutex_lock(&ac_info->lock);
+    ulonglong waiting = ac_info->waiting_queries;
+    ulonglong running = ac_info->running_queries;
+    ulonglong timeout = ac_info->timeout_queries;
+    ulonglong aborted = ac_info->aborted_queries;
+    mysql_mutex_unlock(&ac_info->lock);
+
+    int f = 0;
+
+    // SCHEMA_NAME
+    table->field[f++]->store(db.c_str(), db.size(), system_charset_info);
+
+    // WAITING_QUERIES
+    table->field[f++]->store(waiting, TRUE);
+
+    // RUNNING_QUERIES
+    table->field[f++]->store(running, TRUE);
+
+    // ABORTED_QUERIES
+    table->field[f++]->store(aborted, TRUE);
+
+    // TIMEOUT_QUERIES
+    table->field[f++]->store(timeout, TRUE);
+
+    if (schema_table_store_record(thd, table)) {
+      result = 1;
+      break;
+    }
+  }
+
+  mysql_rwlock_unlock(&db_ac->LOCK_ac);
+
+  DBUG_RETURN(result);
 }

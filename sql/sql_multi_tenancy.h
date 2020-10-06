@@ -65,6 +65,9 @@ extern void multi_tenancy_show_resource_counters(
 extern ST_FIELD_INFO admission_control_queue_fields_info[];
 int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
 
+extern ST_FIELD_INFO admission_control_entities_fields_info[];
+int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *cond);
+
 /**
   Per-thread information used in admission control.
 */
@@ -141,6 +144,7 @@ struct Ac_queue {
 class Ac_info {
   friend class AC;
   friend int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
+  friend int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *cond);
 #ifdef HAVE_PSI_INTERFACE
   PSI_mutex_key key_lock;
   PSI_mutex_info key_lock_info[1]=
@@ -152,10 +156,14 @@ class Ac_info {
   // Queues
   std::array<Ac_queue, MAX_AC_QUEUES> queues{};
 
-  // Count for waiting_queries in queues for this Ac_info.
-  unsigned long waiting_queries;
+  // Count for waiting queries in queues for this Ac_info.
+  unsigned long waiting_queries = 0;
   // Count for running queries in queues for this Ac_info.
-  unsigned long running_queries;
+  unsigned long running_queries = 0;
+  // Count for rejected queries in queues for this Ac_info.
+  unsigned long aborted_queries = 0;
+  // Count for timed out queries in queues for this Ac_info.
+  unsigned long timeout_queries = 0;
   // Protects the queues.
   mysql_mutex_t lock;
 public:
@@ -165,8 +173,6 @@ public:
                          array_elements(key_lock_info));
 #endif
     mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
-    waiting_queries = 0;
-    running_queries = 0;
   }
   ~Ac_info() {
     mysql_mutex_destroy(&lock);
@@ -188,6 +194,7 @@ enum class Ac_result {
 */
 class AC {
   friend int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
+  friend int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *cond);
 
   // This map is protected by the rwlock LOCK_ac.
   std::unordered_map<std::string, std::shared_ptr<Ac_info>> ac_map;

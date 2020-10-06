@@ -109,6 +109,7 @@ let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
 --echo aborted_queries = $aborted_queries
 --echo running_queries = $running_queries
 --echo waiting_queries = $waiting_queries
+select * from information_schema.admission_control_entities;
 
 --echo Filled up queues on one db doesn't affect queries on other db.
 connect (con_test, localhost, test_user,,test);
@@ -300,6 +301,7 @@ let $waiting_queries = `select $waiting_queries - $start_waiting_queries`;
 --echo aborted_queries = $aborted_queries
 --echo running_queries = $running_queries
 --echo waiting_queries = $waiting_queries;
+select * from information_schema.admission_control_entities;
 
 # restore admission_control_by_trx
 connection default;
@@ -367,6 +369,7 @@ let $timeout_queries = `select $timeout_queries - $start_timeout_queries`;
 let $waiting_queries = query_get_value(show global status like "Database_admission_control_waiting_queries", Value, 1);
 --echo waiting_queries should be 0
 --echo waiting_queries = $waiting_queries
+select * from information_schema.admission_control_entities;
 
 connection default;
 --echo reset global.max_running_queries and global.max_waiting_queries
@@ -405,6 +408,7 @@ enable_result_log;
 connection default;
 --echo Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
+select * from information_schema.admission_control_entities;
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;

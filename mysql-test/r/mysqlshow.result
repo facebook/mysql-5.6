@@ -75,6 +75,7 @@ Database: test
 2 rows in set.
 
 DROP TABLE t1, t2;
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |
@@ -182,6 +183,7 @@ DROP TABLE t1, t2;
 | WRITE_STATISTICS_HISTOGRAM            |
 | WRITE_THROTTLING_LOG                  |
 | WRITE_THROTTLING_RULES                |
+| ADMISSION_CONTROL_ENTITIES            |
 | ADMISSION_CONTROL_QUEUE               |
 | AUTHINFO                              |
 | CHARACTER_SETS                        |

@@ -10458,6 +10458,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_column_statistics, NULL, NULL, -1, -1, false, 0},
   {"DATABASE_APPLIED_HLC", db_applied_hlc_fields_info, create_schema_table,
    fill_db_applied_hlc, NULL, NULL, -1, -1, false, 0},
+  {"ADMISSION_CONTROL_ENTITIES", admission_control_entities_fields_info, create_schema_table,
+   fill_ac_entities, NULL, NULL, -1, -1, false, 0},
   {"ADMISSION_CONTROL_QUEUE", admission_control_queue_fields_info, create_schema_table,
    fill_ac_queue, NULL, NULL, -1, -1, false, 0},
   {"SQL_FINDINGS", sql_findings_fields_info, create_schema_table,
