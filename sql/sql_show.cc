@@ -707,6 +707,14 @@ bool Sql_cmd_show_processlist::execute_inner(THD *thd) {
   }
 }
 
+bool Sql_cmd_show_raft_status::check_privileges(THD *thd) {
+  return check_global_access(thd, REPL_CLIENT_ACL);
+}
+
+bool Sql_cmd_show_raft_status::execute_inner(THD *thd) {
+  return show_raft_status(thd);
+}
+
 bool Sql_cmd_show_relaylog_events::check_privileges(THD *thd) {
   return check_global_access(thd, REPL_SLAVE_ACL);
 }

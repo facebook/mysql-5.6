@@ -1525,6 +1525,7 @@ void update_binlog_hlc();
 bool binlog_enabled();
 void register_binlog_handler(THD *thd, bool trx);
 int query_error_code(const THD *thd, bool not_killed);
+bool show_raft_status(THD *thd);
 
 void set_valid_pos(my_off_t *valid_pos, const std::string &cur_binlog_file,
                    my_off_t first_gtid_start, char *engine_binlog_file,

@@ -1419,6 +1419,16 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::show_raft_status(
+    THD * /* thd */,
+    std::vector<std::pair<std::string, std::string>> *var_value_pairs) {
+  DBUG_ENTER("Raft_replication_delegate::show_raft_status");
+  Raft_replication_param param;
+  int ret = 0;
+  FOREACH_OBSERVER(ret, show_raft_status, (var_value_pairs));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }

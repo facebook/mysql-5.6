@@ -1424,6 +1424,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> EXISTING_SYM 1257            /* MYSQL */
 %token<lexer.keyword> EXPLICIT_SYM 1258            /* MYSQL */
 %token<lexer.keyword> SHARED_SYM 1259              /* MYSQL */
+%token<lexer.keyword> RAFT_SYM 1260                /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1950,6 +1951,7 @@ void warn_about_deprecated_binary(THD *thd)
         show_processlist_stmt
         show_profile_stmt
         show_profiles_stmt
+        show_raft_status_stmt
         show_relaylog_events_stmt
         show_replica_status_stmt
         show_replicas_stmt
@@ -2453,6 +2455,7 @@ simple_statement:
         | show_processlist_stmt
         | show_profile_stmt
         | show_profiles_stmt
+        | show_raft_status_stmt
         | show_relaylog_events_stmt
         | show_replica_status_stmt
         | show_replicas_stmt
@@ -13850,6 +13853,13 @@ show_binary_logs_stmt:
           }
         ;
 
+show_raft_status_stmt:
+          SHOW RAFT_SYM STATUS_SYM
+          {
+            $$ = NEW_PTN PT_show_raft_status(@$);
+          }
+        ;
+
 show_replicas_stmt:
           SHOW SLAVE HOSTS_SYM
           {
@@ -15742,6 +15752,7 @@ ident_keywords_unambiguous:
         | QUARTER_SYM
         | QUERY_SYM
         | QUICK
+        | RAFT_SYM
         | RANDOM_SYM
         | READ_ONLY_SYM
         | REBUILD_SYM

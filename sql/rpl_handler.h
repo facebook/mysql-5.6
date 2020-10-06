@@ -458,6 +458,9 @@ class Raft_replication_delegate : public Delegate {
                      const std::string &s_hostname, uint64_t port);
   int after_commit(THD *thd);
   int purge_logs(THD *thd, uint64_t file_ext);
+  int show_raft_status(
+      THD *thd,
+      std::vector<std::pair<std::string, std::string>> *var_value_pairs);
 };
 
 int delegates_init();

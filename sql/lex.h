@@ -551,6 +551,7 @@ static const SYMBOL symbols[] = {
     {SYM("QUARTER", QUARTER_SYM)},
     {SYM("QUERY", QUERY_SYM)},
     {SYM("QUICK", QUICK)},
+    {SYM("RAFT", RAFT_SYM)},
     {SYM("RANDOM", RANDOM_SYM)},
     {SYM("RANK", RANK_SYM)},
     {SYM("RANGE", RANGE_SYM)},

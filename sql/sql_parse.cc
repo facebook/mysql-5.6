@@ -4197,6 +4197,20 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       if (mysql_rename_tables(thd, first_table)) goto error;
       break;
     }
+#ifndef EMBEDDED_LIBRARY
+    case SQLCOM_SHOW_RAFT_STATUS:
+#ifdef DONT_ALLOW_SHOW_COMMANDS
+      my_message(ER_NOT_ALLOWED_COMMAND, ER(ER_NOT_ALLOWED_COMMAND),
+                 MYF(0)); /* purecov: inspected */
+      goto error;
+#else
+    {
+      if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL)) goto error;
+      res = show_raft_status(thd);
+      break;
+    }
+#endif
+#endif /* EMBEDDED_LIBRARY */
     case SQLCOM_CHECKSUM: {
       assert(first_table == all_tables && first_table != nullptr);
       if (check_table_access(thd, SELECT_ACL, all_tables, false, UINT_MAX,

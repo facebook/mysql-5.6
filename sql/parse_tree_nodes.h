@@ -3640,6 +3640,19 @@ class PT_show_profiles final : public PT_show_base {
   Sql_cmd_show_profiles m_sql_cmd;
 };
 
+/// Parse tree node for SHOW RAFT STATUS statement
+
+class PT_show_raft_status final : public PT_show_base {
+ public:
+  PT_show_raft_status(const POS &pos)
+      : PT_show_base(pos, SQLCOM_SHOW_RAFT_STATUS) {}
+
+  Sql_cmd *make_cmd(THD *thd) override;
+
+ private:
+  Sql_cmd_show_raft_status m_sql_cmd;
+};
+
 /// Parse tree node for SHOW RELAYLOG EVENTS statement
 
 class PT_show_relaylog_events final : public PT_show_base {
