@@ -1087,6 +1087,16 @@ int Raft_replication_delegate::purge_logs(THD *thd, uint64_t file_ext) {
   DBUG_RETURN(ret);
 }
 
+int Raft_replication_delegate::show_raft_status(
+    THD * /* thd */,
+    std::vector<std::pair<std::string, std::string>> *var_value_pairs) {
+  DBUG_ENTER("Raft_replication_delegate::show_raft_status");
+  Raft_replication_param param;
+  int ret = 0;
+  FOREACH_OBSERVER(ret, show_raft_status, (var_value_pairs));
+  DBUG_RETURN(ret);
+}
+
 int register_trans_observer(Trans_observer *observer, void *p) {
   return transaction_delegate->add_observer(observer, (st_plugin_int *)p);
 }
@@ -1275,8 +1285,8 @@ static int update_sys_var(const char *var_name, uint name_len,
   // find_sys_var will take a read lock on LOCK_system_variables_hash
   sys_var *sys_var_ptr = find_sys_var(current_thd, var_name, name_len);
   if (sys_var_ptr) {
-    LEX_STRING tmp;
-    set_var set_v(OPT_GLOBAL, sys_var_ptr, &tmp, &update_item);
+    LEX_CSTRING tmp;
+    set_var set_v(OPT_GLOBAL, sys_var_ptr, tmp, &update_item);
     return !set_v.check(current_thd) && set_v.update(current_thd);
   }
 

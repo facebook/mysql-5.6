@@ -1377,6 +1377,7 @@ void update_binlog_hlc();
 bool binlog_enabled();
 void register_binlog_handler(THD *thd, bool trx);
 int query_error_code(const THD *thd, bool not_killed);
+bool show_raft_status(THD *thd);
 
 extern const char *log_bin_index;
 extern const char *log_bin_basename;

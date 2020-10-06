@@ -1293,6 +1293,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token<lexer.keyword> EXISTING_SYM 1207            /* MYSQL */
 %token<lexer.keyword> EXPLICIT_SYM 1208            /* MYSQL */
 %token<lexer.keyword> SHARED_SYM 1209              /* MYSQL */
+%token<lexer.keyword> RAFT_SYM 1210                /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -13010,6 +13011,10 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
+        | RAFT_SYM STATUS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_RAFT_STATUS;
+          }
         | SLAVE HOSTS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_SLAVE_HOSTS;
@@ -14812,6 +14817,7 @@ ident_keywords_unambiguous:
         | QUARTER_SYM
         | QUERY_SYM
         | QUICK
+        | RAFT_SYM
         | RANDOM_SYM
         | READ_ONLY_SYM
         | REBUILD_SYM
