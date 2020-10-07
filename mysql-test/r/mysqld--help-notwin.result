@@ -344,6 +344,8 @@ The following options may be given as the first argument:
  client that does INSERT DELAYED will wait until there is
  room in the queue again. This variable is deprecated
  along with INSERT DELAYED.
+ --disable-raft-log-repointing 
+ Enable/Disable repointing for raft logs
  --disabled-storage-engines=name 
  Limit CREATE TABLE for the storage engines listed
  --disallow-raft     Temporary variable wich blocks turning on raft. Will be
@@ -2404,6 +2406,7 @@ delay-key-write ON
 delayed-insert-limit 100
 delayed-insert-timeout 300
 delayed-queue-size 1000
+disable-raft-log-repointing FALSE
 disabled-storage-engines 
 disallow-raft TRUE
 disconnect-on-expired-password TRUE

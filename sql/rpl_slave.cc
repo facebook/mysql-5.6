@@ -1351,7 +1351,7 @@ int rli_relay_log_raft_reset(
   int error = 0;
   std::string normalized_log_name;
 
-  // TODO: disable_raft_repointing for integrating with mtr
+  if (disable_raft_log_repointing) DBUG_RETURN(0);
 
   channel_map.rdlock();
 

@@ -8004,6 +8004,11 @@ static Sys_var_bool Sys_override_enable_raft_check(
     READ_ONLY GLOBAL_VAR(override_enable_raft_check), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
+static Sys_var_bool Sys_disable_raft_log_repointing(
+    "disable_raft_log_repointing", "Enable/Disable repointing for raft logs",
+    READ_ONLY GLOBAL_VAR(disable_raft_log_repointing), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_enable_blind_replace(
     "enable_blind_replace",
     "Optimize 'replace into' statement by doing a blind insert. Engine "
