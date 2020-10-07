@@ -69,6 +69,10 @@
 #include "sql_string.h"
 
 /** start of raft related extern funtion declarations  **/
+
+extern int raft_reset_slave(THD *thd);
+extern int raft_change_master(
+    THD *thd, const std::pair<const std::string, uint> &master_instance);
 extern int rotate_binlog_file(THD *thd);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
@@ -1376,6 +1380,31 @@ extern "C" void *process_raft_queue(void *) {
       }
       case RaftListenerCallbackType::RLI_RELAY_LOG_RESET: {
         result.error = rli_relay_log_raft_reset(element.arg.log_file_pos);
+        break;
+      }
+
+      case RaftListenerCallbackType::RESET_SLAVE: {
+        result.error = raft_reset_slave(current_thd);
+        // When resetting a slave we also want to clear the read-only message
+        // since we can't make assumptions on the master instance anymore
+        if (!result.error) {
+          Item_string item("", 0, current_thd->charset());
+          result.error = update_sys_var(
+              STRING_WITH_LEN("read_only_error_msg_extra"), item);
+        }
+        break;
+      }
+
+      case RaftListenerCallbackType::CHANGE_MASTER: {
+        result.error =
+            raft_change_master(current_thd, element.arg.master_instance);
+        if (!result.error && !element.arg.val_str.empty()) {
+          Item_string item(element.arg.val_str.c_str(),
+                           element.arg.val_str.length(),
+                           current_thd->charset());
+          result.error = update_sys_var(
+              STRING_WITH_LEN("read_only_error_msg_extra"), item);
+        }
         break;
       }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {

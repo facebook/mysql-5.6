@@ -1569,6 +1569,49 @@ end:
   return init_error;
 }
 
+// TODO: currently we're only setting host port
+int raft_reset_slave(THD *) {
+  DBUG_ENTER("raft_reset_slave");
+  int error = 0;
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  mysql_mutex_lock(&mi->data_lock);
+  strmake(mi->host, "\0", sizeof(mi->host) - 1);
+  mi->port = 0;
+  mi->inited = false;
+  mysql_mutex_lock(&mi->rli->data_lock);
+  mi->rli->inited = false;
+  mysql_mutex_unlock(&mi->rli->data_lock);
+  mysql_mutex_unlock(&mi->data_lock);
+
+  channel_map.unlock();
+  DBUG_RETURN(error);
+}
+
+// TODO: currently we're only setting host port
+int raft_change_master(
+    THD *, const std::pair<const std::string, uint> &master_instance) {
+  DBUG_ENTER("raft_change_master");
+  int error = 0;
+
+  channel_map.rdlock();
+  Master_info *mi = channel_map.get_default_channel_mi();
+
+  if (!mi) goto end;
+
+  mysql_mutex_lock(&mi->data_lock);
+  strmake(mi->host, const_cast<char *>(master_instance.first.c_str()),
+          sizeof(mi->host) - 1);
+  mi->port = master_instance.second;
+  mi->set_auto_position(true);
+  mi->inited = true;
+  mysql_mutex_unlock(&mi->data_lock);
+end:
+  channel_map.unlock();
+  DBUG_RETURN(error);
+}
+
 void end_info(Master_info *mi) {
   DBUG_TRACE;
   DBUG_ASSERT(mi != nullptr && mi->rli != nullptr);
