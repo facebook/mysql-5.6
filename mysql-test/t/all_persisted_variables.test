@@ -53,6 +53,7 @@ let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variabl
 'default_collation_for_utf8mb4_init',
 'enable_acl_db_cache',
 'enable_acl_fast_lookup',
+'disable_raft_log_repointing',
 'group_replication_plugin_hooks',
 'gtid_committed',
 'have_boringssl',
