@@ -7830,13 +7830,12 @@ static bool log_enable_raft_change(
 }
 
 static Sys_var_bool Sys_enable_raft_plugin(
-       "enable_raft_plugin",
-       "Enables RAFT based consensus plugin. Replication will run through this "
-       "plugin when it is enabled",
-       GLOBAL_VAR(enable_raft_plugin),
-       CMD_LINE(OPT_ARG), DEFAULT(false),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
+    "enable_raft_plugin",
+    "Enables RAFT based consensus plugin. Replication will run through this "
+    "plugin when it is enabled",
+    GLOBAL_VAR(enable_raft_plugin), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(validate_enable_raft),
+    ON_UPDATE(log_enable_raft_change));
 
 static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
@@ -7848,6 +7847,11 @@ static Sys_var_bool Sys_override_enable_raft_check(
     "override_enable_raft_check",
     "Disable some strict raft checks. Use with caution",
     READ_ONLY GLOBAL_VAR(override_enable_raft_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
+static Sys_var_bool Sys_disable_raft_log_repointing(
+    "disable_raft_log_repointing", "Enable/Disable repointing for raft logs",
+    READ_ONLY GLOBAL_VAR(disable_raft_log_repointing), CMD_LINE(OPT_ARG),
     DEFAULT(false));
 
 static Sys_var_bool Sys_enable_blind_replace(
