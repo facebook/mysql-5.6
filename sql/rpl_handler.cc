@@ -963,7 +963,7 @@ pthread_handler_t process_raft_queue(void *arg)
         raft_rotate_info.noop= flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
         raft_rotate_info.post_append= flags &
                                       RaftListenerQueue::RAFT_FLAGS_POSTAPPEND;
-        // raft_rotate_info.rotate_opid= element.arg.val_opid;
+        raft_rotate_info.rotate_opid= element.arg.val_opid;
         result.error= rotate_relay_log_for_raft(&raft_rotate_info);
 #endif
         break;
