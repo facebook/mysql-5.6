@@ -1751,7 +1751,12 @@ bool rocksdb_handle_single_table_select(THD *thd, SELECT_LEX *select_lex) {
         REJECTED_ITEM rejected_query_record;
         rejected_query_record.rejected_bypass_query_timestamp =
             thd->query_start_timeval_trunc(0);
-        rejected_query_record.rejected_bypass_query = thd->query().str;
+        // Normalize rejected query
+        String normalized_query_text;
+        compute_digest_text(&thd->m_digest->m_digest_storage,
+                            &normalized_query_text);
+        rejected_query_record.rejected_bypass_query =
+            normalized_query_text.c_ptr_safe();
         rejected_query_record.error_msg = select_stmt.get_error_msg();
 
         rejected_bypass_queries.push_front(rejected_query_record);
