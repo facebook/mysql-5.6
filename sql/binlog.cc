@@ -11032,7 +11032,11 @@ int rotate_binlog_file(THD *thd) {
 int binlog_change_to_apply() {
   DBUG_ENTER("binlog_change_to_apply");
 
-  // TODO: disable_raft_log_repointing for MTR integration tests later
+  // disable_raft_log_repointing for MTR integration tests
+  if (disable_raft_log_repointing) {
+    mysql_bin_log.is_apply_log = true;
+    DBUG_RETURN(0);
+  }
 
   int error = 0;
 
@@ -11076,7 +11080,11 @@ err:
 int binlog_change_to_binlog() {
   DBUG_ENTER("binlog_change_to_binlog");
 
-  // TODO: disable_raft_log_repointing for MTR integration tests later
+  // disable_raft_log_repointing for MTR integration tests
+  if (disable_raft_log_repointing) {
+    mysql_bin_log.is_apply_log = true;
+    DBUG_RETURN(0);
+  }
 
   int error = 0;
   uint64_t prev_hlc = 0;

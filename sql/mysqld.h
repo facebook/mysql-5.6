@@ -442,6 +442,7 @@ extern ulonglong minimum_hlc_ns;
 /* Maximum allowed forward drift in the HLC as compared to wall clock */
 extern ulonglong maximum_hlc_drift_ns;
 extern bool enable_raft_plugin;
+extern bool disable_raft_log_repointing;
 extern bool disallow_raft;
 extern bool override_enable_raft_check;
 extern ulonglong apply_log_retention_num;

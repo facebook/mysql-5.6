@@ -1237,6 +1237,7 @@ bool disallow_raft = 1;  // raft is not allowed by default
 bool override_enable_raft_check = false;
 ulonglong apply_log_retention_num = 0;
 ulonglong apply_log_retention_duration = 0;
+bool disable_raft_log_repointing = 0;
 
 // Apply log related variables for raft
 char *opt_apply_logname = nullptr;
@@ -12064,7 +12065,7 @@ static int generate_apply_file_gvars() {
 
   if (opt_apply_logname && opt_applylog_index_name) DBUG_RETURN(0);
 
-  if (!opt_apply_logname) {
+  if (!opt_apply_logname && !disable_raft_log_repointing) {
     /* create the apply binlog name for Raft using some common
      * rules. Replace binary with apply or -bin with -apply
      * This handles the 2 common cases of naming convention without
