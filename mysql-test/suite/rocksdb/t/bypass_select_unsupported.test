@@ -9,6 +9,11 @@ SELECT @@rocksdb_select_bypass_policy into @save_rocksdb_select_bypass_policy;
 set global rocksdb_select_bypass_policy=2;
 SELECT @@rocksdb_select_bypass_policy;
 
+SELECT @@sql_stats_control;
+SELECT @@sql_stats_control into @save_sql_stats_control;
+set global sql_stats_control="ON";
+SELECT @@sql_stats_control;
+
 create table t1 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
 c INT NOT NULL, KEY a (a, b, c)) ENGINE=ROCKSDB;
 create table t2 (pk INT PRIMARY KEY NOT NULL, a INT NOT NULL, b INT NOT NULL,
@@ -276,6 +281,10 @@ SELECT @@rocksdb_select_bypass_fail_unsupported;
 
 set global rocksdb_select_bypass_rejected_query_history_size=0;  
 SELECT @@rocksdb_select_bypass_rejected_query_history_size; 
+
+SELECT @@sql_stats_control;
+set global sql_stats_control=@save_sql_stats_control;
+SELECT @@sql_stats_control;
 
 drop table t1;
 drop table t2;
