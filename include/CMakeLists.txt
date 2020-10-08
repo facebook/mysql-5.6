@@ -68,7 +68,6 @@ SET(HEADERS_MYSQL_DIR
   mysql/plugin_audit_message_types.h
   mysql/status_var.h
   mysql/udf_registration_types.h
-  mysql/raft_plugin.h
   mysql/service_mysql_alloc.h
 )
 SET(HEADERS_MYSQL_COMPONENTS_SERVICES_DIR
