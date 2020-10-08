@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 
+#include <mysql_version.h>
 #include "my_alloc.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
@@ -33,7 +34,9 @@
 #include "mysql/components/services/mysql_rwlock_bits.h"
 #include "mysql/components/services/psi_rwlock_bits.h"
 #include "mysql/psi/mysql_rwlock.h"
-#include "mysql/raft_plugin.h"  // RaftReplicateMsgOpType
+#include "mysql/raft_listener_queue_if.h"
+#include "mysql/raft_optype.h"  // RaftReplicateMsgOpType
+#include "mysql/raft_replication.h"
 #include "replication.h"
 #include "sql/sql_list.h"        // List
 #include "sql/sql_plugin_ref.h"  // plugin_ref
@@ -288,10 +291,7 @@ class Raft_replication_delegate : public Delegate {
 
   int before_commit(THD *thd);
 
-  int setup_flush(THD *thd, bool is_relay_log, IO_CACHE *log_file_cache,
-                  const char *log_prefix, const char *log_name,
-                  mysql_mutex_t *lock_log, mysql_mutex_t *lock_index,
-                  mysql_cond_t *update_cond, ulong *cur_log_ext, int context);
+  int setup_flush(THD *thd, Observer::st_setup_flush_arg *arg);
 
   int before_shutdown(THD *thd);
   int register_paths(THD *thd, const std::string &s_uuid,
