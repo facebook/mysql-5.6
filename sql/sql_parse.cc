@@ -2921,13 +2921,6 @@ static bool check_hlc_lower_bound(THD *thd) {
     return false;
   }
 
-  // Behavior of this feature on reads inside of a transaction is complex
-  // and not supported at this point in time.
-  if (thd->in_active_multi_stmt_transaction()) {
-    my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
-    return true;
-  }
-
   const char *str = nullptr;
   for (const auto &p : thd->query_attrs_list) {
     if (p.first == hlc_ts_lower_bound) {
@@ -2939,6 +2932,13 @@ static bool check_hlc_lower_bound(THD *thd) {
   // No lower bound HLC ts specified
   if (!str) {
     return false;
+  }
+
+  // Behavior of this feature on reads inside of a transaction is complex
+  // and not supported at this point in time.
+  if (thd->in_active_multi_stmt_transaction()) {
+    my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
+    return true;
   }
 
   char *endptr = nullptr;

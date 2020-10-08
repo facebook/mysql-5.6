@@ -80,6 +80,13 @@ BEGIN;
 SELECT * FROM ta;
 ERROR HY000: HLC read bound for read inside transaction is not supported
 COMMIT;
+BEGIN;
+SELECT * FROM ta;
+a	b
+1	foo
+3	baz
+4	bah
+COMMIT;
 USE a;
 SET autocommit = 0;
 SELECT * FROM ta;
