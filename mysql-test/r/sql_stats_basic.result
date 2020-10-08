@@ -128,25 +128,27 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-07f5ad4b3201ceebd12b7fea78258490	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6	0	0	0	0
-0b3d55ac53dfc17f83def9dabdefd0e5	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0	0	0	0	0
-217ee3f8be69be1bf35d38bb4a29bc05	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-4236231881b662910017cab9d06dd6af	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6	0	0	0	0
-4d541b899fcde2a44c020127ca28b83a	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-86275001b7ac0cd3a98dc74b0daab2a6	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0	0	0	0	0
-8ef3511d2c418993cd3069c504edaccc	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2	0	0	0	0
-9284735a0b4c7827a5e96ab5bc66b2da	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4	0	0	0	0
-af7d7543fc2f2e9feeee1e4e4972d896	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3	0	0	0	0
-c7942e54edf6699ceff98d65910fee2c	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e75c7b302104c32b266a9b1159169503	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6	0	0	0	0
-e76bf3c9366a101ff8e7277e4d934e41	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-fd40e5136b996f5a30381b3e3ce32ebf	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+07f5ad4b3201ceebd12b7fea78258490	a49336ae23cce474430146ec3a7d0ee3	test	user_super	2	0	0	0	18	6	0	0	0	0	populated
+0b3d55ac53dfc17f83def9dabdefd0e5	7d1ccceff3a45eea46dbad6208f7f52e	test	user_super	3	0	15	0	15	0	0	0	0	0	populated
+217ee3f8be69be1bf35d38bb4a29bc05	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+4236231881b662910017cab9d06dd6af	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6	0	0	0	0	populated
+4d541b899fcde2a44c020127ca28b83a	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+86275001b7ac0cd3a98dc74b0daab2a6	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0	0	0	0	0	populated
+8ef3511d2c418993cd3069c504edaccc	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2	0	0	0	0	populated
+9284735a0b4c7827a5e96ab5bc66b2da	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4	0	0	0	0	populated
+af7d7543fc2f2e9feeee1e4e4972d896	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	3	0	0	0	0	populated
+c7942e54edf6699ceff98d65910fee2c	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	1	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e75c7b302104c32b266a9b1159169503	a49336ae23cce474430146ec3a7d0ee3	test	user_super	1	0	0	0	9	6	0	0	0	0	populated
+e76bf3c9366a101ff8e7277e4d934e41	0863aa843e03198bcd1fb35e2ba33940	test	user_super	2	0	0	2	9	0	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+fd40e5136b996f5a30381b3e3ce32ebf	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 select information_schema.sql_statistics.sql_id, table_schema, user_name,
 execution_count, sql_text
 from information_schema.sql_statistics, information_schema.sql_text
@@ -158,7 +160,7 @@ sql_id	table_schema	user_name	execution_count	sql_text
 217ee3f8be69be1bf35d38bb4a29bc05	test	user_super	1	CREATE TABLE `t1` ( `c` INTEGER ) 
 4236231881b662910017cab9d06dd6af	test	user_super	1	SELECT `a` . `c` `c1` , `b` . `c` `c2` FROM `t1` `a` , `t1` `b` WHERE `a` . `c` <= `b` . `c` ORDER BY ?, ... 
 4d541b899fcde2a44c020127ca28b83a	test	user_super	1	SET @@GLOBAL . `sql_plans_control` = ON 
-85babe3863a94fd7d580d00d65842d0c	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` , `tmp_table_bytes_written` , `filesort_bytes_written` , `tmp_table_disk_usage` , `filesort_disk_usage` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+80b8bde9caab2211389a46a813bc11c0	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` , `rows_inserted` , `rows_updated` , `rows_deleted` , `rows_read` , `rows_sent` , `tmp_table_bytes_written` , `filesort_bytes_written` , `tmp_table_disk_usage` , `filesort_disk_usage` , CASE WHEN `elapsed_time` > ? THEN ? ELSE ? END `elapsed_time` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
 86275001b7ac0cd3a98dc74b0daab2a6	test	user_super	5	INSERT INTO `t1` VALUES (?) 
 8ef3511d2c418993cd3069c504edaccc	test	user_super	1	SELECT `c` FROM `t1` `a` WHERE NOT EXISTS ( SELECT `sum_val` FROM ( SELECT `a` . `c` `c1` , `b` . `c` `c2` , SUM ( `c` . `c` ) `sum_val` FROM `t1` `a` , `t1` `b` , `t1` `c` WHERE `a` . `c` <= `b` . `c` AND `a` . `c` <= `c` . `c` GROUP BY `a` . `c` , `b` . `c` HAVING SUM ( `c` . `c` ) < ? ) `v1` WHERE `sum_val` = `a` . `c` ) ORDER BY ? 
 9284735a0b4c7827a5e96ab5bc66b2da	test	user_super	1	SELECT `sql_id` , `plan_id` , `table_schema` , `user_name` , `execution_count` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
@@ -201,7 +203,7 @@ sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated
 4236231881b662910017cab9d06dd6af	6c45f7957b65ebc76c1000cdfdb33186	test	user_super	1	0	0	0	6	6	0	0	0	0
 4d541b899fcde2a44c020127ca28b83a	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
 72be32c3cfad197483ded601af349ad2	4747e34c854d3849c6d4422b9a38ab68	test	user_super	1	0	0	0	0	1	0	0	0	0
-85babe3863a94fd7d580d00d65842d0c	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15	0	0	0	0
+80b8bde9caab2211389a46a813bc11c0	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	15	0	0	0	0
 86275001b7ac0cd3a98dc74b0daab2a6	c63aca0e3e2270468eaadb4364351527	test	user_super	5	5	0	0	0	0	0	0	0	0
 8ef3511d2c418993cd3069c504edaccc	5c222d3d3702516b33b9c023385ab93d	test	user_super	1	0	0	0	12	2	0	0	0	0
 9284735a0b4c7827a5e96ab5bc66b2da	d8a6538dcb5999060d6f545dfb9ce16d	test	user_super	1	0	0	0	0	4	0	0	0	0
@@ -235,12 +237,14 @@ select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 Case 6: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -268,18 +272,20 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-139dd37d45cdf132ea1ad78f5cccbc7f	f343b9befca0a2e2d56935211139703e	test	user_super	1	0	0	1	1	0	0	0	0	0
-5b11e48a826ef2c149f75cfa7894a20d	5b09041e2c03efb8b820a1fda0bf8146	test	user_super	1	0	0	0	2	1	0	0	0	0
-b1cf248bbe9c0f226de01543a95800d5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-b5d74033813edd43b779ba064ef58e0e	c63aca0e3e2270468eaadb4364351527	test	user_super	1	1	0	0	0	0	0	0	0	0
-ba1090d799fb93c155a3fb2f7cfb2a55	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-faca5788f5e48b7a41c386beb1f3da25	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	1	0	1	0	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+139dd37d45cdf132ea1ad78f5cccbc7f	f343b9befca0a2e2d56935211139703e	test	user_super	1	0	0	1	1	0	0	0	0	0	populated
+5b11e48a826ef2c149f75cfa7894a20d	5b09041e2c03efb8b820a1fda0bf8146	test	user_super	1	0	0	0	2	1	0	0	0	0	populated
+b1cf248bbe9c0f226de01543a95800d5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+b5d74033813edd43b779ba064ef58e0e	c63aca0e3e2270468eaadb4364351527	test	user_super	1	1	0	0	0	0	0	0	0	0	populated
+ba1090d799fb93c155a3fb2f7cfb2a55	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+faca5788f5e48b7a41c386beb1f3da25	3735d0563cc8e7df82f25be86d592dc1	test	user_super	1	0	1	0	1	0	0	0	0	0	populated
 Case 7: Query no sampling by default
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -299,12 +305,14 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 query_sample_seen, execution_count, rows_inserted, rows_updated,
 rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
-sql_id	plan_id	table_schema	user_name	query_sample_text	query_sample_seen	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super		NULL	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super		NULL	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	query_sample_text	query_sample_seen	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super		NULL	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super		NULL	1	0	0	0	0	1	0	0	0	0	populated
 Case 8: Query Only Once Sampling support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -328,14 +336,16 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
-sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-16b4b893067fc211fff92b1b100a49fa	NULL	test	user_super	set @@GLOBAL.max_digest_sample_age=0	1	1	0	0	0	0	0	0	0	0	0
-48ad8db644ab6a81325df7e21cea56c5	NULL	test	user_super	select @@max_digest_sample_age	1	1	0	0	0	0	1	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	select 1	1	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	select @@sql_stats_control	1	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+16b4b893067fc211fff92b1b100a49fa	NULL	test	user_super	set @@GLOBAL.max_digest_sample_age=0	1	1	0	0	0	0	0	0	0	0	0	populated
+48ad8db644ab6a81325df7e21cea56c5	NULL	test	user_super	select @@max_digest_sample_age	1	1	0	0	0	0	1	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	select 1	1	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	select @@sql_stats_control	1	1	0	0	0	0	1	0	0	0	0	populated
 Case 9: Query Re-sampling support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -363,11 +373,13 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 as is_query_sample_seen_valid, execution_count, rows_inserted,
 rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
-sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
+sql_id	plan_id	table_schema	user_name	query_sample_text	is_query_sample_seen_valid	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
 Case 10: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -431,18 +443,20 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-3255b309e59c1ebaa6aad94f611ba2d5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-4f31fc41c472c0e9dc2e19056ec740ee	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-514ff0b1e0869c1f1b303333fb6f9557	a87c8388de86c82198fa06675de68c3f	test	user_super	1	0	0	0	24	8	0	0	0	0
-7ab8e3df8e94502053145020293802b4	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
-7d9739d498b312b324e5a25295b0b0d1	0c68a814e4bc7ce05336789421cdeee2	test	user_super	3	21	0	0	21	0	0	0	0	0
-a40e19cd5e665c058d43690a4d24f14d	bb775f67f5bdb8c07f6fc05195cea244	test	user_super	1	0	0	0	24	24	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+3255b309e59c1ebaa6aad94f611ba2d5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+4f31fc41c472c0e9dc2e19056ec740ee	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+514ff0b1e0869c1f1b303333fb6f9557	a87c8388de86c82198fa06675de68c3f	test	user_super	1	0	0	0	24	8	0	0	0	0	populated
+7ab8e3df8e94502053145020293802b4	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
+7d9739d498b312b324e5a25295b0b0d1	0c68a814e4bc7ce05336789421cdeee2	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+a40e19cd5e665c058d43690a4d24f14d	bb775f67f5bdb8c07f6fc05195cea244	test	user_super	1	0	0	0	24	24	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 Case 11: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -507,19 +521,21 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-18d1a8be9c7155de1470ccca8a1113be	1205d6f41cfd8eee9ac0fefed3b7a5ad	test	user_super	1	0	0	0	24	8	0	0	0	0
-311257fc1a5bfe686cf087d684a46f03	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
-34fdb2987c06beeb8d4abd2df1a2039b	8f26bb7e672b92ab2d74613a6b1e3b14	test	user_super	1	0	0	0	24	24	0	0	0	0
-3970934697d1a37e48cfcb23b89ca156	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-7df63917f5bd965f14d2f90ac820b2dc	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-94f69150585e438c7feb4015d668e265	c24516a3e2e6f108b2f12ff638860fd6	test	user_super	1	0	16	0	24	0	0	0	0	0
-abec52fc6db342ff9e209c966495b1a1	4e629c338e9448ec75b16454a974ce37	test	user_super	3	21	0	0	21	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+18d1a8be9c7155de1470ccca8a1113be	1205d6f41cfd8eee9ac0fefed3b7a5ad	test	user_super	1	0	0	0	24	8	0	0	0	0	populated
+311257fc1a5bfe686cf087d684a46f03	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
+34fdb2987c06beeb8d4abd2df1a2039b	8f26bb7e672b92ab2d74613a6b1e3b14	test	user_super	1	0	0	0	24	24	0	0	0	0	populated
+3970934697d1a37e48cfcb23b89ca156	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+7df63917f5bd965f14d2f90ac820b2dc	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+94f69150585e438c7feb4015d668e265	c24516a3e2e6f108b2f12ff638860fd6	test	user_super	1	0	16	0	24	0	0	0	0	0	populated
+abec52fc6db342ff9e209c966495b1a1	4e629c338e9448ec75b16454a974ce37	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 Case 12: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -584,19 +600,21 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-24f0e3a12a91822a71352d9a113bb928	d4d42e245869a5ad6d4c991f37715319	test	user_super	1	0	0	0	24	24	0	0	0	0
-402547a05e5c2edbf292703e5ed2fcd4	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
-7ba09dc49b4a146a444a8a519f17683c	e20fa51953e77162c47d427dc9b3d796	test	user_super	1	16	0	0	24	0	0	0	0	0
-9a4cafc0b6bfaeba4baf7627918ad8dc	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-9ddea98849285fd41aeda506fee80ea8	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-f110131f8d7e487065c339c15176a224	e20fa51953e77162c47d427dc9b3d796	test	user_super	3	21	0	0	21	0	0	0	0	0
-f929dfa306c0012ed60ca137f330b5e6	63ce70a8b3d6b3b07ed5d4504741c52b	test	user_super	1	0	0	0	24	8	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+24f0e3a12a91822a71352d9a113bb928	d4d42e245869a5ad6d4c991f37715319	test	user_super	1	0	0	0	24	24	0	0	0	0	populated
+402547a05e5c2edbf292703e5ed2fcd4	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
+7ba09dc49b4a146a444a8a519f17683c	e20fa51953e77162c47d427dc9b3d796	test	user_super	1	16	0	0	24	0	0	0	0	0	populated
+9a4cafc0b6bfaeba4baf7627918ad8dc	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+9ddea98849285fd41aeda506fee80ea8	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+f110131f8d7e487065c339c15176a224	e20fa51953e77162c47d427dc9b3d796	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+f929dfa306c0012ed60ca137f330b5e6	63ce70a8b3d6b3b07ed5d4504741c52b	test	user_super	1	0	0	0	24	8	0	0	0	0	populated
 Case 13: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -662,20 +680,22 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-138de025a459859c2560cbec453d71b9	78e987e8c5aed34aa2ace332289a7412	test	user_super	1	0	0	0	24	24	0	0	0	0
-247c14aa92b9350962db9c0897f0fdb6	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
-443a1c5cf0587b8c51d97ad2c9071af1	aff29d3a71e81392f86033f8e503c8e1	test	user_super	1	0	0	0	24	8	0	0	0	0
-65c13c84467a09111ae272f3996d80e7	4b974e5532640edc9fa95b3beb67899e	test	user_super	1	0	32	0	40	0	0	0	0	0
-afe1de6f6026f7c0b553e145147a109c	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-c24182f999922bae799bddf743e4865b	4a90aceb0568c53439dd6a23089fe389	test	user_super	1	16	0	0	24	0	0	0	0	0
-cb327a2b435fe42e625ecbd09150f3c2	4a90aceb0568c53439dd6a23089fe389	test	user_super	3	21	0	0	21	0	0	0	0	0
-d1bb47a70eaf9bcf2e971112937a6869	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+138de025a459859c2560cbec453d71b9	78e987e8c5aed34aa2ace332289a7412	test	user_super	1	0	0	0	24	24	0	0	0	0	populated
+247c14aa92b9350962db9c0897f0fdb6	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
+443a1c5cf0587b8c51d97ad2c9071af1	aff29d3a71e81392f86033f8e503c8e1	test	user_super	1	0	0	0	24	8	0	0	0	0	populated
+65c13c84467a09111ae272f3996d80e7	4b974e5532640edc9fa95b3beb67899e	test	user_super	1	0	32	0	40	0	0	0	0	0	populated
+afe1de6f6026f7c0b553e145147a109c	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+c24182f999922bae799bddf743e4865b	4a90aceb0568c53439dd6a23089fe389	test	user_super	1	16	0	0	24	0	0	0	0	0	populated
+cb327a2b435fe42e625ecbd09150f3c2	4a90aceb0568c53439dd6a23089fe389	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+d1bb47a70eaf9bcf2e971112937a6869	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
 Case 14: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -715,19 +735,21 @@ c
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-05553aea2f5a3f993230af94f50f394d	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-25d5590a52ebe2bb888ef090b1507f52	b248616d23287bf9c4d4475c91614bf5	test	user_super	1	0	0	0	24	8	0	0	0	0
-4f9f3ee77b1dc41bfb5f55ee779b1828	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
-6112fccffe96a4d985ae516443a58e34	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	1	16	0	0	24	0	0	0	0	0
-66fb868becd4e4a34001a337549a5bfa	d814f7204842756b5a4bd40bd006d886	test	user_super	1	0	32	0	40	0	0	0	0	0
-6b081e7724622c61a49dc0a4dd51c503	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	3	21	0	0	21	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-f8bf2c7d5184e2294a7ca828d841dee5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+05553aea2f5a3f993230af94f50f394d	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+25d5590a52ebe2bb888ef090b1507f52	b248616d23287bf9c4d4475c91614bf5	test	user_super	1	0	0	0	24	8	0	0	0	0	populated
+4f9f3ee77b1dc41bfb5f55ee779b1828	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
+6112fccffe96a4d985ae516443a58e34	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	1	16	0	0	24	0	0	0	0	0	populated
+66fb868becd4e4a34001a337549a5bfa	d814f7204842756b5a4bd40bd006d886	test	user_super	1	0	32	0	40	0	0	0	0	0	populated
+6b081e7724622c61a49dc0a4dd51c503	29176a01eb28ce8e2190b1e2fad60f75	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+f8bf2c7d5184e2294a7ca828d841dee5	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
 Case 15: Multi-query support
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -757,18 +779,20 @@ drop table t15;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
 tmp_table_bytes_written, filesort_bytes_written,
-tmp_table_disk_usage, filesort_disk_usage
+tmp_table_disk_usage, filesort_disk_usage,
+case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
-sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-7be6095a8d2b757fb948061965252f13	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-a0bda04c698fe37565f24f6997164161	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	1	16	0	0	24	0	0	0	0	0
-cc7eb824aba3bbf17e36c8f21bc25d7b	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0
-db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0
-dec9ebf2f194699243449ab042ce687e	c351cb9aa35ffd197e5732574574e5dc	test	user_super	1	0	32	0	40	0	0	0	0	0
-e35ea48dddc8b6aeb05fa78412e04c1a	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	3	21	0	0	21	0	0	0	0	0
-e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0
-f8c15ed1d4a0b6e5411fc27a24740b91	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0
+sql_id	plan_id	table_schema	user_name	execution_count	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+7be6095a8d2b757fb948061965252f13	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+a0bda04c698fe37565f24f6997164161	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	1	16	0	0	24	0	0	0	0	0	populated
+cc7eb824aba3bbf17e36c8f21bc25d7b	NULL	test	user_super	1	0	0	0	0	0	0	0	0	0	populated
+db1589f429c8f6fbba750f47fbc7c130	NULL	test	user_super	3	0	0	0	0	3	0	0	0	0	populated
+dec9ebf2f194699243449ab042ce687e	c351cb9aa35ffd197e5732574574e5dc	test	user_super	1	0	32	0	40	0	0	0	0	0	populated
+e35ea48dddc8b6aeb05fa78412e04c1a	16439ba05833b9a72d3b040bdbd80dcd	test	user_super	3	21	0	0	21	0	0	0	0	0	populated
+e774a92c71899fc36599c5b7c754d556	NULL	test	user_super	1	0	0	0	0	1	0	0	0	0	populated
+f8c15ed1d4a0b6e5411fc27a24740b91	c63aca0e3e2270468eaadb4364351527	test	user_super	3	3	0	0	0	0	0	0	0	0	populated
 Case 16: Flush sql_statistics and confirm that all stats are gone.
 flush sql_statistics;
 select sql_id, plan_id, table_schema, user_name, execution_count,
@@ -811,23 +835,25 @@ select i, substr(c, 1, 10) from t17 group by i, c order by i, c;
 select count(*) from (select * from t17) v;
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
 s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-s.tmp_table_disk_usage, s.filesort_disk_usage
+s.tmp_table_disk_usage, s.filesort_disk_usage,
+case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
 from information_schema.sql_statistics s, information_schema.sql_text t
 where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
-sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0
-INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
-SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672
-SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0
-SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0
-SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
+sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0	populated
+INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0	populated
+SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0	populated
+SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672	populated
+SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
 create temporary table tm_t17(i int, c char(255)) engine=myisam;
 insert into tm_t17 select * from t17;
 update tm_t17 set c = lpad('b', 250, 'a');
@@ -838,60 +864,64 @@ delete from tm_t17 where i < 100;
 drop temporary table tm_t17;
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
 s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-s.tmp_table_disk_usage, s.filesort_disk_usage
+s.tmp_table_disk_usage, s.filesort_disk_usage,
+case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
 from information_schema.sql_statistics s, information_schema.sql_text t
 where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
-sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
-CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
-DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0
-DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0
-INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
-INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
-SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
-SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672
-SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0
-SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0
-SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
-UPDATE `tm_t17` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0
+sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0	populated
+CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0	populated
+DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0	populated
+DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0	populated
+INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0	populated
+INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0	populated
+INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0	populated
+SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0	populated
+SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672	populated
+SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+UPDATE `tm_t17` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0	populated
 drop table t17;
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
 s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-s.tmp_table_disk_usage, s.filesort_disk_usage
+s.tmp_table_disk_usage, s.filesort_disk_usage,
+case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
 from information_schema.sql_statistics s, information_schema.sql_text t
 where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
-sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
-CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
-DROP TABLE `t17` 	0	0	0	0	0	0	0	0	0
-DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0
-DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0
-INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0
-INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
-INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0
-SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
-SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672
-SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0
-SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0
-SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
-UPDATE `tm_t17` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0
+sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+CREATE TABLE `t17` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0	populated
+CREATE TEMPORARY TABLE `tm2_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+CREATE TEMPORARY TABLE `tm_t17` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+DELETE FROM `tm_t17` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0	populated
+DROP TABLE `t17` 	0	0	0	0	0	0	0	0	0	populated
+DROP TEMPORARY TABLE `tm2_t17` 	1024	0	0	0	0	0	0	0	0	populated
+DROP TEMPORARY TABLE `tm_t17` 	1024	1024	100	2048	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1	0	0	2	0	0	0	0	0	populated
+INSERT INTO `t17` SELECT `i` + ? , `c` FROM `t17` 	1022	0	0	1022	0	135168	0	136192	0	populated
+INSERT INTO `t17` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0	populated
+INSERT INTO `tm2_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0	populated
+INSERT INTO `tm_t17` SELECT * FROM `t17` 	0	0	0	1024	0	266240	0	266240	0	populated
+SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0	populated
+SELECT COUNT ( * ) FROM ( SELECT * FROM `t17` ) `v` 	0	0	0	1024	1	266240	0	267264	0	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t17` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672	populated
+SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+UPDATE `tm_t17` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0	populated
 Case 18: Multiple statement support for Temp Table Space and Filesort Space Statistics
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_stats_control="ON";
@@ -914,19 +944,21 @@ set session max_heap_table_size=16384;
 set global sql_stats_control = ON;
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
 s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-s.tmp_table_disk_usage, s.filesort_disk_usage
+s.tmp_table_disk_usage, s.filesort_disk_usage,
+case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
 from information_schema.sql_statistics s, information_schema.sql_text t
 where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
-sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-CREATE TABLE `t18` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
-INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1	0	0	2	0	0	0	0	0
-INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	510	0	0	510	0	118272	0	121344	0
-INSERT INTO `t18` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
-SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0
-SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0
-SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
+sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+CREATE TABLE `t18` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0	populated
+INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1	0	0	2	0	0	0	0	0	populated
+INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	510	0	0	510	0	118272	0	121344	0	populated
+INSERT INTO `t18` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0	populated
+SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0	populated
+SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
 insert into t18 select i+512,c from t18;
 select i, substr(c, 1, 10) from t18 group by i, c;
 select i, substr(c, 1, 10) from t18 order by i, c;
@@ -944,32 +976,34 @@ drop table t18;
 ||||
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
 s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-s.tmp_table_disk_usage, s.filesort_disk_usage
+s.tmp_table_disk_usage, s.filesort_disk_usage,
+case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
 from information_schema.sql_statistics s, information_schema.sql_text t
 where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8||||
-sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage
-CREATE TABLE `t18` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0
-CREATE TEMPORARY TABLE `tm2_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-CREATE TEMPORARY TABLE `tm_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0
-DELETE FROM `tm_t18` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0
-DROP TABLE `t18` 	0	0	0	0	0	0	0	0	0
-DROP TEMPORARY TABLE `tm2_t18` 	1024	0	0	0	0	0	0	0	0
-DROP TEMPORARY TABLE `tm_t18` 	1024	1024	100	2048	0	0	0	0	0
-INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1	0	0	2	0	0	0	0	0
-INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1022	0	0	1022	0	253440	0	257536	0
-INSERT INTO `t18` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0
-INSERT INTO `tm2_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0
-INSERT INTO `tm_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0
-SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0
-SELECT COUNT ( * ) FROM ( SELECT * FROM `t18` ) `v` 	0	0	0	1024	1	266240	0	267264	0
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248
-SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672
-SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0
-SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0
-SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0
-UPDATE `tm_t18` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0
+sql_text	rows_inserted	rows_updated	rows_deleted	rows_read	rows_sent	tmp_table_bytes_written	filesort_bytes_written	tmp_table_disk_usage	filesort_disk_usage	elapsed_time
+CREATE TABLE `t18` ( `i` INTEGER , `c` CHARACTER (?) ) 	0	0	0	0	0	0	0	0	0	populated
+CREATE TEMPORARY TABLE `tm2_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+CREATE TEMPORARY TABLE `tm_t18` ( `i` INTEGER , `c` CHARACTER (?) ) ENGINE = `myisam` 	0	0	0	0	0	0	0	1024	0	populated
+DELETE FROM `tm_t18` WHERE `i` < ? 	0	0	0	0	0	700	0	0	0	populated
+DROP TABLE `t18` 	0	0	0	0	0	0	0	0	0	populated
+DROP TEMPORARY TABLE `tm2_t18` 	1024	0	0	0	0	0	0	0	0	populated
+DROP TEMPORARY TABLE `tm_t18` 	1024	1024	100	2048	0	0	0	0	0	populated
+INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1	0	0	2	0	0	0	0	0	populated
+INSERT INTO `t18` SELECT `i` + ? , `c` FROM `t18` 	1022	0	0	1022	0	253440	0	257536	0	populated
+INSERT INTO `t18` VALUES ( ? , `lpad` (...) ) 	1	0	0	0	0	0	0	0	0	populated
+INSERT INTO `tm2_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0	populated
+INSERT INTO `tm_t18` SELECT * FROM `t18` 	0	0	0	1024	0	266240	0	266240	0	populated
+SELECT @@`sql_stats_control` 	0	0	0	0	1	0	0	0	0	populated
+SELECT COUNT ( * ) FROM ( SELECT * FROM `t18` ) `v` 	0	0	0	1024	1	266240	0	267264	0	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` GROUP BY `i` , `c` 	0	0	0	1024	1024	282624	826512	677888	808960	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` GROUP BY `i` , `c` ORDER BY `i` , `c` 	0	0	0	1024	1024	540672	1350848	935936	1333248	populated
+SELECT `i` , SUBSTRING ( `c` , ?, ... ) FROM `t18` ORDER BY `i` , `c` 	0	0	0	1024	1024	0	801936	0	796672	populated
+SET GLOBAL `sql_stats_control` = ON 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `max_heap_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+SET SESSION `tmp_table_size` = ? 	0	0	0	0	0	0	0	0	0	populated
+UPDATE `tm_t18` SET `c` = `lpad` (...) 	0	0	0	0	0	266240	0	0	0	populated
 set global sql_stats_control=OFF_HARD;
 create table idx_dive_tbl(a1 int, a2 int, a3 int, a4 int, a5 int,
 a6 int, a7 int, a8 int, a9 int, a10 int);
@@ -1368,3 +1402,31 @@ set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.max_digest_sample_age=-1;
 drop table t1;
 drop user user_super@localhost;
+Unit test for sql_statistics.elapsed_time
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+use test_db;
+set @@GLOBAL.sql_stats_control="ON";
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=2;
+set @@global.max_waiting_queries=2;
+create table t1(a int) engine=InnoDB;
+create table t2(a int) engine=InnoDB;
+lock table t2 write;
+use test_db;
+unlock tables;
+"*** Test Succeeded!!!***"
+drop database test_db;
+Cleanup
+Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+count(*)
+0
+select * from information_schema.admission_control_entities;
+SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;

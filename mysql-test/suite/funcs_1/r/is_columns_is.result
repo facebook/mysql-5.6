@@ -361,12 +361,13 @@ def	information_schema	SQL_PLANS	PLAN_DATA	3		NO	varchar	8192	24576	NULL	NULL	NU
 def	information_schema	SQL_PLANS	PLAN_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_PLANS	PLAN_LENGTH	2	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	CLIENT_ID	3		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
-def	information_schema	SQL_STATISTICS	COMPILATION_CPU	20	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	COMPILATION_CPU	21	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	ELAPSED_TIME	16	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	EXECUTION_COUNT	8	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	FILESORT_BYTES_WRITTEN	17	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	FILESORT_DISK_USAGE	22	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	INDEX_DIVE_COUNT	18	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11) unsigned			select	
-def	information_schema	SQL_STATISTICS	INDEX_DIVE_CPU	19	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	FILESORT_BYTES_WRITTEN	18	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	FILESORT_DISK_USAGE	23	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	INDEX_DIVE_COUNT	19	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11) unsigned			select	
+def	information_schema	SQL_STATISTICS	INDEX_DIVE_CPU	20	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	PLAN_ID	2	NULL	YES	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	QUERY_SAMPLE_SEEN	7	NULL	YES	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	SQL_STATISTICS	QUERY_SAMPLE_TEXT	6		NO	varchar	4096	12288	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(4096)			select	
@@ -378,8 +379,8 @@ def	information_schema	SQL_STATISTICS	ROWS_UPDATED	11	0	NO	bigint	NULL	NULL	20	0
 def	information_schema	SQL_STATISTICS	SKIPPED_COUNT	9	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	SQL_STATISTICS	TABLE_SCHEMA	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	SQL_STATISTICS	TMP_TABLE_BYTES_WRITTEN	16	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
-def	information_schema	SQL_STATISTICS	TMP_TABLE_DISK_USAGE	21	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	TMP_TABLE_BYTES_WRITTEN	17	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
+def	information_schema	SQL_STATISTICS	TMP_TABLE_DISK_USAGE	22	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	TOTAL_CPU	15	0	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	SQL_STATISTICS	USER_NAME	5		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	SQL_TEXT	SQL_ID	1		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
@@ -1142,6 +1143,7 @@ NULL	information_schema	SQL_STATISTICS	ROWS_DELETED	bigint	NULL	NULL	NULL	NULL	b
 NULL	information_schema	SQL_STATISTICS	ROWS_READ	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	ROWS_SENT	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	TOTAL_CPU	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
+NULL	information_schema	SQL_STATISTICS	ELAPSED_TIME	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	TMP_TABLE_BYTES_WRITTEN	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	FILESORT_BYTES_WRITTEN	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
 NULL	information_schema	SQL_STATISTICS	INDEX_DIVE_COUNT	int	NULL	NULL	NULL	NULL	int(11) unsigned

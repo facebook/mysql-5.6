@@ -260,6 +260,9 @@ ST_FIELD_INFO sql_stats_fields_info[]=
   {"TOTAL_CPU", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
 
+  {"ELAPSED_TIME", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+      0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
+
   {"TMP_TABLE_BYTES_WRITTEN", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
 
@@ -1663,7 +1666,8 @@ static bool valid_sql_stats(SQL_STATS *sql_stats)
       sql_stats->shared_stats.rows_updated == 0 &&
       sql_stats->shared_stats.rows_deleted == 0 &&
       sql_stats->shared_stats.rows_read == 0 &&
-      sql_stats->shared_stats.us_tot == 0)
+      sql_stats->shared_stats.stmt_cpu_utime == 0 &&
+      sql_stats->shared_stats.stmt_elapsed_utime == 0)
     return false;
   else
     return true;
@@ -1769,7 +1773,8 @@ void reset_sql_stats_from_thd(THD *thd, SHARED_SQL_STATS *stats)
   stats->rows_updated= thd->rows_updated;
   stats->rows_deleted= thd->rows_deleted;
   stats->rows_read= thd->rows_read;
-  stats->us_tot= thd->sql_cpu;
+  stats->stmt_cpu_utime = thd->sql_cpu;
+  stats->stmt_elapsed_utime = thd->stmt_elapsed_utime;
 }
 
 /*
@@ -1797,7 +1802,13 @@ void reset_sql_stats_from_diff(THD *thd, SHARED_SQL_STATS *prev_stats,
     thd->sql_cpu is per individual (sub-)query, and is not cumulative.
     So it does not need to be subtracted.
   */
-  stats->us_tot= thd->sql_cpu;
+  stats->stmt_cpu_utime = thd->sql_cpu;
+
+  /*
+    thd->stmt_elapsed_utime is per individual (sub-query), and is not
+    cumulative. So it does not need to be subtracted.
+  */
+  stats->stmt_elapsed_utime = thd->stmt_elapsed_utime;
 }
 
 /*
@@ -2212,7 +2223,10 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   sql_stats->shared_stats.rows_read += stats->rows_read;
 
   // Update CPU stats
-  sql_stats->shared_stats.us_tot += stats->us_tot;
+  sql_stats->shared_stats.stmt_cpu_utime += stats->stmt_cpu_utime;
+
+  // Update elapsed time
+  sql_stats->shared_stats.stmt_elapsed_utime += stats->stmt_elapsed_utime;
 
   mt_unlock(lock_acquired, &LOCK_global_sql_stats);
 }
@@ -2252,7 +2266,9 @@ static void sql_stats_merge(SQL_STATS *base, SQL_STATS *update, SQL_STATS **out,
   storage->shared_stats.rows_updated += update->shared_stats.rows_updated;
   storage->shared_stats.rows_deleted += update->shared_stats.rows_deleted;
   storage->shared_stats.rows_read += update->shared_stats.rows_read;
-  storage->shared_stats.us_tot += update->shared_stats.us_tot;
+  storage->shared_stats.stmt_cpu_utime += update->shared_stats.stmt_cpu_utime;
+  storage->shared_stats.stmt_elapsed_utime
+    += update->shared_stats.stmt_elapsed_utime;
   *out = storage;
 }
 
@@ -2564,7 +2580,9 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     /* Rows returned to the client */
     table->field[f++]->store(sql_stats->rows_sent, TRUE);
     /* Total CPU in microseconds */
-    table->field[f++]->store(sql_stats->shared_stats.us_tot, TRUE);
+    table->field[f++]->store(sql_stats->shared_stats.stmt_cpu_utime, TRUE);
+    /* Total Elapsed time in microseconds */
+    table->field[f++]->store(sql_stats->shared_stats.stmt_elapsed_utime, TRUE);
     /* Bytes written to temp table space */
     table->field[f++]->store(sql_stats->tmp_table_bytes_written, TRUE);
     /* Bytes written to filesort space */

@@ -4052,6 +4052,8 @@ public:
   */
   uint m_fb_json_functions_audited;
 
+  ulonglong stmt_elapsed_utime; /* statement elapsed time in microseconds */
+
   THD(bool enable_plugins= true);
 
   /*

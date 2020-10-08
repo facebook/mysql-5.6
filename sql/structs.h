@@ -533,7 +533,9 @@ typedef struct st_shared_sql_stats {
   ulonglong rows_read;
 
   /* CPU metrics */
-  ulonglong us_tot;  /* Total CPU time in microseconds */
+  ulonglong stmt_cpu_utime;  /* Statement total CPU time in microseconds */
+
+  ulonglong stmt_elapsed_utime; /* Statement elapsed time in microseconds */
 
   void reset()
   {
@@ -541,7 +543,8 @@ typedef struct st_shared_sql_stats {
     rows_updated= 0;
     rows_deleted= 0;
     rows_read= 0;
-    us_tot= 0;
+    stmt_cpu_utime = 0;
+    stmt_elapsed_utime = 0;
   }
 } SHARED_SQL_STATS;
 

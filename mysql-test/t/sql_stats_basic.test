@@ -106,7 +106,9 @@ order by 1;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -158,7 +160,9 @@ select 101;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -185,7 +189,9 @@ drop table t2;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -208,7 +214,9 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
   query_sample_seen, execution_count, rows_inserted, rows_updated,
 	rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -230,7 +238,9 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
   (query_sample_seen > 0) as is_query_sample_seen_valid, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id;
 
@@ -254,7 +264,9 @@ select sql_id, plan_id, table_schema, user_name, query_sample_text,
 	as is_query_sample_seen_valid, execution_count, rows_inserted,
 	rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 where sql_id = 'ea1a18bec5a37513f7a0720e73526477'
 order by sql_id;
@@ -286,7 +298,9 @@ drop table t10;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -321,7 +335,9 @@ drop table t11;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -356,7 +372,9 @@ drop table t12;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -392,7 +410,9 @@ drop table t13;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -427,7 +447,9 @@ drop table t14;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -461,7 +483,9 @@ drop table t15;
 select sql_id, plan_id, table_schema, user_name, execution_count,
 	rows_inserted, rows_updated, rows_deleted, rows_read, rows_sent,
         tmp_table_bytes_written, filesort_bytes_written,
-        tmp_table_disk_usage, filesort_disk_usage
+        tmp_table_disk_usage, filesort_disk_usage,
+        case when elapsed_time > 0 then "populated" else "not populated"
+        end elapsed_time
 from information_schema.sql_statistics
 order by sql_id||||
 
@@ -521,7 +545,9 @@ select count(*) from (select * from t17) v;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
        s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-       s.tmp_table_disk_usage, s.filesort_disk_usage
+       s.tmp_table_disk_usage, s.filesort_disk_usage,
+       case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -543,7 +569,9 @@ drop temporary table tm_t17;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
        s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-       s.tmp_table_disk_usage, s.filesort_disk_usage
+       s.tmp_table_disk_usage, s.filesort_disk_usage,
+       case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -552,7 +580,9 @@ drop table t17;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
        s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-       s.tmp_table_disk_usage, s.filesort_disk_usage
+       s.tmp_table_disk_usage, s.filesort_disk_usage,
+       case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -585,7 +615,9 @@ set global sql_stats_control = ON;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
        s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-       s.tmp_table_disk_usage, s.filesort_disk_usage
+       s.tmp_table_disk_usage, s.filesort_disk_usage,
+       case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8;
@@ -624,7 +656,9 @@ drop table t18;
 
 select t.sql_text, s.rows_inserted, s.rows_updated, s.rows_deleted,
        s.rows_read, s.rows_sent, s.tmp_table_bytes_written, s.filesort_bytes_written,
-       s.tmp_table_disk_usage, s.filesort_disk_usage
+       s.tmp_table_disk_usage, s.filesort_disk_usage,
+       case when s.elapsed_time > 0 then "populated" else "not populated"
+       end elapsed_time
   from information_schema.sql_statistics s, information_schema.sql_text t
  where s.sql_id = t.sql_id and t.sql_text not like '%information_schema%'
 order by 1,2,3,4,5,6,7,8||||
@@ -1121,5 +1155,153 @@ set @@GLOBAL.max_digest_sample_age=-1;
 drop table t1;
 drop user user_super@localhost;
 disconnect con13;
+
+#######################################
+### Unit test for sql_statistics.elapsed_time
+#######################################
+--echo Unit test for sql_statistics.elapsed_time
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+
+connection default;
+use test_db;
+set @@GLOBAL.sql_stats_control="ON";
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=2;
+set @@global.max_waiting_queries=2;
+## Create two tables
+create table t1(a int) engine=InnoDB;
+create table t2(a int) engine=InnoDB;
+
+# Write lock here ensures the insert queries will block on row lock and be
+# in running queue until unlock tables is executed. Lock only table 't2'
+lock table t2 write;
+
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+let $i= 2;
+while($i)
+{
+  connection con$i;
+  if ($i == 2)
+  {
+    send insert into t1 values(1);
+  }
+  if ($i == 1)
+  {
+    # This query will be in running queue
+    send insert into t2 values(1);
+  }
+  dec $i;
+}
+let $i= 4;
+while ($i != 2)
+{
+  connection con$i;
+  if ($i == 4)
+  {
+    send update t1 set a = a+1;
+  }
+  if ($i == 3)
+  {
+    # This query will be in running queue
+    send update t2 set a = a+1;
+  }
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+
+## Sleep for 5 seconds
+sleep 5;
+
+# Insert queries sent above will be unblocked by this.
+use test_db;
+unlock tables;
+
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+
+### Get the elapsed time for two insert queries and the two update queries
+let $query_ins1 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'INSERT INTO%t1%'";
+let $time_ins1 = query_get_value($query_ins1, elapsed_time, 1);
+
+let $query_ins2 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'INSERT INTO%t2%'";
+let $time_ins2 = query_get_value($query_ins2, elapsed_time, 1);
+
+let $query_upd1 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'UPDATE%t1%'";
+let $time_upd1 = query_get_value($query_upd1, elapsed_time, 1);
+
+let $query_upd2 = "select elapsed_time
+                     from information_schema.sql_statistics s, information_schema.sql_text t
+                    where s.sql_id = t.sql_id and sql_text like 'UPDATE%t2%'";
+let $time_upd2 = query_get_value($query_upd2, elapsed_time, 1);
+
+let $success = 0;
+## The insert and update queries on t1 should finish in a few micro seconds
+## But the insert and update queries on t2 should take more than 5 seconds
+## (due to sleep above)
+if ($time_ins1 < 1000000 and $time_ins2 > 5000000
+    and $time_upd1 < 1000000 and $time_upd2 > 5000000) {
+  echo "*** Test Succeeded!!!***";
+  let $success = 1;
+}
+
+if (!$success)
+{
+  echo "*** Test Failed!!!***";
+}
+drop database test_db;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+--echo Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+select * from information_schema.admission_control_entities;
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+disable_query_log;
+disable_result_log;
+let $i= 4;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+enable_query_log;
+enable_result_log;
 
 --source include/wait_until_count_sessions.inc

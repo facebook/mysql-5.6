@@ -6763,6 +6763,9 @@ finish:
     ulonglong microsecs= (ulonglong)
       my_timer_to_microseconds(latency);
 
+    /* update the statement elapsed time of the thread */
+    thd->stmt_elapsed_utime = microsecs;
+
     switch (lex->sql_command) {
     case SQLCOM_UPDATE:
     case SQLCOM_UPDATE_MULTI:
