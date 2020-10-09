@@ -1221,7 +1221,7 @@ ulong get_mts_parallel_option();
 /**
    Returns whether slave commit order is preserved
 */
-bool get_slave_preserve_commit_order();
+ulong get_slave_preserve_commit_order();
 
 /**
  * Set the priority of an OS thread.

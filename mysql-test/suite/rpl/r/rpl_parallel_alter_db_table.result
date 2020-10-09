@@ -13,7 +13,7 @@ SET @saved_slave_preserve_commit_order = @@GLOBAL.slave_preserve_commit_order;
 SET @saved_debug= @@GLOBAL.debug;
 SET GLOBAL slave_parallel_type = LOGICAL_CLOCK;
 SET GLOBAL slave_parallel_workers = 4;
-SET GLOBAL slave_preserve_commit_order= ON;
+SET GLOBAL slave_preserve_commit_order= DB;
 set GLOBAL debug="+d,delay_alter_table_by_one_second";
 INSERT INTO d1.t1 VALUES(1, "");
 ALTER TABLE d1.t1 ADD PRIMARY KEY (a);

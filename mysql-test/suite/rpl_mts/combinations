@@ -11,7 +11,7 @@ binlog-format=mixed
 binlog-format=row
 slave_use_idempotent_for_recovery=yes
 mts_dependency_replication=TBL
-slave_preserve_commit_order=TRUE
+slave_preserve_commit_order=DB
 slave_tx_isolation=READ-COMMITTED
 slave_parallel_type=DEPENDENCY
 
@@ -19,6 +19,6 @@ slave_parallel_type=DEPENDENCY
 binlog-format=row
 slave_use_idempotent_for_recovery=yes
 mts_dependency_replication=STMT
-slave_preserve_commit_order=TRUE
+slave_preserve_commit_order=DB
 slave_tx_isolation=READ-COMMITTED
 slave_parallel_type=DEPENDENCY
