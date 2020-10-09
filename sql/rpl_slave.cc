@@ -3569,10 +3569,19 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
         special marker to say "consider we have caught up".
       */
       if (mi->rli->last_master_timestamp == 0) {
-        sbm_is_zero = true;
+        /*
+          If the I/O thread is encountering problems during initailization,
+          then display NULL instead of 0.
+        */
+        sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+        sbm_is_null = !sbm_is_zero;
       }
-      protocol->store(
-          (longlong)(mi->rli->last_master_timestamp ? max(0L, time_diff) : 0));
+      if (sbm_is_null) {
+        protocol->store_null();
+      } else {
+        protocol->store((longlong)(
+            mi->rli->last_master_timestamp ? max(0L, time_diff) : 0));
+      }
     }
   } else {
     protocol->store_null();

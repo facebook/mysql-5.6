@@ -7,6 +7,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 drop table if exists t1;
+call mtr.add_suppression("Got fatal error 1236 from master when reading data from binary log");
 Should be ON
 show global variables like "reset_seconds_behind_master";
 Variable_name	Value
@@ -44,6 +45,17 @@ start slave;
 include/wait_for_slave_io_to_start.inc
 Should be 1
 1
+stop slave;
+flush logs;
+PURGE BINARY LOGS TO '<CURRENT_BINLOG>';
+reset slave all;
+set global reset_seconds_behind_master=0;
+change master to master_host='127.0.0.1', master_port=<MASTER_PORT>, master_user='root', master_log_file='<PURGED_BINLOG>', master_log_pos=0;
+start slave;
+seconds_behind_master with reset should be NULL and is NULL
+stop slave;
+change master to master_log_file='<CURRENT_BINLOG>', master_log_pos=0;
+start slave;
 #
 # Cleanup
 #

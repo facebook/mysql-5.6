@@ -8,6 +8,8 @@
 drop table if exists t1;
 --enable_warnings
 
+call mtr.add_suppression("Got fatal error 1236 from master when reading data from binary log");
+
 connection slave;
 --echo Should be ON
 show global variables like "reset_seconds_behind_master";
@@ -69,7 +71,37 @@ start slave;
 --echo Should be 1
 --echo $diff
 
+# sbm should return NULL for case where replication is failing
+# immediately after initialization
+#
+# This test first resets the secondary replication state, then
+# adds a new transaction to the primary, but purges all binary logs after
+# The secondary's I/O thread should fail to find the binlog needed.
+connection slave;
+stop slave;
+
 connection master;
+--let $purged_binlog_file= query_get_value(SHOW MASTER STATUS, File, 1)
+flush logs;
+--let $current_binlog_file= query_get_value(SHOW MASTER STATUS, File, 1)
+--replace_result $current_binlog_file <CURRENT_BINLOG>
+eval PURGE BINARY LOGS TO '$current_binlog_file';
+
+connection slave;
+reset slave all;
+set global reset_seconds_behind_master=0;
+--disable_warnings
+--replace_result $purged_binlog_file <PURGED_BINLOG> $MASTER_MYPORT <MASTER_PORT>
+eval change master to master_host='127.0.0.1', master_port=$MASTER_MYPORT, master_user='root', master_log_file='$purged_binlog_file', master_log_pos=0;
+--enable_warnings
+start slave;
+--sleep 2
+let $sbm = query_get_value(SHOW SLAVE STATUS, Seconds_Behind_Master, 1);
+--echo seconds_behind_master with reset should be NULL and is $sbm
+stop slave;
+--replace_result $current_binlog_file <CURRENT_BINLOG>
+eval change master to master_log_file='$current_binlog_file', master_log_pos=0;
+start slave;
 
 --echo #
 --echo # Cleanup
