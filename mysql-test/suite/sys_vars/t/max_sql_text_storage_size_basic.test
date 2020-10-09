@@ -1,0 +1,54 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify the default value
+####
+--echo Default value of max_sql_text_storage_size is 1024
+select @@global.max_sql_text_storage_size;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.max_sql_text_storage_size;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+# Query from various sources
+####
+show global variables like 'max_sql_text_storage_size';
+
+show session variables like 'max_sql_text_storage_size';
+
+--disable_warnings
+select * from information_schema.global_variables
+  where variable_name='max_sql_text_storage_size';
+
+select * from information_schema.session_variables
+  where variable_name='max_sql_text_storage_size';
+--enable_warnings
+
+####
+## Verify that the variable is read-only
+####
+--echo max_sql_text_storage_size is a read-only variable
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set @@global.max_sql_text_storage_size = 17;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set @@session.max_sql_text_storage_size = 19;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (103)
+--let $_mysqld_option=--max_sql_text_storage_size=103
+--source include/restart_mysqld_with_option.inc
+
+SELECT @@global.max_sql_text_storage_size;
+
+--echo restart the server with the default value (1024)
+--source include/restart_mysqld.inc
+
+# check value is default (1024)
+SELECT @@global.max_sql_text_storage_size;

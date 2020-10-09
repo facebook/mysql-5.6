@@ -76,6 +76,12 @@ struct sql_digest_storage
     return (m_byte_count == 0);
   }
 
+  inline size_t length() const
+  {
+    DBUG_ASSERT(m_byte_count <= m_token_array_length);
+    return m_byte_count;
+  }
+
   inline void copy(const sql_digest_storage *from)
   {
     /*

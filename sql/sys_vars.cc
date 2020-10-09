@@ -6871,6 +6871,14 @@ static Sys_var_ulonglong Sys_max_sql_stats_size(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(update_max_sql_stats_limits));
 
+static Sys_var_uint Sys_max_sql_text_storage_size(
+       "max_sql_text_storage_size",
+       "Maximum allowed memory to store each normalized SQL text (in bytes).",
+       READ_ONLY GLOBAL_VAR(max_sql_text_storage_size),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, SQL_TEXT_COL_SIZE),
+       DEFAULT(1024),
+       BLOCK_SIZE(1));
+
 static bool set_column_stats_control(sys_var *, THD *, enum_var_type type)
 {
   if (column_stats_control == SQL_INFO_CONTROL_OFF_HARD) {

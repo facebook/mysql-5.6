@@ -90,7 +90,7 @@ select cname from t1 where c=3;
 
 --echo Case 3b: sql_stats_control=ON, big queries, around 5000 chars
 # A big query: > 4k characters: ~4730 characters
-select cname from t1 where c=902
+let $big_query = select cname from t1 where c=902
 union
 select cname from t1 where c=2
 union
@@ -346,8 +346,11 @@ select cname from t1 where c=3
 union
 select cname from t1 where c=3;
 
+eval $big_query;
 select * from information_schema.sql_text
 order by sql_id;
+
+drop table t1;
 
 ####################################################
 ### Case 4: sql_stats_control=OFF_SOFT. Disable collection, but keep the data around.
@@ -404,14 +407,36 @@ order by sql_id||||
 # reset delimiter
 delimiter ;||||
 
+####################################################
+### Case 8: sql_stats_control=ON, max_digest_length=4096, max_sql_text_storage_size=4096, big queries.
+####################################################
+--echo Case 8: sql_stats_control=ON, max_digest_length=4096, max_sql_text_storage_size=4096, big queries.
+
+# max_digest_length and max_sql_text_storage_size are readonly variables.
+# So a server restart is needed to set them.
+--let $_mysqld_option= "--max_digest_length=4096 --max_sql_text_storage_size=4096"
+--source include/restart_mysqld_with_option.inc
+select @@max_digest_length;
+select @@max_sql_text_storage_size;
+
+set global sql_stats_control=on;
+create table t1(c int, cname varchar(20));
+
+# A big query: > 4k characters: ~4730 characters
+--disable_query_log
+eval $big_query;
+
+--enable_query_log
+
+select * from information_schema.sql_text
+order by sql_id;
+
+drop table t1;
+
+--source include/restart_mysqld.inc
+
 ###########
 ### Cleanup
 ###########
 --echo Cleanup
-connection default;
-set @@GLOBAL.sql_stats_control="OFF_HARD";
-drop table t1;
 drop user user_super@localhost;
-disconnect con13;
-
---source include/wait_until_count_sessions.inc

@@ -598,7 +598,7 @@ typedef struct st_sql_text {
     we can remove if memory is a concern.
   */
   struct sql_digest_storage digest_storage;
-  unsigned char token_array_storage[1024];
+  unsigned char *token_array_storage;
 } SQL_TEXT;
 
 /* SQL Finding - stores information about one SQL finding */

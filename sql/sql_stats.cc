@@ -236,7 +236,8 @@ ST_FIELD_INFO sql_stats_fields_info[]=
       0, 0, 0, SKIP_OPEN_TABLE},
   {"USER_NAME", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING,
       0, 0, 0, SKIP_OPEN_TABLE},
-  {"QUERY_SAMPLE_TEXT", 4096, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"QUERY_SAMPLE_TEXT", SQL_TEXT_COL_SIZE, MYSQL_TYPE_STRING,
+      0, 0, 0, SKIP_OPEN_TABLE},
   {"QUERY_SAMPLE_SEEN", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_DATETIME,
       0, MY_I_S_MAYBE_NULL, 0, SKIP_OPEN_TABLE},
 
@@ -299,7 +300,7 @@ ST_FIELD_INFO sql_text_fields_info[]=
   {"SQL_TYPE", 16, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
   {"SQL_TEXT_LENGTH", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
       0, MY_I_S_UNSIGNED, 0, SKIP_OPEN_TABLE},
-  {"SQL_TEXT", 4096, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"SQL_TEXT", SQL_TEXT_COL_SIZE, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
@@ -1435,16 +1436,21 @@ ulonglong max_sql_stats_size;
 ulonglong sql_stats_count= 0;
 ulonglong sql_stats_size= 0; // extern from mysqld.h
 
-extern ulonglong sql_plans_size;
-ulonglong sql_findings_size = 0;
-
-
 /*
   These are used to determine if existing stats need to be flushed on changing
   the limits.
 */
 ulonglong current_max_sql_stats_count= 0;
 ulonglong current_max_sql_stats_size= 0;
+
+extern ulonglong sql_plans_size;
+ulonglong sql_findings_size = 0;
+
+/*
+  max_sql_text_storage_size is the maximum size of the sql text's underlying
+  token array.
+*/
+uint max_sql_text_storage_size;
 
 /**
   @brief Create and initialize global objects storing SQL stats.
@@ -1760,20 +1766,32 @@ static void set_sql_stats_attributes(
 	stats->query_sample_seen = 0;
 }
 
-static void set_sql_text_attributes(
+static bool set_sql_text_attributes(
   SQL_TEXT *sql_text_struct,
   enum_sql_command sql_type,
   const sql_digest_storage *digest_storage)
 {
   sql_text_struct->sql_type = sql_type;
-  sql_text_struct->digest_storage.reset(sql_text_struct->token_array_storage,
-                                        sizeof(sql_text_struct->token_array_storage));
+
   // Compute digest just to get length.
   String digest_text;
   compute_digest_text(digest_storage, &digest_text);
   sql_text_struct->sql_text_length = digest_text.length();
 
+  // Allocate just the minimum necessary token array storage.
+  uint token_array_len = std::min((uint)digest_storage->length(),
+                                  max_sql_text_storage_size);
+  if (!(sql_text_struct->token_array_storage =
+      (unsigned char *)my_malloc(token_array_len, MYF(MY_WME))))
+  {
+    return false;
+  }
+  sql_text_struct->digest_storage.reset(sql_text_struct->token_array_storage,
+                                        token_array_len);
+
   sql_text_struct->digest_storage.copy(digest_storage);
+
+  return true;
 }
 
 /*
@@ -1846,7 +1864,10 @@ static void free_sql_stats_maps(Sql_stats_maps &stats_maps)
   for (auto it= stats_maps.text->begin(); it != stats_maps.text->end(); ++it)
   {
     if (it->second)
+    {
+      my_free(it->second->token_array_storage);
       my_free(it->second);
+    }
   }
   stats_maps.text->clear();
 
@@ -2137,20 +2158,20 @@ void update_sql_stats_after_statement(THD *thd, SHARED_SQL_STATS *stats, char* s
   if (sql_text_iter == global_sql_stats.text->end())
   {
     SQL_TEXT *sql_text;
-    if (!(sql_text= ((SQL_TEXT*)my_malloc(sizeof(SQL_TEXT), MYF(MY_WME)))))
+    if (!(sql_text= ((SQL_TEXT*)my_malloc(sizeof(SQL_TEXT), MYF(MY_WME)))) ||
+        !(set_sql_text_attributes(sql_text, thd->lex->sql_command,
+                            &thd->m_digest->m_digest_storage)))
     {
       sql_print_error("Cannot allocate memory for SQL_TEXT.");
       mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
     }
 
-    set_sql_text_attributes(sql_text, thd->lex->sql_command,
-                            &thd->m_digest->m_digest_storage);
-
     auto ret= global_sql_stats.text->emplace(thd->mt_key_value(THD::SQL_ID), sql_text);
     if (!ret.second)
     {
       sql_print_error("Failed to insert SQL_TEXT into the hash map.");
+      my_free((char*)sql_text->token_array_storage);
       my_free((char*)sql_text);
       mt_unlock(lock_acquired, &LOCK_global_sql_stats);
       return;
@@ -2659,7 +2680,7 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_text->sql_text_length, TRUE);
     /* SQL Text */
     table->field[f++]->store(digest_text.c_ptr(),
-                             std::min(digest_text.length(), (uint)4096),
+                             std::min(digest_text.length(), SQL_TEXT_COL_SIZE),
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))

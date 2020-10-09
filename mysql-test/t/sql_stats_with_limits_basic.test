@@ -92,12 +92,12 @@ select * from information_schema.sql_text
 order by sql_id;
 
 ####################################################
-### Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=5KB.
+### Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1.2KB.
 ###         Stats hit the size limit.
 ####################################################
---echo Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=5KB. Stats hit the size limit.
+--echo Case 6: sql_stats_control=ON, default max_sql_stats_count, max_sql_stats_size=1.2KB. Stats hit the size limit.
 set @@GLOBAL.max_sql_stats_count=100000;
-set @@GLOBAL.max_sql_stats_size=6144;
+set @@GLOBAL.max_sql_stats_size=1280;
 select @@sql_stats_control;
 select @@max_sql_stats_count;
 select @@max_sql_stats_size;
@@ -120,7 +120,7 @@ order by sql_id;
 ### Case 7: sql_stats_control=ON, updating max_sql_stats_size should reset the memory and restart the collection.
 ####################################################
 --echo Case 7: sql_stats_control=ON, updating max_sql_stats_size should reset the memory and restart the collection
-set @@GLOBAL.max_sql_stats_size=4096;
+set @@GLOBAL.max_sql_stats_size=512;
 select @@max_sql_stats_size;
 select * from information_schema.sql_text
 order by sql_id;
