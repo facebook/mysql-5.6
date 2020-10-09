@@ -10832,7 +10832,8 @@ static int check_slave_sql_config_conflict(const Relay_log_info *rli) {
 
   const auto slave_preserve_commit_order = get_slave_preserve_commit_order();
   if (slave_preserve_commit_order && slave_parallel_workers > 0) {
-    if (channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
+    if (slave_preserve_commit_order != DEP_RPL_ORDER_DB &&
+        channel_mts_submode == MTS_PARALLEL_TYPE_DB_NAME) {
       my_error(ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER, MYF(0),
                "when slave_parallel_type is DATABASE");
       return ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER;

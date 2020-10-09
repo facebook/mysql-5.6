@@ -17,7 +17,7 @@ include/sync_slave_sql_with_master.inc
 #
 include/stop_slave_sql.inc
 SET @saved_slave_preserve_commit_order = @@GLOBAL.slave_preserve_commit_order;
-SET GLOBAL slave_preserve_commit_order = ON;
+SET GLOBAL slave_preserve_commit_order = DB;
 #
 # 2.2 Set innodb_lock_wait_timeout to 300 to make test work without issues
 # on slow platform runs.

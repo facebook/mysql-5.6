@@ -23,4 +23,4 @@ SELECT @@GLOBAL.log_slave_updates;
 include/assert_grep.inc [Found the expected warning "slave_preserve_commit_order is not supported unless both log_bin and log_slave_updates are enabled." in server's error log.]
 SELECT @@GLOBAL.slave_preserve_commit_order;
 @@GLOBAL.slave_preserve_commit_order
-1
+DB

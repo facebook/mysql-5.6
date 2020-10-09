@@ -8,8 +8,8 @@ CALL mtr.add_suppression(".* slave_preserve_commit_order is not supported unless
 include/assert_grep.inc [Slave incompatible configuration error present in log]
 START SLAVE;
 ERROR HY000: slave_preserve_commit_order is not supported unless both log_bin and log_slave_updates are enabled.
-SET @@GLOBAL.slave_preserve_commit_order= FALSE;
+SET @@GLOBAL.slave_preserve_commit_order= NONE;
 include/start_slave.inc
 include/stop_slave.inc
-SET @@GLOBAL.slave_preserve_commit_order= TRUE;
+SET @@GLOBAL.slave_preserve_commit_order= DB;
 include/rpl_end.inc

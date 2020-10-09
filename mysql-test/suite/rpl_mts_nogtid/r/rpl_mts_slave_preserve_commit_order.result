@@ -100,8 +100,11 @@ include/sync_slave_sql_with_master.inc
 # used with DB PARTITIONED MTS together
 #
 include/stop_slave_sql.inc
+SET @slave_preserver_commit_order_saved= @@GLOBAL.SLAVE_PRESERVE_COMMIT_ORDER;
 SET GLOBAL slave_parallel_type = 'DATABASE';
+SET GLOBAL slave_preserve_commit_order=GLOBAL;
 START SLAVE SQL_THREAD;
 ERROR HY000: slave_preserve_commit_order is not supported when slave_parallel_type is DATABASE.
+SET GLOBAL SLAVE_PRESERVE_COMMIT_ORDER = @slave_preserver_commit_order_saved;
 SET GLOBAL slave_parallel_type = 'LOGICAL_CLOCK';
 include/rpl_end.inc

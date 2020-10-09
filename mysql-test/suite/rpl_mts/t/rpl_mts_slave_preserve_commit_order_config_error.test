@@ -49,7 +49,7 @@ CALL mtr.add_suppression(".* slave_preserve_commit_order is not supported unless
 --error ER_DONT_SUPPORT_SLAVE_PRESERVE_COMMIT_ORDER
 START SLAVE;
 
-SET @@GLOBAL.slave_preserve_commit_order= FALSE;
+SET @@GLOBAL.slave_preserve_commit_order= NONE;
 
 # starting the slave does not produce the error because the value of
 # slave_preserve_commit_order is no longer incompatible with the initial
@@ -58,6 +58,6 @@ SET @@GLOBAL.slave_preserve_commit_order= FALSE;
 
 #Cleanup
 --source include/stop_slave.inc
-SET @@GLOBAL.slave_preserve_commit_order= TRUE;
+SET @@GLOBAL.slave_preserve_commit_order= DB;
 --let $rpl_only_running_threads= 1
 --source include/rpl_end.inc

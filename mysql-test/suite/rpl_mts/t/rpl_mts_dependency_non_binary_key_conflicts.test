@@ -8,7 +8,7 @@ set @save.slave_parallel_workers= @@global.slave_parallel_workers;
 set @save.slave_preserve_commit_order= @@global.slave_preserve_commit_order;
 set @save.debug= @@global.debug;
 set @@global.slave_parallel_workers= 2;
-set @@global.slave_preserve_commit_order= false;
+set @@global.slave_preserve_commit_order= NONE;
 set @@global.debug= '+d,dbug.dep_wait_before_update_execution';
 source include/start_slave.inc;
 

@@ -44,7 +44,7 @@ CREATE TABLE t2(c1 INT PRIMARY KEY) ENGINE = InnoDB;
 --echo #
 --source include/stop_slave_sql.inc
 SET @saved_slave_preserve_commit_order = @@GLOBAL.slave_preserve_commit_order;
-SET GLOBAL slave_preserve_commit_order = ON;
+SET GLOBAL slave_preserve_commit_order = DB;
 
 --echo #
 --echo # 2.2 Set innodb_lock_wait_timeout to 300 to make test work without issues

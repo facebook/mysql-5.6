@@ -56,6 +56,7 @@
 #include "sql/mysqld.h"
 #include "sql/protocol.h"
 #include "sql/rpl_trx_tracking.h"
+#include "sql/sql_class.h"
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
@@ -4187,15 +4188,15 @@ static Sys_var_ulong Binlog_transaction_dependency_history_size(
     BLOCK_SIZE(1), &PLock_slave_trans_dep_tracker, NOT_IN_BINLOG,
     ON_CHECK(NULL), ON_UPDATE(NULL));
 
-extern bool opt_slave_preserve_commit_order;
-static Sys_var_bool Sys_slave_preserve_commit_order(
+static const char *commit_order_type_names[] = {"NONE", "DB", "GLOBAL", NullS};
+extern ulong opt_slave_preserve_commit_order;
+static Sys_var_enum Sys_slave_preserve_commit_order(
     "slave_preserve_commit_order",
     "Force slave workers to make commits in the same order as on the master. "
-    "Disabled by default.",
-    PERSIST_AS_READONLY GLOBAL_VAR(opt_slave_preserve_commit_order),
-    CMD_LINE(OPT_ARG, OPT_SLAVE_PRESERVE_COMMIT_ORDER), DEFAULT(false),
-    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_slave_stopped),
-    ON_UPDATE(NULL));
+    "by default preserve per database commit order.",
+    GLOBAL_VAR(opt_slave_preserve_commit_order), CMD_LINE(OPT_ARG),
+    commit_order_type_names, DEFAULT(DEP_RPL_ORDER_DB), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_slave_stopped), ON_UPDATE(NULL));
 
 bool Sys_var_charptr::global_update(THD *, set_var *var) {
   char *new_val, *ptr = var->save_result.string_value.str;
