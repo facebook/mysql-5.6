@@ -1423,6 +1423,7 @@ ulong opt_mts_dependency_replication;
 ulonglong opt_mts_dependency_size;
 double opt_mts_dependency_refill_threshold;
 ulonglong opt_mts_dependency_max_keys;
+ulong opt_mts_dependency_order_commits;
 #ifndef DBUG_OFF
 uint slave_rows_last_search_algorithm_used;
 #endif
@@ -13374,10 +13375,16 @@ ulong get_mts_parallel_option() {
 }
 
 bool get_slave_preserve_commit_order() {
-  /* For compat with 5.6 so that you can turn off DP by setting to None */
-  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY &&
-      opt_mts_dependency_replication == DEP_RPL_NONE) {
-    return false;
+  if (mts_parallel_option == MTS_PARALLEL_TYPE_DEPENDENCY) {
+    /* For compat with 5.6 so that you can turn off DP by setting to None */
+    if (opt_mts_dependency_replication == DEP_RPL_NONE) {
+      return false;
+    }
+
+    /* If DP is ON, then the order is fully controled by
+      opt_mts_dependency_order_commits, this ensures we preserve slave
+      commit order by default and also can be turned off */
+    return (opt_mts_dependency_order_commits != DEP_RPL_ORDER_NONE);
   }
 
   return opt_slave_preserve_commit_order;
