@@ -1197,8 +1197,11 @@ void store_long_qry_abort_log(THD *thd)
   bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
   WRITE_THROTTLING_LOG log{};
   time_t timestamp = my_time(0);
-  auto &inserted_log
-    = global_long_qry_abort_log.insert(std::make_pair(md5_hex_buffer, log)).first->second;
+  auto &inserted_log =
+    global_long_qry_abort_log
+      .insert(
+        std::make_pair(std::string(md5_hex_buffer, MD5_BUFF_LENGTH), log))
+      .first->second;
   inserted_log.last_time = timestamp;
   inserted_log.count++;
   mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
