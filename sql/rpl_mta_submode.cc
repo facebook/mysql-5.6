@@ -1203,7 +1203,9 @@ std::shared_ptr<Log_event_wrapper> Mts_submode_dependency::dequeue(
   // case: place ourselves in the commit order queue
   if (ret && co_mngr != nullptr) {
     assert(rli->slave_preserve_commit_order);
-    worker->set_current_db(ret->get_db());
+    // case: if we need to order commits by DB we set current DB
+    if (rli->mts_dependency_order_commits == DEP_RPL_ORDER_DB)
+      worker->set_current_db(ret->get_db());
     co_mngr->register_trx(worker);
   }
 

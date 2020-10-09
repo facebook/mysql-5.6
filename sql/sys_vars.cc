@@ -7042,6 +7042,7 @@ static Sys_var_double Sys_mts_imbalance_threshold(
     VALID_RANGE(0, 100), DEFAULT(90));
 
 static const char *dep_rpl_type_names[] = {"NONE", "TBL", "STMT", NullS};
+static const char *commit_order_type_names[] = {"NONE", "DB", "GLOBAL", NullS};
 
 static Sys_var_enum Sys_mts_dependency_replication(
     "mts_dependency_replication", "Use dependency based replication",
@@ -7067,6 +7068,12 @@ static Sys_var_ulonglong Sys_mts_dependency_max_keys(
     "isolation. This limits the amount of metadata we'll need to maintain.",
     GLOBAL_VAR(opt_mts_dependency_max_keys), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_MAX), DEFAULT(100000), BLOCK_SIZE(1));
+
+static Sys_var_enum Sys_mts_dependency_order_commits(
+    "mts_dependency_order_commits",
+    "Commit trxs in the same order as the master (per database or globally)",
+    GLOBAL_VAR(opt_mts_dependency_order_commits), CMD_LINE(OPT_ARG),
+    commit_order_type_names, DEFAULT(DEP_RPL_ORDER_DB));
 
 static Sys_var_ulonglong Sys_replica_pending_jobs_size_max(
     "replica_pending_jobs_size_max",

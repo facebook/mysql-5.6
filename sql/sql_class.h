@@ -211,6 +211,12 @@ enum enum_mts_dependency_replication {
   DEP_RPL_STATEMENT,
 };
 
+enum enum_mts_dependency_order_commits {
+  DEP_RPL_ORDER_NONE,
+  DEP_RPL_ORDER_DB,
+  DEP_RPL_ORDER_GLOBAL,
+};
+
 enum enum_i_s_engine {
   I_S_MEMORY,
   I_S_TEMPTABLE,

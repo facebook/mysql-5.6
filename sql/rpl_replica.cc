@@ -7514,6 +7514,7 @@ extern "C" void *handle_slave_sql(void *arg) {
     rli->mts_dependency_refill_threshold = opt_mts_dependency_refill_threshold;
     rli->mts_dependency_max_keys = opt_mts_dependency_max_keys;
     rli->slave_preserve_commit_order = replica_preserve_commit_order;
+    rli->mts_dependency_order_commits = opt_mts_dependency_order_commits;
 
     if (is_mts_parallel_type_dependency(rli) &&
         !slave_use_idempotent_for_recovery_options) {

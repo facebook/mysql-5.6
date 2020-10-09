@@ -7,6 +7,10 @@ stop replica;
 set @save.replica_parallel_workers= @@global.replica_parallel_workers;
 set @@global.replica_parallel_workers= 8;
 start replica;
+select @@global.mts_dependency_order_commits;
+@@global.mts_dependency_order_commits
+DB
+set @save.mts_dependency_order_commits= @@global.mts_dependency_order_commits;
 create database d1;
 create database d2;
 create table d1.t1(a int primary key) engine=innodb;
@@ -49,7 +53,44 @@ select * from d2.t1;
 a
 1
 10
+stop replica;
+set @@global.mts_dependency_order_commits = GLOBAL;
+start replica;
+delete from d1.t1;
+delete from d1.t2;
+delete from d2.t1;
+insert into d1.t1 values(1);
+begin;
+update d1.t1 set a = 2 where a = 1;
+update d1.t1 set a = 3 where a = 1;
+insert into d2.t1 values(1);
+begin;
+insert into d1.t1 values(10);
+insert into d2.t1 values(10);
+commit;
+"d1.t1 should contain a single row with value 1"
+select * from d1.t1;
+a
+1
+"d2.t1 should also be empty"
+select * from d2.t1;
+a
+rollback;
+"Final states"
+select * from d1.t1;
+a
+3
+10
+select * from d1.t2;
+a
+select * from d2.t1;
+a
+1
+10
+stop replica;
 set @@global.replica_parallel_workers= @save.replica_parallel_workers;
+set @@global.mts_dependency_order_commits= @save.mts_dependency_order_commits;
+start replica;
 drop database d1;
 drop database d2;
 include/rpl_end.inc
