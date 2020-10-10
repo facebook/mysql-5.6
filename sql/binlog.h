@@ -542,6 +542,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /* This is relay log */
   bool is_relay_log;
 
+  ulong signal_cnt;          // update of the counter is checked by heartbeat
   uint8 checksum_alg_reset;  // to contain a new value when binlog is rotated
   /*
     Holds the last seen in Relay-Log FD's checksum alg value.
