@@ -483,6 +483,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   /* This is relay log */
   bool is_relay_log;
 
+  ulong signal_cnt;          // update of the counter is checked by heartbeat
   uint8 checksum_alg_reset;  // to contain a new value when binlog is rotated
   /*
     Holds the last seen in Relay-Log FD's checksum alg value.
@@ -943,6 +944,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void set_max_size(ulong max_size_arg);
   void signal_update() {
     DBUG_TRACE;
+    DBUG_EXECUTE_IF("simulate_delay_in_binlog_signal_update", sleep(1););
+    signal_cnt++;
     mysql_cond_broadcast(&update_cond);
     return;
   }

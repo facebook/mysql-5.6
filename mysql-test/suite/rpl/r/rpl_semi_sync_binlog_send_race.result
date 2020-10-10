@@ -1,0 +1,21 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/install_semisync.inc
+include/stop_slave.inc
+change master to master_heartbeat_period = 0.1;
+include/start_slave.inc
+create table t1 (a int);
+set @@global.debug= '+d,simulate_delay_in_binlog_signal_update';
+insert into t1 values (1);
+set @@global.debug= '-d,simulate_delay_in_binlog_signal_update';
+insert into t1 values (1);
+insert into t1 values (1);
+include/uninstall_semisync.inc
+include/stop_slave.inc
+include/start_slave.inc
+DROP TABLE t1;
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc

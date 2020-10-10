@@ -827,6 +827,7 @@ inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
 #endif
   struct timespec ts;
   int ret;
+  ulong signal_cnt = mysql_bin_log.signal_cnt;
 
   do {
     set_timespec_nsec(&ts, m_heartbeat_period.count());
@@ -843,7 +844,7 @@ inline int Binlog_sender::wait_with_heartbeat(my_off_t log_pos) {
     }
 #endif
     if (send_heartbeat_event(log_pos, true)) return 1;
-  } while (!m_thd->killed);
+  } while (signal_cnt == mysql_bin_log.signal_cnt && !m_thd->killed);
 
   return ret ? 1 : 0;
 }
