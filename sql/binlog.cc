@@ -3839,6 +3839,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
       ha_last_updated_binlog_file(0),
       non_xid_trxs(0),
       is_relay_log(relay_log),
+      signal_cnt(0),
       checksum_alg_reset(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       engine_binlog_pos(ULLONG_MAX),
@@ -10050,10 +10051,8 @@ int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
   else
     mysql_mutex_assert_owner(&LOCK_log);
 
-  // TODO(luqun): assign correct values
   ulong cur_log_ext = 0;
   ulonglong binlog_end_pos = 0;
-  ulong signal_cnt = 0;
 
   Raft_replication_observer::st_setup_flush_arg arg;
   arg.log_file_cache = m_binlog_file->get_io_cache();

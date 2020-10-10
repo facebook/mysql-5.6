@@ -1,0 +1,55 @@
+# Test of binlog sender with heartbeat to make sure it doesn't miss signals.
+#  - Setup semisync repl with short heartbeat of 100ms.
+#  - Set debug hook to delay signal by 1 sec while binlog mutex is held.
+#  - This will cause sender thread wait to timeout for heartbeat and wait
+#    to get the binlog mutex.
+#  - When signal is called the sender is not waiting on cond variable so
+#    the signal is noop, and the binlog mutex is released.
+#  - The sender thread gets the mutex and exits the wait with the timeout
+#    code. It sends the heartbeat and needs to check for missed signal
+#    otherwise it goes to wait again and will be stuck.
+
+source include/not_group_replication_plugin.inc;
+source include/have_debug_sync.inc;
+source include/master-slave.inc;
+source include/install_semisync.inc;
+
+# Set heartbeat to a small value.
+connection slave;
+source include/stop_slave.inc;
+let $heartbeat_timeout= query_get_value(select heartbeat_interval from performance_schema.replication_connection_configuration, heartbeat_interval, 1);
+change replication source to source_heartbeat_period = 0.1;
+source include/start_slave.inc;
+
+connection master;
+create table t1 (a int);
+
+# Now simulate 1 sec delay before signal that binlog is updated.
+set @@global.debug= '+d,simulate_delay_in_binlog_signal_update';
+
+# If binlog sender gets stuck this statement should timeout with warning in errorlog.
+insert into t1 values (1);
+
+# Turn off the delay.
+set @@global.debug= '-d,simulate_delay_in_binlog_signal_update';
+
+# Run two more statements to restart semisync replication and unblock binlog sender.
+insert into t1 values (1);
+insert into t1 values (1);
+
+#
+# Clean up
+#
+source include/uninstall_semisync.inc;
+
+connection slave;
+source include/stop_slave.inc;
+disable_query_log;
+eval change replication source to source_heartbeat_period=$heartbeat_timeout;
+enable_query_log;
+source include/start_slave.inc;
+
+connection master;
+DROP TABLE t1;
+source include/sync_slave_sql_with_master.inc;
+source include/rpl_end.inc;
