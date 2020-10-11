@@ -506,6 +506,8 @@ my_bool enable_acl_fast_lookup= 0;
 my_bool use_cached_table_stats_ptr;
 longlong max_digest_sample_age;
 ulonglong max_tmp_disk_usage;
+ulonglong tmp_table_disk_usage_period_peak = 0;
+ulonglong filesort_disk_usage_period_peak = 0;
 bool enable_raft_plugin= 0;
 bool disable_raft_log_repointing= 0;
 bool override_enable_raft_check= false;
@@ -10928,6 +10930,51 @@ static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
   return 0;
 }
 
+static int show_peak_with_reset(THD *thd, SHOW_VAR *var, char *buff,
+                                ulonglong &peak, ulonglong &usage)
+{
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  if (thd->variables.reset_period_status_vars)
+  {
+    /* First, reset to 0 not to miss updates to usage between reading it
+       and setting the peak. If update is missed then peak could be smaller
+       than current usage. */
+    ulonglong old_peak = my_atomic_fas64((int64 *)&peak, 0);
+    *reinterpret_cast<ulonglong *>(buff) = old_peak;
+
+    /* Now update peak with latest usage, possibly racing with others. */
+    old_peak = 0;
+    ulonglong new_value = my_atomic_load64((int64 *)&usage);
+    while (old_peak < new_value)
+    {
+      /* If Compare-And-Swap is unsuccessful then old_peak is updated. */
+      if (my_atomic_cas64((int64 *)&peak, (int64 *)&old_peak, new_value))
+        break;
+    }
+  }
+  else
+  {
+    *reinterpret_cast<ulonglong *>(buff) = my_atomic_load64((int64 *)&peak);
+  }
+
+  return 0;
+}
+
+static int show_filesort_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
+                                                char *buff)
+{
+  return show_peak_with_reset(thd, var, buff, filesort_disk_usage_period_peak,
+                              global_status_var.filesort_disk_usage);
+}
+
+static int show_tmp_table_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
+                                                 char *buff)
+{
+  return show_peak_with_reset(thd, var, buff, tmp_table_disk_usage_period_peak,
+                              global_status_var.tmp_table_disk_usage);
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -10997,6 +11044,7 @@ SHOW_VAR status_vars[]= {
   {"Exec_seconds",             (char*) offsetof(STATUS_VAR, exec_time), SHOW_TIMER_STATUS},
   {"Filesort_disk_usage",      (char*) offsetof(STATUS_VAR, filesort_disk_usage), SHOW_LONGLONG_STATUS},
   {"Filesort_disk_usage_peak", (char*) offsetof(STATUS_VAR, filesort_disk_usage_peak), SHOW_LONGLONG_STATUS},
+  {"Filesort_disk_usage_period_peak", (char*) show_filesort_disk_usage_period_peak, SHOW_FUNC},
   {"Flashcache_enabled",       (char*) &cachedev_enabled,       SHOW_BOOL },
   {"Flush_commands",           (char*) &refresh_version,        SHOW_LONG_NOFLUSH},
   {"git_hash",                 (char*) git_hash, SHOW_CHAR },
@@ -11247,6 +11295,7 @@ SHOW_VAR status_vars[]= {
   {"Tmp_table_bytes_written",  (char*) offsetof(STATUS_VAR, tmp_table_bytes_written), SHOW_LONGLONG_STATUS},
   {"Tmp_table_disk_usage",     (char*) offsetof(STATUS_VAR, tmp_table_disk_usage), SHOW_LONGLONG_STATUS},
   {"Tmp_table_disk_usage_peak", (char*) offsetof(STATUS_VAR, tmp_table_disk_usage_peak), SHOW_LONGLONG_STATUS},
+  {"Tmp_table_disk_usage_period_peak", (char*) show_tmp_table_disk_usage_period_peak, SHOW_FUNC},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
   {"Transaction_seconds",      (char*) &show_trx_time, SHOW_FUNC},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},

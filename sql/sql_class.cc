@@ -4308,6 +4308,10 @@ void THD::set_status_var(system_status_var &src)
 void THD::refresh_status_vars()
 {
   memset(&status_var, 0, offsetof(STATUS_VAR, first_norefresh_status_var));
+
+  /* Handle special vars here. */
+  status_var.tmp_table_disk_usage_peak = status_var.tmp_table_disk_usage;
+  status_var.filesort_disk_usage_peak = status_var.filesort_disk_usage;
 }
 
 void Security_context::init()
@@ -6155,9 +6159,10 @@ void THD::serialize_client_attrs()
   @param unreported_delta   pending delta for global usage update
   @param g_value            global usage value
   @param g_peak             global usage peak
+  @param g_period_peak      global usage peak for some period
 */
 static void adjust_global_by(longlong &unreported_delta, ulonglong &g_value,
-                             ulonglong &g_peak)
+                             ulonglong &g_peak, ulonglong &g_period_peak)
 {
   /* Counters could be disabled at runtime, re-enable requires restart. */
   if (max_tmp_disk_usage == TMP_DISK_USAGE_DISABLED)
@@ -6190,6 +6195,16 @@ static void adjust_global_by(longlong &unreported_delta, ulonglong &g_value,
       if (my_atomic_cas64((int64 *)&g_peak, (int64 *)&old_peak, new_value))
         break;
     }
+
+    /* Update the period peak. */
+    old_peak = my_atomic_load64((int64 *)&g_period_peak);
+    while (old_peak < new_value)
+    {
+      /* If Compare-And-Swap is unsuccessful then old_peak is updated. */
+      if (my_atomic_cas64((int64 *)&g_period_peak, (int64 *)&old_peak,
+                          new_value))
+        break;
+    }
   }
 }
 
@@ -6204,10 +6219,12 @@ static void adjust_global_by(longlong &unreported_delta, ulonglong &g_value,
   @param unreported_delta   pending delta for global usage update
   @param g_value            global usage value
   @param g_peak             global usage peak
+  @param g_period_peak      global usage peak for some period
 */
 static void adjust_by(ulonglong &value, ulonglong &peak, longlong delta,
                       longlong &unreported_delta, ulonglong &g_value,
-                      ulonglong &g_peak, ulonglong &stmt_peak)
+                      ulonglong &g_peak, ulonglong &stmt_peak,
+                      ulonglong &g_period_peak)
 {
   /*
     Atomic operation is only needed for the secondary threads that steal
@@ -6232,7 +6249,7 @@ static void adjust_by(ulonglong &value, ulonglong &peak, longlong delta,
 
   if (abs_delta >= DISK_USAGE_REPORTING_INCREMENT)
   {
-    adjust_global_by(unreported_delta, g_value, g_peak);
+    adjust_global_by(unreported_delta, g_value, g_peak, g_period_peak);
   }
 }
 
@@ -6248,7 +6265,8 @@ void THD::adjust_tmp_table_disk_usage(longlong delta)
             unreported_global_tmp_table_delta,
             global_status_var.tmp_table_disk_usage,
             global_status_var.tmp_table_disk_usage_peak,
-            m_stmt_tmp_table_disk_usage_peak);
+            m_stmt_tmp_table_disk_usage_peak,
+            tmp_table_disk_usage_period_peak);
 }
 
 /**
@@ -6263,7 +6281,8 @@ void THD::adjust_filesort_disk_usage(longlong delta)
             unreported_global_filesort_delta,
             global_status_var.filesort_disk_usage,
             global_status_var.filesort_disk_usage_peak,
-            m_stmt_filesort_disk_usage_peak);
+            m_stmt_filesort_disk_usage_peak,
+            filesort_disk_usage_period_peak);
 }
 
 /**
@@ -6273,10 +6292,12 @@ void THD::propagate_pending_global_disk_usage()
 {
   adjust_global_by(unreported_global_tmp_table_delta,
                    global_status_var.tmp_table_disk_usage,
-                   global_status_var.tmp_table_disk_usage_peak);
+                   global_status_var.tmp_table_disk_usage_peak,
+                   tmp_table_disk_usage_period_peak);
   adjust_global_by(unreported_global_filesort_delta,
                    global_status_var.filesort_disk_usage,
-                   global_status_var.tmp_table_disk_usage_peak);
+                   global_status_var.tmp_table_disk_usage_peak,
+                   filesort_disk_usage_period_peak);
 
 }
 

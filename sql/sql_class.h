@@ -855,6 +855,8 @@ typedef struct system_variables
   long thread_priority;
 
   my_bool sql_stats_snapshot;
+
+  my_bool reset_period_status_vars;
 } SV;
 
 
@@ -956,9 +958,6 @@ typedef struct system_status_var
   double last_query_cost;
   ulonglong last_query_partial_plans;
 
-  ulonglong tmp_table_disk_usage_peak;
-  ulonglong filesort_disk_usage_peak;
-
   /*
     IMPORTANT!
     SEE first_norefresh_status_var DEFINITION BELOW.
@@ -966,8 +965,12 @@ typedef struct system_status_var
     are not reset by FLUSH STATUS (refresh_status()). Note that
     global variables in STATUS_VAR are never reset.
   */
+
   ulonglong tmp_table_disk_usage;
   ulonglong filesort_disk_usage;
+  ulonglong tmp_table_disk_usage_peak;
+  ulonglong filesort_disk_usage_peak;
+
 
 } STATUS_VAR;
 

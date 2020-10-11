@@ -1,5 +1,11 @@
 usage and peak are 0
 1
+Reset tmp_table_disk_usage_period_peak
+set reset_period_status_vars = on;
+set reset_period_status_vars = off;
+Confirm that tmp_table_disk_usage_period_peak is reset
+period peak is reset to current usage
+1
 create table t1 (i int, c char(255));
 create table t2 (i int, c varchar(255));
 insert into t1 values (0, lpad('a', 250, 'b'));
@@ -27,6 +33,8 @@ global usage increased by session usage
 1
 original global peak is too high, or it is same as session
 1
+period peak is the same as session peak
+1
 insert into tm select * from t1;
 increased
 1
@@ -36,6 +44,8 @@ global usage increased by session usage
 1
 original global peak is too high, or it is same as session
 1
+period peak is the same as session peak
+1
 update tm set c = lpad('b', 250, 'a');
 increased
 1
@@ -44,11 +54,17 @@ increased
 1
 drop temporary table tm;
 create temporary table tm(i int, c varchar(255)) engine=myisam;
+set reset_period_status_vars = on;
+set reset_period_status_vars = off;
+with reset returned period peak is still the same as session peak
+1
 no increase
 1
 peak is still the same
 1
 original global peak is too high, or it is same as session
+1
+after reset period peak is the same as usage
 1
 insert into tm select * from t2;
 increased
@@ -99,7 +115,7 @@ usage is still the same after flush
 1
 global usage increased by session usage
 1
-peak is reset to 0
+peak is reset to current usage
 1
 global peak is not reset
 1
@@ -111,6 +127,9 @@ no increase
 usage dropped to 0
 1
 global usage returned to init value
+1
+flush status;
+peak is reset to current usage (0)
 1
 create temporary table tm(i int, c char(255)) engine=myisam;
 insert into tm values (1, 'asdf');

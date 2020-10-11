@@ -1336,6 +1336,10 @@ extern ulonglong max_tmp_disk_usage;
 const ulonglong TMP_DISK_USAGE_DISABLED = -1;
 bool is_tmp_disk_usage_over_max();
 
+/* Peaks for tmp table and filesort usage atomically reset by show status. */
+extern ulonglong tmp_table_disk_usage_period_peak;
+extern ulonglong filesort_disk_usage_period_peak;
+
 /** The size of the host_cache. */
 extern uint host_cache_size;
 void init_sql_statement_names();
