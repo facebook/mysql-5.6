@@ -82,6 +82,11 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
   remove_compile_flags(-Wmissing-format-attribute)
 ENDIF()
 
+# Suppress warnings for gcc-6.x or newer
+IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 6)
+  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-logical-op FILES ../../rocksdb/file/filename.cc)
+ENDIF()
+
 
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")

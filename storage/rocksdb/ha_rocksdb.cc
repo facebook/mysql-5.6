@@ -5121,9 +5121,8 @@ static bool rocksdb_show_status(handlerton *const hton, THD *const thd,
         std::string tf_name = table_factory->Name();
 
         if (tf_name.find("BlockBasedTable") != std::string::npos) {
-          const rocksdb::BlockBasedTableOptions *const bbt_opt =
-              reinterpret_cast<rocksdb::BlockBasedTableOptions *>(
-                  table_factory->GetOptions());
+          const auto bbt_opt =
+              table_factory->GetOptions<rocksdb::BlockBasedTableOptions>();
 
           if (bbt_opt != nullptr) {
             if (bbt_opt->block_cache.get() != nullptr) {
