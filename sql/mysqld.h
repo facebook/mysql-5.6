@@ -291,6 +291,9 @@ extern uint test_flags, select_errors, ha_open_options;
 extern uint protocol_version, mysqld_port;
 extern bool enable_binlog_hlc;
 extern bool maintain_database_hlc;
+extern ulong wait_for_hlc_timeout_ms;
+extern ulong wait_for_hlc_sleep_threshold_ms;
+extern double wait_for_hlc_sleep_scaling_factor;
 extern char *default_collation_for_utf8mb4_init;
 extern bool enable_acl_fast_lookup;
 extern bool enable_acl_db_cache;
@@ -659,6 +662,7 @@ extern PSI_mutex_key key_RELAYLOG_LOCK_xids;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_mta_temp_table_LOCK;
 extern PSI_mutex_key key_mta_gaq_LOCK;
+extern PSI_mutex_key key_hlc_wait_mutex;
 extern PSI_mutex_key key_thd_timer_mutex;
 extern PSI_mutex_key key_monitor_info_run_lock;
 extern PSI_mutex_key key_LOCK_delegate_connection_mutex;
@@ -704,6 +708,7 @@ extern PSI_cond_key key_RELAYLOG_update_cond;
 extern PSI_cond_key key_BINLOG_non_xid_trxs_cond;
 extern PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 extern PSI_cond_key key_gtid_ensure_index_cond;
+extern PSI_cond_key key_hlc_wait_cond;
 extern PSI_cond_key key_COND_thr_lock;
 extern PSI_cond_key key_cond_slave_worker_hash;
 extern PSI_cond_key key_commit_order_manager_cond;
@@ -857,6 +862,7 @@ extern PSI_stage_info stage_rpl_failover_wait_before_next_fetch;
 extern PSI_stage_info stage_communication_delegation;
 extern PSI_stage_info stage_slave_waiting_for_dependencies;
 extern PSI_stage_info stage_slave_waiting_for_dependency_workers;
+extern PSI_stage_info stage_waiting_for_hlc;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 /**
   Statement instrumentation keys (sql).
