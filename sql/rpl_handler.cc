@@ -1347,6 +1347,7 @@ extern "C" void *process_raft_queue(void *) {
     thd->get_stmt_da()->reset_diagnostics_area();
     RaftListenerQueue::QueueElement element = raft_listener_queue.get();
     RaftListenerCallbackResult result;
+    DBUG_PRINT("info", ("process_raft_queue: %d\n", element.type));
     switch (element.type) {
       case RaftListenerCallbackType::SET_READ_ONLY: {
         handle_read_only(element.arg.val_sys_var_uint);
@@ -1384,7 +1385,17 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::STOP_IO_THREAD: {
-        result.error= raft_stop_io_thread(current_thd);
+        result.error = raft_stop_io_thread(current_thd);
+        break;
+      }
+      case RaftListenerCallbackType::GET_EXECUTED_GTIDS: {
+        char *buffer;
+        global_sid_lock->wrlock();
+        gtid_state->get_executed_gtids()->to_string(&buffer);
+        global_sid_lock->unlock();
+        result.val_str = std::string(buffer);
+        result.error = 0;
+        my_free(buffer);
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
