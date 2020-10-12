@@ -428,6 +428,7 @@ extern mysql_mutex_t LOCK_global_write_throttling_log;
 int  fill_write_throttling_log(THD *thd, TABLE_LIST *tables, Item *cond);
 void store_write_throttling_log(THD *thd, int type, std::string value, WRITE_THROTTLING_RULE &rule);
 void store_long_qry_abort_log(THD *thd);
+void free_global_write_throttling_log(void);
 
 /* For information_schema.COLUMN_STATISTICS */
 extern ST_FIELD_INFO column_statistics_fields_info[];

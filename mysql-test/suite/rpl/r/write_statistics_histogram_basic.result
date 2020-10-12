@@ -56,28 +56,28 @@ select count(*), sum(count_bucket)
 from information_schema.write_statistics_histogram
 where count_bucket > 0;
 count(*)	sum(count_bucket)
-1	1
+0	NULL
 insert into tables select * from tables;
 Case 1.2: expect to see [count=1,sum=2]
 select count(*), sum(count_bucket)
 from information_schema.write_statistics_histogram
 where count_bucket > 0;
 count(*)	sum(count_bucket)
-1	2
+1	1
 insert into tables select * from tables;
 Case 1.3: expect to see [count=1,sum=3]
 select count(*), sum(count_bucket)
 from information_schema.write_statistics_histogram
 where count_bucket > 0;
 count(*)	sum(count_bucket)
-1	3
+1	2
 insert into tables select * from tables;
 Case 1.4: expect to see [count=1,sum=4]
 select count(*), sum(count_bucket)
 from information_schema.write_statistics_histogram
 where count_bucket > 0;
 count(*)	sum(count_bucket)
-1	4
+1	3
 Case 2: Dynamically change write_statistics_histogram_width
 SET @@GLOBAL.write_statistics_histogram_width=100;
 Case 2.1: histogram data is lost, expect [count=0,sum=NULL]

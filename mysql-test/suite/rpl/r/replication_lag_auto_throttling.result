@@ -3,11 +3,11 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-SET @@GLOBAL.WRITE_STATS_FREQUENCY=2;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=3;
 SET @@GLOBAL.SQL_STATS_CONTROL="ON";
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
-SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=2;
-SET @@GLOBAL.WRITE_STATS_FREQUENCY=2;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=3;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=3;
 SET @@GLOBAL.WRITE_THROTTLE_LAG_PCT_MIN_SECONDARIES=10;
 SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
@@ -15,6 +15,16 @@ SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1.5;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 create table t(a int) engine=innodb;
+select @@GLOBAL.WRITE_STATS_FREQUENCY into @ws_freq;
+select @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY into @wat_freq;
+### We use the following sleep statement throughout this test to deterministically enforce the auto_throttling system to check for 
+### lag for the next write statement and enforce a new time bucket for write statistics collection
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 1: Auto throttle start & stop based on sql_id
 ####################################################
@@ -31,8 +41,11 @@ SQL_ID	2cea509ba0e3065c09c1efe4c77e392a	72
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identity insert query sql_id as the culprit and start monitoring it ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(2);
 insert into t values(2);
@@ -43,8 +56,11 @@ select error_code, error_name, errors_total from information_schema.ERROR_STATIS
 error_code	error_name	errors_total
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Insert query sql_id should be throttled. Expect warnings. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
@@ -58,8 +74,11 @@ count
 1
 ####### Next Cycle #######
 ### Expectation - Replication lag between start and end threshold, Expect warning for every insert query. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_between_start_end_throttle_threshold';
@@ -72,8 +91,11 @@ count
 2
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away, Insert query should not be throttled anymore. Expect warnings count to not increase anymore. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_between_start_end_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
@@ -90,6 +112,12 @@ SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 2: Auto throttle start & stop based on shard
 ####################################################
@@ -112,8 +140,11 @@ SQL_ID	a55a8f3e636afbb0ca6168a0e024ee84	36
 SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identity shard 'test' as the culprit since there is no conclusive sql_id culprit. Should start monitoring 'test' shard ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into test1.t values(2);
 delete from test1.t where a = 2;
@@ -123,8 +154,11 @@ select error_code, error_name, errors_total from information_schema.ERROR_STATIS
 error_code	error_name	errors_total
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Shard 'test' should be throttled. Expect warnings. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into test1.t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
@@ -138,8 +172,11 @@ count
 1
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away, Shard 'test' should not be throttled anymore. Expect warnings count to not increase anymore. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
@@ -157,6 +194,12 @@ SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 3: Auto throttle fallback sql id in case of no 
 ### conclusive culprit
@@ -183,8 +226,11 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	41
 set @@global.debug= '+d,dbug.simulate_fallback_sql_throttling';
 ####### Next Cycle #######
 ### Expectation - There is replication lag. As per the setup, the system should fallback to monitoring the top sql_id(insert query) with most bytes written. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into test.t values(2);
 insert into test.t values(2);
@@ -202,8 +248,11 @@ select error_code, error_name, errors_total from information_schema.ERROR_STATIS
 error_code	error_name	errors_total
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists, Insert query sql_id should be throttled. Expect warnings. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into test.t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
@@ -214,8 +263,11 @@ error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away, Insert query sql_id should not be throttled anymore. Expect warnings count to not increase anymore. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
@@ -232,6 +284,12 @@ drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
 set @@global.debug= '-d,dbug.simulate_fallback_sql_throttling';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 4: Auto throttle multiple sql_ids and releasing
 ### them in order one by one after replication lag goes away
@@ -257,8 +315,11 @@ SQL_ID	1586ffa412d4a296baf93bdd932f03d7	72
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identify insert query sql_id as the culprit and start throttling it. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(3);
 update t set a = 4 where a = 3;
@@ -272,8 +333,11 @@ error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists. The system should identify delete query sql_id as the culprit and start throttling it as well. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(3);
 delete from t where a = 4;
@@ -286,8 +350,11 @@ error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	3
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away. The system should stop throttling insert query but still throttle delete query. Expect warnings from delete queries ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
@@ -301,8 +368,11 @@ error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	4
 ####### Next Cycle #######
 ### Expectation - Replication lag goes away. The system should release the delete query now and stop throttling it. Expect warnings count to not increase ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(5);
 delete from t where a = 4;
@@ -318,6 +388,12 @@ SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 5: Monitored entities are dynamically updated if 
 ### a new potential culprit is found
@@ -344,8 +420,11 @@ SQL_ID	1586ffa412d4a296baf93bdd932f03d7	72
 SQL_ID	2cea509ba0e3065c09c1efe4c77e392a	252
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The system should identify insert query sql_id as the culprit and start monitoring it. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into t values(6);
@@ -363,8 +442,11 @@ SQL_ID	1586ffa412d4a296baf93bdd932f03d7	108
 SQL_ID	2cea509ba0e3065c09c1efe4c77e392a	36
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists but in the last cycle the system should identify delete query as the culprit and update the sql_id to be monitored. Should not throttle it yet. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(6);
 delete from t where a = 4;
@@ -383,8 +465,11 @@ select error_code, error_name, errors_total from information_schema.ERROR_STATIS
 error_code	error_name	errors_total
 ####### Next Cycle #######
 ### Expectation - Replication lag still persists. The system should identify delete query as the culprit and throttle it. Expect warnings. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(1);
 delete from t where a = 1;
@@ -407,6 +492,12 @@ SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 6: Auto throttle start & stop based on client
 ####################################################
@@ -431,8 +522,11 @@ SQL_ID	a55a8f3e636afbb0ca6168a0e024ee84	36
 SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 ####### Next Cycle #######
 ### Expectation - There is replication lag. Based on the write stats, there is no clear sql_id or shard as the culprit. Should identify client_id as the culprit and throttle it. ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
@@ -454,6 +548,12 @@ SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 7: No throttling if WRITE_AUTO_THROTTLE_FREQUENCY = 0
 ####################################################
@@ -479,8 +579,11 @@ SQL_ID	a55a8f3e636afbb0ca6168a0e024ee84	36
 SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 ####### Next Cycle #######
 ### Expectation - There is replication lag but WRITE_AUTO_THROTTLE_FREQUENCY is set to 0. The system should not throttle any entity. No warnings ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
@@ -497,10 +600,16 @@ TRUNCATE test.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
-SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=2;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=3;
 drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test 8: Auto throttle throws error if write_control_level=ERROR
 ####################################################
@@ -527,8 +636,11 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The client should be identified as the entity to be throttled ###
 ### Should throw erros when WRITE_CONTROL_LEVEL is set to ERROR but should only throw warnings when it is set to WARN ###
-select sleep(2);
-sleep(2)
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
@@ -553,6 +665,12 @@ SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
+select sleep(@wat_freq);
+sleep(@wat_freq)
+0
+select sleep(@ws_freq - unix_timestamp()%@ws_freq);
+sleep(@ws_freq - unix_timestamp()%@ws_freq)
+0
 ####################################################
 ### Test End: Full Reset
 ####################################################

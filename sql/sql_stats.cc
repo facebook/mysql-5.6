@@ -754,8 +754,9 @@ void store_write_statistics(THD *thd)
   {
     // time_bucket is newer than last registered bucket...
 
-    // update the write throughput histogram with last bucket
-    update_write_stat_histogram(time_bucket_iter->second);
+    // update the write throughput histogram with last bucket 
+    if (time_bucket_iter != global_write_statistics_map.end()) 
+      update_write_stat_histogram(time_bucket_iter->second);
     
     // need to insert a new one
     while(!global_write_statistics_map.empty() && 
@@ -1054,6 +1055,21 @@ std::array<
   >,
   WRITE_STATISTICS_DIMENSION_COUNT
 > global_write_throttling_log;
+
+/*
+  free_global_write_throttling_log
+    Frees global_write_throttling_log
+*/
+void free_global_write_throttling_log(void)
+{
+  bool lock_acquired = mt_lock(&LOCK_global_write_throttling_log);
+  for (uint i = 0; i < WRITE_STATISTICS_DIMENSION_COUNT; i++) {
+    for (uint j = 0; j < WRITE_THROTTLING_MODE_COUNT; j++) {
+      global_write_throttling_log[i][j].clear();
+    }
+  }
+  mt_unlock(lock_acquired, &LOCK_global_write_throttling_log);
+}
 
 /*
 ** global_long_qry_abort_log

@@ -6821,6 +6821,8 @@ static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
     free_global_sql_stats(false /*limits_updated*/);
     // Write stats cannot be collected without sql_id and client_id dimensions.
     free_global_write_statistics();
+    /* Free the write throttling log collected so far */ 
+    free_global_write_throttling_log();
   }
 
   return false; // success
