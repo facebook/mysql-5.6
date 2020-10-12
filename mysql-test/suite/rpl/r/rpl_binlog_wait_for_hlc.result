@@ -1,0 +1,251 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+flush logs;
+purge binary logs to 'binlog';
+flush logs;
+purge binary logs to 'binlog';
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.wait_for_hlc_timeout_ms = 100;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.allow_noncurrent_db_rw = 3;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.wait_for_hlc_timeout_ms = 100;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.enable_block_stale_hlc_read = true;
+CREATE DATABASE a;
+USE a;
+CREATE TABLE ta (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO ta (a, b) VALUES (1, 'foo');
+CREATE DATABASE b;
+USE b;
+CREATE TABLE tb (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO tb (a, b) VALUES (2, 'bar');
+CREATE DATABASE c;
+USE c;
+CREATE TABLE tc (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+include/sync_slave_sql_with_master.inc
+USE a;
+SELECT * FROM ta;
+ERROR HY000: Invalid HLC wait timeout supplied: `foo`
+Simple case for basic single database read with + without timeout
+include/stop_slave.inc
+Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (3, 'baz');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+a	b
+1	foo
+3	baz
+Check multiple reads blocking on the same database + HLC
+include/stop_slave.inc
+Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (4, 'bah');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+a	b
+1	foo
+3	baz
+4	bah
+a	b
+1	foo
+3	baz
+4	bah
+Check multiple reads blocking on the different HLCs + same database
+include/stop_slave.inc
+Perform a several writes to get multiple HLC timestamps
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (5, 'meh');
+COMMIT;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (6, 'bar');
+COMMIT;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (7, 'baz');
+COMMIT;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (8, 'foo');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+7	baz
+8	foo
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+7	baz
+Check multiple reads blocking on the different HLCs + different databases
+include/stop_slave.inc
+Perform a several writes to get multiple HLC timestamps
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (9, 'meh');
+COMMIT;
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (10, 'bar');
+COMMIT;
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (11, 'baz');
+COMMIT;
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (12, 'foo');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+USE a;
+SELECT * FROM ta;
+USE b;
+SELECT * FROM tb;
+USE b;
+SELECT * FROM tb;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+7	baz
+8	foo
+9	meh
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+7	baz
+8	foo
+9	meh
+11	baz
+a	b
+2	bar
+10	bar
+12	foo
+a	b
+2	bar
+10	bar
+12	foo
+Check that blocked connections show up in the processlist
+include/stop_slave.inc
+Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (13, 'meh');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+command	state	info
+Query	Waiting for database applied HLC	SELECT * FROM ta
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+a	b
+1	foo
+3	baz
+4	bah
+5	meh
+6	bar
+7	baz
+8	foo
+9	meh
+11	baz
+13	meh
+Check that blocked queries can be killed as expected
+include/stop_slave.inc
+Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (14, 'bah');
+COMMIT;
+USE a;
+SELECT * FROM ta;
+command	state	info
+Query	Waiting for database applied HLC	SELECT * FROM ta
+command	state	info
+Sleep		NULL
+ERROR 70100: Query execution was interrupted
+SELECT * FROM ta;
+command	state	info
+Query	Waiting for database applied HLC	SELECT * FROM ta
+command	state	info
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+Cleanup
+DROP DATABASE a;
+DROP DATABASE b;
+DROP DATABASE c;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.wait_for_hlc_timeout_ms = default;
+SET @@global.minimum_hlc_ns = 0;
+include/sync_slave_sql_with_master.inc
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.wait_for_hlc_timeout_ms = default;
+SET @@session.enable_block_stale_hlc_read = default;
+SET @@global.allow_noncurrent_db_rw = 0;
+SET @@global.slave_parallel_workers = default;
+SET @@global.slave_use_idempotent_for_recovery = default;
+SET @@global.mts_dependency_replication = default;
+include/rpl_end.inc

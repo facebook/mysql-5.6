@@ -1038,6 +1038,9 @@ ulong log_error_verbosity = 3;  // have a non-zero value during early start-up
 ulong slave_tx_isolation;
 bool enable_binlog_hlc = 0;
 bool maintain_database_hlc = false;
+ulong wait_for_hlc_timeout_ms = 0;
+ulong wait_for_hlc_sleep_threshold_ms = 0;
+double wait_for_hlc_sleep_scaling_factor = 0.75;
 char *default_collation_for_utf8mb4_init = nullptr;
 bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;
@@ -11944,6 +11947,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_sync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_xids;
 PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_gtid_ensure_index_mutex;
+PSI_mutex_key key_hlc_wait_mutex;
 PSI_mutex_key key_object_cache_mutex;  // TODO need to initialize
 PSI_cond_key key_object_loading_cond;  // TODO need to initialize
 PSI_mutex_key key_mts_temp_table_LOCK;
@@ -12035,6 +12039,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_log_throttle_qni, "LOCK_log_throttle_qni", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_log_throttle_ddl, "LOCK_log_throttle_ddl", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_hlc_wait_mutex, "HybridLogicalClock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_query_plan, "THD::LOCK_query_plan", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
   { &key_LOCK_cost_const, "Cost_constant_cache::LOCK_cost_const", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_current_cond, "THD::LOCK_current_cond", 0, PSI_VOLATILITY_SESSION, PSI_DOCUMENT_ME},
@@ -12127,6 +12132,7 @@ PSI_cond_key key_RELAYLOG_prep_xids_cond;
 PSI_cond_key key_BINLOG_non_xid_trxs_cond;
 PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 PSI_cond_key key_gtid_ensure_index_cond;
+PSI_cond_key key_hlc_wait_cond;
 PSI_cond_key key_COND_thr_lock;
 PSI_cond_key key_commit_order_manager_cond;
 PSI_cond_key key_cond_slave_worker_hash;
@@ -12171,6 +12177,7 @@ static PSI_cond_info all_server_conds[]=
   { &key_cond_slave_parallel_worker, "Worker_info::jobs_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_cond_mts_gaq, "Relay_log_info::mts_gaq_cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_gtid_ensure_index_cond, "Gtid_state", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_hlc_wait_cond, "HybridLogicalClock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_COND_compress_gtid_table, "COND_compress_gtid_table", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_commit_order_manager_cond, "Commit_order_manager::m_workers.cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_cond_slave_worker_hash, "Relay_log_info::slave_worker_hash_lock", 0, 0, PSI_DOCUMENT_ME}
@@ -12358,6 +12365,7 @@ PSI_stage_info stage_binlog_transaction_compress= { 0, "Compressing transaction 
 PSI_stage_info stage_binlog_transaction_decompress= { 0, "Decompressing transaction changes.", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_slave_waiting_for_dependencies= { 0, "Waiting for dependencies to be satisfied", 0, PSI_DOCUMENT_ME};
 PSI_stage_info stage_slave_waiting_for_dependency_workers= { 0, "Waiting for dependency workers to finish", 0, PSI_DOCUMENT_ME};
+PSI_stage_info stage_waiting_for_hlc= { 0, "Waiting for database applied HLC", 0, PSI_DOCUMENT_ME};
 /* clang-format on */
 
 extern PSI_stage_info stage_waiting_for_disk_space;
@@ -12456,6 +12464,7 @@ PSI_stage_info *all_server_stages[] = {
     &stage_binlog_transaction_decompress,
     &stage_slave_waiting_for_dependencies,
     &stage_slave_waiting_for_dependency_workers,
+    &stage_waiting_for_hlc,
     &stage_waiting_for_disk_space};
 
 PSI_socket_key key_socket_tcpip;

@@ -9606,6 +9606,11 @@ ER_STALE_HLC_READ
 ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
   eng "Requested HLC read bound when allow_noncurrent_db_rw set to %d != 3"
 
+ER_HLC_WAIT_TIMEDOUT
+  eng "Got timeout while waiting for HLC: %llu"
+
+ER_INVALID_HLC_WAIT_TIMEOUT
+  eng "Invalid HLC wait timeout supplied: `%s`"
 
 #
 # FB error codes specifically for 8.0 only start at 50100.

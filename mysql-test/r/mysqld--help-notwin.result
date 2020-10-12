@@ -2322,6 +2322,18 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-validate-user-plugins to disable.)
  -v, --verbose       Used with --help option for detailed help.
  -V, --version       Output version information and exit.
+ --wait-for-hlc-sleep-scaling-factor[=#] 
+ Factor to multiply the delta between requested and
+ applied HLC when sleeping before the wait
+ --wait-for-hlc-sleep-threshold-ms[=#] 
+ Minimum delta between the requested and applied HLC
+ triggers a sleep rather than blocking on the per-database
+ wait queue
+ --wait-for-hlc-timeout-ms[=#] 
+ How long to wait for the specified HLC to be applied to
+ the engine before timing out with an error. If 0, no
+ blocking will occur and the query will be immediately
+ rejected
  --wait-timeout=#    The number of seconds the server waits for activity on a
  connection before closing it
  --windowing-use-high-precision 
@@ -3033,6 +3045,9 @@ use-fb-json-functions
 validate-config FALSE
 validate-user-plugins TRUE
 verbose TRUE
+wait-for-hlc-sleep-scaling-factor 0.75
+wait-for-hlc-sleep-threshold-ms 50
+wait-for-hlc-timeout-ms 0
 wait-timeout 28800
 windowing-use-high-precision TRUE
 write-auto-throttle-frequency 0

@@ -51,6 +51,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"  // Item_result
 #include "rpl_gtid.h"
+#include "sql/mysqld.h"  // key_hlc_wait_cond + key_hlc_wait_mutex
 #include "sql/rpl_commit_stage_manager.h"
 #include "sql/rpl_trx_tracking.h"
 #include "sql/sql_class.h"         // THD
@@ -247,17 +248,65 @@ class HybridLogicalClock {
    */
   void clear_database_hlc();
 
+  /**
+   * Block the THD if the query attribute specified HLC isn't
+   * present in the engine according to database_applied_hlc_
+   */
+  bool wait_for_hlc_applied(THD *thd);
+
  private:
   // nanosecond precision internal clock
   std::atomic<uint64_t> current_;
+
+  // Per-database entry to track the list of waiting queries
+  class DatabaseEntry {
+   public:
+    DatabaseEntry() {
+#ifdef HAVE_PSI_INTERFACE
+      mysql_mutex_init(key_hlc_wait_mutex, &mutex_, nullptr);
+      mysql_cond_init(key_hlc_wait_cond, &cond_);
+#else
+      mysql_mutex_init(0, &mutex_, nullptr);
+      mysql_cond_init(0, &cond_);
+#endif
+    }
+
+    ~DatabaseEntry() {
+      mysql_mutex_destroy(&mutex_);
+      mysql_cond_destroy(&cond_);
+    }
+
+    void update_hlc(uint64_t applied_hlc);
+
+    bool wait_for_hlc(THD *thd, uint64_t requested_hlc, uint64_t timeout_ms);
+
+    uint64_t max_applied_hlc() const { return max_applied_hlc_; }
+
+   private:
+    mysql_mutex_t mutex_;
+    mysql_cond_t cond_;
+    std::atomic<uint64_t> max_applied_hlc_{0};
+  };
+
+  std::shared_ptr<DatabaseEntry> getEntry(const std::string &database) {
+    std::shared_ptr<DatabaseEntry> entry;
+    auto entryIt = database_map_.find(database);
+    if (entryIt == database_map_.end()) {
+      entry = std::make_shared<DatabaseEntry>();
+      database_map_.emplace(database, entry);
+    } else {
+      entry = entryIt->second;
+    }
+    return entry;
+  }
 
   /**
    * A map of applied HLC for each database. The key is the name of the database
    * and the value is the applied_hlc for that database. Applied HLC is the HLC
    * of the last known trx that was applied (committed) to the engine
    */
-  database_hlc_container database_applied_hlc_;
-  mutable std::mutex database_applied_hlc_lock_;
+  std::unordered_map<std::string, std::shared_ptr<DatabaseEntry>> database_map_;
+  mutable std::mutex database_map_lock_;
 };
 
 /*
@@ -738,7 +787,9 @@ class MYSQL_BIN_LOG : public TC_LOG {
     return hlc.get_selected_database_hlc(database);
   }
 
-  void clear_database_hlc() { return hlc.clear_database_hlc(); }
+  void clear_database_hlc() { hlc.clear_database_hlc(); }
+
+  bool wait_for_hlc_applied(THD *thd) { return hlc.wait_for_hlc_applied(thd); }
 
  private:
   std::atomic<enum_log_state> atomic_log_state{LOG_CLOSED};
