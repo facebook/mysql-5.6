@@ -231,6 +231,12 @@ tls_ciphersuites
 update_binlog_pos_threshold
 update_binlog_pos_threshold
 use_secondary_engine
+wait_for_hlc_sleep_scaling_factor
+wait_for_hlc_sleep_scaling_factor
+wait_for_hlc_sleep_threshold_ms
+wait_for_hlc_sleep_threshold_ms
+wait_for_hlc_timeout_ms
+wait_for_hlc_timeout_ms
 xa_detach_on_prepare
 xa_detach_on_prepare
 drop table t1;

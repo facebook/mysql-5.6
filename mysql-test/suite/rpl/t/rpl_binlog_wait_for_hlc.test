@@ -1,0 +1,494 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_row.inc
+--source include/have_debug.inc
+--source include/not_parallel.inc
+
+# Cleanup old binlog
+connection master;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+connection slave;
+flush logs;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+replace_result $binlog binlog;
+eval purge binary logs to '$binlog';
+
+# Set minimum_hlc_ns to a high value. Subsequent txn's should see monotonically
+# increasing timestamp from this point
+connection master;
+SET SESSION DEBUG="+d,allow_long_hlc_drift_for_tests";
+SET @@global.minimum_hlc_ns = 2538630000000000000; # ~2050 AD
+
+# Enable binlog_hlc in both master and slave
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.response_attrs_contain_hlc = true;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.wait_for_hlc_timeout_ms = 100;
+
+connection slave;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.enable_block_stale_hlc_read = true;
+SET @@global.allow_noncurrent_db_rw = 3;
+SET @@global.enable_block_stale_hlc_read = true;
+SET @@global.enable_binlog_hlc = true;
+SET @@global.maintain_database_hlc = true;
+SET @@global.wait_for_hlc_timeout_ms = 100;
+
+connection slave1;
+SET @@session.allow_noncurrent_db_rw = OFF;
+SET @@session.enable_block_stale_hlc_read = true;
+
+# Construct several databases for testing purposes
+connection master;
+CREATE DATABASE a;
+USE a;
+CREATE TABLE ta (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO ta (a, b) VALUES (1, 'foo');
+
+CREATE DATABASE b;
+USE b;
+CREATE TABLE tb (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+INSERT INTO tb (a, b) VALUES (2, 'bar');
+
+CREATE DATABASE c;
+USE c;
+CREATE TABLE tc (a INT PRIMARY KEY, b CHAR(8)) ENGINE=InnoDB;
+
+--source include/sync_slave_sql_with_master.inc
+
+# Set up additional connections to the slave
+--connect(slave2, 127.0.0.1,root,,test,$SLAVE_MYPORT,)
+--connect(slave3, 127.0.0.1,root,,test,$SLAVE_MYPORT,)
+--connect(slave4, 127.0.0.1,root,,test,$SLAVE_MYPORT,)
+
+# =============================================================================
+# Input validation cases
+# =============================================================================
+
+# Now perform one read that should block since the binlog hasn't applied to the slave
+connection slave;
+USE a;
+
+query_attrs_add hlc_ts_lower_bound 1;
+query_attrs_add hlc_wait_timeout_ms foo;
+--error ER_INVALID_HLC_WAIT_TIMEOUT
+SELECT * FROM ta;
+query_attrs_reset;
+
+# =============================================================================
+# Simple case for basic single database read with + without timeout
+# =============================================================================
+
+--echo Simple case for basic single database read with + without timeout
+
+# Stop the slave so it won't receive the next write
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (3, 'baz');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+
+# Now perform one read that should block since the binlog hasn't applied to the slave
+connection slave1;
+USE a;
+
+# Error immediately if timeout is 0
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 0;
+--disable_result_log
+--error ER_STALE_HLC_READ
+SELECT * FROM ta;
+--enable_result_log
+query_attrs_reset;
+
+# Otherwise block and wait for the HLC to be applied
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+# Send a query that will timeout
+connection slave2;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 1000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+# Restart replication and re-sync for later tests
+connection slave;
+# Sleep before restarting the slave so the slave2 query will timeout
+sleep 2;
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave1;
+reap;
+
+connection slave2;
+--disable_result_log
+--error ER_HLC_WAIT_TIMEDOUT
+reap;
+--enable_result_log
+
+# =============================================================================
+# Check multiple reads blocking on the same database + HLC
+# =============================================================================
+
+--echo Check multiple reads blocking on the same database + HLC
+
+# Stop the slave so it won't receive the next write
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (4, 'bah');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+
+# Now perform multiple reads that should block since the binlog hasn't applied to the slave
+connection slave1;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+connection slave2;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+# Restart replication and re-sync for later tests
+connection slave;
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave1;
+reap;
+
+connection slave2;
+reap;
+
+# =============================================================================
+# Check multiple reads blocking on the different HLCs + same database
+# =============================================================================
+
+--echo Check multiple reads blocking on the different HLCs + same database
+
+# Stop the slave so it won't receive the next writes
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a several writes to get multiple HLC timestamps
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (5, 'meh');
+COMMIT;
+let $hlc1 = get_response_attribute(hlc_ts);
+
+BEGIN;
+INSERT INTO ta (a, b) VALUES (6, 'bar');
+COMMIT;
+let $hlc2 = get_response_attribute(hlc_ts);
+
+BEGIN;
+INSERT INTO ta (a, b) VALUES (7, 'baz');
+COMMIT;
+let $hlc3 = get_response_attribute(hlc_ts);
+
+BEGIN;
+INSERT INTO ta (a, b) VALUES (8, 'foo');
+COMMIT;
+let $hlc4 = get_response_attribute(hlc_ts);
+
+# Now perform four reads that should block since the binlog hasn't applied to the slave
+connection slave1;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc1;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 5;
+query_attrs_reset;
+
+connection slave2;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc4;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+connection slave3;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc2;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 6;
+query_attrs_reset;
+
+connection slave4;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc3;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 7;
+query_attrs_reset;
+
+# Restart replication and re-sync
+connection slave;
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave1;
+reap;
+
+connection slave2;
+reap;
+
+connection slave3;
+reap;
+
+connection slave4;
+reap;
+
+# =============================================================================
+# Check multiple reads blocking on the different HLCs + different databases
+# =============================================================================
+
+--echo Check multiple reads blocking on the different HLCs + different databases
+
+# Stop the slave so it won't receive the next writes
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a several writes to get multiple HLC timestamps
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (9, 'meh');
+COMMIT;
+let $hlc1 = get_response_attribute(hlc_ts);
+
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (10, 'bar');
+COMMIT;
+let $hlc2 = get_response_attribute(hlc_ts);
+
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (11, 'baz');
+COMMIT;
+let $hlc3 = get_response_attribute(hlc_ts);
+
+USE b;
+BEGIN;
+INSERT INTO tb (a, b) VALUES (12, 'foo');
+COMMIT;
+let $hlc4 = get_response_attribute(hlc_ts);
+
+# Now perform four reads that should block since the binlog hasn't applied to the slave
+connection slave1;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc1;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 9;
+query_attrs_reset;
+
+# Wait for an HLC from the other database
+connection slave2;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc2;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta WHERE a <= 10;
+query_attrs_reset;
+
+connection slave3;
+USE b;
+query_attrs_add hlc_ts_lower_bound $hlc3;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM tb WHERE a <= 11;
+query_attrs_reset;
+
+connection slave4;
+USE b;
+query_attrs_add hlc_ts_lower_bound $hlc4;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM tb;
+query_attrs_reset;
+
+# Restart replication and re-sync
+connection slave;
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave1;
+reap;
+
+connection slave2;
+reap;
+
+connection slave3;
+reap;
+
+connection slave4;
+reap;
+
+# =============================================================================
+# Check that blocked connections show up in the processlist
+# =============================================================================
+
+--echo Check that blocked connections show up in the processlist
+
+# Stop the slave so it won't receive the next write
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (13, 'meh');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+
+# Now perform a read that should block since the binlog hasn't applied to the slave
+connection slave1;
+let $conn_id = `SELECT CONNECTION_ID()`;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 10000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+connection slave;
+# Other connection should show up as blocked
+--disable_query_log ONCE
+eval SELECT command, state, info FROM information_schema.processlist WHERE id = $conn_id;
+
+# Restart replication and re-sync for later tests
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave1;
+reap;
+
+# =============================================================================
+# Check that blocked queries can be killed as expected
+# =============================================================================
+
+--echo Check that blocked queries can be killed as expected
+
+# Stop the slave so it won't receive the next write
+connection slave;
+--source include/stop_slave.inc
+
+connection master;
+--echo Perform a single write to get an HLC timstamp from the write
+USE a;
+BEGIN;
+INSERT INTO ta (a, b) VALUES (14, 'bah');
+COMMIT;
+let $hlc = get_response_attribute(hlc_ts);
+
+# Now perform a read that should block since the binlog hasn't applied to the slave
+connection slave1;
+let $conn_id = `SELECT CONNECTION_ID()`;
+USE a;
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 100000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+# Other connection should show up as blocked
+connection slave;
+--disable_query_log
+SLEEP 1;
+eval SELECT command, state, info FROM information_schema.processlist WHERE id = $conn_id;
+eval KILL QUERY $conn_id;
+
+SLEEP 1;
+# Query should have been killed and thread switched to IDLE state
+eval SELECT command, state, info FROM information_schema.processlist WHERE id = $conn_id;
+--enable_query_log
+
+# Reap the original query + start another to check for connection killing
+connection slave1;
+--error ER_QUERY_INTERRUPTED
+reap;
+
+query_attrs_add hlc_ts_lower_bound $hlc;
+query_attrs_add hlc_wait_timeout_ms 100000;
+send SELECT * FROM ta;
+query_attrs_reset;
+
+connection slave;
+--disable_query_log
+SLEEP 1;
+eval SELECT command, state, info FROM information_schema.processlist WHERE id = $conn_id;
+eval KILL CONNECTION $conn_id;
+SLEEP 1;
+# Connection should have been killed
+eval SELECT command, state, info FROM information_schema.processlist WHERE id = $conn_id;
+--enable_query_log
+
+# Restart replication and re-sync for later tests
+--source include/start_slave.inc
+
+connection master;
+--source include/sync_slave_sql_with_master.inc
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+--echo Cleanup
+
+connection master;
+DROP DATABASE a;
+DROP DATABASE b;
+DROP DATABASE c;
+
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.wait_for_hlc_timeout_ms = default;
+SET @@global.minimum_hlc_ns = 0;
+
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+SET @@global.enable_binlog_hlc = default;
+SET @@global.enable_block_stale_hlc_read = default;
+SET @@global.maintain_database_hlc = default;
+SET @@global.wait_for_hlc_timeout_ms = default;
+SET @@session.enable_block_stale_hlc_read = default;
+SET @@global.allow_noncurrent_db_rw = 0;
+SET @@global.slave_use_idempotent_for_recovery = default;
+SET @@global.mts_dependency_replication = default;
+
+connection master;
+source include/rpl_end.inc;
