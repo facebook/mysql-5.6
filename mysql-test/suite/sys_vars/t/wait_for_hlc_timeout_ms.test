@@ -1,0 +1,22 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value false
+####
+--echo Default value of enable_binlog_hlc is 0
+SELECT @@global.wait_for_hlc_timeout_ms;
+
+SET @@global.wait_for_hlc_timeout_ms = 0;
+SELECT @@global.wait_for_hlc_timeout_ms;
+
+SET @@global.wait_for_hlc_timeout_ms = -1;
+SELECT @@global.wait_for_hlc_timeout_ms;
+
+SET @@global.wait_for_hlc_timeout_ms = 100;
+SELECT @@global.wait_for_hlc_timeout_ms;
+
+SET @@global.wait_for_hlc_timeout_ms = 10000000000;
+SELECT @@global.wait_for_hlc_timeout_ms;
+
+SET @@global.wait_for_hlc_timeout_ms = default;
+SELECT @@global.wait_for_hlc_timeout_ms;

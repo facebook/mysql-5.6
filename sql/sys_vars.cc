@@ -7682,12 +7682,38 @@ static bool check_enable_block_stale_hlc_read(sys_var * /* self */, THD * thd,
   return false;
 }
 
-static  Sys_var_bool Sys_enable_block_stale_hlc_read(
-       "enable_block_stale_hlc_read",
-       "Enable blocking reads with a requested HLC timestamp ahead of the engine HLC",
-       SESSION_VAR(enable_block_stale_hlc_read), CMD_LINE(OPT_ARG), DEFAULT(false),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_block_stale_hlc_read)
-);
+static Sys_var_bool Sys_enable_block_stale_hlc_read(
+    "enable_block_stale_hlc_read",
+    "Enable blocking reads with a requested HLC timestamp ahead of the engine "
+    "HLC",
+    SESSION_VAR(enable_block_stale_hlc_read), CMD_LINE(OPT_ARG), DEFAULT(false),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_enable_block_stale_hlc_read));
+
+static Sys_var_ulong Sys_wait_for_hlc_timeout_ms(
+    "wait_for_hlc_timeout_ms",
+    "How long to wait for the specified HLC to be applied to the engine before "
+    "timing out with an error. If 0, no blocking will occur and the query will "
+    "be immediately rejected",
+    GLOBAL_VAR(wait_for_hlc_timeout_ms), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 10000), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
+
+static Sys_var_double Sys_wait_for_hlc_sleep_scaling_factor(
+    "wait_for_hlc_sleep_scaling_factor",
+    "Factor to multiply the delta between requested and applied HLC when "
+    "sleeping before the wait",
+    GLOBAL_VAR(wait_for_hlc_sleep_scaling_factor), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0.001, 0.99), DEFAULT(0.75), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(NULL), ON_UPDATE(NULL));
+
+static Sys_var_ulong Sys_wait_for_hlc_sleep_threshold_ms(
+    "wait_for_hlc_sleep_threshold_ms",
+    "Minimum delta between the requested and applied HLC triggers a sleep "
+    "rather than blocking on the per-database wait queue",
+    GLOBAL_VAR(wait_for_hlc_sleep_threshold_ms), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 10000), DEFAULT(50), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG);
+
 
 static Sys_var_bool Sys_fast_integer_to_string(
     "fast_integer_to_string",
