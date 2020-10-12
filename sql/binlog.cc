@@ -1503,11 +1503,13 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  * @param writer - Binlog writer (metadata event with HLC will be written here)
  * @param obuffer - if not null, metadata event will be written here (instead
  *                  of writing to writer)
+ * @param wrote_hlc - Will be set to true if HLC was written to the log file
  *
  * @return false on success, true on failure
  */
 bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
-                              Binlog_event_writer *writer, uchar *obuffer) {
+                              Binlog_event_writer *writer, uchar *obuffer,
+                              bool *wrote_hlc) {
   if (!thd->should_write_hlc) {
     /* HLC was not assigned to this thd */
     thd->hlc_time_ns_next = 0;
@@ -1516,6 +1518,8 @@ bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
 
   /* HLC written, clear state */
   thd->should_write_hlc = false;
+  if (wrote_hlc)
+    *wrote_hlc = true;
 
   Metadata_log_event metadata_ev(thd, cache_data->is_trx_cache(),
                                  thd->hlc_time_ns_next);
@@ -2096,9 +2100,10 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
       if ((error = mysql_bin_log.write_gtid(thd, this, &writer, gtid_buff)))
         thd->commit_error = THD::CE_FLUSH_ERROR;
 
+      bool wrote_hlc = false;
       if (!error) {
         if ((error = mysql_bin_log.write_hlc(
-                thd, this, &writer, metadata_buff)))
+                thd, this, &writer, metadata_buff, &wrote_hlc)))
           thd->commit_error = THD::CE_FLUSH_ERROR;
       }
 
@@ -4197,7 +4202,10 @@ bool MYSQL_BIN_LOG::open_index_file(const char *index_file_name_arg,
   */
   myf opt = MY_UNPACK_FILENAME;
 
-  if (my_b_inited(&index_file)) goto end;
+  if (!enable_raft_plugin && my_b_inited(&index_file)) goto end;
+
+  if (enable_raft_plugin && my_b_inited(&index_file))
+    end_io_cache(&index_file);
 
   if (!index_file_name_arg) {
     index_file_name_arg = log_name;  // Use same basename for index file
@@ -5578,14 +5586,14 @@ bool MYSQL_BIN_LOG::open_existing_binlog(
   }
 
   auto binlog_file =
-    Binlog_ofile::open_existing(m_key_file_log, log_name, MYF(MY_WME));
+    Binlog_ofile::open_existing(m_key_file_log, existing_file, MYF(MY_WME));
   if (!binlog_file)
     goto err;
 
   m_binlog_file = binlog_file.release();
 
   file = mysql_file_open(
-      m_key_file_log, log_name, O_CREAT | O_WRONLY, MYF(MY_WME));
+      m_key_file_log, existing_file, O_CREAT | O_WRONLY, MYF(MY_WME));
 
   if (file < 0)
     goto err;
@@ -10118,6 +10126,7 @@ static int register_entities_with_raft() {
       thd, /*context=*/0, /*need_lock=*/true, /*is_relay_log=*/true);
 
   mi->channel_unlock();
+  channel_map.unlock();
 
   if (err) {
     // NO_LINT_DEBUG
