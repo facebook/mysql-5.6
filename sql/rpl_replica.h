@@ -477,13 +477,15 @@ int init_recovery(Master_info *mi);
 
   @param skip_received_gtid_set_recovery When true, skips the received GTID
                                          set recovery.
+  @param need_lock If this is true, mi and rli data_lock will be acquired
 
   @retval 0 Success
   @retval nonzero Error
 */
 int load_mi_and_rli_from_repositories(
     Master_info *mi, bool ignore_if_no_info, int thread_mask,
-    bool skip_received_gtid_set_recovery = false, bool force_load = false);
+    bool skip_received_gtid_set_recovery = false, bool force_load = false,
+    bool need_lock = true);
 void end_info(Master_info *mi);
 /**
   Clear the information regarding the `Master_info` and `Relay_log_info` objects
