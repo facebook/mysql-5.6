@@ -73,6 +73,8 @@ extern int rotate_binlog_file(THD *thd);
 extern int raft_stop_sql_thread(THD *thd);
 extern int raft_stop_io_thread(THD *thd);
 extern int raft_start_sql_thread(THD *thd);
+extern int rli_relay_log_raft_reset(
+    std::pair<std::string, unsigned long long> raft_log_applied_upto_pos);
 /** end of raft related extern funtion declarations  **/
 
 Trans_delegate *transaction_delegate;
@@ -1292,6 +1294,10 @@ extern "C" void *process_raft_queue(void *) {
         result.error = rotate_relay_log_for_raft(
             element.arg.log_file_pos.first, element.arg.log_file_pos.second,
             MYF(element.arg.val_uint));
+        break;
+      }
+      case RaftListenerCallbackType::RLI_RELAY_LOG_RESET: {
+        result.error = rli_relay_log_raft_reset(element.arg.log_file_pos);
         break;
       }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {

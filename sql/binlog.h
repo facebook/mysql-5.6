@@ -1068,11 +1068,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @param writer - Binlog writer
    * @param obuffer - The metadata event will be written to the buffer
    *                  (if not null)
+   * @param wrote_hlc - Will be set to true if HLC was written to the log file
    *
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer, uchar *obuffer = nullptr);
+                 Binlog_event_writer *writer, uchar *obuffer = nullptr,
+                 bool *wrote_hlc = nullptr);
 
   /**
     Assign automatic generated GTIDs for all commit group threads in the flush

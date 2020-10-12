@@ -2177,6 +2177,7 @@ class Rotate_log_event : public binary_log::Rotate_event, public Log_event {
 
  private:
 #if defined(MYSQL_SERVER)
+  virtual int do_apply_event(Relay_log_info const *rli) override;
   virtual int do_update_pos(Relay_log_info *rli) override;
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli) override;
 #endif

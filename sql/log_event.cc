@@ -5899,6 +5899,14 @@ bool Rotate_log_event::write(Basic_ostream *ostream) {
       write_footer(ostream));
 }
 
+int Rotate_log_event::do_apply_event(Relay_log_info const *) {
+  if (!enable_raft_plugin) return 0;
+
+  int64_t term, index;
+  thd->get_trans_marker(&term, &index);
+  return RUN_HOOK(raft_replication, after_commit, (thd));
+}
+
 /*
   Got a rotate log event from the master.
 
@@ -14773,6 +14781,11 @@ int Metadata_log_event::do_apply_event(Relay_log_info const *rli) {
     rli->info_thd->hlc_time_ns_next = hlc_time_ns_;
   }
 
+  if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+    // Stash the raft term and index in THD
+    thd->set_trans_marker(raft_term_, raft_index_);
+  }
+
   DBUG_RETURN(error);
 }
 
@@ -14782,13 +14795,28 @@ int Metadata_log_event::do_update_pos(Relay_log_info *rli) {
 }
 
 Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
-    Relay_log_info * /*unused */) {
+    Relay_log_info *rli) {
   /*
    * Metadata event containing previous hlc timestamp has no meaning for slave.
    * hence slave should skip such events
    */
   if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
     return Log_event::EVENT_SKIP_IGNORE;
+
+  /*
+   * A metadata event not in the context of a transaction
+   * can be skipped as it is for a rotate/no-op event. Do this only if MTS is
+   * enabled (since single threaded slave does not care about free floating
+   * metadata event and curr_group_seen_gtid is set only for MTS)
+   */
+  if (enable_raft_plugin &&
+      ((rli->slave_parallel_workers > 0) && (!rli->curr_group_seen_gtid))) {
+    if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE)) {
+      // Stash the raft term and index in THD
+      thd->set_trans_marker(raft_term_, raft_index_);
+    }
+    return Log_event::EVENT_SKIP_IGNORE;
+  }
 
   return Log_event::EVENT_SKIP_NOT;
 }

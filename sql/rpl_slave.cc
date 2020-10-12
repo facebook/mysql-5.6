@@ -1336,9 +1336,144 @@ err:
   return recovery_error;
 }
 
+static Master_info *raft_get_default_mi();
+
+/**
+ * This changes the name of the raft relay log
+ * to binlog name
+ */
+int rli_relay_log_raft_reset(
+    std::pair<std::string, unsigned long long> raft_log_applied_upto_pos) {
+  DBUG_ENTER("rli_relay_log_raft_reset");
+  Master_info *mi = nullptr;
+  Relay_log_info *rli = nullptr;
+  Gtid_set *all_gtid_set = nullptr;
+  int error = 0;
+  std::string normalized_log_name;
+
+  // TODO: disable_raft_repointing for integrating with mtr
+
+  channel_map.rdlock();
+
+  mi = raft_get_default_mi();
+  if (!mi) {
+    channel_map.unlock();
+    sql_print_error("Could not get default mi in rli_relay_log_raft_reset");
+    error = 1;
+    return error;
+  }
+
+  rli = mi->rli;
+  normalized_log_name =
+      std::string(binlog_file_basedir_ptr) +
+      std::string(raft_log_applied_upto_pos.first.c_str() +
+                  dirname_length(raft_log_applied_upto_pos.first.c_str()));
+
+  /*
+    We need a mutex while we are changing master info parameters to
+    keep other threads from reading bogus info
+  */
+  mysql_mutex_lock(&mi->data_lock);
+  mysql_mutex_lock(&mi->rli->data_lock);
+
+  if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Relay log info repository doesn't exist, creating one now");
+    // TODO: Check these additional params (skip_received_gtid_set_recovery)
+    if (load_mi_and_rli_from_repositories(
+            mi,
+            /*ignore_if_no_info=*/false,
+            /*thread_mask=*/SLAVE_SQL | SLAVE_IO,
+            /*skip_received_gtid_set_recovery=*/false,
+            /*need_lock=*/false)) {
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to initialize the master info structure");
+      error = 1;
+      goto end;
+    }
+  }
+
+  mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
+  mi->rli->relay_log.lock_index();
+
+  mi->rli->relay_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
+                           /*need_lock_index=*/false);
+
+  if (mi->rli->relay_log.open_index_file(opt_binlog_index_name, opt_bin_logname,
+                                         /*need_lock_index=*/false)) {
+    // NO_LINT_DEBUG
+    sql_print_error("rli_relay_log_raft_reset::failed to open index file");
+    error = 1;
+    mi->rli->relay_log.unlock_index();
+    mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    goto end;
+  }
+
+  all_gtid_set = const_cast<Gtid_set *>(mi->rli->get_gtid_set());
+  if (all_gtid_set == nullptr) {
+    error = 1;
+    mi->rli->relay_log.unlock_index();
+    mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    goto end;
+  }
+
+  all_gtid_set->get_sid_map()->get_sid_lock()->wrlock();
+
+  // At this point the gtid set in the RLI and the last retrieved
+  // GTID are up to date with all the gtids in the last raft log
+  // file
+  mi->rli->relay_log.init_gtid_sets(
+      all_gtid_set, NULL, opt_slave_sql_verify_checksum,
+      /*need_lock=*/false, &mi->transaction_parser,
+      mi->get_gtid_monitoring_info());
+
+  all_gtid_set->get_sid_map()->get_sid_lock()->unlock();
+
+  mi->rli->relay_log.set_previous_gtid_set_relaylog(all_gtid_set);
+
+  // At the end of this
+  // cur_log_ext, log_file_name, name and IO_CACHE(log_file) should all be
+  // up to date
+  if (mi->rli->relay_log.open_existing_binlog(opt_bin_logname,
+                                              max_binlog_size)) {
+    // NO_LINT_DEBUG
+    sql_print_error("rli_relay_log_raft_reset::failed to open binlog file");
+    error = 1;
+    mi->rli->relay_log.unlock_index();
+    mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+    goto end;
+  }
+
+  // Setup the positions correctly for sql appliers
+  mi->rli->set_group_relay_log_name(normalized_log_name.c_str());
+  mi->rli->set_group_relay_log_pos(raft_log_applied_upto_pos.second);
+
+  mi->rli->set_event_relay_log_pos(rli->get_group_relay_log_pos());
+  mi->rli->set_event_relay_log_name(rli->get_group_relay_log_name());
+
+  mi->rli->relay_log.unlock_index();
+  mysql_mutex_unlock(mi->rli->relay_log.get_log_lock());
+
+  // NO_LINT_DEBUG
+  sql_print_information("Relay log cursor set to: %s:%llu",
+                        mi->rli->get_group_relay_log_name(),
+                        mi->rli->get_group_relay_log_pos());
+
+  mi->rli->inited = true;
+
+end:
+
+  mysql_mutex_unlock(&mi->rli->data_lock);
+  mysql_mutex_unlock(&mi->data_lock);
+  channel_map.unlock();
+  DBUG_RETURN(error);
+}
+
 int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
                                       int thread_mask,
-                                      bool skip_received_gtid_set_recovery) {
+                                      bool skip_received_gtid_set_recovery,
+                                      bool need_lock) {
   DBUG_TRACE;
   DBUG_ASSERT(mi != nullptr && mi->rli != nullptr);
   int init_error = 0;
@@ -1349,8 +1484,10 @@ int load_mi_and_rli_from_repositories(Master_info *mi, bool ignore_if_no_info,
     We need a mutex while we are changing master info parameters to
     keep other threads from reading bogus info
   */
-  mysql_mutex_lock(&mi->data_lock);
-  mysql_mutex_lock(&mi->rli->data_lock);
+  if (need_lock) {
+    mysql_mutex_lock(&mi->data_lock);
+    mysql_mutex_lock(&mi->rli->data_lock);
+  }
 
   /*
     When info tables are used and autocommit= 0 we force a new
@@ -1412,8 +1549,10 @@ end:
   if (is_autocommit_off_and_infotables(thd))
     if (trans_commit(thd)) init_error = 1;
 
-  mysql_mutex_unlock(&mi->rli->data_lock);
-  mysql_mutex_unlock(&mi->data_lock);
+  if (need_lock) {
+    mysql_mutex_unlock(&mi->rli->data_lock);
+    mysql_mutex_unlock(&mi->data_lock);
+  }
 
   /*
     Handling MTS Relay-log recovery after successful initialization of mi and
@@ -8975,6 +9114,7 @@ bool start_slave(THD *thd, LEX_SLAVE_CONNECTION *connection_param,
   if (thread_mask_input) {
     thread_mask &= thread_mask_input;
   }
+
   if (thread_mask)  // some threads are stopped, start them
   {
     if (load_mi_and_rli_from_repositories(mi, false, thread_mask)) {
@@ -9097,14 +9237,10 @@ static Master_info *raft_get_default_mi() {
   }
 
   mi = channel_map.get_default_channel_mi();
-  if (!Master_info::is_configured(mi)) {
+  if (!mi) {
     // NO_LINT_DEBUG
-    sql_print_error("Default channel's master-info is not configured");
-    mi = nullptr;
-    goto end;
+    sql_print_information("Default channel's master-info is not configured");
   }
-
-  DBUG_ASSERT(!strcmp(mi->get_channel(), channel_map.get_default_channel()));
 
 end:
   return mi;
@@ -9122,8 +9258,8 @@ int raft_stop_io_thread(THD *thd) {
 
   if (!mi) {
     // NO_LINT_DEBUG
-    sql_print_error("Defaut channel not configured in raft_stop_io_thread");
-    res = 1;
+    sql_print_information(
+        "Defaut channel not configured in raft_stop_io_thread");
     goto end;
   }
 
@@ -9147,8 +9283,8 @@ int raft_stop_sql_thread(THD *thd) {
   mi = raft_get_default_mi();
   if (!mi) {
     // NO_LINT_DEBUG
-    sql_print_error("Defaut channel not configured in raft_stop_sql_thread");
-    res = 1;
+    sql_print_information(
+        "Defaut channel not configured in raft_stop_sql_thread");
     goto end;
   }
 
