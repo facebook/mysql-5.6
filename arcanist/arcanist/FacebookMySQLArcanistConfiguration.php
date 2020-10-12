@@ -15,10 +15,10 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
       if ($using_sandcastle) {
         $tools_config_file = self::pathInTools(
           true, $working_copy, '.arcconfig');
-        $console->writeOut(
+        $console->writeErr(
           "Operating in Sandcastle. Using: %s\n", $tools_config_file);
       } else {
-        $console->writeOut(
+        $console->writeErr(
           "Operating in Facebook-external mode. File not found: %s\n",
           $tools_config_file
         );
@@ -34,7 +34,7 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
       $project_root . "/arcanist/lint/cpp_linter/");
     $configuration_manager->setRuntimeConfig("lint.cpplint.options",
       "--filter=-build/include_order,-whitespace/braces,-whitespace/newline");
-    $console->writeOut("Linters are enabled.\n");
+    $console->writeErr("Linters are enabled.\n");
 
     $tools_config_data = Filesystem::readFile($tools_config_file);
     $tools_config = json_decode($tools_config_data, true);
@@ -49,7 +49,7 @@ class FacebookMySQLArcanistConfiguration extends ArcanistConfiguration {
       $full_path = self::pathInTools(
         $using_sandcastle, $working_copy, $location);
 
-      $console->writeOut("Loading library from ".$full_path."\n");
+      $console->writeErr("Loading library from ".$full_path."\n");
       phutil_load_library($full_path);
     }
 

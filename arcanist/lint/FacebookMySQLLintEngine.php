@@ -27,6 +27,9 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     // All paths that have a C++ extension
     $all_cpp_paths = preg_grep($cpp_extensions, $paths);
 
+    // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
+    $myrocks_cpp_paths = preg_grep('/storage\/rocksdb/', $all_cpp_paths);
+
     // ArcanistGeneratedLinter stops other linters from running on generated
     // code.
     $linters[] = id(new ArcanistGeneratedLinter())->setPaths($text_paths);
@@ -45,24 +48,10 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     $linters[] = id(new FacebookMySQLPort80Linter())->setPaths($text_paths);
 
     // ArcanistCpplintLinter runs cpplint.py
-    // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
-    $myrocks_cpp_paths = preg_grep('/storage\/rocksdb/', $all_cpp_paths);
-    $linters[] = id(new ArcanistCpplintLinter())->setPaths($myrocks_cpp_paths);
+    $linters[] = id(new ArcanistCpplintLinter())->setPaths($all_cpp_paths);
 
-    // Currently we can't run flint (FbcodeCppLinter) in commit hook mode,
-    // because it depends on having access to the working directory.
-    if (!$this->getCommitHookMode()) {
-      // FacebookMySQLClangFormatLinter
-      $clang_format_linter = id(new FacebookMySQLClangFormatLinter());
-      $linters[] = $clang_format_linter;
-
-      foreach ($myrocks_cpp_paths as $path) {
-        $clang_format_linter->addPath($path);
-        $clang_format_linter->addData($path, $this->loadData($path));
-        $clang_format_linter->setPathChangedLines(
-            $path, $this->getPathChangedLines($path));
-      }
-    }
+    // Clang format
+    $linters[] = id(new ArcanistClangFormatLinter())->setPaths($all_cpp_paths);
 
     // ArcanistSpellingLinter enforces basic spelling. A blacklisted set of
     // words that are commonly spelled incorrectly are used.
@@ -86,7 +75,7 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
         ->setPaths($all_cpp_paths);
 
     $linters[] = id(new FacebookMySQLAssertUsageLinter())
-        ->setPaths($myrocks_cpp_paths);
+        ->setPaths($all_cpp_paths);
 
     //
     // If SKIP_HOWTOEVEN is specified then don't run Howtoeven linter.

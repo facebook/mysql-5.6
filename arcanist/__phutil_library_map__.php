@@ -13,7 +13,6 @@ phutil_register_library_map(array(
     'BaseDirectoryScopedFormatLinter' => 'lint/linter/BaseDirectoryScopedFormatLinter.php',
     'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
     'FacebookMySQLAssertUsageLinter' => 'lint/linter/FacebookMySQLAssertUsageLinter.php',
-    'FacebookMySQLClangFormatLinter' => 'lint/linter/FacebookMySQLClangFormatLinter.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
     'FacebookMySQLPort80Linter' => 'lint/linter/FacebookMySQLPort80Linter.php',
