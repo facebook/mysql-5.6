@@ -14,7 +14,6 @@ phutil_register_library_map(array(
     'FacebookInnoDBTabLinter' => 'lint/linter/FacebookInnoDBTabLinter.php',
     'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
     'FacebookMySQLAssertUsageLinter' => 'lint/linter/FacebookMySQLAssertUsageLinter.php',
-    'FacebookMySQLClangFormatLinter' => 'lint/linter/FacebookMySQLClangFormatLinter.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
     'FacebookMySQLPrintfLinter' => 'lint/linter/FacebookMySQLPrintfLinter.php',

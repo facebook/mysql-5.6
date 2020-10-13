@@ -27,6 +27,9 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     // All paths that have a C++ extension
     $all_cpp_paths = preg_grep($cpp_extensions, $paths);
 
+    // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
+    $myrocks_cpp_paths = preg_grep('/storage\/rocksdb/', $all_cpp_paths);
+
     // ArcanistGeneratedLinter stops other linters from running on generated
     // code.
     $linters[] = id(new ArcanistGeneratedLinter())->setPaths($text_paths);
@@ -41,24 +44,10 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     $linters[] = id(new FacebookMySQLLinter())->setPaths($text_paths);
 
     // ArcanistCpplintLinter runs cpplint.py
-    // Run on all C++ files that are in MyRocks (include 'storage/rocksdb')
-    $myrocks_cpp_paths = preg_grep('/storage\/rocksdb/', $all_cpp_paths);
     $linters[] = id(new ArcanistCpplintLinter())->setPaths($myrocks_cpp_paths);
 
-    // Currently we can't run flint (FbcodeCppLinter) in commit hook mode,
-    // because it depends on having access to the working directory.
-    if (!$this->getCommitHookMode()) {
-      // FacebookMySQLClangFormatLinter
-      $clang_format_linter = id(new FacebookMySQLClangFormatLinter());
-      $linters[] = $clang_format_linter;
-
-      foreach ($myrocks_cpp_paths as $path) {
-        $clang_format_linter->addPath($path);
-        $clang_format_linter->addData($path, $this->loadData($path));
-        $clang_format_linter->setPathChangedLines(
-            $path, $this->getPathChangedLines($path));
-      }
-    }
+    // Clang format only MyRocks for the 5.6 codebase
+    $linters[] = id(new ArcanistClangFormatLinter())->setPaths($myrocks_cpp_paths);
 
     // This linter looks to see if any changes in InnoDB use tabs as most of
     // the files there expect tabs instead of spaces.
