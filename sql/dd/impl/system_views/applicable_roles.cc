@@ -35,7 +35,8 @@ const String_type &Applicable_roles::cte_expression() {
       // Get current user as seed 1 for CTE
       "  ((SELECT "
       "      INTERNAL_GET_USERNAME(), INTERNAL_GET_HOSTNAME(), "
-      "      INTERNAL_GET_USERNAME(), INTERNAL_GET_HOSTNAME(), "
+      "      CONVERT(INTERNAL_GET_USERNAME() USING utf8mb4), "
+      "      CONVERT(INTERNAL_GET_HOSTNAME() USING utf8mb4), "
       "      CAST('' as CHAR(64) CHARSET utf8mb4), "
       "      CAST('' as CHAR(255) CHARSET utf8mb4), "
       "      CAST(SHA2(CONCAT(QUOTE(INTERNAL_GET_USERNAME()),'@', "
@@ -72,7 +73,8 @@ const String_type &Applicable_roles::cte_expression() {
       "    UNION "
       "      SELECT "
       "        INTERNAL_GET_USERNAME(), INTERNAL_GET_HOSTNAME(), "
-      "        ROLE_NAME, ROLE_HOST, "
+      "        CONVERT(ROLE_NAME USING utf8mb4), "
+      "        CONVERT(ROLE_HOST USING utf8mb4), "
       "        INTERNAL_GET_USERNAME(), INTERNAL_GET_HOSTNAME(), "
       "        CAST(SHA2(CONCAT(QUOTE(ROLE_NAME),'@', "
       "                  CONVERT(QUOTE(ROLE_HOST) using utf8mb4)), 256) "
@@ -96,7 +98,9 @@ const String_type &Applicable_roles::cte_expression() {
       // Recursive CTE SELECT query
       "  UNION "
       "    SELECT c_parent_user, c_parent_host, "
-      "      FROM_USER, FROM_HOST, TO_USER, TO_HOST, "
+      "      CONVERT(FROM_USER USING utf8mb4), "
+      "      CONVERT(FROM_HOST USING utf8mb4), "
+      "      TO_USER, TO_HOST, "
       /*
         Pass NULL for role_path to stop recursive CTE execution, once
         we locate a role that is already in the currently visited
@@ -143,7 +147,7 @@ Applicable_roles::Applicable_roles() {
       " (SELECT IF(COUNT(*), 'YES', 'NO') "
       "   FROM mysql.default_roles "
       "   WHERE DEFAULT_ROLE_USER = c_from_user AND "
-      "         CONVERT(DEFAULT_ROLE_HOST using utf8mb4)= c_from_host AND "
+      "         CONVERT(DEFAULT_ROLE_HOST using utf8mb4) = c_from_host AND "
       "         USER = c_parent_user AND "
       "         CONVERT(HOST using utf8mb4) = c_parent_host) ");
   m_target_def.add_field(
