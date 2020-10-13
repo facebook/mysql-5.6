@@ -39,8 +39,9 @@ Enabled_roles::Enabled_roles() {
       FIELD_IS_DEFAULT, "IS_DEFAULT",
       " (SELECT IF(COUNT(*), 'YES', 'NO') "
       "   FROM mysql.default_roles "
-      "   WHERE DEFAULT_ROLE_USER = ROLE_NAME AND "
-      "         CONVERT(DEFAULT_ROLE_HOST using utf8mb4) = ROLE_HOST AND "
+      "   WHERE DEFAULT_ROLE_USER = CONVERT(ROLE_NAME using utf8mb4) AND "
+      "         CONVERT(DEFAULT_ROLE_HOST using utf8mb4) = "
+      "           CONVERT(ROLE_HOST using utf8mb4) AND "
       "         USER = INTERNAL_GET_USERNAME() AND "
       "         CONVERT(HOST using utf8mb4) = INTERNAL_GET_HOSTNAME()) ");
   m_target_def.add_field(
