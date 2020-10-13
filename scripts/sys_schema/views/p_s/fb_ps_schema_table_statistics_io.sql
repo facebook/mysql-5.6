@@ -30,8 +30,8 @@ SELECT psts.object_schema AS table_schema,
        IFNULL(fsbi.sum_number_of_bytes_write, psts.io_write_bytes) AS io_write
   FROM performance_schema.table_statistics_by_table AS psts
   LEFT JOIN (
-       SELECT extract_schema_from_file_name_linux(file_name) AS table_schema,
-              extract_table_from_file_name_linux(file_name) AS table_name,
+       SELECT extract_schema_from_file_name_linux(file_name) COLLATE utf8mb4_0900_ai_ci AS table_schema,
+              extract_table_from_file_name_linux(file_name) COLLATE utf8mb4_0900_ai_ci AS table_name,
               count_read,
               sum_number_of_bytes_read,
               count_write,

@@ -50,8 +50,8 @@ VIEW x$ps_schema_table_statistics_io (
   count_misc,
   sum_timer_misc
 ) AS
-SELECT extract_schema_from_file_name(file_name) AS table_schema,
-       extract_table_from_file_name(file_name) AS table_name,
+SELECT extract_schema_from_file_name(file_name) COLLATE utf8mb4_0900_ai_ci AS table_schema,
+       extract_table_from_file_name(file_name) COLLATE utf8mb4_0900_ai_ci AS table_name,
        SUM(count_read) AS count_read,
        SUM(sum_number_of_bytes_read) AS sum_number_of_bytes_read,
        SUM(sum_timer_read) AS sum_timer_read,
