@@ -242,11 +242,14 @@ namespace info_schema {
 
   80032-002:
   - add DB_METADATA to INFORMATION_SCHEMA.SCHEMATA_EXTENSIONS
+
+  80032-003:
+  - Fixed the sys view to rely on performance_schema default collation
 */
 
-static const uint IS_DD_VERSION = 80032002;
+static const uint IS_DD_VERSION = 80032003;
 static_assert((IS_DD_VERSION <= MYSQL_VERSION_ID) ||
-                  ((IS_DD_VERSION == 80032002) && (MYSQL_VERSION_ID >= 80032)),
+                  ((IS_DD_VERSION == 80032003) && (MYSQL_VERSION_ID >= 80032)),
               "This release can not use a version number from the future");
 
 /**

@@ -16,3 +16,7 @@
 --echo #
 --let upgrade_mode = FORCE_AND_SHUTDOWN
 --source include/ps_sys_upgrade.inc
+
+# Restore default settings
+--let $restart_parameters = restart: --default-collation-for-utf8mb4-init="utf8mb4_general_ci"
+--source include/restart_mysqld.inc
