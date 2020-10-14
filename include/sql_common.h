@@ -37,9 +37,15 @@
 #include "my_inttypes.h"
 #include "my_list.h"
 #include "mysql_com.h"
+
 #ifdef MYSQL_SERVER
 #include "mysql_com_server.h"
 #endif
+
+#ifdef HAVE_OPENSSL
+#include <openssl/x509v3.h>
+#endif
+
 struct MEM_ROOT;
 
 #ifdef __cplusplus
@@ -164,6 +170,24 @@ struct client_authentication_info {
   char *password;
 };
 
+#ifdef HAVE_OPENSSL
+/*
+  Signature for the callback function used as MYSQL_OPT_TLS_CERT_CALLBACK
+  parameter.
+
+  The callback is responsible for validating server certificate
+  passed to it as "server_cert" parameter. An optional callback context
+  can be set by the client using MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT option.
+  This context will be passed as "context" parameter to the callback.
+  The callback is expected to return "0" if cert validation was successful,
+  or to return "1" to indicate cert validation failure. In case of failure
+  the callback should update "errptr" with a pointer to the error message
+  string.
+ */
+typedef int (*server_cert_validator_ptr)(X509 *server_cert, const void *context,
+                                         const char **errptr);
+#endif
+
 struct st_mysql_options_extention {
   char *plugin_dir;
   char *default_auth;
@@ -191,6 +215,11 @@ struct st_mysql_options_extention {
   char *tls_sni_servername; /* TLS sni server name */
   void *ssl_session_data; /** the session serialization to use */
   void *ssl_context;
+  /* pointer to the function validating server certificate */
+#ifdef HAVE_OPENSSL
+  server_cert_validator_ptr server_cert_validator;
+  const void *server_cert_validator_context;
+#endif
 };
 
 struct MYSQL_METHODS {
