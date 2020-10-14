@@ -3594,9 +3594,9 @@ mysql_take_ssl_context_ownership(MYSQL *mysql MY_ATTRIBUTE((unused))) {
   hostname we connected to
 
   SYNOPSIS
-  ssl_verify_server_cert()
+  ssl_verify_server_cert_default()
     vio              pointer to a SSL connected vio
-    server_hostname  name of the server that we connected to
+    context          callback context opinter
     errptr           if we fail, we'll return (a pointer to a string
                      describing) the reason here
 
@@ -3606,11 +3606,11 @@ mysql_take_ssl_context_ownership(MYSQL *mysql MY_ATTRIBUTE((unused))) {
 
  */
 
-static int ssl_verify_server_cert(Vio *vio, const char *server_hostname,
-                                  const char **errptr) {
-  SSL *ssl;
-  X509 *server_cert = nullptr;
+int ssl_verify_server_cert_default(X509 *server_cert, const void *context,
+                                   const char **errptr) {
+  const MYSQL *mysql = static_cast<const MYSQL *>(context);
   int ret_validation = 1;
+  const char *host_name = nullptr;
 
 #if !(OPENSSL_VERSION_NUMBER >= 0x10002000L)
   int cn_loc = -1;
@@ -3621,32 +3621,11 @@ static int ssl_verify_server_cert(Vio *vio, const char *server_hostname,
 #endif
 
   DBUG_TRACE;
-  DBUG_PRINT("enter", ("server_hostname: %s", server_hostname));
-
-  if (!(ssl = (SSL *)vio->ssl_arg)) {
-    *errptr = "No SSL pointer found";
-    goto error;
-  }
-
-  if (!server_hostname) {
+  host_name = mysql->host;
+  if (!host_name) {
     *errptr = "No server hostname supplied";
     goto error;
   }
-
-  if (!(server_cert = SSL_get_peer_certificate(ssl))) {
-    *errptr = "Could not get server certificate";
-    goto error;
-  }
-
-  if (X509_V_OK != SSL_get_verify_result(ssl)) {
-    *errptr = "Failed to verify the server certificate";
-    goto error;
-  }
-  /*
-    We already know that the certificate exchanged was valid; the SSL library
-    handled that. Now we need to verify that the contents of the certificate
-    are what we expect.
-  */
 
   /* Use OpenSSL certificate matching functions instead of our own if we
      have OpenSSL. The X509_check_* functions return 1 on success.
@@ -3657,6 +3636,7 @@ static int ssl_verify_server_cert(Vio *vio, const char *server_hostname,
     parameters in the new_VioSSLFd() to perform automatic checks.
   */
   ret_validation = 0;
+  (void)server_cert;
 #else  /* OPENSSL_VERSION_NUMBER < 0x10002000L */
   /*
      OpenSSL prior to 1.0.2 do not support X509_check_host() function.
@@ -3693,13 +3673,71 @@ static int ssl_verify_server_cert(Vio *vio, const char *server_hostname,
   }
 
   DBUG_PRINT("info", ("Server hostname in cert: %s", cn));
-  if (!strcmp(cn, server_hostname)) {
+  if (!strcmp(cn, host_name)) {
     /* Success */
     ret_validation = 0;
   }
 #endif /* OPENSSL_VERSION_NUMBER >= 0x10002000L */
 
-  *errptr = "SSL certificate validation success";
+error:
+  return ret_validation;
+}
+
+/*
+  Check the server's (subject) Common Name against the
+  hostname we connected to
+
+  SYNOPSIS
+  ssl_verify_server_cert()
+    vio              pointer to a SSL connected vio
+    mysql            the connection handle
+    errptr           if we fail, we'll return (a pointer to a string
+                     describing) the reason here
+
+  RETURN VALUES
+   0 Success
+   1 Failed to validate server
+
+*/
+
+static int ssl_verify_server_cert(Vio *vio, const MYSQL *mysql,
+                                  const char **errptr) {
+  SSL *ssl;
+  X509 *server_cert = NULL;
+  int ret_validation = 1;
+  server_cert_validator_ptr server_cert_validator = NULL;
+  const void *validator_context = mysql;
+
+  DBUG_TRACE;
+
+  if (!(ssl = reinterpret_cast<SSL *>(vio->ssl_arg))) {
+    *errptr = "No SSL pointer found";
+    goto error;
+  }
+
+  if (!(server_cert = SSL_get_peer_certificate(ssl))) {
+    *errptr = "Could not get server certificate";
+    goto error;
+  }
+
+  if (X509_V_OK != SSL_get_verify_result(ssl)) {
+    *errptr = "Failed to verify the server certificate";
+    goto error;
+  }
+  /*
+    We already know that the certificate exchanged was valid; the SSL library
+    handled that. Now we need to verify that the contents of the certificate
+    are what we expect.
+  */
+  server_cert_validator = mysql->options.extension->server_cert_validator;
+  validator_context = mysql->options.extension->server_cert_validator_context;
+  *errptr = "SSL certificate validation failure";
+  if (server_cert_validator) {
+    ret_validation =
+        server_cert_validator(server_cert, validator_context, errptr);
+  } else {
+    ret_validation = ssl_verify_server_cert_default(server_cert, mysql, errptr);
+  }
 
 error:
   if (server_cert != nullptr) X509_free(server_cert);
@@ -4544,7 +4582,7 @@ static int cli_establish_ssl(MYSQL *mysql) {
 
     /* Verify server cert */
     if (verify_identity &&
-        ssl_verify_server_cert(net->vio, mysql->host, &cert_error)) {
+        ssl_verify_server_cert(net->vio, mysql, &cert_error)) {
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), cert_error);
       goto error;
@@ -4757,7 +4795,7 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
 
     /* Verify server cert */
     if (verify_identity &&
-        ssl_verify_server_cert(net->vio, mysql->host, &cert_error)) {
+        ssl_verify_server_cert(net->vio, mysql, &cert_error)) {
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER_CLIENT(CR_SSL_CONNECTION_ERROR), cert_error);
       goto error;
@@ -8763,6 +8801,20 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
       EXTENSION_SET_STRING(&mysql->options, tls_sni_servername,
                            static_cast<const char *>(arg));
       break;
+    case MYSQL_OPT_TLS_CERT_CALLBACK:
+#if defined(HAVE_OPENSSL)
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      mysql->options.extension->server_cert_validator =
+          *static_cast<const server_cert_validator_ptr *>(arg);
+#endif
+      break;
+    case MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT:
+#if defined(HAVE_OPENSSL)
+      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+      mysql->options.extension->server_cert_validator_context =
+          *static_cast<const void *const *>(arg);
+#endif
+      break;
     case MYSQL_OPT_SSL_CRL:
       if (mysql->options.extension)
         my_free(mysql->options.extension->ssl_crl);
@@ -9050,6 +9102,12 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
     MYSQL_OPT_TLS_VERSION, MYSQL_SERVER_PUBLIC_KEY, MYSQL_OPT_SSL_FIPS_MODE
     MYSQL_OPT_TLS_SNI_SERVERNAME
 
+  const void *
+    MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT
+
+  function pointer
+    MYSQL_OPT_TLS_CERT_CALLBACK
+
   <none, error returned>
     MYSQL_OPT_NAMED_PIPE, MYSQL_OPT_CONNECT_ATTR_RESET,
     MYSQL_OPT_CONNECT_ATTR_DELETE, MYSQL_INIT_COMMAND
@@ -9187,6 +9245,22 @@ int STDCALL mysql_get_option(MYSQL *mysql, enum mysql_option option,
           mysql->options.extension
               ? mysql->options.extension->tls_sni_servername
               : nullptr;
+      break;
+    case MYSQL_OPT_TLS_CERT_CALLBACK:
+#ifdef HAVE_OPENSSL
+      *(static_cast<server_cert_validator_ptr *>(const_cast<void *>(arg))) =
+          mysql->options.extension
+              ? mysql->options.extension->server_cert_validator
+              : nullptr;
+#endif
+      break;
+    case MYSQL_OPT_TLS_CERT_CALLBACK_CONTEXT:
+#ifdef HAVE_OPENSSL
+      *(static_cast<const void **>(const_cast<void *>(arg))) =
+          mysql->options.extension
+              ? mysql->options.extension->server_cert_validator_context
+              : nullptr;
+#endif
       break;
     case MYSQL_OPT_RETRY_COUNT:
       *(const_cast<uint *>(static_cast<const uint *>(arg))) =
