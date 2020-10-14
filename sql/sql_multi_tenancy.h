@@ -352,6 +352,20 @@ public:
   }
 };
 
+/**
+  @brief Class temporarily holding existing resources during ac_info switch.
+*/
+class Ac_switch_guard {
+  THD *thd;
+  std::string old_db;
+  std::string new_db;
+  bool committed = false;
+
+public:
+  Ac_switch_guard(THD *, const char *);
+  ~Ac_switch_guard();
+  void commit() { committed = true; }
+};
 
 extern AC *db_ac;
 

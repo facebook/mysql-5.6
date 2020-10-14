@@ -295,12 +295,10 @@ int multi_tenancy_admit_query(THD *thd,
   return 0;
 }
 
-
-/*
+/**
  * Exit a query based on database entity
  *
  * @param thd THD structure
- * @param attrs Resource attributes
  *
  * @return 0 if successful, 1 if otherwise
  */
@@ -328,7 +326,7 @@ int multi_tenancy_exit_query(THD *thd)
  * @param type Resource type
  * @param attrs Resource attributes
  *
- * @return resource entity name. Emtpy string if no plugin is installed.
+ * @return resource entity name. Empty string if no plugin is installed.
  */
 std::string multi_tenancy_get_entity(
     THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *attrs)
@@ -1025,6 +1023,35 @@ void AC::remove(const char* entity) {
     ac_map.erase(it);
   }
   mysql_rwlock_unlock(&LOCK_ac);
+}
+
+/**
+  @brief Constructor.
+*/
+Ac_switch_guard::Ac_switch_guard(THD *_thd, const char *_new_db) {
+  thd = _thd;
+  if (_new_db)
+    new_db = _new_db;
+  if (thd->db)
+    old_db = thd->db;
+
+  // Release old ac_info.
+  if (thd->is_in_ac) {
+    // Current admission control is per database.
+    DBUG_ASSERT(!old_db.empty());
+    multi_tenancy_exit_query(thd);
+  }
+}
+
+/**
+  @brief Destructor commits or rolls back the switch.
+*/
+Ac_switch_guard::~Ac_switch_guard() {
+  std::string &db = committed ? old_db : new_db;
+  if (!db.empty()) {
+    MT_RESOURCE_ATTRS attrs = { nullptr, nullptr, db.c_str() };
+    multi_tenancy_close_connection(thd, &attrs);
+  }
 }
 
 ST_FIELD_INFO admission_control_queue_fields_info[]=

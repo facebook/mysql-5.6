@@ -1494,58 +1494,29 @@ static int process_noncurrent_db_rw (THD *thd, TABLE_LIST *all_tables)
  */
 static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
 {
-  // initialize empty attributes. only database may be set later
-  MT_RESOURCE_ATTRS attrs = {nullptr, nullptr, nullptr};
-  // save existing session db
-  std::string old_db;
+  bool error = false;
+  Ac_switch_guard switch_guard(thd, new_db->str);
 
   if (!thd->db || strcmp(thd->db, new_db->str))
   {
-    if (thd->db)
-    {
-      old_db = thd->db;
-    }
-    // since we are changing the session db and the query is part of
-    // multi-statement packet, we need to reset admission control so the new
-    // queries won't bypass the new db's admission control.
-    if (thd->is_in_ac)
-    {
-      // current admission control is per database
-      DBUG_ASSERT(thd->db);
-      // if the thd is already in admission control for the previous
-      // database, we need to release it before resetting the value.
-      attrs.database = thd->db;
-      multi_tenancy_exit_query(thd);
-    }
     // now check resource if we can switch the connection to another database.
     // Since other attributes are null, this doesn't have any effect if the
     // throttling is not db based.
-    attrs.database = new_db->str; // set the new db in attributes
+    MT_RESOURCE_ATTRS attrs = { nullptr, nullptr, new_db->str };
     if (attrs.database && multi_tenancy_add_connection(thd, &attrs))
     {
       my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), attrs.database);
-      return true;
+      error = true;
     }
   }
 
-  if (!mysql_change_db(thd, new_db, FALSE))
-  {
-    // release old connection resource in multi-tenancy plugin
-    if (!old_db.empty())
-    {
-      attrs.database = old_db.c_str();
-      multi_tenancy_close_connection(thd, &attrs);
-    }
-    return false;
-  }
-  else if (attrs.database)
-  {
-    // failed to change to the new database. release the connection resource
-    multi_tenancy_close_connection(thd, &attrs);
-  }
+  if (!error && !mysql_change_db(thd, new_db, false)) // Do not force switch.
+    switch_guard.commit();
+  else
+    error = true;
 
-  // mysql_change_db failed. error is set in side mysql_change_db
-  return true;
+  // Switch guard either commits or rolls back the switch operation.
+  return error;
 }
 
 #ifndef EMBEDDED_LIBRARY
