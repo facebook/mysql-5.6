@@ -182,6 +182,7 @@ my $exe_ndbmtd_counter = 0;
 my $source_dist        = 0;
 my $shutdown_report    = 0;
 my $valgrind_reports   = 0;
+my $new_test_option = 0; # is '--new-tests' option specified
 
 my @valgrind_args;
 
@@ -451,6 +452,15 @@ sub main {
     die "Can't open file $build_thread_id_file: $!";
   print FH "# Unique id file paths\n";
   close(FH);
+
+  # if the option '--new-tests' is specified and if no test/result files are
+  # added or modified or specified as part of the command then exit
+  if ($new_test_option && $#opt_cases < 0)
+  {
+    mtr_warning("--new-tests is specified but no tests are added/modified" .
+                " in the current commit");
+    exit(0);
+  }
 
   # --help will not reach here, so now it's safe to assume we have binaries
   My::SafeProcess::find_bin($bindir, $path_client_bindir);
@@ -1878,6 +1888,48 @@ sub command_line_setup {
       # It is an effect of setting 'pass_through' in option processing
       # that the lone '--' separating options from arguments survives,
       # simply ignore it.
+    } elsif ( $arg eq "--new-tests") {
+      # Run tests that are modified from the last commit
+      # find the files that are modified in the current commit
+      # include .result file that are modified
+      my $git_cmd = "git diff --name-only HEAD^|grep '\.test\$\\\|\.result\$'";
+      my @modified_files = `$git_cmd`;
+
+      my $mfile;
+      my $file_list="";
+      my %uniq_opt_cases;
+      # there could be duplicates due to same file appearing twice
+      # because of changes to .test and .result files. So do duplicate
+      # elimination using a hash
+      foreach $mfile (@modified_files)
+      {
+        chomp($mfile);
+        my @split_mfile = split(/\//, $mfile);
+        # split the file name to elimination extension since it could include
+        # ".result" string
+        my @split_last_filename = split(/\./, $split_mfile[$#split_mfile]);
+        my $last_commit_filename = $split_last_filename[0];
+        if ($split_mfile[1] eq "suite")
+        {
+            $last_commit_filename = $split_mfile[2].".".$last_commit_filename;
+        }
+        $uniq_opt_cases{$last_commit_filename} = 1;
+      }
+      my $test_file_name;
+      foreach $test_file_name (keys %uniq_opt_cases)
+      {
+        push(@opt_cases, $test_file_name);
+        if (length($file_list) > 0)
+        {
+          $file_list = $file_list.", ";
+        }
+        $file_list = $file_list.$test_file_name;
+      }
+      if (length($file_list) > 0)
+      {
+        print "Tests added/modified in the current commit: $file_list\n";
+      }
+      $new_test_option = 1;
     } elsif ($arg =~ /^-/) {
       usage("Invalid option \"$arg\"");
     } else {
@@ -7604,6 +7656,8 @@ Options to control what engine/variation to run
   view-protocol         Create a view to execute all non updating queries.
   vs-config             Visual Studio configuration used to create executables
                         (default: MTR_VS_CONFIG environment variable).
+  new-tests             Run tests that are added/modified in the current
+                        commit
 
 Options to control directories to use
 
