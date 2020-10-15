@@ -327,7 +327,7 @@ public:
   ulong get_total_running_queries() {
     ulonglong res= 0;
     mysql_rwlock_rdlock(&LOCK_ac);
-    for (auto it : ac_map)
+    for (const auto &it : ac_map)
     {
       auto &ac_info = it.second;
       mysql_mutex_lock(&ac_info->lock);
@@ -340,7 +340,7 @@ public:
   ulong get_total_waiting_queries() {
     ulonglong res= 0;
     mysql_rwlock_rdlock(&LOCK_ac);
-    for (auto it : ac_map)
+    for (const auto &it : ac_map)
     {
       auto &ac_info = it.second;
       mysql_mutex_lock(&ac_info->lock);
