@@ -1409,6 +1409,32 @@ sub command_line_setup {
       # that the lone '--' separating options from arguments survives,
       # simply ignore it.
     }
+    elsif ( $arg eq "--new-tests")
+    {
+      # Run tests that are modified from the last commit
+      # find the files that are modified in the current commit
+      my $git_cmd = "git diff --name-only HEAD^|grep '\.test\$'";
+      my @modified_files = `$git_cmd`;
+
+      my $mfile;
+      my $file_list="";
+      foreach $mfile (@modified_files)
+      {
+        chomp($mfile);
+        my @split_mfile = split(/\//, $mfile);
+        my $last_commit_filename = $split_mfile[$#split_mfile];
+        push(@opt_cases, $last_commit_filename);
+        if (length($file_list) > 0)
+        {
+          $file_list = $file_list.", ";
+        }
+        $file_list = $file_list.$last_commit_filename;
+      }
+      if (length($file_list) > 0)
+      {
+        print "Tests added/modified in the current commit: $file_list\n";
+      }
+    }
     elsif ( $arg =~ /^-/ )
     {
       usage("Invalid option \"$arg\"");
@@ -6739,6 +6765,8 @@ Options to control what engine/variation to run
   combination=<opt>     Use at least twice to run tests with specified 
                         options to mysqld
   skip-combinations     Ignore combination file (or options)
+  new-tests             Run tests that are added/modified in the current
+                        commit
 
 Options to control directories to use
   tmpdir=DIR            The directory where temporary files are stored
