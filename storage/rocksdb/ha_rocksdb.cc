@@ -673,6 +673,7 @@ static uint64_t rocksdb_info_log_level;
 static char *rocksdb_wal_dir;
 static char *rocksdb_persistent_cache_path;
 static char *rocksdb_wsenv_path;
+static char *rocksdb_wsenv_tenant;
 static uint64_t rocksdb_index_type;
 static uint32_t rocksdb_flush_log_at_trx_commit;
 static uint32_t rocksdb_debug_optimizer_n_rows;
@@ -1504,6 +1505,10 @@ static MYSQL_SYSVAR_ULONG(
 static MYSQL_SYSVAR_STR(wsenv_path, rocksdb_wsenv_path,
                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
                         "Path for RocksDB WSEnv", nullptr, nullptr, "");
+
+static MYSQL_SYSVAR_STR(wsenv_tenant, rocksdb_wsenv_tenant,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                        "Tenant for RocksDB WSEnv", nullptr, nullptr, "");
 
 static MYSQL_SYSVAR_ULONG(
     delete_obsolete_files_period_micros,
@@ -2380,6 +2385,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(persistent_cache_path),
     MYSQL_SYSVAR(persistent_cache_size_mb),
     MYSQL_SYSVAR(wsenv_path),
+    MYSQL_SYSVAR(wsenv_tenant),
     MYSQL_SYSVAR(delete_obsolete_files_period_micros),
     MYSQL_SYSVAR(max_background_jobs),
     MYSQL_SYSVAR(max_background_flushes),
@@ -5770,10 +5776,13 @@ static int rocksdb_init_internal(void *const p) {
   if (rdb_has_wsenv()) {
     // NO_LINT_DEBUG
     sql_print_information(
-        "RocksDB: Initializing WSEnvironment: rocksdb_wsenv_path = %s",
-        rocksdb_wsenv_path);
+        "RocksDB: Initializing WSEnvironment: "
+        "rocksdb_wsenv_path = %s, rocksdb_wsenv_tenant = %s",
+        rocksdb_wsenv_path, rocksdb_wsenv_tenant);
 
-    RegisterCustomObjectsSimple();
+    std::string rdb_tenant(rocksdb_wsenv_tenant);
+    facebook::rocks::WSEnvCreationArgs args(rdb_tenant);
+    RegisterWarmStorageSimple(args);
     rocksdb::Env *ws_env = nullptr;
     auto s = rocksdb::Env::LoadEnv(rocksdb_wsenv_path, &ws_env);
     if (s.ok()) {
