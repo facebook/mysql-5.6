@@ -228,6 +228,15 @@ sub fix_wsenv_path {
   return "$wsenv_path/$group_name/data";
 }
 
+sub fix_wsenv_tenant {
+  my ($self, $config, $group_name) = @_;
+  my $wsenv_tenant = $self->{ARGS}->{wsenv_tenant};
+  if (!defined $wsenv_tenant or $wsenv_tenant eq "") {
+    return ""
+  }
+  return $wsenv_tenant;
+}
+
 sub fix_group_setting {
   my ($self, $config, $group_name, $group, $option_name) = @_;
   # Use value from [mysqld.X], [mysqld](if group exists) or 1
@@ -335,6 +344,7 @@ my @mysqld_rules = (
   { 'ssl-key'                                      => \&fix_ssl_server_key },
   { 'tmpdir'                                       => \&fix_tmpdir },
   { 'loose-rocksdb_wsenv_path'                     => \&fix_wsenv_path },
+  { 'loose-rocksdb_wsenv_tenant'                   => \&fix_wsenv_tenant },
   { 'loose-sha256_password_auto_generate_rsa_keys' => "0" },
   { 'loose-caching_sha2_password_auto_generate_rsa_keys' => "0" },
 
