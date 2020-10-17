@@ -147,6 +147,7 @@ my $opt_valgrind_mysqltest = 0;
 my $opt_mtr_term_args = env_or_val(MTR_TERM => "xterm -title %title% -e");
 my $opt_lldb_cmd = env_or_val(MTR_LLDB => "lldb");
 my $opt_wsenv_path=$ENV{'MTR_WSENV_PATH'} || "";
+my $opt_wsenv_tenant=$ENV{'MTR_WSENV_TENANT'} || "";
 my $opt_wsenv_clean_cmd=$ENV{'MTR_WSENV_CLEAN_CMD'} || "";
 my $opt_wsenv_mv_cmd=$ENV{'MTR_WSENV_MV_CMD'} || "";
 my $opt_wsenv_mkdir_cmd=$ENV{'MTR_WSENV_MKDIR_CMD'} || "";
@@ -1628,6 +1629,7 @@ sub command_line_setup {
     'verbose-restart'       => \&report_option,
     'wait-all'              => \$opt_wait_all,
     'wsenv-path=s'          => \$opt_wsenv_path,
+    'wsenv-tenant=s'        => \$opt_wsenv_tenant,
     'wsenv-clean-cmd=s'     => \$opt_wsenv_clean_cmd,
     'wsenv-mv-cmd=s'        => \$opt_wsenv_mv_cmd,
     'warnings!'             => \$opt_warnings,
@@ -3971,10 +3973,13 @@ sub sql_to_bootstrap {
 sub print_wsenv {
   foreach my $mysqld (mysqlds()) {
     my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
+    my $wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
 
     if ($wsenv_path ne "") {
       my $suffix = $mysqld->after('mysqld');
-      mtr_print("[WSEnv] mysqld$suffix: rocksdb_wsenv_path=$wsenv_path");
+      mtr_print("[WSEnv] mysqld$suffix:");
+      mtr_print("  rocksdb_wsenv_path=$wsenv_path");
+      mtr_print("  rocksdb_wsenv_tenant=$wsenv_tenant");
     }
   }
 }
@@ -3983,7 +3988,9 @@ sub default_mysqld {
   my $wsenv_mtr_path = $opt_wsenv_path;
   if ($wsenv_mtr_path ne "") {
     $wsenv_mtr_path = $wsenv_mtr_path . "/bootstrap";
-    mtr_print("[WSEnv] Default Config: Setting wsenv_path=$wsenv_mtr_path");
+    mtr_print("[WSEnv] Setting default mysqld config:");
+    mtr_print("  rocksdb_wsenv_path=$wsenv_mtr_path");
+    mtr_print("  rocksdb_wsenv_tenant=$opt_wsenv_tenant");
   }
 
   # Generate new config file from template
@@ -3997,6 +4004,7 @@ sub default_mysqld {
                                     user          => $opt_user,
                                     password      => '',
                                     wsenv_path    => $wsenv_mtr_path,
+                                    wsenv_tenant  => $opt_wsenv_tenant,
                                   });
 
   my $mysqld = $config->group('mysqld.1') or
@@ -4051,6 +4059,9 @@ sub mysql_install_db {
 
   my $wsenv_path = $mysqld->value('loose-rocksdb_wsenv_path');
   mtr_add_arg($args, "--rocksdb-wsenv-path=$wsenv_path");
+
+  my $wsenv_tenant = $mysqld->value('loose-rocksdb_wsenv_tenant');
+  mtr_add_arg($args, "--rocksdb-wsenv-tenant=$wsenv_tenant");
 
   # Arguments to bootstrap process.
   my $init_file;
@@ -4738,7 +4749,9 @@ sub run_testcase ($) {
         if (defined $tinfo->{worker}) {
           $wsenv_mtr_path = $wsenv_mtr_path . "/$tinfo->{worker}";
         }
-        mtr_print("[WSEnv] Config: Setting wsenv_path=$wsenv_mtr_path")
+        mtr_print("[WSEnv] Setting mysqld config:");
+        mtr_print("  rocksdb_wsenv_path=$wsenv_mtr_path");
+        mtr_print("  rocksdb_wsenv_tenant=$opt_wsenv_tenant");
       }
 
       # Generate new config file from template
@@ -4754,7 +4767,8 @@ sub run_testcase ($) {
                            tmpdir              => $opt_tmpdir,
                            user                => $opt_user,
                            vardir              => $opt_vardir,
-                           wsenv_path          => $wsenv_mtr_path
+                           wsenv_path          => $wsenv_mtr_path,
+                           wsenv_tenant        => $opt_wsenv_tenant,
                          });
       print_wsenv();
 
