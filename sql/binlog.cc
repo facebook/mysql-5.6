@@ -32,6 +32,7 @@
 #include <boost/algorithm/string.hpp>
 #include <chrono>
 #include <exception>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -1509,8 +1510,8 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  * @return false on success, true on failure
  */
 bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
-                              Binlog_event_writer *writer, uchar *obuffer,
-                              bool *wrote_hlc) {
+                              Binlog_event_writer *writer,
+                              Binlog_cache_storage *obuffer, bool *wrote_hlc) {
   if (!thd->should_write_hlc) {
     /* HLC was not assigned to this thd */
     thd->hlc_time_ns_next = 0;
@@ -1527,7 +1528,7 @@ bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
 
   bool result = false;
   if (obuffer) {
-    (void) metadata_ev.write_to_memory(obuffer);
+    (void)metadata_ev.write(obuffer);
   } else {
     result = metadata_ev.write(writer);
   }
@@ -1604,7 +1605,8 @@ bool MYSQL_BIN_LOG::assign_automatic_gtids_to_flush_group(THD *first_seen) {
   @retval true Error.
 */
 bool MYSQL_BIN_LOG::write_gtid(THD *thd, binlog_cache_data *cache_data,
-                               Binlog_event_writer *writer, uchar *obuffer) {
+                               Binlog_event_writer *writer,
+                               Binlog_cache_storage *obuffer) {
   DBUG_ENTER("MYSQL_BIN_LOG::write_gtid");
 
   /*
@@ -1754,7 +1756,7 @@ bool MYSQL_BIN_LOG::write_gtid(THD *thd, binlog_cache_data *cache_data,
 
   bool ret = false;
   if (obuffer != nullptr) {
-    (void) gtid_event.write_to_memory(obuffer);
+    (void)gtid_event.write(obuffer);
   } else {
     ret = gtid_event.write(writer);
   }
@@ -2090,36 +2092,32 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
       }
     };);
 
-    if (!error && enable_raft_plugin) {
-      // TODO: malloc for every trx could become expensive and fragmented.
-      // See if we can do static allocation here
-      uchar *gtid_buff = (uchar *) my_malloc(
-          PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
-      uchar *metadata_buff = (uchar *) my_malloc(
-          PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
+    if (!error && enable_raft_plugin && !mysql_bin_log.is_apply_log) {
+      std::unique_ptr<Binlog_cache_storage> temp_binlog_cache =
+          std::make_unique<Binlog_cache_storage>();
+      temp_binlog_cache->open(4096, 4096);
 
-      if ((error = mysql_bin_log.write_gtid(thd, this, &writer, gtid_buff)))
+      if ((error = mysql_bin_log.write_gtid(thd, this, &writer,
+                                            temp_binlog_cache.get())))
         thd->commit_error = THD::CE_FLUSH_ERROR;
 
       bool wrote_hlc = false;
       if (!error) {
         if ((error = mysql_bin_log.write_hlc(
-                thd, this, &writer, metadata_buff, &wrote_hlc)))
+                 thd, this, &writer, temp_binlog_cache.get(), &wrote_hlc)))
           thd->commit_error = THD::CE_FLUSH_ERROR;
       }
 
       if (!error) {
         thd->commit_consensus_error = false;
+        // TODO(luqun): perf concern? merge in plugin?
+        m_cache.copy_to(temp_binlog_cache.get());
         error = RUN_HOOK(raft_replication, before_flush,
-                        (thd, m_cache.get_io_cache(),
-                         RaftReplicateMsgOpType::OP_TYPE_TRX,
-                         gtid_buff, metadata_buff));
+                         (thd, temp_binlog_cache->get_io_cache(),
+                          RaftReplicateMsgOpType::OP_TYPE_TRX));
       }
 
-       DBUG_EXECUTE_IF("fail_binlog_flush_raft", {error= 1;});
-
-       my_free(gtid_buff);
-       my_free(metadata_buff);
+      DBUG_EXECUTE_IF("fail_binlog_flush_raft", { error = 1; });
 
       /*
        * before_flush hook failing is a guarantee by raft that any subsequent
@@ -2145,7 +2143,7 @@ int binlog_cache_data::flush(THD *thd, my_off_t *bytes_written,
       }
 
       if (!error) {
-        if ((error = mysql_bin_log.write_hlc(thd, this, &writer)))
+        if ((error = mysql_bin_log.write_hlc(thd, this, &writer, nullptr)))
           thd->commit_error = THD::CE_FLUSH_ERROR;
       }
 
@@ -7444,15 +7442,13 @@ int MYSQL_BIN_LOG::new_file_impl(
 
     // AT THIS POINT we should block in Raft mode to replicate the Rotate event.
     if (rotate_via_raft) {
-      RaftReplicateMsgOpType op_type =
-          RaftReplicateMsgOpType::OP_TYPE_ROTATE;
+      RaftReplicateMsgOpType op_type = RaftReplicateMsgOpType::OP_TYPE_ROTATE;
 
-      if (no_op)
-        op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
+      if (no_op) op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
 
-      error = RUN_HOOK(raft_replication, before_flush,
-                      (current_thd, temp_binlog_cache->get_io_cache(), op_type,
-                       nullptr, nullptr));
+      error =
+          RUN_HOOK(raft_replication, before_flush,
+                   (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
       if (!error) {
         error = RUN_HOOK(raft_replication, before_commit, (current_thd));

@@ -1118,7 +1118,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer, uchar *obuffer = nullptr,
+                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer,
                  bool *wrote_hlc = nullptr);
 
   /**
@@ -1130,7 +1130,8 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   bool assign_automatic_gtids_to_flush_group(THD *first_seen);
   bool write_gtid(THD *thd, binlog_cache_data *cache_data,
-                  class Binlog_event_writer *writer, uchar *obuffer = nullptr);
+                  class Binlog_event_writer *writer,
+                  Binlog_cache_storage *obuffer = nullptr);
 
   /**
      Write a dml into statement cache and then flush it into binlog. It writes
