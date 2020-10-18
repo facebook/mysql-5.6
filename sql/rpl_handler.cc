@@ -1270,6 +1270,55 @@ int launch_hook_trans_begin(THD *thd, TABLE_LIST *all_tables) {
   return ret;
 }
 
+static int update_sys_var(const char *var_name, uint name_len,
+                          Item &update_item) {
+  // find_sys_var will take a read lock on LOCK_system_variables_hash
+  sys_var *sys_var_ptr = find_sys_var(current_thd, var_name, name_len);
+  if (sys_var_ptr) {
+    LEX_STRING tmp;
+    set_var set_v(OPT_GLOBAL, sys_var_ptr, &tmp, &update_item);
+    return !set_v.check(current_thd) && set_v.update(current_thd);
+  }
+
+  return 1;
+}
+
+static int handle_read_only(
+    const std::map<std::string, unsigned int> &sys_var_map) {
+  int error = 0;
+  auto read_only_it = sys_var_map.find("read_only");
+  auto super_read_only_it = sys_var_map.find("super_read_only");
+  if (read_only_it == sys_var_map.end() &&
+      super_read_only_it == sys_var_map.end())
+    return 1;
+
+  if (super_read_only_it != sys_var_map.end() &&
+      super_read_only_it->second == 1) {
+    // Case 1: set super_read_only=1. This will implicitly set read_only.
+    Item_uint super_read_only_item(super_read_only_it->second);
+    error = update_sys_var(STRING_WITH_LEN("super_read_only"),
+                           super_read_only_item);
+  } else if (read_only_it != sys_var_map.end() && read_only_it->second == 0) {
+    // Case 2: set read_only=0. This will implicitly unset super_read_only.
+    Item_uint read_only_item(read_only_it->second);
+    error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+  } else {
+    // Case 3: Need to set read_only=1 OR/AND set super_read_only=0
+    if (read_only_it != sys_var_map.end()) {
+      Item_uint read_only_item(read_only_it->second);
+      error = update_sys_var(STRING_WITH_LEN("read_only"), read_only_item);
+    }
+
+    if (!error && super_read_only_it != sys_var_map.end()) {
+      Item_uint super_read_only_item(super_read_only_it->second);
+      error = update_sys_var(STRING_WITH_LEN("super_read_only"),
+                             super_read_only_item);
+    }
+  }
+
+  return error;
+}
+
 extern "C" void *process_raft_queue(void *) {
   THD *thd;
   bool thd_added = false;
@@ -1299,6 +1348,10 @@ extern "C" void *process_raft_queue(void *) {
     RaftListenerQueue::QueueElement element = raft_listener_queue.get();
     RaftListenerCallbackResult result;
     switch (element.type) {
+      case RaftListenerCallbackType::SET_READ_ONLY: {
+        handle_read_only(element.arg.val_sys_var_uint);
+        break;
+      }
       case RaftListenerCallbackType::ROTATE_BINLOG: {
         result.error = rotate_binlog_file(current_thd);
         break;
