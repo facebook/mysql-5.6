@@ -7691,6 +7691,15 @@ int update_rli_and_mi(
   mi->set_master_log_pos(master_log_pos.second);
   // Flush the master.info file
   mi->flush_info(/*force*/ false);
+  // init description event
+  if (mi->get_mi_description_event() == nullptr) {
+    auto fdle = new Format_description_log_event();
+    fdle->common_footer->checksum_alg =
+        mi->rli->relay_log.relay_log_checksum_alg;
+    mysql_mutex_lock(rli->relay_log.get_log_lock());
+    mi->set_mi_description_event(fdle);
+    mysql_mutex_unlock(rli->relay_log.get_log_lock());
+  }
   mysql_mutex_unlock(&mi->data_lock);
 
   // It is possible that this call was only done to update the master_log_pos
