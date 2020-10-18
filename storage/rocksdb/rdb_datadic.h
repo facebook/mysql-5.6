@@ -51,17 +51,15 @@ class Rdb_convert_to_record_key_decoder {
       const Rdb_convert_to_record_key_decoder &decoder) = delete;
   Rdb_convert_to_record_key_decoder &operator=(
       const Rdb_convert_to_record_key_decoder &decoder) = delete;
-  static int decode(uchar *const buf, uint *offset, Rdb_field_packing *fpi,
-                    TABLE *table, Field *field, bool has_unpack_info,
-                    Rdb_string_reader *reader,
+  static int decode(uchar *const buf, Rdb_field_packing *fpi, TABLE *table,
+                    bool has_unpack_info, Rdb_string_reader *reader,
                     Rdb_string_reader *unpack_reader);
   static int skip(const Rdb_field_packing *fpi, const Field *field,
                   Rdb_string_reader *reader, Rdb_string_reader *unpack_reader);
 
  private:
-  static int decode_field(Rdb_field_packing *fpi, Field *field,
+  static int decode_field(Rdb_field_packing *fpi, TABLE *table, uchar *buf,
                           Rdb_string_reader *reader,
-                          const uchar *const default_value,
                           Rdb_string_reader *unpack_reader);
 };
 
@@ -93,9 +91,6 @@ class Rdb_pack_field_context {
 
 class Rdb_key_field_iterator {
  private:
-  Rdb_field_packing *m_pack_info;
-  int m_iter_index;
-  int m_iter_end;
   TABLE *m_table;
   Rdb_string_reader *m_reader;
   Rdb_string_reader *m_unp_reader;
@@ -108,9 +103,8 @@ class Rdb_key_field_iterator {
   bool m_hidden_pk_exists;
   bool m_is_hidden_pk;
   bool m_is_null;
-  Field *m_field;
-  uint m_offset;
   Rdb_field_packing *m_fpi;
+  Rdb_field_packing *m_fpi_end;
 
  public:
   Rdb_key_field_iterator(const Rdb_key_field_iterator &) = delete;
@@ -124,10 +118,6 @@ class Rdb_key_field_iterator {
 
   int next();
   bool has_next();
-  bool get_is_null() const;
-  Field *get_field() const;
-  int get_field_index() const;
-  void *get_dst() const;
 };
 
 struct Rdb_collation_codec;
@@ -140,12 +130,11 @@ struct Rdb_index_info;
 using rdb_make_unpack_info_t = void (*)(const Rdb_collation_codec *codec,
                                         const Field *field,
                                         Rdb_pack_field_context *pack_ctx);
-using rdb_index_field_unpack_t = int (*)(Rdb_field_packing *fpi, Field *field,
+using rdb_index_field_unpack_t = int (*)(Rdb_field_packing *fpi,
                                          uchar *field_ptr,
                                          Rdb_string_reader *reader,
                                          Rdb_string_reader *unpack_reader);
 using rdb_index_field_skip_t = int (*)(const Rdb_field_packing *fpi,
-                                       const Field *field,
                                        Rdb_string_reader *reader);
 using rdb_index_field_pack_t = void (*)(Rdb_field_packing *fpi, Field *field,
                                         uchar *buf, uchar **dst,
@@ -661,64 +650,58 @@ class Rdb_key_def {
       Rdb_field_packing *const fpi, Field *const field, uchar *buf, uchar **dst,
       Rdb_pack_field_context *const pack_ctx);
 
-  static int unpack_integer(Rdb_field_packing *const fpi, Field *const field,
-                            uchar *const to, Rdb_string_reader *const reader,
+  template <int length>
+  static int unpack_integer(Rdb_field_packing *const fpi, uchar *const to,
+                            Rdb_string_reader *const reader,
                             Rdb_string_reader *const unp_reader
                                 MY_ATTRIBUTE((__unused__)));
 
   static int unpack_double(
       Rdb_field_packing *const fpi MY_ATTRIBUTE((__unused__)),
-      Field *const field MY_ATTRIBUTE((__unused__)), uchar *const field_ptr,
-      Rdb_string_reader *const reader,
+      uchar *const field_ptr, Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_float(
-      Rdb_field_packing *const fpi,
-      Field *const field MY_ATTRIBUTE((__unused__)), uchar *const field_ptr,
-      Rdb_string_reader *const reader,
-      Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
+  static int unpack_float(Rdb_field_packing *const fpi, uchar *const field_ptr,
+                          Rdb_string_reader *const reader,
+                          Rdb_string_reader *const unp_reader
+                              MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_binary_str(Rdb_field_packing *const fpi, Field *const field,
-                               uchar *const to, Rdb_string_reader *const reader,
+  static int unpack_binary_str(Rdb_field_packing *const fpi, uchar *const to,
+                               Rdb_string_reader *const reader,
                                Rdb_string_reader *const unp_reader
                                    MY_ATTRIBUTE((__unused__)));
 
   static int unpack_binary_or_utf8_varchar(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader,
+      Rdb_field_packing *const fpi, uchar *dst, Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
   static int unpack_binary_or_utf8_varchar_space_pad(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader);
+      Rdb_field_packing *const fpi, uchar *dst, Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader);
 
   static int unpack_newdate(
-      Rdb_field_packing *const fpi,
-      Field *const field MY_ATTRIBUTE((__unused__)), uchar *const field_ptr,
+      Rdb_field_packing *const fpi, uchar *const field_ptr,
       Rdb_string_reader *const reader,
       Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_utf8_str(Rdb_field_packing *const fpi, Field *const field,
-                             uchar *dst, Rdb_string_reader *const reader,
-                             Rdb_string_reader *const unp_reader
-                                 MY_ATTRIBUTE((__unused__)));
+  static int unpack_utf8_str(
+      Rdb_field_packing *const fpi, uchar *dst, Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader MY_ATTRIBUTE((__unused__)));
 
-  static int unpack_unknown_varchar(Rdb_field_packing *const fpi,
-                                    Field *const field, uchar *dst,
+  static int unpack_unknown_varchar(Rdb_field_packing *const fpi, uchar *dst,
                                     Rdb_string_reader *const reader,
                                     Rdb_string_reader *const unp_reader);
 
   static int unpack_simple_varchar_space_pad(
-      Rdb_field_packing *const fpi, Field *const field, uchar *dst,
-      Rdb_string_reader *const reader, Rdb_string_reader *const unp_reader);
+      Rdb_field_packing *const fpi, uchar *dst, Rdb_string_reader *const reader,
+      Rdb_string_reader *const unp_reader);
 
-  static int unpack_simple(Rdb_field_packing *const fpi,
-                           Field *const field MY_ATTRIBUTE((__unused__)),
-                           uchar *const dst, Rdb_string_reader *const reader,
+  static int unpack_simple(Rdb_field_packing *const fpi, uchar *const dst,
+                           Rdb_string_reader *const reader,
                            Rdb_string_reader *const unp_reader);
 
-  static int unpack_unknown(Rdb_field_packing *const fpi, Field *const field,
-                            uchar *const dst, Rdb_string_reader *const reader,
+  static int unpack_unknown(Rdb_field_packing *const fpi, uchar *const dst,
+                            Rdb_string_reader *const reader,
                             Rdb_string_reader *const unp_reader);
 
   static int unpack_floating_point(uchar *const dst,
@@ -750,16 +733,12 @@ class Rdb_key_def {
       Rdb_pack_field_context *pack_ctx MY_ATTRIBUTE((__unused__)));
 
   static int skip_max_length(const Rdb_field_packing *const fpi,
-                             const Field *const field
-                                 MY_ATTRIBUTE((__unused__)),
                              Rdb_string_reader *const reader);
 
   static int skip_variable_length(const Rdb_field_packing *const fpi,
-                                  const Field *const field,
                                   Rdb_string_reader *const reader);
 
   static int skip_variable_space_pad(const Rdb_field_packing *const fpi,
-                                     const Field *const field,
                                      Rdb_string_reader *const reader);
 
   inline bool use_legacy_varbinary_format() const {
@@ -925,12 +904,23 @@ class Rdb_field_packing {
   int m_unpack_data_len;
   int m_unpack_data_offset;
 
-  bool m_maybe_null; /* TRUE <=> NULL-byte is stored */
+  /*
+    Cached field information for faster access
+  */
+  bool m_field_maybe_null; /* TRUE <=> NULL-byte is stored */
+  bool m_field_unsigned_flag;
+  enum_field_types m_field_real_type;
+  uchar m_field_null_bit_mask;
+  uint m_field_pack_length;
+  uint m_field_null_offset;
+  my_ptrdiff_t m_field_offset;
+  const CHARSET_INFO *m_field_charset;
 
   /*
     Valid only for VARCHAR fields.
   */
-  const CHARSET_INFO *m_varchar_charset;
+  uint m_varchar_length_bytes;
+  uint m_varchar_char_length;
   bool m_use_legacy_varbinary_format;
 
   // (Valid when Variable Length Space Padded Encoding is used):
