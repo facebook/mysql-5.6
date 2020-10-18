@@ -605,7 +605,7 @@ int Rdb_converter::convert_record_from_storage_format(
     }
   }
 
-  if (!decode_value) {
+  if (!decode_value || get_decode_fields()->size() == 0) {
     // We are done
     return HA_EXIT_SUCCESS;
   }

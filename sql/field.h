@@ -3871,6 +3871,8 @@ class Field_blob : public Field_longstr {
   int do_save_field_metadata(uchar *first_byte) const override;
 };
 
+void store_blob_length(uchar *i_ptr, uint i_packlength, uint32 i_number);
+
 class Field_geom final : public Field_blob {
  private:
   const std::optional<gis::srid_t> m_srid;
