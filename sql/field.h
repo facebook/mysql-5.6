@@ -3865,8 +3865,8 @@ class Field_blob : public Field_longstr {
     return get_length(row_offset);
   }
   uint32 get_length(ptrdiff_t row_offset = 0) const;
-  uint32 get_length(const uchar *ptr, uint packlength,
-                    bool low_byte_first) const;
+  static uint32 get_length(const uchar *ptr, uint packlength,
+                           bool low_byte_first);
   uint32 get_length(const uchar *ptr_arg) const;
   /** Get a const pointer to the BLOB data of this field. */
   const uchar *get_ptr() const final override {
@@ -4032,6 +4032,9 @@ class Field_blob : public Field_longstr {
  private:
   int do_save_field_metadata(uchar *first_byte) const override;
 };
+
+void store_blob_length(uchar *i_ptr, uint i_packlength, uint32 i_number,
+                       bool low_byte_first);
 
 class Field_geom final : public Field_blob {
  private:
