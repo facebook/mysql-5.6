@@ -32,6 +32,7 @@
 #include <boost/algorithm/string.hpp>
 #include <chrono>
 #include <exception>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -1530,8 +1531,8 @@ bool MYSQL_BIN_LOG::assign_hlc(THD *thd) {
  * @return false on success, true on failure
  */
 bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
-                              Binlog_event_writer *writer, uchar *obuffer,
-                              bool *wrote_hlc) {
+                              Binlog_event_writer *writer,
+                              Binlog_cache_storage *obuffer, bool *wrote_hlc) {
   if (!thd->should_write_hlc) {
     /* HLC was not assigned to this thd */
     thd->hlc_time_ns_next = 0;
@@ -1547,7 +1548,7 @@ bool MYSQL_BIN_LOG::write_hlc(THD *thd, binlog_cache_data *cache_data,
 
   bool result = false;
   if (obuffer) {
-    (void)metadata_ev.write_to_memory(obuffer);
+    (void)metadata_ev.write(obuffer);
   } else {
     result = metadata_ev.write(writer);
   }
@@ -1771,7 +1772,7 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
              ("transaction_length= %llu", gtid_event.transaction_length));
 
   bool ret = false;
-  if (!enable_raft_plugin) {
+  if (!enable_raft_plugin || mysql_bin_log.is_apply_log) {
     ret = gtid_event.write(writer);
     if (ret) goto end;
 
@@ -1784,29 +1785,25 @@ bool MYSQL_BIN_LOG::write_transaction(THD *thd, binlog_cache_data *cache_data,
     */
     ret = mysql_bin_log.write_cache(thd, cache_data, writer);
   } else {
-    // TODO: malloc for every trx could become expensive and fragmented.
-    // See if we can do static allocation here
-    uchar *gtid_buff =
-        (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
-    uchar *metadata_buff =
-        (uchar *)my_malloc(PSI_NOT_INSTRUMENTED, 1000, MYF(MY_WME));
+    std::unique_ptr<Binlog_cache_storage> temp_binlog_cache =
+        std::make_unique<Binlog_cache_storage>();
+    temp_binlog_cache->open(4096, 4096);
 
-    (void)gtid_event.write_to_memory(gtid_buff);
+    (void)gtid_event.write(temp_binlog_cache.get());
 
     bool wrote_hlc = false;
-    ret = write_hlc(thd, cache_data, writer, metadata_buff, &wrote_hlc);
+    ret =
+        write_hlc(thd, cache_data, writer, temp_binlog_cache.get(), &wrote_hlc);
     DBUG_ASSERT(!ret);
 
     thd->commit_consensus_error = false;
-    ret = RUN_HOOK(
-        raft_replication, before_flush,
-        (thd, cache_data->get_cache()->get_io_cache(),
-         RaftReplicateMsgOpType::OP_TYPE_TRX, gtid_buff, metadata_buff));
+    // TODO(luqun): perf concern? merge in plugin?
+    cache_data->get_cache()->copy_to(temp_binlog_cache.get());
+    ret = RUN_HOOK(raft_replication, before_flush,
+                   (thd, temp_binlog_cache->get_io_cache(),
+                    RaftReplicateMsgOpType::OP_TYPE_TRX));
 
     DBUG_EXECUTE_IF("fail_binlog_flush_raft", { ret = 1; });
-
-    my_free(gtid_buff);
-    my_free(metadata_buff);
 
     /*
      * before_flush hook failing is a guarantee by raft that any subsequent
@@ -7405,9 +7402,9 @@ int MYSQL_BIN_LOG::new_file_impl(
 
       if (no_op) op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
 
-      error = RUN_HOOK(raft_replication, before_flush,
-                       (current_thd, temp_binlog_cache->get_io_cache(), op_type,
-                        nullptr, nullptr));
+      error =
+          RUN_HOOK(raft_replication, before_flush,
+                   (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
       if (!error) {
         error = RUN_HOOK(raft_replication, before_commit, (current_thd));

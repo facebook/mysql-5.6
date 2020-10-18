@@ -999,8 +999,7 @@ int Binlog_relay_IO_delegate::applier_log_event(THD *thd, int &out) {
 }
 
 int Raft_replication_delegate::before_flush(THD *thd, IO_CACHE *io_cache,
-                                            RaftReplicateMsgOpType op_type,
-                                            uchar *, uchar *) {
+                                            RaftReplicateMsgOpType op_type) {
   DBUG_ENTER("Raft_replication_delegate::before_flush");
   Raft_replication_param param;
 

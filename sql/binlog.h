@@ -1073,7 +1073,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
    * @return false on success, true on failure
    */
   bool write_hlc(THD *thd, binlog_cache_data *cache_data,
-                 Binlog_event_writer *writer, uchar *obuffer = nullptr,
+                 Binlog_event_writer *writer, Binlog_cache_storage *obuffer,
                  bool *wrote_hlc = nullptr);
 
   /**
