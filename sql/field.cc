@@ -6944,8 +6944,7 @@ Field_blob::Field_blob(uchar *ptr_arg, uchar *null_ptr_arg, uchar null_bit_arg,
   /* TODO: why do not fill table->s->blob_field array here? */
 }
 
-static void store_blob_length(uchar *i_ptr, uint i_packlength,
-                              uint32 i_number) {
+void store_blob_length(uchar *i_ptr, uint i_packlength, uint32 i_number) {
   switch (i_packlength) {
     case 1:
       assert(i_number <= 0xff);
@@ -6964,7 +6963,7 @@ static void store_blob_length(uchar *i_ptr, uint i_packlength,
   }
 }
 
-uint32 Field_blob::get_length(const uchar *pos, uint packlength_arg) const {
+uint32 Field_blob::get_length(const uchar *pos, uint packlength_arg) {
   switch (packlength_arg) {
     case 1:
       return (uint32)pos[0];
