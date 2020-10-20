@@ -685,6 +685,10 @@ static int rocksdb_validate_set_block_cache_size(THD *thd,
                                                  struct SYS_VAR *const var,
                                                  void *var_ptr,
                                                  struct st_mysql_value *value);
+static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
+                           struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+                           void *const save, struct st_mysql_value *const value,
+                           bool trace_block_cache_access = true);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -720,6 +724,7 @@ static char *rocksdb_compact_cf_name;
 static char *rocksdb_delete_cf_name;
 static char *rocksdb_checkpoint_name;
 static char *rocksdb_block_cache_trace_options_str;
+static char *rocksdb_trace_options_str;
 static bool rocksdb_signal_drop_index_thread;
 static bool rocksdb_strict_collation_check = 1;
 static bool rocksdb_ignore_unknown_options = 1;
@@ -792,6 +797,36 @@ static int rocksdb_trace_block_cache_access(
     THD *const thd MY_ATTRIBUTE((__unused__)),
     struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const save,
     struct st_mysql_value *const value) {
+  return rocksdb_tracing(thd, var, save, value,
+                         /* trace_block_cache_accecss = */ true);
+}
+
+static int rocksdb_trace_queries(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const save,
+    struct st_mysql_value *const value) {
+  return rocksdb_tracing(thd, var, save, value,
+                         /* trace_block_cache_accecss = */ false);
+}
+
+/* This method is needed to indicate that the
+  ROCKSDB_TRACE_BLOCK_CACHE_ACCESS or ROCKSDB_TRACE_QUERIES command is not
+  read-only */
+static void rocksdb_trace_stub(THD *const thd MY_ATTRIBUTE((__unused__)),
+                               struct SYS_VAR *const var
+                                   MY_ATTRIBUTE((__unused__)),
+                               void *const var_ptr, const void *const save) {
+  const auto trace_opt_str_raw = *static_cast<const char *const *>(save);
+  assert(trace_opt_str_raw != nullptr);
+  *static_cast<const char **>(var_ptr) = trace_opt_str_raw;
+}
+
+static int rocksdb_tracing(THD *const thd MY_ATTRIBUTE((__unused__)),
+                           struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)),
+                           void *const save, struct st_mysql_value *const value,
+                           bool trace_block_cache_access) {
+  std::string trace_folder =
+      trace_block_cache_access ? "/block_cache_traces" : "/queries_traces";
   int len = 0;
   const char *const trace_opt_str_raw = value->val_str(value, nullptr, &len);
   rocksdb::Status s;
@@ -801,10 +836,12 @@ static int rocksdb_trace_block_cache_access(
   int rc __attribute__((__unused__));
   std::string trace_opt_str(trace_opt_str_raw);
   if (trace_opt_str.empty()) {
-    // End tracing block cache accesses.
+    // End tracing block cache accesses or queries.
     // NO_LINT_DEBUG
-    sql_print_information("RocksDB: Stop tracing block cache accesses.\n");
-    s = rdb->EndBlockCacheTrace();
+    sql_print_information(
+        "RocksDB: Stop tracing block cache accesses or queries.\n");
+    s = trace_block_cache_access ? rdb->EndBlockCacheTrace() : rdb->EndTrace();
+
     if (!s.ok()) {
       rc = ha_rocksdb::rdb_error_to_mysql(s);
       return HA_EXIT_FAILURE;
@@ -813,7 +850,7 @@ static int rocksdb_trace_block_cache_access(
     return HA_EXIT_SUCCESS;
   }
 
-  // Start tracing block cache accesses.
+  // Start tracing block cache accesses or queries.
   std::stringstream ss(trace_opt_str);
   std::vector<std::string> trace_opts_strs;
   while (ss.good()) {
@@ -834,9 +871,9 @@ static int rocksdb_trace_block_cache_access(
         "RocksDB: Failed to parse trace option string: %s. The correct "
         "format is sampling_frequency:max_trace_file_size:trace_file_name. "
         "sampling_frequency and max_trace_file_size are positive integers. "
-        "The block accesses are saved to the "
-        "rocksdb_datadir/block_cache_traces/trace_file_name.\n",
-        trace_opt_str.c_str());
+        "The block accesses or quries are saved to the "
+        "rocksdb_datadir%s/trace_file_name.\n",
+        trace_opt_str.c_str(), trace_folder.c_str());
     return HA_EXIT_FAILURE;
   }
   const std::string &trace_file_name = trace_opts_strs[2];
@@ -848,8 +885,7 @@ static int rocksdb_trace_block_cache_access(
         trace_opt_str.c_str());
     return HA_EXIT_FAILURE;
   }
-  const std::string trace_dir =
-      std::string(rocksdb_datadir) + "/block_cache_traces";
+  const std::string trace_dir = std::string(rocksdb_datadir) + trace_folder;
   s = rdb->GetEnv()->CreateDirIfMissing(trace_dir);
   if (!s.ok()) {
     // NO_LINT_DEBUG
@@ -879,31 +915,25 @@ static int rocksdb_trace_block_cache_access(
     rc = ha_rocksdb::rdb_error_to_mysql(s);
     return HA_EXIT_FAILURE;
   }
-  s = rdb->StartBlockCacheTrace(trace_opt, std::move(trace_writer));
+  if (trace_block_cache_access) {
+    s = rdb->StartBlockCacheTrace(trace_opt, std::move(trace_writer));
+  } else {
+    s = rdb->StartTrace(trace_opt, std::move(trace_writer));
+  }
   if (!s.ok()) {
     rc = ha_rocksdb::rdb_error_to_mysql(s);
     return HA_EXIT_FAILURE;
   }
   // NO_LINT_DEBUG
   sql_print_information(
-      "RocksDB: Start tracing block cache accesses. Sampling frequency: %lu, "
+      "RocksDB: Start tracing block cache accesses or queries. Sampling "
+      "frequency: %lu, "
       "Maximum trace file size: %lu, Trace file path %s.\n",
       trace_opt.sampling_frequency, trace_opt.max_trace_file_size,
       trace_file_path.c_str());
   // Save the trace option.
   *static_cast<const char **>(save) = trace_opt_str_raw;
   return HA_EXIT_SUCCESS;
-}
-
-/* This method is needed to indicate that the
-  ROCKSDB_TRACE_BLOCK_CACHE_ACCESS command is not read-only */
-static void rocksdb_trace_block_cache_access_stub(
-    THD *const thd MY_ATTRIBUTE((__unused__)),
-    struct SYS_VAR *const var MY_ATTRIBUTE((__unused__)), void *const var_ptr,
-    const void *const save) {
-  const auto trace_opt_str_raw = *static_cast<const char *const *>(save);
-  assert(trace_opt_str_raw != nullptr);
-  *static_cast<const char **>(var_ptr) = trace_opt_str_raw;
 }
 
 static std::unique_ptr<rocksdb::DBOptions> rdb_init_rocksdb_db_options(void) {
@@ -2257,8 +2287,17 @@ static MYSQL_SYSVAR_STR(
     "sampling_frequency and max_trace_file_size are positive integers. The "
     "block accesses are saved to the "
     "rocksdb_datadir/block_cache_traces/trace_file_name.",
-    rocksdb_trace_block_cache_access, rocksdb_trace_block_cache_access_stub,
-    "");
+    rocksdb_trace_block_cache_access, rocksdb_trace_stub, "");
+
+static MYSQL_SYSVAR_STR(
+    trace_queries, rocksdb_trace_options_str,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+    "Trace option string. The format is "
+    "sampling_frequency:max_trace_file_size:trace_file_name. "
+    "sampling_frequency and max_trace_file_size are positive integers. The "
+    "queries are saved to the "
+    "rocksdb_datadir/queries_traces/trace_file_name.",
+    rocksdb_trace_queries, rocksdb_trace_stub, "");
 
 static MYSQL_SYSVAR_ULONGLONG(
     max_compaction_history, rocksdb_max_compaction_history, PLUGIN_VAR_OPCMDARG,
@@ -2450,6 +2489,7 @@ static struct SYS_VAR *rocksdb_system_variables[] = {
 
     MYSQL_SYSVAR(enable_insert_with_update_caching),
     MYSQL_SYSVAR(trace_block_cache_access),
+    MYSQL_SYSVAR(trace_queries),
     MYSQL_SYSVAR(max_compaction_history),
     nullptr};
 

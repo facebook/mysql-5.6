@@ -17,6 +17,11 @@ set global rocksdb_trace_block_cache_access='1:1024:test_trace_file_1';
 # Check the value of the variable.
 show global variables like 'rocksdb_trace_block_cache_access';
 
+# Check trace file exists
+--let $MYSQLD_DATADIR = `select @@datadir`
+--let $datadir = $MYSQLD_DATADIR/.rocksdb
+--file_exists $datadir/block_cache_traces/test_trace_file_1
+
 # End tracing.
 set global rocksdb_trace_block_cache_access='';
 
