@@ -2103,6 +2103,12 @@ The following options may be given as the first argument:
  sampling_frequency and max_trace_file_size are positive
  integers. The block accesses are saved to the
  rocksdb_datadir/block_cache_traces/trace_file_name.
+ --rocksdb-trace-queries=name 
+ Trace option string. The format is
+ sampling_frequency:max_trace_file_size:trace_file_name.
+ sampling_frequency and max_trace_file_size are positive
+ integers. The queries are saved to the
+ rocksdb_datadir/queries_traces/trace_file_name.
  --rocksdb-trace-sst-api 
  Generate trace output in the log for each call to the
  SstFileWriter
@@ -3263,6 +3269,7 @@ rocksdb-table-stats-sampling-pct 10
 rocksdb-table-stats-use-table-scan FALSE
 rocksdb-tmpdir 
 rocksdb-trace-block-cache-access 
+rocksdb-trace-queries 
 rocksdb-trace-sst-api FALSE
 rocksdb-track-and-verify-wals-in-manifest TRUE
 rocksdb-trx ON

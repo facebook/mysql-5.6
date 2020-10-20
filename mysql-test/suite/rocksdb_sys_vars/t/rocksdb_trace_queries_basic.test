@@ -1,0 +1,69 @@
+--source include/have_rocksdb.inc
+
+SET @start_global_value = @@global.rocksdb_trace_queries;
+
+# End tracing.
+--error 1296
+set global rocksdb_trace_queries='';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_queries';
+
+# Exists.
+select * from performance_schema.global_variables where variable_name='rocksdb_trace_queries';
+
+# Start tracing.
+set global rocksdb_trace_queries='1:1024:test_trace_file_1';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_queries';
+
+# Check trace file exists
+--let $MYSQLD_DATADIR = `select @@datadir`
+--let $datadir = $MYSQLD_DATADIR/.rocksdb
+--file_exists $datadir/queries_traces/test_trace_file_1
+
+# End tracing.
+set global rocksdb_trace_queries='';
+
+# Check the value of the variable.
+show global variables like 'rocksdb_trace_queries';
+
+# Start tracing again with the same trace file path reports failure.
+--error 1231
+set global rocksdb_trace_queries='1:1024:test_trace_file_1';
+
+# Incorrect types
+--error ER_WRONG_TYPE_FOR_VAR
+set global rocksdb_trace_queries=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+set global rocksdb_trace_queries=NULL;
+
+# Incorrect arguments
+--error 1231
+set global rocksdb_trace_queries='1:1024';
+--error 1231
+set global rocksdb_trace_queries='1:';
+--error 1231
+set global rocksdb_trace_queries='test:test:test_trace_file_2';
+--error 1231
+set global rocksdb_trace_queries='test:test:/test_trace_file_2';
+--error 1231
+set global rocksdb_trace_queries='test:test:test_trace_file_/2';
+--error 1231
+set global rocksdb_trace_queries='test:test:../test_trace_file_2';
+--error 1231
+set global rocksdb_trace_queries='test:test:test_trace_../file_2';
+
+# Start tracing twice.
+set global rocksdb_trace_queries='1:1024:test_trace_file_3';
+--error 1231
+set global rocksdb_trace_queries='1:1024:test_trace_file_3';
+
+# Start tracing again.
+set global rocksdb_trace_queries='1:1024:test_trace_file_4';
+show global variables like 'rocksdb_trace_queries';
+
+# Cleanup
+SET @@global.rocksdb_trace_queries = @start_global_value;
+SELECT @@global.rocksdb_trace_queries;
