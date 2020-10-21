@@ -8084,3 +8084,15 @@ static Sys_var_bool Sys_enable_acl_db_cache(
     NON_PERSIST GLOBAL_VAR(enable_acl_db_cache), CMD_LINE(OPT_ARG),
     DEFAULT(true), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_enable_acl_db_cache));
+
+static Sys_var_ulonglong Sys_apply_log_retention_num(
+    "apply_log_retention_num",
+    "Minimum number of apply logs that need to be retained.",
+    GLOBAL_VAR(apply_log_retention_num), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(10), BLOCK_SIZE(1));
+
+static Sys_var_ulonglong Sys_apply_log_retention_duration(
+    "apply_log_retention_duration",
+    "Minimum duration (mins) that apply logs need to be retained.",
+    GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));

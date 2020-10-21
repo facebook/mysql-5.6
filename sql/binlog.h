@@ -480,6 +480,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   bool is_apply_log = false;
 
+  // TODO(pgl) : update init_index_file() to update apply_file_count
+  // Number of files that are created and maintained in index files
+  std::atomic<uint64_t> apply_file_count;
+
   /* This is relay log */
   bool is_relay_log;
 
@@ -1164,10 +1168,12 @@ class MYSQL_BIN_LOG : public TC_LOG {
      @retval other Failure
   */
   bool flush_and_sync(const bool force = false);
+  void purge_apply_logs();
   int purge_logs(const char *to_log, bool included, bool need_lock_index,
                  bool need_update_threads, ulonglong *decrease_log_space,
                  bool auto_purge);
-  int purge_logs_before_date(time_t purge_time, bool auto_purge);
+  int purge_logs_before_date(time_t purge_time, bool auto_purge,
+                             bool stop_purge = 0);
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
   int close_crash_safe_index_file();
@@ -1192,6 +1198,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
   // iterating through the log index file
   int find_log_pos(LOG_INFO *linfo, const char *log_name, bool need_lock_index);
   int find_next_log(LOG_INFO *linfo, bool need_lock_index);
+
+  /**
+   *  Get the total number of log file entries in the index file
+   *
+   *  @param need_lock_index - should we aquire LOCK_index
+   *  @param num_log_files (out) - number of log file entries in the index file
+   *
+   *  @return 0 on success, non-zero on failure
+   *
+   */
+  int get_total_log_files(bool need_lock_index, uint64_t *num_log_files);
   int find_next_relay_log(char log_name[FN_REFLEN + 1]);
   int get_current_log(LOG_INFO *linfo, bool need_lock_log = true);
   /*
