@@ -3836,6 +3836,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period, bool relay_log)
   index_file_name[0] = 0;
   engine_binlog_file[0] = 0;
   engine_binlog_max_gtid.clear();
+  apply_file_count.store(0);
 }
 
 MYSQL_BIN_LOG::~MYSQL_BIN_LOG() { delete m_binlog_file; }
@@ -4295,7 +4296,8 @@ end:
 int MYSQL_BIN_LOG::remove_deleted_logs_from_index(bool need_lock_index,
                                                   bool need_update_threads) {
   int error;
-  int no_of_log_files_purged = 0;
+  uint64_t no_of_log_files_purged = 0;
+  uint64_t num_apply_files = 0;
   LOG_INFO log_info;
 
   DBUG_ENTER("remove_deleted_logs_from_index");
@@ -4320,9 +4322,26 @@ int MYSQL_BIN_LOG::remove_deleted_logs_from_index(bool need_lock_index,
     ++no_of_log_files_purged;
   }
 
-  if (no_of_log_files_purged)
+  if (no_of_log_files_purged) {
     error = remove_logs_from_index(&log_info, need_update_threads);
-  DBUG_PRINT("info", ("num binlogs deleted = %d", no_of_log_files_purged));
+    if (is_apply_log) {
+      // Fix number of apply log file count
+      if (apply_file_count >= no_of_log_files_purged) {
+        apply_file_count -= no_of_log_files_purged;
+        DBUG_ASSERT(enable_raft_plugin);
+      } else {
+        error = get_total_log_files(need_lock_index, &num_apply_files);
+        apply_file_count.store(num_apply_files);
+
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Fixed apply file count (%lu) by reading from "
+            "index file.",
+            apply_file_count.load());
+      }
+    }
+  }
+  DBUG_PRINT("info", ("num binlogs deleted = %lu", no_of_log_files_purged));
 
 err:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
@@ -5867,6 +5886,8 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
   DBUG_EXECUTE_IF("simulate_disk_full_add_log_to_index",
                   { DBUG_SET("-d,simulate_no_free_space_error"); });
 
+  if (enable_raft_plugin && is_apply_log) apply_file_count++;
+
   return 0;
 
 err:
@@ -5962,6 +5983,30 @@ uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length) {
     return atol(save_ptr);
   }
   return 0;
+}
+
+int MYSQL_BIN_LOG::get_total_log_files(bool need_lock_index,
+                                       uint64_t *num_log_files) {
+  int error = 0;
+  LOG_INFO temp_log_info;
+  *num_log_files = 0;
+
+  if (need_lock_index) mysql_mutex_lock(&LOCK_index);
+
+  if ((error = find_log_pos(&temp_log_info, /*log_name=*/NullS,
+                            /*need_lock_index=*/false)))
+    goto err;
+
+  *num_log_files = *num_log_files + 1;
+  while (!(error = find_next_log(&temp_log_info, /*need_lock_index=*/false)))
+    *num_log_files = *num_log_files + 1;
+
+err:
+  if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
+
+  if (error == LOG_INFO_EOF) error = 0;  // EOF is not an error
+
+  return error;
 }
 
 bool is_binlog_advanced(const char *b1, my_off_t p1, const char *b2,
@@ -6526,6 +6571,23 @@ err:
   return LOG_INFO_IO;
 }
 
+void MYSQL_BIN_LOG::purge_apply_logs() {
+  if (!is_apply_log) return;
+
+  // No need to trigger purge if number of apply log files in the system
+  // currently is lower than apply_log_retention_num
+  if (apply_file_count <= apply_log_retention_num) return;
+
+  time_t purge_time = my_time(0) - apply_log_retention_duration /* mins */ * 60;
+  if (purge_time > 0) {
+    ha_flush_logs(NULL);
+    purge_logs_before_date(purge_time, /*auto_purge=*/true,
+                           /*stop_purge=*/true);
+  }
+
+  return;
+}
+
 /**
   Remove all logs before the given log from disk and from the index file.
 
@@ -6555,6 +6617,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
                               bool need_lock_index, bool need_update_threads,
                               ulonglong *decrease_log_space, bool auto_purge) {
   int error = 0, error_index = 0, no_of_log_files_to_purge = 0;
+  uint64_t num_log_files = 0;
   int no_of_threads_locking_log = 0;
   bool exit_loop = false;
   bool found_last_safe_file = false;
@@ -6667,6 +6730,27 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log, bool included,
       (error = remove_logs_from_index(&log_info, need_update_threads))) {
     LogErr(ERROR_LEVEL, ER_BINLOG_PURGE_LOGS_CANT_UPDATE_INDEX_FILE);
     goto err;
+  }
+
+  if (enable_raft_plugin && is_apply_log) {
+    if (apply_file_count > delete_list.size()) {
+      apply_file_count -= delete_list.size();
+    } else {
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Apply file count needs to be fixed. "
+          "apply_file_count = %lu, number of deleted apply files = %lu",
+          apply_file_count.load(), delete_list.size());
+
+      error = get_total_log_files(/*need_lock_index=*/false, &num_log_files);
+
+      apply_file_count.store(num_log_files);
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Fixed apply file count (%lu) by reading from "
+          "index file.",
+          apply_file_count.load());
+    }
   }
 
   DBUG_EXECUTE_IF("crash_purge_non_critical_after_update_index",
@@ -6968,6 +7052,8 @@ int MYSQL_BIN_LOG::purge_logs_in_list(
 
   @param purge_time	Delete all log files before given date.
   @param auto_purge     True if this is an automatic purge.
+  @param stop_purge     True if this is purge of apply logs and we have to stop
+                        purging files based on apply_log_retention_num
 
   @note
     If any of the logs before the deleted one is in use,
@@ -6981,18 +7067,28 @@ int MYSQL_BIN_LOG::purge_logs_in_list(
                                 mysql_file_stat() or mysql_file_delete()
 */
 
-int MYSQL_BIN_LOG::purge_logs_before_date(time_t purge_time, bool auto_purge) {
-  int error;
-  int no_of_threads_locking_log = 0, no_of_log_files_purged = 0;
+int MYSQL_BIN_LOG::purge_logs_before_date(time_t purge_time, bool auto_purge,
+                                          bool stop_purge) {
+  int error = 0;
+  int no_of_threads_locking_log = 0;
+  uint64_t no_of_log_files_purged = 0;
   bool log_is_active = false, log_is_in_use = false;
   char to_log[FN_REFLEN], copy_log_in_use[FN_REFLEN];
   LOG_INFO log_info;
   MY_STAT stat_area;
   THD *thd = current_thd;
+  uint64_t max_files_to_purge = ULONG_MAX;
 
   DBUG_TRACE;
 
   mysql_mutex_lock(&LOCK_index);
+
+  if (enable_raft_plugin && is_apply_log && stop_purge) {
+    if (apply_file_count <= apply_log_retention_num) goto err;
+
+    max_files_to_purge = apply_file_count - apply_log_retention_num;
+  }
+
   to_log[0] = 0;
 
   if ((error = find_log_pos(&log_info, NullS, false /*need_lock_index=false*/)))
@@ -7042,6 +7138,10 @@ int MYSQL_BIN_LOG::purge_logs_before_date(time_t purge_time, bool auto_purge) {
               sizeof(log_info.log_file_name) - 1);
       no_of_log_files_purged++;
     } else
+      break;
+
+    if (enable_raft_plugin && is_apply_log && stop_purge &&
+        (no_of_log_files_purged >= max_files_to_purge))
       break;
     if (find_next_log(&log_info, false /*need_lock_index=false*/)) break;
   }
@@ -8025,6 +8125,8 @@ void MYSQL_BIN_LOG::purge() {
       }
     }
   }
+  // Auto purge apply logs based on retention parameters
+  if (is_apply_log) purge_apply_logs();
 }
 
 /**
@@ -10679,6 +10781,7 @@ int binlog_change_to_binlog() {
   // unset apply log, so that masters
   // ordered_commit understands this
   mysql_bin_log.is_apply_log = false;
+  mysql_bin_log.apply_file_count.store(0);
 
 err:
   mysql_bin_log.unlock_index();
