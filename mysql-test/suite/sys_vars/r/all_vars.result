@@ -18,6 +18,10 @@ ORDER BY variable_name;
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
+apply_log_retention_duration
+apply_log_retention_duration
+apply_log_retention_num
+apply_log_retention_num
 authentication_policy
 authentication_policy
 binlog_encryption

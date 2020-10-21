@@ -443,7 +443,8 @@ extern ulonglong minimum_hlc_ns;
 extern ulonglong maximum_hlc_drift_ns;
 extern bool enable_raft_plugin;
 extern bool disallow_raft;
-
+extern ulonglong apply_log_retention_num;
+extern ulonglong apply_log_retention_duration;
 /* Apply log related variables for raft */
 extern char *opt_apply_logname;
 extern char *opt_applylog_index_name;
