@@ -12817,6 +12817,10 @@ show_param:
           {
             Lex->sql_command = SQLCOM_SHOW_BINLOGS;
           }
+        | RAFT_SYM LOGS_SYM
+          {
+            Lex->sql_command = SQLCOM_SHOW_RAFT_LOGS;
+          }
         | RAFT_SYM STATUS_SYM
           {
             Lex->sql_command = SQLCOM_SHOW_RAFT_STATUS;
@@ -13460,6 +13464,8 @@ purge:
 
 purge_options:
           master_or_binary LOGS_SYM purge_option
+          | RAFT_SYM { Lex->sql_command = SQLCOM_PURGE_RAFT_LOG; }
+            LOGS_SYM purge_option
         ;
 
 purge_option:
@@ -13474,7 +13480,10 @@ purge_option:
             LEX *lex= Lex;
             lex->purge_value_list.empty();
             lex->purge_value_list.push_front($2);
-            lex->sql_command= SQLCOM_PURGE_BEFORE;
+            if (lex->sql_command == SQLCOM_PURGE_RAFT_LOG)
+              lex->sql_command= SQLCOM_PURGE_RAFT_LOG_BEFORE;
+            else
+              lex->sql_command= SQLCOM_PURGE_BEFORE;
           }
         ;
 
