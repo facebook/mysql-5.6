@@ -1309,9 +1309,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void purge_apply_logs();
   int purge_logs(const char *to_log, bool included, bool need_lock_index,
                  bool need_update_threads, ulonglong *decrease_log_space,
-                 bool auto_purge);
+                 bool auto_purge, const char *max_log = nullptr);
   int purge_logs_before_date(time_t purge_time, bool auto_purge,
-                             bool stop_purge = 0);
+                             bool stop_purge = 0, bool need_lock_index = true,
+                             const char *max_log = nullptr);
   int set_crash_safe_index_file_name(const char *base_file_name);
   int open_crash_safe_index_file();
   int close_crash_safe_index_file();
@@ -1535,8 +1536,10 @@ int log_loaded_block(IO_CACHE *file);
    @return false if there was no error.
  */
 bool purge_source_logs_to_file(THD *thd, const char *to_log);
-
 bool purge_source_logs_before_date(THD *thd, time_t purge_time);
+bool purge_raft_logs(THD *thd, const char *to_log);
+bool purge_raft_logs_before_date(THD *thd, time_t purge_time);
+bool show_raft_logs(THD *thd);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD *thd);
 bool show_gtid_executed(THD *thd);
@@ -1547,6 +1550,8 @@ bool binlog_enabled();
 void register_binlog_handler(THD *thd, bool trx);
 int query_error_code(const THD *thd, bool not_killed);
 bool show_raft_status(THD *thd);
+bool get_and_lock_master_info(Master_info **master_info);
+void unlock_master_info(Master_info *master_info);
 
 void set_valid_pos(my_off_t *valid_pos, const std::string &cur_binlog_file,
                    my_off_t first_gtid_start, char *engine_binlog_file,

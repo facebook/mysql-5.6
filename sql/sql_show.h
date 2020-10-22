@@ -534,6 +534,15 @@ class Sql_cmd_show_profiles : public Sql_cmd_show_noplan {
   bool execute_inner(THD *thd) override;
 };
 
+/// Represents SHOW RAFT LOGS statement.
+
+class Sql_cmd_show_raft_logs : public Sql_cmd_show_noplan {
+ public:
+  Sql_cmd_show_raft_logs() : Sql_cmd_show_noplan(SQLCOM_SHOW_RAFT_LOGS) {}
+  bool check_privileges(THD *thd) override;
+  bool execute_inner(THD *thd) override;
+};
+
 /// Represents SHOW RAFT STATUS statement.
 
 class Sql_cmd_show_raft_status : public Sql_cmd_show_noplan {
