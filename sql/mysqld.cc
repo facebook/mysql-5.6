@@ -4687,6 +4687,16 @@ SHOW_VAR com_status_vars[] = {
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_RAFT_STATUS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"purge_raft_log",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_PURGE_RAFT_LOG]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"purge_raft_log_before_date",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_PURGE_RAFT_LOG_BEFORE]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_raftlogs",
+     (char *)offsetof(System_status_var, com_stat[(uint)SQLCOM_SHOW_RAFT_LOGS]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 LEX_CSTRING sql_statement_names[(uint)SQLCOM_END + 1];

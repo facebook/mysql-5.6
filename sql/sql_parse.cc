@@ -3489,6 +3489,44 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       res = mysqld_help(thd, lex->help_arg);
       break;
 
+    case SQLCOM_PURGE_RAFT_LOG: {
+      Security_context *sctx = thd->security_context();
+      if (!sctx->check_access(SUPER_ACL) &&
+          !sctx->has_global_grant(STRING_WITH_LEN("BINLOG_ADMIN")).first) {
+        my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+                 "SUPER or BINLOG_ADMIN");
+        goto error;
+      }
+      res = purge_raft_logs(thd, lex->to_log);
+      break;
+    }
+
+    case SQLCOM_PURGE_RAFT_LOG_BEFORE: {
+      Item *it;
+      Security_context *sctx = thd->security_context();
+      if (!sctx->check_access(SUPER_ACL) &&
+          !sctx->has_global_grant(STRING_WITH_LEN("BINLOG_ADMIN")).first) {
+        my_error(ER_SPECIFIC_ACCESS_DENIED_ERROR, MYF(0),
+                 "SUPER or BINLOG_ADMIN");
+        goto error;
+      }
+
+      /* PURGE RAFT LOGS BEFORE 'date' */
+      it = reinterpret_cast<Item *>(lex->purge_value_list.head());
+      if ((!it->fixed && it->fix_fields(lex->thd, &it)) || it->check_cols(1)) {
+        my_error(ER_WRONG_ARGUMENTS, MYF(0), "PURGE RAFT LOGS BEFORE");
+        goto error;
+      }
+      it = new Item_func_unix_timestamp(it);
+      /*
+        it is OK only emulate fix_fieds, because we need only
+        value of constant
+      */
+      it->quick_fix_field();
+      res = purge_raft_logs_before_date(thd, (ulong)it->val_int());
+      break;
+    }
+
     case SQLCOM_PURGE: {
       Security_context *sctx = thd->security_context();
       if (!sctx->check_access(SUPER_ACL) &&
@@ -3807,20 +3845,18 @@ int mysql_execute_command(THD *thd, bool first_level, ulonglong *last_timer) {
       res = show_binlogs(thd, lex->with_gtid);
       break;
     }
-#ifndef EMBEDDED_LIBRARY
-    case SQLCOM_SHOW_RAFT_STATUS:
-#ifdef DONT_ALLOW_SHOW_COMMANDS
-      my_message(ER_NOT_ALLOWED_COMMAND, ER(ER_NOT_ALLOWED_COMMAND),
-                 MYF(0)); /* purecov: inspected */
-      goto error;
-#else
-    {
+    case SQLCOM_SHOW_RAFT_STATUS: {
       if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL)) goto error;
       res = show_raft_status(thd);
       break;
     }
-#endif
-#endif /* EMBEDDED_LIBRARY */
+    case SQLCOM_SHOW_RAFT_LOGS: {
+      /* db ops requested that this work for non-super */
+      /* if (check_global_access(thd, SUPER_ACL | REPL_CLIENT_ACL))
+  goto error; */
+      res = show_raft_logs(thd);
+      break;
+    }
     case SQLCOM_SHOW_CREATE:
       DBUG_ASSERT(first_table == all_tables && first_table != nullptr);
       {
