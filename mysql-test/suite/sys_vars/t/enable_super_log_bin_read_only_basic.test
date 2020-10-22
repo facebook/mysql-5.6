@@ -14,7 +14,7 @@ INSERT INTO t1 VALUES (2,20);
 # Verify super cannot generate transactions that write to the binlog
 SET @@session.sql_log_bin = 1;
 SET @@global.read_only = 1;
-SET @@global.enable_super_log_bin_read_only=0;
+SET @@global.enable_super_log_bin_read_only = 1;
 
 --Error ER_OPTION_PREVENTS_STATEMENT
 INSERT INTO t1 values (3,30);
@@ -27,14 +27,14 @@ SET @@global.super_read_only = 1;
 --Error ER_OPTION_PREVENTS_STATEMENT
 INSERT INTO t1 values (4,40);
 
-# Validate command is allowed if this option is enabled.
+# Validate command is allowed if this option is disabled
 SET @@global.super_read_only = 0;
-SET @@global.enable_super_log_bin_read_only = 1;
+SET @@global.enable_super_log_bin_read_only = 0;
 
 INSERT INTO t1 VALUES (5,50);
 
 # Validate command is allowed if sql_log_bin is disabled
-SET @@global.enable_super_log_bin_read_only = 0;
+SET @@global.enable_super_log_bin_read_only = 1;
 SET @@session.sql_log_bin = 0;
 
 INSERT INTO t1 VALUES (6,60);
