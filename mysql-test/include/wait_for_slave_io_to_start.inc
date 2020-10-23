@@ -39,16 +39,18 @@ if ($rpl_channel_name)
 --source include/begin_include_file.inc
 
 
-let $slave_param= Slave_IO_Running;
-let $slave_param_value= Yes;
-if (!$rpl_allow_error)
+if (!$rpl_enable_raft)
 {
-  --let $slave_error_param= Last_IO_Errno
+  let $slave_param= Slave_IO_Running;
+  let $slave_param_value= Yes;
+  if (!$rpl_allow_error)
+  {
+    --let $slave_error_param= Last_IO_Errno
+  }
+  source include/wait_for_slave_param.inc;
+  --let $slave_error_param=
+  --let $rpl_allow_error= 0
 }
-source include/wait_for_slave_param.inc;
---let $slave_error_param=
---let $rpl_allow_error= 0
-
 
 --let $include_filename= wait_for_slave_io_to_start.inc
 --source include/end_include_file.inc
