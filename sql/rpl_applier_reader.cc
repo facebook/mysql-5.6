@@ -386,7 +386,8 @@ bool Rpl_applier_reader::move_to_next_log() {
       m_rli->set_group_relay_log_pos(BIN_LOG_HEADER_SIZE);
       m_rli->set_group_relay_log_name(m_linfo.log_file_name);
     }
-    if (purge_applied_logs()) return true;
+    // When enabled,  Raft plugin controls purged relay logs
+    if (!enable_raft_plugin && purge_applied_logs()) return true;
   } else {
     m_rli->force_flush_postponed_due_to_split_trans = true;
   }
