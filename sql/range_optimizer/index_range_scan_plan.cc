@@ -589,6 +589,9 @@ ha_rows check_quick_select(THD *thd, RANGE_OPT_PARAM *param, uint idx,
   if (tree->type != SEL_ROOT::Type::KEY_RANGE || tree->root->part != 0)
     return HA_POS_ERROR;  // Don't use tree
 
+  timespec time_beg;
+  int cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+
   seq.keyno = idx;
   seq.real_keyno = keynr;
   seq.start = tree->root;
@@ -684,6 +687,16 @@ ha_rows check_quick_select(THD *thd, RANGE_OPT_PARAM *param, uint idx,
     *is_ror_scan = true;
   }
 
+  /* Store index dive CPU time into statement metrics tables */
+  if (thd) {
+    timespec time_end;
+    if (cpu_res == 0 &&
+        (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+      ulonglong diff = diff_timespec(&time_end, &time_beg);
+      diff *= 1000; /* convert to picoseconds */
+      MYSQL_INC_STATEMENT_INDEX_DIVE_CPU(thd->m_statement_psi, (ulonglong)diff);
+    }
+  }
   DBUG_PRINT("exit", ("Records: %lu", (ulong)rows));
   return rows;
 }

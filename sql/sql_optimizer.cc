@@ -58,6 +58,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"
 #include "mysqld_error.h"
+#include "scope_guard.h"
 #include "sql/abstract_query_plan.h"  // Join_plan
 #include "sql/check_stack.h"
 #include "sql/current_thd.h"
@@ -154,6 +155,8 @@ static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
                                                 bool recheck_range);
 
 static bool has_not_null_predicate(Item *cond, Item_field *not_null_item);
+static void measure_compilation_cpu(THD *thd, int cpu_res,
+                                    timespec *beginning_id);
 
 JOIN::JOIN(THD *thd_arg, Query_block *select)
     : query_block(select),
@@ -291,6 +294,20 @@ bool JOIN::optimize(bool finalize_access_paths) {
 
   // to prevent double initialization on EXPLAIN
   if (optimized) return false;
+
+  /* measure the compilation CPU
+     TODO: Currently compilation CPU is not correctly for two
+           kinds of queries:
+     - delete from <TBL> where <predicate(s) on columns>
+     - update from <TBL> where <predicate(s) on columns>
+     NOTE: If the where clause contains sub-queries then
+           the compilation CPU is tracked correctly.
+   */
+  timespec time_beg;
+  int cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+
+  auto compilation_cpu_guard = create_scope_guard(
+      [&]() { measure_compilation_cpu(thd, cpu_res, &time_beg); });
 
   DEBUG_SYNC(thd, "before_join_optimize");
 
@@ -11100,6 +11117,28 @@ mem_root_deque<Item *> *JOIN::get_current_fields() {
 const Cost_model_server *JOIN::cost_model() const {
   assert(thd != nullptr);
   return thd->cost_model();
+}
+
+/**
+  Measure Compilation CPU and store it statement metrics tables
+
+    The function computes the compilation CPU time and stores it in thread.
+    This function is called from JOIN::optimize().
+
+  @param thd          thread handle
+  @param cpu_res      CPU resource usage return code
+  @param beginning_id timespec of the beginning of the clock
+*/
+
+static void measure_compilation_cpu(THD *thd, int cpu_res,
+                                    timespec *beginning_id) {
+  timespec time_end;
+  if (cpu_res == 0 &&
+      (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+    ulonglong diff = diff_timespec(&time_end, beginning_id);
+    diff *= 1000; /* convert to picoseconds */
+    MYSQL_INC_STATEMENT_COMPILATION_CPU(thd->m_statement_psi, (ulonglong)diff);
+  }
 }
 
 /**

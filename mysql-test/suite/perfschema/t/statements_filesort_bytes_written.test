@@ -1,0 +1,228 @@
+#
+--echo Test 1: Create table statement
+#
+
+--let $sql = create table test_table (i int, c char(255)) ENGINE=InnoDB;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+--echo Populate rows
+insert into test_table values (0, lpad('a', 250, 'b'));
+insert into test_table select i+1,c from test_table;
+insert into test_table select i+2,c from test_table;
+insert into test_table select i+4,c from test_table;
+insert into test_table select i+8,c from test_table;
+insert into test_table select i+16,c from test_table;
+insert into test_table select i+32,c from test_table;
+insert into test_table select i+64,c from test_table;
+insert into test_table select i+128,c from test_table;
+insert into test_table select i+256,c from test_table;
+
+#
+--echo Test 2: Insert statement
+#
+
+--let $sql = insert into test_table select i+512,c from test_table;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 3: Simple select query
+#
+
+--let $sql = select i, substr(c, 1, 10) from test_table;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 4: Select query with group by
+#
+
+--let $sql = select i, substr(c, 1, 10) from test_table group by i, c;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 5: Select query with order by
+#
+
+--let $sql = select i, substr(c, 1, 10) from test_table order by i, c;
+--let $expected_sum_filesort_bytes_written = 1
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 6: Select query with group by and order by
+#
+
+--let $sql = select i, substr(c, 1, 10) from test_table group by i, c order by i, c;
+--let $expected_sum_filesort_bytes_written = 1
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 7: Multiple statement
+#
+
+# Start counters
+--let $start_sum_filesort_bytes_written_user = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_user_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_host = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_host_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_program = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_program, Value, 1)
+--let $start_sum_filesort_bytes_written_event = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_thread_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_global = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_global_by_event_name, Value, 1)
+
+--disable_result_log
+
+delimiter ||||;
+select i, substr(c, 1, 10) from test_table;
+select i, substr(c, 1, 10) from test_table group by i, c;
+select i, substr(c, 1, 10) from test_table order by i, c;
+select i, substr(c, 1, 10) from test_table group by i, c order by i, c;
+||||
+
+--enable_result_log
+
+# reset delimiter
+delimiter ;||||
+
+# Get counters
+--let $end_sum_filesort_bytes_written_user = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_user_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_host = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_host_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_program = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_program, Value, 1)
+--let $end_sum_filesort_bytes_written_event = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_thread_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_global = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_global_by_event_name, Value, 1)
+
+# Check sanity
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_user_by_event_name should increase by non-zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_user - $start_sum_filesort_bytes_written_user >= 1
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_host_by_event_name should increase by non-zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_host - $start_sum_filesort_bytes_written_host >= 1
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_program should be increased by 0.
+--let $assert_cond= $end_sum_filesort_bytes_written_program - $start_sum_filesort_bytes_written_program = 0
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_thread_by_event_name should increase by non-zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_event - $start_sum_filesort_bytes_written_event >= 1
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_global_by_event_name should increase by non-zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_global - $start_sum_filesort_bytes_written_global >= 1
+--source include/assert.inc
+
+#
+--echo Test 8: Update query
+#
+
+--let $sql = update test_table set c = lpad('b', 250, 'a');
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 9: Delete query
+#
+
+--let $sql = delete from test_table where i < 100;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 10: Create temporary table
+#
+
+--let $sql = create temporary table tm_test_table(i int, c char(255)) engine=innodb;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 11: Insert into temporary table query
+#
+
+--let $sql = insert into tm_test_table select * from test_table;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 12: Update temporary table query
+#
+
+--let $sql = update tm_test_table set c = lpad('b', 250, 'a');
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 13: Delete temporary table query
+#
+
+--let $sql = delete from tm_test_table where i < 100;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 14: Multiple statement using temporary table
+#
+
+# Start counters
+--let $start_sum_filesort_bytes_written_user = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_user_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_host = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_host_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_program = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_program, Value, 1)
+--let $start_sum_filesort_bytes_written_event = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_thread_by_event_name, Value, 1)
+--let $start_sum_filesort_bytes_written_global = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_global_by_event_name, Value, 1)
+
+--disable_result_log
+
+delimiter ||||;
+insert into tm_test_table select * from test_table;
+update tm_test_table set c = lpad('b', 250, 'a');
+delete from tm_test_table where i < 100;
+||||
+
+--enable_result_log
+
+# reset delimiter
+delimiter ;||||
+
+# Get counters
+--let $end_sum_filesort_bytes_written_user = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_user_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_host = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_host_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_program = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_program, Value, 1)
+--let $end_sum_filesort_bytes_written_event = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_by_thread_by_event_name, Value, 1)
+--let $end_sum_filesort_bytes_written_global = query_get_value(select sum(SUM_FILESORT_BYTES_WRITTEN) as Value from performance_schema.events_statements_summary_global_by_event_name, Value, 1)
+
+# Check sanity
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_user_by_event_name should increase by zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_user - $start_sum_filesort_bytes_written_user >= 0
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_host_by_event_name should increase by zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_host - $start_sum_filesort_bytes_written_host >= 0
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_program should be increased by 0.
+--let $assert_cond= $end_sum_filesort_bytes_written_program - $start_sum_filesort_bytes_written_program = 0
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_by_thread_by_event_name should increase by zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_event - $start_sum_filesort_bytes_written_event >= 0
+--source include/assert.inc
+
+--let $assert_text= SUM_FILESORT_BYTES_WRITTEN on events_statements_summary_global_by_event_name should increase by zero.
+--let $assert_cond= $end_sum_filesort_bytes_written_global - $start_sum_filesort_bytes_written_global >= 0
+--source include/assert.inc
+
+#
+--echo Test 15: Drop table query
+#
+
+--let $sql = drop table test_table;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc
+
+#
+--echo Test 16: Drop temporary table query
+#
+
+--let $sql = drop temporary table tm_test_table;
+--let $expected_sum_filesort_bytes_written = 0
+--source ../include/statements_filesort_bytes_written.inc

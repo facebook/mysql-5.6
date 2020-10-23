@@ -6523,6 +6523,8 @@ ha_rows handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
         /* Can't scan one range => can't do MRR scan at all */
         return HA_POS_ERROR;
       }
+      /* increment the index dive count in statement metrics tables */
+      MYSQL_INC_STATEMENT_INDEX_DIVE_COUNT(thd->m_statement_psi, 1);
     }
     total_rows += rows;
   }

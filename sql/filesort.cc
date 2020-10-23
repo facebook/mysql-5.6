@@ -1130,6 +1130,12 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
     if (my_b_write(tempfile, record, rec_length))
       return 1; /* purecov: inspected */
 
+    /* store the number of temp bytes written into filesort space
+     * into statement metrics tables
+     */
+    MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(thd->m_statement_psi,
+                                               (ulonglong)rec_length);
+
     if (thd->variables.filesort_max_file_size > 0 &&
         tempfile->pos_in_file > thd->variables.filesort_max_file_size) {
 #ifndef NDEBUG
@@ -1143,6 +1149,12 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
   if (my_b_write(chunk_file, pointer_cast<uchar *>(&merge_chunk),
                  sizeof(merge_chunk)))
     return 1; /* purecov: inspected */
+
+  /* store the number of temp bytes written into filesort space
+   * into statement metrics tables
+   */
+  MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(thd->m_statement_psi,
+                                             (ulonglong)sizeof(merge_chunk));
 
   return 0;
 } /* write_keys */
@@ -2006,6 +2018,13 @@ static int merge_buffers(THD *thd, Sort_param *param, IO_CACHE *from_file,
                        bytes_to_write)) {
             return 1;
           }
+
+          /* store the number of temp bytes written into filesort space
+           * into statement metrics tables
+           */
+          MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(thd->m_statement_psi,
+                                                     (ulonglong)bytes_to_write);
+
           if (!--max_rows) {
             error = 0; /* purecov: inspected */
             goto end;  /* purecov: inspected */
@@ -2062,6 +2081,12 @@ static int merge_buffers(THD *thd, Sort_param *param, IO_CACHE *from_file,
           error = 0; /* purecov: inspected */
           goto end;  /* purecov: inspected */
         }
+
+        /* store the number of temp bytes written into filesort space
+         * into statement metrics tables
+         */
+        MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(thd->m_statement_psi,
+                                                   (ulonglong)bytes_to_write);
       }
       merge_chunk->advance_current_key(row_length);
     }
