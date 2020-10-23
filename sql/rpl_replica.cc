@@ -2424,7 +2424,7 @@ bool start_slave_threads(bool need_lock_slave, bool wait_for_start,
     lock_cond_sql = &mi->rli->run_lock;
   }
 
-  if (thread_mask & SLAVE_IO)
+  if ((thread_mask & SLAVE_IO) && !enable_raft_plugin)
     is_error = start_slave_thread(key_thread_replica_io, handle_slave_io,
                                   lock_io, lock_cond_io, cond_io,
                                   &mi->slave_running, &mi->slave_run_id, mi);
@@ -5722,7 +5722,8 @@ extern "C" void *handle_slave_io(void *arg) {
   my_thread_init();
   {
     DBUG_TRACE;
-
+    // Raft don't use slave IO thread
+    assert(!enable_raft_plugin);
     assert(mi->inited);
     mysql = nullptr;
 
@@ -9772,7 +9773,7 @@ int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
                bool *push_temp_tables_warning) {
   DBUG_TRACE;
 
-  int slave_errno;
+  int slave_errno = 0;
   if (!thd) thd = current_thd;
 
   /*
@@ -9827,7 +9828,8 @@ int stop_slave(THD *thd, Master_info *mi, bool net_report, bool for_one_channel,
     slave_errno =
         terminate_slave_threads(mi, thread_mask, rpl_stop_replica_timeout,
                                 false /*need_lock_term=false*/);
-  } else {
+  } else if (!enable_raft_plugin) {
+    // raft plugin doesn't start IO thread
     // no error if both threads are already stopped, only a warning
     slave_errno = 0;
     push_warning_printf(
