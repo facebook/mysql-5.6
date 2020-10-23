@@ -96,6 +96,18 @@ struct row_events_statements {
   ulonglong m_timer_wait;
   /** Column LOCK_TIME. */
   ulonglong m_lock_time;
+  /** Column TMP_TABLE_BYTES_WRITTEN. */
+  ulonglong m_tmp_table_bytes_written;
+  /** Column FILESORT_BYTES_WRITTEN. */
+  ulonglong m_filesort_bytes_written;
+  /** Column INDEX_DIVE_COUNT. */
+  ulong m_index_dive_count;
+  /** Column INDEX_DIVE_CPU. */
+  ulonglong m_index_dive_cpu;
+  /** Column COMPILATION_CPU. */
+  ulonglong m_compilation_cpu;
+  /** Column ELAPSED_TIME. */
+  ulonglong m_elapsed_time;
   /** Column SOURCE. */
   char m_source[COL_SOURCE_SIZE];
   /** Length in bytes of @c m_source. */

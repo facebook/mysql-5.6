@@ -866,6 +866,12 @@ struct PFS_statement_stat_row {
   ulonglong m_warning_count;
   ulonglong m_rows_affected;
   ulonglong m_lock_time;
+  ulonglong m_tmp_table_bytes_written;
+  ulonglong m_filesort_bytes_written;
+  ulong m_index_dive_count;
+  ulonglong m_index_dive_cpu;
+  ulonglong m_compilation_cpu;
+  ulonglong m_elapsed_time;
   ulonglong m_rows_sent;
   ulonglong m_rows_deleted;
   ulonglong m_rows_inserted;
@@ -901,6 +907,15 @@ struct PFS_statement_stat_row {
       m_error_count = stat->m_error_count;
       m_warning_count = stat->m_warning_count;
       m_lock_time = stat->m_lock_time * MICROSEC_TO_PICOSEC;
+      m_tmp_table_bytes_written = stat->m_tmp_table_bytes_written;
+      m_filesort_bytes_written = stat->m_filesort_bytes_written;
+      m_index_dive_count = stat->m_index_dive_count;
+      /* index dive cpu is already measured in picoseconds */
+      m_index_dive_cpu = stat->m_index_dive_cpu;
+      /* compilation cpu is already measured in picoseconds */
+      m_compilation_cpu = stat->m_compilation_cpu;
+      /* elapsed time is already measured in picoseconds */
+      m_elapsed_time = stat->m_elapsed_time;
       m_rows_affected = stat->m_rows_affected;
       m_rows_sent = stat->m_rows_sent;
       m_rows_examined = stat->m_rows_examined;
@@ -930,6 +945,12 @@ struct PFS_statement_stat_row {
       m_error_count = 0;
       m_warning_count = 0;
       m_lock_time = 0;
+      m_tmp_table_bytes_written = 0;
+      m_filesort_bytes_written = 0;
+      m_index_dive_count = 0;
+      m_index_dive_cpu = 0;
+      m_compilation_cpu = 0;
+      m_elapsed_time = 0;
       m_rows_affected = 0;
       m_rows_sent = 0;
       m_rows_examined = 0;

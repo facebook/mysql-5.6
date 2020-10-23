@@ -404,6 +404,12 @@ struct PFS_statement_stat {
   ulonglong m_max_controlled_memory{0};
   ulonglong m_max_total_memory{0};
   ulonglong m_count_secondary{0};
+  ulonglong m_tmp_table_bytes_written{0};
+  ulonglong m_filesort_bytes_written{0};
+  ulong m_index_dive_count{0};
+  ulonglong m_index_dive_cpu{0};
+  ulonglong m_compilation_cpu{0};
+  ulonglong m_elapsed_time{0};
 
   void reset() { new (this) PFS_statement_stat(); }
 
@@ -435,6 +441,12 @@ struct PFS_statement_stat {
       m_rows_deleted += stat->m_rows_deleted;
       m_rows_inserted += stat->m_rows_inserted;
       m_rows_updated += stat->m_rows_updated;
+      m_tmp_table_bytes_written += stat->m_tmp_table_bytes_written;
+      m_filesort_bytes_written += stat->m_filesort_bytes_written;
+      m_index_dive_count += stat->m_index_dive_count;
+      m_index_dive_cpu += stat->m_index_dive_cpu;
+      m_compilation_cpu += stat->m_compilation_cpu;
+      m_elapsed_time += stat->m_elapsed_time;
       m_created_tmp_disk_tables += stat->m_created_tmp_disk_tables;
       m_created_tmp_tables += stat->m_created_tmp_tables;
       m_select_full_join += stat->m_select_full_join;
