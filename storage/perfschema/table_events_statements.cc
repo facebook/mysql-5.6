@@ -93,6 +93,12 @@ Plugin_table table_events_statements_current::m_table_def(
     "  NESTING_EVENT_LEVEL INTEGER,\n"
     "  STATEMENT_ID BIGINT unsigned,\n"
     "  CPU_TIME BIGINT unsigned not null,\n"
+    "  TMP_TABLE_BYTES_WRITTEN BIGINT unsigned not null,\n"
+    "  FILESORT_BYTES_WRITTEN BIGINT unsigned not null,\n"
+    "  INDEX_DIVE_COUNT BIGINT unsigned not null,\n"
+    "  INDEX_DIVE_CPU BIGINT unsigned not null,\n"
+    "  COMPILATION_CPU BIGINT unsigned not null,\n"
+    "  ELAPSED_TIME BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -317,6 +323,15 @@ int table_events_statements_common::make_row_part_1(
                         &m_row.m_timer_wait);
   m_row.m_lock_time = statement->m_lock_time * MICROSEC_TO_PICOSEC;
   m_row.m_cpu_time = statement->m_cpu_time * MICROSEC_TO_PICOSEC;
+  m_row.m_tmp_table_bytes_written = statement->m_tmp_table_bytes_written;
+  m_row.m_filesort_bytes_written = statement->m_filesort_bytes_written;
+  m_row.m_index_dive_count = statement->m_index_dive_count;
+  /* index dive cpu is already measured in picoseconds */
+  m_row.m_index_dive_cpu = statement->m_index_dive_cpu;
+  /* compilation cpu is already measured in picoseconds */
+  m_row.m_compilation_cpu = statement->m_compilation_cpu;
+  /* elapsed time is already measured in picoseconds */
+  m_row.m_elapsed_time = statement->m_elapsed_time;
 
   m_row.m_name = klass->m_name;
   m_row.m_name_length = klass->m_name_length;
@@ -631,6 +646,48 @@ int table_events_statements_common::read_row_values(TABLE *table,
         case 42: /* CPU_TIME */
           if (m_row.m_cpu_time != 0) {
             set_field_ulonglong(f, m_row.m_cpu_time);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 43: /* TMP_TABLE_BYTES_WRITTEN */
+          if (m_row.m_tmp_table_bytes_written != 0) {
+            set_field_ulonglong(f, m_row.m_tmp_table_bytes_written);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 44: /* FILESORT_BYTES_WRITTEN */
+          if (m_row.m_filesort_bytes_written != 0) {
+            set_field_ulonglong(f, m_row.m_filesort_bytes_written);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 45: /* INDEX_DIVE_COUNT */
+          if (m_row.m_index_dive_count != 0) {
+            set_field_ulonglong(f, m_row.m_index_dive_count);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 46: /* INDEX_DIVE_CPU */
+          if (m_row.m_index_dive_cpu != 0) {
+            set_field_ulonglong(f, m_row.m_index_dive_cpu);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 47: /* COMPILATION_CPU */
+          if (m_row.m_compilation_cpu != 0) {
+            set_field_ulonglong(f, m_row.m_compilation_cpu);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 48: /* ELAPSED_TIME */
+          if (m_row.m_elapsed_time != 0) {
+            set_field_ulonglong(f, m_row.m_elapsed_time);
           } else {
             f->set_null();
           }

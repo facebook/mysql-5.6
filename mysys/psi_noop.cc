@@ -664,6 +664,30 @@ static void inc_statement_rows_updated_noop(PSI_statement_locker *, ulonglong) {
   return;
 }
 
+static void inc_statement_tmp_table_bytes_written_noop(PSI_statement_locker *,
+                                                       ulonglong) {
+  return;
+}
+
+static void inc_statement_filesort_bytes_written_noop(PSI_statement_locker *,
+                                                      ulonglong) {
+  return;
+}
+
+static void inc_statement_index_dive_count_noop(PSI_statement_locker *, ulong) {
+  return;
+}
+
+static void inc_statement_index_dive_cpu_noop(PSI_statement_locker *,
+                                              ulonglong) {
+  return;
+}
+
+static void inc_statement_compilation_cpu_noop(PSI_statement_locker *,
+                                               ulonglong) {
+  return;
+}
+
 static void inc_statement_created_tmp_disk_tables_noop(PSI_statement_locker *,
                                                        ulong) {
   return;
@@ -782,6 +806,11 @@ static PSI_statement_service_t psi_statement_noop = {
     inc_statement_rows_deleted_noop,
     inc_statement_rows_inserted_noop,
     inc_statement_rows_updated_noop,
+    inc_statement_tmp_table_bytes_written_noop,
+    inc_statement_filesort_bytes_written_noop,
+    inc_statement_index_dive_count_noop,
+    inc_statement_index_dive_cpu_noop,
+    inc_statement_compilation_cpu_noop,
     inc_statement_created_tmp_disk_tables_noop,
     inc_statement_created_tmp_tables_noop,
     inc_statement_select_full_join_noop,

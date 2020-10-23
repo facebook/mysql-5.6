@@ -55,6 +55,12 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_rows_deleted;
   unsigned long long m_rows_inserted;
   unsigned long long m_rows_updated;
+  unsigned long long m_tmp_table_bytes_written;
+  unsigned long long m_filesort_bytes_written;
+  unsigned long m_index_dive_count;
+  unsigned long long m_index_dive_cpu;
+  unsigned long long m_compilation_cpu;
+  unsigned long long m_elapsed_time;
   unsigned long m_created_tmp_disk_tables;
   unsigned long m_created_tmp_tables;
   unsigned long m_select_full_join;
@@ -116,6 +122,18 @@ typedef void (*inc_statement_rows_inserted_t)(
     struct PSI_statement_locker *locker, unsigned long long count);
 typedef void (*inc_statement_rows_updated_t)(
     struct PSI_statement_locker *locker, unsigned long long count);
+typedef void (*inc_statement_tmp_table_bytes_written_t)(
+    struct PSI_statement_locker *locker,
+    unsigned long long tmp_table_bytes_written);
+typedef void (*inc_statement_filesort_bytes_written_t)(
+    struct PSI_statement_locker *locker,
+    unsigned long long filesort_bytes_written);
+typedef void (*inc_statement_index_dive_count_t)(
+    struct PSI_statement_locker *locker, unsigned long index_dive_count);
+typedef void (*inc_statement_index_dive_cpu_t)(
+    struct PSI_statement_locker *locker, unsigned long long index_dive_cpu);
+typedef void (*inc_statement_compilation_cpu_t)(
+    struct PSI_statement_locker *locker, unsigned long long compilation_cpu);
 typedef void (*inc_statement_created_tmp_disk_tables_t)(
     struct PSI_statement_locker *locker, unsigned long count);
 typedef void (*inc_statement_created_tmp_tables_t)(
@@ -200,6 +218,11 @@ struct PSI_statement_service_v2 {
   inc_statement_rows_deleted_t inc_statement_rows_deleted;
   inc_statement_rows_inserted_t inc_statement_rows_inserted;
   inc_statement_rows_updated_t inc_statement_rows_updated;
+  inc_statement_tmp_table_bytes_written_t inc_statement_tmp_table_bytes_written;
+  inc_statement_filesort_bytes_written_t inc_statement_filesort_bytes_written;
+  inc_statement_index_dive_count_t inc_statement_index_dive_count;
+  inc_statement_index_dive_cpu_t inc_statement_index_dive_cpu;
+  inc_statement_compilation_cpu_t inc_statement_compilation_cpu;
   inc_statement_created_tmp_disk_tables_t inc_statement_created_tmp_disk_tables;
   inc_statement_created_tmp_tables_t inc_statement_created_tmp_tables;
   inc_statement_select_full_join_t inc_statement_select_full_join;

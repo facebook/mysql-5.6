@@ -88,6 +88,21 @@ void pfs_inc_statement_rows_inserted_v2(PSI_statement_locker *locker,
 void pfs_inc_statement_rows_updated_v2(PSI_statement_locker *locker,
                                        ulonglong count);
 
+void pfs_inc_statement_tmp_table_bytes_written_v2(PSI_statement_locker *locker,
+                                                  ulonglong count);
+
+void pfs_inc_statement_filesort_bytes_written_v2(PSI_statement_locker *locker,
+                                                 ulonglong count);
+
+void pfs_inc_statement_index_dive_count_v2(PSI_statement_locker *locker,
+                                           ulong count);
+
+void pfs_inc_statement_index_dive_cpu_v2(PSI_statement_locker *locker,
+                                         ulonglong count);
+
+void pfs_inc_statement_compilation_cpu_v2(PSI_statement_locker *locker,
+                                          ulonglong count);
+
 void pfs_inc_statement_created_tmp_disk_tables_v2(PSI_statement_locker *locker,
                                                   ulong count);
 
