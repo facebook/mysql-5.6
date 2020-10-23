@@ -1054,6 +1054,24 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 27: /* SUM_CPU_TIME */
       set_field_ulonglong(f, m_cpu_time);
       break;
+    case 28: /* SUM_TMP_TABLE_BYTES_WRITTEN */
+      set_field_ulonglong(f, m_tmp_table_bytes_written);
+      break;
+    case 29: /* SUM_FILESORT_BYTES_WRITTEN */
+      set_field_ulonglong(f, m_filesort_bytes_written);
+      break;
+    case 30: /* SUM_INDEX_DIVE_COUNT */
+      set_field_ulonglong(f, m_index_dive_count);
+      break;
+    case 31: /* SUM_INDEX_DIVE_CPU */
+      set_field_ulonglong(f, m_index_dive_cpu);
+      break;
+    case 32: /* SUM_COMPILATION_CPU */
+      set_field_ulonglong(f, m_compilation_cpu);
+      break;
+    case 33: /* SUM_ELAPSED_TIME */
+      set_field_ulonglong(f, m_elapsed_time);
+      break;
     default:
       DBUG_ASSERT(false);
       break;

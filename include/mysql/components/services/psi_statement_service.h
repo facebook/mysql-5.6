@@ -60,6 +60,16 @@ inc_statement_rows_deleted_t inc_statement_rows_deleted;
 inc_statement_rows_inserted_t inc_statement_rows_inserted;
 /** @sa inc_statement_rows_updated_t. */
 inc_statement_rows_updated_t inc_statement_rows_updated;
+/** @sa inc_statement_tmp_table_bytes_written_t. */
+inc_statement_tmp_table_bytes_written_t inc_statement_tmp_table_bytes_written;
+/** @sa inc_statement_filesort_bytes_written_t. */
+inc_statement_filesort_bytes_written_t inc_statement_filesort_bytes_written;
+/** @sa inc_statement_index_dive_count_t. */
+inc_statement_index_dive_count_t inc_statement_index_dive_count;
+/** @sa inc_statement_index_dive_cpu_t. */
+inc_statement_index_dive_cpu_t inc_statement_index_dive_cpu;
+/** @sa inc_statement_compilation_cpu_t. */
+inc_statement_compilation_cpu_t inc_statement_compilation_cpu;
 /** @sa inc_statement_created_tmp_disk_tables. */
 inc_statement_created_tmp_disk_tables_t inc_statement_created_tmp_disk_tables;
 /** @sa inc_statement_created_tmp_tables. */
@@ -149,6 +159,16 @@ inc_statement_rows_deleted_t inc_statement_rows_deleted;
 inc_statement_rows_inserted_t inc_statement_rows_inserted;
 /** @sa inc_statement_rows_updated_t. */
 inc_statement_rows_updated_t inc_statement_rows_updated;
+/** @sa inc_statement_tmp_table_bytes_written_t. */
+inc_statement_tmp_table_bytes_written_t inc_statement_tmp_table_bytes_written;
+/** @sa inc_statement_filesort_bytes_written_t. */
+inc_statement_filesort_bytes_written_t inc_statement_filesort_bytes_written;
+/** @sa inc_statement_index_dive_count_t. */
+inc_statement_index_dive_count_t inc_statement_index_dive_count;
+/** @sa inc_statement_index_dive_cpu_t. */
+inc_statement_index_dive_cpu_t inc_statement_index_dive_cpu;
+/** @sa inc_statement_compilation_cpu_t. */
+inc_statement_compilation_cpu_t inc_statement_compilation_cpu;
 /** @sa inc_statement_created_tmp_disk_tables. */
 inc_statement_created_tmp_disk_tables_t inc_statement_created_tmp_disk_tables;
 /** @sa inc_statement_created_tmp_tables. */

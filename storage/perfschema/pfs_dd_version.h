@@ -222,14 +222,23 @@
     IO_READ_BYTES
     IO_READ_REQUESTS
 
-  80023-007
+  80023-007:
 
   - add events_statements_summary_by_all table
 
+  80020-008:
+
+   - add temp table bytes written to statement statistics
+   - add filesort bytes written to statement statistics
+   - add index dive count to statement statistics
+   - add index dive cpu time to statement statistics
+   - add compilation cpu time to statement statistics
+   - add elapsed time to statement statistics
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-007. i.e. 8.0.23 Facebook schema change no. 7.
+  Version published is now 80023-008. i.e. 8.0.23 Facebook schema change no. 8.
 */
 
-static const uint PFS_DD_VERSION = 80023007;
+static const uint PFS_DD_VERSION = 80023008;
 
 #endif /* PFS_DD_VERSION_H */

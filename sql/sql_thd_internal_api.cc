@@ -184,7 +184,14 @@ void thd_increment_bytes_received(size_t length) {
 
 void thd_increment_tmp_table_bytes_written(size_t length) {
   THD *thd = current_thd;
-  if (likely(thd != NULL)) thd->status_var.tmp_table_bytes_written += length;
+  if (likely(thd != NULL)) {
+    thd->status_var.tmp_table_bytes_written += length;
+    /* store the number of bytes written into tmp table space
+     * into statement metrics tables
+     */
+    MYSQL_INC_STATEMENT_TMP_TABLE_BYTES_WRITTEN(thd->m_statement_psi,
+                                                (ulonglong)length);
+  }
 }
 
 partition_info *thd_get_work_part_info(THD *thd) { return thd->work_part_info; }
