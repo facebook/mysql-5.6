@@ -168,6 +168,18 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_rows_inserted;
   /** Rows updated. */
   unsigned long long m_rows_updated;
+  /** Number of bytes written into temp table space. */
+  unsigned long long m_tmp_table_bytes_written;
+  /** Number of bytes written into filesort space. */
+  unsigned long long m_filesort_bytes_written;
+  /** Number of index dive queries executed during compilation. */
+  unsigned long m_index_dive_count;
+  /** CPU time spent for index dive queries. */
+  unsigned long long m_index_dive_cpu;
+  /** CPU time spent for plan compilation. */
+  unsigned long long m_compilation_cpu;
+  /** Elapsed time. */
+  unsigned long long m_elapsed_time;
   /** Metric, temporary tables created on disk. */
   unsigned long m_created_tmp_disk_tables;
   /** Metric, temporary tables created. */
@@ -344,6 +356,48 @@ typedef void (*inc_statement_rows_inserted_t)(
 */
 typedef void (*inc_statement_rows_updated_t)(
     struct PSI_statement_locker *locker, unsigned long long count);
+
+/**
+  Increment a statement event temp table bytes written
+  @param locker the statement locker
+  @param tmp_table_bytes_written temp table bytes written
+*/
+typedef void (*inc_statement_tmp_table_bytes_written_t)(
+    struct PSI_statement_locker *locker,
+    unsigned long long tmp_table_bytes_written);
+
+/**
+  Increment a statement event filesort bytes written
+  @param locker the statement locker
+  @param filesort_bytes_written filesort bytes written
+*/
+typedef void (*inc_statement_filesort_bytes_written_t)(
+    struct PSI_statement_locker *locker,
+    unsigned long long filesort_bytes_written);
+
+/**
+  Increment a statement event index dive count
+  @param locker the statement locker
+  @param index_dive_count index dive count
+*/
+typedef void (*inc_statement_index_dive_count_t)(
+    struct PSI_statement_locker *locker, unsigned long index_dive_count);
+
+/**
+  Increment a statement event index dive cpu
+  @param locker the statement locker
+  @param index_dive_cpu index dive cpu
+*/
+typedef void (*inc_statement_index_dive_cpu_t)(
+    struct PSI_statement_locker *locker, unsigned long long index_dive_cpu);
+
+/**
+  Increment a statement event compilation cpu
+  @param locker the statement locker
+  @param compilation_cpu compilation cpu
+*/
+typedef void (*inc_statement_compilation_cpu_t)(
+    struct PSI_statement_locker *locker, unsigned long long compilation_cpu);
 
 /**
   Increment a statement event "created tmp disk tables" metric.

@@ -92,6 +92,18 @@ struct PFS_events_statements : public PFS_events {
   ulonglong m_rows_inserted;
   /** Diagnostics area, rows updated. */
   ulonglong m_rows_updated;
+  /** Diagnostics area, temp table bytes written. */
+  ulonglong m_tmp_table_bytes_written;
+  /** Diagnostics area, filesort bytes written. */
+  ulonglong m_filesort_bytes_written;
+  /** Optimizer metric, index dive count. */
+  ulonglong m_index_dive_count;
+  /** Optimizer metric, index dive cpu time. */
+  ulonglong m_index_dive_cpu;
+  /** Diagnostics area, compilation cpu time. */
+  ulonglong m_compilation_cpu;
+  /** Diagnostics area, elapsed time. */
+  ulonglong m_elapsed_time;
   /** Optimizer metric, number of temporary tables created on disk. */
   ulonglong m_created_tmp_disk_tables;
   /** Optimizer metric, number of temporary tables created. */

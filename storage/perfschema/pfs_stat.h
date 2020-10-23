@@ -386,6 +386,12 @@ struct PFS_statement_stat {
   ulonglong m_rows_deleted;
   ulonglong m_rows_inserted;
   ulonglong m_rows_updated;
+  ulonglong m_tmp_table_bytes_written;
+  ulonglong m_filesort_bytes_written;
+  ulong m_index_dive_count;
+  ulonglong m_index_dive_cpu;
+  ulonglong m_compilation_cpu;
+  ulonglong m_elapsed_time;
   ulonglong m_created_tmp_disk_tables;
   ulonglong m_created_tmp_tables;
   ulonglong m_select_full_join;
@@ -420,6 +426,12 @@ struct PFS_statement_stat {
       m_rows_deleted = 0;
       m_rows_inserted = 0;
       m_rows_updated = 0;
+      m_tmp_table_bytes_written = 0;
+      m_filesort_bytes_written = 0;
+      m_index_dive_count = 0;
+      m_index_dive_cpu = 0;
+      m_compilation_cpu = 0;
+      m_elapsed_time = 0;
       m_created_tmp_disk_tables = 0;
       m_created_tmp_tables = 0;
       m_select_full_join = 0;
@@ -462,6 +474,12 @@ struct PFS_statement_stat {
       m_rows_deleted += stat->m_rows_deleted;
       m_rows_inserted += stat->m_rows_inserted;
       m_rows_updated += stat->m_rows_updated;
+      m_tmp_table_bytes_written += stat->m_tmp_table_bytes_written;
+      m_filesort_bytes_written += stat->m_filesort_bytes_written;
+      m_index_dive_count += stat->m_index_dive_count;
+      m_index_dive_cpu += stat->m_index_dive_cpu;
+      m_compilation_cpu += stat->m_compilation_cpu;
+      m_elapsed_time += stat->m_elapsed_time;
       m_created_tmp_disk_tables += stat->m_created_tmp_disk_tables;
       m_created_tmp_tables += stat->m_created_tmp_tables;
       m_select_full_join += stat->m_select_full_join;

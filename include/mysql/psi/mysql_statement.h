@@ -174,6 +174,51 @@ struct CHARSET_INFO;
 #endif
 
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_TMP_TABLE_BYTES_WRITTEN(LOCKER, P1) \
+  inline_mysql_inc_statement_tmp_table_bytes_written(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_TMP_TABLE_BYTES_WRITTEN(LOCKER, P1) \
+  do {                                                          \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(LOCKER, P1) \
+  inline_mysql_inc_statement_filesort_bytes_written(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(LOCKER, P1) \
+  do {                                                         \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_INDEX_DIVE_COUNT(LOCKER, P1) \
+  inline_mysql_inc_statement_index_dive_count(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_INDEX_DIVE_COUNT(LOCKER, P1) \
+  do {                                                   \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_INDEX_DIVE_CPU(LOCKER, P1) \
+  inline_mysql_inc_statement_index_dive_cpu(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_INDEX_DIVE_CPU(LOCKER, P1) \
+  do {                                                 \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
+#define MYSQL_INC_STATEMENT_COMPILATION_CPU(LOCKER, P1) \
+  inline_mysql_inc_statement_compilation_cpu(LOCKER, P1)
+#else
+#define MYSQL_INC_STATEMENT_COMPILATION_CPU(LOCKER, P1) \
+  do {                                                  \
+  } while (0)
+#endif
+
+#ifdef HAVE_PSI_STATEMENT_INTERFACE
 #define MYSQL_END_STATEMENT(LOCKER, DA) inline_mysql_end_statement(LOCKER, DA)
 #else
 #define MYSQL_END_STATEMENT(LOCKER, DA) \
@@ -298,6 +343,41 @@ static inline void inline_mysql_inc_statement_rows_updated(
     PSI_statement_locker *locker, ulonglong count) {
   if (likely(locker != NULL)) {
     PSI_STATEMENT_CALL(inc_statement_rows_updated)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_tmp_table_bytes_written(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_tmp_table_bytes_written)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_filesort_bytes_written(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_filesort_bytes_written)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_index_dive_count(
+    PSI_statement_locker *locker, ulong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_index_dive_count)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_index_dive_cpu(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_index_dive_cpu)(locker, count);
+  }
+}
+
+static inline void inline_mysql_inc_statement_compilation_cpu(
+    PSI_statement_locker *locker, ulonglong count) {
+  if (likely(locker != NULL)) {
+    PSI_STATEMENT_CALL(inc_statement_compilation_cpu)(locker, count);
   }
 }
 

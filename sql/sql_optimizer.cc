@@ -54,6 +54,7 @@
 #include "mysql/udf_registration_types.h"
 #include "mysql_com.h"
 #include "mysqld_error.h"
+#include "scope_guard.h"
 #include "sql/abstract_query_plan.h"  // Join_plan
 #include "sql/check_stack.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
@@ -135,6 +136,8 @@ static const char *can_switch_from_ref_to_range(THD *thd, JOIN_TAB *tab,
                                                 bool recheck_range);
 
 static bool has_not_null_predicate(Item *cond, Item_field *not_null_item);
+static void measure_compilation_cpu(THD *thd, int cpu_res,
+                                    timespec *beginning_id);
 
 bool JOIN::alloc_indirection_slices() {
   const uint card = REF_SLICE_WIN_1 + m_windows.elements * 2;
@@ -209,6 +212,20 @@ bool JOIN::optimize() {
 
   // to prevent double initialization on EXPLAIN
   if (optimized) return false;
+
+  /* measure the compilation CPU
+     TODO: Currently compilation CPU is not correctly for two
+           kinds of queries:
+     - delete from <TBL> where <predicate(s) on columns>
+     - update from <TBL> where <predicate(s) on columns>
+     NOTE: If the where clause contains sub-queries then
+           the compilation CPU is tracked correctly.
+   */
+  timespec time_beg;
+  int cpu_res = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_beg);
+
+  auto compilation_cpu_guard = create_scope_guard(
+      [&]() { measure_compilation_cpu(thd, cpu_res, &time_beg); });
 
   Prepare_error_tracker tracker(thd);
 
@@ -10772,6 +10789,28 @@ List<Item> *JOIN::get_current_fields() {
   DBUG_ASSERT((int)current_ref_item_slice >= 0);
   if (current_ref_item_slice == REF_SLICE_SAVED_BASE) return fields;
   return &tmp_fields_list[current_ref_item_slice];
+}
+
+/**
+  Measure Compilation CPU and store it statement metrics tables
+
+    The function computes the compilation CPU time and stores it in thread.
+    This function is called from JOIN::optimize().
+
+  @param thd          thread handle
+  @param cpu_res      CPU resource usage return code
+  @param beginning_id timespec of the beginning of the clock
+*/
+
+static void measure_compilation_cpu(THD *thd, int cpu_res,
+                                    timespec *beginning_id) {
+  timespec time_end;
+  if (cpu_res == 0 &&
+      (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+    ulonglong diff = diff_timespec(&time_end, beginning_id);
+    diff *= 1000; /* convert to picoseconds */
+    MYSQL_INC_STATEMENT_COMPILATION_CPU(thd->m_statement_psi, (ulonglong)diff);
+  }
 }
 
 /**

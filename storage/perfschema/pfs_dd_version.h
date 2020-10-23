@@ -171,7 +171,15 @@
    800171005:
    add cpu time to statement statistics
    add events_statements_summary_by_all table.
+
+   800171006:
+   add temp table bytes written to statement statistics
+   add filesort bytes written to statement statistics
+   add index dive count to statement statistics
+   add index dive cpu time to statement statistics
+   add compilation cpu time to statement statistics
+   add elapsed time to statement statistics
 */
-static const uint PFS_DD_VERSION = 800171005;
+static const uint PFS_DD_VERSION = 800171006;
 
 #endif /* PFS_DD_VERSION_H */
