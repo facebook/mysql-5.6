@@ -3591,7 +3591,8 @@ public:
   }
   inline uint32 get_length(uint row_offset= 0)
   { return get_length(ptr+row_offset, this->packlength, table->s->db_low_byte_first); }
-  uint32 get_length(const uchar *ptr, uint packlength, bool low_byte_first);
+  static uint32 get_length(const uchar *ptr, uint packlength,
+                           bool low_byte_first);
   uint32 get_length(const uchar *ptr_arg)
   { return get_length(ptr_arg, this->packlength, table->s->db_low_byte_first); }
   void put_length(uchar *pos, uint32 length);
