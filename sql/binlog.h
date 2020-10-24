@@ -724,6 +724,10 @@ class MYSQL_BIN_LOG : public TC_LOG {
    */
   HybridLogicalClock hlc;
 
+  // Used by raft log only
+  // Log file name: binary-logs-{port}.####
+  // Log file ext: ####
+  ulong raft_cur_log_ext;
   /*
      This is set when we have registered log entities with raft plugin
      during ordered commit, after we have become master on step up.
