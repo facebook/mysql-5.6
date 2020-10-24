@@ -3832,6 +3832,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
       relay_log_checksum_alg(binary_log::BINLOG_CHECKSUM_ALG_UNDEF),
       engine_binlog_pos(ULLONG_MAX),
       previous_gtid_set_relaylog(nullptr),
+      raft_cur_log_ext(0),
       setup_flush_done(false),
       is_rotating_caused_by_incident(false) {
   /*
@@ -3950,8 +3951,9 @@ static bool is_number(const char *str, ulong *res, bool allow_wildcards) {
     nonzero if not possible to get unique filename.
 */
 
-static int find_uniq_filename(
-    char *name, uint32 new_index_number, bool need_next = true) {
+static int find_uniq_filename(char *name, uint32 new_index_number,
+                              bool need_next = true,
+                              ulong *cur_log_ext = nullptr) {
   uint i;
   char buff[FN_REFLEN], ext_buf[FN_REFLEN];
   MY_DIR *dir_info = nullptr;
@@ -4002,6 +4004,8 @@ static int find_uniq_filename(
     next = new_index_number;
   } else
     next = (need_next || max_found == 0) ? (max_found + 1) : max_found;
+
+  if (cur_log_ext != nullptr) *cur_log_ext = next;
 
   if (sprintf(ext_buf, "%06lu", next) < 0) {
     error = 1;
@@ -4070,7 +4074,8 @@ int MYSQL_BIN_LOG::generate_new_name(char *new_name, const char *log_name,
                                      uint32 new_index_number) {
   fn_format(new_name, log_name, mysql_data_home, "", 4);
   if (!fn_ext(log_name)[0]) {
-    if (find_uniq_filename(new_name, new_index_number)) {
+    if (find_uniq_filename(new_name, new_index_number, /*need_next=*/true,
+                           &raft_cur_log_ext)) {
       if (current_thd != nullptr)
         my_printf_error(ER_NO_UNIQUE_LOGFILE,
                         ER_THD(current_thd, ER_NO_UNIQUE_LOGFILE),
@@ -7391,6 +7396,9 @@ int MYSQL_BIN_LOG::new_file_impl(
     goto end;
   }
 
+  // we have moved the cur log ext and in raft
+  // this will mess with the index
+  if (rotate_via_raft) raft_cur_log_ext--;
   /*
     Make sure that the log_file is initialized before writing
     Rotate_log_event into it.
@@ -7450,7 +7458,9 @@ int MYSQL_BIN_LOG::new_file_impl(
           RUN_HOOK(raft_replication, before_flush,
                    (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
+      // time to safely readjust the cur_log_ext back to expected value
       if (!error) {
+        raft_cur_log_ext++;
         error = RUN_HOOK(raft_replication, before_commit, (current_thd));
       }
     }
@@ -10063,14 +10073,13 @@ int MYSQL_BIN_LOG::register_log_entities(
     mysql_mutex_assert_owner(&LOCK_log);
 
   // TODO(luqun): assign correct values
-  ulong cur_log_ext = 0;
   ulong signal_cnt = 0;
 
   Raft_replication_observer::st_setup_flush_arg arg;
   arg.log_file_cache = m_binlog_file->get_io_cache();
   arg.log_prefix = name;
   arg.log_name = log_file_name;
-  arg.cur_log_ext = &cur_log_ext;
+  arg.cur_log_ext = &raft_cur_log_ext;
   arg.endpos_log_name = binlog_file_name;
   arg.endpos = (ulonglong *)&atomic_binlog_end_pos;
   arg.signal_cnt = &signal_cnt;
