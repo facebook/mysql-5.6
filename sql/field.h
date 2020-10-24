@@ -3705,7 +3705,7 @@ class Field_blob : public Field_longstr {
     return get_length(row_offset);
   }
   uint32 get_length(ptrdiff_t row_offset = 0) const;
-  uint32 get_length(const uchar *ptr, uint packlength) const;
+  static uint32 get_length(const uchar *ptr, uint packlength);
   uint32 get_length(const uchar *ptr_arg) const;
   /** Get a const pointer to the BLOB data of this field. */
   const uchar *get_blob_data() const { return get_blob_data(ptr + packlength); }

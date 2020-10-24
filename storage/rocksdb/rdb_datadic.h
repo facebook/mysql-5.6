@@ -1167,13 +1167,19 @@ class Rdb_field_encoder {
   STORAGE_TYPE m_storage_type;
 
   uint m_null_offset;
-  uint16 m_field_index;
-
   uchar m_null_mask;  // 0 means the field cannot be null
 
+  /*
+    Cached field information
+  */
   my_core::enum_field_types m_field_type;
-
-  uint m_pack_length_in_rec;
+  uchar m_field_null_mask;
+  uint16 m_field_index;
+  uint m_field_pack_length;
+  uint m_field_length_bytes;
+  uint m_field_length;
+  ptrdiff_t m_field_null_offset;
+  ptrdiff_t m_field_offset;
 
   bool maybe_null() const { return m_null_mask != 0; }
 

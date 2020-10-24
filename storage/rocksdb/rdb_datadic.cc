@@ -1651,7 +1651,7 @@ int Rdb_key_def::unpack_record(TABLE *const table, uchar *const buf,
       has_covered_bitmap ? &covered_bitmap : nullptr, buf);
   while (iter.has_next()) {
     err = iter.next();
-    if (err) {
+    if (unlikely(err)) {
       return err;
     }
   }
