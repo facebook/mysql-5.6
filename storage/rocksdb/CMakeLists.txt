@@ -2,13 +2,6 @@ RETURN() # MyRocks is disabled
 
 # TODO: Copyrights
 
-RETURN() # MyRocks is disabled
-
-CHECK_FUNCTION_EXISTS(sched_getcpu  HAVE_SCHED_GETCPU)
-IF(HAVE_SCHED_GETCPU)
-  ADD_DEFINITIONS(-DHAVE_SCHED_GETCPU=1 -DROCKSDB_SCHED_GETCPU_PRESENT)
-ENDIF()
-
 # This is a strong requirement coming from RocksDB. No conditional checks here.
 ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DROCKSDB_LIB_IO_POSIX)
 
@@ -48,15 +41,56 @@ ELSE()
   )
 ENDIF()
 
-INCLUDE_DIRECTORIES(
-  ${ROCKSDB_ROOT}
-  ${ROCKSDB_ROOT}/include
-  ${ROCKSDB_ROOT}/third-party/gtest-1.8.1/fused-src
-)
+include(compiler_features)
+
+IF (HAVE_SSE42)
+  MESSAGE(STATUS "MyRocks: SSE42 support found")
+  add_compile_flags(${ROCKSDB_ROOT}/util/crc32c.cc COMPILE_FLAGS "-msse4.2") # use Fast_CRC32
+  IF (HAVE_PCLMUL)
+    add_compile_flags(${ROCKSDB_ROOT}/util/crc32c.cc COMPILE_FLAGS "-mpclmul") # use crc32c_3way instead of Fast_CRC32
+  ENDIF()
+ELSE()
+  MESSAGE(WARNING "No SSE42 support found, building MyRocks but without SSE42/FastCRC32 support")
+ENDIF()
+
+IF (HAVE_AVX2 AND NOT ROCKSDB_DISABLE_AVX2)
+  add_compile_flags(${ROCKSDB_ROOT}/table/block_based/filter_policy.cc COMPILE_FLAGS "-mavx2")
+ENDIF()
+
+IF (HAVE_URING AND ROCKSDB_USE_IO_URING)
+  SET(rocksdb_static_libs ${rocksdb_static_libs} ${URING_LIBRARY})
+ENDIF()
+
+IF (HAVE_MEMKIND AND NOT ROCKSDB_DISABLE_MEMKIND)
+  SET(rocksdb_static_libs ${rocksdb_static_libs} ${MEMKIND_LIBRARY} -lnuma)
+ENDIF()
+
+IF (HAVE_ALIGNED_NEW AND NOT ROCKSDB_DISABLE_ALIGNED_NEW)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -faligned-new")
+ENDIF()
+
+IF (CMAKE_COMPILER_IS_GNUCXX)
+  add_compile_options(-fno-builtin-memcmp)
+ENDIF()
+
+IF (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64" AND NOT ROCKSDB_DISABLE_MARCH_NATIVE)
+  add_compile_options(-march=native)
+ENDIF()
+
+IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_definitions(-DOS_LINUX)
+ENDIF()
+
+ROCKSDB_SET_DEFINTIONS()
+get_directory_property(COMPILE_DEFINITIONS COMPILE_DEFINITIONS)
+list(SORT COMPILE_DEFINITIONS)
+message(STATUS "MyRocks compile definitions: ${COMPILE_DEFINITIONS}")
 
 
 # Suppress warnings for all compilers
-remove_compile_flags(-Wcast-qual)
+remove_compile_flags(-Wcast-qual -Wundef)
+ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-unused-parameter FILES ../../rocksdb/file/random_access_file_reader.cc)
+append_cflags_if_supported(-Wno-unused-parameter)
 
 # Suppress warnings for all clang versions
 IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -66,11 +100,6 @@ IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
   # platform007 (tbb, etc) has throw() which is deprecated
   append_cflags_if_supported(-Wno-deprecated-dynamic-exception-spec)
-ENDIF()
-
-# Suppress warnings for clang-10 or newer
-IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-  ADD_CXX_COMPILE_FLAGS_TO_FILES(-Wno-range-loop-construct FILES ../../rocksdb/options/options_helper.cc)
 ENDIF()
 
 # Suppress warnings for all gcc versions
@@ -90,30 +119,11 @@ IF(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
 ENDIF()
 
 
-IF(UNIX)
-  IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    ADD_DEFINITIONS(-DOS_LINUX)
-
-    CHECK_INCLUDE_FILES(linux/falloc.h HAVE_LINUX_FALLOC_H)
-    CHECK_FUNCTION_EXISTS(fallocate HAVE_FALLOCATE)
-
-    IF(HAVE_FALLOCATE AND HAVE_LINUX_FALLOC_H)
-      ADD_DEFINITIONS(-DROCKSDB_FALLOCATE_PRESENT)
-    ENDIF()
-  ENDIF()
-ENDIF()
-
-CHECK_CXX_SOURCE_COMPILES("
-#if defined(_MSC_VER) && !defined(__thread)
-#define __thread __declspec(thread)
-#endif
-int main() {
-  static __thread int tls;
-}
-" HAVE_THREAD_LOCAL)
-if(HAVE_THREAD_LOCAL)
-  ADD_DEFINITIONS(-DROCKSDB_SUPPORT_THREAD_LOCAL)
-endif()
+INCLUDE_DIRECTORIES(
+  ${ROCKSDB_ROOT}
+  ${ROCKSDB_ROOT}/include
+  ${ROCKSDB_ROOT}/third-party/gtest-1.8.1/fused-src
+)
 
 SET(ROCKSDB_SOURCES
   ${ROCKSDB_SOURCES}
@@ -143,9 +153,7 @@ ELSE()
 ENDIF()
 
 IF(HAVE_EXTERNAL_ROCKSDB)
-  SET(rocksdb_static_libs "${ROCKSDB_LIB_PATH}/${ROCKSDB_LIB_NAME}")
-ELSE()
-  SET(rocksdb_static_libs )
+  SET(rocksdb_static_libs ${rocksdb_static_libs} "${ROCKSDB_LIB_PATH}/${ROCKSDB_LIB_NAME}")
 ENDIF()
 
 IF (WITH_JEMALLOC)
