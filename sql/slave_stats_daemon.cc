@@ -1,4 +1,6 @@
+#include "my_global.h"
 #include "mysql.h"
+#include "mysql_com.h"
 #include "sql_base.h"
 #include "sql_show.h"
 #include "sql_string.h"
@@ -23,6 +25,9 @@ pthread_t slave_stats_daemon_thread;
 mysql_mutex_t LOCK_slave_stats_daemon;
 mysql_cond_t COND_slave_stats_daemon;
 
+/* connection/read timeout in seconds*/
+const int REPLICA_STATS_NET_TIMEOUT = 5;
+
 #ifdef HAVE_REPLICATION
 static bool abort_slave_stats_daemon;
 
@@ -44,6 +49,10 @@ static int safe_connect_slave_stats_thread_to_master(MYSQL * &mysql)
   if (!mysql) {
     return false;
   }
+  mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT,
+    (char *) &REPLICA_STATS_NET_TIMEOUT);
+  mysql_options(mysql, MYSQL_OPT_READ_TIMEOUT,
+    (char *) &REPLICA_STATS_NET_TIMEOUT);
   configure_master_connection_options(mysql, active_mi);
 
   char pass[MAX_PASSWORD_LENGTH + 1];
