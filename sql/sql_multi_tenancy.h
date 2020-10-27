@@ -42,6 +42,11 @@
  * See sql_multi_tenancy.cc for implementation.
  */
 
+/**
+  Forward declarations.
+*/
+class Ac_info;
+
 enum enum_admission_control_request_mode
 {
   AC_REQUEST_NONE,
@@ -50,12 +55,10 @@ enum enum_admission_control_request_mode
   AC_REQUEST_QUERY_READMIT_HIPRI,
 };
 
-extern int multi_tenancy_add_connection(THD *, const MT_RESOURCE_ATTRS *);
-extern int multi_tenancy_close_connection(THD *, const MT_RESOURCE_ATTRS *);
+extern int multi_tenancy_add_connection(THD *, const char *);
+extern int multi_tenancy_close_connection(THD *);
 extern int multi_tenancy_admit_query(THD *, enum_admission_control_request_mode mode = AC_REQUEST_QUERY);
 extern int multi_tenancy_exit_query(THD *);
-extern std::string multi_tenancy_get_entity(
-    THD *, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *);
 extern std::string multi_tenancy_get_entity_counter(
     THD *thd, MT_RESOURCE_TYPE type, const MT_RESOURCE_ATTRS *,
     const char *entity_name, int *limit, int *count);
@@ -71,23 +74,10 @@ int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *cond);
 /**
   Per-thread information used in admission control.
 */
-class Ac_info;
-struct st_ac_node;
 struct st_ac_node {
-#ifdef HAVE_PSI_INTERFACE
-  PSI_mutex_key key_lock;
-  PSI_cond_key key_cond;
-  PSI_mutex_info key_lock_info[1]=
-  {
-    {&key_lock, "st_ac_node::lock", 0}
-  };
-  PSI_cond_info key_cond_info[1]=
-  {
-    {&key_cond, "st_ac_node::cond", 0}
-  };
-#endif
   mysql_mutex_t lock;
   mysql_cond_t cond;
+  bool running; // whether current node is given ac slot.
   bool queued;  // whether current node is queued. pos is valid iff queued.
   std::list<std::shared_ptr<st_ac_node>>::iterator pos;
   // The queue that this node belongs to.
@@ -97,14 +87,9 @@ struct st_ac_node {
   // The ac_info this node belongs to.
   std::shared_ptr<Ac_info> ac_info;
   st_ac_node(THD *thd_arg) {
-#ifdef HAVE_PSI_INTERFACE
-    mysql_mutex_register("sql", key_lock_info,
-                         array_elements(key_lock_info));
-    mysql_cond_register("sql", key_cond_info,
-                        array_elements(key_cond_info));
-#endif
-    mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
-    mysql_cond_init(key_cond, &cond, NULL);
+    mysql_mutex_init(key_LOCK_ac_node, &lock, MY_MUTEX_INIT_FAST);
+    mysql_cond_init(key_COND_ac_node, &cond, NULL);
+    running = false;
     queued = false;
     queue = 0;
     thd = thd_arg;
@@ -145,16 +130,12 @@ class Ac_info {
   friend class AC;
   friend int fill_ac_queue(THD *thd, TABLE_LIST *tables, Item *cond);
   friend int fill_ac_entities(THD *thd, TABLE_LIST *tables, Item *cond);
-#ifdef HAVE_PSI_INTERFACE
-  PSI_mutex_key key_lock;
-  PSI_mutex_info key_lock_info[1]=
-  {
-    {&key_lock, "Ac_info::lock", 0}
-  };
-#endif
 
   // Queues
   std::array<Ac_queue, MAX_AC_QUEUES> queues{};
+
+  // Entity name used as key in ac_info map.
+  std::string entity;
 
   // Count for waiting queries in queues for this Ac_info.
   unsigned long waiting_queries = 0;
@@ -164,15 +145,17 @@ class Ac_info {
   unsigned long aborted_queries = 0;
   // Count for timed out queries in queues for this Ac_info.
   unsigned long timeout_queries = 0;
-  // Protects the queues.
+
+  // Count for current connections.
+  unsigned long connections = 0;
+  // Stats for rejected connections.
+  ulonglong rejected_connections = 0;
+
+  // Protects Ac_info.
   mysql_mutex_t lock;
 public:
-  Ac_info() {
-#ifdef HAVE_PSI_INTERFACE
-    mysql_mutex_register("sql", key_lock_info,
-                         array_elements(key_lock_info));
-#endif
-    mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
+  Ac_info(const std::string &_entity) : entity(_entity) {
+    mysql_mutex_init(key_LOCK_ac_info, &lock, MY_MUTEX_INIT_FAST);
   }
   ~Ac_info() {
     mysql_mutex_destroy(&lock);
@@ -180,6 +163,11 @@ public:
   // Disable copy constructor.
   Ac_info(const Ac_info&) = delete;
   Ac_info& operator=(const Ac_info&) = delete;
+
+  // Accessors.
+  const std::string &get_entity() const {
+    return entity;
+  }
 };
 
 enum class Ac_result {
@@ -199,7 +187,9 @@ class AC {
   // This map is protected by the rwlock LOCK_ac.
   std::unordered_map<std::string, std::shared_ptr<Ac_info>> ac_map;
   // Variables to track global limits
-  ulong max_running_queries, max_waiting_queries;
+  ulong max_running_queries;
+  ulong max_waiting_queries;
+  ulong max_connections;
 
   std::array<unsigned long, MAX_AC_QUEUES> weights{};
   /**
@@ -208,28 +198,20 @@ class AC {
     Locking order followed is LOCK_ac, Ac_info::lock, st_ac_node::lock.
   */
   mysql_rwlock_t LOCK_ac;
-#ifdef HAVE_PSI_INTERFACE
-  PSI_rwlock_key key_rwlock_LOCK_ac;
-  PSI_rwlock_info key_rwlock_LOCK_ac_info[1]=
-  {
-    {&key_rwlock_LOCK_ac, "AC::rwlock", 0}
-  };
-#endif
 
   std::atomic<ulonglong> total_aborted_queries;
   std::atomic<ulonglong> total_timeout_queries;
+  std::atomic<ulonglong> total_rejected_connections;
 
 public:
   AC() {
-#ifdef HAVE_PSI_INTERFACE
-    mysql_rwlock_register("sql", key_rwlock_LOCK_ac_info,
-                          array_elements(key_rwlock_LOCK_ac_info));
-#endif
     mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
     max_running_queries = 0;
     max_waiting_queries = 0;
+    max_connections = 0;
     total_aborted_queries = 0;
     total_timeout_queries = 0;
+    total_rejected_connections = 0;
   }
 
   ~AC() {
@@ -251,7 +233,7 @@ public:
   void insert(const std::string &entity) {
     mysql_rwlock_wrlock(&LOCK_ac);
     if (ac_map.find(entity) == ac_map.end()) {
-      ac_map[entity] = std::make_shared<Ac_info>();
+      ac_map[entity] = std::make_shared<Ac_info>(entity);
     }
     mysql_rwlock_unlock(&LOCK_ac);
   }
@@ -296,6 +278,12 @@ public:
     mysql_rwlock_unlock(&LOCK_ac);
   }
 
+  void update_max_connections(ulong val) {
+    mysql_rwlock_wrlock(&LOCK_ac);
+    max_connections = val;
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
+
   inline ulong get_max_running_queries() {
     mysql_rwlock_rdlock(&LOCK_ac);
     ulong res = max_running_queries;
@@ -310,13 +298,16 @@ public:
     return res;
   }
 
-  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *, enum_admission_control_request_mode);
-  void admission_control_exit(THD*, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, enum_admission_control_request_mode);
+  void admission_control_exit(THD*);
   bool wait_for_signal(THD *, std::shared_ptr<st_ac_node> &,
                        std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode);
   static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info, enum_admission_control_request_mode);
   static void dequeue(THD *thd, std::shared_ptr<Ac_info> ac_info);
   static void dequeue_and_run(THD *thd, std::shared_ptr<Ac_info> ac_info);
+
+  Ac_result add_connection(THD *, const char *);
+  void close_connection(THD*);
 
   int update_queue_weights(char *str);
 
@@ -324,6 +315,9 @@ public:
     return total_aborted_queries;
   }
   ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
+  ulonglong get_total_rejected_connections() const {
+    return total_rejected_connections;
+  }
   ulong get_total_running_queries() {
     ulonglong res= 0;
     mysql_rwlock_rdlock(&LOCK_ac);
@@ -357,14 +351,20 @@ public:
 */
 class Ac_switch_guard {
   THD *thd;
-  std::string old_db;
-  std::string new_db;
+  std::shared_ptr<Ac_info> ac_info;
   bool committed = false;
+  bool do_switch = true;
 
 public:
-  Ac_switch_guard(THD *, const char *);
+  Ac_switch_guard(THD *);
   ~Ac_switch_guard();
-  void commit() { committed = true; }
+  void commit() {
+    // If switch is not needed then commit is ignored, and ac_info will be
+    // restored.
+    if (do_switch)
+      committed = true;
+  }
+  int add_connection(const char *new_db);
 };
 
 extern AC *db_ac;

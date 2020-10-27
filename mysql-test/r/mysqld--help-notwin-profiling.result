@@ -695,6 +695,9 @@ The following options may be given as the first argument:
  connections from a host this host will be blocked from
  further connections
  --max-connections=# The number of simultaneous clients allowed
+ --max-db-connections=# 
+ The maximum number of connections allowed for a database.
+ If this value is 0, no such limits are applied.
  --max-db-stats-entries[=#] 
  Maximum number of entries in DB_STATISTICS
  --max-delayed-threads=# 
@@ -2527,6 +2530,7 @@ max-binlog-stmt-cache-size 18446744073709547520
 max-compressed-event-cache-size 1
 max-connect-errors 100
 max-connections 151
+max-db-connections 0
 max-db-stats-entries 255
 max-delayed-threads 20
 max-digest-length 1024

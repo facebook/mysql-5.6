@@ -1482,9 +1482,10 @@ static int process_noncurrent_db_rw (THD *thd, TABLE_LIST *all_tables)
   DBUG_RETURN(0);
 }
 
-/*
- * This function is called from both COM_INIT_DB and SQLCOM_CHANGE_DB to set
- * the session's default database. In this function, we will check the
+/**
+ * This function is called for the following commands to set
+ * the session's default database: COM_INIT_DB, SQLCOM_CHANGE_DB,
+ * COM_CONNECT, COM_CHANGE_USER. In this function, we will check the
  * admission control and connection limit for the new database.
  *
  * @retval
@@ -1492,28 +1493,34 @@ static int process_noncurrent_db_rw (THD *thd, TABLE_LIST *all_tables)
  * @retval
  *   1   failed to set session db
  */
-static bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
+bool set_session_db_helper(THD *thd, const LEX_STRING *new_db)
 {
-  bool error = false;
-  Ac_switch_guard switch_guard(thd, new_db->str);
+  Ac_switch_guard switch_guard(thd);
+  bool error = switch_guard.add_connection(new_db->str);
 
-  if (!thd->db || strcmp(thd->db, new_db->str))
+  if (error)
   {
-    // now check resource if we can switch the connection to another database.
-    // Since other attributes are null, this doesn't have any effect if the
-    // throttling is not db based.
-    MT_RESOURCE_ATTRS attrs = { nullptr, nullptr, new_db->str };
-    if (attrs.database && multi_tenancy_add_connection(thd, &attrs))
+    // Connection rejected/throttled. Push error message.
+    std::string entity(new_db->str);
+    if (thd->main_security_ctx.host_or_ip)
     {
-      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), attrs.database);
-      error = true;
+      if (!entity.empty())
+        entity += " on ";
+      entity += thd->main_security_ctx.host_or_ip;
     }
-  }
 
-  if (!error && !mysql_change_db(thd, new_db, false)) // Do not force switch.
-    switch_guard.commit();
+    my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
+  }
   else
-    error = true;
+  {
+    // Switch to new db if it is specified.
+    if (new_db->length)
+      error = mysql_change_db(thd, new_db, false); // Do not force switch.
+
+    if (!error)
+      // No db, or successful switch, so mark guard to keep the changes.
+      switch_guard.commit();
+  }
 
   // Switch guard either commits or rolls back the switch operation.
   return error;

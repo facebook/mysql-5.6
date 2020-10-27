@@ -161,6 +161,7 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id);
 bool shutdown(THD *thd, enum mysql_enum_shutdown_level level,
               enum enum_server_command command, uchar exit_code,
               bool ro_instance_only);
+bool set_session_db_helper(THD *thd, const LEX_STRING *new_db);
 
 /* Variables */
 

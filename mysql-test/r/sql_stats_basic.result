@@ -1425,8 +1425,9 @@ Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)
 0
-select * from information_schema.admission_control_entities;
-SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
+select count(*) from information_schema.admission_control_entities where schema_name = 'test_db';
+count(*)
+0
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;

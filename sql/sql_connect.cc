@@ -1427,7 +1427,6 @@ void do_handle_one_connection(THD *thd_arg)
   ulong conn_timeout = 0;
   char timeout_error_msg_buf[256];
   timeout_error_msg_buf[0] = '\0';
-  MT_RESOURCE_ATTRS attrs;
 
   for (;;)
   {
@@ -1474,13 +1473,7 @@ void do_handle_one_connection(THD *thd_arg)
       }
     }
     thd_update_net_stats(thd);
-    // release connection in multi_tenancy plugin
-    attrs = {
-      &thd->connection_attrs_map,
-      &thd->query_attrs_map,
-      thd->db
-    };
-    multi_tenancy_close_connection(thd, &attrs);
+    multi_tenancy_close_connection(thd);
     end_connection(thd);
 
 end_thread:

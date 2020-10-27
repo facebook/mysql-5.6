@@ -846,6 +846,7 @@ ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
 uint max_nonsuper_connections;
 ulong opt_max_running_queries, opt_max_waiting_queries;
+ulong opt_max_db_connections;
 my_bool opt_admission_control_by_trx= 0;
 char *admission_control_weights;
 extern AC *db_ac;
@@ -10935,6 +10936,14 @@ static int get_db_ac_total_waiting_queries(THD *thd, SHOW_VAR *var,
   return 0;
 }
 
+static int get_db_ac_total_rejected_connections(THD *thd, SHOW_VAR *var,
+                                                char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *((longlong *)buff) = db_ac->get_total_rejected_connections();
+  return 0;
+}
+
 static int show_peak_with_reset(THD *thd, SHOW_VAR *var, char *buff,
                                 ulonglong &peak, ulonglong &usage)
 {
@@ -11043,6 +11052,7 @@ SHOW_VAR status_vars[]= {
   {"Database_admission_control_running_queries", (char*) &get_db_ac_total_running_queries, SHOW_FUNC},
   {"Database_admission_control_timeout_queries", (char*) &get_db_ac_total_timeout_queries, SHOW_FUNC},
   {"Database_admission_control_waiting_queries", (char*) &get_db_ac_total_waiting_queries, SHOW_FUNC},
+  {"Database_admission_control_rejected_connections", (char*) &get_db_ac_total_rejected_connections, SHOW_FUNC},
   {"Delayed_errors",           (char*) &delayed_insert_errors,  SHOW_LONG},
   {"Delayed_insert_threads",   (char*) &delayed_insert_threads, SHOW_LONG_NOFLUSH},
   {"Delayed_writes",           (char*) &delayed_insert_writes,  SHOW_LONG},
@@ -13163,6 +13173,8 @@ PSI_mutex_key key_LOCK_sql_rand;
 PSI_mutex_key key_gtid_ensure_index_mutex;
 PSI_mutex_key key_LOCK_thread_created;
 PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
+PSI_mutex_key key_LOCK_ac_node;
+PSI_mutex_key key_LOCK_ac_info;
 
 #ifdef HAVE_MY_TIMER
 PSI_mutex_key key_thd_timer_mutex;
@@ -13279,7 +13291,9 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_gtid_info_data_lock, "Gtid_info::data_lock", 0},
   { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0},
   { &key_LOCK_log_throttle_sbr_unsafe, "LOCK_log_throttle_sbr_unsafe", PSI_FLAG_GLOBAL},
-  { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats",0}
+  { &key_USER_CONN_LOCK_user_table_stats, "USER_CONN::LOCK_user_table_stats", 0},
+  { &key_LOCK_ac_node, "st_ac_node::lock", 0},
+  { &key_LOCK_ac_info, "Ac_info::lock", 0},
 };
 
 PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
@@ -13301,6 +13315,7 @@ PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
 #endif
 
 PSI_rwlock_key key_rwlock_hash_filo;
+PSI_rwlock_key key_rwlock_LOCK_ac;
 
 static PSI_rwlock_info all_server_rwlocks[]=
 {
@@ -13332,6 +13347,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
 #endif /* _WIN32 || HAVE_SMEM && !EMBEDDED_LIBRARY */
   { &key_rwlock_Raft_replication_delegate_lock,
     "Raft_replication_delegate::lock", PSI_FLAG_GLOBAL},
+  { &key_rwlock_LOCK_ac, "AC::rwlock", 0},
 };
 
 #ifdef HAVE_MMAP
@@ -13363,6 +13379,7 @@ PSI_cond_key key_BINLOG_non_xid_trxs_cond;
 PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 PSI_cond_key key_gtid_ensure_index_cond;
 PSI_cond_key key_commit_order_manager_cond;
+PSI_cond_key key_COND_ac_node;
 
 static PSI_cond_info all_server_conds[]=
 {
@@ -13414,7 +13431,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_gtid_info_start_cond, "Gtid_info::start_cond", 0},
   { &key_gtid_info_stop_cond, "Gtid_info::stop_cond", 0},
   { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0},
-  { &key_commit_order_manager_cond, "Commit_order_manager::m_workers.cond", 0}
+  { &key_commit_order_manager_cond, "Commit_order_manager::m_workers.cond", 0},
+  { &key_COND_ac_node, "st_ac_node::cond", 0},
 };
 
 PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,

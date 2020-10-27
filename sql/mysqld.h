@@ -961,6 +961,7 @@ extern MYSQL_PLUGIN_IMPORT ulong max_connections;
 extern ulong max_digest_length;
 extern ulong max_connect_errors, connect_timeout;
 extern ulong opt_max_running_queries, opt_max_waiting_queries;
+extern ulong opt_max_db_connections;
 extern my_bool opt_admission_control_by_trx;
 extern char *admission_control_weights;
 extern my_bool opt_slave_allow_batching;
@@ -1453,6 +1454,8 @@ extern PSI_mutex_key key_LOCK_sql_rand;
 extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_LOCK_thread_created;
 extern PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
+extern PSI_mutex_key key_LOCK_ac_node;
+extern PSI_mutex_key key_LOCK_ac_info;
 
 extern PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
   key_rwlock_LOCK_logger, key_rwlock_LOCK_sys_init_connect,
@@ -1462,7 +1465,8 @@ extern PSI_rwlock_key key_rwlock_LOCK_column_statistics, key_rwlock_LOCK_grant,
   key_rwlock_LOCK_admin_users_list_regex,
   key_rwlock_NAME_ID_MAP_LOCK_name_id_map,
   key_rwlock_hash_filo,
-  key_rwlock_sql_stats_snapshot;
+  key_rwlock_sql_stats_snapshot,
+  key_rwlock_LOCK_ac;
 
 #ifdef HAVE_MMAP
 extern PSI_cond_key key_PAGE_cond, key_COND_active, key_COND_pool;
@@ -1494,6 +1498,7 @@ extern PSI_cond_key key_BINLOG_non_xid_trxs_cond;
 extern PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 extern PSI_cond_key key_gtid_ensure_index_cond;
 extern PSI_cond_key key_commit_order_manager_cond;
+extern PSI_cond_key key_COND_ac_node;
 
 extern PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,
   key_thread_handle_manager, key_thread_handle_slave_stats_daemon,

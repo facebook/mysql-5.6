@@ -11875,68 +11875,43 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   */
   sctx->db_access=0;
 
-  /* Change a database if necessary */
-  if (mpvio.db.length)
+  /* Change a database if necessary taking into account per database
+     connection limits. */
+  if (set_session_db_helper(thd, &mpvio.db))
   {
-    if (mysql_change_db(thd, &mpvio.db, FALSE))
-    {
-      /* mysql_change_db() has pushed the error message. */
-      USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
-      if (uc)
-      {
-#ifndef NO_EMBEDDED_ACCESS_CHECKS
-        fix_user_conn(thd, OTHER_ACCESS);
-#else
-        decrease_user_connections(uc);
-#endif
-        uc->user_stats.errors_access_denied.inc();
-      }
-      Host_errors errors;
-      errors.m_default_database= 1;
-      inc_host_errors(mpvio.ip, &errors);
-      statistic_increment(connection_errors_access_denied, &LOCK_status);
-      DBUG_RETURN(1);
-    }
-  }
+    conn_denied_reason reason;
+    Host_errors host_errors;
+    ulong *connection_errors_counter = nullptr;
 
-  if (command == COM_CONNECT)
-  {
-    // check if the new connection is throttled
-    MT_RESOURCE_ATTRS attrs = {
-      &thd->connection_attrs_map,
-      &thd->query_attrs_map,
-      thd->db
-    };
-    if (multi_tenancy_add_connection(thd, &attrs))
+    if (thd->get_stmt_da()->sql_errno() == ER_MULTI_TENANCY_MAX_CONNECTION)
     {
-      // connection rejected/throttled. push error message
-      std::string entity = multi_tenancy_get_entity(
-          thd, MT_RESOURCE_TYPE::MULTI_TENANCY_RESOURCE_CONNECTION, &attrs);
-      if (thd->main_security_ctx.host_or_ip)
-      {
-        if (!entity.empty())
-          entity += " on ";
-        entity += thd->main_security_ctx.host_or_ip;
-      }
-      my_error(ER_MULTI_TENANCY_MAX_CONNECTION, MYF(0), entity.c_str());
-      // decrement user connections if needed
-      USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
-      if (uc)
-      {
-#ifndef NO_EMBEDDED_ACCESS_CHECKS
-        fix_user_conn(thd, MAX_GLOBAL);
-#else
-        decrease_user_connections(uc);
-#endif
-        uc->user_stats.connections_denied_max_global.inc();
-      }
-      Host_errors errors;
-      errors.m_connect= 1;
-      inc_host_errors(mpvio.ip, &errors);
-      statistic_increment(connection_errors_multi_tenancy_max_global,
-                          &LOCK_status);
-      DBUG_RETURN(1);
+      reason = MAX_GLOBAL;
+      host_errors.m_connect = 1;
+      connection_errors_counter = &connection_errors_multi_tenancy_max_global;
     }
+    else
+    {
+      reason = OTHER_ACCESS;
+      host_errors.m_default_database = 1;
+      connection_errors_counter = &connection_errors_access_denied;
+    }
+
+    // Update various statistics.
+    if (uc)
+    {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+      fix_user_conn(thd, reason);
+#else
+      decrease_user_connections(uc);
+#endif
+      if (reason == MAX_GLOBAL)
+        uc->user_stats.connections_denied_max_global.inc();
+      else
+        uc->user_stats.errors_access_denied.inc();
+    }
+    inc_host_errors(thd->security_ctx->get_ip()->ptr(), &host_errors);
+    statistic_increment(*connection_errors_counter, &LOCK_status);
+    DBUG_RETURN(1);
   }
 
   if (mpvio.auth_info.external_user[0])

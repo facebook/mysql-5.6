@@ -1286,7 +1286,7 @@ drop database test_db;
 connection default;
 --echo Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
-select * from information_schema.admission_control_entities;
+select count(*) from information_schema.admission_control_entities where schema_name = 'test_db';
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;
