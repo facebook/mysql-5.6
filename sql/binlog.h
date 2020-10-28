@@ -364,6 +364,12 @@ class HybridLogicalClock {
   void clear_database_hlc();
 
   /**
+   * Block the THD if the query attribute specified HLC isn't
+   * present in the engine according to database_applied_hlc_
+   */
+  bool wait_for_hlc_applied(THD *thd, TABLE_LIST *all_tables);
+
+  /**
    * Verify if the given HLC value is 'valid', by which it isn't 0 or intmax
    *
    * @param [in] The HLC value to validate
@@ -384,6 +390,53 @@ class HybridLogicalClock {
    */
   std::unordered_map<std::string, uint64_t> database_applied_hlc_;
   std::mutex database_applied_hlc_lock_;
+
+  // Per-database entry to track the list of waiting queries
+  class DatabaseEntry {
+  public:
+    DatabaseEntry() {
+#ifdef HAVE_PSI_INTERFACE
+      mysql_mutex_init(key_hlc_wait_mutex, &mutex_, MY_MUTEX_INIT_FAST);
+      mysql_cond_init(key_hlc_wait_cond, &cond_, nullptr);
+#else
+      mysql_mutex_init(0, &mutex_, MY_MUTEX_INIT_FAST);
+      mysql_cond_init(0, &cond_, nullptr);
+#endif
+    }
+
+    ~DatabaseEntry() {
+      mysql_mutex_destroy(&mutex_);
+      mysql_cond_destroy(&cond_);
+    }
+
+    void update_hlc(uint64_t applied_hlc);
+
+    bool wait_for_hlc(THD *thd, uint64_t requested_hlc, uint64_t timeout_ms);
+
+    uint64_t max_applied_hlc() const {
+      return max_applied_hlc_;
+    }
+
+  private:
+    mysql_mutex_t mutex_;
+    mysql_cond_t cond_;
+    std::atomic<uint64_t> max_applied_hlc_{0};
+  };
+
+  std::shared_ptr<DatabaseEntry> getEntry(const std::string& database) {
+    std::shared_ptr<DatabaseEntry> entry = nullptr;
+    auto entryIt = database_map_.find(database);
+    if (entryIt == database_map_.end()) {
+      entry = std::make_shared<DatabaseEntry>();
+      database_map_.emplace(database, entry);
+    } else {
+      entry = entryIt->second;
+    }
+    return entry;
+  }
+
+  std::unordered_map<std::string, std::shared_ptr<DatabaseEntry>> database_map_;
+  mutable std::mutex database_map_lock_;
 };
 
 class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
@@ -819,8 +872,10 @@ public:
     return hlc.get_selected_database_hlc(database);
   }
 
-  void clear_database_hlc() {
-    return hlc.clear_database_hlc();
+  void clear_database_hlc() { return hlc.clear_database_hlc(); }
+
+  bool wait_for_hlc_applied(THD *thd, TABLE_LIST *all_tables) {
+    return hlc.wait_for_hlc_applied(thd, all_tables);
   }
 
   /*

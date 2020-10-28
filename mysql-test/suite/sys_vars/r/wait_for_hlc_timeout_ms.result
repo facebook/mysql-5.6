@@ -1,0 +1,28 @@
+Default value of enable_binlog_hlc is 0
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+0
+SET @@global.wait_for_hlc_timeout_ms = 0;
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+0
+SET @@global.wait_for_hlc_timeout_ms = -1;
+Warnings:
+Warning	1292	Truncated incorrect wait_for_hlc_timeout_ms value: '-1'
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+0
+SET @@global.wait_for_hlc_timeout_ms = 100;
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+100
+SET @@global.wait_for_hlc_timeout_ms = 10000000000;
+Warnings:
+Warning	1292	Truncated incorrect wait_for_hlc_timeout_ms value: '10000000000'
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+10000
+SET @@global.wait_for_hlc_timeout_ms = default;
+SELECT @@global.wait_for_hlc_timeout_ms;
+@@global.wait_for_hlc_timeout_ms
+0

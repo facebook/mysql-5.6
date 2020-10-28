@@ -99,6 +99,9 @@ counter_histogram histogram_binlog_group_commit;
 
 extern my_bool opt_core_file;
 
+const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
+const char *hlc_wait_timeout_ms = "hlc_wait_timeout_ms";
+
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
 static int binlog_init(void *p);
@@ -1942,49 +1945,238 @@ uint64_t HybridLogicalClock::update(uint64_t minimum_hlc)
 }
 
 void HybridLogicalClock::update_database_hlc(
-    const std::unordered_set<std::string>& databases, uint64_t applied_hlc)
-{
-  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
-
-  for (const auto& database : databases)
+    const std::unordered_set<std::string> &databases, uint64_t applied_hlc) {
+  std::vector<std::shared_ptr<DatabaseEntry>> entries;
   {
-    auto database_hlc= database_applied_hlc_.find(database);
-    if (database_hlc == database_applied_hlc_.end())
-    {
-      // Seeing this database for the first time. Create a new entry
-      database_applied_hlc_.emplace(database, applied_hlc);
-    }
-    else if (database_hlc->second < applied_hlc)
-    {
-      database_hlc->second = applied_hlc;
+    std::unique_lock<std::mutex> lock(database_map_lock_);
+    for (const auto &database : databases) {
+      auto entry = getEntry(database);
+      DBUG_ASSERT(entry);
+      entries.push_back(std::move(entry));
     }
   }
-
-  return;
+  
+  for (const auto& entry : entries) {
+    entry->update_hlc(applied_hlc);
+  }
 }
 
 void HybridLogicalClock::get_database_hlc(
-    std::unordered_map<std::string, uint64_t>& applied_hlc)
-{
-  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
-
-  applied_hlc= database_applied_hlc_;
-
-  return;
+    std::unordered_map<std::string, uint64_t> &applied_hlc) {
+  std::unique_lock<std::mutex> lock(database_map_lock_);
+  for (const auto& record : database_map_) {
+    applied_hlc.emplace(record.first, record.second->max_applied_hlc());
+  }
 }
 
 uint64_t
 HybridLogicalClock::get_selected_database_hlc(const std::string& database) {
-  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
+  std::unique_lock<std::mutex> lock(database_map_lock_);
 
-  const auto it = database_applied_hlc_.find(database);
-  return it != database_applied_hlc_.end() ? it->second : 0;
+  const auto it = database_map_.find(database);
+  return it != database_map_.end() ? it->second->max_applied_hlc() : 0;
 }
 
-void HybridLogicalClock::clear_database_hlc()
-{
-  std::unique_lock<std::mutex> lock(database_applied_hlc_lock_);
-  database_applied_hlc_.clear();
+void HybridLogicalClock::clear_database_hlc() {
+  std::unique_lock<std::mutex> lock(database_map_lock_);
+  database_map_.clear();
+}
+
+bool HybridLogicalClock::wait_for_hlc_applied(THD *thd,
+                                              TABLE_LIST *all_tables) {
+  if (!(thd->variables.enable_block_stale_hlc_read && thd->db &&
+        !thd->slave_thread)) {
+    return false;
+  }
+
+  // There are some tables we do not want to perform HLC checks on, since
+  // they are local to the instance and intentionally not replicated
+  for (TABLE_LIST *table = all_tables; table; table = table->next_global) {
+    bool good_table =
+        !my_strcasecmp(&my_charset_latin1, table->db, "mysql") ||
+        !my_strcasecmp(&my_charset_latin1, table->db, "information_schema") ||
+        !my_strcasecmp(&my_charset_latin1, table->db, "performance_schema");
+    if (good_table) {
+      return false;
+    }
+  }
+
+  auto it = thd->query_attrs_map.find(hlc_ts_lower_bound);
+  if (it == thd->query_attrs_map.end()) {
+    // No lower bound HLC ts specified, skip early
+    return false;
+  }
+  const std::string &hlc_ts_str = it->second.c_str();
+
+  const char *hlc_wait_timeout_str = NULL;
+  it = thd->query_attrs_map.find(hlc_wait_timeout_ms);
+  if (it != thd->query_attrs_map.end()) {
+    hlc_wait_timeout_str = it->second.c_str();
+  }
+
+  // Behavior of this feature on reads inside of a transaction is complex
+  // and not supported at this point in time.
+  if (thd->in_active_multi_stmt_transaction()) {
+    my_error(ER_HLC_READ_BOUND_IN_TRANSACTION, MYF(0));
+    return true;
+  }
+
+  // The implementation makes the assumption that
+  // allow_noncurrent_db_rw = OFF and only reads to the current database
+  // are allowed
+  if (thd->variables.allow_noncurrent_db_rw != 3 /* OFF */) {
+    my_error(ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND, MYF(0),
+             thd->variables.allow_noncurrent_db_rw);
+    return true;
+  }
+
+  char *endptr = nullptr;
+  uint64_t requested_hlc = strtoull(hlc_ts_str.c_str(), &endptr, 10);
+  if (!endptr || *endptr != '\0' ||
+      !HybridLogicalClock::is_valid_hlc(requested_hlc)) {
+    my_error(ER_INVALID_HLC_READ_BOUND, MYF(0), hlc_ts_str.c_str());
+    return true;
+  }
+
+  endptr = nullptr;
+  uint64_t timeout_ms = wait_for_hlc_timeout_ms;
+  if (hlc_wait_timeout_str) {
+    timeout_ms = strtoull(hlc_wait_timeout_str, &endptr, 10);
+    if (!endptr || *endptr != '\0') {
+      my_error(ER_INVALID_HLC_WAIT_TIMEOUT, MYF(0), hlc_wait_timeout_str);
+      return true;
+    }
+  }
+
+  std::string db(thd->db, thd->db_length);
+
+  uint64_t applied_hlc = mysql_bin_log.get_selected_database_hlc(db);
+  if (requested_hlc > applied_hlc &&
+      (timeout_ms == 0 || !wait_for_hlc_timeout_ms)) {
+    my_error(ER_STALE_HLC_READ, MYF(0), requested_hlc, db.c_str());
+    return true;
+  }
+
+  // Return early if the waiting feature isn't enabled
+  if (!wait_for_hlc_timeout_ms) return false;
+
+  std::shared_ptr<DatabaseEntry> entry = nullptr;
+  {
+    std::unique_lock<std::mutex> lock(database_map_lock_);
+    auto entryIt = database_map_.find(db);
+    if (entryIt == database_map_.end()) {
+      entry = std::make_shared<DatabaseEntry>();
+      database_map_.emplace(db, entry);
+    } else {
+      entry = entryIt->second;
+    }
+  }
+
+  return entry->wait_for_hlc(thd, requested_hlc, timeout_ms);
+}
+
+void HybridLogicalClock::DatabaseEntry::update_hlc(uint64_t applied_hlc) {
+  // CAS loop to update max_applied_hlc if less than the new applied HLC
+  uint64_t original = max_applied_hlc_;
+  while (original < applied_hlc &&
+         !max_applied_hlc_.compare_exchange_strong(original, applied_hlc)) {
+  }
+
+  // Signal the list of waiters with requested HLCs close to the current applied
+  // value
+  if (wait_for_hlc_timeout_ms) {
+    mysql_cond_broadcast(&cond_);
+  }
+}
+
+bool HybridLogicalClock::DatabaseEntry::wait_for_hlc(THD *thd,
+                                                    uint64_t requested_hlc,
+                                                    uint64_t timeout_ms) {
+  auto start_time = std::chrono::steady_clock::now();
+  while (max_applied_hlc_ < requested_hlc) {
+    // HLC is nano-second granularity, scale down to millis
+    auto delta_ms = (requested_hlc - max_applied_hlc_) / 1000000ULL;
+
+    int64_t remaining_timeout_ms = 0;
+    bool sleeping = true;
+
+    uint64_t total_duration_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start_time)
+            .count();
+
+    // Look at the delta between the current applied HLC and the requested
+    // HLC. If there is a large gap, go ahead and block (sleep) on the local
+    // mutex/condvar combination to stall until the database has almost caught
+    // up. Once the database is almost caught up, then go ahead and block on
+    // the wait queue that is released on binlog application.
+    //
+    // We use the delta in requested_hlc - applied_hlc as an approximation
+    // for how long to wait. Seconds behind master is difficult because its
+    // unclear in the sequence of lagged binlog records the unapplied HLC exists
+    // and thus how long to wait
+    if (delta_ms > wait_for_hlc_sleep_threshold_ms) {
+      // For large deltas, go ahead and send the thread to sleep for a bit
+      // Use std::min() for pathological cases where there is a low write rate
+      // and thus a large gap in HLC values
+      remaining_timeout_ms =
+          std::min(delta_ms * wait_for_hlc_sleep_scaling_factor, 100.0);
+      sleeping = true;
+    } else {
+      // Once the HLC is close to being applied, block on the list of waiters
+      // to be released when new binlog events are applied to the database
+      remaining_timeout_ms = timeout_ms - total_duration_ms;
+      sleeping = false;
+    }
+
+    if (remaining_timeout_ms <= 0 || total_duration_ms > timeout_ms) {
+      my_error(ER_HLC_WAIT_TIMEDOUT, MYF(0), requested_hlc);
+      return true;
+    }
+
+    if (sleeping) {
+      const char* save_proc_info = thd_proc_info(thd, "Waiting for database applied HLC");
+      std::this_thread::sleep_for(std::chrono::milliseconds{remaining_timeout_ms});
+      thd_proc_info(thd, save_proc_info);
+    } else {
+      struct timespec timeout;
+      set_timespec_nsec(timeout, remaining_timeout_ms * 1000000ULL);
+      PSI_stage_info old_stage;
+      mysql_mutex_lock(&mutex_);
+      thd->ENTER_COND(&cond_, &mutex_, &stage_waiting_for_hlc, &old_stage);
+      thd_wait_begin(thd, THD_WAIT_FOR_HLC);
+
+      int error = mysql_cond_timedwait(&cond_, &mutex_, &timeout);
+
+      thd_wait_end(thd);
+      thd->EXIT_COND(&old_stage);
+
+      // When intentionally sleeping to stall, we expect a timeout
+      if (error == ETIMEDOUT || error == ETIME) {
+        my_error(ER_HLC_WAIT_TIMEDOUT, MYF(0), requested_hlc);
+        return true;
+      }
+    }
+
+    if (thd_killed(thd)) {
+      my_error(ER_QUERY_INTERRUPTED, MYF(0));
+      return true;
+    }
+  }
+
+  // Return the total wait time back to the client (for instrumentation
+  // purposes)
+  auto tracker = thd->session_tracker.get_tracker(SESSION_RESP_ATTR_TRACKER);
+  if (thd->variables.response_attrs_contain_hlc && tracker->is_enabled()) {
+    LEX_CSTRING key = {STRING_WITH_LEN("hlc_wait_duration_ms")};
+    auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time);
+    std::string value_str = std::to_string(time.count());
+    LEX_CSTRING value = {value_str.c_str(), value_str.length()};
+    tracker->mark_as_changed(thd, &key, &value);
+  }
+
+  return false;
 }
 
 /**
@@ -9277,7 +9469,6 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
   thd->transaction.flags.ready_preempt= 1; // formality by the leader
 #endif
 
-  uint64_t max_group_hlc= 0;
   for (THD *head= first ; head ; head = head->next_to_commit)
   {
     DBUG_PRINT("debug", ("Thread ID: %u, commit_error: %d, flags.pending: %s",
@@ -9317,24 +9508,6 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
       {
         head->commit_error= THD::CE_COMMIT_ERROR;
       }
-      else if (enable_binlog_hlc && maintain_database_hlc &&
-          head->hlc_time_ns_next)
-      {
-        if (likely(!head->databases.empty()))
-        {
-          // Successfully committed the trx to engine. Update applied hlc for
-          // all databases that this trx touches
-          hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
-        }
-        else if (log_warnings >= 2)
-        {
-          // Log a error line if databases are empty. This could happen in SBR
-          // NO_LINT_DEBUG
-          sql_print_error("Databases were empty for this trx. HLC= %lu",
-              head->hlc_time_ns_next);
-        }
-      }
-      head->databases.clear();
     }
     DBUG_PRINT("debug", ("commit_error: %d, flags.pending: %s",
                          head->commit_error,
@@ -9349,21 +9522,6 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
       dec_prep_xids(head);
     else if (head->non_xid_trx)
       dec_non_xid_trxs(head);
-
-    /* Update max group hlc */
-    if ((head->rli_slave || head->rli_fake) &&
-        enable_binlog_hlc && head->hlc_time_ns_next != 0)
-    {
-      max_group_hlc= std::max(max_group_hlc, head->hlc_time_ns_next);
-    }
-    head->hlc_time_ns_next= 0;
-  }
-
-  /* If this is a slave, then update the local HLC to reflect the max HLC of
-   * this group (as generated by master) */
-  if (max_group_hlc != 0)
-  {
-    update_hlc(max_group_hlc);
   }
 }
 
@@ -9379,8 +9537,34 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
   Thread_excursion excursion(thd);
   int error= 0;
   THD *last_thd= nullptr;
+  uint64_t max_group_hlc= 0;
   for (THD *head= first; head; head= head->next_to_commit)
   {
+    if (enable_binlog_hlc && maintain_database_hlc && head->hlc_time_ns_next &&
+        !head->commit_consensus_error && head->commit_error == THD::CE_NONE) {
+      if (likely(!head->databases.empty()))
+      {
+        // Successfully committed the trx to engine. Update applied hlc for
+        // all databases that this trx touches
+        hlc.update_database_hlc(head->databases, head->hlc_time_ns_next);
+      }
+      else if (log_warnings >= 2)
+      {
+        // Log a error line if databases are empty. This could happen in SBR
+        // NO_LINT_DEBUG
+        sql_print_error("Databases were empty for this trx. HLC= %lu",
+                        head->hlc_time_ns_next);
+      }
+      head->databases.clear();
+
+      /* Update max group hlc */
+      if (head->rli_slave || head->rli_fake)
+      {
+        max_group_hlc= std::max(max_group_hlc, head->hlc_time_ns_next);
+      }
+      head->hlc_time_ns_next= 0;
+    }
+
     if (head->transaction.flags.run_hooks &&
         head->commit_error == THD::CE_NONE &&
         !head->commit_consensus_error)
@@ -9408,6 +9592,16 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
       last_thd= thd;
     }
   }
+
+  /*
+   * If this is a slave, then update the local HLC to reflect the max HLC of
+   * this group (as generated by master)
+   */
+  if (max_group_hlc != 0)
+  {
+    update_hlc(max_group_hlc);
+  }
+
   if (!error &&
       last_thd &&
       opt_raft_signal_async_dump_threads == AFTER_ENGINE_COMMIT &&

@@ -500,6 +500,9 @@ ulong slave_tx_isolation;
 bool enable_blind_replace= 0;
 bool enable_binlog_hlc= 0;
 bool maintain_database_hlc= 0;
+ulong wait_for_hlc_timeout_ms = 0;
+ulong wait_for_hlc_sleep_threshold_ms = 0;
+double wait_for_hlc_sleep_scaling_factor = 0.75;
 my_bool async_query_counter_enabled = 0;
 ulong opt_commit_consensus_error_action= 0;
 my_bool enable_acl_fast_lookup= 0;
@@ -13171,6 +13174,7 @@ PSI_mutex_key key_RELAYLOG_LOCK_non_xid_trxs;
 PSI_mutex_key key_RELAYLOG_LOCK_binlog_end_pos;
 PSI_mutex_key key_LOCK_sql_rand;
 PSI_mutex_key key_gtid_ensure_index_mutex;
+PSI_mutex_key key_hlc_wait_mutex;
 PSI_mutex_key key_LOCK_thread_created;
 PSI_mutex_key key_LOCK_log_throttle_sbr_unsafe;
 PSI_mutex_key key_LOCK_ac_node;
@@ -13283,6 +13287,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_write_stat_histogram, "LOCK_global_write_stat_histogram", PSI_FLAG_GLOBAL},
   { &key_LOCK_replication_lag_auto_throttling, "LOCK_replication_lag_auto_throttling", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
+  { &key_hlc_wait_mutex, "HybridLogicalClock", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER
   { &key_thd_timer_mutex, "thd_timer_mutex", 0},
@@ -13378,6 +13383,7 @@ PSI_cond_key key_RELAYLOG_prep_xids_cond;
 PSI_cond_key key_BINLOG_non_xid_trxs_cond;
 PSI_cond_key key_RELAYLOG_non_xid_trxs_cond;
 PSI_cond_key key_gtid_ensure_index_cond;
+PSI_cond_key key_hlc_wait_cond;
 PSI_cond_key key_commit_order_manager_cond;
 PSI_cond_key key_COND_ac_node;
 
@@ -13423,6 +13429,7 @@ static PSI_cond_info all_server_conds[]=
   { &key_COND_thread_cache, "COND_thread_cache", PSI_FLAG_GLOBAL},
   { &key_COND_flush_thread_cache, "COND_flush_thread_cache", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_cond, "Gtid_state", PSI_FLAG_GLOBAL},
+  { &key_hlc_wait_cond, "HybridLogicalClock", PSI_FLAG_GLOBAL},
   { &key_COND_connection_count, "COND_connection_count", PSI_FLAG_GLOBAL},
 #ifdef HAVE_MY_TIMER
   { &key_thread_timer_notifier, "thread_timer_notifier", PSI_FLAG_GLOBAL},
@@ -13638,6 +13645,7 @@ PSI_stage_info stage_slave_waiting_worker_queue= { 0, "Waiting for Slave Worker 
 PSI_stage_info stage_slave_waiting_event_from_coordinator= { 0, "Waiting for an event from Coordinator", 0};
 PSI_stage_info stage_slave_waiting_for_dependencies= { 0, "Waiting for dependencies to be satisfied", 0};
 PSI_stage_info stage_slave_waiting_for_dependency_workers= { 0, "Waiting for dependency workers to finish", 0};
+PSI_stage_info stage_waiting_for_hlc= { 0, "Waiting for database applied HLC", 0};
 PSI_stage_info stage_slave_waiting_semi_sync_ack= { 0, "Waiting for an ACK from semi-sync ACKers", 0};
 
 #ifdef HAVE_PSI_INTERFACE
@@ -13744,7 +13752,8 @@ PSI_stage_info *all_server_stages[]=
   & stage_waiting_for_the_slave_thread_to_advance_position,
   & stage_waiting_to_finalize_termination,
   & stage_worker_waiting_for_its_turn_to_commit,
-  & stage_waiting_to_get_readlock
+  & stage_waiting_to_get_readlock,
+  & stage_waiting_for_hlc
 };
 
 PSI_socket_key key_socket_tcpip, key_socket_unix, key_socket_client_connection;

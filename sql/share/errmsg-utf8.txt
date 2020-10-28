@@ -7437,6 +7437,12 @@ ER_RAFT_FILE_ROTATION_FAILED
 ER_CANT_SKIP_LOCK_WHEN_DEPENDENCY_REPLICATION
   eng "Can't skip row locks when dependency replication is enabled"
 
+ER_HLC_WAIT_TIMEDOUT
+  eng "Got timeout while waiting for HLC: %llu"
+
+ER_INVALID_HLC_WAIT_TIMEOUT
+  eng "Invalid HLC wait timeout supplied: `%s`"
+
 #
 #  End of 5.6 error messages.
 #
