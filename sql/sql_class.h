@@ -807,6 +807,11 @@ typedef struct system_variables
   */
   uint response_attrs_contain_warnings_bytes;
 
+  /*
+    Show query digest in SHOW PROCESS LIST
+  */
+  my_bool show_query_digest;
+
   /**
     Compatibility option to mark the pre MySQL-5.6.4 temporals columns using
     the old format using comments for SHOW CREATE TABLE and in I_S.COLUMNS

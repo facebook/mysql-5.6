@@ -65,6 +65,7 @@
 #include "rpl_master.h"
 #include "violite.h"      // vio_getnameinfo
 #include "my_md5.h"
+#include "sql_digest.h"   // compute_digest_text
 #include <algorithm>
 #include <set>
 #include <map>
@@ -2181,7 +2182,9 @@ public:
   timeval start_time;
   uint   command;
   const char *user,*host,*db,*proc_info,*state_info;
-  CSET_STRING query_string;
+  String digest_string;
+  const char *query_string = NULL;
+  const CHARSET_INFO *query_string_charset = &my_charset_bin;
   ulong rows_examined, rows_sent;
   // time measurements for transaction list
   double stmt_secs, trx_secs, cmd_secs;
@@ -2249,6 +2252,27 @@ static bool thd_compare (const THD* p1, const THD* p2)
   return p1->thread_id() < p2->thread_id();
 }
 
+static const char* missing_digest =
+  "<digest_missing: sql_stats_control required>";
+
+static void get_query_digest(THD *thd, THD *tmp, String *digest_string,
+                             const char **str, const CHARSET_INFO **cs) {
+  if (tmp->m_digest != NULL) {
+    compute_digest_text(&tmp->m_digest->m_digest_storage, digest_string);
+  }
+
+  if (digest_string->is_empty() ||
+      (digest_string->length() == 1 &&
+       digest_string->ptr()[0] == 0)) {
+    /* We couldn't compute digest - we need sql_stats_control */
+    *str = missing_digest;
+    *cs = &my_charset_utf8_bin;
+  } else {
+    *str = digest_string->c_ptr_safe();
+    *cs = digest_string->charset();
+  }
+}
+
 // THD mutex and sys_var mutex is acquired when this function is called.
 static void set_thread_info_query_safe(thread_info *thd_info,
                               THD* thd, THD *tmp, ulong max_query_length)
@@ -2268,11 +2292,17 @@ static void set_thread_info_query_safe(thread_info *thd_info,
     length = tmp->query_length();
   }
   if (query) {
-    length= min<uint>(max_query_length, length);
-    char *q= thd->strmake(query,length);
-    /* Safety: in case strmake failed, we set length to 0. */
-    thd_info->query_string=
-      CSET_STRING(q, q ? length : 0, tmp->query_charset());
+    if (thd->variables.show_query_digest) {
+      get_query_digest(thd, tmp, &thd_info->digest_string,
+                       &thd_info->query_string,
+                       &thd_info->query_string_charset);
+    } else {
+      length= min<uint>(max_query_length, length);
+      char *q= thd->strmake(query,length);
+      /* Safety: in case strmake failed, we set length to 0. */
+      thd_info->query_string= q;
+      thd_info->query_string_charset= tmp->query_charset();
+    }
   }
 }
 
@@ -2532,8 +2562,8 @@ static void store_result_field_processlist(Protocol *protocol,
     protocol->store_null();
 
   protocol->store(thd_info->state_info, system_charset_info);
-  protocol->store(thd_info->query_string.str(),
-                  thd_info->query_string.charset());
+  protocol->store(thd_info->query_string,
+                  thd_info->query_string_charset);
   protocol->store_long((longlong) thd_info->rows_examined);
   protocol->store_long((longlong) thd_info->rows_sent);
   protocol->store((ulonglong) thd_info->system_thread_id);
@@ -2566,8 +2596,8 @@ static void store_result_field_srv_sessions(Protocol *protocol,
     protocol->store_null();
 
   protocol->store(thd_info->state_info, system_charset_info);
-  protocol->store(thd_info->query_string.str(),
-                  thd_info->query_string.charset());
+  protocol->store(thd_info->query_string,
+                  thd_info->query_string_charset);
   protocol->store_long((longlong) thd_info->rows_examined);
   protocol->store_long((longlong) thd_info->rows_sent);
   protocol->store((ulonglong) thd_info->system_thread_id);
@@ -2746,9 +2776,22 @@ static bool fill_fields_processlist(THD *thd, THD *conn_thd, TABLE *table,
   /* INFO */
   if (tmp->query())
   {
+    String digest_string;
+    const char *query_str;
+    const CHARSET_INFO *query_cs;
+    size_t query_length;
+    if (thd->variables.show_query_digest) {
+      get_query_digest(thd, tmp, &digest_string, &query_str, &query_cs);
+      query_length = strlen(query_str);
+    } else {
+      query_str = tmp->query();
+      query_cs = cs;
+      query_length = tmp->query_length();
+    }
+
     size_t const width=
-      min<size_t>(PROCESS_LIST_INFO_WIDTH, tmp->query_length());
-    table->field[7]->store(tmp->query(), width, cs);
+      min<size_t>(PROCESS_LIST_INFO_WIDTH, query_length);
+    table->field[7]->store(query_str, width, query_cs);
     table->field[7]->set_notnull();
   }
 
@@ -3124,6 +3167,9 @@ void mysqld_list_process_trx_helper(THD *thd, const char *user, bool verbose,
     if (protocol->write())
       break; /* purecov: inspected */
   }
+  for (size_t ix= 0; ix < thread_infos.size(); ++ix)
+    delete thread_infos.at(ix);
+  thread_infos.clear();
   my_eof(thd);
   DBUG_VOID_RETURN;
 }

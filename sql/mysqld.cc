@@ -514,6 +514,7 @@ bool override_enable_raft_check= false;
 ulong opt_raft_signal_async_dump_threads= 0;
 ulonglong apply_log_retention_num= 0;
 ulonglong apply_log_retention_duration= 0;
+bool show_query_digest= false;
 
 /* write_control_level:
  * Global variable to control write throttling for short running queries and

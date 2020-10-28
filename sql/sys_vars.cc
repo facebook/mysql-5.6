@@ -7409,3 +7409,10 @@ static Sys_var_mybool Sys_reset_period_status_vars(
        "when they are shown.",
        SESSION_ONLY(reset_period_status_vars), CMD_LINE(OPT_ARG),
        DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_show_query_digest(
+       "show_query_digest",
+       "Show query digest instead of full query in show process list."
+       "Requres sql_stats_control to be on.",
+       SESSION_VAR(show_query_digest),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
