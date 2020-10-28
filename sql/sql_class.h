@@ -857,6 +857,8 @@ typedef struct system_variables
   my_bool sql_stats_snapshot;
 
   my_bool reset_period_status_vars;
+
+  my_bool write_throttle_tag_only;
 } SV;
 
 
@@ -3589,6 +3591,8 @@ public:
   void set_stmt_start_write_time();
 
   void get_mt_keys_for_write_query(std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys);
+
+  bool get_mt_throttle_tag_okay() const;
 
   ulonglong get_stmt_tmp_table_disk_usage_peak()
   {

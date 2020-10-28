@@ -6580,3 +6580,13 @@ void THD::get_mt_keys_for_write_query(
   array_to_hex(md5_hex_buffer, mt_key_value(THD::SQL_ID).data(), MD5_HASH_SIZE);
   keys[3].assign(md5_hex_buffer, MD5_BUFF_LENGTH);
 }
+
+/**
+   Should the query be throttled to avoid replication lag based on query tags
+*/
+bool THD::get_mt_throttle_tag_okay() const {
+  auto it = query_attrs_map.find("mt_throttle_okay");
+  // should be throttled if needed if it is not tag_only traffic, For tag_only
+  // traffic(TAO), it should be throttled only if query attribute mt_throttle_okay is present
+  return !variables.write_throttle_tag_only || it != query_attrs_map.end();
+}

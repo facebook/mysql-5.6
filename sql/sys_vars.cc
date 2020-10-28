@@ -7066,6 +7066,12 @@ static Sys_var_uint Sys_write_stats_count(
       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(update_write_stats_count));
 
+static Sys_var_mybool Sys_write_throttle_tag_only(
+       "write_throttle_tag_only",
+       "If set to true, replication lag throttling will only throttle queries "
+       "with query attribute mt_throttle_okay.",
+       SESSION_VAR(write_throttle_tag_only), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 /*
   Update global_write_throttling_rules data structure with the
   new value specified in write_throttling_patterns
