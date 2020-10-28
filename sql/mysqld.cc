@@ -1468,6 +1468,8 @@ ulong locked_account_connection_count = 0;
 bool opt_group_replication_plugin_hooks = false;
 bool opt_core_file = false;
 bool skip_core_dump_on_error = false;
+bool show_query_digest = false;
+
 /* write_control_level:
  * Global variable to control write throttling for short running queries and
  * abort for long running queries.
