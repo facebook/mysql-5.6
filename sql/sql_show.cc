@@ -2793,7 +2793,9 @@ class thread_info {
   unsigned long long start_time_in_micro;
   uint command;
   const char *user, *host, *db, *proc_info, *state_info;
-  CSET_STRING query_string;
+  String digest_string;
+  const char *query_string = NULL;
+  const CHARSET_INFO *query_string_charset = &my_charset_bin;
 };
 
 // For sorting by thread_id.
@@ -2920,11 +2922,42 @@ int fill_schema_authinfo(THD *thd, TABLE_LIST *tables, Item *) {
   DBUG_RETURN(0);
 }
 
+static const char *missing_digest = "<digest_missing>";
+
+static void get_query_digest(THD *tmp, String *digest_string, const char **str,
+                             const CHARSET_INFO **cs) {
+  if (tmp->m_digest != NULL) {
+    compute_digest_text(&tmp->m_digest->m_digest_storage, digest_string);
+  }
+
+  if (digest_string->is_empty() ||
+      (digest_string->length() == 1 && digest_string->ptr()[0] == 0)) {
+    /* We couldn't compute digest for whatever reason */
+    *str = missing_digest;
+    *cs = &my_charset_utf8_bin;
+  } else {
+    *str = digest_string->c_ptr_safe();
+    *cs = digest_string->charset();
+  }
+}
+
 /**
   This class implements callback function used by mysqld_list_processes() to
   list all the client process information.
 */
-typedef Mem_root_array<thread_info *> Thread_info_array;
+class Thread_info_array : public Mem_root_array<thread_info *> {
+ public:
+  Thread_info_array(MEM_ROOT *mem_root)
+      : Mem_root_array<thread_info *>(mem_root) {}
+  ~Thread_info_array() {
+    // Destruct thread_info because it has non-trivial members that allocates
+    // using my_malloc and not THD mem_root
+    for (auto it = begin(); it != end(); it++) {
+      (*it)->~thread_info();
+    }
+  }
+};
+
 class List_process_list : public Do_THD_Impl {
  private:
   /* Username of connected client. */
@@ -3060,11 +3093,17 @@ class List_process_list : public Do_THD_Impl {
       /* No else. We need fall-through */
       /* If we managed to create query info, set a copy on thd_info. */
       if (query_str) {
-        const size_t width = min<size_t>(m_max_query_length, query_length);
-        const char *q = m_client_thd->strmake(query_str, width);
-        /* Safety: in case strmake failed, we set length to 0. */
-        thd_info->query_string =
-            CSET_STRING(q, q ? width : 0, inspect_thd->charset());
+        if (m_client_thd->variables.show_query_digest) {
+          get_query_digest(inspect_thd, &thd_info->digest_string,
+                           &thd_info->query_string,
+                           &thd_info->query_string_charset);
+        } else {
+          const size_t width = min<size_t>(m_max_query_length, query_length);
+          const char *q = m_client_thd->strmake(query_str, width);
+          /* Safety: in case strmake failed, we set length to 0. */
+          thd_info->query_string = q;
+          thd_info->query_string_charset = inspect_thd->charset();
+        }
       }
     }
     mysql_mutex_unlock(&inspect_thd->LOCK_thd_query);
@@ -3158,8 +3197,7 @@ void mysqld_list_processes(THD *thd, const char *user, bool verbose,
     } else
       protocol->store_null();
     protocol->store(thd_info->state_info, system_charset_info);
-    protocol->store(thd_info->query_string.str(),
-                    thd_info->query_string.charset());
+    protocol->store(thd_info->query_string, thd_info->query_string_charset);
     protocol->store((ulonglong)thd_info->tid);
     if (protocol->end_row()) break; /* purecov: inspected */
   }

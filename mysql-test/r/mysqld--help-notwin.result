@@ -2319,6 +2319,8 @@ The following options may be given as the first argument:
  'INFORMATION_SCHEMA.COLUMNS' table as a comment in
  COLUMN_TYPE field. This variable is deprecated and will
  be removed in a future release.
+ --show-query-digest Show query digest instead of full query in show process
+ list.
  --show-replica-auth-info 
  Include user and password in SHOW REPLICAS statements.
  --show-slave-auth-info 
@@ -3389,6 +3391,7 @@ sha256-password-proxy-users FALSE
 show-binlogs-encryption TRUE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE
+show-query-digest FALSE
 show-replica-auth-info FALSE
 show-slave-auth-info FALSE
 skip-core-dump-on-error TRUE
