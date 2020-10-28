@@ -511,6 +511,11 @@ struct System_variables {
   ulong gap_lock_raise_error;
   bool gap_lock_write_log;
 
+  /*
+    Show query digest in SHOW PROCESS LIST
+  */
+  bool show_query_digest;
+
   ulong select_into_file_fsync_size;
   uint select_into_file_fsync_timeout;
   bool enable_sql_wsenv;
