@@ -1,0 +1,83 @@
+SET @session_start_value = @@session.show_query_digest;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @@session.show_query_digest = 0;
+SET @@session.show_query_digest = DEFAULT;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET @@session.show_query_digest = 1;
+SET @@session.show_query_digest = DEFAULT;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET show_query_digest = 1;
+SELECT @@show_query_digest;
+@@show_query_digest
+1
+SELECT session.show_query_digest;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.show_query_digest;
+ERROR 42S02: Unknown table 'local' in field list
+SET session show_query_digest = 0;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET @@session.show_query_digest = 0;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET @@session.show_query_digest = 1;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+1
+SET @@session.show_query_digest = -1;
+ERROR 42000: Variable 'show_query_digest' can't be set to the value of '-1'
+SET @@session.show_query_digest = 2;
+ERROR 42000: Variable 'show_query_digest' can't be set to the value of '2'
+SET @@session.show_query_digest = "T";
+ERROR 42000: Variable 'show_query_digest' can't be set to the value of 'T'
+SET @@session.show_query_digest = "Y";
+ERROR 42000: Variable 'show_query_digest' can't be set to the value of 'Y'
+SET @@global.show_query_digest = 1;
+SELECT @@global.show_query_digest;
+@@global.show_query_digest
+1
+SET @@global.show_query_digest = 0;
+SELECT count(VARIABLE_VALUE) FROM performance_schema.global_variables WHERE VARIABLE_NAME='show_query_digest';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.show_query_digest, "ON", "OFF") = VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='show_query_digest';
+IF(@@session.show_query_digest, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+1
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables
+WHERE VARIABLE_NAME='show_query_digest';
+VARIABLE_VALUE
+ON
+SET @@session.show_query_digest = OFF;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET @@session.show_query_digest = ON;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+1
+SET @@session.show_query_digest = TRUE;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+1
+SET @@session.show_query_digest = FALSE;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0
+SET @@session.show_query_digest = @session_start_value;
+SELECT @@session.show_query_digest;
+@@session.show_query_digest
+0

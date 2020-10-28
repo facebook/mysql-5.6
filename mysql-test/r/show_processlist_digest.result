@@ -1,0 +1,22 @@
+SET @show_query_digest_save = @@show_query_digest;
+SET show_query_digest=1;
+SELECT GET_LOCK('t', 1000);
+GET_LOCK('t', 1000)
+1
+SET NAMES latin1;
+SELECT 1+2, "abc", GET_LOCK('t',1000) AS 'abc';;
+SHOW PROCESSLIST;
+Id	User	Host	db	Command	Time	State	Info	Tid
+###	event_scheduler	###	NULL	Daemon	###	###	NULL	###
+###	root	###	test	Query	###	###	SELECT ? + ?, ... , `GET_LOCK` (...) AS ?	###
+###	root	###	test	Query	###	###	SHOW PROCESSLIST	###
+SELECT INFO FROM INFORMATION_SCHEMA.PROCESSLIST WHERE ID != CONNECTION_ID();
+INFO
+NULL
+SELECT 1+2, "abc", GET_LOCK('t',1000) AS 'abc'
+SELECT RELEASE_LOCK('t');
+RELEASE_LOCK('t')
+1
+1+2	abc	abc
+3	abc	1
+SET show_query_digest=@show_query_digest_save;
