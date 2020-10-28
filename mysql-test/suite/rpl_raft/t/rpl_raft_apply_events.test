@@ -1,0 +1,41 @@
+source ../include/raft_3_node.inc;
+
+connection server_1;
+let $uuid1= `select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_3;
+let $uuid3= `select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+connection server_2;
+flush binary logs;
+
+echo "server_1 is the initial leader";
+echo "Writing data on leader";
+connection server_1;
+select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+
+connection server_2;
+let $binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+--let $binlog_file= LAST
+replace_result $binlog apply_log_last;
+--replace_column 2 # 5 #
+--replace_regex /\/\* xid=.* \*\//\/* XID *\// /table_id: [0-9]+/table_id: #/ /Server ver: .*$/Server ver: #/ /HLC time: [0-9]+/HLC time: #/ /SET @@SESSION.GTID_NEXT=.*$/SET @@SESSION.GTID_NEXT= 'GTID';/ /GROUPS: .*:(.*,.*)/GROUPS: GTID:(X,X)/
+eval show binlog events IN '$binlog';
+#source include/show_binlog_events.inc;
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;

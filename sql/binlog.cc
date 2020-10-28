@@ -1119,6 +1119,26 @@ int binlog_cache_data::write_event(THD *thd,
         }
 
         Metadata_log_event metadata_ev(thd, is_trx_cache(), hlc_time_ns);
+
+        if (thd->rli_slave || thd->rli_fake)
+        {
+          // When a Metadata event with Raft OpId is picked up from
+          // relay log and applied, ev->apply_event in rpl_slave.cc stashes
+          // the raft term and index from the event into the THD. Here we
+          // pick it up to pass the Raft term and index through to the metadata
+          // event of binlog/apply side. Although confusing (as to why we are
+          // adding raft metadata even in non-raft cases), this is required
+          // to align with current approach of how a new non-raft instance
+          // is added to existing raft ring. OpId can only be present in
+          // raft rings, hence the exposure of this code is to instances
+          // which are tailing raft rings or raft members which are now passing
+          // OpId to apply log as well. In all other cases Raft term and index
+          // is expected to be -1,-1
+          int64_t raft_term, raft_index;
+          thd->get_trans_marker(&raft_term, &raft_index);
+          if (raft_term != -1 && raft_index != -1)
+            metadata_ev.set_raft_term_and_index(raft_term, raft_index);
+        }
         if (metadata_ev.write(&cache_log))
           DBUG_RETURN(1);
       }
@@ -10163,6 +10183,10 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
     update_hlc(thd->hlc_time_ns_next);
   }
   thd->hlc_time_ns_next= 0;
+
+  // Clear the raft opid that is stashed, so that if the thread
+  // is reused, it does not have stale terms and indexes
+  thd->clear_raft_opid();
 
   DBUG_ASSERT(thd->commit_error || !thd->transaction.flags.run_hooks);
   DBUG_ASSERT(!thd_get_cache_mngr(thd)->dbug_any_finalized());

@@ -16790,19 +16790,32 @@ uint Metadata_log_event::get_total_size()
 int Metadata_log_event::pack_info(Protocol *protocol)
 {
   std::string buffer;
+  bool field_added= false;
 
   if (does_exist(Metadata_log_event_types::HLC_TYPE))
   {
     buffer.append("HLC time: ");
     buffer.append(std::to_string(hlc_time_ns_));
+    field_added= true;
   }
 
   if (does_exist(Metadata_log_event_types::PREV_HLC_TYPE))
   {
+    if (field_added)
+      buffer.append(" ");
     buffer.append("Prev HLC time: ");
     buffer.append(std::to_string(prev_hlc_time_ns_));
+    field_added= true;
   }
 
+  if (does_exist(Metadata_log_event_types::RAFT_TERM_INDEX_TYPE))
+  {
+    if (field_added)
+      buffer.append(" ");
+    buffer.append("Raft term: " + std::to_string(raft_term_) +
+          " Raft Index: " + std::to_string(raft_index_));
+    field_added= true;
+  }
   if (buffer.length() > 0)
     protocol->store(buffer.c_str(), buffer.length(), &my_charset_bin);
 

@@ -1,0 +1,35 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+flush binary logs;
+"server_1 is the initial leader"
+"Writing data on leader"
+select variable_value from information_schema.global_status where variable_name = 'Rpl_raft_role';
+variable_value
+LEADER
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+include/sync_slave_sql_with_master.inc
+show binlog events IN 'apply_log_last';
+Log_name	Pos	Event_type	Server_id	End_log_pos	Info
+apply_log_last	#	Format_desc	2	#	Server ver: #
+apply_log_last	#	Previous_gtids	2	#	
+apply_log_last	#	Metadata	2	#	Prev HLC time: #
+apply_log_last	#	Gtid	1	#	SET @@SESSION.GTID_NEXT= 'GTID';
+apply_log_last	#	Metadata	1	#	HLC time: # Raft term: 1 Raft Index: 2
+apply_log_last	#	Query	1	#	use `test`; create table t1 (a int primary key auto_increment) engine = innodb
+apply_log_last	#	Gtid	1	#	SET @@SESSION.GTID_NEXT= 'GTID';
+apply_log_last	#	Metadata	1	#	HLC time: # Raft term: 1 Raft Index: 3
+apply_log_last	#	Query	1	#	BEGIN
+apply_log_last	#	Table_map	1	#	table_id: # (test.t1)
+apply_log_last	#	Write_rows	1	#	table_id: # flags: STMT_END_F
+apply_log_last	#	Xid	1	#	COMMIT /* XID */
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
