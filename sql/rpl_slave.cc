@@ -1582,9 +1582,12 @@ int raft_reset_slave(THD *) {
   mi->inited = false;
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
+  mi->flush_info(true);
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
 
+  // no longer a slave. will be set again during change master
+  is_slave = false;
   channel_map.unlock();
   DBUG_RETURN(error);
 }
@@ -1606,7 +1609,11 @@ int raft_change_master(
   mi->port = master_instance.second;
   mi->set_auto_position(true);
   mi->inited = true;
+  mi->flush_info(true);
   mysql_mutex_unlock(&mi->data_lock);
+
+  // changing to a slave. set the is_slave flag
+  is_slave = true;
 end:
   channel_map.unlock();
   DBUG_RETURN(error);
