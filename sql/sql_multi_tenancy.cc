@@ -576,7 +576,7 @@ AC *db_ac; // admission control object
  *
  * @return 0 on success, -1 on error
  */
-static int stoul_noexcept(const std::string str, ulong *val) {
+int stoul_noexcept(const std::string str, ulong *val) {
   try {
     size_t pos = 0;
     *val = std::stoul(str, &pos);
@@ -593,22 +593,13 @@ static int stoul_noexcept(const std::string str, ulong *val) {
 }
 
 static ulong get_queue(THD * thd) {
-  const std::string attr_name = "@@admission_control_queue";
+  // To get queue name, we look at query attribute, connection attribute,
+  // and then session variable in that order.
+  return thd->get_query_or_connect_attr_value(
+                       "@@admission_control_queue",            // name
+                       thd->variables.admission_control_queue, // default
+                       MAX_AC_QUEUES);                         // maximum
 
-  // To get queue name, we look at query attribute, connection attribute, and
-  // then session variable in that order.
-  for (const auto& map : { &thd->query_attrs_map, &thd->connection_attrs_map }) {
-    auto it = map->find(attr_name);
-    if (it != map->end()) {
-      ulong value = 0;
-      if (!stoul_noexcept(it->second.c_str(), &value) &&
-          value < MAX_AC_QUEUES) {
-        return value;
-      }
-    }
-  }
-
-  return thd->variables.admission_control_queue;
 }
 
 /**

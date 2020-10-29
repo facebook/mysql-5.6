@@ -6334,7 +6334,7 @@ void THD::set_dml_start_time()
   /* if the dml_start_time is already initialized then do nothing */
   if (dml_start_time_is_set)
     return;
-  
+
   /* if stmt_start_write_time is set, use that value */
   if (m_stmt_start_write_time_is_set)
   {
@@ -6420,7 +6420,7 @@ bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
    * - write_cpu_limit_milliseconds is set to 0 or
    * - write_time_check_batch is set to 0
    */
-  if (write_control_level == WRITE_CONTROL_LEVEL_OFF ||
+  if (write_control_level == CONTROL_LEVEL_OFF ||
       write_cpu_limit_milliseconds == 0 ||
       write_time_check_batch == 0)
     return false;
@@ -6429,8 +6429,8 @@ bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
    * then stop checking for CPU execution time limit any further
    * because the warning needs to be raised only once per statement/transaction
    */
-  if ((write_control_level == WRITE_CONTROL_LEVEL_NOTE || /* NOTE */
-       write_control_level == WRITE_CONTROL_LEVEL_WARN) &&/* WARN */
+  if ((write_control_level == CONTROL_LEVEL_NOTE || /* NOTE */
+       write_control_level == CONTROL_LEVEL_WARN) &&/* WARN */
       trx_dml_cpu_time_limit_warning)
     return false;
 
@@ -6452,12 +6452,12 @@ bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
     if (dml_cpu_time >= (ulonglong) write_cpu_limit_milliseconds)
     {
       /* raise warning if 'write_control_level' is 'NOTE' or 'WARN' */
-      if (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
-          write_control_level == WRITE_CONTROL_LEVEL_WARN)
+      if (write_control_level == CONTROL_LEVEL_NOTE ||
+          write_control_level == CONTROL_LEVEL_WARN)
       {
         /* raise warning */
         push_warning_printf(this,
-                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
+                            (write_control_level == CONTROL_LEVEL_NOTE) ?
                             Sql_condition::WARN_LEVEL_NOTE :
                             Sql_condition::WARN_LEVEL_WARN,
                             ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS,
@@ -6468,7 +6468,7 @@ bool THD::dml_execution_cpu_limit_exceeded(ha_statistics* stats)
          */
         trx_dml_cpu_time_limit_warning = true;
       }
-      else if (write_control_level == WRITE_CONTROL_LEVEL_ERROR)
+      else if (write_control_level == CONTROL_LEVEL_ERROR)
         return true;
     }
   }
@@ -6512,11 +6512,11 @@ ulonglong THD::get_dml_row_count(ha_statistics* stats)
 }
 
 /*
-  Start the timer for CPU write time to be collected for write_statistics 
+  Start the timer for CPU write time to be collected for write_statistics
  */
 void THD::set_stmt_start_write_time()
 {
-  if (m_stmt_start_write_time_is_set) 
+  if (m_stmt_start_write_time_is_set)
     return;
 
   int result;
@@ -6585,14 +6585,38 @@ void THD::get_mt_keys_for_write_query(
    Should the query be throttled(error/warning) to avoid replication lag based on query tags
    Returns 1 for warning only, 2 for throwing error and 0 if query tag isn't present.
 */
-enum_write_control_level THD::get_mt_throttle_tag_level() const {
+enum_control_level THD::get_mt_throttle_tag_level() const {
   auto it = query_attrs_map.find("mt_throttle_okay");
   // For tag_only traffic(TAO), it should be throttled only if query attribute mt_throttle_okay is present
   if (variables.write_throttle_tag_only && it != query_attrs_map.end()) {
     if (it->second == "WARN")
-      return WRITE_CONTROL_LEVEL_WARN;
+      return CONTROL_LEVEL_WARN;
     if (it->second == "ERROR")
-      return WRITE_CONTROL_LEVEL_ERROR;
+      return CONTROL_LEVEL_ERROR;
   }
-  return WRITE_CONTROL_LEVEL_OFF;
+  return CONTROL_LEVEL_OFF;
+}
+
+/*
+  Returns the (integer) value of the specified attribute from the
+  query attribute map or connection attribute map, in this order.
+  In case the attribute is not found or its value exceeds the max
+  value passed in then return the specified default value
+ */
+ulong THD::get_query_or_connect_attr_value(
+    const char *attr_name,
+    ulong default_value,
+    ulong max_value)
+{
+  for (const auto& map : { &query_attrs_map, &connection_attrs_map }) {
+    auto it = map->find(attr_name);
+    if (it != map->end()) {
+      ulong attr_value = 0;
+      if (!stoul_noexcept(it->second.c_str(), &attr_value) &&
+          attr_value < max_value)
+        return attr_value;
+    }
+  }
+
+  return default_value;
 }

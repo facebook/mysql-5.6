@@ -69,6 +69,9 @@ enum enum_tdc_remove_table_type {TDC_RT_REMOVE_ALL, TDC_RT_REMOVE_NOT_OWN,
 #define RTFC_WAIT_OTHER_THREAD_FLAG 0x0002
 #define RTFC_CHECK_KILLED_FLAG      0x0004
 
+// A wrapper around std::stoul that handles exceptions
+int stoul_noexcept(const std::string str, ulong *val);
+
 bool check_dup(const char *db, const char *name, TABLE_LIST *tables);
 extern mysql_mutex_t LOCK_open;
 bool table_cache_init(void);

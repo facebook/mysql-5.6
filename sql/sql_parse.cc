@@ -8287,21 +8287,22 @@ static bool mt_check_throttle_write_query(THD* thd)
       int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
 
       if (iter->second.mode == WTR_MANUAL ||
-        (!thd->variables.write_throttle_tag_only &&
-        write_control_level == WRITE_CONTROL_LEVEL_ERROR) ||
-        mt_throttle_tag_level == WRITE_CONTROL_LEVEL_ERROR)
+          (!thd->variables.write_throttle_tag_only &&
+           write_control_level == CONTROL_LEVEL_ERROR) ||
+          mt_throttle_tag_level == CONTROL_LEVEL_ERROR)
       {
         my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
         mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
         DBUG_RETURN(true);
       }
       else if ((!thd->variables.write_throttle_tag_only &&
-        (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
-        write_control_level == WRITE_CONTROL_LEVEL_WARN)) ||
-        mt_throttle_tag_level == WRITE_CONTROL_LEVEL_WARN)
+               (write_control_level == CONTROL_LEVEL_NOTE ||
+                write_control_level == CONTROL_LEVEL_WARN)) ||
+               mt_throttle_tag_level == CONTROL_LEVEL_WARN)
       {
         push_warning_printf(thd,
-                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE || mt_throttle_tag_level != WRITE_CONTROL_LEVEL_WARN) ?
+                            (write_control_level == CONTROL_LEVEL_NOTE ||
+                             mt_throttle_tag_level != CONTROL_LEVEL_WARN) ?
                               Sql_condition::WARN_LEVEL_NOTE :
                               Sql_condition::WARN_LEVEL_WARN,
                             ER_WRITE_QUERY_THROTTLED,
@@ -8339,7 +8340,6 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 {
   int error MY_ATTRIBUTE((unused));
   ulonglong statement_start_time;
-  bool skip_dup_exec = false;
 
   DBUG_ENTER("mysql_parse");
 
@@ -8386,22 +8386,22 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
                       ? (found_semicolon - thd->query())
                       : thd->query_length();
 
-    /* If the parse was successful then Register the current SQL statement
-       in the active list and remember it for skipping.
+    /* If the parse was successful then register the current SQL statement
+       in the active list and remember if rejected (throttled)
     */
-    if (err || register_active_sql(thd, rawbuf, qlen))
-      skip_dup_exec = false;
-    else
-      skip_dup_exec = true;
+    bool query_throttled = (err) ? false :
+                                   register_active_sql(thd, rawbuf, qlen);
 
-    /* We throttle certain type of queries based on the current state
-    of the system. This function will check if we need to throttle and
-    if so, it will set the appropriate error and return true.
-    Also, throttle, if needed, to avoid replication lag */
-    bool query_throttled= throttle_query_if_needed(thd) ||
-      mt_check_throttle_write_query(thd);
+    /* We throttle certain type of queries based on the current state of
+       the system. This function will check if we need to throttle and
+       if so, it will set the appropriate error and return true.
+       Also, throttle, if needed, to avoid replication lag
+    */
+    if (!query_throttled)
+      query_throttled = throttle_query_if_needed(thd) ||
+                        mt_check_throttle_write_query(thd);
 
-    if (!err && !query_throttled && !skip_dup_exec)
+    if (!err && !query_throttled)
     {
       /*
         See whether we can do any query rewriting. opt_log_raw only controls
@@ -8439,7 +8439,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     if (last_timer)
       thd->status_var.parse_time += my_timer_since_and_update(last_timer);
 
-    if (!err && !skip_dup_exec)
+    if (!err)
     {
       if (async_commit)
         *async_commit = lex->async_commit;
@@ -8535,7 +8535,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 	}
       }
     }
-    else if (!skip_dup_exec)
+    else
     {
       /* do not log the parse error if running under sql plan capture */
       if (!thd->in_capture_sql_plan())
@@ -8559,10 +8559,6 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     thd->end_statement();
     thd->cleanup_after_query();
     DBUG_ASSERT(thd->change_list.is_empty());
-
-    // This query was flagged for skipping
-    if (skip_dup_exec)
-      my_error(ER_DUPLICATE_STATEMENT_EXECUTION, MYF(0));
   }
   else
   {
@@ -8594,8 +8590,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
   }
 
   // Remove the current statement from the active list
-  if (!skip_dup_exec)
-    remove_active_sql(thd);
+  remove_active_sql(thd);
 
   DBUG_VOID_RETURN;
 }

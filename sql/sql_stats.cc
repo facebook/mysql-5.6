@@ -132,21 +132,30 @@ static void strip_query_comments(std::string& query_str)
   register_active_sql
     Register a new active SQL, called right after SQL parsing
 
-  Returns FALSE if the number of duplicate executions exceeds the limit
+  Returns TRUE if the query is rejected
 */
-bool register_active_sql(THD *thd, char *query_text, uint query_length)
+bool register_active_sql(THD *thd, char *query_text,
+                         uint query_length)
 {
+  /* Get the maximum number of duplicate executions from query attribute,
+     connection attribute, or server variable
+  */
+  ulong max_dup_exe = thd->get_query_or_connect_attr_value("@@sql_max_dup_exe",
+                                              sql_maximum_duplicate_executions,
+                                              ULONG_MAX);
+  ulong control     = sql_duplicate_executions_control;
   /* Exit now if any of the conditions that prevent the feature is true
      - feature is off
      - command type is not SELECT
      - EXPLAIN
      - in a transaction
   */
-  if (sql_maximum_duplicate_executions == 0  ||
+  if (max_dup_exe == 0                       ||
+      control == CONTROL_LEVEL_OFF           ||
       thd->lex->sql_command != SQLCOM_SELECT ||
       thd->lex->describe                     ||
       thd->in_active_multi_stmt_transaction())
-    return true;
+    return false;
 
   /* prepare a string with a size large enough to store the sql text,
      database, and some flags (that affect query similarity).
@@ -171,10 +180,9 @@ bool register_active_sql(THD *thd, char *query_text, uint query_length)
   md5_key sql_hash;
   compute_md5_hash((char*)sql_hash.data(), query_str.c_str(), query_str.length());
 
-  thd->mt_key_set(THD::SQL_HASH, sql_hash.data());
-  DBUG_ASSERT(thd->mt_key_is_set(THD::SQL_HASH));
+  // so far did not exceed the max number of dups
+  bool rejected = false;
 
-  bool ret = true;  // so far did not exceed the max number of dups
   bool lock_acquired = mt_lock(&LOCK_global_active_sql);
   auto iter = global_active_sql.find(sql_hash);
   if (iter == global_active_sql.end())
@@ -183,14 +191,36 @@ bool register_active_sql(THD *thd, char *query_text, uint query_length)
   }
   else
   {
-    if (iter->second+1 > sql_maximum_duplicate_executions)
-      ret = false;     // one too many
-    else
-      iter->second++;  // increment the number of duplicates
+    if (iter->second+1 > max_dup_exe)       // one too many
+    {
+      if (control == CONTROL_LEVEL_ERROR)   // reject it
+      {
+        rejected = true;
+        my_error(ER_DUPLICATE_STATEMENT_EXECUTION, MYF(0));
+      }
+      else // control is NOTE or WARN => report note / warning
+      {
+        push_warning_printf(thd,
+                            (control == CONTROL_LEVEL_NOTE) ?
+                             Sql_condition::WARN_LEVEL_NOTE :
+                             Sql_condition::WARN_LEVEL_WARN,
+                            ER_DUPLICATE_STATEMENT_EXECUTION,
+                            ER(ER_DUPLICATE_STATEMENT_EXECUTION));
+      }
+    }
+    if (!rejected)
+      iter->second++;    // increment the number of duplicates
+  }
+
+  if (!rejected)
+  {
+    // remember the sql_hash
+    thd->mt_key_set(THD::SQL_HASH, sql_hash.data());
+    DBUG_ASSERT(thd->mt_key_is_set(THD::SQL_HASH));
   }
 
   mt_unlock(lock_acquired, &LOCK_global_active_sql);
-  return ret;
+  return rejected;
 }
 
 /*
@@ -755,15 +785,15 @@ void store_write_statistics(THD *thd)
   {
     // time_bucket is newer than last registered bucket...
 
-    // update the write throughput histogram with last bucket 
-    if (time_bucket_iter != global_write_statistics_map.end()) 
+    // update the write throughput histogram with last bucket
+    if (time_bucket_iter != global_write_statistics_map.end())
       update_write_stat_histogram(time_bucket_iter->second);
-    
+
     // need to insert a new one
-    while(!global_write_statistics_map.empty() && 
+    while(!global_write_statistics_map.empty() &&
       (uint)global_write_statistics_map.size() >= write_stats_count)
     {
-      // We are over the configured size. Erase older entries first. 
+      // We are over the configured size. Erase older entries first.
       global_write_statistics_map.pop_back();
     }
     TIME_BUCKET_STATS time_bucket_stats;
@@ -931,7 +961,7 @@ bool store_write_throttling_rules(THD *thd) {
     WRITE_THROTTLING_RULE rule;
     rule.mode = WTR_MANUAL; // manual
     rule.create_time = my_time(0);
-    
+
     bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
     auto & rules_map = global_write_throttling_rules[wtr_dim];
     auto iter = rules_map.find(value_str);
@@ -944,9 +974,9 @@ bool store_write_throttling_rules(THD *thd) {
       if (iter != rules_map.end()) {
         rules_map.erase(iter);
       }
-      // also remove it from the currently_throttled_entities queue if present 
-      for(auto q_iter = currently_throttled_entities.begin(); 
-          q_iter != currently_throttled_entities.end(); q_iter++) 
+      // also remove it from the currently_throttled_entities queue if present
+      for(auto q_iter = currently_throttled_entities.begin();
+          q_iter != currently_throttled_entities.end(); q_iter++)
       {
         if (q_iter->first == value_str) {
           currently_throttled_entities.erase(q_iter);
@@ -1238,14 +1268,14 @@ void store_long_qry_abort_log(THD *thd)
 
 /*
   update_monitoring_status_for_entity
-    Given a potential entity that is causing replication lag, this method either marks it 
-    to be monitored for next cycle or marks it to be throttled if we have already 
+    Given a potential entity that is causing replication lag, this method either marks it
+    to be monitored for next cycle or marks it to be throttled if we have already
     monitored it for enough cycles.
 */
 void static update_monitoring_status_for_entity(std::string name, enum_wtr_dimension dimension) {
-  if(write_throttle_monitor_cycles == 0 || 
-    (currently_monitored_entity.dimension == dimension 
-    && currently_monitored_entity.name == name)) 
+  if(write_throttle_monitor_cycles == 0 ||
+    (currently_monitored_entity.dimension == dimension
+    && currently_monitored_entity.name == name))
   {
     currently_monitored_entity.hits++;
     if (currently_monitored_entity.hits >= write_throttle_monitor_cycles) {
@@ -1253,12 +1283,12 @@ void static update_monitoring_status_for_entity(std::string name, enum_wtr_dimen
       WRITE_THROTTLING_RULE rule;
       rule.mode = WTR_AUTO; // auto
       rule.create_time = my_time(0);
-      
+
       bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
       auto & rules_map = global_write_throttling_rules[dimension];
       auto iter = rules_map.find(name);
       if (iter == rules_map.end()) {
-        rules_map.insert(std::make_pair(name, rule)); 
+        rules_map.insert(std::make_pair(name, rule));
       }
       mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
 
@@ -1278,11 +1308,11 @@ void static update_monitoring_status_for_entity(std::string name, enum_wtr_dimen
 
 /*
   get_top_two_entities
-    Given a map of string entities mapped to WRITE_STATS, this method returns the keys 
+    Given a map of string entities mapped to WRITE_STATS, this method returns the keys
     for top two entities with highest binlog_bytes_written.
-    Defaults to empty string keys in return value if there aren't enough entries 
+    Defaults to empty string keys in return value if there aren't enough entries
     in provided map.
-  
+
   @retval pair<first_key, second key>
 */
 std::pair<std::string, std::string> get_top_two_entities(
@@ -1308,35 +1338,35 @@ std::pair<std::string, std::string> get_top_two_entities(
 
 /*
   check_lag_and_throttle
-    Main method responsible for auto throttling to avoid replication lag. 
-    It checks if there is lag in the replication topology. 
-    If yes, it finds the entity that it should throttle. Otherwise, it optionally 
-    releases one of the previously throttled entities if replication lag is below 
-    safe threshold. 
+    Main method responsible for auto throttling to avoid replication lag.
+    It checks if there is lag in the replication topology.
+    If yes, it finds the entity that it should throttle. Otherwise, it optionally
+    releases one of the previously throttled entities if replication lag is below
+    safe threshold.
 */
 void check_lag_and_throttle() {
   ulong lag = get_current_replication_lag();
 
   if (lag < write_stop_throttle_lag_milliseconds) {
-    // Replication lag below safe threshold, release at most one throttled 
+    // Replication lag below safe threshold, release at most one throttled
     // entity and erase corresponding throttling rule
     if (currently_throttled_entities.empty())
       return;
     auto throttled_entity = currently_throttled_entities.front();
     currently_throttled_entities.pop_front();
-    
+
     enum_wtr_dimension wtr_dim = throttled_entity.second;
     std::string name = throttled_entity.first;
-    
+
     bool lock_acquired = mt_lock(&LOCK_global_write_throttling_rules);
     auto rule_iter = global_write_throttling_rules[wtr_dim].find(name);
-    if (rule_iter != global_write_throttling_rules[wtr_dim].end() 
+    if (rule_iter != global_write_throttling_rules[wtr_dim].end()
       && rule_iter->second.mode == WTR_AUTO) {
       global_write_throttling_rules[wtr_dim].erase(rule_iter);
     }
     mt_unlock(lock_acquired, &LOCK_global_write_throttling_rules);
-  } 
-  
+  }
+
   if (lag > write_start_throttle_lag_milliseconds) {
     // Replication lag above threshold, find an entity to throttle
     if (global_write_statistics_map.size() == 0) {
@@ -1347,7 +1377,7 @@ void check_lag_and_throttle() {
     bool lock_acquired = mt_lock(&LOCK_global_write_statistics);
 
     TIME_BUCKET_STATS & latest_write_stats = global_write_statistics_map.front().second;
-    // Sort dimensions in order of cardinality. If the cardinality is the same, 
+    // Sort dimensions in order of cardinality. If the cardinality is the same,
     // we want to throttle sql_id > shard > client > user
     auto cardinality_cmp = [&latest_write_stats](const enum_wtr_dimension &a, const enum_wtr_dimension &b)
     {
@@ -1355,7 +1385,7 @@ void check_lag_and_throttle() {
       auto b_size = latest_write_stats[b].size();
       return  a_size > b_size || (a_size == b_size && a > b);
     };
-    std::array<enum_wtr_dimension, WRITE_STATISTICS_DIMENSION_COUNT> dimensions = 
+    std::array<enum_wtr_dimension, WRITE_STATISTICS_DIMENSION_COUNT> dimensions =
       { WTR_DIM_USER, WTR_DIM_CLIENT, WTR_DIM_SHARD, WTR_DIM_SQL_ID};
     std::sort(dimensions.begin(), dimensions.end(), cardinality_cmp);
 
@@ -1364,12 +1394,12 @@ void check_lag_and_throttle() {
     bool is_entity_to_throttle_set = false;
     std::pair<std::string, enum_wtr_dimension> entity_to_throttle;
 
-    for(auto dim_iter = dimensions.begin(); dim_iter != dimensions.end(); dim_iter++) 
+    for(auto dim_iter = dimensions.begin(); dim_iter != dimensions.end(); dim_iter++)
     {
       enum_wtr_dimension dim = *dim_iter;
       auto & dim_stats = latest_write_stats[dim];
       std::pair<std::string, std::string> top_entities = get_top_two_entities(dim_stats);
-      
+
       // Set the fallback entity as the top entity in the highest cardinality dimension
       // This entity is throttled if there is no conclusive entity causing the lag.
       if (!is_fallback_entity_set && !dim_stats.empty()) {
@@ -1379,7 +1409,7 @@ void check_lag_and_throttle() {
 
       // For testing purpose, skip to throttle fallback entity
       bool dbug_simulate_fallback_sql_throttling = false;
-      DBUG_EXECUTE_IF("dbug.simulate_fallback_sql_throttling", 
+      DBUG_EXECUTE_IF("dbug.simulate_fallback_sql_throttling",
         {dbug_simulate_fallback_sql_throttling = true;});
 
       if (dim_stats.empty() || dbug_simulate_fallback_sql_throttling) {
@@ -1403,7 +1433,7 @@ void check_lag_and_throttle() {
       }
     }
     mt_unlock(lock_acquired, &LOCK_global_write_statistics);
-    
+
     if (is_entity_to_throttle_set) {
       // throttle the culprit entity if set
       update_monitoring_status_for_entity(entity_to_throttle.first, entity_to_throttle.second);

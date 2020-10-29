@@ -2064,6 +2064,12 @@ The following options may be given as the first argument:
  --sporadic-binlog-dump-fail 
  Option used by mysql-test for debugging and testing of
  replication.
+ --sql-duplicate-executions-control[=name] 
+ Controls how to handle duplicate executions of the same
+ SQL statement. It can take the following values: OFF:
+ Default value (not active). NOTE: Raise warning as note.
+ WARN: Raise warning. ERROR: Raise error and reject the
+ execution.
  --sql-findings-control=name 
  Provides a control to store findings from
  optimizer/executing SQL statements. This data is exposed
@@ -2915,6 +2921,7 @@ slow-query-log FALSE
 socket-umask 0
 sort-buffer-size 262144
 sporadic-binlog-dump-fail FALSE
+sql-duplicate-executions-control OFF
 sql-findings-control OFF_HARD
 sql-log-bin-triggers TRUE
 sql-maximum-duplicate-executions 0

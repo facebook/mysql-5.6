@@ -3599,9 +3599,14 @@ public:
 
   void set_stmt_start_write_time();
 
-  void get_mt_keys_for_write_query(std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys);
+  ulong get_query_or_connect_attr_value(const char *attr_name,
+                                        ulong default_value,
+                                        ulong max_value);
 
-  enum_write_control_level get_mt_throttle_tag_level() const;
+  void get_mt_keys_for_write_query(std::array<std::string,
+                                   WRITE_STATISTICS_DIMENSION_COUNT> & keys);
+
+  enum_control_level get_mt_throttle_tag_level() const;
 
   ulonglong get_stmt_tmp_table_disk_usage_peak()
   {

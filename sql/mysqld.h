@@ -69,7 +69,7 @@ typedef std::array<std::unordered_map<std::string, WRITE_THROTTLING_RULE>, WRITE
 /*
 ** enum_wtr_dimension
 **
-** Different dimensions(shard, user, client id, sql_id) for write statistics 
+** Different dimensions(shard, user, client id, sql_id) for write statistics
 ** throttling rules
 */
 enum enum_wtr_dimension
@@ -1061,20 +1061,20 @@ extern uint max_db_stats_entries;
  * Global variable to control write throttling for short running queries and
  * abort for long running queries.
  */
-/* values of write_control_level
- * WRITE_CONTROL_LEVEL_OFF: write abort is disabled
- * WRITE_CONTROL_LEVEL_NOTE: write abort warning is raised as a note
- * WRITE_CONTROL_LEVEL_WARN: write abort warning is raised
- * WRITE_CONTROL_LEVEL_ERROR: error is raised and query is aborted
+/* values of write_control_level / sql_duplicate_executions_control
+ * CONTROL_LEVEL_OFF: write abort is disabled
+ * CONTROL_LEVEL_NOTE: write abort warning is raised as a note
+ * CONTROL_LEVEL_WARN: write abort warning is raised
+ * CONTROL_LEVEL_ERROR: error is raised and query is aborted
  */
-enum enum_write_control_level
+enum enum_control_level
 {
-  WRITE_CONTROL_LEVEL_OFF   = 0,
-  WRITE_CONTROL_LEVEL_NOTE  = 1,
-  WRITE_CONTROL_LEVEL_WARN  = 2,
-  WRITE_CONTROL_LEVEL_ERROR  = 3,
+  CONTROL_LEVEL_OFF   = 0,
+  CONTROL_LEVEL_NOTE  = 1,
+  CONTROL_LEVEL_WARN  = 2,
+  CONTROL_LEVEL_ERROR  = 3,
   /* add new control before the following line */
-  WRITE_CONTROL_LEVEL_INVALID
+  CONTROL_LEVEL_INVALID
 };
 
 /* Global variable: write_control_level */
@@ -1210,6 +1210,8 @@ extern my_bool normalized_plan_id;
 
 /* Controls whether MySQL sends an error when running duplicate statements */
 extern uint sql_maximum_duplicate_executions;
+/* Controls the mode of enforcement of duplicate executions of the same stmt */
+extern ulong sql_duplicate_executions_control;
 
 enum enum_gtid_mode
 {

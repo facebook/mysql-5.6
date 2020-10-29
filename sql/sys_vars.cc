@@ -6821,7 +6821,7 @@ static bool set_sql_stats_control(sys_var *, THD *, enum_var_type type)
     free_global_sql_stats(false /*limits_updated*/);
     // Write stats cannot be collected without sql_id and client_id dimensions.
     free_global_write_statistics();
-    /* Free the write throttling log collected so far */ 
+    /* Free the write throttling log collected so far */
     free_global_write_throttling_log();
   }
 
@@ -7121,7 +7121,7 @@ static Sys_var_double Sys_write_throttle_min_ratio(
        "Minimum value of the ratio (1st entity)/(2nd entity) for replication lag "
        "throttling to kick in",
        GLOBAL_VAR(write_throttle_min_ratio), CMD_LINE(OPT_ARG),
-       VALID_RANGE(1, 1000), DEFAULT(1000), NO_MUTEX_GUARD, NOT_IN_BINLOG, 
+       VALID_RANGE(1, 1000), DEFAULT(1000), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(nullptr));
 
 static Sys_var_uint Sys_write_throttle_monitor_cycles(
@@ -7129,8 +7129,8 @@ static Sys_var_uint Sys_write_throttle_monitor_cycles(
       "Number of consecutive cycles to monitor an entity for replication lag throttling "
       "before taking action",
       GLOBAL_VAR(write_throttle_monitor_cycles), CMD_LINE(OPT_ARG),
-      VALID_RANGE(0, 1000), DEFAULT(1000), BLOCK_SIZE(1), 
-      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      VALID_RANGE(0, 1000), DEFAULT(1000), BLOCK_SIZE(1),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(nullptr));
 
 static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
@@ -7138,8 +7138,8 @@ static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
       "Percent of secondaries that need to lag for overall replication topology "
       "to be considered lagging",
       GLOBAL_VAR(write_throttle_lag_pct_min_secondaries), CMD_LINE(OPT_ARG),
-      VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1), 
-      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), 
+      VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1),
+      NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
       ON_UPDATE(nullptr));
 
 static Sys_var_ulong Sys_write_auto_throttle_frequency(
@@ -7150,26 +7150,6 @@ static Sys_var_ulong Sys_write_auto_throttle_frequency(
        CMD_LINE(OPT_ARG), VALID_RANGE(0, LONG_TIMEOUT),
        DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(nullptr), ON_UPDATE(nullptr));
-
-/*
-** sql_maximum_duplicate_executions
-*/
-static bool set_sql_max_dup_exe(sys_var *, THD *, enum_var_type type)
-{
-  if (sql_maximum_duplicate_executions == 0)
-    free_global_active_sql();
-
-  return false; // success
-}
-
-static Sys_var_uint Sys_sql_maximum_duplicate_executions(
-       "sql_maximum_duplicate_executions",
-       "Used by MySQL to limit the number of duplicate SQL statements "
-       "Defaut is 0 and means the feature is turned off",
-       GLOBAL_VAR(sql_maximum_duplicate_executions),
-       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX),
-       DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
-       ON_CHECK(nullptr), ON_UPDATE(set_sql_max_dup_exe));
 
 static bool check_max_tmp_disk_usage(sys_var *self, THD *thd, set_var *var)
 {
@@ -7249,7 +7229,7 @@ static Sys_var_mybool Sys_sql_stats_snapshot(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_sql_stats_snapshot));
 
-static const char *write_control_level_values[] =
+static const char *control_level_values[] =
 { "OFF", "NOTE", "WARN", "ERROR",
   /* Add new control before the following line */
   0
@@ -7264,7 +7244,7 @@ static Sys_var_enum Sys_write_control_level(
        "WARN: Raise warning. "
        "ERROR: Raise error and abort query.",
        GLOBAL_VAR(write_control_level), CMD_LINE(OPT_ARG),
-       write_control_level_values, DEFAULT(WRITE_CONTROL_LEVEL_OFF),
+       control_level_values, DEFAULT(CONTROL_LEVEL_OFF),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(NULL));
 
@@ -7416,3 +7396,37 @@ static Sys_var_mybool Sys_show_query_digest(
        "Requres sql_stats_control to be on.",
        SESSION_VAR(show_query_digest),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+/*
+** sql_maximum_duplicate_executions
+*/
+static bool set_sql_max_dup_exe(sys_var *, THD *, enum_var_type type)
+{
+  if (sql_maximum_duplicate_executions == 0)
+    free_global_active_sql();
+
+  return false; // success
+}
+
+static Sys_var_uint Sys_sql_maximum_duplicate_executions(
+       "sql_maximum_duplicate_executions",
+       "Used by MySQL to limit the number of duplicate SQL statements "
+       "Defaut is 0 and means the feature is turned off",
+       GLOBAL_VAR(sql_maximum_duplicate_executions),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX),
+       DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(nullptr), ON_UPDATE(set_sql_max_dup_exe));
+
+static Sys_var_enum Sys_sql_duplicate_executions_control(
+       "sql_duplicate_executions_control",
+       "Controls how to handle duplicate executions of the same SQL "
+       "statement. It can take the following values: "
+       "OFF: Default value (not active). "
+       "NOTE: Raise warning as note. "
+       "WARN: Raise warning. "
+       "ERROR: Raise error and reject the execution.",
+       GLOBAL_VAR(sql_duplicate_executions_control), CMD_LINE(OPT_ARG),
+       control_level_values,
+       DEFAULT(CONTROL_LEVEL_OFF),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+       ON_UPDATE(NULL));

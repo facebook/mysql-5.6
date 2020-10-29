@@ -722,6 +722,8 @@ my_bool sql_plans_capture_apply_filter;
 my_bool normalized_plan_id;
 /* Controls whether MySQL send an error when running duplicate statements */
 uint sql_maximum_duplicate_executions;
+/* Controls the mode of enforcement of duplicate executions of the same stmt */
+ulong sql_duplicate_executions_control;
 /* Controls num most recent data points to collect for information_schema.write_statistics */
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats are collected*/
@@ -747,7 +749,7 @@ uint transaction_size_histogram_width;
 uint write_statistics_histogram_width;
 /* timestamp when replication lag check was last done */
 std::atomic<time_t> last_replication_lag_check_time(0);
-/* Queue to store all the entities being currently auto throttled. It is used to release entities in order 
+/* Queue to store all the entities being currently auto throttled. It is used to release entities in order
 they were throttled when replication lag goes below safe threshold  */
 std::list<std::pair<std::string, enum_wtr_dimension>> currently_throttled_entities;
 /* Stores the info about the entity that is currently being monitored for replication lag */
