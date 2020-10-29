@@ -8739,7 +8739,8 @@ static int safe_reconnect(THD *thd, MYSQL *mysql, Master_info *mi,
 */
 
 int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
-                     bool need_log_space_lock, myf raft_flags) {
+                     bool need_log_space_lock,
+                     RaftRotateInfo *raft_rotate_info) {
   DBUG_TRACE;
 
   Relay_log_info *rli = mi->rli;
@@ -8764,9 +8765,9 @@ int rotate_relay_log(Master_info *mi, bool log_master_fd, bool need_lock,
   /* If the relay log is closed, new_file() will do nothing. */
   if (log_master_fd)
     error = rli->relay_log.new_file_without_locking(
-        mi->get_mi_description_event(), raft_flags);
+        mi->get_mi_description_event(), raft_rotate_info);
   else
-    error = rli->relay_log.new_file_without_locking(nullptr, raft_flags);
+    error = rli->relay_log.new_file_without_locking(nullptr, raft_rotate_info);
 
   if (error != 0) goto end;
 
@@ -8789,11 +8790,9 @@ end:
   return error;
 }
 
-int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
-                              myf raft_flags) {
+int rotate_relay_log_for_raft(RaftRotateInfo *rotate_info) {
   DBUG_ENTER("rotate_relay_log_for_raft");
   int error = 0;
-  bool no_op = false;
   Master_info *mi = nullptr;
 
   channel_map.rdlock();
@@ -8811,22 +8810,21 @@ int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
   // needed for file rotation
   mi->channel_wrlock();
 
-  no_op = raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
-
   /* in case of no_op we would be starting the file name from the master
      so new_log_ident and pos wont be used */
-  if (!no_op) {
+  if (!rotate_info->noop) {
     mysql_mutex_lock(&mi->data_lock);
-    memcpy(const_cast<char *>(mi->get_master_log_name()), new_log_ident.c_str(),
-           new_log_ident.length() + 1);
-    mi->set_master_log_pos(pos);
+    memcpy(const_cast<char *>(mi->get_master_log_name()),
+           rotate_info->new_log_ident.c_str(),
+           rotate_info->new_log_ident.length() + 1);
+    mi->set_master_log_pos(rotate_info->pos);
     mysql_mutex_unlock(&mi->data_lock);
   }
 
   error = rotate_relay_log(mi,
                            /*log_master_fd=*/true,
                            /*need_lock=*/true,
-                           /*need_log_space_lock=*/true, raft_flags);
+                           /*need_log_space_lock=*/true, rotate_info);
 
   mi->channel_unlock();
 

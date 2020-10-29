@@ -3669,9 +3669,8 @@ err:
   unlock_master_info(active_mi);
   if (errmsg) {
     my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0), "SHOW RAFT LOGS", errmsg);
-  } else {
-    my_eof(thd);
   }
+
   return error;
 }
 
@@ -3683,7 +3682,8 @@ bool get_and_lock_master_info(Master_info **master_info) {
     channel_map.unlock();
     return false;
   }
-  // TODO: Verify during integration. m_channel_lock might not be needed here
+  // TODO(pgl): Verify during integration. m_channel_lock might not be needed
+  // here
   active_mi->channel_rdlock();
   if (active_mi->rli == NULL) {
     active_mi->channel_unlock();
@@ -4416,8 +4416,9 @@ err:
         "Either disk is full, file system is read only or "
         "there was an encryption error while opening the binlog. "
         "Aborting the server.");
-  } else
+  } else {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_FOR_LOGGING, log_name, errno);
+  }
 
   my_free(name);
   name = nullptr;
@@ -5506,7 +5507,7 @@ bool MYSQL_BIN_LOG::open_binlog(
     const char *log_name, const char *new_name, ulong max_size_arg,
     bool null_created_arg, bool need_lock_index, bool need_sid_lock,
     Format_description_log_event *extra_description_event,
-    uint32 new_index_number, bool raft_specific_handling) {
+    uint32 new_index_number, RaftRotateInfo *raft_rotate_info) {
   // lock_index must be acquired *before* sid_lock.
   DBUG_ASSERT(need_sid_lock || !need_lock_index);
   DBUG_TRACE;
@@ -5562,7 +5563,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   max_size = max_size_arg;
 
   bool write_file_name_to_index_file = false;
-
+  bool raft_noop = raft_rotate_info && raft_rotate_info->noop;
   /* This must be before goto err. */
 #ifndef DBUG_OFF
   binary_log_debug::debug_pretend_version_50034_in_binlog =
@@ -5587,7 +5588,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   /*
     don't set LOG_EVENT_BINLOG_IN_USE_F for the relay log
   */
-  if (!is_relay_log || raft_specific_handling) {
+  if (!is_relay_log || raft_noop) {
     s.common_header->flags |= LOG_EVENT_BINLOG_IN_USE_F;
   }
 
@@ -5607,7 +5608,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   if (!s.is_valid()) goto err;
   s.dont_set_created = null_created_arg;
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
-  if (is_relay_log && !raft_specific_handling) s.set_relay_log_event();
+  if (is_relay_log && !raft_noop) s.set_relay_log_event();
   if (write_event_to_binlog(&s)) goto err;
   /*
     We need to revisit this code and improve it.
@@ -5685,7 +5686,8 @@ bool MYSQL_BIN_LOG::open_binlog(
     DBUG_PRINT("info", ("Generating PREVIOUS_GTIDS for %s file.",
                         is_relay_log ? "relaylog" : "binlog"));
     Previous_gtids_log_event prev_gtids_ev(previous_logged_gtids);
-    if (is_relay_log) prev_gtids_ev.set_relay_log_event();
+    // TODO(pgl) : confirm if raft_noop check required here.
+    if (!raft_noop && is_relay_log) prev_gtids_ev.set_relay_log_event();
     if (need_sid_lock) sid_lock->unlock();
     if (write_event_to_binlog(&prev_gtids_ev)) goto err;
 
@@ -5696,8 +5698,11 @@ bool MYSQL_BIN_LOG::open_binlog(
      * function (open_binlog()) should be called during server restart only
      * after initializing the local instance's HLC clock (by reading the
      * previous binlog file) */
-    if (enable_binlog_hlc && !is_relay_log) {
-      uint64_t current_hlc = mysql_bin_log.get_current_hlc();
+    if (enable_binlog_hlc && (!is_relay_log || raft_rotate_info)) {
+      uint64_t current_hlc = 0;
+      if (!is_relay_log) {
+        current_hlc = mysql_bin_log.get_current_hlc();
+      }
       Metadata_log_event metadata_ev(current_hlc);
       if (write_event_to_binlog(&metadata_ev)) goto err;
     }
@@ -7543,9 +7548,10 @@ void MYSQL_BIN_LOG::dec_non_xid_trxs(THD *thd) {
 */
 
 int MYSQL_BIN_LOG::new_file(
-    Format_description_log_event *extra_description_event, myf raft_flags) {
+    Format_description_log_event *extra_description_event,
+    RaftRotateInfo *raft_rotate_info) {
   return new_file_impl(true /*need_lock_log=true*/, extra_description_event,
-                       raft_flags);
+                       raft_rotate_info);
 }
 
 /*
@@ -7553,9 +7559,10 @@ int MYSQL_BIN_LOG::new_file(
     nonzero - error
 */
 int MYSQL_BIN_LOG::new_file_without_locking(
-    Format_description_log_event *extra_description_event, myf raft_flags) {
+    Format_description_log_event *extra_description_event,
+    RaftRotateInfo *raft_rotate_info) {
   return new_file_impl(false /*need_lock_log=false*/, extra_description_event,
-                       raft_flags);
+                       raft_rotate_info);
 }
 
 /*
@@ -7580,8 +7587,8 @@ bool MYSQL_BIN_LOG::should_abort_on_binlog_error() {
   thread while creating a new relay log file. This should be NULL for
   binary log files.
 
-  @param raft_flags Flags indicating how the rotate behaves when initiated by
-  raft plugin. In non-raft world, this defaults to 0
+  @param raft_rotate_info indicates how the rotate behaves when initiated by
+  raft plugin. In non-raft world, this defaults to nullptr
 
   @retval 0 success
   @retval nonzero - error
@@ -7590,7 +7597,7 @@ bool MYSQL_BIN_LOG::should_abort_on_binlog_error() {
 */
 int MYSQL_BIN_LOG::new_file_impl(
     bool need_lock_log, Format_description_log_event *extra_description_event,
-    myf raft_flags) {
+    RaftRotateInfo *raft_rotate_info) {
   int error = 0;
   bool close_on_error = false;
   char new_name[FN_REFLEN], *new_name_ptr = nullptr, *old_name, *file_to_open;
@@ -7608,10 +7615,18 @@ int MYSQL_BIN_LOG::new_file_impl(
     return error;
   }
 
+  // If this rotation is initiated from raft plugin, we
+  // expect raft to be enabled, otherwise we fail early
+  if (raft_rotate_info && !enable_raft_plugin) {
+    DBUG_PRINT("info", ("enable_raft_plugin is off"));
+    return 1;
+  }
+
   if (need_lock_log)
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
+
   DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                   DEBUG_SYNC(current_thd, "before_rotate_binlog"););
   mysql_mutex_lock(&LOCK_xids);
@@ -7636,25 +7651,34 @@ int MYSQL_BIN_LOG::new_file_impl(
     mysql_mutex_unlock(&LOCK_non_xid_trxs);
   }
 
-  // rotate events need to go through consensus so that we don't have
-  // to trim anything previous to a rotate event, i.e. into a rotated file.
-  bool no_op =
-      enable_raft_plugin && (raft_flags & RaftListenerQueue::RAFT_FLAGS_NOOP);
+  bool no_op = raft_rotate_info && raft_rotate_info->noop;
 
-  // If we are rotating a apply log, then we are a slave trying to do
-  // FLUSH BINARY LOGS, which should not have to go through consensus
+  // skip rotate event append implies rotate event has already
+  // been appended to relay log by plugin
+  bool skip_re_append = raft_rotate_info && raft_rotate_info->post_append;
+  if (skip_re_append) {
+    DBUG_ASSERT(is_relay_log);
+  }
+
+  // Convenience struct to pass down call tree, e.g. open_binlog
+  RaftRotateInfo raft_rotate_info_tmp;
+
+  // rotate events need to go through consensus so that we don't have
+  // to trim previous a rotate event, i.e. into a rotated file.
+  // if we are rotating an is_apply_log = true, then we are a slave
+  // trying to do FLUSH BINARY LOGS, which should not have to go
+  // through consensus
   bool rotate_via_raft =
       enable_raft_plugin && (no_op || !is_relay_log) && (!is_apply_log);
 
-  // Skip rotate event append. This happens on followers because rotate event
-  // is already appended to the log inside raft plugin. POSTAPPEND flag
-  // indicates the same and is explicitly passed in by the plugin
-  bool skip_re_append = enable_raft_plugin &&
-                        (raft_flags & RaftListenerQueue::RAFT_FLAGS_POSTAPPEND);
+  if (rotate_via_raft) {
+    if (!raft_rotate_info) raft_rotate_info = &raft_rotate_info_tmp;
+    raft_rotate_info->rotate_via_raft = rotate_via_raft; /* true */
 
-  if (rotate_via_raft) DBUG_ASSERT(!skip_re_append);
-
-  if (skip_re_append) DBUG_ASSERT(is_relay_log);
+    // post append rotates - no flush and before commit stages required
+    // rotate_via_raft - flush and before commit of rotate event needs to happen
+    DBUG_ASSERT(!skip_re_append);
+  }
 
   mysql_mutex_lock(&LOCK_index);
 
@@ -7832,11 +7856,11 @@ int MYSQL_BIN_LOG::new_file_impl(
   if (!error) {
     /* reopen the binary log file. */
     file_to_open = new_name_ptr;
-    error = open_binlog(old_name, new_name_ptr, max_size,
-                        true /*null_created_arg=true*/,
-                        false /*need_lock_index=false*/,
-                        true /*need_sid_lock=true*/, extra_description_event,
-                        rotate_via_raft && no_op /*raft_specific_handling*/);
+    error = open_binlog(
+        old_name, new_name_ptr, max_size, true /*null_created_arg=true*/,
+        false /*need_lock_index=false*/, true /*need_sid_lock=true*/,
+        extra_description_event, 0 /*new_index_number = 0*/,
+        raft_rotate_info /*raft_specific_handling*/);
   }
 
   /* handle reopening errors */

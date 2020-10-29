@@ -75,6 +75,7 @@ class Binlog_cache_storage;
 
 struct Gtid;
 struct snapshot_info_st;
+struct RaftRotateInfo;
 
 typedef int64 query_id_t;
 
@@ -438,7 +439,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
   */
   int new_file_without_locking(
       Format_description_log_event *extra_description_event,
-      myf raft_flags = MYF(0));
+      RaftRotateInfo *raft_rotate_info = nullptr);
 
  private:
   /**
@@ -448,9 +449,16 @@ class MYSQL_BIN_LOG : public TC_LOG {
     @return true if server needs to be aborted
    */
   bool should_abort_on_binlog_error();
+
+  /*
+   * @param raft_rotate_info
+   *   Rotate related information passed in by listener callbacks.
+   *   Caters today to relay log rotates, no-op rotates and config
+   *   change rotates.
+   */
   int new_file_impl(bool need_lock,
                     Format_description_log_event *extra_description_event,
-                    myf raft_flags = MYF(0));
+                    RaftRotateInfo *raft_rotate_info = nullptr);
 
   bool open(PSI_file_key log_file_key, const char *log_name,
             const char *new_name, uint32 new_index_number);
@@ -1002,15 +1010,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
     binary log files.
     @param new_index_number The binary log file index number to start from
     after the RESET MASTER TO command is called.
-    @param raft_specific_handling Does this open_binlog interact with raft
-    (binlog or relay log)
+    @param raft_rotate_info rotate related information passed in by
+    listener callbacks
   */
   bool open_binlog(const char *log_name, const char *new_name,
                    ulong max_size_arg, bool null_created_arg,
                    bool need_lock_index, bool need_sid_lock,
                    Format_description_log_event *extra_description_event,
                    uint32 new_index_number = 0,
-                   bool raft_specific_handling = false);
+                   RaftRotateInfo *raft_rotate_info = nullptr);
 
   /**
     Open an existing binlog/relaylog file
@@ -1024,9 +1032,15 @@ class MYSQL_BIN_LOG : public TC_LOG {
 
   bool open_index_file(const char *index_file_name_arg, const char *log_name,
                        bool need_lock_index);
-  /* Use this to start writing a new log file */
+
+  /**
+    Use this to start writing a new log file
+    @param raft_rotate_info - Used by raft to optionally control
+     how file rotation happens. Caters to relay log rotates,
+     no-op rotates and config change rotates.
+  */
   int new_file(Format_description_log_event *extra_description_event,
-               myf raft_flags = MYF(0));
+               RaftRotateInfo *raft_rotate_info = nullptr);
 
   enum force_cache_type {
     FORCE_CACHE_DEFAULT,
@@ -1425,15 +1439,11 @@ int rotate_binlog_file(THD *thd);
 /**
   Rotates the relay log file. Helper method invoked by raft plugin through
   raft listener queue.
-
-  @param new_log_iden  The new log name
-  @param pos the log position
-  @param raft_flags
+  @param raft_rotate_info raft flags and log info
 
   @returns true if a problem occurs, false otherwise.
  */
-int rotate_relay_log_for_raft(const std::string &new_log_ident, ulonglong pos,
-                              myf raft_flags = MYF(0));
+int rotate_relay_log_for_raft(RaftRotateInfo *raft_rotate_info);
 
 /**
   This is used to change the mysql_bin_log global MYSQL_BIN_LOG file

@@ -1372,9 +1372,14 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
       case RaftListenerCallbackType::ROTATE_RELAYLOG: {
-        result.error = rotate_relay_log_for_raft(
-            element.arg.log_file_pos.first, element.arg.log_file_pos.second,
-            MYF(element.arg.val_uint));
+        RaftRotateInfo raft_rotate_info;
+        raft_rotate_info.new_log_ident = element.arg.log_file_pos.first;
+        raft_rotate_info.pos = element.arg.log_file_pos.second;
+        myf flags = MYF(element.arg.val_uint);
+        raft_rotate_info.noop = flags & RaftListenerQueue::RAFT_FLAGS_NOOP;
+        raft_rotate_info.post_append =
+            flags & RaftListenerQueue::RAFT_FLAGS_POSTAPPEND;
+        result.error = rotate_relay_log_for_raft(&raft_rotate_info);
         break;
       }
       case RaftListenerCallbackType::RLI_RELAY_LOG_RESET: {
