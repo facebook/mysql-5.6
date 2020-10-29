@@ -1671,9 +1671,19 @@ int raft_reset_slave(THD *) {
   mi->inited = false;
   mysql_mutex_lock(&mi->rli->data_lock);
   mi->rli->inited = false;
+  mi->flush_info(true);
+  /**
+    Clear the retrieved gtid set for this channel.
+  */
+  mi->rli->get_sid_lock()->wrlock();
+  (const_cast<Gtid_set *>(mi->rli->get_gtid_set()))->clear_set_and_sid_map();
+  mi->rli->get_sid_lock()->unlock();
+
   mysql_mutex_unlock(&mi->rli->data_lock);
   mysql_mutex_unlock(&mi->data_lock);
 
+  // no longer a slave. will be set again during change master
+  is_slave = false;
   channel_map.unlock();
   DBUG_RETURN(error);
 }
@@ -1696,7 +1706,11 @@ int raft_change_master(
   mi->set_auto_position(true);
   mi->init_master_log_pos();
   mi->inited = true;
+  mi->flush_info(true);
   mysql_mutex_unlock(&mi->data_lock);
+
+  // changing to a slave. set the is_slave flag
+  is_slave = true;
 end:
   channel_map.unlock();
   DBUG_RETURN(error);
