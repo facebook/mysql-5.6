@@ -9657,6 +9657,12 @@ ER_RAFT_FILE_ROTATION_FAILED
 ER_RAFT_OPERATION_INCOMPATIBLE
   eng "This operation is not allowed since raft is enabled"
 
+ER_SLAVE_IO_RAFT_CONFLICT
+  eng "slave io thread is running when try to enable raft"
+
+ER_RAFT_BINLOG_ERROR_ACTION
+  eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

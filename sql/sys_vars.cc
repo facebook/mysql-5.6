@@ -57,6 +57,7 @@
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/log_shared.h"
 #include "mysql_com.h"
+#include "sql/mysqld.h"
 #include "sql/protocol.h"
 #include "sql/rpl_trx_tracking.h"
 #ifdef HAVE_SYS_TIME_H
@@ -7924,17 +7925,38 @@ static bool validate_enable_raft(sys_var * /*self */, THD *, set_var *var) {
   bool err = false;
   bool enable_raft = var->save_result.ulonglong_value;
 
-  // TODO: Check for IO thread running
-  // TODO: flip disallow_raft eventually when raft is ready for 8.0
-
   if (disallow_raft && enable_raft) {
-    // Do not allow raft to be turned ON if disallow raft is set
-    err = true;
+    // NO_LINT_DEBUG
+    sql_print_error("disallow_raft is enabled when try to enable raft!");
+    return true;
   }
 
-  if (disallow_raft && enable_raft && binlog_error_action == ABORT_SERVER) {
-    // TODO: put a proper error frame here
-    // my_error(ER_RAFT_BINLOG_ERROR_ACTION, MYF(0));
+  if (enable_raft) {
+    channel_map.rdlock();
+    /* raft doesn't support multiple channels */
+    DBUG_ASSERT(channel_map.get_num_instances(true) == 1);
+
+    Master_info *mi = channel_map.get_default_channel_mi();
+    if (mi != NULL) {
+      mi->channel_wrlock();
+      lock_slave_threads(mi);
+      int thread_mask;
+
+      /* check the status of IO thread */
+      init_thread_mask(&thread_mask, mi, 0 /* inverse = 0 */);
+      // Do not allow raft to be turned ON if disallow raft is set
+      if (thread_mask & SLAVE_IO) {
+        my_error(ER_SLAVE_IO_RAFT_CONFLICT, MYF(0));
+        err = true;
+      }
+      unlock_slave_threads(mi);
+      mi->channel_unlock();
+    }
+    channel_map.unlock();
+  }
+
+  if (enable_raft && binlog_error_action == ABORT_SERVER) {
+    my_error(ER_RAFT_BINLOG_ERROR_ACTION, MYF(0));
     // we can't have raft co-exist with ABORT_SERVER
     // as flush failures can be common during leader change.
     err = true;
