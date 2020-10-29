@@ -1,14 +1,11 @@
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 #
 # This test checks some very basic capabilities
 # for tables without primary keys. A hidden pk will be generated under the hood
 # in myrocks.  Everything should work here as normal.
 #
-
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
 
 # test CREATE
 CREATE TABLE t1 (a INT, b CHAR(8)) ENGINE=rocksdb;
@@ -124,3 +121,5 @@ disconnect con1;
 connection default;
 rollback;
 drop table t1,t2;
+
+--source include/wait_until_count_sessions.inc

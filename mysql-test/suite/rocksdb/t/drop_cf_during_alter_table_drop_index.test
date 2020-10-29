@@ -1,12 +1,9 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 set @old_debug = @@global.debug;
-
---disable_warnings
-drop table if exists t1;
---enable_warnings
 
 connect (conn1,localhost,root,,);
 connect (conn2,localhost,root,,);
@@ -59,3 +56,8 @@ select count(*) = 0 from information_schema.rocksdb_cfstats where cf_name = 'cf_
 
 set @@global.debug = @old_debug;
 drop table t1;
+
+--connection default
+--disconnect conn1
+--disconnect conn2
+--source include/wait_until_count_sessions.inc
