@@ -23,6 +23,7 @@
 #include "sql/rpl_handler.h"
 
 #include <string.h>
+#include <map>
 #include <memory>
 #include <new>
 #include <unordered_map>
@@ -1332,6 +1333,43 @@ static int handle_read_only(
   return error;
 }
 
+static int set_durability(
+    const std::map<std::string, unsigned int> &durability) {
+  // sync_binlog
+  const auto sync_binlog_it = durability.find("sync_binlog");
+  if (sync_binlog_it == durability.end()) {
+    return 1;
+  }
+  Item_uint sync_binlog_item(sync_binlog_it->second);
+  int sync_binlog_update =
+      update_sys_var(STRING_WITH_LEN("sync_binlog"), sync_binlog_item);
+  if (sync_binlog_update)  // failed
+    return sync_binlog_update;
+
+  // innodb_flush_log_at_trx_commit might not always update since innodb
+  // might not be enabled
+  const auto flush_log_it = durability.find("innodb_flush_log_at_trx_commit");
+  if (flush_log_it != durability.end()) {
+    Item_uint flush_log_item(flush_log_it->second);
+    int innodb_flush_log_at_trx_commit_update = update_sys_var(
+        STRING_WITH_LEN("innodb_flush_log_at_trx_commit"), flush_log_item);
+    if (innodb_flush_log_at_trx_commit_update)  // failed
+      return innodb_flush_log_at_trx_commit_update;
+  }
+
+  // innodb_doublewrite not always update since innodb might not be enabled
+  const auto doublewrite_it = durability.find("innodb_doublewrite");
+  if (doublewrite_it != durability.end()) {
+    Item_uint doublewrite_item(doublewrite_it->second);
+    int innodb_doublewrite_update =
+        update_sys_var(STRING_WITH_LEN("innodb_doublewrite"), doublewrite_item);
+    if (innodb_doublewrite_update)  // failed
+      return innodb_doublewrite_update;
+  }
+
+  return 0;
+}
+
 extern "C" void *process_raft_queue(void *) {
   THD *thd;
   bool thd_added = false;
@@ -1439,6 +1477,10 @@ extern "C" void *process_raft_queue(void *) {
         result.val_str = std::string(buffer);
         result.error = 0;
         my_free(buffer);
+        break;
+      }
+      case RaftListenerCallbackType::SET_BINLOG_DURABILITY: {
+        result.error = set_durability(element.arg.val_sys_var_uint);
         break;
       }
       case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
