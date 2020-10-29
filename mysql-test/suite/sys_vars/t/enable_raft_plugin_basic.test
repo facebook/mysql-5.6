@@ -1,5 +1,9 @@
 -- source include/load_sysvars.inc
 
+--disable_query_log
+call mtr.add_suppression("disallow_raft is enabled when try to enable raft");
+--enable_query_log
+
 ####
 # Verify default value 1
 ####
