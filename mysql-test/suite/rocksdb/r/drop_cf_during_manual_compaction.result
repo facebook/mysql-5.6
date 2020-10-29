@@ -1,5 +1,4 @@
 set @old_debug = @@global.debug;
-drop table if exists t1;
 set @@global.rocksdb_update_cf_options= 'cf_primary_key={};';
 select * from information_schema.rocksdb_cfstats where cf_name='cf_primary_key';
 CF_NAME	STAT_TYPE	VALUE

@@ -1,6 +1,7 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 --disable_query_log
 call mtr.add_suppression("Column family '[a-z_]+' not found");
@@ -72,3 +73,8 @@ show engine rocksdb transaction status;
 
 set @@global.debug = @old_debug;
 
+--connection default
+--disconnect con1
+--disconnect con2
+--disconnect con3
+--source include/wait_until_count_sessions.inc

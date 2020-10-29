@@ -1,4 +1,3 @@
-drop table if exists t1;
 SET @@global.rocksdb_rollback_on_timeout = 1;
 show variables like 'rocksdb_rollback_on_timeout';
 Variable_name	Value

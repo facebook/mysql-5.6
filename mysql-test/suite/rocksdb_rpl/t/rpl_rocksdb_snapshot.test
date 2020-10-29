@@ -1,10 +1,7 @@
 --source include/have_rocksdb.inc
---source include/master-slave.inc
 --source include/have_binlog_format_row.inc
-
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
+--source include/master-slave.inc
+--source include/count_sessions.inc
 
 --echo # Establish connection con1 (user=root)
 connect (con1,localhost,root,,);
@@ -370,5 +367,7 @@ sync_slave_with_master slave;
 --source include/stop_slave.inc
 CHANGE MASTER to master_auto_position=0;
 --source include/start_slave.inc
+
+--source include/wait_until_count_sessions.inc
 
 --source include/rpl_end.inc

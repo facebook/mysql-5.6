@@ -241,3 +241,6 @@ SET GLOBAL binlog_format=row;
 drop table r1;
 reset master;
 set @@global.default_storage_engine=@save_default_storage_engine;
+connection default;
+disconnect con1;
+disconnect con2;

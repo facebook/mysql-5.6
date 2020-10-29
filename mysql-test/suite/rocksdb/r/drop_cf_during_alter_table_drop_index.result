@@ -1,5 +1,4 @@
 set @old_debug = @@global.debug;
-drop table if exists t1;
 create table t1 (
 id1 int(10) unsigned not null default '0',
 id2 int(10) unsigned not null default '0',

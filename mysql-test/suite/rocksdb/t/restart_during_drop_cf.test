@@ -1,6 +1,7 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 --disable_query_log
 call mtr.add_suppression(".*will be forced to shutdown");
@@ -10,7 +11,6 @@ call mtr.add_suppression("Column family with id.*doesn't exist in cf manager, bu
 set @old_debug = @@global.debug;
 
 connect (conn1,localhost,root,,);
-connect (conn2,localhost,root,,);
 
 ## test1 ##
 --connection conn1
@@ -21,7 +21,7 @@ select * from information_schema.rocksdb_cfstats where cf_name='cf_primary_key';
 
 set @@global.rocksdb_delete_cf = 'cf_primary_key';
 
---connection conn2
+--connection default
 set debug_sync = "now wait_for ready_to_restart_during_drop_cf";
 
 # restart happens before the cf id is removed from dropped cfs list
@@ -43,3 +43,6 @@ select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key
 
 set @@global.debug = @old_debug;
 set @@global.rocksdb_update_cf_options= '';
+
+--disconnect conn1
+--source include/wait_until_count_sessions.inc
