@@ -641,6 +641,13 @@ class MYSQL_BIN_LOG : public TC_LOG {
                       Gtid_monitoring_info *partial_trx,
                       uint64_t *max_prev_hlc = NULL);
 
+  /**
+   * This function is used by binlog_change_to_apply to update
+   * the previous gtid set map, since we don't call init_gtid_sets
+   * which would have initialized it from disk
+   */
+  bool init_prev_gtid_sets_map();
+
   enum_read_gtids_from_binlog_status read_gtids_from_binlog(
       const char *filename, Gtid_set *all_gtids, Gtid_set *prev_gtids,
       Gtid *first_gtid, Sid_map *sid_map, bool verify_checksum,
