@@ -1,16 +1,13 @@
 --source include/have_debug.inc
 --source include/have_debug_sync.inc
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 --disable_query_log
 call mtr.add_suppression("Column family '[a-z_]+' not found");
 --enable_query_log
 
 set @old_debug = @@global.debug;
-
---disable_warnings
-drop table if exists t1;
---enable_warnings
 
 connect (conn1,localhost,root,,);
 connect (conn2,localhost,root,,);
@@ -84,3 +81,7 @@ select * from information_schema.rocksdb_cfstats where cf_name = 'cf_primary_key
 set @@global.debug = @old_debug;
 set @@global.rocksdb_update_cf_options= '';
 
+--connection default
+--disconnect conn1
+--disconnect conn2
+--source include/wait_until_count_sessions.inc

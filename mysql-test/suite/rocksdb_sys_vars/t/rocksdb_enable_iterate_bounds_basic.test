@@ -1,3 +1,6 @@
+--source include/have_rocksdb.inc
+--source include/count_sessions.inc
+
 #
 # test rocksdb_enable_iterate_bounds
 #
@@ -41,3 +44,8 @@ SELECT COUNT(*) FROM t WHERE a >= 1 AND a <= 32;
 SELECT COUNT(*) FROM t;
 
 DROP TABLE t;
+
+--connection default
+--disconnect con1
+--disconnect con2
+--source include/wait_until_count_sessions.inc

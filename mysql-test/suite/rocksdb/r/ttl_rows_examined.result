@@ -44,3 +44,4 @@ drop table t_re;
 affected rows: 0
 disconnect conn1;
 disconnect conn2;
+connection default;
