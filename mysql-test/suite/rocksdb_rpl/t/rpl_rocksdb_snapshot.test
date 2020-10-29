@@ -1,6 +1,7 @@
 --source include/have_rocksdb.inc
 --source include/have_binlog_format_row.inc
 --source include/master-slave.inc
+--source include/count_sessions.inc
 
 --echo # Establish connection con1 (user=root)
 connect (con1,localhost,root,,);
@@ -375,5 +376,7 @@ connection default;
 --source include/stop_slave.inc
 CHANGE MASTER to master_auto_position=0;
 --source include/start_slave.inc
+
+--source include/wait_until_count_sessions.inc
 
 --source include/rpl_end.inc

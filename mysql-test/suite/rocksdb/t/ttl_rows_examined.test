@@ -1,5 +1,6 @@
 --source include/have_rocksdb.inc
 --source include/have_debug_sync.inc
+--source include/count_sessions.inc
 
 ####
 # Bump rows_examined count whenever MyRocks filters out a row due to expired TTL
@@ -52,5 +53,7 @@ set debug_sync='RESET';
 set global rocksdb_debug_ttl_read_filter_ts = DEFAULT;
 drop table t_re;
 
-disconnect conn1;
-disconnect conn2;
+--disconnect conn1
+--disconnect conn2
+--connection default
+--source include/wait_until_count_sessions.inc

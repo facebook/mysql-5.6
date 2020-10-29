@@ -1,5 +1,4 @@
 set @old_debug = @@global.debug;
-drop table if exists t1;
 set @@global.debug = '+d,information_schema_global_info';
 set @@global.debug = '+d,rocksdb_drop_cf';
 create table t1 (

@@ -1,5 +1,6 @@
 --source include/have_rocksdb.inc
 --source include/have_debug_sync.inc
+--source include/count_sessions.inc
 
 set debug_sync='RESET';
 set global rocksdb_debug_ttl_read_filter_ts = -10;
@@ -115,3 +116,5 @@ set global rocksdb_debug_ttl_read_filter_ts = DEFAULT;
 DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t3;
+
+--source include/wait_until_count_sessions.inc

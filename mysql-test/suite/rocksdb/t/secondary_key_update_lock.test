@@ -1,4 +1,5 @@
 --source include/have_rocksdb.inc
+--source include/count_sessions.inc
 
 # Tests if locks are held for the secondary keys of old rows in updates
 
@@ -24,3 +25,4 @@ select * from t1;
 connection default;
 drop table t1;
 disconnect con;
+--source include/wait_until_count_sessions.inc
