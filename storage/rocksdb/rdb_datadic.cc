@@ -3761,8 +3761,12 @@ struct Rdb_validate_tbls : public Rdb_tables_scanner {
 int Rdb_validate_tbls::add_table(Rdb_tbl_def *tdef) {
   DBUG_ASSERT(tdef != nullptr);
 
-  /* Add the database/table into the list that are not temp table */
-  if (tdef->base_tablename().find(tmp_file_prefix) == std::string::npos) {
+  /*
+    Add the database/table into the list that are not temp table.
+    Also skip over truncate temp table.
+  */
+  if (tdef->base_tablename().find(tmp_file_prefix) == std::string::npos &&
+      tdef->base_tablename().find(TRUNCATE_TABLE_PREFIX) == std::string::npos) {
     bool is_partition = tdef->base_partition().size() != 0;
     m_list[tdef->base_dbname()].insert(
         tbl_info_t(tdef->base_tablename(), is_partition));
