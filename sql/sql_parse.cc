@@ -222,7 +222,7 @@ static void sql_kill(THD *thd, my_thread_id id, bool only_kill_query);
 
 const char *hlc_ts_lower_bound = "hlc_ts_lower_bound";
 
-const std::string Command_names::m_names[] = {
+const std::string Command_names::m_names[COM_TOP_END] = {
     "Sleep",
     "Quit",
     "Init DB",
@@ -257,7 +257,228 @@ const std::string Command_names::m_names[] = {
     "Reset Connection",
     "clone",
     "Group Replication Data Stream subscription",
-    "Error"  // Last command number
+    "Error",  // Last command number
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 40
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 50
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 60
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 70
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 80
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 90
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 100
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 110
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 120
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 130
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 140
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 150
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 160
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 170
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 180
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 190
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 200
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 210
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 220
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 230
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 240
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",  // 250
+    "",
+    "",
+    "Error",                    // COM_TOP_BEGIN
+    "Send Replica Statistics",  // COM_SEND_REPLICA_STATISTICS
+    "Query Attrs"               // COM_QUERY_ATTRS
 };
 
 const std::string &Command_names::translate(const System_variables &sysvars) {
@@ -502,7 +723,7 @@ static bool check_and_report_require_row_format_violation(THD *thd) {
 */
 
 uint sql_command_flags[SQLCOM_END + 1];
-uint server_command_flags[COM_END + 1];
+uint server_command_flags[COM_TOP_END];
 
 void init_sql_command_flags() {
   /* Initialize the server command flags array. */
@@ -1962,6 +2183,13 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
       // TODO: access of protocol_classic should be removed
       if (!register_replica(thd, thd->get_protocol_classic()->get_raw_packet(),
                             thd->get_protocol_classic()->get_packet_length()))
+        my_ok(thd);
+      break;
+    }
+    case COM_SEND_REPLICA_STATISTICS: {
+      if (!store_replica_stats(
+              thd, thd->get_protocol_classic()->get_raw_packet(),
+              thd->get_protocol_classic()->get_packet_length()))
         my_ok(thd);
       break;
     }

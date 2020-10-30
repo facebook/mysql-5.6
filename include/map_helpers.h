@@ -87,13 +87,24 @@ typename Container::iterator erase_specific_element(
 template <class T>
 using unique_ptr_with_deleter = std::unique_ptr<T, void (*)(T *)>;
 
+template <typename T, bool call_destructor>
 struct My_free_deleter {
+  void operator()(void *ptr) const {
+    reinterpret_cast<T *>(ptr)->~T();
+    my_free(ptr);
+  }
+};
+
+template <typename T>
+struct My_free_deleter<T, false> {
   void operator()(void *ptr) const { my_free(ptr); }
 };
 
 /** std::unique_ptr, but with my_free as deleter. */
 template <class T>
-using unique_ptr_my_free = std::unique_ptr<T, My_free_deleter>;
+using unique_ptr_my_free = std::unique_ptr<
+    T, My_free_deleter<T, !std::is_array<T>::value &&
+                              !std::is_trivially_destructible<T>::value>>;
 
 struct Free_deleter {
   void operator()(void *ptr) const { free(ptr); }

@@ -228,7 +228,7 @@ enum options_client {
 /**
   Name of the performance schema database.
 */
-#define PERFORMANCE_SCHEMA_DB_NAME "performance_schema"
+#define PERFORMANCE_SCHEMA_DB_NAME_MACRO "performance_schema"
 
 /**
   First mysql version supporting the sys schema.

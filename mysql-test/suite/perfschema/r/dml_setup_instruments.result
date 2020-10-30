@@ -48,9 +48,9 @@ wait/synch/cond/sql/COND_flush_thread_cache	YES	YES	singleton	NULL	0	NULL
 wait/synch/cond/sql/COND_manager	YES	YES	singleton	NULL	0	NULL
 wait/synch/cond/sql/COND_queue_state	YES	YES	singleton	NULL	0	NULL
 wait/synch/cond/sql/COND_server_started	YES	YES	singleton	NULL	0	NULL
+wait/synch/cond/sql/COND_slave_stats_daemon	YES	YES	singleton	NULL	0	NULL
 wait/synch/cond/sql/COND_thd_list	YES	YES		NULL	0	NULL
 wait/synch/cond/sql/COND_thr_lock	YES	YES		NULL	0	NULL
-wait/synch/cond/sql/COND_thread_cache	YES	YES	singleton	NULL	0	NULL
 select * from performance_schema.setup_instruments
 where name='Wait';
 select * from performance_schema.setup_instruments

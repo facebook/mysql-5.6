@@ -538,7 +538,7 @@ static int begin_packet_write_state(NET *net, uchar command,
   }
   NET_ASYNC *net_async = NET_ASYNC_DATA(net);
   size_t total_len = packet_len + prefix_len;
-  bool include_command = (command != COM_END);
+  bool include_command = (command < COM_END) || (command > COM_TOP_BEGIN);
   if (include_command) {
     ++total_len;
   }

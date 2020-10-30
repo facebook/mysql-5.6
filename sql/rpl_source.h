@@ -24,7 +24,9 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include <stddef.h>
+#include <list>
 #include <string>  // std::string
+#include <vector>
 
 #include "libbinlogevents/include/uuid.h"  // UUID
 #include "map_helpers.h"
@@ -33,6 +35,7 @@
 #include "my_thread_local.h"  // my_thread_id
 #include "mysql_com.h"        // USERNAME_LENGTH
 #include "sql/sql_const.h"    // MAX_PASSWORD_LENGTH
+#include "storage/perfschema/table_replica_statistics.h"
 
 struct Gtid;
 struct snapshot_info_st;
@@ -46,6 +49,18 @@ extern int max_binlog_dump_events;
 extern bool opt_sporadic_binlog_dump_fail;
 extern bool opt_show_replica_auth_info;
 
+/*
+ * SlaveStats struct contains the statistics continuously sent by slaves to the
+ * master
+ */
+struct SLAVE_STATS {
+  int server_id;
+  int timestamp;
+  int milli_sec_behind_master;
+
+  explicit SLAVE_STATS(uchar *packet);
+};
+
 struct REPLICA_INFO {
   uint32 server_id;
   uint32 rpl_recovery_rank, master_id;
@@ -53,6 +68,7 @@ struct REPLICA_INFO {
   char user[USERNAME_LENGTH + 1];
   char password[MAX_PASSWORD_LENGTH + 1];
   uint16 port;
+  std::list<SLAVE_STATS> slave_stats;
   THD *thd;
   binary_log::Uuid replica_uuid;
   bool valid_replica_uuid;
@@ -62,6 +78,7 @@ using thd_to_slave_info_container = malloc_unordered_map<THD *, REPLICA_INFO>;
 thd_to_slave_info_container copy_slaves();
 
 bool is_semi_sync_slave(THD *thd, bool need_lock = true);
+int store_replica_stats(THD *thd, uchar *packet, uint packet_length);
 int register_replica(THD *thd, uchar *packet, size_t packet_length);
 void unregister_replica(THD *thd, bool only_mine, bool need_lock_slave_list);
 bool show_replicas(THD *thd);
@@ -133,6 +150,8 @@ void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
                        Gtid_set *gtid_set, uint32 flags);
 
 bool reset_master(THD *thd, bool unlock_read_lock);
+
+std::vector<replica_statistics_row> get_all_replica_statistics();
 
 class user_var_entry;
 /**

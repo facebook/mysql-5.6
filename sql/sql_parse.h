@@ -160,7 +160,7 @@ class Command_names {
     Array indexed by enum_server_command, where each element is a
     description string.
   */
-  static const std::string m_names[];
+  static const std::string m_names[COM_TOP_END];
   /**
     Command whose name depends on @@terminology_use_previous.
 
@@ -201,7 +201,7 @@ class Command_names {
   */
   static enum_server_command int_to_cmd(int cmd) {
     assert(cmd >= 0);
-    assert(cmd <= COM_END);
+    assert(cmd < COM_TOP_END);
     return static_cast<enum_server_command>(cmd);
   }
 

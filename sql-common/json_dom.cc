@@ -66,6 +66,7 @@
 #include "sql/current_thd.h"  // current_thd
 #include "sql/derror.h"       // ER_THD
 #include "sql/field.h"
+#include "sql/handler.h"
 #include "sql/psi_memory_key.h"  // key_memory_JSON
 #include "sql/sql_class.h"       // THD
 #include "sql/sql_const.h"       // STACK_MIN_SIZE
