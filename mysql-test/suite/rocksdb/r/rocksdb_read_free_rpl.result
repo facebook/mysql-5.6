@@ -133,7 +133,7 @@ include/sync_slave_sql_with_master.inc
 [connection slave]
 select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 read_free
-true
+false
 [connection master]
 include/diff_tables.inc [master:t1, slave:t1]
 
@@ -163,7 +163,7 @@ include/sync_slave_sql_with_master.inc
 [connection slave]
 select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 read_free
-true
+false
 [connection master]
 include/diff_tables.inc [master:t1, slave:t1]
 
@@ -407,7 +407,7 @@ include/sync_slave_sql_with_master.inc
 [connection slave]
 select case when variable_value-@up > 0 then 'false' else 'true' end as read_free from performance_schema.global_status where variable_name='rocksdb_num_get_for_update_calls';
 read_free
-true
+false
 select * from t2;
 id	i1	i2
 1	1	1
