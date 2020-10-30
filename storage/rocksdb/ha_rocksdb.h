@@ -814,14 +814,14 @@ class ha_rocksdb : public my_core::handler {
   int get_pk_for_update(struct update_row_info *const row_info);
   int check_and_lock_unique_pk(const uint key_id,
                                const struct update_row_info &row_info,
-                               bool *const found)
+                               bool *const found, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_and_lock_sk(const uint key_id,
                         const struct update_row_info &row_info,
-                        bool *const found)
+                        bool *const found, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
   int check_uniqueness_and_lock(const struct update_row_info &row_info,
-                                bool pk_changed)
+                                bool pk_changed, const bool skip_unique_check)
       MY_ATTRIBUTE((__warn_unused_result__));
   bool over_bulk_load_threshold(int *err)
       MY_ATTRIBUTE((__warn_unused_result__));
