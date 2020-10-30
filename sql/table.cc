@@ -6175,6 +6175,15 @@ void TABLE::set_keyread(bool flag) {
   }
 }
 
+void TABLE::set_storage_handler(handler *file_arg) {
+  // Ensure consistent call order
+  assert((file == nullptr && file_arg != nullptr) ||
+         (file != nullptr && file_arg == nullptr));
+  assert(!is_created());
+  assert(file_arg->inited == handler::NONE);
+  file = file_arg;
+}
+
 void TABLE::set_created() {
   if (created) return;
   if (key_read) file->ha_extra(HA_EXTRA_KEYREAD);

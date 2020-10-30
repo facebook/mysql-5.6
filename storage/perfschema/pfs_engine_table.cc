@@ -121,6 +121,7 @@
 #include "storage/perfschema/table_replication_applier_status_by_worker.h"
 /* For replication related perfschema tables. */
 #include "storage/perfschema/table_log_status.h"
+#include "storage/perfschema/table_replica_statistics.h"
 #include "storage/perfschema/table_replication_asynchronous_connection_failover.h"
 #include "storage/perfschema/table_replication_connection_configuration.h"
 #include "storage/perfschema/table_replication_connection_status.h"
@@ -562,6 +563,7 @@ static PFS_engine_table_share *all_shares[] = {
     &table_session_connect_attrs::m_share,
     &table_session_account_connect_attrs::m_share,
     &table_session_query_attrs::m_share,
+    &table_replica_statistics::m_share,
 
     &table_keyring_keys::s_share,
 

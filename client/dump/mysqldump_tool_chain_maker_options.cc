@@ -210,7 +210,7 @@ void Mysqldump_tool_chain_maker_options::process_positional_options(
     m_object_filter.m_databases_excluded.push_back(
         std::make_pair("", INFORMATION_SCHEMA_DB_NAME));
     m_object_filter.m_databases_excluded.push_back(
-        std::make_pair("", PERFORMANCE_SCHEMA_DB_NAME));
+        std::make_pair("", PERFORMANCE_SCHEMA_DB_NAME_MACRO));
     m_object_filter.m_databases_excluded.push_back(
         std::make_pair("", "ndbinfo"));
     m_object_filter.m_databases_excluded.push_back(std::make_pair("", "sys"));

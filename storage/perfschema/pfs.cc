@@ -3296,7 +3296,7 @@ void pfs_set_thread_command_vc(int command) {
   PFS_thread *pfs = my_thread_get_THR_PFS();
 
   assert(command >= 0);
-  assert(command <= (int)COM_END);
+  assert(command <= (int)COM_END || command > (int)COM_TOP_BEGIN);
 
   if (likely(pfs != nullptr)) {
     pfs->m_command = command;

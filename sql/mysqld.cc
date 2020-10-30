@@ -1054,6 +1054,7 @@ PSI_file_key key_file_binlog_index_cache;
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_status;
 static PSI_mutex_key key_LOCK_manager;
+static PSI_mutex_key key_LOCK_slave_stats_daemon;
 static PSI_mutex_key key_LOCK_crypt;
 static PSI_mutex_key key_LOCK_user_conn;
 static PSI_mutex_key key_LOCK_global_system_variables;
@@ -1095,6 +1096,7 @@ static PSI_cond_key key_BINLOG_COND_flush_queue;
 static PSI_cond_key key_BINLOG_update_cond;
 static PSI_cond_key key_BINLOG_prep_xids_cond;
 static PSI_cond_key key_COND_manager;
+static PSI_cond_key key_COND_slave_stats_daemon;
 static PSI_cond_key key_COND_compress_gtid_table;
 static PSI_thread_key key_thread_signal_hand;
 static PSI_thread_key key_thread_main;
@@ -1394,6 +1396,9 @@ uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
 bool opt_log_global_var_changes;
 bool is_slave = false;
+/* Counter to count the number of slave_stats_daemon threads created. Should be
+ * at most 1. */
+std::atomic<int> slave_stats_daemon_thread_counter(0);
 bool read_only_slave;
 bool flush_only_old_table_cache_entries = false;
 
@@ -1476,6 +1481,12 @@ ulonglong global_conn_mem_counter = 0;
 bool opt_group_replication_plugin_hooks = false;
 bool opt_core_file = false;
 bool skip_core_dump_on_error = false;
+/* Controls num most recent data points to collect for
+ * information_schema.write_statistics */
+uint write_stats_count;
+/* Controls the frequency(seconds) at which write stats and replica lag stats
+ * are collected*/
+ulong write_stats_frequency;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
@@ -2882,6 +2893,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_log_throttle_ddl);
   mysql_mutex_destroy(&LOCK_status);
   mysql_mutex_destroy(&LOCK_manager);
+  mysql_mutex_destroy(&LOCK_slave_stats_daemon);
   mysql_mutex_destroy(&LOCK_crypt);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_rwlock_destroy(&LOCK_sys_init_connect);
@@ -2907,6 +2919,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_password_history);
   mysql_mutex_destroy(&LOCK_password_reuse_interval);
   mysql_cond_destroy(&COND_manager);
+  mysql_cond_destroy(&COND_slave_stats_daemon);
 #ifdef _WIN32
   mysql_cond_destroy(&COND_handler_count);
   mysql_mutex_destroy(&LOCK_handler_count);
@@ -5036,7 +5049,7 @@ static void init_sql_statement_names() {
 
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 PSI_statement_info sql_statement_info[(uint)SQLCOM_END + 1];
-PSI_statement_info com_statement_info[(uint)COM_END + 1];
+PSI_statement_info com_statement_info[(uint)COM_TOP_END];
 
 /**
   Initialize the command names array.
@@ -5066,7 +5079,7 @@ static void init_sql_statement_info() {
 static void init_com_statement_info() {
   uint index;
 
-  for (index = 0; index < (uint)COM_END + 1; index++) {
+  for (index = 0; index < array_elements(com_statement_info); index++) {
     com_statement_info[index].m_name =
         Command_names::str_notranslate(index).c_str();
     com_statement_info[index].m_flags = 0;
@@ -5777,6 +5790,8 @@ int init_common_variables() {
 static int init_thread_environment() {
   mysql_mutex_init(key_LOCK_status, &LOCK_status, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_manager, &LOCK_manager, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_slave_stats_daemon, &LOCK_slave_stats_daemon,
+                   MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_crypt, &LOCK_crypt, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_user_conn, &LOCK_user_conn, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_global_system_variables,
@@ -5820,6 +5835,7 @@ static int init_thread_environment() {
 #endif
 
   mysql_cond_init(key_COND_manager, &COND_manager);
+  mysql_cond_init(key_COND_slave_stats_daemon, &COND_slave_stats_daemon);
   mysql_mutex_init(key_LOCK_server_started, &LOCK_server_started,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started);
@@ -12608,6 +12624,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_handler_count, "LOCK_handler_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #endif
   { &key_LOCK_manager, "LOCK_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_slave_stats_daemon, "LOCK_slave_stats_daemon", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_prepared_stmt_count, "LOCK_prepared_stmt_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replica_list, "LOCK_replica_list", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_sql_replica_skip_counter, "LOCK_sql_replica_skip_counter", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -12771,6 +12788,7 @@ static PSI_cond_info all_server_conds[]=
   { &key_COND_handler_count, "COND_handler_count", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #endif
   { &key_COND_manager, "COND_manager", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_COND_slave_stats_daemon, "COND_slave_stats_daemon", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_COND_server_started, "COND_server_started", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
 #if !defined(_WIN32)
   { &key_COND_socket_listener_active, "COND_socket_listener_active", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
@@ -12803,6 +12821,7 @@ static PSI_cond_info all_server_conds[]=
 
 PSI_thread_key key_thread_bootstrap;
 PSI_thread_key key_thread_handle_manager;
+PSI_thread_key key_thread_handle_slave_stats_daemon;
 PSI_thread_key key_thread_one_connection;
 PSI_thread_key key_thread_compress_gtid_table;
 PSI_thread_key key_thread_parser_service;
@@ -12819,6 +12838,7 @@ static PSI_thread_info all_server_threads[]=
 #endif /* _WIN32 */
   { &key_thread_bootstrap, "bootstrap", "boot", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_handle_manager, "manager", "handle_mgr", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_thread_handle_slave_stats_daemon, "slave_stats_daemon", "slave_stat", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_main, "main", "main", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_thread_one_connection, "one_connection", "connection",
 PSI_FLAG_USER | PSI_FLAG_NO_SEQNUM, 0, PSI_DOCUMENT_ME},

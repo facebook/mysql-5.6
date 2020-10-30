@@ -33,6 +33,7 @@ dml_table_statistics_by_table.test
 idx_binary_log_transaction_compression_stats.test
 idx_esms_by_all.test
 idx_log_status.test
+idx_replica_statistics.test
 idx_replication_applier_filters.test
 idx_replication_applier_global_filters.test
 idx_replication_asynchronous_connection_failover.test

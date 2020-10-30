@@ -52,7 +52,6 @@
 #include "sql/mdl.h"  // MDL_wait_for_subgraph
 #include "sql/mem_root_array.h"
 #include "sql/opt_costmodel.h"  // Cost_model_table
-#include "sql/partition_info.h"
 #include "sql/record_buffer.h"  // Record_buffer
 #include "sql/sql_bitmap.h"     // Bitmap
 #include "sql/sql_const.h"
@@ -1893,14 +1892,8 @@ struct TABLE {
   bool has_storage_handler() const { return file != nullptr; }
 
   /// Set storage handler for temporary table
-  void set_storage_handler(handler *file_arg) {
-    // Ensure consistent call order
-    assert((file == nullptr && file_arg != nullptr) ||
-           (file != nullptr && file_arg == nullptr));
-    assert(!is_created());
-    assert(file_arg->inited == handler::NONE);
-    file = file_arg;
-  }
+  void set_storage_handler(handler *file_arg);
+
   /// Return true if table is instantiated, and false otherwise.
   bool is_created() const { return created; }
 

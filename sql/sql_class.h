@@ -106,7 +106,8 @@
 #include "sql/sql_plugin_ref.h"
 #include "sql/sys_vars_resource_mgr.h"  // Session_sysvar_resource_manager
 #include "sql/system_variables.h"       // system_variables
-#include "sql/transaction_info.h"       // Ha_trx_info
+#include "sql/table.h"
+#include "sql/transaction_info.h"  // Ha_trx_info
 #include "sql/xa.h"
 #include "sql_db.h"
 #include "sql_string.h"

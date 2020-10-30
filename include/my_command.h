@@ -102,7 +102,10 @@ enum enum_server_command {
     The following are Facebook specific commands. They are put at the top end
     to avoid conflicting with upstream.
   */
+  COM_TOP_BEGIN = 253,
+  COM_SEND_REPLICA_STATISTICS = 254,
   COM_QUERY_ATTRS = 255,
+  COM_TOP_END = 256,
 };
 
 #endif /* _mysql_command_h */

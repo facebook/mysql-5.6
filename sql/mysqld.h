@@ -512,6 +512,9 @@ inline ulonglong microseconds_to_my_timer(double when) {
 }
 
 extern bool is_slave;
+extern std::atomic<int> slave_stats_daemon_thread_counter;
+extern uint write_stats_count;
+extern ulong write_stats_frequency;
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -690,6 +693,7 @@ extern PSI_cond_key key_commit_order_manager_cond;
 extern PSI_cond_key key_COND_group_replication_connection_cond_var;
 extern PSI_thread_key key_thread_bootstrap;
 extern PSI_thread_key key_thread_handle_manager;
+extern PSI_thread_key key_thread_handle_slave_stats_daemon;
 extern PSI_thread_key key_thread_one_connection;
 extern PSI_thread_key key_thread_compress_gtid_table;
 extern PSI_thread_key key_thread_parser_service;
@@ -847,7 +851,7 @@ extern PSI_statement_info sql_statement_info[(uint)SQLCOM_END + 1];
   Statement instrumentation keys (com).
   The last entry, at [COM_END], is for packet errors.
 */
-extern PSI_statement_info com_statement_info[(uint)COM_END + 1];
+extern PSI_statement_info com_statement_info[(uint)COM_TOP_END];
 
 /**
   Statement instrumentation key for replication.
@@ -897,6 +901,7 @@ extern mysql_mutex_t LOCK_status;
 extern mysql_mutex_t LOCK_uuid_generator;
 extern mysql_mutex_t LOCK_crypt;
 extern mysql_mutex_t LOCK_manager;
+extern mysql_mutex_t LOCK_slave_stats_daemon;
 extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
@@ -926,6 +931,7 @@ extern mysql_mutex_t LOCK_global_conn_mem_limit;
 extern mysql_cond_t COND_server_started;
 extern mysql_cond_t COND_compress_gtid_table;
 extern mysql_cond_t COND_manager;
+extern mysql_cond_t COND_slave_stats_daemon;
 
 extern mysql_rwlock_t LOCK_sys_init_connect;
 extern mysql_rwlock_t LOCK_sys_init_replica;
