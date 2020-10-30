@@ -738,6 +738,7 @@ static Sys_var_long Sys_pfs_events_stages_history_size(
   Variable performance_schema_max_statement_classes.
   The default number of statement classes is the sum of:
   - COM_END for all regular "statement/com/...",
+  - COM_MAX - COM_TOP_END - 1 for commands residing at the top end,
   - 1 for "statement/com/new_packet", for unknown enum_server_command
   - 1 for "statement/com/Error", for invalid enum_server_command
   - SQLCOM_END for all regular "statement/sql/...",
@@ -752,7 +753,8 @@ static Sys_var_ulong Sys_pfs_max_statement_classes(
     "Maximum number of statement instruments.",
     READ_ONLY GLOBAL_VAR(pfs_param.m_statement_class_sizing),
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 256),
-    DEFAULT((ulong)SQLCOM_END + (ulong)COM_END + 5 +
+    DEFAULT((ulong)SQLCOM_END + (ulong)COM_END +
+            (COM_TOP_END - COM_TOP_BEGIN - 1) + 5 +
             SP_PSI_STATEMENT_INFO_COUNT + CLONE_PSI_STATEMENT_COUNT),
     BLOCK_SIZE(1), PFS_TRAILING_PROPERTIES);
 
@@ -8137,3 +8139,31 @@ static Sys_var_ulonglong Sys_apply_log_retention_duration(
     "Minimum duration (mins) that apply logs need to be retained.",
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
+
+static Sys_var_uint Sys_write_stats_count(
+    "write_stats_count",
+    "Maximum number of most recent data points to be collected for "
+    "information_schema.write_statistics & "
+    "information_schema.replica_statistics "
+    "time series.",
+    GLOBAL_VAR(write_stats_count), CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(nullptr));
+
+/* Update the time interval for collecting write statistics. Signal
+ * the thread to send replica lag stats if it is blocked on interval update */
+static bool update_write_stats_frequency(sys_var *, THD *, enum_var_type) {
+  mysql_mutex_lock(&LOCK_slave_stats_daemon);
+  mysql_cond_signal(&COND_slave_stats_daemon);
+  mysql_mutex_unlock(&LOCK_slave_stats_daemon);
+
+  return false;  // success
+}
+
+static Sys_var_ulong Sys_write_stats_frequency(
+    "write_stats_frequency",
+    "This variable determines the frequency(seconds) at which write "
+    "stats and replica lag stats are collected on primaries",
+    GLOBAL_VAR(write_stats_frequency), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));

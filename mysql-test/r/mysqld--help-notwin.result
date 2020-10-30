@@ -2323,6 +2323,14 @@ The following options may be given as the first argument:
  inversion optimization for moving window frames also for
  floating values.
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
+ --write-stats-count[=#] 
+ Maximum number of most recent data points to be collected
+ for information_schema.write_statistics &
+ information_schema.replica_statistics time series.
+ --write-stats-frequency[=#] 
+ This variable determines the frequency(seconds) at which
+ write stats and replica lag stats are collected on
+ primaries
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
  library is selected.
@@ -2654,7 +2662,7 @@ performance-schema-max-socket-classes 10
 performance-schema-max-socket-instances -1
 performance-schema-max-sql-text-length 1024
 performance-schema-max-stage-classes 175
-performance-schema-max-statement-classes 229
+performance-schema-max-statement-classes 231
 performance-schema-max-statement-stack 10
 performance-schema-max-table-handles -1
 performance-schema-max-table-instances -1
@@ -2984,6 +2992,8 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 windowing-use-high-precision TRUE
+write-stats-count 0
+write-stats-frequency 0
 zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type

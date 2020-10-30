@@ -29,6 +29,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "binlog.h"
 #include "m_ctype.h"
@@ -156,6 +157,7 @@ int register_slave(THD *thd, uchar *packet, size_t packet_length) {
   unique_ptr_my_free<SLAVE_INFO> si((SLAVE_INFO *)my_malloc(
       key_memory_SLAVE_INFO, sizeof(SLAVE_INFO), MYF(MY_WME)));
   if (si == nullptr) return 1;
+  new (si.get()) SLAVE_INFO;
 
   /* 4 bytes for the server id */
   if (p + 4 > p_end) {
@@ -191,6 +193,73 @@ int register_slave(THD *thd, uchar *packet, size_t packet_length) {
 err:
   my_message(ER_UNKNOWN_ERROR, errmsg, MYF(0)); /* purecov: inspected */
   return 1;
+}
+
+SLAVE_STATS::SLAVE_STATS(uchar *packet) {
+  /* 4 bytes for the server id */
+  /* 4 bytes timestamp */
+  /* 4 bytes for milli_second_behind_master */
+  server_id = uint4korr(packet);
+  packet += 4;
+  timestamp = uint4korr(packet);
+  packet += 4;
+  milli_sec_behind_master = uint4korr(packet);
+}
+
+/**
+  Populates slave statistics data-point into the slave_lists hash table.
+  These stats are sent by slaves to master at regular intervals.
+
+  @return
+    0	ok
+  @return
+    1	Error.   Error message sent to client
+*/
+int store_replica_stats(THD *thd, uchar *packet, uint packet_length) {
+  if (check_access(thd, REPL_SLAVE_ACL, any_db, nullptr, nullptr, 0, 0))
+    return 1;
+  if (sizeof(SLAVE_STATS) > packet_length) {
+    my_error(ER_MALFORMED_PACKET, MYF(0));
+    return 1;
+  }
+
+  SLAVE_STATS stats(packet);
+
+  mysql_mutex_lock(&LOCK_slave_list);
+  auto it = slave_list.find(stats.server_id);
+  if (it != slave_list.end()) {
+    SLAVE_INFO *si = it->second.get();
+
+    // We are over the configured size. Erase older entries first.
+    while (!si->slave_stats.empty() &&
+           si->slave_stats.size() >= write_stats_count) {
+      si->slave_stats.pop_back();
+    }
+
+    if (write_stats_count > 0) {
+      si->slave_stats.push_front(stats);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
+  return 0;
+}
+
+/**
+  Returns a vector of replica_statistics_row objects to be used to populate
+  performance_schema.replica_statistics table.
+*/
+std::vector<replica_statistics_row> get_all_replica_statistics() {
+  std::vector<replica_statistics_row> replica_statistics;
+  mysql_mutex_lock(&LOCK_slave_list);
+  for (const auto &key_and_value : slave_list) {
+    SLAVE_INFO *si = key_and_value.second.get();
+    for (const SLAVE_STATS &stats : si->slave_stats) {
+      replica_statistics.emplace_back(si->server_id, stats.timestamp,
+                                      stats.milli_sec_behind_master);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_slave_list);
+  return replica_statistics;
 }
 
 void unregister_slave(THD *thd, bool only_mine, bool need_lock_slave_list) {

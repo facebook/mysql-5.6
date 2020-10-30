@@ -85,7 +85,10 @@ enum enum_server_command {
   COM_RESET_CONNECTION,
   COM_CLONE,
   COM_END,
+  COM_TOP_BEGIN = 253,
+  COM_SEND_REPLICA_STATISTICS = 254,
   COM_QUERY_ATTRS = 255,
+  COM_TOP_END = 256,
 };
 #include "my_compress.h"
 enum enum_compression_algorithm {

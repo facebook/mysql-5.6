@@ -201,10 +201,13 @@
    - add index dive cpu time to statement statistics
    - add compilation cpu time to statement statistics
    - add elapsed time to statement statistics
+
+  80020-008:
+   - add replica_statistics table
 */
 
-/* Version published now is 80020-006. i.e. 8.0.20 Facebook schema change no. 6.
+/* Version published now is 80020-008. i.e. 8.0.20 Facebook schema change no. 8.
  */
-static const uint PFS_DD_VERSION = 80020007;
+static const uint PFS_DD_VERSION = 80020008;
 
 #endif /* PFS_DD_VERSION_H */

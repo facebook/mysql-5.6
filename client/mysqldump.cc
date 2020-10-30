@@ -4649,7 +4649,8 @@ static int dump_all_databases() {
       continue;
 
     if (mysql_get_server_version(mysql) >= FIRST_PERFORMANCE_SCHEMA_VERSION &&
-        !my_strcasecmp(&my_charset_latin1, row[0], PERFORMANCE_SCHEMA_DB_NAME))
+        !my_strcasecmp(&my_charset_latin1, row[0],
+                       PERFORMANCE_SCHEMA_DB_NAME_MACRO))
       continue;
 
     if (mysql_get_server_version(mysql) >= FIRST_SYS_SCHEMA_VERSION &&
@@ -4676,7 +4677,7 @@ static int dump_all_databases() {
 
       if (mysql_get_server_version(mysql) >= FIRST_PERFORMANCE_SCHEMA_VERSION &&
           !my_strcasecmp(&my_charset_latin1, row[0],
-                         PERFORMANCE_SCHEMA_DB_NAME))
+                         PERFORMANCE_SCHEMA_DB_NAME_MACRO))
         continue;
 
       if (mysql_get_server_version(mysql) >= FIRST_SYS_SCHEMA_VERSION &&
@@ -5112,7 +5113,8 @@ static int dump_selected_tables(char *db, char **table_names, int tables) {
       !(mysql_get_server_version(mysql) >= FIRST_INFORMATION_SCHEMA_VERSION &&
         !my_strcasecmp(&my_charset_latin1, db, INFORMATION_SCHEMA_DB_NAME)) &&
       !(mysql_get_server_version(mysql) >= FIRST_PERFORMANCE_SCHEMA_VERSION &&
-        !my_strcasecmp(&my_charset_latin1, db, PERFORMANCE_SCHEMA_DB_NAME))) {
+        !my_strcasecmp(&my_charset_latin1, db,
+                       PERFORMANCE_SCHEMA_DB_NAME_MACRO))) {
     if (mysql_real_query(mysql, lock_tables_query.str,
                          (ulong)(lock_tables_query.length - 1))) {
       if (!opt_force) {

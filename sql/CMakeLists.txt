@@ -362,6 +362,7 @@ SET(SQL_SHARED_SOURCES
   filesort.cc
   filesort_utils.cc
   aggregate_check.cc
+  slave_stats_daemon.cc
   gstream.cc
   handler.cc
   hash_join_buffer.cc

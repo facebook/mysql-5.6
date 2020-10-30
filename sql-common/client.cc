@@ -1457,6 +1457,7 @@ bool cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
     case COM_STMT_SEND_LONG_DATA:
     case COM_STMT_CLOSE:
     case COM_REGISTER_SLAVE:
+    case COM_SEND_REPLICA_STATISTICS:
     case COM_QUIT:
       break;
 
@@ -1567,7 +1568,7 @@ net_async_status cli_advanced_command_nonblocking(
       can happen if a client sends a query but does not reap
       the result before attempting to close the connection.
     */
-    DBUG_ASSERT(command <= COM_END || command == COM_QUERY_ATTRS);
+    DBUG_ASSERT(command <= COM_END || command > COM_TOP_BEGIN);
     net_clear(&mysql->net, (command != COM_QUIT));
     net_async->async_send_command_status = NET_ASYNC_SEND_COMMAND_WRITE_COMMAND;
   }

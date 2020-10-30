@@ -24,6 +24,7 @@
 #define RPL_SLAVE_H
 
 #include <limits.h>
+#include <mysql.h>
 #include <sys/types.h>
 #include <atomic>
 #include <mutex>
@@ -454,6 +455,8 @@ int flush_master_info(Master_info *mi, bool force, bool need_lock = true,
                       bool flush_relay_log = true);
 void add_slave_skip_errors(const char *arg);
 void set_slave_skip_errors(char **slave_skip_errors_ptr);
+void configure_master_connection_options(MYSQL *mysql, Master_info *mi);
+int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi);
 int add_new_channel(Master_info **mi, const char *channel);
 /**
   Terminates the slave threads according to the given mask.

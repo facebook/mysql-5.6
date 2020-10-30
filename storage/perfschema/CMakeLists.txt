@@ -157,6 +157,7 @@ table_session_connect.h
 table_session_connect_attrs.h
 table_session_account_connect_attrs.h
 table_session_query_attrs.h
+table_replica_statistics.h
 table_replication_connection_configuration.h
 table_replication_group_members.h
 table_replication_connection_status.h
@@ -299,6 +300,7 @@ table_session_connect.cc
 table_session_connect_attrs.cc
 table_session_account_connect_attrs.cc
 table_session_query_attrs.cc
+table_replica_statistics.cc
 table_replication_connection_configuration.cc
 table_replication_group_members.cc
 table_replication_connection_status.cc
@@ -362,4 +364,3 @@ MARK_AS_ADVANCED(DISABLE_PSI_MEMORY)
 MARK_AS_ADVANCED(DISABLE_PSI_TRANSACTION)
 MARK_AS_ADVANCED(DISABLE_PSI_ERROR)
 MARK_AS_ADVANCED(DISABLE_PSI_DATA_LOCK)
-

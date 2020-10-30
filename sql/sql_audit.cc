@@ -841,7 +841,8 @@ class Ignore_command_start_error_handler : public Audit_error_handler {
     if (command == COM_QUIT || command == COM_PING ||
         command == COM_SLEEP || /* Deprecated commands from here. */
         command == COM_CONNECT || command == COM_TIME ||
-        command == COM_DELAYED_INSERT || command == COM_END) {
+        command == COM_DELAYED_INSERT || command == COM_END ||
+        command == COM_TOP_BEGIN || command == COM_TOP_END) {
       return true;
     }
 

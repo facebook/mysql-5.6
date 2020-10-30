@@ -2054,7 +2054,7 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime) {
                     (unsigned int)thd->start_time.tv_sec);
   // query_length == 0 also appears to mean that this is a command
   if ((!thd->query().str || !thd->query().length) && len < buf_sz) {
-    if (thd->get_command() < COM_END)
+    if (thd->get_command() < COM_END || thd->get_command() > COM_TOP_BEGIN)
       len += snprintf(buf + len, buf_sz - len, "# administrator command: %s\n",
                       command_name[thd->get_command()].str);
     else

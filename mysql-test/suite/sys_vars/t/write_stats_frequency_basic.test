@@ -1,0 +1,44 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of write_stats_frequency is 0
+SELECT @@global.write_stats_frequency;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_stats_frequency;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_stats_frequency is a dynamic variable (change to 1)
+set @@global.write_stats_frequency = 1;
+SELECT @@global.write_stats_frequency;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_stats_frequency = 0;
+SELECT @@global.write_stats_frequency;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let $restart_parameters = restart: --write_stats_frequency=1
+--source include/restart_mysqld.inc
+
+SELECT @@global.write_stats_frequency;
+
+--echo restart the server with the default value (0)
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (0)
+SELECT @@global.write_stats_frequency;

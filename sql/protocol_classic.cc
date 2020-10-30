@@ -2904,7 +2904,7 @@ int Protocol_classic::get_command(COM_DATA *com_data,
 
   *cmd = (enum enum_server_command)(uchar)input_raw_packet[0];
 
-  if (*cmd >= COM_END && *cmd != COM_QUERY_ATTRS)
+  if (*cmd >= COM_END && *cmd <= COM_TOP_BEGIN)
     *cmd = COM_END;  // Wrong command
 
   DBUG_ASSERT(input_packet_length);

@@ -142,6 +142,7 @@
 #include "sql/rpl_slave_until_options.h"
 #include "sql/rpl_trx_boundary_parser.h"
 #include "sql/rpl_utility.h"
+#include "sql/slave_stats_daemon.h"  // stop_handle_slave_stats_daemon, start_handle_slave_stats_daemon
 #include "sql/sql_backup_lock.h"  // is_instance_backup_locked
 #include "sql/sql_class.h"        // THD
 #include "sql/sql_const.h"
@@ -3400,6 +3401,145 @@ static int write_ignored_events_info_to_relay_log(THD *thd, Master_info *mi) {
   return error;
 }
 
+/**
+  Returns slave lag duration relative to master.
+  @param mi Pointer to Master_info object for the IO thread.
+
+  @retval pair(sec_behind_master, milli_second_behind_master)
+  This function sets above values to -1 to represent nulls
+*/
+std::pair<longlong, longlong> get_time_lag_behind_master(Master_info *mi) {
+  longlong sec_behind_master = -1;
+  longlong milli_sec_behind_master = -1;
+  /*
+     The pseudo code to compute Seconds_Behind_Master:
+     if (SQL thread is running)
+     {
+       if (SQL thread processed all the available relay log)
+       {
+         if (IO thread is running)
+            print 0;
+         else
+            print NULL;
+       }
+        else
+          compute Seconds_Behind_Master;
+      }
+      else
+       print NULL;
+  */
+
+  bool sbm_is_null = false;
+  bool sbm_is_zero = false;
+  if (mi->rli->slave_running) {
+    time_t now = time(0);
+    /*
+       Check if SQL thread is at the end of relay log
+       Checking should be done using two conditions
+       condition1: compare the log positions and
+       condition2: compare the file names (to handle rotation case)
+    */
+    if (reset_seconds_behind_master &&
+        (mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
+        (!strcmp(mi->get_master_log_name(),
+                 mi->rli->get_group_master_log_name()))) {
+      if (mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)
+        sec_behind_master = 0LL;
+      else
+        sec_behind_master = -1;
+      sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+      sbm_is_null = !sbm_is_zero;
+    } else {
+      long time_diff = ((long)(now - mi->rli->last_master_timestamp) -
+                        mi->clock_diff_with_master);
+      /*
+        Apparently on some systems time_diff can be <0. Here are possible
+        reasons related to MySQL:
+        - the master is itself a slave of another master whose time is ahead.
+        - somebody used an explicit SET TIMESTAMP on the master.
+        Possible reason related to granularity-to-second of time functions
+        (nothing to do with MySQL), which can explain a value of -1:
+        assume the master's and slave's time are perfectly synchronized, and
+        that at slave's connection time, when the master's timestamp is read,
+        it is at the very end of second 1, and (a very short time later) when
+        the slave's timestamp is read it is at the very beginning of second
+        2. Then the recorded value for master is 1 and the recorded value for
+        slave is 2. At SHOW SLAVE STATUS time, assume that the difference
+        between timestamp of slave and rli->last_master_timestamp is 0
+        (i.e. they are in the same second), then we get 0-(2-1)=-1 as a result.
+        This confuses users, so we don't go below 0: hence the max().
+
+        last_master_timestamp == 0 (an "impossible" timestamp 1970) is a
+        special marker to say "consider we have caught up".
+      */
+      if (mi->rli->last_master_timestamp == 0) {
+        /*
+          If the I/O thread is encountering problems during initailization,
+          then display NULL instead of 0.
+        */
+        sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
+        sbm_is_null = !sbm_is_zero;
+      }
+      if (sbm_is_null) {
+        sec_behind_master = -1;
+      } else {
+        sec_behind_master =
+            (longlong)(mi->rli->last_master_timestamp ? max(0L, time_diff) : 0);
+      }
+    }
+  } else {
+    sec_behind_master = -1;
+    sbm_is_null = true;
+  }
+
+  // Milli_Seconds_Behind_Master
+  if (opt_binlog_trx_meta_data) {
+    if (sbm_is_null)
+      milli_sec_behind_master = -1;
+    else if (sbm_is_zero)
+      milli_sec_behind_master = 0LL;
+    else {
+      ulonglong now_millis =
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+              .count();
+      // adjust for clock mismatch
+      now_millis -= mi->clock_diff_with_master * 1000;
+      milli_sec_behind_master =
+          now_millis - mi->rli->last_master_timestamp_millis;
+    }
+  }
+  return std::make_pair(sec_behind_master, milli_sec_behind_master);
+}
+
+/**
+  Send milli_second_behind_master statistic to primary using
+  COM_SEND_REPLICA_STATISTICS
+*/
+int send_replica_statistics_to_master(MYSQL *mysql, Master_info *mi) {
+  uchar buf[1024];
+  uchar *pos = buf;
+  DBUG_ENTER("send_replica_statistics_to_master");
+
+  int timestamp = my_time(0);
+  std::pair<longlong, longlong> time_lag_behind_master =
+      get_time_lag_behind_master(mi);
+  longlong milli_sec_behind_master =
+      max((longlong)time_lag_behind_master.second, (longlong)0);
+
+  int4store(pos, server_id);
+  pos += 4;
+  int4store(pos, timestamp);
+  pos += 4;
+  int4store(pos, milli_sec_behind_master);
+  pos += 4;
+
+  if (simple_command(mysql, COM_SEND_REPLICA_STATISTICS, buf,
+                     (size_t)(pos - buf), 0)) {
+    DBUG_RETURN(1);
+  }
+  DBUG_RETURN(0);
+}
+
 static int register_slave_on_master(MYSQL *mysql, Master_info *mi,
                                     bool *suppress_warnings) {
   uchar buf[1024], *pos = buf;
@@ -3578,6 +3718,8 @@ static void show_slave_status_metadata(List<Item> &field_list,
                                            sizeof(ulong), MYSQL_TYPE_LONG));
   field_list.push_back(
       new Item_empty_string("Network_Namespace", NAME_LEN + 1));
+  field_list.push_back(
+      new Item_empty_string("Slave_Lag_Stats_Thread_Running", 3));
 }
 
 /**
@@ -3728,99 +3870,22 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
   protocol->store(mi->ssl_cipher, &my_charset_bin);
   protocol->store(mi->ssl_key, &my_charset_bin);
 
-  /*
-     The pseudo code to compute Seconds_Behind_Master:
-     if (SQL thread is running)
-     {
-       if (SQL thread processed all the available relay log)
-       {
-         if (IO thread is running)
-            print 0;
-         else
-            print NULL;
-       }
-        else
-          compute Seconds_Behind_Master;
-      }
-      else
-       print NULL;
-  */
+  std::pair<longlong, longlong> time_lag_behind_master =
+      get_time_lag_behind_master(mi);
 
-  bool sbm_is_null = false;
-  bool sbm_is_zero = false;
-  if (mi->rli->slave_running) {
-    /*
-       Check if SQL thread is at the end of relay log
-       Checking should be done using two conditions
-       condition1: compare the log positions and
-       condition2: compare the file names (to handle rotation case)
-    */
-    if (reset_seconds_behind_master &&
-        (mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
-        (!strcmp(mi->get_master_log_name(),
-                 mi->rli->get_group_master_log_name()))) {
-      if (mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)
-        protocol->store(0LL);
-      else
-        protocol->store_null();
-      sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
-      sbm_is_null = !sbm_is_zero;
-    } else {
-      long time_diff = ((long)(time(nullptr) - mi->rli->last_master_timestamp) -
-                        mi->clock_diff_with_master);
-      /*
-        Apparently on some systems time_diff can be <0. Here are possible
-        reasons related to MySQL:
-        - the master is itself a slave of another master whose time is ahead.
-        - somebody used an explicit SET TIMESTAMP on the master.
-        Possible reason related to granularity-to-second of time functions
-        (nothing to do with MySQL), which can explain a value of -1:
-        assume the master's and slave's time are perfectly synchronized, and
-        that at slave's connection time, when the master's timestamp is read,
-        it is at the very end of second 1, and (a very short time later) when
-        the slave's timestamp is read it is at the very beginning of second
-        2. Then the recorded value for master is 1 and the recorded value for
-        slave is 2. At SHOW SLAVE STATUS time, assume that the difference
-        between timestamp of slave and rli->last_master_timestamp is 0
-        (i.e. they are in the same second), then we get 0-(2-1)=-1 as a result.
-        This confuses users, so we don't go below 0: hence the max().
-
-        last_master_timestamp == 0 (an "impossible" timestamp 1970) is a
-        special marker to say "consider we have caught up".
-      */
-      if (mi->rli->last_master_timestamp == 0) {
-        /*
-          If the I/O thread is encountering problems during initailization,
-          then display NULL instead of 0.
-        */
-        sbm_is_zero = mi->slave_running == MYSQL_SLAVE_RUN_CONNECT;
-        sbm_is_null = !sbm_is_zero;
-      }
-      if (sbm_is_null) {
-        protocol->store_null();
-      } else {
-        protocol->store((longlong)(
-            mi->rli->last_master_timestamp ? max(0L, time_diff) : 0));
-      }
-    }
-  } else {
+  // Seconds_Behind_Master
+  if (time_lag_behind_master.first == -1) {
     protocol->store_null();
-    sbm_is_null = true;
+  } else {
+    protocol->store(time_lag_behind_master.first);
   }
 
   // Milli_Seconds_Behind_Master
   if (opt_binlog_trx_meta_data) {
-    if (sbm_is_null)
+    if (time_lag_behind_master.second == -1) {
       protocol->store_null();
-    else if (sbm_is_zero)
-      protocol->store(0LL);
-    else {
-      ulonglong now_millis =
-          duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-              .count();
-      // adjust for clock mismatch
-      now_millis -= mi->clock_diff_with_master * 1000;
-      protocol->store(now_millis - mi->rli->last_master_timestamp_millis);
+    } else {
+      protocol->store(time_lag_behind_master.second);
     }
   }
 
@@ -3902,6 +3967,9 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
   protocol->store(mi->get_public_key ? 1 : 0);
 
   protocol->store(mi->network_namespace_str(), &my_charset_bin);
+  // slave lag stats daemon running status
+  protocol->store(slave_stats_daemon_thread_counter > 0 ? "Yes" : "No",
+                  &my_charset_bin);
 
   rpl_filter->unlock();
   mysql_mutex_unlock(&mi->rli->err_lock);
@@ -5519,6 +5587,7 @@ extern "C" void *handle_slave_io(void *arg) {
   bool suppress_warnings;
   int ret;
   bool successfully_connected;
+  bool slave_stats_daemon_created = false;
 #ifndef DBUG_OFF
   uint retry_count_reg = 0, retry_count_dump = 0, retry_count_event = 0;
 #endif
@@ -5712,6 +5781,10 @@ extern "C" void *handle_slave_io(void *arg) {
           goto connected;
         });
 
+    if (!slave_stats_daemon_created) {
+      // start sending secondary lag stats to primary
+      slave_stats_daemon_created = start_handle_slave_stats_daemon();
+    }
     DBUG_PRINT("info", ("Starting reading binary log from master"));
     while (!io_slave_killed(thd, mi)) {
       MYSQL_RPL rpl;
@@ -5953,6 +6026,10 @@ ignore_log_space_limit=%d",
 
     // error = 0;
   err:
+    if (slave_stats_daemon_created) {
+      // stop sending secondary lag stats to primary
+      stop_handle_slave_stats_daemon();
+    }
     // print the current replication position
     LogErr(INFORMATION_LEVEL, ER_RPL_SLAVE_IO_THREAD_EXITING,
            mi->get_for_channel_str(), mi->get_io_rpl_log_name(),
@@ -8513,55 +8590,9 @@ void slave_io_thread_detach_vio() {
 }
 
 /*
-  Try to connect until successful or slave killed
-
-  SYNPOSIS
-    safe_connect()
-    thd                 Thread handler for slave
-    mysql               MySQL connection handle
-    mi                  Replication handle
-
-  RETURN
-    0   ok
-    #   Error
+  method to configure some common mysql options for connection to master
 */
-
-static int safe_connect(THD *thd, MYSQL *mysql, Master_info *mi) {
-  DBUG_TRACE;
-
-  return connect_to_master(thd, mysql, mi, false, false);
-}
-
-/*
-  SYNPOSIS
-    connect_to_master()
-
-  IMPLEMENTATION
-    Try to connect until successful or slave killed or we have retried
-    mi->retry_count times
-*/
-
-static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
-                             bool reconnect, bool suppress_warnings) {
-  int slave_was_killed = 0;
-  int last_errno = -2;  // impossible error
-  ulong err_count = 0;
-  char llbuff[22];
-  char password[MAX_PASSWORD_LENGTH + 1];
-  size_t password_size = sizeof(password);
-  DBUG_TRACE;
-  set_slave_max_allowed_packet(thd, mysql);
-#ifndef DBUG_OFF
-  mi->events_until_exit = disconnect_slave_event_count;
-#endif
-  ulong client_flag = CLIENT_REMEMBER_OPTIONS;
-
-  /* Always reset public key to remove cached copy */
-  mysql_reset_server_public_key();
-
-  mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char *)&slave_net_timeout);
-  mysql_options(mysql, MYSQL_OPT_READ_TIMEOUT, (char *)&slave_net_timeout);
-
+void configure_master_connection_options(MYSQL *mysql, Master_info *mi) {
   if (mi->bind_addr[0]) {
     DBUG_PRINT("info", ("bind_addr: %s", mi->bind_addr));
     mysql_options(mysql, MYSQL_OPT_BIND, mi->bind_addr);
@@ -8641,6 +8672,59 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
   /* Get public key from master */
   DBUG_PRINT("info", ("Set preference to get public key from master"));
   mysql_options(mysql, MYSQL_OPT_GET_SERVER_PUBLIC_KEY, &mi->get_public_key);
+}
+
+/*
+  Try to connect until successful or slave killed
+
+  SYNPOSIS
+    safe_connect()
+    thd                 Thread handler for slave
+    mysql               MySQL connection handle
+    mi                  Replication handle
+
+  RETURN
+    0   ok
+    #   Error
+*/
+
+static int safe_connect(THD *thd, MYSQL *mysql, Master_info *mi) {
+  DBUG_TRACE;
+
+  return connect_to_master(thd, mysql, mi, false, false);
+}
+
+/*
+  SYNPOSIS
+    connect_to_master()
+
+  IMPLEMENTATION
+    Try to connect until successful or slave killed or we have retried
+    mi->retry_count times
+*/
+
+static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
+                             bool reconnect, bool suppress_warnings) {
+  int slave_was_killed = 0;
+  int last_errno = -2;  // impossible error
+  ulong err_count = 0;
+  char llbuff[22];
+  char password[MAX_PASSWORD_LENGTH + 1];
+  size_t password_size = sizeof(password);
+  DBUG_TRACE;
+  set_slave_max_allowed_packet(thd, mysql);
+#ifndef DBUG_OFF
+  mi->events_until_exit = disconnect_slave_event_count;
+#endif
+  ulong client_flag = CLIENT_REMEMBER_OPTIONS;
+
+  /* Always reset public key to remove cached copy */
+  mysql_reset_server_public_key();
+
+  mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char *)&slave_net_timeout);
+  mysql_options(mysql, MYSQL_OPT_READ_TIMEOUT, (char *)&slave_net_timeout);
+
+  configure_master_connection_options(mysql, mi);
 
   if (!mi->is_start_user_configured())
     LogErr(WARNING_LEVEL, ER_RPL_SLAVE_INSECURE_CHANGE_MASTER);
