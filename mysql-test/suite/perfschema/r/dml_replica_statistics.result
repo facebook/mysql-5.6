@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.replica_statistics
+LIMIT 1;
+INSERT INTO performance_schema.replica_statistics
+VALUES(123, NOW(), 10);
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'replica_statistics'
+UPDATE performance_schema.replica_statistics
+SET SERVER_ID=123 WHERE SERVER_ID=2;
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'replica_statistics'
+DELETE FROM performance_schema.replica_statistics
+WHERE SERVER_ID=2;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'replica_statistics'
+DELETE FROM performance_schema.replica_statistics;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'replica_statistics'
+LOCK TABLES performance_schema.replica_statistics READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'replica_statistics'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.replica_statistics WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'replica_statistics'
+UNLOCK TABLES;

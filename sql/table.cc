@@ -6200,6 +6200,15 @@ void TABLE::set_keyread(bool flag) {
   }
 }
 
+void TABLE::set_storage_handler(handler *file_arg) {
+  // Ensure consistent call order
+  DBUG_ASSERT((file == nullptr && file_arg != nullptr) ||
+              (file != nullptr && file_arg == nullptr));
+  DBUG_ASSERT(!is_created());
+  DBUG_ASSERT(file_arg->inited == handler::NONE);
+  file = file_arg;
+}
+
 void TABLE::set_created() {
   if (created) return;
   if (key_read) file->ha_extra(HA_EXTRA_KEYREAD);

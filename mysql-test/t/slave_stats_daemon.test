@@ -1,0 +1,223 @@
+#
+# Test if slaves are able to send lag statistics to master every 15 seconds.
+#
+-- disable_warnings
+-- source include/master-slave.inc
+
+--echo ########################################################################################################
+--echo ### Case 1: Stats are not sent by default i.e. interval value set to 0
+--echo ########################################################################################################
+connection slave;
+select @@write_stats_frequency;
+select @@write_stats_count;
+
+connection master;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+
+--echo ########################################################################################################
+--echo ### Case 2: Stats are sent when interval value is set > 0 on slaves
+--echo ########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Case 2.1: Dynamically updating write_stats_count updates the number of data points in replica_statistics
+--echo ########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection master;
+set @@GLOBAL.write_stats_count=1;
+select sleep(2);
+select count(*) = 1 as stats_samples_collected from performance_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=0;
+select sleep(2);
+select count(*) = 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+set @@GLOBAL.write_stats_count=2;
+select sleep(3);
+select count(*) = 2 as stats_samples_collected from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Case 2.5: Connection is restored and stats are sent to master after it stops and restarts
+--echo ########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+select @@write_stats_frequency;
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(1);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+let $rpl_server_number= 1
+-- source include/rpl_restart_server.inc
+
+connection master;
+select sleep(1);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+
+--echo ########################################################################################################
+--echo ### Case 3: In case of master promotions, slave thread is able to reconnet to new master.
+--echo ### In this test, I point the slave to an unavailable new master and then re-point it back to original
+--echo ### master to verify if stats communication resumes.
+--echo ########################################################################################################
+connection slave;
+set @@GLOBAL.write_stats_frequency=1;
+let $status_items= Master_User, Master_Host;
+-- source include/show_slave_status.inc
+
+-- source include/stop_slave.inc
+change master to master_user='test';
+start slave; #instead of start_slave.inc to avoid hitting timeout case as io thread won't be able to start
+let $slave_io_errno= 1045;
+-- source include/wait_for_slave_io_error.inc
+-- source include/show_slave_status.inc
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+
+# No stats should have been received in last 2 seconds
+select now() - max(timestamp) > 1 as more_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+connection slave;
+--source include/stop_slave_sql.inc
+change master to master_user='root';
+-- source include/start_slave.inc
+-- source include/show_slave_status.inc
+
+connection master;
+select sleep(2);
+
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Case 3.5: Slave should be able to handle reconnections to master. It should reuse the existing 
+--echo ### thread for sending slave stats and should not spawn a new one.
+--echo ########################################################################################################
+connection slave;
+select @@write_stats_frequency;
+
+set @@GLOBAL.write_stats_frequency=1;
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+select id from information_schema.processlist where command='Binlog Dump' into @id;
+kill @id; # to stimulate reconnection by slave w/o timeout
+save_master_pos;
+
+connection slave;
+sync_with_master;
+
+connection master;
+select sleep(2);
+
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Case 3.5: Secondary is not stuck waiting for primary to send OK packet in case something goes wrong
+--echo ### It should timeout and move on. 
+--echo ########################################################################################################
+connection slave;
+select @@write_stats_frequency;
+
+set @@GLOBAL.write_stats_frequency=1;
+
+connection master;
+set @@GLOBAL.write_stats_count=10;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+let $master_pid_file=`SELECT @@pid_file;`;
+exec kill -19 `head -1 $master_pid_file`;
+
+connection slave;
+-- source include/stop_slave.inc  ## should not block execution
+
+## continue master process
+exec kill -18 `head -1 $master_pid_file`;
+-- source include/start_slave.inc
+
+connection master;
+select sleep(2);
+
+# Master should be receiving stats every second and it's most recent stat should not be more than 1 sec old
+select now() - max(timestamp) <= 1 as less_than_1_sec_old_most_recent_stats from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Case 4: Promote slave to master and master to slave. Old master(new slave) should be able to send
+--echo ### stats to new master(old slave)
+--echo ########################################################################################################
+connection master;
+set @@GLOBAL.write_stats_count=10;
+set @@GLOBAL.write_stats_frequency=1;
+
+# get slave port and store it for later use
+--let $old_slave_host= query_get_value(SHOW SLAVE HOSTS, Host, 1)
+--let $old_slave_port= query_get_value(SHOW SLAVE HOSTS, Port, 1)
+
+connection slave;
+set @@GLOBAL.write_stats_count=10;
+set @@GLOBAL.write_stats_frequency=1;
+
+# get master port and store it for later use during cleanup
+--let $old_master_host= query_get_value(SHOW SLAVE STATUS, Master_Host, 1)
+--let $old_master_port= query_get_value(SHOW SLAVE STATUS, Master_Port, 1)
+
+select sleep(2);
+# Slave should not have collected any stats recently
+select count(*) from performance_schema.replica_statistics where (now() - timestamp) <= 1;
+
+# promote slave to be the new master
+-- source include/stop_slave.inc
+reset slave all;
+
+# Update old master to be a slave and point it to the new master
+connection master;
+--replace_result $old_slave_host MASTER_HOST $old_slave_port MASTER_PORT
+--eval CHANGE MASTER TO MASTER_HOST= '$old_slave_host', MASTER_USER= 'root', MASTER_PORT= $old_slave_port;
+-- source include/start_slave.inc
+select sleep(2);
+
+#connect to new master and verify that it has received slave statistics
+connection slave;
+select sleep(2);
+select count(*) > 0 as stats_samples_collected from performance_schema.replica_statistics;
+
+--echo ########################################################################################################
+--echo ### Cleanup
+--echo ### Reset the topology, swap master and slaves again
+--echo ########################################################################################################
+# reset original master
+connection master;
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+-- source include/stop_slave.inc
+reset slave all;
+
+# reset original slave
+connection slave;
+set @@GLOBAL.write_stats_count=0;
+set @@GLOBAL.write_stats_frequency=0;
+--replace_result $old_master_host MASTER_HOST $old_master_port MASTER_PORT
+--eval CHANGE MASTER TO MASTER_HOST= '$old_master_host', MASTER_USER= 'root', MASTER_PORT= $old_master_port;
+-- source include/start_slave.inc
+
+-- enable_warnings
+-- source include/rpl_end.inc

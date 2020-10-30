@@ -306,7 +306,8 @@ int table_threads::make_row(PFS_thread *pfs) {
 
   /* Dirty read, sanitize the command. */
   m_row.m_command = pfs->m_command;
-  if ((m_row.m_command < 0) || (m_row.m_command > COM_END)) {
+  if ((m_row.m_command < 0) ||
+      (m_row.m_command > COM_END && m_row.m_command < COM_TOP_BEGIN)) {
     m_row.m_command = COM_END;
   }
 

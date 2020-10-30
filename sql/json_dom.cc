@@ -63,6 +63,7 @@
 #include "sql/current_thd.h"  // current_thd
 #include "sql/derror.h"       // ER_THD
 #include "sql/field.h"
+#include "sql/handler.h"
 #include "sql/json_path.h"
 #include "sql/json_syntax_check.h"
 #include "sql/psi_memory_key.h"  // key_memory_JSON

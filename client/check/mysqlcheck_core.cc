@@ -214,7 +214,7 @@ static int use_db(const string &database) {
     return 1;
   if (mysql_get_server_version(sock) >= FIRST_PERFORMANCE_SCHEMA_VERSION &&
       !my_strcasecmp(&my_charset_latin1, database.c_str(),
-                     PERFORMANCE_SCHEMA_DB_NAME))
+                     PERFORMANCE_SCHEMA_DB_NAME_MACRO))
     return 1;
   if (mysql_select_db(sock, database.c_str())) {
     DBError(sock, "when selecting the database");

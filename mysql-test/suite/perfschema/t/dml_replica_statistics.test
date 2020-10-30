@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table replica_statistics.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.replica_statistics
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.replica_statistics
+  VALUES(123, NOW(), 10);
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.replica_statistics
+  SET SERVER_ID=123 WHERE SERVER_ID=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.replica_statistics
+  WHERE SERVER_ID=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.replica_statistics;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.replica_statistics READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.replica_statistics WRITE;
+UNLOCK TABLES;

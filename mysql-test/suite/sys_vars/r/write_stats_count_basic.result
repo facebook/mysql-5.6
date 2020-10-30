@@ -1,0 +1,27 @@
+Default value of write_stats_count is 0
+SELECT @@global.write_stats_count;
+@@global.write_stats_count
+0
+SELECT @@session.write_stats_count;
+ERROR HY000: Variable 'write_stats_count' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_stats_count is a dynamic variable (change to 1)
+set @@global.write_stats_count = 1;
+SELECT @@global.write_stats_count;
+@@global.write_stats_count
+1
+restore the default value
+SET @@global.write_stats_count = 0;
+SELECT @@global.write_stats_count;
+@@global.write_stats_count
+0
+restart the server with non default value (1)
+# restart: --write_stats_count=1
+SELECT @@global.write_stats_count;
+@@global.write_stats_count
+1
+restart the server with the default value (0)
+# restart:
+SELECT @@global.write_stats_count;
+@@global.write_stats_count
+0
