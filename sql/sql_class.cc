@@ -6582,11 +6582,17 @@ void THD::get_mt_keys_for_write_query(
 }
 
 /**
-   Should the query be throttled to avoid replication lag based on query tags
+   Should the query be throttled(error/warning) to avoid replication lag based on query tags
+   Returns 1 for warning only, 2 for throwing error and 0 if query tag isn't present.
 */
-bool THD::get_mt_throttle_tag_okay() const {
+enum_write_control_level THD::get_mt_throttle_tag_level() const {
   auto it = query_attrs_map.find("mt_throttle_okay");
-  // should be throttled if needed if it is not tag_only traffic, For tag_only
-  // traffic(TAO), it should be throttled only if query attribute mt_throttle_okay is present
-  return !variables.write_throttle_tag_only || it != query_attrs_map.end();
+  // For tag_only traffic(TAO), it should be throttled only if query attribute mt_throttle_okay is present
+  if (variables.write_throttle_tag_only && it != query_attrs_map.end()) {
+    if (it->second == "WARN")
+      return WRITE_CONTROL_LEVEL_WARN;
+    if (it->second == "ERROR")
+      return WRITE_CONTROL_LEVEL_ERROR;
+  }
+  return WRITE_CONTROL_LEVEL_OFF;
 }

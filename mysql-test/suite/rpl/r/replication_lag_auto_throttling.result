@@ -697,7 +697,7 @@ SQL_ID	a55a8f3e636afbb0ca6168a0e024ee84	36
 SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 ####### Next Cycle #######
 ### Expectation - There is replication lag. The client should be identified as the entity to be throttled ###
-### Should throw erros when client attribute mt_throttle_okay is set but should only throw warnings when it is set to WARN ###
+### Should throw errors when client attribute mt_throttle_okay is set to ERROR but should only throw warnings when it is set to WARN ###
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
@@ -707,16 +707,15 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ### should quarantine the client, next query should not be throttled as the query tag is not present
 insert into test1.t values(2);
-### next query should be throttled(warning only) as the query tag is present
+### next query should be throttled(warning) as the query tag is present
 insert into test1.t values(2);
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	1
-SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
-### next query should be throttled as the query tag is present
+### next query should be throttled(error) as the query tag is present
 insert into test1.t values(2);
 ERROR HY000: Exceeded write workload limit. Try again later
-### next query should not be throttled as tag is not present
+### next query should not be throttled as tag is not set correctly
 insert into test1.t values(2);
 ### multi-query should also be throttled based on tag present at the beginning. 
 select 1; 
@@ -726,6 +725,7 @@ insert into test1.t values(2);
 1
 ERROR HY000: Exceeded write workload limit. Try again later
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
 ### next query should be throttled as tag based throttling is turned off but client is still the culprit
 insert into test1.t values(2);
 ERROR HY000: Exceeded write workload limit. Try again later

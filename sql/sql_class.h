@@ -3597,7 +3597,7 @@ public:
 
   void get_mt_keys_for_write_query(std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> & keys);
 
-  bool get_mt_throttle_tag_okay() const;
+  enum_write_control_level get_mt_throttle_tag_level() const;
 
   ulonglong get_stmt_tmp_table_disk_usage_peak()
   {

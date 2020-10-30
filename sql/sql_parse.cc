@@ -8297,20 +8297,24 @@ static bool mt_check_throttle_write_query(THD* thd)
     {
       WRITE_THROTTLING_RULE &rule = iter->second;
       store_write_throttling_log(thd, i, iter->first, rule);
+      int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
+
       if (iter->second.mode == WTR_MANUAL || 
-        (write_control_level == WRITE_CONTROL_LEVEL_ERROR &&
-        thd->get_mt_throttle_tag_okay()))
+        (!thd->variables.write_throttle_tag_only &&
+        write_control_level == WRITE_CONTROL_LEVEL_ERROR) ||
+        mt_throttle_tag_level == WRITE_CONTROL_LEVEL_ERROR)
       {
         my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
         mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
         DBUG_RETURN(true);
       } 
-      else if (thd->get_mt_throttle_tag_okay() &&
+      else if ((!thd->variables.write_throttle_tag_only &&
         (write_control_level == WRITE_CONTROL_LEVEL_NOTE ||
-        write_control_level == WRITE_CONTROL_LEVEL_WARN))
+        write_control_level == WRITE_CONTROL_LEVEL_WARN)) ||
+        mt_throttle_tag_level == WRITE_CONTROL_LEVEL_WARN)
       {
         push_warning_printf(thd, 
-                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE) ?
+                            (write_control_level == WRITE_CONTROL_LEVEL_NOTE || mt_throttle_tag_level != WRITE_CONTROL_LEVEL_WARN) ?
                               Sql_condition::WARN_LEVEL_NOTE :
                               Sql_condition::WARN_LEVEL_WARN,
                             ER_WRITE_QUERY_THROTTLED, 

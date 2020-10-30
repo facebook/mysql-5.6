@@ -460,28 +460,29 @@ select type, value, write_data_bytes from information_schema.write_statistics wh
 
 --echo ####### Next Cycle #######
 --echo ### Expectation - There is replication lag. The client should be identified as the entity to be throttled ###
---echo ### Should throw erros when client attribute mt_throttle_okay is set but should only throw warnings when it is set to WARN ###
+--echo ### Should throw errors when client attribute mt_throttle_okay is set to ERROR but should only throw warnings when it is set to WARN ###
 select sleep(@wat_freq); select sleep(@ws_freq - unix_timestamp()%@ws_freq);
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 --echo ### should quarantine the client, next query should not be throttled as the query tag is not present
 insert into test1.t values(2);
---echo ### next query should be throttled(warning only) as the query tag is present
-query_attrs_add mt_throttle_okay 1;
+--echo ### next query should be throttled(warning) as the query tag is present
+query_attrs_add mt_throttle_okay WARN;
 insert into test1.t values(2);
 query_attrs_reset;
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 
-SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
---echo ### next query should be throttled as the query tag is present
-query_attrs_add mt_throttle_okay 1;
+--echo ### next query should be throttled(error) as the query tag is present
+query_attrs_add mt_throttle_okay ERROR;
 --error ER_WRITE_QUERY_THROTTLED
 insert into test1.t values(2);
 query_attrs_reset;
---echo ### next query should not be throttled as tag is not present
+--echo ### next query should not be throttled as tag is not set correctly
+query_attrs_add mt_throttle_okay BLAHBLAH;
 insert into test1.t values(2);
+query_attrs_reset;
 
 --echo ### multi-query should also be throttled based on tag present at the beginning. 
-query_attrs_add mt_throttle_okay 1;
+query_attrs_add mt_throttle_okay ERROR;
 delimiter ||||;
 --error ER_WRITE_QUERY_THROTTLED
 select 1; 
@@ -491,8 +492,9 @@ delimiter ;||||
 query_attrs_reset;
 
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
+SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
 --echo ### next query should be throttled as tag based throttling is turned off but client is still the culprit
-query_attrs_add mt_throttle_okay 1;
+query_attrs_add mt_throttle_okay WARN;
 --error ER_WRITE_QUERY_THROTTLED
 insert into test1.t values(2);
 query_attrs_reset;
