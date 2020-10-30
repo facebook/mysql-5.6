@@ -96,6 +96,7 @@ if ($tmp) {
   --echo Master_public_key_path	
   --echo Get_master_public_key	0
   --echo Network_Namespace	
+  --echo Slave_Lag_Stats_Thread_Running	No
 }
 
 if (!$tmp) {

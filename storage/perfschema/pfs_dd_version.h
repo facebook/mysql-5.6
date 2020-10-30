@@ -179,7 +179,10 @@
    add index dive cpu time to statement statistics
    add compilation cpu time to statement statistics
    add elapsed time to statement statistics
+
+   800171007:
+   add replica_statistics table
 */
-static const uint PFS_DD_VERSION = 800171006;
+static const uint PFS_DD_VERSION = 800171007;
 
 #endif /* PFS_DD_VERSION_H */
