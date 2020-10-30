@@ -966,7 +966,12 @@ class ha_rocksdb : public my_core::handler {
       MY_ATTRIBUTE((__warn_unused_result__));
   int create_table(const std::string &table_name,
                    const std::string &actual_user_table_name,
-                   const TABLE *table_arg, ulonglong auto_increment_value);
+                   const TABLE *table_arg, ulonglong auto_increment_value,
+                   dd::Table *table_def);
+  int truncate_table(Rdb_tbl_def *tbl_def,
+                     const std::string &actual_user_table_name,
+                     const TABLE *table_arg, ulonglong auto_increment_value,
+                     dd::Table *table_def);
   bool check_if_incompatible_data(HA_CREATE_INFO *const info,
                                   uint table_changes) override
       MY_ATTRIBUTE((__warn_unused_result__));
