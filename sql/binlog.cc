@@ -7857,32 +7857,39 @@ int MYSQL_BIN_LOG::new_file_impl(
       In raft, no_op rotates should not be tagged as relay log rotates because
       it gets replicated and written to the binlog on the followers
     */
-    Rotate_log_event r(new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
-                       is_relay_log && !no_op ?
-                       Rotate_log_event::RELAY_LOG : 0);
+    Rotate_log_event r(
+        new_name + dirname_length(new_name), 0, LOG_EVENT_OFFSET,
+        is_relay_log && !no_op ? Rotate_log_event::RELAY_LOG : 0);
 
     if (rotate_via_raft) {
-      // in raft mode checksums are calculated in plugin
-      ((Log_event*) &r)->common_footer->checksum_alg =
-        binary_log::BINLOG_CHECKSUM_ALG_OFF;
-
       temp_binlog_cache = std::make_unique<Binlog_cache_storage>();
       if (!temp_binlog_cache) {
         error = 1;
         goto end;
       }
 
-      if ((error = temp_binlog_cache->open(4000, 4000)))
-        goto end;
+      if ((error = temp_binlog_cache->open(4000, 4000))) goto end;
 
-      if ((error = r.write(temp_binlog_cache.get())))
-        goto end;
+      bool config_change_rotate =
+          raft_rotate_info && raft_rotate_info->config_change_rotate;
+      if (config_change_rotate) {
+        // write the metadata log event to the cache first
+        Metadata_log_event me(raft_rotate_info->config_change);
+        // checksum has to be turned off, because the raft plugin
+        // will patch the events and generate the final checksum.
+        me.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
+        if ((error = me.write(temp_binlog_cache.get()))) goto end;
+        add_bytes_written(me.common_header->data_written);
+      }
 
+      // in raft mode checksums are calculated in plugin
+      r.common_footer->checksum_alg = binary_log::BINLOG_CHECKSUM_ALG_OFF;
+      if ((error = r.write(temp_binlog_cache.get()))) goto end;
 
-      add_bytes_written(((Log_event *)&r)->common_header->data_written);
-    } else if (DBUG_EVALUATE_IF(
-          "fault_injection_new_file_rotate_event", (error = 1), false) ||
-        (error = write_event_to_binlog(&r))) {
+      add_bytes_written(r.common_header->data_written);
+    } else if (DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event",
+                                (error = 1), false) ||
+               (error = write_event_to_binlog(&r))) {
       char errbuf[MYSYS_STRERROR_SIZE];
       DBUG_EXECUTE_IF("fault_injection_new_file_rotate_event", errno = 2;);
       close_on_error = true;
@@ -11059,6 +11066,32 @@ commit_stage:
     Hence treat only COMMIT_ERRORs as errors.
   */
   DBUG_RETURN(thd->commit_error == THD::CE_COMMIT_ERROR);
+}
+
+int MYSQL_BIN_LOG::config_change_rotate(std::string config_change) {
+  int error = 0;
+  DBUG_ENTER("MYSQL_BIN_LOG::config_change_rotate");
+
+  // config change can only be initiated on master/mysql_bin_log
+  DBUG_ASSERT(!is_relay_log);
+  RaftRotateInfo raft_rotate_info;
+  raft_rotate_info.config_change = std::move(config_change);
+  raft_rotate_info.config_change_rotate = true;
+  error = new_file_impl(true /*need lock log*/, nullptr, &raft_rotate_info);
+
+  DBUG_RETURN(error);
+}
+
+int raft_config_change(std::string config_change) {
+  int error = 0;
+  DBUG_ENTER("raft_config_change");
+  if (mysql_bin_log.is_open()) {
+    error = mysql_bin_log.config_change_rotate(std::move(config_change));
+  } else {
+    // TODO(luqun) - add throttled messaging here if present in 8.0
+    error = 1;
+  }
+  DBUG_RETURN(error);
 }
 
 int rotate_binlog_file(THD *thd) {
