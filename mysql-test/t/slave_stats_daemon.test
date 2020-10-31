@@ -79,7 +79,7 @@ let $status_items= Master_User, Master_Host;
 
 -- source include/stop_slave.inc
 change master to master_user='test';
-start slave;
+start slave; #instead of start_slave.inc to avoid hitting timeout case as io thread won't be able to start
 -- source include/show_slave_status.inc
 
 connection master;
@@ -146,11 +146,11 @@ let $master_pid_file=`SELECT @@pid_file;`;
 exec kill -19 `head -1 $master_pid_file`;
 
 connection slave;
-Stop slave;  ## should not block execution
+-- source include/stop_slave.inc  ## should not block execution
 
 ## continue master process
 exec kill -18 `head -1 $master_pid_file`;
-Start slave;  
+-- source include/start_slave.inc
 
 connection master;
 select sleep(2);
@@ -178,18 +178,19 @@ set @@GLOBAL.write_stats_frequency=1;
 --let $old_master_host= query_get_value(SHOW SLAVE STATUS, Master_Host, 1)
 --let $old_master_port= query_get_value(SHOW SLAVE STATUS, Master_Port, 1)
 
-# Slave should not have any stats in replica_statistics table
-select * from information_schema.replica_statistics;
+select sleep(2);
+# Slave should not have collected any stats recently
+select count(*) from information_schema.replica_statistics where (now() - timestamp) <= 1;
 
 # promote slave to be the new master
-Stop slave;
+-- source include/stop_slave.inc
 reset slave all;
 
 # Update old master to be a slave and point it to the new master
 connection master;
 --replace_result $old_slave_host MASTER_HOST $old_slave_port MASTER_PORT
 --eval CHANGE MASTER TO MASTER_HOST= '$old_slave_host', MASTER_USER= 'root', MASTER_PORT= $old_slave_port;
-start slave;
+-- source include/start_slave.inc
 select sleep(2);
 
 #connect to new master and verify that it has received slave statistics
@@ -205,7 +206,7 @@ select count(*) > 0 as stats_samples_collected from information_schema.replica_s
 connection master;
 set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
-Stop slave;
+-- source include/stop_slave.inc
 reset slave all;
 
 # reset original slave
@@ -214,6 +215,6 @@ set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
 --replace_result $old_master_host MASTER_HOST $old_master_port MASTER_PORT
 --eval CHANGE MASTER TO MASTER_HOST= '$old_master_host', MASTER_USER= 'root', MASTER_PORT= $old_master_port;
-start slave;
+-- source include/start_slave.inc
 
 -- source include/rpl_end.inc

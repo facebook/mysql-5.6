@@ -130,8 +130,8 @@ sleep(2)
 select count(*) > 0 as stats_samples_collected from information_schema.replica_statistics;
 stats_samples_collected
 1
-Stop slave;
-Start slave;
+include/stop_slave.inc
+include/start_slave.inc
 select sleep(2);
 sleep(2)
 0
@@ -142,15 +142,19 @@ set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
 set @@GLOBAL.write_stats_count=10;
 set @@GLOBAL.write_stats_frequency=1;
-select * from information_schema.replica_statistics;
-SERVER_ID	TIMESTAMP	MILLI_SEC_BEHIND_MASTER
-Stop slave;
+select sleep(2);
+sleep(2)
+0
+select count(*) from information_schema.replica_statistics where (now() - timestamp) <= 1;
+count(*)
+0
+include/stop_slave.inc
 reset slave all;
 CHANGE MASTER TO MASTER_HOST= 'MASTER_HOST', MASTER_USER= 'root', MASTER_PORT= MASTER_PORT;;
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-start slave;
+include/start_slave.inc
 select sleep(2);
 sleep(2)
 0
@@ -162,7 +166,7 @@ stats_samples_collected
 1
 set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
-Stop slave;
+include/stop_slave.inc
 reset slave all;
 set @@GLOBAL.write_stats_count=0;
 set @@GLOBAL.write_stats_frequency=0;
@@ -170,5 +174,5 @@ CHANGE MASTER TO MASTER_HOST= 'MASTER_HOST', MASTER_USER= 'root', MASTER_PORT= M
 Warnings:
 Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
-start slave;
+include/start_slave.inc
 include/rpl_end.inc
