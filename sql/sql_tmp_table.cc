@@ -1998,11 +1998,17 @@ static bool setup_tmp_table_handler(TABLE *table, ulonglong select_options,
 
   /* Except for special conditions, tmp table engine will be chosen by user. */
 
-  /* For information_schema tables we use the Heap engine because we do
+  /* For information_schema tables we use the Heap engine,
+  if opt_information_schema_engine == I_S_MEMORY, because we do
   not allow user-created TempTable tables and even though information_schema
   tables are not user-created, an ingenious user may execute:
-  CREATE TABLE myowntemptabletable LIKE information_schema.some; */
-  if (schema_table && (mem_engine == TMP_TABLE_TEMPTABLE)) {
+  CREATE TABLE myowntemptabletable LIKE information_schema.some;
+
+  opt_information_schema_engine == I_S_TEMPTABLE makes information_schema
+  tables use TempTable engine. CREATE TABLE ... LIKE information_schema.some
+  returns an error with TempTable information_schema tables. */
+  if (schema_table && (mem_engine == TMP_TABLE_TEMPTABLE) &&
+      opt_information_schema_engine == I_S_MEMORY) {
     mem_engine = TMP_TABLE_MEMORY;
   }
 

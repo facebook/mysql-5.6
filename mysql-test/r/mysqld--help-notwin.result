@@ -538,6 +538,8 @@ The following options may be given as the first argument:
  Include the table name in the error text when receiving a
  duplicate key error and log the query into a new
  duplicate key query log file.
+ --information-schema-engine[=name] 
+ Specify information_schema engine
  --information-schema-stats-expiry=# 
  The number of seconds after which mysqld server will
  fetch data from storage engine and replace the data in
@@ -2451,6 +2453,7 @@ high-priority-lock-wait-timeout 1
 histogram-generation-max-mem-size 20000000
 host-cache-size 279
 improved-dup-key-error FALSE
+information-schema-engine TempTable
 information-schema-stats-expiry 86400
 init-connect 
 init-file (No default value)

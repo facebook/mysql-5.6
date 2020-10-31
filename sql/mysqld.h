@@ -338,6 +338,7 @@ extern std::atomic<ulong> nonsuper_connections;
 extern bool opt_slave_allow_batching;
 extern ulong slave_trans_retries;
 extern uint slave_net_timeout;
+extern ulong opt_information_schema_engine;
 extern ulong opt_mts_slave_parallel_workers;
 extern bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;

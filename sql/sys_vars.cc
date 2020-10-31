@@ -7452,6 +7452,14 @@ static Sys_var_uint Sys_immediate_server_version(
     BLOCK_SIZE(1), NO_MUTEX_GUARD, IN_BINLOG,
     ON_CHECK(check_session_admin_or_replication_applier));
 
+static const char *i_s_engine_names[] = {"MEMORY", "TempTable", NullS};
+
+static Sys_var_enum Sys_information_schema_engine(
+    "information_schema_engine", "Specify information_schema engine",
+    GLOBAL_VAR(opt_information_schema_engine), CMD_LINE(OPT_ARG),
+    i_s_engine_names, DEFAULT(I_S_TEMPTABLE), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(0), ON_UPDATE(0));
+
 static bool check_set_default_table_encryption_access(
     sys_var *self MY_ATTRIBUTE((unused)), THD *thd, set_var *var) {
   DBUG_EXECUTE_IF("skip_table_encryption_admin_check_for_set",

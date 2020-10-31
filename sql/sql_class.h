@@ -181,6 +181,11 @@ enum enum_mts_dependency_replication {
   DEP_RPL_STATEMENT,
 };
 
+enum enum_i_s_engine {
+  I_S_MEMORY,
+  I_S_TEMPTABLE,
+};
+
 extern "C" void thd_enter_cond(void *opaque_thd, mysql_cond_t *cond,
                                mysql_mutex_t *mutex,
                                const PSI_stage_info *stage,

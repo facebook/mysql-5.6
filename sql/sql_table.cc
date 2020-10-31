@@ -10190,6 +10190,15 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
   /* Fill HA_CREATE_INFO and Alter_info with description of source table. */
   HA_CREATE_INFO local_create_info;
   local_create_info.db_type = src_table->table->s->db_type();
+
+  /* Creating TempTable table (e.g. CREATE TABLE .. LIKE i_s.plugins)
+     is not supported. */
+  if (local_create_info.db_type == temptable_hton) {
+    my_error(ER_INTERNAL_ERROR, MYF(0),
+             "Creating a table with TempTable engine is not supported.");
+    return true;
+  }
+
   local_create_info.row_type = src_table->table->s->row_type;
   if (mysql_prepare_alter_table(thd, src_table_obj, src_table->table,
                                 &local_create_info, &local_alter_info,
