@@ -14458,6 +14458,12 @@ Metadata_log_event::Metadata_log_event()
       Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
                 Log_event::EVENT_IMMEDIATE_LOGGING) {}
 
+Metadata_log_event::Metadata_log_event(const std::string &raft_str)
+    : Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
+                Log_event::EVENT_IMMEDIATE_LOGGING) {
+  set_raft_str(raft_str);
+}
+
 Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
     : binary_log::Metadata_event(),
       Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,

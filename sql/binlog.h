@@ -29,6 +29,7 @@
 #include <atomic>
 #include <list>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -1162,6 +1163,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
   void purge();
   int rotate_and_purge(THD *thd, bool force_rotate);
 
+  /**
+   * Take the config change payload and create a before_flush call into the
+   * plugin after taking LOCK_log.
+   * We do a rotation immediately after config change, because it enables
+   * us to keep the invariant that we don't have free floating metadata
+   * events due to Raft, except the rotate event at the end of a file.
+   * @config_change - a description of the config change understood by Raft
+   *                  (move semantics)
+   */
+  int config_change_rotate(std::string config_change);
+
   /*
    * Reads the current index file and returns a list of all file names found in
    * the binlog file
@@ -1434,6 +1446,13 @@ extern const char *log_bin_basename;
 extern bool opt_binlog_order_commits;
 extern ulong rpl_read_size;
 extern bool rpl_semi_sync_master_enabled;
+
+/**
+ * Start a raft configuration change on the binlog with the provided
+ * config change payload
+ * @param config_change - Has the committed Config and New Config
+ */
+int raft_config_change(std::string config_change);
 
 /**
   Rotates the binary log file. Helper method invoked by raft plugin through

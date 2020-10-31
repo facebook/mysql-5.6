@@ -42,6 +42,7 @@
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_thread.h"
 #include "mysql/psi/psi_base.h"
+#include "mysql/raft_listener_queue_if.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysqld_error.h"
 #include "prealloced_array.h"
@@ -1426,11 +1427,14 @@ extern "C" void *process_raft_queue(void *) {
         result.error = rotate_relay_log_for_raft(&raft_rotate_info);
         break;
       }
+      case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
+        exit = true;
+        result.error = 0;
+        break;
       case RaftListenerCallbackType::RLI_RELAY_LOG_RESET: {
         result.error = rli_relay_log_raft_reset(element.arg.log_file_pos);
         break;
       }
-
       case RaftListenerCallbackType::RESET_SLAVE: {
         result.error = raft_reset_slave(current_thd);
         // When resetting a slave we also want to clear the read-only message
@@ -1443,18 +1447,6 @@ extern "C" void *process_raft_queue(void *) {
         break;
       }
 
-      case RaftListenerCallbackType::CHANGE_MASTER: {
-        result.error =
-            raft_change_master(current_thd, element.arg.master_instance);
-        if (!result.error && !element.arg.val_str.empty()) {
-          Item_string item(element.arg.val_str.c_str(),
-                           element.arg.val_str.length(),
-                           current_thd->charset());
-          result.error = update_sys_var(
-              STRING_WITH_LEN("read_only_error_msg_extra"), item);
-        }
-        break;
-      }
       case RaftListenerCallbackType::BINLOG_CHANGE_TO_APPLY: {
         result.error = binlog_change_to_apply();
         break;
@@ -1475,6 +1467,18 @@ extern "C" void *process_raft_queue(void *) {
         result.error = raft_stop_io_thread(current_thd);
         break;
       }
+      case RaftListenerCallbackType::CHANGE_MASTER: {
+        result.error =
+            raft_change_master(current_thd, element.arg.master_instance);
+        if (!result.error && !element.arg.val_str.empty()) {
+          Item_string item(element.arg.val_str.c_str(),
+                           element.arg.val_str.length(),
+                           current_thd->charset());
+          result.error = update_sys_var(
+              STRING_WITH_LEN("read_only_error_msg_extra"), item);
+        }
+        break;
+      }
       case RaftListenerCallbackType::GET_EXECUTED_GTIDS: {
         char *buffer;
         global_sid_lock->wrlock();
@@ -1489,10 +1493,10 @@ extern "C" void *process_raft_queue(void *) {
         result.error = set_durability(element.arg.val_sys_var_uint);
         break;
       }
-      case RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT:
-        exit = true;
-        result.error = 0;
+      case RaftListenerCallbackType::RAFT_CONFIG_CHANGE: {
+        result.error = raft_config_change(std::move(element.arg.val_str));
         break;
+      }
       default:
         // placate the compiler
         result.error = 0;
