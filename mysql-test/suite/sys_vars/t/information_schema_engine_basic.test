@@ -1,0 +1,63 @@
+let $var= information_schema_engine;
+eval set @save.$var= @@global.$var;
+
+#
+# exists as global only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+eval select @@session.$var;
+
+select variable_name from performance_schema.global_variables where variable_name='$var';
+select variable_name from performance_schema.session_variables where variable_name='$var';
+
+#
+# show that it's writable
+#
+let $value= memory;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+let $value= temptable;
+eval set @@global.$var= $value;
+eval select @@global.$var;
+
+#
+# incorrect value
+#
+--error ER_WRONG_TYPE_FOR_VAR
+eval set @@global.$var= 1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+eval set @@global.$var= "foo";
+
+
+eval set @@global.$var=temptable;
+# By default, it shows TempTable engine
+show create table information_schema.processlist;
+
+# By default, it is not allowed to create a table from i_s
+--error ER_INTERNAL_ERROR
+create table t1 like information_schema.processlist;
+
+create table t1 select * from information_schema.processlist limit 0;
+show create table t1;
+drop table t1;
+
+select variable_value into @a from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+select count(null) from information_schema.plugins;
+select count(null) from information_schema.processlist;
+select case when variable_value-@a > 0 then 'disk table' else 'no disk table' end as tmptable from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+
+eval set @@global.$var=memory;
+SHOW CREATE TABLE information_schema.processlist;
+create table t1 like information_schema.processlist;
+show create table t1;
+drop table t1;
+select variable_value into @a from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+select count(null) from information_schema.plugins;
+select count(null) from information_schema.processlist;
+select case when variable_value-@a > 0 then 'disk table' else 'no disk table' end as tmptable from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+
+
+# cleanup
+
+eval set @@global.$var= @save.$var;

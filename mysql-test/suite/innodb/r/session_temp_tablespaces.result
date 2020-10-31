@@ -14,12 +14,12 @@ MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_6.ibt	81920	INACTIVE	NONE
 MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_7.ibt	81920	INACTIVE	NONE
 MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_8.ibt	81920	INACTIVE	NONE
 MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_9.ibt	81920	INACTIVE	NONE
-MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_10.ibt	98304	ACTIVE	INTRINSIC
+MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_10.ibt	81920	ACTIVE	INTRINSIC
 # Check connection_id() of session is populated correctly in
 # ID column of INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES  WHERE ID = connection_id();
 PATH	SIZE	STATE	PURPOSE
-MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_10.ibt	98304	ACTIVE	INTRINSIC
+MYSQLTEST_VARDIR/tmp/wl11613_dir/temp_10.ibt	81920	ACTIVE	INTRINSIC
 # Check the default location of innodb_temp_tablespaces_dir
 # restart
 SELECT @@innodb_temp_tablespaces_dir;
@@ -88,10 +88,10 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_4.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_5.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_6.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_7.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_8.ibt	950272	ACTIVE	USER
+./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_8.ibt	98304	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_9.ibt	950272	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	950272	ACTIVE	USER
 # Ensure entries in information_schema.processlist and
 # information_schema.innodb_session_temp_tablespaces are
 # in sync
@@ -106,7 +106,6 @@ root	ACTIVE	SELECT USER, b.STATE, INFO, SIZE, a.STATE, PURPOSE FROM
 INFORMATION_SCHEMA.PROCESSLIST a, INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES b
 WHERE a.ID=b.ID ORDER BY SPACE	950272	executing	USER
 root	ACTIVE	NULL	950272		USER
-root	ACTIVE	NULL	98304		INTRINSIC
 # Create a new connection.
 CREATE TEMPORARY TABLE test.t1(a INT, b BLOB);
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
@@ -115,54 +114,54 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_2.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_3.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_4.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_5.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_6.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_7.ibt	131072	ACTIVE	INTRINSIC
-./#innodb_temp/temp_8.ibt	950272	ACTIVE	USER
+./#innodb_temp/temp_5.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_6.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_7.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_8.ibt	131072	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_9.ibt	950272	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	950272	ACTIVE	USER
 # Create a new connection.
 CREATE TEMPORARY TABLE test.t1(a INT, b BLOB);
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
 PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_1.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_2.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_3.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_4.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_5.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_6.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_7.ibt	131072	ACTIVE	INTRINSIC
-./#innodb_temp/temp_8.ibt	950272	ACTIVE	USER
+./#innodb_temp/temp_3.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_4.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_5.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_6.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_7.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_8.ibt	131072	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_9.ibt	950272	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	950272	ACTIVE	USER
 # Create a new connection.
 CREATE TEMPORARY TABLE test.t1(a INT, b BLOB);
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
 PATH	SIZE	STATE	PURPOSE
-./#innodb_temp/temp_1.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_2.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_3.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_4.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_5.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_6.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_7.ibt	131072	ACTIVE	INTRINSIC
-./#innodb_temp/temp_8.ibt	950272	ACTIVE	USER
+./#innodb_temp/temp_1.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_2.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_3.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_4.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_5.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_6.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_7.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_8.ibt	131072	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_9.ibt	950272	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	950272	ACTIVE	USER
 # Create a new connection.
 CREATE TEMPORARY TABLE test.t1(a INT, b BLOB);
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
 PATH	SIZE	STATE	PURPOSE
-./#innodb_temp/temp_1.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_2.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_3.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_4.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_5.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_6.ibt	98304	ACTIVE	USER
-./#innodb_temp/temp_7.ibt	131072	ACTIVE	INTRINSIC
-./#innodb_temp/temp_8.ibt	950272	ACTIVE	USER
+./#innodb_temp/temp_1.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_2.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_3.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_4.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_5.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_6.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_7.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_8.ibt	131072	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_9.ibt	950272	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	950272	ACTIVE	USER
 ./#innodb_temp/temp_11.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_12.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_13.ibt	81920	INACTIVE	NONE
@@ -171,8 +170,8 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_16.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_17.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_18.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_19.ibt	98304	ACTIVE	INTRINSIC
-./#innodb_temp/temp_20.ibt	98304	ACTIVE	USER
+./#innodb_temp/temp_19.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_20.ibt	98304	ACTIVE	INTRINSIC
 # Space would now be reclaimed and state for all sessions would be inactive
 # in INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES except for one
 # intrinsic tablespace for default connection when select query from
@@ -189,7 +188,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_8.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_9.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_11.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_12.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_13.ibt	81920	INACTIVE	NONE
@@ -198,7 +197,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_16.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_17.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_18.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_19.ibt	81920	INACTIVE	NONE
+./#innodb_temp/temp_19.ibt	81920	ACTIVE	INTRINSIC
 ./#innodb_temp/temp_20.ibt	81920	INACTIVE	NONE
 "List files in #innodb_temp. It should be empty"
 "Check if ibtmp1 exists in datadir. There should be no ibtmp1"
@@ -221,7 +220,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_8.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_9.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	81920	ACTIVE	INTRINSIC
 # Simulating disk space full scenario
 # restart: --innodb_temp_tablespaces_dir=.
 SET GLOBAL big_tables=ON;
@@ -347,7 +346,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_8.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_9.ibt	163840	ACTIVE	INTRINSIC
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	81920	ACTIVE	INTRINSIC
 SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
 PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_1.ibt	81920	INACTIVE	NONE
@@ -359,7 +358,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_8.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_9.ibt	81920	INACTIVE	NONE
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	81920	ACTIVE	INTRINSIC
 drop function func1;
 drop table t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14;
 SET GLOBAL big_tables=default;
@@ -399,7 +398,7 @@ PATH	SIZE	STATE	PURPOSE
 ./#innodb_temp/temp_7.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_8.ibt	81920	INACTIVE	NONE
 ./#innodb_temp/temp_9.ibt	147456	ACTIVE	USER
-./#innodb_temp/temp_10.ibt	98304	ACTIVE	INTRINSIC
+./#innodb_temp/temp_10.ibt	81920	ACTIVE	INTRINSIC
 #########################################################################
 # Cleanup
 #########################################################################

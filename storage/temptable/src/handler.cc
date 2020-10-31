@@ -1040,13 +1040,11 @@ int Handler::enable_indexes(uint mode) {
 
 char *Handler::get_foreign_key_create_info() {
   DBUG_ENTER("temptable::Handler::get_foreign_key_create_info");
-  DBUG_ABORT();
   DBUG_RETURN(nullptr);
 }
 
 void Handler::free_foreign_key_create_info(char *) {
   DBUG_ENTER("temptable::Handler::free_foreign_key_create_info");
-  DBUG_ABORT();
   DBUG_VOID_RETURN;
 }
 
@@ -1129,7 +1127,6 @@ int Handler::records(ha_rows *) {
 
 void Handler::update_create_info(HA_CREATE_INFO *) {
   DBUG_ENTER("temptable::Handler::update_create_info");
-  DBUG_ABORT();
   DBUG_VOID_RETURN;
 }
 
