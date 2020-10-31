@@ -10628,6 +10628,14 @@ bool mysql_create_like_table(THD *thd, TABLE_LIST *table, TABLE_LIST *src_table,
       thd, table->table_name, *create_info, src_table->table->s->db_type());
   if (local_create_info.db_type == nullptr) return true;
 
+  /* Creating TempTable table (e.g. CREATE TABLE .. LIKE i_s.plugins)
+     is not supported. */
+  if (local_create_info.db_type == temptable_hton) {
+    my_error(ER_INTERNAL_ERROR, MYF(0),
+             "Creating a table with TempTable engine is not supported.");
+    return true;
+  }
+
   // This should be ok even if engine substitution has taken place since
   // row_type denontes the desired row_type, and a different row_type may be
   // assigned to real_row_type later.

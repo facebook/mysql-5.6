@@ -1424,6 +1424,7 @@ ulonglong replica_type_conversions_options;
 ulong opt_mts_replica_parallel_workers;
 ulong slave_use_idempotent_for_recovery_options = 0;
 ulong slave_run_triggers_for_rbr = 0;
+ulong opt_information_schema_engine;
 char *opt_rbr_column_type_mismatch_whitelist = nullptr;
 bool opt_mts_dynamic_rebalance;
 double opt_mts_imbalance_threshold;
