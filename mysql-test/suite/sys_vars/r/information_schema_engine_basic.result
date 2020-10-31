@@ -1,0 +1,96 @@
+set @save.information_schema_engine= @@global.information_schema_engine;
+select @@session.information_schema_engine;
+ERROR HY000: Variable 'information_schema_engine' is a GLOBAL variable
+select variable_name from performance_schema.global_variables where variable_name='$var';
+variable_name
+select variable_name from performance_schema.session_variables where variable_name='$var';
+variable_name
+set @@global.information_schema_engine= memory;
+select @@global.information_schema_engine;
+@@global.information_schema_engine
+MEMORY
+set @@global.information_schema_engine= temptable;
+select @@global.information_schema_engine;
+@@global.information_schema_engine
+TempTable
+set @@global.information_schema_engine= 1.1;
+ERROR 42000: Incorrect argument type to variable 'information_schema_engine'
+set @@global.information_schema_engine= "foo";
+ERROR 42000: Variable 'information_schema_engine' can't be set to the value of 'foo'
+set @@global.information_schema_engine=temptable;
+show create table information_schema.processlist;
+Table	Create Table
+PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
+  `ID` bigint unsigned NOT NULL DEFAULT '0',
+  `USER` varchar(80) NOT NULL DEFAULT '',
+  `HOST` varchar(261) NOT NULL DEFAULT '',
+  `DB` varchar(64) DEFAULT NULL,
+  `COMMAND` varchar(16) NOT NULL DEFAULT '',
+  `TIME` double NOT NULL DEFAULT '0',
+  `STATE` varchar(64) DEFAULT NULL,
+  `INFO` longtext
+) ENGINE=TempTable DEFAULT CHARSET=utf8
+create table t1 like information_schema.processlist;
+ERROR HY000: Internal error: Creating a table with TempTable engine is not supported.
+create table t1 select * from information_schema.processlist limit 0;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `ID` bigint unsigned NOT NULL DEFAULT '0',
+  `USER` varchar(80) CHARACTER SET utf8 NOT NULL DEFAULT '',
+  `HOST` varchar(261) CHARACTER SET utf8 NOT NULL DEFAULT '',
+  `DB` varchar(64) CHARACTER SET utf8 DEFAULT NULL,
+  `COMMAND` varchar(16) CHARACTER SET utf8 NOT NULL DEFAULT '',
+  `TIME` double NOT NULL DEFAULT '0',
+  `STATE` varchar(64) CHARACTER SET utf8 DEFAULT NULL,
+  `INFO` longtext CHARACTER SET utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+drop table t1;
+select variable_value into @a from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+select count(null) from information_schema.plugins;
+count(null)
+0
+select count(null) from information_schema.processlist;
+count(null)
+0
+select case when variable_value-@a > 0 then 'disk table' else 'no disk table' end as tmptable from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+tmptable
+no disk table
+set @@global.information_schema_engine=memory;
+SHOW CREATE TABLE information_schema.processlist;
+Table	Create Table
+PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
+  `ID` bigint unsigned NOT NULL DEFAULT '0',
+  `USER` varchar(80) NOT NULL DEFAULT '',
+  `HOST` varchar(261) NOT NULL DEFAULT '',
+  `DB` varchar(64) DEFAULT NULL,
+  `COMMAND` varchar(16) NOT NULL DEFAULT '',
+  `TIME` double NOT NULL DEFAULT '0',
+  `STATE` varchar(64) DEFAULT NULL,
+  `INFO` longtext
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+create table t1 like information_schema.processlist;
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `ID` bigint unsigned NOT NULL DEFAULT '0',
+  `USER` varchar(80) NOT NULL DEFAULT '',
+  `HOST` varchar(261) NOT NULL DEFAULT '',
+  `DB` varchar(64) DEFAULT NULL,
+  `COMMAND` varchar(16) NOT NULL DEFAULT '',
+  `TIME` double NOT NULL DEFAULT '0',
+  `STATE` varchar(64) DEFAULT NULL,
+  `INFO` longtext
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+drop table t1;
+select variable_value into @a from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+select count(null) from information_schema.plugins;
+count(null)
+0
+select count(null) from information_schema.processlist;
+count(null)
+0
+select case when variable_value-@a > 0 then 'disk table' else 'no disk table' end as tmptable from performance_schema.global_status where variable_name='Created_tmp_disk_tables';
+tmptable
+disk table
+set @@global.information_schema_engine= @save.information_schema_engine;
