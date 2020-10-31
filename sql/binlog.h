@@ -940,6 +940,7 @@ public:
   int recover(IO_CACHE *log, Format_description_log_event *fdle,
               my_off_t *valid_pos, const std::string& cur_binlog_file);
   int recover(IO_CACHE *log, Format_description_log_event *fdle);
+  int recover_raft_log();
   int set_valid_pos(
       my_off_t* valid_pos,
       const std::string& cur_binlog_file,

@@ -512,6 +512,7 @@ ulonglong max_tmp_disk_usage;
 ulonglong tmp_table_disk_usage_period_peak = 0;
 ulonglong filesort_disk_usage_period_peak = 0;
 bool enable_raft_plugin= 0;
+bool recover_raft_log= 0;
 bool disable_raft_log_repointing= 0;
 bool override_enable_raft_check= false;
 ulong opt_raft_signal_async_dump_threads= 0;

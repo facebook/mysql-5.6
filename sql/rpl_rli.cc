@@ -1884,7 +1884,7 @@ bool mysql_show_relaylog_events(THD* thd)
 
 #endif
 
-int Relay_log_info::rli_init_info()
+int Relay_log_info::rli_init_info(bool startup)
 {
   int error= 0;
   enum_return_check check_return= ERROR_CHECKING_REPOSITORY;
@@ -2057,6 +2057,19 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
                       " called from Relay_log_info::rli_init_info().");
       DBUG_RETURN(1);
     }
+
+    if (enable_raft_plugin && startup)
+    {
+      // recover relay/raft logs on mysqld startup. This is to remove partial
+      // trxs from the log
+      if (relay_log.recover_raft_log())
+      {
+        // TODO: Ignoring error for now. Will change the behavior once validated
+        // NO_LINT_DEBUG
+        sql_print_information("Failed to recover raft logs");
+      }
+    }
+
 #ifndef DBUG_OFF
     global_sid_lock->wrlock();
     gtid_set.dbug_print("set of GTIDs in relay log before initialization");

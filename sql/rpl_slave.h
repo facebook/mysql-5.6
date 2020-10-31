@@ -285,7 +285,7 @@ int rli_relay_log_raft_reset(
 int raft_reset_slave(THD *thd);
 int init_recovery(Master_info* mi, const char** errmsg);
 int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
-                     bool need_lock= true);
+                     bool need_lock= true, bool startup= false);
 void end_info(Master_info* mi);
 int remove_info(Master_info* mi);
 int flush_master_info(Master_info* mi, bool force);

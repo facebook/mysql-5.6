@@ -7536,3 +7536,11 @@ static Sys_var_mybool Sys_set_read_only_on_shutdown(
        "kill connections but before shutting down plugins",
        GLOBAL_VAR(set_read_only_on_shutdown),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
+static Sys_var_mybool Sys_recover_raft_log(
+       "recover_raft_log",
+       "Temprary variable to control recovery of raft log by removing partial "
+       "trxs. This should be removed later.",
+       GLOBAL_VAR(recover_raft_log),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);

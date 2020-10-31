@@ -475,7 +475,8 @@ int init_slave()
     This is the startup routine and as such we try to
     configure both the SLAVE_SQL and SLAVE_IO.
   */
-  if (global_init_info(active_mi, true, thread_mask))
+  if (global_init_info(
+        active_mi, true, thread_mask, /*need_lock=*/true, /*startup=*/true))
   {
     sql_print_error("Failed to initialize the master info structure");
     error= 1;
@@ -1127,7 +1128,7 @@ int rli_relay_log_raft_reset(
 
   if (mi->rli->check_info() == REPOSITORY_DOES_NOT_EXIST) {
     sql_print_information(
-        "Relay log info repository doesn't exists, creating one now");
+        "Relay log info repository doesn't exists, creating one now.");
     if (global_init_info(mi, false, SLAVE_SQL | SLAVE_IO, false)) {
       sql_print_error("Failed to initialize the master info structure");
       error= 1;
@@ -1209,7 +1210,7 @@ end:
 }
 
 int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
-                     bool need_lock)
+                     bool need_lock, bool startup)
 {
   DBUG_ENTER("init_info");
   DBUG_ASSERT(mi != NULL && mi->rli != NULL);
@@ -1270,7 +1271,7 @@ int global_init_info(Master_info* mi, bool ignore_if_no_info, int thread_mask,
   if (!(ignore_if_no_info && check_return == REPOSITORY_DOES_NOT_EXIST))
   {
     if (((thread_mask & SLAVE_SQL) != 0 || !(mi->rli->inited))
-        && mi->rli->rli_init_info())
+        && mi->rli->rli_init_info(startup))
       init_error= 1;
   }
 
