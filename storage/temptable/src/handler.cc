@@ -1007,10 +1007,7 @@ int Handler::records(ha_rows *) {
   return 0;
 }
 
-void Handler::update_create_info(HA_CREATE_INFO *) {
-  DBUG_TRACE;
-  DBUG_ABORT();
-}
+void Handler::update_create_info(HA_CREATE_INFO *) { DBUG_TRACE; }
 
 int Handler::rename_table(const char *, const char *, const dd::Table *,
                           dd::Table *) {

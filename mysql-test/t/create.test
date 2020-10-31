@@ -1069,7 +1069,9 @@ drop function f1;
 
 # WL6599_CREATE_LIKE_IS_VIEW
 # Bug#25629 CREATE TABLE LIKE does not work with INFORMATION_SCHEMA
-#
+--error ER_INTERNAL_ERROR
+create table t1 like information_schema.processlist;
+set global information_schema_engine=memory;
 create table t1 like information_schema.processlist;
 --replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
 show create table t1;
@@ -1078,6 +1080,7 @@ create temporary table t1 like information_schema.processlist;
 --replace_result InnoDB TMP_TABLE_ENGINE MyISAM TMP_TABLE_ENGINE 
 show create table t1;
 drop table t1;
+set global information_schema_engine=temptable;
 # See WL6599 HLS/6g on why "CREATE LIKE " is not allowed on I_S system
 # views. We use 'CREATE .. AS SELECT * FROM <I_S table>' now.
 create table t1 as select * from information_schema.character_sets;

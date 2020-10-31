@@ -1145,6 +1145,9 @@ create table t2 as select f1() from t1;
 drop table t1,t2;
 drop function f1;
 create table t1 like information_schema.processlist;
+ERROR HY000: Internal error: Creating a table with TempTable engine is not supported.
+set global information_schema_engine=memory;
+create table t1 like information_schema.processlist;
 show create table t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
@@ -1172,6 +1175,7 @@ t1	CREATE TEMPORARY TABLE `t1` (
   `INFO` longtext
 ) ENGINE=TMP_TABLE_ENGINE DEFAULT CHARSET=utf8mb3
 drop table t1;
+set global information_schema_engine=temptable;
 create table t1 as select * from information_schema.character_sets;
 show create table t1;
 Table	Create Table

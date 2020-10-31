@@ -362,6 +362,7 @@ extern bool opt_replica_allow_batching;
 extern ulong slave_trans_retries;
 extern uint replica_net_timeout;
 extern ulong opt_mts_replica_parallel_workers;
+extern ulong opt_information_schema_engine;
 extern bool opt_mts_dynamic_rebalance;
 extern double opt_mts_imbalance_threshold;
 extern ulong opt_mts_dependency_replication;
