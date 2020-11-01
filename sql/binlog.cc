@@ -7603,6 +7603,8 @@ int MYSQL_BIN_LOG::new_file_impl(
   char new_name[FN_REFLEN], *new_name_ptr = nullptr, *old_name, *file_to_open;
   const size_t ERR_CLOSE_MSG_LEN = 1024;
   char close_on_error_msg[ERR_CLOSE_MSG_LEN];
+  // Indicates if an error occured inside raft plugin
+  int consensus_error = 0;
 
   // Temporary cache for Rotate Event
   std::unique_ptr<Binlog_cache_storage> temp_binlog_cache;
@@ -7801,18 +7803,28 @@ int MYSQL_BIN_LOG::new_file_impl(
 
       if (no_op) op_type = RaftReplicateMsgOpType::OP_TYPE_NOOP;
 
-      error =
-          RUN_HOOK(raft_replication, before_flush,
-                   (current_thd, temp_binlog_cache->get_io_cache(), op_type));
+      DBUG_EXECUTE_IF("simulate_before_flush_error_on_new_file", error = 1;);
+
+      if (!error)
+        error =
+            RUN_HOOK(raft_replication, before_flush,
+                     (current_thd, temp_binlog_cache->get_io_cache(), op_type));
 
       // time to safely readjust the cur_log_ext back to expected value
       if (!error) {
         raft_cur_log_ext++;
         error = RUN_HOOK(raft_replication, before_commit, (current_thd));
       }
-    }
 
-    if (error) goto end;
+      if (error) {
+        // NO_LINT_DEBUG
+        sql_print_error("Failed to rotate binary log");
+        consensus_error = 1;
+        current_thd->clear_error();  // Clear previous errors first
+        my_error(ER_RAFT_FILE_ROTATION_FAILED, MYF(0), 1);
+        goto end;
+      }
+    }
 
     if ((error = m_binlog_file->flush())) {
       close_on_error = true;
@@ -7908,13 +7920,19 @@ end:
        - ...
     */
     if (should_abort_on_binlog_error()) {
-      char abort_msg[ERR_CLOSE_MSG_LEN + 48];
-      memset(abort_msg, 0, sizeof abort_msg);
-      snprintf(abort_msg, sizeof abort_msg,
-               "%s, while rotating the binlog. "
-               "Aborting the server",
-               close_on_error_msg);
-      exec_binlog_error_action_abort(abort_msg);
+      // Abort the server only if this is not a consensus error. Aborting the
+      // server for consensus error is not good since it might lead to crashing
+      // all instances in the ring on failure to propagate
+      // rotate/no-op/config-change events
+      if (!consensus_error) {
+        char abort_msg[ERR_CLOSE_MSG_LEN + 48];
+        memset(abort_msg, 0, sizeof abort_msg);
+        snprintf(abort_msg, sizeof abort_msg,
+                 "%s, while rotating the binlog. "
+                 "Aborting the server",
+                 close_on_error_msg);
+        exec_binlog_error_action_abort(abort_msg);
+      }
     } else
       LogErr(ERROR_LEVEL, ER_BINLOG_CANT_OPEN_FOR_LOGGING,
              new_name_ptr != nullptr ? new_name_ptr : "new file", errno);
