@@ -7817,18 +7817,23 @@ static Sys_var_bool Sys_enable_raft_plugin(
        ON_CHECK(validate_enable_raft), ON_UPDATE(log_enable_raft_change));
 
 static Sys_var_bool Sys_disallow_raft(
-       "disallow_raft",
-       "Temporary variable wich blocks turning on raft. Will be removed later "
-       "once raft is ready for 8.0",
-       GLOBAL_VAR(disallow_raft),
-       CMD_LINE(OPT_ARG), DEFAULT(true));
+    "disallow_raft",
+    "Temporary variable wich blocks turning on raft. Will be removed later "
+    "once raft is ready for 8.0",
+    GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(true));
+
+static Sys_var_bool Sys_override_enable_raft_check(
+    "override_enable_raft_check",
+    "Disable some strict raft checks. Use with caution",
+    READ_ONLY GLOBAL_VAR(override_enable_raft_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
 
 static Sys_var_bool Sys_enable_blind_replace(
-       "enable_blind_replace",
-       "Optimize 'replace into' statement by doing a blind insert. Engine "
-       "ignores primary key violations. This will avoid a delete and an "
-       "insert. This is supported in MyRocks",
-       GLOBAL_VAR(enable_blind_replace), CMD_LINE(OPT_ARG), DEFAULT(false));
+    "enable_blind_replace",
+    "Optimize 'replace into' statement by doing a blind insert. Engine "
+    "ignores primary key violations. This will avoid a delete and an "
+    "insert. This is supported in MyRocks",
+    GLOBAL_VAR(enable_blind_replace), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static const char *commit_consensus_error_actions[]= {
   "ROLLBACK_TRXS_IN_GROUP",
