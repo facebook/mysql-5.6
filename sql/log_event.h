@@ -4029,6 +4029,13 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
   Metadata_log_event(THD *thd_arg, bool using_trans, uint64_t hlc_time_ns);
 
   /**
+   * Use this constructor to create a Metadata Log Event which
+   * will have multiple type's from below and you will use multiple
+   * set operations to populate the guts.
+   */
+  Metadata_log_event();
+
+  /**
    * Create a new metadata event which contains Previous HLC. Previous HLC is
    * max HLC that could have been potentially stored in all the previous binlog
    * for the instance. This can be easily extended later if we decide to
@@ -4112,6 +4119,15 @@ class Metadata_log_event : public binary_log::Metadata_event, public Log_event {
    * @returns - 0 on success, 1 on false
    */
   bool write_raft_str(Basic_ostream *ostream);
+
+  /**
+   * Write previous opid term and index to file
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_raft_prev_opid(Basic_ostream *ostream);
 
   /**
    * Write type and length to file

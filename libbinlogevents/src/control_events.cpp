@@ -520,6 +520,24 @@ void Metadata_event::set_raft_str(const std::string &raft_str) {
 
 const std::string &Metadata_event::get_raft_str() const { return raft_str_; }
 
+void Metadata_event::set_raft_prev_opid(int64_t term, int64_t index) {
+  prev_raft_term_ = term;
+  prev_raft_index_ = index;
+
+  set_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+      (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_PREV_OPID_SIZE);
+}
+
+int64_t Metadata_event::get_raft_prev_opid_term() const {
+  return prev_raft_term_;
+}
+
+int64_t Metadata_event::get_raft_prev_opid_index() const {
+  return prev_raft_index_;
+}
+
 uint Metadata_event::read_type(Metadata_event_types type) {
   BAPI_ENTER("Metadata_event::read_type");
   using MET = Metadata_event_types;
@@ -530,7 +548,7 @@ uint Metadata_event::read_type(Metadata_event_types type) {
   uint64_t prev_hlc_time = 0;
   int64_t term = -1, index = -1;
   const char *ptr_raft_str = nullptr;
-
+  int64_t prev_term = -1, prev_index = -1;
   READER_TRY_SET(value_length, read<uint16_t>);
 
   switch (type) {
@@ -555,6 +573,12 @@ uint Metadata_event::read_type(Metadata_event_types type) {
     case MET::RAFT_GENERIC_STR_TYPE:
       ptr_raft_str = READER_TRY_CALL(ptr, value_length);
       set_raft_str(std::string(ptr_raft_str, value_length));
+      break;
+    case MET::RAFT_PREV_OPID_TYPE:
+      DBUG_ASSERT(value_length == ENCODED_RAFT_PREV_OPID_SIZE);
+      READER_TRY_SET(prev_term, read_and_letoh<int64_t>);
+      READER_TRY_SET(prev_index, read_and_letoh<int64_t>);
+      set_raft_prev_opid(prev_term, prev_index);
       break;
     default:
       // This is a event which we do not know about. Just skip this
