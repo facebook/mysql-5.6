@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <chrono>
 #include <regex>
+#include <vector>
 
 #include "libbinlogevents/include/binlog_event.h"
 #include "m_ctype.h"
@@ -1858,6 +1859,33 @@ err:
   relay_log.close(LOG_CLOSE_INDEX | LOG_CLOSE_STOP_EVENT,
                   true /*need_lock_log=true*/, true /*need_lock_index=true*/);
   return error;
+}
+
+int Relay_log_info::remove_logged_gtids(
+    const std::vector<std::string> &trimmed_gtids) {
+  DBUG_ENTER("Relay_log_info::remove_logged_gtid");
+  global_sid_lock->assert_some_lock();
+
+  if (trimmed_gtids.empty()) RETURN_OK;
+
+  Gtid gtid;
+  for (const auto &trimmed_gtid : trimmed_gtids) {
+    if (gtid.parse(global_sid_map, trimmed_gtid.c_str()) != RETURN_STATUS_OK) {
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to parse gtid %s", trimmed_gtid.c_str());
+      RETURN_REPORTED_ERROR;
+    }
+
+    if (gtid.sidno > 0) {
+      /* Remove Gtid from logged_gtid set. */
+      DBUG_PRINT("info",
+                 ("Removing gtid(sidno:%d, gno:%lld) from rli logged gtids",
+                  gtid.sidno, gtid.gno));
+      gtid_set->_remove_gtid(gtid);
+    }
+  }
+
+  RETURN_OK;
 }
 
 void Relay_log_info::end_info() {
