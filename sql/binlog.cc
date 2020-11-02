@@ -5725,6 +5725,10 @@ bool MYSQL_BIN_LOG::open_binlog(
         current_hlc = mysql_bin_log.get_current_hlc();
       }
       Metadata_log_event metadata_ev(current_hlc);
+      if (raft_rotate_info) {
+        metadata_ev.set_raft_prev_opid(raft_rotate_info->rotate_opid.first,
+                                       raft_rotate_info->rotate_opid.second);
+      }
       if (write_event_to_binlog(&metadata_ev)) goto err;
     }
   }
@@ -7852,6 +7856,14 @@ int MYSQL_BIN_LOG::new_file_impl(
         my_error(ER_RAFT_FILE_ROTATION_FAILED, MYF(0), 1);
         goto end;
       }
+
+      if (!error) {
+        // Store the rotate op_id in the raft_rotate_info for
+        // open_binlog to use
+        int64_t r_term, r_index;
+        current_thd->get_trans_marker(&r_term, &r_index);
+        raft_rotate_info->rotate_opid = std::make_pair(r_term, r_index);
+      }
     }
 
     if ((error = m_binlog_file->flush())) {
@@ -7929,7 +7941,7 @@ int MYSQL_BIN_LOG::new_file_impl(
   if (!error && rotate_via_raft && !no_op) {
     // not trapping return code, because this is the existing
     // pattern in most places of after_commit hook (TODO)
-    (void) RUN_HOOK(raft_replication, after_commit, (current_thd));
+    (void)RUN_HOOK(raft_replication, after_commit, (current_thd));
   }
 
 end:

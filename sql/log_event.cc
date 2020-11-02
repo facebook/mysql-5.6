@@ -14255,6 +14255,11 @@ Metadata_log_event::Metadata_log_event(THD *thd_arg, bool using_trans,
   set_hlc_time(hlc_time_ns);
 }
 
+Metadata_log_event::Metadata_log_event()
+    : binary_log::Metadata_event(),
+      Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
+                Log_event::EVENT_IMMEDIATE_LOGGING) {}
+
 Metadata_log_event::Metadata_log_event(uint64_t prev_hlc_time_ns)
     : binary_log::Metadata_event(),
       Log_event(header(), footer(), Log_event::EVENT_NO_CACHE,
@@ -14283,6 +14288,7 @@ bool Metadata_log_event::write_data_body(Basic_ostream *ostream) {
 
   if (write_raft_term_and_index(ostream)) DBUG_RETURN(1);
 
+  if (write_raft_prev_opid(ostream)) DBUG_RETURN(1);
 
   DBUG_RETURN(0);
 }
@@ -14378,6 +14384,32 @@ bool Metadata_log_event::write_raft_str(Basic_ostream *ostream) {
   bool ret = wrapper_my_b_safe_write(ostream, (uchar *) raft_str_.c_str(),
                                     raft_str_.size());
 
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_raft_prev_opid(Basic_ostream *ostream) {
+  DBUG_ENTER("Metadata_log_event::write_raft_prev_opid");
+
+  if (!does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
+    DBUG_RETURN(0); /* No need to write term and index */
+
+  char buffer[ENCODED_RAFT_PREV_OPID_SIZE];
+  char *ptr_buffer = buffer;
+
+  if (write_type_and_length(
+          ostream, Metadata_event_types::RAFT_PREV_OPID_TYPE,
+          sizeof(prev_raft_term_) + ENCODED_RAFT_PREV_OPID_SIZE)) {
+    DBUG_RETURN(1);
+  }
+
+  int8store(ptr_buffer, prev_raft_term_);
+  ptr_buffer += sizeof(prev_raft_term_);
+
+  int8store(ptr_buffer, prev_raft_index_);
+  ptr_buffer += ENCODED_RAFT_PREV_OPID_SIZE;
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+  bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
   DBUG_RETURN(ret);
 }
 
@@ -14563,14 +14595,15 @@ void Metadata_log_event::print(FILE * /* file */,
       buffer.append("\tPrev HLC time: " + std::to_string(prev_hlc_time_ns_));
 
     if (does_exist(Metadata_event_types::RAFT_TERM_INDEX_TYPE))
-      buffer.append(
-          "\tRaft term: " + std::to_string(raft_term_) +
-          ", Raft Index: " + std::to_string(raft_index_));
+      buffer.append("\tRaft term: " + std::to_string(raft_term_) +
+                    ", Raft Index: " + std::to_string(raft_index_));
 
     if (does_exist(Metadata_event_types::RAFT_GENERIC_STR_TYPE))
       buffer.append("\t Raft string: '" + raft_str_ + "'");
-
-
+    if (does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
+      buffer.append(
+          "\tRaft Prev OPID term: " + std::to_string(prev_raft_term_) +
+          ", Raft Prev OPID Index: " + std::to_string(prev_raft_index_));
 
     print_header(head, print_event_info, false);
     my_b_printf(head, "%s\n", buffer.c_str());
@@ -14612,6 +14645,9 @@ Log_event::enum_skip_reason Metadata_log_event::do_shall_skip(
    * hence slave should skip such events
    */
   if (does_exist(Metadata_event_types::PREV_HLC_TYPE))
+    return Log_event::EVENT_SKIP_IGNORE;
+
+  if (does_exist(Metadata_event_types::RAFT_PREV_OPID_TYPE))
     return Log_event::EVENT_SKIP_IGNORE;
 
   /*
