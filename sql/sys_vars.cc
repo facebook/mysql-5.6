@@ -7861,11 +7861,8 @@ static Sys_var_bool Sys_enable_blind_replace(
     "insert. This is supported in MyRocks",
     GLOBAL_VAR(enable_blind_replace), CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static const char *commit_consensus_error_actions[]= {
-  "ROLLBACK_TRXS_IN_GROUP",
-  "IGNORE_COMMIT_CONSENSUS_ERROR",
-  0
-};
+static const char *commit_consensus_error_actions[] = {
+    "ROLLBACK_TRXS_IN_GROUP", "IGNORE_COMMIT_CONSENSUS_ERROR", 0};
 
 static Sys_var_enum Sys_commit_consensus_error_action(
     "commit_consensus_error_action",

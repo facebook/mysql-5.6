@@ -27,6 +27,7 @@
 #include <list>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "libbinlogevents/include/uuid.h"
 #include "map_helpers.h"
@@ -2861,6 +2862,13 @@ class Gtid_state {
     WAIT_FOR_EXECUTED_GTID_SET or WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS.
   */
   int32 get_gtid_wait_count() { return atomic_gtid_wait_count; }
+
+  /**
+    Remove gtid from logged_gtid when binlog gets trimmed.
+    @param trimmed_gtids The gtids to remove from logged_gtids
+  */
+  enum_return_status remove_logged_gtid_on_trim(
+      const std::vector<std::string> &trimmed_gtids);
 
 #endif  // ifdef MYSQL_SERVER
  private:
