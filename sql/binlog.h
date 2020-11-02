@@ -32,6 +32,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "libbinlogevents/include/binlog_event.h"  // enum_binlog_checksum_alg
 #include "m_string.h"                              // llstr
@@ -1566,6 +1567,7 @@ int query_error_code(const THD *thd, bool not_killed);
 bool show_raft_status(THD *thd);
 bool get_and_lock_master_info(Master_info **master_info);
 void unlock_master_info(Master_info *master_info);
+int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
 
 void set_valid_pos(my_off_t *valid_pos, const std::string &cur_binlog_file,
                    my_off_t first_gtid_start, char *engine_binlog_file,

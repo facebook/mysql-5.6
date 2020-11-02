@@ -22,6 +22,9 @@
 
 #include <time.h>
 #include <atomic>
+#include <cinttypes>
+#include <string>
+#include <vector>
 
 #include "lex_string.h"
 #include "libbinlogevents/include/control_events.h"
@@ -38,6 +41,7 @@
 #include "sql/binlog.h"
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
+#include "sql/log.h"
 #include "sql/mdl.h"
 #include "sql/mysqld.h"  // opt_bin_log
 #include "sql/rpl_context.h"
@@ -967,4 +971,46 @@ enum_return_status Gtid_state::ensure_commit_group_sidnos(rpl_sidno sidno) {
 error:
   BINLOG_ERROR(("Out of memory."), (ER_OUT_OF_RESOURCES, MYF(0)));
   RETURN_REPORTED_ERROR;
+}
+
+enum_return_status Gtid_state::remove_logged_gtid_on_trim(
+    const std::vector<std::string> &trimmed_gtids) {
+  DBUG_TRACE;
+  global_sid_lock->assert_some_lock();
+
+  if (trimmed_gtids.empty()) RETURN_OK;
+
+  const auto &first_gtid = trimmed_gtids.front();
+
+  Gtid gtid;
+  if (gtid.parse(global_sid_map, first_gtid.c_str()) != RETURN_STATUS_OK) {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed to parse gtid %s", first_gtid.c_str());
+    RETURN_REPORTED_ERROR;
+  }
+
+  rpl_sidno first_sidno = gtid.sidno;
+  sid_locks.lock(first_sidno);
+
+  for (const auto &trimmed_gtid : trimmed_gtids) {
+    if (gtid.parse(global_sid_map, trimmed_gtid.c_str()) != RETURN_STATUS_OK) {
+      // NO_LINT_DEBUG
+      sql_print_error("Failed to parse gtid %s", trimmed_gtid.c_str());
+      sid_locks.unlock(first_sidno);
+      RETURN_REPORTED_ERROR;
+    }
+    assert(first_sidno == gtid.sidno);
+    if (gtid.sidno > 0) {
+      /* Remove Gtid from logged_gtid set. */
+      DBUG_PRINT("info",
+                 ("Removing gtid(sidno:%d, gno:%" PRId64 ") from logged gtids",
+                  gtid.sidno, gtid.gno));
+      // TODO(pgl) - confirm once if the below code is good?
+      executed_gtids._remove_gtid(gtid);
+      gtids_only_in_table._remove_gtid(gtid);
+    }
+  }
+
+  sid_locks.unlock(first_sidno);
+  RETURN_OK;
 }

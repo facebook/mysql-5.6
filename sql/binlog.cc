@@ -14102,6 +14102,29 @@ void MYSQL_BIN_LOG::finish_transaction_in_engines(THD *thd, bool all, bool run_a
   }
 }
 
+int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids) {
+  if (trimmed_gtids.empty()) return 0;
+
+  global_sid_lock->rdlock();
+  int error = gtid_state->remove_logged_gtid_on_trim(trimmed_gtids);
+  Master_info *active_mi = nullptr;
+  if (!get_and_lock_master_info(&active_mi)) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "active_mi or rli is not set. Hence not trimming "
+        "logged gtids from rli");
+  }
+  if (active_mi && active_mi->rli) {
+    // Remove rli logged gtids. Note that retrieved gtid is not cleared here
+    // since it is going to be updated when the next gtid is fetched
+    error = active_mi->rli->remove_logged_gtids(trimmed_gtids);
+    unlock_master_info(active_mi);
+  }
+  global_sid_lock->unlock();
+
+  return error;
+}
+
 struct st_mysql_storage_engine binlog_storage_engine = {
     MYSQL_HANDLERTON_INTERFACE_VERSION};
 

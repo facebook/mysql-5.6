@@ -82,6 +82,7 @@ extern int raft_stop_io_thread(THD *thd);
 extern int raft_start_sql_thread(THD *thd);
 extern int rli_relay_log_raft_reset(
     std::pair<std::string, unsigned long long> raft_log_applied_upto_pos);
+extern int trim_logged_gtid(const std::vector<std::string> &trimmed_gtids);
 /** end of raft related extern funtion declarations  **/
 
 Trans_delegate *transaction_delegate;
@@ -1760,6 +1761,10 @@ extern "C" void *process_raft_queue(void *) {
     switch (element.type) {
       case RaftListenerCallbackType::SET_READ_ONLY: {
         result.error = handle_read_only(element.arg.val_sys_var_uint);
+        break;
+      }
+      case RaftListenerCallbackType::TRIM_LOGGED_GTIDS: {
+        result.error = trim_logged_gtid(element.arg.trim_gtids);
         break;
       }
       case RaftListenerCallbackType::ROTATE_BINLOG: {
