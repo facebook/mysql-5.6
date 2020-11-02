@@ -1,4 +1,5 @@
 #include "sql_base.h"
+#include "sql_parse.h"
 #include "sql_show.h"
 #include "mysqld.h"
 #ifdef HAVE_RAPIDJSON
@@ -257,13 +258,17 @@ void insert_sql_plan(THD *thd, String *json_plan)
 /* Fills the SQL_PLANS table. */
 int fill_sql_plans(THD *thd, TABLE_LIST *tables, Item *cond)
 {
-  DBUG_ENTER("fill_sql_text");
+  DBUG_ENTER("fill_sql_plans");
   TABLE* table= tables->table;
+
+  int result = 0;
+  if (check_global_access(thd, PROCESS_ACL))
+    result = -1;
 
   bool lock_acquired = lock_sql_plans();
 
   for (auto iter= global_sql_plans.cbegin();
-      iter != global_sql_plans.cend(); ++iter)
+      !result && iter != global_sql_plans.cend(); ++iter)
   {
     int f= 0;
     SQL_PLAN *sql_plan = iter->second;
@@ -286,12 +291,9 @@ int fill_sql_plans(THD *thd, TABLE_LIST *tables, Item *cond)
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
-    {
-      unlock_sql_plans(lock_acquired);
-      DBUG_RETURN(-1);
-    }
+      result = -1;
   }
   unlock_sql_plans(lock_acquired);
 
-  DBUG_RETURN(0);
+  DBUG_RETURN(result);
 }

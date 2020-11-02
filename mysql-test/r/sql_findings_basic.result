@@ -1,5 +1,8 @@
 create user user1@localhost  identified by 'u1';
 grant alter, create, insert, select, drop on test.* to user1@localhost;
+grant process on *.* to user1@localhost;
+create user user2@localhost  identified by 'u2';
+grant alter, create, insert, select, drop on *.* to user2@localhost;
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
 -> Case 1: both sql stats/findings are default (OFF_HARD)
@@ -86,10 +89,25 @@ sql_id	code	message	query_text	count
 84fd589b168fc0c8915e208cb569b995	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
 af70c54c4679332d51d576be8b0b27ee	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
 b5d74033813edd43b779ba064ef58e0e	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+-> Case 4: access control test
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+sql_id	code	message	query_text	count
+26d79ac84a23fc12af52b90ef72eb512	1264	Out of range value for column 'c2' at row 1	insert into t1 values('momo', -1)	1
+26d79ac84a23fc12af52b90ef72eb512	1265	Data truncated for column 'c1' at row 1	insert into t1 values('momo', -1)	1
+30f0d42cb85af0a5f3c7c337c1b2ab4b	1265	Data truncated for column 'c1' at row 1	insert into t3 values('case3');	1
+7dfea1f0a58438ce30aeaba05f28df3d	1292	Truncated incorrect DOUBLE value: 'ca'	select * from t3 where c1=1;	1
+84fd589b168fc0c8915e208cb569b995	1292	Truncated incorrect DOUBLE value: 'mo'	select * from t1 where c1=1	1
+af70c54c4679332d51d576be8b0b27ee	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
+b5d74033813edd43b779ba064ef58e0e	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
 -> Cleanup
 set @@GLOBAL.sql_stats_control=DEFAULT;
 set @@GLOBAL.sql_findings_control=DEFAULT;
 drop table t1;
 drop table t2;
 drop user user1@localhost;
+drop user user2@localhost;
 drop user user_super@localhost;

@@ -1157,9 +1157,9 @@ drop user user_super@localhost;
 disconnect con13;
 
 #######################################
-### Unit test for sql_statistics.elapsed_time
+### Case 20: Unit test for sql_statistics.elapsed_time
 #######################################
---echo Unit test for sql_statistics.elapsed_time
+--echo Case 20: Unit test for sql_statistics.elapsed_time
 create database test_db;
 create user test_user@localhost;
 grant all on test_db to test_user@localhost;
@@ -1281,10 +1281,8 @@ if (!$success)
 }
 drop database test_db;
 
-###########
-### Cleanup
-###########
---echo Cleanup
+# Case 20 Cleanup
+--echo Case 20 Cleanup
 connection default;
 --echo Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
@@ -1303,5 +1301,41 @@ while ($i)
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 enable_query_log;
 enable_result_log;
+
+#######################################
+### Case 21: Unit test for access control check
+#######################################
+--echo Case 21: Unit test for access control check
+
+connection default;
+set @@GLOBAL.sql_stats_control="ON";
+
+create user user211;
+grant select, insert on *.* to user211;
+
+create user user212;
+grant process on *.* to user212;
+
+connect (con211, localhost, user211,,);
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+select * from information_schema.sql_statistics;
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+select * from information_schema.sql_text;
+disconnect con211;
+
+connect (con212, localhost, user212,,);
+select sql_id, table_schema, user_name from information_schema.sql_statistics order by sql_id;
+select * from information_schema.sql_text order by sql_id;
+disconnect con212;
+
+# Case 21 cleanup
+connection default;
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+drop user user211;
+drop user user212;
+
+##########################
+### End of the test cleanup and checks
+##########################
 
 --source include/wait_until_count_sessions.inc

@@ -5,6 +5,10 @@
 ##########################################
 create user user1@localhost  identified by 'u1';
 grant alter, create, insert, select, drop on test.* to user1@localhost;
+grant process on *.* to user1@localhost;
+
+create user user2@localhost  identified by 'u2';
+grant alter, create, insert, select, drop on *.* to user2@localhost;
 
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
@@ -107,6 +111,20 @@ delimiter ;||||
 select sql_id, code, message, query_text, count from information_schema.sql_Findings
 order by sql_id, code, query_text;
 
+################################
+### Case 4: access control test
+################################
+--echo -> Case 4: access control test
+
+connect (con41, localhost, user1,u1,);
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+
+connect (con42, localhost, user2,u2,);
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+select sql_id, code, message, query_text, count from information_schema.sql_Findings
+order by sql_id, code, query_text;
+
 ###########
 ### Cleanup
 ###########
@@ -120,6 +138,7 @@ set @@GLOBAL.sql_findings_control=DEFAULT;
 drop table t1;
 drop table t2;
 drop user user1@localhost;
+drop user user2@localhost;
 drop user user_super@localhost;
 
 disconnect con11;
@@ -128,6 +147,9 @@ disconnect con21;
 disconnect con22;
 
 disconnect con31;
+
+disconnect con41;
+disconnect con42;
 
 # Check that all connections opened by test cases in this file are gone
 --source include/wait_until_count_sessions.inc

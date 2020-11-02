@@ -1402,7 +1402,7 @@ set @@GLOBAL.sql_plans_control=OFF_HARD;
 set @@GLOBAL.max_digest_sample_age=-1;
 drop table t1;
 drop user user_super@localhost;
-Unit test for sql_statistics.elapsed_time
+Case 20: Unit test for sql_statistics.elapsed_time
 create database test_db;
 create user test_user@localhost;
 grant all on test_db to test_user@localhost;
@@ -1420,7 +1420,7 @@ use test_db;
 unlock tables;
 "*** Test Succeeded!!!***"
 drop database test_db;
-Cleanup
+Case 20 Cleanup
 Verify there are no waiting threads.
 select count(*) from information_schema.processlist where state='waiting for admission';
 count(*)
@@ -1430,3 +1430,33 @@ SCHEMA_NAME	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
 set @@global.max_running_queries=@start_max_running_queries;
 set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;
+Case 21: Unit test for access control check
+set @@GLOBAL.sql_stats_control="ON";
+create user user211;
+grant select, insert on *.* to user211;
+create user user212;
+grant process on *.* to user212;
+select * from information_schema.sql_statistics;
+ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
+select * from information_schema.sql_text;
+ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
+select sql_id, table_schema, user_name from information_schema.sql_statistics order by sql_id;
+sql_id	table_schema	user_name
+1af4b32b409a682610ce8527f2838d2e	test	user211
+1f95aa8fb1dbb039eac157f34807a296	NULL	root
+380054d98c85496467dcbe17c081b1d8	NULL	root
+69d2b2d0804cd6b2709fce6ccfdb3437	NULL	root
+86592af769f219cd304d2d828d46b96a	test	user211
+f8cfc530cfda60e5539e4c3b6f12c133	NULL	root
+select * from information_schema.sql_text order by sql_id;
+SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
+1af4b32b409a682610ce8527f2838d2e	SELECT	54	SELECT * FROM `information_schema` . `sql_statistics` 
+1f95aa8fb1dbb039eac157f34807a296	CREATE	29	CREATE SYSTEM_USER `user211` 
+380054d98c85496467dcbe17c081b1d8	CREATE	29	CREATE SYSTEM_USER `user212` 
+69d2b2d0804cd6b2709fce6ccfdb3437	OTHER	36	GRANT PROCESS ON * . * TO `user212` 
+86592af769f219cd304d2d828d46b96a	SELECT	48	SELECT * FROM `information_schema` . `sql_text` 
+e69ac245ca230df5cbbaaa537a0cf4b3	SELECT	110	SELECT `sql_id` , `table_schema` , `user_name` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
+f8cfc530cfda60e5539e4c3b6f12c133	OTHER	44	GRANT SELECT , INSERT ON * . * TO `user211` 
+set @@GLOBAL.sql_stats_control="OFF_HARD";
+drop user user211;
+drop user user212;

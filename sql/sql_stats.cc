@@ -1,5 +1,6 @@
 #include "column_statistics_dt.h"
 #include "sql_base.h"
+#include "sql_parse.h"
 #include "sql_show.h"
 #include "sql_string.h"
 #include "sql_stats.h"
@@ -2560,17 +2561,20 @@ private:
 int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_stats");
-  int result = 0;
   TABLE* table= tables->table;
   Stats_iterator<SQL_STATS *> iter(sql_stats_snapshot.stats,
                                    global_sql_stats.stats, thd);
-	MYSQL_TIME time;
+  MYSQL_TIME time;
   ID_NAME_MAP db_map;
   ID_NAME_MAP user_map;
   fill_invert_map(DB_MAP_NAME, &db_map);
   fill_invert_map(USER_MAP_NAME, &user_map);
 
-  for (; iter.is_valid(); iter.move_to_next())
+  int result = 0;
+  if (check_global_access(thd, PROCESS_ACL))
+    result = -1;
+
+  for (; !result && iter.is_valid(); iter.move_to_next())
   {
     int f= 0;
     SQL_STATS *sql_stats = iter.get_value();
@@ -2666,10 +2670,7 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(sql_stats->filesort_disk_usage, TRUE);
 
     if (schema_table_store_record(thd, table))
-    {
       result = -1;
-      break;
-    }
   }
 
   DBUG_RETURN(result);
@@ -2679,12 +2680,15 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   DBUG_ENTER("fill_sql_text");
-  int result = 0;
   TABLE* table= tables->table;
   Stats_iterator<SQL_TEXT *> iter(sql_stats_snapshot.text,
                                    global_sql_stats.text, thd);
 
-  for (; iter.is_valid(); iter.move_to_next())
+  int result = 0;
+  if (check_global_access(thd, PROCESS_ACL))
+    result = -1;
+
+  for (; !result && iter.is_valid(); iter.move_to_next())
   {
     int f= 0;
     SQL_TEXT *sql_text = iter.get_value();
@@ -2714,10 +2718,7 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
                              system_charset_info);
 
     if (schema_table_store_record(thd, table))
-    {
       result = -1;
-      break;
-    }
   }
 
   DBUG_RETURN(result);
@@ -2767,18 +2768,23 @@ int fill_client_attrs(THD *thd, TABLE_LIST *tables, Item *cond)
 */
 int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond)
 {
-  DBUG_ENTER("fill_sql_text");
+  DBUG_ENTER("fill_sql_findings");
   TABLE* table= tables->table;
+
+  int result = 0;
+  if (check_global_access(thd, PROCESS_ACL))
+    result = -1;
 
   bool lock_acquired = mt_lock(&LOCK_global_sql_findings);
 
   for (auto sql_iter= global_sql_findings_map.cbegin();
-       sql_iter != global_sql_findings_map.cend(); ++sql_iter)
+       !result && sql_iter != global_sql_findings_map.cend(); ++sql_iter)
   {
     char sql_id_hex_string[MD5_BUFF_LENGTH];
     array_to_hex(sql_id_hex_string, sql_iter->first.data(), sql_iter->first.size());
 
-    for(auto f_iter : sql_iter->second)
+    for(auto f_iter = sql_iter->second.cbegin();
+        !result && f_iter != sql_iter->second.cend(); ++f_iter)
     {
       int f= 0;
       restore_record(table, s->default_values);
@@ -2788,42 +2794,39 @@ int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond)
                                system_charset_info);
 
       /* CODE */
-      table->field[f++]->store(f_iter.code, TRUE);
+      table->field[f++]->store(f_iter->code, TRUE);
 
       /* LEVEL */
-      table->field[f++]->store(warning_level_names[f_iter.level].str,
-                               std::min((uint)warning_level_names[f_iter.level].length,
+      table->field[f++]->store(warning_level_names[f_iter->level].str,
+                               std::min((uint)warning_level_names[f_iter->level].length,
                                         sf_max_level_size),
                                system_charset_info);
 
       /* MESSAGE */
-      table->field[f++]->store(f_iter.message.c_str(),
-                               std::min((uint)f_iter.message.length(),
+      table->field[f++]->store(f_iter->message.c_str(),
+                               std::min((uint)f_iter->message.length(),
                                         sf_max_message_size),
                                system_charset_info);
 
       /* QUERY_TEXT */
-      table->field[f++]->store(f_iter.query_text.c_str(),
-                               std::min((uint)f_iter.query_text.length(),
+      table->field[f++]->store(f_iter->query_text.c_str(),
+                               std::min((uint)f_iter->query_text.length(),
                                         sf_max_query_size),
                                system_charset_info);
 
       /* COUNT */
-      table->field[f++]->store(f_iter.count, TRUE);
+      table->field[f++]->store(f_iter->count, TRUE);
 
       /* LAST_RECORDED */
-      table->field[f++]->store(f_iter.last_recorded, TRUE);
+      table->field[f++]->store(f_iter->last_recorded, TRUE);
 
       if (schema_table_store_record(thd, table))
-      {
-        mt_unlock(lock_acquired, &LOCK_global_sql_findings);
-        DBUG_RETURN(-1);
-      }
+        result = -1;
     }
   }
   mt_unlock(lock_acquired, &LOCK_global_sql_findings);
 
-  DBUG_RETURN(0);
+  DBUG_RETURN(result);
 }
 
 /**

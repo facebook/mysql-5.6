@@ -5,9 +5,14 @@
 ##########################################
 create user user1@localhost  identified by 'u1';
 grant alter, create, insert, select, drop on test.* to user1@localhost;
+grant process on *.* to user1@localhost;
 
 create user user2@localhost identified by 'u2';
 grant alter, create, insert, select, drop on test.* to user2@localhost;
+grant process on *.* to user2@localhost;
+
+create user user3@localhost identified by 'u3';
+grant alter, create, insert, select, drop on *.* to user3@localhost;
 
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
@@ -277,6 +282,24 @@ let $assert_cond= ($columns_count_on  = $columns_count_off);
 let $assert_cond= ($schemata_count_on = $schemata_count_off);
 --source include/assert.inc
 
+##################################################
+### Case 8: Access Control test
+##################################################
+-- echo --> case 8: access control test
+
+connection default;
+set @@GLOBAL.sql_plans_control="ON";
+
+connect (con81, localhost, user3,u3,);
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+select * from information_schema.sql_plans;
+
+connect (con82, localhost, user1,u1,);
+select * from information_schema.sql_plans order by plan_id;
+
+connection default;
+set @@GLOBAL.sql_plans_control="OFF_HARD";
+
 ###########
 ### Cleanup
 ###########
@@ -288,6 +311,7 @@ drop table t_select;
 drop database mz_db;
 drop user user1@localhost;
 drop user user2@localhost;
+drop user user3@localhost;
 drop user user_super@localhost;
 
 disconnect con11;
@@ -305,6 +329,9 @@ disconnect con51;
 disconnect con61;
 
 disconnect con71;
+
+disconnect con81;
+disconnect con82;
 
 connection default;
 # Check that all connections opened by test cases in this file are gone

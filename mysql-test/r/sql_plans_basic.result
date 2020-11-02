@@ -1,7 +1,11 @@
 create user user1@localhost  identified by 'u1';
 grant alter, create, insert, select, drop on test.* to user1@localhost;
+grant process on *.* to user1@localhost;
 create user user2@localhost identified by 'u2';
 grant alter, create, insert, select, drop on test.* to user2@localhost;
+grant process on *.* to user2@localhost;
+create user user3@localhost identified by 'u3';
+grant alter, create, insert, select, drop on *.* to user3@localhost;
 create user user_super@localhost identified by 'su';
 grant all on *.* to user_super@localhost with grant option;
 -> Case 1: both sql stats/plans are default (OFF_HARD)
@@ -1076,6 +1080,34 @@ test	user1	3a53b8afe3d418121c006166b6122bfa	99914b932bd37a50b983c5e7c90ae93b	5f3
 set @@GLOBAL.sql_stats_control="OFF_HARD";
 set @@GLOBAL.sql_plans_control="OFF_HARD";
 include/assert.inc [assert that the counts (tables, etc) are the same]
+--> case 8: access control test
+set @@GLOBAL.sql_plans_control="ON";
+select * from information_schema.sql_plans;
+ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
+select * from information_schema.sql_plans order by plan_id;
+PLAN_ID	PLAN_LENGTH	PLAN_DATA
+688f9fed19a3b287ddbd7ed4cdca33a2	199	{
+  "query_block": {
+    "select_id": 1,
+    "ordering_operation": {
+      "using_filesort": true,
+      "table": {
+        "table_name": "sql_plans",
+        "access_type": "ALL"
+      }
+    }
+  }
+}
+8ed71f7a5ddcfb797042811c2739c895	127	{
+  "query_block": {
+    "select_id": 1,
+    "table": {
+      "table_name": "sql_plans",
+      "access_type": "ALL"
+    }
+  }
+}
+set @@GLOBAL.sql_plans_control="OFF_HARD";
 -> Cleanup
 drop table t1;
 drop table t2;
@@ -1083,4 +1115,5 @@ drop table t_select;
 drop database mz_db;
 drop user user1@localhost;
 drop user user2@localhost;
+drop user user3@localhost;
 drop user user_super@localhost;
