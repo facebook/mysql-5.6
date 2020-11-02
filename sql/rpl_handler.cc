@@ -1858,6 +1858,8 @@ extern "C" void *process_raft_queue(void *) {
   if (thd_added) thd_manager->remove_thd(thd);
   delete thd;
   my_thread_end();
+  // NO_LINT_DEBUG
+  sql_print_information("Raft listener queue aborted");
   pthread_exit(0);
   return 0;
 }
@@ -1874,9 +1876,7 @@ int start_raft_listener_thread() {
   return 0;
 }
 
-RaftListenerQueue::~RaftListenerQueue() {
-  // TODO : Need to fix the destruction construct.
-}
+RaftListenerQueue::~RaftListenerQueue() { deinit(); }
 
 int RaftListenerQueue::add(QueueElement element) {
   std::unique_lock<std::mutex> lock(queue_mutex_);
@@ -1918,16 +1918,20 @@ int RaftListenerQueue::init() {
 
 void RaftListenerQueue::deinit() {
   // NO_LINT_DEBUG
-  sql_print_information("Shutting down Raft listener queue");
   std::unique_lock<std::mutex> lock(init_mutex_);
   if (!inited_) return;
 
+  fprintf(stderr, "Shutting down Raft listener queue");
   // Queue an exit event in the queue. The listener thread will eventually pick
   // this up and exit
+  std::shared_ptr<std::promise<RaftListenerCallbackResult>> prms =
+      std::make_shared<std::promise<RaftListenerCallbackResult>>();
+  auto fut = prms->get_future();
   QueueElement element;
   element.type = RaftListenerCallbackType::RAFT_LISTENER_THREADS_EXIT;
+  element.result = std::move(prms);
   add(element);
-
+  fut.get();
   inited_ = false;
   return;
 }

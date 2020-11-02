@@ -76,12 +76,13 @@ class RaftListenerQueueIf {
      * is set, then the invoker should ensure tht he eventually calls
      * get()/wait() to retrieve the result. Example:
      *
-     * std::promise<RaftListenerCallbackResult> promise;
-     * std::future<RaftListenerCallbackResult> fut = promise.get_future();
+     * std::shared_ptr<std::promise<RaftListenerCallbackResult>> promise =
+     *    std::make_shared<std::promise<RaftListenerCallbackResult>();
+     * std::future<RaftListenerCallbackResult> fut = promise->get_future();
      *
      * QueueElement e;
      * e.type = RaftListenerCallbackType::SET_READ_ONLY;
-     * e.result = &promise;
+     * e.result = std::move(promise);
      * listener_queue.add(std::move(e));
      * ....
      * ....
@@ -90,7 +91,7 @@ class RaftListenerQueueIf {
      * // fullfilled by the raft listener thread after executing the callback
      * RaftListenerCallbackResult result = fut.get();
      */
-    std::promise<RaftListenerCallbackResult> *result = nullptr;
+    std::shared_ptr<std::promise<RaftListenerCallbackResult>> result = nullptr;
   };
 
   /* Add an element to the queue. This will signal any listening threads
