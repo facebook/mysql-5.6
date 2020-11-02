@@ -1,0 +1,8 @@
+Default value of override_enable_raft_check is 0
+SELECT @@global.override_enable_raft_check;
+@@global.override_enable_raft_check
+0
+set global override_enable_raft_check=1;
+ERROR HY000: Variable 'override_enable_raft_check' is a read only variable
+set session override_enable_raft_check=1;
+ERROR HY000: Variable 'override_enable_raft_check' is a read only variable
