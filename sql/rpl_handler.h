@@ -567,4 +567,9 @@ struct RaftRotateInfo {
   // rotation to be initiated by server to get consensus on a
   // config change (add/remove/modify of the ring)
   bool config_change_rotate = false;
+  // This is the opid of the rotate event which is either
+  // passed in by plugin or obtained from before_flush.
+  // During rotation of raft logs, this is put into Metadata event
+  // as previous opid
+  std::pair<int64_t, int64_t> rotate_opid = std::make_pair(0, 0);
 };

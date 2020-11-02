@@ -773,6 +773,29 @@ class Metadata_event : public Binary_log_event {
   const std::string &get_raft_str() const;
 
   /**
+   * Set previous file's last raft_term and raft_index, i.e.
+   * the opid of the rotate event to the metadata event.
+   *
+   * @param term - Raft term to set
+   * @param index - Raft index to set
+   */
+  void set_raft_prev_opid(int64_t term, int64_t index);
+
+  /**
+   * Get raft previous opid term
+   *
+   * @return prev_raft_term if present. -1 otherwise
+   */
+  int64_t get_raft_prev_opid_term() const;
+
+  /**
+   * Get raft previous opid index
+   *
+   * @return prev_raft_index if present. -1 otherwise
+   */
+  int64_t get_raft_prev_opid_index() const;
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_event_types : unsigned char {
@@ -789,6 +812,8 @@ class Metadata_event : public Binary_log_event {
     RAFT_TERM_INDEX_TYPE = 2,
     /* Config added by raft consensus plugin */
     RAFT_GENERIC_STR_TYPE = 3,
+    /* Raft term and index for the last file*/
+    RAFT_PREV_OPID_TYPE = 4,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -840,6 +865,15 @@ class Metadata_event : public Binary_log_event {
    * preceedes the RotateEvent.
    */
   std::string raft_str_;
+
+  /* Previous (term, index). Provided and interpreted by raft consensus plugin.
+   * Since rotate events are consensus sync point, prev term and prev index is
+   * committed
+   * The type corresponding to this is RAFT_PREV_OPID_TYPE */
+  int64_t prev_raft_term_ = -1;
+  int64_t prev_raft_index_ = -1;
+  static const uint32_t ENCODED_RAFT_PREV_OPID_SIZE =
+      sizeof(prev_raft_term_) + sizeof(prev_raft_index_);
 
   /* Total size of this event when encoded into the stream */
   size_t size_ = 0;
