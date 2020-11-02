@@ -8910,7 +8910,26 @@ ha_innobase::change_active_index(
 	ut_ad(user_thd == ha_thd());
 	ut_a(prebuilt->trx == thd_to_trx(user_thd));
 
-	last_active_index = active_index = keynr;
+	active_index = keynr;
+
+	// Only update the last_active_index if previously no index was being
+	// used. A single TABLE object can only use one index in a statement.
+	// However, it is possible to reset the last_active_index to MAX_KEY
+	// (no index), if a filesort follows the index usage in the plan without
+	// the use of a temporary table. In order to prevent erroneous
+	// accounting of INDEX_STATISTICS in such cases, we do not let
+	// last_active_index go from non-MAX_KEY to MAX_KEY.
+	// This variable (last_active_index) is only used for INDEX_STATISTICS
+	// accounting.
+	// It is a temporary measure to prevent errors in accounting for
+	// index usage in the execution phase. We will switch to a more robust
+	// method where instead of attributing all the metrics (rows_requested,
+	// rows_read, rows_updated etc.) to a single index at the end of
+	// statement execution would be replaced by a map from index to metrics
+	// updated on the fly with each change_active_index call.
+	if (last_active_index == MAX_KEY) {
+		last_active_index = active_index;
+	}
 
 	prebuilt->index = innobase_get_index(keynr);
 
@@ -11877,7 +11896,14 @@ ha_innobase::records_in_range(
 		buf_pool_reference_start(prebuilt->trx);
 	}
 
-	last_active_index = active_index = keynr;
+	// There are two phases where active_index is changed.
+	// 1. Optimization (during index dives)
+	// 2. Execution
+	// During the execution phase, we use change_active_index call to select
+	// the index that was chosen during optimization.
+	// Since last_active_index is solely used for updating INDEX_STATISTICS,
+	// we do NOT update it during the optimization phase.
+	active_index = keynr;
 
 	key = table->key_info + active_index;
 

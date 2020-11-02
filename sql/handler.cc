@@ -7627,8 +7627,8 @@ void handler::update_global_table_stats(THD *thd)
     if (table_stats->num_indexes && last_active_index != MAX_KEY)
     {
       /*
-       *         Assume all activity was done for the last active index.
-      */
+       * Assume all activity was done for the last active index.
+       */
       uint ix = last_active_index;
 
       if (ix >= table_stats->num_indexes)
@@ -7646,10 +7646,10 @@ void handler::update_global_table_stats(THD *thd)
       table_stats->indexes[ix].rows_index_next.inc(stats.rows_index_next);
 
 
-       /*         last_active_index is only set by index_init.
-       *          If this instance is used for a table scan next
-       *          then this prevents that work from being counted for an index.
-       */
+       /*
+        * If this instance is used for a table scan next
+        * then this prevents that work from being counted for an index.
+        */
       last_active_index = MAX_KEY;
     }
 
@@ -8075,7 +8075,7 @@ int handler::ha_write_row(uchar *buf)
   {
     thd->set_stmt_start_write_time();
   }
-  
+
   MYSQL_INSERT_ROW_START(table_share->db.str, table_share->table_name.str);
   mark_trx_read_write();
 
@@ -8120,7 +8120,7 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data)
    */
   DBUG_ASSERT(new_data == table->record[0]);
   DBUG_ASSERT(old_data == table->record[1]);
-  
+
   /* Start the timer to capture total write time for sql stmts */
   if (write_stats_capture_enabled())
   {
@@ -8169,7 +8169,7 @@ int handler::ha_delete_row(const uchar *buf)
                   return HA_ERR_INTERNAL_ERROR; );
 
   /* Start the timer to capture total write time for sql stmts */
-  if (write_stats_capture_enabled()) 
+  if (write_stats_capture_enabled())
   {
     thd->set_stmt_start_write_time();
   }

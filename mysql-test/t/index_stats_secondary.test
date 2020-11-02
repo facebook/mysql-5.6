@@ -20,6 +20,7 @@ flush privileges;
 
 --disable_warnings
 drop table if exists indexstats;
+drop table if exists test_stats_filesort;
 --enable_warnings
 
 flush statistics;
@@ -37,6 +38,15 @@ create index SECONDARY on indexstats(i);
 create index JINDEX on indexstats(j);
 
 insert into indexstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+# Creating a second test table to test filesort after index usage.
+create table test_stats_filesort (a int, b int, c int, d int);
+insert into test_stats_filesort values(1, 1, 1, 1);
+insert into test_stats_filesort values(1, 1, 1, 2);
+insert into test_stats_filesort values(1, 1, 1, 3);
+insert into test_stats_filesort values(1, 1, 2, 3);
+insert into test_stats_filesort values(1, 2, 2, 3);
+create index idx1 on test_stats_filesort(c, d);
 
 --echo
 --echo At start
@@ -182,7 +192,7 @@ insert into indexstats values (9,9);
 update indexstats set j=10 where j=9;
 
 --echo
---echo Increment nothing after update
+--echo Incremented statistics after update
 --echo
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats'
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats'
@@ -200,9 +210,39 @@ delete from indexstats where j=10;
 --query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats'
 
 
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+
+select a, b from test_stats_filesort where c=1 and d=1;
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+
+select a, b from test_stats_filesort where c=1 and d=1 order by a, b;
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+
+select a, b from test_stats_filesort  where c=1 and d=1 group by a,b;
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+
+create index idx2 on test_stats_filesort(a, b);
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort'
+
+SELECT * FROM test_stats_filesort t1 INNER JOIN test_stats_filesort t2 USING (a,b) WHERE t1.c = 1 AND t1.d = 1;
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort'
+
+select a, c from test_stats_filesort force index(idx2) where a=1 and b=1 UNION ALL SELECT a,c FROM test_stats_filesort force index(idx1) WHERE c=1 AND d=1;
+
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort'
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort'
+
 #
 # Cleanup
 drop table indexstats;
+drop table test_stats_filesort;
 connection default;
 
 disconnect muc1;
@@ -214,4 +254,3 @@ flush user_resources;
 
 # Wait till all disconnects are completed
 --source include/wait_until_count_sessions.inc
-

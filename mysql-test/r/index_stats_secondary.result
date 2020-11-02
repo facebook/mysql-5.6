@@ -1,4 +1,5 @@
 drop table if exists indexstats;
+drop table if exists test_stats_filesort;
 flush statistics;
 grant usage on *.* to mysqltest_1@localhost;
 flush user_resources;
@@ -6,6 +7,13 @@ create table indexstats (i int, j int) engine=innodb;
 create index SECONDARY on indexstats(i);
 create index JINDEX on indexstats(j);
 insert into indexstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+create table test_stats_filesort (a int, b int, c int, d int);
+insert into test_stats_filesort values(1, 1, 1, 1);
+insert into test_stats_filesort values(1, 1, 1, 2);
+insert into test_stats_filesort values(1, 1, 1, 3);
+insert into test_stats_filesort values(1, 1, 2, 3);
+insert into test_stats_filesort values(1, 2, 2, 3);
+create index idx1 on test_stats_filesort(c, d);
 
 At start
 
@@ -184,7 +192,7 @@ rows_deleted	0
 rows_read	1
 update indexstats set j=10 where j=9;
 
-Increment nothing after update
+Incremented statistics after update
 
 select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
 rows_inserted	0
@@ -193,9 +201,9 @@ rows_deleted	0
 rows_read	11
 select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
 rows_inserted	0
-rows_updated	0
+rows_updated	1
 rows_deleted	0
-rows_read	1
+rows_read	3
 delete from indexstats where j=10;
 
 Increment rows_read and rows_deleted for JINDEX after delete
@@ -207,10 +215,76 @@ rows_deleted	0
 rows_read	11
 select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
 rows_inserted	0
-rows_updated	0
+rows_updated	1
 rows_deleted	1
+rows_read	4
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+select a, b from test_stats_filesort where c=1 and d=1;
+a	b
+1	1
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	1
+select a, b from test_stats_filesort where c=1 and d=1 order by a, b;
+a	b
+1	1
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
 rows_read	2
+select a, b from test_stats_filesort  where c=1 and d=1 group by a,b;
+a	b
+1	1
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	3
+create index idx2 on test_stats_filesort(a, b);
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	3
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort';
+SELECT * FROM test_stats_filesort t1 INNER JOIN test_stats_filesort t2 USING (a,b) WHERE t1.c = 1 AND t1.d = 1;
+a	b	c	d	c	d
+1	1	1	1	1	1
+1	1	1	1	1	2
+1	1	1	1	1	3
+1	1	1	1	2	3
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	4
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	4
+select a, c from test_stats_filesort force index(idx2) where a=1 and b=1 UNION ALL SELECT a,c FROM test_stats_filesort force index(idx1) WHERE c=1 AND d=1;
+a	c
+1	1
+1	1
+1	1
+1	2
+1	1
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx1' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	5
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'idx2' and table_name = 'test_stats_filesort';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	8
 drop table indexstats;
+drop table test_stats_filesort;
 drop user mysqltest_1@localhost;
 flush privileges;
 flush user_resources;
