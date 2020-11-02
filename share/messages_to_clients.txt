@@ -9654,6 +9654,9 @@ ER_RPL_SLAVE_MAX_GTID_RECOVERED
 ER_RAFT_FILE_ROTATION_FAILED
   eng "File rotation failed to reach consensus"
 
+ER_RAFT_OPERATION_INCOMPATIBLE
+  eng "This operation is not allowed since raft is enabled"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

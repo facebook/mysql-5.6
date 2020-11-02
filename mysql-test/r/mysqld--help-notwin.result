@@ -991,6 +991,8 @@ The following options may be given as the first argument:
  Maximum allowed cumulated size of stored optimizer traces
  --optimizer-trace-offset=# 
  Offset of first optimizer trace to show; see manual
+ --override-enable-raft-check 
+ Disable some strict raft checks. Use with caution
  --parser-max-mem-size=# 
  Maximum amount of memory available to the parser
  --parthandler-allow-drop-partition 
@@ -2588,6 +2590,7 @@ optimizer-trace-features greedy_search=on,range_optimizer=on,dynamic_range=on,re
 optimizer-trace-limit 1
 optimizer-trace-max-mem-size 1048576
 optimizer-trace-offset -1
+override-enable-raft-check FALSE
 parser-max-mem-size 18446744073709551615
 parthandler-allow-drop-partition TRUE
 partial-revokes ####

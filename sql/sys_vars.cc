@@ -7976,6 +7976,12 @@ static Sys_var_bool Sys_disallow_raft(
     "once raft is ready for 8.0",
     GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(true));
 
+static Sys_var_bool Sys_override_enable_raft_check(
+    "override_enable_raft_check",
+    "Disable some strict raft checks. Use with caution",
+    READ_ONLY GLOBAL_VAR(override_enable_raft_check), CMD_LINE(OPT_ARG),
+    DEFAULT(false));
+
 static Sys_var_bool Sys_enable_blind_replace(
     "enable_blind_replace",
     "Optimize 'replace into' statement by doing a blind insert. Engine "

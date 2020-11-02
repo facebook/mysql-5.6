@@ -9604,6 +9604,15 @@ int reset_slave(THD *thd, Master_info *mi, bool reset_all) {
   const char *errmsg = "Unknown error occurred while reseting slave";
   DBUG_TRACE;
 
+  if (enable_raft_plugin && !override_enable_raft_check) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Did not allow reset_slave as enable_raft_plugin is ON");
+    my_error(ER_RAFT_OPERATION_INCOMPATIBLE, MYF(0),
+             "reset slave not allowed when enable_raft_plugin is ON");
+    return 1;
+  }
+
   bool is_default_channel =
       strcmp(mi->get_channel(), channel_map.get_default_channel()) == 0;
 
