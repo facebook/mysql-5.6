@@ -1598,6 +1598,7 @@ void THD::reset_stmt_stats()
   m_index_dive_count        = 0; /* index dive count */
   m_index_dive_cpu          = 0; /* index dive cpu time in microseconds */
   m_compilation_cpu         = 0; /* compilation cpu time in microseconds */
+  stmt_elapsed_utime        = 0; /* statment elapsed time in microseconds */
 
   /* The disk usage of a single statement is the difference between the peak
      session usage during the statement execution and the session usage at
