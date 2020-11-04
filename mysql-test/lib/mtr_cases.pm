@@ -517,7 +517,7 @@ sub collect_one_suite($)
       {
 	foreach my $test (@cases)
 	{
-          if ( $skip_raft and $comb->{name} eq "raft" )
+          if ( $test->{'skip'} ne 1 and $skip_raft and $comb->{name} eq "raft" )
           {
             $test->{'skip'}= 1;
             $test->{'comment'}= "No raft tests(--skip-raft)";
