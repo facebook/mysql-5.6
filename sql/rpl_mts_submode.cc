@@ -1375,8 +1375,25 @@ void Mts_submode_dependency::handle_terminal_event(
   }
 
   if (evw->is_end_event) {
-    // populate key->last trx penultimate event in the key lookup
-    // NOTE: we store the end event for a single event trx
+    // Populate key->last trx penultimate event in the key lookup
+    //
+    // NOTE: We store the end event for a single event trx
+    //
+    // Why store penultimate event instead of end event?
+    // This is to improve perf for TBL mode. When we depend on the end event of
+    // trx we basically wait for it to commit. In TBL mode we might end up
+    // waiting for a trx that we don't have any row conflits with. That's why we
+    // wait on the penultimate event instead, this enables us to start executing
+    // before waiting for the dependent trx to commit if there are no conflits.
+    // If there are conflicts we expect row locks to kick in and in that case
+    // we'll automatically wait for the conflicting trx to commit.
+    //
+    // Why penultimate though? Why not just depend on the conflicting row event?
+    // This is done to support trx retries. On secondaries we're allowed to
+    // retry trx on temprary errors like lock wait timeouts. Depending on
+    // penultimate event allows the trx we depend on to retry execution,
+    // otherwise we'll end up taking the row lock as soon as the row we depend
+    // on is executed which can create deadlock if commit ordering is enabled.
     auto to_add = prev_event ? prev_event : evw;
     register_keys(to_add);
 
