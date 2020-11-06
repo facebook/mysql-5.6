@@ -175,7 +175,8 @@ bool handle_reload_request(THD *thd, unsigned long options, TABLE_LIST *tables,
         if (mysql_bin_log.rotate_and_purge(thd, true)) *write_to_binlog = -1;
       }
     }
-    if (options & REFRESH_RELAY_LOG) {
+    // if raft enabled, raft controls relay logs flush
+    if (!enable_raft_plugin && (options & REFRESH_RELAY_LOG)) {
       if (flush_relay_logs_cmd(thd)) *write_to_binlog = -1;
     }
     if (tmp_thd) {
