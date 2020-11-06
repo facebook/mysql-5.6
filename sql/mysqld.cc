@@ -2184,6 +2184,11 @@ class Call_close_conn : public Do_THD_Impl {
 
 static void close_connections(void) {
   DBUG_TRACE;
+
+  // NO_LINT_DEBUG
+  sql_print_information("Sending shutdown call to raft plugin");
+  RUN_HOOK(raft_replication, before_shutdown, (nullptr));
+
   (void)RUN_HOOK(server_state, before_server_shutdown, (nullptr));
 
   Per_thread_connection_handler::kill_blocked_pthreads();
