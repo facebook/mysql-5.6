@@ -790,6 +790,10 @@ The following options may be given as the first argument:
  minimum_hlc_ns is successfully updated is guranteed to be
  greater than this value. The maximum allowed drift 
  (forward) is controlled by maximum_hlc_drift_ns
+ --mt-tables-access-control 
+ Controls access to multi-tenancy tables. PROCESS
+ privilege is needed for accessing some tables when this
+ is set to true.
  --mts-dependency-cond-wait-timeout[=#] 
  Timeout for all conditional waits in dependency repl in
  milliseconds
@@ -2546,6 +2550,7 @@ metadata-locks-cache-size 1024
 metadata-locks-hash-instances 256
 min-examined-row-limit 0
 minimum-hlc-ns 0
+mt-tables-access-control FALSE
 mts-dependency-cond-wait-timeout 5000
 mts-dependency-max-keys 100000
 mts-dependency-order-commits DB

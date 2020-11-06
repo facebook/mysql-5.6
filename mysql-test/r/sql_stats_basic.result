@@ -1432,6 +1432,7 @@ set @@global.max_waiting_queries=@start_max_waiting_queries;
 drop user test_user@localhost;
 Case 21: Unit test for access control check
 set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.mt_tables_access_control=1;
 create user user211;
 grant select, insert on *.* to user211;
 create user user212;
@@ -1447,6 +1448,7 @@ sql_id	table_schema	user_name
 380054d98c85496467dcbe17c081b1d8	NULL	root
 69d2b2d0804cd6b2709fce6ccfdb3437	NULL	root
 86592af769f219cd304d2d828d46b96a	test	user211
+935882817c251cf7a9acedcb0ba27144	NULL	root
 f8cfc530cfda60e5539e4c3b6f12c133	NULL	root
 select * from information_schema.sql_text order by sql_id;
 SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
@@ -1455,8 +1457,10 @@ SQL_ID	SQL_TYPE	SQL_TEXT_LENGTH	SQL_TEXT
 380054d98c85496467dcbe17c081b1d8	CREATE	29	CREATE SYSTEM_USER `user212` 
 69d2b2d0804cd6b2709fce6ccfdb3437	OTHER	36	GRANT PROCESS ON * . * TO `user212` 
 86592af769f219cd304d2d828d46b96a	SELECT	48	SELECT * FROM `information_schema` . `sql_text` 
+935882817c251cf7a9acedcb0ba27144	SET	46	SET @@GLOBAL . `mt_tables_access_control` = ? 
 e69ac245ca230df5cbbaaa537a0cf4b3	SELECT	110	SELECT `sql_id` , `table_schema` , `user_name` FROM `information_schema` . `sql_statistics` ORDER BY `sql_id` 
 f8cfc530cfda60e5539e4c3b6f12c133	OTHER	44	GRANT SELECT , INSERT ON * . * TO `user211` 
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.mt_tables_access_control=0;
 drop user user211;
 drop user user212;

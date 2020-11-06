@@ -289,6 +289,7 @@ let $assert_cond= ($schemata_count_on = $schemata_count_off);
 
 connection default;
 set @@GLOBAL.sql_plans_control="ON";
+set @@GLOBAL.mt_tables_access_control=1;
 
 connect (con81, localhost, user3,u3,);
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR
@@ -299,6 +300,7 @@ select * from information_schema.sql_plans order by plan_id;
 
 connection default;
 set @@GLOBAL.sql_plans_control="OFF_HARD";
+set @@GLOBAL.mt_tables_access_control=0;
 
 ###########
 ### Cleanup

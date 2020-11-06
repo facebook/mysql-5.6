@@ -90,6 +90,7 @@ sql_id	code	message	query_text	count
 af70c54c4679332d51d576be8b0b27ee	1292	Truncated incorrect DOUBLE value: 'zo'	select * from t2 where c1=2	1
 b5d74033813edd43b779ba064ef58e0e	1265	Data truncated for column 'c1' at row 1	insert into t2 values('zoro')	1
 -> Case 4: access control test
+set @@GLOBAL.mt_tables_access_control=1;
 select sql_id, code, message, query_text, count from information_schema.sql_Findings
 order by sql_id, code, query_text;
 sql_id	code	message	query_text	count
@@ -103,6 +104,7 @@ b5d74033813edd43b779ba064ef58e0e	1265	Data truncated for column 'c1' at row 1	in
 select sql_id, code, message, query_text, count from information_schema.sql_Findings
 order by sql_id, code, query_text;
 ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
+set @@GLOBAL.mt_tables_access_control=0;
 -> Cleanup
 set @@GLOBAL.sql_stats_control=DEFAULT;
 set @@GLOBAL.sql_findings_control=DEFAULT;

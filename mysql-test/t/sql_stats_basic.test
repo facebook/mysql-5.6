@@ -1309,6 +1309,7 @@ enable_result_log;
 
 connection default;
 set @@GLOBAL.sql_stats_control="ON";
+set @@GLOBAL.mt_tables_access_control=1;
 
 create user user211;
 grant select, insert on *.* to user211;
@@ -1331,6 +1332,7 @@ disconnect con212;
 # Case 21 cleanup
 connection default;
 set @@GLOBAL.sql_stats_control="OFF_HARD";
+set @@GLOBAL.mt_tables_access_control=0;
 drop user user211;
 drop user user212;
 

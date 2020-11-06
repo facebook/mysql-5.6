@@ -1082,6 +1082,7 @@ set @@GLOBAL.sql_plans_control="OFF_HARD";
 include/assert.inc [assert that the counts (tables, etc) are the same]
 --> case 8: access control test
 set @@GLOBAL.sql_plans_control="ON";
+set @@GLOBAL.mt_tables_access_control=1;
 select * from information_schema.sql_plans;
 ERROR 42000: Access denied; you need (at least one of) the PROCESS privilege(s) for this operation
 select * from information_schema.sql_plans order by plan_id;
@@ -1108,6 +1109,7 @@ PLAN_ID	PLAN_LENGTH	PLAN_DATA
   }
 }
 set @@GLOBAL.sql_plans_control="OFF_HARD";
+set @@GLOBAL.mt_tables_access_control=0;
 -> Cleanup
 drop table t1;
 drop table t2;

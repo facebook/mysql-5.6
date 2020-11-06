@@ -1213,6 +1213,9 @@ extern uint sql_maximum_duplicate_executions;
 /* Controls the mode of enforcement of duplicate executions of the same stmt */
 extern ulong sql_duplicate_executions_control;
 
+/* Controls whether special privileges are needed for accessing MT tables */
+extern my_bool mt_tables_access_control;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.

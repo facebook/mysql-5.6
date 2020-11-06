@@ -116,6 +116,8 @@ order by sql_id, code, query_text;
 ################################
 --echo -> Case 4: access control test
 
+set @@GLOBAL.mt_tables_access_control=1;
+
 connect (con41, localhost, user1,u1,);
 select sql_id, code, message, query_text, count from information_schema.sql_Findings
 order by sql_id, code, query_text;
@@ -124,6 +126,9 @@ connect (con42, localhost, user2,u2,);
 --error ER_SPECIFIC_ACCESS_DENIED_ERROR
 select sql_id, code, message, query_text, count from information_schema.sql_Findings
 order by sql_id, code, query_text;
+
+connection default;
+set @@GLOBAL.mt_tables_access_control=0;
 
 ###########
 ### Cleanup

@@ -1,0 +1,25 @@
+Default value of mt_tables_access_control is 0
+SELECT @@global.mt_tables_access_control;
+@@global.mt_tables_access_control
+0
+SELECT @@session.mt_tables_access_control;
+ERROR HY000: Variable 'mt_tables_access_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+mt_tables_access_control is a dynamic variable (change to 1)
+set @@global.mt_tables_access_control = 1;
+SELECT @@global.mt_tables_access_control;
+@@global.mt_tables_access_control
+1
+restore the default value
+SET @@global.mt_tables_access_control = 0;
+SELECT @@global.mt_tables_access_control;
+@@global.mt_tables_access_control
+0
+restart the server with non default value (1)
+SELECT @@global.mt_tables_access_control;
+@@global.mt_tables_access_control
+1
+restart the server with the default value (0)
+SELECT @@global.mt_tables_access_control;
+@@global.mt_tables_access_control
+0

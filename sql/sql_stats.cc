@@ -2571,7 +2571,7 @@ int fill_sql_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   fill_invert_map(USER_MAP_NAME, &user_map);
 
   int result = 0;
-  if (check_global_access(thd, PROCESS_ACL))
+  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
     result = -1;
 
   for (; !result && iter.is_valid(); iter.move_to_next())
@@ -2685,7 +2685,7 @@ int fill_sql_text(THD *thd, TABLE_LIST *tables, Item *cond)
                                    global_sql_stats.text, thd);
 
   int result = 0;
-  if (check_global_access(thd, PROCESS_ACL))
+  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
     result = -1;
 
   for (; !result && iter.is_valid(); iter.move_to_next())
@@ -2772,7 +2772,7 @@ int fill_sql_findings(THD *thd, TABLE_LIST *tables, Item *cond)
   TABLE* table= tables->table;
 
   int result = 0;
-  if (check_global_access(thd, PROCESS_ACL))
+  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
     result = -1;
 
   bool lock_acquired = mt_lock(&LOCK_global_sql_findings);

@@ -262,7 +262,7 @@ int fill_sql_plans(THD *thd, TABLE_LIST *tables, Item *cond)
   TABLE* table= tables->table;
 
   int result = 0;
-  if (check_global_access(thd, PROCESS_ACL))
+  if (mt_tables_access_control && check_global_access(thd, PROCESS_ACL))
     result = -1;
 
   bool lock_acquired = lock_sql_plans();

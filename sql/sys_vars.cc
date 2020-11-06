@@ -7430,3 +7430,11 @@ static Sys_var_enum Sys_sql_duplicate_executions_control(
        DEFAULT(CONTROL_LEVEL_OFF),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
        ON_UPDATE(NULL));
+
+static Sys_var_mybool Sys_mt_tables_access_control(
+       "mt_tables_access_control",
+       "Controls access to multi-tenancy tables. "
+       "PROCESS privilege is needed for accessing some tables when "
+       "this is set to true.",
+       GLOBAL_VAR(mt_tables_access_control),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
