@@ -166,6 +166,7 @@ extern bool plugin_initialize_delayed_after_upgrade();
 }
 }  // namespace dd
 
+extern bool raft_plugin_initialize();
 extern bool is_builtin_and_core_se_initialized();
 extern void plugin_shutdown(void);
 extern void memcached_shutdown(void);

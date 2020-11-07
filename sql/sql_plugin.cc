@@ -357,6 +357,9 @@ const LEX_CSTRING plugin_type_names[MYSQL_MAX_PLUGIN_TYPE_NUM] = {
     {STRING_WITH_LEN("KEYRING")},
     {STRING_WITH_LEN("CLONE")}};
 
+/* raft plugin name */
+MYSQL_LEX_CSTRING raft_plugin_name = {STRING_WITH_LEN("RPL_RAFT")};
+
 extern int initialize_schema_table(st_plugin_int *plugin);
 extern int finalize_schema_table(st_plugin_int *plugin);
 
@@ -1451,7 +1454,9 @@ static bool plugin_init_initialize_and_reap() {
   for (st_plugin_int **it = plugin_array->begin(); it != plugin_array->end();
        ++it) {
     plugin_ptr = *it;
-    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED) {
+    // Delay initialze raft plugin
+    if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED &&
+        strcmp(plugin_ptr->name.str, raft_plugin_name.str)) {
       if (plugin_initialize(plugin_ptr)) {
         plugin_ptr->state = PLUGIN_IS_DYING;
         *(reap++) = plugin_ptr;
@@ -1761,6 +1766,41 @@ void delay_initialization_of_dependent_plugins() {
 
 }  // namespace upgrade
 }  // namespace dd
+
+/**
+  Delay initialize raft plugin
+*/
+bool raft_plugin_initialize() {
+  DBUG_ENTER("raft_plugin_initialize");
+  bool error = false;
+  st_plugin_int *plugin_ptr = nullptr;
+  mysql_rwlock_wrlock(&LOCK_system_variables_hash);
+  mysql_mutex_lock(&LOCK_plugin);
+  if (!(plugin_ptr =
+            plugin_find_internal(raft_plugin_name, MYSQL_ANY_PLUGIN))) {
+    mysql_mutex_unlock(&LOCK_plugin);
+    goto err;
+  }
+  if (plugin_ptr->state == PLUGIN_IS_UNINITIALIZED &&
+      plugin_initialize(plugin_ptr)) {
+    mysql_mutex_unlock(&LOCK_plugin);
+    mysql_rwlock_unlock(&LOCK_system_variables_hash);
+    plugin_ptr->state = PLUGIN_IS_DYING;
+    plugin_deinitialize(plugin_ptr, true);
+    mysql_mutex_lock(&LOCK_plugin_delete);
+    mysql_rwlock_wrlock(&LOCK_system_variables_hash);
+    mysql_mutex_lock(&LOCK_plugin);
+    plugin_del(plugin_ptr);
+    mysql_mutex_unlock(&LOCK_plugin_delete);
+    my_error(ER_CANT_INITIALIZE_UDF, MYF(0), raft_plugin_name.str,
+             "Plugin initialization function failed.");
+    error = true;
+  }
+err:
+  mysql_mutex_unlock(&LOCK_plugin);
+  mysql_rwlock_unlock(&LOCK_system_variables_hash);
+  DBUG_RETURN(error);
+}
 
 /**
   Register and initialize the dynamic plugins. Also initialize
