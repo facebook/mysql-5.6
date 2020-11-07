@@ -558,7 +558,9 @@ static bool xarecover_handlerton(THD *, plugin_ref plugin, void *arg) {
         // to trim binlog during recovery. If we are asked to trim binlogs
         // during recovery (i.e if opt_trim_binlog is set), then we have to
         // rollback all prepared txns in the engine.
-        if (recovery_mode_condition && !opt_trim_binlog) {
+        // If raft is enabled, then rollback all prepared txns
+        if (recovery_mode_condition && !opt_trim_binlog &&
+            !enable_raft_plugin) {
           // case: check if this prepared transaction's gtid is greater than
           // what we recovered before
           if (current_gtid != nullptr &&

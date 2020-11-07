@@ -1629,11 +1629,20 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
     /* name of the index file if opt_relaylog_index_name is set*/
     const char *log_index_name;
 
-    ln_without_channel_name =
-        relay_log.generate_name(opt_relay_logname, "-relay-bin", buf);
+    // In raft mode, relay log always points to the raft log (which is the
+    // binlog)
+    if (enable_raft_plugin) {
+      ln_without_channel_name =
+          relay_log.generate_name(opt_bin_logname, "-bin", buf);
+      ln = add_channel_to_relay_log_name(relay_bin_channel, FN_REFLEN,
+                                         ln_without_channel_name);
+    } else {
+      ln_without_channel_name =
+          relay_log.generate_name(opt_relay_logname, "-relay-bin", buf);
 
-    ln = add_channel_to_relay_log_name(relay_bin_channel, FN_REFLEN,
-                                       ln_without_channel_name);
+      ln = add_channel_to_relay_log_name(relay_bin_channel, FN_REFLEN,
+                                         ln_without_channel_name);
+    }
 
     /* We send the warning only at startup, not after every RESET SLAVE */
     if (!opt_relay_logname_supplied && !opt_relaylog_index_name_supplied &&
@@ -1657,8 +1666,12 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
     */
     if (opt_relaylog_index_name_supplied) {
       char index_file_withoutext[FN_REFLEN];
-      relay_log.generate_name(opt_relaylog_index_name, "",
-                              index_file_withoutext);
+      if (enable_raft_plugin)
+        relay_log.generate_name(opt_binlog_index_name, "",
+                                index_file_withoutext);
+      else
+        relay_log.generate_name(opt_relaylog_index_name, "",
+                                index_file_withoutext);
 
       log_index_name = add_channel_to_relay_log_name(
           relay_bin_index_channel, FN_REFLEN, index_file_withoutext);
@@ -1729,16 +1742,26 @@ int Relay_log_info::rli_init_info(bool skip_received_gtid_set_recovery) {
     mysql_mutex_t *log_lock = relay_log.get_log_lock();
     mysql_mutex_lock(log_lock);
 
-    if (relay_log.open_binlog(
-            ln, nullptr,
-            (max_relay_log_size ? max_relay_log_size : max_binlog_size), true,
-            true /*need_lock_index=true*/, true /*need_sid_lock=true*/,
-            mi->get_mi_description_event())) {
-      mysql_mutex_unlock(log_lock);
-      LogErr(ERROR_LEVEL, ER_RPL_CANT_OPEN_LOG_IN_RLI_INIT_INFO);
-      return 1;
+    if (enable_raft_plugin) {
+      if (relay_log.open_existing_binlog(opt_bin_logname, max_binlog_size)) {
+        // NO_LINT_DEBUG
+        sql_print_error(
+            "Failed to open existing binlog called from "
+            "Relay_log_info::rli_init_info().");
+        LogErr(ERROR_LEVEL, ER_RPL_CANT_OPEN_LOG_IN_RLI_INIT_INFO);
+        return 1;
+      }
+    } else {
+      if (relay_log.open_binlog(
+              ln, nullptr,
+              (max_relay_log_size ? max_relay_log_size : max_binlog_size), true,
+              true /*need_lock_index=true*/, true /*need_sid_lock=true*/,
+              mi->get_mi_description_event())) {
+        mysql_mutex_unlock(log_lock);
+        LogErr(ERROR_LEVEL, ER_RPL_CANT_OPEN_LOG_IN_RLI_INIT_INFO);
+        return 1;
+      }
     }
-
     mysql_mutex_unlock(log_lock);
   }
 

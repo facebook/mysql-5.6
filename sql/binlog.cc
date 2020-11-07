@@ -175,6 +175,7 @@ bool opt_binlog_order_commits = true;
 
 const char *log_bin_index = nullptr;
 const char *log_bin_basename = nullptr;
+// const char *opt_relaylog_index_name = nullptr;
 
 /* Size for IO_CACHE buffer for binlog & relay log */
 ulong rpl_read_size;
@@ -4524,6 +4525,52 @@ end:
   return error;
 }
 
+int MYSQL_BIN_LOG::init_index_file() {
+  char *index_file_name = NULL, *log_file_name = NULL;
+  int error = 0;
+
+  DBUG_ASSERT(enable_raft_plugin);
+
+  myf opt = MY_UNPACK_FILENAME;
+  char *apply_index_file_name_base = opt_applylog_index_name;
+  if (!apply_index_file_name_base) {
+    // Use the same base as the apply binlog file name
+    apply_index_file_name_base = opt_apply_logname;
+    opt = MY_UNPACK_FILENAME | MY_REPLACE_EXT;
+  }
+
+  // Create the apply index file name
+  DBUG_ASSERT(apply_index_file_name_base != NULL);
+  char apply_index_file[FN_REFLEN + 1];
+  fn_format(apply_index_file, apply_index_file_name_base, mysql_data_home,
+            ".index", opt);
+
+  if (!my_access(apply_index_file, F_OK)) {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Binlog apply index file exists. Recovering mysqld "
+        "based on binlog apply index file");
+    index_file_name = opt_applylog_index_name;
+    log_file_name = opt_apply_logname;
+    is_apply_log = true;
+  } else {
+    // NO_LINT_DEBUG
+    sql_print_information(
+        "Binlog apply index file does not exist. Recovering "
+        "mysqld based on binlog index file");
+    index_file_name = opt_binlog_index_name;
+    log_file_name = opt_bin_logname;
+  }
+
+  if (mysql_bin_log.open_index_file(index_file_name, log_file_name, true)) {
+    // NO_LINT_DEBUG
+    sql_print_error("Failed while opening index file");
+    error = 1;
+  }
+
+  return error;
+}
+
 /**
   Remove logs from index that are not present on disk
   NOTE: this method will not update index with arbitrarily
@@ -5256,7 +5303,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    bool verify_checksum, bool need_lock,
                                    Transaction_boundary_parser *trx_parser,
                                    Gtid_monitoring_info *partial_trx,
-                                   uint64_t *max_prev_hlc) {
+                                   uint64_t *max_prev_hlc, bool startup) {
   char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   uchar *previous_gtid_set_in_file = NULL;
   bool found_lost_gtids = false;
@@ -5264,8 +5311,10 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
   int error = 0, length;
   std::pair<Gtid_set_map::iterator, bool> iterator, save_iterator;
   char full_log_name[FN_REFLEN];
+  std::string log_file_to_read;
 
   full_log_name[0] = 0;
+  log_file_to_read.clear();
 
   /* Initialize the sid_map to be used in read_gtids_from_binlog */
   Sid_map *sid_map = NULL;
@@ -5398,6 +5447,23 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
         string(file_name_and_gtid_set_length),
         string((char *)previous_gtid_set_in_file, gtid_string_length)));
 
+    if (enable_raft_plugin) {
+      if (log_file_to_read.empty()) {
+        const std::string cur_log_file =
+            file_name_and_gtid_set_length +
+            dirname_length(file_name_and_gtid_set_length);
+
+        if (strcmp(cur_log_file.c_str(), this->engine_binlog_file) == 0)
+          log_file_to_read.assign(file_name_and_gtid_set_length);
+      } else {
+        // NO_LINT_DEBUG
+        sql_print_warning(
+            "Engine has seen trxs till file %s, but found "
+            "additional file %s in the index file",
+            log_file_to_read.c_str(), file_name_and_gtid_set_length);
+      }
+    }
+
     /* filename_list is only used for relay_log checking later */
     if (is_relay_log)
       filename_list.push_back(string(file_name_and_gtid_set_length));
@@ -5420,8 +5486,39 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
       error = 1;
       goto end;
     }
+
+    my_off_t max_pos = ULLONG_MAX;
+
+    // In raft mode, when the server is starting up, we update gtid_executed
+    // only till the file position that is stored in the engine. This is because
+    // anything that is not committed in the engine could get trimmed when this
+    // instance rejoins the raft ring
+    if (enable_raft_plugin && startup) {
+      if (log_file_to_read.empty()) {
+        // NO_LINT_DEBUG
+        sql_print_information(
+            "Could not get the transaction log file name from the engine. "
+            "Using the latest for initializing mysqld state");
+
+        log_file_to_read.assign(last_binlog_file_with_gtids);
+        max_pos = this->engine_binlog_pos;
+      } else {
+        // Initializing gtid_sets based on engine binlog position is fine since
+        // idempotent recovery will fill in the holes
+        max_pos = this->engine_binlog_pos;
+      }
+
+      // NO_LINT_DEBUG
+      sql_print_information(
+          "Reading all gtids till file position %llu "
+          "in file %s",
+          max_pos, log_file_to_read.c_str());
+    } else {
+      log_file_to_read.assign(last_binlog_file_with_gtids);
+      max_pos = ULLONG_MAX;
+    }
     if (read_gtids_from_binlog(full_log_name, all_gtids, NULL, NULL, sid_map,
-                               verify_checksum, is_relay_log, ULLONG_MAX,
+                               verify_checksum, is_relay_log, max_pos,
                                max_prev_hlc) == ERROR) {
       error = 1;
       goto end;
@@ -9231,7 +9328,11 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
     if (error != LOG_INFO_EOF)
       LogErr(ERROR_LEVEL, ER_BINLOG_CANT_FIND_LOG_IN_INDEX, error);
     else
+
+    {
+      open_binlog_found = false;
       error = 0;
+    }
     goto err;
   }
 
@@ -9285,6 +9386,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
                              &engine_binlog_max_gtid, engine_binlog_file,
                              &engine_binlog_pos, cur_log_file);
       binlog_size = binlog_file_reader.ifile()->length();
+      open_binlog_found = true;
     } else {
       /*
        * If we are here, it implies either mysqld was shutdown cleanly or
@@ -9311,6 +9413,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
       */
       error = ha_recover(&xids, &engine_binlog_max_gtid, tmp_binlog_file,
                          &tmp_binlog_pos);
+      open_binlog_found = false;
     }
 
     delete ev;
@@ -9357,12 +9460,18 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name) {
                binlog_size, valid_pos, valid_pos);
       }
 
-      /* Clear LOG_EVENT_BINLOG_IN_USE_F */
-      uchar flags = 0;
-      if (ofile->update(&flags, 1, BIN_LOG_HEADER_SIZE + FLAGS_OFFSET)) {
-        LogErr(ERROR_LEVEL,
-               ER_BINLOG_CANT_CLEAR_IN_USE_FLAG_FOR_CRASHED_BINLOG);
-        return -1;
+      /* If raft plugin is not enabled, then clear the 'file-in-use' flag.
+       * If raft plugin is in use, then the file gets recovered only later when
+       * the node joins the ring at which point it might do additional trimming
+       * of the last binlog file in use. */
+      if (!enable_raft_plugin) {
+        /* Clear LOG_EVENT_BINLOG_IN_USE_F */
+        uchar flags = 0;
+        if (ofile->update(&flags, 1, BIN_LOG_HEADER_SIZE + FLAGS_OFFSET)) {
+          LogErr(ERROR_LEVEL,
+                 ER_BINLOG_CANT_CLEAR_IN_USE_FLAG_FOR_CRASHED_BINLOG);
+          return -1;
+        }
       }
     }  // end if (valid_pos > 0)
   }
