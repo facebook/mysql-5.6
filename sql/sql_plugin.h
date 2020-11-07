@@ -156,6 +156,7 @@ extern bool plugin_register_early_plugins(int *argc, char **argv, int flags);
 extern bool plugin_register_builtin_and_init_core_se(int *argc, char **argv);
 extern bool plugin_register_dynamic_and_init_all(int *argc, char **argv,
                                                  int init_flags);
+extern bool raft_plugin_initialize();
 extern bool is_builtin_and_core_se_initialized();
 extern void plugin_shutdown(void);
 extern void memcached_shutdown(void);
