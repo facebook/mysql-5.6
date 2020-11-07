@@ -3,16 +3,31 @@
 CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
 INSERT INTO valid_values VALUES(1);
 INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES('true');
+INSERT INTO valid_values VALUES('false');
 INSERT INTO valid_values VALUES('on');
+INSERT INTO valid_values VALUES('off');
 
 CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
 INSERT INTO invalid_values VALUES('\'aaa\'');
 INSERT INTO invalid_values VALUES('\'bbb\'');
 
---let $sys_var=ROCKSDB_BULK_LOAD
+--let $sys_var=ROCKSDB_SKIP_LOCKS_IF_SKIP_UNIQUE_CHECK
 --let $read_only=0
---let $session=1
+--let $session=0
 --source ../include/rocksdb_sys_var.inc
+
+## Check if we can't turn this on when dependency replication is enabled
+set @@global.mts_dependency_replication = TBL;
+error ER_CANT_SKIP_LOCK_WHEN_DEPENDENCY_REPLICATION;
+set @@global.rocksdb_skip_locks_if_skip_unique_check = 1;
+set @@global.mts_dependency_replication = STMT;
+error ER_CANT_SKIP_LOCK_WHEN_DEPENDENCY_REPLICATION;
+set @@global.rocksdb_skip_locks_if_skip_unique_check = 1;
+set @@global.mts_dependency_replication = NONE;
+set @@global.rocksdb_skip_locks_if_skip_unique_check = 1;
+
+set @@global.rocksdb_skip_locks_if_skip_unique_check = default;
 
 DROP TABLE valid_values;
 DROP TABLE invalid_values;

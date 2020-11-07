@@ -615,6 +615,11 @@ static int rocksdb_validate_max_bottom_pri_background_compactions(
     THD *thd MY_ATTRIBUTE((__unused__)),
     struct st_mysql_sys_var *const var MY_ATTRIBUTE((__unused__)),
     void *var_ptr, struct st_mysql_value *value);
+
+static int check_rocksdb_skip_locks_if_skip_unique_check(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *const var, void *const save,
+    struct st_mysql_value *const value);
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -2263,7 +2268,9 @@ static MYSQL_SYSVAR_BOOL(skip_locks_if_skip_unique_check,
                          rocksdb_skip_locks_if_skip_unique_check,
                          PLUGIN_VAR_RQCMDARG,
                          "Skip row locking when unique checks are disabled.",
-                         nullptr, nullptr, FALSE);
+                         check_rocksdb_skip_locks_if_skip_unique_check,
+                         nullptr,
+                         FALSE);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
@@ -15141,6 +15148,24 @@ int mysql_value_to_bool(struct st_mysql_value *value, my_bool *return_value) {
   }
 
   return 0;
+}
+
+static int check_rocksdb_skip_locks_if_skip_unique_check(
+    THD *const thd MY_ATTRIBUTE((__unused__)),
+    struct st_mysql_sys_var *const var, void *const save,
+    struct st_mysql_value *const value) {
+  my_bool new_value;
+  if (mysql_value_to_bool(value, &new_value) != 0) {
+    return HA_EXIT_FAILURE;
+  }
+
+  if (new_value && opt_mts_dependency_replication) {
+    my_error(ER_CANT_SKIP_LOCK_WHEN_DEPENDENCY_REPLICATION, MYF(0));
+    return HA_EXIT_FAILURE;
+  }
+
+  *static_cast<bool *>(save) = new_value;
+  return HA_EXIT_SUCCESS;
 }
 
 int rocksdb_check_bulk_load(
