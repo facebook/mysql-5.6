@@ -455,7 +455,10 @@ ReplicaInitializer::ReplicaInitializer(bool opt_initialize,
                                        char **replica_skip_erors)
     : m_opt_initialize_replica(!opt_initialize),
       m_opt_skip_replica_start(opt_initialize),
-      m_thread_mask(SLAVE_SQL | SLAVE_IO) {
+      m_thread_mask(SLAVE_SQL) {
+  // No IO thread in raft mode
+  if (!enable_raft_plugin) m_thread_mask |= SLAVE_IO;
+
   if (m_opt_initialize_replica) {
     // Make @@replica_skip_errors show the nice human-readable value.
     set_replica_skip_errors(replica_skip_erors);
@@ -636,7 +639,7 @@ int ReplicaInitializer::init_replica() {
 
   if (is_slave && mysql_bin_log.engine_binlog_pos != ULLONG_MAX &&
       mysql_bin_log.engine_binlog_file[0] &&
-      global_gtid_mode.get() != Gtid_mode::OFF) {
+      global_gtid_mode.get() != Gtid_mode::OFF && !enable_raft_plugin) {
     /*
       With less durable settins (sync_binlog !=1 and
       innodb_flush_log_at_trx_commit !=1), a slave with GTIDs/MTS
@@ -653,6 +656,10 @@ int ReplicaInitializer::init_replica() {
       which are logged inside innodb trx log. When gtid_executed is set
       to an old value which is consistent with innodb, slave doesn't
       miss any transactions.
+
+     This entire block is skipped in raft mode since the executed gtid set is
+     calculated correctly based on engine position and filename during
+     transaction log (binlog or apply-log) recovery and gtid initialization
     */
     mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
     mysql_mutex_lock(log_lock);
