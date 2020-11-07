@@ -515,7 +515,10 @@ static bool configured_as_slave() {
 int init_slave() {
   DBUG_TRACE;
   int error = 0;
-  int thread_mask = SLAVE_SQL | SLAVE_IO;
+  int thread_mask = SLAVE_SQL;
+
+  // No IO thread in raft mode
+  if (!enable_raft_plugin) thread_mask |= SLAVE_IO;
 
 #ifdef HAVE_PSI_INTERFACE
   init_slave_psi_keys();
@@ -592,7 +595,7 @@ int init_slave() {
 
   if (is_slave && mysql_bin_log.engine_binlog_pos != ULLONG_MAX &&
       mysql_bin_log.engine_binlog_file[0] &&
-      global_gtid_mode.get() != Gtid_mode::OFF) {
+      global_gtid_mode.get() != Gtid_mode::OFF && !enable_raft_plugin) {
     /*
       With less durable settins (sync_binlog !=1 and
       innodb_flush_log_at_trx_commit !=1), a slave with GTIDs/MTS
@@ -609,6 +612,10 @@ int init_slave() {
       which are logged inside innodb trx log. When gtid_executed is set
       to an old value which is consistent with innodb, slave doesn't
       miss any transactions.
+
+     This entire block is skipped in raft mode since the executed gtid set is
+     calculated correctly based on engine position and filename during
+     transaction log (binlog or apply-log) recovery and gtid initialization
     */
     mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
     mysql_mutex_lock(log_lock);
