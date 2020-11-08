@@ -14402,9 +14402,8 @@ bool Metadata_log_event::write_raft_prev_opid(Basic_ostream *ostream) {
   char buffer[ENCODED_RAFT_PREV_OPID_SIZE];
   char *ptr_buffer = buffer;
 
-  if (write_type_and_length(
-          ostream, Metadata_event_types::RAFT_PREV_OPID_TYPE,
-          sizeof(prev_raft_term_) + ENCODED_RAFT_PREV_OPID_SIZE)) {
+  if (write_type_and_length(ostream, Metadata_event_types::RAFT_PREV_OPID_TYPE,
+                            ENCODED_RAFT_PREV_OPID_SIZE)) {
     DBUG_RETURN(1);
   }
 
@@ -14412,7 +14411,7 @@ bool Metadata_log_event::write_raft_prev_opid(Basic_ostream *ostream) {
   ptr_buffer += sizeof(prev_raft_term_);
 
   int8store(ptr_buffer, prev_raft_index_);
-  ptr_buffer += ENCODED_RAFT_PREV_OPID_SIZE;
+  ptr_buffer += sizeof(prev_raft_index_);
 
   DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
   bool ret = wrapper_my_b_safe_write(ostream, (uchar *)buffer, sizeof(buffer));
