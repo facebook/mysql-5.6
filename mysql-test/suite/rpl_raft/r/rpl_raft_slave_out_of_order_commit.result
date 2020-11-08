@@ -1,0 +1,66 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+create database d1;
+create database d2;
+create table d1.t1(a int primary key) engine = innodb;
+create table d2.t2(a int primary key) engine = innodb;
+insert into d1.t1 values(1);
+insert into d2.t2 values(1);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+begin;
+update d1.t1 set a = a + 100;
+update d1.t1 set a = a + 1;
+insert into d2.t2 values(2);
+select * from d2.t2;
+a
+1
+2
+rollback;
+set @@global.rpl_raft_new_leader_uuid = 's2_uuid';
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+select * from d1.t1;
+a
+2
+select * from d2.t2;
+a
+1
+2
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	LEADER
+select * from d1.t1;
+a
+2
+select * from d2.t2;
+a
+1
+2
+show status like 'rpl_raft_role';
+Variable_name	Value
+Rpl_raft_role	FOLLOWER
+select * from d1.t1;
+a
+2
+select * from d2.t2;
+a
+1
+2
+set @@global.rpl_raft_new_leader_uuid = 's1_uuid';
+drop table d1.t1;
+drop table d2.t2;
+drop database d1;
+drop database d2;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
