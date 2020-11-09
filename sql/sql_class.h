@@ -4053,6 +4053,10 @@ public:
     each thread that is using LOG_INFO needs to adjust the pointer to it
   */
   LOG_INFO*  current_linfo;
+
+  /* Is this current_linfo for a relay log file? */
+  bool is_relay_log_linfo;
+
   NET*       slave_net;			// network connection from slave -> m.
   /* Used by the sys_var class to store temporary values */
   union

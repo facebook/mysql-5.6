@@ -3333,6 +3333,7 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
 
     mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     thd->current_linfo = &linfo;
+    thd->is_relay_log_linfo = binary_log->is_relay_log;
     mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
     if ((file=open_binlog_file(&log, linfo.log_file_name, &errmsg)) < 0)
@@ -3446,6 +3447,7 @@ err:
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
+  thd->is_relay_log_linfo = false;
   mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   DBUG_RETURN(ret);
@@ -4051,7 +4053,7 @@ err:
       Now they sync is done for next read.
 */
 
-static void adjust_linfo_offsets(my_off_t purge_offset)
+static void adjust_linfo_offsets(my_off_t purge_offset, bool is_relay_log)
 {
   mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
 
@@ -4059,8 +4061,9 @@ static void adjust_linfo_offsets(my_off_t purge_offset)
   Thread_iterator end= global_thread_list_end();
   for (; it != end; ++it)
   {
-    LOG_INFO* linfo;
-    if ((linfo = (*it)->current_linfo))
+    LOG_INFO* linfo = (*it)->current_linfo;
+    if (linfo &&
+        (!enable_raft_plugin || (*it)->is_relay_log_linfo == is_relay_log))
     {
       mysql_mutex_lock(&linfo->lock);
       /*
@@ -4139,7 +4142,7 @@ int MYSQL_BIN_LOG::remove_logs_from_index(LOG_INFO* log_info,
 
   // now update offsets in index file for running threads
   if (need_update_threads)
-    adjust_linfo_offsets(log_info->index_file_start_offset);
+    adjust_linfo_offsets(log_info->index_file_start_offset, is_relay_log);
   return 0;
 
 err:

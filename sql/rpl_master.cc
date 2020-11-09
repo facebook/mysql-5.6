@@ -2138,6 +2138,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = &linfo;
+  thd->is_relay_log_linfo = dump_log.is_relay_log();
   mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
   if ((file=open_binlog_file(&log, log_file_name, &errmsg)) < 0)
@@ -3274,6 +3275,7 @@ end:
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
+  thd->is_relay_log_linfo = false;
   mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   /* Undo any calls done by processlist_slave_offset */
@@ -3325,6 +3327,7 @@ err:
   */
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
+  thd->is_relay_log_linfo = false;
   mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   if (file >= 0)
     mysql_file_close(file, MYF(MY_WME));
