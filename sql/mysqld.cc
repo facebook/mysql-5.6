@@ -874,10 +874,6 @@ MySQL clients support the protocol:
 #include "typelib.h"
 #include "violite.h"
 
-#ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
-#include "storage/perfschema/pfs_server.h"
-#endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
-
 #ifdef _WIN32
 #include "sql/conn_handler/named_pipe_connection.h"
 #include "sql/conn_handler/shared_memory_connection.h"
@@ -1315,6 +1311,18 @@ mysql_mutex_t LOCK_tls_ctx_options;
 mysql_mutex_t LOCK_admin_tls_ctx_options;
 mysql_mutex_t LOCK_partial_revokes;
 
+/* Lock to protect global_write_statistics map structure */
+mysql_mutex_t LOCK_global_write_statistics;
+
+/* Lock to protect global_write_throttling_rules map structure */
+mysql_mutex_t LOCK_global_write_throttling_rules;
+
+/* Lock to protect global_write_throttling_log map structure */
+mysql_mutex_t LOCK_global_write_throttling_log;
+
+/* Lock to be used for auto throttling based on replication lag */
+mysql_mutex_t LOCK_replication_lag_auto_throttling;
+
 ulonglong rbr_unsafe_queries = 0;
 
 /* Number of times the IO thread connected to the master */
@@ -1481,12 +1489,37 @@ ulonglong global_conn_mem_counter = 0;
 bool opt_group_replication_plugin_hooks = false;
 bool opt_core_file = false;
 bool skip_core_dump_on_error = false;
+/* write_control_level:
+ * Global variable to control write throttling for short running queries and
+ * abort for long running queries.
+ */
+ulong write_control_level;
 /* Controls num most recent data points to collect for
  * information_schema.write_statistics */
 uint write_stats_count;
 /* Controls the frequency(seconds) at which write stats and replica lag stats
  * are collected*/
 ulong write_stats_frequency;
+/* Stores the (latest)value for sys_var write_throttle_patterns  */
+char *latest_write_throttling_rule;
+/* A replication lag higher than the value of this variable will enable
+ * throttling of write workload */
+ulong write_start_throttle_lag_milliseconds;
+/* A replication lag lower than the value of this variable will disable
+ * throttling of write workload */
+ulong write_stop_throttle_lag_milliseconds;
+/* Minimum value of the ratio (1st entity)/(2nd entity) for replication lag
+ * throttling to kick in */
+double write_throttle_min_ratio;
+/* Number of consecutive cycles to monitor an entity for replication lag
+ * throttling before taking action */
+uint write_throttle_monitor_cycles;
+/* Percent of secondaries that need to lag for overall replication topology to
+ * be considered lagging */
+uint write_throttle_lag_pct_min_secondaries;
+/* The frequency (seconds) at which auto throttling checks are run on a primary
+ */
+ulong write_auto_throttle_frequency;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
 ulonglong slave_high_priority_lock_wait_timeout_nsec = 1.0;
@@ -2813,6 +2846,8 @@ static void clean_up(bool print_message) {
     opt_applylog_index_name = nullptr;
   }
 
+  free_global_write_statistics();
+
   free_max_user_conn();
   delete binlog_filter;
   rpl_channel_filters.clean_up();
@@ -2913,6 +2948,10 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_replica_net_timeout);
   mysql_mutex_destroy(&LOCK_replica_trans_dep_tracker);
   mysql_mutex_destroy(&LOCK_error_messages);
+  mysql_mutex_destroy(&LOCK_global_write_statistics);
+  mysql_mutex_destroy(&LOCK_global_write_throttling_rules);
+  mysql_mutex_destroy(&LOCK_global_write_throttling_log);
+  mysql_mutex_destroy(&LOCK_replication_lag_auto_throttling);
   mysql_mutex_destroy(&LOCK_default_password_lifetime);
   mysql_mutex_destroy(&LOCK_mandatory_roles);
   mysql_mutex_destroy(&LOCK_server_started);
@@ -5843,6 +5882,14 @@ static int init_thread_environment() {
   mysql_cond_init(key_COND_slave_stats_daemon, &COND_slave_stats_daemon);
   mysql_mutex_init(key_LOCK_server_started, &LOCK_server_started,
                    MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_global_write_statistics,
+                   &LOCK_global_write_statistics, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_global_write_throttling_rules,
+                   &LOCK_global_write_throttling_rules, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_global_write_throttling_log,
+                   &LOCK_global_write_throttling_log, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_replication_lag_auto_throttling,
+                   &LOCK_replication_lag_auto_throttling, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started);
   mysql_mutex_init(key_LOCK_reset_gtid_table, &LOCK_reset_gtid_table,
                    MY_MUTEX_INIT_FAST);
@@ -12655,6 +12702,10 @@ PSI_mutex_key key_mutex_replica_worker_hash;
 PSI_mutex_key key_monitor_info_run_lock;
 PSI_mutex_key key_LOCK_delegate_connection_mutex;
 PSI_mutex_key key_LOCK_group_replication_connection_mutex;
+PSI_mutex_key key_LOCK_global_write_statistics;
+PSI_mutex_key key_LOCK_global_write_throttling_rules;
+PSI_mutex_key key_LOCK_global_write_throttling_log;
+PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 
 /* clang-format off */
 static PSI_mutex_info all_server_mutexes[]=
@@ -12716,6 +12767,10 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_source_info_thd_lock, "Source_info::info_thd_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_source_info_rotate_lock, "Source_info::rotate_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_mutex_replica_reporting_capability_err_lock, "Replica_reporting_capability::err_lock", 0, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_global_write_statistics, "LOCK_global_write_statistics", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_global_write_throttling_rules, "LOCK_global_write_throttling_rules", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_replication_lag_auto_throttling, "LOCK_replication_lag_auto_throttling", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_data_lock, "Relay_log_info::data_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_sleep_lock, "Relay_log_info::sleep_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_thd_lock, "Relay_log_info::info_thd_lock", 0, 0, PSI_DOCUMENT_ME},

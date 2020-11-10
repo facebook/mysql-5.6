@@ -159,6 +159,9 @@
 #include "storage/perfschema/table_uvar_by_thread.h"
 #include "storage/perfschema/table_variables_by_thread.h"
 #include "storage/perfschema/table_variables_info.h"
+#include "storage/perfschema/table_write_statistics.h"
+#include "storage/perfschema/table_write_throttling_log.h"
+#include "storage/perfschema/table_write_throttling_rules.h"
 #include "thr_lock.h"
 #include "thr_mutex.h"
 
@@ -566,6 +569,9 @@ static PFS_engine_table_share *all_shares[] = {
     &table_session_query_attrs::m_share,
     &table_client_attrs::m_share,
     &table_replica_statistics::m_share,
+    &table_write_statistics::m_share,
+    &table_write_throttling_rules::m_share,
+    &table_write_throttling_log::m_share,
 
     &table_keyring_keys::s_share,
 

@@ -1,0 +1,35 @@
+SELECT @@global.write_throttle_tag_only;
+SET @@global.write_throttle_tag_only=true;
+show global variables like 'write_throttle_tag_only';
+select * from performance_schema.global_variables where variable_name='write_throttle_tag_only';
+
+select @@session.write_throttle_tag_only;
+show session variables like 'write_throttle_tag_only';
+select * from performance_schema.session_variables where variable_name='write_throttle_tag_only';
+
+#
+# show that it's writable
+#
+set session write_throttle_tag_only=true;
+select @@session.write_throttle_tag_only;
+show session variables like 'write_throttle_tag_only';
+
+set session write_throttle_tag_only=false;
+select @@session.write_throttle_tag_only;
+show session variables like 'write_throttle_tag_only';
+
+set session write_throttle_tag_only=default;
+select @@session.write_throttle_tag_only;
+show session variables like 'write_throttle_tag_only';
+
+set global write_throttle_tag_only=default;
+select @@global.write_throttle_tag_only;
+show global variables like 'write_throttle_tag_only';
+
+#
+# incorrect assignments
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set write_throttle_tag_only=1.1;
+--error ER_WRONG_VALUE_FOR_VAR
+set write_throttle_tag_only="foobar";

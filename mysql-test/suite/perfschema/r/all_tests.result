@@ -42,5 +42,8 @@ idx_replication_asynchronous_connection_failover_managed.test
 idx_session_query_attrs.test
 idx_table_statistics_by_table.test
 idx_user_defined_functions.test
+idx_write_statistics.test
+idx_write_throttling_log.test
+idx_write_throttling_rules.test
 drop table t1;
 drop table t2;

@@ -1,0 +1,56 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of write_throttle_patterns is OFF
+SELECT @@global.write_throttle_patterns;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_throttle_patterns;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_throttle_patterns is a dynamic variable (change to a valid value)
+set @@global.write_throttle_patterns = '+CLIENT=client_id';
+SELECT @@global.write_throttle_patterns;
+
+####
+## Verify that rubbish values are not allowed
+####
+--echo write_throttle_patterns is a dynamic variable (change to a valid value)
+--error ER_WRONG_ARGUMENTS
+set @@global.write_throttle_patterns = '+CLiENT=client_id';
+--error ER_WRONG_ARGUMENTS
+set @@global.write_throttle_patterns = 'CLIENT=client_id';
+--error ER_WRONG_ARGUMENTS
+set @@global.write_throttle_patterns = 'CLIENT';
+SELECT @@global.write_throttle_patterns;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_throttle_patterns = 'OFF';
+SELECT @@global.write_throttle_patterns;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value ('-CLIENT=client_id')
+--let $restart_parameters = restart: --write_throttle_patterns='-CLIENT=client_id'
+--source include/restart_mysqld.inc
+
+SELECT @@global.write_throttle_patterns;
+
+--echo restart the server with the default value ('OFF')
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (OFF)
+SELECT @@global.write_throttle_patterns;

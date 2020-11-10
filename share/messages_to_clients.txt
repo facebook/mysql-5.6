@@ -10059,6 +10059,9 @@ ER_RAFT_BINLOG_ERROR_ACTION
 ER_LOG_ALTER_DB
   eng "Alter database query: %s (user '%s' from '%s')"
 
+ER_WRITE_QUERY_THROTTLED
+  eng "Exceeded write workload limit. Try again later"
+
 ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX
   eng "`%s` found in the middle of a trx or with end_log_pos = 0, this is not expected in raft mode"
 

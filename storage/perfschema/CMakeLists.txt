@@ -185,6 +185,9 @@ table_session_connect_attrs.h
 table_session_account_connect_attrs.h
 table_session_query_attrs.h
 table_client_attrs.h
+table_write_statistics.h
+table_write_throttling_rules.h
+table_write_throttling_log.h
 table_replica_statistics.h
 table_replication_asynchronous_connection_failover.h
 table_replication_connection_configuration.h
@@ -356,6 +359,9 @@ table_session_connect_attrs.cc
 table_session_account_connect_attrs.cc
 table_session_query_attrs.cc
 table_client_attrs.cc
+table_write_statistics.cc
+table_write_throttling_rules.cc
+table_write_throttling_log.cc
 table_replica_statistics.cc
 table_replication_asynchronous_connection_failover.cc
 table_replication_connection_configuration.cc

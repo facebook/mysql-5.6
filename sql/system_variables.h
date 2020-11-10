@@ -505,6 +505,8 @@ struct System_variables {
     @sa Sys_connection_global_memory_tracking
   */
   bool conn_global_mem_tracking;
+
+  bool write_throttle_tag_only;
 };
 
 /**
