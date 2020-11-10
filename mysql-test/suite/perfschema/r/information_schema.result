@@ -118,6 +118,9 @@ performance_schema	user_variables_by_thread	def
 performance_schema	users	def
 performance_schema	variables_by_thread	def
 performance_schema	variables_info	def
+performance_schema	write_statistics	def
+performance_schema	write_throttling_log	def
+performance_schema	write_throttling_rules	def
 select lower(TABLE_NAME), TABLE_TYPE, ENGINE
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -238,6 +241,9 @@ user_variables_by_thread	BASE TABLE	PERFORMANCE_SCHEMA
 users	BASE TABLE	PERFORMANCE_SCHEMA
 variables_by_thread	BASE TABLE	PERFORMANCE_SCHEMA
 variables_info	BASE TABLE	PERFORMANCE_SCHEMA
+write_statistics	BASE TABLE	PERFORMANCE_SCHEMA
+write_throttling_log	BASE TABLE	PERFORMANCE_SCHEMA
+write_throttling_rules	BASE TABLE	PERFORMANCE_SCHEMA
 select lower(TABLE_NAME), VERSION, ROW_FORMAT
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -358,6 +364,9 @@ user_variables_by_thread	10	Dynamic
 users	10	Fixed
 variables_by_thread	10	Dynamic
 variables_info	10	Dynamic
+write_statistics	10	Dynamic
+write_throttling_log	10	Dynamic
+write_throttling_rules	10	Dynamic
 select lower(TABLE_NAME), AVG_ROW_LENGTH
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema' and
@@ -468,6 +477,9 @@ tls_channel_status	0
 user_defined_functions	0
 user_variables_by_thread	0
 users	0
+write_statistics	0
+write_throttling_log	0
+write_throttling_rules	0
 select lower(TABLE_NAME), TABLE_ROWS, AVG_ROW_LENGTH
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema' and
@@ -604,6 +616,9 @@ user_variables_by_thread	0	0
 users	0	0
 variables_by_thread	0	0
 variables_info	0	0
+write_statistics	0	0
+write_throttling_log	0	0
+write_throttling_rules	0	0
 select lower(TABLE_NAME), INDEX_LENGTH, DATA_FREE, AUTO_INCREMENT
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -724,6 +739,9 @@ user_variables_by_thread	0	0	NULL
 users	0	0	NULL
 variables_by_thread	0	0	NULL
 variables_info	0	0	NULL
+write_statistics	0	0	NULL
+write_throttling_log	0	0	NULL
+write_throttling_rules	0	0	NULL
 select lower(TABLE_NAME), CREATE_TIME, UPDATE_TIME, CHECK_TIME
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -844,6 +862,9 @@ user_variables_by_thread	NULL	NULL	NULL
 users	NULL	NULL	NULL
 variables_by_thread	NULL	NULL	NULL
 variables_info	NULL	NULL	NULL
+write_statistics	NULL	NULL	NULL
+write_throttling_log	NULL	NULL	NULL
+write_throttling_rules	NULL	NULL	NULL
 select lower(TABLE_NAME), TABLE_COLLATION, CHECKSUM
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -964,6 +985,9 @@ user_variables_by_thread	utf8mb4_0900_ai_ci	NULL
 users	utf8mb4_0900_ai_ci	NULL
 variables_by_thread	utf8mb4_0900_ai_ci	NULL
 variables_info	utf8mb4_0900_ai_ci	NULL
+write_statistics	utf8mb4_0900_ai_ci	NULL
+write_throttling_log	utf8mb4_0900_ai_ci	NULL
+write_throttling_rules	utf8mb4_0900_ai_ci	NULL
 select lower(TABLE_NAME), CREATE_OPTIONS
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -1084,6 +1108,9 @@ user_variables_by_thread
 users	
 variables_by_thread	
 variables_info	
+write_statistics	
+write_throttling_log	
+write_throttling_rules	
 select lower(TABLE_NAME), TABLE_COMMENT
 from information_schema.tables
 where TABLE_SCHEMA='performance_schema';
@@ -1204,3 +1231,6 @@ user_variables_by_thread
 users	
 variables_by_thread	
 variables_info	
+write_statistics	
+write_throttling_log	
+write_throttling_rules	

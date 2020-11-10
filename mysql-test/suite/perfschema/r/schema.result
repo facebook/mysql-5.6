@@ -123,6 +123,9 @@ user_variables_by_thread
 users
 variables_by_thread
 variables_info
+write_statistics
+write_throttling_log
+write_throttling_rules
 show create table accounts;
 Table	Create Table
 accounts	CREATE TABLE `accounts` (

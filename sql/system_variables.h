@@ -543,6 +543,8 @@ struct System_variables {
   */
   bool conn_global_mem_tracking;
 
+  bool write_throttle_tag_only;
+
   /**
     Switch which controls whether XA transactions are detached
     (made accessible to other connections for commit/rollback)

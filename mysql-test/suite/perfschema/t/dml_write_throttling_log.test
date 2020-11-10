@@ -1,0 +1,35 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table write_throttling_log.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.write_throttling_log
+  LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.write_throttling_log
+  VALUES(MANUAL, NOW(), SQL_ID, 123, SHORT, 10);
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.write_throttling_log
+  SET VALUE=123 WHERE VALUE=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.write_throttling_log
+  WHERE VALUE=2;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.write_throttling_log;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.write_throttling_log READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.write_throttling_log WRITE;
+UNLOCK TABLES;
