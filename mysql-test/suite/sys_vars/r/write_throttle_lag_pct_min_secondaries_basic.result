@@ -1,0 +1,27 @@
+Default value of write_throttle_lag_pct_min_secondaries is 100
+SELECT @@global.write_throttle_lag_pct_min_secondaries;
+@@global.write_throttle_lag_pct_min_secondaries
+100
+SELECT @@session.write_throttle_lag_pct_min_secondaries;
+ERROR HY000: Variable 'write_throttle_lag_pct_min_secondaries' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_lag_pct_min_secondaries is a dynamic variable (change to 1)
+set @@global.write_throttle_lag_pct_min_secondaries = 1;
+SELECT @@global.write_throttle_lag_pct_min_secondaries;
+@@global.write_throttle_lag_pct_min_secondaries
+1
+restore the default value
+SET @@global.write_throttle_lag_pct_min_secondaries = 100;
+SELECT @@global.write_throttle_lag_pct_min_secondaries;
+@@global.write_throttle_lag_pct_min_secondaries
+100
+restart the server with non default value (1)
+# restart: --write_throttle_lag_pct_min_secondaries=1
+SELECT @@global.write_throttle_lag_pct_min_secondaries;
+@@global.write_throttle_lag_pct_min_secondaries
+1
+restart the server with the default value (100)
+# restart:
+SELECT @@global.write_throttle_lag_pct_min_secondaries;
+@@global.write_throttle_lag_pct_min_secondaries
+100

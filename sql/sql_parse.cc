@@ -129,9 +129,10 @@
 #include "sql/rpl_group_replication.h"  // group_replication_start
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"  // launch_hook_trans_begin
-#include "sql/rpl_master.h"   // register_slave
-#include "sql/rpl_rli.h"      // mysql_show_relaylog_events
-#include "sql/rpl_slave.h"    // change_master_cmd
+#include "sql/rpl_lag_manager.h"
+#include "sql/rpl_master.h"  // register_slave
+#include "sql/rpl_rli.h"     // mysql_show_relaylog_events
+#include "sql/rpl_slave.h"   // change_master_cmd
 #include "sql/session_tracker.h"
 #include "sql/set_var.h"
 #include "sql/sp.h"        // sp_create_routine
@@ -1803,6 +1804,21 @@ static std::string perf_counter_factory_name() { return "simple"; }
 static std::shared_ptr<utils::PerfCounterFactory> pc_factory =
     utils::PerfCounterFactory::getFactory(perf_counter_factory_name());
 
+/*
+  update_mt_stmt_stats
+    Method to update any multi tenancy stats after execution of each stmt
+*/
+static void update_mt_stmt_stats(THD *thd) {
+  /* Update write statistics if stats collection is turned on and
+    this stmt wrote binlog bytes
+  */
+  if (write_stats_capture_enabled() &&
+      thd->get_row_binlog_bytes_written() > 0) {
+    thd->set_stmt_total_write_time();
+    store_write_statistics(thd);
+  }
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -2204,6 +2220,17 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         */
         const char *beginning_of_next_stmt = parser_state.m_lip.found_semicolon;
 
+        /*
+          Update MT stats.
+          For multi-query statements, MT stats should be updated after every
+          individual SQL query. An `update_mt_stats` will
+          follow every `mysql_parse` to update the statistics right after the
+          execution of the query.
+          The stats updated here will be for the first statement of the
+          multi-query set.
+        */
+        update_mt_stmt_stats(thd);
+
         /* Finalize server status flags after executing a statement. */
         thd->finalize_session_trackers();
         thd->update_slow_query_status();
@@ -2275,6 +2302,15 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
 
         thd->set_secondary_engine_optimization(saved_secondary_engine);
       }
+
+      /*
+        Update MT stats.
+        If multi-query: The stats updated here will be for the last statement
+          out of the multi-query set.
+        If not multi-query: The stats updated here will be fore the entire
+          statement.
+      */
+      update_mt_stmt_stats(thd);
 
       if (thd->is_in_ac &&
           (!opt_admission_control_by_trx ||
@@ -5846,6 +5882,8 @@ void THD::reset_for_next_command() {
   thd->rand_used = false;
   thd->m_sent_row_count = thd->m_examined_row_count = 0;
 
+  thd->reset_stmt_stats();
+
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags = 0;
   thd->binlog_need_explicit_defaults_ts = false;
@@ -5921,6 +5959,83 @@ bool create_select_for_variable(Parse_context *pc, const char *var_name) {
 }
 
 /*
+  Check if we should throttle a write query if a matching throttling
+  rule is present.
+  Also, it triggers replication lag check for auto throttling.
+*/
+static bool mt_check_throttle_write_query(THD *thd) {
+  DBUG_ENTER("mt_check_throttle_write_query");
+
+  // skip if it is a secondary or sql_log_bin is off
+  if (is_slave || !thd->variables.sql_log_bin) DBUG_RETURN(false);
+
+  // skip if not a write query
+  if (thd->lex->sql_command != SQLCOM_INSERT &&
+      thd->lex->sql_command != SQLCOM_UPDATE &&
+      thd->lex->sql_command != SQLCOM_DELETE &&
+      thd->lex->sql_command != SQLCOM_UPDATE_MULTI &&
+      thd->lex->sql_command != SQLCOM_DELETE_MULTI &&
+      thd->lex->sql_command != SQLCOM_REPLACE &&
+      thd->lex->sql_command != SQLCOM_REPLACE_SELECT &&
+      thd->lex->sql_command != SQLCOM_INSERT_SELECT) {
+    DBUG_RETURN(false);
+  }
+
+  // check if its time to check replication lag
+  if (write_stats_capture_enabled() && write_auto_throttle_frequency > 0) {
+    time_t time_now = my_time(0);
+    if (time_now - last_replication_lag_check_time >=
+        (long)write_auto_throttle_frequency) {
+      mysql_mutex_lock(&LOCK_replication_lag_auto_throttling);
+      // double check after locking
+      if (time_now - last_replication_lag_check_time >=
+          (long)write_auto_throttle_frequency) {
+        // check replication lag and throttle, if needed
+        check_lag_and_throttle();
+        // update last check time
+        last_replication_lag_check_time = time_now;
+      }
+      mysql_mutex_unlock(&LOCK_replication_lag_auto_throttling);
+    }
+  }
+
+  std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> keys;
+  thd->get_mt_keys_for_write_query(keys);
+  int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
+
+  mysql_mutex_lock(&LOCK_global_write_throttling_rules);
+  // Check if any part of the key match any of the throttling rules
+  for (uint i = 0; i < WRITE_STATISTICS_DIMENSION_COUNT; i++) {
+    auto iter = global_write_throttling_rules[i].find(keys[i]);
+    if (iter != global_write_throttling_rules[i].end()) {
+      WRITE_THROTTLING_RULE &rule = iter->second;
+      store_write_throttling_log(thd, i, iter->first, rule);
+      if (iter->second.mode == WTR_MANUAL ||
+          (!thd->variables.write_throttle_tag_only &&
+           write_control_level == CONTROL_LEVEL_ERROR) ||
+          mt_throttle_tag_level == CONTROL_LEVEL_ERROR) {
+        my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
+        mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+        DBUG_RETURN(true);
+      } else if ((!thd->variables.write_throttle_tag_only &&
+                  (write_control_level == CONTROL_LEVEL_NOTE ||
+                   write_control_level == CONTROL_LEVEL_WARN)) ||
+                 mt_throttle_tag_level == CONTROL_LEVEL_WARN) {
+        push_warning(thd,
+                     (write_control_level == CONTROL_LEVEL_NOTE ||
+                      mt_throttle_tag_level != CONTROL_LEVEL_WARN)
+                         ? Sql_condition::SL_NOTE
+                         : Sql_condition::SL_WARNING,
+                     ER_WRITE_QUERY_THROTTLED,
+                     ER_THD(thd, ER_WRITE_QUERY_THROTTLED));
+      }
+    }
+  }
+  mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
+  DBUG_RETURN(false);
+}
+
+/*
   When you modify mysql_parse(), you may need to mofify
   mysql_test_parse_for_slave() in this same file.
 */
@@ -5959,7 +6074,9 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
     found_semicolon = parser_state->m_lip.found_semicolon;
   }
 
-  if (!err) {
+  bool query_throttled = mt_check_throttle_write_query(thd);
+
+  if (!err && !query_throttled) {
     /*
       Rewrite the query for logging and for the Performance Schema
       statement tables. (Raw logging happened earlier.)
@@ -6097,8 +6214,11 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
         thd->m_statement_psi, sql_statement_info[SQLCOM_END].m_key);
 
     DBUG_ASSERT(thd->is_error());
-    DBUG_PRINT("info",
-               ("Command aborted. Fatal_error: %d", thd->is_fatal_error()));
+    /* no need of logging throttled query in error log */
+    if (!query_throttled) {
+      DBUG_PRINT("info",
+                 ("Command aborted. Fatal_error: %d", thd->is_fatal_error()));
+    }
   }
 
   THD_STAGE_INFO(thd, stage_freeing_items);

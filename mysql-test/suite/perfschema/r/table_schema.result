@@ -1544,6 +1544,21 @@ def	performance_schema	variables_info	MAX_VALUE	5	NULL	YES	varchar	64	256	NULL	N
 def	performance_schema	variables_info	SET_TIME	6	NULL	YES	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references			NULL
 def	performance_schema	variables_info	SET_USER	7	NULL	YES	char	80	320	NULL	NULL	NULL	utf8mb4	utf8mb4_bin	char(80)			select,insert,update,references			NULL
 def	performance_schema	variables_info	SET_HOST	8	NULL	YES	char	255	255	NULL	NULL	NULL	ascii	ascii_general_ci	char(255)			select,insert,update,references			NULL
+def	performance_schema	write_statistics	TIMESTAMP	1	0000-00-00 00:00:00	NO	timestamp	NULL	NULL	NULL	NULL	0	NULL	NULL	timestamp			select,insert,update,references			NULL
+def	performance_schema	write_statistics	TYPE	2	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_statistics	VALUE	3	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
+def	performance_schema	write_statistics	WRITE_DATA_BYTES	4	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	write_statistics	CPU_WRITE_TIME_MS	5	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	MODE	1	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	CREATION_TIME	2	0000-00-00 00:00:00	NO	timestamp	NULL	NULL	NULL	NULL	0	NULL	NULL	timestamp			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	TYPE	3	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	VALUE	4	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	TRANSACTION_TYPE	5	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_log	COUNT	6	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	write_throttling_rules	MODE	1	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_rules	CREATION_TIME	2	0000-00-00 00:00:00	NO	timestamp	NULL	NULL	NULL	NULL	0	NULL	NULL	timestamp			select,insert,update,references			NULL
+def	performance_schema	write_throttling_rules	TYPE	3	NULL	YES	varchar	16	64	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(16)			select,insert,update,references			NULL
+def	performance_schema	write_throttling_rules	VALUE	4	NULL	YES	varchar	64	256	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(64)			select,insert,update,references			NULL
 select count(*) from information_schema.columns
 where table_schema="performance_schema" and data_type = "bigint"
    and column_name like "%number_of_bytes" into @count_byte_columns;

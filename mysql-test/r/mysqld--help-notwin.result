@@ -2329,6 +2329,19 @@ The following options may be given as the first argument:
  inversion optimization for moving window frames also for
  floating values.
  (Defaults to on; use --skip-windowing-use-high-precision to disable.)
+ --write-auto-throttle-frequency[=#] 
+ The frequency (seconds) at which auto throttling checks
+ are run on a primary. Default value is 0 which means auto
+ throttling is turned off.
+ --write-control-level[=name] 
+ Controls write throttle for short queries and write abort
+ for long running queries. It can take the following
+ values: OFF: Default value (disable write throttling).
+ NOTE: Raise warning as note. WARN: Raise warning. ERROR:
+ Raise error and abort query.
+ --write-start-throttle-lag-milliseconds[=#] 
+ A replication lag higher than the value of this variable
+ will enable throttling of write workload
  --write-stats-count[=#] 
  Maximum number of most recent data points to be collected
  for information_schema.write_statistics &
@@ -2337,6 +2350,27 @@ The following options may be given as the first argument:
  This variable determines the frequency(seconds) at which
  write stats and replica lag stats are collected on
  primaries
+ --write-stop-throttle-lag-milliseconds[=#] 
+ A replication lag lower than the value of this variable
+ will disable throttling of write workload
+ --write-throttle-lag-pct-min-secondaries[=#] 
+ Percent of secondaries that need to lag for overall
+ replication topology to be considered lagging
+ --write-throttle-min-ratio[=#] 
+ Minimum value of the ratio (1st entity)/(2nd entity) for
+ replication lag throttling to kick in
+ --write-throttle-monitor-cycles[=#] 
+ Number of consecutive cycles to monitor an entity for
+ replication lag throttling before taking action
+ --write-throttle-patterns[=name] 
+ This variable is used to throttle write requests based on
+ user name, client id, sql_id or shard. It is used to
+ manually mitigate replication lag related issues.Check
+ out I_S.write_throttling_rules for all active rules.Valid
+ values - OFF, [+-][CLIENT|USER|SHARD|SQL_ID]=<value>
+ --write-throttle-tag-only 
+ If set to true, replication lag throttling will only
+ throttle queries with query attribute mt_throttle_okay.
  --zstd-net-compression-level[=#] 
  Compression level for compressed protocol when zstd
  library is selected.
@@ -3001,8 +3035,17 @@ validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
 windowing-use-high-precision TRUE
+write-auto-throttle-frequency 0
+write-control-level OFF
+write-start-throttle-lag-milliseconds 86400000
 write-stats-count 0
 write-stats-frequency 0
+write-stop-throttle-lag-milliseconds 86400000
+write-throttle-lag-pct-min-secondaries 100
+write-throttle-min-ratio 1000
+write-throttle-monitor-cycles 1000
+write-throttle-patterns OFF
+write-throttle-tag-only FALSE
 zstd-net-compression-level 3
 
 To see what values a running MySQL server is using, type

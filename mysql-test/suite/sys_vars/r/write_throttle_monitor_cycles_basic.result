@@ -1,0 +1,27 @@
+Default value of write_throttle_monitor_cycles is 1000
+SELECT @@global.write_throttle_monitor_cycles;
+@@global.write_throttle_monitor_cycles
+1000
+SELECT @@session.write_throttle_monitor_cycles;
+ERROR HY000: Variable 'write_throttle_monitor_cycles' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_monitor_cycles is a dynamic variable (change to 1)
+set @@global.write_throttle_monitor_cycles = 1;
+SELECT @@global.write_throttle_monitor_cycles;
+@@global.write_throttle_monitor_cycles
+1
+restore the default value
+SET @@global.write_throttle_monitor_cycles = 1000;
+SELECT @@global.write_throttle_monitor_cycles;
+@@global.write_throttle_monitor_cycles
+1000
+restart the server with non default value (1)
+# restart: --write_throttle_monitor_cycles=1
+SELECT @@global.write_throttle_monitor_cycles;
+@@global.write_throttle_monitor_cycles
+1
+restart the server with the default value (1000)
+# restart:
+SELECT @@global.write_throttle_monitor_cycles;
+@@global.write_throttle_monitor_cycles
+1000

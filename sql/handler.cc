@@ -8126,12 +8126,19 @@ int handler::ha_reset() {
 int handler::ha_write_row(uchar *buf) {
   int error;
   Log_func *log_func = Write_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type == F_WRLCK);
 
   DBUG_TRACE;
   DBUG_EXECUTE_IF("inject_error_ha_write_row", return HA_ERR_INTERNAL_ERROR;);
   DBUG_EXECUTE_IF("simulate_storage_engine_out_of_memory",
                   return HA_ERR_SE_OUT_OF_MEMORY;);
+
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled()) {
+    thd->set_stmt_start_write_time();
+  }
+
   mark_trx_read_write();
 
   DBUG_EXECUTE_IF(
@@ -8157,6 +8164,7 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
   int error;
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type == F_WRLCK);
   Log_func *log_func = Update_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
 
   /*
     Some storage engines require that the new record is in record[0]
@@ -8164,6 +8172,11 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
    */
   DBUG_ASSERT(new_data == table->record[0]);
   DBUG_ASSERT(old_data == table->record[1]);
+
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled()) {
+    thd->set_stmt_start_write_time();
+  }
 
   mark_trx_read_write();
 
@@ -8188,6 +8201,7 @@ int handler::ha_delete_row(const uchar *buf) {
   int error;
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE || m_lock_type == F_WRLCK);
   Log_func *log_func = Delete_rows_log_event::binlog_row_logging_function;
+  THD *thd = table->in_use;
   /*
     Normally table->record[0] is used, but sometimes table->record[1] is used.
   */
@@ -8198,6 +8212,11 @@ int handler::ha_delete_row(const uchar *buf) {
       "handler_crashed_table_on_usage",
       my_error(HA_ERR_CRASHED, MYF(ME_ERRORLOG), table_share->table_name.str);
       set_my_errno(HA_ERR_CRASHED); return (HA_ERR_CRASHED););
+
+  /* Start the timer to capture total write time for sql stmts */
+  if (write_stats_capture_enabled()) {
+    thd->set_stmt_start_write_time();
+  }
 
   mark_trx_read_write();
 

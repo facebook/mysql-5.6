@@ -73,6 +73,10 @@
 #include "sql/system_variables.h"
 #include "sql/thr_malloc.h"
 
+#ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
+#include "storage/perfschema/pfs_server.h"
+#endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
+
 class Rpl_global_filter;
 class THD;
 class Time_zone;
@@ -488,10 +492,18 @@ inline ulonglong microseconds_to_my_timer(double when) {
   return (ulonglong)ret;
 }
 
+extern ulong write_control_level;
 extern bool is_slave;
 extern std::atomic<int> slave_stats_daemon_thread_counter;
 extern uint write_stats_count;
 extern ulong write_stats_frequency;
+extern char *latest_write_throttling_rule;
+extern ulong write_start_throttle_lag_milliseconds;
+extern ulong write_stop_throttle_lag_milliseconds;
+extern double write_throttle_min_ratio;
+extern uint write_throttle_monitor_cycles;
+extern uint write_throttle_lag_pct_min_secondaries;
+extern ulong write_auto_throttle_frequency;
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -624,6 +636,10 @@ extern PSI_mutex_key key_gtid_ensure_index_mutex;
 extern PSI_mutex_key key_mts_temp_table_LOCK;
 extern PSI_mutex_key key_mts_gaq_LOCK;
 extern PSI_mutex_key key_thd_timer_mutex;
+extern PSI_mutex_key key_LOCK_global_write_statistics;
+extern PSI_mutex_key key_LOCK_global_write_throttling_rules;
+extern PSI_mutex_key key_LOCK_global_write_throttling_log;
+extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_slave_worker_hash;
@@ -858,6 +874,10 @@ extern mysql_mutex_t LOCK_uuid_generator;
 extern mysql_mutex_t LOCK_crypt;
 extern mysql_mutex_t LOCK_manager;
 extern mysql_mutex_t LOCK_slave_stats_daemon;
+extern mysql_mutex_t LOCK_global_write_statistics;
+extern mysql_mutex_t LOCK_global_write_throttling_rules;
+extern mysql_mutex_t LOCK_global_write_throttling_log;
+extern mysql_mutex_t LOCK_replication_lag_auto_throttling;
 extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;
@@ -943,6 +963,13 @@ inline bool mysqld_offline_mode() { return offline_mode.load(); }
   @param value true or false indicating the offline mode status of server.
 */
 inline void set_mysqld_offline_mode(bool value) { offline_mode.store(value); }
+
+/* write_stats_capture_enabled
+     Returns TRUE if capturing of write statistics is enabled
+ */
+inline bool write_stats_capture_enabled() {
+  return write_stats_count > 0 && write_stats_frequency > 0;
+}
 
 /**
   Get status partial_revokes on server

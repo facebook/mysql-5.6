@@ -970,6 +970,17 @@ void THD::init(bool is_slave) {
     ALTER USER statements.
   */
   m_disable_password_validation = false;
+
+  reset_stmt_stats();
+}
+
+/**
+  Reset statement stats counters before next statement.
+*/
+void THD::reset_stmt_stats() {
+  m_binlog_bytes_written = 0; /* binlog bytes written */
+  m_stmt_total_write_time = 0;
+  m_stmt_start_write_time_is_set = false;
 }
 
 void THD::init_query_mem_roots() {
@@ -3533,4 +3544,79 @@ void THD::serialize_client_attrs() {
       set_thread_client_attrs)(client_id.data(), client_attrs_string.ptr(),
                                client_attrs_string.length());
   DBUG_ASSERT(bytes_lost == 0);
+}
+
+/*
+  Start the timer for CPU write time to be collected for write_statistics
+*/
+void THD::set_stmt_start_write_time() {
+  if (m_stmt_start_write_time_is_set) return;
+
+  int result;
+  result = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &m_stmt_start_write_time);
+
+  m_stmt_start_write_time_is_set = result == 0;
+}
+
+/*
+  Capture the total cpu time(ms) spent to write the rows for stmt
+ */
+void THD::set_stmt_total_write_time() {
+  timespec time_end;
+  if (m_stmt_start_write_time_is_set &&
+      (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &time_end) == 0)) {
+    /* diff_timespec returns nanoseconds */
+    m_stmt_total_write_time =
+        diff_timespec(&time_end, &m_stmt_start_write_time);
+    m_stmt_total_write_time /= 1000; /* convert to microseconds */
+  }
+}
+
+/*
+  Returns all MT keys for the current write query
+ */
+void THD::get_mt_keys_for_write_query(
+    std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys) {
+  // Get keys for all the target dimensions to update write stats for
+  // USER
+  keys[0] = get_user_name();
+  // CLIENT ID
+  // TODO(mzait) - Hardcoding it for now, to be replaced
+  // after sql_findings is ported to 8.0
+  keys[1] = "HARDCODED_CLIENT_ID";
+  // SHARD
+  keys[2] = get_db_name();
+  // SQL ID
+  // TODO(mzait) Calculating a unique hash for now, to be
+  // replaced after the same hash used in sql_findings when ported to 8.0
+  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1] = "";
+  if (m_digest && !m_digest->m_digest_storage.is_empty()) {
+    uchar digest_hash[DIGEST_HASH_SIZE];
+    compute_digest_hash(&m_digest->m_digest_storage, digest_hash);
+    DIGEST_HASH_TO_STRING(digest_hash, sql_id);
+  }
+  keys[3] = sql_id;
+}
+
+/**
+   Should the query be throttled(error/warning) to avoid replication lag based
+   on query tags Returns 1 for warning only, 2 for throwing error and 0 if query
+   tag isn't present.
+*/
+enum_control_level THD::get_mt_throttle_tag_level() const {
+  std::string query_attr_key = "mt_throttle_okay";
+  std::string query_attr_value = "";
+  for (const auto &p : query_attrs_list) {
+    if (p.first == query_attr_key) {
+      query_attr_value = p.second;
+      break;
+    }
+  }
+  // For tag_only traffic(TAO), it should be throttled only if query attribute
+  // mt_throttle_okay is present
+  if (variables.write_throttle_tag_only && query_attr_value != "") {
+    if (query_attr_value == "WARN") return CONTROL_LEVEL_WARN;
+    if (query_attr_value == "ERROR") return CONTROL_LEVEL_ERROR;
+  }
+  return CONTROL_LEVEL_OFF;
 }

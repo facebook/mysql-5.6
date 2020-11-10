@@ -1,0 +1,27 @@
+Default value of write_throttle_min_ratio is 1000
+SELECT @@global.write_throttle_min_ratio;
+@@global.write_throttle_min_ratio
+1000.000000
+SELECT @@session.write_throttle_min_ratio;
+ERROR HY000: Variable 'write_throttle_min_ratio' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_min_ratio is a dynamic variable (change to 1)
+set @@global.write_throttle_min_ratio = 1;
+SELECT @@global.write_throttle_min_ratio;
+@@global.write_throttle_min_ratio
+1.000000
+restore the default value
+SET @@global.write_throttle_min_ratio = 1000;
+SELECT @@global.write_throttle_min_ratio;
+@@global.write_throttle_min_ratio
+1000.000000
+restart the server with non default value (1)
+# restart: --write_throttle_min_ratio=1
+SELECT @@global.write_throttle_min_ratio;
+@@global.write_throttle_min_ratio
+1.000000
+restart the server with the default value (1000)
+# restart:
+SELECT @@global.write_throttle_min_ratio;
+@@global.write_throttle_min_ratio
+1000.000000

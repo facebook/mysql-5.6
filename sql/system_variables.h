@@ -471,6 +471,8 @@ struct System_variables {
 
   /* A bitmap for switching 5.6 fb json functions behavior on/off */
   ulonglong use_fb_json_functions;
+
+  bool write_throttle_tag_only;
 };
 
 /**

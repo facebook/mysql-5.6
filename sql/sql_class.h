@@ -37,6 +37,25 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
+
+#include <memory>
+
+#include "m_ctype.h"
+#include "my_alloc.h"
+#include "my_compiler.h"
+#include "mysql/components/services/mysql_cond_bits.h"
+#include "mysql/components/services/mysql_mutex_bits.h"
+#include "mysql/components/services/psi_idle_bits.h"
+#include "mysql/components/services/psi_stage_bits.h"
+#include "mysql/components/services/psi_statement_bits.h"
+#include "mysql/components/services/psi_thread_bits.h"
+#include "mysql/components/services/psi_transaction_bits.h"
+#include "mysql/psi/mysql_thread.h"
+#include "pfs_thread_provider.h"
+#include "sql/psi_memory_key.h"
+#include "sql/resourcegroups/resource_group_basic_types.h"
+#include "sql/xa.h"
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
@@ -95,6 +114,7 @@
 #include "sql/resourcegroups/resource_group_basic_types.h"
 #include "sql/rpl_context.h"  // Rpl_thd_context
 #include "sql/rpl_gtid.h"
+#include "sql/rpl_lag_manager.h"
 #include "sql/session_tracker.h"  // Session_tracker
 #include "sql/snapshot.h"
 #include "sql/sql_connect.h"
@@ -2153,6 +2173,26 @@ class THD : public MDL_context_owner,
   */
   ha_rows m_examined_row_count;
 
+  /**
+     Total binlog bytes written per stmt.
+  */
+  ulonglong m_binlog_bytes_written;
+
+  /**
+     Captures the time when we start writing rows for a stmt.
+  */
+  timespec m_stmt_start_write_time;
+
+  /**
+     Whether we set the value of m_stmt_start_write_time.
+  */
+  bool m_stmt_start_write_time_is_set;
+
+  /**
+     Total time(micro-secs) spent writing rows for stmt.
+  */
+  ulonglong m_stmt_total_write_time;
+
  private:
   using explicit_snapshot_ptr = std::shared_ptr<explicit_snapshot>;
   explicit_snapshot_ptr m_explicit_snapshot;
@@ -2211,10 +2251,41 @@ class THD : public MDL_context_owner,
 
   void time_out_user_resource_limits();
 
+  const char *get_user_name() {
+    return security_context()->user().length > 0
+               ? security_context()->user().str
+               : "NULL";
+  }
+
+  const char *get_db_name() { return m_db.str != NULL ? m_db.str : "NULL"; }
+
  public:
   ha_rows get_sent_row_count() const { return m_sent_row_count; }
 
   ha_rows get_examined_row_count() const { return m_examined_row_count; }
+
+  void reset_stmt_stats();
+
+  ulonglong get_row_binlog_bytes_written() const {
+    return m_binlog_bytes_written;
+  }
+
+  void inc_row_binlog_bytes_written(ulonglong val) {
+    m_binlog_bytes_written += val;
+  }
+
+  ulonglong get_stmt_total_write_time() const {
+    return m_stmt_total_write_time;
+  }
+
+  void set_stmt_total_write_time();
+
+  void set_stmt_start_write_time();
+
+  void get_mt_keys_for_write_query(
+      std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys);
+
+  enum_control_level get_mt_throttle_tag_level() const;
 
   void set_sent_row_count(ha_rows count);
 

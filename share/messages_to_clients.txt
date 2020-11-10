@@ -9666,6 +9666,9 @@ ER_RAFT_BINLOG_ERROR_ACTION
 ER_LOG_ALTER_DB
   eng "Alter database query: %s (user '%s' from '%s')"
 
+ER_WRITE_QUERY_THROTTLED
+  eng "Exceeded write workload limit. Try again later"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

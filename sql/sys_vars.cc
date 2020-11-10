@@ -8148,6 +8148,14 @@ static Sys_var_ulonglong Sys_apply_log_retention_duration(
     GLOBAL_VAR(apply_log_retention_duration), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, ULONG_LONG_MAX), DEFAULT(15), BLOCK_SIZE(1));
 
+/* Free global_write_statistics if sys_var is set to 0 */
+static bool update_write_stats_count(sys_var *, THD *, enum_var_type) {
+  if (write_stats_count == 0) {
+    free_global_write_statistics();
+  }
+  return false;  // success
+}
+
 static Sys_var_uint Sys_write_stats_count(
     "write_stats_count",
     "Maximum number of most recent data points to be collected for "
@@ -8156,7 +8164,7 @@ static Sys_var_uint Sys_write_stats_count(
     "time series.",
     GLOBAL_VAR(write_stats_count), CMD_LINE(OPT_ARG), VALID_RANGE(0, UINT_MAX),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-    ON_UPDATE(nullptr));
+    ON_UPDATE(update_write_stats_count));
 
 /* Update the time interval for collecting write statistics. Signal
  * the thread to send replica lag stats if it is blocked on interval update */
@@ -8164,6 +8172,10 @@ static bool update_write_stats_frequency(sys_var *, THD *, enum_var_type) {
   mysql_mutex_lock(&LOCK_slave_stats_daemon);
   mysql_cond_signal(&COND_slave_stats_daemon);
   mysql_mutex_unlock(&LOCK_slave_stats_daemon);
+
+  if (write_stats_frequency == 0) {
+    free_global_write_statistics();
+  }
 
   return false;  // success
 }
@@ -8175,3 +8187,105 @@ static Sys_var_ulong Sys_write_stats_frequency(
     GLOBAL_VAR(write_stats_frequency), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
     NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(update_write_stats_frequency));
+
+/*
+  Update global_write_throttling_rules data structure with the
+  new value specified in write_throttling_patterns
+*/
+static bool update_write_throttling_patterns(sys_var *, THD *, enum_var_type) {
+  // value must be at least 3 characters long.
+  if (strlen(latest_write_throttling_rule) < 3) return true;  // failure
+
+  if (strcmp(latest_write_throttling_rule, "OFF") == 0) {
+    free_global_write_throttling_rules();
+    return false;  // success
+  }
+  return store_write_throttling_rules();
+}
+
+static Sys_var_charptr Sys_write_throttling_patterns(
+    "write_throttle_patterns",
+    "This variable is used to throttle write requests based on user name, "
+    "client id, "
+    "sql_id or shard. It is used to manually mitigate replication lag related "
+    "issues."
+    "Check out I_S.write_throttling_rules for all active rules."
+    "Valid values - OFF, [+-][CLIENT|USER|SHARD|SQL_ID]=<value>",
+    GLOBAL_VAR(latest_write_throttling_rule), CMD_LINE(OPT_ARG),
+    IN_SYSTEM_CHARSET, DEFAULT("OFF"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(update_write_throttling_patterns));
+
+static const char *control_level_values[] = {
+    "OFF", "NOTE", "WARN", "ERROR",
+    /* Add new control before the following line */
+    0};
+
+static Sys_var_enum Sys_write_control_level(
+    "write_control_level",
+    "Controls write throttle for short queries and write abort for long "
+    "running queries. It can take the following values: "
+    "OFF: Default value (disable write throttling). "
+    "NOTE: Raise warning as note. "
+    "WARN: Raise warning. "
+    "ERROR: Raise error and abort query.",
+    GLOBAL_VAR(write_control_level), CMD_LINE(OPT_ARG), control_level_values,
+    DEFAULT(CONTROL_LEVEL_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));
+
+static Sys_var_bool Sys_write_throttle_tag_only(
+    "write_throttle_tag_only",
+    "If set to true, replication lag throttling will only throttle queries "
+    "with query attribute mt_throttle_okay.",
+    SESSION_VAR(write_throttle_tag_only), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static Sys_var_ulong Sys_write_start_throttle_lag_milliseconds(
+    "write_start_throttle_lag_milliseconds",
+    "A replication lag higher than the value of this variable will enable "
+    "throttling "
+    "of write workload",
+    GLOBAL_VAR(write_start_throttle_lag_milliseconds), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 86400000), DEFAULT(86400000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_write_stop_throttle_lag_milliseconds(
+    "write_stop_throttle_lag_milliseconds",
+    "A replication lag lower than the value of this variable will disable "
+    "throttling "
+    "of write workload",
+    GLOBAL_VAR(write_stop_throttle_lag_milliseconds), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 86400000), DEFAULT(86400000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_double Sys_write_throttle_min_ratio(
+    "write_throttle_min_ratio",
+    "Minimum value of the ratio (1st entity)/(2nd entity) for replication lag "
+    "throttling to kick in",
+    GLOBAL_VAR(write_throttle_min_ratio), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, 1000), DEFAULT(1000), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_write_throttle_monitor_cycles(
+    "write_throttle_monitor_cycles",
+    "Number of consecutive cycles to monitor an entity for replication lag "
+    "throttling "
+    "before taking action",
+    GLOBAL_VAR(write_throttle_monitor_cycles), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 1000), DEFAULT(1000), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_uint Sys_write_throttle_lag_pct_min_secondaries(
+    "write_throttle_lag_pct_min_secondaries",
+    "Percent of secondaries that need to lag for overall replication topology "
+    "to be considered lagging",
+    GLOBAL_VAR(write_throttle_lag_pct_min_secondaries), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, 100), DEFAULT(100), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_write_auto_throttle_frequency(
+    "write_auto_throttle_frequency",
+    "The frequency (seconds) at which auto throttling checks are run on a "
+    "primary. "
+    "Default value is 0 which means auto throttling is turned off.",
+    GLOBAL_VAR(write_auto_throttle_frequency), CMD_LINE(OPT_ARG),
+    VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));

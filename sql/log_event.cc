@@ -1383,6 +1383,10 @@ bool Log_event::write_header(Basic_ostream *ostream, size_t event_data_length) {
   }
   crc = my_checksum(crc, header, LOG_EVENT_HEADER_LEN);
 
+  // For RBR events, capture the binlog bytes written
+  if (!ret && is_row_log_event()) {
+    thd->inc_row_binlog_bytes_written(common_header->data_written);
+  }
   return ret;
 }
 #endif /* MYSQL_SERVER */

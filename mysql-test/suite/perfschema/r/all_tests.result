@@ -36,5 +36,8 @@ idx_replication_applier_global_filters.test
 idx_session_query_attrs.test
 idx_table_statistics_by_table.test
 idx_user_defined_functions.test
+idx_write_statistics.test
+idx_write_throttling_log.test
+idx_write_throttling_rules.test
 drop table t1;
 drop table t2;

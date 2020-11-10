@@ -207,10 +207,16 @@
 ?  80020-009
    - add client attributes
 
+   800171009
+   add write_statistics
+   add write_throttling_rules
+   add write_throttling_log
+
 */
 
-/* Version published now is 80020-009. i.e. 8.0.20 Facebook schema change no. 9.
+/* Version published now is 80020-010. i.e. 8.0.20 Facebook schema change
+ * no. 10.
  */
-static const uint PFS_DD_VERSION = 80020009;
+static const uint PFS_DD_VERSION = 80020010;
 
 #endif /* PFS_DD_VERSION_H */
