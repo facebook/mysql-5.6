@@ -1,0 +1,51 @@
+SELECT @@global.write_throttle_tag_only;
+@@global.write_throttle_tag_only
+0
+SET @@global.write_throttle_tag_only=true;
+show global variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	ON
+select * from performance_schema.global_variables where variable_name='write_throttle_tag_only';
+VARIABLE_NAME	VARIABLE_VALUE
+write_throttle_tag_only	ON
+select @@session.write_throttle_tag_only;
+@@session.write_throttle_tag_only
+0
+show session variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	OFF
+select * from performance_schema.session_variables where variable_name='write_throttle_tag_only';
+VARIABLE_NAME	VARIABLE_VALUE
+write_throttle_tag_only	OFF
+set session write_throttle_tag_only=true;
+select @@session.write_throttle_tag_only;
+@@session.write_throttle_tag_only
+1
+show session variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	ON
+set session write_throttle_tag_only=false;
+select @@session.write_throttle_tag_only;
+@@session.write_throttle_tag_only
+0
+show session variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	OFF
+set session write_throttle_tag_only=default;
+select @@session.write_throttle_tag_only;
+@@session.write_throttle_tag_only
+1
+show session variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	ON
+set global write_throttle_tag_only=default;
+select @@global.write_throttle_tag_only;
+@@global.write_throttle_tag_only
+0
+show global variables like 'write_throttle_tag_only';
+Variable_name	Value
+write_throttle_tag_only	OFF
+set write_throttle_tag_only=1.1;
+ERROR 42000: Incorrect argument type to variable 'write_throttle_tag_only'
+set write_throttle_tag_only="foobar";
+ERROR 42000: Variable 'write_throttle_tag_only' can't be set to the value of 'foobar'

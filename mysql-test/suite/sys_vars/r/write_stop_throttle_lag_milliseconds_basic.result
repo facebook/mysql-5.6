@@ -1,0 +1,27 @@
+Default value of write_stop_throttle_lag_milliseconds is 86400000
+SELECT @@global.write_stop_throttle_lag_milliseconds;
+@@global.write_stop_throttle_lag_milliseconds
+86400000
+SELECT @@session.write_stop_throttle_lag_milliseconds;
+ERROR HY000: Variable 'write_stop_throttle_lag_milliseconds' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_stop_throttle_lag_milliseconds is a dynamic variable (change to 1)
+set @@global.write_stop_throttle_lag_milliseconds = 1;
+SELECT @@global.write_stop_throttle_lag_milliseconds;
+@@global.write_stop_throttle_lag_milliseconds
+1
+restore the default value
+SET @@global.write_stop_throttle_lag_milliseconds = 86400000;
+SELECT @@global.write_stop_throttle_lag_milliseconds;
+@@global.write_stop_throttle_lag_milliseconds
+86400000
+restart the server with non default value (1)
+# restart: --write_stop_throttle_lag_milliseconds=1
+SELECT @@global.write_stop_throttle_lag_milliseconds;
+@@global.write_stop_throttle_lag_milliseconds
+1
+restart the server with the default value (86400000)
+# restart:
+SELECT @@global.write_stop_throttle_lag_milliseconds;
+@@global.write_stop_throttle_lag_milliseconds
+86400000

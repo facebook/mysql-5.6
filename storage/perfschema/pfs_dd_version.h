@@ -226,7 +226,7 @@
 
   - add events_statements_summary_by_all table
 
-  80020-008:
+  80023-008:
 
    - add temp table bytes written to statement statistics
    - add filesort bytes written to statement statistics
@@ -235,18 +235,24 @@
    - add compilation cpu time to statement statistics
    - add elapsed time to statement statistics
 
-  80020-009:
+  80023-009:
 
-   - add replica_statistics table
+  - add replica_statistics table
 
-  80020-010:
+  80023-010:
 
-   - add client attributes
+  - add client attributes
+
+  80023-011
+
+  - add write_statistics
+  - add write_throttling_rules
+  - add write_throttling_log
 
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-010. i.e. 8.0.23 Facebook schema change no. 10.
+  Version published is now 80023-011. i.e. 8.0.23 Facebook schema change no. 11.
 */
 
-static const uint PFS_DD_VERSION = 80023010;
+static const uint PFS_DD_VERSION = 80023011;
 
 #endif /* PFS_DD_VERSION_H */

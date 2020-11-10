@@ -248,7 +248,7 @@ net_compression_level	6
 net_read_timeout	300
 net_retry_count	10
 net_write_timeout	200
-set max_join_size=4000;
+SET SQL_BIG_SELECTS=1;
 select * from performance_schema.global_variables where variable_name like 'net_%' order by 1;
 VARIABLE_NAME	VARIABLE_VALUE
 net_buffer_length	1024

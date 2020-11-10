@@ -1,0 +1,19 @@
+SELECT * FROM performance_schema.write_throttling_log
+LIMIT 1;
+INSERT INTO performance_schema.write_throttling_log
+VALUES(MANUAL, NOW(), SQL_ID, 123, SHORT, 10);
+ERROR 42000: INSERT command denied to user 'root'@'localhost' for table 'write_throttling_log'
+UPDATE performance_schema.write_throttling_log
+SET VALUE=123 WHERE VALUE=2;
+ERROR 42000: UPDATE command denied to user 'root'@'localhost' for table 'write_throttling_log'
+DELETE FROM performance_schema.write_throttling_log
+WHERE VALUE=2;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'write_throttling_log'
+DELETE FROM performance_schema.write_throttling_log;
+ERROR 42000: DELETE command denied to user 'root'@'localhost' for table 'write_throttling_log'
+LOCK TABLES performance_schema.write_throttling_log READ;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'write_throttling_log'
+UNLOCK TABLES;
+LOCK TABLES performance_schema.write_throttling_log WRITE;
+ERROR 42000: SELECT, LOCK TABLES command denied to user 'root'@'localhost' for table 'write_throttling_log'
+UNLOCK TABLES;

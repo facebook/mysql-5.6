@@ -1,0 +1,55 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: write_control_level
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of write_control_level
+SELECT @@global.write_control_level;
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_control_level is set to NOTE
+set @@global.write_control_level = NOTE;
+SELECT @@global.write_control_level;
+
+--echo write_control_level is set to 'NOTE'
+set @@global.write_control_level = 'NOTE';
+SELECT @@global.write_control_level;
+
+--echo write_control_level is set to WARN
+set @@global.write_control_level = WARN;
+SELECT @@global.write_control_level;
+
+--echo write_control_level is set to 'WARN'
+set @@global.write_control_level = 'WARN';
+SELECT @@global.write_control_level;
+
+-- echo setting write_control to a random number gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_control_level = 255;
+SELECT @@global.write_control_level;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.write_control_level = 'XYZ';
+SELECT @@global.write_control_level;
+
+--echo write_control_level is set to OFF
+set @@global.write_control_level = OFF;
+SELECT @@global.write_control_level;
+
+--echo write_control_level is set to 'OFF'
+set @@global.write_control_level = 'OFF';
+SELECT @@global.write_control_level;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.write_control_level = OFF;
+SELECT @@global.write_control_level;

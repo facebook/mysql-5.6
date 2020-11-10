@@ -1,0 +1,21 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table write_throttling_log
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.write_throttling_log
+  ADD COLUMN foo integer;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+TRUNCATE TABLE performance_schema.write_throttling_log;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.write_throttling_log
+   ADD INDEX test_index(VALUE);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.write_throttling_log(VALUE);
