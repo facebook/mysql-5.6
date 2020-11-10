@@ -186,7 +186,12 @@
    800171008
    add client attributes
 
+   800171009
+   add write_statistics
+   add write_throttling_rules
+   add write_throttling_log
+
 */
-static const uint PFS_DD_VERSION = 800171008;
+static const uint PFS_DD_VERSION = 800171009;
 
 #endif /* PFS_DD_VERSION_H */

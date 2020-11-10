@@ -1,0 +1,44 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 86400000
+####
+--echo Default value of write_start_throttle_lag_milliseconds is 86400000
+SELECT @@global.write_start_throttle_lag_milliseconds;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.write_start_throttle_lag_milliseconds;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_start_throttle_lag_milliseconds is a dynamic variable (change to 1)
+set @@global.write_start_throttle_lag_milliseconds = 1;
+SELECT @@global.write_start_throttle_lag_milliseconds;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.write_start_throttle_lag_milliseconds = 86400000;
+SELECT @@global.write_start_throttle_lag_milliseconds;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (1)
+--let $restart_parameters = restart: --write_start_throttle_lag_milliseconds=1
+--source include/restart_mysqld.inc
+
+SELECT @@global.write_start_throttle_lag_milliseconds;
+
+--echo restart the server with the default value (86400000)
+--let $restart_parameters = restart:
+--source include/restart_mysqld.inc
+
+# check value is default (86400000)
+SELECT @@global.write_start_throttle_lag_milliseconds;

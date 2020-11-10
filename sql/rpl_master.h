@@ -150,5 +150,6 @@ void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
 bool reset_master(THD *thd, bool unlock_read_lock);
 
 std::vector<replica_statistics_row> get_all_replica_statistics();
+int get_current_replication_lag();
 
 #endif /* RPL_MASTER_H_INCLUDED */

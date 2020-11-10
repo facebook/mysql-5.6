@@ -1,0 +1,37 @@
+Default value of write_throttle_patterns is OFF
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
+OFF
+SELECT @@session.write_throttle_patterns;
+ERROR HY000: Variable 'write_throttle_patterns' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+write_throttle_patterns is a dynamic variable (change to a valid value)
+set @@global.write_throttle_patterns = '+CLIENT=client_id';
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
++CLIENT
+write_throttle_patterns is a dynamic variable (change to a valid value)
+set @@global.write_throttle_patterns = '+CLiENT=client_id';
+ERROR HY000: Incorrect arguments to SET
+set @@global.write_throttle_patterns = 'CLIENT=client_id';
+ERROR HY000: Incorrect arguments to SET
+set @@global.write_throttle_patterns = 'CLIENT';
+ERROR HY000: Incorrect arguments to SET
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
+CLIENT
+restore the default value
+SET @@global.write_throttle_patterns = 'OFF';
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
+OFF
+restart the server with non default value ('-CLIENT=client_id')
+# restart: --write_throttle_patterns='-CLIENT=client_id'
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
+'-CLIENT=client_id'
+restart the server with the default value ('OFF')
+# restart:
+SELECT @@global.write_throttle_patterns;
+@@global.write_throttle_patterns
+OFF
