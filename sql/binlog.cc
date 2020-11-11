@@ -7190,11 +7190,14 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
   update_binlog_end_pos();
 
   // Let's stash the new file and pos in THD
-  get_current_log_without_lock_log(&info);
-  if (mysql_bin_log.is_apply_log)
-    current_thd->set_trans_relay_log_pos(info.log_file_name, info.pos);
-  else
-    current_thd->set_trans_pos(info.log_file_name, info.pos, nullptr);
+  if (enable_raft_plugin && current_thd)
+  {
+    get_current_log_without_lock_log(&info);
+    if (mysql_bin_log.is_apply_log)
+      current_thd->set_trans_relay_log_pos(info.log_file_name, info.pos);
+    else
+      current_thd->set_trans_pos(info.log_file_name, info.pos, nullptr);
+  }
 
 
   old_name=name;
