@@ -6,6 +6,7 @@ TABLE_NAME	COLUMN_NAME	REFERENCED_TABLE_NAME	REFERENCED_COLUMN_NAME
 accounts	HOST	NULL	NULL
 accounts	USER	NULL	NULL
 asserted_test_suppressions	message	NULL	NULL
+client_attributes	CLIENT_ID	NULL	NULL
 columns_priv	Column_name	NULL	NULL
 columns_priv	Db	NULL	NULL
 columns_priv	Host	NULL	NULL

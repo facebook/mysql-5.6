@@ -43,6 +43,7 @@ expected
 show global status like "performance_schema%_lost";
 Variable_name	Value
 Performance_schema_accounts_lost	0
+Performance_schema_client_attrs_lost	0
 Performance_schema_cond_classes_lost	0
 Performance_schema_cond_instances_lost	0
 Performance_schema_digest_lost	0

@@ -293,12 +293,7 @@ WHERE table_name IN (SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'db_datadict')
 ORDER BY table_name;
 TABLE_SCHEMA
-information_schema
-performance_schema
-mysql
 db_datadict
-mtr
-sys
 SELECT table_name FROM information_schema.tables t1
 LEFT JOIN information_schema.tables t2 USING(table_name,table_schema)
 WHERE t2.table_schema = 'db_datadict'

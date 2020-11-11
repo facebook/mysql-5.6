@@ -168,6 +168,7 @@ def	mysql	user	mysql	PRIMARY
 def	mysql	user	mysql	PRIMARY
 def	performance_schema	accounts	performance_schema	ACCOUNT
 def	performance_schema	accounts	performance_schema	ACCOUNT
+def	performance_schema	client_attributes	performance_schema	CLIENT_ID
 def	performance_schema	cond_instances	performance_schema	NAME
 def	performance_schema	cond_instances	performance_schema	PRIMARY
 def	performance_schema	data_lock_waits	performance_schema	BLOCKING_ENGINE_LOCK_ID

@@ -90,7 +90,7 @@
 */
 
 static_assert((PFS_DD_VERSION <= MYSQL_VERSION_ID) ||
-                  ((PFS_DD_VERSION == 80028008) && (MYSQL_VERSION_ID == 80028)),
+                  ((PFS_DD_VERSION == 80028009) && (MYSQL_VERSION_ID == 80028)),
               "This release can not use a version number from the future");
 
 class KEY;
@@ -1295,11 +1295,24 @@ static bool pfs_show_status(handlerton *, THD *thd, stat_print_fn *print,
         name = "(max_session_server_errors).count";
         size = max_session_server_errors;
         break;
+      case 247:
+        name = "client_attributes.size";
+        size = global_client_attrs_container.get_row_size();
+        break;
+      case 248:
+        name = "client_attributes.count";
+        size = global_client_attrs_container.get_row_count();
+        break;
+      case 249:
+        name = "client_attributes.memory";
+        size = global_client_attrs_container.get_memory();
+        total_memory += size;
+        break;
       /*
         This case must be last,
         for aggregation in total_memory.
       */
-      case 247:
+      case 250:
         name = "performance_schema.memory";
         size = total_memory;
         break;
@@ -1507,6 +1520,9 @@ static SHOW_VAR pfs_status_vars[] = {
      SHOW_LONG, SHOW_SCOPE_GLOBAL},
     {"Performance_schema_prepared_statements_lost",
      (char *)&global_prepared_stmt_container.m_lost, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Performance_schema_client_attrs_lost",
+     (char *)&global_client_attrs_container.m_lost, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Performance_schema_metadata_lock_lost",
      (char *)&global_mdl_container.m_lost, SHOW_LONG, SHOW_SCOPE_GLOBAL},

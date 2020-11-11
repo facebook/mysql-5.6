@@ -158,6 +158,14 @@ static int set_thread_connect_attrs_noop(const char *buffer [[maybe_unused]],
   return 0;
 }
 
+static int set_thread_client_attrs_noop(const uchar *client_id [[maybe_unused]],
+                                        const char *client_attributes
+                                        [[maybe_unused]],
+                                        uint client_attributes_length
+                                        [[maybe_unused]]) {
+  return 0;
+}
+
 static void get_current_thread_event_id_noop(ulonglong *thread_internal_id,
                                              ulonglong *event_id) {
   *thread_internal_id = 0;
@@ -221,6 +229,7 @@ static PSI_thread_service_t psi_thread_noop = {
     delete_current_thread_noop,
     delete_thread_noop,
     set_thread_connect_attrs_noop,
+    set_thread_client_attrs_noop,
     get_current_thread_event_id_noop,
     get_thread_event_id_noop,
     get_thread_system_attrs_noop,
