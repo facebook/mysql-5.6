@@ -182,7 +182,11 @@
 
    800171007:
    add replica_statistics table
+   
+   800171008
+   add client attributes
+
 */
-static const uint PFS_DD_VERSION = 800171007;
+static const uint PFS_DD_VERSION = 800171008;
 
 #endif /* PFS_DD_VERSION_H */

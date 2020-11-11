@@ -36,6 +36,7 @@
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "storage/perfschema/digest.h"
+#include "storage/perfschema/pfs_client_attrs.h"
 #include "storage/perfschema/pfs_column_types.h"
 #include "storage/perfschema/pfs_digest.h"
 #include "storage/perfschema/pfs_engine_table.h"
@@ -1534,6 +1535,15 @@ class PFS_key_digest : public PFS_key_string<MAX_KEY_LENGTH> {
   ~PFS_key_digest() {}
 
   bool match(PFS_statements_digest_stat *pfs);
+};
+
+class PFS_key_client_id : public PFS_key_string<MAX_KEY_LENGTH> {
+ public:
+  PFS_key_client_id(const char *client_id) : PFS_key_string(client_id) {}
+
+  ~PFS_key_client_id() {}
+
+  bool match(PFS_client_attrs *pfs);
 };
 
 class PFS_key_bucket_number : public PFS_key_ulong {
