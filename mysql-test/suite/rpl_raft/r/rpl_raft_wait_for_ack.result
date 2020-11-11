@@ -44,9 +44,12 @@ include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
-set @@global.debug = "+d,before_before_commit";
+select @@global.raft_signal_async_dump_threads;
+@@global.raft_signal_async_dump_threads
+AFTER_CONSENSUS
+set @@global.rpl_raft_debug_sync_point = 'replicationDone';
 insert into t1 values(1);
-set debug_sync = "now wait_for reached";
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -59,8 +62,9 @@ select * from t1;
 a
 select * from t1;
 a
-set debug_sync = "now signal continue";
-set @@global.debug = "-d,before_before_commit";
+1
+set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point = '';
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc
 select * from t1;
@@ -75,6 +79,158 @@ a
 select * from t1;
 a
 1
+select @@global.raft_signal_async_dump_threads;
+@@global.raft_signal_async_dump_threads
+AFTER_CONSENSUS
+set @@global.rpl_raft_debug_sync_point = 'replicationDone';
+insert into t1 values(2);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for replicationDone';
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+set @@global.rpl_raft_debug_sync_point_action = 'continue replicationDone';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
+set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+insert into t1 values(3);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+3
+set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+set @@global.raft_signal_async_dump_threads = AFTER_ENGINE_COMMIT;
+set @@global.rpl_raft_debug_sync_point = 'updateConsensusApplied';
+insert into t1 values(4);
+set @@global.rpl_raft_debug_sync_point_action = 'wait_for updateConsensusApplied';
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+set @@global.rpl_raft_debug_sync_point_action = 'continue updateConsensusApplied';
+set @@global.rpl_raft_debug_sync_point = '';
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+select * from t1;
+a
+1
+2
+3
+4
+set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
+set @@global.raft_signal_async_dump_threads = AFTER_CONSENSUS;
 drop table t1;
 include/sync_slave_sql_with_master.inc
 include/sync_slave_sql_with_master.inc

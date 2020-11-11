@@ -1039,7 +1039,6 @@ THD::THD(bool enable_plugins)
   start_utime= prior_thr_create_utime= 0L;
   utime_after_lock= 0L;
   current_linfo =  0;
-  is_relay_log_linfo = false;
   slave_thread = 0;
   memset(&variables, 0, sizeof(variables));
   m_thread_id= 0;

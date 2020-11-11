@@ -3292,7 +3292,7 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
   IO_CACHE log;
   File file = -1;
   int old_max_allowed_packet= thd->variables.max_allowed_packet;
-  LOG_INFO linfo;
+  LOG_INFO linfo(binary_log->is_relay_log);
 
   DBUG_ENTER("show_binlog_events");
 
@@ -3333,7 +3333,6 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
 
     mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
     thd->current_linfo = &linfo;
-    thd->is_relay_log_linfo = binary_log->is_relay_log;
     mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
 
     if ((file=open_binlog_file(&log, linfo.log_file_name, &errmsg)) < 0)
@@ -3447,7 +3446,6 @@ err:
 
   mutex_lock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->current_linfo = 0;
-  thd->is_relay_log_linfo = false;
   mutex_unlock_shard(SHARDED(&LOCK_thread_count), thd);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   DBUG_RETURN(ret);
@@ -4063,7 +4061,7 @@ static void adjust_linfo_offsets(my_off_t purge_offset, bool is_relay_log)
   {
     LOG_INFO* linfo = (*it)->current_linfo;
     if (linfo &&
-        (!enable_raft_plugin || (*it)->is_relay_log_linfo == is_relay_log))
+        (!enable_raft_plugin || linfo->is_relay_log == is_relay_log))
     {
       mysql_mutex_lock(&linfo->lock);
       /*
@@ -6953,6 +6951,7 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
 {
   int error= 0, close_on_error= FALSE;
   char new_name[FN_REFLEN], *new_name_ptr, *old_name, *file_to_open;
+  LOG_INFO info;
 
   // Indicates if an error occured inside raft plugin
   int consensus_error= 0;
@@ -7189,6 +7188,14 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     discover EOF and move on to the next log.
   */
   update_binlog_end_pos();
+
+  // Let's stash the new file and pos in THD
+  get_current_log_without_lock_log(&info);
+  if (mysql_bin_log.is_apply_log)
+    current_thd->set_trans_relay_log_pos(info.log_file_name, info.pos);
+  else
+    current_thd->set_trans_pos(info.log_file_name, info.pos, nullptr);
+
 
   old_name=name;
   name=0;				// Don't free name
@@ -11257,6 +11264,23 @@ void Dump_log::switch_log(bool relay_log, bool should_lock)
   sql_print_information(
       "Switching dump log to %s", relay_log ? "relay log" : "binlog");
   log_= relay_log ? &active_mi->rli->relay_log : &mysql_bin_log;
+
+  // Now let's update the dump thread's linfos
+  mutex_lock_all_shards(SHARDED(&LOCK_thread_count));
+  Thread_iterator it= global_thread_list_begin();
+  Thread_iterator end= global_thread_list_end();
+  for (; it != end; ++it)
+  {
+    LOG_INFO* linfo = (*it)->current_linfo;
+    // Case: this is a dump thread's linfo
+    if (linfo && linfo->is_used_by_dump_thd)
+    {
+      mysql_mutex_lock(&linfo->lock);
+      linfo->is_relay_log= relay_log;
+      mysql_mutex_unlock(&linfo->lock);
+    }
+  }
+  mutex_unlock_all_shards(SHARDED(&LOCK_thread_count));
   if (should_lock) log_mutex_.unlock();
 #endif
 }
@@ -13659,12 +13683,20 @@ bool semi_sync_last_ack_inited= false;
 
 void init_semi_sync_last_acked()
 {
-  const char *file_name= mysql_bin_log.engine_binlog_file +
+  char *file_name= mysql_bin_log.engine_binlog_file +
                          dirname_length(mysql_bin_log.engine_binlog_file);
-  const st_filenum_pos coord= {
+  st_filenum_pos coord= {
       mysql_bin_log.extract_file_index(file_name).second,
       static_cast<uint>(std::min<ulonglong>(st_filenum_pos::max_pos,
                                             mysql_bin_log.engine_binlog_pos))};
+  // case: when in raft mode we cannot init the coords without consulting the
+  // plugin, so we reset the coords
+  if (enable_raft_plugin)
+  {
+    file_name= nullptr;
+    coord.file_num= coord.pos= 0;
+  }
+
   sql_print_information(
       "[rpl_wait_for_semi_sync_ack] Last ACKed pos initialized to: %s:%u",
       file_name, coord.pos);
@@ -13745,6 +13777,12 @@ bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
   // return true only if we're alive i.e. we came here because we received a
   // successful ACK or if an ACK is no longer required
   return !current_thd->killed;
+}
+
+void signal_semi_sync_ack(const std::string &file, uint pos)
+{
+  const LOG_POS_COORD coord= { (char*) file.c_str(), pos };
+  signal_semi_sync_ack(&coord);
 }
 
 void signal_semi_sync_ack(const LOG_POS_COORD *const acked_coord)

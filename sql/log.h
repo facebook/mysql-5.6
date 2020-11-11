@@ -228,12 +228,19 @@ typedef struct st_log_info
   char log_file_name[FN_REFLEN];
   my_off_t index_file_offset, index_file_start_offset;
   my_off_t pos;
-  bool fatal; // if the purge happens to give us a negative offset
-  int entry_index; //used in purge_logs(), calculatd in find_log_pos().
+  bool fatal;               // if the purge happens to give us a negative offset
+  int entry_index;          //used in purge_logs(), calculatd in find_log_pos().
   mysql_mutex_t lock;
-  st_log_info()
-    : index_file_offset(0), index_file_start_offset(0),
-      pos(0), fatal(0), entry_index(0)
+  bool is_relay_log;        // is this info pointing to a relay log?
+  bool is_used_by_dump_thd; // is this info being used by a dump thread?
+  st_log_info(bool relay_log = false, bool used_by_dump_thd = false) :
+    index_file_offset(0),
+    index_file_start_offset(0),
+    pos(0),
+    fatal(0),
+    entry_index(0),
+    is_relay_log(relay_log),
+    is_used_by_dump_thd(used_by_dump_thd)
     {
       log_file_name[0] = '\0';
       mysql_mutex_init(key_LOG_INFO_lock, &lock, MY_MUTEX_INIT_FAST);

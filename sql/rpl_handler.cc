@@ -705,6 +705,13 @@ int Raft_replication_delegate::after_commit(THD *thd, bool all)
 
   thd->get_trans_marker(&param.term, &param.index);
 
+  const char* file = nullptr;
+  unsigned long long pos = 0;
+  if (mysql_bin_log.is_apply_log)
+    thd->get_trans_relay_log_pos(&file, &pos);
+  else
+    thd->get_trans_fixed_pos(&file, &pos);
+
   int ret= 0;
   FOREACH_OBSERVER_STRICT(ret, after_commit, thd, (&param));
   DBUG_RETURN(ret);

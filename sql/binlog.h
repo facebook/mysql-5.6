@@ -1514,6 +1514,8 @@ extern bool semi_sync_last_ack_inited;
 // defined in plugin/semisync/semisync_master.cc
 extern char rpl_semi_sync_master_enabled;
 
+extern "C" void signal_semi_sync_ack(const std::string &file_num, uint file_pos);
+
 void init_semi_sync_last_acked();
 void destroy_semi_sync_last_acked();
 bool wait_for_semi_sync_ack(const LOG_POS_COORD *const coord,
