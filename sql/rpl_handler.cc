@@ -1571,13 +1571,12 @@ int RaftListenerQueue::init() {
 
 void RaftListenerQueue::deinit() {
   // NO_LINT_DEBUG
-  sql_print_information("Shutting down Raft listener queue");
   std::unique_lock<std::mutex> lock(init_mutex_);
   if (!inited_) return;
 
+  fprintf(stderr, "Shutting down Raft listener queue");
   // Queue an exit event in the queue. The listener thread will eventually pick
   // this up and exit
-
   std::promise<RaftListenerCallbackResult> prms;
   auto fut = prms.get_future();
   QueueElement element;
