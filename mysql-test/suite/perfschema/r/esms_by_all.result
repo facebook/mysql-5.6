@@ -25,8 +25,8 @@ select @@performance_schema_esms_by_all;
 1
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
-test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
-test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
+test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
+test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
 select 1;
@@ -40,11 +40,11 @@ select 100;
 100
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
-test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
-test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
-test	24757f1e0f9be061b27eeee376f2ff6d099af029bdd0c159d463b760a6ff1df1	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT SCHEMA_NAME , `digest` , SYSTEM_USER , `client_id` , `plan_id` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_all`
-test	5c700f1dfa8c1cc52ef5f9f6d30ff961e39ce5659424bd908c6daa58156944e7	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT SCHEMA_NAME , `digest` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_digest`
-test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	00000000000000000000000000000000	00000000000000000000000000000000	3	0	0	0	SELECT ?
+test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
+test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
+test	24757f1e0f9be061b27eeee376f2ff6d099af029bdd0c159d463b760a6ff1df1	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT SCHEMA_NAME , `digest` , SYSTEM_USER , `client_id` , `plan_id` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_all`
+test	5c700f1dfa8c1cc52ef5f9f6d30ff961e39ce5659424bd908c6daa58156944e7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT SCHEMA_NAME , `digest` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_digest`
+test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	3	0	0	0	SELECT ?
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
 create table t1(c int);
@@ -60,15 +60,15 @@ delete from t1 where c=905;
 delete from t1 where c=903;
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
-test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
-test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
-test	24757f1e0f9be061b27eeee376f2ff6d099af029bdd0c159d463b760a6ff1df1	user_super	00000000000000000000000000000000	00000000000000000000000000000000	2	0	0	0	SELECT SCHEMA_NAME , `digest` , SYSTEM_USER , `client_id` , `plan_id` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_all`
-test	5c700f1dfa8c1cc52ef5f9f6d30ff961e39ce5659424bd908c6daa58156944e7	user_super	00000000000000000000000000000000	00000000000000000000000000000000	2	0	0	0	SELECT SCHEMA_NAME , `digest` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_digest`
-test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	00000000000000000000000000000000	00000000000000000000000000000000	3	0	0	0	SELECT ?
-test	1ae73e9f43205c143f0d611bc50a29b586522aa3832832a0b50e83fc1db1b114	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	12	6	CREATE TABLE `t1` ( `c` INTEGER )
-test	f19c00f38783fc93a3b043787b0eb19055052c2e8cee8be072139d2ee4bcabec	user_super	00000000000000000000000000000000	00000000000000000000000000000000	5	0	5	0	INSERT INTO `t1` VALUES (?)
-test	d567f4319a6017dcde073c7824e3184e9922f0d930441604fec9ed0a748ac616	user_super	00000000000000000000000000000000	00000000000000000000000000000000	3	0	0	15	UPDATE `t1` SET `c` = `c` + ?
-test	a396ed29c843938b1081b5fbd28e50780d1ff6f250f2f35448836473e7d01961	user_super	00000000000000000000000000000000	00000000000000000000000000000000	2	2	0	0	DELETE FROM `t1` WHERE `c` = ?
+test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
+test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
+test	24757f1e0f9be061b27eeee376f2ff6d099af029bdd0c159d463b760a6ff1df1	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	2	0	0	0	SELECT SCHEMA_NAME , `digest` , SYSTEM_USER , `client_id` , `plan_id` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_all`
+test	5c700f1dfa8c1cc52ef5f9f6d30ff961e39ce5659424bd908c6daa58156944e7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	2	0	0	0	SELECT SCHEMA_NAME , `digest` , `count_star` , `sum_rows_deleted` , `sum_rows_inserted` , `sum_rows_updated` , `digest_text` FROM `performance_schema` . `events_statements_summary_by_digest`
+test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	3	0	0	0	SELECT ?
+test	1ae73e9f43205c143f0d611bc50a29b586522aa3832832a0b50e83fc1db1b114	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6	CREATE TABLE `t1` ( `c` INTEGER )
+test	f19c00f38783fc93a3b043787b0eb19055052c2e8cee8be072139d2ee4bcabec	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	5	0	5	0	INSERT INTO `t1` VALUES (?)
+test	d567f4319a6017dcde073c7824e3184e9922f0d930441604fec9ed0a748ac616	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	3	0	0	15	UPDATE `t1` SET `c` = `c` + ?
+test	a396ed29c843938b1081b5fbd28e50780d1ff6f250f2f35448836473e7d01961	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	2	2	0	0	DELETE FROM `t1` WHERE `c` = ?
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
 Case 3: TRUNCATE TABLE
@@ -84,9 +84,9 @@ select 1 union select 2 union select 3;
 3
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
-test	b7ce904862ef586bc22d419fea8acfd38e82e6c2fb9f8ece4bd67593f9e851c7	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_all`
-test	5b0c2dd723154b19b1bb3d60eec1dbb57c24994dbbb8cf91675292a508e8bde1	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	2	0	SELECT ? UNION SELECT ?
-test	2c8b7a48784434a3273e58b27d0c2096fda8918c2af649e46b6d44fd5efe8bb7	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	3	0	SELECT ? UNION SELECT ? UNION SELECT ?
+test	b7ce904862ef586bc22d419fea8acfd38e82e6c2fb9f8ece4bd67593f9e851c7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	TRUNCATE TABLE `performance_schema` . `events_statements_summary_by_all`
+test	5b0c2dd723154b19b1bb3d60eec1dbb57c24994dbbb8cf91675292a508e8bde1	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	2	0	SELECT ? UNION SELECT ?
+test	2c8b7a48784434a3273e58b27d0c2096fda8918c2af649e46b6d44fd5efe8bb7	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	3	0	SELECT ? UNION SELECT ? UNION SELECT ?
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
 Case 4: performance_schema_esms_by_all=off. No data in events_statements_summary_by_all.
@@ -120,15 +120,15 @@ c
 100
 select schema_name, digest, user, client_id, plan_id, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_all;
 schema_name	digest	user	client_id	plan_id	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
-test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
-test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
-test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT ?
-test	b7e68175beeb3b5eeb3f06618915a3b14e51f01be582dd9fa618bd31bd0148f2	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	12	6	CREATE TABLE `t2` ( `c` INTEGER )
-test	55c0e5a4110056fcbf2654778c977a2e91ce65785504832368e2c3443a35ec2b	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	1	0	INSERT INTO `t2` VALUES (?)
-test	c74f7ac2e7520fcbd10db5df148c439167b387c3a0f64d4980a9f549dbbf2119	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	0	SELECT * FROM `t2`
-test	5e6ff6446802c23df53586b85788505b42a1de938d5ae5fd7a1d42b38636d3da	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	0	0	1	UPDATE `t2` SET `c` = `c` + ?
-test	9a90ab323c21e1fec8e95df1fd6b7fd724d0ec2cd50ba46a928c0449183d14d3	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	1	0	0	DELETE FROM `t2` WHERE `c` = ?
-test	c12e1a1889c32b0c8875538e7ba911240df47d93ed298c03374e9497b0910c5b	user_super	00000000000000000000000000000000	00000000000000000000000000000000	1	12	0	0	DROP TABLE `t2`
+test	13791b7a43a61b92be06742787c8e04d4bdfab95eeef57c9a031d8447fc0c8f9	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SET GLOBAL `performance_schema_esms_by_all` = ON
+test	4242142507da76e42f8559d8c425d0ff490f7deea70c504e42df624e9aa63086	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT @@`performance_schema_esms_by_all`
+test	d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT ?
+test	b7e68175beeb3b5eeb3f06618915a3b14e51f01be582dd9fa618bd31bd0148f2	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	12	6	CREATE TABLE `t2` ( `c` INTEGER )
+test	55c0e5a4110056fcbf2654778c977a2e91ce65785504832368e2c3443a35ec2b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	1	0	INSERT INTO `t2` VALUES (?)
+test	c74f7ac2e7520fcbd10db5df148c439167b387c3a0f64d4980a9f549dbbf2119	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	0	SELECT * FROM `t2`
+test	5e6ff6446802c23df53586b85788505b42a1de938d5ae5fd7a1d42b38636d3da	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	0	0	1	UPDATE `t2` SET `c` = `c` + ?
+test	9a90ab323c21e1fec8e95df1fd6b7fd724d0ec2cd50ba46a928c0449183d14d3	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	1	0	0	DELETE FROM `t2` WHERE `c` = ?
+test	c12e1a1889c32b0c8875538e7ba911240df47d93ed298c03374e9497b0910c5b	user_super	99914b932bd37a50b983c5e7c90ae93b	00000000000000000000000000000000	1	12	0	0	DROP TABLE `t2`
 select schema_name, digest, count_star, sum_rows_deleted, sum_rows_inserted, sum_rows_updated, digest_text from performance_schema.events_statements_summary_by_digest;
 schema_name	digest	count_star	sum_rows_deleted	sum_rows_inserted	sum_rows_updated	digest_text
 Cleanup

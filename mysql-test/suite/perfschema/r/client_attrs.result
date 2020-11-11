@@ -1,0 +1,292 @@
+set global performance_schema_esms_by_all = ON;
+use performance_schema;
+#
+# Verify with nothing
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+#
+# Verify with query attrs async_id
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+#
+# Verify with query attrs caller = qa_test1
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+#
+# Verify with query attrs caller = qa_test1 and async id = 12345
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+create user user@localhost identified by 'su';
+grant all on *.* to user@localhost with grant option;
+use performance_schema;
+#
+# Verify with conn attrs caller = ca_test2 and async_id = 56789
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+#
+# Verify with query attrs overriding async_id = 12345
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+#
+# Verify with query attrs overriding caller = qa_test3
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+#
+# Verify with just conn attrs again
+#
+select 1;
+1
+1
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	2de7f57d90f10431496a2001ca164d6e	{'caller' : 'ca_test2', 'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	92c0acc6261bcb114a857e42acb41812	{'async_id' : '12345'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	28b1c55c76dad7360f14f3d9f1823864	{'caller' : 'qa_test1'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	d1226657f4c383150755d71bb4251f55	{'caller' : 'ca_test2', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	5c25d07da9d036c157b55e9ce8c564c7	{'caller' : 'qa_test3', 'async_id' : '56789'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	647e3f32d8d8ab6fff0dda94443bb610	{'caller' : 'qa_test1', 'async_id' : '12345'}
+use performance_schema;
+truncate table client_attributes;
+select * from client_attributes;
+CLIENT_ID	CLIENT_ATTRIBUTES
+99914b932bd37a50b983c5e7c90ae93b	{}
+#
+# Test multiquery cases
+#
+select 1; select 2;
+||||
+1
+1
+2
+2
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+digest	count_star	client_id	client_attributes
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	1	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	99914b932bd37a50b983c5e7c90ae93b	{}
+d1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae	2	16d36a0c20053a85f98470b2ab3e061f	{'caller' : 'qa_multiquery'}
+drop user user@localhost;
+set global performance_schema_esms_by_all = DEFAULT;

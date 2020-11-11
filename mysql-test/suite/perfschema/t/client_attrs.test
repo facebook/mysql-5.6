@@ -1,0 +1,112 @@
+--source include/count_sessions.inc
+
+set global performance_schema_esms_by_all = ON;
+use performance_schema;
+
+--echo #
+--echo # Verify with nothing
+--echo #
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs async_id
+--echo #
+query_attrs_add async_id 12345;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs caller = qa_test1
+--echo #
+query_attrs_reset;
+query_attrs_add caller qa_test1;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs caller = qa_test1 and async id = 12345
+--echo #
+query_attrs_add async_id 12345;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+# change user command to re-send connection attributes
+create user user@localhost identified by 'su';
+grant all on *.* to user@localhost with grant option;
+
+connect (con1, localhost, user, su, test);
+conn_attrs_add caller ca_test2;
+conn_attrs_add async_id 56789;
+# change_user is needed just to set the correct connection attributes.
+change_user user,su,test;
+use performance_schema;
+
+--echo #
+--echo # Verify with conn attrs caller = ca_test2 and async_id = 56789
+--echo #
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs overriding async_id = 12345
+--echo #
+query_attrs_add async_id 12345;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+--echo #
+--echo # Verify with query attrs overriding caller = qa_test3
+--echo #
+query_attrs_reset;
+query_attrs_add caller qa_test3;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+
+--echo #
+--echo # Verify with just conn attrs again
+--echo #
+query_attrs_reset;
+select 1;
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+conn_attrs_reset;
+query_attrs_reset;
+# change_user is needed just to set the correct connection attributes.
+change_user user,su,test;
+use performance_schema;
+
+truncate table client_attributes;
+select * from client_attributes;
+
+
+--echo #
+--echo # Test multiquery cases
+--echo #
+query_attrs_add caller qa_multiquery;
+delimiter ||||;
+ select 1; select 2;
+||||
+delimiter ;||||
+
+select s.digest, s.count_star, c.client_id, c.client_attributes from events_statements_summary_by_all s, client_attributes c where s.digest = 'd1b44b0c19af710b5a679907e284acd2ddc285201794bc69a2389d77baedddae' order by s.client_id;
+
+connection default;
+
+# Cleanup
+conn_attrs_reset;
+query_attrs_reset;
+drop user user@localhost;
+disconnect con1;
+
+set global performance_schema_esms_by_all = DEFAULT;
+--source include/wait_until_count_sessions.inc

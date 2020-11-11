@@ -123,6 +123,10 @@ void pfs_delete_thread_vc(PSI_thread *thread);
 int pfs_set_thread_connect_attrs_vc(const char *buffer, uint length,
                                     const void *from_cs);
 
+int pfs_set_thread_client_attrs_vc(const uchar *client_id,
+                                   const char *client_attributes,
+                                   uint client_attributes_length);
+
 void pfs_get_current_thread_event_id_vc(ulonglong *internal_thread_id,
                                         ulonglong *event_id);
 

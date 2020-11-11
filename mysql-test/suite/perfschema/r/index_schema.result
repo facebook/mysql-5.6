@@ -4,6 +4,7 @@ where TABLE_SCHEMA = "performance_schema" and SEQ_IN_INDEX = 1
 order by TABLE_NAME collate utf8_general_ci, INDEX_NAME;
 TABLE_NAME	NON_UNIQUE	INDEX_SCHEMA	INDEX_NAME	INDEX_TYPE	INDEX_COMMENT
 accounts	0	performance_schema	ACCOUNT	HASH	
+client_attributes	0	performance_schema	CLIENT_ID	HASH	
 cond_instances	1	performance_schema	NAME	HASH	
 cond_instances	0	performance_schema	PRIMARY	HASH	
 data_locks	1	performance_schema	ENGINE_TRANSACTION_ID	HASH	
@@ -149,6 +150,7 @@ where TABLE_SCHEMA = "performance_schema"
 TABLE_NAME	NON_UNIQUE	INDEX_SCHEMA	INDEX_NAME	SEQ_IN_INDEX	COLUMN_NAME	CARDINALITY	NULLABLE
 accounts	0	performance_schema	ACCOUNT	1	USER	NULL	YES
 accounts	0	performance_schema	ACCOUNT	2	HOST	NULL	YES
+client_attributes	0	performance_schema	CLIENT_ID	1	CLIENT_ID	NULL	YES
 cond_instances	1	performance_schema	NAME	1	NAME	NULL	
 cond_instances	0	performance_schema	PRIMARY	1	OBJECT_INSTANCE_BEGIN	NULL	
 data_locks	1	performance_schema	ENGINE_TRANSACTION_ID	1	ENGINE_TRANSACTION_ID	NULL	YES

@@ -21,6 +21,8 @@ def	performance_schema	binary_log_transaction_compression_stats	LAST_TRANSACTION
 def	performance_schema	binary_log_transaction_compression_stats	LAST_TRANSACTION_COMPRESSED_BYTES	12	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references	Last transaction written compressed bytes.		NULL
 def	performance_schema	binary_log_transaction_compression_stats	LAST_TRANSACTION_UNCOMPRESSED_BYTES	13	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references	Last transaction written uncompressed bytes.		NULL
 def	performance_schema	binary_log_transaction_compression_stats	LAST_TRANSACTION_TIMESTAMP	14	NULL	YES	timestamp	NULL	NULL	NULL	NULL	6	NULL	NULL	timestamp(6)			select,insert,update,references	When the last transaction was written.		NULL
+def	performance_schema	client_attributes	CLIENT_ID	1	NULL	YES	varchar	65	260	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(65)	UNI		select,insert,update,references			NULL
+def	performance_schema	client_attributes	CLIENT_ATTRIBUTES	2	NULL	YES	longtext	4294967295	4294967295	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	longtext			select,insert,update,references			NULL
 def	performance_schema	cond_instances	NAME	1	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)	MUL		select,insert,update,references			NULL
 def	performance_schema	cond_instances	OBJECT_INSTANCE_BEGIN	2	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned	PRI		select,insert,update,references			NULL
 def	performance_schema	data_locks	ENGINE	1	NULL	NO	varchar	32	128	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(32)	PRI		select,insert,update,references			NULL

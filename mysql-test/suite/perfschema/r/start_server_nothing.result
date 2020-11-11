@@ -129,6 +129,7 @@ performance_schema_events_transactions_history_size	10
 performance_schema_events_waits_history_long_size	0
 performance_schema_events_waits_history_size	0
 performance_schema_hosts_size	0
+performance_schema_max_client_attrs	1024
 performance_schema_max_cond_classes	0
 performance_schema_max_cond_instances	0
 performance_schema_max_digest_length	1024
@@ -168,6 +169,7 @@ NAME	ENABLED	TIMED	PROPERTIES	VOLATILITY	DOCUMENTATION
 error	YES	NULL		0	NULL
 idle	YES	YES	user	0	NULL
 memory/performance_schema/accounts	YES	NULL	global_statistics	1	Memory used for table performance_schema.accounts
+memory/performance_schema/client_attributes	YES	NULL	global_statistics	1	Memory used for table performance_schema.client_attributes
 memory/performance_schema/cond_class	YES	NULL	global_statistics	1	Memory used for cond instrument classes
 memory/performance_schema/cond_instances	YES	NULL	global_statistics	1	Memory used for table performance_schema.cond_instances
 memory/performance_schema/events_errors_summary_by_account_by_error	YES	NULL	global_statistics	1	Memory used for table performance_schema.events_errors_summary_by_account_by_error

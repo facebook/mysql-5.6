@@ -178,7 +178,7 @@ static uint digest_hash_func(const LF_HASH *, const uchar *key,
   assert(digest_key != nullptr);
 
   nr1 = 0;
-  nr2 = 0;
+  nr2 = murmur3_32(digest_key->client_id, MD5_HASH_SIZE, nr1); // make hash dependent on digest_key->client_id
 
   nr1 = murmur3_32(digest_key->m_hash, DIGEST_HASH_SIZE, nr2);
   digest_key->m_schema_name.hash(&nr1, &nr2);
@@ -243,8 +243,7 @@ static LF_PINS *get_digest_hash_pins(PFS_thread *thread) {
 
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
-    const char *schema_name, uint schema_name_length,
-    const uchar *client_id MY_ATTRIBUTE((unused)),
+    const char *schema_name, uint schema_name_length, const uchar *client_id,
     const uchar *plan_id MY_ATTRIBUTE((unused))) {
   assert(digest_storage != nullptr);
 
@@ -275,6 +274,8 @@ PFS_statements_digest_stat *find_or_create_digest(
       memcpy(hash_key.m_user_name, thread->m_user_name.ptr(),
              thread->m_user_name.length());
     }
+
+    memcpy(&hash_key.client_id, client_id, MD5_HASH_SIZE);
   }
 
   int res;

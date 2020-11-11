@@ -36,6 +36,7 @@
 #include "my_inttypes.h"
 #include "storage/perfschema/pfs_account.h"
 #include "storage/perfschema/pfs_builtin_memory.h"
+#include "storage/perfschema/pfs_client_attrs.h"
 #include "storage/perfschema/pfs_host.h"
 #include "storage/perfschema/pfs_instr.h"
 #include "storage/perfschema/pfs_lock.h"
@@ -1361,6 +1362,15 @@ typedef PFS_buffer_container<PFS_prepared_stmt> PFS_prepared_stmt_container;
 #endif
 typedef PFS_prepared_stmt_container::iterator_type PFS_prepared_stmt_iterator;
 extern PFS_prepared_stmt_container global_prepared_stmt_container;
+
+#ifdef USE_SCALABLE
+typedef PFS_buffer_scalable_container<PFS_client_attrs, 1024, 1024>
+    PFS_client_attrs_container;
+#else
+typedef PFS_buffer_container<PFS_client_attrs> PFS_client_attrs_container;
+#endif
+typedef PFS_client_attrs_container::iterator_type PFS_client_attrs_iterator;
+extern PFS_client_attrs_container global_client_attrs_container;
 
 class PFS_account_array : public PFS_buffer_default_array<PFS_account> {
  public:
