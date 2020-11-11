@@ -1893,6 +1893,8 @@ static bool read_client_connect_attrs(char **ptr, size_t *max_bytes_available,
   if (length > 65535) return true;
 
   parse_compression_connect_attr(mpvio->protocol->get_net(), *ptr, length);
+  THD *thd = current_thd;
+  thd->set_connection_attrs(*ptr, length);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   MYSQL_SERVER_AUTH_INFO *auth_info = &mpvio->auth_info;

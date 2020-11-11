@@ -33,11 +33,9 @@ GET_LOCK('lock1', -1)
 1
 use test_db;
 select GET_LOCK('lock1', -1);
-Timeout in wait_condition.inc for select count(*) = 1 from information_schema.admission_control_queue
-where schema_name = "test_db" and queue_id = 1 and waiting_queries = 0 and running_queries = 1
 select * from information_schema.admission_control_queue;
 SCHEMA_NAME	QUEUE_ID	WAITING_QUERIES	RUNNING_QUERIES	ABORTED_QUERIES	TIMEOUT_QUERIES
-test_db	0	0	1	0	0
+test_db	1	0	1	0	0
 select RELEASE_LOCK('lock1');
 RELEASE_LOCK('lock1')
 1
