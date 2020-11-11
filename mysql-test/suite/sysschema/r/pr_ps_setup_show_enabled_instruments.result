@@ -8,6 +8,7 @@ CALL sys.ps_setup_show_enabled_instruments();
 enabled_instruments	timed
 idle	YES
 memory/performance_schema/accounts	NULL
+memory/performance_schema/client_attributes	NULL
 memory/performance_schema/cond_class	NULL
 memory/performance_schema/cond_instances	NULL
 memory/performance_schema/events_errors_summary_by_account_by_error	NULL

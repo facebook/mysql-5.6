@@ -37,6 +37,7 @@ pfs.h
 pfs_account.h
 pfs_buffer_container.h
 pfs_builtin_memory.h
+pfs_client_attrs.h
 pfs_column_types.h
 pfs_column_values.h
 pfs_con_slice.h
@@ -157,6 +158,7 @@ table_session_connect.h
 table_session_connect_attrs.h
 table_session_account_connect_attrs.h
 table_session_query_attrs.h
+table_client_attrs.h
 table_replica_statistics.h
 table_replication_connection_configuration.h
 table_replication_group_members.h
@@ -180,6 +182,7 @@ pfs_account.cc
 pfs_autosize.cc
 pfs_buffer_container.cc
 pfs_builtin_memory.cc
+pfs_client_attrs.cc
 pfs_column_types.cc
 pfs_column_values.cc
 pfs_con_slice.cc
@@ -300,6 +303,7 @@ table_session_connect.cc
 table_session_connect_attrs.cc
 table_session_account_connect_attrs.cc
 table_session_query_attrs.cc
+table_client_attrs.cc
 table_replica_statistics.cc
 table_replication_connection_configuration.cc
 table_replication_group_members.cc

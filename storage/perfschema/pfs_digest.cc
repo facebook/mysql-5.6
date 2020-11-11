@@ -197,8 +197,7 @@ static LF_PINS *get_digest_hash_pins(PFS_thread *thread) {
 
 PFS_statements_digest_stat *find_or_create_digest(
     PFS_thread *thread, const sql_digest_storage *digest_storage,
-    const char *schema_name, uint schema_name_length,
-    const uchar *client_id MY_ATTRIBUTE((unused)),
+    const char *schema_name, uint schema_name_length, const uchar *client_id,
     const uchar *plan_id MY_ATTRIBUTE((unused))) {
   DBUG_ASSERT(digest_storage != nullptr);
 
@@ -237,6 +236,8 @@ PFS_statements_digest_stat *find_or_create_digest(
       memcpy(hash_key.m_user_name, thread->m_username,
              thread->m_username_length);
     }
+
+    memcpy(&hash_key.client_id, client_id, MD5_HASH_SIZE);
   }
 
   int res;

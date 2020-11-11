@@ -42,6 +42,8 @@
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_loglevel.h"
+#include "my_md5.h"
+#include "my_md5_size.h"
 #include "my_systime.h"
 #include "my_thread.h"
 #include "my_time.h"
@@ -108,6 +110,7 @@
 #include "sql/thr_malloc.h"
 #include "sql/transaction.h"  // trans_rollback
 #include "sql/transaction_info.h"
+#include "unsafe_string_append.h"
 
 #include "sql/sql_admission_control.h"
 #include "sql/xa.h"
@@ -3466,4 +3469,68 @@ void THD::remove_db_metadata(const char *db_name) {
   if (is_current_db) m_current_db_context = nullptr;
   mysql_mutex_unlock(&LOCK_thd_db_context);
   mysql_mutex_unlock(&LOCK_thd_data);
+}
+
+/*
+  serialize_client_attrs
+    Extracts and serializes client attributes into the buffer
+    THD::client_attrs_string.
+
+    This is only calculated once per command (as opposed to per statement),
+    and cleared at the end of the command. This is because attributes are
+    attached commands, not statements.
+*/
+void THD::serialize_client_attrs() {
+  StringBuffer<256> client_attrs_string;
+  std::array<unsigned char, MD5_HASH_SIZE> client_id;
+
+  std::vector<std::pair<String, String>> client_attrs;
+
+  // Populate caller, async_id
+  for (const auto &s : {"caller", "async_id"}) {
+    bool found_query_attrs = false;
+    for (auto it = query_attrs_list.begin(); it != query_attrs_list.end();
+         ++it) {
+      if (it->first == s) {
+        client_attrs.emplace_back(
+            String(it->first.data(), it->first.size(), &my_charset_bin),
+            String(it->second.data(), it->second.size(), &my_charset_bin));
+        found_query_attrs = true;
+      }
+    }
+
+    if (!found_query_attrs) {
+      auto it = connection_attrs_map.find(s);
+      if (it != connection_attrs_map.end()) {
+        client_attrs.emplace_back(
+            String(it->first.data(), it->first.size(), &my_charset_bin),
+            String(it->second.data(), it->second.size(), &my_charset_bin));
+      }
+    }
+  }
+
+  // Serialize into JSON
+  auto &buf = client_attrs_string;
+  q_append('{', &buf);
+
+  for (size_t i = 0; i < client_attrs.size(); i++) {
+    const auto &p = client_attrs[i];
+
+    if (i > 0) {
+      q_append(STRING_WITH_LEN(", "), &buf);
+    }
+    q_append('\'', &buf);
+    q_append(p.first.ptr(), std::min<size_t>(100, p.first.length()), &buf);
+    q_append(STRING_WITH_LEN("' : '"), &buf);
+    q_append(p.second.ptr(), std::min<size_t>(100, p.second.length()), &buf);
+    q_append('\'', &buf);
+  }
+  q_append('}', &buf);
+
+  compute_md5_hash((char *)client_id.data(), client_attrs_string.ptr(),
+                   client_attrs_string.length());
+  int bytes_lost MY_ATTRIBUTE((unused)) = PSI_THREAD_CALL(
+      set_thread_client_attrs)(client_id.data(), client_attrs_string.ptr(),
+                               client_attrs_string.length());
+  DBUG_ASSERT(bytes_lost == 0);
 }

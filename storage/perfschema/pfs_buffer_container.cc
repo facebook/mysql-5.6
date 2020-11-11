@@ -103,6 +103,11 @@ PFS_buffer_default_allocator<PFS_prepared_stmt> default_prepared_stmt_allocator(
 PFS_prepared_stmt_container global_prepared_stmt_container(
     &default_prepared_stmt_allocator);
 
+PFS_buffer_default_allocator<PFS_client_attrs> default_client_attrs_allocator(
+    &builtin_memory_client_attrs);
+PFS_client_attrs_container global_client_attrs_container(
+    &default_client_attrs_allocator);
+
 int PFS_account_allocator::alloc_array(PFS_account_array *array) {
   PFS_account *pfs;
   size_t size = array->m_max;

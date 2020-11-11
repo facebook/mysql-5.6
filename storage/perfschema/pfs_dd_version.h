@@ -204,10 +204,13 @@
 
   80020-008:
    - add replica_statistics table
+?  80020-009
+   - add client attributes
+
 */
 
-/* Version published now is 80020-008. i.e. 8.0.20 Facebook schema change no. 8.
+/* Version published now is 80020-009. i.e. 8.0.20 Facebook schema change no. 9.
  */
-static const uint PFS_DD_VERSION = 80020008;
+static const uint PFS_DD_VERSION = 80020009;
 
 #endif /* PFS_DD_VERSION_H */

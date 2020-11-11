@@ -1,0 +1,20 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DDLs on the table client_attributes
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.client_attributes
+  ADD COLUMN foo integer;
+
+TRUNCATE TABLE performance_schema.client_attributes;
+
+-- error ER_DBACCESS_DENIED_ERROR
+ALTER TABLE performance_schema.client_attributes
+   ADD INDEX test_index(CLIENT_ATTRIBUTES);
+
+-- error ER_DBACCESS_DENIED_ERROR
+CREATE UNIQUE INDEX test_index ON
+  performance_schema.client_attributes(CLIENT_ATTRIBUTES);

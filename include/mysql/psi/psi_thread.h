@@ -136,6 +136,8 @@ struct PSI_thread_service_v3 {
   delete_thread_v1_t delete_thread;
   /** @sa set_thread_connect_attrs_v1_t. */
   set_thread_connect_attrs_v1_t set_thread_connect_attrs;
+  /** @sa set_thread_client_attrs_v1_t. */
+  set_thread_client_attrs_v1_t set_thread_client_attrs;
   /** @sa get_current_thread_event_id_v2_t. */
   get_current_thread_event_id_v2_t get_current_thread_event_id;
   /** @sa get_thread_event_id_v2_t. */

@@ -35,6 +35,7 @@
 #include "my_compiler.h"
 #include "my_dbug.h"
 #include "my_macros.h"
+#include "my_md5.h"
 #include "my_thread.h"
 #include "sql/field.h"
 #include "sql/json_dom.h"
@@ -2006,6 +2007,15 @@ bool PFS_key_digest::match(PFS_statements_digest_stat *pfs) {
   DIGEST_HASH_TO_STRING(pfs->m_digest_storage.m_hash, hash_string);
 
   return do_match(record_null, hash_string, DIGEST_HASH_TO_STRING_LENGTH);
+}
+
+bool PFS_key_client_id::match(PFS_client_attrs *pfs) {
+  // Every byte takes 2 characters to represent in string format plus an extra
+  // byte for terminating NUL.
+  char hash_string[MD5_HASH_SIZE * 2 + 1];
+  array_to_hex(hash_string, pfs->m_key.m_hash_key, MD5_HASH_SIZE);
+
+  return do_match(false, hash_string, MD5_HASH_SIZE * 2);
 }
 
 bool PFS_key_bucket_number::match(ulong value) {

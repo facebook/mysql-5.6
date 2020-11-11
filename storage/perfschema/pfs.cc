@@ -98,6 +98,7 @@
 #include "sql/sql_const.h"
 #include "sql/sql_error.h"
 #include "storage/perfschema/pfs_account.h"
+#include "storage/perfschema/pfs_client_attrs.h"
 #include "storage/perfschema/pfs_column_values.h"
 #include "storage/perfschema/pfs_data_lock.h"
 #include "storage/perfschema/pfs_digest.h"
@@ -6368,7 +6369,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
          * information.*/
         digest_stat = find_or_create_digest(
             thread, digest_storage, state->m_schema_name,
-            state->m_schema_name_length, nullptr, nullptr);
+            state->m_schema_name_length, thread->m_client_id, nullptr);
       }
     }
 
@@ -6436,7 +6437,7 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
            */
           digest_stat = find_or_create_digest(
               thread, digest_storage, state->m_schema_name,
-              state->m_schema_name_length, nullptr, nullptr);
+              state->m_schema_name_length, thread->m_client_id, nullptr);
         }
       }
     }
@@ -7518,6 +7519,37 @@ int pfs_set_thread_connect_attrs_vc(const char *buffer, uint length,
 }
 
 /**
+  Implementation of the client attribute interface
+  @sa PSI_v2::set_thread_client_attr.
+*/
+int pfs_set_thread_client_attrs_vc(const uchar *client_id,
+                                   const char *client_attributes,
+                                   uint client_attributes_length) {
+  PFS_thread *thd = my_thread_get_THR_PFS();
+  pfs_dirty_state dirty_state;
+  int res = 0;
+  int len = 0;
+
+  if (likely(thd != NULL)) {
+    if (client_attributes_length > sizeof(PFS_client_attrs::m_client_attrs)) {
+      len = sizeof(PFS_client_attrs::m_client_attrs);
+      res = client_attributes_length - len;
+    } else {
+      len = client_attributes_length;
+      res = 0;
+    }
+
+    find_or_create_client_attrs(thd, client_id, client_attributes,
+                                client_attributes_length);
+
+    thd->m_stmt_lock.allocated_to_dirty(&dirty_state);
+    memcpy(thd->m_client_id, client_id, MD5_HASH_SIZE);
+    thd->m_stmt_lock.dirty_to_allocated(&dirty_state);
+  }
+  return res;
+}
+
+/**
   Implementation of the get event id interface
   @sa PSI_v2::get_thread_event_id.
 */
@@ -8157,6 +8189,7 @@ PSI_thread_service_v3 pfs_thread_service_v3 = {
     pfs_delete_current_thread_vc,
     pfs_delete_thread_vc,
     pfs_set_thread_connect_attrs_vc,
+    pfs_set_thread_client_attrs_vc,
     pfs_get_current_thread_event_id_vc,
     pfs_get_thread_event_id_vc,
     pfs_get_thread_system_attrs_vc,
@@ -8192,6 +8225,7 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v3) = {
     pfs_delete_current_thread_vc,
     pfs_delete_thread_vc,
     pfs_set_thread_connect_attrs_vc,
+    pfs_set_thread_client_attrs_vc,
     pfs_get_current_thread_event_id_vc,
     pfs_get_thread_event_id_vc,
     pfs_get_thread_system_attrs_vc,

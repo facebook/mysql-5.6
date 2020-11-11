@@ -87,6 +87,9 @@ typedef void (*delete_thread_v1_t)(struct PSI_thread *thread);
 typedef int (*set_thread_connect_attrs_v1_t)(const char *buffer,
                                              unsigned int length,
                                              const void *from_cs);
+typedef int (*set_thread_client_attrs_v1_t)(const unsigned char *client_id,
+                                            const char *client_attributes,
+                                            uint client_attributes_length);
 typedef void (*get_current_thread_event_id_v2_t)(
     unsigned long long *thread_internal_id, unsigned long long *event_id);
 typedef void (*get_thread_event_id_v1_t)(unsigned long long *thread_internal_id,
@@ -159,6 +162,7 @@ struct PSI_thread_service_v3 {
   delete_current_thread_v1_t delete_current_thread;
   delete_thread_v1_t delete_thread;
   set_thread_connect_attrs_v1_t set_thread_connect_attrs;
+  set_thread_client_attrs_v1_t set_thread_client_attrs;
   get_current_thread_event_id_v2_t get_current_thread_event_id;
   get_thread_event_id_v2_t get_thread_event_id;
   get_thread_system_attrs_v3_t get_thread_system_attrs;

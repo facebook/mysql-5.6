@@ -4285,6 +4285,8 @@ class THD : public MDL_context_owner,
   inline uint32 query_attrs_length() const {
     return query_attrs_string.length();
   }
+  // serialize client attributes and compute CLIENT_ID
+  void serialize_client_attrs();
   std::vector<std::pair<std::string, std::string>> query_attrs_list;
   std::unordered_map<std::string, std::string> connection_attrs_map;
   uint64_t num_queries;

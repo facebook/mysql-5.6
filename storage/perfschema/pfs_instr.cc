@@ -561,6 +561,7 @@ PFS_thread *create_thread(PFS_thread_class *klass,
     pfs->m_host_hash_pins = nullptr;
     pfs->m_digest_hash_pins = nullptr;
     pfs->m_program_hash_pins = nullptr;
+    pfs->m_client_attrs_hash_pins = nullptr;
 
     pfs->m_username_length = 0;
     pfs->m_hostname_length = 0;
@@ -573,6 +574,7 @@ PFS_thread *create_thread(PFS_thread_class *klass,
     pfs->m_stage_progress = nullptr;
     pfs->m_processlist_info[0] = '\0';
     pfs->m_processlist_info_length = 0;
+    memset(pfs->m_client_id, 0, sizeof(pfs->m_client_id));
     pfs->m_connection_type = NO_VIO_TYPE;
 
     pfs->m_thd = nullptr;
@@ -754,6 +756,10 @@ void destroy_thread(PFS_thread *pfs) {
   if (pfs->m_program_hash_pins) {
     lf_hash_put_pins(pfs->m_program_hash_pins);
     pfs->m_program_hash_pins = nullptr;
+  }
+  if (pfs->m_client_attrs_hash_pins) {
+    lf_hash_put_pins(pfs->m_client_attrs_hash_pins);
+    pfs->m_client_attrs_hash_pins = NULL;
   }
   global_thread_container.deallocate(pfs);
 }

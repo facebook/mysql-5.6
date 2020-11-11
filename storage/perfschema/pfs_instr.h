@@ -459,6 +459,8 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
   LF_PINS *m_digest_hash_pins;
   /** Pins for routine_hash. */
   LF_PINS *m_program_hash_pins;
+  /** Pins for client_attrs_hash. */
+  LF_PINS *m_client_attrs_hash_pins;
   /** Internal thread identifier, unique. */
   ulonglong m_thread_internal_id;
   /** Parent internal thread identifier. */
@@ -623,6 +625,8 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
     Protected by @c m_stmt_lock.
   */
   uint m_processlist_info_length;
+
+  uchar m_client_id[MD5_HASH_SIZE];
 
   PFS_events_stages m_stage_current;
 

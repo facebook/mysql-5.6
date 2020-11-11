@@ -1,0 +1,10 @@
+ALTER TABLE performance_schema.client_attributes
+ADD COLUMN foo integer;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+TRUNCATE TABLE performance_schema.client_attributes;
+ALTER TABLE performance_schema.client_attributes
+ADD INDEX test_index(CLIENT_ATTRIBUTES);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'
+CREATE UNIQUE INDEX test_index ON
+performance_schema.client_attributes(CLIENT_ATTRIBUTES);
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'performance_schema'

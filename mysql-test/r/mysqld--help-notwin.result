@@ -1111,6 +1111,8 @@ The following options may be given as the first argument:
  --performance-schema-instrument[=name] 
  Default startup value for a performance schema
  instrument.
+ --performance-schema-max-client-attrs=# 
+ Maximum number of client attributes. Use 0 to disable.
  --performance-schema-max-cond-classes=# 
  Maximum number of condition instruments.
  --performance-schema-max-cond-instances=# 
@@ -2644,6 +2646,7 @@ performance-schema-events-waits-history-long-size -1
 performance-schema-events-waits-history-size -1
 performance-schema-hosts-size -1
 performance-schema-instrument 
+performance-schema-max-client-attrs 1024
 performance-schema-max-cond-classes 100
 performance-schema-max-cond-instances -1
 performance-schema-max-digest-length 1024

@@ -557,6 +557,14 @@ static Sys_var_long Sys_pfs_max_prepared_stmt_instances(
     CMD_LINE(REQUIRED_ARG), VALID_RANGE(-1, num_prepared_stmt_limit),
     DEFAULT(PFS_AUTOSCALE_VALUE), BLOCK_SIZE(1), PFS_TRAILING_PROPERTIES);
 
+static Sys_var_long Sys_pfs_max_client_attrs_instances(
+    "performance_schema_max_client_attrs",
+    "Maximum number of client attributes."
+    " Use 0 to disable.",
+    READ_ONLY GLOBAL_VAR(pfs_param.m_client_attrs_sizing),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, 1024 * 1024), DEFAULT(1024),
+    BLOCK_SIZE(1), PFS_TRAILING_PROPERTIES);
+
 static Sys_var_ulong Sys_pfs_max_file_classes(
     "performance_schema_max_file_classes",
     "Maximum number of file instruments.",
