@@ -1,0 +1,34 @@
+# ==== Purpose ====
+#
+# Tests for PERFORMANCE_SCHEMA
+#
+# This test verifies the correct behaviour in case of invalid
+# usage of DMLs on the table client_attributes.
+#
+
+--disable_result_log
+SELECT * FROM performance_schema.client_attributes LIMIT 1;
+--enable_result_log
+
+--error ER_TABLEACCESS_DENIED_ERROR
+INSERT INTO performance_schema.client_attributes
+  SET USER="abc";
+
+--error ER_TABLEACCESS_DENIED_ERROR
+UPDATE performance_schema.client_attributes
+  SET USER="abc" WHERE USER=root;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.client_attributes
+  WHERE USER=root;
+
+--error ER_TABLEACCESS_DENIED_ERROR
+DELETE FROM performance_schema.client_attributes;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.client_attributes READ;
+UNLOCK TABLES;
+
+-- error ER_TABLEACCESS_DENIED_ERROR
+LOCK TABLES performance_schema.client_attributes WRITE;
+UNLOCK TABLES;

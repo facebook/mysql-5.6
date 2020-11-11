@@ -118,6 +118,8 @@ PFS_builtin_memory_class builtin_memory_table_share_lock;
 PFS_builtin_memory_class builtin_memory_program;
 PFS_builtin_memory_class builtin_memory_prepared_stmt;
 
+PFS_builtin_memory_class builtin_memory_client_attrs;
+
 PFS_builtin_memory_class builtin_memory_scalable_buffer;
 
 static void init_builtin_memory_class(PFS_builtin_memory_class *klass,
@@ -370,6 +372,9 @@ init_all_builtin_memory_class()
   init_builtin_memory_class(&builtin_memory_prepared_stmt,
                             TABLE_DOC("prepared_statements_instances"));
 
+  init_builtin_memory_class(&builtin_memory_client_attrs,
+                            TABLE_DOC("client_attributes"));
+
   init_builtin_memory_class(&builtin_memory_scalable_buffer,
                             GEN_DOC("scalable_buffer", "scalable buffers"));
 }
@@ -462,6 +467,8 @@ static PFS_builtin_memory_class* all_builtin_memory[] = {
 
   &builtin_memory_program,
   &builtin_memory_prepared_stmt,
+
+  &builtin_memory_client_attrs,
 
   &builtin_memory_scalable_buffer,
 

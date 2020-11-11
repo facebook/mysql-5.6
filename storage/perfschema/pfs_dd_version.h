@@ -236,12 +236,17 @@
    - add elapsed time to statement statistics
 
   80020-009:
+
    - add replica_statistics table
 
+  80020-010:
+
+   - add client attributes
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-009. i.e. 8.0.23 Facebook schema change no. 9.
+  Version published is now 80023-010. i.e. 8.0.23 Facebook schema change no. 10.
 */
 
-static const uint PFS_DD_VERSION = 80023009;
+static const uint PFS_DD_VERSION = 80023010;
 
 #endif /* PFS_DD_VERSION_H */
