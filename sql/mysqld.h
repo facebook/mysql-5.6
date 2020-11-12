@@ -675,6 +675,9 @@ extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_replica_worker_hash;
 
+extern PSI_mutex_key key_LOCK_ac_node;
+extern PSI_mutex_key key_LOCK_ac_info;
+
 extern PSI_rwlock_key key_rwlock_LOCK_logger;
 extern PSI_rwlock_key key_rwlock_channel_map_lock;
 extern PSI_rwlock_key key_rwlock_channel_lock;
@@ -685,6 +688,7 @@ extern PSI_rwlock_key key_rwlock_channel_to_filter_lock;
 extern PSI_rwlock_key key_rwlock_LOCK_gap_lock_exceptions;
 extern PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
 extern PSI_rwlock_key key_rwlock_commit_order_manager_lock;
+extern PSI_rwlock_key key_rwlock_LOCK_ac;
 
 extern PSI_cond_key key_PAGE_cond;
 extern PSI_cond_key key_COND_active;
@@ -713,6 +717,7 @@ extern PSI_cond_key key_COND_thr_lock;
 extern PSI_cond_key key_cond_slave_worker_hash;
 extern PSI_cond_key key_commit_order_manager_cond;
 extern PSI_cond_key key_COND_group_replication_connection_cond_var;
+extern PSI_cond_key key_COND_ac_node;
 extern PSI_thread_key key_thread_bootstrap;
 extern PSI_thread_key key_thread_handle_manager;
 extern PSI_thread_key key_thread_handle_slave_stats_daemon;

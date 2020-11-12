@@ -1,0 +1,41 @@
+SELECT @@global.admission_control_yield_freq;
+SET @@global.admission_control_yield_freq=5;
+show global variables like 'admission_control_yield_freq';
+select * from performance_schema.global_variables where variable_name='admission_control_yield_freq';
+
+select @@global.admission_control_yield_freq;
+show global variables like 'admission_control_yield_freq';
+select * from performance_schema.global_variables where variable_name='admission_control_yield_freq';
+
+#
+# show that it's writable
+#
+set global admission_control_yield_freq=10;
+select @@global.admission_control_yield_freq;
+show global variables like 'admission_control_yield_freq';
+
+set global admission_control_yield_freq=0;
+select @@global.admission_control_yield_freq;
+show global variables like 'admission_control_yield_freq';
+
+set global admission_control_yield_freq=-100;
+select @@global.admission_control_yield_freq;
+show global variables like 'admission_control_yield_freq';
+
+set global admission_control_yield_freq=default;
+select @@global.admission_control_yield_freq;
+show global variables like 'admission_control_yield_freq';
+
+--error ER_GLOBAL_VARIABLE
+set session admission_control_yield_freq=default;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.admission_control_yield_freq;
+show session variables like 'admission_control_yield_freq';
+
+#
+# incorrect assignments
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global admission_control_yield_freq=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global admission_control_yield_freq="foobar";
