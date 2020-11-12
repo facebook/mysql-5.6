@@ -1,0 +1,263 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+use test_db;
+
+set @save_max_running_queries = @@max_running_queries;
+set @save_max_waiting_queries = @@max_waiting_queries;
+set @save_admission_control_wait_events = @@admission_control_wait_events;
+set @save_admission_control_filter = @@admission_control_filter;
+set @save_admission_control_yield_freq = @@admission_control_yield_freq;
+
+set global max_running_queries = 1;
+set global max_waiting_queries = 2000;
+set global admission_control_filter = 'SET';
+
+--source include/count_sessions.inc
+--connect (con1,localhost,test_user,,test_db)
+--connect (con2,localhost,test_user,,test_db)
+set admission_control_queue_timeout = 5000;
+
+--echo #
+--echo # Test admission_control_wait_events = SLEEP
+--echo #
+
+# Test that query blocks on admission control without variable.
+--connection default
+set global admission_control_wait_events = '';
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select SLEEP(1000000)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'User sleep';
+--source include/wait_condition.inc
+
+--connection con2
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select 1;
+
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+--connection con1
+--reap
+
+# Test that query passes admission control with variable.
+--connection default
+set global admission_control_wait_events = 'SLEEP';
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select SLEEP(1000000)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'User sleep';
+--source include/wait_condition.inc
+
+--connection con2
+select 1;
+
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+--connection con1
+--reap
+
+--echo #
+--echo # Test admission_control_wait_events = ROW_LOCK
+--echo #
+
+# Test that query blocks on admission control without variable.
+--connection default
+set global admission_control_wait_events = '';
+create table t (i int primary key) engine=innodb;
+insert into t values (1);
+begin;
+select * from t where i = 1 for update;
+
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select * from t where i = 1 for update;
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from performance_schema.data_lock_waits;
+--source include/wait_condition.inc
+
+--connection con2
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+# Test that query passes admission control with variable.
+--connection default
+set global admission_control_wait_events = 'ROW_LOCK';
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select * from t where i = 1 for update;
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from performance_schema.data_lock_waits;
+--source include/wait_condition.inc
+
+--connection con2
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+rollback;
+drop table t;
+
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+--echo #
+--echo # Test admission_control_wait_events = META_DATA_LOCK
+--echo #
+
+# Test that query blocks on admission control without variable.
+--connection default
+set global admission_control_wait_events = '';
+select GET_LOCK('lock', -1);
+
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select GET_LOCK('lock', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'User lock';
+--source include/wait_condition.inc
+
+--connection con2
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+# Test that query passes admission control with variable.
+--connection default
+set global admission_control_wait_events = 'META_DATA_LOCK';
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select GET_LOCK('lock', -1)
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'User lock';
+--source include/wait_condition.inc
+
+--connection con2
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+select RELEASE_LOCK('lock');
+
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+--echo #
+--echo # Test admission_control_wait_events = YIELD
+--echo #
+
+# Test that query blocks on admission control without variable.
+--connection default
+set global admission_control_wait_events = '';
+create table t1 (i int primary key) engine=innodb;
+insert into t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+create table t2 (i int primary key) engine=innodb;
+insert into t2 select a.i + 10 * b.i + 100 * c.i + 1000 * d.i from t1 a, t1 b, t1 c, t1 d;
+
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'Sending data';
+--source include/wait_condition.inc
+
+--connection con2
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+# Test that query passes admission control with variable.
+--connection default
+set global admission_control_wait_events = 'YIELD';
+set global admission_control_yield_freq = 1;
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send select * from t2 a, t2 b, t2 c, t2 d, t2 e, t2 f, t2 g, t2 h limit 10000000000, 1;
+
+--connection default
+let $wait_condition =
+  select count(*) = 1 from information_schema.processlist where state = 'Sending data';
+--source include/wait_condition.inc
+
+--connection con2
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL QUERY $con1_id
+--enable_query_log
+drop table t1;
+drop table t2;
+
+--connection con1
+--error ER_QUERY_INTERRUPTED
+--reap
+
+--connection default
+--disconnect con1
+--disconnect con2
+
+--source include/wait_until_count_sessions.inc
+
+set global max_running_queries = @save_max_running_queries;
+set global max_waiting_queries = @save_max_waiting_queries;
+set global admission_control_wait_events = @save_admission_control_wait_events;
+set global admission_control_filter = @save_admission_control_filter;
+set global admission_control_yield_freq = @save_admission_control_yield_freq;
+
+drop database test_db;
+drop user test_user@localhost;

@@ -1,0 +1,100 @@
+--source include/have_debug.inc
+
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+grant SYSTEM_VARIABLES_ADMIN on *.* to test_user@localhost;
+use test_db;
+
+set @save_max_running_queries = @@max_running_queries;
+set @save_max_waiting_queries = @@max_waiting_queries;
+set @save_admission_control_wait_events = @@admission_control_wait_events;
+
+set global max_running_queries = 1;
+set global max_waiting_queries = 2000;
+
+
+--source include/count_sessions.inc
+--connect (con1,localhost,test_user,,test_db)
+--connect (con2,localhost,test_user,,test_db)
+set admission_control_queue_timeout = 100;
+
+--echo #
+--echo # Test admission_control_wait_events = NET_IO
+--echo # We need debug sync to simulate slow clients
+--echo #
+
+# Test that query blocks on admission control without variable.
+--connection default
+set global admission_control_wait_events = '';
+
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+set session debug = "+d,simulate_net_write_delay";
+--send SELECT REPEAT('X', @@max_allowed_packet);
+
+--connection default
+let $wait_condition =
+  select count(*) > 0 from information_schema.processlist where state = 'Sending to client' and id = $con1_id;
+--source include/wait_condition.inc
+
+--connection con2
+--error ER_DB_ADMISSION_CONTROL_TIMEOUT
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL $con1_id
+--enable_query_log
+--connection con1
+--disable_result_log
+--error 1317,2013
+--reap
+--enable_result_log
+
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+# Test that query passes admission control with variable.
+--connection default
+set global admission_control_wait_events = 'NET_IO';
+--connection con1
+--let $con1_id = `SELECT CONNECTION_ID()`
+--send SELECT REPEAT('X', @@max_allowed_packet);
+
+--connection default
+let $wait_condition =
+  select count(*) > 0 from information_schema.processlist where state = 'Sending to client';
+--source include/wait_condition.inc
+
+--connection con2
+select 1;
+
+# Cleanup
+--connection default
+--disable_query_log
+--eval KILL $con1_id
+--enable_query_log
+--connection con1
+--disable_result_log
+--error 1317,2013
+--reap
+--enable_result_log
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+--disable_reconnect
+
+--connection default
+--disconnect con1
+--disconnect con2
+
+--source include/wait_until_count_sessions.inc
+
+set global max_running_queries = @save_max_running_queries;
+set global max_waiting_queries = @save_max_waiting_queries;
+set global admission_control_wait_events = @save_admission_control_wait_events;
+
+drop database test_db;
+drop user test_user@localhost;

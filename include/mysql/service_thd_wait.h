@@ -85,7 +85,9 @@ typedef enum _thd_wait_type_e {
   THD_WAIT_GROUP_COMMIT = 9,
   THD_WAIT_SYNC = 10,
   THD_WAIT_FOR_HLC = 11,
-  THD_WAIT_LAST = 12,
+  THD_WAIT_NET_IO = 12,
+  THD_WAIT_YIELD = 13,
+  THD_WAIT_LAST = 14
 } thd_wait_type;
 
 extern "C" struct thd_wait_service_st {
@@ -103,6 +105,7 @@ extern "C" struct thd_wait_service_st {
 
 void thd_wait_begin(MYSQL_THD thd, int wait_type);
 void thd_wait_end(MYSQL_THD thd);
+THD *thd_get_current_thd();
 
 #endif
 
