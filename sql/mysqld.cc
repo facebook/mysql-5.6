@@ -12337,6 +12337,8 @@ PSI_mutex_key key_LOCK_global_write_statistics;
 PSI_mutex_key key_LOCK_global_write_throttling_rules;
 PSI_mutex_key key_LOCK_global_write_throttling_log;
 PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
+PSI_mutex_key key_LOCK_ac_node;
+PSI_mutex_key key_LOCK_ac_info;
 
 /* clang-format off */
 static PSI_mutex_info all_server_mutexes[]=
@@ -12437,7 +12439,9 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_tls_ctx_options, "LOCK_tls_ctx_options", 0, 0, "A lock to control all of the --ssl-* CTX related command line options for client server connection port"},
   { &key_LOCK_admin_tls_ctx_options, "LOCK_admin_tls_ctx_options", 0, 0, "A lock to control all of the --ssl-* CTX related command line options for administrative connection port"},
   { &key_LOCK_rotate_binlog_master_key, "LOCK_rotate_binlog_master_key", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
-  { &key_monitor_info_run_lock, "Source_IO_monitor::run_lock", 0, 0, PSI_DOCUMENT_ME}
+  { &key_monitor_info_run_lock, "Source_IO_monitor::run_lock", 0, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_ac_node, "st_ac_node::lock", 0, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_ac_info, "Ac_info::lock", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -12457,6 +12461,7 @@ PSI_rwlock_key key_rwlock_Binlog_relay_IO_delegate_lock;
 PSI_rwlock_key key_rwlock_resource_group_mgr_map_lock;
 PSI_rwlock_key key_rwlock_Raft_replication_delegate_lock;
 PSI_rwlock_key key_rwlock_commit_order_manager_lock;
+PSI_rwlock_key key_rwlock_LOCK_ac;
 
 /* clang-format off */
 static PSI_rwlock_info all_server_rwlocks[]=
@@ -12487,6 +12492,7 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_Raft_replication_delegate_lock,
     "Raft_replication_delegate::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_rwlock_commit_order_manager_lock, "Commit_order_manager::rwlock", 0, 0, PSI_DOCUMENT_ME},
+  { &key_rwlock_LOCK_ac, "AC::rwlock", 0, 0, PSI_DOCUMENT_ME},
 };
 /* clang-format on */
 
@@ -12519,6 +12525,7 @@ PSI_cond_key key_COND_thr_lock;
 PSI_cond_key key_commit_order_manager_cond;
 PSI_cond_key key_cond_slave_worker_hash;
 PSI_cond_key key_monitor_info_run_cond;
+PSI_cond_key key_COND_ac_node;
 
 /* clang-format off */
 static PSI_cond_info all_server_conds[]=
@@ -12564,7 +12571,8 @@ static PSI_cond_info all_server_conds[]=
   { &key_COND_compress_gtid_table, "COND_compress_gtid_table", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_commit_order_manager_cond, "Commit_order_manager::m_workers.cond", 0, 0, PSI_DOCUMENT_ME},
   { &key_cond_slave_worker_hash, "Relay_log_info::slave_worker_hash_lock", 0, 0, PSI_DOCUMENT_ME},
-  { &key_monitor_info_run_cond, "Source_IO_monitor::run_cond", 0, 0, PSI_DOCUMENT_ME}
+  { &key_monitor_info_run_cond, "Source_IO_monitor::run_cond", 0, 0, PSI_DOCUMENT_ME},
+  { &key_COND_ac_node, "st_ac_node::cond", 0, 0, PSI_DOCUMENT_ME}
 };
 /* clang-format on */
 
@@ -12830,6 +12838,7 @@ PSI_stage_info *all_server_stages[] = {
     &stage_user_sleep,
     &stage_verifying_table,
     &stage_waiting_for_admission,
+    &stage_waiting_for_readmission,
     &stage_waiting_for_gtid_to_be_committed,
     &stage_waiting_for_handler_commit,
     &stage_waiting_for_master_to_send_event,
