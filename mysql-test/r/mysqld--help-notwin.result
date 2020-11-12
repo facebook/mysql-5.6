@@ -44,11 +44,18 @@ The following options may be given as the first argument:
  Number of milliseconds to wait on admission control
  queue. 0 means immediate timeout. -1 means infinite
  timeout.
+ --admission-control-wait-events=name 
+ Determines events for which queries will exit admission
+ control. After the wait event completes, the query will
+ have to re-enter admission control.
  --admission-control-weights[=name] 
  Determines the weight of each queue as a comma-separated
  list of integers, where the nth number is the nth queue's
  weight. The queue weight to total weight ratio determines
  what fraction of the running pool a queue can use.
+ --admission-control-yield-freq[=#] 
+ Controls how frequently a query exits admission control
+ to yield to other queries.
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -2396,7 +2403,9 @@ admission-control-by-trx FALSE
 admission-control-filter 
 admission-control-queue 0
 admission-control-queue-timeout -1
+admission-control-wait-events 
 admission-control-weights (No default value)
+admission-control-yield-freq 1000
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 apply-log (No default value)

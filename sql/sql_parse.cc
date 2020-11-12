@@ -2314,11 +2314,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           (!opt_admission_control_by_trx ||
            !thd->get_transaction()->is_active(
                Transaction_ctx::SESSION) /* thd->is_real_trans equivalent */)) {
-        MT_RESOURCE_ATTRS mattrs = {&thd->connection_attrs_map,
-                                    &thd->query_attrs_list, thd->db().str};
-        multi_tenancy_exit_query(thd, &mattrs);
-
-        thd->is_in_ac = false;
+        multi_tenancy_exit_query(thd);
       }
 
       /* Need to set error to true for graceful shutdown */
@@ -6113,10 +6109,7 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
           bool switched = mgr_ptr->switch_resource_group_if_needed(
               thd, &src_res_grp, &dest_res_grp, &ticket, &cur_ticket);
 
-          MT_RESOURCE_ATTRS attrs = {&thd->connection_attrs_map,
-                                     &thd->query_attrs_list, thd->db().str};
-
-          if (multi_tenancy_admit_query(thd, &attrs)) {
+          if (multi_tenancy_admit_query(thd)) {
             error = 1;
           } else {
             error = mysql_execute_command(thd, true, last_timer);

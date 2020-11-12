@@ -2968,6 +2968,23 @@ static Sys_var_charptr Sys_admission_control_weights(
     DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
     ON_CHECK(check_admission_control_weights));
 
+const char *admission_control_wait_events_names[] = {
+    "SLEEP", "ROW_LOCK", "META_DATA_LOCK", "NET_IO", "YIELD", 0};
+static Sys_var_set Sys_admission_control_wait_events(
+    "admission_control_wait_events",
+    "Determines events for which queries will exit admission control. After "
+    "the wait event completes, the query will have to re-enter admission "
+    "control.",
+    GLOBAL_VAR(admission_control_wait_events), CMD_LINE(REQUIRED_ARG),
+    admission_control_wait_events_names, DEFAULT(0));
+
+static Sys_var_ulonglong Sys_admission_control_yield_freq(
+    "admission_control_yield_freq",
+    "Controls how frequently a query exits admission control to yield to "
+    "other queries.",
+    GLOBAL_VAR(admission_control_yield_freq), CMD_LINE(OPT_ARG),
+    VALID_RANGE(1, (ulonglong) ~(intptr)0), DEFAULT(1000), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_max_connect_errors(
     "max_connect_errors",
     "If there is more than this number of interrupted connections from "

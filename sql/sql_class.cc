@@ -1213,10 +1213,7 @@ void THD::release_resources() {
 
   /* if we are still in admission control, release it */
   if (is_in_ac) {
-    MT_RESOURCE_ATTRS attrs = {&connection_attrs_map, &query_attrs_list,
-                               m_db.str};
-    multi_tenancy_exit_query(this, &attrs);
-    is_in_ac = false;
+    multi_tenancy_exit_query(this);
   }
 
   /* Close connection */
@@ -2352,6 +2349,20 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup) {
     get_transaction()
         ->get_transaction_write_set_ctx()
         ->restore_savepoint_list();
+  }
+}
+
+void THD::check_yield(std::function<bool()> cond) {
+  DBUG_ASSERT(last_yield_counter <= yield_counter);
+  yield_counter++;
+  // We pass cond as a callback because cond() could be expensive, so it should
+  // only be called after we've determined that we are eligible for yielding.
+  // Hence, we call cond() after checking yield counters here.
+  if (last_yield_counter + admission_control_yield_freq < yield_counter &&
+      cond()) {
+    thd_wait_begin(this, THD_WAIT_YIELD);
+    thd_wait_end(this);
+    last_yield_counter = yield_counter;
   }
 }
 

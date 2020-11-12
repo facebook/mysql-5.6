@@ -1,0 +1,62 @@
+SELECT @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+1000
+SET @@global.admission_control_yield_freq=5;
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	5
+select * from performance_schema.global_variables where variable_name='admission_control_yield_freq';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_yield_freq	5
+select @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+5
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	5
+select * from performance_schema.global_variables where variable_name='admission_control_yield_freq';
+VARIABLE_NAME	VARIABLE_VALUE
+admission_control_yield_freq	5
+set global admission_control_yield_freq=10;
+select @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+10
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	10
+set global admission_control_yield_freq=0;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_yield_freq value: '0'
+select @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+1
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	1
+set global admission_control_yield_freq=-100;
+Warnings:
+Warning	1292	Truncated incorrect admission_control_yield_freq value: '-100'
+select @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+1
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	1
+set global admission_control_yield_freq=default;
+select @@global.admission_control_yield_freq;
+@@global.admission_control_yield_freq
+1000
+show global variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	1000
+set session admission_control_yield_freq=default;
+ERROR HY000: Variable 'admission_control_yield_freq' is a GLOBAL variable and should be set with SET GLOBAL
+select @@session.admission_control_yield_freq;
+ERROR HY000: Variable 'admission_control_yield_freq' is a GLOBAL variable
+show session variables like 'admission_control_yield_freq';
+Variable_name	Value
+admission_control_yield_freq	1000
+set global admission_control_yield_freq=1.1;
+ERROR 42000: Incorrect argument type to variable 'admission_control_yield_freq'
+set global admission_control_yield_freq="foobar";
+ERROR 42000: Incorrect argument type to variable 'admission_control_yield_freq'

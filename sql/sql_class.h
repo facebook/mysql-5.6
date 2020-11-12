@@ -117,6 +117,7 @@
 #include "sql/rpl_lag_manager.h"
 #include "sql/session_tracker.h"  // Session_tracker
 #include "sql/snapshot.h"
+#include "sql/sql_admission_control.h"
 #include "sql/sql_connect.h"
 #include "sql/sql_const.h"
 #include "sql/sql_digest_stream.h"  // sql_digest_state
@@ -4673,6 +4674,16 @@ class THD : public MDL_context_owner,
   /* whether the session is already in admission control for queries */
   bool is_in_ac = false;
   st_ac_node_ptr ac_node;
+  enum enum_admission_control_request_mode readmission_mode = AC_REQUEST_NONE;
+
+  ulonglong last_yield_counter = 0;
+  ulonglong yield_counter = 0;
+  ulonglong readmission_count = 0;
+
+  /**
+    Check if we should exit and reenter admission control.
+  */
+  void check_yield(std::function<bool()> cond);
 
  private:
   /**

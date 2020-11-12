@@ -2825,9 +2825,52 @@ err:
   return nullptr;
 }
 
+/**
+  Check if a table specified by name is a system table.
+
+  @param db                    Database name for the table.
+  @param table_name            Table name to be checked.
+  @param [out] is_sql_layer_system_table  True if a system table belongs to
+  sql_layer.
+
+  @return Operation status
+    @retval  true              If the table name is a system table.
+    @retval  false             If the table name is a user-level table.
+*/
+
+static bool check_if_system_table(const char *db, const char *table_name,
+                                  bool *is_sql_layer_system_table) {
+  st_handler_tablename *systab;
+
+  // Check if we have the system database name in the command.
+  if (!dd::get_dictionary()->is_dd_schema_name(db)) return false;
+
+  // Check if this is SQL layer system tables.
+  systab = mysqld_system_tables;
+  while (systab && systab->db) {
+    if (strcmp(systab->tablename, table_name) == 0) {
+      *is_sql_layer_system_table = true;
+      break;
+    }
+
+    systab++;
+  }
+
+  return true;
+}
+
+static bool yield_condition(TABLE *table) {
+  bool unused;
+  return !check_if_system_table(table->s->db.str, table->s->table_name.str,
+                                &unused);
+}
+
 void handler::ha_statistic_increment(
     ulonglong System_status_var::*offset) const {
-  if (table && table->in_use) (table->in_use->status_var.*offset)++;
+  if (table && table->in_use) {
+    (table->in_use->status_var.*offset)++;
+    table->in_use->check_yield(std::bind(yield_condition, table));
+  }
 }
 
 THD *handler::ha_thd(void) const {
@@ -5524,40 +5567,6 @@ bool ha_check_if_table_exists(THD *thd, const char *db, const char *name,
 }
 
 /**
-  Check if a table specified by name is a system table.
-
-  @param db                    Database name for the table.
-  @param table_name            Table name to be checked.
-  @param [out] is_sql_layer_system_table  True if a system table belongs to
-  sql_layer.
-
-  @return Operation status
-    @retval  true              If the table name is a system table.
-    @retval  false             If the table name is a user-level table.
-*/
-
-static bool check_if_system_table(const char *db, const char *table_name,
-                                  bool *is_sql_layer_system_table) {
-  st_handler_tablename *systab;
-
-  // Check if we have the system database name in the command.
-  if (!dd::get_dictionary()->is_dd_schema_name(db)) return false;
-
-  // Check if this is SQL layer system tables.
-  systab = mysqld_system_tables;
-  while (systab && systab->db) {
-    if (strcmp(systab->tablename, table_name) == 0) {
-      *is_sql_layer_system_table = true;
-      break;
-    }
-
-    systab++;
-  }
-
-  return true;
-}
-
-/**
   @brief Check if a given table is a system table.
 
   @details The primary purpose of introducing this function is to stop system
@@ -6419,6 +6428,8 @@ ha_rows handler::multi_range_read_info_const(
   seq_it = seq->init(seq_init_param, n_ranges, *flags);
   while (!seq->next(seq_it, &range)) {
     if (unlikely(thd->killed != 0)) return HA_POS_ERROR;
+
+    thd->check_yield(std::bind(yield_condition, table));
 
     n_ranges++;
     key_range *min_endp, *max_endp;
