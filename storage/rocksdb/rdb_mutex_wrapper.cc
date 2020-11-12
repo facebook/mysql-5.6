@@ -78,6 +78,12 @@ rocksdb::Status Rdb_cond_var::WaitFor(
   mysql_mutex_assert_owner(mutex_ptr);
 
   if (current_thd && mutex_obj->m_old_stage_info.count(current_thd) == 0) {
+    /*
+      WaitFor may be called multiple times before the lock is acquired or
+      lock timeout.
+    */
+    thd_wait_begin(current_thd, THD_WAIT_ROW_LOCK);
+
     THD_ENTER_COND(current_thd, &m_cond, mutex_ptr, &stage_waiting_on_row_lock2,
                    &old_stage);
     /*
@@ -200,6 +206,7 @@ void Rdb_mutex::UnLock() {
     // 5.6 THD_EXIT_COND does it for you
     RDB_MUTEX_UNLOCK_CHECK(m_mutex);
     THD_EXIT_COND(current_thd, old_stage.get());
+    thd_wait_end(current_thd);
     return;
   }
 #endif

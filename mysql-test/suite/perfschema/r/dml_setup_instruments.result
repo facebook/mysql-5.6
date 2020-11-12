@@ -4,6 +4,7 @@ where name like 'Wait/Synch/Mutex/sql/%'
   and name not in ('wait/synch/mutex/sql/DEBUG_SYNC::mutex')
 order by name limit 10;
 NAME	ENABLED	TIMED	PROPERTIES	FLAGS	VOLATILITY	DOCUMENTATION
+wait/synch/mutex/sql/Ac_info::lock	YES	YES		NULL	0	NULL
 wait/synch/mutex/sql/Commit_order_manager::m_mutex	YES	YES		NULL	0	NULL
 wait/synch/mutex/sql/Cost_constant_cache::LOCK_cost_const	YES	YES	singleton	NULL	0	NULL
 wait/synch/mutex/sql/Event_scheduler::LOCK_scheduler_state	YES	YES	singleton	NULL	0	NULL
@@ -13,7 +14,6 @@ wait/synch/mutex/sql/hash_filo::lock	YES	YES		NULL	0	NULL
 wait/synch/mutex/sql/HybridLogicalClock	YES	YES	singleton	NULL	0	NULL
 wait/synch/mutex/sql/key_mta_gaq_LOCK	YES	YES		NULL	0	NULL
 wait/synch/mutex/sql/key_mta_temp_table_LOCK	YES	YES		NULL	0	NULL
-wait/synch/mutex/sql/LOCK_acl_cache_flush	YES	YES	singleton	NULL	0	NULL
 select * from performance_schema.setup_instruments
 where name like 'Wait/Synch/Rwlock/sql/%'
   and name not in (
@@ -21,7 +21,7 @@ where name like 'Wait/Synch/Rwlock/sql/%'
 'wait/synch/rwlock/sql/LOCK_named_pipe_full_access_group')
 order by name limit 10;
 NAME	ENABLED	TIMED	PROPERTIES	FLAGS	VOLATILITY	DOCUMENTATION
-wait/synch/rwlock/sql/AC::rwlock	YES	YES	singleton	NULL	0	NULL
+wait/synch/rwlock/sql/AC::rwlock	YES	YES		NULL	0	NULL
 wait/synch/rwlock/sql/Binlog_relay_IO_delegate::lock	YES	YES	singleton	NULL	0	NULL
 wait/synch/rwlock/sql/Binlog_storage_delegate::lock	YES	YES	singleton	NULL	0	NULL
 wait/synch/rwlock/sql/Binlog_transmit_delegate::lock	YES	YES	singleton	NULL	0	NULL

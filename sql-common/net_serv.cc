@@ -43,6 +43,7 @@
 #include <algorithm>
 
 #include <mysql/components/services/log_builtins.h>
+#include <mysql/plugin.h>
 #include <mysql/thread_pool_priv.h>
 #include "../sql/current_thd.h"
 #include "../sql/mysqld.h"  // send_error_before_closing_timed_out_connection
@@ -54,6 +55,7 @@
 #include "my_io.h"
 #include "my_macros.h"
 #include "my_sys.h"
+#include "my_systime.h"
 #include "mysql.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysql_async.h"
@@ -92,6 +94,9 @@ extern void thd_increment_bytes_received(size_t length);
 
 /* Additional instrumentation hooks for the server */
 #include "mysql_com_server.h"
+#else
+#define thd_wait_begin(A, B)
+#define thd_wait_end(A)
 #endif
 
 static bool net_write_buff(NET *, const uchar *, size_t);
@@ -1012,7 +1017,14 @@ static bool net_write_raw_loop(NET *net, const uchar *buf, size_t count) {
   unsigned int retry_count = 0;
 
   while (count) {
+    thd_wait_begin(thd_get_current_thd(), THD_WAIT_NET_IO);
+    DBUG_EXECUTE_IF("simulate_net_write_delay", {
+      // Sleep for 10 seconds.
+      my_sleep(10 * 1000 * 1000);
+    });
+
     ssize_t sentcnt = vio_write(net->vio, buf, count);
+    thd_wait_end(thd_get_current_thd());
 
     if (sentcnt == VIO_SOCKET_READ_TIMEOUT ||
         sentcnt == VIO_SOCKET_WRITE_TIMEOUT) {

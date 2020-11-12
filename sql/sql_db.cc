@@ -1425,10 +1425,7 @@ static void mysql_change_db_impl(THD *thd, const LEX_CSTRING &new_db_name,
     assert(thd->db().str != nullptr);
     // if the thd is already in admission control for the previous
     // database, we need to release it before resetting the value.
-    MT_RESOURCE_ATTRS attrs = {nullptr, nullptr, nullptr};
-    attrs.database = thd->db().str;
-    multi_tenancy_exit_query(thd, &attrs);
-    thd->is_in_ac = false;
+    multi_tenancy_exit_query(thd);
   }
 
   /* 1. Change current database in THD. */

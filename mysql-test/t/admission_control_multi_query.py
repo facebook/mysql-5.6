@@ -85,6 +85,19 @@ def generate_load(args, worker_id):
 
     con.close()
 
+def run_reads(args):
+    con = MySQLdb.connect(user=args.user,
+                          passwd=args.password,
+                          host=args.host,
+                          port=args.port,
+                          db=args.database)
+    for i in range(int(NUM_TRANSACTIONS / 10)):
+        cursor = con.cursor()
+        cursor.execute("select * from t1")
+        cursor.execute("select repeat('X', @@max_allowed_packet)")
+        cursor.execute("commit")
+        cursor.close()
+
 def run_admin_checks(args):
     con = MySQLdb.connect(user=args.user,
                           passwd=args.password,
@@ -105,11 +118,12 @@ def run_admin_checks(args):
                              max_running_queries))
 
 class worker_thread(threading.Thread):
-    def __init__(self, args, worker_id, admin):
+    def __init__(self, args, worker_id, admin, readonly):
         threading.Thread.__init__(self)
         self.args = args
         self.exception = None
         self.admin = admin
+        self.readonly = readonly
         self.worker_id = worker_id
         self.start()
 
@@ -117,6 +131,8 @@ class worker_thread(threading.Thread):
         try:
             if self.admin:
                 run_admin_checks(self.args)
+            elif self.readonly:
+                run_reads(self.args)
             else:
                 generate_load(self.args, self.worker_id)
         except Exception as e:
@@ -126,11 +142,14 @@ def main():
     args = parse_args()
     workers = []
     for i in range(NUM_WORKERS):
-        worker = worker_thread(args, i, False)
+        worker = worker_thread(args, i, False, False)
         workers.append(worker)
 
-    admin_worker = worker_thread(args, NUM_WORKERS, True)
+    admin_worker = worker_thread(args, NUM_WORKERS, True, False)
     workers.append(admin_worker)
+
+    readonly_worker = worker_thread(args, NUM_WORKERS, False, True)
+    workers.append(readonly_worker)
 
     worker_failed = False
     for w in workers:

@@ -1854,12 +1854,12 @@ MDL_wait::enum_wait_status MDL_wait::timed_wait(
 
   owner->ENTER_COND(&m_COND_wait_status, &m_LOCK_wait_status, wait_state_name,
                     &old_stage);
-  thd_wait_begin(nullptr, THD_WAIT_META_DATA_LOCK);
+  thd_wait_begin(owner->get_thd(), THD_WAIT_META_DATA_LOCK);
   while (!m_wait_status && !owner->is_killed() && !is_timeout(wait_result)) {
     wait_result = mysql_cond_timedwait(&m_COND_wait_status, &m_LOCK_wait_status,
                                        abs_timeout);
   }
-  thd_wait_end(nullptr);
+  thd_wait_end(owner->get_thd());
 
   if (m_wait_status == WS_EMPTY) {
     /*

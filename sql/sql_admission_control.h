@@ -34,22 +34,39 @@
 #ifndef _sql_admission_control_h
 #define _sql_admission_control_h
 
+#include "mysql/components/services/bits/mysql_cond_bits.h"
+#include "mysql/components/services/bits/mysql_rwlock_bits.h"
+#include "mysql/components/services/bits/psi_cond_bits.h"
+#include "mysql/components/services/bits/psi_rwlock_bits.h"
+#include "mysql/components/services/bits/psi_stage_bits.h"
 #include "mysql/psi/mysql_mutex.h"
 
 #include <array>
+#include <atomic>
 #include <list>
-#include "sql/sql_class.h"
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 extern bool opt_admission_control_by_trx;
 extern ulonglong admission_control_filter;
 extern char *admission_control_weights;
+extern ulonglong admission_control_wait_events;
+extern ulonglong admission_control_yield_freq;
+
 class AC;
+class THD;
+class Table_ref;
+class Item;
+
 extern AC *db_ac;
 
 #ifdef HAVE_PSI_INTERFACE
 extern PSI_stage_info stage_admission_control_enter;
 extern PSI_stage_info stage_admission_control_exit;
 extern PSI_stage_info stage_waiting_for_admission;
+extern PSI_stage_info stage_waiting_for_readmission;
 #endif
 
 // TODO: remove this block eventually when this becomes part of audit plugin?
@@ -113,38 +130,29 @@ enum enum_admission_control_filter {
   ADMISSION_CONTROL_END = 64
 };
 
-extern int multi_tenancy_admit_query(THD *, const MT_RESOURCE_ATTRS *);
-extern int multi_tenancy_exit_query(THD *, const MT_RESOURCE_ATTRS *);
+enum enum_admission_control_wait_events {
+  ADMISSION_CONTROL_THD_WAIT_SLEEP = (1U << 0),
+  ADMISSION_CONTROL_THD_WAIT_ROW_LOCK = (1U << 1),
+  ADMISSION_CONTROL_THD_WAIT_META_DATA_LOCK = (1U << 2),
+  ADMISSION_CONTROL_THD_WAIT_NET_IO = (1U << 3),
+  ADMISSION_CONTROL_THD_WAIT_YIELD = (1U << 4),
+};
+
+enum enum_admission_control_request_mode {
+  AC_REQUEST_NONE,
+  AC_REQUEST_QUERY,
+  AC_REQUEST_QUERY_READMIT_LOPRI,
+  AC_REQUEST_QUERY_READMIT_HIPRI,
+};
+
+extern int multi_tenancy_admit_query(
+    THD *, enum_admission_control_request_mode mode = AC_REQUEST_QUERY);
+extern int multi_tenancy_exit_query(THD *);
 int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
 
 /**
   Per-thread information used in admission control.
 */
-
-#ifdef HAVE_PSI_INTERFACE
-
-static PSI_mutex_key key_ac_node_lock;
-static PSI_cond_key key_ac_node_cond;
-
-static PSI_mutex_info all_ac_node_mutexes[] = {
-    {&key_ac_node_lock, "st_ac_node::lock", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME}};
-
-static PSI_cond_info all_ac_node_conds[] = {
-    {&key_ac_node_cond, "st_ac_node::cond", PSI_FLAG_SINGLETON, 0,
-     PSI_DOCUMENT_ME}};
-
-static void init_st_ac_node_keys() {
-  const char *const category = "sql";
-  int count;
-
-  count = static_cast<int>(array_elements(all_ac_node_mutexes));
-  mysql_mutex_register(category, all_ac_node_mutexes, count);
-
-  count = static_cast<int>(array_elements(all_ac_node_conds));
-  mysql_cond_register(category, all_ac_node_conds, count);
-}
-#endif
 
 struct st_ac_node;
 struct st_ac_node {
@@ -160,19 +168,8 @@ struct st_ac_node {
   long queue;
   // The THD owning this node.
   THD *thd;
-  st_ac_node(THD *thd_arg)
-      : running(false), queued(false), queue(0), thd(thd_arg) {
-#ifdef HAVE_PSI_INTERFACE
-    init_st_ac_node_keys();
-#endif
-    mysql_mutex_init(key_ac_node_lock, &lock, MY_MUTEX_INIT_FAST);
-    mysql_cond_init(key_ac_node_cond, &cond);
-  }
-
-  ~st_ac_node() {
-    mysql_mutex_destroy(&lock);
-    mysql_cond_destroy(&cond);
-  }
+  st_ac_node(THD *thd_arg);
+  ~st_ac_node();
 };
 
 using st_ac_node_ptr = std::shared_ptr<st_ac_node>;
@@ -203,11 +200,6 @@ struct Ac_queue {
 class Ac_info {
   friend class AC;
   friend int fill_ac_queue(THD *thd, Table_ref *tables, Item *cond);
-#ifdef HAVE_PSI_INTERFACE
-  PSI_mutex_key key_lock;
-  PSI_mutex_info key_lock_info[1] = {
-      {&key_lock, "Ac_info::lock", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME}};
-#endif
   // Queues
   std::array<Ac_queue, MAX_AC_QUEUES> queues{};
   // Count for waiting_queries in queues for this Ac_info.
@@ -218,14 +210,8 @@ class Ac_info {
   mysql_mutex_t lock;
 
  public:
-  Ac_info() : waiting_queries(0), running_queries(0) {
-#ifdef HAVE_PSI_INTERFACE
-    mysql_mutex_register("sql", key_lock_info, array_elements(key_lock_info));
-#endif
-    mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
-  }
-
-  ~Ac_info() { mysql_mutex_destroy(&lock); }
+  Ac_info();
+  ~Ac_info();
   // Disable copy constructor.
   Ac_info(const Ac_info &) = delete;
   Ac_info &operator=(const Ac_info &) = delete;
@@ -259,145 +245,51 @@ class AC {
     Locking order followed is LOCK_ac, Ac_info::lock, st_ac_node::lock.
   */
   mutable mysql_rwlock_t LOCK_ac;
-#ifdef HAVE_PSI_INTERFACE
-  PSI_rwlock_key key_rwlock_LOCK_ac;
-  PSI_rwlock_info key_rwlock_LOCK_ac_info[1] = {
-      {&key_rwlock_LOCK_ac, "AC::rwlock", PSI_FLAG_SINGLETON, 0,
-       PSI_DOCUMENT_ME}};
-#endif
 
   std::atomic_ullong total_aborted_queries;
   std::atomic_ullong total_timeout_queries;
 
  public:
-  AC()
-      : max_running_queries(1),
-        max_waiting_queries(0),
-        total_aborted_queries(0),
-        total_timeout_queries(0) {
-#ifdef HAVE_PSI_INTERFACE
-    mysql_rwlock_register("sql", key_rwlock_LOCK_ac_info,
-                          array_elements(key_rwlock_LOCK_ac_info));
-#endif
-    mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
-  }
+  AC();
+  ~AC();
 
-  ~AC() { mysql_rwlock_destroy(&LOCK_ac); }
   // Disable copy constructor.
   AC(const AC &) = delete;
   AC &operator=(const AC &) = delete;
-
-  // TODO: check if this can be moved to st_ac_node
-  static inline void signal(st_ac_node_ptr &ac_node) {
-    assert(ac_node && ac_node.get());
-    mysql_mutex_lock(&ac_node->lock);
-    mysql_cond_signal(&ac_node->cond);
-    mysql_mutex_unlock(&ac_node->lock);
-  }
 
   /*
    * Removes a dropped entity info from the global map.
    */
   void remove(const char *entity);
 
-  void insert(const std::string &entity) {
-    mysql_rwlock_wrlock(&LOCK_ac);
-    if (ac_map.find(entity) == ac_map.end()) {
-      ac_map.emplace(entity, std::make_shared<Ac_info>());
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
+  void insert(const std::string &entity);
 
-  void update_max_running_queries(ulong val) {
-    // lock to protect against erasing map iterators.
-    mysql_rwlock_wrlock(&LOCK_ac);
-    ulong old_val = max_running_queries;
-    max_running_queries = val;
-    // Signal any waiting threads which are below the new limit. Note 0 is a
-    // special case where every waiting thread needs to be signalled.
-    //
-    // We don't kill any queries if the max is lowered, so it's possible for
-    // the number of running queries temporarily exceed the new max.
-    if (val > old_val || !val) {
-      for (auto &it : ac_map) {
-        auto &ac_info = it.second;
-        mysql_mutex_lock(&ac_info->lock);
-        size_t signaled = 0;
-        // If we're not signaling all threads, we should dequeue according to
-        // score for fairness, but we're not for simplicity. This might be
-        // fine since update_max_running_queries should be a relatively rare
-        // operation, so we're still fair in steady state.
-        for (auto &q : ac_info->queues) {
-          while (q.waiting_queries() > 0) {
-            dequeue_and_run(q.queue.front()->thd, ac_info);
-            if (val && ++signaled >= val - old_val) {
-              break;
-            }
-          }
-        }
-        mysql_mutex_unlock(&ac_info->lock);
-      }
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
+  void update_max_running_queries(ulong val);
 
-  void update_max_waiting_queries(ulong val) {
-    mysql_rwlock_wrlock(&LOCK_ac);
-    max_waiting_queries = val;
-    mysql_rwlock_unlock(&LOCK_ac);
-  }
+  void update_max_waiting_queries(ulong val);
 
-  ulong get_max_running_queries() const {
-    mysql_rwlock_rdlock(&LOCK_ac);
-    ulong res = max_running_queries;
-    mysql_rwlock_unlock(&LOCK_ac);
-    return res;
-  }
+  ulong get_max_running_queries() const;
 
-  ulong get_max_waiting_queries() const {
-    mysql_rwlock_rdlock(&LOCK_ac);
-    ulong res = max_waiting_queries;
-    mysql_rwlock_unlock(&LOCK_ac);
-    return res;
-  }
+  ulong get_max_waiting_queries() const;
 
-  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *);
+  Ac_result admission_control_enter(THD *, const MT_RESOURCE_ATTRS *,
+                                    enum_admission_control_request_mode);
   void admission_control_exit(THD *, const MT_RESOURCE_ATTRS *);
-  bool wait_for_signal(THD *, st_ac_node_ptr &, const Ac_info_ptr &ac_info);
-  static void enqueue(THD *thd, std::shared_ptr<Ac_info> ac_info);
-  static void dequeue(THD *thd, std::shared_ptr<Ac_info> ac_info);
-  static void dequeue_and_run(THD *thd, std::shared_ptr<Ac_info> ac_info);
+  bool wait_for_signal(THD *, st_ac_node_ptr &, const Ac_info_ptr &ac_info,
+                       enum_admission_control_request_mode);
+  static void enqueue(THD *thd, Ac_info_ptr ac_info,
+                      enum_admission_control_request_mode);
+  static void dequeue(THD *thd, Ac_info_ptr ac_info);
+  static void dequeue_and_run(THD *thd, Ac_info_ptr ac_info);
 
   int update_queue_weights(char *str);
 
   ulonglong get_total_aborted_queries() const { return total_aborted_queries; }
   ulonglong get_total_timeout_queries() const { return total_timeout_queries; }
 
-  ulong get_total_running_queries() {
-    ulonglong res = 0;
-    mysql_rwlock_rdlock(&LOCK_ac);
-    for (auto it : ac_map) {
-      auto &ac_info = it.second;
-      mysql_mutex_lock(&ac_info->lock);
-      res += ac_info->running_queries;
-      mysql_mutex_unlock(&ac_info->lock);
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-    return res;
-  }
+  ulong get_total_running_queries() const;
 
-  ulong get_total_waiting_queries() {
-    ulonglong res = 0;
-    mysql_rwlock_rdlock(&LOCK_ac);
-    for (auto it : ac_map) {
-      auto &ac_info = it.second;
-      mysql_mutex_lock(&ac_info->lock);
-      res += ac_info->waiting_queries;
-      mysql_mutex_unlock(&ac_info->lock);
-    }
-    mysql_rwlock_unlock(&LOCK_ac);
-    return res;
-  }
+  ulong get_total_waiting_queries() const;
 };
 
 #endif /* _sql_admission_control_h */

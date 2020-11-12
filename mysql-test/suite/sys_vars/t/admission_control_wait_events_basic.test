@@ -1,0 +1,23 @@
+set @@global.admission_control_wait_events = default;
+select @@global.admission_control_wait_events;
+set @saved_admission_control_wait_events = @@global.admission_control_wait_events;
+
+SELECT @@global.admission_control_wait_events;
+SET GLOBAL admission_control_wait_events='';
+SELECT @@global.admission_control_wait_events;
+
+SET GLOBAL admission_control_wait_events='';
+SELECT @@global.admission_control_wait_events;
+
+SET GLOBAL admission_control_wait_events='YIELD';
+SELECT @@global.admission_control_wait_events;
+
+SET GLOBAL admission_control_wait_events='SLEEP,NET_IO,META_DATA_LOCK,ROW_LOCK,YIELD';
+SELECT @@global.admission_control_wait_events;
+
+# checking that setting variable to a non existing value raises error
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL admission_control_wait_events='YIELD,NONEXISTING_BIT';
+SELECT @@global.admission_control_wait_events;
+
+set global admission_control_wait_events = @saved_admission_control_wait_events;

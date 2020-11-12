@@ -1,0 +1,30 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db.* to test_user@localhost;
+grant SYSTEM_VARIABLES_ADMIN on *.* to test_user@localhost;
+use test_db;
+set @save_max_running_queries = @@max_running_queries;
+set @save_max_waiting_queries = @@max_waiting_queries;
+set @save_admission_control_wait_events = @@admission_control_wait_events;
+set global max_running_queries = 1;
+set global max_waiting_queries = 2000;
+set admission_control_queue_timeout = 100;
+#
+# Test admission_control_wait_events = NET_IO
+# We need debug sync to simulate slow clients
+#
+set global admission_control_wait_events = '';
+set session debug = "+d,simulate_net_write_delay";
+SELECT REPEAT('X', @@max_allowed_packet);;
+select 1;
+ERROR HY000: Got timeout while waiting on admission control queue for database `test_db`
+set global admission_control_wait_events = 'NET_IO';
+SELECT REPEAT('X', @@max_allowed_packet);;
+select 1;
+1
+1
+set global max_running_queries = @save_max_running_queries;
+set global max_waiting_queries = @save_max_waiting_queries;
+set global admission_control_wait_events = @save_admission_control_wait_events;
+drop database test_db;
+drop user test_user@localhost;
