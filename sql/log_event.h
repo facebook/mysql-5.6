@@ -1557,6 +1557,11 @@ private:
   enum enum_mts_event_exec_mode get_mts_execution_mode(ulong slave_server_id,
                                                    bool mts_in_group)
   {
+    // Case: If we're not in a middle of a group (aka trx) and this is a
+    // metadata event, then this must be a free floating metadata event and
+    // should be executed in sync mode
+    if (get_type_code() == METADATA_EVENT && !mts_in_group)
+      return EVENT_EXEC_SYNC;
     if ((get_type_code() == FORMAT_DESCRIPTION_EVENT &&
          ((server_id == (uint32) ::server_id) || (log_pos == 0))) ||
         (get_type_code() == ROTATE_EVENT &&
