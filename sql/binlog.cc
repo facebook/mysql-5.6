@@ -4629,8 +4629,9 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
         if (strcmp(cur_log_file.c_str(), this->engine_binlog_file) == 0)
           log_file_to_read.assign(file_name_and_gtid_set_length);
       }
-      else
+      else if (startup)
       {
+        // Print a warning line in case of startup
         // NO_LINT_DEBUG
         sql_print_warning("Engine has seen trxs till file %s, but found "
                           "additional file %s in the index file",
