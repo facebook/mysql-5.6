@@ -207,7 +207,11 @@ bool trans_begin(THD *thd, uint flags, bool *need_ok, handlerton *hton) {
     res = ha_start_consistent_snapshot(thd, nullptr, nullptr);
   } else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT) {
     DBUG_ASSERT(need_ok != nullptr);
-    res = ha_start_consistent_snapshot(thd, &ss_info, hton) ||
+    /*
+      Even though a single engine is specified, for safety, all
+      engines should start a consistent snapshot.
+     */
+    res = ha_start_consistent_snapshot(thd, &ss_info, nullptr) ||
           show_master_offset(thd, ss_info, need_ok);
   } else if (flags & MYSQL_START_TRANS_OPT_WITH_SHAR_ENGINE_SNAPSHOT) {
     DBUG_ASSERT(need_ok != nullptr);
