@@ -3415,17 +3415,21 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
   if (ext->trace_data) my_free(ext->trace_data);
   if (ext->mysql_async_context) {
     if (ext->mysql_async_context->connect_context) {
-      if (ext->mysql_async_context->connect_context
-              ->scramble_buffer_allocated) {
-        my_free(ext->mysql_async_context->connect_context->scramble_buffer);
-        ext->mysql_async_context->connect_context->scramble_buffer = nullptr;
+      mysql_async_connect *ctx = ext->mysql_async_context->connect_context;
+      if (ctx->scramble_buffer_allocated) {
+        my_free(ctx->scramble_buffer);
+        ctx->scramble_buffer = nullptr;
       }
-      if (ext->mysql_async_context->connect_context->ssl) {
-        SSL_free(ext->mysql_async_context->connect_context->ssl);
-        ext->mysql_async_context->connect_context->ssl = nullptr;
+      if (ctx->ssl) {
+        SSL_free(ctx->ssl);
+        ctx->ssl = nullptr;
       }
-      my_free(ext->mysql_async_context->connect_context);
-      ext->mysql_async_context->connect_context = nullptr;
+      if (ctx->auth_context) {
+        my_free(ctx->auth_context);
+        ctx->auth_context = nullptr;
+      }
+      my_free(ctx);
+      ctx = nullptr;
     }
     if (ext->mysql_async_context->async_qp_data) {
       my_free(ext->mysql_async_context->async_qp_data);
