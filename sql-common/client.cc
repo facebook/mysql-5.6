@@ -3352,8 +3352,11 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
   if (!ext) return;
   if (ext->trace_data) my_free(ext->trace_data);
   if (ext->mysql_async_context) {
-    if (ext->mysql_async_context->connect_context)
+    if (ext->mysql_async_context->connect_context) {
+      if (ext->mysql_async_context->connect_context->auth_context)
+        my_free(ext->mysql_async_context->connect_context->auth_context);
       my_free(ext->mysql_async_context->connect_context);
+    }
     my_free(ext->mysql_async_context);
   }
   // free state change related resources.
