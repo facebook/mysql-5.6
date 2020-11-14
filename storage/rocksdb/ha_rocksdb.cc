@@ -7021,11 +7021,13 @@ int ha_rocksdb::open(const char *const name,
   std::string fullname;
   err = rdb_normalize_tablename(name, &fullname);
   if (err != HA_EXIT_SUCCESS) {
+    rdb_open_tables.release_table_handler(m_table_handler);
     DBUG_RETURN(err);
   }
 
   m_tbl_def = ddl_manager.find(fullname);
   if (m_tbl_def == nullptr) {
+    rdb_open_tables.release_table_handler(m_table_handler);
     my_error(ER_INTERNAL_ERROR, MYF(0),
              "Attempt to open a table that is not present in RocksDB-SE data "
              "dictionary");
@@ -7046,6 +7048,7 @@ int ha_rocksdb::open(const char *const name,
   err = alloc_key_buffers(table, m_tbl_def);
 
   if (err) {
+    rdb_open_tables.release_table_handler(m_table_handler);
     DBUG_RETURN(err);
   }
 
@@ -7090,6 +7093,7 @@ int ha_rocksdb::open(const char *const name,
   /* Load hidden pk only once on first use. */
   if (has_hidden_pk(table) && m_tbl_def->m_hidden_pk_val == 0 &&
       (err = load_hidden_pk_value()) != HA_EXIT_SUCCESS) {
+    rdb_open_tables.release_table_handler(m_table_handler);
     free_key_buffers();
     DBUG_RETURN(err);
   }
