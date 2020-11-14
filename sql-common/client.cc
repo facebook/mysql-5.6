@@ -3368,6 +3368,10 @@ void mysql_extension_free(MYSQL_EXTENSION *ext) {
         my_free(ext->mysql_async_context->connect_context->scramble_buffer);
         ext->mysql_async_context->connect_context->scramble_buffer = nullptr;
       }
+      if (ext->mysql_async_context->connect_context->auth_context) {
+        my_free(ext->mysql_async_context->connect_context->auth_context);
+        ext->mysql_async_context->connect_context->auth_context = nullptr;
+      }
       my_free(ext->mysql_async_context->connect_context);
       ext->mysql_async_context->connect_context = nullptr;
     }
