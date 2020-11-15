@@ -58,6 +58,7 @@ SET(HEADERS
   little_endian.h
   big_endian.h
   template_utils.h
+  typelib.h
 )
 SET(HEADERS_MYSQL_DIR
   mysql/client_plugin.h
