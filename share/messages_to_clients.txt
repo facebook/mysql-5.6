@@ -9904,6 +9904,9 @@ ER_RPL_SLAVE_MAX_GTID_RECOVERED
 ER_LOG_ALTER_DB
   eng "Alter database query: %s (user '%s' from '%s')"
 
+ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX
+  eng "`%s` found in the middle of a trx or with end_log_pos = 0, this is not expected in raft mode"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

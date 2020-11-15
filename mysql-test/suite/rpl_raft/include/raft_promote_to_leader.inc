@@ -11,9 +11,13 @@ source include/rpl_connection.inc;
 let $uuid = `SELECT VARIABLE_VALUE FROM performance_schema.global_status WHERE
                 VARIABLE_NAME = "Rpl_raft_peer_uuid"`;
 
-#connect to current leader and start election;
+#connect to current leader and start election
 source raft_connect_leader.inc;
+let $current_leader_uuid= `SELECT VARIABLE_VALUE FROM performance_schema.global_status
+  WHERE VARIABLE_NAME = "Rpl_raft_peer_uuid"`;
+if ($current_leader_uuid != $uuid) {
 eval SET @@GLOBAL.RPL_RAFT_NEW_LEADER_UUID = "$uuid";
+}
 
 #wait for leader to become writable
 let $rpl_connection_name = server_$rpl_raft_leader_number;

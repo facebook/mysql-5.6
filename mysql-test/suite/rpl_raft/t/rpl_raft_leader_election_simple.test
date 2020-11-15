@@ -1,0 +1,128 @@
+source ../include/raft_3_node.inc;
+
+--disable_query_log
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+# Create connections to server 4 and 5 (these are not in the ring)
+let $rpl_server_number= 4;
+let $rpl_connection_name= server_4;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_4;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+let $rpl_server_number= 5;
+let $rpl_connection_name= server_5;
+source include/rpl_connect.inc;
+--disable_query_log
+connection server_5;
+call mtr.add_suppression(".*using --replicate-same-server-id in conjunction with --log-slave-updates.*");
+--enable_query_log
+
+
+connection server_1;
+let $uuid1= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_2;
+let $uuid2= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+connection server_3;
+let $uuid3= `select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_peer_uuid'`;
+
+echo "server_1 is the initial leader";
+connection server_1;
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+
+echo "Stopping slave applier on all peers";
+connection server_1;
+stop slave sql_thread;
+connection server_2;
+stop slave sql_thread;
+connection server_3;
+stop slave sql_thread;
+
+echo "Writing data on leader";
+connection server_1;
+create table t1 (a int primary key auto_increment) engine = innodb;
+insert into t1 values();
+
+echo "Transfering leadership: server_1 -> server_2";
+connection server_1;
+replace_result $uuid2 uuid2;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid2';
+connection server_2;
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+echo "server_2 should have all the data after leader election";
+# TODO: remove this wait after TransferLeadership() is fixed to wait for ElectionDecisionCallback to complete on the new master
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+select * from t1;
+
+echo "Stopping slave applier on all peers";
+connection server_1;
+stop slave sql_thread;
+connection server_2;
+stop slave sql_thread;
+connection server_3;
+stop slave sql_thread;
+
+echo "Writing data on leader";
+connection server_2;
+insert into t1 values();
+
+echo "Transfering leadership: server_2 -> server_3";
+connection server_2;
+replace_result $uuid3 uuid3;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid3';
+connection server_3;
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+echo "server_3 should have all the data after leader election";
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+select * from t1;
+
+echo "Checking read_only and super_read_only on all instances";
+connection server_1;
+show variables like 'read_only';
+show variables like 'super_read_only';
+connection server_2;
+show variables like 'read_only';
+show variables like 'super_read_only';
+connection server_3;
+show variables like 'read_only';
+show variables like 'super_read_only';
+
+
+echo "Stopping slave applier on all peers";
+connection server_1;
+stop slave sql_thread;
+connection server_2;
+stop slave sql_thread;
+connection server_3;
+stop slave sql_thread;
+
+echo "Writing data on leader";
+connection server_3;
+insert into t1 values();
+
+echo "Transfering leadership: server_3 -> server_1";
+connection server_3;
+replace_result $uuid1 uuid1;
+eval set @@global.rpl_raft_new_leader_uuid = '$uuid1';
+connection server_1;
+select variable_value from performance_schema.global_status where variable_name = 'Rpl_raft_role';
+echo "server_1 should have all the data after leader election";
+let $wait_condition= select @@global.read_only = 0;
+source include/wait_condition.inc;
+select * from t1;
+
+# Cleanup
+connection server_1;
+drop table t1;
+
+let $sync_slave_connection= server_2;
+source include/sync_slave_sql_with_master.inc;
+let $sync_slave_connection= server_3;
+source include/sync_slave_sql_with_master.inc;
+
+source include/rpl_end.inc;
