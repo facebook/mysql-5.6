@@ -60,6 +60,7 @@
 #include "my_sharedlib.h"
 #include "my_sys.h"
 #include "my_thread_local.h"
+#include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/bits/psi_stage_bits.h"
 #include "mysql/service_mysql_alloc.h"
 #include "mysql/udf_registration_types.h"
@@ -83,6 +84,7 @@ class Basic_ostream;
 #ifdef MYSQL_SERVER
 #include <stdio.h>
 
+#include <mysqld_error.h>
 #include "my_compiler.h"
 #include "sql/changestreams/misc/replicated_columns_view.h"  // ReplicatedColumnsView
 #include "sql/key.h"
@@ -94,9 +96,9 @@ class Basic_ostream;
 #endif
 
 #ifndef MYSQL_SERVER
+#include <errmsg.h>
 #include <vector>
 #include "sql/rpl_tblmap.h"  // table_mapping
-
 #endif
 
 #include <limits.h>
@@ -1053,6 +1055,33 @@ class Log_event {
       that the worker that handles the transaction handles these
       events too. /Sven
     */
+    // Case: If we're not in a middle of a group (aka trx) and this is a
+    // metadata event, then this must be a free floating metadata event and
+    // should be executed in sync mode
+    if (get_type_code() == binary_log::METADATA_EVENT && !mts_in_group)
+      return EVENT_EXEC_SYNC;
+
+    // Case: In the raft world we won't check server_id like the if condition
+    // below because some events can be written in the relay log by the plugin.
+    // The logic here is that for format desc event and rotate event if the
+    // end_log_pos is 0 or they come in the middle of a trx we execute them in
+    // ASYNC mode, meaning that the coordinator thread will apply these events
+    // without waiting for worker threads to finish every thing before this
+    // event. We cannot wait for worker threads to finish because we are in the
+    // middle of a trx and the worker does not have all events to complete the
+    // trx. This should never happen in raft mode because it means that we've
+    // split a trx across two raft logs.
+    if (enable_raft_plugin &&
+        (get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT ||
+         get_type_code() == binary_log::ROTATE_EVENT)) {
+      if (common_header->log_pos == 0 || mts_in_group) {
+        LogErr(ERROR_LEVEL, ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX,
+               get_type_str());
+        return EVENT_EXEC_ASYNC;
+      } else
+        return EVENT_EXEC_SYNC;
+    }
+
     if (
         /*
           When a Format_description_log_event occurs in the middle of
