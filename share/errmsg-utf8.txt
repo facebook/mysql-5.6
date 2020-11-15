@@ -19958,6 +19958,9 @@ ER_HLC_WAIT_TIMEDOUT
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
 
+ER_RAFT_UNEXPECTED_EVENT_INSIDE_TRX
+  eng "`%s` found in the middle of a trx or with end_log_pos = 0, this is not expected in raft mode"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #
