@@ -4458,11 +4458,10 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
 }
 
 /*
- * This is a limited version of init_gtid_sets which is only
- * called from binlog_change_to_apply.
- * Needs to be called under LOCK_log and LOCK_index held.
- * The previous_gtid_set_map is cleared and reinitialized from
- * the index file contents.
+ * This is a limited version of init_gtid_sets which is only called from
+ * binlog_change_to_apply. Needs to be called under LOCK_index held. LOCK_log is
+ * not required because we're reading only prev gtids. The previous_gtid_set_map
+ * is cleared and reinitialized from the index file contents.
  */
 bool MYSQL_BIN_LOG::init_prev_gtid_sets_map()
 {
@@ -4472,7 +4471,6 @@ bool MYSQL_BIN_LOG::init_prev_gtid_sets_map()
   std::pair<Gtid_set_map::iterator, bool> iterator;
   DBUG_ENTER("MYSQL_BIN_LOG::init_prev_gtid_sets_map");
 
-  mysql_mutex_assert_owner(&LOCK_log);
   mysql_mutex_assert_owner(&LOCK_index);
 
   // clear the map as it is being reset
@@ -6348,6 +6346,11 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
                        opt_master_verify_checksum,
                        false/*false=don't need lock*/);
     global_sid_lock->unlock();
+  }
+
+  if (enable_raft_plugin && is_relay_log)
+  {
+    error= init_prev_gtid_sets_map();
   }
 
 err:

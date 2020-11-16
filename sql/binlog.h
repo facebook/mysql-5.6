@@ -838,6 +838,17 @@ public:
    */
   bool init_prev_gtid_sets_map();
 
+  void get_lost_gtids(Gtid_set *gtids)
+  {
+    gtids->clear();
+    mysql_mutex_lock(&LOCK_index);
+    auto it = previous_gtid_set_map.begin();
+    if (it != previous_gtid_set_map.end())
+      gtids->add_gtid_encoding(
+          (const uchar*)it->second.c_str(), it->second.length());
+    mysql_mutex_unlock(&LOCK_index);
+  }
+
   enum_read_gtids_from_binlog_status
   read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
                          Gtid_set *prev_gtids, Gtid *first_gtid,
@@ -1343,6 +1354,12 @@ public:
   {
     std::lock_guard<std::mutex> guard(log_mutex_);
     return log_->find_next_log(linfo, need_lock_index);
+  }
+
+  void get_lost_gtids(Gtid_set *gtids)
+  {
+    std::lock_guard<std::mutex> guard(log_mutex_);
+    log_->get_lost_gtids(gtids);
   }
 
   void lock()

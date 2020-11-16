@@ -2105,7 +2105,25 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         will not find one and an error ER_MASTER_HAS_PURGED_REQUIRED_GTIDS
         is thrown from there.
       */
-      if (!gtid_state->get_lost_gtids()->is_subset(slave_gtid_executed))
+      Gtid_set *lost_gtids= (Gtid_set*)gtid_state->get_lost_gtids();
+
+      /** In raft mode we calculate lost gtids from the binlog/relaylog index
+       * file instead of using the global state that is always based on the
+       * apply side binlogs. Apply logs are purged on election so global state
+       * is currently incorrect wrt raft logs.
+       *
+       * TODO: Remove this hack after global gtid state is fixed wrt to raft
+       * logs
+       */
+      Sid_map gtids_lost_sid_map(nullptr);
+      Gtid_set gtids_lost(&gtids_lost_sid_map);
+      if (enable_raft_plugin)
+      {
+        dump_log.get_lost_gtids(&gtids_lost);
+        lost_gtids= &gtids_lost;
+      }
+
+      if (!lost_gtids->is_subset(slave_gtid_executed))
       {
         errmsg= ER(ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
         my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
