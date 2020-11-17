@@ -6077,7 +6077,8 @@ static int init_server_components() {
         default_logfile_name,
         (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
   } else {
-    relay_log_basename = log_bin_basename;
+    relay_log_basename = my_strdup(key_memory_MYSQL_RELAY_LOG_basename,
+                                   log_bin_basename, MYF(MY_FAE));
   }
 
   if (!opt_relay_logname || !opt_relay_logname[0]) {
@@ -6096,7 +6097,8 @@ static int init_server_components() {
                                           opt_relaylog_index_name,
                                           relay_log_basename, ".index");
     } else {
-      relay_log_index = log_bin_index;
+      relay_log_index = my_strdup(key_memory_MYSQL_RELAY_LOG_index,
+                                  log_bin_index, MYF(MY_FAE));
     }
   }
 
@@ -10366,6 +10368,7 @@ static int mysql_init_variables() {
   binlog_cache_use = binlog_cache_disk_use = 0;
   mysqld_user = mysqld_chroot = opt_init_file = opt_bin_logname = nullptr;
   opt_apply_logname = 0;
+  opt_applylog_index_name = 0;
   prepared_stmt_count = 0;
   mysqld_unix_port = opt_mysql_tmpdir = my_bind_addr_str = NullS;
   new (&mysql_tmpdir_list) MY_TMPDIR;
