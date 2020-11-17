@@ -238,8 +238,13 @@ static void recover_binlog_pos(const char *plugin_name, handlerton *hton,
   if (max_gtid.greater_than(*info->binlog_max_gtid)) {
     *(info->binlog_max_gtid) = max_gtid;
 
+    // TODO (luqun): When raft is enabled, the plugin writes directly into
+    // the base io-cache and these positions may not be updated correctly.
+    // Explore the feasibility of plugin using the stream directly OR updating
+    // the positions correctly in the stream
     // binlog positions should monotonically increase with max gtid
-    assert(is_binlog_advanced(info->binlog_file, *info->binlog_pos, binlog_file,
+    assert(enable_raft_plugin ||
+           is_binlog_advanced(info->binlog_file, *info->binlog_pos, binlog_file,
                               binlog_pos));
   }
 
