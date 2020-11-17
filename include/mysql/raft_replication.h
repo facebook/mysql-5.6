@@ -17,6 +17,7 @@
 #define RAFT_REPLICATION_H
 
 // For RaftReplicateMsgOpType
+#include <string>
 #include "raft_optype.h"
 
 #ifdef INCL_DEFINED_IN_MYSQL_SERVER
@@ -242,6 +243,8 @@ int unregister_raft_replication_observer(Raft_replication_observer *observer,
 int update_rli_and_mi(
     const std::string &gtid_s,
     const std::pair<const std::string, unsigned long long> &master_log_pos);
+
+void signal_semi_sync_ack(const std::string &file_num, uint file_pos);
 
 /*
  * An enum to control what kind of registrations the
