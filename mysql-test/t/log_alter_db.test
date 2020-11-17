@@ -1,0 +1,27 @@
+# Test logging of alter database commands
+--source include/have_innodb.inc
+--source include/count_sessions.inc
+
+--let SEARCH_FILE=$MYSQLTEST_VARDIR/tmp/alter_db_log.err
+--let SEARCH_PATTERN=Alter database query:
+--let $_mysqld_option=--log-error=$SEARCH_FILE
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+--source include/restart_mysqld_with_option.inc
+
+CREATE DATABASE `alter_test`;
+CREATE TABLE t1 (pk INT PRIMARY KEY) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1);
+
+ALTER DATABASE `alter_test` READ_ONLY = true;
+
+DROP TABLE t1;
+DROP DATABASE `alter_test`;
+
+--source include/search_pattern_in_file.inc
+
+# cleanup
+--let _$mysqld_option=
+--source include/restart_mysqld.inc
+--remove_file $SEARCH_FILE
+
+--source include/wait_until_count_sessions.inc

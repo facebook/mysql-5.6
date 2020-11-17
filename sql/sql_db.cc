@@ -1071,6 +1071,22 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
     thd->variables.collation_database= thd->db_charset;
   }
 
+  /* Log the alter to the error log */
+  {
+    const char *user = "unknown";
+    const char *host = "unknown";
+    String str(thd->query(), thd->query_length(), system_charset_info);
+
+    if (thd->get_user_connect()) {
+      user = (const_cast<USER_CONN *>(thd->get_user_connect()))->user;
+      host = (const_cast<USER_CONN *>(thd->get_user_connect()))->host;
+    }
+
+    // NO_LINT_DEBUG
+    sql_print_information("Alter database query: %s (user '%s' from '%s')",
+                          str.c_ptr_safe(), user, host);
+  }
+
   ha_binlog_log_query(thd, 0, LOGCOM_ALTER_DB,
                       thd->query(), thd->query_length(),
                       db, "");
