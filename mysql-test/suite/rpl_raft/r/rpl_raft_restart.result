@@ -1,0 +1,43 @@
+include/raft_3_node.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/rpl_connect.inc [creating server_4]
+include/rpl_connect.inc [creating server_5]
+create table t1 (a int primary key) engine = innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+select * from t1;
+a
+1
+2
+"Restarting server_1"
+include/rpl_restart_server.inc [server_number=1]
+include/raft_promote_to_leader.inc
+insert into t1 values(3);
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+a
+1
+2
+3
+select * from t1;
+a
+1
+2
+3
+drop table t1;
+include/sync_slave_sql_with_master.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_end.inc
