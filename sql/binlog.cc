@@ -5876,7 +5876,10 @@ bool MYSQL_BIN_LOG::open_binlog(
     }
   }
 
-  if (extra_description_event) {
+  // in raft, it isn't necessary to write these extra description event
+  // in raft, if these extra description event is required, need to write them
+  // together with descrption event
+  if (!enable_raft_plugin && extra_description_event) {
     /*
       This is a relay log written to by the I/O slave thread.
       Write the event so that others can later know the format of this relay
@@ -10661,7 +10664,6 @@ void MYSQL_BIN_LOG::handle_binlog_flush_or_sync_error(THD *thd,
 
 int MYSQL_BIN_LOG::register_log_entities(THD *thd, int context, bool need_lock,
                                          bool is_relay_log) {
-  DBUG_ASSERT(!mysql_bin_log.is_apply_log);
   if (need_lock)
     mysql_mutex_lock(&LOCK_log);
   else
@@ -11221,7 +11223,7 @@ int binlog_change_to_binlog() {
 
   // disable_raft_log_repointing for MTR integration tests
   if (disable_raft_log_repointing) {
-    mysql_bin_log.is_apply_log = true;
+    mysql_bin_log.is_apply_log = false;
     DBUG_RETURN(0);
   }
 
