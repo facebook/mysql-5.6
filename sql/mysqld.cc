@@ -6940,7 +6940,8 @@ static int init_server_components() {
         default_logfile_name,
         (opt_relay_logname && opt_relay_logname[0]) ? "" : relay_ext);
   } else {
-    relay_log_basename = log_bin_basename;
+    relay_log_basename = my_strdup(key_memory_MYSQL_RELAY_LOG_basename,
+                                   log_bin_basename, MYF(MY_FAE));
   }
 
   if (!opt_relay_logname || !opt_relay_logname[0]) {
@@ -6959,7 +6960,8 @@ static int init_server_components() {
                                           opt_relaylog_index_name,
                                           relay_log_basename, ".index");
     } else {
-      relay_log_index = log_bin_index;
+      relay_log_index = my_strdup(key_memory_MYSQL_RELAY_LOG_index,
+                                  log_bin_index, MYF(MY_FAE));
     }
   }
 
