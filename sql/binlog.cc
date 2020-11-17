@@ -11675,6 +11675,11 @@ my_off_t MYSQL_BIN_LOG::get_last_acked_pos(bool *wait_for_ack,
   return atomic_binlog_end_pos;
 }
 
+/* Use by raft plugin */
+void signal_semi_sync_ack(const std::string &file, uint pos) {
+  mysql_bin_log.signal_semi_sync_ack(file.c_str(), pos);
+}
+
 void MYSQL_BIN_LOG::signal_semi_sync_ack(const char *const log_file,
                                          const my_off_t log_pos) {
   if (!log_file || !log_file[0]) return;
