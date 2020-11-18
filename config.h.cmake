@@ -70,6 +70,7 @@
 #cmakedefine HAVE_SYS_UN_H 1
 #cmakedefine HAVE_VIS_H 1
 #cmakedefine HAVE_SASL_SASL_H 1
+#cmakedefine HAVE_SYS_CAPABILITY_H 1
 
 /* Libevent */
 #cmakedefine HAVE_DEVPOLL 1

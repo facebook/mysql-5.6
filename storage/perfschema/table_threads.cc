@@ -65,6 +65,7 @@ Plugin_table table_threads::m_table_def(
     "  CONNECTION_TYPE VARCHAR(16),\n"
     "  THREAD_OS_ID BIGINT unsigned,\n"
     "  RESOURCE_GROUP VARCHAR(64),\n"
+    "  THREAD_PRIORITY INTEGER,\n"
     "  PRIMARY KEY (THREAD_ID) USING HASH,\n"
     "  KEY (PROCESSLIST_ID) USING HASH,\n"
     "  KEY (THREAD_OS_ID) USING HASH,\n"
@@ -290,6 +291,8 @@ int table_threads::make_row(PFS_thread *pfs) {
   m_row.m_processlist_info_ptr = &pfs->m_processlist_info[0];
   m_row.m_processlist_info_length = pfs->m_processlist_info_length;
 
+  m_row.m_thread_priority = pfs->m_thread_priority;
+
   if (!pfs->m_stmt_lock.end_optimistic_lock(&stmt_lock)) {
     /*
       One of the columns:
@@ -302,6 +305,7 @@ int table_threads::make_row(PFS_thread *pfs) {
     */
     m_row.m_dbname_length = 0;
     m_row.m_processlist_info_length = 0;
+    m_row.m_thread_priority = 0;
   }
 
   /* Dirty read, sanitize the command. */
@@ -476,6 +480,13 @@ int table_threads::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
+        case 18: /* THREAD_PRIORITY */
+          if (m_row.m_thread_priority > -20 && m_row.m_thread_priority < 20) {
+            set_field_long(f, m_row.m_thread_priority);
+          } else {
+            f->set_null();
+          }
+          break;
         default:
           DBUG_ASSERT(false);
       }
@@ -518,6 +529,8 @@ int table_threads::update_row_values(TABLE *table, const unsigned char *,
         case 16: /* THREAD_OS_ID */
           return HA_ERR_WRONG_COMMAND;
         case 17: /* RESOURCE_GROUP */
+          return HA_ERR_WRONG_COMMAND;
+        case 18: /* THREAD_PRIORITY */
           return HA_ERR_WRONG_COMMAND;
         default:
           DBUG_ASSERT(false);

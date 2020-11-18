@@ -1,0 +1,19 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of thread_priority is 0
+select @@global.thread_priority;
+show global variables like 'thread_priority';
+
+select @@session.thread_priority;
+show session variables like 'thread_priority';
+
+####
+# Incorrect assignments
+####
+--error ER_WRONG_TYPE_FOR_VAR
+set thread_priority=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set thread_priority="foobar";

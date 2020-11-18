@@ -193,7 +193,10 @@
 
    800171010:
    add sql_findings
+
+   800171011:
+   add THREAD_PRIORITY column to threads table.
 */
-static const uint PFS_DD_VERSION = 800171010;
+static const uint PFS_DD_VERSION = 800171011;
 
 #endif /* PFS_DD_VERSION_H */

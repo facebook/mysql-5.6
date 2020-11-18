@@ -129,10 +129,11 @@ IF(UNIX)
   MY_SEARCH_LIBS(timer_create rt LIBRT)
   MY_SEARCH_LIBS(atomic_thread_fence atomic LIBATOMIC)
   MY_SEARCH_LIBS(backtrace execinfo LIBEXECINFO)
+  MY_SEARCH_LIBS(cap_get_proc cap LIBCAP)
 
   LIST(APPEND CMAKE_REQUIRED_LIBRARIES
     ${LIBM} ${LIBNSL} ${LIBBIND} ${LIBCRYPT} ${LIBSOCKET} ${LIBDL}
-    ${CMAKE_THREAD_LIBS_INIT} ${LIBRT} ${LIBATOMIC} ${LIBEXECINFO}
+    ${CMAKE_THREAD_LIBS_INIT} ${LIBRT} ${LIBATOMIC} ${LIBEXECINFO} ${LIBCAP}
   )
   # Need explicit pthread for gcc -fsanitize=address
   IF(CMAKE_C_FLAGS MATCHES "-fsanitize=")
@@ -252,6 +253,9 @@ IF(HAVE_DEVPOLL)
 ENDIF()
 CHECK_INCLUDE_FILES(sys/epoll.h HAVE_SYS_EPOLL_H)
 CHECK_SYMBOL_EXISTS (TAILQ_FOREACH "sys/queue.h" HAVE_TAILQFOREACH)
+
+# For LIBCAP
+CHECK_INCLUDE_FILES (sys/capability.h HAVE_SYS_CAPABILITY_H)
 
 #
 # Tests for functions

@@ -757,7 +757,8 @@ ADD_DEPENDENCIES(sql_main GenBootstrapPriv)
 ADD_DEPENDENCIES(sql_main GenSysSchema)
 TARGET_LINK_LIBRARIES(sql_main ${MYSQLD_STATIC_PLUGIN_LIBS}
   ${MYSQLD_STATIC_COMPONENT_LIBS}  mysys dbug strings vio
-  binlogevents_static ${LIBWRAP} ${LIBCRYPT} ${LIBDL} ${SSL_LIBRARIES})
+  binlogevents_static ${LIBWRAP} ${LIBCRYPT} ${LIBDL} ${SSL_LIBRARIES}
+  ${LIBCAP})
 
 ADD_LIBRARY(sql_gis STATIC ${SQL_GIS_SOURCES})
 ADD_DEPENDENCIES(sql_gis GenServerSource)
