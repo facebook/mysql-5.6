@@ -546,6 +546,8 @@ struct System_variables {
   bool write_throttle_tag_only;
   bool reset_period_status_vars;
 
+  long thread_priority;
+
   /**
     Switch which controls whether XA transactions are detached
     (made accessible to other connections for commit/rollback)

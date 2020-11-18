@@ -65,6 +65,7 @@
 #cmakedefine HAVE_FNMATCH_H 1
 #cmakedefine HAVE_SYS_UN_H 1
 #cmakedefine HAVE_SASL_SASL_H 1
+#cmakedefine HAVE_SYS_CAPABILITY_H 1
 
 /* Functions */
 #cmakedefine HAVE_ALIGNED_MALLOC 1

@@ -1,0 +1,166 @@
+--source include/count_sessions.inc
+let $saved_count_sessions = $count_sessions;
+
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+
+set @saved_thread_cache_size = @@global.thread_cache_size;
+set @saved_thread_priority = @@global.thread_priority;
+set @saved_thread_priority_str = @@global.thread_priority_str;
+
+####################################################
+### Case 1: Default thread priority.
+####################################################
+--echo Case 1: Default thread priority.
+# Store the connection id. It is different for every connection.
+let $default_con_id = `select connection_id()`;
+select @@session.thread_priority;
+# disable query log here as the connection id is non-deterministic.
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $default_con_id into @priority;
+--enable_query_log
+select @priority;
+
+####################################################
+### Case 2: Change current thread's priority.
+####################################################
+--echo Case 2: Change current thread's priority.
+set @@global.thread_cache_size = 100;
+
+--source include/count_sessions.inc
+--echo connect con21
+connect (con21, localhost, user_super, su, test);
+let $con21_id = `select connection_id()`;
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con21_id into @priority;
+--enable_query_log
+select @priority;
+# On disconnect, this thread should be terminated as its priority has changed.
+# If the priority hadn't changed, the thread would be detached but cached for
+# the next connection to pick up.
+--echo disconnect con21
+disconnect con21;
+
+# check that there are no threads remaining with priority 5 (from previous connection)
+--echo connect default
+connection default;
+--source include/wait_until_count_sessions.inc
+select count(*) from performance_schema.threads where thread_priority = 5;
+
+# Create a new connection to check that the previous thread is not cached, and
+# to make sure that the new connection's attached thread is getting the right
+# default priority. In essence, to make sure that non-default priority threads
+# are not leaking into the thread cache.
+--echo connect con22
+connect (con22, localhost, user_super, su, test);
+let $con22_id = `select connection_id()`;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con22_id into @priority;
+--enable_query_log
+select @priority;
+--echo disconnect con22
+disconnect con22;
+
+####################################################
+### Case 3: Multiple threads concurrently running with different priorities.
+####################################################
+--echo Case 3: Multiple threads concurrently running with different priorities.
+
+--echo connect con31
+connect (con31, localhost, user_super, su, test);
+let $con31_id = `select connection_id()`;
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con31_id into @priority;
+--enable_query_log
+select @priority;
+
+--echo connect con32
+connect (con32, localhost, user_super, su, test);
+let $con32_id = `select connection_id()`;
+set @@session.thread_priority = 15;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con32_id into @priority;
+--enable_query_log
+select @priority;
+
+--echo connect con33
+connect (con33, localhost, user_super, su, test);
+let $con33_id = `select connection_id()`;
+set @@session.thread_priority = 7;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con33_id into @priority;
+--enable_query_log
+select @priority;
+
+--echo connect con34
+connect (con34, localhost, user_super, su, test);
+let $con34_id = `select connection_id()`;
+set @@session.thread_priority = 100;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con34_id into @priority;
+--enable_query_log
+select @priority;
+
+--echo connect con35
+connect (con35, localhost, user_super, su, test);
+let $con35_id = `select connection_id()`;
+select @@session.thread_priority;
+--disable_query_log
+eval select thread_priority from performance_schema.threads where processlist_id = $con35_id into @priority;
+--enable_query_log
+select @priority;
+
+--echo disconnect con31
+disconnect con31;
+--echo disconnect con32
+disconnect con32;
+--echo disconnect con33
+disconnect con33;
+--echo disconnect con34
+disconnect con34;
+--echo disconnect con35
+disconnect con35;
+
+####################################################
+### Case 4: Change global thread_priority. All new threads should use this priority.
+####################################################
+--echo Case 4: Change global thread_priority. All new threads should use this priority.
+connection default;
+select @@global.thread_priority;
+set @@global.thread_priority = 5;
+select @@global.thread_priority;
+select @@session.thread_priority;
+
+--echo connect con41
+connect (con41, localhost, user_super, su, test);
+let $con41_id = `select connection_id()`;
+select @@session.thread_priority;
+--echo disconnect con41
+disconnect con41;
+
+--echo connect default
+connection default;
+# reset global thread_priority
+set @@global.thread_priority=@saved_thread_priority;
+select @@global.thread_priority;
+
+###########
+### Cleanup
+###########
+--echo Cleanup
+connection default;
+set @@global.thread_cache_size = @saved_thread_cache_size;
+set @@global.thread_priority = @saved_thread_priority;
+set @@global.thread_priority_str = @saved_thread_priority_str;
+drop user user_super@localhost;
+
+let $count_sessions = $saved_count_sessions;
+--source include/wait_until_count_sessions.inc

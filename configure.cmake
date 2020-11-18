@@ -103,10 +103,11 @@ IF(UNIX)
   ENDIF()
   MY_SEARCH_LIBS(timer_create rt LIBRT)
   MY_SEARCH_LIBS(backtrace execinfo LIBEXECINFO)
+  MY_SEARCH_LIBS(cap_get_proc cap LIBCAP)
 
   LIST(APPEND CMAKE_REQUIRED_LIBRARIES
     ${LIBM} ${LIBNSL} ${LIBBIND} ${LIBSOCKET} ${LIBDL}
-    ${CMAKE_THREAD_LIBS_INIT} ${LIBRT} ${LIBEXECINFO}
+    ${CMAKE_THREAD_LIBS_INIT} ${LIBRT} ${LIBEXECINFO}  ${LIBCAP}
   )
   # Need explicit pthread for gcc -fsanitize=address
   IF(CMAKE_C_FLAGS MATCHES "-fsanitize=")
@@ -217,6 +218,9 @@ CHECK_INCLUDE_FILES (sys/un.h HAVE_SYS_UN_H)
 # Cyrus SASL 2.1.26 on Solaris 11.4 has a bug that requires sys/types.h
 # to be included before checking if sasl/sasl.h exists
 CHECK_INCLUDE_FILES ("sys/types.h;sasl/sasl.h" HAVE_SASL_SASL_H)
+
+# For LIBCAP
+CHECK_INCLUDE_FILES (sys/capability.h HAVE_SYS_CAPABILITY_H)
 
 #
 # Tests for functions

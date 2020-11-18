@@ -73,6 +73,7 @@ Plugin_table table_threads::m_table_def(
     "  MAX_CONTROLLED_MEMORY BIGINT unsigned not null,\n"
     "  TOTAL_MEMORY BIGINT unsigned not null,\n"
     "  MAX_TOTAL_MEMORY BIGINT unsigned not null,\n"
+    "  THREAD_PRIORITY INTEGER,\n"
     "  PRIMARY KEY (THREAD_ID) USING HASH,\n"
     "  KEY (PROCESSLIST_ID) USING HASH,\n"
     "  KEY (THREAD_OS_ID) USING HASH,\n"
@@ -276,6 +277,8 @@ int table_threads::make_row(PFS_thread *pfs) {
   m_row.m_processlist_info_ptr = &pfs->m_processlist_info[0];
   m_row.m_processlist_info_length = pfs->m_processlist_info_length;
 
+  m_row.m_thread_priority = pfs->m_thread_priority;
+
   if (!pfs->m_stmt_lock.end_optimistic_lock(&stmt_lock)) {
     /*
       One of the columns:
@@ -288,6 +291,7 @@ int table_threads::make_row(PFS_thread *pfs) {
     */
     m_row.m_db_name.reset();
     m_row.m_processlist_info_length = 0;
+    m_row.m_thread_priority = 0;
   }
 
   /* Dirty read, sanitize the command. */
@@ -475,6 +479,13 @@ int table_threads::read_row_values(TABLE *table, unsigned char *buf,
         case 21: /* TOTAL_MEMORY */
         case 22: /* MAX_TOTAL_MEMORY */
           m_row.m_session_all_memory_row.set_field(f->field_index() - 19, f);
+          break;
+        case 23: /* THREAD_PRIORITY */
+          if (m_row.m_thread_priority > -20 && m_row.m_thread_priority < 20) {
+            set_field_long(f, m_row.m_thread_priority);
+          } else {
+            f->set_null();
+          }
           break;
         default:
           assert(false);

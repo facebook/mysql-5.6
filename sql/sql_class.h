@@ -5179,6 +5179,16 @@ class THD : public MDL_context_owner,
   bool is_connection_admin();
   void set_connection_admin(bool connection_admin_flag);
 
+  my_thread_os_id_t get_thread_os_id() const;
+
+  int get_thread_priority() const;
+
+  bool set_thread_priority(int pri);
+
+  bool set_thread_priority() {
+    return set_thread_priority(variables.thread_priority);
+  }
+
  public:
   Transactional_ddl_context m_transactional_ddl{this};
 

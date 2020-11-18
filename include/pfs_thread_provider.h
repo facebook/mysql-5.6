@@ -79,6 +79,12 @@ void pfs_set_thread_THD_vc(PSI_thread *thread, THD *thd);
 
 void pfs_set_thread_os_id_vc(PSI_thread *thread);
 
+unsigned long long pfs_get_thread_os_id_vc(PSI_thread *thread);
+
+void pfs_set_thread_priority_vc(PSI_thread *thread, int priority);
+
+int pfs_get_thread_priority_vc(PSI_thread *thread);
+
 PSI_thread *pfs_get_thread_vc(void);
 
 void pfs_set_mem_cnt_THD_vc(THD *thd, THD **backup_thd);

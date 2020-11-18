@@ -94,6 +94,9 @@ typedef unsigned long long (*get_thread_internal_id_v2_t)(
 typedef struct PSI_thread *(*get_thread_by_id_v2_t)(
     unsigned long long processlist_id);
 typedef void (*set_thread_os_id_v1_t)(struct PSI_thread *thread);
+typedef unsigned long long (*get_thread_os_id_v1_t)(struct PSI_thread *thread);
+typedef void (*set_thread_priority_v1_t)(struct PSI_thread *thread, int pri);
+typedef int (*get_thread_priority_v1_t)(struct PSI_thread *thread);
 typedef struct PSI_thread *(*get_thread_v1_t)(void);
 typedef void (*set_thread_user_v1_t)(const char *user, int user_len);
 typedef void (*set_thread_account_v1_t)(const char *user, int user_len,
@@ -181,6 +184,9 @@ struct PSI_thread_service_v4 {
   get_thread_by_id_v2_t get_thread_by_id;
   set_thread_THD_v1_t set_thread_THD;
   set_thread_os_id_v1_t set_thread_os_id;
+  get_thread_os_id_v1_t get_thread_os_id;
+  set_thread_priority_v1_t set_thread_priority;
+  get_thread_priority_v1_t get_thread_priority;
   get_thread_v1_t get_thread;
   set_thread_user_v1_t set_thread_user;
   set_thread_account_v1_t set_thread_account;
@@ -218,6 +224,9 @@ struct PSI_thread_service_v5 {
   get_thread_by_id_v2_t get_thread_by_id;
   set_thread_THD_v1_t set_thread_THD;
   set_thread_os_id_v1_t set_thread_os_id;
+  get_thread_os_id_v1_t get_thread_os_id;
+  set_thread_priority_v1_t set_thread_priority;
+  get_thread_priority_v1_t get_thread_priority;
   get_thread_v1_t get_thread;
   set_thread_user_v1_t set_thread_user;
   set_thread_account_v1_t set_thread_account;
@@ -256,6 +265,9 @@ struct PSI_thread_service_v6 {
   get_thread_by_id_v2_t get_thread_by_id;
   set_thread_THD_v1_t set_thread_THD;
   set_thread_os_id_v1_t set_thread_os_id;
+  get_thread_os_id_v1_t get_thread_os_id;
+  set_thread_priority_v1_t set_thread_priority;
+  get_thread_priority_v1_t get_thread_priority;
   get_thread_v1_t get_thread;
   set_thread_user_v1_t set_thread_user;
   set_thread_account_v1_t set_thread_account;

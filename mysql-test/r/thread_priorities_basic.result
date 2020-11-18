@@ -1,0 +1,108 @@
+create user user_super@localhost identified by 'su';
+grant all on *.* to user_super@localhost with grant option;
+set @saved_thread_cache_size = @@global.thread_cache_size;
+set @saved_thread_priority = @@global.thread_priority;
+set @saved_thread_priority_str = @@global.thread_priority_str;
+Case 1: Default thread priority.
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+Case 2: Change current thread's priority.
+set @@global.thread_cache_size = 100;
+connect con21
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+@@session.thread_priority
+5
+select @priority;
+@priority
+5
+disconnect con21
+connect default
+select count(*) from performance_schema.threads where thread_priority = 5;
+count(*)
+0
+connect con22
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+disconnect con22
+Case 3: Multiple threads concurrently running with different priorities.
+connect con31
+set @@session.thread_priority = 5;
+select @@session.thread_priority;
+@@session.thread_priority
+5
+select @priority;
+@priority
+5
+connect con32
+set @@session.thread_priority = 15;
+select @@session.thread_priority;
+@@session.thread_priority
+15
+select @priority;
+@priority
+15
+connect con33
+set @@session.thread_priority = 7;
+select @@session.thread_priority;
+@@session.thread_priority
+7
+select @priority;
+@priority
+7
+connect con34
+set @@session.thread_priority = 100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '100'
+select @@session.thread_priority;
+@@session.thread_priority
+19
+select @priority;
+@priority
+19
+connect con35
+select @@session.thread_priority;
+@@session.thread_priority
+0
+select @priority;
+@priority
+0
+disconnect con31
+disconnect con32
+disconnect con33
+disconnect con34
+disconnect con35
+Case 4: Change global thread_priority. All new threads should use this priority.
+select @@global.thread_priority;
+@@global.thread_priority
+0
+set @@global.thread_priority = 5;
+select @@global.thread_priority;
+@@global.thread_priority
+5
+select @@session.thread_priority;
+@@session.thread_priority
+0
+connect con41
+select @@session.thread_priority;
+@@session.thread_priority
+5
+disconnect con41
+connect default
+set @@global.thread_priority=@saved_thread_priority;
+select @@global.thread_priority;
+@@global.thread_priority
+0
+Cleanup
+set @@global.thread_cache_size = @saved_thread_cache_size;
+set @@global.thread_priority = @saved_thread_priority;
+set @@global.thread_priority_str = @saved_thread_priority_str;
+drop user user_super@localhost;

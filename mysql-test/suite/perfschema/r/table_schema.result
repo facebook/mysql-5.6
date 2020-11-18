@@ -1617,6 +1617,7 @@ def	performance_schema	threads	CONTROLLED_MEMORY	20	NULL	NO	bigint	NULL	NULL	20	
 def	performance_schema	threads	MAX_CONTROLLED_MEMORY	21	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	threads	TOTAL_MEMORY	22	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
 def	performance_schema	threads	MAX_TOTAL_MEMORY	23	NULL	NO	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint unsigned			select,insert,update,references			NULL
+def	performance_schema	threads	THREAD_PRIORITY	24	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int			select,insert,update,references			NULL
 def	performance_schema	tls_channel_status	CHANNEL	1	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL
 def	performance_schema	tls_channel_status	PROPERTY	2	NULL	NO	varchar	128	512	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(128)			select,insert,update,references			NULL
 def	performance_schema	tls_channel_status	VALUE	3	NULL	NO	varchar	2048	8192	NULL	NULL	NULL	utf8mb4	utf8mb4_0900_ai_ci	varchar(2048)			select,insert,update,references			NULL

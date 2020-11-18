@@ -1,0 +1,63 @@
+# This test only runs as root.
+-- source include/as_root.inc
+
+####
+# Verify that the variable is dynamic at session level
+####
+set session thread_priority=5;
+select @@session.thread_priority;
+
+# thread_priority value can be increased
+set session thread_priority=10;
+select @@session.thread_priority;
+
+set session thread_priority=19;
+select @@session.thread_priority;
+
+set session thread_priority=100;
+select @@session.thread_priority;
+
+# thread_priority value can be decreased
+set session thread_priority=-5;
+select @@session.thread_priority;
+
+set session thread_priority=-19;
+select @@session.thread_priority;
+
+set session thread_priority=-100;
+select @@session.thread_priority;
+
+####
+# Verify that the variable is dynamic at global level
+####
+set global thread_priority=5;
+select @@global.thread_priority;
+
+# thread_priority value can be increased
+set global thread_priority=10;
+select @@global.thread_priority;
+
+set global thread_priority=19;
+select @@global.thread_priority;
+
+set global thread_priority=100;
+select @@global.thread_priority;
+
+# thread_priority value can be decreased
+set global thread_priority=-5;
+select @@global.thread_priority;
+
+set global thread_priority=-19;
+select @@global.thread_priority;
+
+set global thread_priority=-100;
+select @@global.thread_priority;
+
+####
+# Restore the default value
+####
+--echo restore the default values
+set session thread_priority=0;
+select @@session.thread_priority;
+set global thread_priority=0;
+select @@global.thread_priority;

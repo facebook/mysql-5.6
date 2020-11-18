@@ -3184,6 +3184,42 @@ void pfs_set_thread_os_id_vc(PSI_thread *thread) {
 
 /**
   Implementation of the thread instrumentation interface.
+  @sa PSI_v2::get_thread_os_thread_id.
+*/
+unsigned long long pfs_get_thread_os_id_vc(PSI_thread *thread) {
+  PFS_thread *pfs = reinterpret_cast<PFS_thread *>(thread);
+  if (unlikely(pfs == NULL)) {
+    return 0;
+  }
+  return pfs->m_thread_os_id;
+}
+
+/**
+  Implementation of the thread instrumentation interface.
+  @sa PSI_v1::set_thread_priority.
+*/
+void pfs_set_thread_priority_vc(PSI_thread *thread, int pri) {
+  PFS_thread *pfs = reinterpret_cast<PFS_thread *>(thread);
+  if (unlikely(pfs == NULL)) {
+    return;
+  }
+  pfs->m_thread_priority = pri;
+}
+
+/**
+  Implementation of the thread instrumentation interface.
+  @sa PSI_v1::get_thread_priority.
+*/
+int pfs_get_thread_priority_vc(PSI_thread *thread) {
+  PFS_thread *pfs = reinterpret_cast<PFS_thread *>(thread);
+  if (unlikely(pfs == NULL)) {
+    return 0;
+  }
+  return pfs->m_thread_priority;
+}
+
+/**
+  Implementation of the thread instrumentation interface.
   @sa PSI_v2::get_thread.
 */
 PSI_thread *pfs_get_thread_vc(void) {
@@ -8583,6 +8619,9 @@ PSI_thread_service_v4 pfs_thread_service_v4 = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
@@ -8622,6 +8661,9 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v4) = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
@@ -8662,6 +8704,9 @@ PSI_thread_service_v5 pfs_thread_service_v5 = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
@@ -8702,6 +8747,9 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v5) = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
@@ -8742,6 +8790,9 @@ PSI_thread_service_v6 pfs_thread_service_v6 = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
@@ -8783,6 +8834,9 @@ SERVICE_IMPLEMENTATION(performance_schema, psi_thread_v6) = {
     pfs_get_thread_by_id_vc,
     pfs_set_thread_THD_vc,
     pfs_set_thread_os_id_vc,
+    pfs_get_thread_os_id_vc,
+    pfs_set_thread_priority_vc,
+    pfs_get_thread_priority_vc,
     pfs_get_thread_vc,
     pfs_set_thread_user_vc,
     pfs_set_thread_account_vc,
