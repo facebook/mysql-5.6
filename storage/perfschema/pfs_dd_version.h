@@ -215,11 +215,14 @@
 
   80020-011:
    - add sql_findings
+
+  80020-012:
+   -- add THREAD_PRIORITY column to threads table.
 */
 
-/* Version published now is 80020-011. i.e. 8.0.20 Facebook schema change
- * no. 11.
+/* Version published now is 80020-012. i.e. 8.0.20 Facebook schema change
+ * no. 12.
  */
-static const uint PFS_DD_VERSION = 80020011;
+static const uint PFS_DD_VERSION = 80020012;
 
 #endif /* PFS_DD_VERSION_H */

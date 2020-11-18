@@ -316,6 +316,8 @@ static void *handle_connection(void *arg) {
     mysql_socket_set_thread_owner(
         thd->get_protocol_classic()->get_vio()->mysql_socket);
 
+    thd->set_thread_priority();
+
     thd_manager->add_thd(thd);
 
     if (thd_prepare_connection(thd))
@@ -348,6 +350,9 @@ static void *handle_connection(void *arg) {
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
     thd_manager->remove_thd(thd);
     Connection_handler_manager::dec_connection_count();
+
+    // reset thread priority
+    thd->set_thread_priority(0);
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
     /*

@@ -1,0 +1,17 @@
+set @start_global_value = @@global.thread_priority_str;
+
+####
+# Verify default value
+####
+--echo Default value of thread_priority_str
+select @@global.thread_priority_str;
+show global variables like 'thread_priority_str';
+
+####
+# Incorrect assignments
+####
+--error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.thread_priority_str = ' : -3';
+
+# Restore initial value
+set @@global.thread_priority_str = @start_global_value;
