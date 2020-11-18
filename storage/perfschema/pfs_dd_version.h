@@ -254,10 +254,14 @@
   - add sql_findings
   - change type of SQL_FINDINGS.LAST_RECORDED to bigint
 
+  80020-013:
+
+  - add THREAD_PRIORITY column to threads table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-011. i.e. 8.0.23 Facebook schema change no. 12.
+  Version published is now 80023-013. i.e. 8.0.23 Facebook schema change no. 13.
 */
 
-static const uint PFS_DD_VERSION = 80023012;
+static const uint PFS_DD_VERSION = 80023013;
 
 #endif /* PFS_DD_VERSION_H */

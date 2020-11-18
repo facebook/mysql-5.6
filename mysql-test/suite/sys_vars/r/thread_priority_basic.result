@@ -1,0 +1,17 @@
+Default value of thread_priority is 0
+select @@global.thread_priority;
+@@global.thread_priority
+0
+show global variables like 'thread_priority';
+Variable_name	Value
+thread_priority	0
+select @@session.thread_priority;
+@@session.thread_priority
+0
+show session variables like 'thread_priority';
+Variable_name	Value
+thread_priority	0
+set thread_priority=1.1;
+ERROR 42000: Incorrect argument type to variable 'thread_priority'
+set thread_priority="foobar";
+ERROR 42000: Incorrect argument type to variable 'thread_priority'
