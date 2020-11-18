@@ -9663,6 +9663,9 @@ ER_SLAVE_IO_RAFT_CONFLICT
 ER_RAFT_BINLOG_ERROR_ACTION
   eng "binlog_error_action should be set to ROLLBACK_TRX in raft mode."
 
+ER_LOG_ALTER_DB
+  eng "Alter database query: %s (user '%s' from '%s')"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

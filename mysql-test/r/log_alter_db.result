@@ -1,0 +1,8 @@
+# restart: --log-error=MYSQLTEST_VARDIR/tmp/alter_db_log.err --default-storage-engine=rocksdb
+CREATE DATABASE `alter_test`;
+CREATE TABLE t1 (pk INT PRIMARY KEY) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1);
+ALTER DATABASE `alter_test` READ_ONLY = true;
+DROP TABLE t1;
+DROP DATABASE `alter_test`;
+# restart
