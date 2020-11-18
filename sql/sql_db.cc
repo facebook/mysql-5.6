@@ -38,6 +38,7 @@
 #endif
 #include <atomic>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "lex_string.h"
@@ -696,6 +697,16 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info) {
     options of current database.
   */
   if (trans_commit_stmt(thd) || trans_commit(thd)) DBUG_RETURN(true);
+
+  /* Log the alter to the error log */
+  {
+    std::string str(thd->query().str, thd->query().length);
+
+    // NO_LINT_DEBUG
+    LogErr(INFORMATION_LEVEL, ER_LOG_ALTER_DB, str.c_str(),
+           thd->security_context()->user().str,
+           thd->security_context()->host().str);
+  }
 
   /* Change options if current database is being altered. */
   if (create_info->used_fields & HA_CREATE_USED_DEFAULT_CHARSET &&
