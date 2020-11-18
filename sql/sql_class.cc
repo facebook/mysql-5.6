@@ -47,6 +47,7 @@
 #include "my_md5_size.h"
 #include "my_systime.h"
 #include "my_thread.h"
+#include "my_thread_os_id.h"
 #include "my_time.h"
 #include "mysql/components/services/log_builtins.h"  // LogErr
 #include "mysql/components/services/log_shared.h"
@@ -4166,4 +4167,50 @@ void THD::reset_status_vars() {
 
   /* Handle special session status vars here. */
   reset_peak(&m_filesort_disk_usage_peak, m_filesort_disk_usage);
+}
+
+/*
+  Get the OS thread id associated with this THD.
+ */
+my_thread_os_id_t THD::get_thread_os_id() const {
+  my_thread_os_id_t id = 0;
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  id = PSI_THREAD_CALL(get_thread_os_id)(get_psi());
+#endif
+  return id;
+}
+
+/*
+  Get the priority of the underlying OS thread.
+ */
+int THD::get_thread_priority() const {
+  int pri = 0;
+#ifdef HAVE_PSI_THREAD_INTERFACE
+  pri = PSI_THREAD_CALL(get_thread_priority)(get_psi());
+#endif
+  return pri;
+}
+
+/*
+  Set the priority of the underlying OS thread.
+
+  @param pri    The priority to set the thread to.
+  @return       true on success, false otherwise.
+*/
+bool THD::set_thread_priority(int pri) {
+  DBUG_ENTER("THD::set_thread_priority");
+
+  bool ret = true;
+
+  my_thread_os_id_t thread_os_id = get_thread_os_id();
+  if (thread_os_id && get_thread_priority() != pri) {
+    ret = set_system_thread_priority(thread_os_id, pri);
+#ifdef HAVE_PSI_THREAD_INTERFACE
+    if (ret) {
+      PSI_THREAD_CALL(set_thread_priority)(get_psi(), pri);
+    }
+#endif
+  }
+
+  DBUG_RETURN(ret);
 }

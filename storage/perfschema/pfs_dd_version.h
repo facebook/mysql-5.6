@@ -233,7 +233,7 @@
     IO_READ_BYTES
     IO_READ_REQUESTS
 
-  80028-006
+  80028-006:
   - add events_statements_summary_by_all table
 
   80028-007:
@@ -259,10 +259,13 @@
   - add sql_findings
   - change type of SQL_FINDINGS.LAST_RECORDED to bigint
 
+  80028-012:
+  - add THREAD_PRIORITY column to threads table
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80028-011. i.e. 8.0.28 Facebook schema change no. 11.
+  Version published is now 80028-012. i.e. 8.0.28 Facebook schema change no. 12.
 */
 
-static const uint PFS_DD_VERSION = 80028011;
+static const uint PFS_DD_VERSION = 80028012;
 
 #endif /* PFS_DD_VERSION_H */

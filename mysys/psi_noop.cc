@@ -115,6 +115,12 @@ static void set_thread_THD_noop(PSI_thread *, THD *) { return; }
 
 static void set_thread_os_id_noop(PSI_thread *) { return; }
 
+static ulonglong get_thread_os_id_noop(PSI_thread *) { return 0; }
+
+static void set_thread_priority_noop(PSI_thread *, int) { return; }
+
+static int get_thread_priority_noop(PSI_thread *) { return 0; }
+
 static PSI_thread *get_thread_noop(void) { return nullptr; }
 
 static void set_thread_user_noop(const char *, int) { return; }
@@ -213,6 +219,9 @@ static PSI_thread_service_t psi_thread_noop = {
     get_thread_by_id_noop,
     set_thread_THD_noop,
     set_thread_os_id_noop,
+    get_thread_os_id_noop,
+    set_thread_priority_noop,
+    get_thread_priority_noop,
     get_thread_noop,
     set_thread_user_noop,
     set_thread_user_host_noop,

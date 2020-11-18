@@ -126,6 +126,9 @@ PSI_thread *pfs_new_thread_vc(PSI_thread_key, PSI_thread_seqnum, const void *,
 void pfs_register_thread_vc(char const *, PSI_thread_info *, int) {}
 void pfs_set_thread_account_vc(char const *, int, char const *, int) {}
 void pfs_set_thread_os_id_vc(PSI_thread *) {}
+unsigned long long pfs_get_thread_os_id_vc(PSI_thread *) { return 0; }
+void pfs_set_thread_priority_vc(PSI_thread *, int) {}
+int pfs_get_thread_priority_vc(PSI_thread *) { return 0; }
 void pfs_set_thread_vc(PSI_thread *) {}
 int pfs_spawn_thread_vc(PSI_thread_key, PSI_thread_seqnum, my_thread_handle *,
                         const my_thread_attr_t *, void *(*)(void *), void *) {

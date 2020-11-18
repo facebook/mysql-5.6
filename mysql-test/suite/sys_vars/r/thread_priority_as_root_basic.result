@@ -1,0 +1,73 @@
+set session thread_priority=5;
+select @@session.thread_priority;
+@@session.thread_priority
+5
+set session thread_priority=10;
+select @@session.thread_priority;
+@@session.thread_priority
+10
+set session thread_priority=19;
+select @@session.thread_priority;
+@@session.thread_priority
+19
+set session thread_priority=100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '100'
+select @@session.thread_priority;
+@@session.thread_priority
+19
+set session thread_priority=-5;
+select @@session.thread_priority;
+@@session.thread_priority
+-5
+set session thread_priority=-19;
+select @@session.thread_priority;
+@@session.thread_priority
+-19
+set session thread_priority=-100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '-100'
+select @@session.thread_priority;
+@@session.thread_priority
+-19
+set global thread_priority=5;
+select @@global.thread_priority;
+@@global.thread_priority
+5
+set global thread_priority=10;
+select @@global.thread_priority;
+@@global.thread_priority
+10
+set global thread_priority=19;
+select @@global.thread_priority;
+@@global.thread_priority
+19
+set global thread_priority=100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '100'
+select @@global.thread_priority;
+@@global.thread_priority
+19
+set global thread_priority=-5;
+select @@global.thread_priority;
+@@global.thread_priority
+-5
+set global thread_priority=-19;
+select @@global.thread_priority;
+@@global.thread_priority
+-19
+set global thread_priority=-100;
+Warnings:
+Warning	1292	Truncated incorrect thread_priority value: '-100'
+select @@global.thread_priority;
+@@global.thread_priority
+-19
+restore the default values
+set session thread_priority=0;
+select @@session.thread_priority;
+@@session.thread_priority
+0
+set global thread_priority=0;
+select @@global.thread_priority;
+@@global.thread_priority
+0

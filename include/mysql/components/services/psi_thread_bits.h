@@ -291,6 +291,26 @@ typedef struct PSI_thread *(*get_thread_by_id_v2_t)(
 typedef void (*set_thread_os_id_v1_t)(struct PSI_thread *thread);
 
 /**
+  Get the current operating system thread id of an instrumented thread.
+  The operating system task id is obtained from @c gettid()
+  @param thread the instrumented thread
+*/
+typedef unsigned long long (*get_thread_os_id_v1_t)(struct PSI_thread *thread);
+
+/**
+  Assign priority to an instrumented thread.
+  @param thread the instrumented thread
+  @param priority the nice value of the OS thread
+*/
+typedef void (*set_thread_priority_v1_t)(struct PSI_thread *thread, int pri);
+
+/**
+  Get the current operating system thread priority of an instrumented thread.
+  @param thread the instrumented thread
+*/
+typedef int (*get_thread_priority_v1_t)(struct PSI_thread *thread);
+
+/**
   Get the instrumentation for the running thread.
   For this function to return a result,
   the thread instrumentation must have been attached to the

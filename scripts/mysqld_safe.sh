@@ -737,6 +737,11 @@ directory and restart this script from there as follows:
 See http://dev.mysql.com/doc/mysql/en/mysqld-safe.html for more information"
   exit 1
 fi
+setcap 'cap_sys_nice=eip' $ledir/$MYSQLD
+if [ $? -ne 0 ]
+then
+  echo "Failed to set capabilities"
+fi
 
 if test -z "$pid_file"
 then

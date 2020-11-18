@@ -9071,3 +9071,31 @@ static Sys_var_bool Sys_reset_period_status_vars(
     "Enable atomic reset of period status vars "
     "when they are shown.",
     SESSION_ONLY(reset_period_status_vars), CMD_LINE(OPT_ARG), DEFAULT(false));
+
+static bool update_thread_priority_str(sys_var *, THD *, set_var *var) {
+  return !set_thread_priority(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_thread_priority_str(
+    "thread_priority_str",
+    "Set the priority of a thread. "
+    "The input format is OSthreadId:PriValue. "
+    "The priority values are in the range -20 to 19, similar to nice.",
+    GLOBAL_VAR(thread_priority_str), CMD_LINE(OPT_ARG), IN_SYSTEM_CHARSET,
+    DEFAULT(""), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(update_thread_priority_str));
+
+static bool update_thread_priority(sys_var *, THD *, enum_var_type type) {
+  if (type == OPT_GLOBAL) return false;
+  return !set_current_thread_priority();
+}
+
+static Sys_var_long Sys_thread_priority(
+    "thread_priority",
+    "Set the priority of a thread. "
+    "Changes the priority of the current thread if set at the session level. "
+    "Changes the priority of all new threads if set at the global level. "
+    "The values are in the range -20 to 19, similar to nice.",
+    SESSION_VAR(thread_priority), CMD_LINE(REQUIRED_ARG), VALID_RANGE(-20, 19),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(update_thread_priority));

@@ -90,6 +90,8 @@ struct row_threads {
   enum_vio_type m_connection_type;
   /** Column THREAD_OS_ID. */
   my_thread_os_id_t m_thread_os_id;
+  /** Column THREAD_PRIORITY. */
+  int m_thread_priority;
   /** Column RESOURCE_GROUP. */
   char m_groupname[NAME_LEN];
   /** Length in bytes of @c m_groupname. */

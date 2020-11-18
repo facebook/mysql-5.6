@@ -502,6 +502,8 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
   ulong m_processlist_id;
   /** External (Operating system) thread identifier, if any. */
   my_thread_os_id_t m_thread_os_id;
+  /** OS thread priority. */
+  int m_thread_priority;
   /** Thread class. */
   PFS_thread_class *m_class;
   /** True if a system thread. */
@@ -753,6 +755,8 @@ struct PFS_ALIGNED PFS_thread : PFS_connection_slice {
 #ifndef NDEBUG
   const char *current_key_name;
 #endif
+
+  void set_priority(int pri) { m_thread_priority = pri; }
 };
 
 void carry_global_memory_stat_alloc_delta(PFS_memory_stat_alloc_delta *delta,

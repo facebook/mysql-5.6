@@ -596,6 +596,7 @@ extern bool acl_fast_lookup_enabled;
 extern char *opt_log_error_suppression_list;
 extern char *opt_log_error_services;
 extern char *opt_protocol_compression_algorithms;
+extern char *thread_priority_str;
 
 /* Global tmp disk usage max and check. */
 extern ulonglong max_tmp_disk_usage;
@@ -1257,5 +1258,29 @@ ulong get_mts_parallel_option();
    Returns whether slave commit order is preserved
 */
 bool get_slave_preserve_commit_order();
+
+/**
+ * Set the priority of an OS thread.
+ *
+ * @param thread_priority_str  A string of the format os_thread_id:nice_val.
+ * @return                     true on success, false otherwise.
+ */
+bool set_thread_priority(char *thread_priority_str);
+
+/**
+ * Set priority of the current thread.
+ *
+ * @return true on success, false otherwise.
+ */
+bool set_current_thread_priority();
+
+/**
+ * Set the priority of an OS thread.
+ *
+ * @param tid  The OS thread id.
+ * @param pri  The priority to set the thread to.
+ * @return     true on success, false otherwise.
+ */
+bool set_system_thread_priority(pid_t tid, int pri);
 
 #endif /* MYSQLD_INCLUDED */

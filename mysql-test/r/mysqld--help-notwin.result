@@ -2499,6 +2499,14 @@ The following options may be given as the first argument:
  --thread-handling=name 
  Define threads usage for handling queries, one of
  one-thread-per-connection, no-threads, loaded-dynamically
+ --thread-priority=# Set the priority of a thread. Changes the priority of the
+ current thread if set at the session level. Changes the
+ priority of all new threads if set at the global level.
+ The values are in the range -20 to 19, similar to nice.
+ --thread-priority-str[=name] 
+ Set the priority of a thread. The input format is
+ OSthreadId:PriValue. The priority values are in the range
+ -20 to 19, similar to nice.
  --thread-stack=#    The stack size for each thread
  --tls-ciphersuites=name 
  --tmp-table-size=#  If an internal in-memory temporary table in the MEMORY or
@@ -3329,6 +3337,8 @@ temptable-use-mmap TRUE
 terminology-use-previous NONE
 thread-cache-size 9
 thread-handling one-thread-per-connection
+thread-priority 0
+thread-priority-str 
 thread-stack 1048576
 tls-ciphersuites (No default value)
 tmp-table-size 16777216

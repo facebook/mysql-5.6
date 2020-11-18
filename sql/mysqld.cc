@@ -912,6 +912,9 @@ MySQL clients support the protocol:
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
+#ifdef HAVE_SYS_CAPABILITY_H
+#include <sys/capability.h>
+#endif
 #include <sys/stat.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -1194,6 +1197,7 @@ static std::atomic<enum_server_operational_state> server_operational_state{
     SERVER_BOOTING};
 char *opt_log_error_suppression_list;
 char *opt_log_error_services;
+char *thread_priority_str = nullptr;
 char *opt_keyring_migration_user = nullptr;
 char *opt_keyring_migration_host = nullptr;
 char *opt_keyring_migration_password = nullptr;
@@ -3128,7 +3132,7 @@ static void set_user(const char *user, const PasswdValue &user_info_arg) {
     LogErr(ERROR_LEVEL, ER_FAIL_SETGID, strerror(errno));
     unireg_abort(MYSQLD_ABORT_EXIT);
   }
-  if (setuid(user_info_arg.pw_uid) == -1) {
+  if (setresuid(user_info_arg.pw_uid, user_info_arg.pw_uid, -1) == -1) {
     LogErr(ERROR_LEVEL, ER_FAIL_SETUID, strerror(errno));
     unireg_abort(MYSQLD_ABORT_EXIT);
   }
@@ -13699,4 +13703,139 @@ bool get_slave_preserve_commit_order() {
   }
 
   return opt_replica_preserve_commit_order;
+}
+
+class Find_thd_with_os_id : public Find_THD_Impl {
+ public:
+  Find_thd_with_os_id(my_thread_os_id_t value) : m_id(value) {}
+  virtual bool operator()(THD *thd) override {
+    my_thread_os_id_t id = thd->get_thread_os_id();
+    if (id == m_id) {
+      return true;
+    }
+    return false;
+  }
+
+  const my_thread_os_id_t m_id;
+};
+
+/**
+ * Set the priority of an OS thread.
+ *
+ * @param thread_priority_cptr  A string of the format os_thread_id:nice_val.
+ * @return                      true on success, false otherwise.
+ */
+bool set_thread_priority(char *thread_priority_cptr) {
+  // parse input to get thread_id and nice_val
+  std::string thd_id_nice_val_str(thread_priority_cptr);
+
+  if (thd_id_nice_val_str.empty()) {
+    return true;
+  }
+
+  std::size_t delimpos = thd_id_nice_val_str.find(':');
+  if (delimpos == std::string::npos) {
+    return false;
+  }
+  std::string thread_id_str(thd_id_nice_val_str, 0, delimpos);
+  std::string nice_val_str(thd_id_nice_val_str, delimpos + 1);
+  const char *nice_val_ptr = nice_val_str.c_str();
+  const char *thread_id_ptr = thread_id_str.c_str();
+
+  char *er;
+  long nice_val = strtol(nice_val_ptr, &er, 10);
+  if (er != nice_val_ptr + nice_val_str.length()) {
+    return false;
+  }
+
+  unsigned long thread_id = strtoul(thread_id_ptr, &er, 10);
+  if (er != thread_id_ptr + thread_id_str.length()) {
+    return false;
+  }
+
+  // Check whether nice_value is in a valid range
+  if (nice_val > 19 || nice_val < -20) {
+    /* NO_LINT_DEBUG */
+    sql_print_error(
+        "Nice value %ld is outside the valid "
+        "range of -19 to 20",
+        nice_val);
+    return false;
+  }
+
+  Find_thd_with_os_id find_thd_with_os_id(thread_id);
+  THD_ptr thd_ptr =
+      Global_THD_manager::get_instance()->find_thd(&find_thd_with_os_id);
+  if (thd_ptr) {
+    return thd_ptr->set_thread_priority(nice_val);
+  }
+
+  return false;
+}
+
+#ifdef HAVE_SYS_CAPABILITY_H
+/**
+ * Set a capability's flags.
+ * Effective capabilities of a thread are changed.
+ *
+ * @param capability  Capability to change. e.g. CAP_SYS_NICE
+ * @param flag        Flag to set. e.g. CAP_SET, CAP_CLEAR
+ * @return            true on success, false otherwise.
+ */
+static bool set_capability_flag(cap_value_t capability, cap_flag_value_t flag) {
+  DBUG_ENTER("set_capability_flag");
+
+  cap_value_t cap_list[] = {capability};
+  cap_t caps = cap_get_proc();
+  bool ret = true;
+
+  if (!caps || cap_set_flag(caps, CAP_EFFECTIVE, 1, cap_list, flag) ||
+      cap_set_proc(caps)) {
+    ret = false;
+  }
+
+  if (caps) {
+    cap_free(caps);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static bool acquire_capability(cap_value_t capability) {
+  return set_capability_flag(capability, CAP_SET);
+}
+
+static bool drop_capability(cap_value_t capability) {
+  return set_capability_flag(capability, CAP_CLEAR);
+}
+#endif  // #ifdef HAVE_SYS_CAPABILITY_H
+
+/**
+ * Sets a system thread priority.
+ * CAP_SYS_NICE capability is temporarily acquired if it does not already
+ * exist, and dropped after the setpriority() call is complete.
+ *
+ * @param tid  OS thread id.
+ * @param pri  Priority (nice value) to set the thread to.
+ * @return     true on success, false otherwise.
+ */
+bool set_system_thread_priority(pid_t tid, int pri) {
+  DBUG_ENTER("set_system_thread_priority");
+
+  bool ret = true;
+#ifdef HAVE_SYS_CAPABILITY_H
+  acquire_capability(CAP_SYS_NICE);
+#endif
+  if (setpriority(PRIO_PROCESS, tid, pri) == -1) {
+    ret = false;
+  }
+#ifdef HAVE_SYS_CAPABILITY_H
+  drop_capability(CAP_SYS_NICE);
+#endif
+
+  DBUG_RETURN(ret);
+}
+
+bool set_current_thread_priority() {
+  return current_thd->set_thread_priority();
 }
