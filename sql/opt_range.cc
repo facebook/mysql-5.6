@@ -9267,6 +9267,11 @@ range_seq_t sel_arg_range_seq_init(void *init_param, uint n_ranges, uint flags)
   Sel_arg_range_sequence *seq= 
     static_cast<Sel_arg_range_sequence*>(init_param);
   seq->reset();
+  uint saved_count MY_ATTRIBUTE((unused)) = seq->param->range_count;
+  seq->param->range_count = 0;
+  DBUG_EXECUTE_IF("mrr_double_count", {
+                    seq->param->range_count = saved_count;
+                  });
   return init_param;
 }
 

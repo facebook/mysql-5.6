@@ -1,0 +1,43 @@
+--source include/have_rocksdb.inc
+--source include/have_debug_sync.inc
+
+--echo #
+--echo # Test for range double counting bug in MRR.
+--echo #
+
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (a int, b int, c int, d char(255) collate latin1_bin, primary key(a, b), key(a, c));
+insert into t1 select 1, A.a + B.a* 10 + C.a * 100 + D.a * 1000, A.a + B.a* 10 + C.a * 100 + D.a * 1000, "abc" from t0 A, t0 B, t0 C, t0 D;
+insert into t1 values (2, 2, 2, "abc"), (3, 3, 3, "abc"), (4, 4, 4, "abc"), (5, 5, 5, "abc"), (6, 6, 6, "abc"), (7, 7, 7, "abc"), (8, 8, 8, "abc"), (9, 9, 9, "abc");
+
+set @save_optimizer_switch = @@optimizer_switch;
+
+set optimizer_switch='mrr_cost_based=off';
+
+# The rocksdb_mrr_debug2 flag makes RIR return a smaller cost for secondary
+# keys. It is needed so that we hit the right plan to reproduce the bug.
+set debug = '+d,rocksdb_mrr_debug2';
+
+# The mrr_double_count flag emulates the buggy behaviour prior to the fix.
+set debug = '+d,mrr_double_count';
+set optimizer_switch='mrr=off';
+--replace_column 9 #
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+set optimizer_switch='mrr=on';
+--replace_column 9 #
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+
+set debug = '-d,mrr_double_count';
+set optimizer_switch='mrr=off';
+--replace_column 9 #
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+set optimizer_switch='mrr=on';
+--replace_column 9 #
+explain select * from t1 where a = 1 and c < 1000 and c > 1 order by c;
+
+set debug = '-d,rocksdb_mrr_debug2';
+set optimizer_switch = @save_optimizer_switch;
+
+drop table t0, t1;

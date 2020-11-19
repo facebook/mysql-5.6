@@ -12271,6 +12271,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *const min_key,
 
   ha_rows ret = THDVAR(ha_thd(), records_in_range);
   if (ret) {
+    DBUG_EXECUTE_IF("rocksdb_mrr_debug2", if (inx != 0) { ret /= 100; });
     DBUG_RETURN(ret);
   }
   if (table->force_index) {
