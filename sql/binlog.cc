@@ -4871,6 +4871,12 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   /* Set LOG_EVENT_RELAY_LOG_F flag for relay log's FD */
   if (!raft_noop && is_relay_log)
     s.set_relay_log_event();
+  if (raft_rotate_info)
+  {
+    DBUG_ASSERT(raft_rotate_info->rotate_via_raft ||
+                raft_rotate_info->post_append);
+    s.set_raft_log_event();
+  }
   if (s.write(&log_file))
     goto err;
   bytes_written+= s.data_written;
@@ -7092,28 +7098,40 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     if (is_relay_log)
       r.checksum_alg= relay_log_checksum_alg;
 
-    // in raft mode checks are calculated in plugin
     if (rotate_via_raft)
     {
+      // in raft mode checksum has to be turned off,
+      // because the raft plugin will patch the events
+      // and generate the final checksum.
       r.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
-      if (config_change_rotate)
+
+      // write the metadata log event to the cache first
+      Metadata_log_event me;
+      me.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
+      if (no_op)
       {
-        // write the metadata log event to the cache first
-        Metadata_log_event me(raft_rotate_info->config_change);
-        // checksum has to be turned off, because the raft plugin
-        // will patch the events and generate the final checksum.
-        me.checksum_alg= BINLOG_CHECKSUM_ALG_OFF;
-        if ((error= me.write(&raft_io_cache)))
-        {
-          char errbuf[MYSYS_STRERROR_SIZE];
-          close_on_error= TRUE;
-          my_printf_error(ER_ERROR_ON_WRITE, ER(ER_CANT_OPEN_FILE),
-                      MYF(ME_FATALERROR), name,
-                      errno, my_strerror(errbuf, sizeof(errbuf), errno));
-          goto end;
-        }
-        bytes_written += me.data_written;
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_NOOP);
       }
+      else if (config_change_rotate)
+      {
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_CONFIG_CHANGE);
+        me.set_raft_str(raft_rotate_info->config_change);
+      }
+      else
+      {
+        me.set_raft_rotate_tag(Metadata_log_event::RRET_SIMPLE_ROTATE);
+      }
+
+      if ((error= me.write(&raft_io_cache)))
+      {
+        char errbuf[MYSYS_STRERROR_SIZE];
+        close_on_error= TRUE;
+        my_printf_error(ER_ERROR_ON_WRITE, ER(ER_CANT_OPEN_FILE),
+                    MYF(ME_FATALERROR), name,
+                    errno, my_strerror(errbuf, sizeof(errbuf), errno));
+        goto end;
+      }
+      bytes_written += me.data_written;
     }
     DBUG_ASSERT(!is_relay_log || rotate_via_raft || relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
     if(DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", (error=close_on_error=TRUE), FALSE) ||

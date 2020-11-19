@@ -648,6 +648,16 @@ struct sql_ex_info
 */
 #define LOG_EVENT_MTS_ISOLATE_F 0x200
 
+/**
+ * Intermediate values from 0x400 to 0x4000 are unused and Oracle
+ * can use them.
+ */
+
+/**
+ * RAFT: These binlog files have been created by a MySQL Raft based
+ * binlog system.
+ */
+#define LOG_EVENT_RAFT_LOG_F 0x8000
 
 /**
   @def OPTIONS_WRITTEN_TO_BIN_LOG
@@ -1423,6 +1433,7 @@ public:
   virtual bool is_valid() const = 0;
   void set_artificial_event() { flags |= LOG_EVENT_ARTIFICIAL_F; }
   void set_relay_log_event() { flags |= LOG_EVENT_RELAY_LOG_F; }
+  void set_raft_log_event() { flags |= LOG_EVENT_RAFT_LOG_F; }
   bool is_artificial_event() const { return flags & LOG_EVENT_ARTIFICIAL_F; }
   bool is_relay_log_event() const { return flags & LOG_EVENT_RELAY_LOG_F; }
   bool is_ignorable_event() const { return flags & LOG_EVENT_IGNORABLE_F; }
@@ -5378,6 +5389,15 @@ public:
   enum_skip_reason do_shall_skip(Relay_log_info*);
 #endif
 
+  enum RAFT_ROTATE_EVENT_TAG : int16_t {
+    RRET_SIMPLE_ROTATE= 0, // Tag for a simple rotate event
+    RRET_NOOP= 1, // Tag for a NO-OP event
+    RRET_CONFIG_CHANGE= 2, // Tag for a config change event
+    // If new types are added make sure all assertions
+    // are checked for RRET_NOT_ROTATE
+    RRET_NOT_ROTATE= 999, // Not a rotate event or invalid tag
+  };
+
   bool is_valid() const { return true; }
 
   /**
@@ -5432,6 +5452,16 @@ public:
   const std::string& get_raft_str() const;
 
   /**
+   * Get the rotate event tag.
+   */
+  RAFT_ROTATE_EVENT_TAG get_rotate_tag() const;
+
+  /**
+   * Get the rotate tag as a human readable string.
+   */
+  std::string get_rotate_tag_string() const;
+
+  /**
    * Get raft previous opid term
    *
    * @return prev_raft_term if present. -1 otherwise
@@ -5471,6 +5501,12 @@ public:
   void set_raft_prev_opid(int64_t term, int64_t index);
 
   /**
+   * Tag the rotate event before the metadata event with the
+   * appropriate tag
+   */
+  void set_raft_rotate_tag(RAFT_ROTATE_EVENT_TAG t);
+
+  /**
    * The spec for different 'types' supported by this event
    */
   enum class Metadata_log_event_types : unsigned char
@@ -5490,6 +5526,8 @@ public:
     RAFT_GENERIC_STR_TYPE= 3,
     /* Raft term and index for the last file*/
     RAFT_PREV_OPID_TYPE= 4,
+    /* Raft Rotate Event Tag Type */
+    RAFT_ROTATE_TAG_TYPE = 5,
     METADATA_EVENT_TYPE_MAX,
   };
 
@@ -5562,6 +5600,16 @@ private:
   bool write_raft_prev_opid(IO_CACHE* file);
 
   /**
+   * Write rotate event tag to metadata event previous to rotate event
+   * Central to raft correctness
+   *
+   * @param file - file to write into
+   *
+   * @returns - 0 on success, 1 on false
+   */
+  bool write_rotate_tag(IO_CACHE* file);
+
+  /**
    * Write type and length to file
    *
    * @param file   - file to write into
@@ -5608,6 +5656,10 @@ private:
   int64_t prev_raft_index_= -1;
   static const uint32_t ENCODED_RAFT_PREV_OPID_SIZE=
     sizeof(prev_raft_term_) + sizeof(prev_raft_index_);
+
+  RAFT_ROTATE_EVENT_TAG raft_rotate_tag_= RRET_NOT_ROTATE;
+  // will write as uint16_t
+  static const uint32_t ENCODED_RAFT_ROTATE_TAG_SIZE= sizeof(uint16_t);
 
   /* Total size of this event when encoded into the stream */
   uint32_t size_= 0;

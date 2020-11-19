@@ -16523,6 +16523,22 @@ void Metadata_log_event::set_raft_prev_opid(int64_t term, int64_t index)
     (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_PREV_OPID_SIZE);
 }
 
+void Metadata_log_event::set_raft_rotate_tag
+    (Metadata_log_event::RAFT_ROTATE_EVENT_TAG t)
+{
+  raft_rotate_tag_= t;
+  set_exist(Metadata_log_event_types::RAFT_ROTATE_TAG_TYPE);
+  // Update the size of the event when it gets serialized into the stream.
+  size_ +=
+    (ENCODED_TYPE_SIZE + ENCODED_LENGTH_SIZE + ENCODED_RAFT_ROTATE_TAG_SIZE);
+}
+
+Metadata_log_event::RAFT_ROTATE_EVENT_TAG
+Metadata_log_event::get_rotate_tag() const
+{
+  return raft_rotate_tag_;
+}
+
 int64_t Metadata_log_event::get_raft_term() const
 {
   return raft_term_;
@@ -16548,6 +16564,23 @@ int64_t Metadata_log_event::get_raft_prev_opid_index() const
   return prev_raft_index_;
 }
 
+std::string Metadata_log_event::get_rotate_tag_string() const
+{
+  switch (raft_rotate_tag_)
+  {
+    case RRET_SIMPLE_ROTATE:
+      return "Rotate";
+    case RRET_NOOP:
+      return "No-Op";
+    case RRET_CONFIG_CHANGE:
+      return "Config-Change";
+    case RRET_NOT_ROTATE:
+      return "Non-Rotate (Unexpected)";
+    default:
+      return "Invalid (Unexpected)";
+  }
+}
+
 uint Metadata_log_event::read_type(
     Metadata_log_event_types type, char const* buffer)
 {
@@ -16559,6 +16592,7 @@ uint Metadata_log_event::read_type(
   int64_t term= -1, index= -1;
   std::string generic_str;
   int64_t prev_term= -1, prev_index= -1;
+  RAFT_ROTATE_EVENT_TAG raft_rotate_tag= RRET_NOT_ROTATE;
 
   switch (type)
   {
@@ -16588,6 +16622,11 @@ uint Metadata_log_event::read_type(
       prev_index= uint8korr(buffer + ENCODED_LENGTH_SIZE
                             + sizeof(prev_raft_term_));
       set_raft_prev_opid(prev_term, prev_index);
+      break;
+    case MLET::RAFT_ROTATE_TAG_TYPE:
+      DBUG_ASSERT(value_length == ENCODED_RAFT_ROTATE_TAG_SIZE);
+      raft_rotate_tag= (RAFT_ROTATE_EVENT_TAG)uint2korr(buffer + ENCODED_LENGTH_SIZE);
+      set_raft_rotate_tag(raft_rotate_tag);
       break;
     default:
       // This is a event which we do not know about. Just skip this
@@ -16622,6 +16661,9 @@ bool Metadata_log_event::write_data_body(IO_CACHE *file)
     DBUG_RETURN(1);
 
   if (write_raft_prev_opid(file))
+    DBUG_RETURN(1);
+
+  if (write_rotate_tag(file))
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
@@ -16744,7 +16786,7 @@ bool Metadata_log_event::write_raft_prev_opid(IO_CACHE* file)
   if (write_type_and_length(
         file,
         Metadata_log_event_types::RAFT_PREV_OPID_TYPE,
-        sizeof(prev_raft_term_) + sizeof(prev_raft_index_)))
+        ENCODED_RAFT_PREV_OPID_SIZE))
   {
     DBUG_RETURN(1);
   }
@@ -16754,6 +16796,33 @@ bool Metadata_log_event::write_raft_prev_opid(IO_CACHE* file)
 
   int8store(ptr_buffer, prev_raft_index_);
   ptr_buffer+= sizeof(prev_raft_index_);
+
+  DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
+
+  bool ret= wrapper_my_b_safe_write(file, (uchar *) buffer, sizeof(buffer));
+  DBUG_RETURN(ret);
+}
+
+bool Metadata_log_event::write_rotate_tag(IO_CACHE* file)
+{
+  DBUG_ENTER("Metadata_log_event::write_rotate_tag");
+
+  if (!does_exist(Metadata_log_event_types::RAFT_ROTATE_TAG_TYPE))
+    DBUG_RETURN(0); /* No need to write rotate tag */
+
+  char buffer[ENCODED_RAFT_ROTATE_TAG_SIZE];
+  char* ptr_buffer= buffer;
+
+  if (write_type_and_length(
+        file,
+        Metadata_log_event_types::RAFT_ROTATE_TAG_TYPE,
+        ENCODED_RAFT_ROTATE_TAG_SIZE))
+  {
+    DBUG_RETURN(1);
+  }
+
+  int2store(ptr_buffer, (uint16_t)raft_rotate_tag_);
+  ptr_buffer+= sizeof(uint16_t);
 
   DBUG_ASSERT(ptr_buffer == (buffer + sizeof(buffer)));
 
@@ -16834,6 +16903,21 @@ int Metadata_log_event::pack_info(Protocol *protocol)
           " Raft Index: " + std::to_string(raft_index_));
     field_added= true;
   }
+  if (does_exist(Metadata_log_event_types::RAFT_PREV_OPID_TYPE))
+  {
+    if (field_added)
+      buffer.append(" ");
+    buffer.append("Raft Prev OPID term: " + std::to_string(prev_raft_term_) +
+          " Raft Prev OPID Index: " + std::to_string(prev_raft_index_));
+    field_added= true;
+  }
+  if (does_exist(Metadata_log_event_types::RAFT_ROTATE_TAG_TYPE))
+  {
+    if (field_added)
+      buffer.append(" ");
+    buffer.append("Rotate Event Tag: " + get_rotate_tag_string());
+    field_added= true;
+  }
   if (buffer.length() > 0)
     protocol->store(buffer.c_str(), buffer.length(), &my_charset_bin);
 
@@ -16867,7 +16951,9 @@ Metadata_log_event::print(FILE *file, PRINT_EVENT_INFO *print_event_info)
       buffer.append(
           "\tRaft Prev OPID term: " + std::to_string(prev_raft_term_) +
           ", Raft Prev OPID Index: " + std::to_string(prev_raft_index_));
-
+    if (does_exist(Metadata_log_event_types::RAFT_ROTATE_TAG_TYPE))
+      buffer.append(
+          "\tRotate Event Tag: " + get_rotate_tag_string());
 
     print_header(head, print_event_info, FALSE);
     my_b_printf(head, "%s\n", buffer.c_str());
