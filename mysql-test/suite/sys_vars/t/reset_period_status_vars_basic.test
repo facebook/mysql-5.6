@@ -1,0 +1,57 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of reset_period_status_vars is OFF
+SELECT @@session.reset_period_status_vars;
+
+####
+# Verify that this is not a global variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@global.reset_period_status_vars;
+--echo Expected error 'Variable is a SESSION variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo reset_period_status_vars is a dynamic variable (change to "ON")
+set @@session.reset_period_status_vars = on;
+SELECT @@session.reset_period_status_vars;
+set @@session.reset_period_status_vars = "on";
+SELECT @@session.reset_period_status_vars;
+set @@session.reset_period_status_vars = 1;
+SELECT @@session.reset_period_status_vars;
+
+####
+## Verify that on another connection it is still default
+####
+--echo Verify that on another connection it is still set to default
+connect(con1, localhost, root, , );
+SELECT @@session.reset_period_status_vars;
+disconnect con1;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+connection default;
+set @@session.reset_period_status_vars = off;
+SELECT @@session.reset_period_status_vars;
+set @@session.reset_period_status_vars = "off";
+SELECT @@session.reset_period_status_vars;
+set @@session.reset_period_status_vars = 0;
+SELECT @@session.reset_period_status_vars;
+
+####
+## Verify bool type
+####
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.reset_period_status_vars = offline;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.reset_period_status_vars = "offline";
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.reset_period_status_vars = 2;
+--error ER_WRONG_TYPE_FOR_VAR
+set @@session.reset_period_status_vars = 1.0;

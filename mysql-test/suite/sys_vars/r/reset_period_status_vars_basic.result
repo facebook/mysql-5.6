@@ -1,0 +1,45 @@
+Default value of reset_period_status_vars is OFF
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+0
+SELECT @@global.reset_period_status_vars;
+ERROR HY000: Variable 'reset_period_status_vars' is a SESSION variable
+Expected error 'Variable is a SESSION variable'
+reset_period_status_vars is a dynamic variable (change to "ON")
+set @@session.reset_period_status_vars = on;
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+1
+set @@session.reset_period_status_vars = "on";
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+1
+set @@session.reset_period_status_vars = 1;
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+1
+Verify that on another connection it is still set to default
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+0
+restore the default value
+set @@session.reset_period_status_vars = off;
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+0
+set @@session.reset_period_status_vars = "off";
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+0
+set @@session.reset_period_status_vars = 0;
+SELECT @@session.reset_period_status_vars;
+@@session.reset_period_status_vars
+0
+set @@session.reset_period_status_vars = offline;
+ERROR 42000: Variable 'reset_period_status_vars' can't be set to the value of 'offline'
+set @@session.reset_period_status_vars = "offline";
+ERROR 42000: Variable 'reset_period_status_vars' can't be set to the value of 'offline'
+set @@session.reset_period_status_vars = 2;
+ERROR 42000: Variable 'reset_period_status_vars' can't be set to the value of '2'
+set @@session.reset_period_status_vars = 1.0;
+ERROR 42000: Incorrect argument type to variable 'reset_period_status_vars'
