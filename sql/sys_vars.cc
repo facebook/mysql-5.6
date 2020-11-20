@@ -9045,3 +9045,29 @@ static Sys_var_bool Sys_sql_wsenv(
     "LOAD DATA. Set true to enable.",
     SESSION_VAR(enable_sql_wsenv), CMD_LINE(OPT_ARG), DEFAULT(false),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_session_admin));
+
+static bool check_max_tmp_disk_usage(sys_var *self MY_ATTRIBUTE((unused)),
+                                     THD *thd MY_ATTRIBUTE((unused)),
+                                     set_var *var) {
+  if (max_tmp_disk_usage == TMP_DISK_USAGE_DISABLED &&
+      var->save_result.ulonglong_value != TMP_DISK_USAGE_DISABLED)
+    /* Enabling at runtime is not allowed. */
+    return true;
+
+  return false;
+}
+
+static Sys_var_longlong Sys_max_tmp_disk_usage(
+    "max_tmp_disk_usage",
+    "The max disk usage for filesort and tmp tables. An error is raised "
+    "if this limit is exceeded. 0 means no limit. -1 disables global "
+    "tmp disk usage accounting and can only be re-enabled after restart.",
+    GLOBAL_VAR(max_tmp_disk_usage), CMD_LINE(OPT_ARG),
+    VALID_RANGE(-1, LONG_LONG_MAX), DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(check_max_tmp_disk_usage));
+
+static Sys_var_bool Sys_reset_period_status_vars(
+    "reset_period_status_vars",
+    "Enable atomic reset of period status vars "
+    "when they are shown.",
+    SESSION_ONLY(reset_period_status_vars), CMD_LINE(OPT_ARG), DEFAULT(false));

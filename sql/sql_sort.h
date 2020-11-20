@@ -300,4 +300,8 @@ void reuse_freed_buff(Merge_chunk *old_top, Heap_type *heap) {
   assert(0);
 }
 
+bool filesort_open_cached_file(IO_CACHE *cache, const char *dir,
+                               const char *prefix, size_t cache_size,
+                               myf cache_myflags, void *fs_info = nullptr);
+
 #endif /* SQL_SORT_INCLUDED */

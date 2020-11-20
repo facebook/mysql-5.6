@@ -1207,7 +1207,7 @@ void THD::init(bool is_slave) {
   update_charset();
   reset_current_stmt_binlog_format_row();
   reset_binlog_local_stmt_filter();
-  memset(&status_var, 0, sizeof(status_var));
+  reset_system_status_vars(&status_var);
   binlog_row_event_extra_data = nullptr;
 
   if (variables.sql_log_bin)
@@ -1279,19 +1279,23 @@ void THD::set_new_thread_id() {
 */
 
 void THD::cleanup_connection(void) {
+  cleanup();
+  killed = NOT_KILLED;
+  m_thd_life_cycle_stage = enum_thd_life_cycle_stages::ACTIVE;
+
+  /* Aggregate to global status now that cleanup is done. */
   mysql_mutex_lock(&LOCK_status);
   add_to_status(&global_status_var, &status_var);
   reset_system_status_vars(&status_var);
   mysql_mutex_unlock(&LOCK_status);
 
-  cleanup();
+  propagate_pending_global_disk_usage();
+
 #if defined(ENABLED_DEBUG_SYNC)
   /* End the Debug Sync Facility. See debug_sync.cc. */
   debug_sync_end_thread(this);
 #endif /* defined(ENABLED_DEBUG_SYNC) */
-  killed = NOT_KILLED;
   running_explain_analyze = false;
-  m_thd_life_cycle_stage = enum_thd_life_cycle_stages::ACTIVE;
   init(/* is_slave = */ false);
   stmt_map.reset();
   user_vars.clear();
@@ -1583,6 +1587,8 @@ void THD::release_resources() {
   status_var_aggregated = true;
 
   mysql_mutex_unlock(&LOCK_status);
+
+  propagate_pending_global_disk_usage();
 
   m_thd_life_cycle_stage = enum_thd_life_cycle_stages::RESOURCES_RELEASED;
   disable_mem_cnt();
@@ -4048,4 +4054,116 @@ void THD::mt_hex_value(enum_mt_key key_name, char *hex_val, int len) {
   } else {
     hex_val[0] = '\0';
   }
+}
+
+/**
+  Helper function to adjust global usage/peak counters by accumulated delta.
+
+  @param unreported_delta   pending delta for global usage update
+  @param g_value            global usage value
+  @param g_peak             global usage peak
+  @param g_period_peak      global usage peak for some period
+*/
+static void adjust_global_by(std::atomic<longlong> *unreported_delta,
+                             std::atomic<ulonglong> *g_value,
+                             std::atomic<ulonglong> *g_peak,
+                             std::atomic<ulonglong> *g_period_peak) {
+  /* Counters could be disabled at runtime, re-enable requires restart. */
+  if (max_tmp_disk_usage == TMP_DISK_USAGE_DISABLED) return;
+
+  /*
+    This is where threads on the secondary could race to find which
+    one is doing global update. Only one will grab the whole unreported
+    amount.
+  */
+  longlong delta = unreported_delta->exchange(0);
+
+  /*
+    It's possible that delta now is less than the increment but it would
+    be very rare so just do the update regardless.
+  */
+  if (delta != 0) {
+    ulonglong old_value = g_value->fetch_add(delta);
+    ulonglong new_value = old_value + delta;
+
+    /* Check for over and underflow. */
+    assert(delta >= 0 ? new_value >= old_value : new_value < old_value);
+
+    /* Now update peaks. */
+    update_peak(g_peak, new_value);
+    update_peak(g_period_peak, new_value);
+  }
+}
+
+/**
+  Helper function to adjust local session and global usage/peak counters
+  by specified delta. The global updates are batched to avoid frequent
+  updates.
+
+  @param value              session usage value
+  @param peak               session usage peak
+  @param delta              signed usage delta in bytes
+  @param unreported_delta   pending delta for global usage update
+  @param g_value            global usage value
+  @param g_peak             global usage peak
+  @param g_period_peak      global usage peak for some period
+*/
+static void adjust_by(std::atomic<ulonglong> *value,
+                      std::atomic<ulonglong> *peak, longlong delta,
+                      std::atomic<longlong> *unreported_delta,
+                      std::atomic<ulonglong> *g_value,
+                      std::atomic<ulonglong> *g_peak,
+                      std::atomic<ulonglong> *g_period_peak) {
+  /*
+    Atomic operation is only needed for the secondary threads that steal
+    tmp tables from one another (see mts_move_temp_tables_to_thd).
+  */
+  ulonglong old_value = value->fetch_add(delta);
+  ulonglong new_value = old_value + delta;
+
+  /* Check for over and underflow. */
+  assert(delta >= 0 ? new_value >= old_value : new_value < old_value);
+
+  /* Local peak is maintained as atomic for two reasons:
+     1. REFRESH_STATUS resets peak from another thead.
+     2. Multiple replication threads could operate on one session. */
+  update_peak(peak, new_value);
+
+  /* Avoid frequent updates of global usage. */
+  constexpr ulonglong DISK_USAGE_REPORTING_INCREMENT = 8192;
+  longlong new_delta = unreported_delta->fetch_add(delta) + delta;
+  ulonglong abs_delta = new_delta >= 0 ? new_delta : -new_delta;
+
+  if (abs_delta >= DISK_USAGE_REPORTING_INCREMENT) {
+    adjust_global_by(unreported_delta, g_value, g_peak, g_period_peak);
+  }
+}
+
+/**
+  Adjust filesort disk usage for current session.
+
+  @param delta    signed delta value in bytes
+*/
+void THD::adjust_filesort_disk_usage(longlong delta) {
+  adjust_by(&m_filesort_disk_usage, &m_filesort_disk_usage_peak, delta,
+            &m_unreported_global_filesort_delta, &filesort_disk_usage,
+            &filesort_disk_usage_peak, &filesort_disk_usage_period_peak);
+}
+
+/**
+  Propagate pending global disk usage at the end of session.
+*/
+void THD::propagate_pending_global_disk_usage() {
+  adjust_global_by(&m_unreported_global_filesort_delta, &filesort_disk_usage,
+                   &filesort_disk_usage_peak, &filesort_disk_usage_period_peak);
+}
+
+/**
+  Reset session status vars on REFRESH_STATUS.
+*/
+void THD::reset_status_vars() {
+  reset_system_status_vars(&status_var);
+
+  /* Handle special session status vars here. */
+  reset_peak(&m_filesort_disk_usage_peak, m_filesort_disk_usage);
 }

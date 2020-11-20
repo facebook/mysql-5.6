@@ -10005,6 +10005,9 @@ ER_HLC_WAIT_TIMEDOUT
 ER_INVALID_HLC_WAIT_TIMEOUT
   eng "Invalid HLC wait timeout supplied: `%s`"
 
+ER_MAX_TMP_DISK_USAGE_EXCEEDED
+  eng "Disk usage for temp objects exceeds specified limit"
+
 #
 # FB error codes specifically for 8.0 only start at 50100.
 #

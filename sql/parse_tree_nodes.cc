@@ -2486,6 +2486,7 @@ Sql_cmd *PT_show_replica_status::make_cmd(THD *thd) {
 Sql_cmd *PT_show_status::make_cmd(THD *thd) {
   LEX *lex = thd->lex;
   lex->sql_command = m_sql_command;
+  lex->option_type = m_var_type;
 
   if (m_wild.str && lex->set_wild(m_wild)) return nullptr;  // OOM
 

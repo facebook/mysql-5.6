@@ -597,6 +597,23 @@ extern char *opt_log_error_suppression_list;
 extern char *opt_log_error_services;
 extern char *opt_protocol_compression_algorithms;
 
+/* Global tmp disk usage max and check. */
+extern ulonglong max_tmp_disk_usage;
+const ulonglong TMP_DISK_USAGE_DISABLED = -1;
+bool is_tmp_disk_usage_over_max();
+
+/* Filesort current usage and peak since startup. */
+extern std::atomic<ulonglong> filesort_disk_usage;
+extern std::atomic<ulonglong> filesort_disk_usage_peak;
+
+/* Peak for filesort usage atomically reset by show status. */
+extern std::atomic<ulonglong> filesort_disk_usage_period_peak;
+
+/* Common peak stats operations. */
+void update_peak(std::atomic<ulonglong> *peak, ulonglong new_value);
+ulonglong reset_peak(std::atomic<ulonglong> *peak,
+                     const std::atomic<ulonglong> &value);
+
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;

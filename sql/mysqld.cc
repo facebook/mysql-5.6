@@ -1216,6 +1216,10 @@ bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;
 bool enable_acl_db_cache = true;
 bool enable_super_log_bin_read_only = false;
+ulonglong max_tmp_disk_usage;
+std::atomic<ulonglong> filesort_disk_usage;
+std::atomic<ulonglong> filesort_disk_usage_peak;
+std::atomic<ulonglong> filesort_disk_usage_period_peak;
 
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
@@ -2090,6 +2094,18 @@ bool thd_mem_cnt_alloc(THD *thd, size_t size) {
 #endif
 
 void thd_mem_cnt_free(THD *thd, size_t size) { thd->mem_cnt->free_cnt(size); }
+
+/**
+  Check if global tmp disk usage exceeds max.
+
+  @return
+    @retval true   Usage exceeds max.
+    @retval false  Usage is below max, or max is not set.
+*/
+bool is_tmp_disk_usage_over_max() {
+  return static_cast<longlong>(max_tmp_disk_usage) > 0 &&
+         filesort_disk_usage > max_tmp_disk_usage;
+}
 
 void aggregate_status_var(std::function<void(THD *)> callback, THD *thd) {
   mysql_mutex_lock(&thd->LOCK_thd_data);
@@ -10394,6 +10410,66 @@ static int show_last_acked_binlog_pos(THD *, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+void update_peak(std::atomic<ulonglong> *peak, ulonglong new_value) {
+  ulonglong old_peak = *peak;
+  while (old_peak < new_value) {
+    /* If Compare-And-Swap is unsuccessful then old_peak is updated. */
+    if (peak->compare_exchange_weak(old_peak, new_value)) break;
+  }
+}
+
+ulonglong reset_peak(std::atomic<ulonglong> *peak,
+                     const std::atomic<ulonglong> &value) {
+  /* First, reset to 0 not to miss updates to value between reading it
+      and setting the peak. If update is missed then peak could be smaller
+      than current value. */
+  ulonglong result = peak->exchange(0);
+
+  /* Now update peak with latest value, possibly racing with others. */
+  update_peak(peak, value);
+
+  return result;
+}
+
+int show_longlong(SHOW_VAR *var, char *buff, ulonglong value) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  *reinterpret_cast<ulonglong *>(buff) = value;
+  return 0;
+}
+
+static int show_filesort_disk_usage(THD *thd, SHOW_VAR *var, char *buff) {
+  return thd->lex->option_type == OPT_SESSION
+             ? show_longlong(var, buff, thd->get_filesort_disk_usage())
+             : show_longlong(var, buff, filesort_disk_usage);
+}
+
+static int show_filesort_disk_usage_peak(THD *thd, SHOW_VAR *var, char *buff) {
+  return thd->lex->option_type == OPT_SESSION
+             ? show_longlong(var, buff, thd->get_filesort_disk_usage_peak())
+             : show_longlong(var, buff, filesort_disk_usage_peak);
+}
+
+static int show_peak_with_reset(THD *thd, SHOW_VAR *var, char *buff,
+                                std::atomic<ulonglong> *peak,
+                                const std::atomic<ulonglong> &usage) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  if (thd->variables.reset_period_status_vars) {
+    *reinterpret_cast<ulonglong *>(buff) = reset_peak(peak, usage);
+  } else {
+    *reinterpret_cast<ulonglong *>(buff) = *peak;
+  }
+
+  return 0;
+}
+
+static int show_filesort_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
+                                                char *buff) {
+  return show_peak_with_reset(thd, var, buff, &filesort_disk_usage_period_peak,
+                              filesort_disk_usage);
+}
+
 /*
   Variables shown by SHOW STATUS in alphabetical order
 */
@@ -10531,6 +10607,13 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
     {"Exec_seconds", (char *)offsetof(System_status_var, exec_time),
      SHOW_TIMER_STATUS, SHOW_SCOPE_ALL},
+    {"Filesort_disk_usage", (char *)show_filesort_disk_usage, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Filesort_disk_usage_peak", (char *)show_filesort_disk_usage_peak,
+     SHOW_FUNC, SHOW_SCOPE_ALL},
+    {"Filesort_disk_usage_period_peak",
+     (char *)show_filesort_disk_usage_period_peak, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {"Flush_commands", (char *)&refresh_version, SHOW_LONG_NOFLUSH,
      SHOW_SCOPE_GLOBAL},
     {"Git_hash", (char *)git_hash, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
@@ -12636,7 +12719,7 @@ class Reset_thd_status : public Do_THD_Impl {
     if (!thd->status_var_aggregated) {
       add_to_status(&global_status_var, &thd->status_var);
     }
-    reset_system_status_vars(&thd->status_var);
+    thd->reset_status_vars();
   }
 };
 

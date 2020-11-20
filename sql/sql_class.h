@@ -2594,6 +2594,29 @@ class THD : public MDL_context_owner,
 
   void capture_system_thread_id();
 
+  /* Reset status vars on REFRESH_STATUS. */
+  void reset_status_vars();
+
+  /* Adjust disk usage for current session. */
+  void adjust_filesort_disk_usage(longlong delta);
+  void propagate_pending_global_disk_usage();
+
+  /* Get current disk usage and peak. */
+  ulonglong get_filesort_disk_usage() { return m_filesort_disk_usage; }
+  ulonglong get_filesort_disk_usage_peak() {
+    return m_filesort_disk_usage_peak;
+  }
+
+ private:
+  /* Current filesort usage and peak since last reset. */
+  std::atomic<ulonglong> m_filesort_disk_usage{0};
+  std::atomic<ulonglong> m_filesort_disk_usage_peak{0};
+
+  /* Reporting of session disk usage to global counters is done in batches
+     to avoid contention on global variables. */
+  std::atomic<longlong> m_unreported_global_filesort_delta{0};
+
+ public:
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
 

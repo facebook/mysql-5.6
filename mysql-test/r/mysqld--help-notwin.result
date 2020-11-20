@@ -897,6 +897,11 @@ The following options may be given as the first argument:
  Maximum stored procedure recursion depth
  --max-statement-time=# 
  redirects to max_execution_time
+ --max-tmp-disk-usage[=#] 
+ The max disk usage for filesort and tmp tables. An error
+ is raised if this limit is exceeded. 0 means no limit. -1
+ disables global tmp disk usage accounting and can only be
+ re-enabled after restart.
  --max-user-connections=# 
  The maximum number of active connections for a single
  user (0 = no limit)
@@ -1562,6 +1567,9 @@ The following options may be given as the first argument:
  When this option is enabled, connections attempted using
  insecure transport will be rejected.  Secure transports
  are SSL/TLS, Unix socket or Shared Memory (on Windows).
+ --reset-period-status-vars 
+ Enable atomic reset of period status vars when they are
+ shown.
  --reset-seconds-behind-master 
  When TRUE reset Seconds_Behind_Master to 0 when SQL
  thread catches up to the IO thread. This is the original
@@ -2863,6 +2871,7 @@ max-slowlog-size 0
 max-sort-length 1024
 max-sp-recursion-depth 0
 max-statement-time 0
+max-tmp-disk-usage 0
 max-user-connections 0
 max-waiting-queries 0
 max-write-lock-count 18446744073709551615
@@ -3032,6 +3041,7 @@ report-password (No default value)
 report-port 0
 report-user (No default value)
 require-secure-transport FALSE
+reset-period-status-vars FALSE
 reset-seconds-behind-master TRUE
 response-attrs-contain-hlc FALSE
 rocksdb ON

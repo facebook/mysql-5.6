@@ -94,5 +94,6 @@ void close_cached_file(IO_CACHE *cache) {
     }
     my_free(cache->dir);
     my_free(cache->prefix);
+    assert(cache->reported_disk_usage == 0);
   }
 }

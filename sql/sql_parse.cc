@@ -2854,6 +2854,10 @@ done:
   thd->set_proc_info(nullptr);
   thd->lex->sql_command = SQLCOM_END;
 
+  /* Propagate remaining disk usage to global status after the command so
+     that session and global status vars agree with each other. */
+  thd->propagate_pending_global_disk_usage();
+
   /* Performance Schema Interface instrumentation, end */
   MYSQL_END_STATEMENT(thd->m_statement_psi, thd->get_stmt_da());
   thd->m_statement_psi = nullptr;
