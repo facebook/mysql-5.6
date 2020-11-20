@@ -22,8 +22,6 @@
 
 #include "sql/system_variables.h"
 
-#include <string.h>
-
 /*
   Add all status variables to another status variable array
 
