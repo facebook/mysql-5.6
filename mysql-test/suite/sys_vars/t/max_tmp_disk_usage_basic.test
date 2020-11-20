@@ -1,0 +1,105 @@
+--source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of max_tmp_disk_usage is 0
+set global max_tmp_disk_usage = default;
+SELECT @@global.max_tmp_disk_usage;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.max_tmp_disk_usage;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+# Test valid values
+####
+SET @@global.max_tmp_disk_usage = 1024;
+SELECT @@global.max_tmp_disk_usage;
+SET @@global.max_tmp_disk_usage = 60020;
+SELECT @@global.max_tmp_disk_usage;
+SET @@global.max_tmp_disk_usage = 4294967295;
+SELECT @@global.max_tmp_disk_usage;
+SET @@global.max_tmp_disk_usage = 9223372036854775807;
+SELECT @@global.max_tmp_disk_usage;
+
+####
+# Test invalid values
+####
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_tmp_disk_usage = ON;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_tmp_disk_usage = OFF;
+
+SET @@global.max_tmp_disk_usage = True;
+SELECT @@global.max_tmp_disk_usage;
+
+SET @@global.max_tmp_disk_usage = False;
+SELECT @@global.max_tmp_disk_usage;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_tmp_disk_usage = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.max_tmp_disk_usage ="Test";
+
+SET @@global.max_tmp_disk_usage = 9223372036854775808;
+SELECT @@global.max_tmp_disk_usage;
+
+####
+## Verify that ON -> OFF transition is allowed
+####
+--echo max_tmp_disk_usage can be set to -1 to disable counters
+set global max_tmp_disk_usage = -1;
+SELECT @@global.max_tmp_disk_usage;
+
+####
+## Verify that OFF -> OFF transition is allowed
+####
+--echo max_tmp_disk_usage can go from -1 to -1
+set global max_tmp_disk_usage = -1;
+SELECT @@global.max_tmp_disk_usage;
+
+####
+## Verify that all negative numbers are truncated to -1
+####
+--echo All negative numbers are truncated to -1
+SET @@global.max_tmp_disk_usage = -1024;
+SELECT @@global.max_tmp_disk_usage;
+
+
+####
+## Verify that OFF -> ON transition is NOT allowed
+####
+--echo max_tmp_disk_usage cannot go from -1 to anything else
+--Error ER_WRONG_VALUE_FOR_VAR
+set global max_tmp_disk_usage = 0;
+--echo Expected error 'Variable cannot be set to the value of 0'
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (OFF)
+--let $restart_parameters="restart: --max_tmp_disk_usage=-1"
+--source include/restart_mysqld.inc
+
+SELECT @@global.max_tmp_disk_usage;
+
+####
+## Verify that OFF -> ON transition is still NOT allowed
+####
+--echo max_tmp_disk_usage cannot go from -1 to anything else
+--Error ER_WRONG_VALUE_FOR_VAR
+set global max_tmp_disk_usage = 0;
+--echo Expected error 'Variable cannot be set to the value of 0'
+
+--echo restart the server with the default value (0)
+--let $restart_parameters="restart: "
+--source include/restart_mysqld.inc
+
+# check value is default (0)
+SELECT @@global.max_tmp_disk_usage;

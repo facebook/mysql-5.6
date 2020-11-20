@@ -1,0 +1,81 @@
+Default value of max_tmp_disk_usage is 0
+set global max_tmp_disk_usage = default;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+0
+SELECT @@session.max_tmp_disk_usage;
+ERROR HY000: Variable 'max_tmp_disk_usage' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@global.max_tmp_disk_usage = 1024;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+1024
+SET @@global.max_tmp_disk_usage = 60020;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+60020
+SET @@global.max_tmp_disk_usage = 4294967295;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+4294967295
+SET @@global.max_tmp_disk_usage = 9223372036854775807;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+9223372036854775807
+SET @@global.max_tmp_disk_usage = ON;
+ERROR 42000: Incorrect argument type to variable 'max_tmp_disk_usage'
+SET @@global.max_tmp_disk_usage = OFF;
+ERROR 42000: Incorrect argument type to variable 'max_tmp_disk_usage'
+SET @@global.max_tmp_disk_usage = True;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+1
+SET @@global.max_tmp_disk_usage = False;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+0
+SET @@global.max_tmp_disk_usage = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'max_tmp_disk_usage'
+SET @@global.max_tmp_disk_usage ="Test";
+ERROR 42000: Incorrect argument type to variable 'max_tmp_disk_usage'
+SET @@global.max_tmp_disk_usage = 9223372036854775808;
+Warnings:
+Warning	1292	Truncated incorrect max_tmp_disk_usage value: '9223372036854775808'
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+9223372036854775807
+max_tmp_disk_usage can be set to -1 to disable counters
+set global max_tmp_disk_usage = -1;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+-1
+max_tmp_disk_usage can go from -1 to -1
+set global max_tmp_disk_usage = -1;
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+-1
+All negative numbers are truncated to -1
+SET @@global.max_tmp_disk_usage = -1024;
+Warnings:
+Warning	1292	Truncated incorrect max_tmp_disk_usage value: '-1024'
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+-1
+max_tmp_disk_usage cannot go from -1 to anything else
+set global max_tmp_disk_usage = 0;
+ERROR 42000: Variable 'max_tmp_disk_usage' can't be set to the value of '0'
+Expected error 'Variable cannot be set to the value of 0'
+restart the server with non default value (OFF)
+# restart: --max_tmp_disk_usage=-1
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+-1
+max_tmp_disk_usage cannot go from -1 to anything else
+set global max_tmp_disk_usage = 0;
+ERROR 42000: Variable 'max_tmp_disk_usage' can't be set to the value of '0'
+Expected error 'Variable cannot be set to the value of 0'
+restart the server with the default value (0)
+# restart: 
+SELECT @@global.max_tmp_disk_usage;
+@@global.max_tmp_disk_usage
+0

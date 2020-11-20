@@ -13134,12 +13134,14 @@ show_param:
 
             if ($1 == OPT_SESSION)
             {
+              lex->option_type = OPT_SESSION;
               if (build_show_session_status(
                     @$, thd, lex->wild, $3.where) == nullptr)
                 MYSQL_YYABORT;
             }
             else
             {
+              lex->option_type = OPT_GLOBAL;
               if (build_show_global_status(
                     @$, thd, lex->wild, $3.where) == nullptr)
                 MYSQL_YYABORT;
