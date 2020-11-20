@@ -6307,9 +6307,8 @@ void THD::propagate_pending_global_disk_usage()
                    tmp_table_disk_usage_period_peak);
   adjust_global_by(unreported_global_filesort_delta,
                    global_status_var.filesort_disk_usage,
-                   global_status_var.tmp_table_disk_usage_peak,
+                   global_status_var.filesort_disk_usage_peak,
                    filesort_disk_usage_period_peak);
-
 }
 
 /*
