@@ -190,12 +190,14 @@ int init_io_cache_ext(IO_CACHE *info, File file, size_t cachesize,
   info->type = TYPE_NOT_SET; /* Don't set it until mutex are created */
   info->pos_in_file = seek_offset;
   info->pre_close = info->pre_read = info->post_read = nullptr;
+  info->post_write = nullptr;
   info->arg = nullptr;
   info->alloced_buffer = false;
   info->buffer = nullptr;
   info->seek_not_done = false;
   info->compressor = nullptr;
   info->decompressor = nullptr;
+  info->reported_disk_usage = 0;
 
   if (file >= 0) {
     pos = mysql_file_tell(file, MYF(0));
@@ -1305,6 +1307,10 @@ int _my_b_write(IO_CACHE *info, const uchar *Buffer, size_t Count) {
     Count -= length;
     Buffer += length;
     info->pos_in_file += length;
+
+    /* Invoke post write callback, info->error will be set on error. */
+    IO_CACHE_CALLBACK post_write = info->post_write;
+    if (post_write && (*post_write)(info)) return 1;
   }
   memcpy(info->write_pos, Buffer, (size_t)Count);
   info->write_pos += Count;
@@ -1347,6 +1353,13 @@ int my_b_append(IO_CACHE *info, const uchar *Buffer, size_t Count) {
     Count -= length;
     Buffer += length;
     info->end_of_file += length;
+
+    /* Invoke post write callback, info->error will be set on error. */
+    IO_CACHE_CALLBACK post_write = info->post_write;
+    if (post_write && (*post_write)(info)) {
+      unlock_append_buffer(info);
+      return 1;
+    }
   }
 
 end:
@@ -1493,6 +1506,13 @@ int my_b_flush_io_cache(IO_CACHE *info, int need_append_buffer_lock) {
       }
       ++info->disk_writes;
       UNLOCK_APPEND_BUFFER;
+
+      if (!info->error) {
+        /* Invoke post write callback, info->error will be set on error. */
+        IO_CACHE_CALLBACK post_write = info->post_write;
+        if (post_write) (*post_write)(info);
+      }
+
       return info->error;
     }
   }

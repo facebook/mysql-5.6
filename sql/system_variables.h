@@ -544,6 +544,7 @@ struct System_variables {
   bool conn_global_mem_tracking;
 
   bool write_throttle_tag_only;
+  bool reset_period_status_vars;
 
   /**
     Switch which controls whether XA transactions are detached
@@ -577,7 +578,7 @@ struct System_variables {
 */
 
 struct System_status_var {
-  /* IMPORTANT! See first_system_status_var definition below. */
+  /* IMPORTANT! See FIRST_STATUS_VAR definition below. */
   ulonglong created_tmp_disk_tables;
   ulonglong created_tmp_tables;
   ulonglong ha_commit_count;
@@ -652,14 +653,15 @@ struct System_status_var {
   /// How many queries have been executed on a secondary storage engine.
   ulonglong secondary_engine_execution_count;
 
+  /*
+    IMPORTANT! See LAST_STATUS_VAR definition below. Variables after
+    LAST_STATUS_VAR cannot be handled automatically by add_to_status()
+    and add_diff_to_status().
+  */
+
   ulong com_other;
   ulong com_stat[(uint)SQLCOM_END];
 
-  /*
-    IMPORTANT! See last_system_status_var definition below. Variables after
-    'last_system_status_var' cannot be handled automatically by add_to_status()
-    and add_diff_to_status().
-  */
   double last_query_cost;
   ulonglong last_query_partial_plans;
 };

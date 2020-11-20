@@ -448,6 +448,10 @@ struct IO_CACHE /* Used when caching files */
   IO_CACHE_CALLBACK post_read{nullptr};
   IO_CACHE_CALLBACK pre_close{nullptr};
   /*
+    Callback when the actual write I/O happens.
+  */
+  IO_CACHE_CALLBACK post_write{nullptr};
+  /*
     Counts the number of times, when we were forced to use disk. We use it to
     increase the binlog_cache_disk_use and binlog_stmt_cache_disk_use status
     variables.
@@ -491,6 +495,8 @@ struct IO_CACHE /* Used when caching files */
   uint disk_sync_delay{0};
   class compressor *compressor{nullptr};
   class decompressor *decompressor{nullptr};
+  /* Disk usage reported to global/session tracking. */
+  my_off_t reported_disk_usage{0};
 };
 #if defined(disk_writes)
 #pragma pop_macro("disk_writes")

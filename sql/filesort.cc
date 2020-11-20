@@ -329,6 +329,51 @@ static void trace_filesort_information(Opt_trace_context *trace,
   }
 }
 
+static int filesort_post_write(IO_CACHE *cache) {
+  THD *thd = current_thd;
+  my_off_t prior_usage = cache->reported_disk_usage;
+  my_off_t current_usage = cache->pos_in_file;
+  Filesort_info *fs_info = reinterpret_cast<Filesort_info *>(cache->arg);
+
+  if (fs_info && thd->variables.filesort_max_file_size > 0 &&
+      current_usage > thd->variables.filesort_max_file_size) {
+#ifndef NDEBUG
+    fs_info->file_size_exceeded = true;
+#endif
+    my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
+    cache->error = ER_FILESORT_MAX_FILE_SIZE_EXCEEDED;
+  } else if (is_tmp_disk_usage_over_max()) {
+    my_error(ER_MAX_TMP_DISK_USAGE_EXCEEDED, MYF(0));
+    cache->error = ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+  }
+
+  if (current_usage > prior_usage) {
+    thd->adjust_filesort_disk_usage(current_usage - prior_usage);
+    cache->reported_disk_usage = current_usage;
+  }
+
+  return cache->error;
+}
+
+static int filesort_pre_close(IO_CACHE *cache) {
+  if (cache->reported_disk_usage) {
+    current_thd->adjust_filesort_disk_usage(-cache->reported_disk_usage);
+    cache->reported_disk_usage = 0;
+  }
+
+  return 0;
+}
+
+bool filesort_open_cached_file(IO_CACHE *cache, const char *dir,
+                               const char *prefix, size_t cache_size,
+                               myf cache_myflags, void *fs_info) {
+  bool result = open_cached_file(cache, dir, prefix, cache_size, cache_myflags);
+  cache->post_write = filesort_post_write;
+  cache->pre_close = filesort_pre_close;
+  cache->arg = fs_info;
+  return result;
+}
+
 /**
   Sort a table.
   Creates a set of pointers that can be used to read the rows
@@ -545,8 +590,8 @@ bool filesort(THD *thd, Filesort *filesort, RowIterator *source_iterator,
 
     /* Open cached file if it isn't open */
     if (!my_b_inited(outfile) &&
-        open_cached_file(outfile, mysql_tmpdir, TEMP_PREFIX, READ_RECORD_BUFFER,
-                         MYF(MY_WME)))
+        filesort_open_cached_file(outfile, mysql_tmpdir, TEMP_PREFIX,
+                                  READ_RECORD_BUFFER, MYF(MY_WME)))
       goto err;
     if (reinit_io_cache(outfile, WRITE_CACHE, 0L, false, false)) goto err;
 
@@ -1097,13 +1142,13 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
   count = fs_info->sort_buffer(param, count, param->max_rows);
 
   if (!my_b_inited(chunk_file) &&
-      open_cached_file(chunk_file, mysql_tmpdir, TEMP_PREFIX, DISK_BUFFER_SIZE,
-                       MYF(MY_WME)))
+      filesort_open_cached_file(chunk_file, mysql_tmpdir, TEMP_PREFIX,
+                                DISK_BUFFER_SIZE, MYF(MY_WME)))
     return 1;
 
   if (!my_b_inited(tempfile) &&
-      open_cached_file(tempfile, mysql_tmpdir, TEMP_PREFIX, DISK_BUFFER_SIZE,
-                       MYF(MY_WME)))
+      filesort_open_cached_file(tempfile, mysql_tmpdir, TEMP_PREFIX,
+                                DISK_BUFFER_SIZE, MYF(MY_WME), fs_info))
     return 1; /* purecov: inspected */
 
   // Check that we won't have more chunks than we can possibly keep in memory.
@@ -1125,15 +1170,6 @@ static int write_keys(Sort_param *param, Filesort_info *fs_info, uint count,
      */
     MYSQL_INC_STATEMENT_FILESORT_BYTES_WRITTEN(thd->m_statement_psi,
                                                (ulonglong)rec_length);
-
-    if (thd->variables.filesort_max_file_size > 0 &&
-        tempfile->pos_in_file > thd->variables.filesort_max_file_size) {
-#ifndef NDEBUG
-      fs_info->file_size_exceeded = true;
-#endif /* NDEBUG */
-      my_error(ER_FILESORT_MAX_FILE_SIZE_EXCEEDED, MYF(0));
-      return 1;
-    }
   }
 
   if (my_b_write(chunk_file, pointer_cast<uchar *>(&merge_chunk),

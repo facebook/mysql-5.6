@@ -341,6 +341,8 @@ typedef Sys_var_integer<ha_rows, GET_HA_ROWS, SHOW_HA_ROWS, false>
 typedef Sys_var_integer<ulonglong, GET_ULL, SHOW_LONGLONG, false>
     Sys_var_ulonglong;
 typedef Sys_var_integer<long, GET_LONG, SHOW_SIGNED_LONG, true> Sys_var_long;
+typedef Sys_var_integer<longlong, GET_LL, SHOW_SIGNED_LONGLONG, true>
+    Sys_var_longlong;
 
 /**
   A sys_var that is an alias for another sys_var.

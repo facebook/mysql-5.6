@@ -1,6 +1,17 @@
 --source include/count_sessions.inc
 
 set @save_filesort_max_file_size = @@global.filesort_max_file_size;
+set @save_max_tmp_disk_usage = @@global.max_tmp_disk_usage;
+
+--let $g_filesort_disk_usage_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+
+echo Reset filesort_disk_usage_period_peak;
+set reset_period_status_vars = on;
+--let $g_filesort_disk_usage_period_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+
+echo Confirm that filesort_disk_usage_period_peak is reset;
+SHOW GLOBAL STATUS LIKE "filesort_disk_usage_period_peak";
+set reset_period_status_vars = off;
 
 create table t1 (i int, c char(255));
 
@@ -28,6 +39,54 @@ select i, c from t1 order by hex(c) limit 1 offset 4000;
 --error ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
 select /*+ SET_VAR(filesort_max_file_size = 1000000) */ i, c from t1 order by hex(c) limit 1 offset 4000;
 
+--let $filesort_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage', Value, 1)
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--let $g_filesort_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage', Value, 1)
+--let $g_filesort_disk_usage_peak_new = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--let $g_filesort_disk_usage_period_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage = 0 as "filesort usage is 0"
+--eval select $g_filesort_disk_usage = 0 as "global filesort usage is 0"
+--eval select $filesort_disk_usage_peak > 2000000 as "filesort peak is above 2000000"
+--eval select $g_filesort_disk_usage_peak > $filesort_disk_usage_peak or $g_filesort_disk_usage_peak_new = $filesort_disk_usage_peak as "original global peak is too high, or peak is same as session"
+--eval select $g_filesort_disk_usage_period_peak = $filesort_disk_usage_peak as "period peak should be the same as session peak"
+--enable_query_log
+
+echo Confirm that flush status resets it on all connections;
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
+--error ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
+select /*+ SET_VAR(filesort_max_file_size = 1000000) */ i, c from t1 order by hex(c) limit 1 offset 4000;
+--let $filesort_disk_usage_peak2 = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage_peak2 between 1000000 and 1100000 as "filesort peak of another connection is slightly above 1000000"
+--enable_query_log
+
+flush status;
+
+--let $filesort_disk_usage_peak2 = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage_peak2 = 0 as "filesort peak of another connection is reset to 0"
+--enable_query_log
+
+connection default;
+disconnect root;
+
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--let $g_filesort_disk_usage_peak_new2 = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--let $g_filesort_disk_usage_period_peak2 = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage_peak = 0 as "filesort peak is reset to 0"
+--eval select $g_filesort_disk_usage_peak_new = $g_filesort_disk_usage_peak_new2 as "global peak is not reset"
+--eval select $g_filesort_disk_usage_period_peak = $g_filesort_disk_usage_period_peak2 as "period peak is not reset"
+--enable_query_log
+
+set reset_period_status_vars = on;
+--let $g_filesort_disk_usage_period_peak2 = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+set reset_period_status_vars = off;
+--disable_query_log
+--eval select $g_filesort_disk_usage_period_peak = $g_filesort_disk_usage_period_peak2 as "with reset returned period peak is still the same"
+--enable_query_log
+
 echo Query fails with a limit;
 set session filesort_max_file_size=1000000;
 show variables like "filesort_max_file_size";
@@ -36,26 +95,57 @@ show global variables like "filesort_max_file_size";
 --error ER_FILESORT_MAX_FILE_SIZE_EXCEEDED
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 
+set reset_period_status_vars = on;
+--let $g_filesort_disk_usage_period_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+set reset_period_status_vars = off;
+
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $filesort_disk_usage_peak between 1000000 and 1100000 as "filesort peak is slightly above 1000000"
+--eval select $g_filesort_disk_usage_period_peak = $filesort_disk_usage_peak as "period peak is the same as session peak"
+--enable_query_log
+
 echo Query is OK when another session has a limit;
-connect (root,localhost,root,,test);
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
 show variables like "filesort_max_file_size";
 show session variables like "filesort_max_file_size";
 show global variables like "filesort_max_file_size";
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+
+set reset_period_status_vars = on;
+--let $g_filesort_disk_usage_period_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'filesort_disk_usage_period_peak', Value, 1)
+set reset_period_status_vars = off;
+
+--let $filesort_disk_usage_peak = query_get_value(SHOW SESSION STATUS LIKE 'filesort_disk_usage_peak', Value, 1)
+--disable_query_log
+--eval select $g_filesort_disk_usage_period_peak = $filesort_disk_usage_peak as "period peak is the same as session peak"
+--enable_query_log
+
+echo Query fails on another session with global tmp disk usage limit;
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 
 connection default;
 disconnect root;
 
-echo Query is OK when session limit is reset;
+echo Query still fails when session limit is reset due to global tmp disk usage limit;
 set session filesort_max_file_size=0;
 show variables like "filesort_max_file_size";
 show session variables like "filesort_max_file_size";
 show global variables like "filesort_max_file_size";
+--error ER_MAX_TMP_DISK_USAGE_EXCEEDED
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+
+echo Query is OK when global tmp disk usage limit is reset;
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 
 echo Query fails when global limit is set;
 set global filesort_max_file_size=1000000;
-connect (root,localhost,root,,test);
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
 show variables like "filesort_max_file_size";
 show session variables like "filesort_max_file_size";
 show global variables like "filesort_max_file_size";
@@ -68,5 +158,7 @@ disconnect root;
 drop table t1;
 
 set @@global.filesort_max_file_size = @save_filesort_max_file_size;
+set @@global.max_tmp_disk_usage = @save_max_tmp_disk_usage;
+
 
 --source include/wait_until_count_sessions.inc

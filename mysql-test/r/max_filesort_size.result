@@ -1,4 +1,12 @@
 set @save_filesort_max_file_size = @@global.filesort_max_file_size;
+set @save_max_tmp_disk_usage = @@global.max_tmp_disk_usage;
+Reset filesort_disk_usage_period_peak
+set reset_period_status_vars = on;
+Confirm that filesort_disk_usage_period_peak is reset
+SHOW GLOBAL STATUS LIKE "filesort_disk_usage_period_peak";
+Variable_name	Value
+Filesort_disk_usage_period_peak	0
+set reset_period_status_vars = off;
 create table t1 (i int, c char(255));
 insert into t1 values (0, lpad('a', 250, 'b'));
 insert into t1 select i+1,c from t1;
@@ -33,6 +41,34 @@ i	c
 643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
 select /*+ SET_VAR(filesort_max_file_size = 1000000) */ i, c from t1 order by hex(c) limit 1 offset 4000;
 ERROR HY000: Filesort file is too big
+filesort usage is 0
+1
+global filesort usage is 0
+1
+filesort peak is above 2000000
+1
+original global peak is too high, or peak is same as session
+1
+period peak should be the same as session peak
+1
+Confirm that flush status resets it on all connections
+select /*+ SET_VAR(filesort_max_file_size = 1000000) */ i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Filesort file is too big
+filesort peak of another connection is slightly above 1000000
+1
+flush status;
+filesort peak of another connection is reset to 0
+1
+filesort peak is reset to 0
+1
+global peak is not reset
+1
+period peak is not reset
+1
+set reset_period_status_vars = on;
+set reset_period_status_vars = off;
+with reset returned period peak is still the same
+1
 Query fails with a limit
 set session filesort_max_file_size=1000000;
 show variables like "filesort_max_file_size";
@@ -46,6 +82,12 @@ Variable_name	Value
 filesort_max_file_size	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 ERROR HY000: Filesort file is too big
+set reset_period_status_vars = on;
+set reset_period_status_vars = off;
+filesort peak is slightly above 1000000
+1
+period peak is the same as session peak
+1
 Query is OK when another session has a limit
 show variables like "filesort_max_file_size";
 Variable_name	Value
@@ -59,7 +101,18 @@ filesort_max_file_size	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 i	c
 643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
-Query is OK when session limit is reset
+set reset_period_status_vars = on;
+set reset_period_status_vars = off;
+period peak is the same as session peak
+1
+Query fails on another session with global tmp disk usage limit
+set global max_tmp_disk_usage = 1000000;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	1000000
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query still fails when session limit is reset due to global tmp disk usage limit
 set session filesort_max_file_size=0;
 show variables like "filesort_max_file_size";
 Variable_name	Value
@@ -70,6 +123,13 @@ filesort_max_file_size	0
 show global variables like "filesort_max_file_size";
 Variable_name	Value
 filesort_max_file_size	0
+select i, c from t1 order by hex(c) limit 1 offset 4000;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+Query is OK when global tmp disk usage limit is reset
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
 select i, c from t1 order by hex(c) limit 1 offset 4000;
 i	c
 643	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
@@ -88,3 +148,4 @@ select i, c from t1 order by hex(c) limit 1 offset 4000;
 ERROR HY000: Filesort file is too big
 drop table t1;
 set @@global.filesort_max_file_size = @save_filesort_max_file_size;
+set @@global.max_tmp_disk_usage = @save_max_tmp_disk_usage;
