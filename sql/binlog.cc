@@ -7034,7 +7034,16 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log,
     // post append rotates - no flush and before commit stages required
     // rotate_via_raft - flush and before commit of rotate event needs to happen
     DBUG_ASSERT(!skip_re_append);
-    init_io_cache(&raft_io_cache, -1, 4000, WRITE_CACHE, 0, 0, MYF(MY_WME));
+    if (config_change_rotate)
+    {
+      init_io_cache(&raft_io_cache, -1,
+                    /* 1000 buffer for rotate and rest of payload */
+                    raft_rotate_info->config_change.size() + 1000,
+                    WRITE_CACHE, 0, 0, MYF(MY_WME));
+    } else
+    {
+      init_io_cache(&raft_io_cache, -1, 4000, WRITE_CACHE, 0, 0, MYF(MY_WME));
+    }
   }
 
   mysql_mutex_lock(&LOCK_index);
