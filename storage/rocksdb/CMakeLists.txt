@@ -95,6 +95,12 @@ IF(CMAKE_COMPILER_IS_GNUCXX)
   IF(HAVE_NO_DEPRECATED_COPY)
     ADD_COMPILE_FLAGS(../../rocksdb/db/db_impl/db_impl.cc COMPILE_FLAGS "-Wno-deprecated-copy")
   ENDIF()
+
+  MY_CHECK_CXX_COMPILER_FLAG("-Wno-logical-op" HAVE_NO_LOGICAL_OP)
+  IF(HAVE_NO_LOGICAL_OP)
+    ADD_COMPILE_FLAGS(../../rocksdb/file/filename.cc COMPILE_FLAGS
+      "-Wno-logical-op")
+  ENDIF()
 ENDIF()
 
 

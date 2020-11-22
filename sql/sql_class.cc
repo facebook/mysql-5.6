@@ -607,7 +607,7 @@ static std::string get_shard_id(const std::string& db_metadata) {
       shard_id = iter->value.GetString();
     }
     return shard_id;
-  } catch (std::exception) {
+  } catch (std::exception &) {
     return {};
   }
 }
@@ -3380,7 +3380,7 @@ void THD::get_mt_keys_for_write_query(
   // SQL ID
   // TODO(mzait) Calculating a unique hash for now, to be
   // replaced after the same hash used in sql_findings when ported to 8.0
-  char sql_id[DIGEST_HASH_TO_STRING_LENGTH] = "";
+  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1] = "";
   if (m_digest && !m_digest->m_digest_storage.is_empty()) {
     uchar digest_hash[DIGEST_HASH_SIZE];
     compute_digest_hash(&m_digest->m_digest_storage, digest_hash);
