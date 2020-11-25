@@ -134,6 +134,8 @@ struct WRITE_THROTTLING_LOG {
 void store_write_throttling_log(THD *thd, int type, std::string value,
                                 WRITE_THROTTLING_RULE &rule);
 
+void store_long_qry_abort_log(THD *thd);
+
 std::vector<write_throttling_log_row> get_all_write_throttling_log();
 
 /***********************************************************************

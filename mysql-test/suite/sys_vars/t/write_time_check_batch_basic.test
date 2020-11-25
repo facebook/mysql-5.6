@@ -1,0 +1,38 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: write_time_check_batch
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of write_time_check_batch
+SELECT @@global.write_time_check_batch;
+
+####
+## Verify that the variable is dynamic
+####
+--echo write_time_check_batch is set to 10
+set @@global.write_time_check_batch = 10;
+SELECT @@global.write_time_check_batch;
+
+--echo write_time_check_batch is set to 1000
+set @@global.write_time_check_batch = 1000;
+SELECT @@global.write_time_check_batch;
+
+-- echo setting write_control to a negative number throws warning
+set @@global.write_time_check_batch = -10000;
+SELECT @@global.write_time_check_batch;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_TYPE_FOR_VAR
+set @@global.write_time_check_batch = 'XYZ';
+SELECT @@global.write_time_check_batch;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.write_time_check_batch = 0;
+SELECT @@global.write_time_check_batch;

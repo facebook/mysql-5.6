@@ -9886,6 +9886,9 @@ ER_LOG_ALTER_DB
 ER_WRITE_QUERY_THROTTLED
   eng "Exceeded write workload limit. Try again later"
 
+ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS
+  eng "Write exceeded CPU time limit (controlled by write_cpu_limit_milliseconds)"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error
