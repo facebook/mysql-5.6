@@ -121,7 +121,8 @@ static const char *handler_error_messages[] = {
     "No more room in disk",
     "No session temporary tablespace available",
     "Invalid table name",
-    "Path is too long for the OS"};
+    "Path is too long for the OS",
+    "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)"};
 
 extern void my_handler_error_register(void);
 extern void my_handler_error_unregister(void);

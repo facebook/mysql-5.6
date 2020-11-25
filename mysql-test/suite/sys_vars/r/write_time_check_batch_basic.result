@@ -1,0 +1,32 @@
+Default value of write_time_check_batch
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+0
+write_time_check_batch is set to 10
+set @@global.write_time_check_batch = 10;
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+10
+write_time_check_batch is set to 1000
+set @@global.write_time_check_batch = 1000;
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+1000
+setting write_control to a negative number throws warning
+set @@global.write_time_check_batch = -10000;
+Warnings:
+Warning	1292	Truncated incorrect write_time_check_batch value: '-10000'
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+0
+setting write_control to a random string gives error
+set @@global.write_time_check_batch = 'XYZ';
+ERROR 42000: Incorrect argument type to variable 'write_time_check_batch'
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+0
+restore the default value
+SET @@global.write_time_check_batch = 0;
+SELECT @@global.write_time_check_batch;
+@@global.write_time_check_batch
+0
