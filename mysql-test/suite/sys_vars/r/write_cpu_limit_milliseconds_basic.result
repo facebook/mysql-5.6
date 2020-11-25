@@ -1,0 +1,32 @@
+Default value of write_cpu_limit_milliseconds
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+0
+write_cpu_limit_milliseconds is set to 10 seconds
+set @@global.write_cpu_limit_milliseconds = 10000;
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+10000
+write_cpu_limit_milliseconds is set to 1000 seconds
+set @@global.write_cpu_limit_milliseconds = 1000000;
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+1000000
+setting write_control to a negative number throws warning
+set @@global.write_cpu_limit_milliseconds = -10000;
+Warnings:
+Warning	1292	Truncated incorrect write_cpu_limit_milliseconds value: '-10000'
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+0
+setting write_control to a random string gives error
+set @@global.write_cpu_limit_milliseconds = 'XYZ';
+ERROR 42000: Incorrect argument type to variable 'write_cpu_limit_milliseconds'
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+0
+restore the default value
+SET @@global.write_cpu_limit_milliseconds = 0;
+SELECT @@global.write_cpu_limit_milliseconds;
+@@global.write_cpu_limit_milliseconds
+0

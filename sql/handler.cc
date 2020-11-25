@@ -266,6 +266,8 @@ static bool check_engine_system_table_handlerton(THD *unused, plugin_ref plugin,
 static int ha_discover(THD *thd, const char *db, const char *name,
                        uchar **frmblob, size_t *frmlen);
 
+static void check_dml_execution_cpu_limit_exceeded(int *error, THD *thd);
+
 /**
   Structure used by SE during check for system table.
   This structure is passed to each SE handlerton and the status (OUT param)
@@ -648,6 +650,8 @@ int ha_init_errors(void) {
   SETMSG(HA_ERR_NO_SESSION_TEMP, ER_DEFAULT(ER_NO_SESSION_TEMP));
   SETMSG(HA_ERR_WRONG_TABLE_NAME, ER_DEFAULT(ER_WRONG_TABLE_NAME));
   SETMSG(HA_ERR_TOO_LONG_PATH, ER_DEFAULT(ER_TABLE_NAME_CAUSES_TOO_LONG_PATH));
+  SETMSG(HA_ERR_WRITE_CPU_LIMIT_EXCEEDED,
+         ER_DEFAULT(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
 }
@@ -4634,6 +4638,9 @@ void handler::print_error(int error, myf errflag) {
     case HA_ERR_TOO_LONG_PATH:
       textno = ER_TABLE_NAME_CAUSES_TOO_LONG_PATH;
       break;
+    case HA_ERR_WRITE_CPU_LIMIT_EXCEEDED:
+      textno = ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS;
+      break;
     default: {
       /* The error was "unknown" to this function.
          Ask handler if it has got a message for this error */
@@ -8164,6 +8171,11 @@ int handler::ha_write_row(uchar *buf) {
 
   table->in_use->inc_inserted_row_count(1);
 
+  /* check if the cpu execution time limit for DML is exceeded */
+  check_dml_execution_cpu_limit_exceeded(&error, thd);
+
+  if (unlikely(error)) return error;
+
   if (unlikely((error = binlog_log_row(table, nullptr, buf, log_func))))
     return error; /* purecov: inspected */
 
@@ -8203,6 +8215,11 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
 
   table->in_use->inc_updated_row_count(1);
 
+  /* check if the cpu execution time limit for DML is exceeded */
+  check_dml_execution_cpu_limit_exceeded(&error, thd);
+
+  if (unlikely(error)) return error;
+
   if (unlikely((error = binlog_log_row(table, old_data, new_data, log_func))))
     return error;
   return 0;
@@ -8236,6 +8253,11 @@ int handler::ha_delete_row(const uchar *buf) {
 
   if (unlikely(error)) return error;
   table->in_use->inc_deleted_row_count(1);
+
+  /* check if the cpu execution time limit for DML is exceeded */
+  check_dml_execution_cpu_limit_exceeded(&error, thd);
+
+  if (unlikely(error)) return error;
 
   if (unlikely((error = binlog_log_row(table, buf, nullptr, log_func))))
     return error;
@@ -9454,4 +9476,23 @@ void warn_about_bad_patterns(const Regex_list_handler *regex_list_handler,
   // NO_LINT_DEBUG
   sql_print_warning("Invalid pattern in %s: %s", name,
                     regex_list_handler->bad_pattern().c_str());
+}
+
+/**
+  Checks if the dml query exceeded CPU limit.
+
+  @param  error         Error code
+  @param  thd           Current thread
+*/
+static void check_dml_execution_cpu_limit_exceeded(int *error, THD *thd) {
+  /* check if the cpu execution time limit for DML is exceeded */
+  if (!(*error) && thd->dml_execution_cpu_limit_exceeded()) {
+    /* raise error */
+    (*error) = HA_ERR_WRITE_CPU_LIMIT_EXCEEDED;
+    /* log the abort query details into performance_schema.write_throttling_log
+     */
+    store_long_qry_abort_log(thd);
+    /* rollback the transaction */
+    thd->mark_transaction_to_rollback(true);
+  }
 }
