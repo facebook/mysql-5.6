@@ -8847,7 +8847,7 @@ static Sys_var_bool Sys_disallow_raft(
     "disallow_raft",
     "Temporary variable wich blocks turning on raft. Will be removed later "
     "once raft is ready for 8.0",
-    GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(true));
+    GLOBAL_VAR(disallow_raft), CMD_LINE(OPT_ARG), DEFAULT(false));
 
 static Sys_var_bool Sys_override_enable_raft_check(
     "override_enable_raft_check",

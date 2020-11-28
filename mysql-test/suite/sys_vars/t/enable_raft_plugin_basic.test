@@ -1,9 +1,5 @@
 -- source include/load_sysvars.inc
 
---disable_query_log
-call mtr.add_suppression("disallow_raft is enabled when try to enable raft");
---enable_query_log
-
 ####
 # Verify default value 1
 ####
@@ -18,12 +14,11 @@ SELECT @@session.enable_raft_plugin;
 --echo Expected error 'Variable is a GLOBAL variable'
 
 --echo raft can be turned on only if binlog error action is rollback_trx
---Error ER_WRONG_VALUE_FOR_VAR
+--Error ER_RAFT_BINLOG_ERROR_ACTION
 SET @@global.enable_raft_plugin = 1;
 
 --echo raft can be turned on only if disallow_raft = 0
 SET @@global.binlog_error_action = ROLLBACK_TRX;
---Error ER_WRONG_VALUE_FOR_VAR
 SET @@global.enable_raft_plugin = 1;
 
 ####
