@@ -712,7 +712,7 @@ class MYSQL_BIN_LOG : public TC_LOG {
       uint64_t *max_prev_hlc = NULL);
 
   void set_previous_gtid_set_relaylog(Gtid_set *previous_gtid_set_param) {
-    DBUG_ASSERT(is_relay_log);
+    DBUG_ASSERT(is_apply_log || is_relay_log);
     previous_gtid_set_relaylog = previous_gtid_set_param;
   }
   /**

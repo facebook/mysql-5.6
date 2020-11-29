@@ -11376,13 +11376,9 @@ int binlog_change_to_apply() {
 
   mysql_bin_log.is_apply_log = true;
 
-  /*
-   * TODO: 5.6 myraft sets previous gtid set here using
-   * mysql_bin_log.set_previous_gtid_set(gtid_state->get_logged_gtids).
-   * However, this is not available in 8.0. open_binlog() determines the
-   * previous_gtid_set that needs to be written into the new file. Hence the
-   * change is dropped in 8.0.
-   */
+  // set prevoius gtid set for relay log
+  mysql_bin_log.set_previous_gtid_set_relaylog(
+      const_cast<Gtid_set *>(gtid_state->get_executed_gtids()));
 
   // HLC is TBD
   if (mysql_bin_log.open_binlog(opt_apply_logname,
