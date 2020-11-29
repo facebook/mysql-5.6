@@ -1339,9 +1339,9 @@ static Master_info* raft_get_default_mi();
 int rli_relay_log_raft_reset(
     std::pair<std::string, unsigned long long> raft_log_applied_upto_pos) {
   DBUG_ENTER("rli_relay_log_raft_reset");
-  Master_info* mi = nullptr;
-  Relay_log_info* rli = nullptr;
-  Gtid_set* all_gtid_set = nullptr;
+  Master_info *mi = nullptr;
+  Relay_log_info *rli = nullptr;
+  Gtid_set *all_gtid_set = nullptr;
   int error = 0;
   std::string normalized_log_name;
 
@@ -1359,10 +1359,9 @@ int rli_relay_log_raft_reset(
 
   rli = mi->rli;
   normalized_log_name =
-    std::string(binlog_file_basedir_ptr) +
-    std::string(raft_log_applied_upto_pos.first.c_str() +
-        dirname_length(raft_log_applied_upto_pos.first.c_str()));
-
+      std::string(binlog_file_basedir_ptr) +
+      std::string(raft_log_applied_upto_pos.first.c_str() +
+                  dirname_length(raft_log_applied_upto_pos.first.c_str()));
 
   /*
     We need a mutex while we are changing master info parameters to
@@ -1392,13 +1391,14 @@ int rli_relay_log_raft_reset(
   mysql_mutex_lock(mi->rli->relay_log.get_log_lock());
   mi->rli->relay_log.lock_index();
 
-  mi->rli->relay_log.close(
-      LOG_CLOSE_INDEX, /*need_lock_log=*/false, /*need_lock_index=*/false);
+  mi->rli->relay_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
+                           /*need_lock_index=*/false);
 
-  if (mi->rli->relay_log.open_index_file(
-        opt_binlog_index_name,
-        opt_bin_logname,
-        /*need_lock_index=*/false)) {
+  // open_index_file() will calculate index file full path(using 2nd argument)
+  // if 1st argument is nullptr. Otherwise, it will treat 1st arugment as index
+  // file full path.
+  if (mi->rli->relay_log.open_index_file(nullptr, opt_bin_logname,
+                                         /*need_lock_index=*/false)) {
     // NO_LINT_DEBUG
     sql_print_error("rli_relay_log_raft_reset::failed to open index file");
     error = 1;
