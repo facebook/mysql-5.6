@@ -1497,7 +1497,10 @@ int rli_relay_log_raft_reset(
   mi->rli->relay_log.close(LOG_CLOSE_INDEX, /*need_lock_log=*/false,
                            /*need_lock_index=*/false);
 
-  if (mi->rli->relay_log.open_index_file(opt_binlog_index_name, opt_bin_logname,
+  // open_index_file() will calculate index file full path(using 2nd argument)
+  // if 1st argument is nullptr. Otherwise, it will treat 1st arugment as index
+  // file full path.
+  if (mi->rli->relay_log.open_index_file(nullptr, opt_bin_logname,
                                          /*need_lock_index=*/false)) {
     // NO_LINT_DEBUG
     sql_print_error("rli_relay_log_raft_reset::failed to open index file");
