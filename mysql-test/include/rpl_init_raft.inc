@@ -26,7 +26,7 @@ while ($_rpl_server)
 
   # Check if the plugin binary exists in the plugin dir
   --let $plugin_dir= `SELECT @@GLOBAL.PLUGIN_DIR`
-  --file_exists $plugin_dir/mysql_raft_repl80.so
+  --file_exists $plugin_dir/mysql_raft_repl.so
 
   --let $rpl_connection_name= server_$_rpl_server
   --source include/rpl_connection.inc
@@ -64,7 +64,7 @@ while ($_rpl_server)
   # Install plugin
   if (!$raft_plugin_early_installed)
   {
-    INSTALL PLUGIN RPL_RAFT SONAME 'mysql_raft_repl80.so';
+    INSTALL PLUGIN RPL_RAFT SONAME 'mysql_raft_repl.so';
   }
 
   # Set config
