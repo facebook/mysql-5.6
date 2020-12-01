@@ -135,6 +135,8 @@ int Handler::create(const char *table_name, TABLE *mysql_table,
         std::forward_as_tuple(mysql_table, all_columns_are_fixed_size));
 
     ret = insert_result.second ? Result::OK : Result::TABLE_EXIST;
+  } catch (Result ex) {
+    ret = ex;
   } catch (...) {
     /* ret is already set above. */
   }

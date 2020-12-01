@@ -197,6 +197,9 @@ static SELECT_LEX *build_query(const POS &pos, THD *thd,
       false, sub_query, to_lex_cstring(table_name), &column_names);
   if (derived_table == NULL) return NULL;
 
+  /* Make sure this temp table is excluded from max_tmp_disk_usage limit. */
+  derived_table->mark_system();
+
   Mem_root_array_YY<PT_table_reference *> table_reference_list1;
   table_reference_list1.init(thd->mem_root);
   if (table_reference_list1.push_back(derived_table)) return NULL;
