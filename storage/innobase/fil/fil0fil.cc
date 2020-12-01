@@ -2338,6 +2338,17 @@ fil_space_t *fil_space_get(space_id_t space_id) {
   return space;
 }
 
+/** Call the size change callback for a tablespace.
+ @param[in] space Tablespace.
+ @param[in] delta Size change in pages. */
+static void fil_notify_size_change(fil_space_t *space, longlong delta) {
+  size_change_t size_change = space->size_change;
+  if (size_change) {
+    page_size_t page_size(space->flags);
+    size_change(delta * page_size.physical());
+  }
+}
+
 #ifndef UNIV_HOTBACKUP
 
 /** Returns the latch of a file space.
@@ -2525,6 +2536,8 @@ fil_node_t *Fil_shard::create_node(const char *name, page_no_t size,
        space->id == dict_sys_t::s_log_space_first_id ||
        space->purpose == FIL_TYPE_TEMPORARY || space->files.size() == 1);
 
+  fil_notify_size_change(space, size);
+
   return &space->files.front();
 }
 
@@ -2598,6 +2611,7 @@ dberr_t Fil_shard::get_file_size(fil_node_t *file, bool read_only_mode) {
     file->size = (ulint)(size_bytes / UNIV_PAGE_SIZE);
     space->size += file->size;
     os_file_close(file->handle);
+    fil_notify_size_change(space, file->size);
     return DB_SUCCESS;
   }
 #endif /* UNIV_HOTBACKUP */
@@ -2759,6 +2773,8 @@ dberr_t Fil_shard::get_file_size(fil_node_t *file, bool read_only_mode) {
     file->size = static_cast<page_no_t>(size_bytes / page_size.physical());
 
     space->size += file->size;
+
+    fil_notify_size_change(space, file->size);
   }
 
   return DB_SUCCESS;
@@ -3187,6 +3203,8 @@ void Fil_shard::space_free_low(fil_space_t *&space) {
   }
 #endif /* !UNIV_HOTBACKUP */
 
+  longlong size = space->size;
+
   for (auto &file : space->files) {
     ut_d(space->size -= file.size);
 
@@ -3200,6 +3218,8 @@ void Fil_shard::space_free_low(fil_space_t *&space) {
   ut_ad(space->size == 0);
 
   rw_lock_free(&space->latch);
+  fil_notify_size_change(space, -size);
+
   ut_free(space->name);
   ut_free(space);
 
@@ -4717,6 +4737,8 @@ bool Fil_shard::space_truncate(space_id_t space_id, page_no_t size_in_pages) {
 
   ut_ad(file.is_open);
 
+  longlong delta =
+      static_cast<longlong>(size_in_pages) - static_cast<longlong>(space->size);
   space->size = file.size = size_in_pages;
 
   bool success = os_file_truncate(file.name, file.handle, 0);
@@ -4733,6 +4755,8 @@ bool Fil_shard::space_truncate(space_id_t space_id, page_no_t size_in_pages) {
   }
 
   mutex_release();
+
+  fil_notify_size_change(space, delta);
 
   return success;
 #else
@@ -6883,6 +6907,8 @@ bool Fil_shard::space_extend(fil_space_t *space, page_no_t size) {
   space_flush(space->id);
 
   mutex_release();
+
+  fil_notify_size_change(space, pages_added);
 
   DBUG_EXECUTE_IF("fil_crash_after_extend", DBUG_SUICIDE(););
   return success;

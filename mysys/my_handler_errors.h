@@ -125,6 +125,7 @@ static const char *handler_error_messages[] = {
     "Histogram sampling initialization failed",
     "Too many nested sub-expressions in a full-text search",
     "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)",
+    "Disk usage for temp objects exceeds specified limit",
 };
 
 extern void my_handler_error_register(void);

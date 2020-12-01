@@ -1280,6 +1280,7 @@ bool PT_derived_table::contextualize(Parse_context *pc) {
     // Mark the unit as LATERAL, by turning on one bit in the map:
     value->derived_unit()->m_lateral_deps = OUTER_REF_TABLE_BIT;
   }
+  value->system_tmp_table = m_system;
   if (pc->select->add_joined_table(value)) return true;
 
   return false;
