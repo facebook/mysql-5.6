@@ -725,6 +725,10 @@ static MYSQL_LOCK *get_lock_data(THD *thd, TABLE **table_ptr, size_t count,
     we may allocate too much, but better safe than memory overrun.
     And in the FLUSH case, the memory is released quickly anyway.
   */
+  if (!locks || !locks_buf) {
+    my_free(sql_lock);
+    return nullptr;
+  }
   sql_lock->lock_count = locks - locks_buf;
   DBUG_PRINT("info", ("sql_lock->table_count %d sql_lock->lock_count %d",
                       sql_lock->table_count, sql_lock->lock_count));

@@ -1,0 +1,257 @@
+disable_warnings;
+drop table if exists t1;
+enable_warnings;
+
+let $tablespace_query = sum(size) - 163840 as "usage equals tablespace size for current session" from information_schema.INNODB_SESSION_TEMP_TABLESPACES where id = connection_id() group by id;
+let $wait_query = select count(*) = 0 from information_schema.INNODB_SESSION_TEMP_TABLESPACES where id;
+let $temptable_max_ram = query_get_value(SHOW GLOBAL VARIABLES LIKE 'temptable_max_ram', Value, 1);
+let $temptable_use_mmap = query_get_value(SHOW GLOBAL VARIABLES LIKE 'temptable_use_mmap', Value, 1);
+set global temptable_max_ram = 2097152;
+set global temptable_use_mmap = off;
+
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+let $g_init = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $small_limit = 1000000;
+# Explicit tmp table uses ~10MB, implicit uses ~15MB.
+let $med_limit = `select 25000000 + $g_init`;
+let $big_limit = `select 35000000 + $g_init`;
+
+connect (con1,localhost,root,,test);
+let $con1_id = `select connection_id()`;
+
+echo ;
+echo == Query is OK when there is no limit;
+echo ;
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+
+let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage > $g_init as "global usage increased";
+eval select $tmp_table_disk_usage = $g_tmp_table_disk_usage - $g_init as "session usage same as global";
+eval select $tmp_table_disk_usage = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Implicit query is also OK when there is no limit;
+echo ;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+let $tmp_table_disk_usage_new = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $tmp_table_disk_usage_new > $tmp_table_disk_usage as "usage increased more";
+eval select $tmp_table_disk_usage_new = $g_tmp_table_disk_usage - $g_init as "session usage same as global";
+eval select $tmp_table_disk_usage_new = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Query fails with small limit;
+echo ;
+disable_query_log;
+eval set global max_tmp_disk_usage = $small_limit;
+enable_query_log;
+create temporary table tm(i int, c char(255));
+error ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+insert into tm select * from t1;
+drop temporary table tm;
+
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage > $small_limit as "global usage over limit";
+enable_query_log;
+
+echo ;
+echo == Implicit query also fails with small limit;
+echo ;
+error ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage > $small_limit as "global usage over limit";
+enable_query_log;
+
+echo ;
+echo == Query is OK when limit is raised;
+echo ;
+disable_query_log;
+eval set global max_tmp_disk_usage = $med_limit;
+enable_query_log;
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+
+echo ;
+echo == Query reuses freed up space after dropping temp table;
+echo ;
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+
+echo ;
+echo == Implicit query also reuses space;
+echo ;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage < $med_limit as "global usage below limit";
+eval select $tmp_table_disk_usage = $g_tmp_table_disk_usage - $g_init as "session usage same as global";
+eval select $tmp_table_disk_usage = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Query fails on another session;
+echo ;
+connect (con2,localhost,root,,test);
+let $con2_id = `select connection_id()`;
+create temporary table tm2(i int, c char(255));
+error ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+insert into tm2 select * from t1;
+drop temporary table tm2;
+
+echo ;
+echo == Implicit query also fails on another session;
+echo ;
+error ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+let $tmp_table_disk_usage2 = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $tmp_table_disk_usage2 < $med_limit as "session usage below limit";
+eval select $g_tmp_table_disk_usage > $med_limit as "global usage above limit";
+eval select $tmp_table_disk_usage + $tmp_table_disk_usage2 = $g_tmp_table_disk_usage - $g_init as "two sessions usage same as global";
+eval select $tmp_table_disk_usage2 = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Query is OK on another session with global tmp disk usage limit raised;
+echo ;
+disable_query_log;
+eval set global max_tmp_disk_usage = $big_limit;
+enable_query_log;
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+
+let $tmp_table_disk_usage2 = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $tmp_table_disk_usage2 < $med_limit as "session usage below limit";
+eval select $g_tmp_table_disk_usage < $big_limit as "global usage below limit";
+eval select $tmp_table_disk_usage + $tmp_table_disk_usage2 = $g_tmp_table_disk_usage - $g_init as "two sessions usage same as global";
+eval select $tmp_table_disk_usage2 = $tablespace_query;
+enable_query_log;
+
+connection con1;
+
+echo ;
+echo == Query fails on first session while second session is still alive;
+echo ;
+create temporary table tm2(i int, c char(255));
+error ER_MAX_TMP_DISK_USAGE_EXCEEDED;
+insert into tm2 select * from t1;
+drop temporary table tm2;
+
+let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage_peak', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage > $big_limit as "global usage above limit";
+eval select $tmp_table_disk_usage + $tmp_table_disk_usage2 = $g_tmp_table_disk_usage - $g_init as "two sessions usage same as global";
+eval select $g_tmp_table_disk_usage = $g_tmp_table_disk_usage_peak as "global usage equal to global peak";
+eval select $tmp_table_disk_usage = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Disconnect second session;
+echo ;
+disconnect con2;
+let $wait_condition = $wait_query = $con2_id;
+source include/wait_condition.inc;
+
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage_peak = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage_peak', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage < $big_limit as "global usage below limit";
+eval select $tmp_table_disk_usage = $g_tmp_table_disk_usage - $g_init as "session usage same as global";
+eval select $g_tmp_table_disk_usage < $g_tmp_table_disk_usage_peak as "global usage below global peak";
+enable_query_log;
+
+echo ;
+echo == Query succeeds on first session once second session is gone;
+echo ;
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+drop temporary table tm2;
+drop temporary table tm;
+
+let $tmp_table_disk_usage = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage < $big_limit as "global usage below limit";
+eval select $tmp_table_disk_usage = $g_tmp_table_disk_usage - $g_init as "session usage same as global";
+eval select $tmp_table_disk_usage = $tablespace_query;
+enable_query_log;
+
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+
+echo ;
+echo == Query OK again on second session after limit is reset;
+echo ;
+connect (con2,localhost,root,,test);
+let $con2_id = `select connection_id()`;
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+
+let $tmp_table_disk_usage2 = query_get_value(SHOW SESSION STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $tmp_table_disk_usage2 < $med_limit as "session usage below limit";
+eval select $g_tmp_table_disk_usage > $big_limit as "global usage above limit";
+eval select $tmp_table_disk_usage + $tmp_table_disk_usage2 = $g_tmp_table_disk_usage - $g_init as "two sessions usage same as global";
+eval select $tmp_table_disk_usage2 = $tablespace_query;
+enable_query_log;
+
+echo ;
+echo == Disconnect both sessions;
+echo ;
+disconnect con2;
+disconnect con1;
+connection default;
+let $wait_condition = $wait_query in ($con1_id, $con2_id);
+source include/wait_condition.inc;
+
+let $g_tmp_table_disk_usage = query_get_value(SHOW GLOBAL STATUS LIKE 'Tmp_table_disk_usage', Value, 1);
+disable_query_log;
+eval select $g_tmp_table_disk_usage = $g_init as "global usage is back to init value";
+enable_query_log;
+
+echo ;
+echo == Cleanup;
+echo ;
+drop table t1;
+disable_query_log;
+eval set global temptable_max_ram = $temptable_max_ram;
+eval set global temptable_use_mmap = $temptable_use_mmap;
+enable_query_log;

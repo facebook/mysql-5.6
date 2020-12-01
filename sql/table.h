@@ -3932,6 +3932,7 @@ class Table_ref {
 
  public:
   bool disable_sql_log_bin_triggers{false};
+  bool system_tmp_table{false};
 };
 
 /*

@@ -1,0 +1,179 @@
+drop table if exists t1;
+set global temptable_max_ram = 2097152;
+set global temptable_use_mmap = off;
+Warnings:
+Warning	1287	'temptable_use_mmap' is deprecated and will be removed in a future release.
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+== Query is OK when there is no limit
+
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+global usage increased
+1
+session usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Implicit query is also OK when there is no limit
+
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+usage increased more
+1
+session usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Query fails with small limit
+
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop temporary table tm;
+global usage over limit
+1
+
+== Implicit query also fails with small limit
+
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+global usage over limit
+1
+
+== Query is OK when limit is raised
+
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+
+== Query reuses freed up space after dropping temp table
+
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+
+== Implicit query also reuses space
+
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+global usage below limit
+1
+session usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Query fails on another session
+
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop temporary table tm2;
+
+== Implicit query also fails on another session
+
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+session usage below limit
+1
+global usage above limit
+1
+two sessions usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Query is OK on another session with global tmp disk usage limit raised
+
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+session usage below limit
+1
+global usage below limit
+1
+two sessions usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Query fails on first session while second session is still alive
+
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+ERROR HY000: Disk usage for temp objects exceeds specified limit
+drop temporary table tm2;
+global usage above limit
+1
+two sessions usage same as global
+1
+global usage equal to global peak
+1
+usage equals tablespace size for current session
+1
+
+== Disconnect second session
+
+global usage below limit
+1
+session usage same as global
+1
+global usage below global peak
+1
+
+== Query succeeds on first session once second session is gone
+
+create temporary table tm2(i int, c char(255));
+insert into tm2 select * from t1;
+drop temporary table tm2;
+drop temporary table tm;
+global usage below limit
+1
+session usage same as global
+1
+usage equals tablespace size for current session
+1
+set global max_tmp_disk_usage = 0;
+show variables like "max_tmp_disk_usage";
+Variable_name	Value
+max_tmp_disk_usage	0
+
+== Query OK again on second session after limit is reset
+
+create temporary table tm(i int, c char(255));
+insert into tm select * from t1;
+drop temporary table tm;
+session usage below limit
+1
+global usage above limit
+1
+two sessions usage same as global
+1
+usage equals tablespace size for current session
+1
+
+== Disconnect both sessions
+
+global usage is back to init value
+1
+
+== Cleanup
+
+drop table t1;
+Warnings:
+Warning	1287	'temptable_use_mmap' is deprecated and will be removed in a future release.

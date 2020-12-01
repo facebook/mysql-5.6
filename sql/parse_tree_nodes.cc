@@ -1359,6 +1359,7 @@ bool PT_derived_table::contextualize(Parse_context *pc) {
     m_table_ref->derived_query_expression()->m_lateral_deps =
         OUTER_REF_TABLE_BIT;
   }
+  m_table_ref->system_tmp_table = m_system;
   if (pc->select->add_joined_table(m_table_ref)) return true;
 
   return false;

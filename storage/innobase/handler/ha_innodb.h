@@ -310,6 +310,15 @@ class ha_innobase : public handler {
   @retval 0 on success */
   int delete_table(const char *name, const dd::Table *table_def) override;
 
+  /** Record a change in disk usage.
+  @param[in]  delta  change of disk usage in bytes */
+  static void record_disk_usage_change(longlong delta);
+
+  /** Check if current disk usage is within limits.
+  @return error number
+  @retval 0 on success */
+  int check_disk_usage();
+
  protected:
   /** Drop a table.
   @param[in]    name            table name
