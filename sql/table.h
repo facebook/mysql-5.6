@@ -3603,6 +3603,7 @@ struct TABLE_LIST {
 
  public:
   bool disable_sql_log_bin_triggers{false};
+  bool system_tmp_table{false};
 };
 
 /*

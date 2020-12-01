@@ -652,6 +652,8 @@ int ha_init_errors(void) {
   SETMSG(HA_ERR_TOO_LONG_PATH, ER_DEFAULT(ER_TABLE_NAME_CAUSES_TOO_LONG_PATH));
   SETMSG(HA_ERR_WRITE_CPU_LIMIT_EXCEEDED,
          ER_DEFAULT(ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS));
+  SETMSG(HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED,
+         ER_DEFAULT(ER_MAX_TMP_DISK_USAGE_EXCEEDED));
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsg, HA_ERR_FIRST, HA_ERR_LAST);
 }
@@ -4640,6 +4642,9 @@ void handler::print_error(int error, myf errflag) {
       break;
     case HA_ERR_WRITE_CPU_LIMIT_EXCEEDED:
       textno = ER_WARN_WRITE_EXCEEDED_CPU_LIMIT_MILLISECONDS;
+      break;
+    case HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED:
+      textno = ER_MAX_TMP_DISK_USAGE_EXCEEDED;
       break;
     default: {
       /* The error was "unknown" to this function.

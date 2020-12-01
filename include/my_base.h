@@ -988,8 +988,10 @@ Information in the data-dictionary needs to be updated. */
 #define HA_ERR_SAMPLING_INIT_FAILED 208
 /** Write query exceeded cpu time limit */
 #define HA_ERR_WRITE_CPU_LIMIT_EXCEEDED 209
+/* Tmp disk usage exceeded max */
+#define HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED 210
 /** Copy of last error number */
-#define HA_ERR_LAST 209
+#define HA_ERR_LAST 210
 
 /* Number of different errors */
 #define HA_ERR_ERRORS (HA_ERR_LAST - HA_ERR_FIRST + 1)

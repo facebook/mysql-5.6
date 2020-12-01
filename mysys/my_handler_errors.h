@@ -124,6 +124,7 @@ static const char *handler_error_messages[] = {
     "Path is too long for the OS",
     "Histogram sampling initialization failed",
     "Write CPU time exceeded (controlled by write_cpu_limit_milliseconds)",
+    "Disk usage for temp objects exceeds specified limit",
 };
 
 extern void my_handler_error_register(void);
