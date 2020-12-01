@@ -1,0 +1,30 @@
+create database test_db;
+create user test_user@localhost identified with 'mysql_native_password' BY '';
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+use test_db;
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+set global max_tmp_disk_usage = 100000000;
+set global temptable_max_ram = 2097152;
+set global temptable_use_mmap = off;
+Warnings:
+Warning	1287	'temptable_use_mmap' is deprecated and will be removed in a future release.
+drop database test_db;
+drop user test_user@localhost;
+Warnings:
+Warning	1287	'temptable_use_mmap' is deprecated and will be removed in a future release.
+errors present
+1

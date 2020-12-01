@@ -4108,27 +4108,26 @@ static void adjust_global_by(std::atomic<longlong> *unreported_delta,
   @param g_value            global usage value
   @param g_peak             global usage peak
   @param g_period_peak      global usage peak for some period
+  @param skip_session       do not update session counters
 */
-static void adjust_by(std::atomic<ulonglong> *value,
-                      std::atomic<ulonglong> *peak, longlong delta,
-                      std::atomic<longlong> *unreported_delta,
+static void adjust_by(ulonglong *value, std::atomic<ulonglong> *peak,
+                      longlong delta, std::atomic<longlong> *unreported_delta,
                       std::atomic<ulonglong> *g_value,
                       std::atomic<ulonglong> *g_peak,
-                      std::atomic<ulonglong> *g_period_peak) {
-  /*
-    Atomic operation is only needed for the secondary threads that steal
-    tmp tables from one another (see mts_move_temp_tables_to_thd).
-  */
-  ulonglong old_value = value->fetch_add(delta);
-  ulonglong new_value = old_value + delta;
+                      std::atomic<ulonglong> *g_period_peak,
+                      bool skip_session) {
+  if (!skip_session) {
+    ulonglong old_value = *value;
+    ulonglong new_value = old_value + delta;
+    *value = new_value;
 
-  /* Check for over and underflow. */
-  assert(delta >= 0 ? new_value >= old_value : new_value < old_value);
+    /* Check for over and underflow. */
+    assert(delta >= 0 ? new_value >= old_value : new_value < old_value);
 
-  /* Local peak is maintained as atomic for two reasons:
-     1. REFRESH_STATUS resets peak from another thead.
-     2. Multiple replication threads could operate on one session. */
-  update_peak(peak, new_value);
+    /* Local peak is maintained as atomic because REFRESH_STATUS resets
+       peak from another thead. */
+    update_peak(peak, new_value);
+  }
 
   /* Avoid frequent updates of global usage. */
   constexpr ulonglong DISK_USAGE_REPORTING_INCREMENT = 8192;
@@ -4146,9 +4145,27 @@ static void adjust_by(std::atomic<ulonglong> *value,
   @param delta    signed delta value in bytes
 */
 void THD::adjust_filesort_disk_usage(longlong delta) {
+  /* No need to track filesort usage per replication thread. */
+  bool skip_session = slave_thread;
   adjust_by(&m_filesort_disk_usage, &m_filesort_disk_usage_peak, delta,
             &m_unreported_global_filesort_delta, &filesort_disk_usage,
-            &filesort_disk_usage_peak, &filesort_disk_usage_period_peak);
+            &filesort_disk_usage_peak, &filesort_disk_usage_period_peak,
+            skip_session);
+}
+
+/**
+  Adjust tmp table disk usage for current session.
+
+  @param delta    signed delta value in bytes
+*/
+void THD::adjust_tmp_table_disk_usage(longlong delta) {
+  /* Replication threads are combined in one tablespace so tracking per
+     session is not feasible, and there's no need for it. */
+  bool skip_session = slave_thread;
+  adjust_by(&m_tmp_table_disk_usage, &m_tmp_table_disk_usage_peak, delta,
+            &m_unreported_global_tmp_table_delta, &tmp_table_disk_usage,
+            &tmp_table_disk_usage_peak, &tmp_table_disk_usage_period_peak,
+            skip_session);
 }
 
 /**
@@ -4157,6 +4174,9 @@ void THD::adjust_filesort_disk_usage(longlong delta) {
 void THD::propagate_pending_global_disk_usage() {
   adjust_global_by(&m_unreported_global_filesort_delta, &filesort_disk_usage,
                    &filesort_disk_usage_peak, &filesort_disk_usage_period_peak);
+  adjust_global_by(&m_unreported_global_tmp_table_delta, &tmp_table_disk_usage,
+                   &tmp_table_disk_usage_peak,
+                   &tmp_table_disk_usage_period_peak);
 }
 
 /**
@@ -4167,6 +4187,7 @@ void THD::reset_status_vars() {
 
   /* Handle special session status vars here. */
   reset_peak(&m_filesort_disk_usage_peak, m_filesort_disk_usage);
+  reset_peak(&m_tmp_table_disk_usage_peak, m_tmp_table_disk_usage);
 }
 
 /*

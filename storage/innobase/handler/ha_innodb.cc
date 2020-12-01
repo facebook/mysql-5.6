@@ -8969,6 +8969,9 @@ int ha_innobase::write_row(uchar *record) /*!< in: a row in MySQL format */
   /* Increase the write count of handler */
   ha_statistic_increment(&System_status_var::ha_write_count);
 
+  error_result = check_disk_usage();
+  if (error_result) return error_result;
+
   if (m_prebuilt->table->is_intrinsic()) {
     return intrinsic_table_write_row(record);
   }
@@ -9706,6 +9709,9 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
   DBUG_TRACE;
 
   ut_a(m_prebuilt->trx == trx);
+
+  err = check_disk_usage();
+  if (err) return err;
 
   if (high_level_read_only && !m_prebuilt->table->is_intrinsic()) {
     ib_senderrf(ha_thd(), IB_LOG_LEVEL_WARN, ER_READ_ONLY_MODE);
@@ -11605,6 +11611,11 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
       err = dict_build_tablespace_for_table(table, m_create_info, m_trx);
 
       if (err == DB_SUCCESS) {
+        /* Set size change callback. */
+        fil_space_t *space = fil_space_get(table->space);
+        ut_ad(space);
+        space->size_change = ha_innobase::record_disk_usage_change;
+
         /* Temp-table are maintained in memory and so
         can_be_evicted is FALSE. */
         mem_heap_t *temp_table_heap;
@@ -23841,6 +23852,30 @@ void ha_innobase::mv_key_capacity(uint *num_keys, size_t *keys_length) const {
 
   *keys_length = Multi_value_logger::get_keys_capacity(
       static_cast<uint32_t>(free_space), min_mv_key_length, num_keys);
+}
+
+/** Record a change in disk usage.
+  @param[in]  delta  change of disk usage in bytes
+*/
+void ha_innobase::record_disk_usage_change(longlong delta) {
+  THD *thd = current_thd;
+  if (thd) {
+    thd->adjust_tmp_table_disk_usage(delta);
+  }
+}
+
+/** Check if disk usage is within limits.
+  @return The error code (errno).
+*/
+int ha_innobase::check_disk_usage() {
+  int error = 0;
+  if (table->s->tmp_table != NO_TMP_TABLE &&
+      table->s->tmp_table != SYSTEM_TMP_TABLE && is_tmp_disk_usage_over_max()) {
+    error = HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED;
+    print_error(error, MYF(0));
+  }
+
+  return error;
 }
 
 /** Use this when the args are passed to the format string from

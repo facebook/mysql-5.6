@@ -191,6 +191,9 @@ static Query_block *build_query(const POS &pos, THD *thd,
       PT_derived_table(false, sub_query, table_name, &column_names);
   if (derived_table == nullptr) return nullptr;
 
+  /* Make sure this temp table is excluded from max_tmp_disk_usage limit. */
+  derived_table->mark_system();
+
   Mem_root_array_YY<PT_table_reference *> table_reference_list1;
   table_reference_list1.init(thd->mem_root);
   if (table_reference_list1.push_back(derived_table)) return nullptr;

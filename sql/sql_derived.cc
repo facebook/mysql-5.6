@@ -710,7 +710,8 @@ bool TABLE_LIST::setup_materialized_derived_tmp_table(THD *thd)
       return true; /* purecov: inspected */
   }
 
-  table->s->tmp_table = NON_TRANSACTIONAL_TMP_TABLE;
+  table->s->tmp_table =
+      system_tmp_table ? SYSTEM_TMP_TABLE : NON_TRANSACTIONAL_TMP_TABLE;
 
   // Table is "nullable" if inner table of an outer_join
   if (is_inner_table_of_outer_join()) table->set_nullable();

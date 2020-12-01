@@ -2599,6 +2599,7 @@ class THD : public MDL_context_owner,
 
   /* Adjust disk usage for current session. */
   void adjust_filesort_disk_usage(longlong delta);
+  void adjust_tmp_table_disk_usage(longlong delta);
   void propagate_pending_global_disk_usage();
 
   /* Get current disk usage and peak. */
@@ -2606,15 +2607,24 @@ class THD : public MDL_context_owner,
   ulonglong get_filesort_disk_usage_peak() {
     return m_filesort_disk_usage_peak;
   }
+  ulonglong get_tmp_table_disk_usage() { return m_tmp_table_disk_usage; }
+  ulonglong get_tmp_table_disk_usage_peak() {
+    return m_tmp_table_disk_usage_peak;
+  }
 
  private:
   /* Current filesort usage and peak since last reset. */
-  std::atomic<ulonglong> m_filesort_disk_usage{0};
+  ulonglong m_filesort_disk_usage{0};
   std::atomic<ulonglong> m_filesort_disk_usage_peak{0};
+
+  /* Current tmp table usage and peak since last reset. */
+  ulonglong m_tmp_table_disk_usage{0};
+  std::atomic<ulonglong> m_tmp_table_disk_usage_peak{0};
 
   /* Reporting of session disk usage to global counters is done in batches
      to avoid contention on global variables. */
   std::atomic<longlong> m_unreported_global_filesort_delta{0};
+  std::atomic<longlong> m_unreported_global_tmp_table_delta{0};
 
  public:
   std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;

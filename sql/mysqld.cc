@@ -1220,10 +1220,13 @@ bool enable_blind_replace = false;
 bool enable_acl_fast_lookup = false;
 bool enable_acl_db_cache = true;
 bool enable_super_log_bin_read_only = false;
-ulonglong max_tmp_disk_usage;
-std::atomic<ulonglong> filesort_disk_usage;
-std::atomic<ulonglong> filesort_disk_usage_peak;
-std::atomic<ulonglong> filesort_disk_usage_period_peak;
+ulonglong max_tmp_disk_usage{0};
+std::atomic<ulonglong> filesort_disk_usage{0};
+std::atomic<ulonglong> filesort_disk_usage_peak{0};
+std::atomic<ulonglong> filesort_disk_usage_period_peak{0};
+std::atomic<ulonglong> tmp_table_disk_usage{0};
+std::atomic<ulonglong> tmp_table_disk_usage_peak{0};
+std::atomic<ulonglong> tmp_table_disk_usage_period_peak{0};
 
 ulong opt_commit_consensus_error_action = 0;
 bool enable_raft_plugin = 0;
@@ -2108,7 +2111,7 @@ void thd_mem_cnt_free(THD *thd, size_t size) { thd->mem_cnt->free_cnt(size); }
 */
 bool is_tmp_disk_usage_over_max() {
   return static_cast<longlong>(max_tmp_disk_usage) > 0 &&
-         filesort_disk_usage > max_tmp_disk_usage;
+         filesort_disk_usage + tmp_table_disk_usage > max_tmp_disk_usage;
 }
 
 void aggregate_status_var(std::function<void(THD *)> callback, THD *thd) {
@@ -10454,6 +10457,18 @@ static int show_filesort_disk_usage_peak(THD *thd, SHOW_VAR *var, char *buff) {
              : show_longlong(var, buff, filesort_disk_usage_peak);
 }
 
+static int show_tmp_table_disk_usage(THD *thd, SHOW_VAR *var, char *buff) {
+  return thd->lex->option_type == OPT_SESSION
+             ? show_longlong(var, buff, thd->get_tmp_table_disk_usage())
+             : show_longlong(var, buff, tmp_table_disk_usage);
+}
+
+static int show_tmp_table_disk_usage_peak(THD *thd, SHOW_VAR *var, char *buff) {
+  return thd->lex->option_type == OPT_SESSION
+             ? show_longlong(var, buff, thd->get_tmp_table_disk_usage_peak())
+             : show_longlong(var, buff, tmp_table_disk_usage_peak);
+}
+
 static int show_peak_with_reset(THD *thd, SHOW_VAR *var, char *buff,
                                 std::atomic<ulonglong> *peak,
                                 const std::atomic<ulonglong> &usage) {
@@ -10472,6 +10487,12 @@ static int show_filesort_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
                                                 char *buff) {
   return show_peak_with_reset(thd, var, buff, &filesort_disk_usage_period_peak,
                               filesort_disk_usage);
+}
+
+static int show_tmp_table_disk_usage_period_peak(THD *thd, SHOW_VAR *var,
+                                                 char *buff) {
+  return show_peak_with_reset(thd, var, buff, &tmp_table_disk_usage_period_peak,
+                              tmp_table_disk_usage);
 }
 
 /*
@@ -10942,6 +10963,13 @@ SHOW_VAR status_vars[] = {
     {"Tc_log_page_size", (char *)&tc_log_page_size, SHOW_LONG_NOFLUSH,
      SHOW_SCOPE_GLOBAL},
     {"Tc_log_page_waits", (char *)&tc_log_page_waits, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Tmp_table_disk_usage", (char *)show_tmp_table_disk_usage, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Tmp_table_disk_usage_peak", (char *)show_tmp_table_disk_usage_peak,
+     SHOW_FUNC, SHOW_SCOPE_ALL},
+    {"Tmp_table_disk_usage_period_peak",
+     (char *)show_tmp_table_disk_usage_period_peak, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Threads_binlog_client", (char *)&show_num_thread_binlog_client, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},

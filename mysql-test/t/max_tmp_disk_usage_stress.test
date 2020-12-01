@@ -1,0 +1,47 @@
+source include/big_test.inc;
+source include/not_valgrind.inc;
+create database test_db;
+create user test_user@localhost identified with 'mysql_native_password' BY '';
+grant all on test_db.* to test_user@localhost;
+grant all on test.* to test_user@localhost;
+
+use test_db;
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+let $temptable_max_ram = query_get_value(SHOW GLOBAL VARIABLES LIKE 'temptable_max_ram', Value, 1);
+let $temptable_use_mmap = query_get_value(SHOW GLOBAL VARIABLES LIKE 'temptable_use_mmap', Value, 1);
+let $max_tmp_disk_usage = query_get_value(SHOW GLOBAL VARIABLES LIKE 'max_tmp_disk_usage', Value, 1);
+let $error_query = sum_error_raised as "errors present" from performance_schema.events_errors_summary_global_by_error where error_name = "ER_MAX_TMP_DISK_USAGE_EXCEEDED";
+let $error_count_init = `select $error_query`;
+
+set global max_tmp_disk_usage = 100000000;
+set global temptable_max_ram = 2097152;
+set global temptable_use_mmap = off;
+
+let $exec = /usr/bin/python3 $MYSQL_TEST_DIR/t/max_tmp_disk_usage_stress.py --user='test_user' --host=127.0.0.1 --port=$MASTER_MYPORT --database='test_db';
+exec $exec > $MYSQLTEST_VARDIR/tmp/max_tmp_disk_usage_stress.output;
+
+drop database test_db;
+drop user test_user@localhost;
+--remove_file $MYSQLTEST_VARDIR/tmp/max_tmp_disk_usage_stress.output
+
+disable_query_log;
+eval set global temptable_max_ram = $temptable_max_ram;
+eval set global temptable_use_mmap = $temptable_use_mmap;
+eval set global max_tmp_disk_usage = $max_tmp_disk_usage;
+eval select $error_count_init < $error_query;
+enable_query_log;

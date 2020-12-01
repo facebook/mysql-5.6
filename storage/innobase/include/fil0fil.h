@@ -258,6 +258,9 @@ typedef enum {
   FLUSH_FROM_NUMBER
 } flush_from_t;
 
+/* Callback for tablespace size change notification. */
+typedef void (*size_change_t)(longlong delta);
+
 /** Tablespace or log data space */
 struct fil_space_t {
   using List_node = UT_LIST_NODE_T(fil_space_t);
@@ -521,6 +524,9 @@ struct fil_space_t {
 
   /** true if this space is currently in unflushed_spaces */
   bool is_in_unflushed_spaces{};
+
+  /** Size change callback. */
+  size_change_t size_change;
 
   /** Compression algorithm */
   Compression::Type compression_type;

@@ -610,6 +610,13 @@ extern std::atomic<ulonglong> filesort_disk_usage_peak;
 /* Peak for filesort usage atomically reset by show status. */
 extern std::atomic<ulonglong> filesort_disk_usage_period_peak;
 
+/* Tmp table current usage and peak since startup. */
+extern std::atomic<ulonglong> tmp_table_disk_usage;
+extern std::atomic<ulonglong> tmp_table_disk_usage_peak;
+
+/* Peak for tmp table usage atomically reset by show status. */
+extern std::atomic<ulonglong> tmp_table_disk_usage_period_peak;
+
 /* Common peak stats operations. */
 void update_peak(std::atomic<ulonglong> *peak, ulonglong new_value);
 ulonglong reset_peak(std::atomic<ulonglong> *peak,

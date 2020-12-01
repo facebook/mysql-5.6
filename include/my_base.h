@@ -994,8 +994,10 @@ Information in the data-dictionary needs to be updated. */
 #define HA_ERR_FTS_TOO_MANY_NESTED_EXP 209
 /** Write query exceeded cpu time limit */
 #define HA_ERR_WRITE_CPU_LIMIT_EXCEEDED 210
+/* Tmp disk usage exceeded max */
+#define HA_ERR_MAX_TMP_DISK_USAGE_EXCEEDED 211
 /** Copy of last error number */
-#define HA_ERR_LAST 210
+#define HA_ERR_LAST 211
 
 /* Number of different errors */
 #define HA_ERR_ERRORS (HA_ERR_LAST - HA_ERR_FIRST + 1)

@@ -184,8 +184,7 @@ connection default;
 let $wait_timeout= 60;
 let $wait_condition= SELECT COUNT(*) = 1 from INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES WHERE STATE = 'ACTIVE';
 --source include/wait_condition.inc
---replace_regex /\\#innodb_temp\\temp/\/#innodb_temp\/temp/
-SELECT PATH, SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY SPACE;
+SELECT SIZE, STATE, PURPOSE FROM INFORMATION_SCHEMA.INNODB_SESSION_TEMP_TABLESPACES ORDER BY STATE, SIZE, PURPOSE;
 
 --source include/shutdown_mysqld.inc
 --echo "List files in #innodb_temp. It should be empty"
