@@ -48,8 +48,7 @@
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 
-static const size_t MAX_NOSQL_FIELD_COUNT = 16;
-static const size_t MAX_NOSQL_ITEM_COUNT = 16;
+static const size_t DEFAULT_FIELD_LIST_SIZE = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
 
 // A soft max for key writers used for initial vector allocation and
@@ -163,7 +162,7 @@ class select_parser {
     str += ", ";
     str += "Fields={ ";
 
-    for (uint i = 0; i < m_field_count; ++i) {
+    for (uint i = 0; i < m_field_list.size(); ++i) {
       auto field = m_field_list[i];
       if (i) {
         str += ", ";
@@ -252,10 +251,9 @@ class select_parser {
   SELECT_LEX *get_select_lex() const { return m_select_lex; }
   uint get_index() const { return m_index; }
   bool is_order_desc() const { return m_is_order_desc; }
-  Field *const *get_field_list() const { return m_field_list; }
+  const std::vector<Field *> &get_field_list() const { return m_field_list; }
   const sql_cond *get_cond_list() const { return m_cond_list; }
-  uint get_field_count() const { return m_field_count; }
-  uint get_cond_count() const { return m_cond_count; }
+  size_t get_cond_count() const { return m_cond_count; }
   uint64_t get_select_limit() const { return m_select_limit; }
   uint64_t get_offset_limit() const { return m_offset_limit; }
   const char *get_error_msg() const { return m_error_msg; }
@@ -268,8 +266,7 @@ class select_parser {
 
   uint m_index;
   bool m_is_order_desc;
-  Field *m_field_list[MAX_NOSQL_ITEM_COUNT];
-  uint m_field_count = 0;
+  std::vector<Field *> m_field_list;
   sql_cond m_cond_list[MAX_NOSQL_COND_COUNT];
   uint m_cond_count = 0;
   uint64_t m_select_limit;
@@ -315,10 +312,7 @@ class select_parser {
 
   // Parse all items in SELECT
   bool parse_items() {
-    if (m_table->s->fields > MAX_NOSQL_FIELD_COUNT) {
-      m_error_msg = "Too many fields in table";
-      return true;
-    }
+    m_field_list.reserve(DEFAULT_FIELD_LIST_SIZE);
 
     // All item must be fields
     for (Item *item : m_select_lex->visible_fields()) {
@@ -346,10 +340,11 @@ class select_parser {
 
       auto field_type = field->real_type();
       if (field_type == MYSQL_TYPE_VARCHAR &&
+          field->charset() != &my_charset_bin &&
           field->charset() != &my_charset_utf8_bin &&
           field->charset() != &my_charset_latin1_bin) {
         m_error_msg =
-            "only utf8_bin, latin1_bin is supported for varchar field";
+            "only binary, utf8_bin, latin1_bin is supported for varchar field";
         return true;
       }
 
@@ -357,12 +352,7 @@ class select_parser {
       // item->send
       field_item->set_field(field);
 
-      if (m_field_count >= MAX_NOSQL_ITEM_COUNT) {
-        m_error_msg = "Too many SELECT expressions";
-        return true;
-      }
-
-      m_field_list[m_field_count++] = field;
+      m_field_list.push_back(field);
     }
 
     return false;
@@ -653,8 +643,8 @@ class select_exec {
     m_select_limit = m_parser.get_select_limit() + m_offset_limit;
     m_debug_row_delay = get_select_bypass_debug_row_delay();
 
-    memset(reinterpret_cast<char *>(m_field_index_to_where.data()), 0xff,
-           sizeof(m_field_index_to_where));
+    m_field_index_to_where.resize(m_table_share->fields,
+                                  std::make_pair(-1, -1));
     m_start_inclusive = m_end_inclusive = true;
     m_unsupported = false;
     m_error_msg = "UNKNOWN";
@@ -799,7 +789,7 @@ class select_exec {
   std::vector<key_index_tuple_writer> m_key_index_tuples;
 
   // map from field_index to where_list
-  std::array<std::pair<int, int>, MAX_NOSQL_FIELD_COUNT> m_field_index_to_where;
+  std::vector<std::pair<int, int>> m_field_index_to_where;
 
   // Number of fields (columns) that are prefix of index
   uint m_prefix_key_count;
@@ -1265,7 +1255,7 @@ void INLINE_ATTR select_exec::scan_value() {
 
 #ifndef DBUG_OFF
   const auto &field_list = m_parser.get_field_list();
-  for (uint i = 0; i < m_parser.get_field_count(); i++) {
+  for (uint i = 0; i < field_list.size(); i++) {
     DBUG_ASSERT(bitmap_is_set(m_table->read_set, field_list[i]->field_index()));
   }
 #endif

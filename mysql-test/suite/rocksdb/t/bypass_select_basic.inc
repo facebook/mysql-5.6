@@ -484,6 +484,39 @@ SELECT /*+ bypass */ id1,id2,id1_type,id2_type,data,version FROM link_table
 WHERE id1_type=1;
 --source ../include/verify_bypass_query.inc
 
+# 15+ fields
+CREATE TABLE t5 (pk int primary key,
+                 a int, b int, c int, d int, e int, f int, g int, h int,
+                 i int, j int, k int, l int, m int, n int, o int, p int);
+let $1=5;
+--disable_query_log
+while ($1)
+{
+ eval insert into t5 values(
+     $1, $1+1, $1+2, $1+3, $1+4, $1+5, $1+6, $1+7, $1+8, $1+9, $1+10,
+     $1+11, $1+12, $1+13, $1+14, $1+15, $1+16);
+ dec $1;
+}
+--enable_query_log
+
+# 15+ select expressions
+let bypass_query=
+SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t5 WHERE pk=1;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+WHERE pk<4;
+--source ../include/verify_bypass_query.inc
+
+let bypass_query=
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                     a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+                     WHERE pk >= 2;
+--source ../include/verify_bypass_query.inc
+
+DROP TABLE t5;
+
 --echo MultiGet
 
 select @@rocksdb_select_bypass_multiget_min into

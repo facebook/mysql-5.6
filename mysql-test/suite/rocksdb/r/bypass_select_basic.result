@@ -1799,6 +1799,71 @@ id1	id2	id1_type	id2_type	data	version
 include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
+CREATE TABLE t5 (pk int primary key,
+a int, b int, c int, d int, e int, f int, g int, h int,
+i int, j int, k int, l int, m int, n int, o int, p int);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t5 WHERE pk=1;
+a	a	a	a	a	a	a	a	a	a	a	a	a	a	a	a	a
+2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2
+ROWS_READ
+1
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ a,a,a,a,a, a,a,a,a,a, a,a,a,a,a, a,a FROM t5 WHERE pk=1;
+a	a	a	a	a	a	a	a	a	a	a	a	a	a	a	a	a
+2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+WHERE pk<4;
+a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p
+2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18
+4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+ROWS_READ
+3
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+WHERE pk<4;
+a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p
+2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18
+4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+WHERE pk >= 2;
+a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p	a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p
+3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18
+4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20
+6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21
+ROWS_READ
+4
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p FROM t5
+WHERE pk >= 2;
+a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p	a	b	c	d	e	f	g	h	i	j	k	l	m	n	o	p
+3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18
+4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20
+6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE t5;
 MultiGet
 select @@rocksdb_select_bypass_multiget_min into
 @save_rocksdb_select_bypass_multiget_min;
