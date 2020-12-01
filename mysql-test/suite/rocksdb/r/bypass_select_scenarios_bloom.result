@@ -1122,6 +1122,82 @@ include/assert.inc [Verify not executed in bypass]
 include/assert.inc [Verify bypass and regular query return same number of rows]
 include/assert.inc [Verify bypass reads no more than regular query]
 DROP TABLE link_table8;
+CREATE TABLE `meta_table` (
+`lvid` int(10) unsigned NOT NULL DEFAULT '0',
+`mt_object_type` int(10) unsigned NOT NULL DEFAULT '0',
+`id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_object_cookie` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_alt_key_data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`mt_total_size` bigint(20) unsigned NOT NULL DEFAULT '0',
+`mt_object_type2` int(10) unsigned NOT NULL DEFAULT '0',
+`mt_object_state` smallint(5) unsigned NOT NULL DEFAULT '0',
+`context` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+`mt_ref` bigint(20) DEFAULT NULL,
+`mt_key` varbinary(80) DEFAULT NULL,
+`mt_ctime` int(10) NOT NULL DEFAULT '0',
+`mt_rtime` int(10) NOT NULL DEFAULT '0',
+`policy_id` tinyint(3) unsigned DEFAULT NULL,
+`policy` bigint(20) unsigned DEFAULT NULL,
+`parent_id` bigint(20) unsigned NOT NULL DEFAULT '0',
+`ttl` int(10) DEFAULT NULL,
+`mt_last_update` int(10) unsigned NOT NULL DEFAULT '0',
+PRIMARY KEY (`lvid`,`id`),
+KEY `key1` (`lvid`,`mt_object_state`,`mt_key`(1)),
+KEY `key2` (`lvid`,`mt_last_update`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin
+ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+Warnings:
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+Warning	1681	Integer display width is deprecated and will be removed in a future release.
+INSERT INTO meta_table VALUES (100, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 2, 0, 'data2', 1, 2, 3, 'context2',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 3, 0, 'data3', 1, 2, 3, 'context3',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (100, 0, 4, 0, 'data4', 1, 2, 3, 'context4',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+INSERT INTO meta_table VALUES (101, 0, 1, 0, 'data1', 1, 2, 3, 'context1',
+1, 0x1, 1, 1, 1, 1, 1, 0, 0);
+========== Verifying Bypass Query ==========
+WITH BYPASS:
+SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
+`mt_alt_key_data`, `mt_key`, `mt_ctime`, `mt_rtime`,
+`mt_ref`, `mt_object_type`, `mt_last_update`, `mt_total_size`,
+`mt_object_type2`, `policy_id`, `ttl`, `policy` FROM `meta_table`
+FORCE INDEX (PRIMARY) WHERE lvid = 100 AND id >= 3 ORDER BY id LIMIT 1000000;
+mt_object_state	id	mt_object_cookie	mt_alt_key_data	mt_key	mt_ctime	mt_rtime	mt_ref	mt_object_type	mt_last_update	mt_total_size	mt_object_type2	policy_id	ttl	policy
+3	3	0	data3		1	1	1	0	0	1	2	1	0	1
+3	4	0	data4		1	1	1	0	0	1	2	1	0	1
+ROWS_READ
+2
+include/assert.inc [Verify executed in bypass]
+WITHOUT BYPASS:
+SELECT /*+ bypass */ `mt_object_state`, `id`, `mt_object_cookie`,
+`mt_alt_key_data`, `mt_key`, `mt_ctime`, `mt_rtime`,
+`mt_ref`, `mt_object_type`, `mt_last_update`, `mt_total_size`,
+`mt_object_type2`, `policy_id`, `ttl`, `policy` FROM `meta_table`
+FORCE INDEX (PRIMARY) WHERE lvid = 100 AND id >= 3 ORDER BY id LIMIT 1000000;
+mt_object_state	id	mt_object_cookie	mt_alt_key_data	mt_key	mt_ctime	mt_rtime	mt_ref	mt_object_type	mt_last_update	mt_total_size	mt_object_type2	policy_id	ttl	policy
+3	3	0	data3		1	1	1	0	0	1	2	1	0	1
+3	4	0	data4		1	1	1	0	0	1	2	1	0	1
+include/assert.inc [Verify not executed in bypass]
+include/assert.inc [Verify bypass and regular query return same number of rows]
+include/assert.inc [Verify bypass reads no more than regular query]
+DROP TABLE meta_table;
 # Establish connection con1 (user=root)
 # Switch to connection con1
 ========== Verifying Bypass Query ==========
@@ -1158,7 +1234,7 @@ FROM performance_schema.global_status WHERE
 variable_name="rocksdb_select_bypass_executed";
 SELECT @executed_end-@executed_start AS ROCKSDB_SELECT_BYPASS_EXECUTED;
 ROCKSDB_SELECT_BYPASS_EXECUTED
-27
+28
 DROP TABLE count_table;
 DROP TABLE link_table;
 DROP TABLE link_table2;

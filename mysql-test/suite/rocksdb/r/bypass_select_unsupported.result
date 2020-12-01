@@ -513,7 +513,7 @@ ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index or
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
 ERROR 42000: SELECT statement pattern not supported: ORDER BY is not in index order
 SELECT /*+ bypass */ a, b, c FROM t3 FORCE INDEX(`a`) WHERE a=1 ORDER BY b, b;
-ERROR 42000: SELECT statement pattern not supported: only utf8_bin, latin1_bin is supported for varchar field
+ERROR 42000: SELECT statement pattern not supported: only binary, utf8_bin, latin1_bin is supported for varchar field
 SHOW STATUS LIKE 'rocksdb_select_bypass%';
 Variable_name	Value
 rocksdb_select_bypass_executed	8
@@ -521,7 +521,7 @@ rocksdb_select_bypass_failed	0
 rocksdb_select_bypass_rejected	36
 SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
 QUERY	ERROR_MSG
-SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	only utf8_bin, latin1_bin is supported for varchar field
+SELECT `a` , `b` , `c` FROM `t3` FORCE INDEX ( `a` ) WHERE `a` = ? ORDER BY `b` , `b`	only binary, utf8_bin, latin1_bin is supported for varchar field
 SELECT /*+ bypass */ a, b, c FROM t1 FORCE INDEX(`abc`) WHERE a=1 ORDER BY b, a;
 ERROR 42000: Key 'abc' doesn't exist in table 't1'
 SELECT /*+ bypass */ a from t1 WHERE a=1 INTO OUTFILE 'datadir/select.out';
@@ -551,14 +551,6 @@ QUERY	ERROR_MSG
 SELECT `a` , `b` , `c` FROM `t3` WHERE `pk` = ? LOCK IN SHARE MODE	Only SELECT with default READ lock is supported
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 ERROR 42000: SELECT statement pattern not supported: Only SELECT with default READ lock is supported
-CREATE TABLE t5 (pk int primary key,
-a int, b int, c int, d int, e int, f int, g int, h int,
-i int, j int, k int, l int, m int, n int, o int, p int);
-SELECT /*+ bypass */ a FROM t5 WHERE pk=1;
-ERROR 42000: SELECT statement pattern not supported: Too many fields in table
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY;
-QUERY	ERROR_MSG
-SELECT `a` FROM `t5` WHERE `pk` = ?	Too many fields in table
 SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
 a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
@@ -631,4 +623,3 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
-drop table t5;

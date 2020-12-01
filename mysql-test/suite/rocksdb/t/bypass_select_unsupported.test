@@ -317,15 +317,6 @@ SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HI
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ HIGH_PRIORITY a, b, c FROM t3 WHERE pk=1;
 
-# Too many fields
-CREATE TABLE t5 (pk int primary key,
-                 a int, b int, c int, d int, e int, f int, g int, h int,
-                 i int, j int, k int, l int, m int, n int, o int, p int);
-
---error ER_NOT_SUPPORTED_YET
-SELECT /*+ bypass */ a FROM t5 WHERE pk=1;
-SELECT QUERY, ERROR_MSG from information_schema.ROCKSDB_BYPASS_REJECTED_QUERY_HISTORY; 
-
 # Too many WHERE expressions
 --error ER_NOT_SUPPORTED_YET
 SELECT /*+ bypass */ a FROM t3 WHERE a=1 AND a=1 AND a=1 AND a=1 AND a=1 AND
@@ -381,4 +372,3 @@ drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
-drop table t5;

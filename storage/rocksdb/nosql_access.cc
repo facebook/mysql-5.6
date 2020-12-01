@@ -48,7 +48,7 @@
 #include "./rdb_converter.h"
 #include "./rdb_datadic.h"
 
-static const size_t MAX_NOSQL_FIELD_COUNT = 16;
+static const size_t DEFAULT_FIELD_LIST_SIZE = 16;
 static const size_t MAX_NOSQL_COND_COUNT = 16;
 
 // A soft max for key writers used for initial vector allocation and
@@ -321,10 +321,7 @@ class sql_select_parser : public base_select_parser {
 
   // Parse all items in SELECT
   bool parse_items() {
-    if (m_table->s->fields > MAX_NOSQL_FIELD_COUNT) {
-      m_error_msg = "Too many fields in table";
-      return true;
-    }
+    m_field_list.reserve(DEFAULT_FIELD_LIST_SIZE);
 
     // All item must be fields
     for (Item *item : m_select_lex->visible_fields()) {
@@ -351,10 +348,11 @@ class sql_select_parser : public base_select_parser {
 
       auto field_type = field->real_type();
       if (field_type == MYSQL_TYPE_VARCHAR &&
+          field->charset() != &my_charset_bin &&
           field->charset() != &my_charset_utf8mb3_bin &&
           field->charset() != &my_charset_latin1_bin) {
         m_error_msg =
-            "only utf8_bin, latin1_bin is supported for varchar field";
+            "only binary, utf8_bin, latin1_bin is supported for varchar field";
         return true;
       }
 
@@ -653,8 +651,8 @@ class select_exec {
     m_select_limit = m_parser.get_select_limit() + m_offset_limit;
     m_debug_row_delay = get_select_bypass_debug_row_delay();
 
-    memset(reinterpret_cast<char *>(m_field_index_to_where.data()), 0xff,
-           sizeof(m_field_index_to_where));
+    m_field_index_to_where.resize(m_table_share->fields,
+                                  std::make_pair(-1, -1));
     m_unsupported = false;
     m_error_msg = "UNKNOWN";
     m_start_inclusive = m_end_inclusive = true;
@@ -805,7 +803,7 @@ class select_exec {
   std::vector<key_index_tuple_writer> m_key_index_tuples;
 
   // map from field_index to where_list
-  std::array<std::pair<int, int>, MAX_NOSQL_FIELD_COUNT> m_field_index_to_where;
+  std::vector<std::pair<int, int>> m_field_index_to_where;
 
   // Number of fields (columns) that are prefix of index
   uint m_prefix_key_count;
