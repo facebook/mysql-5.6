@@ -155,7 +155,7 @@ while ($i <= $end)
     {
       let $slave_sql_errno= convert_error(ER_SLAVE_CONVERSION_FAILED);
       source include/wait_for_slave_sql_error.inc;
-      echo "Conversion failed: $type1 ($max_val) -> $type2";
+      echo "Conversion failed: $type1 ($min_val) -> $type2";
       SET @@sql_log_bin= 0;
       eval ALTER TABLE t1 MODIFY b $type1;
       SET @@sql_log_bin= 1;
@@ -178,6 +178,7 @@ while ($i <= $end)
       {
         die "Tables don't match";
       }
+      echo "Conversion successful: $type1 ($min_val) -> $type2: $mv == $sv";
     }
 
     connection master;
