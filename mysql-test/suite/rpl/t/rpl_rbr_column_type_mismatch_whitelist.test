@@ -6,6 +6,8 @@ source include/big_test.inc;
 connection master;
 call mtr.add_suppression("Column 1 of table 'test.t1' cannot be converted from type");
 call mtr.add_suppression("Slave: Truncated incorrect DECIMAL value");
+call mtr.add_suppression("Out of range value");
+call mtr.add_suppression("Data truncated for column");
 set sql_mode='';
 source include/sync_slave_sql_with_master.inc;
 
@@ -55,10 +57,10 @@ INSERT INTO types VALUES(NULL, "varbinary(3)", "a", "aaa");
 INSERT INTO types VALUES(NULL, "blob", "a", "aaa");
 INSERT INTO types VALUES(NULL, "text", "a", "aaa");
 # Enum and Sets
-INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa')", "a", "aaa");
-INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa', 'aaaa')", "a", "aaaa");
-INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa')", "", "a,aa,aaa");
-INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa', 'aaaa')", "", "a,aa,aaa,aaaa");
+#INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa')", "a", "aaa");
+#INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa', 'aaaa')", "a", "aaaa");
+#INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa')", "", "a,aa,aaa");
+#INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa', 'aaaa')", "", "a,aa,aaa,aaaa");
 
 source include/sync_slave_sql_with_master.inc;
 
@@ -115,17 +117,18 @@ while ($i <= $end)
       let $assert_cond= COUNT(*) = 1 FROM t1;
       let $assert_text= Count of elements in t1 should be 1;
       source include/assert.inc;
-      let $mv= `SELECT a FROM t1`;
+      let $mv= `SELECT b FROM t1`;
 
       connection slave;
       let $assert_cond= COUNT(*) = 1 FROM t1;
       let $assert_text= Count of elements in t1 should be 1;
       source include/assert.inc;
-      let $sv= `SELECT a FROM t1`;
+      let $sv= `SELECT b FROM t1`;
       if ($mv != $sv)
       {
         die "Tables don't match";
       }
+      echo "Conversion successful: $type1 ($max_val) -> $type2: $mv == $sv";
     }
 
     connection master;
@@ -158,7 +161,7 @@ while ($i <= $end)
       let $errno2= convert_error(ER_SERVER_SLAVE_CONVERSION_FAILED);
       let $slave_sql_errno= $errno1,$errno2;
       source include/wait_for_slave_sql_error.inc;
-      echo "Conversion failed: $type1 ($max_val) -> $type2";
+      echo "Conversion failed: $type1 ($min_val) -> $type2";
       SET @@sql_log_bin= 0;
       eval ALTER TABLE t1 MODIFY b $type1;
       SET @@sql_log_bin= 1;
@@ -181,6 +184,7 @@ while ($i <= $end)
       {
         die "Tables don't match";
       }
+      echo "Conversion successful: $type1 ($min_val) -> $type2: $mv == $sv";
     }
 
     connection master;

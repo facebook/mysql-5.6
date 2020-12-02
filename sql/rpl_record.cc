@@ -951,9 +951,11 @@ bool unpack_row(Relay_log_info const *rli, TABLE *table,
                              field_ptr->field_name, source_type.c_ptr_safe(),
                              value_string.c_ptr_safe()));
 #endif
+        field_ptr->table->in_use->check_for_truncated_fields = CHECK_FIELD_WARN;
         copy.set(field_ptr, f, true);
         const auto conv_status = copy.invoke_do_copy();
-        if (!slave_type_conversions_options && conv_status) {
+        if (!slave_type_conversions_options &&
+            (conv_status || field_ptr->table->in_use->num_truncated_fields)) {
           const char *db_name = table->s->db.str;
           const char *tbl_name = table->s->table_name.str;
           char source_buf2[MAX_FIELD_WIDTH];
