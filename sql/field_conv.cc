@@ -517,10 +517,13 @@ static type_conversion_status do_expand_string(Copy_field *copy) {
   @return Number of bytes that should be copied from 'from' to 'to'.
 */
 static size_t get_varstring_copy_length(Field_varstring *to,
-                                        const Field_varstring *from) {
+                                        const Field_varstring *from,
+                                        bool *truncated) {
   const CHARSET_INFO *const cs = from->charset();
   const bool is_multibyte_charset = (cs->mbmaxlen != 1);
   const uint to_byte_length = to->row_pack_length();
+
+  if (truncated) *truncated = false;
 
   size_t bytes_to_copy;
   if (from->length_bytes == 1)
@@ -546,11 +549,13 @@ static size_t get_varstring_copy_length(Field_varstring *to,
         cs->cset->well_formed_len(cs, from_beg, from_beg + from_byte_length,
                                   to_char_length, &well_formed_error);
     if (bytes_to_copy < from_byte_length) {
+      if (truncated) *truncated = true;
       if (from->table->in_use->check_for_truncated_fields)
         to->set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);
     }
   } else {
     if (bytes_to_copy > (to_byte_length)) {
+      if (truncated) *truncated = true;
       bytes_to_copy = to_byte_length;
       if (from->table->in_use->check_for_truncated_fields)
         to->set_warning(Sql_condition::SL_WARNING, WARN_DATA_TRUNCATED, 1);
@@ -573,13 +578,14 @@ static size_t get_varstring_copy_length(Field_varstring *to,
   @param to   Variable length field we're copying to
   @param from Variable length field we're copying from
 */
-static void copy_field_varstring(Field_varstring *const to,
-                                 const Field_varstring *const from) {
+static type_conversion_status copy_field_varstring(
+    Field_varstring *const to, const Field_varstring *const from) {
   const uint length_bytes = from->length_bytes;
   DBUG_ASSERT(length_bytes == to->length_bytes);
   DBUG_ASSERT(length_bytes == 1 || length_bytes == 2);
 
-  const size_t bytes_to_copy = get_varstring_copy_length(to, from);
+  bool truncated = false;
+  const size_t bytes_to_copy = get_varstring_copy_length(to, from, &truncated);
   if (length_bytes == 1)
     *to->ptr = static_cast<uchar>(bytes_to_copy);
   else
@@ -588,12 +594,14 @@ static void copy_field_varstring(Field_varstring *const to,
   // memcpy should not be used for overlaping memory blocks
   DBUG_ASSERT(to->ptr != from->ptr);
   memcpy(to->ptr + length_bytes, from->ptr + length_bytes, bytes_to_copy);
+
+  return !truncated ? TYPE_OK : TYPE_WARN_TRUNCATED;
 }
 
 static type_conversion_status do_varstring(Copy_field *copy) {
-  copy_field_varstring(static_cast<Field_varstring *>(copy->to_field()),
-                       static_cast<Field_varstring *>(copy->from_field()));
-  return TYPE_OK;
+  return copy_field_varstring(
+      static_cast<Field_varstring *>(copy->to_field()),
+      static_cast<Field_varstring *>(copy->from_field()));
 }
 
 /***************************************************************************
