@@ -187,6 +187,7 @@ mysql_fetch_row_nonblocking
 mysql_free_result_nonblocking
 mysql_get_socket_descriptor
 mysql_get_connect_stage
+mysql_reset_connection_nonblocking
 CACHE INTERNAL "Nonblocking functions exported by client API"
 )
 
