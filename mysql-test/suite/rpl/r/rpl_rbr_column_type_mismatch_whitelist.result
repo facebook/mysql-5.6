@@ -5,6 +5,8 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 call mtr.add_suppression("Column 1 of table 'test.t1' cannot be converted from type");
 call mtr.add_suppression("Slave: Truncated incorrect DECIMAL value");
+call mtr.add_suppression("Out of range value");
+call mtr.add_suppression("Data truncated for column");
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
 SET @@GLOBAL.rbr_column_type_mismatch_whitelist= "test.t1.b";
@@ -37,10 +39,6 @@ INSERT INTO types VALUES(NULL, "varbinary(2)", "a", "aa");
 INSERT INTO types VALUES(NULL, "varbinary(3)", "a", "aaa");
 INSERT INTO types VALUES(NULL, "blob", "a", "aaa");
 INSERT INTO types VALUES(NULL, "text", "a", "aaa");
-INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa')", "a", "aaa");
-INSERT INTO types VALUES(NULL, "enum('a', 'aa', 'aaa', 'aaaa')", "a", "aaaa");
-INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa')", "", "a,aa,aaa");
-INSERT INTO types VALUES(NULL, "set('a', 'aa', 'aaa', 'aaaa')", "", "a,aa,aaa,aaaa");
 include/sync_slave_sql_with_master.inc
 "Testing: bit(1) (0b1) -> bit(1)"
 Warnings:
@@ -48,6 +46,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bit(1) (0b1) -> bit(1):  == "
 include/sync_slave_sql_with_master.inc
 "Testing: bit(1) (0b0) -> bit(1)"
 Warnings:
@@ -62,6 +61,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bit(1) (0b1) -> bit(2):  == "
 include/sync_slave_sql_with_master.inc
 "Testing: bit(1) (0b0) -> bit(2)"
 Warnings:
@@ -470,70 +470,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: bit(1) (0b1) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b1) -> enum('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b0) -> enum('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b0) -> enum('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b1) -> set('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b0) -> set('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b1) -> set('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(1) (0b0) -> set('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(1) (0b1) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: bit(2) (0b3) -> bit(1)"
 Warnings:
 Warning	1264	Out of range value for column 'b' at row 1
@@ -556,6 +492,7 @@ Warning	1264	Out of range value for column 'b' at row 1
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bit(2) (0b3) -> bit(2):  == "
 include/sync_slave_sql_with_master.inc
 "Testing: bit(2) (0b0) -> bit(2)"
 Warnings:
@@ -964,70 +901,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: bit(2) (0b3) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b3) -> enum('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b0) -> enum('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b3) -> enum('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b0) -> enum('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b3) -> set('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b0) -> set('a', 'aa', 'aaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b3) -> set('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bit(2) (0b0) -> set('a', 'aa', 'aaa', 'aaaa')"
-Warnings:
-Warning	1264	Out of range value for column 'b' at row 1
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bit(2) (0b3) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: tinyint (127) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -1056,6 +929,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> tinyint: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> tinyint"
 include/save_master_pos.inc
@@ -1066,6 +940,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> bool: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> bool"
 include/save_master_pos.inc
@@ -1076,6 +951,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> smallint: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> smallint"
 include/save_master_pos.inc
@@ -1086,6 +962,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> mediumint: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> mediumint"
 include/save_master_pos.inc
@@ -1096,6 +973,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> int: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> int"
 include/save_master_pos.inc
@@ -1106,6 +984,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: tinyint (127) -> bigint: 127 == 127"
 include/sync_slave_sql_with_master.inc
 "Testing: tinyint (-128) -> bigint"
 include/save_master_pos.inc
@@ -1340,54 +1219,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: tinyint (127) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: tinyint (127) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (-128) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (127) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (-128) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (127) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (-128) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (127) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: tinyint (-128) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: tinyint (127) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: bool (1) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -1416,6 +1247,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> tinyint: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> tinyint"
 include/save_master_pos.inc
@@ -1426,6 +1258,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> bool: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> bool"
 include/save_master_pos.inc
@@ -1436,6 +1269,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> smallint: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> smallint"
 include/save_master_pos.inc
@@ -1446,6 +1280,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> mediumint: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> mediumint"
 include/save_master_pos.inc
@@ -1456,6 +1291,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> int: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> int"
 include/save_master_pos.inc
@@ -1466,6 +1302,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bool (1) -> bigint: 1 == 1"
 include/sync_slave_sql_with_master.inc
 "Testing: bool (0) -> bigint"
 include/save_master_pos.inc
@@ -1700,54 +1537,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: bool (1) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: bool (1) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (0) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (0) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (1) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (0) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (1) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bool (0) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bool (1) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: smallint (32767) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -1800,6 +1589,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: smallint (32767) -> smallint: 32767 == 32767"
 include/sync_slave_sql_with_master.inc
 "Testing: smallint (-32768) -> smallint"
 include/save_master_pos.inc
@@ -1810,6 +1600,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: smallint (32767) -> mediumint: 32767 == 32767"
 include/sync_slave_sql_with_master.inc
 "Testing: smallint (-32768) -> mediumint"
 include/save_master_pos.inc
@@ -1820,6 +1611,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: smallint (32767) -> int: 32767 == 32767"
 include/sync_slave_sql_with_master.inc
 "Testing: smallint (-32768) -> int"
 include/save_master_pos.inc
@@ -1830,6 +1622,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: smallint (32767) -> bigint: 32767 == 32767"
 include/sync_slave_sql_with_master.inc
 "Testing: smallint (-32768) -> bigint"
 include/save_master_pos.inc
@@ -2064,54 +1857,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: smallint (32767) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: smallint (32767) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (-32768) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (32767) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (-32768) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (32767) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (-32768) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (32767) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: smallint (-32768) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: smallint (32767) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: mediumint (8388607) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -2176,6 +1921,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: mediumint (8388607) -> mediumint: 8388607 == 8388607"
 include/sync_slave_sql_with_master.inc
 "Testing: mediumint (-8388608) -> mediumint"
 include/save_master_pos.inc
@@ -2186,6 +1932,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: mediumint (8388607) -> int: 8388607 == 8388607"
 include/sync_slave_sql_with_master.inc
 "Testing: mediumint (-8388608) -> int"
 include/save_master_pos.inc
@@ -2196,6 +1943,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: mediumint (8388607) -> bigint: 8388607 == 8388607"
 include/sync_slave_sql_with_master.inc
 "Testing: mediumint (-8388608) -> bigint"
 include/save_master_pos.inc
@@ -2430,54 +2178,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: mediumint (8388607) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: mediumint (8388607) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (-8388608) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (8388607) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (-8388608) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (8388607) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (-8388608) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (8388607) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: mediumint (-8388608) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: mediumint (8388607) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: int (2147483647) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -2554,6 +2254,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: int (2147483647) -> int: 2147483647 == 2147483647"
 include/sync_slave_sql_with_master.inc
 "Testing: int (-2147483648) -> int"
 include/save_master_pos.inc
@@ -2564,6 +2265,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: int (2147483647) -> bigint: 2147483647 == 2147483647"
 include/sync_slave_sql_with_master.inc
 "Testing: int (-2147483648) -> bigint"
 include/save_master_pos.inc
@@ -2798,54 +2500,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: int (2147483647) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: int (2147483647) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (-2147483648) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (2147483647) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (-2147483648) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (2147483647) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (-2147483648) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (2147483647) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: int (-2147483648) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: int (2147483647) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: bigint (9223372036854775807) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -2934,6 +2588,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: bigint (9223372036854775807) -> bigint: 9223372036854775807 == 9223372036854775807"
 include/sync_slave_sql_with_master.inc
 "Testing: bigint (-9223372036854775808) -> bigint"
 include/save_master_pos.inc
@@ -3168,54 +2823,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: bigint (9223372036854775807) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (-9223372036854775808) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (-9223372036854775808) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (9223372036854775807) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (-9223372036854775808) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (9223372036854775807) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: bigint (-9223372036854775808) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: bigint (9223372036854775807) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 2) (999.99) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -3316,6 +2923,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 2) (999.99) -> decimal(5, 2): 999.99 == 999.99"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 2) (-999.99) -> decimal(5, 2)"
 include/save_master_pos.inc
@@ -3338,6 +2946,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 2) (999.99) -> float(53): 999.99 == 999.99"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 2) (-999.99) -> float(53)"
 include/save_master_pos.inc
@@ -3348,6 +2957,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 2) (999.99) -> double: 999.99 == 999.99"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 2) (-999.99) -> double"
 include/save_master_pos.inc
@@ -3534,54 +3144,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: decimal(5, 2) (999.99) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (-999.99) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (-999.99) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (-999.99) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 2) (-999.99) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 2) (999.99) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 3) (99.999) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -3694,6 +3256,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 3) (99.999) -> decimal(5, 3): 99.999 == 99.999"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 3) (-99.999) -> decimal(5, 3)"
 include/save_master_pos.inc
@@ -3704,6 +3267,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 3) (99.999) -> float(53): 99.999 == 99.999"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 3) (-99.999) -> float(53)"
 include/save_master_pos.inc
@@ -3714,6 +3278,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: decimal(5, 3) (99.999) -> double: 99.999 == 99.999"
 include/sync_slave_sql_with_master.inc
 "Testing: decimal(5, 3) (-99.999) -> double"
 include/save_master_pos.inc
@@ -3900,54 +3465,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: decimal(5, 3) (99.999) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (-99.999) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (-99.999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (-99.999) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: decimal(5, 3) (-99.999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: decimal(5, 3) (99.999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: float(53) (3.402823466E+38) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -4072,6 +3589,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: float(53) (3.402823466E+38) -> float(53): 3.402823466e38 == 3.402823466e38"
 include/sync_slave_sql_with_master.inc
 "Testing: float(53) (-3.402823466E+38) -> float(53)"
 include/save_master_pos.inc
@@ -4082,6 +3600,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: float(53) (3.402823466E+38) -> double: 3.402823466e38 == 3.402823466e38"
 include/sync_slave_sql_with_master.inc
 "Testing: float(53) (-3.402823466E+38) -> double"
 include/save_master_pos.inc
@@ -4268,54 +3787,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: float(53) (3.402823466E+38) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (-3.402823466E+38) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (-3.402823466E+38) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (-3.402823466E+38) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: float(53) (-3.402823466E+38) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: float(53) (3.402823466E+38) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: double (1.7976931348623157E+308) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -4440,6 +3911,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: double (1.7976931348623157E+308) -> float(53): 1.7976931348623157e308 == 1.7976931348623157e308"
 include/sync_slave_sql_with_master.inc
 "Testing: double (-1.7976931348623157E+308) -> float(53)"
 include/save_master_pos.inc
@@ -4450,6 +3922,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: double (1.7976931348623157E+308) -> double: 1.7976931348623157e308 == 1.7976931348623157e308"
 include/sync_slave_sql_with_master.inc
 "Testing: double (-1.7976931348623157E+308) -> double"
 include/save_master_pos.inc
@@ -4636,54 +4109,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: double (1.7976931348623157E+308) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (-1.7976931348623157E+308) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (-1.7976931348623157E+308) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (-1.7976931348623157E+308) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: double (-1.7976931348623157E+308) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: double (1.7976931348623157E+308) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: date (9999-12-31) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -4832,6 +4257,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: date (9999-12-31) -> date: 9999-12-31 == 9999-12-31"
 include/sync_slave_sql_with_master.inc
 "Testing: date (1000-01-01) -> date"
 include/save_master_pos.inc
@@ -5006,54 +4432,6 @@ include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: date (9999-12-31) -> text"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
-"Testing: date (9999-12-31) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (1000-01-01) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (9999-12-31) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (1000-01-01) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (9999-12-31) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (1000-01-01) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (9999-12-31) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: date (1000-01-01) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: date (9999-12-31) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
 "Testing: datetime (9999-12-31 23:59:59.499999) -> bit(1)"
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
@@ -5214,6 +4592,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: datetime (9999-12-31 23:59:59.499999) -> datetime: 9999-12-31 23:59:59 == 9999-12-31 23:59:59"
 include/sync_slave_sql_with_master.inc
 "Testing: datetime (1000-01-01 00:00:00.000000) -> datetime"
 include/save_master_pos.inc
@@ -5374,54 +4753,6 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: datetime (9999-12-31 23:59:59.499999) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (1000-01-01 00:00:00.000000) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (1000-01-01 00:00:00.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (1000-01-01 00:00:00.000000) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: datetime (1000-01-01 00:00:00.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: datetime (9999-12-31 23:59:59.499999) -> set('a', 'aa', 'aaa', 'aaaa')"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: timestamp (2038-01-19 03:14:07.999999) -> bit(1)"
@@ -5596,6 +4927,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: timestamp (2038-01-19 03:14:07.999999) -> timestamp: 2038-01-19 03:14:08 == 2038-01-19 03:14:08"
 include/sync_slave_sql_with_master.inc
 "Testing: timestamp (1970-01-01 04:00:00.000000) -> timestamp"
 include/save_master_pos.inc
@@ -5744,54 +5076,6 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (1970-01-01 04:00:00.000000) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (1970-01-01 04:00:00.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (1970-01-01 04:00:00.000000) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: timestamp (1970-01-01 04:00:00.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: timestamp (2038-01-19 03:14:07.999999) -> set('a', 'aa', 'aaa', 'aaaa')"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: time (838:59:59.000000) -> bit(1)"
@@ -5978,6 +5262,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: time (838:59:59.000000) -> time: 838:59:59 == 838:59:59"
 include/sync_slave_sql_with_master.inc
 "Testing: time (-838:59:59.000000) -> time"
 include/save_master_pos.inc
@@ -6114,54 +5399,6 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: time (838:59:59.000000) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (838:59:59.000000) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (-838:59:59.000000) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (838:59:59.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (-838:59:59.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (838:59:59.000000) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (-838:59:59.000000) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (838:59:59.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: time (-838:59:59.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: time (838:59:59.000000) -> set('a', 'aa', 'aaa', 'aaaa')"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: year (2155) -> bit(1)"
@@ -6360,6 +5597,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: year (2155) -> year: 2155 == 2155"
 include/sync_slave_sql_with_master.inc
 "Testing: year (0000) -> year"
 include/save_master_pos.inc
@@ -6484,54 +5722,6 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/wait_for_slave_sql_error.inc [errno=1677]
 "Conversion failed: year (2155) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (2155) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (0000) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (2155) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (0000) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (2155) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (0000) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (2155) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: year (0000) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: year (2155) -> set('a', 'aa', 'aaa', 'aaaa')"
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (aa) -> bit(1)"
@@ -6742,6 +5932,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> char(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> char(2)"
 include/save_master_pos.inc
@@ -6752,6 +5943,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> char(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> char(3)"
 include/save_master_pos.inc
@@ -6762,6 +5954,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> varchar(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -6772,6 +5965,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> varchar(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -6782,6 +5976,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> binary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -6792,6 +5987,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> binary(3): aa == aa "
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -6802,6 +5998,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> varbinary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -6812,6 +6009,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> varbinary(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -6822,6 +6020,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> blob: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> blob"
 include/save_master_pos.inc
@@ -6832,59 +6031,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(2) (aa) -> text: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(2) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (aa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(2) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -7105,6 +6257,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> char(3)"
 include/save_master_pos.inc
@@ -7113,8 +6266,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: char(3) (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -7125,6 +6279,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -7147,6 +6302,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -7155,18 +6311,21 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: char(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: char(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (aaa) -> varbinary(3)"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -7177,6 +6336,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> blob"
 include/save_master_pos.inc
@@ -7187,59 +6347,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: char(3) (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: char(3) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: char(3) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: char(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (aa) -> bit(1)"
 include/save_master_pos.inc
@@ -7449,6 +6562,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> char(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> char(2)"
 include/save_master_pos.inc
@@ -7459,6 +6573,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> char(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> char(3)"
 include/save_master_pos.inc
@@ -7469,6 +6584,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> varchar(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -7479,6 +6595,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> varchar(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -7489,6 +6606,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> binary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -7499,6 +6617,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> binary(3): aa == aa "
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -7509,6 +6628,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> varbinary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -7519,6 +6639,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> varbinary(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -7529,6 +6650,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> blob: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> blob"
 include/save_master_pos.inc
@@ -7539,59 +6661,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(2) (aa) -> text: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(2) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (aa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(2) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -7799,8 +6874,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (aaa) -> char(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varchar(3) (aaa) -> char(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> char(2)"
 include/save_master_pos.inc
@@ -7811,6 +6887,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> char(3)"
 include/save_master_pos.inc
@@ -7819,8 +6896,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varchar(3) (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -7831,6 +6909,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -7839,8 +6918,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (aaa) -> binary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varchar(3) (aaa) -> binary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -7851,6 +6931,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -7859,8 +6940,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varchar(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -7871,6 +6953,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -7881,6 +6964,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> blob"
 include/save_master_pos.inc
@@ -7891,59 +6975,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varchar(3) (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varchar(3) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varchar(3) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varchar(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (aa) -> bit(1)"
 include/save_master_pos.inc
@@ -8153,6 +7190,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> char(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> char(2)"
 include/save_master_pos.inc
@@ -8163,6 +7201,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> char(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> char(3)"
 include/save_master_pos.inc
@@ -8173,6 +7212,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> varchar(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -8183,6 +7223,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> varchar(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -8193,6 +7234,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> binary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -8203,6 +7245,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> binary(3): aa == aa "
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -8213,6 +7256,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> varbinary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -8223,6 +7267,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> varbinary(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -8233,6 +7278,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> blob: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> blob"
 include/save_master_pos.inc
@@ -8243,59 +7289,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(2) (aa) -> text: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(2) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(2) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -8517,6 +7516,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> char(3)"
 include/save_master_pos.inc
@@ -8525,18 +7525,21 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: binary(3) (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: binary(3) (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (aaa) -> varchar(3)"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -8559,6 +7562,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -8567,18 +7571,21 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: binary(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: binary(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (aaa) -> varbinary(3)"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -8589,6 +7596,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> blob"
 include/save_master_pos.inc
@@ -8599,59 +7607,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: binary(3) (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: binary(3) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: binary(3) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: binary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (aa) -> bit(1)"
 include/save_master_pos.inc
@@ -8861,6 +7822,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> char(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> char(2)"
 include/save_master_pos.inc
@@ -8871,6 +7833,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> char(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> char(3)"
 include/save_master_pos.inc
@@ -8881,6 +7844,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> varchar(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -8891,6 +7855,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> varchar(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -8901,6 +7866,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> binary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -8911,6 +7877,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> binary(3): aa == aa "
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -8921,6 +7888,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> varbinary(2): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -8931,6 +7899,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> varbinary(3): aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -8941,6 +7910,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> blob: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> blob"
 include/save_master_pos.inc
@@ -8951,59 +7921,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(2) (aa) -> text: aa == aa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(2) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(2) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(2) (aa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -9211,8 +8134,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (aaa) -> char(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varbinary(3) (aaa) -> char(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> char(2)"
 include/save_master_pos.inc
@@ -9223,6 +8147,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> char(3)"
 include/save_master_pos.inc
@@ -9231,8 +8156,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varbinary(3) (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -9243,6 +8169,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -9251,8 +8178,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (aaa) -> binary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varbinary(3) (aaa) -> binary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> binary(2)"
 include/save_master_pos.inc
@@ -9263,6 +8191,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> binary(3)"
 include/save_master_pos.inc
@@ -9271,8 +8200,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: varbinary(3) (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -9283,6 +8213,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -9293,6 +8224,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> blob"
 include/save_master_pos.inc
@@ -9303,59 +8235,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: varbinary(3) (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: varbinary(3) (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: varbinary(3) (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: varbinary(3) (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -9563,8 +8448,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (aaa) -> char(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: blob (aaa) -> char(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> char(2)"
 include/save_master_pos.inc
@@ -9575,6 +8461,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> char(3)"
 include/save_master_pos.inc
@@ -9583,8 +8470,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: blob (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: blob (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -9595,6 +8483,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -9603,8 +8492,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: blob (aaa) -> binary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: blob (aaa) -> binary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> binary(2)"
 include/save_master_pos.inc
@@ -9615,6 +8505,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> binary(3)"
 include/save_master_pos.inc
@@ -9623,8 +8514,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: blob (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: blob (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -9635,6 +8527,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -9645,6 +8538,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> blob"
 include/save_master_pos.inc
@@ -9655,59 +8549,12 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: blob (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: blob (a) -> text"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: blob (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: blob (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: blob (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (aaa) -> bit(1)"
 include/save_master_pos.inc
@@ -9915,8 +8762,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (aaa) -> char(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: text (aaa) -> char(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> char(2)"
 include/save_master_pos.inc
@@ -9927,6 +8775,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> char(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> char(3)"
 include/save_master_pos.inc
@@ -9935,8 +8784,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: text (aaa) -> varchar(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: text (aaa) -> varchar(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> varchar(2)"
 include/save_master_pos.inc
@@ -9947,6 +8797,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> varchar(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> varchar(3)"
 include/save_master_pos.inc
@@ -9955,8 +8806,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: text (aaa) -> binary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: text (aaa) -> binary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> binary(2)"
 include/save_master_pos.inc
@@ -9967,6 +8819,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> binary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> binary(3)"
 include/save_master_pos.inc
@@ -9975,8 +8828,9 @@ include/assert.inc [Count of elements in t1 should be 1]
 include/sync_slave_sql_with_master.inc
 "Testing: text (aaa) -> varbinary(2)"
 include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
+include/wait_for_slave_sql_error.inc [errno=1677]
+"Conversion failed: text (aaa) -> varbinary(2)"
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> varbinary(2)"
 include/save_master_pos.inc
@@ -9987,6 +8841,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> varbinary(3): aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> varbinary(3)"
 include/save_master_pos.inc
@@ -9997,6 +8852,7 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> blob: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> blob"
 include/save_master_pos.inc
@@ -10007,1528 +8863,9 @@ include/sync_slave_sql_with_master.inc
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]
+"Conversion successful: text (aaa) -> text: aaa == aaa"
 include/sync_slave_sql_with_master.inc
 "Testing: text (a) -> text"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: text (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: text (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: text (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa') (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa') (aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: enum('a', 'aa', 'aaa', 'aaaa') (a) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: enum('a', 'aa', 'aaa', 'aaaa') (aaaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa') (a,aa,aaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') (a,aa,aaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa') () -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> bit(1)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(1)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> bit(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bit(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> tinyint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> tinyint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> bool"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bool"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> smallint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> smallint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> mediumint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> mediumint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> int"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> int"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> bigint"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> bigint"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> decimal(5, 2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> decimal(5, 3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> decimal(5, 3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> float(53)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> float(53)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> double"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> double"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> date"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> date"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> datetime"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> datetime"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> timestamp"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> timestamp"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> time"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> time"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> year"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> year"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> char(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> char(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> char(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> varchar(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> varchar(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varchar(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> binary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> binary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> binary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> varbinary(2)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(2)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> varbinary(3)"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> varbinary(3)"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> blob"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> blob"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> text"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> text"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> enum('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/wait_for_slave_sql_error.inc [errno=1677]
-"Conversion failed: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> enum('a', 'aa', 'aaa', 'aaaa')"
-include/start_slave.inc
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> set('a', 'aa', 'aaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') (a,aa,aaa,aaaa) -> set('a', 'aa', 'aaa', 'aaaa')"
-include/save_master_pos.inc
-include/assert.inc [Count of elements in t1 should be 1]
-include/assert.inc [Count of elements in t1 should be 1]
-include/sync_slave_sql_with_master.inc
-"Testing: set('a', 'aa', 'aaa', 'aaaa') () -> set('a', 'aa', 'aaa', 'aaaa')"
 include/save_master_pos.inc
 include/assert.inc [Count of elements in t1 should be 1]
 include/assert.inc [Count of elements in t1 should be 1]

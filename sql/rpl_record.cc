@@ -577,9 +577,11 @@ unpack_row(Relay_log_info const *rli,
                              (*field_ptr)->field_name,
                              source_type.c_ptr_safe(), value_string.c_ptr_safe()));
 #endif
+        (*field_ptr)->table->in_use->count_cuted_fields= CHECK_FIELD_WARN;
         copy.set(*field_ptr, f, TRUE);
         const auto conv_status= (*copy.do_copy)(&copy);
-        if (!slave_type_conversions_options && conv_status)
+        if (!slave_type_conversions_options &&
+            (conv_status || (*field_ptr)->table->in_use->cuted_fields))
         {
           const ulong col= field_ptr - begin_ptr;
           const char *db_name= table->s->db.str;
