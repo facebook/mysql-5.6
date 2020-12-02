@@ -23,6 +23,7 @@
 #include <mysql.h>
 #include <mysql/client_plugin.h>
 #include <mysqld_error.h>
+#include <openssl/ssl.h>
 
 #include <algorithm>
 
@@ -36,6 +37,7 @@
 #include "mysql/service_mysql_alloc.h"
 #include "print_version.h"
 #include "sql_common.h"
+#include "violite.h"
 #include "welcome_copyright_notice.h" /* ORACLE_WELCOME_COPYRIGHT_NOTICE */
 
 #define MAX_TEST_QUERY_LENGTH 300 /* MAX QUERY BUFFER LENGTH */
@@ -272,7 +274,15 @@ certificates on the initialized connection object.
  */
 static MYSQL *mysql_client_init_certs(MYSQL *con) {
   MYSQL *res;
-  char *file_name;
+  char file_name[
+#ifdef PATH_MAX
+      PATH_MAX
+#elif defined(MAX_PATH)
+      MAX_PATH
+#else
+      1024
+#endif
+  ];
   enum mysql_ssl_mode ssl_mode = SSL_MODE_VERIFY_IDENTITY;
   const char *test_dir = getenv("MYSQL_TEST_DIR");
   const char *ssl_cert_path = "/std_data/client-cert.pem";
@@ -281,40 +291,101 @@ static MYSQL *mysql_client_init_certs(MYSQL *con) {
 
   res = mysql_client_init(con);
 
-  file_name = reinterpret_cast<char *>(
-      malloc(strlen(test_dir) + strlen(ssl_cert_path) + 1));
   strxmov(file_name, test_dir, ssl_cert_path, NullS);
   if (!opt_silent) {
     fprintf(stdout, "MYSQL_OPT_SSL_CERT set to: '%s'\n", file_name);
   }
   mysql_options(res, MYSQL_OPT_SSL_CERT, file_name);
 
-  file_name = reinterpret_cast<char *>(
-      realloc(file_name, strlen(test_dir) + strlen(ssl_key_path) + 1));
   strxmov(file_name, test_dir, ssl_key_path, NullS);
   if (!opt_silent) {
     fprintf(stdout, "MYSQL_OPT_SSL_KEY set to: '%s'\n", file_name);
   }
   mysql_options(res, MYSQL_OPT_SSL_KEY, file_name);
 
-  file_name = reinterpret_cast<char *>(
-      realloc(file_name, strlen(test_dir) + strlen(ssl_ca_path) + 1));
   strxmov(file_name, test_dir, ssl_ca_path, NullS);
   if (!opt_silent) {
     fprintf(stdout, "MYSQL_OPT_SSL_CA set to: '%s'\n", file_name);
   }
   mysql_options(res, MYSQL_OPT_SSL_CA, file_name);
-  free(file_name);
-
   mysql_options(res, MYSQL_OPT_SSL_MODE, &ssl_mode);
 
   return res;
 }
 
 /*
- Helper function establishing connectio to MySQL using given pre-initialized
- MYSQL structure. Returns "1" if the connection was established successfully,
- returns "0" otherwise.
+Helper function that allocates and initializes SSL_CTX structure
+ready to be used for connecting to mysqld.
+ */
+static SSL_CTX *init_ssl_ctx() {
+  char file_name[
+#ifdef PATH_MAX
+      PATH_MAX
+#elif defined(MAX_PATH)
+      MAX_PATH
+#else
+      1024
+#endif
+  ];
+  const char *test_dir = getenv("MYSQL_TEST_DIR");
+  const char *ssl_cert_path = "/std_data/client-cert.pem";
+  const char *ssl_key_path = "/std_data/client-key.pem";
+  const char *ssl_ca_path = "/std_data/cacert.pem";
+
+  SSL_CTX *ctx = SSL_CTX_new(
+#ifdef HAVE_TLSv13
+      TLS_client_method());
+#else  /* HAVE_TLSv13 */
+      SSLv23_client_method());
+#endif /* HAVE_TLSv13 */
+  if (!ctx) {
+    fprintf(stdout, "SSL_CTX structure initialization failed.\n");
+    return NULL;
+  }
+
+  /* Load certs from the trusted ca */
+  strxmov(file_name, test_dir, ssl_ca_path, NullS);
+  if (!opt_silent) {
+    fprintf(stdout, "MYSQL_OPT_SSL_CA set to: '%s'\n", file_name);
+  }
+
+  if (SSL_CTX_load_verify_locations(ctx, file_name, NULL) <= 0) {
+    fprintf(stdout, "SSL_CTX_load_verify_locations() failed\n");
+
+    /* otherwise go use the defaults */
+    if (SSL_CTX_set_default_verify_paths(ctx) == 0) {
+      fprintf(stdout, "SSL_CTX_set_default_verify_paths() failed\n");
+      return NULL;
+    }
+  }
+
+  strxmov(file_name, test_dir, ssl_cert_path, NullS);
+  if (!opt_silent) {
+    fprintf(stdout, "MYSQL_OPT_SSL_CERT set to: '%s'\n", file_name);
+  }
+  if (SSL_CTX_use_certificate_file(ctx, file_name, SSL_FILETYPE_PEM) != 1) {
+    fprintf(stdout, "SSL_CTX_use_certificate_file() failed\n");
+    return NULL;
+  }
+
+  strxmov(file_name, test_dir, ssl_key_path, NullS);
+  if (!opt_silent) {
+    fprintf(stdout, "MYSQL_OPT_SSL_KEY set to: '%s'\n", file_name);
+  }
+  if (SSL_CTX_use_PrivateKey_file(ctx, file_name, SSL_FILETYPE_PEM) != 1) {
+    fprintf(stdout, "SSL_CTX_use_PrivateKey_file() failed\n");
+    return NULL;
+  }
+
+  SSL_CTX_set_options(ctx, process_tls_version("TLSv1,TLSv1.1,TLSv1.2"));
+
+  return ctx;
+}
+
+/*
+Helper function establishing connectio to MySQL using given pre-initialized
+MYSQL structure. Returns "1" if the connection was established successfully,
+returns "0" otherwise.
  */
 static int mysql_try_connect(MYSQL *conn) {
   enum connect_stage cs;
@@ -402,6 +473,9 @@ static int server_cert_verifier_fail(X509 * /*server_cert*/,
                                      const void * /*context*/,
                                      const char ** /*errptr*/) {
   /* Always fail the check */
+  if (!opt_silent) {
+    fprintf(stdout, "Failing server cert validation (expected)");
+  }
   return 1;
 }
 
