@@ -2666,6 +2666,7 @@
    mysqltest.cc leak during server shutdown
    Memcheck:Leak
    match-leak-kinds: reachable
+   ...
    fun:_ZL18do_shutdown_serverP10st_command
    fun:main
 }
