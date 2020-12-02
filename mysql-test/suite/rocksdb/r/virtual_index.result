@@ -1,0 +1,155 @@
+#
+# Bug 21922176 - PREBUILT->SEARCH_TUPLE CREATED WITHOUT INCLUDING
+# THE NUMBER OF VIRTUAL COLUMNS
+#
+CREATE TABLE t1 (a INT, a1 INT GENERATED ALWAYS AS (a) VIRTUAL, a2 INT
+GENERATED ALWAYS AS (a) VIRTUAL, a3 INT GENERATED ALWAYS AS (a) VIRTUAL, a4
+INT GENERATED ALWAYS AS (a) VIRTUAL, a5 INT GENERATED ALWAYS AS (a) VIRTUAL,
+a6 INT GENERATED ALWAYS AS (a) VIRTUAL, a7 INT GENERATED ALWAYS AS (a)
+VIRTUAL, a8 INT GENERATED ALWAYS AS (a) VIRTUAL, a9 INT GENERATED ALWAYS AS
+(a) VIRTUAL, INDEX(a1, a2, a3, a4, a5, a6, a7, a8, a9)) ENGINE=RocksDB;
+INSERT INTO t1(a) VALUES(10);
+SELECT * FROM t1 WHERE a1=10 AND a2 = 10 AND a3 =10 AND a4 = 10 AND a5=10 AND
+a6=10 AND a7=10 AND a8=10 AND a9=10;
+a	a1	a2	a3	a4	a5	a6	a7	a8	a9
+10	10	10	10	10	10	10	10	10	10
+DROP TABLE t1;
+#
+# Bug 23014521 - GCOL:INNODB: FAILING ASSERTION: !IS_V
+#
+CREATE TABLE t1 (
+col1 int NOT NULL,
+col2 int DEFAULT NULL,
+col3 int NOT NULL,
+col4 int DEFAULT NULL,
+col5 int GENERATED ALWAYS AS ((col1 % col4)) VIRTUAL,
+col6 int GENERATED ALWAYS AS ((col2 - col4)) VIRTUAL,
+col5x int GENERATED ALWAYS AS ((col3 / col2)) VIRTUAL,
+col6b varchar(20) GENERATED ALWAYS AS (col2) VIRTUAL,
+col6x int GENERATED ALWAYS AS ((col2 % col1)) VIRTUAL,
+col7 int GENERATED ALWAYS AS ((col6x + col5x)) VIRTUAL,
+col8 int GENERATED ALWAYS AS ((col5x / col5)) VIRTUAL,
+col7x int GENERATED ALWAYS AS ((col5x + col5)) VIRTUAL,
+col8x int GENERATED ALWAYS AS ((col5 / col5x)) VIRTUAL,
+col9 text,
+col2b varchar(20) GENERATED ALWAYS AS (col4) VIRTUAL,
+col8a int GENERATED ALWAYS AS (col2) VIRTUAL,
+col4b varchar(20) GENERATED ALWAYS AS (col4) VIRTUAL,
+col1c int GENERATED ALWAYS AS ((col2 * col1)) VIRTUAL,
+extra int DEFAULT NULL,
+col5c int GENERATED ALWAYS AS ((col1 / col1)) VIRTUAL,
+col6a bigint GENERATED ALWAYS AS ((col3 / col1)) VIRTUAL,
+col1a varchar(20) GENERATED ALWAYS AS (col6) VIRTUAL,
+col6c int GENERATED ALWAYS AS ((col2 % col2)) VIRTUAL,
+col7c bigint GENERATED ALWAYS AS ((col2 / col1)) VIRTUAL,
+col2c int GENERATED ALWAYS AS ((col5 % col5)) VIRTUAL,
+col1b int GENERATED ALWAYS AS ((col1 / col2)) VIRTUAL,
+col3b bigint GENERATED ALWAYS AS ((col6x % col6)) VIRTUAL,
+UNIQUE KEY idx7 (col1,col3,col2),
+UNIQUE KEY uidx (col9(10)),
+KEY idx15 (col9(10),col2),
+KEY idx10 (col9(10),col1),
+KEY idx11 (col6x),
+KEY idx6 (col9(10),col7),
+KEY idx14 (col6)
+) ENGINE=RocksDB DEFAULT CHARSET=latin1;
+DROP TABLE t1;
+CREATE TABLE t1 (
+col1 int NOT NULL,
+col2 int DEFAULT NULL,
+col3 int NOT NULL,
+col4 int DEFAULT NULL) ENGINE=RocksDB;
+ALTER TABLE t1 ADD COLUMN col7a INT GENERATED ALWAYS AS (col1 % col2)
+VIRTUAL, ADD UNIQUE index idx (col1);
+DROP TABLE t1;
+CREATE TABLE t1 (
+col1 int NOT NULL,
+col2 int DEFAULT NULL,
+col3 int NOT NULL,
+col4 int DEFAULT NULL,
+col5 int GENERATED ALWAYS AS ((col2 - col4)) VIRTUAL,
+col6 int GENERATED ALWAYS AS ((col5 + col1)) VIRTUAL,
+col7 bigint GENERATED ALWAYS AS ((col2 / col1)) VIRTUAL,
+col8 int GENERATED ALWAYS AS ((col5 % col5)) VIRTUAL,
+col9 text,
+KEY idx1 (col5),
+KEY idx2 (col6)
+) ENGINE=RocksDB DEFAULT CHARSET=latin1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `col1` int NOT NULL,
+  `col2` int DEFAULT NULL,
+  `col3` int NOT NULL,
+  `col4` int DEFAULT NULL,
+  `col5` int GENERATED ALWAYS AS ((`col2` - `col4`)) VIRTUAL,
+  `col6` int GENERATED ALWAYS AS ((`col5` + `col1`)) VIRTUAL,
+  `col7` bigint GENERATED ALWAYS AS ((`col2` / `col1`)) VIRTUAL,
+  `col8` int GENERATED ALWAYS AS ((`col5` % `col5`)) VIRTUAL,
+  `col9` text,
+  KEY `idx1` (`col5`),
+  KEY `idx2` (`col6`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+INSERT INTO t1(col1, col2, col3, col4, col9) VALUES (10, 50, 40, 300, "lope");
+INSERT INTO t1(col1, col2, col3, col4, col9) VALUES (100, 3240, 4000, 11, "dskf");
+INSERT INTO t1(col1, col2, col3, col4, col9) VALUES (5, 400, 20, 900, "hqal");
+SELECT * FROM t1;
+col1	col2	col3	col4	col5	col6	col7	col8	col9
+10	50	40	300	-250	-240	5	0	lope
+100	3240	4000	11	3229	3329	32	0	dskf
+5	400	20	900	-500	-495	80	0	hqal
+SELECT col5 FROM t1;
+col5
+-500
+-250
+3229
+SELECT col6 FROM t1;
+col6
+-495
+-240
+3329
+SELECT col7 FROM t1;
+col7
+5
+32
+80
+ALTER TABLE t1 ADD INDEX idx3 (col7);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT col7 FROM t1;
+col7
+5
+32
+80
+SELECT col7 FROM t1;
+col7
+5
+32
+80
+ALTER TABLE t1 DROP INDEX idx3, ADD INDEX idx3 (col7 ASC);
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT col7 FROM t1;
+col7
+5
+32
+80
+DROP TABLE t1;
+#
+# Bug 25899959 - SERVER CRASH WHILE TRYING TO ADD A VIRTUAL COLUMN AND ADD INDEX ON IT
+#
+CREATE TABLE t1 (doc json DEFAULT NULL) ENGINE=RocksDB;
+ALTER TABLE t1 ADD Name char(52) AS (doc->>"$.Name"), ADD INDEX n (Name);
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `doc` json DEFAULT NULL,
+  `Name` char(52) GENERATED ALWAYS AS (json_unquote(json_extract(`doc`,_utf8mb4'$.Name'))) VIRTUAL,
+  KEY `n` (`Name`)
+) ENGINE=ROCKSDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+DROP TABLE t1;

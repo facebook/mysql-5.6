@@ -1189,6 +1189,7 @@ class Rdb_field_encoder {
   uint m_field_length;
   ptrdiff_t m_field_null_offset;
   ptrdiff_t m_field_offset;
+  bool m_is_virtual_gcol;
 
   bool maybe_null() const { return m_null_mask != 0; }
 

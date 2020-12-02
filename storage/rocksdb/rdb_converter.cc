@@ -64,6 +64,7 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
                                                 Rdb_field_encoder *field_dec,
                                                 Rdb_string_reader *reader,
                                                 bool decode, bool is_null) {
+  DBUG_TRACE;
   int err = HA_EXIT_SUCCESS;
   auto ptr = buf + field_dec->m_field_offset;
   if (is_null) {
@@ -84,12 +85,14 @@ int Rdb_convert_to_record_value_decoder::decode(uchar *const buf, TABLE *table,
       buf[field_dec->m_field_null_offset] &= ~(field_dec->m_field_null_mask);
     }
 
-    if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
-      err = decode_blob(table, ptr, field_dec, reader, decode);
-    } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
-      err = decode_varchar(ptr, field_dec, reader, decode);
-    } else {
-      err = decode_fixed_length_field(ptr, field_dec, reader, decode);
+    if (!field_dec->m_is_virtual_gcol) {
+      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+        err = decode_blob(table, ptr, field_dec, reader, decode);
+      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+        err = decode_varchar(ptr, field_dec, reader, decode);
+      } else {
+        err = decode_fixed_length_field(ptr, field_dec, reader, decode);
+      }
     }
   }
 
@@ -360,10 +363,29 @@ void Rdb_converter::setup_field_decoders(const MY_BITMAP *field_map,
   int last_useful = 0;
   int skip_size = 0;
 
+  // We also have to load the fields that are required to decode the requested
+  // virtual fields.
+
+  std::vector<bool> bases(m_table->s->fields);
+
+  for (uint i = 0; i < m_table->s->fields; i++) {
+    const bool field_requested =
+        decode_all_fields || m_verify_row_debug_checksums ||
+        bitmap_is_set(field_map, m_table->field[i]->field_index());
+
+    if (field_requested && m_table->field[i]->is_virtual_gcol()) {
+      for (uint j = 0; j < m_table->s->fields; j++) {
+        if (bitmap_is_set(&m_table->field[i]->gcol_info->base_columns_map, j)) {
+          bases[j] = true;
+        }
+      }
+    }
+  }
+
   for (uint i = 0; i < m_table->s->fields; i++) {
     bool field_requested =
         decode_all_fields || m_verify_row_debug_checksums ||
-        bitmap_is_set(field_map, m_table->field[i]->field_index());
+        bitmap_is_set(field_map, m_table->field[i]->field_index()) || bases[i];
 
     // We only need the decoder if the whole record is stored.
     if (m_encoder_arr[i].m_storage_type != Rdb_field_encoder::STORE_ALL) {
@@ -458,6 +480,7 @@ void Rdb_converter::setup_field_encoders() {
     m_encoder_arr[i].m_field_index = i;
     m_encoder_arr[i].m_field_pack_length = field->pack_length();
     m_encoder_arr[i].m_field_offset = field->field_ptr() - m_table->record[0];
+    m_encoder_arr[i].m_is_virtual_gcol = field->is_virtual_gcol();
 
     if (field_type == MYSQL_TYPE_VARCHAR) {
       auto varchar = reinterpret_cast<const Field_varstring *>(field);
@@ -783,6 +806,10 @@ int Rdb_converter::encode_value_slice(
     }
 
     Field *const field = m_table->field[i];
+
+    if (field->is_virtual_gcol()) {
+      continue;
+    }
 
     if (encoder.maybe_null()) {
       char *data = const_cast<char *>(m_storage_record.ptr());
