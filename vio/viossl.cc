@@ -626,7 +626,10 @@ static void pfs_ssl_setup_instrumentation(Vio *vio, const SSL *ssl) {
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                   SSL_SESSION *ssl_session, ssl_handshake_func_t func,
                   unsigned long *ssl_errno_holder, SSL **sslptr,
-                  const char *sni_servername) {
+                  const char *sni_servername,
+                  const cert_validator_ptr validator_callback,
+                  void *validator_callback_context,
+                  int validator_context_index) {
   SSL *ssl = nullptr;
   my_socket sd = mysql_socket_getfd(vio->mysql_socket);
 
@@ -671,6 +674,15 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       }
     }
 #endif /* OPENSSL_VERSION_NUMBER >= 0x00908070 && !def(OPENSSL_NO_TLSEXT) */
+
+    if (validator_callback && validator_context_index != -1) {
+      SSL_set_verify(ssl, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE,
+                     validator_callback);
+      if (validator_callback_context) {
+        SSL_set_ex_data(ssl, validator_context_index,
+                        validator_callback_context);
+      }
+    }
 
     DBUG_PRINT("info", ("ssl: %p timeout: %ld", ssl, timeout));
     SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
@@ -771,20 +783,23 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   DBUG_TRACE;
   vio_set_blocking(vio, false);
   int ret = ssl_do(ptr, vio, timeout, nullptr, SSL_accept, ssl_errno_holder,
-                   nullptr, nullptr);
+                   nullptr, nullptr, nullptr, nullptr, 0);
   return ret;
 }
 
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                SSL_SESSION *ssl_session, unsigned long *ssl_errno_holder,
-               SSL **ssl, const char *sni_servername) {
+               SSL **ssl, const char *sni_servername,
+               const cert_validator_ptr validator_callback,
+               void *validator_callback_context, int validator_context_index) {
   DBUG_TRACE;
   // Setting non blocking mode since openssl/boringssl does not support
   // timeout with blocking mode on handshake
   vio_set_blocking(vio, false);
 
   int ret = ssl_do(ptr, vio, timeout, ssl_session, SSL_connect,
-                   ssl_errno_holder, ssl, sni_servername);
+                   ssl_errno_holder, ssl, sni_servername, validator_callback,
+                   validator_callback_context, validator_context_index);
   return ret;
 }
 

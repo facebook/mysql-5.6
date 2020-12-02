@@ -2783,6 +2783,18 @@
    fun:_ZL14client_connectmjb
 }
 
+{
+   BoringSSL does not support freeing SSL_get_ex_new_index, leaks only once per type
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:SSL_get_ex_new_index
+   fun:_Z21ssl_get_ex_data_indexv
+   ...
+   fun:_ZL16test_ssl_connectv
+}
+
 #
 # RocksDB Storage Engine suppressions
 #

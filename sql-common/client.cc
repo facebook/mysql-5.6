@@ -3684,6 +3684,97 @@ error:
 }
 
 /*
+  Register a new index for application specific data
+
+  SYNOPSIS
+  ssl_get_ex_data_index()
+
+  RETURN VALUES
+   Registeres index, or -1 in case of failure
+
+*/
+
+int ssl_get_ex_data_index() {
+  void *argp =
+      const_cast<void *>(reinterpret_cast<const void *>("libmysql data index"));
+  static int index = SSL_get_ex_new_index(0, argp, nullptr, nullptr, nullptr);
+  return index;
+}
+
+/*
+  A callback function provided to SSL_set_verify() or
+  SSL_CTX_set_verify, and used by OpenSSL library to perform
+   server cert validation.
+
+  SYNOPSIS
+  ssl_erify_callback()
+    preverify_ok     a flag indicating whether the verification of the
+                     certificate in question was passed
+    x509_ctx         a pointer to the complete context used for th
+                     certificate chain verification
+
+  RETURN VALUES
+   0 Verification failed
+   1 Failed to validate server
+
+*/
+
+int ssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx) {
+  int depth;
+  const char *errptr;
+  SSL *ssl;
+  X509 *server_cert;
+  const MYSQL *mysql;
+  server_cert_validator_ptr server_cert_validator = NULL;
+  const void *validator_context;
+
+  // If server cert didn't pass CA verification then there is nothing
+  // to validate
+  if (!preverify_ok) {
+    return preverify_ok;
+  }
+
+  ssl = static_cast<SSL *>(X509_STORE_CTX_get_ex_data(
+      x509_ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
+  if (!ssl) {
+    return 0;
+  }
+
+  depth = X509_STORE_CTX_get_error_depth(x509_ctx);
+  // We apply custom validation logic only to the leaf certificate
+  // at the end of the cert chain.
+  if (depth > 0) {
+    return preverify_ok;
+  }
+
+  mysql = reinterpret_cast<const MYSQL *>(
+      SSL_get_ex_data(ssl, ssl_get_ex_data_index()));
+  // If a pointer to the MYSQL structure is not available then thereis not
+  // much we can do here
+  if (!mysql || !mysql->options.extension) {
+    return 0;
+  }
+
+  server_cert = X509_STORE_CTX_get_current_cert(x509_ctx);
+  server_cert_validator = mysql->options.extension->server_cert_validator;
+  validator_context = mysql->options.extension->server_cert_validator_context;
+  errptr = "SSL certificate validation failure";
+  if (server_cert_validator) {
+    preverify_ok =
+        server_cert_validator(server_cert, validator_context, &errptr) ? 0 : 1;
+  } else {
+    preverify_ok =
+        ssl_verify_server_cert_default(server_cert, mysql, &errptr) ? 0 : 1;
+  }
+
+  if (!preverify_ok) {
+    DBUG_PRINT("error", ("ssl_verify_callback: %s", errptr));
+  }
+
+  return preverify_ok;
+}
+
+/*
   Check the server's (subject) Common Name against the
   hostname we connected to
 
@@ -4539,12 +4630,16 @@ static int cli_establish_ssl(MYSQL *mysql) {
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
-    if ((ret = sslconnect(ssl_fd, net->vio,
-                          timeout_to_seconds(mysql->options.connect_timeout),
-                          ssl_session, &ssl_error, nullptr,
-                          options->extension
-                              ? options->extension->tls_sni_servername
-                              : NULL))) {
+    if ((ret = sslconnect(
+             ssl_fd, net->vio,
+             timeout_to_seconds(mysql->options.connect_timeout), ssl_session,
+             &ssl_error, nullptr,
+             options->extension ? options->extension->tls_sni_servername : NULL,
+             options->extension->server_cert_validator ? ssl_verify_callback
+                                                       : NULL,
+             const_cast<void *>(static_cast<const void *>(mysql)),
+             options->extension->server_cert_validator ? ssl_get_ex_data_index()
+                                                       : -1))) {
       switch (ret) {
         case VIO_SOCKET_READ_TIMEOUT:
           set_mysql_error(mysql, CR_NET_READ_INTERRUPTED, unknown_sqlstate);
@@ -4741,12 +4836,16 @@ static net_async_status cli_establish_ssl_nonblocking(MYSQL *mysql, int *res) {
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     MYSQL_TRACE(SSL_CONNECT, mysql, ());
-    if ((ret = sslconnect(ssl_fd, net->vio,
-                          timeout_to_seconds(mysql->options.connect_timeout),
-                          ssl_session, &ssl_error, &ctx->ssl,
-                          options->extension
-                              ? options->extension->tls_sni_servername
-                              : NULL))) {
+    if ((ret = sslconnect(
+             ssl_fd, net->vio,
+             timeout_to_seconds(mysql->options.connect_timeout), ssl_session,
+             &ssl_error, &ctx->ssl,
+             options->extension ? options->extension->tls_sni_servername : NULL,
+             options->extension->server_cert_validator ? ssl_verify_callback
+                                                       : NULL,
+             const_cast<void *>(static_cast<const void *>(mysql)),
+             options->extension->server_cert_validator ? ssl_get_ex_data_index()
+                                                       : -1))) {
       switch (ret) {
         case VIO_SOCKET_WANT_READ:
           net_async->async_blocking_state = NET_NONBLOCKING_READ;
