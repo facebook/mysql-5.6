@@ -9712,8 +9712,11 @@ int ha_rocksdb::get_row_by_rowid(uchar *const buf, const char *const rowid,
     m_last_rowkey.copy((const char *)rowid, rowid_size, &my_charset_bin);
     rc = convert_record_from_storage_format(&key_slice, buf);
 
-    if (!rc) {
+    if (rc) {
+      DBUG_RETURN(rc);
+    } else {
       table->m_status = 0;
+      rc = fill_virtual_columns();
     }
   } else if (should_skip_locked_record(rc)) {
     if (skip_row) {
@@ -13790,6 +13793,32 @@ end:
   DBUG_RETURN(res);
 }
 
+int ha_rocksdb::fill_virtual_columns() {
+  /* Specify the columns the server should evaluate */
+  MY_BITMAP column_map;
+  bool bitmap_inited = false;
+  my_bitmap_map col_map_storage[bitmap_buffer_size(1023)];
+  for (uint i = 0; i < table->s->fields; i++) {
+    auto &field = table->field[i];
+    if (field->is_virtual_gcol()) {
+      if (!bitmap_inited) {
+        bitmap_init(&column_map, col_map_storage, 1023);
+        bitmap_inited = true;
+      }
+      bitmap_set_bit(&column_map, i);
+    }
+  }
+  if (bitmap_inited) {
+    THD *const thd = my_core::thd_get_current_thd();
+    int ret = handler::my_eval_gcolumn_expr(
+        thd, const_cast<TABLE *>(table), &column_map,
+        const_cast<uchar *>(table->record[0]), nullptr, nullptr);
+
+    return ret;
+  }
+  return 0;
+}
+
 /**
  Scan the Primary Key index entries and populate the new secondary keys.
 */
@@ -13910,6 +13939,11 @@ int ha_rocksdb::inplace_populate_sk(
         // NO_LINT_DEBUG
         sql_print_error("Error retrieving hidden pk id.");
         ha_rnd_end();
+        DBUG_RETURN(res);
+      }
+
+      if ((res = fill_virtual_columns())) {
+        ha_index_end();
         DBUG_RETURN(res);
       }
 
