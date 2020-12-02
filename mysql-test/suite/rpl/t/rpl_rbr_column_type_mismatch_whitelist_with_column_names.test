@@ -88,7 +88,8 @@ while ($i <= $end)
 
     connection slave;
     SET @@sql_log_bin= 0;
-    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type2) ENGINE = InnoDB;
+    # Flipping col positions so that column names are used during row unpacking
+    eval CREATE TABLE t1 (b $type2, a INT PRIMARY KEY) ENGINE = InnoDB;
     SET @@sql_log_bin= 1;
 
     connection master;
@@ -144,7 +145,8 @@ while ($i <= $end)
 
     connection slave;
     SET @@sql_log_bin= 0;
-    eval CREATE TABLE t1 (a INT PRIMARY KEY, b $type2) ENGINE = InnoDB;
+    # Flipping col positions so that column names are used during row unpacking
+    eval CREATE TABLE t1 (b $type2, a INT PRIMARY KEY) ENGINE = InnoDB;
     SET @@sql_log_bin= 1;
 
     connection master;
@@ -223,7 +225,8 @@ SET @@sql_log_bin= 1;
 
 connection slave;
 SET @@sql_log_bin= 0;
-eval CREATE TABLE t1 (a INT PRIMARY KEY, b BIGINT) ENGINE = InnoDB;
+# Flipping col positions so that column names are used during row unpacking
+eval CREATE TABLE t1 (b BIGINT, a INT PRIMARY KEY) ENGINE = InnoDB;
 SET @@sql_log_bin= 1;
 
 connection master;
