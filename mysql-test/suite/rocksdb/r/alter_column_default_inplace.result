@@ -1,0 +1,73 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+
+# Test inplace alter when changing column default
+
+create table t0(a int, b char(100) default '') engine=rocksdb;
+insert into t0(a) values(1);
+insert into t0(a,b) values(1, 'abc');
+select * from t0;
+a	b
+1	
+1	abc
+set @@global.rocksdb_max_row_locks = 0;
+Warnings:
+Warning	1292	Truncated incorrect rocksdb_max_row_locks value: '0'
+set @@global.rocksdb_alter_column_default_inplace = OFF;
+alter table t0 modify b char(100) default 'xyz';
+ERROR HY000: Got error 10 'Operation aborted: Failed to acquire lock due to rocksdb_max_row_locks limit' from ROCKSDB
+set @@global.rocksdb_alter_column_default_inplace = ON;
+alter table t0 modify b char(100) default 'xyz';
+set @@global.rocksdb_max_row_locks = default;
+insert into t0(a) values(2);
+select * from t0;
+a	b
+1	
+1	abc
+2	xyz
+drop table t0;
+set @@global.rocksdb_alter_column_default_inplace = default;
+
+# Test alter behavior when rocksdb_alter_column_default_inplace = off
+
+create table t1(a enum('a', 'aa', 'aaa')) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+set @@global.rocksdb_alter_column_default_inplace=FALSE;
+alter table t1 modify a enum('a', 'aa');
+insert into t1 values('aaa');
+select * from t1;
+a
+aaa
+include/sync_slave_sql_with_master.inc
+set @@session.sql_mode = 'NO_ENGINE_SUBSTITUTION';
+alter table t1 modify a enum('a', 'aa', 'aaa');
+Warnings:
+Warning	1265	Data truncated for column 'a' at row 1
+select * from t1;
+a
+
+
+# Test alter behavior when rocksdb_alter_column_default_inplace = on
+
+create table t2(a enum('a', 'aa', 'aaa')) engine = rocksdb;
+include/sync_slave_sql_with_master.inc
+set @@global.rocksdb_alter_column_default_inplace=TRUE;
+alter table t2 modify a enum('a', 'aa');
+insert into t2 values('aaa');
+select * from t2;
+a
+aaa
+include/sync_slave_sql_with_master.inc
+alter table t2 modify a enum('a', 'aa', 'aaa');
+select * from t2;
+a
+aaa
+set @@global.rocksdb_alter_column_default_inplace = default;
+
+# Cleanup
+
+drop table t1, t2;
+include/rpl_end.inc
