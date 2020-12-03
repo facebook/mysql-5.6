@@ -722,6 +722,7 @@ static uint32_t rocksdb_select_bypass_debug_row_delay = 0;
 static unsigned long long  // NOLINT(runtime/int)
     rocksdb_select_bypass_multiget_min = 0;
 static my_bool rocksdb_skip_locks_if_skip_unique_check = FALSE;
+static my_bool rocksdb_alter_column_default_inplace = FALSE;
 std::atomic<uint64_t> rocksdb_row_lock_deadlocks(0);
 std::atomic<uint64_t> rocksdb_row_lock_wait_timeouts(0);
 std::atomic<uint64_t> rocksdb_snapshot_conflict_errors(0);
@@ -2314,9 +2315,14 @@ static MYSQL_SYSVAR_BOOL(skip_locks_if_skip_unique_check,
                          rocksdb_skip_locks_if_skip_unique_check,
                          PLUGIN_VAR_RQCMDARG,
                          "Skip row locking when unique checks are disabled.",
-                         check_rocksdb_skip_locks_if_skip_unique_check,
-                         nullptr,
+                         check_rocksdb_skip_locks_if_skip_unique_check, nullptr,
                          FALSE);
+
+static MYSQL_SYSVAR_BOOL(
+    alter_column_default_inplace, rocksdb_alter_column_default_inplace,
+    PLUGIN_VAR_RQCMDARG,
+    "Allow inplace alter for alter column default operation", nullptr, nullptr,
+    TRUE);
 
 static const int ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE = 100;
 
@@ -2501,6 +2507,7 @@ static struct st_mysql_sys_var *rocksdb_system_variables[] = {
     MYSQL_SYSVAR(select_bypass_multiget_min),
     MYSQL_SYSVAR(mrr_batch_size),
     MYSQL_SYSVAR(skip_locks_if_skip_unique_check),
+    MYSQL_SYSVAR(alter_column_default_inplace),
     nullptr};
 
 static rocksdb::WriteOptions rdb_get_rocksdb_write_options(
@@ -13106,7 +13113,10 @@ my_core::enum_alter_inplace_result ha_rocksdb::check_if_supported_inplace_alter(
         my_core::Alter_inplace_info::DROP_UNIQUE_INDEX |
         my_core::Alter_inplace_info::ADD_INDEX |
         my_core::Alter_inplace_info::ADD_UNIQUE_INDEX |
-        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION)) {
+        my_core::Alter_inplace_info::CHANGE_CREATE_OPTION |
+        (rocksdb_alter_column_default_inplace
+             ? my_core::Alter_inplace_info::ALTER_COLUMN_DEFAULT
+             : 0))) {
     DBUG_RETURN(my_core::HA_ALTER_INPLACE_NOT_SUPPORTED);
   }
 
