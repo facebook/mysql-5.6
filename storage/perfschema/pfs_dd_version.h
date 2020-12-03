@@ -182,16 +182,18 @@
 
    800171007:
    add replica_statistics table
-   
-   800171008
+
+   800171008:
    add client attributes
 
-   800171009
+   800171009:
    add write_statistics
    add write_throttling_rules
    add write_throttling_log
 
+   800171010:
+   add sql_findings
 */
-static const uint PFS_DD_VERSION = 800171009;
+static const uint PFS_DD_VERSION = 800171010;
 
 #endif /* PFS_DD_VERSION_H */

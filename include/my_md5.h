@@ -33,6 +33,29 @@
   Wrapper function for MD5 implementation.
 */
 
+#include <array>
+
+#include "include/my_md5_size.h"
+#include "include/my_murmur3.h"
+#include "sql/sql_digest.h"
+/*
+  digest_key is used as the hash key into the MT tables
+
+  It needs a hash function for usage in std::unordered_map since the standard
+  library doesn't provide a specialization for std::array<>. Just use murmur3
+  from mysql.
+*/
+using digest_key = std::array<unsigned char, DIGEST_HASH_SIZE>;
+
+namespace std {
+template <>
+struct hash<digest_key> {
+  std::size_t operator()(const digest_key &k) const {
+    return murmur3_32(k.data(), k.size(), 0);
+  }
+};
+}  // namespace std
+
 int compute_md5_hash(char *digest, const char *buf, int len);
 
 /*

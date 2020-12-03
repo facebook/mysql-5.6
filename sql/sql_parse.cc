@@ -47,6 +47,7 @@
 
 #include "dur_prop.h"
 #include "field_types.h"  // enum_field_types
+#include "include/my_md5.h"
 #include "m_ctype.h"
 #include "m_string.h"
 #include "my_alloc.h"
@@ -152,6 +153,7 @@
 #include "sql/sql_error.h"
 #include "sql/sql_handler.h"  // mysql_ha_rm_tables
 #include "sql/sql_help.h"     // mysqld_help
+#include "sql/sql_info.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_list.h"
 #include "sql/sql_prepare.h"  // mysql_stmt_execute
@@ -1801,7 +1803,7 @@ static std::shared_ptr<utils::PerfCounterFactory> pc_factory =
   update_mt_stmt_stats
     Method to update any multi tenancy stats after execution of each stmt
 */
-static void update_mt_stmt_stats(THD *thd) {
+static void update_mt_stmt_stats(THD *thd, char *sub_query) {
   /* Update write statistics if stats collection is turned on and
     this stmt wrote binlog bytes
   */
@@ -1810,6 +1812,11 @@ static void update_mt_stmt_stats(THD *thd) {
     thd->set_stmt_total_write_time();
     store_write_statistics(thd);
   }
+
+  if (sql_findings_control == SQL_INFO_CONTROL_ON)
+    store_sql_findings(thd, sub_query);
+
+  thd->mt_key_clear(THD::SQL_ID);
 }
 
 /**
@@ -2196,12 +2203,22 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         LogErr(SYSTEM_LEVEL, ER_PARSER_TRACE, thd->query().str);
       });
 
+      const char *beginning_of_current_stmt = thd->query().str;
+      char sub_query[1025];  // 1024 bytes + '\0'
+      int sub_query_byte_length;
+
       while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
              !thd->is_error()) {
         /*
           Multiple queries exits, execute them individually
         */
         const char *beginning_of_next_stmt = parser_state.m_lip.found_semicolon;
+
+        sub_query_byte_length = static_cast<int>(beginning_of_next_stmt -
+                                                 beginning_of_current_stmt);
+        sub_query_byte_length = std::min(sub_query_byte_length, 1024);
+        memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+        sub_query[sub_query_byte_length] = '\0';
 
         /*
           Update MT stats.
@@ -2212,7 +2229,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
           The stats updated here will be for the first statement of the
           multi-query set.
         */
-        update_mt_stmt_stats(thd);
+        update_mt_stmt_stats(thd, sub_query);
 
         /* Finalize server status flags after executing a statement. */
         thd->finalize_session_trackers();
@@ -2278,6 +2295,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->set_secondary_engine_optimization(
             Secondary_engine_optimization::PRIMARY_TENTATIVELY);
         /* TODO: set thd->lex->sql_command to SQLCOM_END here */
+        beginning_of_current_stmt = beginning_of_next_stmt;
         mysql_parse(thd, &parser_state, &last_timer);
 
         check_secondary_engine_statement(
@@ -2286,6 +2304,12 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         thd->set_secondary_engine_optimization(saved_secondary_engine);
       }
 
+      const char *query_end = thd->query().str + thd->query().length;
+      sub_query_byte_length =
+        static_cast<int>(query_end - beginning_of_current_stmt);
+      sub_query_byte_length = std::min(sub_query_byte_length, 1024);
+      memcpy(sub_query, beginning_of_current_stmt, sub_query_byte_length);
+      sub_query[sub_query_byte_length] = '\0';
       /*
         Update MT stats.
         If multi-query: The stats updated here will be for the last statement
@@ -2293,7 +2317,7 @@ bool dispatch_command(THD *thd, const COM_DATA *com_data,
         If not multi-query: The stats updated here will be fore the entire
           statement.
       */
-      update_mt_stmt_stats(thd);
+      update_mt_stmt_stats(thd, sub_query);
 
       if (thd->is_in_ac &&
           (!opt_admission_control_by_trx ||
@@ -2637,6 +2661,7 @@ done:
 
   thd->reset_query();
   thd->reset_query_attrs();
+  thd->mt_key_clear(THD::CLIENT_ID);
   thd->set_command(COM_SLEEP);
   thd->proc_info = 0;
   thd->lex->sql_command = SQLCOM_END;
@@ -7806,7 +7831,8 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
     parser_state->m_digest_psi = MYSQL_DIGEST_START(thd->m_statement_psi);
 
     if (parser_state->m_input.m_compute_digest ||
-        (parser_state->m_digest_psi != NULL)) {
+        (parser_state->m_digest_psi != NULL)   ||
+        sql_id_is_needed()) {
       /*
         If either:
         - the caller wants to compute a digest
@@ -7926,6 +7952,19 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
     DBUG_ASSERT(thd->m_digest != NULL);
     MYSQL_DIGEST_END(parser_state->m_digest_psi,
                      &thd->m_digest->m_digest_storage);
+  }
+
+  /* Compute SQL ID if
+     - parse was successful,
+     - the SQL ID is needed,
+     - the digest has been populated
+  */
+  if (ret_value == 0     &&
+      sql_id_is_needed() &&
+      thd->m_digest && !thd->m_digest->m_digest_storage.is_empty()) {
+    digest_key sql_id;
+    compute_digest_hash(&thd->m_digest->m_digest_storage, sql_id.data());
+    thd->mt_key_set(THD::SQL_ID, sql_id.data());
   }
 
   DBUG_RETURN(ret_value);

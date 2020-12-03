@@ -1147,6 +1147,9 @@ mysql_mutex_t LOCK_global_write_throttling_log;
 /* Lock to be used for auto throttling based on replication lag */
 mysql_mutex_t LOCK_replication_lag_auto_throttling;
 
+/* Lock to protect global_sql_findings map structure */
+mysql_mutex_t LOCK_global_sql_findings;
+
 ulonglong rbr_unsafe_queries = 0;
 
 /* Number of times the IO thread connected to the master */
@@ -1351,6 +1354,9 @@ uint write_throttle_lag_pct_min_secondaries;
 /* The frequency (seconds) at which auto throttling checks are run on a primary
  */
 ulong write_auto_throttle_frequency;
+/* Controls collecting MySQL findings (aka SQL conditions) */
+ulong sql_findings_control;
+
 bool opt_group_replication_plugin_hooks = false;
 bool slave_high_priority_ddl = false;
 double slave_high_priority_lock_wait_timeout_double = 1.0;
@@ -2552,6 +2558,7 @@ static void clean_up(bool print_message) {
   }
 
   free_global_write_statistics();
+  free_global_sql_findings();
 
   free_max_user_conn();
   end_slave_list();
@@ -2654,6 +2661,7 @@ static void clean_up_mutexes() {
   mysql_mutex_destroy(&LOCK_global_write_throttling_rules);
   mysql_mutex_destroy(&LOCK_global_write_throttling_log);
   mysql_mutex_destroy(&LOCK_replication_lag_auto_throttling);
+  mysql_mutex_destroy(&LOCK_global_sql_findings);
   mysql_mutex_destroy(&LOCK_default_password_lifetime);
   mysql_mutex_destroy(&LOCK_mandatory_roles);
   mysql_mutex_destroy(&LOCK_server_started);
@@ -5408,6 +5416,8 @@ static int init_thread_environment() {
                    &LOCK_global_write_throttling_log, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_replication_lag_auto_throttling,
                    &LOCK_replication_lag_auto_throttling, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_global_sql_findings, &LOCK_global_sql_findings,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_server_started, &COND_server_started);
   mysql_mutex_init(key_LOCK_reset_gtid_table, &LOCK_reset_gtid_table,
                    MY_MUTEX_INIT_FAST);
@@ -11654,6 +11664,7 @@ PSI_mutex_key key_LOCK_global_write_statistics;
 PSI_mutex_key key_LOCK_global_write_throttling_rules;
 PSI_mutex_key key_LOCK_global_write_throttling_log;
 PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
+PSI_mutex_key key_LOCK_global_sql_findings;
 PSI_mutex_key key_LOCK_ac_node;
 PSI_mutex_key key_LOCK_ac_info;
 
@@ -11721,6 +11732,8 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_global_write_throttling_rules, "LOCK_global_write_throttling_rules", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_global_write_throttling_log, "LOCK_global_write_throttling_log", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_LOCK_replication_lag_auto_throttling, "LOCK_replication_lag_auto_throttling", PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
+  { &key_LOCK_global_sql_findings, "LOCK_global_sql_findings",
+    PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME},
   { &key_master_info_rotate_lock, "Master_info::rotate_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_mutex_slave_reporting_capability_err_lock, "Slave_reporting_capability::err_lock", 0, 0, PSI_DOCUMENT_ME},
   { &key_relay_log_info_data_lock, "Relay_log_info::data_lock", 0, 0, PSI_DOCUMENT_ME},
@@ -12163,8 +12176,7 @@ PSI_stage_info *all_server_stages[] = {
     &stage_slave_waiting_for_dependencies,
     &stage_slave_waiting_for_dependency_workers,
     &stage_waiting_for_disk_space,
-    &stage_waiting_for_hlc
-};
+    &stage_waiting_for_hlc};
 
 PSI_socket_key key_socket_tcpip;
 PSI_socket_key key_socket_unix;
