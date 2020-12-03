@@ -1,0 +1,109 @@
+-- source include/have_rocksdb.inc
+-- source include/not_valgrind.inc
+
+
+--source include/restart_mysqld.inc
+
+call mtr.add_suppression("Taking backup from");
+
+create table t1 (id int primary key) engine=rocksdb;
+create table t2 (id int, primary key (id) comment 'cf2') engine=rocksdb;
+
+#flushing dictionary
+set global rocksdb_force_flush_memtable_now=1;
+
+insert into t2 values (1);
+insert into t2 values (2);
+insert into t2 values (3);
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+
+# rotate wal file, flush cf2
+set global rocksdb_compact_cf='cf2';
+
+insert into t1 values (101);
+insert into t2 values (101);
+insert into t1 values (102);
+insert into t2 values (102);
+
+--let data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
+--let pid_file= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+--let write_policy= query_get_value(SELECT @@rocksdb_write_policy, @@rocksdb_write_policy, 1)
+
+--let $_server_id= `SELECT @@server_id`
+--let $_expect_file_name= $MYSQLTEST_VARDIR/tmp/mysqld.$_server_id.expect
+--let $_custom_err= $MYSQLTEST_VARDIR/tmp/mysqld.$_server_id.err
+--exec echo "wait" > $_expect_file_name
+
+
+--write_file $MYSQL_TMP_DIR/truncate_tail_wal_N.sh
+#!/bin/bash
+
+F=`ls -t $data_dir/.rocksdb/*.log | head -n $1 | tail -n 1`
+SIZE=`stat -c %s $F`
+
+case $2 in
+  write_committed)
+    NEW_SIZE=`expr $SIZE - 30`
+    ;;
+  write_prepared)
+    NEW_SIZE=`expr $SIZE - 30`
+    ;;
+  write_unprepared)
+    NEW_SIZE=`expr $SIZE - 200`
+    ;;
+esac
+
+truncate -s $NEW_SIZE $F
+rc=$?
+if [[ $rc != 0 ]]; then
+  exit 1
+fi
+
+kill -9 `head -1 $pid_file`
+
+exit 0
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal_N.sh
+
+
+--exec $MYSQL_TMP_DIR/truncate_tail_wal_N.sh 2 $write_policy
+
+# The restart has to fail with rocksdb_track_and_verify_wals_in_manifest=1 (default)
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec grep "Size mismatch: WAL" $_custom_err | wc -l
+
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec grep "Size mismatch: WAL" $_custom_err | wc -l
+
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec grep "Size mismatch: WAL" $_custom_err | wc -l
+
+# The restart has to fail with rocksdb_wal_recovery_mode=1
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+
+#--echo forcing to restart with kPointInTimeRecovery will also fail with RocksDB PR#7701
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_track_and_verify_wals_in_manifest=0 --rocksdb_write_policy=$write_policy > $_custom_err 2>&1
+--exec grep "Corruption: SST file is ahead of WALs" $_custom_err | wc -l
+
+#--echo forcing to restart with kSkipAnyCorruptedRecords
+#Needs trim-binlog-to-recover in 8.0 to repro, due to dual engine recovery
+--exec echo "restart:--rocksdb_wal_recovery_mode=3 --rocksdb_track_and_verify_wals_in_manifest=0 --trim-binlog-to-recover" --rocksdb_write_policy=$write_policy > $_expect_file_name
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+select * from t1;
+# the last row may be lost with server side binlog truncation, which is fine.
+select * from t2 where id <= 101;
+
+
+drop table t1, t2;
+
+--remove_file $MYSQL_TMP_DIR/truncate_tail_wal_N.sh
+

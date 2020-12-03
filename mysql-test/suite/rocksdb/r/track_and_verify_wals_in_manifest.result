@@ -1,0 +1,33 @@
+# restart
+call mtr.add_suppression("Taking backup from");
+create table t1 (id int primary key) engine=rocksdb;
+create table t2 (id int, primary key (id) comment 'cf2') engine=rocksdb;
+set global rocksdb_force_flush_memtable_now=1;
+insert into t2 values (1);
+insert into t2 values (2);
+insert into t2 values (3);
+insert into t1 values (1);
+insert into t1 values (2);
+insert into t1 values (3);
+set global rocksdb_compact_cf='cf2';
+insert into t1 values (101);
+insert into t2 values (101);
+insert into t1 values (102);
+insert into t2 values (102);
+1
+1
+1
+1
+select * from t1;
+id
+1
+2
+101
+102
+select * from t2 where id <= 101;
+id
+1
+2
+3
+101
+drop table t1, t2;
