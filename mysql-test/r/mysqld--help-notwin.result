@@ -1628,6 +1628,9 @@ The following options may be given as the first argument:
  --rocksdb-allow-to-start-after-corruption 
  Allow server still to start successfully even if RocksDB
  corruption is detected.
+ --rocksdb-alter-column-default-inplace 
+ Allow inplace alter for alter column default operation
+ (Defaults to on; use --skip-rocksdb-alter-column-default-inplace to disable.)
  --rocksdb-blind-delete-primary-key 
  Deleting rows by primary key lookup, without reading rows
  (Blind Deletes). Blind delete is disabled if the table
@@ -3107,6 +3110,7 @@ rocksdb-allow-concurrent-memtable-write FALSE
 rocksdb-allow-mmap-reads FALSE
 rocksdb-allow-mmap-writes FALSE
 rocksdb-allow-to-start-after-corruption FALSE
+rocksdb-alter-column-default-inplace TRUE
 rocksdb-blind-delete-primary-key FALSE
 rocksdb-block-cache-size 536870912
 rocksdb-block-restart-interval 16

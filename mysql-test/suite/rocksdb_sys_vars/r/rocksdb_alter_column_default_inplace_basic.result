@@ -1,0 +1,75 @@
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO valid_values VALUES(1);
+INSERT INTO valid_values VALUES(0);
+INSERT INTO valid_values VALUES('on');
+INSERT INTO valid_values VALUES('off');
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+INSERT INTO invalid_values VALUES('\'aaa\'');
+INSERT INTO invalid_values VALUES('\'bbb\'');
+SET @start_global_value = @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+SELECT @start_global_value;
+@start_global_value
+1
+'# Setting to valid values in global scope#'
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to 1"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = 1;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE = DEFAULT;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to 0"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = 0;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE = DEFAULT;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to on"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = on;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE = DEFAULT;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to off"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = off;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+0
+"Setting the global scope variable back to default"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE = DEFAULT;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Trying to set variable @@session.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to 444. It should fail because it is not session."
+SET @@session.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = 444;
+ERROR HY000: Variable 'rocksdb_alter_column_default_inplace' is a GLOBAL variable and should be set with SET GLOBAL
+'# Testing with invalid values in global scope #'
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to 'aaa'"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = 'aaa';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+"Trying to set variable @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE to 'bbb'"
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE   = 'bbb';
+Got one of the listed errors
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+SET @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE = @start_global_value;
+SELECT @@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE;
+@@global.ROCKSDB_ALTER_COLUMN_DEFAULT_INPLACE
+1
+DROP TABLE valid_values;
+DROP TABLE invalid_values;
