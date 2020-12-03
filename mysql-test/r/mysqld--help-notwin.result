@@ -1963,6 +1963,9 @@ The following options may be given as the first argument:
  --rocksdb-trace-sst-api 
  Generate trace output in the log for each call to the
  SstFileWriter
+ --rocksdb-track-and-verify-wals-in-manifest 
+ DBOptions::track_and_verify_wals_in_manifest for RocksDB
+ (Defaults to on; use --skip-rocksdb-track-and-verify-wals-in-manifest to disable.)
  --rocksdb-trx[=name] 
  Enable or disable ROCKSDB_TRX plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
@@ -2954,6 +2957,7 @@ rocksdb-table-stats-use-table-scan FALSE
 rocksdb-tmpdir 
 rocksdb-trace-block-cache-access 
 rocksdb-trace-sst-api FALSE
+rocksdb-track-and-verify-wals-in-manifest TRUE
 rocksdb-trx ON
 rocksdb-two-write-queues TRUE
 rocksdb-unsafe-for-binlog FALSE
