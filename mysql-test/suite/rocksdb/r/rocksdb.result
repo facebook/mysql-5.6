@@ -1019,6 +1019,7 @@ rocksdb_table_stats_use_table_scan	OFF
 rocksdb_tmpdir	
 rocksdb_trace_block_cache_access	
 rocksdb_trace_sst_api	OFF
+rocksdb_track_and_verify_wals_in_manifest	ON
 rocksdb_two_write_queues	ON
 rocksdb_unsafe_for_binlog	OFF
 rocksdb_update_cf_options	
