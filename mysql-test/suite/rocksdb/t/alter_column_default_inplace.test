@@ -1,0 +1,89 @@
+source include/have_rocksdb.inc;
+source include/master-slave.inc;
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+connection master;
+
+--echo
+--echo # Test inplace alter when changing column default
+--echo
+create table t0(a int, b char(100) default '') engine=rocksdb;
+insert into t0(a) values(1);
+insert into t0(a,b) values(1, 'abc');
+select * from t0;
+
+set @@global.rocksdb_max_row_locks = 0;
+
+connect (con1,localhost,root,,);
+
+set @@global.rocksdb_alter_column_default_inplace = OFF;
+--error ER_GET_ERRMSG
+alter table t0 modify b char(100) default 'xyz';
+
+set @@global.rocksdb_alter_column_default_inplace = ON;
+alter table t0 modify b char(100) default 'xyz';
+
+connection master;
+disconnect con1;
+
+set @@global.rocksdb_max_row_locks = default;
+
+insert into t0(a) values(2);
+select * from t0;
+drop table t0;
+
+set @@global.rocksdb_alter_column_default_inplace = default;
+
+--echo
+--echo # Test alter behavior when rocksdb_alter_column_default_inplace = off
+--echo
+connection master;
+create table t1(a enum('a', 'aa', 'aaa')) engine = rocksdb;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+set @@global.rocksdb_alter_column_default_inplace=FALSE;
+alter table t1 modify a enum('a', 'aa');
+
+connection master;
+insert into t1 values('aaa');
+select * from t1;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+set @@session.sql_mode = 'NO_ENGINE_SUBSTITUTION';
+alter table t1 modify a enum('a', 'aa', 'aaa');
+select * from t1;
+
+--echo
+--echo # Test alter behavior when rocksdb_alter_column_default_inplace = on
+--echo
+connection master;
+create table t2(a enum('a', 'aa', 'aaa')) engine = rocksdb;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+set @@global.rocksdb_alter_column_default_inplace=TRUE;
+alter table t2 modify a enum('a', 'aa');
+
+connection master;
+insert into t2 values('aaa');
+select * from t2;
+--source include/sync_slave_sql_with_master.inc
+
+connection slave;
+alter table t2 modify a enum('a', 'aa', 'aaa');
+select * from t2;
+
+set @@global.rocksdb_alter_column_default_inplace = default;
+
+--echo
+--echo # Cleanup
+--echo
+connection master;
+drop table t1, t2;
+
+--source include/rpl_end.inc
+--source include/wait_until_count_sessions.inc
