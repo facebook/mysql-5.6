@@ -182,28 +182,6 @@ while ($counter1 <= 48)
 select @@global.gtid_executed;
 source include/sync_slave_sql_with_master.inc;
 
-connection slave;
-
-# Corrupting WAL. MyRocks does point in time recovery with wal_recovery_mode=2.
-# It loses some data but can resync after restarting slave.
-
---exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
-
---write_file $MYSQL_TMP_DIR/corrupt_wal.sh
-#!/bin/bash
-
-# expected to be around 950 bytes
-F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
-SIZE=`stat -c %s $F`
-OFFSET=$(( $SIZE-500 ))
-dd bs=1 if=/dev/zero of=$F count=100 seek=$OFFSET conv=notrunc
-
-kill -9 `head -1 $slave_pid_file`
-
-exit 0
-EOF
---chmod 0755 $MYSQL_TMP_DIR/corrupt_wal.sh
---exec $MYSQL_TMP_DIR/corrupt_wal.sh
 
 connection master;
 commit;
@@ -251,7 +229,6 @@ drop table innodb_t;
 drop table rocksdb_t;
 
 --remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
---remove_file $MYSQL_TMP_DIR/corrupt_wal.sh
 --source include/rpl_end.inc
 
 --disable_query_log
