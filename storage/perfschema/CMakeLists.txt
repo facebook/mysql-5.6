@@ -163,6 +163,7 @@ table_replica_statistics.h
 table_write_statistics.h
 table_write_throttling_rules.h
 table_write_throttling_log.h
+table_sql_findings.h
 table_replication_connection_configuration.h
 table_replication_group_members.h
 table_replication_connection_status.h
@@ -311,6 +312,7 @@ table_replica_statistics.cc
 table_write_statistics.cc
 table_write_throttling_rules.cc
 table_write_throttling_log.cc
+table_sql_findings.cc
 table_replication_connection_configuration.cc
 table_replication_group_members.cc
 table_replication_connection_status.cc

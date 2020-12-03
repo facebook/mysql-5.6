@@ -34,6 +34,7 @@ idx_replica_statistics.test
 idx_replication_applier_filters.test
 idx_replication_applier_global_filters.test
 idx_session_query_attrs.test
+idx_sql_findings.test
 idx_table_statistics_by_table.test
 idx_user_defined_functions.test
 idx_write_statistics.test

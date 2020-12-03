@@ -29,6 +29,9 @@
   unlike that file.
 */
 
-#define MD5_HASH_SIZE 16 /* Hash size in bytes */
+/* Hash size in bytes */
+#define MD5_HASH_SIZE 16
+/* 16 bytes of binary = 32 printable characters */
+#define MD5_HASH_TO_STRING_LENGTH 32
 
 #endif  // MY_MD5_SIZE_INCLUDED

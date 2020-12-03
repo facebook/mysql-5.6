@@ -31,6 +31,7 @@
 
 #include <sys/types.h>
 
+#include "include/my_md5_size.h"
 #include "my_inttypes.h"
 #include "storage/perfschema/pfs_digest.h"
 #include "storage/perfschema/table_helper.h"
@@ -71,8 +72,8 @@ struct row_esms_by_all {
   char m_user_name[NAME_LEN];
   uint m_user_name_length;
 
-  char client_id[DIGEST_HASH_TO_STRING_LENGTH + 1];
-  char plan_id[DIGEST_HASH_TO_STRING_LENGTH + 1];
+  char client_id[MD5_HASH_TO_STRING_LENGTH + 1];
+  char plan_id[MD5_HASH_TO_STRING_LENGTH + 1];
 
   /** Columns COUNT_STAR, SUM/MIN/AVG/MAX TIMER_WAIT. */
   PFS_statement_stat_row m_stat;

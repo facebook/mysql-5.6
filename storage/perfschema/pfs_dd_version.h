@@ -204,19 +204,22 @@
 
   80020-008:
    - add replica_statistics table
-?  80020-009
+
+  80020-009
    - add client attributes
 
-   800171009
-   add write_statistics
-   add write_throttling_rules
-   add write_throttling_log
+  80020-010:
+   - add write_statistics
+   - add write_throttling_rules
+   - add write_throttling_log
 
+  80020-011:
+   - add sql_findings
 */
 
-/* Version published now is 80020-010. i.e. 8.0.20 Facebook schema change
- * no. 10.
+/* Version published now is 80020-011. i.e. 8.0.20 Facebook schema change
+ * no. 11.
  */
-static const uint PFS_DD_VERSION = 80020010;
+static const uint PFS_DD_VERSION = 80020011;
 
 #endif /* PFS_DD_VERSION_H */
