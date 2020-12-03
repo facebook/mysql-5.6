@@ -323,15 +323,8 @@ void store_write_throttling_log(THD *, int type, std::string value,
 */
 void store_long_qry_abort_log(THD *thd) {
   // SQL ID
-  // TODO(mzait) Calculating a unique hash for now, to be
-  // replaced after the same hash used in sql_findings when ported to 8.0
-  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1] = "";
-  sql_digest_state *thd_digest = thd->m_digest;
-  if (thd_digest && !thd_digest->m_digest_storage.is_empty()) {
-    uchar digest_hash[DIGEST_HASH_SIZE];
-    compute_digest_hash(&thd_digest->m_digest_storage, digest_hash);
-    DIGEST_HASH_TO_STRING(digest_hash, sql_id);
-  }
+  char sql_id[DIGEST_HASH_TO_STRING_LENGTH + 1];
+  thd->mt_hex_value(THD::SQL_ID, sql_id, DIGEST_HASH_TO_STRING_LENGTH + 1);
 
   mysql_mutex_lock(&LOCK_global_write_throttling_log);
   WRITE_THROTTLING_LOG log{};

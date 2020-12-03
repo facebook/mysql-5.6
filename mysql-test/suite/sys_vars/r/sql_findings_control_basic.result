@@ -1,0 +1,27 @@
+Default value of sql_findings_control is OFF_HARD
+SELECT @@global.sql_findings_control;
+@@global.sql_findings_control
+OFF_HARD
+SELECT @@session.sql_findings_control;
+ERROR HY000: Variable 'sql_findings_control' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_findings_control is a dynamic variable (change to "ON")
+set @@global.sql_findings_control = "on";
+SELECT @@global.sql_findings_control;
+@@global.sql_findings_control
+ON
+restore the default value
+SET @@global.sql_findings_control = "off_hard";
+SELECT @@global.sql_findings_control;
+@@global.sql_findings_control
+OFF_HARD
+restart the server with non default value (OFF_SOFT)
+# restart
+SELECT @@global.sql_findings_control;
+@@global.sql_findings_control
+OFF_HARD
+restart the server with the default value (OFF_HARD)
+# restart
+SELECT @@global.sql_findings_control;
+@@global.sql_findings_control
+OFF_HARD

@@ -8565,3 +8565,30 @@ static Sys_var_uint Sys_write_time_check_batch(
     "write_cpu_limit_milliseconds.",
     GLOBAL_VAR(write_time_check_batch), CMD_LINE(OPT_ARG),
     VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
+static const char *sql_info_control_values[] = {
+    "OFF_HARD", "OFF_SOFT", "ON",
+    /* Add new control before the following line */
+    0};
+
+static bool set_sql_findings_control(sys_var *, THD *, enum_var_type) {
+  if (sql_findings_control == SQL_INFO_CONTROL_OFF_HARD) {
+    free_global_sql_findings();
+  }
+
+  return false;  // success
+}
+
+static Sys_var_enum Sys_sql_findings_control(
+    "sql_findings_control",
+    "Provides a control to store findings from optimizer/executing SQL "
+    "statements. This data is exposed through the SQL_FINDINGS table. "
+    "It accepts the following values: "
+    "OFF_HARD: Default value. Stop collecting the findings and flush "
+    "all SQL findings related data from memory. "
+    "OFF_SOFT: Stop collecting the findings, but retain any data "
+    "collected so far. "
+    "ON: Collect the SQL findings.",
+    GLOBAL_VAR(sql_findings_control), CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD), NO_MUTEX_GUARD,
+    NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(set_sql_findings_control));

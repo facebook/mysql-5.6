@@ -243,16 +243,21 @@
 
   - add client attributes
 
-  80023-011
+  80023-011:
 
   - add write_statistics
   - add write_throttling_rules
   - add write_throttling_log
 
+  80020-012:
+
+  - add sql_findings
+  - change type of SQL_FINDINGS.LAST_RECORDED to bigint
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80023-011. i.e. 8.0.23 Facebook schema change no. 11.
+  Version published is now 80023-011. i.e. 8.0.23 Facebook schema change no. 12.
 */
 
-static const uint PFS_DD_VERSION = 80023011;
+static const uint PFS_DD_VERSION = 80023012;
 
 #endif /* PFS_DD_VERSION_H */

@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is OFF
+####
+--echo Default value of sql_findings_control is OFF_HARD
+SELECT @@global.sql_findings_control;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_findings_control;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_findings_control is a dynamic variable (change to "ON")
+set @@global.sql_findings_control = "on";
+SELECT @@global.sql_findings_control;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_findings_control = "off_hard";
+SELECT @@global.sql_findings_control;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (OFF_SOFT)
+--let $_mysqld_option=--sql_findings_control=off_soft
+--source include/restart_mysqld.inc
+
+SELECT @@global.sql_findings_control;
+
+--echo restart the server with the default value (OFF_HARD)
+--source include/restart_mysqld.inc
+
+# check value is default (OFF_HARD)
+SELECT @@global.sql_findings_control;
