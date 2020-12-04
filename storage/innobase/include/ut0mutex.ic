@@ -220,7 +220,7 @@ void TTASEventMutex<Policy>::signal() UNIV_NOTHROW {
 
   /* The memory order of resetting the waiters field and
   signaling the object is important. See Theorem 1 above. */
-  os_event_set(m_event);
+  os_event_set(&m_event);
 
   sync_array_object_signalled();
 }
