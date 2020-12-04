@@ -35,6 +35,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "os0atomic.h"
 #include "os0event.h"
+#include "os0event_impl.h"
 #include "sync0policy.h"
 #include "ut0rnd.h"
 #include "ut0ut.h"
@@ -494,7 +495,7 @@ struct TTASEventMutex {
 
   TTASEventMutex() UNIV_NOTHROW : m_lock_word(MUTEX_STATE_UNLOCKED),
                                   m_waiters(),
-                                  m_event() {
+                                  m_event(0) {
     /* Check that lock_word is aligned. */
     ut_ad(!((ulint)&m_lock_word % sizeof(ulint)));
   }
@@ -507,10 +508,9 @@ struct TTASEventMutex {
   @param[in]	filename	File where mutex was created
   @param[in]	line		Line in filename */
   void init(latch_id_t id, const char *filename, uint32_t line) UNIV_NOTHROW {
-    ut_a(m_event == nullptr);
     ut_a(!m_lock_word.load(std::memory_order_relaxed));
 
-    m_event = os_event_create(sync_latch_get_name(id));
+    os_event_create2(&m_event);
 
     m_policy.init(*this, id, filename, line);
   }
@@ -522,8 +522,7 @@ struct TTASEventMutex {
     ut_ad(!m_lock_word.load(std::memory_order_relaxed));
 
     /* We have to free the event before InnoDB shuts down. */
-    os_event_destroy(m_event);
-    m_event = nullptr;
+    os_event_destroy2(&m_event);
 
     m_policy.destroy();
   }
@@ -564,7 +563,7 @@ struct TTASEventMutex {
 
   /** The event that the mutex will wait in sync0arr.cc
   @return even instance */
-  os_event_t event() UNIV_NOTHROW { return (m_event); }
+  os_event_t event() UNIV_NOTHROW { return (&m_event); }
 
   /** @return true if locked by some thread */
   bool is_locked() const UNIV_NOTHROW {
@@ -706,7 +705,7 @@ struct TTASEventMutex {
   std::atomic_bool m_waiters;
 
   /** Used by sync0arr.cc for the wait queue */
-  os_event_t m_event;
+  os_event_struct_t m_event;
 
   /** Policy data */
   MutexPolicy m_policy;
