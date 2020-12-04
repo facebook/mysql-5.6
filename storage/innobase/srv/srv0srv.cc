@@ -463,6 +463,8 @@ ulint srv_buf_pool_old_size = 0;
 ulint srv_buf_pool_base_size = 0;
 /** Current size in bytes */
 long long srv_buf_pool_curr_size = 0;
+/* Default sync pool size containing mutex, cond_var for buffer blocks */
+ulong srv_sync_pool_size = 1024;
 /** Dump this % of each buffer pool during BP dump */
 ulong srv_buf_pool_dump_pct;
 /** Lock table size in bytes */

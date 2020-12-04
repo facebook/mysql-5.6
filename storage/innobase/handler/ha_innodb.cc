@@ -22258,6 +22258,13 @@ static MYSQL_SYSVAR_ULONG(buffer_pool_instances, srv_buf_pool_instances,
                           nullptr, nullptr, srv_buf_pool_instances_default, 0,
                           MAX_BUFFER_POOLS, 0);
 
+static MYSQL_SYSVAR_ULONG(
+    sync_pool_size, srv_sync_pool_size,
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+    "The size of the shared sync pool buffer InnoDB uses to store system lock"
+    "and condition variables.",
+    NULL, NULL, 1024UL, 1UL, 1024UL * 1024UL, 1UL);
+
 static MYSQL_SYSVAR_STR(
     buffer_pool_filename, srv_buf_dump_filename,
     PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -23126,6 +23133,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_chunk_size),
     MYSQL_SYSVAR(buffer_pool_populate),
     MYSQL_SYSVAR(buffer_pool_instances),
+    MYSQL_SYSVAR(sync_pool_size),
     MYSQL_SYSVAR(buffer_pool_filename),
     MYSQL_SYSVAR(buffer_pool_dump_now),
     MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
