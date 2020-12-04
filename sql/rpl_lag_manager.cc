@@ -109,8 +109,14 @@ void store_write_statistics(THD *thd) {
   mysql_mutex_lock(&LOCK_global_write_statistics);
   time_t timestamp = my_time(0);
   int time_bucket_key = timestamp - (timestamp % write_stats_frequency);
-
   auto time_bucket_iter = global_write_statistics_map.begin();
+
+  DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket", {
+    if (time_bucket_iter != global_write_statistics_map.end()) {
+      time_bucket_key = time_bucket_iter->first;
+    }
+  });
+
   if (time_bucket_iter == global_write_statistics_map.end() ||
       time_bucket_key > time_bucket_iter->first) {
     // time_bucket is newer than last registered bucket...
