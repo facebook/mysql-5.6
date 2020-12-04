@@ -5954,8 +5954,13 @@ static bool mt_check_throttle_write_query(THD *thd) {
     DBUG_RETURN(false);
   }
 
+  bool debug_skip_auto_throttle_check = false;
+  DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket",
+                  { debug_skip_auto_throttle_check = true; });
+
   // check if its time to check replication lag
-  if (write_stats_capture_enabled() && write_auto_throttle_frequency > 0) {
+  if (write_stats_capture_enabled() && write_auto_throttle_frequency > 0 &&
+      !debug_skip_auto_throttle_check) {
     time_t time_now = my_time(0);
     if (time_now - last_replication_lag_check_time >=
         (long)write_auto_throttle_frequency) {
