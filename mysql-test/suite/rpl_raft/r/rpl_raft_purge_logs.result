@@ -76,7 +76,6 @@ binary-logs-13000.000005	#
 flush binary logs;
 show binary logs;
 Log_name	File_size
-apply-logs-13001.000001	#
 apply-logs-13001.000002	#
 apply-logs-13001.000003	#
 purge binary logs to 'apply-logs-13001.000002';

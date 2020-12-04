@@ -65,7 +65,6 @@ include/sync_slave_sql_with_master.inc
 "Verifying apply logs on follower: server_2"
 show binary logs;
 Log_name	File_size
-apply-logs-13001.000001	#
 apply-logs-13001.000002	#
 apply-logs-13001.000003	#
 apply-logs-13001.000004	#
@@ -91,7 +90,6 @@ apply-logs-13001.000023	#
 "Verifying apply logs on follower: server_3"
 show binary logs;
 Log_name	File_size
-apply-logs-13002.000001	#
 apply-logs-13002.000002	#
 apply-logs-13002.000003	#
 apply-logs-13002.000004	#
