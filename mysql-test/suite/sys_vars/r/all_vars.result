@@ -86,8 +86,6 @@ log_global_var_changes
 log_global_var_changes
 mandatory_roles
 mandatory_roles
-max_tmp_disk_usage
-max_tmp_disk_usage
 partial_revokes
 partial_revokes
 password_require_current
@@ -96,7 +94,6 @@ regexp_stack_limit
 regexp_stack_limit
 regexp_time_limit
 regexp_time_limit
-reset_period_status_vars
 resultset_metadata
 sql_require_primary_key
 sql_require_primary_key
