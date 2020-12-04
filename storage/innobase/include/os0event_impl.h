@@ -31,14 +31,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef os0event_impl_h
 #define os0event_impl_h
 
-#include "os0event.h"
-
 #include <errno.h>
 #include <time.h>
 
 #include "ha_prototypes.h"
-#include "ut0mutex.h"
-#include "ut0new.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -57,48 +53,71 @@ typedef CONDITION_VARIABLE os_cond_t;
 #else
 /** Native condition variable */
 typedef pthread_cond_t os_cond_t;
+
+#define BIT63 (1ULL << 63)
+#define INC_SIGNAL_COUNT(ev) \
+  { ++(ev)->stats; }
+#define SIGNAL_COUNT(ev) (static_cast<int64_t>((ev)->stats & ~BIT63))
+#define SET_IS_SET(ev) \
+  { (ev)->stats |= BIT63; }
+#define CLEAR_IS_SET(ev) \
+  { (ev)->stats &= ~BIT63; }
+
 #endif /* _WIN32 */
 
-/** InnoDB condition variable. */
-struct os_event {
-  os_event() UNIV_NOTHROW;
+/** Operating system event */
+typedef struct os_event_struct os_event_struct_t;
+/** Operating system event handle */
+typedef os_event_struct_t *os_event_t;
 
-  ~os_event() UNIV_NOTHROW;
+typedef struct os_event_support_struct {
+  OSMutex mutex;      /*!< this mutex protects the next
+                      fields */
+  os_cond_t cond_var; /*!< condition variable is used in
+                      waiting for the event */
+} os_event_support_t;
+
+extern os_event_support_t *os_support;
+
+/** InnoDB condition variable. */
+struct os_event_struct {
+  os_event_struct() UNIV_NOTHROW;
+
+  ~os_event_struct() UNIV_NOTHROW;
 
   friend void os_event_global_init();
   friend void os_event_global_destroy();
+  friend void os_support_init(os_event_support_t *ev_sup);
+  friend void os_support_destroy(os_event_support_t *ev_sup);
+  friend void os_event_create2(os_event_t event);
+  friend os_event_t os_event_create();
+  friend void os_event_destroy(os_event_t &event);
+  friend void os_event_destroy2(os_event_t event);
 
   /**
-  Destroys a condition variable */
-  void destroy() UNIV_NOTHROW {
-#ifndef _WIN32
-    int ret = pthread_cond_destroy(&cond_var);
-    ut_a(ret == 0);
-#endif /* !_WIN32 */
-
-    mutex.destroy();
-
+  Decreases the refcount of live os_event_struct objects */
+  void dec_obj_count() UNIV_NOTHROW {
     ut_ad(n_objects_alive.fetch_sub(1) != 0);
   }
 
   /** Set the event */
   void set() UNIV_NOTHROW {
-    mutex.enter();
+    sup->mutex.enter();
 
-    if (!m_set) {
+    if (!is_set()) {
       broadcast();
     }
 
-    mutex.exit();
+    sup->mutex.exit();
   }
 
   bool try_set() UNIV_NOTHROW {
-    if (mutex.try_lock()) {
-      if (!m_set) {
+    if (sup->mutex.try_lock()) {
+      if (!is_set()) {
         broadcast();
       }
 
-      mutex.exit();
+      sup->mutex.exit();
 
       return (true);
     }
@@ -107,15 +126,15 @@ struct os_event {
   }
 
   int64_t reset() UNIV_NOTHROW {
-    mutex.enter();
+    sup->mutex.enter();
 
-    if (m_set) {
-      m_set = false;
+    if (is_set()) {
+      CLEAR_IS_SET(this);
     }
 
-    int64_t ret = signal_count;
+    int64_t ret = SIGNAL_COUNT(this);
 
-    mutex.exit();
+    sup->mutex.exit();
 
     return (ret);
   }
@@ -149,26 +168,28 @@ struct os_event {
                       int64_t reset_sig_count) UNIV_NOTHROW;
 
   /** @return true if the event is in the signalled state. */
-  bool is_set() const UNIV_NOTHROW { return (m_set); }
+  bool is_set() const UNIV_NOTHROW { return (this->stats & BIT63) != 0; }
+
+#ifdef UNIV_DEBUG
+  /** copy assignment operator impl */
+  os_event_struct &operator=(const os_event_struct &other) {
+    init_stats();
+    sup = other.sup;
+    return *this;
+  }
+#endif
 
  private:
   /**
   Initialize a condition variable */
-  void init() UNIV_NOTHROW {
-    mutex.init();
-
-#ifdef _WIN32
-    InitializeConditionVariable(&cond_var);
-#else
-    {
-      int ret;
-
-      ret = pthread_cond_init(&cond_var, &cond_attr);
-      ut_a(ret == 0);
-    }
-#endif /* _WIN32 */
-
-    ut_d(n_objects_alive.fetch_add(1));
+  void init_stats() UNIV_NOTHROW {
+    /*We return this value in os_event_reset(), which can then be
+    be used to pass to the os_event_wait_low(). The value of zero
+    is reserved in os_event_wait_low() for the case when the
+    caller does not want to pass any signal_count value. To
+    distinguish between the two cases we initialize signal_count
+    to 1 here. */
+    stats = 1;
   }
 
   /**
@@ -182,7 +203,7 @@ struct os_event {
     {
       int ret;
 
-      ret = pthread_cond_wait(&cond_var, mutex);
+      ret = pthread_cond_wait(&sup->cond_var, sup->mutex);
       ut_a(ret == 0);
     }
 #endif /* _WIN32 */
@@ -191,8 +212,8 @@ struct os_event {
   /**
   Wakes all threads waiting for condition variable */
   void broadcast() UNIV_NOTHROW {
-    m_set = true;
-    ++signal_count;
+    SET_IS_SET(this);
+    INC_SIGNAL_COUNT(this);
 
 #ifdef _WIN32
     WakeAllConditionVariable(&cond_var);
@@ -200,7 +221,7 @@ struct os_event {
     {
       int ret;
 
-      ret = pthread_cond_broadcast(&cond_var);
+      ret = pthread_cond_broadcast(&sup->cond_var);
       ut_a(ret == 0);
     }
 #endif /* _WIN32 */
@@ -215,7 +236,7 @@ struct os_event {
     {
       int ret;
 
-      ret = pthread_cond_signal(&cond_var);
+      ret = pthread_cond_signal(&sup->cond_var);
       ut_a(ret == 0);
     }
 #endif /* _WIN32 */
@@ -241,19 +262,20 @@ struct os_event {
 #endif /* !_WIN32 */
 
  private:
-  bool m_set;           /*!< this is true when the
-                        event is in the signaled
-                        state, i.e., a thread does
-                        not stop if it tries to wait
-                        for this event */
-  int64_t signal_count; /*!< this is incremented
-                        each time the event becomes
-                        signaled */
-  EventMutex mutex;     /*!< this mutex protects
-                        the next fields */
-
-  os_cond_t cond_var; /*!< condition variable is
-                      used in waiting for the event */
+  uint64_t stats;          /*!< msb: "is_set" (boolean bit field)
+                           This is TRUE when the event is
+                           in the signaled state, i.e., a thread
+                           does not stop if it tries to wait for
+                           this event */
+  os_event_support_t *sup; /*!< Pointer to OS-support data
+                           For events created by os_event_create()
+                           this will point to an allocated set of
+                           data exclusively for this event.
+                           For events created by os_event_create2()
+                           this will point to one of the shared
+                           sync data pool elements
+                           allocated by os_event_global_init()
+                           */
 
 #ifndef _WIN32
   /** Attributes object passed to pthread_cond_* functions.
@@ -266,7 +288,6 @@ struct os_event {
   enabled for the cond_attr object. */
   static bool cond_attr_has_monotonic_clock;
 #endif /* !_WIN32 */
-  static bool global_initialized;
 
 #ifdef UNIV_DEBUG
   static std::atomic_size_t n_objects_alive;
@@ -274,8 +295,7 @@ struct os_event {
 
  protected:
   // Disable copying
-  os_event(const os_event &);
-  os_event &operator=(const os_event &);
+  os_event_struct(const os_event_struct &);
 };
 
 #endif /* !os0event_impl_h */

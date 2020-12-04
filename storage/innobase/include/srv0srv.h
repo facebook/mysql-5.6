@@ -590,6 +590,8 @@ extern bool srv_dedicated_server;
 extern ulint srv_buf_pool_size;
 /** virtual page preallocation */
 extern bool srv_buf_pool_populate;
+/* Default sync pool size containing mutex, cond_var for buffer blocks */
+extern ulong srv_sync_pool_size;
 /** Minimum pool size in bytes */
 extern const ulint srv_buf_pool_min_size;
 /** Default pool size in bytes */

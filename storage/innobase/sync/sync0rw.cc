@@ -226,8 +226,8 @@ void rw_lock_create_func(rw_lock_t *lock,
   lock->last_x_file_name = "not yet reserved";
   lock->last_s_line = 0;
   lock->last_x_line = 0;
-  lock->event = os_event_create();
-  lock->wait_ex_event = os_event_create();
+  os_event_create2(&lock->event);
+  os_event_create2(&lock->wait_ex_event);
 
   lock->is_block_lock = false;
 
@@ -257,9 +257,9 @@ rw_lock_t::~rw_lock_t() {
 
   mutex_enter(&rw_lock_list_mutex);
 
-  os_event_destroy(event);
+  os_event_destroy2(&event);
 
-  os_event_destroy(wait_ex_event);
+  os_event_destroy2(&wait_ex_event);
 
   UT_LIST_REMOVE(rw_lock_list, this);
 

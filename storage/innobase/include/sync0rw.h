@@ -42,7 +42,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "univ.i"
 #ifndef UNIV_HOTBACKUP
-#include "os0event.h"
+#include "os0event_impl.h"
 #include "ut0counter.h"
 #endif /* !UNIV_HOTBACKUP */
 #include <atomic>
@@ -396,11 +396,11 @@ struct rw_lock_t
   Atomic_xor_of_thread_id reader_thread;
 
   /** Used by sync0arr.cc for thread queueing */
-  os_event_t event;
+  os_event_struct_t event{};
 
   /** Event for next-writer to wait on. A thread must decrement
   lock_word before waiting. */
-  os_event_t wait_ex_event;
+  os_event_struct_t wait_ex_event{};
 
   /** Location where lock created */
   ut::Location clocation;

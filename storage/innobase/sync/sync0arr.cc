@@ -168,11 +168,11 @@ static os_event_t sync_cell_get_event(
     return (cell->latch.bpmutex->event());
 
   } else if (type == RW_LOCK_X_WAIT) {
-    return (cell->latch.lock->wait_ex_event);
+    return (&cell->latch.lock->wait_ex_event);
 
   } else { /* RW_LOCK_S and RW_LOCK_X wait on the same event */
 
-    return (cell->latch.lock->event);
+    return (&cell->latch.lock->event);
   }
 }
 
