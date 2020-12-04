@@ -42,7 +42,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "univ.i"
 #ifndef UNIV_HOTBACKUP
-#include "os0event.h"
+#include "os0event_impl.h"
 #include "ut0counter.h"
 #endif /* !UNIV_HOTBACKUP */
 #include "ut0mutex.h"
@@ -588,11 +588,11 @@ struct rw_lock_t
   volatile os_thread_id_t writer_thread;
 
   /** Used by sync0arr.cc for thread queueing */
-  os_event_t event;
+  os_event_struct_t event;
 
   /** Event for next-writer to wait on. A thread must decrement
   lock_word before waiting. */
-  os_event_t wait_ex_event;
+  os_event_struct_t wait_ex_event;
 
   /** File name where lock created */
   const char *cfile_name;
@@ -636,7 +636,7 @@ struct rw_lock_t
 #define RW_LOCK_MAGIC_N 22643
 
   /** Constructor */
-  rw_lock_t() { magic_n = RW_LOCK_MAGIC_N; }
+  rw_lock_t() : event(0), wait_ex_event(0) { magic_n = RW_LOCK_MAGIC_N; }
 
   rw_lock_t &operator=(const rw_lock_t &) = default;
 

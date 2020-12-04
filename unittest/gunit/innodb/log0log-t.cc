@@ -117,6 +117,7 @@ fil_space_t *log_space;
 
 static bool log_test_general_init() {
   ut_new_boot_safe();
+  os_event_global_init();
 
   /* It would be better to ask for default values of all sys vars.
   However, I did not know how to achieve that. */
@@ -535,6 +536,8 @@ static void log_test_general_close() {
   os_thread_close();
 
   sync_check_close();
+
+  os_event_global_destroy();
 
   srv_shutdown_state = SRV_SHUTDOWN_NONE;
 

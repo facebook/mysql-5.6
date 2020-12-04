@@ -37,8 +37,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "univ.i"
 
 // Forward declaration.
-struct os_event;
-typedef struct os_event *os_event_t;
+struct os_event_struct;
+typedef struct os_event_struct *os_event_t;
 
 /** Denotes an infinite delay for os_event_wait_time() */
 #define OS_SYNC_INFINITE_TIME ULINT_UNDEFINED
@@ -55,6 +55,8 @@ explicitly by calling os_event_reset().
 os_event_t os_event_create(
     const char *name); /*!< in: the name of the event, if NULL
                        the event is created without a name */
+void os_event_create2(
+    os_event_t event); /*!< in: pointer to pre-allocated struct */
 
 /**
 Sets an event semaphore to the signaled state: lets waiting threads
@@ -80,6 +82,7 @@ int64_t os_event_reset(os_event_t event); /*!< in/out: event to reset */
 /**
 Frees an event object. */
 void os_event_destroy(os_event_t &event); /*!< in/own: event to free */
+void os_event_destroy2(os_event_t event); /*!< in/own: event to free */
 
 /**
 Waits for an event object until it is in the signaled state.
