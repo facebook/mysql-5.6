@@ -4311,6 +4311,8 @@ void MYSQL_BIN_LOG::cleanup() {
     mysql_cond_destroy(&m_prep_xids_cond);
     mysql_cond_destroy(&non_xid_trxs_cond);
     stage_manager.deinit();
+    // Clear the HLC map, forcing mutexes and condvars to be cleaned up
+    hlc.clear_database_hlc();
   }
 
   delete m_binlog_file;
