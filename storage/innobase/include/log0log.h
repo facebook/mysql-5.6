@@ -290,6 +290,9 @@ constexpr ulong INNODB_LOG_SPIN_CPU_ABS_LWM_DEFAULT = 80;
 Expressed in percent (50 stands for 50%) of all CPU cores. */
 constexpr uint INNODB_LOG_SPIN_CPU_PCT_HWM_DEFAULT = 50;
 
+/** Default value of innodb_log_wait_for_ready_timeout (in microseconds). */
+constexpr ulong INNODB_LOG_WAIT_FOR_READY_TIMEOUT_DEFAULT = 1000;
+
 /** Default value of innodb_log_wait_for_write_spin_delay (in spin rounds).
 Read about INNODB_LOG_WRITER_SPIN_DELAY_DEFAULT.
 Number of spin rounds is calculated according to current usage of CPU cores.
