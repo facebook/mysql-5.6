@@ -1344,7 +1344,8 @@ typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid);
 typedef handler *(*create_t)(handlerton *hton, TABLE_SHARE *table,
                              bool partitioned, MEM_ROOT *mem_root);
 
-typedef void (*drop_database_t)(handlerton *hton, char *path);
+typedef void (*drop_database_t)(handlerton *hton, const char *dbname,
+                                char *path);
 
 typedef int (*panic_t)(handlerton *hton, enum ha_panic_function flag);
 
@@ -6865,7 +6866,7 @@ void ha_pre_dd_shutdown(void);
   @retval true Error
 */
 bool ha_flush_logs(bool binlog_group_flush = false);
-void ha_drop_database(char *path);
+void ha_drop_database(const char *dbname, char *path);
 int ha_create_table(THD *thd, const char *path, const char *db,
                     const char *table_name, HA_CREATE_INFO *create_info,
                     bool update_create_info, bool is_temp_table,

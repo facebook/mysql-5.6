@@ -324,9 +324,37 @@ static_assert(HA_ERR_ROCKSDB_FIRST > HA_ERR_LAST,
 
 const char *const rocksdb_hton_name = "ROCKSDB";
 
+typedef struct _index_id_s {
+  uint32_t db_num;
+  uint32_t index_num;
+
+  bool operator==(const struct _index_id_s &other) const {
+    return db_num == other.db_num && index_num == other.index_num;
+  }
+  bool operator!=(const struct _index_id_s &other) const {
+    return db_num != other.db_num || index_num != other.index_num;
+  }
+  bool operator<(const struct _index_id_s &other) const {
+    return db_num < other.db_num ||
+           (db_num == other.db_num && index_num < other.index_num);
+  }
+  bool operator<=(const struct _index_id_s &other) const {
+    return db_num < other.db_num ||
+           (db_num == other.db_num && index_num <= other.index_num);
+  }
+  bool operator>(const struct _index_id_s &other) const {
+    return db_num > other.db_num ||
+           (db_num == other.db_num && index_num > other.index_num);
+  }
+  bool operator>=(const struct _index_id_s &other) const {
+    return db_num > other.db_num ||
+           (db_num == other.db_num && index_num >= other.index_num);
+  }
+} INDEX_ID;
+
 typedef struct _gl_index_id_s {
   uint32_t cf_id;
-  uint32_t index_id;
+  INDEX_ID index_id;
   bool operator==(const struct _gl_index_id_s &other) const {
     return cf_id == other.cf_id && index_id == other.index_id;
   }

@@ -104,11 +104,11 @@ inline void rdb_netbuf_store_byte(uchar *const dst_netbuf, const uchar c) {
   *dst_netbuf = c;
 }
 
-inline void rdb_netbuf_store_index(uchar *const dst_netbuf,
-                                   const uint32 number) {
+inline void rdb_netbuf_store_index_id(uchar *const dst_netbuf,
+                                      const INDEX_ID &index_id) {
   DBUG_ASSERT(dst_netbuf != nullptr);
-
-  rdb_netbuf_store_uint32(dst_netbuf, number);
+  rdb_netbuf_store_uint32(dst_netbuf, index_id.db_num);
+  rdb_netbuf_store_uint32(dst_netbuf + sizeof(uint32), index_id.index_num);
 }
 
 /*
@@ -207,7 +207,8 @@ inline void rdb_netbuf_read_gl_index(const uchar **netbuf_ptr,
   DBUG_ASSERT(netbuf_ptr != nullptr);
 
   gl_index_id->cf_id = rdb_netbuf_read_uint32(netbuf_ptr);
-  gl_index_id->index_id = rdb_netbuf_read_uint32(netbuf_ptr);
+  gl_index_id->index_id.db_num = rdb_netbuf_read_uint32(netbuf_ptr);
+  gl_index_id->index_id.index_num = rdb_netbuf_read_uint32(netbuf_ptr);
 }
 
 /*

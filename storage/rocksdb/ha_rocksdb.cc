@@ -4478,6 +4478,19 @@ static bool rocksdb_user_table_blocked(legacy_db_type db_type) {
 }
 
 /**
+  Called during drop database user DDL. Removes the database
+  with data dictionary.
+
+  @param[in]    dbname   Database being dropped.
+ */
+static void rocksdb_drop_database(handlerton *const hton
+                                      MY_ATTRIBUTE((__unused__)),
+                                  const char *dbname, char *) {
+  std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+  dict_manager.delete_db_entry(dbname);
+}
+
+/**
   For a slave, prepare() updates the slave_gtid_info table which tracks the
   replication progress.
 */
@@ -4893,14 +4906,15 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
 
     txn_data.table_name = ddl_manager.safe_get_table_name(gl_index_id);
     if (txn_data.table_name.empty()) {
-      txn_data.table_name =
-          "NOT FOUND; INDEX_ID: " + std::to_string(gl_index_id.index_id);
+      txn_data.table_name = "NOT FOUND; INDEX_ID: " +
+                            std::to_string(gl_index_id.index_id.index_num);
     }
 
     auto kd = ddl_manager.safe_find(gl_index_id);
     txn_data.index_name =
         (kd) ? kd->get_name()
-             : "NOT FOUND; INDEX_ID: " + std::to_string(gl_index_id.index_id);
+             : "NOT FOUND; INDEX_ID: " +
+                   std::to_string(gl_index_id.index_id.index_num);
 
     std::shared_ptr<rocksdb::ColumnFamilyHandle> cfh =
         cf_manager.get_cf(txn.m_cf_id);
@@ -4926,8 +4940,12 @@ class Rdb_snapshot_status : public Rdb_tx_list_walker {
     for (auto it = path_entry.path.begin(); it != path_entry.path.end(); it++) {
       const auto &txn = *it;
       const GL_INDEX_ID gl_index_id = {
-          txn.m_cf_id, rdb_netbuf_to_uint32(reinterpret_cast<const uchar *>(
-                           txn.m_waiting_key.c_str()))};
+          txn.m_cf_id,
+          {rdb_netbuf_to_uint32(
+               reinterpret_cast<const uchar *>(txn.m_waiting_key.c_str())),
+           rdb_netbuf_to_uint32(
+               reinterpret_cast<const uchar *>(txn.m_waiting_key.c_str()) +
+               Rdb_key_def::DB_NUMBER_SIZE)}};
       deadlock_info.path.push_back(get_dl_txn_info(txn, gl_index_id));
     }
     DBUG_ASSERT_IFF(path_entry.limit_exceeded, path_entry.path.empty());
@@ -5995,6 +6013,7 @@ static int rocksdb_init_internal(void *const p) {
   rocksdb_hton->flush_logs = rocksdb_flush_wal;
   rocksdb_hton->is_user_table_blocked = rocksdb_user_table_blocked;
   rocksdb_hton->handle_single_table_select = rocksdb_handle_single_table_select;
+  rocksdb_hton->drop_database = rocksdb_drop_database;
 
   rocksdb_hton->flags = HTON_TEMPORARY_NOT_SUPPORTED |
                         HTON_SUPPORTS_EXTENDED_KEYS | HTON_CAN_RECREATE;
@@ -6981,7 +7000,7 @@ int ha_rocksdb::read_hidden_pk_id_from_rowkey(longlong *const hidden_pk_id) {
 
   // Get hidden primary key from old key slice
   Rdb_string_reader reader(&rowkey_slice);
-  if ((!reader.read(Rdb_key_def::INDEX_NUMBER_SIZE))) {
+  if ((!reader.read(Rdb_key_def::INDEX_ID_SIZE))) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
@@ -7772,6 +7791,20 @@ int ha_rocksdb::create_key_defs(
     DBUG_RETURN(HA_EXIT_FAILURE);
   }
 
+  /*
+    Retrieve the db_num for the new table entries.
+   */
+  uint32_t dbnr_arg = 0;
+  {
+    std::lock_guard<Rdb_dict_manager> dm_lock(dict_manager);
+    if (dict_manager.get_db_num(tbl_def_arg->base_dbname(), &dbnr_arg)) {
+      dict_manager.create_db_entry(tbl_def_arg->base_dbname());
+      if (dict_manager.get_db_num(tbl_def_arg->base_dbname(), &dbnr_arg)) {
+        DBUG_RETURN(HA_EXIT_FAILURE);
+      }
+    }
+  }
+
   if (!old_tbl_def_arg) {
     /*
       old_tbl_def doesn't exist. this means we are in the process of creating
@@ -7781,8 +7814,9 @@ int ha_rocksdb::create_key_defs(
       and create Rdb_key_def structures.
     */
     for (uint i = 0; i < tbl_def_arg->m_key_count; i++) {
-      if (create_key_def(table_arg, i, tbl_def_arg, &m_key_descr_arr[i], cfs[i],
-                         ttl_duration, ttl_column)) {
+      if (create_key_def(dbnr_arg, table_arg, i, tbl_def_arg,
+                         &m_key_descr_arr[i], cfs[i], ttl_duration,
+                         ttl_column)) {
         DBUG_RETURN(HA_EXIT_FAILURE);
       }
     }
@@ -7792,7 +7826,7 @@ int ha_rocksdb::create_key_defs(
       in-place alter table.  Copy over existing keys from the old_tbl_def and
       generate the necessary new key definitions if any.
     */
-    if (create_inplace_key_defs(table_arg, tbl_def_arg, old_table_arg,
+    if (create_inplace_key_defs(dbnr_arg, table_arg, tbl_def_arg, old_table_arg,
                                 old_tbl_def_arg, cfs, ttl_duration,
                                 ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
@@ -7942,8 +7976,9 @@ int ha_rocksdb::create_cfs(
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
 int ha_rocksdb::create_inplace_key_defs(
-    const TABLE *const table_arg, Rdb_tbl_def *const tbl_def_arg,
-    const TABLE *const old_table_arg, const Rdb_tbl_def *const old_tbl_def_arg,
+    uint32_t dbnr_arg, const TABLE *const table_arg,
+    Rdb_tbl_def *const tbl_def_arg, const TABLE *const old_table_arg,
+    const Rdb_tbl_def *const old_tbl_def_arg,
     const std::array<key_def_cf_info, MAX_INDEXES + 1> &cfs,
     uint64 ttl_duration, const std::string &ttl_column) const {
   DBUG_ENTER_FUNC();
@@ -7992,14 +8027,15 @@ int ha_rocksdb::create_inplace_key_defs(
         itself.
       */
       new_key_descr[i] = std::make_shared<Rdb_key_def>(
-          okd.get_index_number(), i, okd.get_shared_cf(),
+          dbnr_arg, okd.get_index_id().index_num, i, okd.get_shared_cf(),
           index_info.m_index_dict_version, index_info.m_index_type,
           index_info.m_kv_version, okd.m_is_reverse_cf,
           okd.m_is_per_partition_cf, okd.m_name.c_str(),
           dict_manager.get_stats(gl_index_id), index_info.m_index_flags,
           ttl_rec_offset, index_info.m_ttl_duration);
-    } else if (create_key_def(table_arg, i, tbl_def_arg, &new_key_descr[i],
-                              cfs[i], ttl_duration, ttl_column)) {
+    } else if (create_key_def(dbnr_arg, table_arg, i, tbl_def_arg,
+                              &new_key_descr[i], cfs[i], ttl_duration,
+                              ttl_column)) {
       DBUG_RETURN(HA_EXIT_FAILURE);
     }
 
@@ -8139,6 +8175,7 @@ int ha_rocksdb::compare_key_parts(const KEY *const old_key,
   This can be called either during CREATE table or doing ADD index operations.
 
   @param in
+    dbnr_arg      database identifier
     table_arg     Table with definition
     i             Position of index being created inside table_arg->key_info
     tbl_def_arg   Table def structure being populated
@@ -8151,7 +8188,8 @@ int ha_rocksdb::compare_key_parts(const KEY *const old_key,
     0      - Ok
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
-int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
+int ha_rocksdb::create_key_def(uint32_t dbnum_arg, const TABLE *const table_arg,
+                               const uint i,
                                const Rdb_tbl_def *const tbl_def_arg,
                                std::shared_ptr<Rdb_key_def> *const new_key_def,
                                const struct key_def_cf_info &cf_info,
@@ -8189,7 +8227,7 @@ int ha_rocksdb::create_key_def(const TABLE *const table_arg, const uint i,
 
   const char *const key_name = get_key_name(i, table_arg, m_tbl_def);
   *new_key_def = std::make_shared<Rdb_key_def>(
-      index_id, i, cf_info.cf_handle, index_dict_version, index_type,
+      dbnum_arg, index_id, i, cf_info.cf_handle, index_dict_version, index_type,
       kv_version, cf_info.is_reverse_cf, cf_info.is_per_partition_cf, key_name,
       Rdb_index_stats(), index_flags, ttl_rec_offset, ttl_duration);
 
@@ -8895,7 +8933,7 @@ int ha_rocksdb::calc_eq_cond_len(const Rdb_key_def &kd,
     Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
      WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
   */
-  return Rdb_key_def::INDEX_NUMBER_SIZE;
+  return Rdb_key_def::INDEX_ID_SIZE;
 }
 
 int ha_rocksdb::read_row_from_primary_key(uchar *const buf) {
@@ -10614,13 +10652,13 @@ int ha_rocksdb::check_and_lock_sk(
 
     The bloom filter may need to be disabled for this lookup.
   */
-  uchar lower_bound_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
-  uchar upper_bound_buf[Rdb_key_def::INDEX_NUMBER_SIZE];
+  uchar lower_bound_buf[Rdb_key_def::INDEX_ID_SIZE];
+  uchar upper_bound_buf[Rdb_key_def::INDEX_ID_SIZE];
   rocksdb::Slice lower_bound_slice;
   rocksdb::Slice upper_bound_slice;
 
   const bool total_order_seek = !check_bloom_and_set_bounds(
-      ha_thd(), kd, new_slice, all_parts_used, Rdb_key_def::INDEX_NUMBER_SIZE,
+      ha_thd(), kd, new_slice, all_parts_used, Rdb_key_def::INDEX_ID_SIZE,
       lower_bound_buf, upper_bound_buf, &lower_bound_slice, &upper_bound_slice);
   const bool fill_cache = !THDVAR(ha_thd(), skip_fill_cache);
 
@@ -11203,13 +11241,13 @@ void ha_rocksdb::setup_iterator_bounds(
     rocksdb::Slice *lower_bound_slice, rocksdb::Slice *upper_bound_slice) {
   // If eq_cond is shorter than Rdb_key_def::INDEX_NUMBER_SIZE, we should be
   // able to get better bounds just by using index id directly.
-  if (eq_cond.size() <= Rdb_key_def::INDEX_NUMBER_SIZE) {
-    DBUG_ASSERT(bound_len == Rdb_key_def::INDEX_NUMBER_SIZE);
+  if (eq_cond.size() <= Rdb_key_def::INDEX_ID_SIZE) {
+    DBUG_ASSERT(bound_len == Rdb_key_def::INDEX_ID_SIZE);
     uint size;
     kd.get_infimum_key(lower_bound, &size);
-    DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+    DBUG_ASSERT(size == Rdb_key_def::INDEX_ID_SIZE);
     kd.get_supremum_key(upper_bound, &size);
-    DBUG_ASSERT(size == Rdb_key_def::INDEX_NUMBER_SIZE);
+    DBUG_ASSERT(size == Rdb_key_def::INDEX_ID_SIZE);
   } else {
     DBUG_ASSERT(bound_len <= eq_cond.size());
     memcpy(upper_bound, eq_cond.data(), bound_len);
@@ -11252,7 +11290,7 @@ void ha_rocksdb::setup_scan_iterator(const Rdb_key_def &kd,
   // used.
   if (check_bloom_and_set_bounds(
           ha_thd(), kd, eq_cond, use_all_keys,
-          std::max(eq_cond_len, (uint)Rdb_key_def::INDEX_NUMBER_SIZE),
+          std::max(eq_cond_len, (uint)Rdb_key_def::INDEX_ID_SIZE),
           m_scan_it_lower_bound, m_scan_it_upper_bound,
           &m_scan_it_lower_bound_slice, &m_scan_it_upper_bound_slice)) {
     skip_bloom = false;
@@ -12253,27 +12291,29 @@ int ha_rocksdb::start_stmt(THD *const thd,
   DBUG_RETURN(HA_EXIT_SUCCESS);
 }
 
-rocksdb::Range get_range(uint32_t i,
-                         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2],
-                         int offset1, int offset2) {
+static rocksdb::Range get_range(const INDEX_ID &index_id,
+                                uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2],
+                                int offset1, int offset2) {
   uchar *buf_begin = buf;
-  uchar *buf_end = buf + Rdb_key_def::INDEX_NUMBER_SIZE;
-  rdb_netbuf_store_index(buf_begin, i + offset1);
-  rdb_netbuf_store_index(buf_end, i + offset2);
+  uchar *buf_end = buf + Rdb_key_def::INDEX_ID_SIZE;
+  rdb_netbuf_store_index_id(buf_begin,
+                            {index_id.db_num, index_id.index_num + offset1});
+  rdb_netbuf_store_index_id(buf_end,
+                            {index_id.db_num, index_id.index_num + offset2});
 
   return rocksdb::Range(
-      rocksdb::Slice((const char *)buf_begin, Rdb_key_def::INDEX_NUMBER_SIZE),
-      rocksdb::Slice((const char *)buf_end, Rdb_key_def::INDEX_NUMBER_SIZE));
+      rocksdb::Slice((const char *)buf_begin, Rdb_key_def::INDEX_ID_SIZE),
+      rocksdb::Slice((const char *)buf_end, Rdb_key_def::INDEX_ID_SIZE));
 }
 
 static rocksdb::Range get_range(const Rdb_key_def &kd,
-                                uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2],
+                                uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2],
                                 int offset1, int offset2) {
-  return get_range(kd.get_index_number(), buf, offset1, offset2);
+  return get_range(kd.get_index_id(), buf, offset1, offset2);
 }
 
-rocksdb::Range get_range(const Rdb_key_def &kd,
-                         uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2]) {
+static rocksdb::Range get_range(const Rdb_key_def &kd,
+                                uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2]) {
   if (kd.m_is_reverse_cf) {
     return myrocks::get_range(kd, buf, 1, 0);
   } else {
@@ -12282,7 +12322,7 @@ rocksdb::Range get_range(const Rdb_key_def &kd,
 }
 
 rocksdb::Range ha_rocksdb::get_range(
-    const int i, uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2]) const {
+    const int i, uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2]) const {
   return myrocks::get_range(*m_key_descr_arr[i], buf);
 }
 
@@ -12296,10 +12336,10 @@ rocksdb::Range ha_rocksdb::get_range(
 static bool is_myrocks_index_empty(rocksdb::ColumnFamilyHandle *cfh,
                                    const bool is_reverse_cf,
                                    const rocksdb::ReadOptions &read_opts,
-                                   const uint index_id) {
+                                   const INDEX_ID &index_id) {
   bool index_removed = false;
-  uchar key_buf[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
-  rdb_netbuf_store_uint32(key_buf, index_id);
+  uchar key_buf[Rdb_key_def::INDEX_ID_SIZE] = {0};
+  rdb_netbuf_store_index_id(key_buf, index_id);
   const rocksdb::Slice key =
       rocksdb::Slice(reinterpret_cast<char *>(key_buf), sizeof(key_buf));
   std::unique_ptr<rocksdb::Iterator> it(rdb->NewIterator(read_opts, cfh));
@@ -12307,7 +12347,7 @@ static bool is_myrocks_index_empty(rocksdb::ColumnFamilyHandle *cfh,
   if (!it->Valid()) {
     index_removed = true;
   } else {
-    if (memcmp(it->key().data(), key_buf, Rdb_key_def::INDEX_NUMBER_SIZE)) {
+    if (memcmp(it->key().data(), key_buf, Rdb_key_def::INDEX_ID_SIZE)) {
       // Key does not have same prefix
       index_removed = true;
     }
@@ -12377,7 +12417,7 @@ void Rdb_drop_index_thread::run() {
 
         const bool is_reverse_cf = cf_flags & Rdb_key_def::REVERSE_CF_FLAG;
 
-        uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+        uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2];
         rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf ? 1 : 0,
                                          is_reverse_cf ? 0 : 1);
 
@@ -12841,7 +12881,7 @@ int ha_rocksdb::optimize(THD *const thd MY_ATTRIBUTE((__unused__)),
   DBUG_ASSERT(check_opt != nullptr);
 
   for (uint i = 0; i < table->s->keys; i++) {
-    uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+    uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2];
     auto range = get_range(i, buf);
     const rocksdb::Status s = rdb->CompactRange(getCompactRangeOptions(),
                                                 m_key_descr_arr[i]->get_cf(),
@@ -12908,7 +12948,7 @@ static int calculate_cardinality_table_scan(
     DBUG_ASSERT(index_id == kd->get_gl_index_id());
     Rdb_index_stats &stat = (*stats)[kd->get_gl_index_id()];
 
-    uchar r_buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+    uchar r_buf[Rdb_key_def::INDEX_ID_SIZE * 2];
     auto r = myrocks::get_range(*kd, r_buf);
     uint64_t memtableCount;
     uint64_t memtableSize;
@@ -12934,7 +12974,7 @@ static int calculate_cardinality_table_scan(
     std::unique_ptr<rocksdb::Iterator> it = std::unique_ptr<rocksdb::Iterator>(
         rdb->NewIterator(read_opts, kd->get_cf()));
     rocksdb::Slice first_index_key((const char *)r_buf,
-                                   Rdb_key_def::INDEX_NUMBER_SIZE);
+                                   Rdb_key_def::INDEX_ID_SIZE);
 
     // Reset m_last_key for new index
     cardinality_collector.Reset();
@@ -13044,13 +13084,13 @@ static int read_stats_from_ssts(
   // find per column family key ranges which need to be queried
   std::unordered_map<rocksdb::ColumnFamilyHandle *, std::vector<rocksdb::Range>>
       ranges;
-  std::vector<uchar> buf(to_recalc.size() * 2 * Rdb_key_def::INDEX_NUMBER_SIZE);
+  std::vector<uchar> buf(to_recalc.size() * 2 * Rdb_key_def::INDEX_ID_SIZE);
 
   uchar *bufp = buf.data();
   for (const auto &it : to_recalc) {
     auto &kd = it.second;
     ranges[kd->get_cf()].push_back(myrocks::get_range(*kd, bufp));
-    bufp += 2 * Rdb_key_def::INDEX_NUMBER_SIZE;
+    bufp += 2 * Rdb_key_def::INDEX_ID_SIZE;
   }
 
   // get RocksDB table properties for these ranges
@@ -13256,7 +13296,7 @@ int ha_rocksdb::adjust_handler_stats_sst_and_memtable() {
   if (stats.records == 0 || (rocksdb_force_compute_memtable_stats &&
                              rocksdb_debug_optimizer_n_rows == 0)) {
     // First, compute SST files stats
-    uchar buf[Rdb_key_def::INDEX_NUMBER_SIZE * 2];
+    uchar buf[Rdb_key_def::INDEX_ID_SIZE * 2];
     auto r = get_range(pk_index(table, m_tbl_def), buf);
     uint64_t sz = 0;
 

@@ -202,6 +202,7 @@ const size_t RDB_SIZEOF_INDEX_TYPE = sizeof(uchar);
 const size_t RDB_SIZEOF_KV_VERSION = sizeof(uint16);
 const size_t RDB_SIZEOF_INDEX_FLAGS = sizeof(uint32);
 const size_t RDB_SIZEOF_AUTO_INCREMENT_VERSION = sizeof(uint16);
+const size_t RDB_SIZEOF_DB_ENTRY_VERSION = sizeof(uint16);
 
 // Possible return values for rdb_index_field_unpack_t functions.
 enum {
@@ -287,32 +288,33 @@ class Rdb_key_def {
 
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *const key, uint *const size) const {
-    rdb_netbuf_store_index(key, m_index_number);
-    *size = INDEX_NUMBER_SIZE;
+    rdb_netbuf_store_index_id(key, m_index_id);
+    *size = INDEX_ID_SIZE;
   }
 
   /* Get the key that is a "supremum" for this index */
   inline void get_supremum_key(uchar *const key, uint *const size) const {
-    rdb_netbuf_store_index(key, m_index_number + 1);
-    *size = INDEX_NUMBER_SIZE;
+    rdb_netbuf_store_index_id(key,
+                              {m_index_id.db_num, m_index_id.index_num + 1});
+    *size = INDEX_ID_SIZE;
   }
 
   /*
     Get the first key that you need to position at to start iterating.
     Stores into *key a "supremum" or "infimum" key value for the index.
-    @parameters key    OUT  Big Endian, value is m_index_number or
-                            m_index_number + 1
-    @parameters size   OUT  key size, value is INDEX_NUMBER_SIZE
+    @parameters key    OUT  Big Endian, value is m_index_id or
+                            m_index_id (index_num + 1)
+    @parameters size   OUT  key size, value is INDEX_ID_SIZE
     @return Number of bytes in the key that are usable for bloom filter use.
   */
   inline int get_first_key(uchar *const key, uint *const size) const {
     if (m_is_reverse_cf) {
       get_supremum_key(key, size);
-      /* Find out how many bytes of infimum are the same as m_index_number */
-      uchar unmodified_key[INDEX_NUMBER_SIZE];
-      rdb_netbuf_store_index(unmodified_key, m_index_number);
+      /* Find out how many bytes of infimum are the same as m_index_id */
+      uchar unmodified_key[INDEX_ID_SIZE];
+      rdb_netbuf_store_index_id(unmodified_key, m_index_id);
       int i;
-      for (i = 0; i < INDEX_NUMBER_SIZE; i++) {
+      for (i = 0; i < INDEX_ID_SIZE; i++) {
         if (key[i] != unmodified_key[i]) {
           break;
         }
@@ -320,16 +322,16 @@ class Rdb_key_def {
       return i;
     } else {
       get_infimum_key(key, size);
-      // For infimum key, its value will be m_index_number
+      // For infimum key, its value will be m_index_id
       // Thus return its own size instead.
-      return INDEX_NUMBER_SIZE;
+      return INDEX_ID_SIZE;
     }
   }
 
   /*
     The same as get_first_key, but get the key for the last entry in the index
-    @parameters key    OUT  Big Endian, value is m_index_number or
-                            m_index_number + 1
+    @parameters key    OUT  Big Endian, value is m_index_id or
+                            m_index_id (index_num + 1)
     @parameters size   OUT  key size, value is INDEX_NUMBER_SIZE
 
     @return Number of bytes in the key that are usable for bloom filter use.
@@ -337,16 +339,16 @@ class Rdb_key_def {
   inline int get_last_key(uchar *const key, uint *const size) const {
     if (m_is_reverse_cf) {
       get_infimum_key(key, size);
-      // For infimum key, its value will be m_index_number
+      // For infimum key, its value will be m_index_id
       // Thus return its own size instead.
-      return INDEX_NUMBER_SIZE;
+      return INDEX_ID_SIZE;
     } else {
       get_supremum_key(key, size);
-      /* Find out how many bytes are the same as m_index_number */
-      uchar unmodified_key[INDEX_NUMBER_SIZE];
-      rdb_netbuf_store_index(unmodified_key, m_index_number);
+      /* Find out how many bytes are the same as m_index_id */
+      uchar unmodified_key[INDEX_ID_SIZE];
+      rdb_netbuf_store_index_id(unmodified_key, m_index_id);
       int i;
-      for (i = 0; i < INDEX_NUMBER_SIZE; i++) {
+      for (i = 0; i < INDEX_ID_SIZE; i++) {
         if (key[i] != unmodified_key[i]) {
           break;
         }
@@ -375,9 +377,9 @@ class Rdb_key_def {
 
   /* Check if given mem-comparable key belongs to this index */
   bool covers_key(const rocksdb::Slice &slice) const {
-    if (slice.size() < INDEX_NUMBER_SIZE) return false;
+    if (slice.size() < INDEX_ID_SIZE) return false;
 
-    if (memcmp(slice.data(), m_index_number_storage_form, INDEX_NUMBER_SIZE)) {
+    if (memcmp(slice.data(), m_index_id_storage_form, INDEX_ID_SIZE)) {
       return false;
     }
 
@@ -415,10 +417,10 @@ class Rdb_key_def {
 
   uint32 get_keyno() const { return m_keyno; }
 
-  uint32 get_index_number() const { return m_index_number; }
+  INDEX_ID get_index_id() const { return m_index_id; }
 
   GL_INDEX_ID get_gl_index_id() const {
-    const GL_INDEX_ID gl_index_id = {m_cf_handle->GetID(), m_index_number};
+    const GL_INDEX_ID gl_index_id = {m_cf_handle->GetID(), m_index_id};
     return gl_index_id;
   }
 
@@ -463,7 +465,7 @@ class Rdb_key_def {
 
   Rdb_key_def &operator=(const Rdb_key_def &) = delete;
   Rdb_key_def(const Rdb_key_def &k);
-  Rdb_key_def(uint indexnr_arg, uint keyno_arg,
+  Rdb_key_def(uint32_t dbnum_arg, uint indexnr_arg, uint keyno_arg,
               std::shared_ptr<rocksdb::ColumnFamilyHandle> cf_handle_arg,
               uint16_t index_dict_version_arg, uchar index_type_arg,
               uint16_t kv_format_version_arg, bool is_reverse_cf_arg,
@@ -478,6 +480,9 @@ class Rdb_key_def {
     CF_NUMBER_SIZE = 4,
     CF_FLAG_SIZE = 4,
     PACKED_SIZE = 4,  // one int
+    DB_NUMBER_SIZE = 4,
+    INDEX_ID_SIZE = DB_NUMBER_SIZE + INDEX_NUMBER_SIZE,
+    GL_INDEX_ID_SIZE = INDEX_ID_SIZE + CF_NUMBER_SIZE
   };
 
   // bit flags for combining bools when writing to disk
@@ -509,24 +514,26 @@ class Rdb_key_def {
     BINLOG_INFO_INDEX_NUMBER = 4,
     DDL_DROP_INDEX_ONGOING = 5,
     INDEX_STATISTICS = 6,
-    MAX_INDEX_ID = 7,
+    MAX_INDEX_NUM = 7,
     DDL_CREATE_INDEX_ONGOING = 8,
     AUTO_INC = 9,
     DROPPED_CF = 10,
+    DB_ENTRY = 11,
     END_DICT_INDEX_ID = 255
   };
 
   // Data dictionary schema version. Introduce newer versions
   // if changing schema layout
   enum {
-    DDL_ENTRY_INDEX_VERSION = 1,
+    DDL_ENTRY_INDEX_VERSION = 2,
     CF_DEFINITION_VERSION = 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION = 1,
     DDL_DROP_INDEX_ONGOING_VERSION = 1,
-    MAX_INDEX_ID_VERSION = 1,
+    MAX_INDEX_NUM_VERSION = 1,
     DDL_CREATE_INDEX_ONGOING_VERSION = 1,
     AUTO_INCREMENT_VERSION = 1,
     DROPPED_CF_VERSION = 1,
+    DB_ENTRY_VERSION = 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -863,11 +870,10 @@ class Rdb_key_def {
     return (storage_length - offset) >= needed;
   }
 #endif  // DBUG_OFF
+  /* Global number of the index (used as prefix in StorageFormat) */
+  const INDEX_ID m_index_id;
 
-  /* Global number of this index (used as prefix in StorageFormat) */
-  const uint32 m_index_number;
-
-  uchar m_index_number_storage_form[INDEX_NUMBER_SIZE];
+  uchar m_index_id_storage_form[INDEX_ID_SIZE];
 
   std::shared_ptr<rocksdb::ColumnFamilyHandle> m_cf_handle;
 
@@ -1352,13 +1358,13 @@ class Rdb_ddl_manager : public Ensure_initialized {
   // Contains Rdb_tbl_def elements
   std::unordered_map<std::string, Rdb_tbl_def *> m_ddl_map;
 
-  // Maps index id to <table_name, index number>
-  std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_index_num_to_keydef;
+  // Maps index id to <table_name, keyno>
+  std::map<GL_INDEX_ID, std::pair<std::string, uint>> m_gl_index_id_to_keydef;
 
   // Maps index id to key definitons not yet committed to data dictionary.
   // This is mainly used to store key definitions during ALTER TABLE.
   std::map<GL_INDEX_ID, std::shared_ptr<Rdb_key_def>>
-      m_index_num_to_uncommitted_keydef;
+      m_gl_index_id_to_uncommitted_keydef;
   mysql_rwlock_t m_rwlock;
 
   Rdb_seq_generator m_sequence;
@@ -1483,11 +1489,11 @@ class Rdb_binlog_manager {
 
   1. Table Name => internal index id mappings
   key: Rdb_key_def::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
-  value: version, {cf_id, index_id}*n_indexes_of_the_table
-  version is 2 bytes. cf_id and index_id are 4 bytes.
+  value: version, {cf_id, db_num, index_num}*n_indexes_of_the_table
+  version is 2 bytes. cf_id, db_num and index_num are 4 bytes.
 
-  2. internal cf_id, index id => index information
-  key: Rdb_key_def::INDEX_INFO(0x2) + cf_id + index_id
+  2. internal cf_id, db_num, index num => index information
+  key: Rdb_key_def::INDEX_INFO(0x2) + cf_id + db_num + index_num
   value: version, index_type, kv_format_version, index_flags, ttl_duration
   index_type is 1 byte, version and kv_format_version are 2 bytes.
   index_flags is 4 bytes.
@@ -1503,30 +1509,34 @@ class Rdb_binlog_manager {
   value: version, {binlog_name,binlog_pos,binlog_gtid}
 
   5. Ongoing drop index entry
-  key: Rdb_key_def::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
+  key: Rdb_key_def::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + db_num + index_num
   value: version
 
   6. index stats
-  key: Rdb_key_def::INDEX_STATISTICS(0x6) + cf_id + index_id
+  key: Rdb_key_def::INDEX_STATISTICS(0x6) + cf_id + db_num + index_num
   value: version, {materialized PropertiesCollector::IndexStats}
 
-  7. maximum index id
-  key: Rdb_key_def::MAX_INDEX_ID(0x7)
-  value: index_id
-  index_id is 4 bytes
+  7. maximum index number
+  key: Rdb_key_def::MAX_INDEX_NUM(0x7)
+  value: index_num
+  index_num is 4 bytes
 
   8. Ongoing create index entry
-  key: Rdb_key_def::DDL_CREATE_INDEX_ONGOING(0x8) + cf_id + index_id
+  key: Rdb_key_def::DDL_CREATE_INDEX_ONGOING(0x8) + cf_id + db_num + index_num
   value: version
 
   9. auto_increment values
-  key: Rdb_key_def::AUTO_INC(0x9) + cf_id + index_id
+  key: Rdb_key_def::AUTO_INC(0x9) + cf_id + db_num + index_num
   value: version, {max auto_increment so far}
   max auto_increment is 8 bytes
 
   10. dropped cfs
   key: Rdb_key_def::DROPPED_CF(0xa) + cf_id
   value: version
+
+  11. database entry
+  key: Rdb_key_def::DB_ENTRY(0xb) + dbname
+  value: db_num 4 bytes
 
   Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -1541,24 +1551,28 @@ class Rdb_dict_manager : public Ensure_initialized {
   rocksdb::ColumnFamilyHandle *m_system_cfh = nullptr;
   /* Utility to put INDEX_INFO and CF_DEFINITION */
 
-  uchar m_key_buf_max_index_id[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
-  rocksdb::Slice m_key_slice_max_index_id;
+  uchar m_key_buf_max_index_num[Rdb_key_def::INDEX_NUMBER_SIZE] = {0};
+  rocksdb::Slice m_key_slice_max_index_num;
 
-  static void dump_index_id(uchar *const netbuf,
-                            Rdb_key_def::DATA_DICT_TYPE dict_type,
-                            const GL_INDEX_ID &gl_index_id);
+  std::unordered_set<uint32_t> m_assigned_db_nums;
+
+  static void dump_gl_index_id(uchar *const netbuf,
+                               Rdb_key_def::DATA_DICT_TYPE dict_type,
+                               const GL_INDEX_ID &gl_index_id);
   template <size_t T>
-  static void dump_index_id(Rdb_buf_writer<T> *buf_writer,
-                            Rdb_key_def::DATA_DICT_TYPE dict_type,
-                            const GL_INDEX_ID &gl_index_id) {
+  static void dump_gl_index_id(Rdb_buf_writer<T> *buf_writer,
+                               Rdb_key_def::DATA_DICT_TYPE dict_type,
+                               const GL_INDEX_ID &gl_index_id) {
     buf_writer->write_uint32(dict_type);
     buf_writer->write_uint32(gl_index_id.cf_id);
-    buf_writer->write_uint32(gl_index_id.index_id);
+    buf_writer->write_uint32(gl_index_id.index_id.db_num);
+    buf_writer->write_uint32(gl_index_id.index_id.index_num);
   }
 
   void delete_with_prefix(rocksdb::WriteBatch *const batch,
                           Rdb_key_def::DATA_DICT_TYPE dict_type,
                           const GL_INDEX_ID &gl_index_id) const;
+  bool check_ddl_entries(void);
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes() const;
   void log_start_drop_table(const std::shared_ptr<Rdb_key_def> *const key_descr,
@@ -1585,7 +1599,7 @@ class Rdb_dict_manager : public Ensure_initialized {
 
   inline void unlock() { RDB_MUTEX_UNLOCK_CHECK(m_mutex); }
 
-  inline void assert_lock_held() { mysql_mutex_assert_owner(&m_mutex); }
+  inline void assert_lock_held() const { mysql_mutex_assert_owner(&m_mutex); }
 
   inline rocksdb::ColumnFamilyHandle *get_system_cf() const {
     return m_system_cfh;
@@ -1697,9 +1711,9 @@ class Rdb_dict_manager : public Ensure_initialized {
                                       Rdb_key_def::DDL_CREATE_INDEX_ONGOING);
   }
 
-  bool get_max_index_id(uint32_t *const index_id) const;
-  bool update_max_index_id(rocksdb::WriteBatch *const batch,
-                           const uint32_t index_id) const;
+  bool get_max_index_num(uint32_t *const index_num) const;
+  bool update_max_index_num(rocksdb::WriteBatch *const batch,
+                            const uint32_t index_num) const;
   void add_stats(rocksdb::WriteBatch *const batch,
                  const std::vector<Rdb_index_stats> &stats) const;
   Rdb_index_stats get_stats(GL_INDEX_ID gl_index_id) const;
@@ -1710,6 +1724,15 @@ class Rdb_dict_manager : public Ensure_initialized {
                                     bool overwrite = false) const;
   bool get_auto_incr_val(const GL_INDEX_ID &gl_index_id,
                          ulonglong *new_val) const;
+
+  /* Methods to manage DB_ENTRY */
+  bool create_db_entry(const std::string &dbname);
+
+  bool get_db_num(const std::string &dbname, uint32_t *new_val) const;
+
+  void delete_db_entry(const std::string &dbname);
+
+  bool populate_db_nums();
 
  private:
   /* dropped cf flags */
@@ -1756,7 +1779,7 @@ class Rdb_system_merge_op : public rocksdb::AssociativeMergeOperator {
              rocksdb::Logger *) const override {
     DBUG_ASSERT(new_value != nullptr);
 
-    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 3 ||
+    if (key.size() != Rdb_key_def::INDEX_NUMBER_SIZE * 4 ||
         GetKeyType(key) != Rdb_key_def::AUTO_INC ||
         value.size() !=
             RDB_SIZEOF_AUTO_INCREMENT_VERSION + ROCKSDB_SIZEOF_AUTOINC_VALUE ||

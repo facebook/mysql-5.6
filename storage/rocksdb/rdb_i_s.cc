@@ -778,14 +778,14 @@ static int rdb_i_s_global_info_fill_table(
   Rdb_dict_manager *const dict_manager = rdb_get_dict_manager();
   DBUG_ASSERT(dict_manager != nullptr);
 
-  uint32_t max_index_id;
-  char max_index_id_buf[INT_BUF_LEN] = {0};
+  uint32_t max_index_num;
+  char max_index_num_buf[INT_BUF_LEN] = {0};
 
-  if (dict_manager->get_max_index_id(&max_index_id)) {
-    snprintf(max_index_id_buf, INT_BUF_LEN, "%u", max_index_id);
+  if (dict_manager->get_max_index_num(&max_index_num)) {
+    snprintf(max_index_num_buf, INT_BUF_LEN, "%u", max_index_num);
 
     ret |= rdb_global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
-                                    max_index_id_buf);
+                                    max_index_num_buf);
   }
 
   /* cf_id -> cf_flags */
@@ -834,7 +834,7 @@ static int rdb_i_s_global_info_fill_table(
 
   for (auto gl_index_id : gl_index_ids) {
     snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u,index_id:%u",
-             gl_index_id.cf_id, gl_index_id.index_id);
+             gl_index_id.cf_id, gl_index_id.index_id.index_num);
 
     ret |= rdb_global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
                                     cf_id_index_buf, "");
@@ -1170,7 +1170,8 @@ enum {
   TTL_DURATION,
   INDEX_FLAGS,
   CF,
-  AUTO_INCREMENT
+  AUTO_INCREMENT,
+  DB_NUMBER
 };
 }  // namespace RDB_DDL_FIELD
 
@@ -1190,6 +1191,8 @@ static ST_FIELD_INFO rdb_i_s_ddl_fields_info[] = {
     ROCKSDB_FIELD_INFO("CF", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO("AUTO_INCREMENT", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
                        MY_I_S_MAYBE_NULL | MY_I_S_UNSIGNED),
+    ROCKSDB_FIELD_INFO("DB_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG,
+                       MY_I_S_UNSIGNED),
     ROCKSDB_FIELD_INFO_END};
 
 int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
@@ -1227,7 +1230,9 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
 
     GL_INDEX_ID gl_index_id = kd.get_gl_index_id();
     field[RDB_DDL_FIELD::COLUMN_FAMILY]->store(gl_index_id.cf_id, true);
-    field[RDB_DDL_FIELD::INDEX_NUMBER]->store(gl_index_id.index_id, true);
+    field[RDB_DDL_FIELD::DB_NUMBER]->store(gl_index_id.index_id.db_num, true);
+    field[RDB_DDL_FIELD::INDEX_NUMBER]->store(gl_index_id.index_id.index_num,
+                                              true);
     field[RDB_DDL_FIELD::INDEX_TYPE]->store(kd.m_index_type, true);
     field[RDB_DDL_FIELD::KV_FORMAT_VERSION]->store(kd.m_kv_format_version,
                                                    true);
@@ -1585,7 +1590,8 @@ enum {
   ENTRY_SINGLEDELETES,
   ENTRY_MERGES,
   ENTRY_OTHERS,
-  DISTINCT_KEYS_PREFIX
+  DISTINCT_KEYS_PREFIX,
+  DB_NUMBER
 };
 }  // namespace RDB_INDEX_FILE_MAP_FIELD
 
@@ -1596,7 +1602,8 @@ static ST_FIELD_INFO rdb_i_s_index_file_map_fields_info[] = {
      *   INDEX_NUMBER => the index id contained in the SST file
      *   SST_NAME => the name of the SST file containing some indexes
      *   NUM_ROWS => the number of entries of this index id in this SST file
-     *   DATA_SIZE => the data size stored in this SST file for this index id */
+     *   DATA_SIZE => the data size stored in this SST file for this index id
+     *   DB_NUMBER => db number contained in the SST file */
     ROCKSDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
     ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
     ROCKSDB_FIELD_INFO("SST_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
@@ -1610,6 +1617,8 @@ static ST_FIELD_INFO rdb_i_s_index_file_map_fields_info[] = {
     ROCKSDB_FIELD_INFO("ENTRY_OTHERS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("DISTINCT_KEYS_PREFIX", MAX_REF_PARTS * 25,
                        MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("DB_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG,
+                       MY_I_S_UNSIGNED),
     ROCKSDB_FIELD_INFO_END};
 
 /* Fill the information_schema.rocksdb_index_file_map virtual table */
@@ -1663,6 +1672,7 @@ static int rdb_i_s_index_file_map_fill_table(
 
       if (stats.empty()) {
         field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(-1, true);
+        field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::INDEX_NUMBER]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::NUM_ROWS]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::DATA_SIZE]->store(-1, true);
@@ -1676,8 +1686,10 @@ static int rdb_i_s_index_file_map_fill_table(
            * output */
           field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(
               it.m_gl_index_id.cf_id, true);
+          field[RDB_INDEX_FILE_MAP_FIELD::DB_NUMBER]->store(
+              it.m_gl_index_id.index_id.db_num, true);
           field[RDB_INDEX_FILE_MAP_FIELD::INDEX_NUMBER]->store(
-              it.m_gl_index_id.index_id, true);
+              it.m_gl_index_id.index_id.index_num, true);
           field[RDB_INDEX_FILE_MAP_FIELD::NUM_ROWS]->store(it.m_rows, true);
           field[RDB_INDEX_FILE_MAP_FIELD::DATA_SIZE]->store(it.m_data_size,
                                                             true);
