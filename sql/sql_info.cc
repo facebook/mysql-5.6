@@ -22,14 +22,272 @@
 
 #include "sql/sql_info.h"
 #include <algorithm>
+#include <string>
 #include <vector>
+#include "include/my_macros.h"
 #include "include/my_md5.h"
+#include "sql/derror.h"
 #include "sql/mysqld.h"
+#include "sql/protocol_classic.h"
 #include "sql/sql_class.h"
+#include "sql/sql_error.h"
 #include "sql/sql_lex.h"
 #include "unordered_map"
 
 inline bool is_sql_stats_collection_above_limit() { return false; }
+
+/***********************************************************************
+ Begin - Functions to support capping the number of duplicate executions
+************************************************************************/
+
+/* Global map to track the number of active identical sql statements */
+static std::unordered_map<std::string, uint> global_active_sql;
+
+/*
+  free_global_active_sql
+    Frees global_active_sql
+*/
+void free_global_active_sql(void) {
+  mysql_mutex_lock(&LOCK_global_active_sql);
+  global_active_sql.clear();
+  mysql_mutex_unlock(&LOCK_global_active_sql);
+}
+
+/*
+  skip_quote
+  Skips over quoted strings
+  It handles both single and double quotes by calling
+  it twice by passing the quote character as argument
+  first time single quote and second as double quote.
+  Skipping happens by changing the offset of the next
+  comment search (position of the second quote+1).
+  It handles both cases when the string includes the
+  beginning of a comment or not
+*/
+static bool skip_quote(std::string &query_str, size_t *offset,
+                       size_t c_start_pos, const char *quote) {
+  size_t quote_pos = query_str.find(quote, *offset);
+
+  if (quote_pos != std::string::npos && quote_pos < c_start_pos) {
+    quote_pos = query_str.find(quote, quote_pos + 1);
+    *offset = quote_pos + 1;
+    return true;
+  }
+  return false;
+}
+
+/*
+  strip_query_comment
+    Return the query text without comments
+
+  Examples (where begin comment is /+ and end comment is +/)
+   IN: /+C1+/ select '''Q2''', '''/+''', """+/""" /+C2+/ from dual /+C3+/
+   OUT:  select '''Q2''', '''/+''', """+/"""  from dual
+   IN: /+C1+/ select 'Q2', '/+', "+/" /+C2+/ from dual /+C3+/
+   OUT:  select 'Q2', '/+', "+/"  from dual
+*/
+static void strip_query_comments(std::string &query_str) {
+  const uint comment_size = 2;
+  size_t offset = 0;
+  while (true) {
+    size_t c_start_pos = query_str.find("/*", offset);
+
+    if (c_start_pos == std::string::npos) break;
+
+    // so far we found a start of a comment; next we
+    // check if it is enclosed in a string i.e either
+    // single or double quoted
+    if (skip_quote(query_str, &offset, c_start_pos, "'")) continue;
+
+    if (skip_quote(query_str, &offset, c_start_pos, "\"")) continue;
+
+    size_t c_stop_pos = query_str.find("*/", c_start_pos);
+    assert(c_stop_pos != std::string::npos);
+
+    query_str.erase(c_start_pos, c_stop_pos + comment_size - c_start_pos);
+  }
+}
+
+struct query_flags {
+  unsigned int client_long_flag : 1;
+  unsigned int client_protocol_41 : 1;
+  unsigned int protocol_type : 2;
+  unsigned int more_results_exists : 1;
+  unsigned int in_trans : 1;
+  unsigned int autocommit : 1;
+  unsigned int pkt_nr;
+  uint character_set_client_num;
+  uint character_set_results_num;
+  uint collation_connection_num;
+  ha_rows limit;
+  Time_zone *time_zone;
+  sql_mode_t sql_mode;
+  ulong max_sort_length;
+  ulong group_concat_max_len;
+  ulong default_week_format;
+  ulong div_precision_increment;
+  MY_LOCALE *lc_time_names;
+};
+
+/*
+  get_query_flags
+   Get the query cache flags used to build a key when looking
+   for identical queries
+*/
+static query_flags get_query_flags(THD *thd) {
+  query_flags flags;
+  Protocol *prot = thd->get_protocol();
+
+  // fill all gaps between fields with 0 to get repeatable key
+  memset(&flags, 0, sizeof(query_flags));
+  flags.client_long_flag =
+      (prot->get_client_capabilities() & CLIENT_LONG_FLAG) ? 1 : 0;
+  flags.client_protocol_41 =
+      (prot->get_client_capabilities() & CLIENT_PROTOCOL_41) ? 1 : 0;
+  /*
+    Protocol influences result format, so statement results in the binary
+    protocol (COM_EXECUTE) cannot be served to statements asking for results
+    in the text protocol (COM_QUERY) and vice-versa.
+  */
+  flags.protocol_type = (unsigned int)prot->type();
+  /* PROTOCOL_LOCAL results are not cached. */
+  assert(flags.protocol_type != (unsigned int)Protocol::PROTOCOL_LOCAL);
+  flags.more_results_exists =
+      (thd->server_status & SERVER_MORE_RESULTS_EXISTS) ? 1 : 0;
+  flags.in_trans = thd->in_active_multi_stmt_transaction();
+  flags.autocommit = (thd->server_status & SERVER_STATUS_AUTOCOMMIT) ? 1 : 0;
+
+  flags.character_set_client_num = thd->variables.character_set_client->number;
+  flags.character_set_results_num =
+      (thd->variables.character_set_results
+           ? thd->variables.character_set_results->number
+           : UINT_MAX);
+  flags.collation_connection_num = thd->variables.collation_connection->number;
+  flags.limit = thd->variables.select_limit;
+  flags.time_zone = thd->variables.time_zone;
+  flags.sql_mode = thd->variables.sql_mode;
+  flags.max_sort_length = thd->variables.max_sort_length;
+  flags.lc_time_names = thd->variables.lc_time_names;
+  flags.group_concat_max_len = thd->variables.group_concat_max_len;
+  flags.div_precision_increment = thd->variables.div_precincrement;
+  flags.default_week_format = thd->variables.default_week_format;
+
+  return flags;
+}
+
+/*
+  register_active_sql
+    Register a new active SQL, called right after SQL parsing
+
+  Returns TRUE if the query is rejected
+*/
+bool register_active_sql(THD *thd, const char *query_text,
+                         size_t query_length) {
+  /* Get the maximum number of duplicate executions from query attribute,
+     connection attribute, or server variable
+  */
+  ulong max_dup_exe = thd->get_query_or_connect_attr_value(
+      "@@sql_max_dup_exe", sql_maximum_duplicate_executions, ULONG_MAX);
+  ulong control = sql_duplicate_executions_control;
+  /* Exit now if any of the conditions that prevent the feature is true
+     - feature is off
+     - command type is not SELECT
+     - EXPLAIN
+     - in a transaction
+  */
+  if (max_dup_exe == 0 || control == CONTROL_LEVEL_OFF ||
+      thd->lex->sql_command != SQLCOM_SELECT || thd->lex->is_explain() ||
+      thd->in_active_multi_stmt_transaction())
+    return false;
+
+  size_t flags_size = sizeof(query_flags);
+  /* prepare a string with a size large enough to store the sql text,
+     database, and some flags (that affect query similarity).
+  */
+  std::string query_str;
+  query_str.reserve(query_length + thd->db().length + flags_size + 1);
+
+  /* load the sql text */
+  query_str.append(query_text, query_length);
+
+  /* strip the query comments (everywhere in the text) */
+  strip_query_comments(query_str);
+
+  /* load the database name */
+  query_str.append((const char *)thd->db().str, thd->db().length);
+
+  /* load the flags */
+  query_flags flags = get_query_flags(thd);
+  query_str.append((const char *)&flags, flags_size);
+
+  /* compute MD5 from the key value (query, db, flags) */
+  std::array<unsigned char, MD5_HASH_SIZE> sql_hash;
+  compute_md5_hash(reinterpret_cast<char *>(sql_hash.data()), query_str.c_str(),
+                   query_str.length());
+  std::string sql_hash_str((const char *)sql_hash.data(), MD5_HASH_SIZE);
+
+  // so far did not exceed the max number of dups
+  bool rejected = false;
+
+  mysql_mutex_lock(&LOCK_global_active_sql);
+  auto iter = global_active_sql.find(sql_hash_str);
+  if (iter == global_active_sql.end()) {
+    global_active_sql.emplace(sql_hash_str, 1);  // its first occurrence
+  } else {
+    if (iter->second + 1 > max_dup_exe)  // one too many
+    {
+      if (control == CONTROL_LEVEL_ERROR)  // reject it
+      {
+        rejected = true;
+        my_error(ER_DUPLICATE_STATEMENT_EXECUTION, MYF(0));
+      } else {  // control is NOTE or WARN => report note / warning
+        push_warning(thd,
+                     (control == CONTROL_LEVEL_NOTE)
+                         ? Sql_condition::SL_NOTE
+                         : Sql_condition::SL_WARNING,
+                     ER_DUPLICATE_STATEMENT_EXECUTION,
+                     ER_THD(thd, ER_DUPLICATE_STATEMENT_EXECUTION));
+      }
+    }
+    if (!rejected && iter != global_active_sql.end())
+      iter->second++;  // increment the number of duplicates
+  }
+
+  if (!rejected) {
+    // remember the sql_hash
+    thd->mt_key_set(THD::SQL_HASH, sql_hash.data(), MD5_HASH_SIZE);
+    assert(thd->mt_key_is_set(THD::SQL_HASH));
+  }
+
+  mysql_mutex_unlock(&LOCK_global_active_sql);
+  return rejected;
+}
+
+/*
+  remove_active_sql
+    Remove an active SQL, called at end of the execution
+*/
+void remove_active_sql(THD *thd) {
+  if (!thd->mt_key_is_set(THD::SQL_HASH)) return;
+
+  std::string sql_hash_str(
+      (const char *)thd->mt_key_value(THD::SQL_HASH).data(), MD5_HASH_SIZE);
+  mysql_mutex_lock(&LOCK_global_active_sql);
+
+  auto iter = global_active_sql.find(sql_hash_str);
+  if (iter != global_active_sql.end()) {
+    if (iter->second == 1)
+      global_active_sql.erase(iter);
+    else
+      iter->second--;
+  }
+
+  mysql_mutex_unlock(&LOCK_global_active_sql);
+}
+
+/*********************************************************************
+ End - Functions to support capping the number of duplicate executions
+**********************************************************************/
 
 /***********************************************************************
               Begin - Functions to support SQL findings
@@ -43,7 +301,7 @@ const uint sf_max_message_size = 256;  // max message text size
 const uint sf_max_query_size = 1024;   // max query text size
 
 /* Global SQL findings map to track findings for all SQL statements */
-std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
+static std::unordered_map<digest_key, SQL_FINDING_VEC> global_sql_findings_map;
 
 ulonglong sql_findings_size = 0;
 

@@ -3356,6 +3356,9 @@ class Lex_input_stream {
   /** Get the raw query buffer. */
   const char *get_buf() const { return m_buf; }
 
+  /** Get the raw query buffer. */
+  size_t get_buf_length() const { return m_buf_length; }
+
   /** Get the pre-processed query buffer. */
   const char *get_cpp_buf() const { return m_cpp_buf; }
 
@@ -4613,6 +4616,12 @@ class Parser_state {
   void add_comment() { m_comment = true; }
   /// Check whether the current query has a comment
   bool has_comment() const { return m_comment; }
+
+  void get_query(char **query, size_t *length) {
+    assert(query && length);
+    *query = const_cast<char *>(m_lip.get_buf());
+    *length = m_lip.get_buf_length();
+  }
 
  public:
   Parser_input m_input;

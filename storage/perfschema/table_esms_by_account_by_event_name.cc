@@ -87,6 +87,7 @@ Plugin_table table_esms_by_account_by_event_name::m_table_def(
     "  SUM_INDEX_DIVE_CPU BIGINT unsigned not null,\n"
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
+    "  SUM_SKIPPED BIGINT unsigned not null,\n"
     "  MAX_CONTROLLED_MEMORY BIGINT unsigned not null,\n"
     "  MAX_TOTAL_MEMORY BIGINT unsigned not null,\n"
     "  COUNT_SECONDARY BIGINT unsigned not null,\n"

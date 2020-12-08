@@ -179,6 +179,8 @@ struct row_events_statements {
   ulonglong m_statement_id;
   /** Column EXECUTION_ENGINE. */
   bool m_secondary;
+  /** Column SKIPPED_COUNT. */
+  uint m_skipped_count;
 };
 
 /** Position of a cursor on PERFORMANCE_SCHEMA.EVENTS_STATEMENTS_CURRENT. */

@@ -311,6 +311,7 @@ events_statements_current	CREATE TABLE `events_statements_current` (
   `INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `COMPILATION_CPU` bigint unsigned NOT NULL,
   `ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SKIPPED_COUNT` bigint unsigned NOT NULL,
   PRIMARY KEY (`THREAD_ID`,`EVENT_ID`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_history;
@@ -362,6 +363,13 @@ events_statements_history	CREATE TABLE `events_statements_history` (
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `EXECUTION_ENGINE` enum('PRIMARY','SECONDARY') DEFAULT NULL,
+  `TMP_TABLE_BYTES_WRITTEN` bigint unsigned NOT NULL,
+  `FILESORT_BYTES_WRITTEN` bigint unsigned NOT NULL,
+  `INDEX_DIVE_COUNT` bigint unsigned NOT NULL,
+  `INDEX_DIVE_CPU` bigint unsigned NOT NULL,
+  `COMPILATION_CPU` bigint unsigned NOT NULL,
+  `ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SKIPPED_COUNT` bigint unsigned NOT NULL,
   PRIMARY KEY (`THREAD_ID`,`EVENT_ID`)
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_history_long;
@@ -412,7 +420,14 @@ events_statements_history_long	CREATE TABLE `events_statements_history_long` (
   `CPU_TIME` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
-  `EXECUTION_ENGINE` enum('PRIMARY','SECONDARY') DEFAULT NULL
+  `EXECUTION_ENGINE` enum('PRIMARY','SECONDARY') DEFAULT NULL,
+  `TMP_TABLE_BYTES_WRITTEN` bigint unsigned NOT NULL,
+  `FILESORT_BYTES_WRITTEN` bigint unsigned NOT NULL,
+  `INDEX_DIVE_COUNT` bigint unsigned NOT NULL,
+  `INDEX_DIVE_CPU` bigint unsigned NOT NULL,
+  `COMPILATION_CPU` bigint unsigned NOT NULL,
+  `ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SKIPPED_COUNT` bigint unsigned NOT NULL
 ) ENGINE=PERFORMANCE_SCHEMA DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 show create table events_statements_summary_by_digest;
 Table	Create Table
@@ -454,6 +469,7 @@ events_statements_summary_by_digest	CREATE TABLE `events_statements_summary_by_d
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,
@@ -506,6 +522,7 @@ events_statements_summary_by_host_by_event_name	CREATE TABLE `events_statements_
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,
@@ -550,6 +567,7 @@ events_statements_summary_by_thread_by_event_name	CREATE TABLE `events_statement
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,
@@ -594,6 +612,7 @@ events_statements_summary_by_user_by_event_name	CREATE TABLE `events_statements_
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,
@@ -639,6 +658,7 @@ events_statements_summary_by_account_by_event_name	CREATE TABLE `events_statemen
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,
@@ -682,6 +702,7 @@ events_statements_summary_global_by_event_name	CREATE TABLE `events_statements_s
   `SUM_INDEX_DIVE_CPU` bigint unsigned NOT NULL,
   `SUM_COMPILATION_CPU` bigint unsigned NOT NULL,
   `SUM_ELAPSED_TIME` bigint unsigned NOT NULL,
+  `SUM_SKIPPED` bigint unsigned NOT NULL,
   `MAX_CONTROLLED_MEMORY` bigint unsigned NOT NULL,
   `MAX_TOTAL_MEMORY` bigint unsigned NOT NULL,
   `COUNT_SECONDARY` bigint unsigned NOT NULL,

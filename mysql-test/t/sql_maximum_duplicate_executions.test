@@ -1,0 +1,247 @@
+--source include/count_sessions.inc
+--enable_connect_log
+--enable_info
+--enable_query_log
+--enable_result_log
+
+--disable_warnings
+
+create user test_user@localhost;
+grant all on test to test_user@localhost;
+
+--connection default
+
+truncate table performance_schema.events_statements_summary_by_digest;
+truncate table performance_schema.events_errors_summary_by_user_by_error;
+
+#############
+# Case 1: off
+#############
+--echo
+--echo "Case 1: off, no error expected"
+
+--connect (con1,localhost,test_user,,test)
+create table skip_dup_tab (c int);
+insert into skip_dup_tab values(1);
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
+
+--connection con1
+--reap
+
+--connection con2
+--reap
+
+--disconnect con1
+--disconnect con2
+
+--connection default
+set @@GLOBAL.sql_maximum_duplicate_executions=1;
+set @@GLOBAL.sql_duplicate_executions_control=error;
+
+
+##############################
+# Case 2: on, in a transaction
+##############################
+--echo
+--echo "Case 2: on, in a transaction, no error"
+
+--connect (con1,localhost,test_user,,test)
+--send begin; SELECT 'Q1', sleep(2) from skip_dup_tab q1; rollback;
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
+
+--connection con1
+--reap
+
+--connection con2
+--reap
+
+--disconnect con1
+--disconnect con2
+
+#############
+# Case 3: on
+#############
+--echo
+--echo "Case 3: on, expected the new error"
+
+--connect (con1,localhost,test_user,,test)
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+--send SELECT 'Q1', sleep(2) from skip_dup_tab q1
+
+--connection con1
+--reap
+
+--connection con2
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--disconnect con1
+--disconnect con2
+
+##############################
+# Case 4: on, comment handling
+##############################
+--echo
+--echo "Case 4.1: on, comment handling: mix quotes and comments"
+
+--connect (con1,localhost,test_user,,test)
+--send /*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from skip_dup_tab q2 /*C3*/
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+--send /*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from skip_dup_tab q2 /*"D3"*/
+
+--connection con1
+--reap
+
+--connection con2
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--disconnect con1
+--disconnect con2
+
+--echo "Case 4.2: on, comment handling: same with escaped quotes"
+
+--connect (con1,localhost,test_user,,test)
+--send /*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from skip_dup_tab q3 /*C3*/
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+--send /*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from skip_dup_tab q3 /*"D3"*/
+
+--connection con1
+--reap
+
+--connection con2
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--disconnect con1
+--disconnect con2
+
+--connection default
+--echo
+--echo "execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
+select digest, digest_text, count_star, sum_skipped
+from performance_schema.events_statements_summary_by_digest
+where digest_text like 'SELECT %skip_dup_tab%'
+order by digest;
+
+select ERROR_NUMBER, ERROR_NAME, SUM_ERROR_RAISED
+from performance_schema.events_errors_summary_by_user_by_error
+where error_number = 50088 and user='test_user';
+
+set @@GLOBAL.sql_duplicate_executions_control=warn;
+
+############################
+# Case 5: on in warning mode
+############################
+--echo
+--echo "Case 5: on, in warning mode"
+
+--connect (con1,localhost,test_user,,test)
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+create table t1 (c int);
+insert into t1 values(1);
+--send SELECT 'W1', c, sleep(2) from t1
+--sleep 1
+
+--connect (con2,localhost,test_user,,test)
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+--send SELECT 'W1', c, sleep(2) from t1
+
+--connection con1
+--reap
+
+--connection con2
+--reap
+
+--disconnect con1
+--disconnect con2
+
+--connection default
+--echo
+-- echo "duplicate executions reported as warning"
+show warnings;
+
+# set variable to 0 and we rely in connection or query attributes
+set @@GLOBAL.sql_maximum_duplicate_executions=0;
+set @@GLOBAL.sql_duplicate_executions_control=error;
+
+#####################################
+# Case 6: on via connection attribute
+#####################################
+--echo
+--echo "Case 6: on via connection attribute"
+
+--connect (con1,localhost,test_user,,test)
+conn_attrs_add @@sql_max_dup_exe 1;
+# change user command to re-send connection attributes
+change_user root;
+use test;
+--send SELECT 'CA', c, sleep(2) from t1
+
+--connect (con2,localhost,test_user,,test)
+conn_attrs_add @@sql_max_dup_exe 1;
+# change user command to re-send connection attributes
+change_user root;
+use test;
+--send SELECT 'CA', c, sleep(2) from t1
+
+--connection con1
+--reap
+
+--connection con2
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--disconnect con1
+--disconnect con2
+
+################################
+# Case 7: on via query attribute
+################################
+--echo
+--echo "Case 7: on via query attribute"
+connect (con1,localhost,test_user,,test);
+query_attrs_add @@sql_max_dup_exe 1;
+--send SELECT 'QA', c, sleep(2) from t1
+
+connect (con2,localhost,test_user,,test);
+query_attrs_add @@sql_max_dup_exe 1;
+--send SELECT 'QA', c, sleep(2) from t1
+
+--connection con1
+--reap
+
+--connection con2
+--error ER_DUPLICATE_STATEMENT_EXECUTION
+--reap
+
+--disconnect con1
+--disconnect con2
+
+--connection default
+# tidy up
+drop table skip_dup_tab;
+drop table t1;
+drop user test_user@localhost;
+set @@GLOBAL.sql_maximum_duplicate_executions=DEFAULT;
+set @@GLOBAL.sql_duplicate_executions_control=DEFAULT;
+
+--disable_query_log
+--disable_result_log
+--disable_connect_log
+--enable_warnings
+--source include/wait_until_count_sessions.inc

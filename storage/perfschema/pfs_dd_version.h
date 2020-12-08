@@ -293,10 +293,13 @@
   80032-012:
   - add THREAD_PRIORITY column to threads table
 
+  80032-013:
+  - add skipped count to statement statistics
+
   The last three digits reprents Facebook specific MySQL Schema changes.
-  Version published is now 80032-012. i.e. 8.0.32 Facebook schema change no. 12.
+  Version published is now 80032-013. i.e. 8.0.32 Facebook schema change no. 13.
 */
 
-static const uint PFS_DD_VERSION = 80032012;
+static const uint PFS_DD_VERSION = 80032013;
 
 #endif /* PFS_DD_VERSION_H */

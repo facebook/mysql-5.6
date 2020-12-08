@@ -1097,6 +1097,7 @@ CREATE TEMPORARY TABLE tmp_digests (
   SUM_INDEX_DIVE_CPU bigint unsigned NOT NULL,
   SUM_COMPILATION_CPU bigint unsigned NOT NULL,
   SUM_ELAPSED_TIME bigint unsigned NOT NULL,
+  SUM_SKIPPED bigint unsigned NOT NULL,
   max_controlled_memory BIGINT UNSIGNED NOT NULL,
   max_total_memory BIGINT UNSIGNED NOT NULL,
   count_secondary BIGINT UNSIGNED NOT NULL,
