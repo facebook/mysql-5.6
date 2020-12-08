@@ -84,10 +84,14 @@ EOF
 # The restart has to fail with rocksdb_wal_recovery_mode=1
 --error 1
 --exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=1 --rocksdb_track_and_verify_wals_in_manifest=0 > $_custom_err 2>&1
---exec grep "truncated header" $_custom_err | wc -l
 
-#--echo forcing to restart with losing data
---exec echo "restart:--rocksdb_wal_recovery_mode=2 --rocksdb_track_and_verify_wals_in_manifest=0" > $_expect_file_name
+#--echo forcing to restart with kPointInTimeRecovery will also fail with RocksDB PR#7701
+--error 1
+--exec $MYSQLD_CMD  --rocksdb_wal_recovery_mode=2 --rocksdb_track_and_verify_wals_in_manifest=0 > $_custom_err 2>&1
+--exec grep "Corruption: SST file is ahead of WALs" $_custom_err | wc -l
+
+#--echo forcing to restart with kSkipAnyCorruptedRecords
+--exec echo "restart:--rocksdb_wal_recovery_mode=3 --rocksdb_track_and_verify_wals_in_manifest=0" > $_expect_file_name
 --enable_reconnect
 --source include/wait_until_connected_again.inc
 
