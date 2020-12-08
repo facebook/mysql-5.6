@@ -271,6 +271,10 @@ When flushing takes longer, user threads no longer spin when waiting for
 flushed redo. Expressed in microseconds. */
 ulong srv_log_wait_for_flush_spin_hwm;
 
+/** Timeout used when waiting for redo ready (microseconds). */
+ulong srv_log_wait_for_ready_timeout =
+    INNODB_LOG_WAIT_FOR_READY_TIMEOUT_DEFAULT;
+
 /* EXPERIMENTAL sys vars below - we need defaults set explicitly here. */
 
 /** When log writer follows links in the log recent written buffer,

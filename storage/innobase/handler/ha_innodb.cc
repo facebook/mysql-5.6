@@ -22526,6 +22526,12 @@ static MYSQL_SYSVAR_ULONG(
     nullptr, nullptr, INNODB_LOG_WAIT_FOR_FLUSH_SPIN_HWM_DEFAULT, 0, ULONG_MAX,
     0);
 
+static MYSQL_SYSVAR_ULONG(
+    log_wait_for_ready_timeout, srv_log_wait_for_ready_timeout,
+    PLUGIN_VAR_RQCMDARG,
+    "Timeout used when waiting for redo log ready (microseconds).", NULL, NULL,
+    INNODB_LOG_WAIT_FOR_READY_TIMEOUT_DEFAULT, 0, ULONG_MAX, 0);
+
 #ifdef ENABLE_EXPERIMENT_SYSVARS
 
 static MYSQL_SYSVAR_ULONG(
@@ -23189,6 +23195,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(log_spin_cpu_abs_lwm),
     MYSQL_SYSVAR(log_spin_cpu_pct_hwm),
     MYSQL_SYSVAR(log_wait_for_flush_spin_hwm),
+    MYSQL_SYSVAR(log_wait_for_ready_timeout),
 #ifdef ENABLE_EXPERIMENT_SYSVARS
     MYSQL_SYSVAR(log_write_events),
     MYSQL_SYSVAR(log_flush_events),
