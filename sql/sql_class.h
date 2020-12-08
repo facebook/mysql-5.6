@@ -2353,6 +2353,9 @@ class THD : public MDL_context_owner,
 
   void set_stmt_start_write_time();
 
+  ulong get_query_or_connect_attr_value(const char *attr_name,
+                                        ulong default_value, ulong max_value);
+
   void get_mt_keys_for_write_query(
       std::array<std::string, WRITE_STATISTICS_DIMENSION_COUNT> &keys);
 
@@ -2458,8 +2461,8 @@ class THD : public MDL_context_owner,
   enum enum_mt_key {
     SQL_ID = 0,
     CLIENT_ID = 1,
-    //    PLAN_ID   = 2,
-    //    SQL_HASH  = 3,
+    SQL_HASH = 2,
+    //    PLAN_ID   = 3
     MT_KEY_MAX
   };
 
@@ -2481,10 +2484,11 @@ class THD : public MDL_context_owner,
     )
       mysql_mutex_unlock(&LOCK_thd_data);
   }
-  void mt_key_set(enum_mt_key key_name, const unsigned char *key_val) {
-    DBUG_ASSERT(key_name < MT_KEY_MAX);
+  void mt_key_set(enum_mt_key key_name, const unsigned char *key_val,
+                  uint len) {
+    DBUG_ASSERT(key_name < MT_KEY_MAX && len <= DIGEST_HASH_SIZE);
     mt_mutex_lock(key_name);
-    memcpy(mt_key_val[key_name].data(), key_val, DIGEST_HASH_SIZE);
+    memcpy(mt_key_val[key_name].data(), key_val, len);
     mt_key_val_set[key_name] = true;
     mt_mutex_unlock(key_name);
   }
@@ -2496,7 +2500,7 @@ class THD : public MDL_context_owner,
     DBUG_ASSERT(key_name < MT_KEY_MAX);
     return mt_key_val[key_name];
   }
-  void mt_hex_value(enum_mt_key key_name, char *hex_val, int len);
+  void mt_hex_value(enum_mt_key key_name, char *hex_val, uint len);
   void mt_key_clear(enum_mt_key key_name) {
     DBUG_ASSERT(key_name < MT_KEY_MAX);
     mt_key_val_set[key_name] = false;

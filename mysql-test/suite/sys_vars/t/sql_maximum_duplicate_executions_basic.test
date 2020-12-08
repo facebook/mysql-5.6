@@ -1,0 +1,43 @@
+-- source include/load_sysvars.inc
+
+####
+# Verify default value is 0
+####
+--echo Default value of sql_maximum_duplicate_executions is 0
+SELECT @@global.sql_maximum_duplicate_executions;
+
+####
+# Verify that this is not a session variable
+####
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.sql_maximum_duplicate_executions;
+--echo Expected error 'Variable is a GLOBAL variable'
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_maximum_duplicate_executions is a dynamic variable (change to 5)
+set @@global.sql_maximum_duplicate_executions = 5;
+SELECT @@global.sql_maximum_duplicate_executions;
+
+####
+## Restore the default value
+####
+--echo restore the default value
+SET @@global.sql_maximum_duplicate_executions = 0;
+SELECT @@global.sql_maximum_duplicate_executions;
+
+####
+## Restart the server with a non default value of the variable
+####
+--echo restart the server with non default value (5)
+--let $_mysqld_option=--sql_maximum_duplicate_executions=5
+--source include/restart_mysqld.inc
+
+SELECT @@global.sql_maximum_duplicate_executions;
+
+--echo restart the server with the default value (0)
+--source include/restart_mysqld.inc
+
+# check value is default (0)
+SELECT @@global.sql_maximum_duplicate_executions;

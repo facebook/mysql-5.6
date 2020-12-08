@@ -1,0 +1,190 @@
+create user test_user@localhost;
+affected rows: 0
+grant all on test to test_user@localhost;
+affected rows: 0
+connection default;
+truncate table performance_schema.events_statements_summary_by_digest;
+affected rows: 0
+truncate table performance_schema.events_errors_summary_by_user_by_error;
+affected rows: 0
+
+"Case 1: off, no error expected"
+connect  con1,localhost,test_user,,test;
+create table skip_dup_tab (c int);
+affected rows: 0
+insert into skip_dup_tab values(1);
+affected rows: 1
+SELECT 'Q1', sleep(2) from skip_dup_tab q1;
+connect  con2,localhost,test_user,,test;
+SELECT 'Q1', sleep(2) from skip_dup_tab q1;
+connection con1;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+connection con2;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+disconnect con1;
+disconnect con2;
+connection default;
+set @@GLOBAL.sql_maximum_duplicate_executions=1;
+affected rows: 0
+set @@GLOBAL.sql_duplicate_executions_control=error;
+affected rows: 0
+
+"Case 2: on, in a transaction, no error"
+connect  con1,localhost,test_user,,test;
+begin; SELECT 'Q1', sleep(2) from skip_dup_tab q1; rollback;;
+connect  con2,localhost,test_user,,test;
+SELECT 'Q1', sleep(2) from skip_dup_tab q1;
+connection con1;
+affected rows: 0
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+affected rows: 0
+connection con2;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+disconnect con1;
+disconnect con2;
+
+"Case 3: on, expected the new error"
+connect  con1,localhost,test_user,,test;
+SELECT 'Q1', sleep(2) from skip_dup_tab q1;
+connect  con2,localhost,test_user,,test;
+SELECT 'Q1', sleep(2) from skip_dup_tab q1;
+connection con1;
+Q1	sleep(2)
+Q1	0
+affected rows: 1
+connection con2;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+disconnect con1;
+disconnect con2;
+
+"Case 4.1: on, comment handling: mix quotes and comments"
+connect  con1,localhost,test_user,,test;
+/*C1*/ select 'Q2', '/*', "*/" /*C2*/, sleep(2) from skip_dup_tab q2 /*C3*/;
+connect  con2,localhost,test_user,,test;
+/*'D1'*/ select 'Q2', '/*', "*/" /*D2*/, sleep(2) from skip_dup_tab q2 /*"D3"*/;
+connection con1;
+Q2	/*	*/	sleep(2)
+Q2	/*	*/	0
+affected rows: 1
+connection con2;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+disconnect con1;
+disconnect con2;
+"Case 4.2: on, comment handling: same with escaped quotes"
+connect  con1,localhost,test_user,,test;
+/*C1*/ select '''Q3''', '''/*''', """*/""" /*C2*/, 1+sleep(2) from skip_dup_tab q3 /*C3*/;
+connect  con2,localhost,test_user,,test;
+/*'D1'*/ select '''Q3''', '''/*''', """*/""" /*D2*/, 1+sleep(2) from skip_dup_tab q3 /*"D3"*/;
+connection con1;
+'Q3'	'/*'	"*/"	1+sleep(2)
+'Q3'	'/*'	"*/"	1
+affected rows: 1
+connection con2;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+disconnect con1;
+disconnect con2;
+connection default;
+
+"execution_count=6 (Q1) 2 (Q2/Q3) and skipped_count=1 for all queries"
+select digest, digest_text, count_star, sum_skipped
+from performance_schema.events_statements_summary_by_digest
+where digest_text like 'SELECT %skip_dup_tab%'
+order by digest;
+digest	digest_text	count_star	sum_skipped
+09fab5f3ee7161fee4a8229af04efa300cc36439966f9defdcb8de99c143a386	SELECT ?, ... , `sleep` (?) FROM `skip_dup_tab` `q2`	2	1
+47ff37f62279088c5a182aeb7af9cbf8c7e0fb214465925e0483254cf3630176	SELECT ?, ... + `sleep` (?) FROM `skip_dup_tab` `q3`	2	1
+8988d7850038a99776ef5ef05f6aab74b2ab82cb2252ef6952aa5322bf93ede8	SELECT ? , `sleep` (?) FROM `skip_dup_tab` `q1`	6	1
+affected rows: 3
+select ERROR_NUMBER, ERROR_NAME, SUM_ERROR_RAISED
+from performance_schema.events_errors_summary_by_user_by_error
+where error_number = 50088 and user='test_user';
+ERROR_NUMBER	ERROR_NAME	SUM_ERROR_RAISED
+50088	ER_DUPLICATE_STATEMENT_EXECUTION	3
+affected rows: 1
+set @@GLOBAL.sql_duplicate_executions_control=warn;
+affected rows: 0
+
+"Case 5: on, in warning mode"
+connect  con1,localhost,test_user,,test;
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+affected rows: 0
+create table t1 (c int);
+affected rows: 0
+insert into t1 values(1);
+affected rows: 1
+SELECT 'W1', c, sleep(2) from t1;
+connect  con2,localhost,test_user,,test;
+set session sql_mode=NO_ENGINE_SUBSTITUTION;
+affected rows: 0
+SELECT 'W1', c, sleep(2) from t1;
+connection con1;
+W1	c	sleep(2)
+W1	1	0
+affected rows: 1
+connection con2;
+W1	c	sleep(2)
+W1	1	0
+affected rows: 1
+disconnect con1;
+disconnect con2;
+connection default;
+
+"duplicate executions reported as warning"
+show warnings;
+Level	Code	Message
+affected rows: 0
+set @@GLOBAL.sql_maximum_duplicate_executions=0;
+affected rows: 0
+set @@GLOBAL.sql_duplicate_executions_control=error;
+affected rows: 0
+
+"Case 6: on via connection attribute"
+connect  con1,localhost,test_user,,test;
+use test;
+affected rows: 0
+SELECT 'CA', c, sleep(2) from t1;
+connect  con2,localhost,test_user,,test;
+use test;
+affected rows: 0
+SELECT 'CA', c, sleep(2) from t1;
+connection con1;
+CA	c	sleep(2)
+CA	1	0
+affected rows: 1
+connection con2;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+disconnect con1;
+disconnect con2;
+
+"Case 7: on via query attribute"
+connect  con1,localhost,test_user,,test;
+SELECT 'QA', c, sleep(2) from t1;
+connect  con2,localhost,test_user,,test;
+SELECT 'QA', c, sleep(2) from t1;
+connection con1;
+QA	c	sleep(2)
+QA	1	0
+affected rows: 1
+connection con2;
+ERROR HY000: Exceeded the maximum number of duplicate executions
+disconnect con1;
+disconnect con2;
+connection default;
+drop table skip_dup_tab;
+affected rows: 0
+drop table t1;
+affected rows: 0
+drop user test_user@localhost;
+affected rows: 0
+set @@GLOBAL.sql_maximum_duplicate_executions=DEFAULT;
+affected rows: 0
+set @@GLOBAL.sql_duplicate_executions_control=DEFAULT;
+affected rows: 0
