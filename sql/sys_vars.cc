@@ -8165,20 +8165,20 @@ static bool set_sql_findings_control(sys_var *, THD *, enum_var_type)
 }
 
 static Sys_var_enum Sys_sql_findings_control(
-       "sql_findings_control",
-       "Provides a control to store findings from optimizer/executing SQL "
-       "statements. This data is exposed through the SQL_FINDINGS table. "
-       "It accepts the following values: "
-       "OFF_HARD: Default value. Stop collecting the findings and flush "
-       "all SQL findings related data from memory. "
-       "OFF_SOFT: Stop collecting the findings, but retain any data "
-       "collected so far. "
-       "ON: Collect the SQL findings.",
-       GLOBAL_VAR(sql_findings_control),
-       CMD_LINE(REQUIRED_ARG),
-       sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
-       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
-       ON_UPDATE(set_sql_findings_control));
+    "sql_findings_control",
+    "Provides a control to store findings from optimizer/executing SQL "
+    "statements. This data is exposed through the SQL_FINDINGS table. "
+    "It accepts the following values: "
+    "OFF_HARD: Default value. Stop collecting the findings and flush "
+    "all SQL findings related data from memory. "
+    "OFF_SOFT: Stop collecting the findings, but retain any data "
+    "collected so far. "
+    "ON: Collect the SQL findings.",
+    GLOBAL_VAR(sql_findings_control),
+    CMD_LINE(REQUIRED_ARG),
+    sql_info_control_values, DEFAULT(SQL_INFO_CONTROL_OFF_HARD),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr),
+    ON_UPDATE(set_sql_findings_control));
 
 static bool check_max_tmp_disk_usage(sys_var *self MY_ATTRIBUTE((unused)),
                                      THD *thd MY_ATTRIBUTE((unused)),
@@ -8233,3 +8233,37 @@ static Sys_var_long Sys_thread_priority(
     SESSION_VAR(thread_priority), CMD_LINE(REQUIRED_ARG), VALID_RANGE(-20, 19),
     DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
     ON_UPDATE(update_thread_priority));
+
+/*
+** sql_maximum_duplicate_executions
+*/
+static bool set_sql_max_dup_exe(sys_var *, THD *, enum_var_type)
+{
+  if (sql_maximum_duplicate_executions == 0)
+    free_global_active_sql();
+
+  return false;  // success
+}
+
+static Sys_var_uint Sys_sql_maximum_duplicate_executions(
+    "sql_maximum_duplicate_executions",
+    "Used by MySQL to limit the number of duplicate SQL statements "
+    "Defaut is 0 and means the feature is turned off",
+    GLOBAL_VAR(sql_maximum_duplicate_executions),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, UINT_MAX),
+    DEFAULT(0), BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+    ON_CHECK(nullptr), ON_UPDATE(set_sql_max_dup_exe));
+
+static Sys_var_enum Sys_sql_duplicate_executions_control(
+    "sql_duplicate_executions_control",
+    "Controls how to handle duplicate executions of the same SQL "
+    "statement. It can take the following values: "
+    "OFF: Default value (not active). "
+    "NOTE: Raise warning as note. "
+    "WARN: Raise warning. "
+    "ERROR: Raise error and reject the execution.",
+    GLOBAL_VAR(sql_duplicate_executions_control), CMD_LINE(OPT_ARG),
+    control_level_values,
+    DEFAULT(CONTROL_LEVEL_OFF),
+    NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+    ON_UPDATE(NULL));

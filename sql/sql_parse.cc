@@ -1817,6 +1817,7 @@ static void update_mt_stmt_stats(THD *thd, char *sub_query) {
     store_sql_findings(thd, sub_query);
 
   thd->mt_key_clear(THD::SQL_ID);
+  thd->mt_key_clear(THD::SQL_HASH);
 }
 
 /**
@@ -5979,7 +5980,16 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
     found_semicolon = parser_state->m_lip.found_semicolon;
   }
 
-  bool query_throttled = mt_check_throttle_write_query(thd);
+  /* If the parse was successful then register the current SQL statement
+     in the active list and remember if rejected (throttled)
+  */
+  char  *q_text;
+  size_t q_len;
+  parser_state->get_query(&q_text, &q_len);
+  bool query_throttled = (err) ? false:register_active_sql(thd, q_text, q_len);
+
+  if (!query_throttled)
+    query_throttled = mt_check_throttle_write_query(thd);
 
   if (!err && !query_throttled) {
     /*
@@ -6125,6 +6135,9 @@ void mysql_parse(THD *thd, Parser_state *parser_state, ulonglong *last_timer) {
   thd->end_statement();
   thd->cleanup_after_query();
   DBUG_ASSERT(thd->change_list.is_empty());
+
+  // Remove the current statement from the active list
+  remove_active_sql(thd);
 
   DBUG_VOID_RETURN;
 }
@@ -7972,7 +7985,7 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
       thd->m_digest && !thd->m_digest->m_digest_storage.is_empty()) {
     digest_key sql_id;
     compute_digest_hash(&thd->m_digest->m_digest_storage, sql_id.data());
-    thd->mt_key_set(THD::SQL_ID, sql_id.data());
+    thd->mt_key_set(THD::SQL_ID, sql_id.data(), DIGEST_HASH_SIZE);
   }
 
   DBUG_RETURN(ret_value);

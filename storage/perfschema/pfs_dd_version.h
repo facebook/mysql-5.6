@@ -196,7 +196,10 @@
 
    800171011:
    add THREAD_PRIORITY column to threads table.
+
+   800171012:
+   add skipped count to statement statistics
 */
-static const uint PFS_DD_VERSION = 800171011;
+static const uint PFS_DD_VERSION = 800171012;
 
 #endif /* PFS_DD_VERSION_H */
