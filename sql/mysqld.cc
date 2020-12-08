@@ -12290,8 +12290,8 @@ PSI_stage_info *all_server_stages[] = {
     &stage_hook_begin_trans,
     &stage_slave_waiting_for_dependencies,
     &stage_slave_waiting_for_dependency_workers,
-    &stage_waiting_for_disk_space,
-    &stage_waiting_for_hlc};
+    &stage_waiting_for_hlc,
+    &stage_waiting_for_disk_space};
 
 PSI_socket_key key_socket_tcpip;
 PSI_socket_key key_socket_unix;
