@@ -505,6 +505,9 @@ extern uint srv_log_spin_cpu_abs_lwm;
 /** Maximum percentage of cpu time for which spin-delay is used. */
 extern uint srv_log_spin_cpu_pct_hwm;
 
+/** Timeout used when waiting for redo ready (microseconds). */
+extern ulong srv_log_wait_for_ready_timeout;
+
 /** Number of spin iterations, when spinning and waiting for log buffer
 written up to given LSN, before we fallback to loop with sleeps.
 This is not used when user thread has to wait for log flushed to disk. */

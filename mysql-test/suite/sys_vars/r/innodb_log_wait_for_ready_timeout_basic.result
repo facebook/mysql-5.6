@@ -1,0 +1,74 @@
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout)
+1
+1 Expected
+SET @@GLOBAL.innodb_log_wait_for_ready_timeout=-1;
+Warnings:
+Warning	1292	Truncated incorrect innodb_log_wait_for_ready_timeout value: '-1'
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+0
+SET @@GLOBAL.innodb_log_wait_for_ready_timeout=1;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+1
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout)
+1
+1 Expected
+SELECT @@GLOBAL.innodb_log_wait_for_ready_timeout = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_log_wait_for_ready_timeout';
+@@GLOBAL.innodb_log_wait_for_ready_timeout = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_log_wait_for_ready_timeout';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+SELECT @@innodb_log_wait_for_ready_timeout = @@GLOBAL.innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout = @@GLOBAL.innodb_log_wait_for_ready_timeout
+1
+1 Expected
+SELECT COUNT(@@innodb_log_wait_for_ready_timeout);
+COUNT(@@innodb_log_wait_for_ready_timeout)
+1
+1 Expected
+SELECT COUNT(@@local.innodb_log_wait_for_ready_timeout);
+ERROR HY000: Variable 'innodb_log_wait_for_ready_timeout' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.innodb_log_wait_for_ready_timeout);
+ERROR HY000: Variable 'innodb_log_wait_for_ready_timeout' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout)
+1
+1 Expected
+SELECT innodb_log_wait_for_ready_timeout = @@SESSION.innodb_log_wait_for_ready_timeout;
+ERROR HY000: Variable 'innodb_log_wait_for_ready_timeout' is a GLOBAL variable
+SET GLOBAL innodb_log_wait_for_ready_timeout = 1000;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+1000
+SET GLOBAL innodb_log_wait_for_ready_timeout = 0;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+0
+SET GLOBAL innodb_log_wait_for_ready_timeout = 80;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+80
+SET GLOBAL innodb_log_wait_for_ready_timeout = 50;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+50
+SET @@GLOBAL.innodb_log_wait_for_ready_timeout=1000;
+SELECT @@innodb_log_wait_for_ready_timeout;
+@@innodb_log_wait_for_ready_timeout
+1000

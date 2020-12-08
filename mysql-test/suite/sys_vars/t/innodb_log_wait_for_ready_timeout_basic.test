@@ -1,0 +1,88 @@
+####################################################################
+#   Displaying default value                                       #
+####################################################################
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+--echo 1 Expected
+
+let timeout=`SELECT @@GLOBAL.innodb_log_wait_for_ready_timeout`;
+
+####################################################################
+#   Check invalid set value attempts                               #
+####################################################################
+
+SET @@GLOBAL.innodb_log_wait_for_ready_timeout=-1;
+
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+####################################################################
+#   Check if Value can set                                         #
+####################################################################
+
+SET @@GLOBAL.innodb_log_wait_for_ready_timeout=1;
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+--echo 1 Expected
+
+#################################################################
+# Check if the value in GLOBAL Table matches value in variable  #
+#################################################################
+
+--disable_warnings
+SELECT @@GLOBAL.innodb_log_wait_for_ready_timeout = VARIABLE_VALUE
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_log_wait_for_ready_timeout';
+--enable_warnings
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+--echo 1 Expected
+
+--disable_warnings
+SELECT COUNT(VARIABLE_VALUE)
+FROM performance_schema.global_variables
+WHERE VARIABLE_NAME='innodb_log_wait_for_ready_timeout';
+--enable_warnings
+--echo 1 Expected
+
+################################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable  #
+################################################################################
+SELECT @@innodb_log_wait_for_ready_timeout = @@GLOBAL.innodb_log_wait_for_ready_timeout;
+--echo 1 Expected
+
+################################################################################
+#   Check if innodb_log_wait_for_ready_timeout can be accessed with and without @@ sign   #
+################################################################################
+
+SELECT COUNT(@@innodb_log_wait_for_ready_timeout);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.innodb_log_wait_for_ready_timeout);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.innodb_log_wait_for_ready_timeout);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SELECT COUNT(@@GLOBAL.innodb_log_wait_for_ready_timeout);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT innodb_log_wait_for_ready_timeout = @@SESSION.innodb_log_wait_for_ready_timeout;
+
+SET GLOBAL innodb_log_wait_for_ready_timeout = 1000;
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+SET GLOBAL innodb_log_wait_for_ready_timeout = 0;
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+SET GLOBAL innodb_log_wait_for_ready_timeout = 80;
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+SET GLOBAL innodb_log_wait_for_ready_timeout = 50;
+SELECT @@innodb_log_wait_for_ready_timeout;
+
+eval SET @@GLOBAL.innodb_log_wait_for_ready_timeout=$timeout;
+SELECT @@innodb_log_wait_for_ready_timeout;
