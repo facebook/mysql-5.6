@@ -1,0 +1,55 @@
+-- source include/load_sysvars.inc
+
+####################################################
+# Variable: write_control_level
+####################################################
+
+####
+# Verify the default value
+####
+--echo Default value of sql_duplicate_executions_control
+SELECT @@global.sql_duplicate_executions_control;
+
+####
+## Verify that the variable is dynamic
+####
+--echo sql_duplicate_executions_control is set to NOTE
+set @@global.sql_duplicate_executions_control = NOTE;
+SELECT @@global.sql_duplicate_executions_control;
+
+--echo sql_duplicate_executions_control is set to 'NOTE'
+set @@global.sql_duplicate_executions_control = 'NOTE';
+SELECT @@global.sql_duplicate_executions_control;
+
+--echo sql_duplicate_executions_control is set to WARN
+set @@global.sql_duplicate_executions_control = WARN;
+SELECT @@global.sql_duplicate_executions_control;
+
+--echo sql_duplicate_executions_control is set to 'WARN'
+set @@global.sql_duplicate_executions_control = 'WARN';
+SELECT @@global.sql_duplicate_executions_control;
+
+-- echo setting write_control to a random number gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.sql_duplicate_executions_control = 255;
+SELECT @@global.sql_duplicate_executions_control;
+
+-- echo setting write_control to a random string gives error
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.sql_duplicate_executions_control = 'XYZ';
+SELECT @@global.sql_duplicate_executions_control;
+
+--echo sql_duplicate_executions_control is set to OFF
+set @@global.sql_duplicate_executions_control = OFF;
+SELECT @@global.sql_duplicate_executions_control;
+
+--echo sql_duplicate_executions_control is set to 'OFF'
+set @@global.sql_duplicate_executions_control = 'OFF';
+SELECT @@global.sql_duplicate_executions_control;
+
+####
+## Restore the default value
+####
+-- echo restore the default value
+SET @@global.sql_duplicate_executions_control = DEFAULT;
+SELECT @@global.sql_duplicate_executions_control;

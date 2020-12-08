@@ -77,4 +77,16 @@ std::vector<sql_findings_row> get_all_sql_findings();
                 End - Functions to support SQL findings
 ************************************************************************/
 
+/***********************************************************************
+ Begin - Functions to support capping the number of duplicate executions
+************************************************************************/
+
+void free_global_active_sql(void);
+bool register_active_sql(THD *thd, const char *query_text, size_t query_length);
+void remove_active_sql(THD *thd);
+
+/*********************************************************************
+ End - Functions to support capping the number of duplicate executions
+**********************************************************************/
+
 #endif

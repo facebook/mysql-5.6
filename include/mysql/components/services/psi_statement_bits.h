@@ -180,6 +180,8 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_compilation_cpu;
   /** Elapsed time. */
   unsigned long long m_elapsed_time;
+  /** Skipped count */
+  unsigned long long m_skipped;
   /** Metric, temporary tables created on disk. */
   unsigned long m_created_tmp_disk_tables;
   /** Metric, temporary tables created. */

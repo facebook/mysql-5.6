@@ -217,12 +217,15 @@
    - add sql_findings
 
   80020-012:
-   -- add THREAD_PRIORITY column to threads table.
+   - add THREAD_PRIORITY column to threads table.
+
+  80020-013:
+   - add skipped count to statement statistics
 */
 
-/* Version published now is 80020-012. i.e. 8.0.20 Facebook schema change
- * no. 12.
+/* Version published now is 80020-013. i.e. 8.0.20 Facebook schema change
+ * no. 13.
  */
-static const uint PFS_DD_VERSION = 80020012;
+static const uint PFS_DD_VERSION = 80020013;
 
 #endif /* PFS_DD_VERSION_H */

@@ -95,6 +95,7 @@ Plugin_table table_esms_by_all::m_table_def(
     "  SUM_INDEX_DIVE_CPU BIGINT unsigned not null,\n"
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
+    "  SUM_SKIPPED BIGINT unsigned not null,\n"
     "  FIRST_SEEN TIMESTAMP(6) NOT NULL default 0,\n"
     "  LAST_SEEN TIMESTAMP(6) NOT NULL default 0,\n"
     "  QUANTILE_95 BIGINT unsigned not null,\n"
@@ -361,22 +362,22 @@ int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 40: /* FIRST_SEEN */
+        case 41: /* FIRST_SEEN */
           set_field_timestamp(f, m_row.m_first_seen);
           break;
-        case 41: /* LAST_SEEN */
+        case 42: /* LAST_SEEN */
           set_field_timestamp(f, m_row.m_last_seen);
           break;
-        case 42: /* QUANTILE_95 */
+        case 43: /* QUANTILE_95 */
           set_field_ulonglong(f, m_row.m_p95);
           break;
-        case 43: /* QUANTILE_99 */
+        case 44: /* QUANTILE_99 */
           set_field_ulonglong(f, m_row.m_p99);
           break;
-        case 44: /* QUANTILE_999 */
+        case 45: /* QUANTILE_999 */
           set_field_ulonglong(f, m_row.m_p999);
           break;
-        case 45: /* QUERY_SAMPLE_TEXT */
+        case 46: /* QUERY_SAMPLE_TEXT */
           if (m_row.m_query_sample.length())
             set_field_text(f, m_row.m_query_sample.ptr(),
                            m_row.m_query_sample.length(),
@@ -385,10 +386,10 @@ int table_esms_by_all::read_row_values(TABLE *table, unsigned char *buf,
             f->set_null();
           }
           break;
-        case 46: /* QUERY_SAMPLE_SEEN */
+        case 47: /* QUERY_SAMPLE_SEEN */
           set_field_timestamp(f, m_row.m_query_sample_seen);
           break;
-        case 47: /* QUERY_SAMPLE_TIMER_WAIT */
+        case 48: /* QUERY_SAMPLE_TIMER_WAIT */
           set_field_ulonglong(f, m_row.m_query_sample_timer_wait);
           break;
         default: /* 3, ... COUNT/SUM/MIN/AVG/MAX */

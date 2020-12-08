@@ -1,0 +1,27 @@
+Default value of sql_maximum_duplicate_executions is 0
+SELECT @@global.sql_maximum_duplicate_executions;
+@@global.sql_maximum_duplicate_executions
+0
+SELECT @@session.sql_maximum_duplicate_executions;
+ERROR HY000: Variable 'sql_maximum_duplicate_executions' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+sql_maximum_duplicate_executions is a dynamic variable (change to 5)
+set @@global.sql_maximum_duplicate_executions = 5;
+SELECT @@global.sql_maximum_duplicate_executions;
+@@global.sql_maximum_duplicate_executions
+5
+restore the default value
+SET @@global.sql_maximum_duplicate_executions = 0;
+SELECT @@global.sql_maximum_duplicate_executions;
+@@global.sql_maximum_duplicate_executions
+0
+restart the server with non default value (5)
+# restart
+SELECT @@global.sql_maximum_duplicate_executions;
+@@global.sql_maximum_duplicate_executions
+0
+restart the server with the default value (0)
+# restart
+SELECT @@global.sql_maximum_duplicate_executions;
+@@global.sql_maximum_duplicate_executions
+0
