@@ -937,7 +937,8 @@ static Wait_stats log_self_write_up_to(log_t &log, lsn_t end_lsn,
     const auto sig_count = log.current_ready_waiting_sig_count;
     log_closer_mutex_exit(log);
     ++waits;
-    os_event_wait_time_low(log.closer_event, 100000, sig_count);
+    os_event_wait_time_low(log.closer_event, srv_log_wait_for_ready_timeout,
+                           sig_count);
     log.recent_written.advance_tail();
     ready_lsn = log_buffer_ready_for_write_lsn(log);
   }
