@@ -548,6 +548,11 @@ extern ulong write_auto_throttle_frequency;
 /* Controls collecting MySQL findings (aka SQL conditions) */
 extern ulong sql_findings_control;
 
+/* Controls whether MySQL send an error when running duplicate statements */
+extern uint sql_maximum_duplicate_executions;
+/* Controls the mode of enforcement of duplicate executions of the same stmt */
+extern ulong sql_duplicate_executions_control;
+
 extern bool read_only_slave;
 extern bool flush_only_old_table_cache_entries;
 extern ulong stored_program_cache_size;
@@ -714,6 +719,7 @@ extern PSI_mutex_key key_LOCK_global_write_throttling_rules;
 extern PSI_mutex_key key_LOCK_global_write_throttling_log;
 extern PSI_mutex_key key_LOCK_replication_lag_auto_throttling;
 extern PSI_mutex_key key_LOCK_global_sql_findings;
+extern PSI_mutex_key key_LOCK_global_active_sql;
 
 extern PSI_mutex_key key_commit_order_manager_mutex;
 extern PSI_mutex_key key_mutex_replica_worker_hash;
@@ -978,6 +984,7 @@ extern mysql_mutex_t LOCK_global_write_throttling_rules;
 extern mysql_mutex_t LOCK_global_write_throttling_log;
 extern mysql_mutex_t LOCK_replication_lag_auto_throttling;
 extern mysql_mutex_t LOCK_global_sql_findings;
+extern mysql_mutex_t LOCK_global_active_sql;
 extern mysql_mutex_t LOCK_global_system_variables;
 extern mysql_mutex_t LOCK_user_conn;
 extern mysql_mutex_t LOCK_log_throttle_qni;

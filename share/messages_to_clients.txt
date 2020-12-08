@@ -10002,8 +10002,8 @@ ER_INVALID_NONCURRENT_DB_RW_FOR_HLC_READ_BOUND
 ER_PLACEHOLDER_50087
   eng "Placeholder"
 
-ER_PLACEHOLDER_50088
-  eng "Placeholder"
+ER_DUPLICATE_STATEMENT_EXECUTION
+  eng "Exceeded the maximum number of duplicate executions"
 
 ER_MAX_TMP_DISK_USAGE_EXCEEDED
   eng "Disk usage for temp objects exceeds specified limit"

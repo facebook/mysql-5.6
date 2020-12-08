@@ -72,6 +72,8 @@ struct PFS_events_statements : public PFS_events {
   uint m_sql_errno;
   /** Diagnostics area, @c SQLSTATE. */
   char m_sqlstate[SQLSTATE_LENGTH];
+  /** Diagnostics area, skipped count. */
+  uint m_skipped_count;
   /** Diagnostics area, error count. */
   uint m_error_count;
   /** Diagnostics area, warning count. */

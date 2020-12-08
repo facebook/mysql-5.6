@@ -137,6 +137,8 @@ struct row_events_statements {
   uint m_sql_errno;
   /** Column RETURNED_SQLSTATE. */
   char m_sqlstate[SQLSTATE_LENGTH];
+  /** Column SKIPPED_COUNT. */
+  uint m_skipped_count;
   /** Column ERRORS. */
   uint m_error_count;
   /** Column WARNINGS. */

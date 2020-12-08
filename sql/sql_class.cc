@@ -1241,6 +1241,7 @@ void THD::init(bool is_slave) {
   m_disable_password_validation = false;
 
   mt_key_clear(THD::SQL_ID);
+  mt_key_clear(THD::SQL_HASH);
   mt_key_clear(THD::CLIENT_ID);
   reset_stmt_stats();
   set_trx_dml_row_count(0);
@@ -4039,7 +4040,7 @@ bool THD::dml_execution_cpu_limit_exceeded() {
   return false;
 }
 
-void THD::mt_hex_value(enum_mt_key key_name, char *hex_val, int len) {
+void THD::mt_hex_value(enum_mt_key key_name, char *hex_val, uint len) {
   assert(key_name < MT_KEY_MAX);
 
   if (mt_key_is_set(key_name)) {
@@ -4234,4 +4235,32 @@ bool THD::set_thread_priority(int pri) {
   }
 
   DBUG_RETURN(ret);
+}
+
+/*
+  Returns the (integer) value of the specified attribute from the
+  query attribute map or connection attribute map, in this order.
+  In case the attribute is not found or its value exceeds the max
+  value passed in then return the specified default value
+ */
+ulong THD::get_query_or_connect_attr_value(const char *attr_name,
+                                           ulong default_value,
+                                           ulong max_value) {
+  ulong attr_value = 0;
+  for (const auto &it : query_attrs_list) {
+    if (it.first == attr_name) {
+      if (!stoul_noexcept(it.second.c_str(), &attr_value) &&
+          attr_value < max_value)
+        return attr_value;
+    }
+  }
+
+  auto it = connection_attrs_map.find(attr_name);
+  if (it != connection_attrs_map.end()) {
+    if (!stoul_noexcept(it->second.c_str(), &attr_value) &&
+        attr_value < max_value)
+      return attr_value;
+  }
+
+  return default_value;
 }

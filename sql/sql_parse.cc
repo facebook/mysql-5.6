@@ -1905,6 +1905,7 @@ static void update_mt_stmt_stats(THD *thd, char *sub_query) {
     store_sql_findings(thd, sub_query);
 
   thd->mt_key_clear(THD::SQL_ID);
+  thd->mt_key_clear(THD::SQL_HASH);
 }
 
 /**
@@ -5821,7 +5822,16 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
 
   DEBUG_SYNC_C("sql_parse_before_rewrite");
 
-  bool query_throttled = mt_check_throttle_write_query(thd);
+  /* If the parse was successful then register the current SQL statement
+     in the active list and remember if rejected (throttled)
+  */
+  char *q_text;
+  size_t q_len;
+  parser_state->get_query(&q_text, &q_len);
+  bool query_throttled =
+      (err) ? false : register_active_sql(thd, q_text, q_len);
+
+  if (!query_throttled) query_throttled = mt_check_throttle_write_query(thd);
 
   if (!err && !query_throttled) {
     /*
@@ -5980,6 +5990,9 @@ void dispatch_sql_command(THD *thd, Parser_state *parser_state,
   assert(thd->change_list.is_empty());
 
   DEBUG_SYNC(thd, "query_rewritten");
+
+  // Remove the current statement from the active list
+  remove_active_sql(thd);
 }
 
 /**
@@ -7848,7 +7861,7 @@ bool parse_sql(THD *thd, Parser_state *parser_state,
       !thd->m_digest->m_digest_storage.is_empty()) {
     digest_key sql_id;
     compute_digest_hash(&thd->m_digest->m_digest_storage, sql_id.data());
-    thd->mt_key_set(THD::SQL_ID, sql_id.data());
+    thd->mt_key_set(THD::SQL_ID, sql_id.data(), DIGEST_HASH_SIZE);
   }
 
   return ret_value;

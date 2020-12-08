@@ -1065,6 +1065,9 @@ void PFS_statement_stat_row::set_field(uint index, Field *f) {
     case 33: /* SUM_ELAPSED_TIME */
       set_field_ulonglong(f, m_elapsed_time);
       break;
+    case 34: /* SUM_SKIPPED */
+      set_field_ulonglong(f, m_skipped_count);
+      break;
     default:
       assert(false);
       break;

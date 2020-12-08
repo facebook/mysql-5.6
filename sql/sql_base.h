@@ -104,6 +104,9 @@ enum enum_tdc_remove_table_type {
   TDC_RT_MARK_FOR_REOPEN
 };
 
+// A wrapper around std::stoul that handles exceptions
+int stoul_noexcept(const std::string str, ulong *val);
+
 extern mysql_mutex_t LOCK_open;
 bool table_def_init(void);
 void table_def_free(void);

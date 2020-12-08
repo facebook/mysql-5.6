@@ -69,6 +69,7 @@ struct PSI_statement_locker_state_v1 {
   unsigned long long m_index_dive_cpu;
   unsigned long long m_compilation_cpu;
   unsigned long long m_elapsed_time;
+  unsigned long long m_skipped;
   unsigned long m_created_tmp_disk_tables;
   unsigned long m_created_tmp_tables;
   unsigned long m_select_full_join;

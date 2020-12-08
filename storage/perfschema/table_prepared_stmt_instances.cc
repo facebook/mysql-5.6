@@ -97,6 +97,7 @@ Plugin_table table_prepared_stmt_instances::m_table_def(
     "  SUM_INDEX_DIVE_CPU BIGINT unsigned not null,\n"
     "  SUM_COMPILATION_CPU BIGINT unsigned not null,\n"
     "  SUM_ELAPSED_TIME BIGINT unsigned not null,\n"
+    "  SUM_SKIPPED bigint(20) unsigned NOT NULL,\n"
     "  PRIMARY KEY (OBJECT_INSTANCE_BEGIN) USING HASH,\n"
     "  UNIQUE KEY (OWNER_THREAD_ID, OWNER_EVENT_ID) USING HASH,\n"
     "  KEY (STATEMENT_ID) USING HASH,\n"

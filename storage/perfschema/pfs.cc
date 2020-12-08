@@ -6071,6 +6071,7 @@ PSI_statement_locker *pfs_get_thread_statement_locker_v2(
       pfs->m_index_dive_cpu = 0;
       pfs->m_compilation_cpu = 0;
       pfs->m_elapsed_time = 0;
+      pfs->m_skipped_count = 0;
       pfs->m_created_tmp_disk_tables = 0;
       pfs->m_created_tmp_tables = 0;
       pfs->m_select_full_join = 0;
@@ -6593,13 +6594,23 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         case Diagnostics_area::DA_EOF:
           pfs->m_warning_count = da->last_statement_cond_count();
           break;
-        case Diagnostics_area::DA_ERROR:
+        case Diagnostics_area::DA_ERROR: {
           memcpy(pfs->m_message_text, da->message_text(), MYSQL_ERRMSG_SIZE);
           pfs->m_message_text[MYSQL_ERRMSG_SIZE] = 0;
           pfs->m_sql_errno = da->mysql_errno();
           memcpy(pfs->m_sqlstate, da->returned_sqlstate(), SQLSTATE_LENGTH);
           pfs->m_error_count++;
+          /* check 'skipped' error */
+          Diagnostics_area::Sql_condition_iterator it = da->sql_conditions();
+          const Sql_condition *err;
+          while ((err = it++)) {
+            if (err->mysql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION) {
+              pfs->m_skipped_count++;
+              break;
+            }
+          }
           break;
+        }
         case Diagnostics_area::DA_DISABLED:
           break;
       }
@@ -6925,18 +6936,33 @@ void pfs_end_statement_v2(PSI_statement_locker *locker, void *stmt_da) {
         prepared_stmt_stat->m_warning_count += da->last_statement_cond_count();
       }
       break;
-    case Diagnostics_area::DA_ERROR:
+    case Diagnostics_area::DA_ERROR: {
+      /* check 'skipped' error */
+      Diagnostics_area::Sql_condition_iterator it = da->sql_conditions();
+      const Sql_condition *err;
+      bool skipped = false;
+      while ((err = it++)) {
+        if (err->mysql_errno() == ER_DUPLICATE_STATEMENT_EXECUTION) {
+          skipped = true;
+          break;
+        }
+      }
       stat->m_error_count++;
+      if (skipped) stat->m_skipped_count++;
       if (digest_stat != nullptr) {
         digest_stat->m_stat.m_error_count++;
+        if (skipped) digest_stat->m_stat.m_skipped_count++;
       }
       if (sub_stmt_stat != nullptr) {
         sub_stmt_stat->m_error_count++;
+        if (skipped) sub_stmt_stat->m_skipped_count++;
       }
       if (prepared_stmt_stat != nullptr) {
         prepared_stmt_stat->m_error_count++;
+        if (skipped) prepared_stmt_stat->m_skipped_count++;
       }
       break;
+    }
     case Diagnostics_area::DA_DISABLED:
       break;
   }

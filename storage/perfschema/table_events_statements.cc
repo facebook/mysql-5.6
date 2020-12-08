@@ -100,6 +100,7 @@ Plugin_table table_events_statements_current::m_table_def(
     "  INDEX_DIVE_CPU BIGINT unsigned not null,\n"
     "  COMPILATION_CPU BIGINT unsigned not null,\n"
     "  ELAPSED_TIME BIGINT unsigned not null,\n"
+    "  SKIPPED_COUNT BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -172,6 +173,7 @@ Plugin_table table_events_statements_history::m_table_def(
     "  NESTING_EVENT_LEVEL INTEGER,\n"
     "  STATEMENT_ID BIGINT unsigned,\n"
     "  CPU_TIME BIGINT unsigned not null,\n"
+    "  SKIPPED_COUNT BIGINT unsigned not null,\n"
     "  PRIMARY KEY (THREAD_ID, EVENT_ID) USING HASH\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
@@ -243,7 +245,9 @@ Plugin_table table_events_statements_history_long::m_table_def(
     "  NESTING_EVENT_TYPE ENUM('TRANSACTION', 'STATEMENT', 'STAGE', 'WAIT'),\n"
     "  NESTING_EVENT_LEVEL INTEGER,\n"
     "  STATEMENT_ID BIGINT unsigned,\n"
-    "  CPU_TIME BIGINT unsigned not null\n",
+    "  CPU_TIME BIGINT unsigned not null,\n"
+    "  SKIPPED_COUNT BIGINT unsigned not null\n"
+    "",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -334,6 +338,8 @@ int table_events_statements_common::make_row_part_1(
   m_row.m_compilation_cpu = statement->m_compilation_cpu;
   /* elapsed time is already measured in picoseconds */
   m_row.m_elapsed_time = statement->m_elapsed_time;
+
+  m_row.m_skipped_count = statement->m_skipped_count;
 
   m_row.m_name = klass->m_name.str();
   m_row.m_name_length = klass->m_name.length();
@@ -687,6 +693,13 @@ int table_events_statements_common::read_row_values(TABLE *table,
         case 48: /* ELAPSED_TIME */
           if (m_row.m_elapsed_time != 0) {
             set_field_ulonglong(f, m_row.m_elapsed_time);
+          } else {
+            f->set_null();
+          }
+          break;
+        case 49: /* SKIPPED_COUNT */
+          if (m_row.m_skipped_count != 0) {
+            set_field_ulonglong(f, m_row.m_skipped_count);
           } else {
             f->set_null();
           }
