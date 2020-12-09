@@ -123,6 +123,7 @@ my $opt_strace_client;
 my $opt_strace_server;
 my $opt_stress;
 my $opt_tmpdir;
+my $opt_tmpdir_force_short;
 my $opt_tmpdir_pid;
 my $opt_trace_protocol;
 my $opt_user_args;
@@ -1717,6 +1718,7 @@ sub command_line_setup {
     'client-libdir=s' => \$path_client_libdir,
     'mem'             => \$opt_mem,
     'tmpdir=s'        => \$opt_tmpdir,
+    'tmpdir-force-short' => \$opt_tmpdir_force_short,
     'vardir=s'        => \$opt_vardir,
 
     # Misc
@@ -2120,7 +2122,7 @@ sub command_line_setup {
   if (!$opt_tmpdir) {
     $opt_tmpdir = "$opt_vardir/tmp" unless $opt_tmpdir;
 
-    my $res =
+    my $res = $opt_tmpdir_force_short or
       check_socket_path_length("$opt_tmpdir/mysqld.NN.sock", $opt_parallel);
 
     if ($res) {
