@@ -6597,21 +6597,11 @@ sub get_bootstrap_opts {
 sub server_need_reinitialization {
   my ($tinfo, $server) = @_;
   my $bootstrap_opts = get_bootstrap_opts($server, $tinfo);
-  my $started_boot_opts = $server->{'save_bootstrap_opts'};
 
-  # If previous test and current test have the same bootstrap
-  # options, do not reinitialize.
-  if ($bootstrap_opts and $started_boot_opts) {
-    if (My::Options::same($started_boot_opts, $bootstrap_opts)) {
-      if (defined $test_fail and $test_fail eq 'MTR_RES_FAILED') {
-        $server->{need_reinitialization} = 1;
-      } else {
-        $server->{need_reinitialization} = 0;
-      }
-    } else {
-      $server->{need_reinitialization} = 1;
-    }
-  } elsif ($bootstrap_opts) {
+  # Reinitialize if the current test has any bootstrap options. If the current
+  # test has no bootstrap options, then the default installed datadir is
+  # simply copied over.
+  if ($bootstrap_opts) {
     $server->{need_reinitialization} = 1;
   } else {
     $server->{need_reinitialization} = undef;
