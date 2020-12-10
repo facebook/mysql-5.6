@@ -111,7 +111,7 @@ my $opt_strace_client;
 my $opt_strace_server;
 my $opt_stress;
 my $opt_tmpdir;
-my $opt_tmpdir_force_short = 1;
+my $opt_tmpdir_force_short;
 my $opt_tmpdir_pid;
 my $opt_trace_protocol;
 my $opt_user_args;
