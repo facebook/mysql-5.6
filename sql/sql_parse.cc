@@ -8203,7 +8203,11 @@ static bool mt_check_throttle_write_query(THD* thd)
 
 // check if its time to check replication lag
 #ifdef HAVE_REPLICATION
-  if(write_stats_capture_enabled() && write_auto_throttle_frequency > 0) {
+  bool debug_skip_auto_throttle_check = false;
+  DBUG_EXECUTE_IF("dbug.add_write_stats_to_most_recent_bucket",
+                  { debug_skip_auto_throttle_check = true; });
+  if (write_stats_capture_enabled() && write_auto_throttle_frequency > 0 &&
+      !debug_skip_auto_throttle_check) {
     time_t time_now = my_time(0);
     if (time_now - last_replication_lag_check_time >= (long)write_auto_throttle_frequency)
     {
@@ -8232,7 +8236,6 @@ static bool mt_check_throttle_write_query(THD* thd)
     if (iter != global_write_throttling_rules[i].end())
     {
       WRITE_THROTTLING_RULE &rule = iter->second;
-      store_write_throttling_log(thd, i, iter->first, rule);
       int mt_throttle_tag_level = thd->get_mt_throttle_tag_level();
 
       if (iter->second.mode == WTR_MANUAL ||
@@ -8240,6 +8243,7 @@ static bool mt_check_throttle_write_query(THD* thd)
            write_control_level == CONTROL_LEVEL_ERROR) ||
           mt_throttle_tag_level == CONTROL_LEVEL_ERROR)
       {
+        store_write_throttling_log(thd, i, iter->first, rule);
         my_error(ER_WRITE_QUERY_THROTTLED, MYF(0));
         mysql_mutex_unlock(&LOCK_global_write_throttling_rules);
         DBUG_RETURN(true);
@@ -8249,6 +8253,7 @@ static bool mt_check_throttle_write_query(THD* thd)
                 write_control_level == CONTROL_LEVEL_WARN)) ||
                mt_throttle_tag_level == CONTROL_LEVEL_WARN)
       {
+        store_write_throttling_log(thd, i, iter->first, rule);
         push_warning_printf(thd,
                             (write_control_level == CONTROL_LEVEL_NOTE ||
                              mt_throttle_tag_level != CONTROL_LEVEL_WARN) ?

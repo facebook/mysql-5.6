@@ -3,11 +3,11 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-SET @@GLOBAL.WRITE_STATS_FREQUENCY=3;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
 SET @@GLOBAL.SQL_STATS_CONTROL="ON";
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
-SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=3;
-SET @@GLOBAL.WRITE_STATS_FREQUENCY=3;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=1;
+SET @@GLOBAL.WRITE_STATS_FREQUENCY=1;
 SET @@GLOBAL.WRITE_THROTTLE_LAG_PCT_MIN_SECONDARIES=10;
 SET @@GLOBAL.WRITE_START_THROTTLE_LAG_MILLISECONDS=3000;
 SET @@GLOBAL.WRITE_STOP_THROTTLE_LAG_MILLISECONDS=1000;
@@ -15,22 +15,23 @@ SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1.5;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 create table t(a int) engine=innodb;
+create database test1;
+create table test1.t(a int) engine=innodb;
 select @@GLOBAL.WRITE_STATS_FREQUENCY into @ws_freq;
 select @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY into @wat_freq;
-### We use the following sleep statement throughout this test to deterministically enforce the auto_throttling system to check for 
-### lag for the next write statement and enforce a new time bucket for write statistics collection
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test 1: Auto throttle start & stop based on sql_id
 ####################################################
 insert into t values(1);
+### Setting the following debug variable makes sure that any subsequent queries are added to the same write statistics add_write_stats_to_most_recent_bucket
+### as that for the query above it. This helps us mimic a time bucket for write statistics deterministically for testing. 
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into t values(2);
 delete from t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	108
@@ -44,12 +45,11 @@ set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into t values(2);
 delete from t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -58,9 +58,6 @@ error_code	error_name	errors_total
 ### Expectation - Replication lag still persists, Insert query sql_id should be throttled. Expect warnings. ###
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
@@ -77,9 +74,6 @@ count
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_between_start_end_throttle_threshold';
 insert into t values(2);
@@ -93,9 +87,6 @@ count
 ### Expectation - Replication lag goes away, Insert query should not be throttled anymore. Expect warnings count to not increase anymore. ###
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 set @@global.debug= '-d,dbug.simulate_lag_between_start_end_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
@@ -115,19 +106,16 @@ set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 ####################################################
 ### Test 2: Auto throttle start & stop based on shard
 ####################################################
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
-create database test1;
-create table test1.t(a int) engine=innodb;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
@@ -143,11 +131,10 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into test1.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -156,9 +143,6 @@ error_code	error_name	errors_total
 ### Expectation - Replication lag still persists, Shard 'test' should be throttled. Expect warnings. ###
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 insert into test1.t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
@@ -175,9 +159,6 @@ count
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into test1.t values(2);
@@ -189,16 +170,13 @@ count
 1
 ####### Reset #######
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
-drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test 3: Auto throttle fallback sql id in case of no 
@@ -206,13 +184,13 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 ####################################################
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=3;
-create database test1;
-create table test1.t(a int) engine=innodb;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into test.t values(2);
 delete from test.t where a = 2;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
@@ -229,12 +207,11 @@ set @@global.debug= '+d,dbug.simulate_fallback_sql_throttling';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into test.t values(2);
 delete from test.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	113
@@ -251,9 +228,6 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into test.t values(2);
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
@@ -266,9 +240,6 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into test.t values(2);
@@ -277,18 +248,15 @@ error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	1
 ####### Reset #######
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MIN_RATIO=1.5;
-drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
 set @@global.debug= '-d,dbug.simulate_fallback_sql_throttling';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test 4: Auto throttle multiple sql_ids and releasing
@@ -297,6 +265,7 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 insert into t values(1);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into t values(2);
 insert into t values(3);
 insert into t values(4);
@@ -304,6 +273,7 @@ delete from t where a = 1;
 delete from t where a = 2;
 update t set a = 1 where a = 3;
 update t set a = 2 where a = 4;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	300
@@ -318,13 +288,12 @@ set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(3);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 update t set a = 4 where a = 3;
 delete from t where a = 1;
 delete from t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	2cea509ba0e3065c09c1efe4c77e392a
@@ -336,11 +305,10 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(3);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 4;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	1586ffa412d4a296baf93bdd932f03d7
@@ -353,13 +321,12 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 set @@global.debug= '+d,dbug.simulate_lag_below_end_throttle_threshold';
 insert into t values(4);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 3;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	1586ffa412d4a296baf93bdd932f03d7
@@ -371,11 +338,10 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(5);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 4;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -391,9 +357,6 @@ set @@global.debug= '-d,dbug.simulate_lag_below_end_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 ####################################################
 ### Test 5: Monitored entities are dynamically updated if 
 ### a new potential culprit is found
@@ -401,6 +364,7 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 insert into t values(1);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 insert into t values(2);
 insert into t values(3);
 insert into t values(4);
@@ -409,6 +373,7 @@ insert into t values(6);
 insert into t values(7);
 delete from t where a = 6;
 delete from t where a = 7;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
@@ -423,14 +388,13 @@ SQL_ID	2cea509ba0e3065c09c1efe4c77e392a	252
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into t values(6);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 1;
 delete from t where a = 2;
 delete from t where a = 3;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
@@ -445,13 +409,12 @@ SQL_ID	2cea509ba0e3065c09c1efe4c77e392a	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(6);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 4;
 delete from t where a = 5;
 delete from t where a = 6;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
@@ -468,11 +431,10 @@ error_code	error_name	errors_total
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 insert into t values(1);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from t where a = 1;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 SQL_ID	1586ffa412d4a296baf93bdd932f03d7
@@ -495,21 +457,18 @@ set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 ####################################################
 ### Test 6: Auto throttle start & stop based on client
 ####################################################
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
-create database test1;
-create table test1.t(a int) engine=innodb;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
 use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	144
@@ -525,14 +484,13 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test1.t where a = 2;
 insert into test.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
@@ -542,17 +500,14 @@ error_code	error_name	errors_total
 ####### Reset #######
 use test;
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
-drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test 7: No throttling if WRITE_AUTO_THROTTLE_FREQUENCY = 0
@@ -560,13 +515,13 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=0;
-create database test1;
-create table test1.t(a int) engine=innodb;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
 use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	144
@@ -582,14 +537,13 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test1.t where a = 2;
 insert into test.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -597,18 +551,15 @@ error_code	error_name	errors_total
 ####### Reset #######
 use test;
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
-SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=3;
-drop database test1;
+SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=@wat_freq;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test 8: Auto throttle throws error if write_control_level=ERROR
@@ -616,13 +567,13 @@ sleep(@ws_freq - unix_timestamp()%@ws_freq)
 SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
-create database test1;
-create table test1.t(a int) engine=innodb;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
 use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	144
@@ -639,9 +590,6 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 insert into test1.t values(2);
 ERROR HY000: Exceeded write workload limit. Try again later
@@ -649,7 +597,9 @@ delete from test1.t where a = 2;
 ERROR HY000: Exceeded write workload limit. Try again later
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
@@ -659,17 +609,14 @@ error_code	error_name	errors_total
 ####### Reset #######
 use test;
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
-drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ################################################################################
 ### Test 9: Auto throttle throws error if client attribute mt_throttle_okay is set.
@@ -678,13 +625,15 @@ SET @@GLOBAL.WRITE_STATS_COUNT=10;
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=0;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=TRUE;
-create database test1;
-create table test1.t(a int) engine=innodb;
+### Store total error logs until now for comparison later ###
+Select sum(count) from information_schema.write_throttling_log into @log_count;
 insert into test.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 delete from test.t where a = 2;
 use test1;
 insert into test1.t values(2);
 delete from test1.t where a = 2;
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value, write_data_bytes from information_schema.write_statistics where timestamp = (select max(timestamp) from information_schema.write_statistics);
 type	value	write_data_bytes
 USER	root	144
@@ -701,12 +650,10 @@ SQL_ID	5a2a9251c1b582bd13192a8685dd6006	36
 select sleep(@wat_freq);
 sleep(@wat_freq)
 0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
-0
 set @@global.debug= '+d,dbug.simulate_lag_above_start_throttle_threshold';
 ### should quarantine the client, next query should not be throttled as the query tag is not present
 insert into test1.t values(2);
+set @@global.debug= '+d,dbug.add_write_stats_to_most_recent_bucket';
 ### next query should be throttled(warning) as the query tag is present
 insert into test1.t values(2);
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
@@ -729,34 +676,37 @@ SET @@GLOBAL.WRITE_CONTROL_LEVEL=ERROR;
 ### next query should be throttled as tag based throttling is turned off but client is still the culprit
 insert into test1.t values(2);
 ERROR HY000: Exceeded write workload limit. Try again later
+set @@global.debug= '-d,dbug.add_write_stats_to_most_recent_bucket';
 select type, value from information_schema.write_throttling_rules where mode = 'AUTO';
 type	value
 CLIENT	99914b932bd37a50b983c5e7c90ae93b
 select error_code, error_name, errors_total from information_schema.ERROR_STATISTICS where error_code = 50092;
 error_code	error_name	errors_total
 50092	ER_WRITE_QUERY_THROTTLED	4
+### Total throttling error/warning for this test  ###
+Select CAST(sum(count) - @log_count AS UNSIGNED) from information_schema.write_throttling_log;
+CAST(sum(count) - @log_count AS UNSIGNED)
+4
 ####### Reset #######
 use test;
 TRUNCATE test.t;
+TRUNCATE test1.t;
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_THROTTLE_PATTERNS='OFF';
 SET @@GLOBAL.WRITE_THROTTLE_MONITOR_CYCLES=1;
 SET @@SESSION.WRITE_THROTTLE_TAG_ONLY=FALSE;
 SET @@GLOBAL.WRITE_CONTROL_LEVEL=WARN;
-drop database test1;
 flush statistics;
 set @@global.debug= '-d,dbug.simulate_lag_above_start_throttle_threshold';
 select sleep(@wat_freq);
 sleep(@wat_freq)
-0
-select sleep(@ws_freq - unix_timestamp()%@ws_freq);
-sleep(@ws_freq - unix_timestamp()%@ws_freq)
 0
 ####################################################
 ### Test End: Full Reset
 ####################################################
 SET @@GLOBAL.WRITE_STATS_FREQUENCY=0;
 DROP TABLE t;
+DROP DATABASE test1;
 SET @@GLOBAL.SQL_STATS_CONTROL="OFF_HARD";
 SET @@GLOBAL.WRITE_STATS_COUNT=0;
 SET @@GLOBAL.WRITE_AUTO_THROTTLE_FREQUENCY=0;
