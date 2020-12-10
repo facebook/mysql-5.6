@@ -1232,6 +1232,8 @@ char *opt_relay_logname = 0, *opt_relaylog_index_name=0;
 char *opt_logname, *opt_slow_logname, *opt_bin_logname;
 char *opt_apply_logname = 0;
 char *opt_applylog_index_name = 0;
+bool should_free_opt_apply_logname= false;
+bool should_free_opt_applylog_index_name= false;
 char *opt_gap_lock_logname;
 /* Static variables */
 
@@ -2610,16 +2612,18 @@ void clean_up(bool print_message)
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
 
-  if (opt_apply_logname)
+  if (should_free_opt_apply_logname && opt_apply_logname)
   {
     my_free(opt_apply_logname);
-    opt_apply_logname = nullptr;
+    opt_apply_logname= nullptr;
+    should_free_opt_apply_logname= false;
   }
 
-  if (opt_applylog_index_name)
+  if (should_free_opt_applylog_index_name && opt_applylog_index_name)
   {
     my_free(opt_applylog_index_name);
-    opt_applylog_index_name = nullptr;
+    opt_applylog_index_name= nullptr;
+    should_free_opt_applylog_index_name= false;
   }
 
   bitmap_free(&temp_pool);
@@ -6450,8 +6454,8 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     }
     else
     {
-      relay_log_basename= log_bin_basename;
-      relay_log_index= log_bin_index;
+      relay_log_basename= my_strdup(log_bin_basename, MYF(0));
+      relay_log_index= my_strdup(log_bin_index, MYF(0));
     }
 
     if (relay_log_basename == NULL || relay_log_index == NULL)
@@ -12263,12 +12267,14 @@ a file name for --apply-log-index option", opt_applylog_index_name);
     {
       tstr.replace(fpos, rep_from1.length(), rep_to1);
       opt_apply_logname= my_strdup(tstr.c_str(), MYF(0));
+      should_free_opt_apply_logname= true;
     }
     else if ((fpos = tstr.find(rep_from2)) != std::string::npos)
     {
       std::string rep_to2("-apply");
       tstr.replace(fpos, rep_from2.length(), rep_to2);
       opt_apply_logname= my_strdup(tstr.c_str(), MYF(0));
+      should_free_opt_apply_logname= true;
     }
     else if (enable_raft_plugin)
     {
@@ -12280,12 +12286,14 @@ a file name for --apply-log-index option", opt_applylog_index_name);
   {
     // Just point apply logs to binlogs
     opt_apply_logname= my_strdup(opt_bin_logname, MYF(0));
+    should_free_opt_apply_logname= true;
   }
 
   if (!opt_applylog_index_name && opt_apply_logname)
   {
     opt_applylog_index_name=
       const_cast<char *>(rpl_make_log_name(NULL, opt_apply_logname, ".index"));
+    should_free_opt_applylog_index_name= true;
   }
 
   DBUG_RETURN(0);
