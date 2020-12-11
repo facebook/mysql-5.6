@@ -406,6 +406,8 @@ struct PFS_statement_stat {
   ulonglong m_sort_scan;
   ulonglong m_no_index_used;
   ulonglong m_no_good_index_used;
+  ulonglong m_filesort_disk_usage_peak;
+  ulonglong m_tmp_table_disk_usage_peak;
 
   PFS_statement_stat() { reset(); }
 
@@ -447,6 +449,8 @@ struct PFS_statement_stat {
       m_sort_scan = 0;
       m_no_index_used = 0;
       m_no_good_index_used = 0;
+      m_filesort_disk_usage_peak = 0;
+      m_tmp_table_disk_usage_peak = 0;
     }
   }
 
@@ -496,6 +500,8 @@ struct PFS_statement_stat {
       m_sort_scan += stat->m_sort_scan;
       m_no_index_used += stat->m_no_index_used;
       m_no_good_index_used += stat->m_no_good_index_used;
+      m_filesort_disk_usage_peak += stat->m_filesort_disk_usage_peak;
+      m_tmp_table_disk_usage_peak += stat->m_tmp_table_disk_usage_peak;
     }
   }
 };

@@ -202,7 +202,11 @@
 
    800171013:
    add COLUMN_STATISTICS table
+
+   800171014:
+   add SUM_FILESORT_DISK_USAGE to statements tables.
+   add SUM_TMP_TABLE_DISK_USAGE to statements tables.
 */
-static const uint PFS_DD_VERSION = 800171013;
+static const uint PFS_DD_VERSION = 800171014;
 
 #endif /* PFS_DD_VERSION_H */

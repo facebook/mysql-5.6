@@ -195,6 +195,8 @@ static void test_noop() {
   psi_statement_service->inc_statement_sort_scan(NULL, 0);
   psi_statement_service->set_statement_no_index_used(NULL);
   psi_statement_service->set_statement_no_good_index_used(NULL);
+  psi_statement_service->update_statement_filesort_disk_usage(NULL, 0);
+  psi_statement_service->update_statement_tmp_table_disk_usage(NULL, 0);
   psi_statement_service->end_statement(NULL, NULL);
   socket_locker = psi_socket_service->start_socket_wait(
       NULL, NULL, PSI_SOCKET_SEND, 1, NULL, 0);
